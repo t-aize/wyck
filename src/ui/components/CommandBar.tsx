@@ -23,7 +23,7 @@ const FEEDBACK_COLOR: Record<FeedbackKind, string> = {
   error: theme.red,
 };
 
-const COMMANDS = ["trade", "modify", "cancel", "refresh", "clear", "help"] as const;
+const COMMANDS = ["trade", "modify", "cancel", "settings", "refresh", "clear", "help"] as const;
 
 /** Exposé au parent pour que Ctrl+C (géré globalement, cf. useTerminalShortcuts) vide la ligne. */
 export interface CommandBarHandle {

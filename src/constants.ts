@@ -1,16 +1,18 @@
 /**
- * Constantes partagées entre env.ts et ctrader/client.ts.
- *
- * Fichier séparé volontairement : env.ts et ctrader/client.ts s'importent déjà
- * mutuellement au niveau logique (ctrader/client.ts lit `env`), donc s'ils
- * s'importaient aussi l'un l'autre pour ces constantes on aurait un cycle,
- * qui plante au démarrage selon l'ordre d'import (vérifié en pratique). En
- * dépendant tous les deux de ce fichier neutre, ni l'un ni l'autre n'a besoin
- * d'importer son propre importeur.
+ * Constantes partagées entre plusieurs modules qui, sinon, s'importeraient
+ * mutuellement (cycle d'import, plante au démarrage selon l'ordre — vérifié en
+ * pratique). En dépendant tous de ce fichier neutre, aucun n'a besoin d'importer
+ * son propre importeur.
  */
+
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 /** Seul symbole tradé par ce panel — pas un réglage, un choix de scope du projet. */
 export const SYMBOL = "XAUUSD";
+
+/** Dossier de données de l'app dans le homedir (config, cache) — indépendant du dossier de lancement. */
+export const APP_DATA_DIR = join(homedir(), ".aurum");
 
 export const TRENDBAR_PERIODS = [
   "M_1",
@@ -27,6 +29,15 @@ export type TrendbarPeriod = (typeof TRENDBAR_PERIODS)[number];
 
 /** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export const PRICE_SCALE = 100_000;
+
+/** XAUUSD n'accepte que 2 décimales de prix côté API ("more digits than symbol allows"). */
+const PRICE_DIGITS = 2;
+
+/** Arrondit un prix affiché à la précision acceptée par l'API pour ce symbole. */
+export function roundPrice(price: number): number {
+  const factor = 10 ** PRICE_DIGITS;
+  return Math.round(price * factor) / factor;
+}
 
 /**
  * XAUUSD (métaux) : 1 lot = 100 onces, prix coté en $/once. Volume API = onces × 100

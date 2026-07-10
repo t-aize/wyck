@@ -42,8 +42,9 @@ export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
+  onReconfigure: () => void;
 }): OrderActions {
-  const { client, symbolId, positions, refreshMarket, refreshNews } = opts;
+  const { client, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
 
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
@@ -63,8 +64,11 @@ export function useOrderActions(opts: {
       case "help":
         setFeedback({
           kind: "info",
-          message: "commandes : trade  modify  cancel  refresh  clear  help",
+          message: "commandes : trade  modify  cancel  settings  refresh  clear  help",
         });
+        return;
+      case "settings":
+        onReconfigure();
         return;
       case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });

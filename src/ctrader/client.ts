@@ -14,7 +14,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { z } from "zod";
-import { env } from "../env.ts";
 import {
   type AmendOrderParams,
   type AmendOrderResult,
@@ -135,10 +134,10 @@ export class CtraderClient {
   readonly #transport: StreamableHTTPClientTransport;
   #connected = false;
 
-  constructor() {
-    this.#transport = new StreamableHTTPClientTransport(new URL(env.CTRADER_MCP_URL), {
+  constructor(config: { url: string; token: string }) {
+    this.#transport = new StreamableHTTPClientTransport(new URL(config.url), {
       requestInit: {
-        headers: { Authorization: `Bearer ${env.CTRADER_MCP_TOKEN}` },
+        headers: { Authorization: `Bearer ${config.token}` },
       },
     });
     this.#client = new Client(CLIENT_INFO);

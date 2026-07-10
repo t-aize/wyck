@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Liste les outils exposés par le serveur MCP cTrader configuré dans .env.
+ * Liste les outils exposés par le serveur MCP cTrader configuré via `aurum` (config
+ * chiffrée dans le homedir, cf. src/config.ts — lancer l'app une fois pour la créer).
  * Usage : bun run mcp:tools
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { env } from "../src/env.ts";
+import { readConfig } from "../src/config.ts";
 
 const CLIENT_INFO = { name: "aurum-list-tools", version: "0.1.0" };
 
@@ -66,9 +67,16 @@ function printTools(tools: Tool[]): void {
   console.log(`${sorted.length} outil${sorted.length > 1 ? "s" : ""} au total.`);
 }
 
-const transport = new StreamableHTTPClientTransport(new URL(env.CTRADER_MCP_URL), {
+const config = readConfig();
+if (!config)
+  fail(
+    "Pas encore configuré",
+    "Lance `bun run dev` et passe l'écran de configuration une première fois.",
+  );
+
+const transport = new StreamableHTTPClientTransport(new URL(config.url), {
   requestInit: {
-    headers: { Authorization: `Bearer ${env.CTRADER_MCP_TOKEN}` },
+    headers: { Authorization: `Bearer ${config.token}` },
   },
 });
 
@@ -77,7 +85,7 @@ const client = new Client(CLIENT_INFO);
 try {
   await client.connect(transport);
 } catch (error) {
-  fail(`Connexion au serveur MCP échouée (${env.CTRADER_MCP_URL})`, describeError(error));
+  fail(`Connexion au serveur MCP échouée (${config.url})`, describeError(error));
 }
 
 try {

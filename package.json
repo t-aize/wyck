@@ -23,8 +23,6 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
-    "@t3-oss/env-core": "^0.13.11",
-    "dotenv": "^17.4.2",
     "react": "^19.2.7",
     "zod": "^4.4.3"
   },

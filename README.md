@@ -9,8 +9,7 @@ Projet perso, privé, pensé pour un usage solo — pas d'objectif de distributi
 ## ⚠️ À garder en tête
 
 Ce panel passe de **vrais ordres** via le MCP officiel de cTrader (`mcp.ctrader.com`). Toujours tester sur un **compte
-démo** avant un compte réel, et ne jamais commiter `.env` (token MCP à l'intérieur —
-voir [Configuration](#configuration)).
+démo** avant un compte réel.
 
 ## Stack
 
@@ -22,12 +21,12 @@ pour parler au serveur MCP cTrader, Zod pour la validation.
 
 ```bash
 bun install
-cp .env.example .env
 ```
 
 ## Configuration
 
-Dans **cTrader Web** → **Settings** → **Remote MCP**, récupère la config pour ton compte (démo pour commencer) :
+Pas de `.env` : au premier lancement (dev ou `.exe` compilé), l'app affiche un écran de configuration qui demande
+l'URL et le token du serveur MCP — dans **cTrader Web** → **Settings** → **Remote MCP** :
 
 ```json
 {
@@ -38,18 +37,15 @@ Dans **cTrader Web** → **Settings** → **Remote MCP**, récupère la config p
 }
 ```
 
-`.env` :
+Une fois la connexion validée, la config est enregistrée (token chiffré) dans `~/.aurum/config.json` — indépendant du
+dossier de lancement, donc valable aussi bien en `dev` que pour le binaire compilé déplacé n'importe où. La commande
+`settings` dans l'app permet de la changer (URL/token) sans réinstaller.
 
-```dotenv
-CTRADER_MCP_URL=https://mcp.ctrader.com/trading/mcp
-CTRADER_MCP_TOKEN=xxxxxxxxxxxxxxxxxxxx
-```
+Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe"). Le symbole (`XAUUSD`) est une
+constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade que XAUUSD.
 
-Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe"). Le symbole (`XAUUSD`) et les
-paramètres du calcul auto de SL/TP (période/timeframe ATR, multiplicateur, RR par défaut) sont des constantes fixées
-dans `src/domain/trading.ts` — pas de config, ce projet ne trade que XAUUSD avec une seule stratégie.
-
-Le token est lié à une session cTrader Web active : s'il expire (401), il faut le régénérer depuis les mêmes réglages.
+Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
+lance `settings` dans l'app.
 
 ## Utilisation
 

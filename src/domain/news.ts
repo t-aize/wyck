@@ -1,11 +1,11 @@
 /** Calendrier économique ForexFactory (semaine en cours), avec cache disque journalier. */
 
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { APP_DATA_DIR } from "../constants.ts";
 
 const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
-const CACHE_PATH = join(homedir(), ".aurum", "calendar-cache.json");
+const CACHE_PATH = join(APP_DATA_DIR, "calendar-cache.json");
 
 // Le calendrier est toujours raisonné en heure de Paris, indépendamment du fuseau système —
 // autant pour l'affichage (NewsPanel) que pour la limite "un jour" du cache ci-dessous. Utiliser

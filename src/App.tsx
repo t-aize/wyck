@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import { CtraderClient } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
@@ -7,6 +8,7 @@ import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
+import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
@@ -16,9 +18,40 @@ import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
 import { theme } from "./ui/theme.ts";
 
+/**
+ * Porte d'entrée : pas de client MCP tant que la config (URL/token) n'est pas connue.
+ * `key` sur ConnectedApp force un remount complet (nouveau client, hooks réinitialisés)
+ * quand la commande `settings` fait passer par un nouveau round de SetupScreen.
+ */
 export function App() {
+  const [config, setConfig] = useState<AppConfig | undefined>(() => readConfig());
+  const [reconfiguring, setReconfiguring] = useState(false);
+
+  if (!config || reconfiguring) {
+    return (
+      <SetupScreen
+        initial={config}
+        onConfigured={(next) => {
+          setConfig(next);
+          setReconfiguring(false);
+        }}
+        onCancel={config ? () => setReconfiguring(false) : undefined}
+      />
+    );
+  }
+
+  return (
+    <ConnectedApp
+      key={`${config.url}::${config.token}`}
+      config={config}
+      onReconfigure={() => setReconfiguring(true)}
+    />
+  );
+}
+
+function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfigure: () => void }) {
   const now = useClock();
-  const [client] = useState(() => new CtraderClient());
+  const [client] = useState(() => new CtraderClient(config));
   const commandBarRef = useRef<CommandBarHandle>(null);
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
@@ -41,7 +74,7 @@ export function App() {
     pendingCancel,
     confirmPendingCancel,
     dismissPendingCancel,
-  } = useOrderActions({ client, symbolId, positions, refreshMarket, refreshNews });
+  } = useOrderActions({ client, symbolId, positions, refreshMarket, refreshNews, onReconfigure });
 
   useTerminalShortcuts(
     setFeedback,

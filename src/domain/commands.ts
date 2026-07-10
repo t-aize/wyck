@@ -1,10 +1,10 @@
 /** Parsing des commandes CLI-style (`trade`, `modify`) tapées dans le CommandBar. */
 
+import { roundPrice } from "../constants.ts";
 import type { PreparedTrade, TradeInput } from "./trading.ts";
 
 export const TRADE_USAGE =
-  "usage : trade --risk <%> --sl <prix> --tp <prix> [--entry <prix|market>]  " +
-  "(raccourcis -r -sl -tp -e ; entry par défaut market ; direction déduite du SL/TP)";
+  "usage : trade <risque%> <entrée|market> <sl> <tp>  (direction déduite du SL/TP)";
 
 /**
  * Parseur minimal `--flag valeur` / `-f valeur` (style CLI, ordre libre). `aliases` mappe une
@@ -39,37 +39,32 @@ function parseOptionalPrice(
   if (raw === undefined) return {};
   const value = Number(raw);
   if (!Number.isFinite(value)) return { error: `${label} invalide : "${raw}"` };
-  return { value };
+  return { value: roundPrice(value) };
 }
 
 /** Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
 export function parseTradeCommand(args: string[]): TradeInput | string {
-  const flags = parseFlags(args, {
-    risk: ["-r", "--risk"],
-    entry: ["-e", "--entry"],
-    sl: ["-sl", "--sl"],
-    tp: ["-tp", "--tp"],
-  });
-  if (typeof flags === "string") return `${flags} — ${TRADE_USAGE}`;
+  const [riskRaw, entryRaw, slRaw, tpRaw] = args;
+  if (!riskRaw || !entryRaw || !slRaw || !tpRaw) return `arguments manquants — ${TRADE_USAGE}`;
 
-  if (flags.risk === undefined) return `--risk requis — ${TRADE_USAGE}`;
-  const riskPercent = Number(flags.risk);
-  if (!Number.isFinite(riskPercent)) return `risque invalide : "${flags.risk}"`;
+  const riskPercent = Number(riskRaw);
+  if (!Number.isFinite(riskPercent)) return `risque invalide : "${riskRaw}"`;
 
-  const entryRaw = flags.entry?.toLowerCase() ?? "market";
-  const entry = entryRaw === "market" ? "market" : Number(flags.entry);
-  if (entry !== "market" && !Number.isFinite(entry)) {
-    return `entrée invalide : "${flags.entry ?? ""}"`;
+  const entryNumber = entryRaw.toLowerCase() === "market" ? undefined : Number(entryRaw);
+  if (entryNumber !== undefined && !Number.isFinite(entryNumber)) {
+    return `entrée invalide : "${entryRaw}"`;
   }
+  const entry = entryNumber === undefined ? "market" : roundPrice(entryNumber);
 
-  if (flags.sl === undefined) return `--sl requis — ${TRADE_USAGE}`;
-  if (flags.tp === undefined) return `--tp requis — ${TRADE_USAGE}`;
-  const sl = parseOptionalPrice(flags.sl, "sl");
-  if (sl.error) return sl.error;
-  const tp = parseOptionalPrice(flags.tp, "tp");
-  if (tp.error) return tp.error;
+  const stopLossRaw = Number(slRaw);
+  if (!Number.isFinite(stopLossRaw)) return `sl invalide : "${slRaw}"`;
+  const stopLoss = roundPrice(stopLossRaw);
 
-  return { entry, riskPercent, stopLoss: sl.value as number, takeProfit: tp.value as number };
+  const takeProfitRaw = Number(tpRaw);
+  if (!Number.isFinite(takeProfitRaw)) return `tp invalide : "${tpRaw}"`;
+  const takeProfit = roundPrice(takeProfitRaw);
+
+  return { entry, riskPercent, stopLoss, takeProfit };
 }
 
 export interface ModifyInput {
