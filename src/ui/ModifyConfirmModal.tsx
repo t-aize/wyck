@@ -1,4 +1,4 @@
-import type { CtraderOrder } from "../ctrader-client.ts";
+import type { CtraderOrder } from "../ctrader/client.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";
 import { formatPriceOrDash } from "./format.ts";
 import { theme } from "./theme.ts";

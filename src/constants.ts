@@ -1,8 +1,8 @@
 /**
- * Constantes partagées entre env.ts et ctrader-client.ts.
+ * Constantes partagées entre env.ts et ctrader/client.ts.
  *
- * Fichier séparé volontairement : env.ts et ctrader-client.ts s'importent déjà
- * mutuellement au niveau logique (ctrader-client.ts lit `env`), donc s'ils
+ * Fichier séparé volontairement : env.ts et ctrader/client.ts s'importent déjà
+ * mutuellement au niveau logique (ctrader/client.ts lit `env`), donc s'ils
  * s'importaient aussi l'un l'autre pour ces constantes on aurait un cycle,
  * qui plante au démarrage selon l'ordre d'import (vérifié en pratique). En
  * dépendant tous les deux de ce fichier neutre, ni l'un ni l'autre n'a besoin

@@ -1,18 +1,12 @@
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CtraderClient, type CtraderOrder, type GetPositionsResult } from "./ctrader-client.ts";
+import { CtraderClient, type CtraderOrder, type GetPositionsResult } from "./ctrader/client.ts";
+import { formatTradeSummary, parseModifyCommand, parseTradeCommand } from "./domain/commands.ts";
+import { type CalendarEvent, fetchCalendar } from "./domain/news.ts";
+import { type PreparedTrade, prepareTrade, toCreateOrderParams } from "./domain/trading.ts";
 import { env } from "./env.ts";
 import { toMessage } from "./errors.ts";
-import { type CalendarEvent, fetchCalendar } from "./news.ts";
-import {
-  formatTradeSummary,
-  type PreparedTrade,
-  parseModifyCommand,
-  parseTradeCommand,
-  prepareTrade,
-  toCreateOrderParams,
-} from "./trading.ts";
 import { CancelConfirmModal } from "./ui/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle, type Feedback } from "./ui/CommandBar.tsx";
 import { useClock, useInterval, useTerminalShortcuts } from "./ui/hooks.ts";
@@ -177,7 +171,7 @@ export function App() {
         }
         // Seuls les ordres en attente ont une structure vérifiée (CtraderOrder) — CtraderPosition
         // reste non vérifié (aucune position réelle observée), donc `modify` ne cible que les
-        // ordres pour l'instant. Cf. commentaire équivalent dans ctrader-client.ts.
+        // ordres pour l'instant. Cf. commentaire équivalent dans ctrader/mappers.ts.
         const order = positions?.orders.find((o) => o.orderId === parsed.id);
         if (!order) {
           setFeedback({

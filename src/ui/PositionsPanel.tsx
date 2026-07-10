@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core";
 import { toLots } from "../constants.ts";
-import type { CtraderOrder, GetPositionsResult } from "../ctrader-client.ts";
+import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../ctrader/client.ts";
+import { readPosition } from "../ctrader/mappers.ts";
 import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "./format.ts";
 import { DOWN, UP } from "./glyphs.ts";
 import { theme } from "./theme.ts";
@@ -22,53 +23,6 @@ const COLUMNS = {
   age: 7,
 } as const;
 
-/**
- * `CtraderPosition` reste typé `Record<string, unknown>` : sa forme exacte n'a
- * jamais pu être vérifiée contre un payload réel (pas de compte démo, aucune
- * position ouverte lors des tests). Ces lecteurs essaient plusieurs noms de
- * champ plausibles (convention "prix affiché" observée sur le reste de
- * l'API, cf. `CtraderOrder`/`CtraderDeal` dans ctrader-client.ts) et
- * retombent sur "—" plutôt que d'inventer une valeur. À corriger avec les
- * vrais noms dès qu'une position réelle passe par ici.
- */
-function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "number") return value;
-  }
-  return undefined;
-}
-
-function readString(record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string") return value;
-  }
-  return undefined;
-}
-
-function readPosition(position: Record<string, unknown>) {
-  return {
-    id: readNumber(position, ["positionId", "id"]),
-    symbol:
-      readString(position, ["symbolName", "symbol"]) ??
-      String(readNumber(position, ["symbolId"]) ?? "—"),
-    side: readString(position, ["tradeSide", "side"]),
-    // lotSize métaux = 100 → volume(1/100 unités) / 10000 = lots. Approximation valable pour XAUUSD,
-    // seul symbole tradé par ce panel — à revoir si d'autres classes d'actifs sont ajoutées un jour.
-    volumeLots: (() => {
-      const raw = readNumber(position, ["volume"]);
-      return raw === undefined ? undefined : toLots(raw);
-    })(),
-    entry: readNumber(position, ["entryPrice", "price"]),
-    stopLoss: readNumber(position, ["stopLoss"]),
-    takeProfit: readNumber(position, ["takeProfit"]),
-    swap: readNumber(position, ["swap"]),
-    pnl: readNumber(position, ["pnl", "profit", "grossProfit", "netProfit", "unrealizedNetProfit"]),
-    openTimestamp: readNumber(position, ["openTimestamp", "utcLastUpdateTimestamp", "timestamp"]),
-  };
-}
-
 function headerRow() {
   return (
     <text fg={theme.textDim} attributes={TextAttributes.BOLD}>
@@ -85,7 +39,7 @@ function headerRow() {
   );
 }
 
-function PositionRow({ position, now }: { position: Record<string, unknown>; now: Date }) {
+function PositionRow({ position, now }: { position: CtraderPosition; now: Date }) {
   const p = readPosition(position);
   const sideColor = p.side === "SELL" ? theme.red : p.side === "BUY" ? theme.green : theme.textDim;
   const sideLabel = p.side === "BUY" ? `${UP} BUY` : p.side === "SELL" ? `${DOWN} SELL` : "—";

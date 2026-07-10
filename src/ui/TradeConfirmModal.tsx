@@ -1,4 +1,4 @@
-import type { PreparedTrade } from "../trading.ts";
+import type { PreparedTrade } from "../domain/trading.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";
 import { theme } from "./theme.ts";
 
