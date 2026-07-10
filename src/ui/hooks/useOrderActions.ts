@@ -10,6 +10,9 @@ import { prepareTrade, toCreateOrderParams } from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import type { Feedback } from "../components/CommandBar.tsx";
 
+// Convention du projet : `.then` dans les handlers d'événements UI déclenchés depuis le rendu
+// (ce fichier), `async`/`await` partout ailleurs (cf. les autres hooks de ce dossier).
+
 interface PendingModify {
   order: CtraderOrder;
   stopLoss?: number;
