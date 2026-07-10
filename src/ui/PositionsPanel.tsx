@@ -10,15 +10,18 @@ interface PositionsPanelProps {
 
 const COLUMNS = {
   symbol: 10,
-  side: 5,
+  side: 7,
   volume: 9,
   entry: 10,
   sl: 10,
   tp: 10,
   swap: 9,
-  pnl: 11,
+  pnl: 13,
   age: 7,
 } as const;
+
+const UP = "▲";
+const DOWN = "▼";
 
 /**
  * `CtraderPosition`/`CtraderOrder` sont typés `Record<string, unknown>` : leur
@@ -85,19 +88,21 @@ function headerRow() {
 function PositionRow({ position, now }: { position: Record<string, unknown>; now: Date }) {
   const p = readPosition(position);
   const sideColor = p.side === "SELL" ? theme.red : p.side === "BUY" ? theme.green : theme.textDim;
+  const sideLabel = p.side === "BUY" ? `${UP} BUY` : p.side === "SELL" ? `${DOWN} SELL` : "—";
   const pnlColor = p.pnl === undefined ? theme.textDim : p.pnl >= 0 ? theme.green : theme.red;
+  const pnlLabel = p.pnl === undefined ? "—" : `${p.pnl >= 0 ? UP : DOWN} ${p.pnl.toFixed(2)}`;
   const age = p.openTimestamp === undefined ? "—" : formatDuration(now.getTime() - p.openTimestamp);
 
   return (
     <text>
       <span fg={theme.text}>{alignLeft(p.symbol, COLUMNS.symbol)}</span>
-      <span fg={sideColor}>{alignLeft(p.side ?? "—", COLUMNS.side)}</span>
+      <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
       <span fg={theme.text}>{alignRight(p.volumeLots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
       <span fg={theme.text}>{alignRight(formatPrice(p.entry), COLUMNS.entry)}</span>
       <span fg={theme.red}>{alignRight(formatPrice(p.stopLoss), COLUMNS.sl)}</span>
       <span fg={theme.green}>{alignRight(formatPrice(p.takeProfit), COLUMNS.tp)}</span>
       <span fg={theme.textDim}>{alignRight(p.swap?.toFixed(2) ?? "—", COLUMNS.swap)}</span>
-      <span fg={pnlColor}>{alignRight(p.pnl?.toFixed(2) ?? "—", COLUMNS.pnl)}</span>
+      <span fg={pnlColor}>{alignRight(pnlLabel, COLUMNS.pnl)}</span>
       <span fg={theme.textDim}>{alignRight(age, COLUMNS.age)}</span>
     </text>
   );
@@ -111,11 +116,12 @@ function OrderRow({ order }: { order: Record<string, unknown> }) {
   const limitPrice = readNumber(order, ["limitPrice"]);
   const stopPrice = readNumber(order, ["stopPrice"]);
   const sideColor = side === "SELL" ? theme.red : side === "BUY" ? theme.green : theme.textDim;
+  const sideLabel = side === "BUY" ? `${UP} BUY` : side === "SELL" ? `${DOWN} SELL` : "—";
 
   return (
     <text>
       <span fg={theme.text}>{alignLeft(symbol, COLUMNS.symbol)}</span>
-      <span fg={sideColor}>{alignLeft(side ?? "—", COLUMNS.side)}</span>
+      <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
       <span fg={theme.textDim}>{alignLeft(orderType, COLUMNS.volume + COLUMNS.entry)}</span>
       <span fg={theme.textDim}>{alignRight(formatPrice(limitPrice ?? stopPrice), COLUMNS.sl)}</span>
     </text>

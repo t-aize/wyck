@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CtraderClient, type GetPositionsResult } from "./ctrader-client.ts";
 import { env } from "./env.ts";
 import { type CalendarEvent, fetchCalendar } from "./news.ts";
-import { CommandBar } from "./ui/CommandBar.tsx";
-import { useClock, useInterval } from "./ui/hooks.ts";
+import { CommandBar, type Feedback } from "./ui/CommandBar.tsx";
+import { useClock, useInterval, useTerminalShortcuts } from "./ui/hooks.ts";
 import { NewsPanel } from "./ui/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/PriceHeader.tsx";
@@ -25,8 +25,12 @@ export function App() {
   const [positions, setPositions] = useState<GetPositionsResult>();
   const [calendar, setCalendar] = useState<CalendarEvent[]>([]);
   const [newsError, setNewsError] = useState<string>();
-  const [goldOnly, setGoldOnly] = useState(false);
-  const [feedback, setFeedback] = useState("tapez /help pour la liste des commandes");
+  const [feedback, setFeedback] = useState<Feedback>({
+    kind: "info",
+    message: "tapez /help pour la liste des commandes",
+  });
+
+  useTerminalShortcuts(setFeedback);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,24 +100,21 @@ export function App() {
 
     switch (command) {
       case "/help":
-        setFeedback("commandes : /refresh  /gold  /clear  /help");
+        setFeedback({ kind: "info", message: "commandes : /refresh  /clear  /help" });
         return;
       case "/refresh":
-        setFeedback("actualisation…");
+        setFeedback({ kind: "info", message: "actualisation…" });
         void refreshMarket();
         void refreshNews({ force: true });
         return;
-      case "/gold": {
-        const next = !goldOnly;
-        setGoldOnly(next);
-        setFeedback(`filtre or : ${next ? "activé" : "désactivé"}`);
-        return;
-      }
       case "/clear":
-        setFeedback("");
+        setFeedback({ kind: "info", message: "" });
         return;
       default:
-        setFeedback(`commande inconnue : ${command} — /help pour la liste`);
+        setFeedback({
+          kind: "error",
+          message: `commande inconnue : ${command} — /help pour la liste`,
+        });
     }
   }
 
@@ -130,13 +131,21 @@ export function App() {
         errorMessage={connectionError}
       />
       <PositionsPanel positions={positions} now={now} />
-      <NewsPanel events={calendar} errorMessage={newsError} goldOnly={goldOnly} now={now} />
+      <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar feedback={feedback} onSubmit={runCommand} />
     </box>
   );
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({ backgroundColor: theme.bg });
+  const renderer = await createCliRenderer({
+    backgroundColor: theme.bg,
+    // Ctrl+C est géré nous-mêmes (double appui, cf. useTerminalShortcuts). `exitOnCtrlC: false`
+    // ne suffit pas seul : SIGINT (déclenché par Ctrl+C selon le terminal) a son propre chemin
+    // de sortie via `exitSignals`, indépendant — vérifié en pratique, sans ce retrait le premier
+    // Ctrl+C ferme quand même l'appli en coupant le parsing clavier avant le second appui.
+    exitOnCtrlC: false,
+    exitSignals: ["SIGTERM", "SIGQUIT", "SIGABRT", "SIGHUP", "SIGBREAK", "SIGPIPE", "SIGBUS"],
+  });
   createRoot(renderer).render(<App />);
 }
