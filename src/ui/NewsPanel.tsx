@@ -40,18 +40,32 @@ type Row =
   | { kind: "event"; key: string; event: CalendarEvent; isNext: boolean };
 
 /**
- * Ne garde qu'aujourd'hui (Paris) et les jours à venir : le panel n'a pas besoin
- * de défiler pour être utile, et l'historique déjà passé encombre plus qu'il n'aide.
+ * Filtres par défaut : pertinent pour l'or (USD ou mot-clé or/xau) ET impact
+ * high — d'après la doc ForexFactory/marché, ce qui bouge XAUUSD en pratique,
+ * c'est quasi exclusivement CPI/PCE, NFP, décisions/discours Fed (FOMC), PIB —
+ * tous déjà tagués "High" côté USD. Combiner or + high revient donc à isoler
+ * précisément ce sous-ensemble sans liste de mots-clés fragile à maintenir.
+ * Les deux étant garanties vraies pour toute ligne affichée, on ne les répète
+ * plus par ligne (● / HIGH) : ce serait redondant sur 100% des lignes.
+ */
+function isDefaultVisible(event: CalendarEvent): boolean {
+  return isGoldRelevant(event) && classifyImpact(event.impact) === "high";
+}
+
+/**
+ * Toute la semaine (déjà passé compris) : ça reste une poignée d'événements vu le
+ * double filtre or+high, donc ni besoin de scroll ni de clutter — et ça évite un
+ * panneau vide en fin de semaine une fois les gros événements déjà publiés.
  */
 function buildRows(events: CalendarEvent[], now: Date): Row[] {
   const todayKey = parisDayKey(now);
-  const upcoming = events.filter((event) => parisDayKey(new Date(event.timestamp)) >= todayKey);
+  const visible = events.filter((event) => isDefaultVisible(event));
 
   const rows: Row[] = [];
   let currentDayKey: string | undefined;
   let nextMarked = false;
 
-  for (const event of upcoming) {
+  for (const event of visible) {
     const eventDate = new Date(event.timestamp);
     const dayKey = parisDayKey(eventDate);
 
@@ -76,21 +90,6 @@ function buildRows(events: CalendarEvent[], now: Date): Row[] {
   return rows;
 }
 
-function impactColor(impact: ReturnType<typeof classifyImpact>): string {
-  if (impact === "high") return theme.red;
-  if (impact === "medium") return theme.gold;
-  if (impact === "low") return theme.textDim;
-  return theme.textMuted;
-}
-
-/** Icône par palier — distincte du ● "or" (colonne différente, information différente). */
-function impactIcon(impact: ReturnType<typeof classifyImpact>): string {
-  if (impact === "high") return "▲";
-  if (impact === "medium") return "◆";
-  if (impact === "low") return "·";
-  return " ";
-}
-
 function DayHeader({ label }: { label: string }) {
   return (
     <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
@@ -108,23 +107,17 @@ function formatFigures(event: CalendarEvent): string {
 }
 
 function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean; now: Date }) {
-  const impact = classifyImpact(event.impact);
-  const gold = isGoldRelevant(event);
+  const isPast = event.timestamp < now.getTime();
   const time = timeFormat.format(new Date(event.timestamp));
   const relative = formatRelative(event.timestamp - now.getTime());
   const figures = formatFigures(event);
-  const bold = impact === "high" || isNext ? TextAttributes.BOLD : TextAttributes.NONE;
-  const titleColor = isNext ? theme.gold : impact === "high" ? theme.text : theme.textDim;
+  const titleColor = isNext ? theme.gold : isPast ? theme.textMuted : theme.text;
 
   return (
-    <text truncate attributes={bold}>
+    <text truncate attributes={isNext ? TextAttributes.BOLD : TextAttributes.NONE}>
       <span fg={isNext ? theme.gold : theme.textMuted}>{isNext ? "▸ " : "  "}</span>
       <span fg={theme.textMuted}>{alignLeft(time, 6)}</span>
-      <span fg={gold ? theme.gold : theme.textMuted}>{gold ? "● " : "  "}</span>
       <span fg={theme.textDim}>{alignLeft(event.country, 5)}</span>
-      <span fg={impactColor(impact)}>
-        {alignLeft(impact === "other" ? "" : `${impactIcon(impact)} ${impact.toUpperCase()}`, 9)}
-      </span>
       <span fg={titleColor}>{event.title}</span>
       {figures && <span fg={theme.textMuted}>{`  ${figures}`}</span>}
       <span fg={theme.textMuted}>{`  (${relative})`}</span>
@@ -137,9 +130,9 @@ export function NewsPanel({ events, errorMessage, now }: NewsPanelProps) {
 
   return (
     <box
-      title=" CALENDAR — à venir (heure de Paris) "
+      title=" CALENDAR — or & fort impact (Paris) "
       titleColor={theme.gold}
-      bottomTitle=" ▸prochain  ●or  ▲high ◆med ·low "
+      bottomTitle=" ▸prochain "
       bottomTitleAlignment="right"
       style={{
         flexDirection: "column",
@@ -155,7 +148,7 @@ export function NewsPanel({ events, errorMessage, now }: NewsPanelProps) {
       {errorMessage ? (
         <text fg={theme.red}>{errorMessage}</text>
       ) : rows.length === 0 ? (
-        <text fg={theme.textDim}>Rien de programmé d'ici la fin de la semaine.</text>
+        <text fg={theme.textDim}>Aucun événement or / fort impact cette semaine.</text>
       ) : (
         <scrollbox style={{ flexGrow: 1 }}>
           {rows.map((row) =>

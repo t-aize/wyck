@@ -104,8 +104,9 @@ export function App() {
         return;
       case "/refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
-        void refreshMarket();
-        void refreshNews({ force: true });
+        void Promise.all([refreshMarket(), refreshNews({ force: true })]).then(() => {
+          setFeedback({ kind: "success", message: "actualisé" });
+        });
         return;
       case "/clear":
         setFeedback({ kind: "info", message: "" });
