@@ -1,10 +1,10 @@
 import { TextAttributes } from "@opentui/core";
-import { toLots } from "../constants.ts";
-import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../ctrader/client.ts";
-import { readPosition } from "../ctrader/mappers.ts";
-import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "./format.ts";
-import { DOWN, UP } from "./glyphs.ts";
-import { theme } from "./theme.ts";
+import { toLots } from "../../constants.ts";
+import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/client.ts";
+import { readPosition } from "../../ctrader/mappers.ts";
+import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "../format.ts";
+import { DOWN, UP } from "../glyphs.ts";
+import { theme } from "../theme.ts";
 
 interface PositionsPanelProps {
   positions: GetPositionsResult | undefined;

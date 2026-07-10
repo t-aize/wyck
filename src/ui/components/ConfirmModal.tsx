@@ -1,6 +1,6 @@
 import { useKeyboard } from "@opentui/react";
 import type { ReactNode } from "react";
-import { theme } from "./theme.ts";
+import { theme } from "../theme.ts";
 
 export function Row({ label, value, fg }: { label: string; value: string; fg?: string }) {
   return (

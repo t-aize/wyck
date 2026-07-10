@@ -6,9 +6,9 @@ import {
   isGoldRelevant,
   PARIS_TZ,
   parisDayKey,
-} from "../domain/news.ts";
-import { alignLeft, formatRelative } from "./format.ts";
-import { theme } from "./theme.ts";
+} from "../../domain/news.ts";
+import { alignLeft, formatRelative } from "../format.ts";
+import { theme } from "../theme.ts";
 
 interface NewsPanelProps {
   events: CalendarEvent[];

@@ -1,8 +1,8 @@
-import { toLots } from "../constants.ts";
-import type { CtraderOrder } from "../ctrader/client.ts";
+import { toLots } from "../../constants.ts";
+import type { CtraderOrder } from "../../ctrader/client.ts";
+import { formatPriceOrDash } from "../format.ts";
+import { theme } from "../theme.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";
-import { formatPriceOrDash } from "./format.ts";
-import { theme } from "./theme.ts";
 
 interface CancelConfirmModalProps {
   order: CtraderOrder;

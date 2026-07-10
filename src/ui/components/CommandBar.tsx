@@ -1,7 +1,7 @@
 import type { InputRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
-import { theme } from "./theme.ts";
+import { theme } from "../theme.ts";
 
 export type FeedbackKind = "info" | "success" | "error";
 export interface Feedback {

@@ -1,6 +1,6 @@
-import type { PreparedTrade } from "../domain/trading.ts";
+import type { PreparedTrade } from "../../domain/trading.ts";
+import { theme } from "../theme.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";
-import { theme } from "./theme.ts";
 
 interface TradeConfirmModalProps {
   trade: PreparedTrade;

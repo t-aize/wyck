@@ -1,6 +1,6 @@
 import { useKeyboard, useRenderer, useSelectionHandler } from "@opentui/react";
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
-import type { Feedback } from "./CommandBar.tsx";
+import { type Dispatch, type SetStateAction, useRef } from "react";
+import type { Feedback } from "../components/CommandBar.tsx";
 
 const QUIT_CONFIRM_WINDOW_MS = 2_000;
 const COPY_FEEDBACK_MS = 3_000;
@@ -21,7 +21,7 @@ function showTemporaryFeedback(
     return feedback;
   });
   setTimeout(() => {
-    setFeedback((current) => (current === feedback ? (previous as Feedback) : current));
+    setFeedback((current) => (current === feedback && previous !== undefined ? previous : current));
   }, durationMs);
 }
 
@@ -74,26 +74,4 @@ export function useTerminalShortcuts(
       quitArmedRef.current = false;
     }, QUIT_CONFIRM_WINDOW_MS);
   });
-}
-
-/** Horloge partagée (1 tick/s) pour l'heure du header, l'âge des positions, le temps relatif des news. */
-export function useClock(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-/** Exécute `callback` immédiatement puis toutes les `delayMs` ms, jusqu'au démontage. */
-export function useInterval(callback: () => void, delayMs: number): void {
-  const callbackRef = useRef(callback);
-  callbackRef.current = callback;
-
-  useEffect(() => {
-    callbackRef.current();
-    const id = setInterval(() => callbackRef.current(), delayMs);
-    return () => clearInterval(id);
-  }, [delayMs]);
 }
