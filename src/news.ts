@@ -7,6 +7,21 @@ import { z } from "zod";
 const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const CACHE_PATH = join(homedir(), ".aurum", "calendar-cache.json");
 
+// Le calendrier est toujours raisonné en heure de Paris, indépendamment du fuseau système —
+// autant pour l'affichage (NewsPanel) que pour la limite "un jour" du cache ci-dessous. Utiliser
+// le fuseau système ici serait incohérent avec l'affichage si l'app tourne ailleurs qu'à Paris.
+const PARIS_TZ = "Europe/Paris";
+const parisDayKeyFormat = new Intl.DateTimeFormat("en-CA", {
+  timeZone: PARIS_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function parisDayKey(date: Date): string {
+  return parisDayKeyFormat.format(date);
+}
+
 const CalendarEventSchema = z.object({
   title: z.string(),
   country: z.string(),
@@ -51,14 +66,6 @@ const CacheFileSchema = z.object({
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
 });
 
-export function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 async function readCache(): Promise<{ fetchedAt: string; events: CalendarEvent[] } | undefined> {
   try {
     const file = Bun.file(CACHE_PATH);
@@ -83,7 +90,11 @@ async function writeCache(events: CalendarEvent[]): Promise<void> {
  */
 export async function fetchCalendar(options: { force?: boolean } = {}): Promise<CalendarEvent[]> {
   const cached = await readCache();
-  if (!options.force && cached && isSameDay(new Date(cached.fetchedAt), new Date())) {
+  if (
+    !options.force &&
+    cached &&
+    parisDayKey(new Date(cached.fetchedAt)) === parisDayKey(new Date())
+  ) {
     return cached.events;
   }
 

@@ -1,8 +1,29 @@
 import { useKeyboard, useRenderer, useSelectionHandler } from "@opentui/react";
-import { useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import type { Feedback } from "./CommandBar.tsx";
 
 const QUIT_CONFIRM_WINDOW_MS = 2_000;
+const COPY_FEEDBACK_MS = 3_000;
+
+/**
+ * Affiche `feedback`, puis restaure ce qu'il y avait avant après `durationMs` —
+ * sauf si autre chose a déjà changé le message entretemps (mise à jour
+ * fonctionnelle : on ne revient en arrière que si le message est encore le nôtre).
+ */
+function showTemporaryFeedback(
+  setFeedback: Dispatch<SetStateAction<Feedback>>,
+  feedback: Feedback,
+  durationMs: number,
+): void {
+  let previous: Feedback | undefined;
+  setFeedback((current) => {
+    previous = current;
+    return feedback;
+  });
+  setTimeout(() => {
+    setFeedback((current) => (current === feedback ? (previous as Feedback) : current));
+  }, durationMs);
+}
 
 /**
  * Comportement façon Claude Code : surligner du texte le copie directement
@@ -10,7 +31,7 @@ const QUIT_CONFIRM_WINDOW_MS = 2_000;
  * Ctrl+C ne quitte pas au premier coup : il faut confirmer dans les 2s, sinon
  * il est réarmé. Nécessite `exitOnCtrlC: false` sur le renderer.
  */
-export function useTerminalShortcuts(setFeedback: (feedback: Feedback) => void): void {
+export function useTerminalShortcuts(setFeedback: Dispatch<SetStateAction<Feedback>>): void {
   const renderer = useRenderer();
   const quitArmedRef = useRef(false);
   const quitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -19,7 +40,11 @@ export function useTerminalShortcuts(setFeedback: (feedback: Feedback) => void):
     const text = selection.getSelectedText();
     if (!text) return;
     renderer.copyToClipboardOSC52(text);
-    setFeedback({ kind: "success", message: `copié (${text.length} caractères)` });
+    showTemporaryFeedback(
+      setFeedback,
+      { kind: "success", message: `copié (${text.length} caractères)` },
+      COPY_FEEDBACK_MS,
+    );
   });
 
   useKeyboard((key) => {
@@ -32,7 +57,11 @@ export function useTerminalShortcuts(setFeedback: (feedback: Feedback) => void):
     }
 
     quitArmedRef.current = true;
-    setFeedback({ kind: "info", message: "Ctrl+C à nouveau pour quitter" });
+    showTemporaryFeedback(
+      setFeedback,
+      { kind: "info", message: "Ctrl+C à nouveau pour quitter" },
+      QUIT_CONFIRM_WINDOW_MS,
+    );
     clearTimeout(quitTimerRef.current);
     quitTimerRef.current = setTimeout(() => {
       quitArmedRef.current = false;

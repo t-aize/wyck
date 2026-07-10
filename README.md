@@ -49,10 +49,9 @@ ATR_PERIOD=14
 ATR_TIMEFRAME=H_1
 ATR_MULTIPLIER=1.5
 DEFAULT_RR=1.2
-
-# "amount" (montant fixe) ou "percent" (% de l'équity)
-RISK_MODE=percent
 ```
+
+Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe").
 
 Voir `.env.example` pour la liste complète (dont les valeurs valides d'`ATR_TIMEFRAME`). Le token est lié à une
 session cTrader Web active : s'il expire (401), il faut le régénérer depuis les mêmes réglages.

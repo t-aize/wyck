@@ -4,11 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { CtraderClient, type GetPositionsResult } from "./ctrader-client.ts";
 import { env } from "./env.ts";
 import { type CalendarEvent, fetchCalendar } from "./news.ts";
+import {
+  formatTradeSummary,
+  type PreparedTrade,
+  parseTradeCommand,
+  prepareTrade,
+  toCreateOrderParams,
+} from "./trading.ts";
 import { CommandBar, type Feedback } from "./ui/CommandBar.tsx";
 import { useClock, useInterval, useTerminalShortcuts } from "./ui/hooks.ts";
 import { NewsPanel } from "./ui/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/PriceHeader.tsx";
+import { TradeConfirmModal } from "./ui/TradeConfirmModal.tsx";
 import { theme } from "./ui/theme.ts";
 
 const PRICE_POLL_MS = 3_000;
@@ -27,8 +35,9 @@ export function App() {
   const [newsError, setNewsError] = useState<string>();
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
-    message: "tapez /help pour la liste des commandes",
+    message: "tapez help pour la liste des commandes",
   });
+  const [pendingTrade, setPendingTrade] = useState<PreparedTrade>();
 
   useTerminalShortcuts(setFeedback);
 
@@ -95,28 +104,74 @@ export function App() {
   useInterval(() => void refreshNews(), NEWS_POLL_MS);
 
   function runCommand(raw: string) {
-    const command = raw.trim();
-    if (!command) return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const [commandRaw, ...args] = trimmed.split(/\s+/);
+    const command = commandRaw?.toLowerCase() ?? "";
 
     switch (command) {
-      case "/help":
-        setFeedback({ kind: "info", message: "commandes : /refresh  /clear  /help" });
+      case "help":
+        setFeedback({ kind: "info", message: "commandes : trade  refresh  clear  help" });
         return;
-      case "/refresh":
+      case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
         void Promise.all([refreshMarket(), refreshNews({ force: true })]).then(() => {
           setFeedback({ kind: "success", message: "actualisé" });
         });
         return;
-      case "/clear":
+      case "clear":
         setFeedback({ kind: "info", message: "" });
         return;
+      case "trade": {
+        if (!symbolId) {
+          setFeedback({ kind: "error", message: "pas encore connecté au serveur" });
+          return;
+        }
+        const parsed = parseTradeCommand(args);
+        if (typeof parsed === "string") {
+          setFeedback({ kind: "error", message: parsed });
+          return;
+        }
+        setFeedback({ kind: "info", message: "calcul en cours…" });
+        void prepareTrade(client, symbolId, parsed).then(
+          (trade) => {
+            setPendingTrade(trade);
+            setFeedback({ kind: "info", message: "trade calculé — confirme dans la popup" });
+          },
+          (error) =>
+            setFeedback({
+              kind: "error",
+              message: error instanceof Error ? error.message : String(error),
+            }),
+        );
+        return;
+      }
       default:
         setFeedback({
           kind: "error",
-          message: `commande inconnue : ${command} — /help pour la liste`,
+          message: `commande inconnue : ${command} — help pour la liste`,
         });
     }
+  }
+
+  function confirmPendingTrade() {
+    if (!pendingTrade || !symbolId) return;
+    const summary = formatTradeSummary(pendingTrade);
+    setPendingTrade(undefined);
+    setFeedback({ kind: "info", message: "envoi de l'ordre…" });
+    void client.createOrder(toCreateOrderParams(symbolId, pendingTrade)).then(
+      () => setFeedback({ kind: "success", message: `ordre envoyé : ${summary}` }),
+      (error) =>
+        setFeedback({
+          kind: "error",
+          message: `échec envoi : ${error instanceof Error ? error.message : String(error)}`,
+        }),
+    );
+  }
+
+  function cancelPendingTrade() {
+    setPendingTrade(undefined);
+    setFeedback({ kind: "info", message: "trade annulé" });
   }
 
   return (
@@ -133,7 +188,14 @@ export function App() {
       />
       <PositionsPanel positions={positions} now={now} />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />
-      <CommandBar feedback={feedback} onSubmit={runCommand} />
+      <CommandBar feedback={feedback} onSubmit={runCommand} focused={!pendingTrade} />
+      {pendingTrade && (
+        <TradeConfirmModal
+          trade={pendingTrade}
+          onConfirm={confirmPendingTrade}
+          onCancel={cancelPendingTrade}
+        />
+      )}
     </box>
   );
 }

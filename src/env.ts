@@ -13,7 +13,6 @@ export const env = createEnv({
     ATR_TIMEFRAME: z.enum(TRENDBAR_PERIODS).default("H_1"),
     ATR_MULTIPLIER: z.coerce.number().positive().default(1.5),
     DEFAULT_RR: z.coerce.number().positive().default(1.2),
-    RISK_MODE: z.enum(["amount", "percent"]).default("percent"),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

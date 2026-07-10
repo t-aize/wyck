@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { useMemo } from "react";
-import { type CalendarEvent, classifyImpact, isGoldRelevant } from "../news.ts";
+import { type CalendarEvent, classifyImpact, isGoldRelevant, parisDayKey } from "../news.ts";
 import { alignLeft, formatRelative } from "./format.ts";
 import { theme } from "./theme.ts";
 
@@ -10,15 +10,7 @@ interface NewsPanelProps {
   now: Date;
 }
 
-// Le calendrier est toujours affiché en heure de Paris, indépendamment du fuseau système
-// (utile pour une référence stable, peu importe où l'app tourne).
 const PARIS_TZ = "Europe/Paris";
-const dayKeyFormat = new Intl.DateTimeFormat("en-CA", {
-  timeZone: PARIS_TZ,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 const timeFormat = new Intl.DateTimeFormat("fr-FR", {
   timeZone: PARIS_TZ,
   hour: "2-digit",
@@ -30,10 +22,6 @@ const dayLabelFormat = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
   month: "long",
 });
-
-function parisDayKey(date: Date): string {
-  return dayKeyFormat.format(date);
-}
 
 type Row =
   | { kind: "day"; key: string; label: string }
