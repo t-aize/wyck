@@ -46,16 +46,16 @@ CTRADER_MCP_TOKEN=xxxxxxxxxxxxxxxxxxxx
 
 SYMBOL=XAUUSD
 ATR_PERIOD=14
-ATR_TIMEFRAME=H1
+ATR_TIMEFRAME=H_1
 ATR_MULTIPLIER=1.5
 DEFAULT_RR=1.2
 
 # "amount" (montant fixe) ou "percent" (% de l'équity)
-RISK_MODE=amount
+RISK_MODE=percent
 ```
 
-Bun charge `.env` automatiquement, pas besoin de `dotenv`. Le token est lié à une session cTrader Web active : s'il
-expire (401), il faut le régénérer depuis les mêmes réglages.
+Voir `.env.example` pour la liste complète (dont les valeurs valides d'`ATR_TIMEFRAME`). Le token est lié à une
+session cTrader Web active : s'il expire (401), il faut le régénérer depuis les mêmes réglages.
 
 ## Utilisation
 

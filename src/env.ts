@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+import { TRENDBAR_PERIODS } from "./ctrader-types.ts";
 
 export const env = createEnv({
   server: {
@@ -9,10 +10,10 @@ export const env = createEnv({
 
     SYMBOL: z.string().min(1).default("XAUUSD"),
     ATR_PERIOD: z.coerce.number().int().positive().default(14),
-    ATR_TIMEFRAME: z.enum(["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"]).default("H1"),
+    ATR_TIMEFRAME: z.enum(TRENDBAR_PERIODS).default("H_1"),
     ATR_MULTIPLIER: z.coerce.number().positive().default(1.5),
     DEFAULT_RR: z.coerce.number().positive().default(1.2),
-    RISK_MODE: z.enum(["amount", "percent"]).default("amount"),
+    RISK_MODE: z.enum(["amount", "percent"]).default("percent"),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
