@@ -1,0 +1,48 @@
+/** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
+export function formatPrice(raw: number | undefined, digits = 2): string {
+  if (raw === undefined) return "—";
+  return (raw / 100_000).toFixed(digits);
+}
+
+/** Montants cTrader (balance, P&L…) : entier à l'échelle x10^moneyDigits. */
+export function formatMoney(raw: number | undefined, moneyDigits: number): string {
+  if (raw === undefined) return "—";
+  const value = raw / 10 ** moneyDigits;
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function formatClock(date: Date): string {
+  return date.toLocaleTimeString("fr-FR", { hour12: false });
+}
+
+/** Durée compacte : "2j14h", "3h05", "12m". */
+export function formatDuration(ms: number): string {
+  const clamped = Math.max(0, ms);
+  const totalMinutes = Math.floor(clamped / 60_000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}j${hours}h`;
+  if (hours > 0) return `${hours}h${String(minutes).padStart(2, "0")}`;
+  return `${minutes}m`;
+}
+
+/** Temps relatif : "dans 2h" / "il y a 12m". */
+export function formatRelative(deltaMs: number): string {
+  const label = formatDuration(Math.abs(deltaMs));
+  return deltaMs >= 0 ? `dans ${label}` : `il y a ${label}`;
+}
+
+/** Aligne à gauche sur une largeur fixe (colonnes texte), tronque avec "…" si trop long. */
+export function alignLeft(value: string, width: number): string {
+  if (value.length > width)
+    return width <= 1 ? value.slice(0, width) : `${value.slice(0, width - 1)}…`;
+  return value.padEnd(width);
+}
+
+/** Aligne à droite sur une largeur fixe (colonnes numériques), tronque avec "…" si trop long. */
+export function alignRight(value: string, width: number): string {
+  if (value.length > width)
+    return width <= 1 ? value.slice(0, width) : `…${value.slice(value.length - width + 1)}`;
+  return value.padStart(width);
+}
