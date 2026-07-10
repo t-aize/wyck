@@ -1,0 +1,45 @@
+# Auto detect text files and normalize line endings to LF on checkin.
+* text=auto eol=lf
+
+# Source
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+
+# Docs / config
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+.env.example text eol=lf
+*.editorconfig text eol=lf
+*.gitattributes text eol=lf
+*.gitignore text eol=lf
+
+# Windows scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Lockfile: don't let Git generate diffs, and mark it as generated for GitHub
+bun.lock -diff linguist-generated=true
+
+# Binaries: never touch, never diff as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Exclude non-essential files from repository archives (git archive / GitHub release tarballs)
+.gitattributes export-ignore
+.gitignore export-ignore
+.editorconfig export-ignore
