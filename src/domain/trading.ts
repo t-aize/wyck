@@ -1,7 +1,7 @@
 /**
- * Calcul d'un trade à partir de trois entrées (direction, entrée, risque) : SL/TP
- * automatiques (ATR/RR) si non fournis, taille de position dérivée du risque en %
- * d'équity, type d'ordre déduit du prix d'entrée vs marché.
+ * Calcul d'un trade à partir de trois entrées (entrée, SL, TP) + risque : direction
+ * déduite du SL/TP, type d'ordre déduit du prix d'entrée vs marché, taille de
+ * position dérivée du risque en % d'équity.
  *
  * Convention prix : l'API cTrader renvoie des prix bruts à l'échelle x10^5 sur les
  * endpoints de lecture (spot, trendbars) mais attend des prix "affichés" (divisés
@@ -10,34 +10,16 @@
  * lecture des données brutes.
  */
 
-import { LOT_VOLUME, PRICE_SCALE, type TrendbarPeriod } from "../constants.ts";
+import { LOT_VOLUME, PRICE_SCALE } from "../constants.ts";
 import type { CreateOrderParams, CtraderClient, OrderType, TradeSide } from "../ctrader/client.ts";
 
-const ATR_PERIOD = 14;
-const ATR_TIMEFRAME: TrendbarPeriod = "H_1";
-const ATR_MULTIPLIER = 1.5;
-const DEFAULT_RR = 1.2;
-
-const PERIOD_MS: Record<TrendbarPeriod, number> = {
-  M_1: 60_000,
-  M_5: 5 * 60_000,
-  M_15: 15 * 60_000,
-  M_30: 30 * 60_000,
-  H_1: 60 * 60_000,
-  H_4: 4 * 60 * 60_000,
-  D_1: 24 * 60 * 60_000,
-  W_1: 7 * 24 * 60 * 60_000,
-  MN_1: 30 * 24 * 60 * 60_000,
-};
-
 export interface TradeInput {
-  side: TradeSide;
   /** "market" = prix courant (ordre MARKET) ; un nombre = prix affiché (LIMIT/STOP déduit) */
   entry: number | "market";
   /** % de l'équity du compte */
   riskPercent: number;
-  stopLoss?: number;
-  takeProfit?: number;
+  stopLoss: number;
+  takeProfit: number;
 }
 
 export interface PreparedTrade {
@@ -77,43 +59,6 @@ function toPoints(priceDistance: number): number {
   return Math.round(priceDistance * PRICE_SCALE);
 }
 
-/** ATR (Average True Range) sur ATR_PERIOD bougies, moyenne simple des True Range. */
-async function computeAtr(client: CtraderClient, symbolId: number): Promise<number> {
-  const periodMs = PERIOD_MS[ATR_TIMEFRAME];
-  const barsNeeded = ATR_PERIOD + 1;
-  const marginBars = ATR_PERIOD + 8; // marge pour week-ends / jours fériés / bougies manquantes
-  const now = Date.now();
-
-  const { trendbars } = await client.getTrendbars({
-    symbolId,
-    period: ATR_TIMEFRAME,
-    fromTimestamp: String(now - periodMs * marginBars),
-    toTimestamp: String(now),
-  });
-
-  if (trendbars.length < barsNeeded) {
-    throw new Error(
-      `Pas assez de bougies pour l'ATR (${trendbars.length}/${barsNeeded} sur ${ATR_TIMEFRAME})`,
-    );
-  }
-
-  const recent = [...trendbars].sort((a, b) => a.timestamp - b.timestamp).slice(-barsNeeded);
-  const trueRanges: number[] = [];
-
-  for (let i = 1; i < recent.length; i++) {
-    const bar = recent[i];
-    const prevBar = recent[i - 1];
-    if (!bar || !prevBar) continue;
-    const high = bar.high / PRICE_SCALE;
-    const low = bar.low / PRICE_SCALE;
-    const prevClose = prevBar.close / PRICE_SCALE;
-    trueRanges.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
-  }
-
-  if (trueRanges.length === 0) throw new Error("ATR incalculable (données de bougies vides)");
-  return trueRanges.reduce((sum, tr) => sum + tr, 0) / trueRanges.length;
-}
-
 /** LIMIT/STOP déduit de la position de l'entrée par rapport au prix de référence (ask pour BUY, bid pour SELL). */
 function inferOrderType(side: TradeSide, entryPrice: number, referencePrice: number): OrderType {
   if (entryPrice === referencePrice) return "MARKET";
@@ -138,36 +83,23 @@ export async function prepareTrade(
   if (!spot) throw new Error("Prix indisponible pour ce symbole");
   const bid = spot.bid / PRICE_SCALE;
   const ask = spot.ask / PRICE_SCALE;
-  const reference = input.side === "BUY" ? ask : bid;
+
+  const { stopLoss, takeProfit } = input;
+  if (stopLoss === takeProfit) throw new Error("SL et TP ne peuvent pas être identiques");
+  // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
+  const side: TradeSide = stopLoss < takeProfit ? "BUY" : "SELL";
+  const reference = side === "BUY" ? ask : bid;
 
   const entryPrice = input.entry === "market" ? reference : input.entry;
   const orderType: OrderType =
-    input.entry === "market" ? "MARKET" : inferOrderType(input.side, entryPrice, reference);
+    input.entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
 
-  let stopLoss = input.stopLoss;
-  let takeProfit = input.takeProfit;
-
-  if (stopLoss === undefined || takeProfit === undefined) {
-    const atr = await computeAtr(client, symbolId);
-    const distance = atr * ATR_MULTIPLIER;
-    if (stopLoss === undefined) {
-      stopLoss = input.side === "BUY" ? entryPrice - distance : entryPrice + distance;
-    }
-    if (takeProfit === undefined) {
-      const slDistance = Math.abs(entryPrice - stopLoss);
-      takeProfit =
-        input.side === "BUY"
-          ? entryPrice + slDistance * DEFAULT_RR
-          : entryPrice - slDistance * DEFAULT_RR;
-    }
+  if (side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
+    throw new Error("Incohérent pour un achat : le SL doit être sous l'entrée et le TP au-dessus");
   }
-
-  if (input.side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
-    throw new Error("Incohérent pour un BUY : le SL doit être sous l'entrée et le TP au-dessus");
-  }
-  if (input.side === "SELL" && !(stopLoss > entryPrice && takeProfit < entryPrice)) {
+  if (side === "SELL" && !(stopLoss > entryPrice && takeProfit < entryPrice)) {
     throw new Error(
-      "Incohérent pour un SELL : le SL doit être au-dessus de l'entrée et le TP en dessous",
+      "Incohérent pour une vente : le SL doit être au-dessus de l'entrée et le TP en dessous",
     );
   }
 
@@ -178,7 +110,7 @@ export async function prepareTrade(
 
   return {
     orderType,
-    tradeSide: input.side,
+    tradeSide: side,
     entryPrice,
     stopLoss,
     takeProfit,

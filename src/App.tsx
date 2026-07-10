@@ -62,7 +62,7 @@ export function App() {
         balance={balance}
         moneyDigits={moneyDigits}
       />
-      <PositionsPanel positions={positions} now={now} />
+      <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
         ref={commandBarRef}
@@ -88,7 +88,7 @@ export function App() {
       )}
       {pendingCancel && (
         <CancelConfirmModal
-          order={pendingCancel}
+          orders={pendingCancel}
           onConfirm={confirmPendingCancel}
           onCancel={dismissPendingCancel}
         />

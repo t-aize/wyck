@@ -30,7 +30,7 @@ export interface OrderActions {
   pendingModify: PendingModify | undefined;
   confirmPendingModify: () => void;
   cancelPendingModify: () => void;
-  pendingCancel: CtraderOrder | undefined;
+  pendingCancel: CtraderOrder[] | undefined;
   confirmPendingCancel: () => void;
   dismissPendingCancel: () => void;
 }
@@ -51,7 +51,7 @@ export function useOrderActions(opts: {
   });
   const [pendingTrade, setPendingTrade] = useState<PreparedTrade>();
   const [pendingModify, setPendingModify] = useState<PendingModify>();
-  const [pendingCancel, setPendingCancel] = useState<CtraderOrder>();
+  const [pendingCancel, setPendingCancel] = useState<CtraderOrder[]>();
 
   function runCommand(raw: string) {
     const trimmed = raw.trim();
@@ -117,22 +117,28 @@ export function useOrderActions(opts: {
         return;
       }
       case "cancel": {
-        const id = Number(args[0]);
-        if (!Number.isFinite(id)) {
-          setFeedback({
-            kind: "error",
-            message: `usage : cancel <id> — id invalide : "${args[0] ?? ""}"`,
-          });
+        if (args.length === 0) {
+          setFeedback({ kind: "error", message: "usage : cancel <id> [id...]" });
+          return;
+        }
+        const ids = args.map(Number);
+        const invalid = args[ids.findIndex((id) => !Number.isFinite(id))];
+        if (invalid !== undefined) {
+          setFeedback({ kind: "error", message: `id invalide : "${invalid}"` });
           return;
         }
         // Même limite que `modify` : seuls les ordres en attente (structure vérifiée) sont
         // annulables pour l'instant, pas les positions ouvertes (closePosition non exercé).
-        const order = positions?.orders.find((o) => o.orderId === id);
-        if (!order) {
-          setFeedback({ kind: "error", message: `ordre en attente ${id} introuvable` });
+        const orders = ids.map((id) => positions?.orders.find((o) => o.orderId === id));
+        const missingIndex = orders.findIndex((o) => !o);
+        if (missingIndex !== -1) {
+          setFeedback({
+            kind: "error",
+            message: `ordre en attente ${ids[missingIndex]} introuvable`,
+          });
           return;
         }
-        setPendingCancel(order);
+        setPendingCancel(orders as CtraderOrder[]);
         setFeedback({ kind: "info", message: "annulation — confirme dans la popup" });
         return;
       }
@@ -187,7 +193,16 @@ export function useOrderActions(opts: {
     setPendingModify(undefined);
     runOrderAction({
       pending: "modification en cours…",
-      action: () => client.amendOrder({ orderId: order.orderId, stopLoss, takeProfit }),
+      // cTrader remet à 0 tout champ prix non renvoyé à l'amend (limitPrice/stopPrice
+      // mais aussi SL/TP) — il faut toujours resend les valeurs existantes non modifiées.
+      action: () =>
+        client.amendOrder({
+          orderId: order.orderId,
+          limitPrice: order.limitPrice,
+          stopPrice: order.stopPrice,
+          stopLoss: stopLoss ?? order.stopLoss,
+          takeProfit: takeProfit ?? order.takeProfit,
+        }),
       success: () => `ordre ${order.orderId} modifié`,
       errorPrefix: "échec modification",
       refreshAfter: true,
@@ -201,15 +216,26 @@ export function useOrderActions(opts: {
 
   function confirmPendingCancel() {
     if (!pendingCancel) return;
-    const orderId = pendingCancel.orderId;
+    const orders = pendingCancel;
     setPendingCancel(undefined);
-    runOrderAction({
-      pending: "annulation en cours…",
-      action: () => client.cancelOrder({ orderId }),
-      success: () => `ordre ${orderId} annulé`,
-      errorPrefix: "échec annulation",
-      refreshAfter: true,
-    });
+    setFeedback({ kind: "info", message: "annulation en cours…" });
+    void Promise.allSettled(orders.map((o) => client.cancelOrder({ orderId: o.orderId }))).then(
+      (results) => {
+        void refreshMarket();
+        const failed = orders.filter((_, i) => results[i]?.status === "rejected");
+        if (failed.length === 0) {
+          setFeedback({
+            kind: "success",
+            message: `ordre${orders.length > 1 ? "s" : ""} ${orders.map((o) => o.orderId).join(", ")} annulé${orders.length > 1 ? "s" : ""}`,
+          });
+        } else {
+          setFeedback({
+            kind: "error",
+            message: `échec annulation : ${failed.map((o) => o.orderId).join(", ")}`,
+          });
+        }
+      },
+    );
   }
 
   function dismissPendingCancel() {

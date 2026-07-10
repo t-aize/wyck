@@ -3,8 +3,8 @@
 import type { PreparedTrade, TradeInput } from "./trading.ts";
 
 export const TRADE_USAGE =
-  "usage : trade <buy|sell> --risk <%> [--entry <prix|market>] [--sl <prix>] [--tp <prix>]  " +
-  "(raccourcis -r -e -sl -tp ; entry par défaut market ; sl/tp omis → calculés à l'ATR)";
+  "usage : trade --risk <%> --sl <prix> --tp <prix> [--entry <prix|market>]  " +
+  "(raccourcis -r -sl -tp -e ; entry par défaut market ; direction déduite du SL/TP)";
 
 /**
  * Parseur minimal `--flag valeur` / `-f valeur` (style CLI, ordre libre). `aliases` mappe une
@@ -44,12 +44,7 @@ function parseOptionalPrice(
 
 /** Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
 export function parseTradeCommand(args: string[]): TradeInput | string {
-  const sideRaw = args[0]?.toUpperCase();
-  if (sideRaw !== "BUY" && sideRaw !== "SELL") {
-    return `direction invalide : "${args[0] ?? ""}" (buy/sell attendu) — ${TRADE_USAGE}`;
-  }
-
-  const flags = parseFlags(args.slice(1), {
+  const flags = parseFlags(args, {
     risk: ["-r", "--risk"],
     entry: ["-e", "--entry"],
     sl: ["-sl", "--sl"],
@@ -67,12 +62,14 @@ export function parseTradeCommand(args: string[]): TradeInput | string {
     return `entrée invalide : "${flags.entry ?? ""}"`;
   }
 
+  if (flags.sl === undefined) return `--sl requis — ${TRADE_USAGE}`;
+  if (flags.tp === undefined) return `--tp requis — ${TRADE_USAGE}`;
   const sl = parseOptionalPrice(flags.sl, "sl");
   if (sl.error) return sl.error;
   const tp = parseOptionalPrice(flags.tp, "tp");
   if (tp.error) return tp.error;
 
-  return { side: sideRaw, entry, riskPercent, stopLoss: sl.value, takeProfit: tp.value };
+  return { entry, riskPercent, stopLoss: sl.value as number, takeProfit: tp.value as number };
 }
 
 export interface ModifyInput {

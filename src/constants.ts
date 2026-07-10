@@ -40,3 +40,11 @@ export const LOT_VOLUME = 10_000; // 1.00 lot en unités API
 export function toLots(volume: number): number {
   return volume / LOT_VOLUME;
 }
+
+// ponytail: convention standard XAUUSD (1 pip = 0.10$) — à ajuster si le broker en utilise une autre.
+export const PIP_SIZE = 0.1;
+
+/** Distance de prix (déjà affiché, pas x10^5) convertie en pips. */
+export function toPips(priceDistance: number): number {
+  return Math.round(Math.abs(priceDistance) / PIP_SIZE);
+}

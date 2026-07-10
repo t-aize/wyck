@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core";
-import { toLots } from "../../constants.ts";
+import { PRICE_SCALE, toLots, toPips } from "../../constants.ts";
 import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/client.ts";
 import { readPosition } from "../../ctrader/mappers.ts";
 import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "../format.ts";
@@ -9,6 +9,9 @@ import { theme } from "../theme.ts";
 interface PositionsPanelProps {
   positions: GetPositionsResult | undefined;
   now: Date;
+  /** Bid/ask bruts (échelle x10^5, cf. constants.ts) — pour les distances en pips. */
+  bid: number | undefined;
+  ask: number | undefined;
 }
 
 const COLUMNS = {
@@ -21,7 +24,24 @@ const COLUMNS = {
   swap: 9,
   pnl: 13,
   age: 7,
+  dist: 14,
 } as const;
+
+/** Distance (en pips) au SL/TP le plus proche du prix courant, avec l'étiquette du côté concerné. */
+function nearestPipsLabel(
+  mid: number | undefined,
+  stopLoss: number | undefined,
+  takeProfit: number | undefined,
+): string {
+  if (mid === undefined) return "—";
+  const candidates = [
+    stopLoss === undefined ? undefined : { label: "SL", pips: toPips(mid - stopLoss) },
+    takeProfit === undefined ? undefined : { label: "TP", pips: toPips(mid - takeProfit) },
+  ].filter((c): c is { label: string; pips: number } => c !== undefined);
+  if (candidates.length === 0) return "—";
+  const nearest = candidates.reduce((a, b) => (a.pips <= b.pips ? a : b));
+  return `${nearest.label} ${nearest.pips}p`;
+}
 
 function headerRow() {
   return (
@@ -35,17 +55,27 @@ function headerRow() {
       {alignRight("SWAP", COLUMNS.swap)}
       {alignRight("P&L", COLUMNS.pnl)}
       {alignRight("AGE", COLUMNS.age)}
+      {alignRight("PROCHE", COLUMNS.dist)}
     </text>
   );
 }
 
-function PositionRow({ position, now }: { position: CtraderPosition; now: Date }) {
+function PositionRow({
+  position,
+  now,
+  mid,
+}: {
+  position: CtraderPosition;
+  now: Date;
+  mid: number | undefined;
+}) {
   const p = readPosition(position);
   const sideColor = p.side === "SELL" ? theme.red : p.side === "BUY" ? theme.green : theme.textDim;
   const sideLabel = p.side === "BUY" ? `${UP} BUY` : p.side === "SELL" ? `${DOWN} SELL` : "—";
   const pnlColor = p.pnl === undefined ? theme.textDim : p.pnl >= 0 ? theme.green : theme.red;
   const pnlLabel = p.pnl === undefined ? "—" : `${p.pnl >= 0 ? UP : DOWN} ${p.pnl.toFixed(2)}`;
   const age = p.openTimestamp === undefined ? "—" : formatDuration(now.getTime() - p.openTimestamp);
+  const nearest = nearestPipsLabel(mid, p.stopLoss, p.takeProfit);
 
   return (
     <text>
@@ -60,6 +90,7 @@ function PositionRow({ position, now }: { position: CtraderPosition; now: Date }
       <span fg={theme.textDim}>{alignRight(p.swap?.toFixed(2) ?? "—", COLUMNS.swap)}</span>
       <span fg={pnlColor}>{alignRight(pnlLabel, COLUMNS.pnl)}</span>
       <span fg={theme.textDim}>{alignRight(age, COLUMNS.age)}</span>
+      <span fg={theme.textDim}>{alignRight(nearest, COLUMNS.dist)}</span>
     </text>
   );
 }
@@ -73,11 +104,12 @@ function orderHeaderRow() {
       {alignRight("PRIX", COLUMNS.entry)}
       {alignRight("SL", COLUMNS.sl)}
       {alignRight("TP", COLUMNS.tp)}
+      {alignRight("DIST", COLUMNS.dist)}
     </text>
   );
 }
 
-function OrderRow({ order }: { order: CtraderOrder }) {
+function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined }) {
   const side = order.tradeSide;
   const sideColor = side === "SELL" ? theme.red : side === "BUY" ? theme.green : theme.textDim;
   const sideLabel = `${side === "BUY" ? UP : side === "SELL" ? DOWN : "—"} ${side ?? "—"} ${order.orderType}`;
@@ -85,6 +117,7 @@ function OrderRow({ order }: { order: CtraderOrder }) {
   // CtraderOrder) — contrairement aux prix bruts x10^5 de CtraderSpotPrice/CtraderTrendbar,
   // ne PAS passer par formatPrice() ici (ça les redivisait par 100 000 en trop).
   const price = order.limitPrice ?? order.stopPrice;
+  const dist = price === undefined || mid === undefined ? "—" : `${toPips(mid - price)}p`;
 
   return (
     <text>
@@ -94,13 +127,15 @@ function OrderRow({ order }: { order: CtraderOrder }) {
       <span fg={theme.text}>{alignRight(formatPriceOrDash(price), COLUMNS.entry)}</span>
       <span fg={theme.red}>{alignRight(formatPriceOrDash(order.stopLoss), COLUMNS.sl)}</span>
       <span fg={theme.green}>{alignRight(formatPriceOrDash(order.takeProfit), COLUMNS.tp)}</span>
+      <span fg={theme.textDim}>{alignRight(dist, COLUMNS.dist)}</span>
     </text>
   );
 }
 
-export function PositionsPanel({ positions, now }: PositionsPanelProps) {
+export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps) {
   const openPositions = positions?.positions ?? [];
   const pendingOrders = positions?.orders ?? [];
+  const mid = bid === undefined || ask === undefined ? undefined : (bid + ask) / 2 / PRICE_SCALE;
 
   return (
     <box
@@ -126,7 +161,7 @@ export function PositionsPanel({ positions, now }: PositionsPanelProps) {
           {headerRow()}
           {openPositions.map((position, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: liste réactualisée en bloc à chaque poll, pas de clé stable connue (positionId non vérifié)
-            <PositionRow key={index} position={position} now={now} />
+            <PositionRow key={index} position={position} now={now} mid={mid} />
           ))}
         </>
       )}
@@ -138,7 +173,7 @@ export function PositionsPanel({ positions, now }: PositionsPanelProps) {
           </text>
           {orderHeaderRow()}
           {pendingOrders.map((order) => (
-            <OrderRow key={order.orderId} order={order} />
+            <OrderRow key={order.orderId} order={order} mid={mid} />
           ))}
         </box>
       )}
