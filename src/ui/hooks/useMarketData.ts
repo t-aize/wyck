@@ -9,6 +9,9 @@ export interface MarketData {
   bid: number | undefined;
   ask: number | undefined;
   positions: GetPositionsResult | undefined;
+  /** Capital du compte, entier à l'échelle `moneyDigits` (cf. formatMoney) */
+  balance: number | undefined;
+  moneyDigits: number | undefined;
   refreshMarket: () => Promise<void>;
 }
 
@@ -21,14 +24,17 @@ export function useMarketData(
   const [bid, setBid] = useState<number>();
   const [ask, setAsk] = useState<number>();
   const [positions, setPositions] = useState<GetPositionsResult>();
+  const [balance, setBalance] = useState<number>();
+  const [moneyDigits, setMoneyDigits] = useState<number>();
 
   const refreshMarket = useMemo(
     () => async () => {
       if (!symbolId) return;
       try {
-        const [spot, pos] = await Promise.all([
+        const [spot, pos, bal] = await Promise.all([
           client.getSpotPrices({ symbolId: [symbolId] }),
           client.getPositions(),
+          client.getBalance(),
         ]);
         const price = spot.prices[0];
         if (price) {
@@ -36,6 +42,8 @@ export function useMarketData(
           setAsk(price.ask);
         }
         setPositions(pos);
+        setBalance(bal.balance);
+        setMoneyDigits(bal.moneyDigits);
         onError(undefined);
       } catch (error) {
         onError(toMessage(error));
@@ -54,5 +62,5 @@ export function useMarketData(
     if (symbolId) void refreshMarket();
   }, [symbolId, refreshMarket]);
 
-  return { bid, ask, positions, refreshMarket };
+  return { bid, ask, positions, balance, moneyDigits, refreshMarket };
 }

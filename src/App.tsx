@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
+import { SYMBOL } from "./constants.ts";
 import { CtraderClient } from "./ctrader/client.ts";
-import { env } from "./env.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
@@ -22,7 +22,7 @@ export function App() {
   const commandBarRef = useRef<CommandBarHandle>(null);
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
-  const { bid, ask, positions, refreshMarket } = useMarketData(
+  const { bid, ask, positions, balance, moneyDigits, refreshMarket } = useMarketData(
     client,
     symbolId,
     setConnectionError,
@@ -53,12 +53,14 @@ export function App() {
       style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.bg }}
     >
       <PriceHeader
-        symbol={env.SYMBOL}
+        symbol={SYMBOL}
         bid={bid}
         ask={ask}
         connected={connected}
         now={now}
         errorMessage={connectionError}
+        balance={balance}
+        moneyDigits={moneyDigits}
       />
       <PositionsPanel positions={positions} now={now} />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />

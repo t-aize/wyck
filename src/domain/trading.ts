@@ -12,7 +12,11 @@
 
 import { LOT_VOLUME, PRICE_SCALE, type TrendbarPeriod } from "../constants.ts";
 import type { CreateOrderParams, CtraderClient, OrderType, TradeSide } from "../ctrader/client.ts";
-import { env } from "../env.ts";
+
+const ATR_PERIOD = 14;
+const ATR_TIMEFRAME: TrendbarPeriod = "H_1";
+const ATR_MULTIPLIER = 1.5;
+const DEFAULT_RR = 1.2;
 
 const PERIOD_MS: Record<TrendbarPeriod, number> = {
   M_1: 60_000,
@@ -75,21 +79,21 @@ function toPoints(priceDistance: number): number {
 
 /** ATR (Average True Range) sur ATR_PERIOD bougies, moyenne simple des True Range. */
 async function computeAtr(client: CtraderClient, symbolId: number): Promise<number> {
-  const periodMs = PERIOD_MS[env.ATR_TIMEFRAME];
-  const barsNeeded = env.ATR_PERIOD + 1;
-  const marginBars = env.ATR_PERIOD + 8; // marge pour week-ends / jours fériés / bougies manquantes
+  const periodMs = PERIOD_MS[ATR_TIMEFRAME];
+  const barsNeeded = ATR_PERIOD + 1;
+  const marginBars = ATR_PERIOD + 8; // marge pour week-ends / jours fériés / bougies manquantes
   const now = Date.now();
 
   const { trendbars } = await client.getTrendbars({
     symbolId,
-    period: env.ATR_TIMEFRAME,
+    period: ATR_TIMEFRAME,
     fromTimestamp: String(now - periodMs * marginBars),
     toTimestamp: String(now),
   });
 
   if (trendbars.length < barsNeeded) {
     throw new Error(
-      `Pas assez de bougies pour l'ATR (${trendbars.length}/${barsNeeded} sur ${env.ATR_TIMEFRAME})`,
+      `Pas assez de bougies pour l'ATR (${trendbars.length}/${barsNeeded} sur ${ATR_TIMEFRAME})`,
     );
   }
 
@@ -145,7 +149,7 @@ export async function prepareTrade(
 
   if (stopLoss === undefined || takeProfit === undefined) {
     const atr = await computeAtr(client, symbolId);
-    const distance = atr * env.ATR_MULTIPLIER;
+    const distance = atr * ATR_MULTIPLIER;
     if (stopLoss === undefined) {
       stopLoss = input.side === "BUY" ? entryPrice - distance : entryPrice + distance;
     }
@@ -153,8 +157,8 @@ export async function prepareTrade(
       const slDistance = Math.abs(entryPrice - stopLoss);
       takeProfit =
         input.side === "BUY"
-          ? entryPrice + slDistance * env.DEFAULT_RR
-          : entryPrice - slDistance * env.DEFAULT_RR;
+          ? entryPrice + slDistance * DEFAULT_RR
+          : entryPrice - slDistance * DEFAULT_RR;
     }
   }
 

@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
-import { formatClock, formatPrice } from "../format.ts";
+import { formatClock, formatMoney, formatPrice } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
 
@@ -11,9 +11,20 @@ interface PriceHeaderProps {
   connected: boolean;
   now: Date;
   errorMessage: string | undefined;
+  balance: number | undefined;
+  moneyDigits: number | undefined;
 }
 
-export function PriceHeader({ symbol, bid, ask, connected, now, errorMessage }: PriceHeaderProps) {
+export function PriceHeader({
+  symbol,
+  bid,
+  ask,
+  connected,
+  now,
+  errorMessage,
+  balance,
+  moneyDigits,
+}: PriceHeaderProps) {
   const statusColor = errorMessage ? theme.red : connected ? theme.green : theme.textDim;
   const statusLabel = errorMessage ? "ERREUR" : connected ? "LIVE" : "CONNEXION…";
   const hasPrice = bid !== undefined && ask !== undefined;
@@ -80,7 +91,13 @@ export function PriceHeader({ symbol, bid, ask, connected, now, errorMessage }: 
         <text fg={statusColor} attributes={TextAttributes.BOLD}>
           ● {statusLabel}
         </text>
-        <text fg={theme.textDim}>{formatClock(now)}</text>
+        {balance !== undefined && moneyDigits !== undefined && (
+          <text fg={theme.gold}>{formatMoney(balance, moneyDigits)}</text>
+        )}
+        <text fg={theme.textDim}>
+          {balance !== undefined && moneyDigits !== undefined ? "· " : ""}
+          {formatClock(now)}
+        </text>
       </box>
     </box>
   );

@@ -1,6 +1,6 @@
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { SYMBOL } from "../../constants.ts";
 import type { CtraderClient } from "../../ctrader/client.ts";
-import { env } from "../../env.ts";
 import { toMessage } from "../../errors.ts";
 
 export interface CtraderConnection {
@@ -23,8 +23,8 @@ export function useCtraderConnection(client: CtraderClient): CtraderConnection {
       try {
         await client.connect();
         const { symbols } = await client.getSymbols();
-        const symbol = symbols.find((s) => s.symbolName === env.SYMBOL);
-        if (!symbol) throw new Error(`Symbole ${env.SYMBOL} introuvable côté serveur`);
+        const symbol = symbols.find((s) => s.symbolName === SYMBOL);
+        if (!symbol) throw new Error(`Symbole ${SYMBOL} introuvable côté serveur`);
         if (cancelled) return;
         setSymbolId(symbol.symbolId);
         setConnected(true);

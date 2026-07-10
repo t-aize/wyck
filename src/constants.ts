@@ -9,6 +9,9 @@
  * d'importer son propre importeur.
  */
 
+/** Seul symbole tradé par ce panel — pas un réglage, un choix de scope du projet. */
+export const SYMBOL = "XAUUSD";
+
 export const TRENDBAR_PERIODS = [
   "M_1",
   "M_5",

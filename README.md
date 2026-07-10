@@ -43,18 +43,13 @@ Dans **cTrader Web** → **Settings** → **Remote MCP**, récupère la config p
 ```dotenv
 CTRADER_MCP_URL=https://mcp.ctrader.com/trading/mcp
 CTRADER_MCP_TOKEN=xxxxxxxxxxxxxxxxxxxx
-
-SYMBOL=XAUUSD
-ATR_PERIOD=14
-ATR_TIMEFRAME=H_1
-ATR_MULTIPLIER=1.5
-DEFAULT_RR=1.2
 ```
 
-Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe").
+Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe"). Le symbole (`XAUUSD`) et les
+paramètres du calcul auto de SL/TP (période/timeframe ATR, multiplicateur, RR par défaut) sont des constantes fixées
+dans `src/domain/trading.ts` — pas de config, ce projet ne trade que XAUUSD avec une seule stratégie.
 
-Voir `.env.example` pour la liste complète (dont les valeurs valides d'`ATR_TIMEFRAME`). Le token est lié à une
-session cTrader Web active : s'il expire (401), il faut le régénérer depuis les mêmes réglages.
+Le token est lié à une session cTrader Web active : s'il expire (401), il faut le régénérer depuis les mêmes réglages.
 
 ## Utilisation
 
