@@ -65,10 +65,22 @@ export interface PreparedTrade {
  * revoir si d'autres classes d'actifs sont ajoutées un jour (lotSize/valeur du point
  * diffèrent : forex, indices, crypto).
  */
+const LOT_VOLUME = 10_000; // 1.00 lot en unités API (pour l'affichage, cf. volumeLots)
+// Pas/minimum de volume imposés par ce compte sur XAUUSD : 0.01 lot (confirmé via la
+// plateforme du broker — pas de dropdown 0.01→1.00 lot par incréments de 0.01).
+const VOLUME_STEP = 100; // 0.01 lot
+
 function computeVolume(riskAmount: number, stopDistance: number): number {
   if (stopDistance <= 0) throw new Error("Distance de stop invalide (SL identique à l'entrée ?)");
   const ounces = riskAmount / stopDistance;
-  return Math.floor(ounces * 100);
+  const volume = Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
+  if (volume < VOLUME_STEP) {
+    throw new Error(
+      `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
+        "(0.01 lot) — augmente le risque% ou resserre le stop",
+    );
+  }
+  return volume;
 }
 
 function toPoints(priceDistance: number): number {
@@ -173,8 +185,6 @@ export async function prepareTrade(
   const targetDistance = Math.abs(entryPrice - takeProfit);
   const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
   const volume = computeVolume(riskAmount, stopDistance);
-  if (volume <= 0)
-    throw new Error("Volume calculé nul — risque trop faible ou stop trop large pour ce compte");
 
   return {
     orderType,
@@ -183,7 +193,7 @@ export async function prepareTrade(
     stopLoss,
     takeProfit,
     volume,
-    volumeLots: volume / 10_000,
+    volumeLots: volume / LOT_VOLUME,
     riskAmount,
     riskPercent: input.riskPercent,
     rewardAmount: (volume / 100) * targetDistance,
@@ -216,36 +226,108 @@ export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): Cre
   };
 }
 
-export const TRADE_USAGE = "usage : trade <buy|sell> <entry|market> <risque%> [sl] [tp]";
+export const TRADE_USAGE =
+  "usage : trade <buy|sell> --risk <%> [--entry <prix|market>] [--sl <prix>] [--tp <prix>]  " +
+  "(raccourcis -r -e -sl -tp ; entry par défaut market ; sl/tp omis → calculés à l'ATR)";
+
+/**
+ * Parseur minimal `--flag valeur` / `-f valeur` (style CLI, ordre libre). `aliases` mappe une
+ * clé logique vers ses formes acceptées sur la ligne de commande.
+ */
+function parseFlags(
+  args: string[],
+  aliases: Record<string, string[]>,
+): Record<string, string> | string {
+  const flagToKey = new Map<string, string>();
+  for (const [key, flags] of Object.entries(aliases)) {
+    for (const flag of flags) flagToKey.set(flag, key);
+  }
+
+  const result: Record<string, string> = {};
+  for (let i = 0; i < args.length; i += 2) {
+    const flag = args[i];
+    const key = flag && flagToKey.get(flag);
+    if (!key) return `option inconnue : "${flag ?? ""}"`;
+    const value = args[i + 1];
+    if (value === undefined) return `valeur manquante pour ${flag}`;
+    result[key] = value;
+  }
+  return result;
+}
 
 /** Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
 export function parseTradeCommand(args: string[]): TradeInput | string {
-  if (args.length !== 3 && args.length !== 5) return TRADE_USAGE;
-
   const sideRaw = args[0]?.toUpperCase();
   if (sideRaw !== "BUY" && sideRaw !== "SELL") {
-    return `direction invalide : "${args[0] ?? ""}" (buy/sell attendu)`;
+    return `direction invalide : "${args[0] ?? ""}" (buy/sell attendu) — ${TRADE_USAGE}`;
   }
 
-  const entryRaw = args[1]?.toLowerCase();
-  const entry = entryRaw === "market" ? "market" : Number(args[1]);
+  const flags = parseFlags(args.slice(1), {
+    risk: ["-r", "--risk"],
+    entry: ["-e", "--entry"],
+    sl: ["-sl", "--sl"],
+    tp: ["-tp", "--tp"],
+  });
+  if (typeof flags === "string") return `${flags} — ${TRADE_USAGE}`;
+
+  if (flags.risk === undefined) return `--risk requis — ${TRADE_USAGE}`;
+  const riskPercent = Number(flags.risk);
+  if (!Number.isFinite(riskPercent)) return `risque invalide : "${flags.risk}"`;
+
+  const entryRaw = flags.entry?.toLowerCase() ?? "market";
+  const entry = entryRaw === "market" ? "market" : Number(flags.entry);
   if (entry !== "market" && !Number.isFinite(entry)) {
-    return `entrée invalide : "${args[1] ?? ""}"`;
+    return `entrée invalide : "${flags.entry ?? ""}"`;
   }
-
-  const riskPercent = Number(args[2]);
-  if (!Number.isFinite(riskPercent)) return `risque invalide : "${args[2] ?? ""}"`;
 
   let stopLoss: number | undefined;
+  if (flags.sl !== undefined) {
+    stopLoss = Number(flags.sl);
+    if (!Number.isFinite(stopLoss)) return `sl invalide : "${flags.sl}"`;
+  }
+
   let takeProfit: number | undefined;
-  if (args.length === 5) {
-    stopLoss = Number(args[3]);
-    if (!Number.isFinite(stopLoss)) return `sl invalide : "${args[3] ?? ""}"`;
-    takeProfit = Number(args[4]);
-    if (!Number.isFinite(takeProfit)) return `tp invalide : "${args[4] ?? ""}"`;
+  if (flags.tp !== undefined) {
+    takeProfit = Number(flags.tp);
+    if (!Number.isFinite(takeProfit)) return `tp invalide : "${flags.tp}"`;
   }
 
   return { side: sideRaw, entry, riskPercent, stopLoss, takeProfit };
+}
+
+export interface ModifyInput {
+  id: number;
+  stopLoss?: number;
+  takeProfit?: number;
+}
+
+export const MODIFY_USAGE = "usage : modify <id> [--sl <prix>] [--tp <prix>]  (raccourcis -sl -tp)";
+
+/** Retourne le `ModifyInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
+export function parseModifyCommand(args: string[]): ModifyInput | string {
+  const id = Number(args[0]);
+  if (!Number.isFinite(id)) return `id invalide : "${args[0] ?? ""}" — ${MODIFY_USAGE}`;
+
+  const flags = parseFlags(args.slice(1), { sl: ["-sl", "--sl"], tp: ["-tp", "--tp"] });
+  if (typeof flags === "string") return `${flags} — ${MODIFY_USAGE}`;
+
+  let stopLoss: number | undefined;
+  if (flags.sl !== undefined) {
+    stopLoss = Number(flags.sl);
+    if (!Number.isFinite(stopLoss)) return `sl invalide : "${flags.sl}"`;
+  }
+
+  let takeProfit: number | undefined;
+  if (flags.tp !== undefined) {
+    takeProfit = Number(flags.tp);
+    if (!Number.isFinite(takeProfit)) return `tp invalide : "${flags.tp}"`;
+  }
+
+  if (stopLoss === undefined && takeProfit === undefined) {
+    return `au moins --sl ou --tp requis — ${MODIFY_USAGE}`;
+  }
+
+  return { id, stopLoss, takeProfit };
 }
 
 export function formatTradeSummary(trade: PreparedTrade): string {

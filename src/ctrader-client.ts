@@ -9,11 +9,14 @@
  * await client.close();
  * ```
  *
- * Les types de résultat marqués « non vérifié » n'ont pas pu être confirmés contre
- * un payload réel (aucune position/ordre disponible côté serveur, ou outil
- * volontairement jamais appelé — cf. amendPosition/closePosition/createOrder/
- * amendOrder/cancelOrder, jamais exercés sur le compte réel). Les paramètres, eux,
- * sont fidèles au JSON Schema exposé par le serveur.
+ * `CtraderOrder` et `CtraderDeal` ont été vérifiés contre de vrais payloads
+ * (get_order_history / get_deals, compte réel, symbole XAUUSD). `CtraderPosition`
+ * et `GetPositionDetailsResult` restent des types marqués « non vérifié » :
+ * aucune position n'était ouverte lors du dernier test (10/07/2026) et il n'y a
+ * pas de compte démo pour en ouvrir une sans risque. Les outils d'écriture
+ * (amendPosition/closePosition/createOrder/amendOrder/cancelOrder) restent eux
+ * aussi jamais exercés sur le compte réel. Les paramètres, eux, sont fidèles au
+ * JSON Schema exposé par le serveur.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -214,12 +217,53 @@ export interface GetTrendbarsResult {
   period: TrendbarPeriod;
 }
 
-/** Structure non vérifiée : aucune position ouverte au moment de l'implémentation. */
+/** Structure non vérifiée : aucune position ouverte au moment des tests (pas de compte démo disponible). */
 export type CtraderPosition = Record<string, unknown>;
-/** Structure non vérifiée : aucun ordre en attente au moment de l'implémentation. */
-export type CtraderOrder = Record<string, unknown>;
-/** Structure non vérifiée : aucun deal sur la fenêtre testée. */
-export type CtraderDeal = Record<string, unknown>;
+
+/**
+ * Type d'ordre tel que renvoyé par get_order_history, en plus de `OrderType` : le
+ * serveur y inclut aussi les ordres SL/TP générés automatiquement pour une position.
+ */
+export type HistoricalOrderType = OrderType | "STOP_LOSS_TAKE_PROFIT";
+
+/**
+ * Vérifié via get_order_history (10 ordres réels, XAUUSD). Les champs propres aux
+ * ordres *en attente* (label, comment, timeInForce, expirationTimestamp, statut)
+ * restent non vérifiés : aucun ordre pending observé lors du test.
+ */
+export interface CtraderOrder {
+  orderId: number;
+  symbolId: number;
+  orderType: HistoricalOrderType;
+  tradeSide: TradeSide;
+  /** 1/100 d'unité d'actif de base, comme dans CreateOrderParams */
+  volume: number;
+  /** Prix affiché, présent sur LIMIT/STOP_LIMIT */
+  limitPrice?: number;
+  /** Prix affiché, présent sur STOP/STOP_LIMIT */
+  stopPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+}
+
+/** Vérifié via get_deals (4 deals réels, XAUUSD). */
+export interface CtraderDeal {
+  dealId: number;
+  orderId: number;
+  positionId: number;
+  symbolId: number;
+  tradeSide: TradeSide;
+  volume: number;
+  filledVolume: number;
+  /** Prix affiché (pas à l'échelle x10^5, contrairement à CtraderSpotPrice/CtraderTrendbar) */
+  executionPrice: number;
+  /** Epoch ms */
+  executionTimestamp: number;
+  /** Seule valeur observée : "FILLED". Les autres statuts possibles ne sont pas vérifiés. */
+  dealStatus: string;
+  /** Valeur signée à l'échelle moneyDigits (négatif = coût) */
+  commission: number;
+}
 
 export interface GetPositionsResult {
   positions: CtraderPosition[];

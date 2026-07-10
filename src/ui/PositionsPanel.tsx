@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core";
-import type { GetPositionsResult } from "../ctrader-client.ts";
-import { alignLeft, alignRight, formatDuration, formatPrice } from "./format.ts";
+import type { CtraderOrder, GetPositionsResult } from "../ctrader-client.ts";
+import { alignLeft, alignRight, formatDuration } from "./format.ts";
 import { theme } from "./theme.ts";
 
 interface PositionsPanelProps {
@@ -24,13 +24,13 @@ const UP = "▲";
 const DOWN = "▼";
 
 /**
- * `CtraderPosition`/`CtraderOrder` sont typés `Record<string, unknown>` : leur
- * forme exacte n'a jamais pu être vérifiée contre un payload réel (compte
- * démo sans position ouverte au moment de l'implémentation). Ces lecteurs
- * essaient plusieurs noms de champ plausibles (convention "prix affiché"
- * observée sur le reste de l'API) et retombent sur "—" plutôt que d'inventer
- * une valeur. À corriger avec les vrais noms dès qu'une position réelle
- * passe par ici.
+ * `CtraderPosition` reste typé `Record<string, unknown>` : sa forme exacte n'a
+ * jamais pu être vérifiée contre un payload réel (pas de compte démo, aucune
+ * position ouverte lors des tests). Ces lecteurs essaient plusieurs noms de
+ * champ plausibles (convention "prix affiché" observée sur le reste de
+ * l'API, cf. `CtraderOrder`/`CtraderDeal` dans ctrader-client.ts) et
+ * retombent sur "—" plutôt que d'inventer une valeur. À corriger avec les
+ * vrais noms dès qu'une position réelle passe par ici.
  */
 function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
   for (const key of keys) {
@@ -50,6 +50,7 @@ function readString(record: Record<string, unknown>, keys: string[]): string | u
 
 function readPosition(position: Record<string, unknown>) {
   return {
+    id: readNumber(position, ["positionId", "id"]),
     symbol:
       readString(position, ["symbolName", "symbol"]) ??
       String(readNumber(position, ["symbolId"]) ?? "—"),
@@ -95,12 +96,14 @@ function PositionRow({ position, now }: { position: Record<string, unknown>; now
 
   return (
     <text>
-      <span fg={theme.text}>{alignLeft(p.symbol, COLUMNS.symbol)}</span>
+      <span fg={theme.text}>
+        {alignLeft(p.id === undefined ? p.symbol : String(p.id), COLUMNS.symbol)}
+      </span>
       <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
       <span fg={theme.text}>{alignRight(p.volumeLots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
-      <span fg={theme.text}>{alignRight(formatPrice(p.entry), COLUMNS.entry)}</span>
-      <span fg={theme.red}>{alignRight(formatPrice(p.stopLoss), COLUMNS.sl)}</span>
-      <span fg={theme.green}>{alignRight(formatPrice(p.takeProfit), COLUMNS.tp)}</span>
+      <span fg={theme.text}>{alignRight(fmt(p.entry), COLUMNS.entry)}</span>
+      <span fg={theme.red}>{alignRight(fmt(p.stopLoss), COLUMNS.sl)}</span>
+      <span fg={theme.green}>{alignRight(fmt(p.takeProfit), COLUMNS.tp)}</span>
       <span fg={theme.textDim}>{alignRight(p.swap?.toFixed(2) ?? "—", COLUMNS.swap)}</span>
       <span fg={pnlColor}>{alignRight(pnlLabel, COLUMNS.pnl)}</span>
       <span fg={theme.textDim}>{alignRight(age, COLUMNS.age)}</span>
@@ -108,22 +111,40 @@ function PositionRow({ position, now }: { position: Record<string, unknown>; now
   );
 }
 
-function OrderRow({ order }: { order: Record<string, unknown> }) {
-  const symbol =
-    readString(order, ["symbolName", "symbol"]) ?? String(readNumber(order, ["symbolId"]) ?? "—");
-  const side = readString(order, ["tradeSide", "side"]);
-  const orderType = readString(order, ["orderType", "type"]) ?? "PENDING";
-  const limitPrice = readNumber(order, ["limitPrice"]);
-  const stopPrice = readNumber(order, ["stopPrice"]);
+function fmt(price: number | undefined): string {
+  return price === undefined ? "—" : price.toFixed(2);
+}
+
+function orderHeaderRow() {
+  return (
+    <text fg={theme.textDim} attributes={TextAttributes.BOLD}>
+      {alignLeft("ID", COLUMNS.symbol)}
+      {alignLeft("SIDE", COLUMNS.side + 6)}
+      {alignRight("VOL", COLUMNS.volume)}
+      {alignRight("PRIX", COLUMNS.entry)}
+      {alignRight("SL", COLUMNS.sl)}
+      {alignRight("TP", COLUMNS.tp)}
+    </text>
+  );
+}
+
+function OrderRow({ order }: { order: CtraderOrder }) {
+  const side = order.tradeSide;
   const sideColor = side === "SELL" ? theme.red : side === "BUY" ? theme.green : theme.textDim;
-  const sideLabel = side === "BUY" ? `${UP} BUY` : side === "SELL" ? `${DOWN} SELL` : "—";
+  const sideLabel = `${side === "BUY" ? UP : side === "SELL" ? DOWN : "—"} ${side ?? "—"} ${order.orderType}`;
+  // limitPrice/stopPrice/stopLoss/takeProfit sont des "prix affichés" (cf. commentaire sur
+  // CtraderOrder) — contrairement aux prix bruts x10^5 de CtraderSpotPrice/CtraderTrendbar,
+  // ne PAS passer par formatPrice() ici (ça les redivisait par 100 000 en trop).
+  const price = order.limitPrice ?? order.stopPrice;
 
   return (
     <text>
-      <span fg={theme.text}>{alignLeft(symbol, COLUMNS.symbol)}</span>
-      <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
-      <span fg={theme.textDim}>{alignLeft(orderType, COLUMNS.volume + COLUMNS.entry)}</span>
-      <span fg={theme.textDim}>{alignRight(formatPrice(limitPrice ?? stopPrice), COLUMNS.sl)}</span>
+      <span fg={theme.text}>{alignLeft(String(order.orderId), COLUMNS.symbol)}</span>
+      <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side + 6)}</span>
+      <span fg={theme.text}>{alignRight((order.volume / 10_000).toFixed(2), COLUMNS.volume)}</span>
+      <span fg={theme.text}>{alignRight(fmt(price), COLUMNS.entry)}</span>
+      <span fg={theme.red}>{alignRight(fmt(order.stopLoss), COLUMNS.sl)}</span>
+      <span fg={theme.green}>{alignRight(fmt(order.takeProfit), COLUMNS.tp)}</span>
     </text>
   );
 }
@@ -166,9 +187,9 @@ export function PositionsPanel({ positions, now }: PositionsPanelProps) {
           <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
             — ordres en attente —
           </text>
-          {pendingOrders.map((order, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: idem, orderId non vérifié
-            <OrderRow key={index} order={order} />
+          {orderHeaderRow()}
+          {pendingOrders.map((order) => (
+            <OrderRow key={order.orderId} order={order} />
           ))}
         </box>
       )}

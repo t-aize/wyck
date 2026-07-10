@@ -30,8 +30,14 @@ function showTemporaryFeedback(
  * (OSC 52, marche même sans clipboard système local — le terminal s'en charge).
  * Ctrl+C ne quitte pas au premier coup : il faut confirmer dans les 2s, sinon
  * il est réarmé. Nécessite `exitOnCtrlC: false` sur le renderer.
+ * Comportement façon shell : si la commande a du texte, Ctrl+C vide la ligne
+ * au lieu d'armer la sortie (`tryClearInput` renvoie true si elle a effacé
+ * quelque chose).
  */
-export function useTerminalShortcuts(setFeedback: Dispatch<SetStateAction<Feedback>>): void {
+export function useTerminalShortcuts(
+  setFeedback: Dispatch<SetStateAction<Feedback>>,
+  tryClearInput: () => boolean,
+): void {
   const renderer = useRenderer();
   const quitArmedRef = useRef(false);
   const quitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -49,6 +55,7 @@ export function useTerminalShortcuts(setFeedback: Dispatch<SetStateAction<Feedba
 
   useKeyboard((key) => {
     if (key.name !== "c" || !key.ctrl) return;
+    if (tryClearInput()) return;
 
     if (quitArmedRef.current) {
       renderer.destroy();
