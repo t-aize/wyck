@@ -1,8 +1,9 @@
 # aurum
 
 Panel de trading en terminal pour **XAUUSD**, écrit en TypeScript + [Bun](https://bun.sh), avec une
-UI [OpenTUI](https://opentui.com) et connecté en direct au serveur MCP de cTrader. Trois champs à remplir — **entrée**,*
-*direction**, **risque** — le reste (SL sur l'ATR, TP en RR, taille de position) est calculé automatiquement.
+UI [OpenTUI](https://opentui.com) et connecté en direct au serveur MCP de cTrader. Tout se pilote par une ligne de
+commande façon shell : `trade`, `modify`, `cancel`. SL/TP/direction sont donnés à la main, la taille de position se
+calcule automatiquement à partir du risque en % de l'équity.
 
 Projet perso, privé, pensé pour un usage solo — pas d'objectif de distribution publique pour l'instant.
 
@@ -47,70 +48,15 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
-## Utilisation
-
-```bash
-bun run dev     # hot reload
-bun run start   # normal
-```
-
-| Touche  | Action                                     |
-|---------|--------------------------------------------|
-| `Tab`   | Naviguer entre les champs                  |
-| `Enter` | Calculer SL/TP/volume et afficher le récap |
-| `Y`     | Confirmer et envoyer l'ordre               |
-| `Esc`   | Annuler                                    |
-| `Q`     | Quitter                                    |
-
-## Compilation
-
-```bash
-bun build ./src/index.ts --compile --minify --outfile ./dist/aurum
-```
-
-`.env` doit rester à côté du binaire au lancement (il n'est pas embarqué dedans). Pour cross-compiler, ajouter
-`--target=bun-linux-x64` / `bun-darwin-arm64` / `bun-windows-x64`.
-
 ## Découvrir les tools MCP disponibles
 
 La doc cTrader décrit son MCP sous forme de prompts en langage naturel, pas d'un schéma figé — comme le panel appelle
-les tools directement (sans LLM), un petit script pour lister ce qui est réellement exposé est utile avant d'implémenter
-le client :
-
-```ts
-// scripts/list-tools.ts
-import {Client} from "@modelcontextprotocol/sdk/client/index.js";
-import {StreamableHTTPClientTransport} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-
-const transport = new StreamableHTTPClientTransport(
-    new URL(process.env.CTRADER_MCP_URL!),
-    {requestInit: {headers: {Authorization: `Bearer ${process.env.CTRADER_MCP_TOKEN}`}}},
-);
-
-const client = new Client({name: "aurum", version: "0.1.0"});
-await client.connect(transport);
-
-const {tools} = await client.listTools();
-for (const tool of tools) {
-    console.log(tool.name, "→", tool.description);
-    console.log(JSON.stringify(tool.inputSchema, null, 2));
-}
-
-await transport.close();
-```
+les tools directement (sans LLM), `scripts/list-tools.ts` liste ce qui est réellement exposé (même config que l'app,
+lue dans `~/.aurum/config.json`) :
 
 ```bash
-bun run scripts/list-tools.ts
+bun run mcp:tools
 ```
-
-## Roadmap
-
-- [ ] Formulaire (entrée / direction / risque) + validation
-- [ ] ATR + SL/TP + sizing
-- [ ] Écran de confirmation
-- [ ] Tableau des positions ouvertes avec P&L live
-- [ ] RR configurable par trade (pas juste en `.env`)
-- [ ] Historique local des ordres passés
 
 ## Ressources
 
