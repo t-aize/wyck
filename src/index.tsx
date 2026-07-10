@@ -218,15 +218,36 @@ export function App() {
     }
   }
 
+  /** Cycle commun aux confirmations d'ordre : feedback "en cours" → action → feedback succès/erreur. */
+  function runOrderAction(opts: {
+    pending: string;
+    action: () => Promise<unknown>;
+    success: () => string;
+    errorPrefix: string;
+    refreshAfter?: boolean;
+  }): void {
+    setFeedback({ kind: "info", message: opts.pending });
+    void opts.action().then(
+      () => {
+        setFeedback({ kind: "success", message: opts.success() });
+        if (opts.refreshAfter) void refreshMarket();
+      },
+      (error) =>
+        setFeedback({ kind: "error", message: `${opts.errorPrefix} : ${toMessage(error)}` }),
+    );
+  }
+
   function confirmPendingTrade() {
     if (!pendingTrade || !symbolId) return;
-    const summary = formatTradeSummary(pendingTrade);
+    const trade = pendingTrade;
+    const summary = formatTradeSummary(trade);
     setPendingTrade(undefined);
-    setFeedback({ kind: "info", message: "envoi de l'ordre…" });
-    void client.createOrder(toCreateOrderParams(symbolId, pendingTrade)).then(
-      () => setFeedback({ kind: "success", message: `ordre envoyé : ${summary}` }),
-      (error) => setFeedback({ kind: "error", message: `échec envoi : ${toMessage(error)}` }),
-    );
+    runOrderAction({
+      pending: "envoi de l'ordre…",
+      action: () => client.createOrder(toCreateOrderParams(symbolId, trade)),
+      success: () => `ordre envoyé : ${summary}`,
+      errorPrefix: "échec envoi",
+    });
   }
 
   function cancelPendingTrade() {
@@ -238,15 +259,13 @@ export function App() {
     if (!pendingModify) return;
     const { order, stopLoss, takeProfit } = pendingModify;
     setPendingModify(undefined);
-    setFeedback({ kind: "info", message: "modification en cours…" });
-    void client.amendOrder({ orderId: order.orderId, stopLoss, takeProfit }).then(
-      () => {
-        setFeedback({ kind: "success", message: `ordre ${order.orderId} modifié` });
-        void refreshMarket();
-      },
-      (error) =>
-        setFeedback({ kind: "error", message: `échec modification : ${toMessage(error)}` }),
-    );
+    runOrderAction({
+      pending: "modification en cours…",
+      action: () => client.amendOrder({ orderId: order.orderId, stopLoss, takeProfit }),
+      success: () => `ordre ${order.orderId} modifié`,
+      errorPrefix: "échec modification",
+      refreshAfter: true,
+    });
   }
 
   function cancelPendingModify() {
@@ -258,14 +277,13 @@ export function App() {
     if (!pendingCancel) return;
     const orderId = pendingCancel.orderId;
     setPendingCancel(undefined);
-    setFeedback({ kind: "info", message: "annulation en cours…" });
-    void client.cancelOrder({ orderId }).then(
-      () => {
-        setFeedback({ kind: "success", message: `ordre ${orderId} annulé` });
-        void refreshMarket();
-      },
-      (error) => setFeedback({ kind: "error", message: `échec annulation : ${toMessage(error)}` }),
-    );
+    runOrderAction({
+      pending: "annulation en cours…",
+      action: () => client.cancelOrder({ orderId }),
+      success: () => `ordre ${orderId} annulé`,
+      errorPrefix: "échec annulation",
+      refreshAfter: true,
+    });
   }
 
   function dismissPendingCancel() {

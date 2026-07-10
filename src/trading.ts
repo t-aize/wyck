@@ -247,6 +247,17 @@ function parseFlags(
   return result;
 }
 
+/** Parse un flag `--sl`/`--tp` optionnel : absent → `{}`, invalide → `{ error }`. */
+function parseOptionalPrice(
+  raw: string | undefined,
+  label: string,
+): { value?: number; error?: string } {
+  if (raw === undefined) return {};
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return { error: `${label} invalide : "${raw}"` };
+  return { value };
+}
+
 /** Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
 export function parseTradeCommand(args: string[]): TradeInput | string {
   const sideRaw = args[0]?.toUpperCase();
@@ -272,19 +283,12 @@ export function parseTradeCommand(args: string[]): TradeInput | string {
     return `entrée invalide : "${flags.entry ?? ""}"`;
   }
 
-  let stopLoss: number | undefined;
-  if (flags.sl !== undefined) {
-    stopLoss = Number(flags.sl);
-    if (!Number.isFinite(stopLoss)) return `sl invalide : "${flags.sl}"`;
-  }
+  const sl = parseOptionalPrice(flags.sl, "sl");
+  if (sl.error) return sl.error;
+  const tp = parseOptionalPrice(flags.tp, "tp");
+  if (tp.error) return tp.error;
 
-  let takeProfit: number | undefined;
-  if (flags.tp !== undefined) {
-    takeProfit = Number(flags.tp);
-    if (!Number.isFinite(takeProfit)) return `tp invalide : "${flags.tp}"`;
-  }
-
-  return { side: sideRaw, entry, riskPercent, stopLoss, takeProfit };
+  return { side: sideRaw, entry, riskPercent, stopLoss: sl.value, takeProfit: tp.value };
 }
 
 export interface ModifyInput {
@@ -303,23 +307,16 @@ export function parseModifyCommand(args: string[]): ModifyInput | string {
   const flags = parseFlags(args.slice(1), { sl: ["-sl", "--sl"], tp: ["-tp", "--tp"] });
   if (typeof flags === "string") return `${flags} — ${MODIFY_USAGE}`;
 
-  let stopLoss: number | undefined;
-  if (flags.sl !== undefined) {
-    stopLoss = Number(flags.sl);
-    if (!Number.isFinite(stopLoss)) return `sl invalide : "${flags.sl}"`;
-  }
+  const sl = parseOptionalPrice(flags.sl, "sl");
+  if (sl.error) return sl.error;
+  const tp = parseOptionalPrice(flags.tp, "tp");
+  if (tp.error) return tp.error;
 
-  let takeProfit: number | undefined;
-  if (flags.tp !== undefined) {
-    takeProfit = Number(flags.tp);
-    if (!Number.isFinite(takeProfit)) return `tp invalide : "${flags.tp}"`;
-  }
-
-  if (stopLoss === undefined && takeProfit === undefined) {
+  if (sl.value === undefined && tp.value === undefined) {
     return `au moins --sl ou --tp requis — ${MODIFY_USAGE}`;
   }
 
-  return { id, stopLoss, takeProfit };
+  return { id, stopLoss: sl.value, takeProfit: tp.value };
 }
 
 export function formatTradeSummary(trade: PreparedTrade): string {
