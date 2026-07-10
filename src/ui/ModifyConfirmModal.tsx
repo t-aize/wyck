@@ -1,5 +1,6 @@
 import { useKeyboard } from "@opentui/react";
 import type { CtraderOrder } from "../ctrader-client.ts";
+import { formatPriceOrDash } from "./format.ts";
 import { theme } from "./theme.ts";
 
 interface ModifyConfirmModalProps {
@@ -17,10 +18,6 @@ function Row({ label, value, fg }: { label: string; value: string; fg?: string }
       <text fg={fg ?? theme.text}>{value}</text>
     </box>
   );
-}
-
-function fmt(price: number | undefined): string {
-  return price === undefined ? "—" : price.toFixed(2);
 }
 
 export function ModifyConfirmModal({
@@ -65,14 +62,14 @@ export function ModifyConfirmModal({
         {stopLoss !== undefined && (
           <Row
             label="Stop loss"
-            value={`${fmt(order.stopLoss)} → ${fmt(stopLoss)}`}
+            value={`${formatPriceOrDash(order.stopLoss)} → ${formatPriceOrDash(stopLoss)}`}
             fg={theme.red}
           />
         )}
         {takeProfit !== undefined && (
           <Row
             label="Take profit"
-            value={`${fmt(order.takeProfit)} → ${fmt(takeProfit)}`}
+            value={`${formatPriceOrDash(order.takeProfit)} → ${formatPriceOrDash(takeProfit)}`}
             fg={theme.green}
           />
         )}

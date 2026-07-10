@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
-import { TRENDBAR_PERIODS } from "./ctrader-types.ts";
+import { TRENDBAR_PERIODS } from "./constants.ts";
 
 export const env = createEnv({
   server: {

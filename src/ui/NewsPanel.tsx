@@ -1,6 +1,12 @@
 import { TextAttributes } from "@opentui/core";
 import { useMemo } from "react";
-import { type CalendarEvent, classifyImpact, isGoldRelevant, parisDayKey } from "../news.ts";
+import {
+  type CalendarEvent,
+  classifyImpact,
+  isGoldRelevant,
+  PARIS_TZ,
+  parisDayKey,
+} from "../news.ts";
 import { alignLeft, formatRelative } from "./format.ts";
 import { theme } from "./theme.ts";
 
@@ -10,7 +16,6 @@ interface NewsPanelProps {
   now: Date;
 }
 
-const PARIS_TZ = "Europe/Paris";
 const timeFormat = new Intl.DateTimeFormat("fr-FR", {
   timeZone: PARIS_TZ,
   hour: "2-digit",

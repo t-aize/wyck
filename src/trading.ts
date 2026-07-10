@@ -10,6 +10,7 @@
  * lecture des données brutes.
  */
 
+import { LOT_VOLUME, PRICE_SCALE } from "./constants.ts";
 import type {
   CreateOrderParams,
   CtraderClient,
@@ -18,8 +19,6 @@ import type {
   TrendbarPeriod,
 } from "./ctrader-client.ts";
 import { env } from "./env.ts";
-
-const PRICE_SCALE = 100_000;
 
 const PERIOD_MS: Record<TrendbarPeriod, number> = {
   M_1: 60_000,
@@ -59,13 +58,6 @@ export interface PreparedTrade {
   rewardAmount: number;
 }
 
-/**
- * XAUUSD (métaux) : 1 lot = 100 onces, prix coté en $/once. Volume API = onces × 100
- * (cf. commentaire équivalent dans PositionsPanel.tsx). Seul symbole tradé ici — à
- * revoir si d'autres classes d'actifs sont ajoutées un jour (lotSize/valeur du point
- * diffèrent : forex, indices, crypto).
- */
-const LOT_VOLUME = 10_000; // 1.00 lot en unités API (pour l'affichage, cf. volumeLots)
 // Pas/minimum de volume imposés par ce compte sur XAUUSD : 0.01 lot (confirmé via la
 // plateforme du broker — pas de dropdown 0.01→1.00 lot par incréments de 0.01).
 const VOLUME_STEP = 100; // 0.01 lot

@@ -3,6 +3,7 @@ import { createRoot } from "@opentui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CtraderClient, type CtraderOrder, type GetPositionsResult } from "./ctrader-client.ts";
 import { env } from "./env.ts";
+import { toMessage } from "./errors.ts";
 import { type CalendarEvent, fetchCalendar } from "./news.ts";
 import {
   formatTradeSummary,
@@ -69,7 +70,7 @@ export function App() {
         setSymbolId(symbol.symbolId);
         setConnected(true);
       } catch (error) {
-        if (!cancelled) setConnectionError(error instanceof Error ? error.message : String(error));
+        if (!cancelled) setConnectionError(toMessage(error));
       }
     })();
 
@@ -95,7 +96,7 @@ export function App() {
         setPositions(pos);
         setConnectionError(undefined);
       } catch (error) {
-        setConnectionError(error instanceof Error ? error.message : String(error));
+        setConnectionError(toMessage(error));
       }
     },
     [client, symbolId],
@@ -118,7 +119,7 @@ export function App() {
           setCalendar(await fetchCalendar(options));
           setNewsError(undefined);
         } catch (error) {
-          setNewsError(error instanceof Error ? error.message : String(error));
+          setNewsError(toMessage(error));
         }
       },
     [],
@@ -164,11 +165,7 @@ export function App() {
             setPendingTrade(trade);
             setFeedback({ kind: "info", message: "trade calculé — confirme dans la popup" });
           },
-          (error) =>
-            setFeedback({
-              kind: "error",
-              message: error instanceof Error ? error.message : String(error),
-            }),
+          (error) => setFeedback({ kind: "error", message: toMessage(error) }),
         );
         return;
       }
@@ -228,11 +225,7 @@ export function App() {
     setFeedback({ kind: "info", message: "envoi de l'ordre…" });
     void client.createOrder(toCreateOrderParams(symbolId, pendingTrade)).then(
       () => setFeedback({ kind: "success", message: `ordre envoyé : ${summary}` }),
-      (error) =>
-        setFeedback({
-          kind: "error",
-          message: `échec envoi : ${error instanceof Error ? error.message : String(error)}`,
-        }),
+      (error) => setFeedback({ kind: "error", message: `échec envoi : ${toMessage(error)}` }),
     );
   }
 
@@ -252,10 +245,7 @@ export function App() {
         void refreshMarket();
       },
       (error) =>
-        setFeedback({
-          kind: "error",
-          message: `échec modification : ${error instanceof Error ? error.message : String(error)}`,
-        }),
+        setFeedback({ kind: "error", message: `échec modification : ${toMessage(error)}` }),
     );
   }
 
@@ -274,11 +264,7 @@ export function App() {
         setFeedback({ kind: "success", message: `ordre ${orderId} annulé` });
         void refreshMarket();
       },
-      (error) =>
-        setFeedback({
-          kind: "error",
-          message: `échec annulation : ${error instanceof Error ? error.message : String(error)}`,
-        }),
+      (error) => setFeedback({ kind: "error", message: `échec annulation : ${toMessage(error)}` }),
     );
   }
 

@@ -1,6 +1,8 @@
 import { TextAttributes } from "@opentui/core";
+import { toLots } from "../constants.ts";
 import type { CtraderOrder, GetPositionsResult } from "../ctrader-client.ts";
-import { alignLeft, alignRight, formatDuration } from "./format.ts";
+import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "./format.ts";
+import { DOWN, UP } from "./glyphs.ts";
 import { theme } from "./theme.ts";
 
 interface PositionsPanelProps {
@@ -19,9 +21,6 @@ const COLUMNS = {
   pnl: 13,
   age: 7,
 } as const;
-
-const UP = "▲";
-const DOWN = "▼";
 
 /**
  * `CtraderPosition` reste typé `Record<string, unknown>` : sa forme exacte n'a
@@ -59,7 +58,7 @@ function readPosition(position: Record<string, unknown>) {
     // seul symbole tradé par ce panel — à revoir si d'autres classes d'actifs sont ajoutées un jour.
     volumeLots: (() => {
       const raw = readNumber(position, ["volume"]);
-      return raw === undefined ? undefined : raw / 10_000;
+      return raw === undefined ? undefined : toLots(raw);
     })(),
     entry: readNumber(position, ["entryPrice", "price"]),
     stopLoss: readNumber(position, ["stopLoss"]),
@@ -101,18 +100,14 @@ function PositionRow({ position, now }: { position: Record<string, unknown>; now
       </span>
       <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
       <span fg={theme.text}>{alignRight(p.volumeLots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
-      <span fg={theme.text}>{alignRight(fmt(p.entry), COLUMNS.entry)}</span>
-      <span fg={theme.red}>{alignRight(fmt(p.stopLoss), COLUMNS.sl)}</span>
-      <span fg={theme.green}>{alignRight(fmt(p.takeProfit), COLUMNS.tp)}</span>
+      <span fg={theme.text}>{alignRight(formatPriceOrDash(p.entry), COLUMNS.entry)}</span>
+      <span fg={theme.red}>{alignRight(formatPriceOrDash(p.stopLoss), COLUMNS.sl)}</span>
+      <span fg={theme.green}>{alignRight(formatPriceOrDash(p.takeProfit), COLUMNS.tp)}</span>
       <span fg={theme.textDim}>{alignRight(p.swap?.toFixed(2) ?? "—", COLUMNS.swap)}</span>
       <span fg={pnlColor}>{alignRight(pnlLabel, COLUMNS.pnl)}</span>
       <span fg={theme.textDim}>{alignRight(age, COLUMNS.age)}</span>
     </text>
   );
-}
-
-function fmt(price: number | undefined): string {
-  return price === undefined ? "—" : price.toFixed(2);
 }
 
 function orderHeaderRow() {
@@ -141,10 +136,10 @@ function OrderRow({ order }: { order: CtraderOrder }) {
     <text>
       <span fg={theme.text}>{alignLeft(String(order.orderId), COLUMNS.symbol)}</span>
       <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side + 6)}</span>
-      <span fg={theme.text}>{alignRight((order.volume / 10_000).toFixed(2), COLUMNS.volume)}</span>
-      <span fg={theme.text}>{alignRight(fmt(price), COLUMNS.entry)}</span>
-      <span fg={theme.red}>{alignRight(fmt(order.stopLoss), COLUMNS.sl)}</span>
-      <span fg={theme.green}>{alignRight(fmt(order.takeProfit), COLUMNS.tp)}</span>
+      <span fg={theme.text}>{alignRight(toLots(order.volume).toFixed(2), COLUMNS.volume)}</span>
+      <span fg={theme.text}>{alignRight(formatPriceOrDash(price), COLUMNS.entry)}</span>
+      <span fg={theme.red}>{alignRight(formatPriceOrDash(order.stopLoss), COLUMNS.sl)}</span>
+      <span fg={theme.green}>{alignRight(formatPriceOrDash(order.takeProfit), COLUMNS.tp)}</span>
     </text>
   );
 }

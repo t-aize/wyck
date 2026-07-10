@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
 import { formatClock, formatPrice } from "./format.ts";
+import { DOWN, FLAT, UP } from "./glyphs.ts";
 import { theme } from "./theme.ts";
 
 interface PriceHeaderProps {
@@ -11,10 +12,6 @@ interface PriceHeaderProps {
   now: Date;
   errorMessage: string | undefined;
 }
-
-const UP = "▲";
-const DOWN = "▼";
-const FLAT = "◆";
 
 export function PriceHeader({ symbol, bid, ask, connected, now, errorMessage }: PriceHeaderProps) {
   const statusColor = errorMessage ? theme.red : connected ? theme.green : theme.textDim;

@@ -21,3 +21,19 @@ export const TRENDBAR_PERIODS = [
   "MN_1",
 ] as const;
 export type TrendbarPeriod = (typeof TRENDBAR_PERIODS)[number];
+
+/** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
+export const PRICE_SCALE = 100_000;
+
+/**
+ * XAUUSD (métaux) : 1 lot = 100 onces, prix coté en $/once. Volume API = onces × 100
+ * (cf. commentaire équivalent dans PositionsPanel.tsx). Seul symbole tradé ici — à
+ * revoir si d'autres classes d'actifs sont ajoutées un jour (lotSize/valeur du point
+ * diffèrent : forex, indices, crypto).
+ */
+export const LOT_VOLUME = 10_000; // 1.00 lot en unités API
+
+/** Convertit un volume API (1/100 d'once) en lots — approximation valable pour XAUUSD uniquement. */
+export function toLots(volume: number): number {
+  return volume / LOT_VOLUME;
+}

@@ -1,5 +1,7 @@
 import { useKeyboard } from "@opentui/react";
+import { toLots } from "../constants.ts";
 import type { CtraderOrder } from "../ctrader-client.ts";
+import { formatPriceOrDash } from "./format.ts";
 import { theme } from "./theme.ts";
 
 interface CancelConfirmModalProps {
@@ -15,10 +17,6 @@ function Row({ label, value, fg }: { label: string; value: string; fg?: string }
       <text fg={fg ?? theme.text}>{value}</text>
     </box>
   );
-}
-
-function fmt(price: number | undefined): string {
-  return price === undefined ? "—" : price.toFixed(2);
 }
 
 export function CancelConfirmModal({ order, onConfirm, onCancel }: CancelConfirmModalProps) {
@@ -57,10 +55,10 @@ export function CancelConfirmModal({ order, onConfirm, onCancel }: CancelConfirm
       >
         <Row label="Ordre" value={String(order.orderId)} />
         <Row label="Direction" value={`${order.tradeSide} ${order.orderType}`} fg={sideColor} />
-        <Row label="Volume" value={`${(order.volume / 10_000).toFixed(2)} lots`} />
-        <Row label="Prix" value={fmt(order.limitPrice ?? order.stopPrice)} />
-        <Row label="Stop loss" value={fmt(order.stopLoss)} fg={theme.red} />
-        <Row label="Take profit" value={fmt(order.takeProfit)} fg={theme.green} />
+        <Row label="Volume" value={`${toLots(order.volume).toFixed(2)} lots`} />
+        <Row label="Prix" value={formatPriceOrDash(order.limitPrice ?? order.stopPrice)} />
+        <Row label="Stop loss" value={formatPriceOrDash(order.stopLoss)} fg={theme.red} />
+        <Row label="Take profit" value={formatPriceOrDash(order.takeProfit)} fg={theme.green} />
 
         <box style={{ marginTop: 1 }}>
           <select

@@ -22,11 +22,11 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import type { TrendbarPeriod } from "./ctrader-types.ts";
+import type { TrendbarPeriod } from "./constants.ts";
 import { env } from "./env.ts";
 
-export type { TrendbarPeriod } from "./ctrader-types.ts";
-export { TRENDBAR_PERIODS } from "./ctrader-types.ts";
+export type { TrendbarPeriod } from "./constants.ts";
+export { TRENDBAR_PERIODS } from "./constants.ts";
 
 const CLIENT_INFO = { name: "aurum", version: "0.1.0" };
 

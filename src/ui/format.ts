@@ -1,7 +1,14 @@
+import { PRICE_SCALE } from "../constants.ts";
+
 /** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export function formatPrice(raw: number | undefined, digits = 2): string {
   if (raw === undefined) return "—";
-  return (raw / 100_000).toFixed(digits);
+  return (raw / PRICE_SCALE).toFixed(digits);
+}
+
+/** Prix déjà affiché (pas à l'échelle x10^5) : simple fallback "—" si absent. */
+export function formatPriceOrDash(price: number | undefined): string {
+  return price === undefined ? "—" : price.toFixed(2);
 }
 
 /** Montants cTrader (balance, P&L…) : entier à l'échelle x10^moneyDigits. */
