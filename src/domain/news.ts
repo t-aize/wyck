@@ -61,6 +61,46 @@ export function isGoldRelevant(event: Pick<CalendarEvent, "country" | "title">):
   return event.country === "USD" || GOLD_KEYWORD.test(event.title);
 }
 
+export type Direction = "up" | "down" | "flat";
+
+/** "3.5%" → 3.5, "255K" → 255000, "-1.2M" → -1200000. */
+function parseFigure(raw: string): number | undefined {
+  const match = raw?.trim().match(/(-?[\d.,]+)\s*([KMB])?/i);
+  if (!match) return undefined;
+  const num = Number(match[1]!.replace(/,/g, ""));
+  if (Number.isNaN(num)) return undefined;
+  const multiplier = { K: 1e3, M: 1e6, B: 1e9 }[match[2]?.toUpperCase() as "K" | "M" | "B"] ?? 1;
+  return num * multiplier;
+}
+
+/** forecast vs previous : le marché anticipe-t-il une lecture plus forte, plus faible, ou stable ? */
+function figureDirection(event: Pick<CalendarEvent, "forecast" | "previous">): Direction | undefined {
+  const forecast = parseFigure(event.forecast);
+  const previous = parseFigure(event.previous);
+  if (forecast === undefined || previous === undefined) return undefined;
+  if (forecast === previous) return "flat";
+  return forecast > previous ? "up" : "down";
+}
+
+/**
+ * Heuristique de calendrier, pas un signal de trading : la plupart des indicateurs
+ * US à fort impact (NFP, GDP, retail sales, PMI, CPI...) sont "pro-USD" — une lecture
+ * anticipée plus forte que la précédente renforce le dollar, donc pèse sur XAUUSD
+ * (corrélation inverse). Une poignée d'indicateurs "négatifs" (chômage, jobless
+ * claims) vont dans l'autre sens : une hausse traduit un affaiblissement
+ * économique, donc plutôt haussier pour l'or. Le marché intègre déjà une bonne
+ * part du consensus, donc ceci reste indicatif, pas prédictif.
+ */
+const INVERSE_FOR_GOLD = /unemployment|jobless claims|claimant count/i;
+
+export function goldDirection(event: CalendarEvent): Direction | undefined {
+  const dataDirection = figureDirection(event);
+  if (!dataDirection || dataDirection === "flat") return dataDirection;
+  const inverse = INVERSE_FOR_GOLD.test(event.title);
+  if (dataDirection === "up") return inverse ? "up" : "down";
+  return inverse ? "down" : "up";
+}
+
 const CacheFileSchema = z.object({
   fetchedAt: z.string(),
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),

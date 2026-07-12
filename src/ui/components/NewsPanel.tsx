@@ -3,6 +3,8 @@ import { useMemo } from "react";
 import {
   type CalendarEvent,
   classifyImpact,
+  type Direction,
+  goldDirection,
   isGoldRelevant,
   PARIS_TZ,
   parisDayKey,
@@ -99,6 +101,15 @@ function formatFigures(event: CalendarEvent): string {
   return parts.join("  ");
 }
 
+const DIRECTION_GLYPH: Record<Direction, string> = { up: "▲", down: "▼", flat: "▬" };
+
+/** Sens XAUUSD anticipé (forecast vs previous) : vert = haussier, rouge = baissier. */
+function DirectionBadge({ direction }: { direction: Direction | undefined }) {
+  if (!direction) return <span>{"  "}</span>;
+  const color = direction === "up" ? theme.green : direction === "down" ? theme.red : theme.textMuted;
+  return <span fg={color}>{`${DIRECTION_GLYPH[direction]} `}</span>;
+}
+
 function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean; now: Date }) {
   const isPast = event.timestamp < now.getTime();
   const time = timeFormat.format(new Date(event.timestamp));
@@ -111,6 +122,7 @@ function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean
       <span fg={isNext ? theme.gold : theme.textMuted}>{isNext ? "▸ " : "  "}</span>
       <span fg={theme.textMuted}>{alignLeft(time, 6)}</span>
       <span fg={theme.textDim}>{alignLeft(event.country, 5)}</span>
+      <DirectionBadge direction={goldDirection(event)} />
       <span fg={titleColor}>{event.title}</span>
       {figures && <span fg={theme.textMuted}>{`  ${figures}`}</span>}
       <span fg={theme.textMuted}>{`  (${relative})`}</span>
