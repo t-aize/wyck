@@ -74,7 +74,9 @@ function parseFigure(raw: string): number | undefined {
 }
 
 /** forecast vs previous : le marché anticipe-t-il une lecture plus forte, plus faible, ou stable ? */
-function figureDirection(event: Pick<CalendarEvent, "forecast" | "previous">): Direction | undefined {
+function figureDirection(
+  event: Pick<CalendarEvent, "forecast" | "previous">,
+): Direction | undefined {
   const forecast = parseFigure(event.forecast);
   const previous = parseFigure(event.previous);
   if (forecast === undefined || previous === undefined) return undefined;

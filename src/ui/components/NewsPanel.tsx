@@ -106,7 +106,8 @@ const DIRECTION_GLYPH: Record<Direction, string> = { up: "▲", down: "▼", fla
 /** Sens XAUUSD anticipé (forecast vs previous) : vert = haussier, rouge = baissier. */
 function DirectionBadge({ direction }: { direction: Direction | undefined }) {
   if (!direction) return <span>{"  "}</span>;
-  const color = direction === "up" ? theme.green : direction === "down" ? theme.red : theme.textMuted;
+  const color =
+    direction === "up" ? theme.green : direction === "down" ? theme.red : theme.textMuted;
   return <span fg={color}>{`${DIRECTION_GLYPH[direction]} `}</span>;
 }
 
