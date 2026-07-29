@@ -66,10 +66,9 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
   );
   const { calendar, newsError, refreshNews } = useCalendar();
   const { rows: structureRows, structureError, refreshStructure } = useStructure(client, symbolId);
-  // État local plutôt que dérivé de `config` : la commande `fred` doit prendre effet
-  // immédiatement, sans remonter toute la connexion cTrader (cf. `generation` dans App()).
-  const [fredApiKey, setFredApiKey] = useState(config.fredApiKey);
-  const { macro, macroError, refreshMacro } = useMacroData(fredApiKey);
+  // `config.fredApiKey` est maintenant obligatoire et ne peut changer que via un reconfig complet
+  // (`settings` → remount via `generation`, cf. App()) — pas besoin d'état local séparé ici.
+  const { macro, macroError, refreshMacro } = useMacroData(config.fredApiKey);
   const {
     feedback,
     setFeedback,
@@ -91,8 +90,6 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     refreshNews,
     refreshStructure,
     refreshMacro,
-    fredApiKey,
-    setFredApiKey,
     onReconfigure,
   });
 
@@ -116,11 +113,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         moneyDigits={moneyDigits}
       />
       <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
-      <MacroPanel
-        macro={macro}
-        errorMessage={macroError}
-        fredConfigured={fredApiKey !== undefined}
-      />
+      <MacroPanel macro={macro} errorMessage={macroError} />
       <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
         <NewsPanel events={calendar} errorMessage={newsError} now={now} />
         <StructurePanel rows={structureRows} errorMessage={structureError} />

@@ -26,21 +26,30 @@ bun install
 
 ## Configuration
 
-Pas de `.env` : au premier lancement (dev ou `.exe` compilé), l'app affiche un écran de configuration qui demande
-l'URL et le token du serveur MCP — dans **cTrader Web** → **Settings** → **Remote MCP** :
+Pas de `.env` : au premier lancement (dev ou `.exe` compilé), l'app affiche un écran de configuration en 3 étapes,
+toutes obligatoires :
 
-```json
-{
-  "url": "https://mcp.ctrader.com/trading/mcp",
-  "headers": {
-    "Authorization": "Bearer <TOKEN>"
-  }
-}
-```
+1. **URL du serveur MCP** — l'URL cTrader (`https://mcp.ctrader.com/trading/mcp` par défaut).
+2. **Token MCP** — dans **cTrader Web** → **Settings** → **Remote MCP** :
+   ```json
+   {
+     "url": "https://mcp.ctrader.com/trading/mcp",
+     "headers": {
+       "Authorization": "Bearer <TOKEN>"
+     }
+   }
+   ```
+   La connexion est vérifiée en direct avant de passer à l'étape suivante.
+3. **Clé API FRED** — gratuite, sans carte bancaire : crée un compte sur
+   [fred.stlouisfed.org](https://fred.stlouisfed.org) puis génère une clé ici :
+   https://fred.stlouisfed.org/docs/api/api_key.html. Sert au panneau MACRO (dollar large, taux
+   réel — cf. plus bas) ; elle aussi est vérifiée en direct avant d'être acceptée.
 
-Une fois la connexion validée, la config est enregistrée (token chiffré) dans `~/.aurum/config.json` — indépendant du
+Une fois les trois validées, la config est enregistrée (chiffrée) dans `~/.aurum/config.json` — indépendant du
 dossier de lancement, donc valable aussi bien en `dev` que pour le binaire compilé déplacé n'importe où. La commande
-`settings` dans l'app permet de la changer (URL/token) sans réinstaller.
+`settings` dans l'app permet de tout reconfigurer (URL/token/clé FRED) sans réinstaller — les trois champs sont
+toujours redemandés et réécrits ensemble, jamais un sous-ensemble, pour ne jamais perdre un champ en reconfigurant
+les autres.
 
 Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe"). Le symbole (`XAUUSD`) est une
 constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade que XAUUSD.
@@ -48,20 +57,18 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
-## Contexte macro (COT / dollar / taux réel)
+## Contexte macro (COT / dollar large / taux réel)
 
-Le panneau MACRO affiche le positionnement des gros spéculateurs sur l'or (COT, rapport
-hebdomadaire de la CFTC — aucune clé requise) ainsi que le dollar index et le taux réel 10 ans
-(FRED, données quotidiennes). Ces deux derniers demandent une clé API FRED, gratuite :
-
-1. Crée un compte sur [fred.stlouisfed.org](https://fred.stlouisfed.org) puis génère une clé ici :
-   https://fred.stlouisfed.org/docs/api/api_key.html
-2. Dans l'app : `fred <ta clé>`
-
-La clé est enregistrée (chiffrée) dans `~/.aurum/config.json`, comme l'URL/le token MCP. Sans
-clé, le panneau affiche quand même le COT — seuls DXY et le taux réel restent vides.
-Indicatif, pas un signal de trading : ni le COT ni le dollar/taux réel ne prédisent un sens,
+Le panneau MACRO affiche le positionnement des gros spéculateurs sur l'or (COT, rapport hebdomadaire de la CFTC)
+ainsi que l'indice dollar large de la Fed et le taux réel 10 ans (FRED, données quotidiennes — clé configurée à la
+config, cf. ci-dessus). Indicatif, pas un signal de trading : ni le COT ni le dollar/taux réel ne prédisent un sens,
 ils donnent juste du contexte.
+
+**"USD (large)" ≠ DXY** : c'est le *Nominal Broad U.S. Dollar Index* de la Fed (`DTWEXBGS`), pas le ticker DXY (ICE)
+que tu vois ailleurs — panier de devises et base de calcul différents, donc échelle différente (~120 contre ~95-105
+pour le DXY). Le vrai DXY est un indice propriétaire, pas disponible via une API publique gratuite ; c'est la
+meilleure approximation gratuite d'un indicateur de force du dollar, mais ne compare pas directement les deux
+valeurs.
 
 ## Découvrir les tools MCP disponibles
 

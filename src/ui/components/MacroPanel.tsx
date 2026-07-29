@@ -5,7 +5,6 @@ import { theme } from "../theme.ts";
 interface MacroPanelProps {
   macro: MacroSnapshot | undefined;
   errorMessage: string | undefined;
-  fredConfigured: boolean;
 }
 
 function trend(change: number | undefined): { glyph: string; color: string } {
@@ -51,7 +50,7 @@ function FredSegment({
   );
 }
 
-export function MacroPanel({ macro, errorMessage, fredConfigured }: MacroPanelProps) {
+export function MacroPanel({ macro, errorMessage }: MacroPanelProps) {
   return (
     <box
       title=" MACRO "
@@ -72,15 +71,9 @@ export function MacroPanel({ macro, errorMessage, fredConfigured }: MacroPanelPr
         <text>
           <CotSegment cot={macro?.cot} />
           <span fg={theme.textMuted}>{"   ·   "}</span>
-          {fredConfigured ? (
-            <>
-              <FredSegment label="DXY" snapshot={macro?.dxy} />
-              <span fg={theme.textMuted}>{"   ·   "}</span>
-              <FredSegment label="10Y réel" snapshot={macro?.realYield} suffix="%" />
-            </>
-          ) : (
-            <span fg={theme.textMuted}>DXY / 10Y réel — clé FRED manquante, tape "fred"</span>
-          )}
+          <FredSegment label="USD (large)" snapshot={macro?.usdBroad} />
+          <span fg={theme.textMuted}>{"   ·   "}</span>
+          <FredSegment label="10Y réel" snapshot={macro?.realYield} suffix="%" />
         </text>
       )}
     </box>

@@ -65,9 +65,16 @@ async function fetchCot(): Promise<CotSnapshot | undefined> {
   return computeCotSnapshot(rows);
 }
 
-// ─── FRED (dollar index, taux réel 10 ans) ─────────────────────────────────
+// ─── FRED (dollar large, taux réel 10 ans) ─────────────────────────────────
 
-export const DXY_SERIES_ID = "DTWEXBGS";
+/**
+ * DTWEXBGS = "Nominal Broad U.S. Dollar Index" de la Fed — PAS le DXY (ICE), qui est un indice
+ * propriétaire à accès payant, non disponible via une API publique gratuite. Base de calcul et
+ * panier de devises différents du DXY (2006=100, panier plus large) ⇒ échelle différente (~120
+ * ici contre ~95-105 pour le DXY) : ne pas confondre les deux valeurs. C'est la meilleure
+ * approximation gratuite d'un indicateur de force du dollar, pas un substitut exact au DXY.
+ */
+export const USD_BROAD_SERIES_ID = "DTWEXBGS";
 export const REAL_YIELD_SERIES_ID = "DFII10";
 
 const FredObservationSchema = z.object({ date: z.string(), value: z.string() });
@@ -112,11 +119,17 @@ async function fetchFredSeries(
   return computeFredSnapshot(observations);
 }
 
+/** Vérifie qu'une clé FRED fonctionne réellement (rejette en cas de 400) — utilisé par SetupScreen, même logique que la vérification de connexion cTrader (client.getBalance()). */
+export async function validateFredApiKey(apiKey: string): Promise<void> {
+  await fetchFredSeries(USD_BROAD_SERIES_ID, apiKey);
+}
+
 // ─── Combiné, avec cache disque ─────────────────────────────────────────────
 
 export interface MacroSnapshot {
   cot?: CotSnapshot;
-  dxy?: FredSnapshot;
+  /** Nominal Broad U.S. Dollar Index (Fed) — pas le DXY (ICE), cf. commentaire sur USD_BROAD_SERIES_ID. */
+  usdBroad?: FredSnapshot;
   realYield?: FredSnapshot;
 }
 
@@ -134,7 +147,7 @@ const FredSnapshotSchema = z.object({
 const CacheFileSchema = z.object({
   fetchedAt: z.string(),
   cot: CotSnapshotSchema.optional(),
-  dxy: FredSnapshotSchema.optional(),
+  usdBroad: FredSnapshotSchema.optional(),
   realYield: FredSnapshotSchema.optional(),
 });
 
@@ -155,13 +168,12 @@ async function writeCache(snapshot: MacroSnapshot): Promise<void> {
 
 /**
  * Un fetch par jour calendaire (Paris) suffit largement : le COT ne change qu'une fois par
- * semaine (vendredi), DXY/real yield une fois par jour ouvré — même choix que fetchCalendar
- * dans news.ts. Chaque source échoue indépendamment et retombe sur la dernière valeur en cache
- * plutôt que de faire échouer les deux autres : `fredApiKey` absent laisse juste dxy/realYield
- * à `undefined` sans empêcher le COT (sans clé, lui) de s'afficher.
+ * semaine (vendredi), dollar large/real yield une fois par jour ouvré — même choix que
+ * fetchCalendar dans news.ts. Chaque source échoue indépendamment et retombe sur la dernière
+ * valeur en cache plutôt que de faire échouer les deux autres.
  */
 export async function fetchMacro(
-  fredApiKey: string | undefined,
+  fredApiKey: string,
   options: { force?: boolean } = {},
 ): Promise<MacroSnapshot> {
   const cached = await readCache();
@@ -170,20 +182,16 @@ export async function fetchMacro(
     cached &&
     parisDayKey(new Date(cached.fetchedAt)) === parisDayKey(new Date())
   ) {
-    return { cot: cached.cot, dxy: cached.dxy, realYield: cached.realYield };
+    return { cot: cached.cot, usdBroad: cached.usdBroad, realYield: cached.realYield };
   }
 
-  const [cot, dxy, realYield] = await Promise.all([
+  const [cot, usdBroad, realYield] = await Promise.all([
     fetchCot().catch(() => cached?.cot),
-    fredApiKey
-      ? fetchFredSeries(DXY_SERIES_ID, fredApiKey).catch(() => cached?.dxy)
-      : Promise.resolve(cached?.dxy),
-    fredApiKey
-      ? fetchFredSeries(REAL_YIELD_SERIES_ID, fredApiKey).catch(() => cached?.realYield)
-      : Promise.resolve(cached?.realYield),
+    fetchFredSeries(USD_BROAD_SERIES_ID, fredApiKey).catch(() => cached?.usdBroad),
+    fetchFredSeries(REAL_YIELD_SERIES_ID, fredApiKey).catch(() => cached?.realYield),
   ]);
 
-  const snapshot: MacroSnapshot = { cot, dxy, realYield };
+  const snapshot: MacroSnapshot = { cot, usdBroad, realYield };
   await writeCache(snapshot).catch(() => {});
   return snapshot;
 }

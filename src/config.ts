@@ -17,8 +17,8 @@ const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
 export interface AppConfig {
   url: string;
   token: string;
-  /** Clé API FRED (gratuite, cf. commande `fred`) — optionnelle, pour DXY/real yield dans le panneau macro. */
-  fredApiKey?: string;
+  /** Clé API FRED (gratuite) — requise pour le dollar large/real yield dans le panneau macro, collectée à la config. */
+  fredApiKey: string;
 }
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
@@ -47,17 +47,24 @@ function decrypt(payload: string): string {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
 
-/** `undefined` si absent, corrompu, ou déchiffrable seulement sur une autre machine — redemande la config dans ces cas plutôt que planter. */
+/**
+ * `undefined` si absent, corrompu, incomplet (ex: config d'avant l'ajout de fredApiKey), ou
+ * déchiffrable seulement sur une autre machine — redemande la config dans ces cas plutôt que
+ * planter. `fredApiKey` étant maintenant requis, une config sans clé FRED est traitée comme
+ * incomplète : SetupScreen la redemande, il n'y a pas de config "à moitié configurée" possible.
+ */
 export function readConfig(): AppConfig | undefined {
   if (!existsSync(CONFIG_PATH)) return undefined;
   try {
     const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-    if (typeof raw.url !== "string" || typeof raw.token !== "string") return undefined;
-    return {
-      url: raw.url,
-      token: decrypt(raw.token),
-      fredApiKey: typeof raw.fredApiKey === "string" ? decrypt(raw.fredApiKey) : undefined,
-    };
+    if (
+      typeof raw.url !== "string" ||
+      typeof raw.token !== "string" ||
+      typeof raw.fredApiKey !== "string"
+    ) {
+      return undefined;
+    }
+    return { url: raw.url, token: decrypt(raw.token), fredApiKey: decrypt(raw.fredApiKey) };
   } catch {
     return undefined;
   }
@@ -71,18 +78,11 @@ export function writeConfig(config: AppConfig): void {
       {
         url: config.url,
         token: encrypt(config.token),
-        ...(config.fredApiKey !== undefined ? { fredApiKey: encrypt(config.fredApiKey) } : {}),
+        fredApiKey: encrypt(config.fredApiKey),
       },
       null,
       2,
     ),
     { mode: 0o600 },
   );
-}
-
-/** Met à jour uniquement la clé FRED d'une config déjà existante (url/token inchangés). */
-export function writeFredApiKey(fredApiKey: string): void {
-  const current = readConfig();
-  if (!current) throw new Error("configuration introuvable — lance `settings` d'abord");
-  writeConfig({ ...current, fredApiKey });
 }
