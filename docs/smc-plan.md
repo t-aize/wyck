@@ -2,8 +2,9 @@
 
 ## Contexte
 
-`domain/structure.ts` implémente aujourd'hui **un morceau** du Smart Money Concepts : swing
-high/low, biais, BOS/CHoCH, sweep — adapté de *"ALV - SMC MTF Structure"* (Pine v6). L'utilisateur
+`domain/smc/` (`timeframes.ts`, `bars.ts`, `pivots.ts`, `structure.ts`) implémente aujourd'hui
+**un morceau** du Smart Money Concepts : swing high/low, biais, BOS/CHoCH, sweep — adapté de
+*"ALV - SMC MTF Structure"* (Pine v6). L'utilisateur
 trade en réalité avec le **SMC complet façon LuxAlgo** : deux scripts distincts, collés dans cette
 conversation :
 
@@ -20,6 +21,42 @@ aurum est un projet perso/privé, non-commercial — compatible. On applique la 
 pour le script ALV déjà porté : attribution en tête de fichier (`Adapté de "..." (Pine, LuxAlgo)`),
 jamais une recopie du code Pine lui-même, un portage fidèle du *comportement* en TypeScript pur et
 testé.
+
+## Principe transversal : pas de lookahead, pas de repaint
+
+`structure.ts` le fait déjà (cf. son commentaire d'en-tête : jamais de calcul sur une bougie pas
+encore close, un pivot n'est retenu qu'une fois `length` bougies passées après lui). **Cette règle
+s'applique à tous les futurs modules, sans exception** — c'est plus facile à rater qu'il n'y
+paraît, parce que les deux scripts Pine s'appuient sur du lookahead/repaint à plusieurs endroits
+précis, pour un rendu visuel propre sur un chart historique, ce qui n'a pas sa place dans un
+panneau censé refléter ce qu'on aurait *réellement* su au moment T :
+
+- **`Trendlines with Breaks` → `backpaint` (activé par défaut dans le script)**. Le tooltip du
+  script est explicite : *"Disable backpainting to see real time information"*. Avec backpaint
+  activé, un pivot confirmé `length` bougies après coup est **redessiné visuellement à sa position
+  d'origine**, dans le passé — joli sur un chart, mais si on portait ce comportement tel quel, le
+  panneau donnerait l'impression qu'un pivot était connu avant qu'il ne le soit réellement. **On
+  se cale systématiquement sur le comportement `backpaint = false`** (informations affichées à la
+  bougie où elles sont réellement confirmées) : mêmes principes que `computeStructure` — le pivot
+  n'existe pour nous qu'à `i + length`, jamais avant.
+- **Fair Value Gaps → `request.security(..., lookahead = barmerge.lookahead_on)`**. Ce paramètre
+  Pine est un mécanisme de repaint connu (accès à une donnée d'un autre timeframe avant qu'elle
+  ne soit réellement disponible en temps réel). On l'évite structurellement en calculant chaque
+  FVG **sur les bougies déjà fetchées et déjà closes de son propre timeframe** (jamais un fetch
+  MTF façon `request.security` à la volée) — cohérent avec le choix déjà fait de calculer chaque
+  structure indépendamment par timeframe plutôt qu'en overlay façon chart TradingView.
+- **Niveaux MTF (D/W/M) → `request.security` aussi**, sans `lookahead_on` cette fois mais même
+  vigilance : on ne doit utiliser que le high/low de la période **précédente déjà close** (hier
+  pour le daily, la semaine dernière pour le weekly...), jamais la période en cours même
+  partiellement avancée — sinon on fuiterait de l'info sur une période pas encore terminée.
+- **Order Blocks** : pas de risque structurel a priori (n'opère que sur l'historique déjà fetché
+  jusqu'à la bougie courante), mais vigilance quand même sur la bougie encore en formation —
+  toujours passer par `dropFormingBar` avant, comme pour tout le reste.
+
+En pratique : chaque nouveau module reçoit des bougies déjà passées par `dropFormingBar`, et ne
+doit jamais réordonner/anticiper au-delà de ce qui est confirmable à la bougie courante. À vérifier
+explicitement dans chaque test unitaire ajouté (un scénario "la donnée future ne doit pas changer
+le résultat au moment T" par module, si pertinent).
 
 ## Ce qui existe vs ce qui manque
 
@@ -154,8 +191,13 @@ maintenir en continu (pente + valeur courante de la droite), pas juste une compa
 
 ## Notes techniques
 
-- Chaque nouveau concept = un module pur dans `domain/`, testé comme `computeStructure` déjà
-  l'est (bun:test, cas construits à la main comme dans `structure.test.ts`).
+- `domain/smc/` existe déjà, décomposé par responsabilité : `timeframes.ts` (config des
+  timeframes), `bars.ts` (`dropFormingBar`), `pivots.ts` (`isPivotHigh`/`isPivotLow`, fenêtre
+  symétrique — déjà exporté et prêt à être réutilisé par Trendlines & Break), `structure.ts`
+  (`computeStructure`, BOS/CHoCH/swing/sweep). Chaque nouveau concept = un nouveau fichier dans
+  ce dossier (ex. `orderBlocks.ts`, `fairValueGaps.ts`, `equalHighsLows.ts`, `trendlines.ts`),
+  testé comme `structure.test.ts`/`bars.test.ts` déjà présents (bun:test, cas construits à la
+  main).
 - Réutiliser l'infra de fetch déjà en place (`useStructure.ts`, `fetchHistory`) plutôt que d'en
   recréer une par concept.
 - Le portage reste un portage de *comportement*, pas de code Pine — même principe que le script

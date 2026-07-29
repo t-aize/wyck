@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import { CtraderClient } from "./ctrader/client.ts";
+import { computeOverallBias } from "./domain/smc/bias.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { MacroPanel } from "./ui/components/MacroPanel.tsx";
@@ -69,6 +70,10 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
   // `config.fredApiKey` est maintenant obligatoire et ne peut changer que via un reconfig complet
   // (`settings` → remount via `generation`, cf. App()) — pas besoin d'état local séparé ici.
   const { macro, macroError, refreshMacro } = useMacroData(config.fredApiKey);
+  const overallBias = useMemo(
+    () => computeOverallBias(structureRows, macro, calendar, now),
+    [structureRows, macro, calendar, now],
+  );
   const {
     feedback,
     setFeedback,
@@ -116,7 +121,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
       <MacroPanel macro={macro} errorMessage={macroError} />
       <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
         <NewsPanel events={calendar} errorMessage={newsError} now={now} />
-        <StructurePanel rows={structureRows} errorMessage={structureError} />
+        <StructurePanel rows={structureRows} errorMessage={structureError} bias={overallBias} />
       </box>
       <CommandBar
         ref={commandBarRef}

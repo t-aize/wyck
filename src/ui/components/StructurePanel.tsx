@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core";
-import type { StructureSnapshot } from "../../domain/structure.ts";
+import type { Conviction, OverallBias } from "../../domain/smc/bias.ts";
+import type { StructureSnapshot } from "../../domain/smc/structure.ts";
 import { alignLeft, alignRight, formatPrice } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
 import type { StructureRow } from "../hooks/useStructure.ts";
@@ -8,6 +9,7 @@ import { theme } from "../theme.ts";
 interface StructurePanelProps {
   rows: StructureRow[] | undefined;
   errorMessage: string | undefined;
+  bias: OverallBias;
 }
 
 const COLUMNS = { tf: 4, sweep: 2, bias: 9, struct: 8, high: 8, low: 8 } as const;
@@ -68,7 +70,46 @@ function StructureRowLine({ row }: { row: StructureRow }) {
   );
 }
 
-export function StructurePanel({ rows, errorMessage }: StructurePanelProps) {
+function convictionLabel(conviction: Conviction): string {
+  return conviction === "strong" ? "forte" : conviction === "moderate" ? "modérée" : "faible";
+}
+
+/** Synthèse d'une phrase : ancrage D1+4H, confirmation/macro en support, calendrier en avertissement — jamais l'inverse (cf. domain/smc/bias.ts). */
+function BiasLine({ bias }: { bias: OverallBias }) {
+  const caution = bias.caution && (
+    <span
+      fg={theme.gold}
+    >{`  ⚠ ${bias.caution.event.title} dans ${bias.caution.minutesUntil}m`}</span>
+  );
+
+  if (bias.direction === 0) {
+    const anchorText = bias.anchor
+      ? ` (D1 ${biasLabel(bias.anchor.d1)} / 4H ${biasLabel(bias.anchor.h4)})`
+      : "";
+    return (
+      <text>
+        <span fg={theme.textDim}>{`BIAIS GLOBAL : PAS DE BIAIS CLAIR${anchorText}`}</span>
+        {caution}
+      </text>
+    );
+  }
+
+  return (
+    <text>
+      <span fg={theme.textDim}>BIAIS GLOBAL : </span>
+      <span fg={biasColor(bias.direction)} attributes={TextAttributes.BOLD}>
+        {biasLabel(bias.direction)}
+      </span>
+      {/* conviction toujours définie ici : garantie par computeOverallBias dès que direction !== 0 */}
+      <span fg={theme.textDim}>
+        {`  ·  conviction ${convictionLabel(bias.conviction!)}  —  ${bias.confirmationCount}/3 TF confirment, ${bias.macroAlignedCount}/3 facteurs macro alignés`}
+      </span>
+      {caution}
+    </text>
+  );
+}
+
+export function StructurePanel({ rows, errorMessage, bias }: StructurePanelProps) {
   return (
     <box
       title=" SMC MTF STRUCTURE "
@@ -94,6 +135,7 @@ export function StructurePanel({ rows, errorMessage }: StructurePanelProps) {
           {rows.map((row) => (
             <StructureRowLine key={row.label} row={row} />
           ))}
+          <BiasLine bias={bias} />
         </>
       )}
     </box>
