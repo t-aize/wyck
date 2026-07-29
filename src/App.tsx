@@ -4,6 +4,7 @@ import { SYMBOL } from "./constants.ts";
 import { CtraderClient } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
+import { MacroPanel } from "./ui/components/MacroPanel.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
@@ -14,6 +15,7 @@ import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useCtraderConnection } from "./ui/hooks/useCtraderConnection.ts";
+import { useMacroData } from "./ui/hooks/useMacroData.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useStructure } from "./ui/hooks/useStructure.ts";
@@ -64,6 +66,10 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
   );
   const { calendar, newsError, refreshNews } = useCalendar();
   const { rows: structureRows, structureError, refreshStructure } = useStructure(client, symbolId);
+  // État local plutôt que dérivé de `config` : la commande `fred` doit prendre effet
+  // immédiatement, sans remonter toute la connexion cTrader (cf. `generation` dans App()).
+  const [fredApiKey, setFredApiKey] = useState(config.fredApiKey);
+  const { macro, macroError, refreshMacro } = useMacroData(fredApiKey);
   const {
     feedback,
     setFeedback,
@@ -84,6 +90,9 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     refreshMarket,
     refreshNews,
     refreshStructure,
+    refreshMacro,
+    fredApiKey,
+    setFredApiKey,
     onReconfigure,
   });
 
@@ -107,6 +116,11 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         moneyDigits={moneyDigits}
       />
       <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
+      <MacroPanel
+        macro={macro}
+        errorMessage={macroError}
+        fredConfigured={fredApiKey !== undefined}
+      />
       <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
         <NewsPanel events={calendar} errorMessage={newsError} now={now} />
         <StructurePanel rows={structureRows} errorMessage={structureError} />

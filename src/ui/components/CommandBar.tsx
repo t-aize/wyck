@@ -28,6 +28,7 @@ const COMMANDS = [
   "modify",
   "cancel",
   "risk",
+  "fred",
   "settings",
   "refresh",
   "clear",

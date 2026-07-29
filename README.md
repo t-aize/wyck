@@ -48,6 +48,21 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
+## Contexte macro (COT / dollar / taux réel)
+
+Le panneau MACRO affiche le positionnement des gros spéculateurs sur l'or (COT, rapport
+hebdomadaire de la CFTC — aucune clé requise) ainsi que le dollar index et le taux réel 10 ans
+(FRED, données quotidiennes). Ces deux derniers demandent une clé API FRED, gratuite :
+
+1. Crée un compte sur [fred.stlouisfed.org](https://fred.stlouisfed.org) puis génère une clé ici :
+   https://fred.stlouisfed.org/docs/api/api_key.html
+2. Dans l'app : `fred <ta clé>`
+
+La clé est enregistrée (chiffrée) dans `~/.aurum/config.json`, comme l'URL/le token MCP. Sans
+clé, le panneau affiche quand même le COT — seuls DXY et le taux réel restent vides.
+Indicatif, pas un signal de trading : ni le COT ni le dollar/taux réel ne prédisent un sens,
+ils donnent juste du contexte.
+
 ## Découvrir les tools MCP disponibles
 
 La doc cTrader décrit son MCP sous forme de prompts en langage naturel, pas d'un schéma figé — comme le panel appelle

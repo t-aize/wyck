@@ -1,4 +1,5 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
+import { writeFredApiKey } from "../../config.ts";
 import type { CtraderClient, CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
 import {
   CANCEL_USAGE,
@@ -18,7 +19,10 @@ import type { Feedback } from "../components/CommandBar.tsx";
 // Convention du projet : `.then` dans les handlers d'événements UI déclenchés depuis le rendu
 // (ce fichier), `async`/`await` partout ailleurs (cf. les autres hooks de ce dossier).
 
-const COMMAND_LIST = "trade  modify  cancel  risk  settings  refresh  clear  help";
+const FRED_USAGE =
+  "usage : fred <clé api>  (clé gratuite : https://fred.stlouisfed.org/docs/api/api_key.html)";
+
+const COMMAND_LIST = "trade  modify  cancel  risk  fred  settings  refresh  clear  help";
 
 /** Détail affiché par `help <commande>` — réutilise les mêmes chaînes d'usage que les erreurs de parsing. */
 const COMMAND_HELP: Record<string, string> = {
@@ -26,9 +30,10 @@ const COMMAND_HELP: Record<string, string> = {
   modify: MODIFY_USAGE,
   cancel: CANCEL_USAGE,
   risk: RISK_USAGE,
+  fred: FRED_USAGE,
   settings: "settings — reconfigure l'URL/le token du serveur MCP",
   refresh:
-    "refresh — force une actualisation immédiate du marché, du calendrier et de la structure",
+    "refresh — force une actualisation immédiate du marché, du calendrier, de la structure et du contexte macro",
   clear: "clear — efface le message de feedback",
   help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
 };
@@ -63,6 +68,9 @@ export function useOrderActions(opts: {
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
   refreshStructure: () => Promise<void>;
+  refreshMacro: (options?: { force?: boolean }) => Promise<void>;
+  fredApiKey: string | undefined;
+  setFredApiKey: (key: string) => void;
   onReconfigure: () => void;
 }): OrderActions {
   const {
@@ -72,6 +80,9 @@ export function useOrderActions(opts: {
     refreshMarket,
     refreshNews,
     refreshStructure,
+    refreshMacro,
+    fredApiKey,
+    setFredApiKey,
     onReconfigure,
   } = opts;
 
@@ -112,11 +123,14 @@ export function useOrderActions(opts: {
         return;
       case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
-        void Promise.all([refreshMarket(), refreshNews({ force: true }), refreshStructure()]).then(
-          () => {
-            setFeedback({ kind: "success", message: "actualisé" });
-          },
-        );
+        void Promise.all([
+          refreshMarket(),
+          refreshNews({ force: true }),
+          refreshStructure(),
+          refreshMacro({ force: true }),
+        ]).then(() => {
+          setFeedback({ kind: "success", message: "actualisé" });
+        });
         return;
       case "clear":
         setFeedback({ kind: "info", message: "" });
@@ -142,6 +156,28 @@ export function useOrderActions(opts: {
           kind: "success",
           message: `risque par défaut réglé à ${parsedRisk}% pour cette session`,
         });
+        return;
+      }
+      case "fred": {
+        if (args.length === 0) {
+          setFeedback({
+            kind: "info",
+            message:
+              fredApiKey === undefined
+                ? `aucune clé FRED configurée — ${FRED_USAGE}`
+                : "clé FRED configurée",
+          });
+          return;
+        }
+        const key = args[0]!;
+        try {
+          writeFredApiKey(key);
+          setFredApiKey(key);
+          setFeedback({ kind: "success", message: "clé FRED enregistrée" });
+          void refreshMacro({ force: true });
+        } catch (error) {
+          setFeedback({ kind: "error", message: toMessage(error) });
+        }
         return;
       }
       case "trade": {

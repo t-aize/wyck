@@ -17,6 +17,8 @@ const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
 export interface AppConfig {
   url: string;
   token: string;
+  /** Clé API FRED (gratuite, cf. commande `fred`) — optionnelle, pour DXY/real yield dans le panneau macro. */
+  fredApiKey?: string;
 }
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
@@ -51,7 +53,11 @@ export function readConfig(): AppConfig | undefined {
   try {
     const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
     if (typeof raw.url !== "string" || typeof raw.token !== "string") return undefined;
-    return { url: raw.url, token: decrypt(raw.token) };
+    return {
+      url: raw.url,
+      token: decrypt(raw.token),
+      fredApiKey: typeof raw.fredApiKey === "string" ? decrypt(raw.fredApiKey) : undefined,
+    };
   } catch {
     return undefined;
   }
@@ -61,7 +67,22 @@ export function writeConfig(config: AppConfig): void {
   if (!existsSync(APP_DATA_DIR)) mkdirSync(APP_DATA_DIR, { recursive: true });
   writeFileSync(
     CONFIG_PATH,
-    JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
+    JSON.stringify(
+      {
+        url: config.url,
+        token: encrypt(config.token),
+        ...(config.fredApiKey !== undefined ? { fredApiKey: encrypt(config.fredApiKey) } : {}),
+      },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
+}
+
+/** Met à jour uniquement la clé FRED d'une config déjà existante (url/token inchangés). */
+export function writeFredApiKey(fredApiKey: string): void {
+  const current = readConfig();
+  if (!current) throw new Error("configuration introuvable — lance `settings` d'abord");
+  writeConfig({ ...current, fredApiKey });
 }
