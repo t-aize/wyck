@@ -1,9 +1,14 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
 import type { CtraderClient, CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
 import {
+  CANCEL_USAGE,
   formatTradeSummary,
+  MODIFY_USAGE,
   parseModifyCommand,
+  parseRiskCommand,
   parseTradeCommand,
+  RISK_USAGE,
+  TRADE_USAGE,
 } from "../../domain/commands.ts";
 import type { PreparedTrade } from "../../domain/trading.ts";
 import { prepareTrade, toCreateOrderParams } from "../../domain/trading.ts";
@@ -12,6 +17,21 @@ import type { Feedback } from "../components/CommandBar.tsx";
 
 // Convention du projet : `.then` dans les handlers d'événements UI déclenchés depuis le rendu
 // (ce fichier), `async`/`await` partout ailleurs (cf. les autres hooks de ce dossier).
+
+const COMMAND_LIST = "trade  modify  cancel  risk  settings  refresh  clear  help";
+
+/** Détail affiché par `help <commande>` — réutilise les mêmes chaînes d'usage que les erreurs de parsing. */
+const COMMAND_HELP: Record<string, string> = {
+  trade: TRADE_USAGE,
+  modify: MODIFY_USAGE,
+  cancel: CANCEL_USAGE,
+  risk: RISK_USAGE,
+  settings: "settings — reconfigure l'URL/le token du serveur MCP",
+  refresh:
+    "refresh — force une actualisation immédiate du marché, du calendrier et de la structure",
+  clear: "clear — efface le message de feedback",
+  help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
+};
 
 interface PendingModify {
   order: CtraderOrder;
@@ -42,9 +62,18 @@ export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
+  refreshStructure: () => Promise<void>;
   onReconfigure: () => void;
 }): OrderActions {
-  const { client, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
+  const {
+    client,
+    symbolId,
+    positions,
+    refreshMarket,
+    refreshNews,
+    refreshStructure,
+    onReconfigure,
+  } = opts;
 
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
@@ -53,6 +82,9 @@ export function useOrderActions(opts: {
   const [pendingTrade, setPendingTrade] = useState<PreparedTrade>();
   const [pendingModify, setPendingModify] = useState<PendingModify>();
   const [pendingCancel, setPendingCancel] = useState<CtraderOrder[]>();
+  // Réglé via la commande `risk`, jamais persisté : repart à zéro à chaque lancement plutôt que
+  // de continuer à trader silencieusement sur un risque défini une session précédente et oublié.
+  const [defaultRiskPercent, setDefaultRiskPercent] = useState<number>();
 
   function runCommand(raw: string) {
     const trimmed = raw.trim();
@@ -61,30 +93,63 @@ export function useOrderActions(opts: {
     const command = commandRaw?.toLowerCase() ?? "";
 
     switch (command) {
-      case "help":
-        setFeedback({
-          kind: "info",
-          message: "commandes : trade  modify  cancel  settings  refresh  clear  help",
-        });
+      case "help": {
+        const target = args[0]?.toLowerCase();
+        if (!target) {
+          setFeedback({ kind: "info", message: `commandes : ${COMMAND_LIST}` });
+          return;
+        }
+        const detail = COMMAND_HELP[target];
+        setFeedback(
+          detail
+            ? { kind: "info", message: detail }
+            : { kind: "error", message: `commande inconnue : ${target} — ${COMMAND_LIST}` },
+        );
         return;
+      }
       case "settings":
         onReconfigure();
         return;
       case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
-        void Promise.all([refreshMarket(), refreshNews({ force: true })]).then(() => {
-          setFeedback({ kind: "success", message: "actualisé" });
-        });
+        void Promise.all([refreshMarket(), refreshNews({ force: true }), refreshStructure()]).then(
+          () => {
+            setFeedback({ kind: "success", message: "actualisé" });
+          },
+        );
         return;
       case "clear":
         setFeedback({ kind: "info", message: "" });
         return;
+      case "risk": {
+        if (args.length === 0) {
+          setFeedback({
+            kind: "info",
+            message:
+              defaultRiskPercent === undefined
+                ? `aucun risque par défaut — ${RISK_USAGE}`
+                : `risque par défaut : ${defaultRiskPercent}%`,
+          });
+          return;
+        }
+        const parsedRisk = parseRiskCommand(args);
+        if (typeof parsedRisk === "string") {
+          setFeedback({ kind: "error", message: parsedRisk });
+          return;
+        }
+        setDefaultRiskPercent(parsedRisk);
+        setFeedback({
+          kind: "success",
+          message: `risque par défaut réglé à ${parsedRisk}% pour cette session`,
+        });
+        return;
+      }
       case "trade": {
         if (!symbolId) {
           setFeedback({ kind: "error", message: "pas encore connecté au serveur" });
           return;
         }
-        const parsed = parseTradeCommand(args);
+        const parsed = parseTradeCommand(args, defaultRiskPercent);
         if (typeof parsed === "string") {
           setFeedback({ kind: "error", message: parsed });
           return;
@@ -122,7 +187,20 @@ export function useOrderActions(opts: {
       }
       case "cancel": {
         if (args.length === 0) {
-          setFeedback({ kind: "error", message: "usage : cancel <id> [id...]" });
+          setFeedback({ kind: "error", message: CANCEL_USAGE });
+          return;
+        }
+        if (args[0]?.toLowerCase() === "all") {
+          const allOrders = positions?.orders ?? [];
+          if (allOrders.length === 0) {
+            setFeedback({ kind: "info", message: "aucun ordre en attente à annuler" });
+            return;
+          }
+          setPendingCancel(allOrders);
+          setFeedback({
+            kind: "info",
+            message: "annulation de tous les ordres — confirme dans la popup",
+          });
           return;
         }
         const ids = args.map(Number);

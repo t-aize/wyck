@@ -4,7 +4,8 @@ import { roundPrice } from "../constants.ts";
 import type { PreparedTrade, TradeInput } from "./trading.ts";
 
 export const TRADE_USAGE =
-  "usage : trade <risque%> <entrée|market> <sl> <tp>  (direction déduite du SL/TP)";
+  "usage : trade [<risque%>] <entrée|market> <sl> <tp>  (direction déduite du SL/TP ; " +
+  "risque% optionnel si un défaut est défini avec `risk`)";
 
 /**
  * Parseur minimal `--flag valeur` / `-f valeur` (style CLI, ordre libre). `aliases` mappe une
@@ -42,9 +43,28 @@ function parseOptionalPrice(
   return { value: roundPrice(value) };
 }
 
-/** Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
-export function parseTradeCommand(args: string[]): TradeInput | string {
-  const [riskRaw, entryRaw, slRaw, tpRaw] = args;
+/**
+ * Retourne le `TradeInput` parsé, ou un message d'erreur (string) à afficher tel quel.
+ * `defaultRiskPercent` (réglé via la commande `risk`) rend le risque% optionnel : avec
+ * exactement 3 arguments, ils sont interprétés comme (entrée, sl, tp) plutôt que
+ * (risque, entrée, sl) — sinon le risque% reste le premier argument comme d'habitude.
+ */
+export function parseTradeCommand(
+  args: string[],
+  defaultRiskPercent?: number,
+): TradeInput | string {
+  let riskRaw: string | undefined;
+  let entryRaw: string | undefined;
+  let slRaw: string | undefined;
+  let tpRaw: string | undefined;
+
+  if (args.length === 3 && defaultRiskPercent !== undefined) {
+    riskRaw = String(defaultRiskPercent);
+    [entryRaw, slRaw, tpRaw] = args;
+  } else {
+    [riskRaw, entryRaw, slRaw, tpRaw] = args;
+  }
+
   if (!riskRaw || !entryRaw || !slRaw || !tpRaw) return `arguments manquants — ${TRADE_USAGE}`;
 
   const riskPercent = Number(riskRaw);
@@ -93,6 +113,22 @@ export function parseModifyCommand(args: string[]): ModifyInput | string {
   }
 
   return { id, stopLoss: sl.value, takeProfit: tp.value };
+}
+
+export const CANCEL_USAGE = "usage : cancel <id> [id...] | cancel all";
+
+export const RISK_USAGE =
+  "usage : risk <risque%>  (risque par défaut pour `trade`, valable cette session)";
+
+/** Retourne le risque% parsé, ou un message d'erreur (string) à afficher tel quel. */
+export function parseRiskCommand(args: string[]): number | string {
+  const raw = args[0];
+  if (raw === undefined) return `risque manquant — ${RISK_USAGE}`;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || value > 100) {
+    return `risque invalide : "${raw}" — ${RISK_USAGE}`;
+  }
+  return value;
 }
 
 export function formatTradeSummary(trade: PreparedTrade): string {

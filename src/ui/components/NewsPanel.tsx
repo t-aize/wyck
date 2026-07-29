@@ -10,6 +10,7 @@ import {
   parisDayKey,
 } from "../../domain/news.ts";
 import { alignLeft, formatRelative } from "../format.ts";
+import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
 
 interface NewsPanelProps {
@@ -101,7 +102,7 @@ function formatFigures(event: CalendarEvent): string {
   return parts.join("  ");
 }
 
-const DIRECTION_GLYPH: Record<Direction, string> = { up: "▲", down: "▼", flat: "▬" };
+const DIRECTION_GLYPH: Record<Direction, string> = { up: UP, down: DOWN, flat: FLAT };
 
 /** Sens XAUUSD anticipé (forecast vs previous) : vert = haussier, rouge = baissier. */
 function DirectionBadge({ direction }: { direction: Direction | undefined }) {

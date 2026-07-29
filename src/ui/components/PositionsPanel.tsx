@@ -1,7 +1,9 @@
 import { TextAttributes } from "@opentui/core";
-import { PRICE_SCALE, toLots, toPips } from "../../constants.ts";
-import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/client.ts";
-import { readPosition } from "../../ctrader/mappers.ts";
+import { useMemo } from "react";
+import { PRICE_SCALE, SYMBOL, toLots, toPips } from "../../constants.ts";
+import type { CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
+import { isUnmapped, type ReadPosition, readPosition } from "../../ctrader/mappers.ts";
+import { computeUnrealizedPnl } from "../../domain/trading.ts";
 import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
@@ -61,26 +63,37 @@ function headerRow() {
 }
 
 function PositionRow({
-  position,
+  p,
   now,
   mid,
+  bidPrice,
+  askPrice,
 }: {
-  position: CtraderPosition;
+  p: ReadPosition;
   now: Date;
   mid: number | undefined;
+  bidPrice: number | undefined;
+  askPrice: number | undefined;
 }) {
-  const p = readPosition(position);
   const sideColor = p.side === "SELL" ? theme.red : p.side === "BUY" ? theme.green : theme.textDim;
   const sideLabel = p.side === "BUY" ? `${UP} BUY` : p.side === "SELL" ? `${DOWN} SELL` : "—";
-  const pnlColor = p.pnl === undefined ? theme.textDim : p.pnl >= 0 ? theme.green : theme.red;
-  const pnlLabel = p.pnl === undefined ? "—" : `${p.pnl >= 0 ? UP : DOWN} ${p.pnl.toFixed(2)}`;
+  const pnl =
+    p.side !== undefined &&
+    p.volumeLots !== undefined &&
+    p.entry !== undefined &&
+    bidPrice !== undefined &&
+    askPrice !== undefined
+      ? computeUnrealizedPnl(p.side, p.volumeLots, p.entry, bidPrice, askPrice)
+      : undefined;
+  const pnlColor = pnl === undefined ? theme.textDim : pnl >= 0 ? theme.green : theme.red;
+  const pnlLabel = pnl === undefined ? "—" : `${pnl >= 0 ? UP : DOWN} ${pnl.toFixed(2)}`;
   const age = p.openTimestamp === undefined ? "—" : formatDuration(now.getTime() - p.openTimestamp);
   const nearest = nearestPipsLabel(mid, p.stopLoss, p.takeProfit);
 
   return (
     <text>
       <span fg={theme.text}>
-        {alignLeft(p.id === undefined ? p.symbol : String(p.id), COLUMNS.symbol)}
+        {alignLeft(p.id === undefined ? SYMBOL : String(p.id), COLUMNS.symbol)}
       </span>
       <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side)}</span>
       <span fg={theme.text}>{alignRight(p.volumeLots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
@@ -136,6 +149,14 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
   const openPositions = positions?.positions ?? [];
   const pendingOrders = positions?.orders ?? [];
   const mid = bid === undefined || ask === undefined ? undefined : (bid + ask) / 2 / PRICE_SCALE;
+  const bidPrice = bid === undefined ? undefined : bid / PRICE_SCALE;
+  const askPrice = ask === undefined ? undefined : ask / PRICE_SCALE;
+
+  const mapped = useMemo(() => openPositions.map(readPosition), [openPositions]);
+  // Si les champs à haute confiance (cf. commentaire en tête de ctrader/mappers.ts) ne
+  // résolvent pas sur des positions réellement ouvertes, l'hypothèse de mapping est
+  // cassée — mieux vaut le dire que d'afficher des "—" sans explication.
+  const hasUnmapped = mapped.some(isUnmapped);
 
   return (
     <box
@@ -152,6 +173,11 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
         paddingRight: 1,
       }}
     >
+      {hasUnmapped && (
+        <text fg={theme.red}>
+          ⚠ format de position inattendu — certaines valeurs peuvent être fausses ou manquantes
+        </text>
+      )}
       {positions === undefined ? (
         <text fg={theme.textDim}>chargement…</text>
       ) : openPositions.length === 0 ? (
@@ -159,9 +185,17 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
       ) : (
         <>
           {headerRow()}
-          {openPositions.map((position, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: liste réactualisée en bloc à chaque poll, pas de clé stable connue (positionId non vérifié)
-            <PositionRow key={index} position={position} now={now} mid={mid} />
+          {mapped.map((p, index) => (
+            <PositionRow
+              // positionId a une confiance haute (cf. mappers.ts) ; l'index reste un filet
+              // pour le cas — signalé ci-dessus — où le mapping échoue en pratique.
+              key={p.id ?? index}
+              p={p}
+              now={now}
+              mid={mid}
+              bidPrice={bidPrice}
+              askPrice={askPrice}
+            />
           ))}
         </>
       )}

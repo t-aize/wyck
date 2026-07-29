@@ -23,7 +23,16 @@ const FEEDBACK_COLOR: Record<FeedbackKind, string> = {
   error: theme.red,
 };
 
-const COMMANDS = ["trade", "modify", "cancel", "settings", "refresh", "clear", "help"] as const;
+const COMMANDS = [
+  "trade",
+  "modify",
+  "cancel",
+  "risk",
+  "settings",
+  "refresh",
+  "clear",
+  "help",
+] as const;
 
 /** Exposé au parent pour que Ctrl+C (géré globalement, cf. useTerminalShortcuts) vide la ligne. */
 export interface CommandBarHandle {
@@ -107,15 +116,20 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
 
   return (
     <box
+      title=" COMMANDE "
+      titleColor={focused ? theme.gold : theme.textMuted}
       style={{
         flexDirection: "column",
         flexShrink: 0,
+        border: true,
+        // Le seul repère visuel de "qui a le clavier" : doré quand la barre est active,
+        // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx).
+        borderColor: focused ? theme.borderActive : theme.border,
         backgroundColor: theme.panelBg,
         paddingLeft: 2,
         paddingRight: 2,
         paddingTop: 0,
         paddingBottom: 0,
-        height: 5,
       }}
     >
       <text fg={FEEDBACK_COLOR[feedback.kind]}>

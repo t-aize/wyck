@@ -13,6 +13,7 @@
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "build": "bun build ./src/index.tsx --compile --minify --sourcemap --outfile ./dist/aurum",
     "mcp:tools": "bun run scripts/list-tools.ts",
     "lint": "biome check .",
@@ -20,14 +21,14 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@opentui/core": "^0.4.5",
     "@opentui/react": "^0.4.5",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.4",
+    "@biomejs/biome": "^2.5.6",
     "@types/bun": "^1.3.14",
     "@types/react": "^19.2.17",
     "typescript": "^7.0.2"

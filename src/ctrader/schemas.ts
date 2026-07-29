@@ -7,6 +7,15 @@
  * `z.record(z.string(), z.unknown())` : aucune position n'était ouverte lors du
  * dernier test (10/07/2026) et il n'y a pas de compte démo pour en ouvrir une sans
  * risque ; les outils d'écriture n'ont jamais été exercés sur le compte réel.
+ *
+ * `CtraderPosition` reste délibérément permissif plutôt que d'être verrouillé sur la
+ * base du seul recoupement avec le proto Open API (cf. ctrader/mappers.ts) : un schéma
+ * strict qui se trompe ferait *planter* l'affichage des positions (échec `safeParse` →
+ * `CtraderMcpError`), ce qui est pire pour un panel de trading que des valeurs
+ * possiblement fausses mais visibles — cf. l'avertissement affiché par
+ * `PositionsPanel.tsx` quand le mapping échoue. Les schémas d'écriture, eux, sont bas
+ * risque même non verrouillés : `useOrderActions.ts` ne lit jamais leurs champs, il ne
+ * regarde que succès/échec de la promesse.
  */
 
 import { z } from "zod";
@@ -226,7 +235,8 @@ export const GetTrendbarsResultSchema = z.object({
 });
 export type GetTrendbarsResult = z.infer<typeof GetTrendbarsResultSchema>;
 
-// TODO(payload): structure non vérifiée, aucune position ouverte au moment des tests.
+// TODO(payload): jamais exercé contre un payload réel — cf. ctrader/mappers.ts pour les
+// noms de champs à haute confiance déduits du proto Open API en attendant.
 export const CtraderPositionSchema = UnverifiedPayloadSchema;
 export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
 

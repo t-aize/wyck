@@ -122,6 +122,26 @@ export async function prepareTrade(
   };
 }
 
+/**
+ * P&L latent d'une position ouverte, calculé plutôt que lu : l'API cTrader (Open API
+ * `ProtoOAPosition`, que ce MCP reflète — cf. commentaire en tête de ctrader/mappers.ts)
+ * n'expose aucun champ de profit latent, seulement des données réalisées (swap,
+ * commission). Mark-to-market au bid pour un long (prix de sortie si on clôturait
+ * maintenant), à l'ask pour un short — convention standard, cohérente avec le reste du
+ * fichier qui déduit toujours le prix de référence du côté de la position.
+ */
+export function computeUnrealizedPnl(
+  side: TradeSide,
+  volumeLots: number,
+  entryPrice: number,
+  bid: number,
+  ask: number,
+): number {
+  const markPrice = side === "BUY" ? bid : ask;
+  const priceDiff = side === "BUY" ? markPrice - entryPrice : entryPrice - markPrice;
+  return priceDiff * volumeLots * 100;
+}
+
 export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): CreateOrderParams {
   const base = {
     symbolId,

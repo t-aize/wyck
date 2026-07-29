@@ -28,6 +28,9 @@ import { theme } from "./ui/theme.ts";
 export function App() {
   const [config, setConfig] = useState<AppConfig | undefined>(() => readConfig());
   const [reconfiguring, setReconfiguring] = useState(false);
+  // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
+  // changé importe pour déclencher le remount, pas sa valeur.
+  const [generation, setGeneration] = useState(0);
 
   if (!config || reconfiguring) {
     return (
@@ -36,6 +39,7 @@ export function App() {
         onConfigured={(next) => {
           setConfig(next);
           setReconfiguring(false);
+          setGeneration((g) => g + 1);
         }}
         onCancel={config ? () => setReconfiguring(false) : undefined}
       />
@@ -43,11 +47,7 @@ export function App() {
   }
 
   return (
-    <ConnectedApp
-      key={`${config.url}::${config.token}`}
-      config={config}
-      onReconfigure={() => setReconfiguring(true)}
-    />
+    <ConnectedApp key={generation} config={config} onReconfigure={() => setReconfiguring(true)} />
   );
 }
 
@@ -63,7 +63,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     setConnectionError,
   );
   const { calendar, newsError, refreshNews } = useCalendar();
-  const { rows: structureRows, structureError } = useStructure(client, symbolId);
+  const { rows: structureRows, structureError, refreshStructure } = useStructure(client, symbolId);
   const {
     feedback,
     setFeedback,
@@ -77,7 +77,15 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     pendingCancel,
     confirmPendingCancel,
     dismissPendingCancel,
-  } = useOrderActions({ client, symbolId, positions, refreshMarket, refreshNews, onReconfigure });
+  } = useOrderActions({
+    client,
+    symbolId,
+    positions,
+    refreshMarket,
+    refreshNews,
+    refreshStructure,
+    onReconfigure,
+  });
 
   useTerminalShortcuts(
     setFeedback,
