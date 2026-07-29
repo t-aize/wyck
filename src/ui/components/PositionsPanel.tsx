@@ -164,8 +164,11 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
       titleColor={theme.gold}
       style={{
         flexDirection: "column",
-        flexGrow: 3,
-        flexBasis: 0,
+        // Dynamique plutôt qu'une part fixe de l'écran (flexGrow) : la plupart du temps il n'y a
+        // que 2-3 positions max (pas d'automatisation), pas de raison de réserver une grosse
+        // portion d'écran vide au-dessus du calendrier/de la structure quand "Aucune position
+        // ouverte." s'affiche seul.
+        flexShrink: 0,
         border: true,
         borderColor: theme.border,
         backgroundColor: theme.bg,
