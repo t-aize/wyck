@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
+
+      - name: Rename binary with the tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          Rename-Item dist/aurum.exe "aurum-$version-windows-x64.exe"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/aurum-*.exe
+          generate_release_notes: true
+          draft: false
