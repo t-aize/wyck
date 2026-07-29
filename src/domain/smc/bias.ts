@@ -44,6 +44,14 @@ export interface OverallBias {
   /** 1/-1/0 — réutilise StructureBias, 0 recouvre à la fois "neutre" et "pas de biais clair" (données absentes ou ancrage en désaccord). */
   direction: StructureBias;
   anchor: { d1: StructureBias; h4: StructureBias } | undefined;
+  /**
+   * `true` seulement quand D1 et 4H sont tous les deux directionnels et s'opposent (un haussier,
+   * l'autre baissier) — une vraie tension structurelle, distincte du cas banal où l'un des deux
+   * est simplement encore neutre (pas assez de swing formé). Les deux cas donnent `direction: 0`,
+   * mais seul le premier mérite d'être mis en avant plutôt que traité comme "pas encore de
+   * signal".
+   */
+  anchorConflict: boolean;
   /** `undefined` ssi `direction === 0` : pas de direction, pas de conviction à donner dessus. */
   conviction: Conviction | undefined;
   confirmations: ConfirmationDetail[];
@@ -53,6 +61,25 @@ export interface OverallBias {
   macroAgainstCount: number;
   /** Indépendant de `direction` : un avertissement calendrier reste pertinent même sans biais clair. */
   caution: CalendarCaution | undefined;
+  /**
+   * Repli sur 1H (avec 15M/5M en confirmation) quand D1 ET 4H sont tous les deux neutres — pas un
+   * conflit, juste rien de formé sur les plus hauts TF. Volontairement absent des autres cas
+   * (conflit, un seul neutre) : ce n'est pas un filet de sécurité général, juste de quoi trader
+   * quand même sur une lecture plus courte quand les deux plus hauts TF ne disent rien du tout.
+   * `undefined` aussi si 1H lui-même est neutre — il n'y a alors vraiment rien à proposer.
+   */
+  secondary: SecondaryBias | undefined;
+}
+
+export interface SecondaryBias {
+  /** Biais du 1H lui-même — jamais 0 quand ce champ existe (cf. commentaire sur `secondary`). */
+  direction: StructureBias;
+  confirmations: ConfirmationDetail[];
+  confirmationCount: number;
+  macroFactors: MacroFactor[];
+  macroAlignedCount: number;
+  macroAgainstCount: number;
+  conviction: Conviction;
 }
 
 function findRow(rows: StructureRow[], label: string): StructureRow | undefined {
@@ -76,14 +103,22 @@ function computeDirection(anchor: ReturnType<typeof computeAnchor>): StructureBi
   return anchor.d1 === anchor.h4 && anchor.d1 !== 0 ? anchor.d1 : 0;
 }
 
-const CONFIRMATION_LABELS = ["1H", "15M", "5M"] as const;
+/** Distingue le désaccord réel (les deux directionnels, opposés) du cas banal (un des deux encore neutre). */
+function computeAnchorConflict(anchor: ReturnType<typeof computeAnchor>): boolean {
+  if (!anchor) return false;
+  return anchor.d1 !== 0 && anchor.h4 !== 0 && anchor.d1 !== anchor.h4;
+}
+
+const PRIMARY_CONFIRMATION_LABELS = ["1H", "15M", "5M"] as const;
+const SECONDARY_CONFIRMATION_LABELS = ["15M", "5M"] as const;
 
 /** Une ligne manquante ne confirme pas — ce n'est pas une erreur, juste une absence de confirmation. */
 function computeConfirmations(
   rows: StructureRow[],
   direction: StructureBias,
+  labels: readonly string[],
 ): ConfirmationDetail[] {
-  return CONFIRMATION_LABELS.map((label) => {
+  return labels.map((label) => {
     const row = findRow(rows, label);
     if (!row) {
       return { label, biasMatch: false, signalMatch: false, sweepMatch: false, confirms: false };
@@ -156,6 +191,34 @@ function computeConviction(
   return CONVICTION_LEVELS[bounded]!;
 }
 
+/** Repli 1H : cf. commentaire sur `OverallBias.secondary`. */
+function computeSecondary(
+  rows: StructureRow[],
+  anchor: ReturnType<typeof computeAnchor>,
+  macro: MacroSnapshot | undefined,
+): SecondaryBias | undefined {
+  if (anchor?.d1 !== 0 || anchor.h4 !== 0) return undefined;
+
+  const direction = findRow(rows, "1H")?.snapshot.bias;
+  if (!direction) return undefined;
+
+  const confirmations = computeConfirmations(rows, direction, SECONDARY_CONFIRMATION_LABELS);
+  const confirmationCount = confirmations.filter((c) => c.confirms).length;
+  const macroFactors = computeMacroFactors(macro, direction);
+  const macroAlignedCount = macroFactors.filter((f) => f.alignment === "aligned").length;
+  const macroAgainstCount = macroFactors.filter((f) => f.alignment === "against").length;
+
+  return {
+    direction,
+    confirmations,
+    confirmationCount,
+    macroFactors,
+    macroAlignedCount,
+    macroAgainstCount,
+    conviction: computeConviction(confirmationCount, macroAlignedCount, macroAgainstCount),
+  };
+}
+
 /** Même filtre que NewsPanel (or-pertinent + fort impact), pour rester cohérent avec ce qui s'affiche déjà dans le calendrier. */
 function computeCaution(calendar: CalendarEvent[], now: Date): CalendarCaution | undefined {
   const nowMs = now.getTime();
@@ -176,9 +239,11 @@ export function computeOverallBias(
 ): OverallBias {
   const anchor = computeAnchor(structureRows);
   const direction = computeDirection(anchor);
+  const anchorConflict = computeAnchorConflict(anchor);
   const rows = structureRows ?? [];
 
-  const confirmations = direction !== 0 ? computeConfirmations(rows, direction) : [];
+  const confirmations =
+    direction !== 0 ? computeConfirmations(rows, direction, PRIMARY_CONFIRMATION_LABELS) : [];
   const confirmationCount = confirmations.filter((c) => c.confirms).length;
 
   const macroFactors = direction !== 0 ? computeMacroFactors(macro, direction) : [];
@@ -193,6 +258,7 @@ export function computeOverallBias(
   return {
     direction,
     anchor,
+    anchorConflict,
     conviction,
     confirmations,
     confirmationCount,
@@ -200,5 +266,6 @@ export function computeOverallBias(
     macroAlignedCount,
     macroAgainstCount,
     caution: computeCaution(calendar, now),
+    secondary: computeSecondary(rows, anchor, macro),
   };
 }

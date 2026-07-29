@@ -41,6 +41,7 @@ describe("computeOverallBias — ancrage/direction", () => {
     const result = computeOverallBias(undefined, undefined, [], NOW);
     expect(result.anchor).toBeUndefined();
     expect(result.direction).toBe(0);
+    expect(result.anchorConflict).toBe(false);
     expect(result.conviction).toBeUndefined();
   });
 
@@ -57,36 +58,119 @@ describe("computeOverallBias — ancrage/direction", () => {
     expect(result.direction).toBe(0);
   });
 
-  test("D1=4H=haussier ⇒ direction haussière", () => {
+  test("D1=4H=haussier ⇒ direction haussière, pas de conflit", () => {
     const rows = [row("D1", { bias: 1 }), row("4H", { bias: 1 })];
     const result = computeOverallBias(rows, undefined, [], NOW);
     expect(result.anchor).toEqual({ d1: 1, h4: 1 });
     expect(result.direction).toBe(1);
+    expect(result.anchorConflict).toBe(false);
   });
 
-  test("D1=4H=baissier ⇒ direction baissière", () => {
+  test("D1=4H=baissier ⇒ direction baissière, pas de conflit", () => {
     const rows = [row("D1", { bias: -1 }), row("4H", { bias: -1 })];
     const result = computeOverallBias(rows, undefined, [], NOW);
     expect(result.direction).toBe(-1);
+    expect(result.anchorConflict).toBe(false);
   });
 
-  test("D1 et 4H en désaccord ⇒ pas de biais, mais ancrage renseigné", () => {
+  test("D1 et 4H opposés (tous deux directionnels) ⇒ pas de biais, conflit réel signalé", () => {
     const rows = [row("D1", { bias: 1 }), row("4H", { bias: -1 })];
     const result = computeOverallBias(rows, undefined, [], NOW);
     expect(result.anchor).toEqual({ d1: 1, h4: -1 });
     expect(result.direction).toBe(0);
+    expect(result.anchorConflict).toBe(true);
   });
 
-  test("un des deux neutre ⇒ pas de biais", () => {
+  test("un des deux neutre ⇒ pas de biais, mais pas un conflit (cas banal)", () => {
     const rows = [row("D1", { bias: 1 }), row("4H", { bias: 0 })];
     const result = computeOverallBias(rows, undefined, [], NOW);
     expect(result.direction).toBe(0);
+    expect(result.anchorConflict).toBe(false);
   });
 
-  test("les deux neutres ⇒ pas de biais", () => {
+  test("les deux neutres ⇒ pas de biais, pas un conflit", () => {
     const rows = [row("D1", { bias: 0 }), row("4H", { bias: 0 })];
     const result = computeOverallBias(rows, undefined, [], NOW);
     expect(result.direction).toBe(0);
+    expect(result.anchorConflict).toBe(false);
+  });
+});
+
+describe("computeOverallBias — repli 1H (D1/4H tous les deux neutres)", () => {
+  test("D1/4H neutres, 1H haussier, rien d'autre ⇒ repli défini, faible", () => {
+    const rows = [row("D1", { bias: 0 }), row("4H", { bias: 0 }), row("1H", { bias: 1 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.secondary).toEqual({
+      direction: 1,
+      confirmations: [
+        { label: "15M", biasMatch: false, signalMatch: false, sweepMatch: false, confirms: false },
+        { label: "5M", biasMatch: false, signalMatch: false, sweepMatch: false, confirms: false },
+      ],
+      confirmationCount: 0,
+      macroFactors: [
+        { factor: "cot", alignment: "unavailable", change: undefined },
+        { factor: "usdBroad", alignment: "unavailable", change: undefined },
+        { factor: "realYield", alignment: "unavailable", change: undefined },
+      ],
+      macroAlignedCount: 0,
+      macroAgainstCount: 0,
+      conviction: "weak",
+    });
+  });
+
+  test("D1/4H neutres, 1H haussier, 15M confirme ⇒ conviction modérée", () => {
+    const rows = [
+      row("D1", { bias: 0 }),
+      row("4H", { bias: 0 }),
+      row("1H", { bias: 1 }),
+      row("15M", { bias: 1 }),
+    ];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.secondary?.confirmationCount).toBe(1);
+    expect(result.secondary?.conviction).toBe("moderate");
+  });
+
+  test("D1/4H neutres, 1H lui-même neutre ⇒ pas de repli (rien à proposer)", () => {
+    const rows = [row("D1", { bias: 0 }), row("4H", { bias: 0 }), row("1H", { bias: 0 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.secondary).toBeUndefined();
+  });
+
+  test("D1/4H neutres, 1H absent ⇒ pas de repli", () => {
+    const rows = [row("D1", { bias: 0 }), row("4H", { bias: 0 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.secondary).toBeUndefined();
+  });
+
+  test("D1 directionnel ⇒ pas de repli, même si 4H neutre", () => {
+    const rows = [row("D1", { bias: 1 }), row("4H", { bias: 0 }), row("1H", { bias: 1 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.secondary).toBeUndefined();
+  });
+
+  test("D1/4H en conflit réel ⇒ pas de repli non plus (pas le même cas)", () => {
+    const rows = [row("D1", { bias: 1 }), row("4H", { bias: -1 }), row("1H", { bias: 1 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.anchorConflict).toBe(true);
+    expect(result.secondary).toBeUndefined();
+  });
+
+  test("D1=4H directionnels (biais primaire déjà clair) ⇒ pas de repli", () => {
+    const rows = [row("D1", { bias: 1 }), row("4H", { bias: 1 }), row("1H", { bias: -1 })];
+    const result = computeOverallBias(rows, undefined, [], NOW);
+    expect(result.direction).toBe(1);
+    expect(result.secondary).toBeUndefined();
+  });
+
+  test("macro alignée bonifie aussi la conviction du repli", () => {
+    const rows = [row("D1", { bias: 0 }), row("4H", { bias: 0 }), row("1H", { bias: 1 })];
+    const macro: MacroSnapshot = {
+      cot: { reportDate: "", net: 0, change: 1000, openInterest: 0 },
+      usdBroad: { date: "", value: 0, change: -0.5 },
+    };
+    const result = computeOverallBias(rows, macro, [], NOW);
+    expect(result.secondary?.macroAlignedCount).toBe(2);
+    expect(result.secondary?.conviction).toBe("moderate"); // base faible (0 confirmation) + bump macro
   });
 });
 

@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core";
-import type { Conviction, OverallBias } from "../../domain/smc/bias.ts";
+import type { Conviction, OverallBias, SecondaryBias } from "../../domain/smc/bias.ts";
 import type { StructureSnapshot } from "../../domain/smc/structure.ts";
 import { alignLeft, alignRight, formatPrice } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
@@ -74,6 +74,19 @@ function convictionLabel(conviction: Conviction): string {
   return conviction === "strong" ? "forte" : conviction === "moderate" ? "modérée" : "faible";
 }
 
+/** Repli 1H affiché seulement quand D1 ET 4H sont tous les deux neutres (cf. domain/smc/bias.ts) — une lecture plus courte pour qui veut trader quand même sans biais clair sur les plus hauts TF. */
+function SecondaryBiasLine({ secondary }: { secondary: SecondaryBias }) {
+  return (
+    <text>
+      <span fg={theme.textMuted}>↳ repli 1H (D1/4H neutres) : </span>
+      <span fg={biasColor(secondary.direction)}>{biasLabel(secondary.direction)}</span>
+      <span fg={theme.textMuted}>
+        {`  ·  conviction ${convictionLabel(secondary.conviction)}  —  ${secondary.confirmationCount}/2 TF confirment`}
+      </span>
+    </text>
+  );
+}
+
 /** Synthèse d'une phrase : ancrage D1+4H, confirmation/macro en support, calendrier en avertissement — jamais l'inverse (cf. domain/smc/bias.ts). */
 function BiasLine({ bias }: { bias: OverallBias }) {
   const caution = bias.caution && (
@@ -86,11 +99,26 @@ function BiasLine({ bias }: { bias: OverallBias }) {
     const anchorText = bias.anchor
       ? ` (D1 ${biasLabel(bias.anchor.d1)} / 4H ${biasLabel(bias.anchor.h4)})`
       : "";
-    return (
+    // Conflit réel (D1/4H directionnels et opposés) mis en avant en rouge — distinct du cas banal
+    // (un des deux encore neutre) qui reste discret, cf. le commentaire sur anchorConflict.
+    const primary = bias.anchorConflict ? (
+      <text>
+        <span fg={theme.red} attributes={TextAttributes.BOLD}>
+          {`⚠ BIAIS GLOBAL : D1/4H EN CONFLIT${anchorText}`}
+        </span>
+        {caution}
+      </text>
+    ) : (
       <text>
         <span fg={theme.textDim}>{`BIAIS GLOBAL : PAS DE BIAIS CLAIR${anchorText}`}</span>
         {caution}
       </text>
+    );
+    return (
+      <>
+        {primary}
+        {bias.secondary && <SecondaryBiasLine secondary={bias.secondary} />}
+      </>
     );
   }
 
