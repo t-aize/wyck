@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CtraderClient, CtraderTrendbar, GetTrendbarsParams } from "../../ctrader/client.ts";
 import {
   computeStructure,
@@ -17,26 +17,40 @@ const STRUCTURE_POLL_MS = 60_000;
  * réellement tradées (marché fermé le week-end) — pas le compte "attendu" pour la
  * plage demandée. Avec une seule fenêtre de 720h, le vrai swing low/high en 4H
  * (length=20) tombe parfois trop près du bord gauche des données pour être confirmé
- * (repro : 720h → 100 bougies 4H, le plus bas était à l'index 18 < length). Deux
+ * (repro : 720h → 100 bougies 4H, le plus bas était à l'index 18 < length). Des
  * fenêtres de 700h chaînées (sous le plafond serveur, cf. message d'erreur qui
- * suggère explicitement des appels multiples en parallèle) donnent assez de marge.
+ * suggère explicitement des appels multiples en parallèle) donnent assez de marge —
+ * autant de fenêtres que nécessaire pour couvrir `historyMs` de chaque timeframe
+ * (2 pour la plupart, 10 pour D1 qui a besoin de bien plus d'historique).
  */
-const WINDOW_MS = 700 * 60 * 60_000;
+const REQUEST_CAP_MS = 700 * 60 * 60_000;
 
-async function fetchWindow(
+async function fetchHistory(
   client: CtraderClient,
   symbolId: number,
   period: GetTrendbarsParams["period"],
-  fromMs: number,
-  toMs: number,
+  historyMs: number,
+  now: number,
 ): Promise<CtraderTrendbar[]> {
-  const { trendbars } = await client.getTrendbars({
-    symbolId,
-    period,
-    fromTimestamp: new Date(fromMs).toISOString(),
-    toTimestamp: new Date(toMs).toISOString(),
-  });
-  return trendbars;
+  const windowCount = Math.ceil(historyMs / REQUEST_CAP_MS);
+  const windows = Array.from({ length: windowCount }, (_, i) => ({
+    from: now - (i + 1) * REQUEST_CAP_MS,
+    to: now - i * REQUEST_CAP_MS,
+  })).reverse();
+
+  const chunks = await Promise.all(
+    windows.map(({ from, to }) =>
+      client
+        .getTrendbars({
+          symbolId,
+          period,
+          fromTimestamp: new Date(from).toISOString(),
+          toTimestamp: new Date(to).toISOString(),
+        })
+        .then((result) => result.trendbars),
+    ),
+  );
+  return chunks.flat();
 }
 
 export interface StructureRow {
@@ -47,39 +61,54 @@ export interface StructureRow {
 export interface Structure {
   rows: StructureRow[] | undefined;
   structureError: string | undefined;
-  refreshStructure: () => Promise<void>;
+  refreshStructure: (options?: { force?: boolean }) => Promise<void>;
 }
 
 export function useStructure(client: CtraderClient, symbolId: number | undefined): Structure {
   const [rows, setRows] = useState<StructureRow[]>();
   const [structureError, setStructureError] = useState<string>();
+  // D1 (`dailyOnly`) ne change qu'une fois par jour et a un historique bien plus lourd à charger
+  // (10 fenêtres chaînées) — on garde son dernier résultat en mémoire et on ne le refetch qu'une
+  // fois par jour calendaire, plutôt qu'à chaque poll de structure (60s).
+  const dailyCache = useRef(new Map<string, { dayKey: string; row: StructureRow }>());
 
   const refreshStructure = useMemo(
-    () => async () => {
-      if (!symbolId) return;
-      try {
-        const now = Date.now();
-        const newerFrom = now - WINDOW_MS;
-        const results = await Promise.all(
-          STRUCTURE_TIMEFRAMES.map(async (tf) => {
-            const [older, newer] = await Promise.all([
-              fetchWindow(client, symbolId, tf.period, newerFrom - WINDOW_MS, newerFrom),
-              fetchWindow(client, symbolId, tf.period, newerFrom, now),
-            ]);
-            const closed = dropFormingBar([...older, ...newer], tf.periodMs, now);
-            return { label: tf.label, snapshot: computeStructure(closed, tf.length) };
-          }),
-        );
-        setRows(results);
-        setStructureError(undefined);
-      } catch (error) {
-        setStructureError(toMessage(error));
-      }
-    },
+    () =>
+      async (options: { force?: boolean } = {}) => {
+        if (!symbolId) return;
+        try {
+          const now = Date.now();
+          const today = new Date(now).toISOString().slice(0, 10);
+
+          const results = await Promise.all(
+            STRUCTURE_TIMEFRAMES.map(async (tf): Promise<StructureRow> => {
+              if (tf.dailyOnly && !options.force) {
+                const cached = dailyCache.current.get(tf.label);
+                if (cached && cached.dayKey === today) return cached.row;
+              }
+
+              const raw = await fetchHistory(client, symbolId, tf.period, tf.historyMs, now);
+              const closed = dropFormingBar(raw, tf.periodMs, now);
+              const row: StructureRow = {
+                label: tf.label,
+                snapshot: computeStructure(closed, tf.length),
+              };
+
+              if (tf.dailyOnly) dailyCache.current.set(tf.label, { dayKey: today, row });
+              return row;
+            }),
+          );
+
+          setRows(results);
+          setStructureError(undefined);
+        } catch (error) {
+          setStructureError(toMessage(error));
+        }
+      },
     [client, symbolId],
   );
 
-  useInterval(refreshStructure, STRUCTURE_POLL_MS);
+  useInterval(() => void refreshStructure(), STRUCTURE_POLL_MS);
 
   // Même raison que useMarketData : le premier tick de useInterval tombe avant que
   // symbolId soit connu (connect() est async), sans quoi la structure resterait
