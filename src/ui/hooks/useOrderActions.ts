@@ -22,18 +22,16 @@ const COMMAND_LIST = "trade  modify  cancel  risk  settings  refresh  clear  hel
 
 /**
  * Détail affiché par `help <commande>` — réutilise les mêmes chaînes d'usage que les erreurs de
- * parsing. Pas de commande `fred` : la clé FRED se règle via `settings` (obligatoire, cf.
- * SetupScreen.tsx) plutôt que par une commande séparée — un seul chemin d'écriture de la config,
- * jamais de config partielle possible.
+ * parsing.
  */
 const COMMAND_HELP: Record<string, string> = {
   trade: TRADE_USAGE,
   modify: MODIFY_USAGE,
   cancel: CANCEL_USAGE,
   risk: RISK_USAGE,
-  settings: "settings — reconfigure l'URL/le token MCP et la clé FRED",
+  settings: "settings — reconfigure l'URL/le token MCP",
   refresh:
-    "refresh — force une actualisation immédiate du marché, du calendrier, de la structure et du contexte macro",
+    "refresh — force une actualisation immédiate du marché, du calendrier et de la structure",
   clear: "clear — efface le message de feedback",
   help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
 };
@@ -68,7 +66,6 @@ export function useOrderActions(opts: {
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
   refreshStructure: (options?: { force?: boolean }) => Promise<void>;
-  refreshMacro: (options?: { force?: boolean }) => Promise<void>;
   onReconfigure: () => void;
 }): OrderActions {
   const {
@@ -78,7 +75,6 @@ export function useOrderActions(opts: {
     refreshMarket,
     refreshNews,
     refreshStructure,
-    refreshMacro,
     onReconfigure,
   } = opts;
 
@@ -123,7 +119,6 @@ export function useOrderActions(opts: {
           refreshMarket(),
           refreshNews({ force: true }),
           refreshStructure({ force: true }),
-          refreshMacro({ force: true }),
         ]).then(() => {
           setFeedback({ kind: "success", message: "actualisé" });
         });

@@ -1,16 +1,12 @@
 /**
  * Biais global : synthèse d'une phrase unique à partir de tout ce qu'aurum sait déjà (structure
- * multi-timeframe, contexte macro, calendrier). Hiérarchie plutôt que moyenne plate, sur le
- * principe "Triple Screen"/top-down d'analyse multi-timeframe : le timeframe le plus haut fixe la
- * direction et n'est jamais renversé par un timeframe plus bas ; les timeframes bas ne
- * font que confirmer/renforcer une conviction déjà fixée, jamais la direction elle-même ; le
- * contexte macro (COT/dollar large/taux réel) est un modificateur de conviction, borné, jamais un
- * facteur de direction à lui seul (cohérent avec la pratique réelle où on attend toujours une
- * confirmation technique même quand le COT penche déjà dans un sens) ; le calendrier n'est qu'un
- * avertissement, jamais un facteur de direction non plus.
+ * multi-timeframe, calendrier). Hiérarchie plutôt que moyenne plate, sur le principe "Triple
+ * Screen"/top-down d'analyse multi-timeframe : le timeframe le plus haut fixe la direction et
+ * n'est jamais renversé par un timeframe plus bas ; les timeframes bas ne font que
+ * confirmer/renforcer une conviction déjà fixée, jamais la direction elle-même ; le calendrier
+ * n'est qu'un avertissement, jamais un facteur de direction non plus.
  */
 
-import type { MacroSnapshot } from "../macro.ts";
 import { type CalendarEvent, classifyImpact, isGoldRelevant } from "../news.ts";
 import type { StructureBias, StructureRow } from "./structure.ts";
 
@@ -18,14 +14,6 @@ import type { StructureBias, StructureRow } from "./structure.ts";
 const CAUTION_WINDOW_MS = 90 * 60_000;
 
 export type Conviction = "strong" | "moderate" | "weak";
-export type MacroAlignment = "aligned" | "against" | "neutral" | "unavailable";
-export type MacroFactorName = "cot" | "usdBroad" | "realYield";
-
-export interface MacroFactor {
-  factor: MacroFactorName;
-  alignment: MacroAlignment;
-  change: number | undefined;
-}
 
 export interface ConfirmationDetail {
   label: string;
@@ -56,9 +44,6 @@ export interface OverallBias {
   conviction: Conviction | undefined;
   confirmations: ConfirmationDetail[];
   confirmationCount: number;
-  macroFactors: MacroFactor[];
-  macroAlignedCount: number;
-  macroAgainstCount: number;
   /** Indépendant de `direction` : un avertissement calendrier reste pertinent même sans biais clair. */
   caution: CalendarCaution | undefined;
   /**
@@ -76,9 +61,6 @@ export interface SecondaryBias {
   direction: StructureBias;
   confirmations: ConfirmationDetail[];
   confirmationCount: number;
-  macroFactors: MacroFactor[];
-  macroAlignedCount: number;
-  macroAgainstCount: number;
   conviction: Conviction;
 }
 
@@ -137,65 +119,22 @@ function computeConfirmations(
   });
 }
 
-/**
- * Sur la tendance (`change`), jamais le niveau brut — un COT déjà extrême ou un taux déjà haut
- * n'est pas en soi "pour" ou "contre" une direction, seule son évolution récente l'est. COT évolue
- * dans le même sens que `direction` pour être aligné (positionnement qui va dans le sens) ; dollar
- * large et taux réel évoluent en sens inverse pour être alignés (dollar/taux qui baissent =
- * haussier pour l'or — corrélations déjà documentées dans macro.ts).
- */
-function computeMacroFactors(
-  macro: MacroSnapshot | undefined,
-  direction: StructureBias,
-): MacroFactor[] {
-  function alignment(change: number | undefined, invert: boolean): MacroAlignment {
-    if (change === undefined) return "unavailable";
-    if (change === 0) return "neutral";
-    const sameSign = Math.sign(change) === direction;
-    return (invert ? !sameSign : sameSign) ? "aligned" : "against";
-  }
-
-  return [
-    { factor: "cot", alignment: alignment(macro?.cot?.change, false), change: macro?.cot?.change },
-    {
-      factor: "usdBroad",
-      alignment: alignment(macro?.usdBroad?.change, true),
-      change: macro?.usdBroad?.change,
-    },
-    {
-      factor: "realYield",
-      alignment: alignment(macro?.realYield?.change, true),
-      change: macro?.realYield?.change,
-    },
-  ];
-}
-
 const CONVICTION_BASE_BY_CONFIRMATION_COUNT: Conviction[] = [
   "weak",
   "moderate",
   "strong",
   "strong",
 ];
-const CONVICTION_LEVELS: Conviction[] = ["weak", "moderate", "strong"];
 
-/** Confirmation technique = base ; macro = modificateur borné à ±1 cran, jamais plus (le macro seul ne peut jamais faire passer 0 confirmation à "strong"). */
-function computeConviction(
-  confirmationCount: number,
-  macroAlignedCount: number,
-  macroAgainstCount: number,
-): Conviction {
-  const base = CONVICTION_BASE_BY_CONFIRMATION_COUNT[confirmationCount] ?? "weak";
-  const delta = macroAlignedCount >= 2 ? 1 : macroAgainstCount >= 2 ? -1 : 0;
-  const index = CONVICTION_LEVELS.indexOf(base);
-  const bounded = Math.min(CONVICTION_LEVELS.length - 1, Math.max(0, index + delta));
-  return CONVICTION_LEVELS[bounded]!;
+/** Uniquement basé sur le nombre de confirmations MTF — plus de modificateur macro. */
+function computeConviction(confirmationCount: number): Conviction {
+  return CONVICTION_BASE_BY_CONFIRMATION_COUNT[confirmationCount] ?? "weak";
 }
 
 /** Repli 1H : cf. commentaire sur `OverallBias.secondary`. */
 function computeSecondary(
   rows: StructureRow[],
   anchor: ReturnType<typeof computeAnchor>,
-  macro: MacroSnapshot | undefined,
 ): SecondaryBias | undefined {
   if (anchor?.d1 !== 0 || anchor.h4 !== 0) return undefined;
 
@@ -204,18 +143,12 @@ function computeSecondary(
 
   const confirmations = computeConfirmations(rows, direction, SECONDARY_CONFIRMATION_LABELS);
   const confirmationCount = confirmations.filter((c) => c.confirms).length;
-  const macroFactors = computeMacroFactors(macro, direction);
-  const macroAlignedCount = macroFactors.filter((f) => f.alignment === "aligned").length;
-  const macroAgainstCount = macroFactors.filter((f) => f.alignment === "against").length;
 
   return {
     direction,
     confirmations,
     confirmationCount,
-    macroFactors,
-    macroAlignedCount,
-    macroAgainstCount,
-    conviction: computeConviction(confirmationCount, macroAlignedCount, macroAgainstCount),
+    conviction: computeConviction(confirmationCount),
   };
 }
 
@@ -233,7 +166,6 @@ function computeCaution(calendar: CalendarEvent[], now: Date): CalendarCaution |
 
 export function computeOverallBias(
   structureRows: StructureRow[] | undefined,
-  macro: MacroSnapshot | undefined,
   calendar: CalendarEvent[],
   now: Date,
 ): OverallBias {
@@ -246,14 +178,7 @@ export function computeOverallBias(
     direction !== 0 ? computeConfirmations(rows, direction, PRIMARY_CONFIRMATION_LABELS) : [];
   const confirmationCount = confirmations.filter((c) => c.confirms).length;
 
-  const macroFactors = direction !== 0 ? computeMacroFactors(macro, direction) : [];
-  const macroAlignedCount = macroFactors.filter((f) => f.alignment === "aligned").length;
-  const macroAgainstCount = macroFactors.filter((f) => f.alignment === "against").length;
-
-  const conviction =
-    direction !== 0
-      ? computeConviction(confirmationCount, macroAlignedCount, macroAgainstCount)
-      : undefined;
+  const conviction = direction !== 0 ? computeConviction(confirmationCount) : undefined;
 
   return {
     direction,
@@ -262,10 +187,7 @@ export function computeOverallBias(
     conviction,
     confirmations,
     confirmationCount,
-    macroFactors,
-    macroAlignedCount,
-    macroAgainstCount,
     caution: computeCaution(calendar, now),
-    secondary: computeSecondary(rows, anchor, macro),
+    secondary: computeSecondary(rows, anchor),
   };
 }

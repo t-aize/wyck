@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CtraderClient, CtraderTrendbar, GetTrendbarsParams } from "../../ctrader/client.ts";
 import { dropFormingBar } from "../../domain/smc/bars.ts";
 import { computeStructure, type StructureRow } from "../../domain/smc/structure.ts";
-import { STRUCTURE_TIMEFRAMES } from "../../domain/smc/timeframes.ts";
+import {
+  INTERNAL_LENGTH,
+  STRUCTURE_TIMEFRAMES,
+  SWING_LENGTH,
+} from "../../domain/smc/timeframes.ts";
 import { toMessage } from "../../errors.ts";
 import { useInterval } from "./useInterval.ts";
 
@@ -85,7 +89,8 @@ export function useStructure(client: CtraderClient, symbolId: number | undefined
               const closed = dropFormingBar(raw, tf.periodMs, now);
               const row: StructureRow = {
                 label: tf.label,
-                snapshot: computeStructure(closed, tf.length),
+                snapshot: computeStructure(closed, SWING_LENGTH),
+                internal: computeStructure(closed, INTERNAL_LENGTH),
               };
 
               if (tf.dailyOnly) dailyCache.current.set(tf.label, { dayKey: today, row });

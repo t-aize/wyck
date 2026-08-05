@@ -17,8 +17,6 @@ const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
 export interface AppConfig {
   url: string;
   token: string;
-  /** Clé API FRED (gratuite) — requise pour le dollar large/real yield dans le panneau macro, collectée à la config. */
-  fredApiKey: string;
 }
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
@@ -48,23 +46,15 @@ function decrypt(payload: string): string {
 }
 
 /**
- * `undefined` si absent, corrompu, incomplet (ex: config d'avant l'ajout de fredApiKey), ou
- * déchiffrable seulement sur une autre machine — redemande la config dans ces cas plutôt que
- * planter. `fredApiKey` étant maintenant requis, une config sans clé FRED est traitée comme
- * incomplète : SetupScreen la redemande, il n'y a pas de config "à moitié configurée" possible.
+ * `undefined` si absent, corrompu, incomplet, ou déchiffrable seulement sur une autre machine —
+ * redemande la config dans ces cas plutôt que planter.
  */
 export function readConfig(): AppConfig | undefined {
   if (!existsSync(CONFIG_PATH)) return undefined;
   try {
     const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-    if (
-      typeof raw.url !== "string" ||
-      typeof raw.token !== "string" ||
-      typeof raw.fredApiKey !== "string"
-    ) {
-      return undefined;
-    }
-    return { url: raw.url, token: decrypt(raw.token), fredApiKey: decrypt(raw.fredApiKey) };
+    if (typeof raw.url !== "string" || typeof raw.token !== "string") return undefined;
+    return { url: raw.url, token: decrypt(raw.token) };
   } catch {
     return undefined;
   }
@@ -74,15 +64,7 @@ export function writeConfig(config: AppConfig): void {
   if (!existsSync(APP_DATA_DIR)) mkdirSync(APP_DATA_DIR, { recursive: true });
   writeFileSync(
     CONFIG_PATH,
-    JSON.stringify(
-      {
-        url: config.url,
-        token: encrypt(config.token),
-        fredApiKey: encrypt(config.fredApiKey),
-      },
-      null,
-      2,
-    ),
+    JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
     { mode: 0o600 },
   );
 }

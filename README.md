@@ -26,7 +26,7 @@ bun install
 
 ## Configuration
 
-Pas de `.env` : au premier lancement (dev ou `.exe` compilé), l'app affiche un écran de configuration en 3 étapes,
+Pas de `.env` : au premier lancement (dev ou `.exe` compilé), l'app affiche un écran de configuration en 2 étapes,
 toutes obligatoires :
 
 1. **URL du serveur MCP** — l'URL cTrader (`https://mcp.ctrader.com/trading/mcp` par défaut).
@@ -39,17 +39,12 @@ toutes obligatoires :
      }
    }
    ```
-   La connexion est vérifiée en direct avant de passer à l'étape suivante.
-3. **Clé API FRED** — gratuite, sans carte bancaire : crée un compte sur
-   [fred.stlouisfed.org](https://fred.stlouisfed.org) puis génère une clé ici :
-   https://fred.stlouisfed.org/docs/api/api_key.html. Sert au panneau MACRO (dollar large, taux
-   réel — cf. plus bas) ; elle aussi est vérifiée en direct avant d'être acceptée.
+   La connexion est vérifiée en direct avant d'être acceptée.
 
-Une fois les trois validées, la config est enregistrée (chiffrée) dans `~/.aurum/config.json` — indépendant du
+Une fois les deux validées, la config est enregistrée (chiffrée) dans `~/.aurum/config.json` — indépendant du
 dossier de lancement, donc valable aussi bien en `dev` que pour le binaire compilé déplacé n'importe où. La commande
-`settings` dans l'app permet de tout reconfigurer (URL/token/clé FRED) sans réinstaller — les trois champs sont
-toujours redemandés et réécrits ensemble, jamais un sous-ensemble, pour ne jamais perdre un champ en reconfigurant
-les autres.
+`settings` dans l'app permet de tout reconfigurer (URL/token) sans réinstaller — les deux champs sont toujours
+redemandés et réécrits ensemble, jamais un sous-ensemble, pour ne jamais perdre un champ en reconfigurant l'autre.
 
 Le risque d'un trade se calcule toujours en % de l'équity (pas de mode "montant fixe"). Le symbole (`XAUUSD`) est une
 constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade que XAUUSD.
@@ -57,18 +52,13 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
-## Contexte macro (COT / dollar large / taux réel)
+## Structure SMC et prochain BOS/CHoCH
 
-Le panneau MACRO affiche le positionnement des gros spéculateurs sur l'or (COT, rapport hebdomadaire de la CFTC)
-ainsi que l'indice dollar large de la Fed et le taux réel 10 ans (FRED, données quotidiennes — clé configurée à la
-config, cf. ci-dessus). Indicatif, pas un signal de trading : ni le COT ni le dollar/taux réel ne prédisent un sens,
-ils donnent juste du contexte.
-
-**"USD (large)" ≠ DXY** : c'est le *Nominal Broad U.S. Dollar Index* de la Fed (`DTWEXBGS`), pas le ticker DXY (ICE)
-que tu vois ailleurs — panier de devises et base de calcul différents, donc échelle différente (~120 contre ~95-105
-pour le DXY). Le vrai DXY est un indice propriétaire, pas disponible via une API publique gratuite ; c'est la
-meilleure approximation gratuite d'un indicateur de force du dollar, mais ne compare pas directement les deux
-valeurs.
+Le panneau SMC MTF STRUCTURE calcule, pour chaque timeframe (5M/15M/1H/4H/D1), le biais (higher high/higher low vs.
+lower high/lower low), le dernier signal réalisé (BOS = cassure dans le sens de la tendance, CHoCH = cassure qui
+l'inverse) et le **prochain** niveau encore surveillé de chaque côté (colonne NEXT), avec ce que sa cassure
+produirait. Le biais global (ancrage D1+4H, confirmations 1H/15M/5M, avertissement calendrier) affiche aussi le
+prochain niveau 4H à surveiller.
 
 ## Découvrir les tools MCP disponibles
 

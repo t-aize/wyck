@@ -87,7 +87,8 @@ function SecondaryBiasLine({ secondary }: { secondary: SecondaryBias }) {
   );
 }
 
-/** Synthèse d'une phrase : ancrage D1+4H, confirmation/macro en support, calendrier en avertissement — jamais l'inverse (cf. domain/smc/bias.ts). */
+/** Synthèse d'une phrase : ancrage D1+4H, confirmation en support, calendrier en avertissement —
+ * jamais l'inverse (cf. domain/smc/bias.ts). */
 function BiasLine({ bias }: { bias: OverallBias }) {
   const caution = bias.caution && (
     <span
@@ -130,7 +131,7 @@ function BiasLine({ bias }: { bias: OverallBias }) {
       </span>
       {/* conviction toujours définie ici : garantie par computeOverallBias dès que direction !== 0 */}
       <span fg={theme.textDim}>
-        {`  ·  conviction ${convictionLabel(bias.conviction!)}  —  ${bias.confirmationCount}/3 TF confirment, ${bias.macroAlignedCount}/3 facteurs macro alignés`}
+        {`  ·  conviction ${convictionLabel(bias.conviction!)}  —  ${bias.confirmationCount}/3 TF confirment`}
       </span>
       {caution}
     </text>
