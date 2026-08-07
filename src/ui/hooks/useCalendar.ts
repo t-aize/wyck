@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { useMemo, useState } from "react";
 import { type CalendarEvent, fetchCalendar } from "../../domain/news.ts";
 import { toMessage } from "../../errors.ts";
@@ -19,7 +20,7 @@ export function useCalendar(): Calendar {
     () =>
       async (options: { force?: boolean } = {}) => {
         try {
-          setCalendar(await fetchCalendar(options));
+          setCalendar(await Effect.runPromise(fetchCalendar(options)));
           setNewsError(undefined);
         } catch (error) {
           setNewsError(toMessage(error));

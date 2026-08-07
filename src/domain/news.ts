@@ -1,6 +1,7 @@
 /** Calendrier économique ForexFactory (semaine en cours), avec cache disque journalier. */
 
 import { join } from "node:path";
+import { Data, Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
 
@@ -108,20 +109,127 @@ const CacheFileSchema = z.object({
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
 });
 
-async function readCache(): Promise<{ fetchedAt: string; events: CalendarEvent[] } | undefined> {
-  try {
+// Erreurs taguées (cf. AUDIT_EFFECT.md §1.4/§3.1) : le rate-limit distingue explicitement
+// `retryAfterSeconds` — c'est cette valeur qui pilote maintenant le retry (avant, elle n'était
+// qu'affichée dans le message sans jamais déclencher de nouvelle tentative).
+export class CalendarRateLimited extends Data.TaggedError("CalendarRateLimited")<{
+  readonly retryAfterSeconds: number | undefined;
+  readonly message: string;
+}> {}
+
+export class CalendarHttpError extends Data.TaggedError("CalendarHttpError")<{
+  readonly status: number;
+  readonly message: string;
+}> {}
+
+export class CalendarInvalidPayload extends Data.TaggedError("CalendarInvalidPayload")<{
+  readonly issues: string;
+  readonly message: string;
+}> {}
+
+export type FetchCalendarError = CalendarRateLimited | CalendarHttpError | CalendarInvalidPayload;
+
+/** `undefined` si absent, corrompu, ou d'un format antérieur — jamais en échec, on retombe sur un
+ * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). */
+function readCache(): Effect.Effect<{ fetchedAt: string; events: CalendarEvent[] } | undefined> {
+  return Effect.gen(function* () {
     const file = Bun.file(CACHE_PATH);
-    if (!(await file.exists())) return undefined;
-    return CacheFileSchema.parse(await file.json());
-  } catch {
-    // Cache absent, corrompu ou d'un format antérieur : on retombe sur un fetch réseau.
-    return undefined;
-  }
+    const exists = yield* Effect.promise(() => file.exists());
+    if (!exists) return undefined;
+
+    return yield* Effect.tryPromise(async () => CacheFileSchema.parse(await file.json())).pipe(
+      Effect.orElseSucceed(() => undefined),
+    );
+  });
 }
 
-async function writeCache(events: CalendarEvent[]): Promise<void> {
+function writeCache(events: CalendarEvent[]): Effect.Effect<void> {
   const payload = { fetchedAt: new Date().toISOString(), events };
-  await Bun.write(CACHE_PATH, JSON.stringify(payload, null, 2));
+  return Effect.promise(() => Bun.write(CACHE_PATH, JSON.stringify(payload, null, 2))).pipe(
+    Effect.asVoid,
+  );
+}
+
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
+  return Effect.gen(function* () {
+    const response = yield* Effect.tryPromise({
+      try: () => fetch(CALENDAR_URL),
+      catch: (cause) =>
+        new CalendarHttpError({
+          status: 0,
+          message: `Calendrier économique : réseau indisponible (${cause instanceof Error ? cause.message : String(cause)})`,
+        }),
+    });
+
+    if (response.status === 429) {
+      const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : undefined;
+      const validRetryAfter =
+        retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds
+          : undefined;
+      return yield* Effect.fail(
+        new CalendarRateLimited({
+          retryAfterSeconds: validRetryAfter,
+          message:
+            validRetryAfter === undefined
+              ? "Calendrier économique : limité par le serveur"
+              : `Calendrier économique : limité par le serveur (réessai dans ${validRetryAfter}s)`,
+        }),
+      );
+    }
+    if (!response.ok) {
+      return yield* Effect.fail(
+        new CalendarHttpError({
+          status: response.status,
+          message: `Calendrier économique : HTTP ${response.status}`,
+        }),
+      );
+    }
+
+    const raw = yield* Effect.tryPromise({
+      try: () => response.json(),
+      catch: () =>
+        new CalendarInvalidPayload({
+          issues: "réponse non-JSON",
+          message: "Calendrier économique : réponse non-JSON",
+        }),
+    });
+
+    const parsed = z.array(CalendarEventSchema).safeParse(raw);
+    if (!parsed.success) {
+      return yield* Effect.fail(
+        new CalendarInvalidPayload({
+          issues: parsed.error.message,
+          message: `Calendrier économique : réponse inattendue (${parsed.error.message})`,
+        }),
+      );
+    }
+
+    return parsed.data
+      .map((event) => ({ ...event, timestamp: new Date(event.date).getTime() }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  });
+}
+
+/** Réessaie sur 429 en respectant le `retry-after` renvoyé par le serveur (jusqu'à
+ * `MAX_RATE_LIMIT_RETRIES` fois) — cf. AUDIT_EFFECT.md §3.1 : avant cette passe, ce délai était lu
+ * et affiché mais jamais réellement utilisé pour patienter puis réessayer. Toute autre erreur
+ * (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à réessayer
+ * une 404 ou un JSON cassé immédiatement. */
+function fetchWithRetry(
+  attemptsLeft = MAX_RATE_LIMIT_RETRIES,
+): Effect.Effect<CalendarEvent[], FetchCalendarError> {
+  return fetchOnce().pipe(
+    Effect.catchTag("CalendarRateLimited", (error) => {
+      if (attemptsLeft <= 0) return Effect.fail(error);
+      return Effect.sleep(`${error.retryAfterSeconds ?? 5} seconds`).pipe(
+        Effect.andThen(() => fetchWithRetry(attemptsLeft - 1)),
+      );
+    }),
+  );
 }
 
 /**
@@ -130,38 +238,28 @@ async function writeCache(events: CalendarEvent[]): Promise<void> {
  * serveur. `force: true` (commande /refresh) bypasse le cache same-day, mais
  * retombe quand même sur les données en cache si le réseau échoue.
  */
-export async function fetchCalendar(options: { force?: boolean } = {}): Promise<CalendarEvent[]> {
-  const cached = await readCache();
-  if (
-    !options.force &&
-    cached &&
-    parisDayKey(new Date(cached.fetchedAt)) === parisDayKey(new Date())
-  ) {
-    return cached.events;
-  }
-
-  try {
-    const response = await fetch(CALENDAR_URL);
-    if (response.status === 429) {
-      const retryAfter = response.headers.get("retry-after");
-      const wait = retryAfter ? ` (réessai dans ${retryAfter}s)` : "";
-      throw new Error(`Calendrier économique : limité par le serveur${wait}`);
-    }
-    if (!response.ok) {
-      throw new Error(`Calendrier économique : HTTP ${response.status}`);
+export function fetchCalendar(
+  options: { force?: boolean } = {},
+): Effect.Effect<CalendarEvent[], FetchCalendarError> {
+  return Effect.gen(function* () {
+    const cached = yield* readCache();
+    if (
+      !options.force &&
+      cached &&
+      parisDayKey(new Date(cached.fetchedAt)) === parisDayKey(new Date())
+    ) {
+      return cached.events;
     }
 
-    const raw = await response.json();
-    const parsed = z.array(CalendarEventSchema).parse(raw);
-    const events = parsed
-      .map((event) => ({ ...event, timestamp: new Date(event.date).getTime() }))
-      .sort((a, b) => a.timestamp - b.timestamp);
+    const result = yield* Effect.either(fetchWithRetry());
+    if (result._tag === "Right") {
+      // Écriture cache best-effort : un échec d'écriture ne doit pas faire échouer le refresh.
+      yield* Effect.ignore(writeCache(result.right));
+      return result.right;
+    }
 
-    await writeCache(events).catch(() => {});
-    return events;
-  } catch (error) {
-    // Réseau en échec (rate limit, offline…) : mieux vaut de la donnée périmée qu'une erreur.
+    // Réseau en échec (rate limit épuisé, offline…) : mieux vaut de la donnée périmée qu'une erreur.
     if (cached) return cached.events;
-    throw error;
-  }
+    return yield* Effect.fail(result.left);
+  });
 }
