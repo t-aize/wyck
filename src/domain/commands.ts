@@ -1,7 +1,26 @@
 /** Parsing des commandes CLI-style (`trade`, `modify`) tapées dans le CommandBar. */
 
+import { Schema } from "effect";
 import { roundPrice } from "../constants.ts";
 import type { PreparedTrade, TradeInput } from "./trading.ts";
+
+/**
+ * Coercion + validation d'un champ numérique (chaîne → nombre fini), cf. AUDIT_EFFECT.md §5.1 :
+ * remplace les 5 `Number(raw); if (!Number.isFinite(raw))` dupliqués par un seul schéma déclaratif
+ * réutilisé pour risque/entrée/sl/tp/id. Le tokenizing lui-même (flags `--sl`, arité positionnelle
+ * du risque%) reste du code impératif ordinaire : ce n'est pas de la validation de données mais du
+ * parsing de ligne de commande, un fit naturellement pauvre pour Schema.
+ */
+const FiniteNumberFromString = Schema.NumberFromString.pipe(
+  Schema.filter((n) => Number.isFinite(n)),
+);
+
+/** `undefined` si `raw` n'est pas un nombre fini (chaîne vide/absente incluse) — le message
+ * d'erreur, lui, reste composé par chaque appelant (le label diffère : "risque"/"entrée"/"sl"...). */
+function decodeFiniteNumber(raw: string): number | undefined {
+  const result = Schema.decodeUnknownEither(FiniteNumberFromString)(raw);
+  return result._tag === "Right" ? result.right : undefined;
+}
 
 export const TRADE_USAGE =
   "usage : trade [<risque%>] <entrée|market> <sl> <tp>  (direction déduite du SL/TP ; " +
@@ -38,8 +57,8 @@ function parseOptionalPrice(
   label: string,
 ): { value?: number; error?: string } {
   if (raw === undefined) return {};
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return { error: `${label} invalide : "${raw}"` };
+  const value = decodeFiniteNumber(raw);
+  if (value === undefined) return { error: `${label} invalide : "${raw}"` };
   return { value: roundPrice(value) };
 }
 
@@ -67,24 +86,23 @@ export function parseTradeCommand(
 
   if (!riskRaw || !entryRaw || !slRaw || !tpRaw) return `arguments manquants — ${TRADE_USAGE}`;
 
-  const riskPercent = Number(riskRaw);
-  if (!Number.isFinite(riskPercent)) return `risque invalide : "${riskRaw}"`;
+  const riskPercent = decodeFiniteNumber(riskRaw);
+  if (riskPercent === undefined) return `risque invalide : "${riskRaw}"`;
 
-  const entryNumber = entryRaw.toLowerCase() === "market" ? undefined : Number(entryRaw);
-  if (entryNumber !== undefined && !Number.isFinite(entryNumber)) {
+  const isMarket = entryRaw.toLowerCase() === "market";
+  const entryNumber = isMarket ? undefined : decodeFiniteNumber(entryRaw);
+  if (!isMarket && entryNumber === undefined) {
     return `entrée invalide : "${entryRaw}"`;
   }
   const entry = entryNumber === undefined ? "market" : roundPrice(entryNumber);
 
-  const stopLossRaw = Number(slRaw);
-  if (!Number.isFinite(stopLossRaw)) return `sl invalide : "${slRaw}"`;
-  const stopLoss = roundPrice(stopLossRaw);
+  const stopLoss = decodeFiniteNumber(slRaw);
+  if (stopLoss === undefined) return `sl invalide : "${slRaw}"`;
 
-  const takeProfitRaw = Number(tpRaw);
-  if (!Number.isFinite(takeProfitRaw)) return `tp invalide : "${tpRaw}"`;
-  const takeProfit = roundPrice(takeProfitRaw);
+  const takeProfit = decodeFiniteNumber(tpRaw);
+  if (takeProfit === undefined) return `tp invalide : "${tpRaw}"`;
 
-  return { entry, riskPercent, stopLoss, takeProfit };
+  return { entry, riskPercent, stopLoss: roundPrice(stopLoss), takeProfit: roundPrice(takeProfit) };
 }
 
 export interface ModifyInput {
@@ -97,8 +115,8 @@ export const MODIFY_USAGE = "usage : modify <id> [--sl <prix>] [--tp <prix>]  (r
 
 /** Retourne le `ModifyInput` parsé, ou un message d'erreur (string) à afficher tel quel. */
 export function parseModifyCommand(args: string[]): ModifyInput | string {
-  const id = Number(args[0]);
-  if (!Number.isFinite(id)) return `id invalide : "${args[0] ?? ""}" — ${MODIFY_USAGE}`;
+  const id = decodeFiniteNumber(args[0] ?? "");
+  if (id === undefined) return `id invalide : "${args[0] ?? ""}" — ${MODIFY_USAGE}`;
 
   const flags = parseFlags(args.slice(1), { sl: ["-sl", "--sl"], tp: ["-tp", "--tp"] });
   if (typeof flags === "string") return `${flags} — ${MODIFY_USAGE}`;
@@ -124,8 +142,8 @@ export const RISK_USAGE =
 export function parseRiskCommand(args: string[]): number | string {
   const raw = args[0];
   if (raw === undefined) return `risque manquant — ${RISK_USAGE}`;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0 || value > 100) {
+  const value = decodeFiniteNumber(raw);
+  if (value === undefined || value <= 0 || value > 100) {
     return `risque invalide : "${raw}" — ${RISK_USAGE}`;
   }
   return value;
