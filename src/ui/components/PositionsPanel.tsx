@@ -161,7 +161,7 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
   return (
     <box
       title=" POSITIONS "
-      titleColor={theme.gold}
+      titleColor={theme.accent}
       style={{
         flexDirection: "column",
         // Dynamique plutôt qu'une part fixe de l'écran (flexGrow) : la plupart du temps il n'y a

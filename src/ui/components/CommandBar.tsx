@@ -117,12 +117,12 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
   return (
     <box
       title=" COMMANDE "
-      titleColor={focused ? theme.gold : theme.textMuted}
+      titleColor={focused ? theme.accent : theme.textMuted}
       style={{
         flexDirection: "column",
         flexShrink: 0,
         border: true,
-        // Le seul repère visuel de "qui a le clavier" : doré quand la barre est active,
+        // Le seul repère visuel de "qui a le clavier" : gris clair quand la barre est active,
         // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx).
         borderColor: focused ? theme.borderActive : theme.border,
         backgroundColor: theme.panelBg,
@@ -138,13 +138,13 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
       <text fg={theme.textMuted}>
         {suggestions.length > 0 && (
           <>
-            <span fg={theme.gold}>Tab</span>
+            <span fg={theme.accent}>Tab</span>
             {` → ${suggestions.join("  ")}`}
           </>
         )}
       </text>
       <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
-        <text fg={theme.gold}>›</text>
+        <text fg={theme.accent}>›</text>
         <input
           ref={inputRef}
           style={{ flexGrow: 1 }}

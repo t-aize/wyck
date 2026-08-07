@@ -117,11 +117,11 @@ function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean
   const time = timeFormat.format(new Date(event.timestamp));
   const relative = formatRelative(event.timestamp - now.getTime());
   const figures = formatFigures(event);
-  const titleColor = isNext ? theme.gold : isPast ? theme.textMuted : theme.text;
+  const titleColor = isNext ? theme.accent : isPast ? theme.textMuted : theme.text;
 
   return (
     <text truncate attributes={isNext ? TextAttributes.BOLD : TextAttributes.NONE}>
-      <span fg={isNext ? theme.gold : theme.textMuted}>{isNext ? "▸ " : "  "}</span>
+      <span fg={isNext ? theme.accent : theme.textMuted}>{isNext ? "▸ " : "  "}</span>
       <span fg={theme.textMuted}>{alignLeft(time, 6)}</span>
       <span fg={theme.textDim}>{alignLeft(event.country, 5)}</span>
       <DirectionBadge direction={goldDirection(event)} />
@@ -138,7 +138,7 @@ export function NewsPanel({ events, errorMessage, now }: NewsPanelProps) {
   return (
     <box
       title=" CALENDAR — or & fort impact (Paris) "
-      titleColor={theme.gold}
+      titleColor={theme.accent}
       bottomTitle=" ▸prochain "
       bottomTitleAlignment="right"
       style={{

@@ -70,7 +70,7 @@ export function PriceHeader({
       }}
     >
       <box style={{ flexDirection: "row", alignItems: "center", columnGap: 2 }}>
-        <text attributes={TextAttributes.BOLD} fg={theme.gold}>
+        <text attributes={TextAttributes.BOLD} fg={theme.accent}>
           AURUM
         </text>
         <text fg={theme.textDim}>{symbol}</text>
@@ -80,7 +80,7 @@ export function PriceHeader({
         {hasPrice ? (
           <>
             <text fg={directionColor}>{directionIcon}</text>
-            <text attributes={TextAttributes.BOLD} fg={theme.gold}>
+            <text attributes={TextAttributes.BOLD} fg={theme.accent}>
               {formatPrice(bid)}
             </text>
             <text fg={theme.textMuted}> / {formatPrice(ask)}</text>
@@ -98,7 +98,7 @@ export function PriceHeader({
           ● {statusLabel}
         </text>
         {balance !== undefined && moneyDigits !== undefined && (
-          <text fg={theme.gold}>{formatMoney(balance, moneyDigits)}</text>
+          <text fg={theme.accent}>{formatMoney(balance, moneyDigits)}</text>
         )}
         <text fg={theme.textDim}>
           {balance !== undefined && moneyDigits !== undefined ? "· " : ""}

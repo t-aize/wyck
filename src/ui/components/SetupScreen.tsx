@@ -93,12 +93,12 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
     >
       <box
         title=" CONFIGURATION MCP CTRADER "
-        titleColor={theme.gold}
+        titleColor={theme.accent}
         style={{
           flexDirection: "column",
           width: 70,
           border: true,
-          borderColor: theme.gold,
+          borderColor: theme.accent,
           backgroundColor: theme.panelBg,
           paddingLeft: 2,
           paddingRight: 2,

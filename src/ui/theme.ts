@@ -3,20 +3,22 @@
  * langage visuel des CLI d'agents (Claude Code / Codex / OpenCode) — panneaux
  * bordés avec titre inscrit dans la bordure, texte dense, peu de décoration.
  *
- * L'ambre est la seule couleur de marque : double sens assumé — c'est à la
- * fois la couleur historique de l'écran Bloomberg et celle de l'or (XAUUSD).
- * Vert/rouge restent strictement réservés à la direction et au P&L : c'est
- * une convention universelle chez les traders, pas un endroit pour innover.
+ * Monochrome façon shadcn/ui (thème "neutral", dark mode) : leur `--foreground`
+ * et leur `--primary` sont tous les deux du gris pur (chroma OKLCH = 0), jamais
+ * une teinte saturée — le "pop" vient du contraste de clarté, pas de la couleur.
+ * `accent` reprend ce principe (gris clair, ni blanc pur ni saturé) à la place
+ * de l'ambre d'origine. Vert/rouge restent strictement réservés à la direction
+ * et au P&L : convention universelle chez les traders, pas un endroit pour innover.
  */
 export const theme = {
-  bg: "#0A0A0C",
-  panelBg: "#111114",
-  border: "#2A2A30",
-  borderActive: "#F5A623",
-  text: "#E8E6E1",
-  textDim: "#8A8A90",
-  textMuted: "#4A4A50",
-  gold: "#F5A623",
+  bg: "#0A0A0A",
+  panelBg: "#141414",
+  border: "#27272A",
+  borderActive: "#E5E5E5",
+  text: "#FAFAFA",
+  textDim: "#A3A3A3",
+  textMuted: "#525252",
+  accent: "#E5E5E5",
   green: "#3DD68C",
   red: "#F0555A",
 } as const;

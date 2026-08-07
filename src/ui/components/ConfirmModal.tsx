@@ -46,12 +46,12 @@ export function ConfirmModal({
     >
       <box
         title={` ${title} `}
-        titleColor={theme.gold}
+        titleColor={theme.accent}
         style={{
           flexDirection: "column",
           width: 46,
           border: true,
-          borderColor: theme.gold,
+          borderColor: theme.accent,
           backgroundColor: theme.panelBg,
           paddingLeft: 2,
           paddingRight: 2,
@@ -71,7 +71,7 @@ export function ConfirmModal({
             ]}
             showDescription={false}
             style={{ height: 2 }}
-            selectedBackgroundColor={theme.gold}
+            selectedBackgroundColor={theme.accent}
             selectedTextColor={theme.bg}
             onSelect={(index) => (index === 0 ? onConfirm() : onCancel())}
           />
