@@ -52,7 +52,7 @@ export const ConfigFileIOLive = Layer.succeed(ConfigFileIO, {
  * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
  * s'accordent par construction plutôt que par coïncidence (cf. AUDIT_EFFECT.md §5.3). */
 export const AppConfigSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   token: z.string().min(1),
 });
 
