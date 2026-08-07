@@ -70,9 +70,14 @@ function deriveKey(): Buffer {
   return scryptSync(`${hostname()}:${userInfo().username}:aurum-config`, "aurum-config-salt", 32);
 }
 
+// GCM standard : IV 96 bits (12 octets), tag d'authentification 128 bits (16 octets) — la taille
+// réellement utilisée n'a pas changé, seulement rendue explicite pour Node (DEP0182 : depuis peu,
+// createDecipheriv sans authTagLength émet un warning au premier setAuthTag()).
+const AUTH_TAG_LENGTH = 16;
+
 function encrypt(text: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", deriveKey(), iv);
+  const cipher = createCipheriv("aes-256-gcm", deriveKey(), iv, { authTagLength: AUTH_TAG_LENGTH });
   const ciphertext = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString("base64");
 }
@@ -80,9 +85,11 @@ function encrypt(text: string): string {
 function decrypt(payload: string): string {
   const raw = Buffer.from(payload, "base64");
   const iv = raw.subarray(0, 12);
-  const authTag = raw.subarray(12, 28);
-  const ciphertext = raw.subarray(28);
-  const decipher = createDecipheriv("aes-256-gcm", deriveKey(), iv);
+  const authTag = raw.subarray(12, 12 + AUTH_TAG_LENGTH);
+  const ciphertext = raw.subarray(12 + AUTH_TAG_LENGTH);
+  const decipher = createDecipheriv("aes-256-gcm", deriveKey(), iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
   decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
