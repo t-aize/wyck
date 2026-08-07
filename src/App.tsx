@@ -1,24 +1,20 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import { CtraderClient } from "./ctrader/client.ts";
-import { computeOverallBias } from "./domain/smc/bias.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
-import { NextStructurePanel } from "./ui/components/NextStructurePanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
-import { StructurePanel } from "./ui/components/StructurePanel.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useCtraderConnection } from "./ui/hooks/useCtraderConnection.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
-import { useStructure } from "./ui/hooks/useStructure.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
 import { theme } from "./ui/theme.ts";
 
@@ -65,11 +61,6 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     setConnectionError,
   );
   const { calendar, newsError, refreshNews } = useCalendar();
-  const { rows: structureRows, structureError, refreshStructure } = useStructure(client, symbolId);
-  const overallBias = useMemo(
-    () => computeOverallBias(structureRows, calendar, now),
-    [structureRows, calendar, now],
-  );
   const {
     feedback,
     setFeedback,
@@ -89,7 +80,6 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     positions,
     refreshMarket,
     refreshNews,
-    refreshStructure,
     onReconfigure,
   });
 
@@ -113,11 +103,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         moneyDigits={moneyDigits}
       />
       <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
-      <NextStructurePanel rows={structureRows} errorMessage={structureError} />
-      <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
-        <NewsPanel events={calendar} errorMessage={newsError} now={now} />
-        <StructurePanel rows={structureRows} errorMessage={structureError} bias={overallBias} />
-      </box>
+      <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}

@@ -30,8 +30,7 @@ const COMMAND_HELP: Record<string, string> = {
   cancel: CANCEL_USAGE,
   risk: RISK_USAGE,
   settings: "settings — reconfigure l'URL/le token MCP",
-  refresh:
-    "refresh — force une actualisation immédiate du marché, du calendrier et de la structure",
+  refresh: "refresh — force une actualisation immédiate du marché et du calendrier",
   clear: "clear — efface le message de feedback",
   help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
 };
@@ -65,18 +64,9 @@ export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
-  refreshStructure: (options?: { force?: boolean }) => Promise<void>;
   onReconfigure: () => void;
 }): OrderActions {
-  const {
-    client,
-    symbolId,
-    positions,
-    refreshMarket,
-    refreshNews,
-    refreshStructure,
-    onReconfigure,
-  } = opts;
+  const { client, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
 
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
@@ -115,11 +105,7 @@ export function useOrderActions(opts: {
         return;
       case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
-        void Promise.all([
-          refreshMarket(),
-          refreshNews({ force: true }),
-          refreshStructure({ force: true }),
-        ]).then(() => {
+        void Promise.all([refreshMarket(), refreshNews({ force: true })]).then(() => {
           setFeedback({ kind: "success", message: "actualisé" });
         });
         return;

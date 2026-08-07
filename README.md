@@ -52,24 +52,6 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
-## Structure SMC et prochain BOS/CHoCH
-
-Le panneau SMC MTF STRUCTURE calcule, pour chaque timeframe (5M/15M/1H/4H/D1), le biais (higher high/higher low vs.
-lower high/lower low), le dernier signal réalisé (BOS = cassure dans le sens de la tendance, CHoCH = cassure qui
-l'inverse) et le **prochain** niveau encore surveillé de chaque côté (colonne NEXT), avec ce que sa cassure
-produirait. Le biais global (ancrage D1+4H, confirmations 1H/15M/5M, avertissement calendrier) affiche aussi le
-prochain niveau 4H à surveiller.
-
-## Découvrir les tools MCP disponibles
-
-La doc cTrader décrit son MCP sous forme de prompts en langage naturel, pas d'un schéma figé — comme le panel appelle
-les tools directement (sans LLM), `scripts/list-tools.ts` liste ce qui est réellement exposé (même config que l'app,
-lue dans `~/.aurum/config.json`) :
-
-```bash
-bun run mcp:tools
-```
-
 ## Ressources
 
 - OpenTUI : https://opentui.com/docs/getting-started
