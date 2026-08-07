@@ -6,6 +6,7 @@
   "description": "Panel de trading terminal (TUI) pour XAUUSD, connecté au MCP cTrader.",
   "type": "module",
   "module": "src/index.tsx",
+  "packageManager": "bun@1.3.14",
   "engines": {
     "bun": ">=1.3.0"
   },
@@ -15,22 +16,24 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "build": "bun build ./src/index.tsx --compile --minify --sourcemap --outfile ./dist/aurum",
-    "mcp:tools": "bun run scripts/list-tools.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "verify": "bun run typecheck && bun run lint && bun test",
+    "prepare": "husky"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@opentui/core": "^0.4.5",
-    "@opentui/react": "^0.4.5",
+    "@opentui/core": "^0.5.1",
+    "@opentui/react": "^0.5.1",
     "react": "^19.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.6",
+    "@biomejs/biome": "^2.5.7",
     "@types/bun": "^1.3.14",
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.2.18",
+    "husky": "^9.1.7",
     "typescript": "^7.0.2"
   }
 }
