@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
-import { type AppConfig, readConfig } from "./config.ts";
+import { Effect, Layer, ManagedRuntime } from "effect";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type AppConfig, ConfigFileIOLive, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
-import { CtraderClient } from "./ctrader/client.ts";
+import { CtraderClient, CtraderClientLive } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
@@ -24,7 +25,9 @@ import { theme } from "./ui/theme.ts";
  * quand la commande `settings` fait passer par un nouveau round de SetupScreen.
  */
 export function App() {
-  const [config, setConfig] = useState<AppConfig | undefined>(() => readConfig());
+  const [config, setConfig] = useState<AppConfig | undefined>(() =>
+    Effect.runSync(Effect.provide(readConfig(), ConfigFileIOLive)),
+  );
   const [reconfiguring, setReconfiguring] = useState(false);
   // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
   // changé importe pour déclencher le remount, pas sa valeur.
@@ -51,7 +54,14 @@ export function App() {
 
 function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfigure: () => void }) {
   const now = useClock();
-  const [client] = useState(() => new CtraderClient(config));
+  const [client] = useState(() => new CtraderClientLive(config));
+  // Résout `CtraderClient` (le Context.Tag) vers cette instance déjà connectée pour les fonctions
+  // qui la reçoivent par injection Effect (prepareTrade) plutôt qu'en paramètre — cf. AUDIT_EFFECT.md §4.1.
+  const runtime = useMemo(
+    () => ManagedRuntime.make(Layer.succeed(CtraderClient, client)),
+    [client],
+  );
+  useEffect(() => () => void runtime.dispose(), [runtime]);
   const commandBarRef = useRef<CommandBarHandle>(null);
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
@@ -76,6 +86,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     dismissPendingCancel,
   } = useOrderActions({
     client,
+    runtime,
     symbolId,
     positions,
     refreshMarket,

@@ -1,8 +1,9 @@
 import { useKeyboard } from "@opentui/react";
+import { Effect } from "effect";
 import { useState } from "react";
 import type { AppConfig } from "../../config.ts";
-import { writeConfig } from "../../config.ts";
-import { CtraderClient } from "../../ctrader/client.ts";
+import { AppConfigSchema, ConfigFileIOLive, writeConfig } from "../../config.ts";
+import { CtraderClientLive } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
 
@@ -36,7 +37,7 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
 
   function submitUrl(value: string) {
     const trimmed = value.trim() || DEFAULT_URL;
-    if (!URL.canParse(trimmed)) {
+    if (!AppConfigSchema.shape.url.safeParse(trimmed).success) {
       setError(`URL invalide : "${trimmed}"`);
       return;
     }
@@ -47,7 +48,7 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
 
   function submitToken(value: string) {
     const trimmed = value.trim();
-    if (!trimmed) {
+    if (!AppConfigSchema.shape.token.safeParse(trimmed).success) {
       setError("token requis");
       return;
     }
@@ -55,12 +56,12 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
     setError(undefined);
     setStep("checkingToken");
     void (async () => {
-      const client = new CtraderClient({ url, token: trimmed });
+      const client = new CtraderClientLive({ url, token: trimmed });
       try {
         await client.connect();
-        await client.getBalance();
+        await Effect.runPromise(client.getBalance());
         const config: AppConfig = { url, token: trimmed };
-        writeConfig(config);
+        Effect.runSync(Effect.provide(writeConfig(config), ConfigFileIOLive));
         onConfigured(config);
       } catch (err) {
         setError(toMessage(err));

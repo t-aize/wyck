@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { Effect, Layer } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
-import type { CtraderClient } from "../ctrader/client.ts";
+import { CtraderClient, type CtraderClientLive } from "../ctrader/client.ts";
 import {
   computeUnrealizedPnl,
   prepareTrade,
@@ -14,39 +15,49 @@ function fakeClient(opts: {
   ask: number;
   equity: number;
   moneyDigits: number;
-}): CtraderClient {
+}): CtraderClientLive {
   return {
-    getSpotPrices: async () => ({
-      prices: [
-        {
-          symbolId: 1,
-          bid: opts.bid * PRICE_SCALE,
-          ask: opts.ask * PRICE_SCALE,
-          high: 0,
-          low: 0,
-          sessionClose: 0,
-          timestamp: 0,
-        },
-      ],
-    }),
-    getBalance: async () => ({
-      balance: 0,
-      equity: opts.equity,
-      freeMargin: 0,
-      balanceVersion: 0,
-      moneyDigits: opts.moneyDigits,
-      depositAssetId: 0,
-    }),
-  } as unknown as CtraderClient;
+    getSpotPrices: () =>
+      Effect.succeed({
+        prices: [
+          {
+            symbolId: 1,
+            bid: opts.bid * PRICE_SCALE,
+            ask: opts.ask * PRICE_SCALE,
+            high: 0,
+            low: 0,
+            sessionClose: 0,
+            timestamp: 0,
+          },
+        ],
+      }),
+    getBalance: () =>
+      Effect.succeed({
+        balance: 0,
+        equity: opts.equity,
+        freeMargin: 0,
+        balanceVersion: 0,
+        moneyDigits: opts.moneyDigits,
+        depositAssetId: 0,
+      }),
+  } as unknown as CtraderClientLive;
 }
 
 // equity=1_000_000 à moneyDigits=2 → 10 000 $ de compte.
 const client = fakeClient({ bid: 4100.0, ask: 4100.2, equity: 1_000_000, moneyDigits: 2 });
+const testLayer = Layer.succeed(CtraderClient, client);
+
+/** `prepareTrade` reçoit désormais CtraderClient par injection (§4.1) plutôt qu'en paramètre —
+ * ce helper fournit la Layer de test et exécute l'Effect, pour garder les tests ci-dessous
+ * inchangés par ailleurs (même forme `await runPrepareTrade(...)` qu'un `await prepareTrade(...)`). */
+function runPrepareTrade(symbolId: number, input: TradeInput) {
+  return Effect.runPromise(Effect.provide(prepareTrade(symbolId, input), testLayer));
+}
 
 describe("prepareTrade", () => {
   test("BUY market : direction déduite de SL<TP, entrée = ask", async () => {
     const input: TradeInput = { entry: "market", riskPercent: 1, stopLoss: 4090, takeProfit: 4110 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("BUY");
     expect(trade.orderType).toBe("MARKET");
     expect(trade.entryPrice).toBeCloseTo(4100.2);
@@ -57,7 +68,7 @@ describe("prepareTrade", () => {
 
   test("SELL market : direction déduite de SL>TP, entrée = bid", async () => {
     const input: TradeInput = { entry: "market", riskPercent: 1, stopLoss: 4110, takeProfit: 4090 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("SELL");
     expect(trade.orderType).toBe("MARKET");
     expect(trade.entryPrice).toBeCloseTo(4100.0);
@@ -65,58 +76,58 @@ describe("prepareTrade", () => {
 
   test("BUY avec entrée au-dessus de l'ask → STOP", async () => {
     const input: TradeInput = { entry: 4110, riskPercent: 1, stopLoss: 4090, takeProfit: 4130 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("BUY");
     expect(trade.orderType).toBe("STOP");
   });
 
   test("BUY avec entrée sous l'ask → LIMIT", async () => {
     const input: TradeInput = { entry: 4095, riskPercent: 1, stopLoss: 4090, takeProfit: 4110 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("BUY");
     expect(trade.orderType).toBe("LIMIT");
   });
 
   test("SELL avec entrée au-dessus du bid → LIMIT", async () => {
     const input: TradeInput = { entry: 4110, riskPercent: 1, stopLoss: 4130, takeProfit: 4090 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("SELL");
     expect(trade.orderType).toBe("LIMIT");
   });
 
   test("SELL avec entrée sous le bid → STOP", async () => {
     const input: TradeInput = { entry: 4090, riskPercent: 1, stopLoss: 4130, takeProfit: 4070 };
-    const trade = await prepareTrade(client, 1, input);
+    const trade = await runPrepareTrade(1, input);
     expect(trade.tradeSide).toBe("SELL");
     expect(trade.orderType).toBe("STOP");
   });
 
   test("rejette un risque hors de ]0, 100]", async () => {
     const bad: TradeInput = { entry: "market", riskPercent: 0, stopLoss: 4090, takeProfit: 4110 };
-    await expect(prepareTrade(client, 1, bad)).rejects.toThrow("Risque invalide");
+    await expect(runPrepareTrade(1, bad)).rejects.toThrow("Risque invalide");
     const bad2: TradeInput = {
       entry: "market",
       riskPercent: 101,
       stopLoss: 4090,
       takeProfit: 4110,
     };
-    await expect(prepareTrade(client, 1, bad2)).rejects.toThrow("Risque invalide");
+    await expect(runPrepareTrade(1, bad2)).rejects.toThrow("Risque invalide");
   });
 
   test("rejette SL === TP", async () => {
     const bad: TradeInput = { entry: "market", riskPercent: 1, stopLoss: 4100, takeProfit: 4100 };
-    await expect(prepareTrade(client, 1, bad)).rejects.toThrow("identiques");
+    await expect(runPrepareTrade(1, bad)).rejects.toThrow("identiques");
   });
 
   test("rejette un SL/TP incohérent pour un achat", async () => {
     // SL(4090) < TP(4110) ⇒ BUY déduit, mais TP(4110) sous l'entrée market(4100.2) est incohérent
     const bad: TradeInput = { entry: 4105, riskPercent: 1, stopLoss: 4090, takeProfit: 4100 };
-    await expect(prepareTrade(client, 1, bad)).rejects.toThrow("achat");
+    await expect(runPrepareTrade(1, bad)).rejects.toThrow("achat");
   });
 
   test("rejette un SL/TP incohérent pour une vente", async () => {
     const bad: TradeInput = { entry: 4095, riskPercent: 1, stopLoss: 4110, takeProfit: 4100 };
-    await expect(prepareTrade(client, 1, bad)).rejects.toThrow("vente");
+    await expect(runPrepareTrade(1, bad)).rejects.toThrow("vente");
   });
 
   test("rejette un volume sous le minimum de compte (0.01 lot)", async () => {
@@ -127,13 +138,13 @@ describe("prepareTrade", () => {
       stopLoss: 3000,
       takeProfit: 5000,
     };
-    await expect(prepareTrade(client, 1, bad)).rejects.toThrow("sous le minimum");
+    await expect(runPrepareTrade(1, bad)).rejects.toThrow("sous le minimum");
   });
 });
 
 describe("toCreateOrderParams", () => {
   test("ordre MARKET : SL/TP en points relatifs, pas en prix absolu", async () => {
-    const trade = await prepareTrade(client, 1, {
+    const trade = await runPrepareTrade(1, {
       entry: "market",
       riskPercent: 1,
       stopLoss: 4090,
@@ -152,7 +163,7 @@ describe("toCreateOrderParams", () => {
   });
 
   test("ordre LIMIT : prix absolu, pas de points relatifs", async () => {
-    const trade = await prepareTrade(client, 1, {
+    const trade = await runPrepareTrade(1, {
       entry: 4095,
       riskPercent: 1,
       stopLoss: 4090,

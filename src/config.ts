@@ -10,9 +10,51 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import { join } from "node:path";
+import { Context, Effect, Layer } from "effect";
+import { z } from "zod";
 import { APP_DATA_DIR } from "./constants.ts";
 
 const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
+
+/**
+ * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré
+ * sur disque — pas le bon outil ici malgré le nom. Le vrai point d'injection utile (cf.
+ * AUDIT_EFFECT.md §4.2) est la lecture/écriture du fichier lui-même : `readConfig`/`writeConfig`
+ * gardent toute la logique métier (schéma, chiffrement) en clair, testable directement, et ne
+ * dépendent que de ce petit service pour le fs — un test peut fournir un `ConfigFileIO` en
+ * mémoire sans jamais toucher `~/.aurum/config.json` ni monkey-patcher `node:fs`.
+ */
+export class ConfigFileIO extends Context.Tag("ConfigFileIO")<
+  ConfigFileIO,
+  {
+    /** N'échoue jamais : une lecture fs cassée (permissions, race avec un fichier supprimé entre
+     * existsSync/readFileSync…) est traitée comme "pas de config", même logique que le reste de
+     * readConfig() plus bas — un fichier illisible n'est pas plus fatal qu'un fichier absent. */
+    readonly read: Effect.Effect<string | undefined>;
+    /** Peut échouer (disque plein, permissions) — propagé tel quel, contrairement à `read` : un
+     * échec d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé. */
+    readonly write: (content: string) => Effect.Effect<void, unknown>;
+  }
+>() {}
+
+export const ConfigFileIOLive = Layer.succeed(ConfigFileIO, {
+  read: Effect.try(() =>
+    existsSync(CONFIG_PATH) ? readFileSync(CONFIG_PATH, "utf8") : undefined,
+  ).pipe(Effect.orElseSucceed(() => undefined)),
+  write: (content: string) =>
+    Effect.try(() => {
+      if (!existsSync(APP_DATA_DIR)) mkdirSync(APP_DATA_DIR, { recursive: true });
+      writeFileSync(CONFIG_PATH, content, { mode: 0o600 });
+    }),
+});
+
+/** Source unique de vérité pour ce qui constitue une config valide — réutilisé par SetupScreen.tsx
+ * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
+ * s'accordent par construction plutôt que par coïncidence (cf. AUDIT_EFFECT.md §5.3). */
+export const AppConfigSchema = z.object({
+  url: z.string().url(),
+  token: z.string().min(1),
+});
 
 export interface AppConfig {
   url: string;
@@ -47,24 +89,30 @@ function decrypt(payload: string): string {
 
 /**
  * `undefined` si absent, corrompu, incomplet, ou déchiffrable seulement sur une autre machine —
- * redemande la config dans ces cas plutôt que planter.
+ * redemande la config dans ces cas plutôt que planter. Consommateurs (App.tsx, SetupScreen.tsx) :
+ * `Effect.runSync(Effect.provide(readConfig(), ConfigFileIOLive))` — reste synchrone comme avant,
+ * seule l'origine du fs devient substituable.
  */
-export function readConfig(): AppConfig | undefined {
-  if (!existsSync(CONFIG_PATH)) return undefined;
-  try {
-    const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-    if (typeof raw.url !== "string" || typeof raw.token !== "string") return undefined;
-    return { url: raw.url, token: decrypt(raw.token) };
-  } catch {
-    return undefined;
-  }
+export function readConfig(): Effect.Effect<AppConfig | undefined, never, ConfigFileIO> {
+  return Effect.gen(function* () {
+    const io = yield* ConfigFileIO;
+    const raw = yield* io.read;
+    if (raw === undefined) return undefined;
+
+    // `JSON.parse`/`decrypt` peuvent tous deux throw (JSON invalide, ciphertext corrompu/déchiffrable
+    // seulement sur une autre machine) — Effect.try (pas Effect.sync) pour ne pas laisser
+    // l'exception s'échapper en defect non catché.
+    return yield* Effect.try(() => {
+      const parsed = AppConfigSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success) return undefined;
+      return { url: parsed.data.url, token: decrypt(parsed.data.token) };
+    }).pipe(Effect.orElseSucceed(() => undefined));
+  });
 }
 
-export function writeConfig(config: AppConfig): void {
-  if (!existsSync(APP_DATA_DIR)) mkdirSync(APP_DATA_DIR, { recursive: true });
-  writeFileSync(
-    CONFIG_PATH,
-    JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
-    { mode: 0o600 },
-  );
+export function writeConfig(config: AppConfig): Effect.Effect<void, unknown, ConfigFileIO> {
+  return Effect.gen(function* () {
+    const io = yield* ConfigFileIO;
+    yield* io.write(JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2));
+  });
 }

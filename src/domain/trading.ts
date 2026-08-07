@@ -10,8 +10,55 @@
  * lecture des données brutes.
  */
 
+import { Data, Effect } from "effect";
 import { LOT_VOLUME, PRICE_SCALE } from "../constants.ts";
-import type { CreateOrderParams, CtraderClient, OrderType, TradeSide } from "../ctrader/client.ts";
+import {
+  type CreateOrderParams,
+  CtraderClient,
+  type CtraderMcpError,
+  type OrderType,
+  type TradeSide,
+} from "../ctrader/client.ts";
+
+// Erreurs de validation métier taguées (cf. AUDIT_EFFECT.md §1.4) — une par ancien
+// `throw new Error(...)` distinct. Permet à un appelant de faire `Effect.catchTag(...)` sur un cas
+// précis (ex. VolumeBelowMinimum pour suggérer d'augmenter le risque%) plutôt que de parser un message.
+
+export class InvalidRiskPercent extends Data.TaggedError("InvalidRiskPercent")<{
+  readonly riskPercent: number;
+  readonly message: string;
+}> {}
+
+export class PriceUnavailable extends Data.TaggedError("PriceUnavailable")<{
+  readonly symbolId: number;
+  readonly message: string;
+}> {}
+
+export class StopTakeProfitEqual extends Data.TaggedError("StopTakeProfitEqual")<{
+  readonly message: string;
+}> {}
+
+export class InconsistentStopTakeProfit extends Data.TaggedError("InconsistentStopTakeProfit")<{
+  readonly side: TradeSide;
+  readonly message: string;
+}> {}
+
+export class InvalidStopDistance extends Data.TaggedError("InvalidStopDistance")<{
+  readonly message: string;
+}> {}
+
+export class VolumeBelowMinimum extends Data.TaggedError("VolumeBelowMinimum")<{
+  readonly computedVolumeLots: number;
+  readonly message: string;
+}> {}
+
+export type TradeValidationError =
+  | InvalidRiskPercent
+  | PriceUnavailable
+  | StopTakeProfitEqual
+  | InconsistentStopTakeProfit
+  | InvalidStopDistance
+  | VolumeBelowMinimum;
 
 export interface TradeInput {
   /** "market" = prix courant (ordre MARKET) ; un nombre = prix affiché (LIMIT/STOP déduit) */
@@ -42,17 +89,32 @@ export interface PreparedTrade {
 // plateforme du broker — pas de dropdown 0.01→1.00 lot par incréments de 0.01).
 const VOLUME_STEP = 100; // 0.01 lot
 
-function computeVolume(riskAmount: number, stopDistance: number): number {
-  if (stopDistance <= 0) throw new Error("Distance de stop invalide (SL identique à l'entrée ?)");
-  const ounces = riskAmount / stopDistance;
-  const volume = Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
-  if (volume < VOLUME_STEP) {
-    throw new Error(
-      `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
-        "(0.01 lot) — augmente le risque% ou resserre le stop",
-    );
-  }
-  return volume;
+function computeVolume(
+  riskAmount: number,
+  stopDistance: number,
+): Effect.Effect<number, InvalidStopDistance | VolumeBelowMinimum> {
+  return Effect.gen(function* () {
+    if (stopDistance <= 0) {
+      return yield* Effect.fail(
+        new InvalidStopDistance({
+          message: "Distance de stop invalide (SL identique à l'entrée ?)",
+        }),
+      );
+    }
+    const ounces = riskAmount / stopDistance;
+    const volume = Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
+    if (volume < VOLUME_STEP) {
+      return yield* Effect.fail(
+        new VolumeBelowMinimum({
+          computedVolumeLots: volume / LOT_VOLUME,
+          message:
+            `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
+            "(0.01 lot) — augmente le risque% ou resserre le stop",
+        }),
+      );
+    }
+    return volume;
+  });
 }
 
 function toPoints(priceDistance: number): number {
@@ -66,60 +128,92 @@ function inferOrderType(side: TradeSide, entryPrice: number, referencePrice: num
   return entryPrice < referencePrice ? "STOP" : "LIMIT";
 }
 
-export async function prepareTrade(
-  client: CtraderClient,
+/**
+ * `CtraderClient` reçu par injection (`yield* CtraderClient`, résolu via la `Layer` fournie au
+ * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. AUDIT_EFFECT.md §4.1.
+ * Chaque règle de validation échoue via `Effect.fail(new XxxError(...))` (erreur taguée, §1.4) au
+ * lieu d'un `throw` générique — un appelant peut réagir à un cas précis via `Effect.catchTag`.
+ */
+export function prepareTrade(
   symbolId: number,
   input: TradeInput,
-): Promise<PreparedTrade> {
-  if (!Number.isFinite(input.riskPercent) || input.riskPercent <= 0 || input.riskPercent > 100) {
-    throw new Error("Risque invalide : doit être un pourcentage entre 0 et 100");
-  }
+): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError, CtraderClient> {
+  return Effect.gen(function* () {
+    if (!Number.isFinite(input.riskPercent) || input.riskPercent <= 0 || input.riskPercent > 100) {
+      return yield* Effect.fail(
+        new InvalidRiskPercent({
+          riskPercent: input.riskPercent,
+          message: "Risque invalide : doit être un pourcentage entre 0 et 100",
+        }),
+      );
+    }
 
-  const [{ prices }, { equity, moneyDigits }] = await Promise.all([
-    client.getSpotPrices({ symbolId: [symbolId] }),
-    client.getBalance(),
-  ]);
-  const spot = prices[0];
-  if (!spot) throw new Error("Prix indisponible pour ce symbole");
-  const bid = spot.bid / PRICE_SCALE;
-  const ask = spot.ask / PRICE_SCALE;
-
-  const { stopLoss, takeProfit } = input;
-  if (stopLoss === takeProfit) throw new Error("SL et TP ne peuvent pas être identiques");
-  // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
-  const side: TradeSide = stopLoss < takeProfit ? "BUY" : "SELL";
-  const reference = side === "BUY" ? ask : bid;
-
-  const entryPrice = input.entry === "market" ? reference : input.entry;
-  const orderType: OrderType =
-    input.entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
-
-  if (side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
-    throw new Error("Incohérent pour un achat : le SL doit être sous l'entrée et le TP au-dessus");
-  }
-  if (side === "SELL" && !(stopLoss > entryPrice && takeProfit < entryPrice)) {
-    throw new Error(
-      "Incohérent pour une vente : le SL doit être au-dessus de l'entrée et le TP en dessous",
+    const client = yield* CtraderClient;
+    const [{ prices }, { equity, moneyDigits }] = yield* Effect.all(
+      [client.getSpotPrices({ symbolId: [symbolId] }), client.getBalance()],
+      { concurrency: "unbounded" },
     );
-  }
 
-  const stopDistance = Math.abs(entryPrice - stopLoss);
-  const targetDistance = Math.abs(entryPrice - takeProfit);
-  const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
-  const volume = computeVolume(riskAmount, stopDistance);
+    const spot = prices[0];
+    if (!spot) {
+      return yield* Effect.fail(
+        new PriceUnavailable({ symbolId, message: "Prix indisponible pour ce symbole" }),
+      );
+    }
+    const bid = spot.bid / PRICE_SCALE;
+    const ask = spot.ask / PRICE_SCALE;
 
-  return {
-    orderType,
-    tradeSide: side,
-    entryPrice,
-    stopLoss,
-    takeProfit,
-    volume,
-    volumeLots: volume / LOT_VOLUME,
-    riskAmount,
-    riskPercent: input.riskPercent,
-    rewardAmount: (volume / 100) * targetDistance,
-  };
+    const { stopLoss, takeProfit } = input;
+    if (stopLoss === takeProfit) {
+      return yield* Effect.fail(
+        new StopTakeProfitEqual({ message: "SL et TP ne peuvent pas être identiques" }),
+      );
+    }
+    // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
+    const side: TradeSide = stopLoss < takeProfit ? "BUY" : "SELL";
+    const reference = side === "BUY" ? ask : bid;
+
+    const entryPrice = input.entry === "market" ? reference : input.entry;
+    const orderType: OrderType =
+      input.entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
+
+    if (side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
+      return yield* Effect.fail(
+        new InconsistentStopTakeProfit({
+          side,
+          message: "Incohérent pour un achat : le SL doit être sous l'entrée et le TP au-dessus",
+        }),
+      );
+    }
+    if (side === "SELL" && !(stopLoss > entryPrice && takeProfit < entryPrice)) {
+      return yield* Effect.fail(
+        new InconsistentStopTakeProfit({
+          side,
+          message:
+            "Incohérent pour une vente : le SL doit être au-dessus de l'entrée et le TP en dessous",
+        }),
+      );
+    }
+
+    const stopDistance = Math.abs(entryPrice - stopLoss);
+    const targetDistance = Math.abs(entryPrice - takeProfit);
+    const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
+    const volume = yield* computeVolume(riskAmount, stopDistance);
+
+    const trade: PreparedTrade = {
+      orderType,
+      tradeSide: side,
+      entryPrice,
+      stopLoss,
+      takeProfit,
+      volume,
+      volumeLots: volume / LOT_VOLUME,
+      riskAmount,
+      riskPercent: input.riskPercent,
+      rewardAmount: (volume / 100) * targetDistance,
+    };
+    return trade;
+  });
 }
 
 /**

@@ -1,5 +1,11 @@
+import { Effect, type ManagedRuntime } from "effect";
 import { type Dispatch, type SetStateAction, useState } from "react";
-import type { CtraderClient, CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
+import type {
+  CtraderClient,
+  CtraderClientLive,
+  CtraderOrder,
+  GetPositionsResult,
+} from "../../ctrader/client.ts";
 import {
   CANCEL_USAGE,
   formatTradeSummary,
@@ -59,14 +65,17 @@ export interface OrderActions {
 
 /** Le routeur de commandes du CommandBar, et le cycle confirmation → envoi → feedback des ordres. */
 export function useOrderActions(opts: {
-  client: CtraderClient;
+  client: CtraderClientLive;
+  /** Requis uniquement par `prepareTrade` (injecté via CtraderClient, cf. domain/trading.ts) — les
+   * autres actions de ce hook appellent `client` directement. */
+  runtime: ManagedRuntime.ManagedRuntime<CtraderClient, never>;
   symbolId: number | undefined;
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
   onReconfigure: () => void;
 }): OrderActions {
-  const { client, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
+  const { client, runtime, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
 
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
@@ -146,7 +155,7 @@ export function useOrderActions(opts: {
           return;
         }
         setFeedback({ kind: "info", message: "calcul en cours…" });
-        void prepareTrade(client, symbolId, parsed).then(
+        void runtime.runPromise(prepareTrade(symbolId, parsed)).then(
           (trade) => {
             setPendingTrade(trade);
             setFeedback({ kind: "info", message: "trade calculé — confirme dans la popup" });
@@ -249,7 +258,7 @@ export function useOrderActions(opts: {
     setPendingTrade(undefined);
     runOrderAction({
       pending: "envoi de l'ordre…",
-      action: () => client.createOrder(toCreateOrderParams(symbolId, trade)),
+      action: () => Effect.runPromise(client.createOrder(toCreateOrderParams(symbolId, trade))),
       success: () => `ordre envoyé : ${summary}`,
       errorPrefix: "échec envoi",
     });
@@ -269,13 +278,15 @@ export function useOrderActions(opts: {
       // cTrader remet à 0 tout champ prix non renvoyé à l'amend (limitPrice/stopPrice
       // mais aussi SL/TP) — il faut toujours resend les valeurs existantes non modifiées.
       action: () =>
-        client.amendOrder({
-          orderId: order.orderId,
-          limitPrice: order.limitPrice,
-          stopPrice: order.stopPrice,
-          stopLoss: stopLoss ?? order.stopLoss,
-          takeProfit: takeProfit ?? order.takeProfit,
-        }),
+        Effect.runPromise(
+          client.amendOrder({
+            orderId: order.orderId,
+            limitPrice: order.limitPrice,
+            stopPrice: order.stopPrice,
+            stopLoss: stopLoss ?? order.stopLoss,
+            takeProfit: takeProfit ?? order.takeProfit,
+          }),
+        ),
       success: () => `ordre ${order.orderId} modifié`,
       errorPrefix: "échec modification",
       refreshAfter: true,
@@ -292,23 +303,35 @@ export function useOrderActions(opts: {
     const orders = pendingCancel;
     setPendingCancel(undefined);
     setFeedback({ kind: "info", message: "annulation en cours…" });
-    void Promise.allSettled(orders.map((o) => client.cancelOrder({ orderId: o.orderId }))).then(
-      (results) => {
-        void refreshMarket();
-        const failed = orders.filter((_, i) => results[i]?.status === "rejected");
-        if (failed.length === 0) {
-          setFeedback({
-            kind: "success",
-            message: `ordre${orders.length > 1 ? "s" : ""} ${orders.map((o) => o.orderId).join(", ")} annulé${orders.length > 1 ? "s" : ""}`,
-          });
-        } else {
-          setFeedback({
-            kind: "error",
-            message: `échec annulation : ${failed.map((o) => o.orderId).join(", ")}`,
-          });
-        }
-      },
+
+    // Chaque résultat porte directement sa commande (§2.2, AUDIT_EFFECT.md) plutôt que d'associer
+    // `orders[i]`/`results[i]` par index comme le faisait le Promise.allSettled précédent — plus
+    // fragile si jamais l'un des deux tableaux venait à diverger.
+    const cancelAll = Effect.forEach(
+      orders,
+      (order) =>
+        client.cancelOrder({ orderId: order.orderId }).pipe(
+          Effect.as({ order, ok: true as const }),
+          Effect.catchAll(() => Effect.succeed({ order, ok: false as const })),
+        ),
+      { concurrency: "unbounded" },
     );
+
+    void Effect.runPromise(cancelAll).then((results) => {
+      void refreshMarket();
+      const failed = results.filter((r) => !r.ok).map((r) => r.order);
+      if (failed.length === 0) {
+        setFeedback({
+          kind: "success",
+          message: `ordre${orders.length > 1 ? "s" : ""} ${orders.map((o) => o.orderId).join(", ")} annulé${orders.length > 1 ? "s" : ""}`,
+        });
+      } else {
+        setFeedback({
+          kind: "error",
+          message: `échec annulation : ${failed.map((o) => o.orderId).join(", ")}`,
+        });
+      }
+    });
   }
 
   function dismissPendingCancel() {

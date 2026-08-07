@@ -1,5 +1,6 @@
+import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import type { CtraderClient, GetPositionsResult } from "../../ctrader/client.ts";
+import type { CtraderClientLive, GetPositionsResult } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
 import { useInterval } from "./useInterval.ts";
 
@@ -17,7 +18,7 @@ export interface MarketData {
 
 /** `onError` partage l'état `connectionError` de useCtraderConnection (même affichage). */
 export function useMarketData(
-  client: CtraderClient,
+  client: CtraderClientLive,
   symbolId: number | undefined,
   onError: (message: string | undefined) => void,
 ): MarketData {
@@ -32,9 +33,9 @@ export function useMarketData(
       if (!symbolId) return;
       try {
         const [spot, pos, bal] = await Promise.all([
-          client.getSpotPrices({ symbolId: [symbolId] }),
-          client.getPositions(),
-          client.getBalance(),
+          Effect.runPromise(client.getSpotPrices({ symbolId: [symbolId] })),
+          Effect.runPromise(client.getPositions()),
+          Effect.runPromise(client.getBalance()),
         ]);
         const price = spot.prices[0];
         if (price) {
