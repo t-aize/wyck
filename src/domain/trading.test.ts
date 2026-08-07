@@ -4,6 +4,7 @@ import { PRICE_SCALE } from "../constants.ts";
 import { CtraderClient, type CtraderClientLive } from "../ctrader/client.ts";
 import {
   computeUnrealizedPnl,
+  conflictsWithHtfBias,
   prepareTrade,
   type TradeInput,
   toCreateOrderParams,
@@ -190,5 +191,28 @@ describe("computeUnrealizedPnl", () => {
 
   test("perte quand le marché va contre la position", () => {
     expect(computeUnrealizedPnl("BUY", 0.1, 4100, 4090, 4090.5)).toBeCloseTo(-100);
+  });
+});
+
+describe("conflictsWithHtfBias", () => {
+  test("biais neutre (0, pas encore confirmé) ⇒ jamais de conflit", () => {
+    expect(conflictsWithHtfBias("BUY", 0)).toBe(false);
+    expect(conflictsWithHtfBias("SELL", 0)).toBe(false);
+  });
+
+  test("BUY aligné avec un biais haussier ⇒ pas de conflit", () => {
+    expect(conflictsWithHtfBias("BUY", 1)).toBe(false);
+  });
+
+  test("BUY contre un biais baissier ⇒ conflit", () => {
+    expect(conflictsWithHtfBias("BUY", -1)).toBe(true);
+  });
+
+  test("SELL aligné avec un biais baissier ⇒ pas de conflit", () => {
+    expect(conflictsWithHtfBias("SELL", -1)).toBe(false);
+  });
+
+  test("SELL contre un biais haussier ⇒ conflit", () => {
+    expect(conflictsWithHtfBias("SELL", 1)).toBe(true);
   });
 });

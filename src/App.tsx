@@ -12,12 +12,14 @@ import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
+import { TrendPanel } from "./ui/components/TrendPanel.tsx";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useCtraderConnection } from "./ui/hooks/useCtraderConnection.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
+import { useTrend } from "./ui/hooks/useTrend.ts";
 import { theme } from "./ui/theme.ts";
 
 /**
@@ -96,6 +98,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     setConnectionError,
   );
   const { calendar, newsError, refreshNews } = useCalendar();
+  const { rows: trendRows, trendError, refreshTrend } = useTrend(client, symbolId);
   const {
     feedback,
     setFeedback,
@@ -116,6 +119,8 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     positions,
     refreshMarket,
     refreshNews,
+    refreshTrend,
+    trendRows,
     onReconfigure,
   });
 
@@ -140,7 +145,10 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         moneyDigits={moneyDigits}
       />
       <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
-      <NewsPanel events={calendar} errorMessage={newsError} now={now} />
+      <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
+        <NewsPanel events={calendar} errorMessage={newsError} now={now} />
+        <TrendPanel rows={trendRows} errorMessage={trendError} />
+      </box>
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}

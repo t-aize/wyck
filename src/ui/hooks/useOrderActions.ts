@@ -17,9 +17,16 @@ import {
   TRADE_USAGE,
 } from "../../domain/commands.ts";
 import type { PreparedTrade } from "../../domain/trading.ts";
-import { prepareTrade, toCreateOrderParams } from "../../domain/trading.ts";
+import { conflictsWithHtfBias, prepareTrade, toCreateOrderParams } from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import type { Feedback } from "../components/CommandBar.tsx";
+import type { TrendRow } from "./useTrend.ts";
+
+/** Biais H1 confirmé (méthode 2 + règle CHoCH→BOS) — "commande" la hiérarchie multi-timeframe,
+ * cf. cascade_htf_bias dans AUDIT_EFFECT.md et domain/trading.ts#conflictsWithHtfBias. */
+function h1ConfirmedBias(trendRows: TrendRow[] | undefined) {
+  return trendRows?.find((row) => row.label === "H1")?.swing.confirmedEvent ?? 0;
+}
 
 // Convention du projet : `.then` dans les handlers d'événements UI déclenchés depuis le rendu
 // (ce fichier), `async`/`await` partout ailleurs (cf. les autres hooks de ce dossier).
@@ -36,7 +43,7 @@ const COMMAND_HELP: Record<string, string> = {
   cancel: CANCEL_USAGE,
   risk: RISK_USAGE,
   settings: "settings — reconfigure l'URL/le token MCP",
-  refresh: "refresh — force une actualisation immédiate du marché et du calendrier",
+  refresh: "refresh — force une actualisation immédiate du marché, du calendrier et de la tendance",
   clear: "clear — efface le message de feedback",
   help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
 };
@@ -73,9 +80,21 @@ export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
+  refreshTrend: () => Promise<void>;
+  trendRows: TrendRow[] | undefined;
   onReconfigure: () => void;
 }): OrderActions {
-  const { client, runtime, symbolId, positions, refreshMarket, refreshNews, onReconfigure } = opts;
+  const {
+    client,
+    runtime,
+    symbolId,
+    positions,
+    refreshMarket,
+    refreshNews,
+    refreshTrend,
+    trendRows,
+    onReconfigure,
+  } = opts;
 
   const [feedback, setFeedback] = useState<Feedback>({
     kind: "info",
@@ -114,9 +133,11 @@ export function useOrderActions(opts: {
         return;
       case "refresh":
         setFeedback({ kind: "info", message: "actualisation…" });
-        void Promise.all([refreshMarket(), refreshNews({ force: true })]).then(() => {
-          setFeedback({ kind: "success", message: "actualisé" });
-        });
+        void Promise.all([refreshMarket(), refreshNews({ force: true }), refreshTrend()]).then(
+          () => {
+            setFeedback({ kind: "success", message: "actualisé" });
+          },
+        );
         return;
       case "clear":
         setFeedback({ kind: "info", message: "" });
@@ -158,7 +179,15 @@ export function useOrderActions(opts: {
         void runtime.runPromise(prepareTrade(symbolId, parsed)).then(
           (trade) => {
             setPendingTrade(trade);
-            setFeedback({ kind: "info", message: "trade calculé — confirme dans la popup" });
+            // Avertissement non bloquant, pas un blocage dur : outil de saisie manuelle, la
+            // décision finale reste au trader (cf. domain/trading.ts#conflictsWithHtfBias).
+            const biasWarning = conflictsWithHtfBias(trade.tradeSide, h1ConfirmedBias(trendRows))
+              ? " — ⚠ contre le biais H1 confirmé"
+              : "";
+            setFeedback({
+              kind: "info",
+              message: `trade calculé${biasWarning} — confirme dans la popup`,
+            });
           },
           (error) => setFeedback({ kind: "error", message: toMessage(error) }),
         );

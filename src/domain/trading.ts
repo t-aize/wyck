@@ -19,6 +19,7 @@ import {
   type OrderType,
   type TradeSide,
 } from "../ctrader/client.ts";
+import type { Trend } from "./smc/trend.ts";
 
 // Erreurs de validation métier taguées (cf. AUDIT_EFFECT.md §1.4) — une par ancien
 // `throw new Error(...)` distinct. Permet à un appelant de faire `Effect.catchTag(...)` sur un cas
@@ -234,6 +235,18 @@ export function computeUnrealizedPnl(
   const markPrice = side === "BUY" ? bid : ask;
   const priceDiff = side === "BUY" ? markPrice - entryPrice : entryPrice - markPrice;
   return priceDiff * volumeLots * 100;
+}
+
+/**
+ * `side` va-t-il à l'encontre du biais H1 confirmé — `cascade_htf_bias` de la référence, mais en
+ * avertissement non bloquant plutôt qu'un blocage dur : ceci est un outil de saisie manuelle, pas
+ * un exécuteur de signaux automatique, la décision finale reste au trader. `htfBias` neutre (0,
+ * pas encore de tendance confirmée) ne déclenche jamais d'avertissement.
+ */
+export function conflictsWithHtfBias(side: TradeSide, htfBias: Trend): boolean {
+  if (htfBias === 0) return false;
+  const tradeDirection: Trend = side === "BUY" ? 1 : -1;
+  return tradeDirection !== htfBias;
 }
 
 export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): CreateOrderParams {
