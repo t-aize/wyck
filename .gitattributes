@@ -25,6 +25,9 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# Husky hooks are shell scripts run by Git Bash — CRLF would break them on checkout
+.husky/* text eol=lf
+
 # Lockfile: don't let Git generate diffs, and mark it as generated for GitHub
 bun.lock -diff linguist-generated=true
 

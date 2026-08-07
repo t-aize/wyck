@@ -8,15 +8,6 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
-[*.{ts,tsx,js,jsx,json,jsonc}]
-indent_style = space
-indent_size = 2
-
+# Markdown: trailing double-space is a hard line break, don't strip it
 [*.md]
 trim_trailing_whitespace = false
-
-[*.{yml,yaml}]
-indent_size = 2
-
-[Makefile]
-indent_style = tab
