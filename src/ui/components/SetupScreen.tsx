@@ -1,8 +1,9 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { useKeyboard } from "@opentui/react";
 import { Effect } from "effect";
 import { useState } from "react";
 import type { AppConfig } from "../../config.ts";
-import { AppConfigSchema, ConfigFileIOLive, writeConfig } from "../../config.ts";
+import { AppConfigSchema, writeConfig } from "../../config.ts";
 import { CtraderClientLive } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
@@ -61,7 +62,7 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
         await client.connect();
         await Effect.runPromise(client.getBalance());
         const config: AppConfig = { url, token: trimmed };
-        Effect.runSync(Effect.provide(writeConfig(config), ConfigFileIOLive));
+        await Effect.runPromise(Effect.provide(writeConfig(config), BunFileSystem.layer));
         onConfigured(config);
       } catch (err) {
         setError(toMessage(err));

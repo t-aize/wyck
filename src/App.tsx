@@ -1,6 +1,7 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type AppConfig, ConfigFileIOLive, readConfig } from "./config.ts";
+import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import { CtraderClient, CtraderClientLive } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
@@ -25,13 +26,37 @@ import { theme } from "./ui/theme.ts";
  * quand la commande `settings` fait passer par un nouveau round de SetupScreen.
  */
 export function App() {
-  const [config, setConfig] = useState<AppConfig | undefined>(() =>
-    Effect.runSync(Effect.provide(readConfig(), ConfigFileIOLive)),
-  );
+  // `null` = pas encore chargée (distinct de `undefined` = chargée, aucune config trouvée).
+  // FileSystem (@effect/platform-bun) fait de l'I/O réellement async (contrairement aux
+  // readFileSync/existsSync d'avant) — impossible à résoudre avec Effect.runSync dans
+  // l'initializer synchrone de useState (AsyncFiberException à l'exécution, vérifié en
+  // pratique) : il faut vraiment attendre le premier rendu.
+  const [config, setConfig] = useState<AppConfig | undefined | null>(null);
   const [reconfiguring, setReconfiguring] = useState(false);
   // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
   // changé importe pour déclencher le remount, pas sa valeur.
   const [generation, setGeneration] = useState(0);
+
+  useEffect(() => {
+    void Effect.runPromise(Effect.provide(readConfig(), BunFileSystem.layer)).then(setConfig);
+  }, []);
+
+  if (config === null) {
+    return (
+      <box
+        style={{
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          backgroundColor: theme.bg,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <text fg={theme.textDim}>chargement…</text>
+      </box>
+    );
+  }
 
   if (!config || reconfiguring) {
     return (

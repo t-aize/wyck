@@ -23,6 +23,8 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@effect/platform": "^0.97.1",
+    "@effect/platform-bun": "^0.91.2",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@opentui/core": "^0.5.1",
     "@opentui/react": "^0.5.1",

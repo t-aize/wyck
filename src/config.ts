@@ -7,46 +7,15 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import { join } from "node:path";
-import { Context, Effect, Layer } from "effect";
+import { FileSystem } from "@effect/platform";
+import type { PlatformError } from "@effect/platform/Error";
+import { Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "./constants.ts";
 
 const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
-
-/**
- * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré
- * sur disque — pas le bon outil ici malgré le nom. Le vrai point d'injection utile (cf.
- * AUDIT_EFFECT.md §4.2) est la lecture/écriture du fichier lui-même : `readConfig`/`writeConfig`
- * gardent toute la logique métier (schéma, chiffrement) en clair, testable directement, et ne
- * dépendent que de ce petit service pour le fs — un test peut fournir un `ConfigFileIO` en
- * mémoire sans jamais toucher `~/.aurum/config.json` ni monkey-patcher `node:fs`.
- */
-export class ConfigFileIO extends Context.Tag("ConfigFileIO")<
-  ConfigFileIO,
-  {
-    /** N'échoue jamais : une lecture fs cassée (permissions, race avec un fichier supprimé entre
-     * existsSync/readFileSync…) est traitée comme "pas de config", même logique que le reste de
-     * readConfig() plus bas — un fichier illisible n'est pas plus fatal qu'un fichier absent. */
-    readonly read: Effect.Effect<string | undefined>;
-    /** Peut échouer (disque plein, permissions) — propagé tel quel, contrairement à `read` : un
-     * échec d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé. */
-    readonly write: (content: string) => Effect.Effect<void, unknown>;
-  }
->() {}
-
-export const ConfigFileIOLive = Layer.succeed(ConfigFileIO, {
-  read: Effect.try(() =>
-    existsSync(CONFIG_PATH) ? readFileSync(CONFIG_PATH, "utf8") : undefined,
-  ).pipe(Effect.orElseSucceed(() => undefined)),
-  write: (content: string) =>
-    Effect.try(() => {
-      if (!existsSync(APP_DATA_DIR)) mkdirSync(APP_DATA_DIR, { recursive: true });
-      writeFileSync(CONFIG_PATH, content, { mode: 0o600 });
-    }),
-});
 
 /** Source unique de vérité pour ce qui constitue une config valide — réutilisé par SetupScreen.tsx
  * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
@@ -96,14 +65,23 @@ function decrypt(payload: string): string {
 
 /**
  * `undefined` si absent, corrompu, incomplet, ou déchiffrable seulement sur une autre machine —
- * redemande la config dans ces cas plutôt que planter. Consommateurs (App.tsx, SetupScreen.tsx) :
- * `Effect.runSync(Effect.provide(readConfig(), ConfigFileIOLive))` — reste synchrone comme avant,
- * seule l'origine du fs devient substituable.
+ * redemande la config dans ces cas plutôt que planter. Dépend de `FileSystem` (`@effect/platform`)
+ * plutôt que d'appeler `node:fs` en dur : un test peut fournir une implémentation en mémoire sans
+ * jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx, SetupScreen.tsx) :
+ * `Effect.runPromise(Effect.provide(readConfig(), BunFileSystem.layer))` — l'I/O de
+ * `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone), donc
+ * `Effect.runSync` n'est plus utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
+ * pratique) : App.tsx charge la config dans un `useEffect`, pas dans l'initializer de `useState`.
+ * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré sur
+ * disque — pas le bon outil ici malgré le nom (cf. AUDIT_EFFECT.md §4.2).
  */
-export function readConfig(): Effect.Effect<AppConfig | undefined, never, ConfigFileIO> {
+export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
   return Effect.gen(function* () {
-    const io = yield* ConfigFileIO;
-    const raw = yield* io.read;
+    const fs = yield* FileSystem.FileSystem;
+    // Une lecture fs cassée (permissions, race avec un fichier supprimé entretemps…) est traitée
+    // comme "pas de config", même logique que le reste de cette fonction — un fichier illisible
+    // n'est pas plus fatal qu'un fichier absent.
+    const raw = yield* fs.readFileString(CONFIG_PATH).pipe(Effect.orElseSucceed(() => undefined));
     if (raw === undefined) return undefined;
 
     // `JSON.parse`/`decrypt` peuvent tous deux throw (JSON invalide, ciphertext corrompu/déchiffrable
@@ -117,9 +95,20 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, Config
   });
 }
 
-export function writeConfig(config: AppConfig): Effect.Effect<void, unknown, ConfigFileIO> {
+/** Échoue tel quel (disque plein, permissions) — contrairement à `readConfig`, un échec
+ * d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé. */
+export function writeConfig(
+  config: AppConfig,
+): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
-    const io = yield* ConfigFileIO;
-    yield* io.write(JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2));
+    const fs = yield* FileSystem.FileSystem;
+    if (!(yield* fs.exists(APP_DATA_DIR))) {
+      yield* fs.makeDirectory(APP_DATA_DIR, { recursive: true });
+    }
+    yield* fs.writeFileString(
+      CONFIG_PATH,
+      JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
+      { mode: 0o600 },
+    );
   });
 }
