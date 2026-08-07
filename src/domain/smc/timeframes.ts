@@ -31,7 +31,9 @@ const HISTORY_MS = 3500 * 60 * 60_000;
  * le tableau de référence fourni : lookback interne/swing/mult. displacement par TF, milieu de
  * fourchette retenu quand une plage était donnée). `minSwingPct` n'a pas de valeur de référence
  * donnée — départ conservateur, plus resserré sur les TF les plus bruités (M5/M15) que sur H1 dont
- * le lookback déjà large filtre davantage de bruit nativement.
+ * le lookback déjà large filtre davantage de bruit nativement. H1 garde tout de même un plancher
+ * minime (0.03%) plutôt que 0% strict, en garde-fou contre un pic de données aberrant (spread
+ * anormal, gap de rollover) plutôt que comme véritable filtre de bruit.
  */
 function timeframe(
   label: string,
@@ -61,7 +63,7 @@ export const TREND_TIMEFRAMES: TrendTimeframe[] = [
   timeframe("H1", "H_1", 60 * 60_000, {
     internalLength: 6,
     swingLength: 30,
-    minSwingPct: 0,
+    minSwingPct: 0.03,
     displacementMult: 1.2,
   }),
 ];
