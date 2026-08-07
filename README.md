@@ -12,11 +12,28 @@ Projet perso, privé, pensé pour un usage solo — pas d'objectif de distributi
 Ce panel passe de **vrais ordres** via le MCP officiel de cTrader (`mcp.ctrader.com`). Toujours tester sur un **compte
 démo** avant un compte réel.
 
+## Fonctionnalités
+
+- **Prix en direct** — bid/ask XAUUSD avec sparkline (mini-graphe des dernières valeurs), solde et équity du compte.
+- **Positions & ordres** — positions ouvertes et ordres en attente, P&L latent calculé en direct.
+- **Calendrier économique** — publications ForexFactory de la semaine, filtrées/annotées pour leur pertinence sur
+  l'or (impact, direction anticipée forecast vs previous).
+- **Tendance multi-timeframe (SMC)** — biais M5/M15/H1 : structure (HH/HL vs LH/LL), événements BOS/CHoCH avec règle
+  de confirmation CHoCH→BOS, liquidity sweep, prochains niveaux de structure encore surveillés, et deux filtres
+  classiques de contexte (ADX + EMA stack — explicitement pas du SMC). Détails dans `src/domain/smc/trend.ts`. Passer
+  un `trade` qui va à l'encontre du biais H1 confirmé déclenche un avertissement non bloquant.
+- **Commandes CLI-style** — `trade`, `modify`, `cancel`, `risk`, `settings`, `refresh`, `clear`, `help` (cf.
+  [Commandes](#commandes) ci-dessous), chaque envoi d'ordre passant par une popup de confirmation.
+- **Raccourcis terminal** — surligner du texte le copie directement (OSC 52) ; `Ctrl+C` demande confirmation avant de
+  quitter (armé 2s), ou vide la ligne de commande en cours si elle n'est pas vide.
+
 ## Stack
 
-Bun (runtime + bundler + compilation), TypeScript, OpenTUI (`@opentui/core`) pour le rendu
-terminal, [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) (`StreamableHTTPClientTransport`)
-pour parler au serveur MCP cTrader, Zod pour la validation.
+Bun (runtime + bundler + compilation), TypeScript, React 19 + OpenTUI (`@opentui/core`, `@opentui/react`) pour le
+rendu terminal, [Effect](https://effect.website) (`effect`, `@effect/platform`, `@effect/platform-bun`) pour les
+effets/erreurs typées et l'accès fichier, [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+(`StreamableHTTPClientTransport`) pour parler au serveur MCP cTrader, Zod v4 pour la validation. Biome (lint +
+format) et Husky (pre-commit) pour la qualité de code.
 
 ## Installation
 
@@ -52,9 +69,45 @@ constante fixée dans `src/constants.ts` — pas de config, ce projet ne trade q
 Le token est lié à une session cTrader Web active : s'il expire (401), régénère-le depuis les mêmes réglages puis
 lance `settings` dans l'app.
 
+## Commandes
+
+Toutes les commandes se tapent dans la barre en bas de l'écran. `help` liste les commandes, `help <commande>` détaille
+l'usage d'une commande précise.
+
+| Commande | Usage | Description |
+|---|---|---|
+| `trade` | `trade [<risque%>] <entrée\|market> <sl> <tp>` | Direction déduite du SL/TP, taille de position dérivée du risque%. `risque%` optionnel si un défaut est défini avec `risk`. Popup de confirmation avant envoi. |
+| `modify` | `modify <id> [--sl <prix>] [--tp <prix>]` | Modifie le SL et/ou le TP d'un ordre en attente. |
+| `cancel` | `cancel <id> [id...]` ou `cancel all` | Annule un ou plusieurs ordres en attente. |
+| `risk` | `risk <risque%>` | Règle un risque% par défaut pour `trade` (valable pour la session, jamais persisté). |
+| `settings` | `settings` | Reconfigure l'URL/le token MCP. |
+| `refresh` | `refresh` | Force une actualisation immédiate du marché, du calendrier et de la tendance. |
+| `clear` | `clear` | Efface le message de feedback. |
+| `help` | `help [commande]` | Liste les commandes, ou détaille l'usage d'une commande précise. |
+
+## Développement
+
+```bash
+bun run dev        # démarre l'app en mode watch
+bun run typecheck  # tsc --noEmit
+bun run lint       # biome check .
+bun run lint:fix   # biome check --write .
+bun run test       # bun test
+bun run verify     # typecheck + lint + test
+bun run build      # binaire standalone compilé (bun build --compile)
+```
+
+Husky (`.husky/`) fait tourner typecheck + lint avant chaque commit, et les tests avant chaque push.
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) : typecheck, lint, tests et vérification que le build compile, sur
+chaque push sur `main` et chaque pull request. Release (`.github/workflows/release.yml`) : déclenchée par un tag
+`vX.Y.Z` (doit correspondre à la `version` de `package.json`), rejoue la même vérification puis publie le binaire
+Windows compilé (avec checksum SHA-256) en release GitHub.
+
 ## Ressources
 
 - OpenTUI : https://opentui.com/docs/getting-started
+- Effect : https://effect.website/docs
 - cTrader Remote MCP (setup) : https://help.ctrader.com/ctrader-ai-agent-connect/remote-mcp/setup/
 - cTrader Remote MCP (trading) : https://help.ctrader.com/ctrader-ai-agent-connect/remote-mcp/trading/
 - MCP TypeScript SDK : https://github.com/modelcontextprotocol/typescript-sdk
