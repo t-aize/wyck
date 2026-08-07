@@ -90,7 +90,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
   const commandBarRef = useRef<CommandBarHandle>(null);
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
-  const { bid, ask, positions, balance, moneyDigits, refreshMarket } = useMarketData(
+  const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } = useMarketData(
     client,
     symbolId,
     setConnectionError,
@@ -132,6 +132,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         symbol={SYMBOL}
         bid={bid}
         ask={ask}
+        priceHistory={priceHistory}
         connected={connected}
         now={now}
         errorMessage={connectionError}

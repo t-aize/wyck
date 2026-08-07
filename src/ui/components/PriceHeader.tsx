@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
-import { formatClock, formatMoney, formatPrice } from "../format.ts";
+import { formatClock, formatMoney, formatPrice, sparkline } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
 
@@ -8,6 +8,8 @@ interface PriceHeaderProps {
   symbol: string;
   bid: number | undefined;
   ask: number | undefined;
+  /** Prix moyen des derniers polls (cf. useMarketData) — rendu en sparkline à côté du bid/ask. */
+  priceHistory: number[];
   connected: boolean;
   now: Date;
   errorMessage: string | undefined;
@@ -19,6 +21,7 @@ export function PriceHeader({
   symbol,
   bid,
   ask,
+  priceHistory,
   connected,
   now,
   errorMessage,
@@ -81,6 +84,9 @@ export function PriceHeader({
               {formatPrice(bid)}
             </text>
             <text fg={theme.textMuted}> / {formatPrice(ask)}</text>
+            {priceHistory.length >= 2 && (
+              <text fg={theme.textMuted}> {sparkline(priceHistory)}</text>
+            )}
           </>
         ) : (
           <text fg={theme.textDim}>{errorMessage ?? "chargement…"}</text>

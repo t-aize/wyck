@@ -53,3 +53,27 @@ export function alignRight(value: string, width: number): string {
     return width <= 1 ? value.slice(0, width) : `…${value.slice(value.length - width + 1)}`;
   return value.padStart(width);
 }
+
+const SPARKLINE_BLOCKS = "▁▂▃▄▅▆▇█";
+
+/**
+ * Série de valeurs → sparkline Unicode (8 niveaux de blocs, min→max de la série passée). Une série
+ * plate (min === max, y compris une valeur unique) rend le niveau médian partout plutôt que de
+ * diviser par zéro — pas de "tendance" à montrer, mais pas de crash non plus.
+ */
+export function sparkline(values: number[]): string {
+  if (values.length === 0) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  return values
+    .map((value) => {
+      const normalized = range === 0 ? 0.5 : (value - min) / range;
+      const level = Math.min(
+        SPARKLINE_BLOCKS.length - 1,
+        Math.floor(normalized * SPARKLINE_BLOCKS.length),
+      );
+      return SPARKLINE_BLOCKS[level];
+    })
+    .join("");
+}

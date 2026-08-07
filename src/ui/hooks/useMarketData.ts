@@ -5,10 +5,16 @@ import { toMessage } from "../../errors.ts";
 import { useInterval } from "./useInterval.ts";
 
 const PRICE_POLL_MS = 3_000;
+/** ~1min de tendance à 3s/tick (cf. PRICE_POLL_MS) — assez pour un sparkline lisible sans manger
+ * toute la largeur du header. */
+const PRICE_HISTORY_LENGTH = 20;
 
 export interface MarketData {
   bid: number | undefined;
   ask: number | undefined;
+  /** Prix moyen (bid+ask)/2, un point par poll, plafonné à PRICE_HISTORY_LENGTH — pour le
+   * sparkline de tendance dans PriceHeader. */
+  priceHistory: number[];
   positions: GetPositionsResult | undefined;
   /** Capital du compte, entier à l'échelle `moneyDigits` (cf. formatMoney) */
   balance: number | undefined;
@@ -24,6 +30,7 @@ export function useMarketData(
 ): MarketData {
   const [bid, setBid] = useState<number>();
   const [ask, setAsk] = useState<number>();
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const [positions, setPositions] = useState<GetPositionsResult>();
   const [balance, setBalance] = useState<number>();
   const [moneyDigits, setMoneyDigits] = useState<number>();
@@ -41,6 +48,8 @@ export function useMarketData(
         if (price) {
           setBid(price.bid);
           setAsk(price.ask);
+          const mid = (price.bid + price.ask) / 2;
+          setPriceHistory((history) => [...history, mid].slice(-PRICE_HISTORY_LENGTH));
         }
         setPositions(pos);
         setBalance(bal.balance);
@@ -63,5 +72,5 @@ export function useMarketData(
     if (symbolId) void refreshMarket();
   }, [symbolId, refreshMarket]);
 
-  return { bid, ask, positions, balance, moneyDigits, refreshMarket };
+  return { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket };
 }
