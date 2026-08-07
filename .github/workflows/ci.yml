@@ -38,5 +38,8 @@ jobs:
 
       - run: bun test
 
-      - name: Verify the bundle builds
-        run: bun build ./src/index.tsx --outdir /tmp/build-check
+      # Pas de bundle "léger" possible ici : @opentui/core résout ses binaires natifs par plateforme
+      # via des import() dynamiques que seul --compile élague au moment de la cible (un bundle
+      # generic tente de tout résoudre statiquement et échoue sur les plateformes non installées).
+      - name: Verify the build compiles
+        run: bun build ./src/index.tsx --compile --outfile /tmp/build-check
