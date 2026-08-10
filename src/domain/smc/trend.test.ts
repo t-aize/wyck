@@ -99,6 +99,47 @@ describe("detectStructureEvents", () => {
     // ...mais displacementOk reflète l'amplitude insuffisante pour un multiplicateur aussi exigeant.
     expect(events[0]!.displacementOk).toBe(false);
   });
+
+  test("mèche plus haute qui ne clôture pas au-dessus ⇒ le sommet le plus PROCHE reste le niveau surveillé, pas le dernier formé", () => {
+    // Sommet #1 = 100 (idx2). Plus tard, sommet #2 = 130 (idx8) formé par une simple mèche (clôture
+    // 95, jamais au-dessus de 100 ni de 130) : un swing se détecte sur le high, pas sur la clôture,
+    // donc #2 devient le "dernier swing formé" sans jamais casser #1 en clôture — les deux restent
+    // valides. Le prix courant (~85) est plus proche de 100 que de 130 : c'est 100 qui doit rester
+    // affiché en résistance, pas 130 simplement parce qu'il est plus récent.
+    const bars: CtraderTrendbar[] = [
+      bar(0, 90, 85),
+      bar(1, 92, 87),
+      bar(2, 100, 95), // sommet #1 = 100
+      bar(3, 92, 87),
+      bar(4, 90, 85),
+      bar(5, 88, 83),
+      bar(6, 85, 80),
+      bar(7, 90, 85),
+      bar(8, 130, 90, 95), // mèche à 130, clôture 95 (sommet #2 = 130, jamais cassé en clôture)
+      bar(9, 90, 85),
+      bar(10, 88, 83),
+    ];
+    const { pending } = detectStructureEvents(bars, { left: 2, right: 2 });
+    expect(pending.resistance).toEqual({ level: 100, kind: "BOS" });
+  });
+
+  test("symétrique côté support : mèche plus basse qui ne clôture pas en dessous ⇒ le creux le plus proche reste surveillé", () => {
+    const bars: CtraderTrendbar[] = [
+      bar(0, 85, 80),
+      bar(1, 83, 78),
+      bar(2, 75, 70), // creux #1 = 70
+      bar(3, 83, 78),
+      bar(4, 85, 80),
+      bar(5, 87, 82),
+      bar(6, 89, 84),
+      bar(7, 85, 80),
+      bar(8, 90, 40, 75), // mèche à 40, clôture 75 (creux #2 = 40, jamais cassé en clôture)
+      bar(9, 85, 80),
+      bar(10, 87, 82),
+    ];
+    const { pending } = detectStructureEvents(bars, { left: 2, right: 2 });
+    expect(pending.support).toEqual({ level: 70, kind: "BOS" });
+  });
 });
 
 describe("classifyEventTrend", () => {
