@@ -1,6 +1,7 @@
 import {
   ADX_TRENDING_THRESHOLD,
   type PendingLevel,
+  type PendingLevels,
   type Trend,
   type TrendState,
 } from "../../domain/smc/trend.ts";
@@ -98,23 +99,87 @@ function supportPhrase(level: PendingLevel | undefined): string {
   return level ? `Support ${formatPrice(level.level)} (${level.kind})` : "pas de support surveillé";
 }
 
+export interface PickedLevel {
+  level: PendingLevel;
+  fromInternal: boolean;
+}
+
 /**
- * Prochains niveaux de structure encore surveillés (méthode "swing") — résistance = cassure à la
- * hausse, support = cassure à la baisse, avec ce que leur cassure produirait (BOS continue la
- * tendance en cours à cette échelle, CHoCH l'inverse — cf. légende).
+ * Un niveau "en attente" (swing ou interne) ne l'est que parce qu'il n'a encore jamais été cassé
+ * en clôture depuis sa formation (cf. detectStructureEvents) : une résistance en attente est donc
+ * toujours ≥ dernière clôture, un support toujours ≤ — invariant garanti par construction, pas
+ * juste "généralement vrai". Comparer les deux fractales revient donc à comparer deux prix situés
+ * du même côté du prix courant : celui qui s'en approche le plus (le plus petit pour une
+ * résistance, le plus grand pour un support) est simplement le plus proche, sans avoir besoin de
+ * connaître le prix courant ici. Égalité ⇒ on garde le swing (structure majeure, source par
+ * défaut).
  */
-function PendingLevelsLine({ swing }: { swing: TrendState }) {
-  const { resistance, support } = swing.pending;
+function closerOf(
+  swingLevel: PendingLevel | undefined,
+  internalLevel: PendingLevel | undefined,
+  internalIsCloser: (internalPrice: number, swingPrice: number) => boolean,
+): PickedLevel | undefined {
+  if (!swingLevel) return internalLevel ? { level: internalLevel, fromInternal: true } : undefined;
+  if (!internalLevel) return { level: swingLevel, fromInternal: false };
+  return internalIsCloser(internalLevel.level, swingLevel.level)
+    ? { level: internalLevel, fromInternal: true }
+    : { level: swingLevel, fromInternal: false };
+}
+
+/** Résistance : plus proche du prix ⇔ prix du niveau plus petit (les deux sont ≥ prix courant). */
+export function closerResistance(
+  swing: PendingLevels,
+  internal: PendingLevels,
+): PickedLevel | undefined {
+  return closerOf(
+    swing.resistance,
+    internal.resistance,
+    (internalPrice, swingPrice) => internalPrice < swingPrice,
+  );
+}
+
+/** Support : plus proche du prix ⇔ prix du niveau plus grand (les deux sont ≤ prix courant). */
+export function closerSupport(
+  swing: PendingLevels,
+  internal: PendingLevels,
+): PickedLevel | undefined {
+  return closerOf(
+    swing.support,
+    internal.support,
+    (internalPrice, swingPrice) => internalPrice > swingPrice,
+  );
+}
+
+/**
+ * Prochains niveaux de structure encore surveillés — résistance = cassure à la hausse, support =
+ * cassure à la baisse, avec ce que leur cassure produirait (BOS continue la tendance en cours à
+ * cette échelle, CHoCH l'inverse — cf. légende).
+ *
+ * Le niveau affiché est le plus proche du prix entre "swing" (structure majeure) et "internal"
+ * (fractale courte déjà calculée pour le timing d'entrée dans DetailsLine) — cf. closerOf.
+ * Sur un mouvement fort et peu corrigé, la fractale swing (large, ex. 30 bougies de chaque côté
+ * sur H1) reste souvent bloquée sur un pivot ancien, loin du prix, pendant qu'aucun repli assez
+ * long ne valide de nouveau sommet/creux à cette échelle — pas un bug, juste un délai de
+ * confirmation plus long. "internal" confirme ses pivots bien plus vite et comble ce trou. Annoté
+ * "interne" (en atténué, comme "confirmation fragile" dans VerdictLine) quand c'est lui qui a été
+ * retenu, pour signaler que ce n'est pas la structure majeure.
+ */
+function PendingLevelsLine({ swing, internal }: { swing: TrendState; internal: TrendState }) {
+  const resistance = closerResistance(swing.pending, internal.pending);
+  const support = closerSupport(swing.pending, internal.pending);
+
   return (
     <text>
       {alignLeft("", TF_WIDTH)}
       <span fg={resistance ? theme.green : theme.textMuted}>
-        {UP} {resistancePhrase(resistance)}
+        {UP} {resistancePhrase(resistance?.level)}
       </span>
+      {resistance?.fromInternal && <span fg={theme.textDim}> (interne)</span>}
       <span> </span>
       <span fg={support ? theme.red : theme.textMuted}>
-        {DOWN} {supportPhrase(support)}
+        {DOWN} {supportPhrase(support?.level)}
       </span>
+      {support?.fromInternal && <span fg={theme.textDim}> (interne)</span>}
     </text>
   );
 }
@@ -124,7 +189,7 @@ function TrendRowBlock({ row }: { row: TrendRow }) {
     <>
       <VerdictLine label={row.label} swing={row.swing} />
       <DetailsLine swing={row.swing} internal={row.internal} />
-      <PendingLevelsLine swing={row.swing} />
+      <PendingLevelsLine swing={row.swing} internal={row.internal} />
     </>
   );
 }
