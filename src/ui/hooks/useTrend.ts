@@ -15,21 +15,40 @@ import { useInterval } from "./useInterval.ts";
  * rythme du prix. */
 const TREND_POLL_MS = 60_000;
 
-/** Même contrainte serveur que useMarketData/prepareTrade : get_trendbars refuse toute plage >
- * 720h — 700h laisse une marge de sécurité pour des fenêtres chaînées en parallèle. */
-const REQUEST_CAP_MS = 700 * 60 * 60_000;
+/** Plage max par appel côté serveur : get_trendbars refuse toute plage > 720h — 700h laisse une
+ * marge de sécurité pour des fenêtres chaînées en parallèle. */
+const TIME_RANGE_CAP_MS = 700 * 60 * 60_000;
+
+/** Second plafond, indépendant du premier et documenté séparément (cf. doc MCP cTrader,
+ * "Analysis") : chaque appel renvoie au plus ~1000 bougies, quelle que soit la plage demandée —
+ * silencieusement (pas d'erreur, juste moins de bougies que prévu). Sans en tenir compte, 700h
+ * revient complet sur H1 (≤700 bougies) mais tronqué à ~1/3 sur M15 (2800 attendues) et ~1/8 sur
+ * M5 (8400 attendues) : la structure SMC calculée dessus a des trous silencieux — c'est la cause
+ * du support/résistance figé sur un pivot ancien vu sur M5/M15. Marge sous 1000 pour rester
+ * prudent (le seuil réel n'est pas garanti par la doc au chiffre près).
+ */
+const MAX_BARS_PER_REQUEST = 900;
+
+/** Fenêtre effective par appel : la plus contraignante des deux plafonds, en bougies de `periodMs`
+ * (donc plus courte en temps sur les TF fines — M5/M15 chaînent davantage de fenêtres que H1 pour
+ * la même profondeur d'historique, plutôt que de recevoir des fenêtres tronquées). */
+export function requestCapMs(periodMs: number): number {
+  return Math.min(TIME_RANGE_CAP_MS, MAX_BARS_PER_REQUEST * periodMs);
+}
 
 async function fetchHistory(
   client: CtraderClientLive,
   symbolId: number,
   period: GetTrendbarsParams["period"],
+  periodMs: number,
   historyMs: number,
   now: number,
 ): Promise<CtraderTrendbar[]> {
-  const windowCount = Math.ceil(historyMs / REQUEST_CAP_MS);
+  const capMs = requestCapMs(periodMs);
+  const windowCount = Math.ceil(historyMs / capMs);
   const windows = Array.from({ length: windowCount }, (_, i) => ({
-    from: now - (i + 1) * REQUEST_CAP_MS,
-    to: now - i * REQUEST_CAP_MS,
+    from: now - (i + 1) * capMs,
+    to: now - i * capMs,
   })).reverse();
 
   const chunks = await Promise.all(
@@ -85,7 +104,14 @@ export function useTrend(client: CtraderClientLive, symbolId: number | undefined
         const now = Date.now();
         const results = await Promise.all(
           TREND_TIMEFRAMES.map(async (tf): Promise<TrendRow> => {
-            const raw = await fetchHistory(client, symbolId, tf.period, tf.historyMs, now);
+            const raw = await fetchHistory(
+              client,
+              symbolId,
+              tf.period,
+              tf.periodMs,
+              tf.historyMs,
+              now,
+            );
             const closed = dropFormingBar(raw, tf.periodMs, now);
             return computeRow(closed, tf);
           }),

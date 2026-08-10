@@ -20,11 +20,18 @@ export interface TrendTimeframe {
 /**
  * Historique demandé par TF, en ms. `get_trendbars` ne renvoie que les bougies réellement tradées
  * sur la plage demandée (marché fermé le week-end, éventuelle limite serveur par appel) — le
- * compte réel est toujours inférieur au compte "attendu" pour une plage donnée. Cette valeur
- * (3500h) est celle qui avait déjà réglé ce problème avant la suppression d'une version antérieure
- * de ce module — appliquée telle quelle plutôt que réestimée à l'aveugle.
+ * compte réel est toujours inférieur au compte "attendu" pour une plage donnée.
+ *
+ * Valeur H1 (3500h) : celle qui avait déjà réglé ce problème avant la suppression d'une version
+ * antérieure de ce module — appliquée telle quelle plutôt que réestimée à l'aveugle. M5/M15 : pas
+ * la même valeur que H1 (145 jours de bougies 5 min n'apporte rien pour une lecture de structure
+ * court terme, et ne fait qu'ajouter des fenêtres de requête pour rien une fois `requestCapMs`
+ * corrigé côté useTrend.ts) — quelques semaines, proportionnellement à la finesse de la bougie,
+ * largement suffisant pour observer plusieurs cycles HH/HL avec la fractale swing de chaque TF.
  */
-const HISTORY_MS = 3500 * 60 * 60_000;
+const HISTORY_MS_M5 = 10 * 24 * 60 * 60_000; // 10 jours
+const HISTORY_MS_M15 = 20 * 24 * 60 * 60_000; // 20 jours
+const HISTORY_MS_H1 = 3500 * 60 * 60_000; // ~146 jours
 
 /**
  * Paramètres de départ par TF — à ajuster en usage réel/backtest, ce ne sont pas des vérités (cf.
@@ -41,26 +48,29 @@ function timeframe(
   periodMs: number,
   params: Pick<
     TrendTimeframe,
-    "internalLength" | "swingLength" | "minSwingPct" | "displacementMult"
+    "historyMs" | "internalLength" | "swingLength" | "minSwingPct" | "displacementMult"
   >,
 ): TrendTimeframe {
-  return { label, period, periodMs, historyMs: HISTORY_MS, ...params };
+  return { label, period, periodMs, ...params };
 }
 
 export const TREND_TIMEFRAMES: TrendTimeframe[] = [
   timeframe("M5", "M_5", 5 * 60_000, {
+    historyMs: HISTORY_MS_M5,
     internalLength: 3,
     swingLength: 18,
     minSwingPct: 0.1,
     displacementMult: 1.5,
   }),
   timeframe("M15", "M_15", 15 * 60_000, {
+    historyMs: HISTORY_MS_M15,
     internalLength: 5,
     swingLength: 32,
     minSwingPct: 0.05,
     displacementMult: 1.3,
   }),
   timeframe("H1", "H_1", 60 * 60_000, {
+    historyMs: HISTORY_MS_H1,
     internalLength: 6,
     swingLength: 30,
     minSwingPct: 0.03,
