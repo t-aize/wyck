@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
+import { activeKillzone, activeMarketSessions } from "../../domain/sessions.ts";
 import { formatClock, formatMoney, formatPrice, sparkline } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
@@ -56,6 +57,9 @@ export function PriceHeader({
         ? theme.green
         : theme.red;
 
+  const sessions = activeMarketSessions(now);
+  const killzone = activeKillzone(now);
+
   return (
     <box
       style={{
@@ -104,6 +108,28 @@ export function PriceHeader({
           {balance !== undefined && moneyDigits !== undefined ? "· " : ""}
           {formatClock(now)}
         </text>
+        <box style={{ flexDirection: "row", alignItems: "center" }}>
+          <text fg={theme.textDim}>· </text>
+          {sessions.length === 0 ? (
+            <text fg={theme.textMuted}>marché fermé</text>
+          ) : (
+            sessions.flatMap((session, i) => [
+              i > 0 ? (
+                <text key={`sep-${session.id}`} fg={theme.textMuted}>
+                  /
+                </text>
+              ) : null,
+              <text
+                key={session.id}
+                fg={theme.sessions[session.id]}
+                attributes={TextAttributes.BOLD}
+              >
+                {session.label}
+              </text>,
+            ])
+          )}
+          {killzone && <text fg={theme.killzones[killzone.id]}> ({killzone.label})</text>}
+        </box>
       </box>
     </box>
   );

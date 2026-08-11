@@ -21,4 +21,20 @@ export const theme = {
   accent: "#E5E5E5",
   green: "#3DD68C",
   red: "#F0555A",
+  /** Une couleur par session de marché (cf. domain/sessions.ts) — même teinte que la killzone de
+   * la même place (Londres/New York) pour rester cohérent visuellement entre les deux badges. */
+  sessions: {
+    sydney: "#F472B6",
+    tokyo: "#FBBF24",
+    london: "#60A5FA",
+    newYork: "#A78BFA",
+  },
+  /** Une couleur par killzone ICT (cf. domain/sessions.ts) — distinctes de vert/rouge, réservés
+   * à la direction et au P&L. */
+  killzones: {
+    asia: "#FBBF24",
+    london: "#60A5FA",
+    newYork: "#A78BFA",
+    londonClose: "#38BDF8",
+  },
 } as const;
