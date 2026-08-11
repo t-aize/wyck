@@ -2,7 +2,7 @@
 
 import { Schema } from "effect";
 import { roundPrice } from "../constants.ts";
-import type { TradeSide } from "../ctrader/client.ts";
+import type { CtraderOrder, TradeSide } from "../ctrader/client.ts";
 import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./smc/timeframes.ts";
 import type { AtrTradeInput, PreparedTrade, TradeInput } from "./trading.ts";
 
@@ -182,6 +182,56 @@ export function parseModifyCommand(args: string[]): ModifyInput | string {
 }
 
 export const CANCEL_USAGE = "usage : cancel <id> [id...] | cancel all";
+
+export interface CancelTargetsAll {
+  kind: "all";
+  orders: CtraderOrder[];
+}
+export interface CancelTargetsIds {
+  kind: "ids";
+  orders: CtraderOrder[];
+}
+/** Rien à proposer en confirmation — `level` distingue un vrai souci de saisie ("error") d'un
+ * simple constat ("info", ex. "cancel all" sans aucun ordre en attente). */
+export interface CancelTargetsRejected {
+  kind: "rejected";
+  level: "info" | "error";
+  message: string;
+}
+export type CancelTargets = CancelTargetsAll | CancelTargetsIds | CancelTargetsRejected;
+
+/**
+ * Résout `cancel <id...>`/`cancel all` en la liste d'ordres réellement ciblée, étant donné les
+ * ordres en attente actuels — extrait de useCancelConfirm.ts (cf. docs/ARCHITECTURE.md §8) pour
+ * rester testable sans monter de hook React.
+ */
+export function resolveCancelTargets(args: string[], pendingOrders: CtraderOrder[]): CancelTargets {
+  if (args.length === 0) return { kind: "rejected", level: "error", message: CANCEL_USAGE };
+
+  if (args[0]?.toLowerCase() === "all") {
+    if (pendingOrders.length === 0) {
+      return { kind: "rejected", level: "info", message: "aucun ordre en attente à annuler" };
+    }
+    return { kind: "all", orders: pendingOrders };
+  }
+
+  const ids = args.map(Number);
+  const invalidIndex = ids.findIndex((id) => !Number.isFinite(id));
+  if (invalidIndex !== -1) {
+    return { kind: "rejected", level: "error", message: `id invalide : "${args[invalidIndex]}"` };
+  }
+
+  // Même limite que `modify` : seuls les ordres en attente (structure vérifiée) sont annulables
+  // pour l'instant, pas les positions ouvertes (closePosition non exercé).
+  const orders: CtraderOrder[] = [];
+  for (const id of ids) {
+    const order = pendingOrders.find((o) => o.orderId === id);
+    if (!order)
+      return { kind: "rejected", level: "error", message: `ordre en attente ${id} introuvable` };
+    orders.push(order);
+  }
+  return { kind: "ids", orders };
+}
 
 export const RISK_USAGE =
   "usage : risk <risque%>  (risque par défaut pour `trade`, valable cette session)";

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { CtraderOrder } from "../ctrader/client.ts";
 import {
   ATR_SETTINGS_USAGE,
   ATR_TRADE_USAGE,
+  CANCEL_USAGE,
   formatTradeSummary,
   MODIFY_USAGE,
   parseAtrSettingsCommand,
@@ -10,9 +12,14 @@ import {
   parseRiskCommand,
   parseTradeCommand,
   RISK_USAGE,
+  resolveCancelTargets,
   TRADE_USAGE,
 } from "./commands.ts";
 import type { PreparedTrade } from "./trading.ts";
+
+function order(orderId: number): CtraderOrder {
+  return { orderId, symbolId: 1, orderType: "LIMIT", tradeSide: "BUY", volume: 10000 };
+}
 
 describe("parseTradeCommand", () => {
   test("parse risque/entrée/sl/tp valides", () => {
@@ -126,6 +133,55 @@ describe("parseModifyCommand", () => {
     const result = parseModifyCommand(["42", "--bogus", "1"]);
     expect(typeof result).toBe("string");
     expect(result as string).toContain("option inconnue");
+  });
+});
+
+describe("resolveCancelTargets", () => {
+  test("cible les ordres en attente correspondant aux id donnés", () => {
+    const orders = [order(1), order(2), order(3)];
+    const result = resolveCancelTargets(["1", "3"], orders);
+    expect(result).toEqual({ kind: "ids", orders: [order(1), order(3)] });
+  });
+
+  test("'all' cible tous les ordres en attente", () => {
+    const orders = [order(1), order(2)];
+    const result = resolveCancelTargets(["all"], orders);
+    expect(result).toEqual({ kind: "all", orders });
+  });
+
+  test("'all' sans aucun ordre en attente renvoie un rejet de niveau info (pas une erreur de saisie)", () => {
+    const result = resolveCancelTargets(["all"], []);
+    expect(result).toEqual({
+      kind: "rejected",
+      level: "info",
+      message: "aucun ordre en attente à annuler",
+    });
+  });
+
+  test("sans argument, réclame l'usage", () => {
+    expect(resolveCancelTargets([], [order(1)])).toEqual({
+      kind: "rejected",
+      level: "error",
+      message: CANCEL_USAGE,
+    });
+  });
+
+  test("signale un id non numérique", () => {
+    const result = resolveCancelTargets(["abc"], [order(1)]);
+    expect(result).toEqual({
+      kind: "rejected",
+      level: "error",
+      message: 'id invalide : "abc"',
+    });
+  });
+
+  test("signale un id qui ne correspond à aucun ordre en attente", () => {
+    const result = resolveCancelTargets(["1", "99"], [order(1)]);
+    expect(result).toEqual({
+      kind: "rejected",
+      level: "error",
+      message: "ordre en attente 99 introuvable",
+    });
   });
 });
 

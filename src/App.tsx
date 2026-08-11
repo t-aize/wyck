@@ -101,9 +101,9 @@ export function App() {
   );
 }
 
-/** `client`/`runtime`/`connected`/`symbolId`/`connectionError` viennent de `useCtrader()`,
- * `feedback`/`setFeedback` de `useFeedback()` (cf. docs/ARCHITECTURE.md §8) — plus besoin de les
- * construire ni de les enfiler à la main à travers ce composant. */
+/** `connected`/`connectionError` viennent de `useCtrader()`, `feedback` de `useFeedback()` (cf.
+ * docs/ARCHITECTURE.md §8) — `client`/`runtime`/`symbolId`/`setFeedback` ne sont plus lus ici :
+ * useOrderActions.ts et les hooks issus de son éclatement les lisent eux-mêmes via ces Contexts. */
 function ConnectedApp({
   config,
   onReconfigure,
@@ -114,8 +114,8 @@ function ConnectedApp({
   onUpdateAtrSettings: (patch: Partial<AtrSettings>) => void;
 }) {
   const now = useClock();
-  const { client, runtime, connected, symbolId, connectionError } = useCtrader();
-  const { feedback, setFeedback } = useFeedback();
+  const { connected, connectionError } = useCtrader();
+  const { feedback } = useFeedback();
   const commandBarRef = useRef<CommandBarHandle>(null);
 
   const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } =
@@ -154,10 +154,6 @@ function ConnectedApp({
     confirmPendingCancel,
     dismissPendingCancel,
   } = useOrderActions({
-    setFeedback,
-    client,
-    runtime,
-    symbolId,
     positions,
     refreshMarket,
     refreshNews,

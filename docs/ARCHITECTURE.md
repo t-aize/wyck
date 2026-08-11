@@ -179,10 +179,15 @@ ajout à un fichier existant qui ne lui est pas dédié.
 ### `useOrderActions.ts` : composition de hooks à responsabilité unique
 
 Éclaté en `useTradeConfirm.ts`, `useModifyConfirm.ts`, `useCancelConfirm.ts` (un état de confirmation
-pendante chacun) et `useCommandRouter.ts` (parsing + dispatch des commandes, appelle les 3 précédents
-sur succès) — `useOrderActions.ts` devient une simple composition qui retourne la même forme
-qu'avant. Un nouveau flux de confirmation (ex. une feature SMC) ajoute un `useXConfirm.ts` + un cas
-dans `useCommandRouter.ts`, sans toucher `ConnectedApp` ni faire regrossir un fichier unique.
+pendante chacun, chacun lisant `client`/`setFeedback` directement via `useCtrader()`/`useFeedback()`
+plutôt qu'en paramètres) et `useCommandRouter.ts` (parsing + dispatch des commandes, appelle les 3
+précédents sur succès) — `useOrderActions.ts` devient une simple composition qui retourne la même
+forme qu'avant. La résolution de `cancel <id...>`/`cancel all` en ordres ciblés est une fonction pure
+testable, `domain/commands.ts#resolveCancelTargets`, plutôt que de la logique enfouie dans le hook.
+Le rendu de `ConnectedApp` (JSX, popups) ne change pas ; seul son appel à `useOrderActions(...)` perd
+les opts désormais lus via Context (`client`/`runtime`/`symbolId`/`setFeedback`). Un nouveau flux de
+confirmation (ex. une feature SMC) ajoute un `useXConfirm.ts` + un cas dans `useCommandRouter.ts`,
+sans faire regrossir un fichier unique.
 
 ### État transversal : Context React, pas des paramètres enfilés à travers plusieurs hooks
 
