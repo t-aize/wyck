@@ -204,7 +204,14 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
         // terminal plus étroit, mieux vaut pouvoir défiler horizontalement que perdre des
         // colonnes recadrées par le terminal. `scrollX` seul (pas de flexGrow/height imposé)
         // laisse la hauteur continuer à s'ajuster au contenu comme avant.
-        <scrollbox scrollX scrollY={false} style={{ flexDirection: "column" }}>
+        <scrollbox
+          scrollX
+          scrollY={false}
+          wrapperOptions={{ flexGrow: 0, flexShrink: 0 }}
+          viewportOptions={{ flexGrow: 0, flexShrink: 0 }}
+          contentOptions={{ minHeight: 0 }}
+          style={{ flexDirection: "column" }}
+        >
           {headerRow()}
           {mapped.map((p, index) => (
             <PositionRow
@@ -226,7 +233,14 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
           <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
             — ordres en attente —
           </text>
-          <scrollbox scrollX scrollY={false} style={{ flexDirection: "column" }}>
+          <scrollbox
+            scrollX
+            scrollY={false}
+            wrapperOptions={{ flexGrow: 0, flexShrink: 0 }}
+            viewportOptions={{ flexGrow: 0, flexShrink: 0 }}
+            contentOptions={{ minHeight: 0 }}
+            style={{ flexDirection: "column" }}
+          >
             {orderHeaderRow()}
             {pendingOrders.map((order) => (
               <OrderRow
