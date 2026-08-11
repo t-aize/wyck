@@ -1,14 +1,15 @@
 import { Effect } from "effect";
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PRICE_SCALE } from "../../constants.ts";
-import type { CtraderClientLive, CtraderOrder } from "../../ctrader/client.ts";
+import type { CtraderOrder } from "../../ctrader/client.ts";
 import {
   type AtrTrackedOrder,
   computeAtrAmendments,
   matchPendingRegistration,
   type PendingAtrRegistration,
 } from "../../domain/atrTracking.ts";
-import type { Feedback } from "../components/CommandBar.tsx";
+import { useCtrader } from "../context/CtraderContext.tsx";
+import { useFeedback } from "../context/FeedbackContext.tsx";
 
 /** Une registration jamais matchée au-delà de ce délai est abandonnée (ordre rejeté côté serveur, ou
  * correspondance ratée) — feedback d'erreur plutôt qu'une attente indéfinie silencieuse. */
@@ -36,13 +37,13 @@ export interface AtrOrderTracking {
  * useTrend) — pas de nouvel intervalle ici.
  */
 export function useAtrOrderTracking(opts: {
-  client: CtraderClientLive;
   pendingOrders: CtraderOrder[];
   /** ATR le plus récent sur le timeframe configuré, échelle brute x10^5 (cf. useTrend.ts#atr). */
   atrRaw: number | undefined;
-  setFeedback: Dispatch<SetStateAction<Feedback>>;
 }): AtrOrderTracking {
-  const { client, pendingOrders, atrRaw, setFeedback } = opts;
+  const { pendingOrders, atrRaw } = opts;
+  const { client } = useCtrader();
+  const { setFeedback } = useFeedback();
 
   const registryRef = useRef(new Map<number, AtrTrackedOrder>());
   const pendingQueueRef = useRef<PendingAtrRegistration[]>([]);

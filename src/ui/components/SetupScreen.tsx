@@ -1,10 +1,10 @@
-import { BunFileSystem } from "@effect/platform-bun";
 import { useKeyboard } from "@opentui/react";
 import { Effect } from "effect";
 import { useState } from "react";
 import type { AppConfig } from "../../config.ts";
 import { AppConfigSchema, DEFAULT_ATR_SETTINGS, writeConfig } from "../../config.ts";
 import { CtraderClientLive } from "../../ctrader/client.ts";
+import { fsRuntime } from "../../effectRuntime.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
 
@@ -72,7 +72,7 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
           atrPeriod: initial?.atrPeriod ?? DEFAULT_ATR_SETTINGS.atrPeriod,
           atrTimeframe: initial?.atrTimeframe ?? DEFAULT_ATR_SETTINGS.atrTimeframe,
         };
-        await Effect.runPromise(Effect.provide(writeConfig(config), BunFileSystem.layer));
+        await fsRuntime.runPromise(writeConfig(config));
         onConfigured(config);
       } catch (err) {
         setError(toMessage(err));

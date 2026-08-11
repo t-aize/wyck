@@ -19,7 +19,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "verify": "bun run typecheck && bun run lint && bun test",
+    "verify:fast": "bun run typecheck && bun run lint",
+    "verify": "bun run verify:fast && bun test",
     "prepare": "husky"
   },
   "dependencies": {

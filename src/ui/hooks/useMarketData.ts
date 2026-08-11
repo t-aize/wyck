@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import type { CtraderClientLive, GetPositionsResult } from "../../ctrader/client.ts";
+import type { GetPositionsResult } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
+import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
 
 const PRICE_POLL_MS = 3_000;
@@ -22,12 +23,10 @@ export interface MarketData {
   refreshMarket: () => Promise<void>;
 }
 
-/** `onError` partage l'état `connectionError` de useCtraderConnection (même affichage). */
-export function useMarketData(
-  client: CtraderClientLive,
-  symbolId: number | undefined,
-  onError: (message: string | undefined) => void,
-): MarketData {
+/** `client`/`symbolId` viennent de `useCtrader()` (cf. docs/ARCHITECTURE.md §8) — les erreurs
+ * partagent `connectionError` du même Context (même affichage qu'un échec de connexion). */
+export function useMarketData(): MarketData {
+  const { client, symbolId, reportConnectionError } = useCtrader();
   const [bid, setBid] = useState<number>();
   const [ask, setAsk] = useState<number>();
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
@@ -54,12 +53,12 @@ export function useMarketData(
         setPositions(pos);
         setBalance(bal.balance);
         setMoneyDigits(bal.moneyDigits);
-        onError(undefined);
+        reportConnectionError(undefined);
       } catch (error) {
-        onError(toMessage(error));
+        reportConnectionError(toMessage(error));
       }
     },
-    [client, symbolId, onError],
+    [client, symbolId, reportConnectionError],
   );
 
   useInterval(refreshMarket, PRICE_POLL_MS);

@@ -1,11 +1,9 @@
-import { BunFileSystem } from "@effect/platform-bun";
-import { Effect, Layer, ManagedRuntime } from "effect";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type AppConfig, type AtrSettings, readConfig, writeConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
-import { CtraderClient, CtraderClientLive } from "./ctrader/client.ts";
+import { fsRuntime } from "./effectRuntime.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
-import { CommandBar, type CommandBarHandle, type Feedback } from "./ui/components/CommandBar.tsx";
+import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
@@ -13,10 +11,11 @@ import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { TrendPanel } from "./ui/components/TrendPanel.tsx";
+import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
+import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
 import { useAtrOrderTracking } from "./ui/hooks/useAtrOrderTracking.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
-import { useCtraderConnection } from "./ui/hooks/useCtraderConnection.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
@@ -41,7 +40,7 @@ export function App() {
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
-    void Effect.runPromise(Effect.provide(readConfig(), BunFileSystem.layer)).then(setConfig);
+    void fsRuntime.runPromise(readConfig()).then(setConfig);
   }, []);
 
   if (config === null) {
@@ -84,21 +83,27 @@ export function App() {
     setConfig((current) => {
       if (!current) return current;
       const next = { ...current, ...patch };
-      void Effect.runPromise(Effect.provide(writeConfig(next), BunFileSystem.layer));
+      void fsRuntime.runPromise(writeConfig(next));
       return next;
     });
   }
 
   return (
-    <ConnectedApp
-      key={generation}
-      config={config}
-      onReconfigure={() => setReconfiguring(true)}
-      onUpdateAtrSettings={updateAtrSettings}
-    />
+    <CtraderProvider key={generation} config={config}>
+      <FeedbackProvider>
+        <ConnectedApp
+          config={config}
+          onReconfigure={() => setReconfiguring(true)}
+          onUpdateAtrSettings={updateAtrSettings}
+        />
+      </FeedbackProvider>
+    </CtraderProvider>
   );
 }
 
+/** `client`/`runtime`/`connected`/`symbolId`/`connectionError` viennent de `useCtrader()`,
+ * `feedback`/`setFeedback` de `useFeedback()` (cf. docs/ARCHITECTURE.md §8) — plus besoin de les
+ * construire ni de les enfiler à la main à travers ce composant. */
 function ConnectedApp({
   config,
   onReconfigure,
@@ -109,52 +114,30 @@ function ConnectedApp({
   onUpdateAtrSettings: (patch: Partial<AtrSettings>) => void;
 }) {
   const now = useClock();
-  const [client] = useState(() => new CtraderClientLive(config));
-  // Résout `CtraderClient` (le Context.Tag) vers cette instance déjà connectée pour les fonctions
-  // qui la reçoivent par injection Effect (prepareTrade) plutôt qu'en paramètre — cf. AUDIT_EFFECT.md §4.1.
-  const runtime = useMemo(
-    () => ManagedRuntime.make(Layer.succeed(CtraderClient, client)),
-    [client],
-  );
-  useEffect(() => () => void runtime.dispose(), [runtime]);
+  const { client, runtime, connected, symbolId, connectionError } = useCtrader();
+  const { feedback, setFeedback } = useFeedback();
   const commandBarRef = useRef<CommandBarHandle>(null);
 
-  const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
-  const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } = useMarketData(
-    client,
-    symbolId,
-    setConnectionError,
-  );
+  const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } =
+    useMarketData();
   const { calendar, newsError, refreshNews } = useCalendar();
   const {
     rows: trendRows,
     atr: atrRaw,
     trendError,
     refreshTrend,
-  } = useTrend(client, symbolId, config.atrPeriod, config.atrTimeframe);
+  } = useTrend(config.atrPeriod, config.atrTimeframe);
 
-  // Possédé ici (pas par useOrderActions) : partagé avec useAtrOrderTracking, qui a lui-même besoin
-  // d'écrire dans cette même barre de feedback — cf. commentaire équivalent dans useOrderActions.ts.
-  const [feedback, setFeedback] = useState<Feedback>({
-    kind: "info",
-    message: "tapez help pour la liste des commandes",
-  });
-
-  const atrSettings: AtrSettings = useMemo(
-    () => ({
-      rewardRiskRatio: config.rewardRiskRatio,
-      atrMultiplier: config.atrMultiplier,
-      atrPeriod: config.atrPeriod,
-      atrTimeframe: config.atrTimeframe,
-    }),
-    [config.rewardRiskRatio, config.atrMultiplier, config.atrPeriod, config.atrTimeframe],
-  );
+  const atrSettings: AtrSettings = {
+    rewardRiskRatio: config.rewardRiskRatio,
+    atrMultiplier: config.atrMultiplier,
+    atrPeriod: config.atrPeriod,
+    atrTimeframe: config.atrTimeframe,
+  };
 
   const { trackedOrderIds, registerPendingAtrOrder, untrackOrder } = useAtrOrderTracking({
-    client,
     pendingOrders: positions?.orders ?? [],
     atrRaw,
-    setFeedback,
   });
 
   const {
@@ -187,10 +170,7 @@ function ConnectedApp({
     atrTracking: { registerPendingAtrOrder, untrackOrder },
   });
 
-  useTerminalShortcuts(
-    setFeedback,
-    useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []),
-  );
+  useTerminalShortcuts(useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []));
 
   return (
     <box

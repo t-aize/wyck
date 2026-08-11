@@ -7,7 +7,7 @@ import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./smc/timeframes.t
 import type { AtrTradeInput, PreparedTrade, TradeInput } from "./trading.ts";
 
 /**
- * Coercion + validation d'un champ numérique (chaîne → nombre fini), cf. AUDIT_EFFECT.md §5.1 :
+ * Coercion + validation d'un champ numérique (chaîne → nombre fini), cf. docs/ARCHITECTURE.md §5.1 :
  * remplace les 5 `Number(raw); if (!Number.isFinite(raw))` dupliqués par un seul schéma déclaratif
  * réutilisé pour risque/entrée/sl/tp/id. Le tokenizing lui-même (flags `--sl`, arité positionnelle
  * du risque%) reste du code impératif ordinaire : ce n'est pas de la validation de données mais du

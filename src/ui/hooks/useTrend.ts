@@ -15,6 +15,7 @@ import {
   type TrendState,
 } from "../../domain/smc/trend.ts";
 import { toMessage } from "../../errors.ts";
+import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
 
 /** La tendance M5/M15/H1 évolue lentement (bougie la plus fine = 5 min) — inutile de poller au
@@ -94,9 +95,9 @@ export interface TrendRow {
 }
 
 /** Biais H1 confirmé (méthode événementielle + règle CHoCH→BOS) — "commande" la hiérarchie
- * multi-timeframe, cf. cascade_htf_bias dans AUDIT_EFFECT.md et domain/trading.ts#conflictsWithHtfBias.
- * Partagé par useOrderActions.ts (avertissement à la confirmation d'un trade) et TrendPanel.tsx
- * (annotation "contre le biais H1" par TF) — même source, pas une règle dupliquée deux fois. */
+ * multi-timeframe, cf. domain/trading.ts#conflictsWithHtfBias pour la règle elle-même. Partagé par
+ * useOrderActions.ts (avertissement à la confirmation d'un trade) et TrendPanel.tsx (annotation
+ * "contre le biais H1" par TF) — même source, pas une règle dupliquée deux fois. */
 export function h1ConfirmedBias(rows: TrendRow[] | undefined): TrendDirection {
   return rows?.find((row) => row.label === "H1")?.swing.confirmedEvent ?? 0;
 }
@@ -117,12 +118,8 @@ export interface Trend {
  * `atrTimeframe` ne peut être qu'un des TF déjà suivis par TREND_TIMEFRAMES (M5/M15/H1) : leurs
  * bougies sont de toute façon déjà fetchées ici, pas besoin d'un appel réseau dédié.
  */
-export function useTrend(
-  client: CtraderClientLive,
-  symbolId: number | undefined,
-  atrPeriod = 14,
-  atrTimeframe: AtrTimeframeLabel = "M5",
-): Trend {
+export function useTrend(atrPeriod = 14, atrTimeframe: AtrTimeframeLabel = "M5"): Trend {
+  const { client, symbolId } = useCtrader();
   const [rows, setRows] = useState<TrendRow[]>();
   const [atr, setAtr] = useState<number>();
   const [trendError, setTrendError] = useState<string>();

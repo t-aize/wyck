@@ -1,6 +1,8 @@
 /** Calendrier économique ForexFactory (semaine en cours), avec cache disque journalier. */
 
 import { join } from "node:path";
+import { FileSystem } from "@effect/platform";
+import type { PlatformError } from "@effect/platform/Error";
 import { Data, Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
@@ -109,7 +111,7 @@ const CacheFileSchema = z.object({
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
 });
 
-// Erreurs taguées (cf. AUDIT_EFFECT.md §1.4/§3.1) : le rate-limit distingue explicitement
+// Erreurs taguées (cf. docs/ARCHITECTURE.md §1.4/§3.1) : le rate-limit distingue explicitement
 // `retryAfterSeconds` — c'est cette valeur qui pilote maintenant le retry (avant, elle n'était
 // qu'affichée dans le message sans jamais déclencher de nouvelle tentative).
 export class CalendarRateLimited extends Data.TaggedError("CalendarRateLimited")<{
@@ -130,24 +132,35 @@ export class CalendarInvalidPayload extends Data.TaggedError("CalendarInvalidPay
 export type FetchCalendarError = CalendarRateLimited | CalendarHttpError | CalendarInvalidPayload;
 
 /** `undefined` si absent, corrompu, ou d'un format antérieur — jamais en échec, on retombe sur un
- * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). */
-function readCache(): Effect.Effect<{ fetchedAt: string; events: CalendarEvent[] } | undefined> {
+ * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). Passe
+ * par le service `FileSystem` (comme config.ts#readConfig) plutôt que `Bun.file` en direct — seul
+ * point du code qui contournait encore ce service avant, cf. docs/ARCHITECTURE.md. */
+function readCache(): Effect.Effect<
+  { fetchedAt: string; events: CalendarEvent[] } | undefined,
+  never,
+  FileSystem.FileSystem
+> {
   return Effect.gen(function* () {
-    const file = Bun.file(CACHE_PATH);
-    const exists = yield* Effect.promise(() => file.exists());
-    if (!exists) return undefined;
+    const fs = yield* FileSystem.FileSystem;
+    const raw = yield* fs.readFileString(CACHE_PATH).pipe(Effect.orElseSucceed(() => undefined));
+    if (raw === undefined) return undefined;
 
-    return yield* Effect.tryPromise(async () => CacheFileSchema.parse(await file.json())).pipe(
+    return yield* Effect.try(() => CacheFileSchema.parse(JSON.parse(raw))).pipe(
       Effect.orElseSucceed(() => undefined),
     );
   });
 }
 
-function writeCache(events: CalendarEvent[]): Effect.Effect<void> {
-  const payload = { fetchedAt: new Date().toISOString(), events };
-  return Effect.promise(() => Bun.write(CACHE_PATH, JSON.stringify(payload, null, 2))).pipe(
-    Effect.asVoid,
-  );
+/** Échoue tel quel (`PlatformError`) — c'est l'appelant (`fetchCalendar`, "écriture best-effort")
+ * qui décide de l'ignorer, pas cette fonction elle-même (un seul point qui avale l'erreur, pas deux). */
+function writeCache(
+  events: CalendarEvent[],
+): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const payload = { fetchedAt: new Date().toISOString(), events };
+    yield* fs.writeFileString(CACHE_PATH, JSON.stringify(payload, null, 2));
+  });
 }
 
 const MAX_RATE_LIMIT_RETRIES = 3;
@@ -215,7 +228,7 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
 }
 
 /** Réessaie sur 429 en respectant le `retry-after` renvoyé par le serveur (jusqu'à
- * `MAX_RATE_LIMIT_RETRIES` fois) — cf. AUDIT_EFFECT.md §3.1 : avant cette passe, ce délai était lu
+ * `MAX_RATE_LIMIT_RETRIES` fois) — cf. docs/ARCHITECTURE.md §3.1 : avant cette passe, ce délai était lu
  * et affiché mais jamais réellement utilisé pour patienter puis réessayer. Toute autre erreur
  * (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à réessayer
  * une 404 ou un JSON cassé immédiatement. */
@@ -240,7 +253,7 @@ function fetchWithRetry(
  */
 export function fetchCalendar(
   options: { force?: boolean } = {},
-): Effect.Effect<CalendarEvent[], FetchCalendarError> {
+): Effect.Effect<CalendarEvent[], FetchCalendarError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const cached = yield* readCache();
     if (

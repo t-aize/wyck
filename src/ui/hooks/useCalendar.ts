@@ -1,6 +1,6 @@
-import { Effect } from "effect";
 import { useMemo, useState } from "react";
 import { type CalendarEvent, fetchCalendar } from "../../domain/news.ts";
+import { fsRuntime } from "../../effectRuntime.ts";
 import { toMessage } from "../../errors.ts";
 import { useInterval } from "./useInterval.ts";
 
@@ -20,7 +20,7 @@ export function useCalendar(): Calendar {
     () =>
       async (options: { force?: boolean } = {}) => {
         try {
-          setCalendar(await Effect.runPromise(fetchCalendar(options)));
+          setCalendar(await fsRuntime.runPromise(fetchCalendar(options)));
           setNewsError(undefined);
         } catch (error) {
           setNewsError(toMessage(error));

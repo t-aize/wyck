@@ -427,7 +427,7 @@ export function useOrderActions(opts: {
     setPendingCancel(undefined);
     setFeedback({ kind: "info", message: "annulation en cours…" });
 
-    // Chaque résultat porte directement sa commande (§2.2, AUDIT_EFFECT.md) plutôt que d'associer
+    // Chaque résultat porte directement sa commande (§2.2, docs/ARCHITECTURE.md) plutôt que d'associer
     // `orders[i]`/`results[i]` par index comme le faisait le Promise.allSettled précédent — plus
     // fragile si jamais l'un des deux tableaux venait à diverger.
     const cancelAll = Effect.forEach(

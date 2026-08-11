@@ -117,15 +117,15 @@ export type {
 const CLIENT_INFO = { name: "aurum", version: "0.1.0" };
 
 // Retry avec backoff exponentiel (200ms, 400ms), 2 tentatives supplémentaires max — appliqué
-// uniquement aux méthodes de lecture (cf. #callWithRetry, AUDIT_EFFECT.md §3.2). Jamais sur les
-// méthodes d'écriture (createOrder/amendOrder/cancelOrder/amendPosition/closePosition) : rejouer
-// un ordre après un simple timeout réseau risquerait de le dupliquer côté serveur si la première
-// tentative avait en fait réussi — l'audit lui-même met en garde contre un retry générique ici.
+// uniquement aux méthodes de lecture (cf. #callWithRetry, docs/ARCHITECTURE.md §3.2). Jamais sur
+// les méthodes d'écriture (createOrder/amendOrder/cancelOrder/amendPosition/closePosition) :
+// rejouer un ordre après un simple timeout réseau risquerait de le dupliquer côté serveur si la
+// première tentative avait en fait réussi.
 const READ_RETRY_SCHEDULE = Schedule.exponential("200 millis").pipe(
   Schedule.compose(Schedule.recurs(2)),
 );
 
-// Sous-types tagués plutôt qu'une seule classe (cf. AUDIT_EFFECT.md §1.4) : chaque échec de
+// Sous-types tagués plutôt qu'une seule classe (cf. docs/ARCHITECTURE.md §1.4) : chaque échec de
 // #call() est distinguable via `_tag`, ce qui permet à un appelant de faire `Effect.catchTag(...)`
 // sur une cause précise (ex. token expiré → CtraderCallFailed) au lieu de parser un message.
 // Toujours des sous-classes d'Error (Data.TaggedError) : `toMessage()` (error instanceof Error)
@@ -199,7 +199,7 @@ export class CtraderClientLive {
   readonly #client: Client;
   readonly #transport: StreamableHTTPClientTransport;
   #connected = false;
-  // Fuite corrigée (cf. AUDIT_EFFECT.md §2.3/§6.1) : sans ce suivi, un close() qui arrive pendant
+  // Fuite corrigée (cf. docs/ARCHITECTURE.md §2.3/§6.1) : sans ce suivi, un close() qui arrive pendant
   // qu'un connect() est encore en vol (ex. démontage rapide du composant React propriétaire, cf.
   // useCtraderConnection.ts) trouvait #connected encore à false et ne faisait rien — puis connect()
   // finissait par résoudre en arrière-plan sur un transport que plus personne ne fermait jamais.

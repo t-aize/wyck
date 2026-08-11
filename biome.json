@@ -22,7 +22,7 @@
       "preset": "recommended",
       "correctness": {
         "noUnusedVariables": "error",
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "error"
       },
       "style": {
         "useConst": "error",
@@ -30,7 +30,7 @@
         "noNonNullAssertion": "off"
       },
       "suspicious": {
-        "noConsole": "off"
+        "noConsole": "error"
       }
     }
   },

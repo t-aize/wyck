@@ -22,7 +22,7 @@ import {
 import type { AtrTimeframeLabel } from "./smc/timeframes.ts";
 import type { Trend } from "./smc/trend.ts";
 
-// Erreurs de validation métier taguées (cf. AUDIT_EFFECT.md §1.4) — une par ancien
+// Erreurs de validation métier taguées (cf. docs/ARCHITECTURE.md §1.4) — une par ancien
 // `throw new Error(...)` distinct. Permet à un appelant de faire `Effect.catchTag(...)` sur un cas
 // précis (ex. VolumeBelowMinimum pour suggérer d'augmenter le risque%) plutôt que de parser un message.
 
@@ -230,7 +230,7 @@ export function computeAtrLevels(
 
 /**
  * `CtraderClient` reçu par injection (`yield* CtraderClient`, résolu via la `Layer` fournie au
- * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. AUDIT_EFFECT.md §4.1.
+ * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. docs/ARCHITECTURE.md §4.1.
  * Chaque règle de validation échoue via `Effect.fail(new XxxError(...))` (erreur taguée, §1.4) au
  * lieu d'un `throw` générique — un appelant peut réagir à un cas précis via `Effect.catchTag`.
  */

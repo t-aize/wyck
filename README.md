@@ -15,17 +15,26 @@ démo** avant un compte réel.
 ## Fonctionnalités
 
 - **Prix en direct** — bid/ask XAUUSD avec sparkline (mini-graphe des dernières valeurs), solde et équity du compte.
+- **Sessions & killzones** — badge des sessions de marché actives (Sydney/Tokyo/Londres/New York, avec
+  chevauchements) et de la killzone ICT en cours, calculés via les fuseaux IANA de chaque place (heure d'été/hiver
+  gérée automatiquement, y compris l'hémisphère sud pour Sydney).
 - **Positions & ordres** — positions ouvertes et ordres en attente, P&L latent calculé en direct.
 - **Calendrier économique** — publications ForexFactory de la semaine, filtrées/annotées pour leur pertinence sur
   l'or (impact, direction anticipée forecast vs previous).
-- **Tendance multi-timeframe (SMC)** — biais M5/M15/H1 : structure (HH/HL vs LH/LL), événements BOS/CHoCH avec règle
-  de confirmation CHoCH→BOS, liquidity sweep, prochains niveaux de structure encore surveillés, et deux filtres
-  classiques de contexte (ADX + EMA stack — explicitement pas du SMC). Détails dans `src/domain/smc/trend.ts`. Passer
-  un `trade` qui va à l'encontre du biais H1 confirmé déclenche un avertissement non bloquant.
-- **Commandes CLI-style** — `trade`, `modify`, `cancel`, `risk`, `settings`, `refresh`, `clear`, `help` (cf.
+- **Tendance multi-timeframe (SMC)** — un seul verdict par TF (M5/M15/H1, méthode événementielle BOS/CHoCH avec
+  règle de confirmation CHoCH→BOS), assorti de qualificatifs affichés seulement quand ils apportent un vrai signal :
+  confirmation fragile (displacement ATR insuffisant), structure (HH/HL) qui diverge, biais contraire à H1, sweep de
+  liquidité. Prochains niveaux de structure encore surveillés. Détails dans `src/domain/smc/` (trend.ts agrège
+  structuralTrend.ts/structureEvents.ts/sweep.ts/filters.ts — un fichier par méthode). Passer un `trade` qui va à
+  l'encontre du biais H1 confirmé déclenche un avertissement non bloquant.
+- **Mode ATR (Shift+Tab)** — `trade` ne prend alors que risque/entrée/direction : SL dérivé de l'ATR (période et
+  timeframe configurables) et TP à un ratio récompense:risque fixe, tous deux réglables via la commande `atr`. Tant
+  qu'un ordre créé dans ce mode reste en attente, son SL/TP est réamendé automatiquement à chaque nouveau tick ATR.
+- **Commandes CLI-style** — `trade`, `modify`, `cancel`, `risk`, `atr`, `settings`, `refresh`, `clear`, `help` (cf.
   [Commandes](#commandes) ci-dessous), chaque envoi d'ordre passant par une popup de confirmation.
 - **Raccourcis terminal** — surligner du texte le copie directement (OSC 52) ; `Ctrl+C` demande confirmation avant de
-  quitter (armé 2s), ou vide la ligne de commande en cours si elle n'est pas vide.
+  quitter (armé 2s), ou vide la ligne de commande en cours si elle n'est pas vide ; le rendu suit un redimensionnement
+  de la fenêtre du terminal (y compris sous Windows, où `SIGWINCH` n'existe pas).
 
 ## Stack
 
@@ -76,33 +85,37 @@ l'usage d'une commande précise.
 
 | Commande | Usage | Description |
 |---|---|---|
-| `trade` | `trade [<risque%>] <entrée\|market> <sl> <tp>` | Direction déduite du SL/TP, taille de position dérivée du risque%. `risque%` optionnel si un défaut est défini avec `risk`. Popup de confirmation avant envoi. |
-| `modify` | `modify <id> [--sl <prix>] [--tp <prix>]` | Modifie le SL et/ou le TP d'un ordre en attente. |
+| `trade` | `trade [<risque%>] <entrée\|market> <sl> <tp>` (`<buy\|sell>` au lieu de `<sl> <tp>` en mode ATR, Shift+Tab) | Direction déduite du SL/TP (ou donnée directement en mode ATR), taille de position dérivée du risque%. `risque%` optionnel si un défaut est défini avec `risk`. Popup de confirmation avant envoi. |
+| `modify` | `modify <id> [--sl <prix>] [--tp <prix>]` | Modifie le SL et/ou le TP d'un ordre en attente. Désactive le suivi ATR automatique de cet ordre si actif. |
 | `cancel` | `cancel <id> [id...]` ou `cancel all` | Annule un ou plusieurs ordres en attente. |
 | `risk` | `risk <risque%>` | Règle un risque% par défaut pour `trade` (valable pour la session, jamais persisté). |
+| `atr` | `atr [rr\|mult\|period\|timeframe <valeur>]` | Sans argument, affiche les réglages du mode ATR actuels. Avec argument, règle le ratio récompense:risque, le multiplicateur ATR, la période, ou le timeframe (`M5`/`M15`/`H1`) — persisté dans `config.json`. |
 | `settings` | `settings` | Reconfigure l'URL/le token MCP. |
 | `refresh` | `refresh` | Force une actualisation immédiate du marché, du calendrier et de la tendance. |
 | `clear` | `clear` | Efface le message de feedback. |
-| `help` | `help [commande]` | Liste les commandes, ou détaille l'usage d'une commande précise. |
+| `help` | `help [commande]` | Liste les commandes, ou détaille l'usage d'une commande précise (reflète le mode ATR actif pour `trade`). |
 
 ## Développement
 
 ```bash
-bun run dev        # démarre l'app en mode watch
-bun run typecheck  # tsc --noEmit
-bun run lint       # biome check .
-bun run lint:fix   # biome check --write .
-bun run test       # bun test
-bun run verify     # typecheck + lint + test
-bun run build      # binaire standalone compilé (bun build --compile)
+bun run dev          # démarre l'app en mode watch
+bun run typecheck    # tsc --noEmit
+bun run lint         # biome check .
+bun run lint:fix     # biome check --write .
+bun run test         # bun test
+bun run verify:fast  # typecheck + lint (ce que fait le hook pre-commit)
+bun run verify       # verify:fast + test (ce que fait la CI)
+bun run build        # binaire standalone compilé (bun build --compile)
 ```
 
-Husky (`.husky/`) fait tourner typecheck + lint avant chaque commit, et les tests avant chaque push.
+Husky (`.husky/`) fait tourner `verify:fast` avant chaque commit, et les tests avant chaque push. CI (GitHub Actions,
+`.github/workflows/ci.yml`) tourne `verify` en un seul appel plutôt que de relister les mêmes étapes séparément —
+`verify`/Husky/CI ne peuvent donc pas diverger silencieusement — puis vérifie que le build compile, sur chaque push
+sur `main` et chaque pull request. Release (`.github/workflows/release.yml`) : déclenchée par un tag `vX.Y.Z` (doit
+correspondre à la `version` de `package.json`), rejoue la même vérification puis publie le binaire Windows compilé
+(avec checksum SHA-256) en release GitHub.
 
-CI (GitHub Actions, `.github/workflows/ci.yml`) : typecheck, lint, tests et vérification que le build compile, sur
-chaque push sur `main` et chaque pull request. Release (`.github/workflows/release.yml`) : déclenchée par un tag
-`vX.Y.Z` (doit correspondre à la `version` de `package.json`), rejoue la même vérification puis publie le binaire
-Windows compilé (avec checksum SHA-256) en release GitHub.
+Conventions du code (Effect, structure des fichiers, organisation des hooks) : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Ressources
 

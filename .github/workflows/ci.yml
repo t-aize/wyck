@@ -32,11 +32,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run typecheck
-
-      - run: bun run lint
-
-      - run: bun test
+      - run: bun run verify
 
       # Pas de bundle "léger" possible ici : @opentui/core résout ses binaires natifs par plateforme
       # via des import() dynamiques que seul --compile élague au moment de la cible (un bundle

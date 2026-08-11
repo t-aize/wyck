@@ -1,6 +1,7 @@
 import { useKeyboard, useRenderer, useSelectionHandler } from "@opentui/react";
 import { type Dispatch, type SetStateAction, useRef } from "react";
 import type { Feedback } from "../components/CommandBar.tsx";
+import { useFeedback } from "../context/FeedbackContext.tsx";
 
 const QUIT_CONFIRM_WINDOW_MS = 2_000;
 const COPY_FEEDBACK_MS = 3_000;
@@ -34,10 +35,8 @@ function showTemporaryFeedback(
  * au lieu d'armer la sortie (`tryClearInput` renvoie true si elle a effacé
  * quelque chose).
  */
-export function useTerminalShortcuts(
-  setFeedback: Dispatch<SetStateAction<Feedback>>,
-  tryClearInput: () => boolean,
-): void {
+export function useTerminalShortcuts(tryClearInput: () => boolean): void {
+  const { setFeedback } = useFeedback();
   const renderer = useRenderer();
   const quitArmedRef = useRef(false);
   const quitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
