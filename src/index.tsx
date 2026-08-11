@@ -13,5 +13,18 @@ if (import.meta.main) {
     exitOnCtrlC: false,
     exitSignals: ["SIGTERM", "SIGQUIT", "SIGABRT", "SIGHUP", "SIGBREAK", "SIGPIPE", "SIGBUS"],
   });
+
+  // opentui redimensionne automatiquement le rendu via SIGWINCH (cf. sa propre doc sur
+  // CliRenderer#resize) — mais SIGWINCH n'existe pas sous Windows, donc sans ce relais le rendu
+  // ne suit jamais un redimensionnement de la fenêtre du terminal sur cette plateforme.
+  // `stdout.on("resize", ...)` est l'équivalent Node/Bun multi-plateforme (fonctionne aussi là où
+  // SIGWINCH est déjà géré — relais inoffensif en double, `resize()` est idempotent sur des
+  // dimensions inchangées).
+  process.stdout.on("resize", () => {
+    if (process.stdout.columns && process.stdout.rows) {
+      renderer.resize(process.stdout.columns, process.stdout.rows);
+    }
+  });
+
   createRoot(renderer).render(<App />);
 }

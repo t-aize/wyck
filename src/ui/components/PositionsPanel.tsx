@@ -200,7 +200,11 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
       ) : openPositions.length === 0 ? (
         <text fg={theme.textDim}>Aucune position ouverte.</text>
       ) : (
-        <>
+        // Les colonnes (~99 caractères au total, cf. COLUMNS) sont à largeur fixe — sur un
+        // terminal plus étroit, mieux vaut pouvoir défiler horizontalement que perdre des
+        // colonnes recadrées par le terminal. `scrollX` seul (pas de flexGrow/height imposé)
+        // laisse la hauteur continuer à s'ajuster au contenu comme avant.
+        <scrollbox scrollX scrollY={false} style={{ flexDirection: "column" }}>
           {headerRow()}
           {mapped.map((p, index) => (
             <PositionRow
@@ -214,7 +218,7 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
               askPrice={askPrice}
             />
           ))}
-        </>
+        </scrollbox>
       )}
 
       {pendingOrders.length > 0 && (
@@ -222,15 +226,17 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
           <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
             — ordres en attente —
           </text>
-          {orderHeaderRow()}
-          {pendingOrders.map((order) => (
-            <OrderRow
-              key={order.orderId}
-              order={order}
-              mid={mid}
-              atrTracked={trackedOrderIds.has(order.orderId)}
-            />
-          ))}
+          <scrollbox scrollX scrollY={false} style={{ flexDirection: "column" }}>
+            {orderHeaderRow()}
+            {pendingOrders.map((order) => (
+              <OrderRow
+                key={order.orderId}
+                order={order}
+                mid={mid}
+                atrTracked={trackedOrderIds.has(order.orderId)}
+              />
+            ))}
+          </scrollbox>
         </box>
       )}
     </box>

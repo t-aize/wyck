@@ -49,7 +49,11 @@ export function ConfirmModal({
         titleColor={theme.accent}
         style={{
           flexDirection: "column",
-          width: 46,
+          // Responsive plutôt qu'une largeur fixe : sur un terminal plus étroit que 46 colonnes,
+          // une largeur fixe déborderait hors de l'écran (recadré par le terminal lui-même,
+          // illisible) au lieu de se réduire — 90% s'adapte, maxWidth plafonne sur un grand terminal.
+          width: "90%",
+          maxWidth: 46,
           border: true,
           borderColor: theme.accent,
           backgroundColor: theme.panelBg,

@@ -69,7 +69,10 @@ function VerdictLine({
     label !== "H1" && swing.confirmedEvent !== 0 && h1Bias !== 0 && swing.confirmedEvent !== h1Bias;
 
   return (
-    <text>
+    // wrapMode="word" plutôt qu'une ligne figée : avec tous les qualificatifs (fragile + structure +
+    // contre H1 + sweep), la ligne peut dépasser un terminal étroit — mieux vaut qu'elle se
+    // poursuive sur une 2e ligne que d'être recadrée par le terminal (rien d'invisible).
+    <text wrapMode="word">
       <span fg={theme.text}>{alignLeft(label, TF_WIDTH)}</span>
       <span fg={trendColor(swing.confirmedEvent)}>
         {trendGlyph(swing.confirmedEvent)} {trendLabel(swing.confirmedEvent).toUpperCase()} confirmé
@@ -162,7 +165,7 @@ function PendingLevelsLine({ swing, internal }: { swing: TrendState; internal: T
   const support = closerSupport(swing.pending, internal.pending);
 
   return (
-    <text>
+    <text wrapMode="word">
       {alignLeft("", TF_WIDTH)}
       <span fg={resistance ? theme.green : theme.textMuted}>
         {UP} {resistancePhrase(resistance?.level)}

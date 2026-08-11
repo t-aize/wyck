@@ -106,7 +106,10 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
         titleColor={theme.accent}
         style={{
           flexDirection: "column",
-          width: 70,
+          // Responsive plutôt qu'une largeur fixe — cf. commentaire équivalent dans
+          // ConfirmModal.tsx : évite un débordement recadré par le terminal sur un écran étroit.
+          width: "90%",
+          maxWidth: 70,
           border: true,
           borderColor: theme.accent,
           backgroundColor: theme.panelBg,
