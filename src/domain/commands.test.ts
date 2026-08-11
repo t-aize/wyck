@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ATR_SETTINGS_USAGE,
+  ATR_TRADE_USAGE,
   formatTradeSummary,
   MODIFY_USAGE,
+  parseAtrSettingsCommand,
+  parseAtrTradeCommand,
   parseModifyCommand,
   parseRiskCommand,
   parseTradeCommand,
@@ -55,6 +59,48 @@ describe("parseTradeCommand", () => {
   });
 });
 
+describe("parseAtrTradeCommand", () => {
+  test("parse risque/entrée/direction valides", () => {
+    const result = parseAtrTradeCommand(["1", "4100", "buy"]);
+    expect(result).toEqual({ entry: 4100, riskPercent: 1, side: "BUY" });
+  });
+
+  test("accepte 'market' comme entrée, direction insensible à la casse", () => {
+    const result = parseAtrTradeCommand(["1", "market", "SELL"]);
+    expect(result).toEqual({ entry: "market", riskPercent: 1, side: "SELL" });
+  });
+
+  test("avec 2 arguments et un risque par défaut, interprète (entrée, direction)", () => {
+    const result = parseAtrTradeCommand(["market", "buy"], 2);
+    expect(result).toEqual({ entry: "market", riskPercent: 2, side: "BUY" });
+  });
+
+  test("avec 2 arguments et aucun risque par défaut, réclame le risque%", () => {
+    expect(parseAtrTradeCommand(["market", "buy"])).toBe(
+      `arguments manquants — ${ATR_TRADE_USAGE}`,
+    );
+  });
+
+  test("avec 3 arguments, le risque par défaut est ignoré (celui donné prime)", () => {
+    const result = parseAtrTradeCommand(["3", "market", "buy"], 2);
+    expect(result).toEqual({ entry: "market", riskPercent: 3, side: "BUY" });
+  });
+
+  test("signale une direction invalide", () => {
+    expect(parseAtrTradeCommand(["1", "4100", "long"])).toBe(
+      'direction invalide : "long" (buy/sell attendu)',
+    );
+  });
+
+  test("signale une entrée non numérique (hors 'market')", () => {
+    expect(parseAtrTradeCommand(["1", "abc", "buy"])).toBe('entrée invalide : "abc"');
+  });
+
+  test("signale un risque non numérique", () => {
+    expect(parseAtrTradeCommand(["abc", "4100", "buy"])).toBe('risque invalide : "abc"');
+  });
+});
+
 describe("parseModifyCommand", () => {
   test("parse --sl et --tp", () => {
     const result = parseModifyCommand(["42", "--sl", "4090", "--tp", "4110"]);
@@ -96,6 +142,69 @@ describe("parseRiskCommand", () => {
     const result = parseRiskCommand([raw]);
     expect(typeof result).toBe("string");
     expect(result as string).toContain("risque invalide");
+  });
+});
+
+describe("parseAtrSettingsCommand", () => {
+  test("sans argument ⇒ {} (l'appelant affiche les réglages actuels)", () => {
+    expect(parseAtrSettingsCommand([])).toEqual({});
+  });
+
+  test("atr rr <valeur>", () => {
+    expect(parseAtrSettingsCommand(["rr", "1.5"])).toEqual({ rewardRiskRatio: 1.5 });
+  });
+
+  test("atr mult <valeur>", () => {
+    expect(parseAtrSettingsCommand(["mult", "1.2"])).toEqual({ atrMultiplier: 1.2 });
+  });
+
+  test("atr period <entier>", () => {
+    expect(parseAtrSettingsCommand(["period", "21"])).toEqual({ atrPeriod: 21 });
+  });
+
+  test("rejette une période non entière", () => {
+    expect(parseAtrSettingsCommand(["period", "14.5"])).toBe(
+      `période invalide : "14.5" — ${ATR_SETTINGS_USAGE}`,
+    );
+  });
+
+  test("rejette une période sous le minimum (2)", () => {
+    expect(parseAtrSettingsCommand(["period", "1"])).toBe(
+      `période invalide : "1" — ${ATR_SETTINGS_USAGE}`,
+    );
+  });
+
+  test("rejette rr/mult ≤ 0", () => {
+    expect(parseAtrSettingsCommand(["rr", "0"])).toBe(`RR invalide : "0" — ${ATR_SETTINGS_USAGE}`);
+    expect(parseAtrSettingsCommand(["mult", "-1"])).toBe(
+      `multiplicateur invalide : "-1" — ${ATR_SETTINGS_USAGE}`,
+    );
+  });
+
+  test("atr timeframe <M5|M15|H1>, insensible à la casse", () => {
+    expect(parseAtrSettingsCommand(["timeframe", "m15"])).toEqual({ atrTimeframe: "M15" });
+    expect(parseAtrSettingsCommand(["timeframe", "H1"])).toEqual({ atrTimeframe: "H1" });
+  });
+
+  test("rejette un timeframe hors de la liste fermée (pas une string libre)", () => {
+    expect(parseAtrSettingsCommand(["timeframe", "M30"])).toBe(
+      `timeframe invalide : "M30" — ${ATR_SETTINGS_USAGE}`,
+    );
+    expect(parseAtrSettingsCommand(["timeframe"])).toBe(
+      `timeframe invalide : "" — ${ATR_SETTINGS_USAGE}`,
+    );
+  });
+
+  test("signale une sous-commande inconnue", () => {
+    expect(parseAtrSettingsCommand(["bogus", "1"])).toBe(
+      `sous-commande inconnue : "bogus" — ${ATR_SETTINGS_USAGE}`,
+    );
+  });
+
+  test("signale une valeur non numérique", () => {
+    expect(parseAtrSettingsCommand(["rr", "abc"])).toBe(
+      `valeur invalide : "abc" — ${ATR_SETTINGS_USAGE}`,
+    );
   });
 });
 

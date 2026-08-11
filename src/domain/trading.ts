@@ -11,7 +11,7 @@
  */
 
 import { Data, Effect } from "effect";
-import { LOT_VOLUME, PRICE_SCALE } from "../constants.ts";
+import { LOT_VOLUME, PRICE_SCALE, roundPrice } from "../constants.ts";
 import {
   type CreateOrderParams,
   CtraderClient,
@@ -19,6 +19,7 @@ import {
   type OrderType,
   type TradeSide,
 } from "../ctrader/client.ts";
+import type { AtrTimeframeLabel } from "./smc/timeframes.ts";
 import type { Trend } from "./smc/trend.ts";
 
 // Erreurs de validation métier taguées (cf. AUDIT_EFFECT.md §1.4) — une par ancien
@@ -53,13 +54,21 @@ export class VolumeBelowMinimum extends Data.TaggedError("VolumeBelowMinimum")<{
   readonly message: string;
 }> {}
 
+/** Mode ATR uniquement (cf. prepareAtrTrade) : l'ATR sur le timeframe configuré n'a pas encore
+ * assez de bougies closes pour être calculé (juste après connexion, ou historique pas encore
+ * chargé). */
+export class AtrUnavailable extends Data.TaggedError("AtrUnavailable")<{
+  readonly message: string;
+}> {}
+
 export type TradeValidationError =
   | InvalidRiskPercent
   | PriceUnavailable
   | StopTakeProfitEqual
   | InconsistentStopTakeProfit
   | InvalidStopDistance
-  | VolumeBelowMinimum;
+  | VolumeBelowMinimum
+  | AtrUnavailable;
 
 export interface TradeInput {
   /** "market" = prix courant (ordre MARKET) ; un nombre = prix affiché (LIMIT/STOP déduit) */
@@ -84,6 +93,20 @@ export interface PreparedTrade {
   riskPercent: number;
   /** Gain potentiel si le TP est atteint (même formule que riskAmount, distance TP) */
   rewardAmount: number;
+  /** Présent uniquement pour un trade préparé par `prepareAtrTrade` — `atrMultiplier`/
+   * `rewardRiskRatio` sont figés à la création (le système de suivi, cf.
+   * ui/hooks/useAtrOrderTracking.ts, les relit tels quels à chaque réamend, jamais depuis les
+   * réglages globaux au moment du réamend — c'est la promesse de R:R faite au trader à la
+   * confirmation). `atrPeriod`/`atrTimeframe` ne sont capturés que pour l'affichage (cf.
+   * TradeConfirmModal.tsx) : le suivi, lui, recalcule toujours avec le réglage global *courant*
+   * (`atr period`/`atr timeframe`), pas celui figé ici — voulu : l'intérêt du suivi est de rester
+   * cohérent avec la lecture de volatilité la plus récente du trader. */
+  atrTracking?: {
+    atrMultiplier: number;
+    rewardRiskRatio: number;
+    atrPeriod: number;
+    atrTimeframe: AtrTimeframeLabel;
+  };
 }
 
 // Pas/minimum de volume imposés par ce compte sur XAUUSD : 0.01 lot (confirmé via la
@@ -129,26 +152,28 @@ function inferOrderType(side: TradeSide, entryPrice: number, referencePrice: num
   return entryPrice < referencePrice ? "STOP" : "LIMIT";
 }
 
-/**
- * `CtraderClient` reçu par injection (`yield* CtraderClient`, résolu via la `Layer` fournie au
- * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. AUDIT_EFFECT.md §4.1.
- * Chaque règle de validation échoue via `Effect.fail(new XxxError(...))` (erreur taguée, §1.4) au
- * lieu d'un `throw` générique — un appelant peut réagir à un cas précis via `Effect.catchTag`.
- */
-export function prepareTrade(
-  symbolId: number,
-  input: TradeInput,
-): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError, CtraderClient> {
-  return Effect.gen(function* () {
-    if (!Number.isFinite(input.riskPercent) || input.riskPercent <= 0 || input.riskPercent > 100) {
-      return yield* Effect.fail(
-        new InvalidRiskPercent({
-          riskPercent: input.riskPercent,
-          message: "Risque invalide : doit être un pourcentage entre 0 et 100",
-        }),
-      );
-    }
+function validateRiskPercent(riskPercent: number): Effect.Effect<void, InvalidRiskPercent> {
+  if (!Number.isFinite(riskPercent) || riskPercent <= 0 || riskPercent > 100) {
+    return Effect.fail(
+      new InvalidRiskPercent({
+        riskPercent,
+        message: "Risque invalide : doit être un pourcentage entre 0 et 100",
+      }),
+    );
+  }
+  return Effect.void;
+}
 
+/** Fetch spot+balance concurrent, commun à `prepareTrade`/`prepareAtrTrade` — prix déjà convertis en
+ * prix affiché (÷ PRICE_SCALE), comme le reste de ce fichier. */
+function fetchTradeContext(
+  symbolId: number,
+): Effect.Effect<
+  { bid: number; ask: number; equity: number; moneyDigits: number },
+  PriceUnavailable | CtraderMcpError,
+  CtraderClient
+> {
+  return Effect.gen(function* () {
     const client = yield* CtraderClient;
     const [{ prices }, { equity, moneyDigits }] = yield* Effect.all(
       [client.getSpotPrices({ symbolId: [symbolId] }), client.getBalance()],
@@ -161,8 +186,61 @@ export function prepareTrade(
         new PriceUnavailable({ symbolId, message: "Prix indisponible pour ce symbole" }),
       );
     }
-    const bid = spot.bid / PRICE_SCALE;
-    const ask = spot.ask / PRICE_SCALE;
+    return { bid: spot.bid / PRICE_SCALE, ask: spot.ask / PRICE_SCALE, equity, moneyDigits };
+  });
+}
+
+/** Résout le prix d'entrée effectif et le type d'ordre à partir de la direction — commun à
+ * `prepareTrade` (direction déduite du SL/TP) et `prepareAtrTrade` (direction donnée). */
+function resolveEntry(
+  side: TradeSide,
+  entry: number | "market",
+  reference: number,
+): { entryPrice: number; orderType: OrderType } {
+  const entryPrice = entry === "market" ? reference : entry;
+  const orderType: OrderType =
+    entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
+  return { entryPrice, orderType };
+}
+
+/**
+ * SL = entrée ∓ (multiplicateur × ATR) ; TP = SL étendu au ratio récompense:risque — direction
+ * dépend du côté (BUY : SL en dessous, SELL : SL au-dessus). `atrValue` en prix affiché (pas
+ * l'échelle brute x10^5 des bougies — cf. commentaire de tête du fichier).
+ */
+export function computeAtrLevels(
+  side: TradeSide,
+  entryPrice: number,
+  atrValue: number,
+  atrMultiplier: number,
+  rewardRiskRatio: number,
+): { stopLoss: number; takeProfit: number } {
+  const stopDistance = atrValue * atrMultiplier;
+  const rewardDistance = stopDistance * rewardRiskRatio;
+  return side === "BUY"
+    ? {
+        stopLoss: roundPrice(entryPrice - stopDistance),
+        takeProfit: roundPrice(entryPrice + rewardDistance),
+      }
+    : {
+        stopLoss: roundPrice(entryPrice + stopDistance),
+        takeProfit: roundPrice(entryPrice - rewardDistance),
+      };
+}
+
+/**
+ * `CtraderClient` reçu par injection (`yield* CtraderClient`, résolu via la `Layer` fournie au
+ * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. AUDIT_EFFECT.md §4.1.
+ * Chaque règle de validation échoue via `Effect.fail(new XxxError(...))` (erreur taguée, §1.4) au
+ * lieu d'un `throw` générique — un appelant peut réagir à un cas précis via `Effect.catchTag`.
+ */
+export function prepareTrade(
+  symbolId: number,
+  input: TradeInput,
+): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError, CtraderClient> {
+  return Effect.gen(function* () {
+    yield* validateRiskPercent(input.riskPercent);
+    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(symbolId);
 
     const { stopLoss, takeProfit } = input;
     if (stopLoss === takeProfit) {
@@ -173,10 +251,7 @@ export function prepareTrade(
     // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
     const side: TradeSide = stopLoss < takeProfit ? "BUY" : "SELL";
     const reference = side === "BUY" ? ask : bid;
-
-    const entryPrice = input.entry === "market" ? reference : input.entry;
-    const orderType: OrderType =
-      input.entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
+    const { entryPrice, orderType } = resolveEntry(side, input.entry, reference);
 
     if (side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
       return yield* Effect.fail(
@@ -212,6 +287,90 @@ export function prepareTrade(
       riskAmount,
       riskPercent: input.riskPercent,
       rewardAmount: (volume / 100) * targetDistance,
+    };
+    return trade;
+  });
+}
+
+export interface AtrTradeInput {
+  /** "market" = prix courant (ordre MARKET) ; un nombre = prix affiché (LIMIT/STOP déduit) */
+  entry: number | "market";
+  /** % de l'équity du compte */
+  riskPercent: number;
+  /** Donnée explicitement (pas déduite d'un SL/TP, qui n'existent pas encore en mode ATR). */
+  side: TradeSide;
+}
+
+/**
+ * Variante de `prepareTrade` pour le mode ATR (cf. commands.ts#parseAtrTradeCommand) : la direction
+ * est donnée plutôt que déduite, et SL/TP viennent de `computeAtrLevels` plutôt que d'une saisie
+ * manuelle. `atr.rawValue` est l'ATR le plus récent (période/timeframe configurés, cf.
+ * config.ts#DEFAULT_ATR_SETTINGS) en échelle brute x10^5 (cf. smc/trend.ts#computeAtr) —
+ * `undefined` tant qu'il n'y a pas assez de bougies closes sur ce timeframe, auquel cas cette
+ * fonction échoue `AtrUnavailable` plutôt que de calculer un stop sur une valeur absente.
+ * `period`/`timeframe` ne sont là que pour affichage (cf. PreparedTrade.atrTracking).
+ */
+export function prepareAtrTrade(
+  symbolId: number,
+  input: AtrTradeInput,
+  atr: {
+    rawValue: number | undefined;
+    multiplier: number;
+    rewardRiskRatio: number;
+    period: number;
+    timeframe: AtrTimeframeLabel;
+  },
+): Effect.Effect<
+  PreparedTrade,
+  TradeValidationError | AtrUnavailable | CtraderMcpError,
+  CtraderClient
+> {
+  return Effect.gen(function* () {
+    yield* validateRiskPercent(input.riskPercent);
+    if (atr.rawValue === undefined) {
+      return yield* Effect.fail(
+        new AtrUnavailable({
+          message: `ATR(${atr.period}) ${atr.timeframe} pas encore disponible — réessaie dans quelques instants`,
+        }),
+      );
+    }
+    const atrValue = atr.rawValue / PRICE_SCALE;
+
+    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(symbolId);
+    const { side } = input;
+    const reference = side === "BUY" ? ask : bid;
+    const { entryPrice, orderType } = resolveEntry(side, input.entry, reference);
+
+    const { stopLoss, takeProfit } = computeAtrLevels(
+      side,
+      entryPrice,
+      atrValue,
+      atr.multiplier,
+      atr.rewardRiskRatio,
+    );
+
+    const stopDistance = Math.abs(entryPrice - stopLoss);
+    const targetDistance = Math.abs(entryPrice - takeProfit);
+    const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
+    const volume = yield* computeVolume(riskAmount, stopDistance);
+
+    const trade: PreparedTrade = {
+      orderType,
+      tradeSide: side,
+      entryPrice,
+      stopLoss,
+      takeProfit,
+      volume,
+      volumeLots: volume / LOT_VOLUME,
+      riskAmount,
+      riskPercent: input.riskPercent,
+      rewardAmount: (volume / 100) * targetDistance,
+      atrTracking: {
+        atrMultiplier: atr.multiplier,
+        rewardRiskRatio: atr.rewardRiskRatio,
+        atrPeriod: atr.period,
+        atrTimeframe: atr.timeframe,
+      },
     };
     return trade;
   });

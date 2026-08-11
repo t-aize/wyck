@@ -14,6 +14,9 @@ interface PositionsPanelProps {
   /** Bid/ask bruts (échelle x10^5, cf. constants.ts) — pour les distances en pips. */
   bid: number | undefined;
   ask: number | undefined;
+  /** Ordres en attente actuellement sous suivi ATR (cf. useAtrOrderTracking.ts) — marqués
+   * visuellement dans la table, SL/TP réamendés automatiquement tant qu'ils y restent. */
+  trackedOrderIds: Set<number>;
 }
 
 const COLUMNS = {
@@ -122,7 +125,15 @@ function orderHeaderRow() {
   );
 }
 
-function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined }) {
+function OrderRow({
+  order,
+  mid,
+  atrTracked,
+}: {
+  order: CtraderOrder;
+  mid: number | undefined;
+  atrTracked: boolean;
+}) {
   const side = order.tradeSide;
   const sideColor = side === "SELL" ? theme.red : side === "BUY" ? theme.green : theme.textDim;
   const sideLabel = `${side === "BUY" ? UP : side === "SELL" ? DOWN : "—"} ${side ?? "—"} ${order.orderType}`;
@@ -131,10 +142,13 @@ function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined
   // ne PAS passer par formatPrice() ici (ça les redivisait par 100 000 en trop).
   const price = order.limitPrice ?? order.stopPrice;
   const dist = price === undefined || mid === undefined ? "—" : `${toPips(mid - price)}p`;
+  // Marqueur "⚡" : SL/TP réamendés automatiquement tant que l'ordre reste en attente (cf.
+  // useAtrOrderTracking.ts) — pas un simple id, un rappel que ce trade n'est plus figé.
+  const idLabel = atrTracked ? `⚡${order.orderId}` : String(order.orderId);
 
   return (
     <text>
-      <span fg={theme.text}>{alignLeft(String(order.orderId), COLUMNS.symbol)}</span>
+      <span fg={atrTracked ? theme.accent : theme.text}>{alignLeft(idLabel, COLUMNS.symbol)}</span>
       <span fg={sideColor}>{alignLeft(sideLabel, COLUMNS.side + 6)}</span>
       <span fg={theme.text}>{alignRight(toLots(order.volume).toFixed(2), COLUMNS.volume)}</span>
       <span fg={theme.text}>{alignRight(formatPriceOrDash(price), COLUMNS.entry)}</span>
@@ -145,7 +159,7 @@ function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined
   );
 }
 
-export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps) {
+export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: PositionsPanelProps) {
   const openPositions = positions?.positions ?? [];
   const pendingOrders = positions?.orders ?? [];
   const mid = bid === undefined || ask === undefined ? undefined : (bid + ask) / 2 / PRICE_SCALE;
@@ -210,7 +224,12 @@ export function PositionsPanel({ positions, now, bid, ask }: PositionsPanelProps
           </text>
           {orderHeaderRow()}
           {pendingOrders.map((order) => (
-            <OrderRow key={order.orderId} order={order} mid={mid} />
+            <OrderRow
+              key={order.orderId}
+              order={order}
+              mid={mid}
+              atrTracked={trackedOrderIds.has(order.orderId)}
+            />
           ))}
         </box>
       )}

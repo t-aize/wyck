@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect, Layer } from "effect";
-import { type AppConfig, readConfig, writeConfig } from "./config.ts";
+import { type AppConfig, DEFAULT_ATR_SETTINGS, readConfig, writeConfig } from "./config.ts";
 
 /**
  * `FileSystem` remplacé par une chaîne en mémoire — permet de tester la vraie logique
@@ -34,7 +34,14 @@ function fakeFileSystem(initial?: string) {
   };
 }
 
-const CONFIG: AppConfig = { url: "https://mcp.ctrader.com/trading/mcp", token: "secret-token" };
+const CONFIG: AppConfig = {
+  url: "https://mcp.ctrader.com/trading/mcp",
+  token: "secret-token",
+  rewardRiskRatio: 1.5,
+  atrMultiplier: 1.2,
+  atrPeriod: 21,
+  atrTimeframe: "H1",
+};
 
 describe("readConfig / writeConfig", () => {
   test("aucun fichier ⇒ undefined", async () => {
@@ -75,6 +82,19 @@ describe("readConfig / writeConfig", () => {
     const { layer } = fakeFileSystem(JSON.stringify({ url: CONFIG.url }));
     const result = await Effect.runPromise(Effect.provide(readConfig(), layer));
     expect(result).toBeUndefined();
+  });
+
+  test("réglages ATR absents (config.json écrit avant leur ajout) ⇒ DEFAULT_ATR_SETTINGS appliqué", async () => {
+    // Simule un fichier écrit par une version antérieure : même token chiffré (round-trip via
+    // writeConfig, pas un texte en clair — decrypt() throw sinon), champs ATR retirés après coup.
+    const fake = fakeFileSystem();
+    await Effect.runPromise(Effect.provide(writeConfig(CONFIG), fake.layer));
+    const { rewardRiskRatio, atrMultiplier, atrPeriod, atrTimeframe, ...legacyShape } = JSON.parse(
+      fake.stored ?? "{}",
+    );
+    const { layer } = fakeFileSystem(JSON.stringify(legacyShape));
+    const result = await Effect.runPromise(Effect.provide(readConfig(), layer));
+    expect(result).toMatchObject(DEFAULT_ATR_SETTINGS);
   });
 
   test("token chiffré illisible (déchiffrable seulement sur une autre machine) ⇒ undefined", async () => {

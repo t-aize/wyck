@@ -14,21 +14,51 @@ import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "./constants.ts";
+import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./domain/smc/timeframes.ts";
 
 const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
 
 /** Source unique de vérité pour ce qui constitue une config valide — réutilisé par SetupScreen.tsx
  * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
- * s'accordent par construction plutôt que par coïncidence (cf. AUDIT_EFFECT.md §5.3). */
+ * s'accordent par construction plutôt que par coïncidence (cf. AUDIT_EFFECT.md §5.3).
+ *
+ * `rewardRiskRatio`/`atrMultiplier`/`atrPeriod`/`atrTimeframe` (réglages du mode ATR, cf.
+ * domain/trading.ts) restent `.optional()` ici pour rester compatibles avec un config.json écrit
+ * avant leur ajout — `readConfig` applique `DEFAULT_ATR_SETTINGS` quand ils sont absents.
+ * `atrTimeframe` est verrouillé sur `ATR_TIMEFRAME_LABELS` (pas une string libre) : c'est la liste
+ * fermée des TF déjà suivis par TREND_TIMEFRAMES, pas un TF arbitraire. */
 export const AppConfigSchema = z.object({
   url: z.url(),
   token: z.string().min(1),
+  rewardRiskRatio: z.number().positive().optional(),
+  atrMultiplier: z.number().positive().optional(),
+  atrPeriod: z.number().int().min(2).optional(),
+  atrTimeframe: z.enum(ATR_TIMEFRAME_LABELS).optional(),
 });
 
 export interface AppConfig {
   url: string;
   token: string;
+  rewardRiskRatio: number;
+  atrMultiplier: number;
+  atrPeriod: number;
+  atrTimeframe: AtrTimeframeLabel;
 }
+
+/** Le sous-ensemble "réglages du mode ATR" de `AppConfig`, sans url/token — réutilisé par
+ * useOrderActions.ts (opt `atrSettings`) et App.tsx (`updateAtrSettings`) plutôt que répété
+ * inline à chaque endroit qui les manipule. */
+export type AtrSettings = Pick<
+  AppConfig,
+  "rewardRiskRatio" | "atrMultiplier" | "atrPeriod" | "atrTimeframe"
+>;
+
+export const DEFAULT_ATR_SETTINGS = {
+  rewardRiskRatio: 1.2,
+  atrMultiplier: 1,
+  atrPeriod: 14,
+  atrTimeframe: "M5",
+} as const satisfies AtrSettings;
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
 // cross-platform genre keytar). Ça évite le token en clair dans le fichier — protège
@@ -90,7 +120,14 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
     return yield* Effect.try(() => {
       const parsed = AppConfigSchema.safeParse(JSON.parse(raw));
       if (!parsed.success) return undefined;
-      return { url: parsed.data.url, token: decrypt(parsed.data.token) };
+      return {
+        url: parsed.data.url,
+        token: decrypt(parsed.data.token),
+        rewardRiskRatio: parsed.data.rewardRiskRatio ?? DEFAULT_ATR_SETTINGS.rewardRiskRatio,
+        atrMultiplier: parsed.data.atrMultiplier ?? DEFAULT_ATR_SETTINGS.atrMultiplier,
+        atrPeriod: parsed.data.atrPeriod ?? DEFAULT_ATR_SETTINGS.atrPeriod,
+        atrTimeframe: parsed.data.atrTimeframe ?? DEFAULT_ATR_SETTINGS.atrTimeframe,
+      };
     }).pipe(Effect.orElseSucceed(() => undefined));
   });
 }
@@ -107,7 +144,18 @@ export function writeConfig(
     }
     yield* fs.writeFileString(
       CONFIG_PATH,
-      JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
+      JSON.stringify(
+        {
+          url: config.url,
+          token: encrypt(config.token),
+          rewardRiskRatio: config.rewardRiskRatio,
+          atrMultiplier: config.atrMultiplier,
+          atrPeriod: config.atrPeriod,
+          atrTimeframe: config.atrTimeframe,
+        },
+        null,
+        2,
+      ),
       { mode: 0o600 },
     );
   });

@@ -95,6 +95,13 @@ function rollingMean(values: number[], period: number): (number | undefined)[] {
   return result;
 }
 
+/** ATR(period) le plus récent, échelle brute x10^5 comme le reste de ce fichier (cf. commentaire de
+ * tête de trading.ts pour la conversion vers un prix affiché). `undefined` tant que l'historique est
+ * plus court que `period` — même convention que `rollingMean`/`computeAdx`. */
+export function computeAtr(bars: CtraderTrendbar[], period = 14): number | undefined {
+  return rollingMean(trueRangeSeries(bars), period).at(-1);
+}
+
 /** Bougie "molle" : range < displacementMult × ATR courant — pas assez d'order flow réel derrière
  * la cassure. Permissif (true) tant que l'ATR n'a pas assez de bougies pour être calculé, comme la
  * référence. */

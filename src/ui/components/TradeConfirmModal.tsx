@@ -29,6 +29,16 @@ export function TradeConfirmModal({ trade, onConfirm, onCancel }: TradeConfirmMo
         fg={theme.red}
       />
       <Row label="Gain potentiel" value={trade.rewardAmount.toFixed(2)} fg={theme.green} />
+      {trade.atrTracking && (
+        <Row
+          label="Mode"
+          value={
+            `ATR(${trade.atrTracking.atrPeriod}) ${trade.atrTracking.atrTimeframe} × ` +
+            `${trade.atrTracking.atrMultiplier} · suivi actif tant qu'en attente`
+          }
+          fg={theme.accent}
+        />
+      )}
     </ConfirmModal>
   );
 }

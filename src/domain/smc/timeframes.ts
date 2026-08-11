@@ -1,7 +1,13 @@
 import type { GetTrendbarsParams } from "../../ctrader/client.ts";
 
+/** Les 3 timeframes suivis par le panneau structure — aussi la liste fermée proposée pour
+ * `atr timeframe` (cf. domain/commands.ts) : le mode ATR ne peut choisir que parmi des bougies déjà
+ * fetchées ici, pas un TF arbitraire qui demanderait un appel réseau dédié. */
+export const ATR_TIMEFRAME_LABELS = ["M5", "M15", "H1"] as const;
+export type AtrTimeframeLabel = (typeof ATR_TIMEFRAME_LABELS)[number];
+
 export interface TrendTimeframe {
-  label: string;
+  label: AtrTimeframeLabel;
   period: GetTrendbarsParams["period"];
   periodMs: number;
   /** Historique total à charger, en ms. */
@@ -43,7 +49,7 @@ const HISTORY_MS_H1 = 3500 * 60 * 60_000; // ~146 jours
  * anormal, gap de rollover) plutôt que comme véritable filtre de bruit.
  */
 function timeframe(
-  label: string,
+  label: AtrTimeframeLabel,
   period: GetTrendbarsParams["period"],
   periodMs: number,
   params: Pick<

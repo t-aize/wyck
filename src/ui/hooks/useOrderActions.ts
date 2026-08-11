@@ -1,5 +1,6 @@
 import { Effect, type ManagedRuntime } from "effect";
 import { type Dispatch, type SetStateAction, useState } from "react";
+import type { AtrSettings } from "../../config.ts";
 import type {
   CtraderClient,
   CtraderClientLive,
@@ -7,9 +8,13 @@ import type {
   GetPositionsResult,
 } from "../../ctrader/client.ts";
 import {
+  ATR_SETTINGS_USAGE,
+  ATR_TRADE_USAGE,
   CANCEL_USAGE,
   formatTradeSummary,
   MODIFY_USAGE,
+  parseAtrSettingsCommand,
+  parseAtrTradeCommand,
   parseModifyCommand,
   parseRiskCommand,
   parseTradeCommand,
@@ -17,36 +22,41 @@ import {
   TRADE_USAGE,
 } from "../../domain/commands.ts";
 import type { PreparedTrade } from "../../domain/trading.ts";
-import { conflictsWithHtfBias, prepareTrade, toCreateOrderParams } from "../../domain/trading.ts";
+import {
+  conflictsWithHtfBias,
+  prepareAtrTrade,
+  prepareTrade,
+  toCreateOrderParams,
+} from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import type { Feedback } from "../components/CommandBar.tsx";
-import type { TrendRow } from "./useTrend.ts";
-
-/** Biais H1 confirmé (méthode 2 + règle CHoCH→BOS) — "commande" la hiérarchie multi-timeframe,
- * cf. cascade_htf_bias dans AUDIT_EFFECT.md et domain/trading.ts#conflictsWithHtfBias. */
-function h1ConfirmedBias(trendRows: TrendRow[] | undefined) {
-  return trendRows?.find((row) => row.label === "H1")?.swing.confirmedEvent ?? 0;
-}
+import type { AtrOrderTracking } from "./useAtrOrderTracking.ts";
+import { h1ConfirmedBias, type TrendRow } from "./useTrend.ts";
 
 // Convention du projet : `.then` dans les handlers d'événements UI déclenchés depuis le rendu
 // (ce fichier), `async`/`await` partout ailleurs (cf. les autres hooks de ce dossier).
 
-const COMMAND_LIST = "trade  modify  cancel  risk  settings  refresh  clear  help";
+const COMMAND_LIST = "trade  modify  cancel  risk  atr  settings  refresh  clear  help";
 
 /**
  * Détail affiché par `help <commande>` — réutilise les mêmes chaînes d'usage que les erreurs de
- * parsing.
+ * parsing. `trade` dépend de `atrMode` (basculé au Shift+Tab, cf. CommandBar.tsx) : `help trade`
+ * montre toujours l'usage du mode réellement actif, pas systématiquement le mode manuel.
  */
-const COMMAND_HELP: Record<string, string> = {
-  trade: TRADE_USAGE,
-  modify: MODIFY_USAGE,
-  cancel: CANCEL_USAGE,
-  risk: RISK_USAGE,
-  settings: "settings — reconfigure l'URL/le token MCP",
-  refresh: "refresh — force une actualisation immédiate du marché, du calendrier et de la tendance",
-  clear: "clear — efface le message de feedback",
-  help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
-};
+function commandHelp(atrMode: boolean): Record<string, string> {
+  return {
+    trade: atrMode ? ATR_TRADE_USAGE : TRADE_USAGE,
+    modify: MODIFY_USAGE,
+    cancel: CANCEL_USAGE,
+    risk: RISK_USAGE,
+    atr: ATR_SETTINGS_USAGE,
+    settings: "settings — reconfigure l'URL/le token MCP",
+    refresh:
+      "refresh — force une actualisation immédiate du marché, du calendrier et de la tendance",
+    clear: "clear — efface le message de feedback",
+    help: "help [commande] — liste les commandes, ou détaille l'usage d'une commande précise",
+  };
+}
 
 interface PendingModify {
   order: CtraderOrder;
@@ -55,10 +65,11 @@ interface PendingModify {
 }
 
 export interface OrderActions {
-  feedback: Feedback;
-  /** Exposé pour useTerminalShortcuts (copie OSC 52, confirmation Ctrl+C) : même état partagé. */
-  setFeedback: Dispatch<SetStateAction<Feedback>>;
   runCommand: (raw: string) => void;
+  /** Basculé au Shift+Tab (cf. CommandBar.tsx) : `trade` ne prend alors que risque/entrée/direction,
+   * SL/TP dérivés de l'ATR(14) M5 — cf. domain/trading.ts#prepareAtrTrade. */
+  atrMode: boolean;
+  toggleAtrMode: () => void;
   pendingTrade: PreparedTrade | undefined;
   confirmPendingTrade: () => void;
   cancelPendingTrade: () => void;
@@ -72,9 +83,15 @@ export interface OrderActions {
 
 /** Le routeur de commandes du CommandBar, et le cycle confirmation → envoi → feedback des ordres. */
 export function useOrderActions(opts: {
+  /** Écriture seule ici (jamais lu) — possédé par ConnectedApp (App.tsx), pas par ce hook : partagé
+   * avec useAtrOrderTracking (le système de suivi doit pouvoir écrire dans la même barre de
+   * feedback) et useTerminalShortcuts. Un seul état source évite la dépendance circulaire que
+   * créerait ce hook s'il possédait lui-même ce state (useAtrOrderTracking a besoin de
+   * setFeedback, et ses résultats sont eux-mêmes un opt de ce hook, cf. atrTracking ci-dessous). */
+  setFeedback: Dispatch<SetStateAction<Feedback>>;
   client: CtraderClientLive;
-  /** Requis uniquement par `prepareTrade` (injecté via CtraderClient, cf. domain/trading.ts) — les
-   * autres actions de ce hook appellent `client` directement. */
+  /** Requis uniquement par `prepareTrade`/`prepareAtrTrade` (injecté via CtraderClient, cf.
+   * domain/trading.ts) — les autres actions de ce hook appellent `client` directement. */
   runtime: ManagedRuntime.ManagedRuntime<CtraderClient, never>;
   symbolId: number | undefined;
   positions: GetPositionsResult | undefined;
@@ -83,8 +100,15 @@ export function useOrderActions(opts: {
   refreshTrend: () => Promise<void>;
   trendRows: TrendRow[] | undefined;
   onReconfigure: () => void;
+  /** ATR le plus récent sur le timeframe configuré, échelle brute x10^5 (cf. useTrend.ts#atr) —
+   * consommé par `trade` en mode ATR. */
+  atrRaw: number | undefined;
+  atrSettings: AtrSettings;
+  onUpdateAtrSettings: (patch: Partial<AtrSettings>) => void;
+  atrTracking: Pick<AtrOrderTracking, "registerPendingAtrOrder" | "untrackOrder">;
 }): OrderActions {
   const {
+    setFeedback,
     client,
     runtime,
     symbolId,
@@ -94,12 +118,15 @@ export function useOrderActions(opts: {
     refreshTrend,
     trendRows,
     onReconfigure,
+    atrRaw,
+    atrSettings,
+    onUpdateAtrSettings,
+    atrTracking,
   } = opts;
 
-  const [feedback, setFeedback] = useState<Feedback>({
-    kind: "info",
-    message: "tapez help pour la liste des commandes",
-  });
+  // Comme defaultRiskPercent ci-dessous : basculé au Shift+Tab, jamais persisté, repart à "manuel"
+  // à chaque lancement.
+  const [atrMode, setAtrMode] = useState(false);
   const [pendingTrade, setPendingTrade] = useState<PreparedTrade>();
   const [pendingModify, setPendingModify] = useState<PendingModify>();
   const [pendingCancel, setPendingCancel] = useState<CtraderOrder[]>();
@@ -116,11 +143,12 @@ export function useOrderActions(opts: {
     switch (command) {
       case "help": {
         const target = args[0]?.toLowerCase();
+        const modeNote = atrMode ? " · mode ATR actif (Shift+Tab pour basculer)" : "";
         if (!target) {
-          setFeedback({ kind: "info", message: `commandes : ${COMMAND_LIST}` });
+          setFeedback({ kind: "info", message: `commandes : ${COMMAND_LIST}${modeNote}` });
           return;
         }
-        const detail = COMMAND_HELP[target];
+        const detail = commandHelp(atrMode)[target];
         setFeedback(
           detail
             ? { kind: "info", message: detail }
@@ -165,32 +193,76 @@ export function useOrderActions(opts: {
         });
         return;
       }
+      case "atr": {
+        const parsed = parseAtrSettingsCommand(args);
+        if (typeof parsed === "string") {
+          setFeedback({ kind: "error", message: parsed });
+          return;
+        }
+        if (Object.keys(parsed).length === 0) {
+          setFeedback({
+            kind: "info",
+            message:
+              `RR ${atrSettings.rewardRiskRatio} · multiplicateur ATR ${atrSettings.atrMultiplier} ` +
+              `· période ${atrSettings.atrPeriod} · timeframe ${atrSettings.atrTimeframe} — ${ATR_SETTINGS_USAGE}`,
+          });
+          return;
+        }
+        // Persisté (config.json), contrairement à `risk`/`atrMode` — cf. commentaire de tête de
+        // config.ts#DEFAULT_ATR_SETTINGS.
+        onUpdateAtrSettings(parsed);
+        setFeedback({ kind: "success", message: "réglages ATR mis à jour" });
+        return;
+      }
       case "trade": {
         if (!symbolId) {
           setFeedback({ kind: "error", message: "pas encore connecté au serveur" });
           return;
         }
+
+        // Callback commun aux deux modes : même popup de confirmation, même avertissement biais H1
+        // non bloquant (cf. domain/trading.ts#conflictsWithHtfBias).
+        const onPrepared = (trade: PreparedTrade) => {
+          setPendingTrade(trade);
+          const biasWarning = conflictsWithHtfBias(trade.tradeSide, h1ConfirmedBias(trendRows))
+            ? " — ⚠ contre le biais H1 confirmé"
+            : "";
+          setFeedback({
+            kind: "info",
+            message: `trade calculé${biasWarning} — confirme dans la popup`,
+          });
+        };
+        const onFailed = (error: unknown) =>
+          setFeedback({ kind: "error", message: toMessage(error) });
+
+        if (atrMode) {
+          const parsed = parseAtrTradeCommand(args, defaultRiskPercent);
+          if (typeof parsed === "string") {
+            setFeedback({ kind: "error", message: parsed });
+            return;
+          }
+          setFeedback({ kind: "info", message: "calcul ATR en cours…" });
+          void runtime
+            .runPromise(
+              prepareAtrTrade(symbolId, parsed, {
+                rawValue: atrRaw,
+                multiplier: atrSettings.atrMultiplier,
+                rewardRiskRatio: atrSettings.rewardRiskRatio,
+                period: atrSettings.atrPeriod,
+                timeframe: atrSettings.atrTimeframe,
+              }),
+            )
+            .then(onPrepared, onFailed);
+          return;
+        }
+
         const parsed = parseTradeCommand(args, defaultRiskPercent);
         if (typeof parsed === "string") {
           setFeedback({ kind: "error", message: parsed });
           return;
         }
         setFeedback({ kind: "info", message: "calcul en cours…" });
-        void runtime.runPromise(prepareTrade(symbolId, parsed)).then(
-          (trade) => {
-            setPendingTrade(trade);
-            // Avertissement non bloquant, pas un blocage dur : outil de saisie manuelle, la
-            // décision finale reste au trader (cf. domain/trading.ts#conflictsWithHtfBias).
-            const biasWarning = conflictsWithHtfBias(trade.tradeSide, h1ConfirmedBias(trendRows))
-              ? " — ⚠ contre le biais H1 confirmé"
-              : "";
-            setFeedback({
-              kind: "info",
-              message: `trade calculé${biasWarning} — confirme dans la popup`,
-            });
-          },
-          (error) => setFeedback({ kind: "error", message: toMessage(error) }),
-        );
+        void runtime.runPromise(prepareTrade(symbolId, parsed)).then(onPrepared, onFailed);
         return;
       }
       case "modify": {
@@ -268,12 +340,14 @@ export function useOrderActions(opts: {
     success: () => string;
     errorPrefix: string;
     refreshAfter?: boolean;
+    onSuccess?: () => void;
   }): void {
     setFeedback({ kind: "info", message: actionOpts.pending });
     void actionOpts.action().then(
       () => {
         setFeedback({ kind: "success", message: actionOpts.success() });
         if (actionOpts.refreshAfter) void refreshMarket();
+        actionOpts.onSuccess?.();
       },
       (error) =>
         setFeedback({ kind: "error", message: `${actionOpts.errorPrefix} : ${toMessage(error)}` }),
@@ -290,6 +364,23 @@ export function useOrderActions(opts: {
       action: () => Effect.runPromise(client.createOrder(toCreateOrderParams(symbolId, trade))),
       success: () => `ordre envoyé : ${summary}`,
       errorPrefix: "échec envoi",
+      // Rafraîchit tout de suite plutôt que d'attendre le prochain poll (jusqu'à 3s) — réduit la
+      // latence de correspondance du suivi ATR ci-dessous ; gain latent aussi hors mode ATR.
+      refreshAfter: true,
+      onSuccess: () => {
+        // Suivi ATR uniquement pour un ordre resté EN ATTENTE (cf. plan) : un ordre MARKET est
+        // exécuté immédiatement, son SL/TP ATR n'a besoin d'être calculé qu'une fois, déjà fait.
+        if (!trade.atrTracking || trade.orderType === "MARKET") return;
+        atrTracking.registerPendingAtrOrder({
+          symbolId,
+          side: trade.tradeSide,
+          orderType: trade.orderType,
+          volume: trade.volume,
+          price: trade.entryPrice,
+          atrMultiplier: trade.atrTracking.atrMultiplier,
+          rewardRiskRatio: trade.atrTracking.rewardRiskRatio,
+        });
+      },
     });
   }
 
@@ -302,6 +393,9 @@ export function useOrderActions(opts: {
     if (!pendingModify) return;
     const { order, stopLoss, takeProfit } = pendingModify;
     setPendingModify(undefined);
+    // Intervention manuelle sur un ordre suivi ATR : elle prime, désactive le suivi automatique
+    // (no-op si l'ordre n'était pas suivi).
+    atrTracking.untrackOrder(order.orderId);
     runOrderAction({
       pending: "modification en cours…",
       // cTrader remet à 0 tout champ prix non renvoyé à l'amend (limitPrice/stopPrice
@@ -368,10 +462,14 @@ export function useOrderActions(opts: {
     setFeedback({ kind: "info", message: "annulation abandonnée" });
   }
 
+  function toggleAtrMode() {
+    setAtrMode((current) => !current);
+  }
+
   return {
-    feedback,
-    setFeedback,
     runCommand,
+    atrMode,
+    toggleAtrMode,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,

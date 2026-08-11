@@ -6,8 +6,14 @@ import type {
   GetTrendbarsParams,
 } from "../../ctrader/client.ts";
 import { dropFormingBar } from "../../domain/smc/bars.ts";
+import type { AtrTimeframeLabel } from "../../domain/smc/timeframes.ts";
 import { TREND_TIMEFRAMES, type TrendTimeframe } from "../../domain/smc/timeframes.ts";
-import { computeTrendState, type TrendState } from "../../domain/smc/trend.ts";
+import {
+  computeAtr,
+  computeTrendState,
+  type Trend as TrendDirection,
+  type TrendState,
+} from "../../domain/smc/trend.ts";
 import { toMessage } from "../../errors.ts";
 import { useInterval } from "./useInterval.ts";
 
@@ -87,14 +93,38 @@ export interface TrendRow {
   internal: TrendState;
 }
 
+/** Biais H1 confirmé (méthode événementielle + règle CHoCH→BOS) — "commande" la hiérarchie
+ * multi-timeframe, cf. cascade_htf_bias dans AUDIT_EFFECT.md et domain/trading.ts#conflictsWithHtfBias.
+ * Partagé par useOrderActions.ts (avertissement à la confirmation d'un trade) et TrendPanel.tsx
+ * (annotation "contre le biais H1" par TF) — même source, pas une règle dupliquée deux fois. */
+export function h1ConfirmedBias(rows: TrendRow[] | undefined): TrendDirection {
+  return rows?.find((row) => row.label === "H1")?.swing.confirmedEvent ?? 0;
+}
+
 export interface Trend {
   rows: TrendRow[] | undefined;
+  /** ATR(atrPeriod) le plus récent sur `atrTimeframe`, échelle brute x10^5 (cf.
+   * domain/smc/trend.ts#computeAtr) — consommé par le mode ATR (domain/trading.ts#prepareAtrTrade,
+   * useAtrOrderTracking.ts). */
+  atr: number | undefined;
   trendError: string | undefined;
   refreshTrend: () => Promise<void>;
 }
 
-export function useTrend(client: CtraderClientLive, symbolId: number | undefined): Trend {
+/**
+ * `atrPeriod`/`atrTimeframe` pilotent l'ATR exposé (réglages `atr period`/`atr timeframe`, cf.
+ * commands.ts) — défauts 14/M5 (`DEFAULT_ATR_SETTINGS` dans config.ts), pas dupliqués ici.
+ * `atrTimeframe` ne peut être qu'un des TF déjà suivis par TREND_TIMEFRAMES (M5/M15/H1) : leurs
+ * bougies sont de toute façon déjà fetchées ici, pas besoin d'un appel réseau dédié.
+ */
+export function useTrend(
+  client: CtraderClientLive,
+  symbolId: number | undefined,
+  atrPeriod = 14,
+  atrTimeframe: AtrTimeframeLabel = "M5",
+): Trend {
   const [rows, setRows] = useState<TrendRow[]>();
+  const [atr, setAtr] = useState<number>();
   const [trendError, setTrendError] = useState<string>();
 
   const refreshTrend = useMemo(
@@ -103,7 +133,7 @@ export function useTrend(client: CtraderClientLive, symbolId: number | undefined
       try {
         const now = Date.now();
         const results = await Promise.all(
-          TREND_TIMEFRAMES.map(async (tf): Promise<TrendRow> => {
+          TREND_TIMEFRAMES.map(async (tf) => {
             const raw = await fetchHistory(
               client,
               symbolId,
@@ -113,16 +143,18 @@ export function useTrend(client: CtraderClientLive, symbolId: number | undefined
               now,
             );
             const closed = dropFormingBar(raw, tf.periodMs, now);
-            return computeRow(closed, tf);
+            return { tf, closed, row: computeRow(closed, tf) };
           }),
         );
-        setRows(results);
+        setRows(results.map((r) => r.row));
+        const atrSource = results.find((r) => r.tf.label === atrTimeframe);
+        setAtr(atrSource ? computeAtr(atrSource.closed, atrPeriod) : undefined);
         setTrendError(undefined);
       } catch (error) {
         setTrendError(toMessage(error));
       }
     },
-    [client, symbolId],
+    [client, symbolId, atrPeriod, atrTimeframe],
   );
 
   useInterval(() => void refreshTrend(), TREND_POLL_MS);
@@ -134,5 +166,5 @@ export function useTrend(client: CtraderClientLive, symbolId: number | undefined
     if (symbolId) void refreshTrend();
   }, [symbolId, refreshTrend]);
 
-  return { rows, trendError, refreshTrend };
+  return { rows, atr, trendError, refreshTrend };
 }

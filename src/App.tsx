@@ -1,11 +1,11 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type AppConfig, readConfig } from "./config.ts";
+import { type AppConfig, type AtrSettings, readConfig, writeConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import { CtraderClient, CtraderClientLive } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
-import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
+import { CommandBar, type CommandBarHandle, type Feedback } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
@@ -13,6 +13,7 @@ import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { TrendPanel } from "./ui/components/TrendPanel.tsx";
+import { useAtrOrderTracking } from "./ui/hooks/useAtrOrderTracking.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useCtraderConnection } from "./ui/hooks/useCtraderConnection.ts";
@@ -74,12 +75,39 @@ export function App() {
     );
   }
 
+  // Persiste (config.json) + met à jour l'état local en une passe — `setConfig` reçoit une
+  // fonction plutôt que `{ ...config, ...patch }` construit en dehors : si `config` avait déjà
+  // changé entretemps (peu probable ici vu la source unique de mise à jour, mais cohérent avec le
+  // reste du fichier qui préfère les mises à jour fonctionnelles), on part toujours de la valeur
+  // la plus fraîche.
+  function updateAtrSettings(patch: Partial<AtrSettings>) {
+    setConfig((current) => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      void Effect.runPromise(Effect.provide(writeConfig(next), BunFileSystem.layer));
+      return next;
+    });
+  }
+
   return (
-    <ConnectedApp key={generation} config={config} onReconfigure={() => setReconfiguring(true)} />
+    <ConnectedApp
+      key={generation}
+      config={config}
+      onReconfigure={() => setReconfiguring(true)}
+      onUpdateAtrSettings={updateAtrSettings}
+    />
   );
 }
 
-function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfigure: () => void }) {
+function ConnectedApp({
+  config,
+  onReconfigure,
+  onUpdateAtrSettings,
+}: {
+  config: AppConfig;
+  onReconfigure: () => void;
+  onUpdateAtrSettings: (patch: Partial<AtrSettings>) => void;
+}) {
   const now = useClock();
   const [client] = useState(() => new CtraderClientLive(config));
   // Résout `CtraderClient` (le Context.Tag) vers cette instance déjà connectée pour les fonctions
@@ -98,11 +126,41 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     setConnectionError,
   );
   const { calendar, newsError, refreshNews } = useCalendar();
-  const { rows: trendRows, trendError, refreshTrend } = useTrend(client, symbolId);
   const {
-    feedback,
+    rows: trendRows,
+    atr: atrRaw,
+    trendError,
+    refreshTrend,
+  } = useTrend(client, symbolId, config.atrPeriod, config.atrTimeframe);
+
+  // Possédé ici (pas par useOrderActions) : partagé avec useAtrOrderTracking, qui a lui-même besoin
+  // d'écrire dans cette même barre de feedback — cf. commentaire équivalent dans useOrderActions.ts.
+  const [feedback, setFeedback] = useState<Feedback>({
+    kind: "info",
+    message: "tapez help pour la liste des commandes",
+  });
+
+  const atrSettings: AtrSettings = useMemo(
+    () => ({
+      rewardRiskRatio: config.rewardRiskRatio,
+      atrMultiplier: config.atrMultiplier,
+      atrPeriod: config.atrPeriod,
+      atrTimeframe: config.atrTimeframe,
+    }),
+    [config.rewardRiskRatio, config.atrMultiplier, config.atrPeriod, config.atrTimeframe],
+  );
+
+  const { trackedOrderIds, registerPendingAtrOrder, untrackOrder } = useAtrOrderTracking({
+    client,
+    pendingOrders: positions?.orders ?? [],
+    atrRaw,
     setFeedback,
+  });
+
+  const {
     runCommand,
+    atrMode,
+    toggleAtrMode,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,
@@ -113,6 +171,7 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     confirmPendingCancel,
     dismissPendingCancel,
   } = useOrderActions({
+    setFeedback,
     client,
     runtime,
     symbolId,
@@ -122,6 +181,10 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
     refreshTrend,
     trendRows,
     onReconfigure,
+    atrRaw,
+    atrSettings,
+    onUpdateAtrSettings,
+    atrTracking: { registerPendingAtrOrder, untrackOrder },
   });
 
   useTerminalShortcuts(
@@ -144,7 +207,13 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         balance={balance}
         moneyDigits={moneyDigits}
       />
-      <PositionsPanel positions={positions} now={now} bid={bid} ask={ask} />
+      <PositionsPanel
+        positions={positions}
+        now={now}
+        bid={bid}
+        ask={ask}
+        trackedOrderIds={trackedOrderIds}
+      />
       <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
         <NewsPanel events={calendar} errorMessage={newsError} now={now} />
         <TrendPanel rows={trendRows} errorMessage={trendError} />
@@ -154,6 +223,8 @@ function ConnectedApp({ config, onReconfigure }: { config: AppConfig; onReconfig
         feedback={feedback}
         onSubmit={runCommand}
         focused={!pendingTrade && !pendingModify && !pendingCancel}
+        atrMode={atrMode}
+        onToggleAtrMode={toggleAtrMode}
       />
       {pendingTrade && (
         <TradeConfirmModal

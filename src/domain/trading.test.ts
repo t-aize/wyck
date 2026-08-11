@@ -3,8 +3,11 @@ import { Effect, Layer } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
 import { CtraderClient, type CtraderClientLive } from "../ctrader/client.ts";
 import {
+  type AtrTradeInput,
+  computeAtrLevels,
   computeUnrealizedPnl,
   conflictsWithHtfBias,
+  prepareAtrTrade,
   prepareTrade,
   type TradeInput,
   toCreateOrderParams,
@@ -53,6 +56,14 @@ const testLayer = Layer.succeed(CtraderClient, client);
  * inchangés par ailleurs (même forme `await runPrepareTrade(...)` qu'un `await prepareTrade(...)`). */
 function runPrepareTrade(symbolId: number, input: TradeInput) {
   return Effect.runPromise(Effect.provide(prepareTrade(symbolId, input), testLayer));
+}
+
+function runPrepareAtrTrade(
+  symbolId: number,
+  input: AtrTradeInput,
+  atr: Parameters<typeof prepareAtrTrade>[2],
+) {
+  return Effect.runPromise(Effect.provide(prepareAtrTrade(symbolId, input, atr), testLayer));
 }
 
 describe("prepareTrade", () => {
@@ -140,6 +151,85 @@ describe("prepareTrade", () => {
       takeProfit: 5000,
     };
     await expect(runPrepareTrade(1, bad)).rejects.toThrow("sous le minimum");
+  });
+});
+
+describe("computeAtrLevels", () => {
+  test("BUY : SL en dessous de l'entrée, TP au-dessus, distance TP = RR × distance SL", () => {
+    expect(computeAtrLevels("BUY", 4100, 5, 1, 1.2)).toEqual({
+      stopLoss: 4095,
+      takeProfit: 4106,
+    });
+  });
+
+  test("SELL : symétrique (SL au-dessus, TP en dessous)", () => {
+    expect(computeAtrLevels("SELL", 4100, 5, 1, 1.2)).toEqual({
+      stopLoss: 4105,
+      takeProfit: 4094,
+    });
+  });
+
+  test("multiplicateur ATR appliqué à la distance de stop avant le RR", () => {
+    // distance SL = 4 × 1.5 = 6 ; distance TP = 6 × 2 = 12.
+    expect(computeAtrLevels("BUY", 4100, 4, 1.5, 2)).toEqual({ stopLoss: 4094, takeProfit: 4112 });
+  });
+});
+
+describe("prepareAtrTrade", () => {
+  // atrValue affiché = 5 (rawValue = 5 × PRICE_SCALE) ; multiplicateur 1, RR 1.2, période 14,
+  // timeframe M5 (défauts du mode ATR, cf. config.ts#DEFAULT_ATR_SETTINGS) — mêmes chiffres que les
+  // tests computeAtrLevels ci-dessus.
+  const atr = {
+    rawValue: 5 * PRICE_SCALE,
+    multiplier: 1,
+    rewardRiskRatio: 1.2,
+    period: 14,
+    timeframe: "M5" as const,
+  };
+
+  test("BUY market : entrée = ask, SL/TP dérivés de l'ATR, direction donnée pas déduite", async () => {
+    const input: AtrTradeInput = { entry: "market", riskPercent: 1, side: "BUY" };
+    const trade = await runPrepareAtrTrade(1, input, atr);
+    expect(trade.tradeSide).toBe("BUY");
+    expect(trade.orderType).toBe("MARKET");
+    expect(trade.entryPrice).toBeCloseTo(4100.2);
+    expect(trade.stopLoss).toBeCloseTo(4095.2);
+    expect(trade.takeProfit).toBeCloseTo(4106.2);
+    expect(trade.atrTracking).toEqual({
+      atrMultiplier: 1,
+      rewardRiskRatio: 1.2,
+      atrPeriod: 14,
+      atrTimeframe: "M5",
+    });
+  });
+
+  test("SELL market : entrée = bid", async () => {
+    const input: AtrTradeInput = { entry: "market", riskPercent: 1, side: "SELL" };
+    const trade = await runPrepareAtrTrade(1, input, atr);
+    expect(trade.tradeSide).toBe("SELL");
+    expect(trade.entryPrice).toBeCloseTo(4100.0);
+    expect(trade.stopLoss).toBeCloseTo(4105.0);
+    expect(trade.takeProfit).toBeCloseTo(4094.0);
+  });
+
+  test("BUY avec entrée fixe sous l'ask ⇒ LIMIT, SL/TP relatifs à cette entrée", async () => {
+    const input: AtrTradeInput = { entry: 4095, riskPercent: 1, side: "BUY" };
+    const trade = await runPrepareAtrTrade(1, input, atr);
+    expect(trade.orderType).toBe("LIMIT");
+    expect(trade.stopLoss).toBeCloseTo(4090);
+    expect(trade.takeProfit).toBeCloseTo(4101);
+  });
+
+  test("ATR indisponible ⇒ AtrUnavailable plutôt qu'un calcul sur une valeur absente", async () => {
+    const input: AtrTradeInput = { entry: "market", riskPercent: 1, side: "BUY" };
+    await expect(runPrepareAtrTrade(1, input, { ...atr, rawValue: undefined })).rejects.toThrow(
+      "ATR(14) M5",
+    );
+  });
+
+  test("réutilise la même validation risque% que prepareTrade", async () => {
+    const bad: AtrTradeInput = { entry: "market", riskPercent: 0, side: "BUY" };
+    await expect(runPrepareAtrTrade(1, bad, atr)).rejects.toThrow("Risque invalide");
   });
 });
 

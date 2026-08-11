@@ -3,7 +3,7 @@ import { useKeyboard } from "@opentui/react";
 import { Effect } from "effect";
 import { useState } from "react";
 import type { AppConfig } from "../../config.ts";
-import { AppConfigSchema, writeConfig } from "../../config.ts";
+import { AppConfigSchema, DEFAULT_ATR_SETTINGS, writeConfig } from "../../config.ts";
 import { CtraderClientLive } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
@@ -61,7 +61,17 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
       try {
         await client.connect();
         await Effect.runPromise(client.getBalance());
-        const config: AppConfig = { url, token: trimmed };
+        // Ce wizard ne saisit que URL/token — les réglages ATR (cf. domain/trading.ts) sont
+        // reportés depuis `initial` (reconfiguration via la commande `settings`) plutôt que
+        // silencieusement réinitialisés, ou pris à leurs valeurs par défaut au tout premier lancement.
+        const config: AppConfig = {
+          url,
+          token: trimmed,
+          rewardRiskRatio: initial?.rewardRiskRatio ?? DEFAULT_ATR_SETTINGS.rewardRiskRatio,
+          atrMultiplier: initial?.atrMultiplier ?? DEFAULT_ATR_SETTINGS.atrMultiplier,
+          atrPeriod: initial?.atrPeriod ?? DEFAULT_ATR_SETTINGS.atrPeriod,
+          atrTimeframe: initial?.atrTimeframe ?? DEFAULT_ATR_SETTINGS.atrTimeframe,
+        };
         await Effect.runPromise(Effect.provide(writeConfig(config), BunFileSystem.layer));
         onConfigured(config);
       } catch (err) {
