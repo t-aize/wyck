@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { useState } from "react";
 import type { CtraderOrder } from "../../ctrader/client.ts";
+import { toAmendOrderParams } from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
@@ -42,16 +43,8 @@ export function useModifyConfirm(opts: {
     setPendingModify(undefined);
     atrTracking.untrackOrder(order.orderId);
     setFeedback({ kind: "info", message: "modification en cours…" });
-    // cTrader remet à 0 tout champ prix non renvoyé à l'amend (limitPrice/stopPrice mais aussi
-    // SL/TP) — il faut toujours resend les valeurs existantes non modifiées.
     void Effect.runPromise(
-      client.amendOrder({
-        orderId: order.orderId,
-        limitPrice: order.limitPrice,
-        stopPrice: order.stopPrice,
-        stopLoss: stopLoss ?? order.stopLoss,
-        takeProfit: takeProfit ?? order.takeProfit,
-      }),
+      client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit })),
     ).then(
       () => {
         setFeedback({ kind: "success", message: `ordre ${order.orderId} modifié` });

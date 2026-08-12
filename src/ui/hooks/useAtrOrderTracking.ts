@@ -8,6 +8,7 @@ import {
   matchPendingRegistration,
   type PendingAtrRegistration,
 } from "../../domain/atrTracking.ts";
+import { toAmendOrderParams } from "../../domain/trading.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 
@@ -145,14 +146,9 @@ export function useAtrOrderTracking(opts: {
       amendments,
       (a) => {
         const order = pendingOrders.find((o) => o.orderId === a.orderId);
+        if (!order) return Effect.succeed({ orderId: a.orderId, ok: false as const });
         return client
-          .amendOrder({
-            orderId: a.orderId,
-            limitPrice: order?.limitPrice,
-            stopPrice: order?.stopPrice,
-            stopLoss: a.stopLoss,
-            takeProfit: a.takeProfit,
-          })
+          .amendOrder(toAmendOrderParams(order, { stopLoss: a.stopLoss, takeProfit: a.takeProfit }))
           .pipe(
             Effect.as({ orderId: a.orderId, ok: true as const }),
             Effect.catchAll(() => Effect.succeed({ orderId: a.orderId, ok: false as const })),

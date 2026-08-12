@@ -13,9 +13,11 @@
 import { Data, Effect } from "effect";
 import { LOT_VOLUME, PRICE_SCALE, roundPrice } from "../constants.ts";
 import {
+  type AmendOrderParams,
   type CreateOrderParams,
   CtraderClient,
   type CtraderMcpError,
+  type CtraderOrder,
   type OrderType,
   type TradeSide,
 } from "../ctrader/client.ts";
@@ -431,5 +433,34 @@ export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): Cre
     stopPrice: trade.orderType === "STOP" ? trade.entryPrice : undefined,
     stopLoss: trade.stopLoss,
     takeProfit: trade.takeProfit,
+  };
+}
+
+/**
+ * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
+ * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts — d'où le bug où une
+ * date d'expiration disparaissait après un réamend ATR qui ne la reprenait pas). Seul point de
+ * construction d'un payload amend dans l'app : reprend tout l'état resendable de l'ordre existant,
+ * `changes` écrase juste ce qui doit réellement changer — impossible d'oublier un champ à un
+ * nouveau point d'appel.
+ */
+export function toAmendOrderParams(
+  order: CtraderOrder,
+  changes: Partial<Omit<AmendOrderParams, "orderId">> = {},
+): AmendOrderParams {
+  // Un override explicitement `undefined` (ex. proposeModify appelé sans nouveau SL) doit garder
+  // la valeur existante, pas l'effacer — on ne spread que les clés réellement fournies.
+  const definedChanges = Object.fromEntries(
+    Object.entries(changes).filter(([, value]) => value !== undefined),
+  );
+  return {
+    orderId: order.orderId,
+    volume: order.volume,
+    limitPrice: order.limitPrice,
+    stopPrice: order.stopPrice,
+    stopLoss: order.stopLoss,
+    takeProfit: order.takeProfit,
+    expirationTimestamp: order.expirationTimestamp,
+    ...definedChanges,
   };
 }
