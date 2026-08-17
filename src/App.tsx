@@ -183,13 +183,7 @@ function ConnectedApp({
         balance={balance}
         moneyDigits={moneyDigits}
       />
-      <PositionsPanel
-        positions={positions}
-        now={now}
-        bid={bid}
-        ask={ask}
-        trackedOrderIds={trackedOrderIds}
-      />
+      <PositionsPanel positions={positions} bid={bid} ask={ask} trackedOrderIds={trackedOrderIds} />
       <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
         <NewsPanel events={calendar} errorMessage={newsError} now={now} />
         <TrendPanel rows={trendRows} errorMessage={trendError} />

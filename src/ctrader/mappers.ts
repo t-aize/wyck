@@ -2,25 +2,28 @@ import { toLots } from "../constants.ts";
 import type { CtraderPosition, TradeSide } from "./schemas.ts";
 
 /**
- * `CtraderPosition` reste typé `Record<string, unknown>` : sa forme exacte n'a jamais pu
- * être exercée contre un payload réel (pas de compte démo, aucune position ouverte lors
- * des tests). Les noms de champs ci-dessous ne sont donc pas devinés au hasard : ils
- * croisent deux sources indépendantes — (1) le proto Open API public de Spotware
- * (`ProtoOAPosition`/`ProtoOATradeData` : positionId, tradeData.{symbolId, volume,
- * tradeSide, openTimestamp}, swap, price, stopLoss, takeProfit, commission,
- * utcLastUpdateTimestamp — https://github.com/spotware/openapi-proto-messages) et (2) le
- * pattern déjà confirmé sur `CtraderOrder`/`CtraderDeal` (vérifiés contre de vrais
- * payloads) : ce MCP aplatit `tradeData.*` directement sur l'objet JSON, en camelCase,
- * sans renommage nulle part ailleurs dans cette API. Confiance haute sur positionId /
- * tradeSide / volume / price / stopLoss / takeProfit / swap / openTimestamp. Le proto Open
- * API n'a en revanche *aucun* champ de P&L latent — ce n'est pas un oubli côté lecteur,
- * il n'y a rien à lire : cf. `computeUnrealizedPnl` dans domain/trading.ts, qui le calcule
- * plutôt que de deviner un nom de champ inexistant.
+ * `CtraderPosition` reste typé `Record<string, unknown>` par choix délibéré (cf. le
+ * commentaire en tête de `ctrader/schemas.ts`), pas par manque de données : sa forme
+ * réelle a été vérifiée contre le compte démo, tous les champs ci-dessous confirmés
+ * présents et nommés ainsi : `positionId, symbolId, tradeSide, volume, entryPrice,
+ * stopLoss?, takeProfit?, commission, swap`. Pas de champ d'horodatage d'ouverture sur
+ * cette forme (contrairement à ce qu'un premier recoupement avec le proto Open API
+ * public de Spotware suggérait) — ce mapper ne lit donc pas d'"âge" de position, cf.
+ * `PositionsPanel.tsx` qui n'a plus de colonne AGE pour cette raison.
+ *
+ * Le prix d'entrée est exposé sous `entryPrice`, pas `price` comme le même recoupement
+ * proto le suggérait initialement — avec l'ancien nom, `readNumber(position, ["price"])`
+ * ne résolvait *jamais* sur un vrai payload, donc `read.entry` restait toujours
+ * `undefined` et `isUnmapped()` déclenchait l'avertissement "position non reconnue" sur
+ * *chaque* position réelle.
+ *
+ * Toujours aucun champ de P&L latent sur cette forme — cf. `computeUnrealizedPnl` dans
+ * domain/trading.ts, qui le calcule plutôt que de lire un nom de champ inexistant.
  *
  * Filet de sécurité : `App.tsx`/`PositionsPanel.tsx` vérifient que positionId/tradeSide/
- * volume/price résolvent bien sur une liste de positions non vide, et affichent un
- * avertissement visible sinon — pour ne plus jamais échouer en silence si cette hypothèse
- * s'avère fausse en pratique.
+ * volume/entry résolvent bien sur une liste de positions non vide, et affichent un
+ * avertissement visible sinon — pour ne plus jamais échouer en silence si cette forme
+ * change côté serveur.
  */
 function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
   for (const key of keys) {
@@ -43,7 +46,6 @@ export interface ReadPosition {
   stopLoss: number | undefined;
   takeProfit: number | undefined;
   swap: number | undefined;
-  openTimestamp: number | undefined;
 }
 
 export function readPosition(position: CtraderPosition): ReadPosition {
@@ -54,11 +56,10 @@ export function readPosition(position: CtraderPosition): ReadPosition {
     // lotSize métaux = 100 → volume(1/100 unités) / 10000 = lots. Approximation valable pour XAUUSD,
     // seul symbole tradé par ce panel — à revoir si d'autres classes d'actifs sont ajoutées un jour.
     volumeLots: volume === undefined ? undefined : toLots(volume),
-    entry: readNumber(position, ["price"]),
+    entry: readNumber(position, ["entryPrice"]),
     stopLoss: readNumber(position, ["stopLoss"]),
     takeProfit: readNumber(position, ["takeProfit"]),
     swap: readNumber(position, ["swap"]),
-    openTimestamp: readNumber(position, ["openTimestamp"]),
   };
 }
 

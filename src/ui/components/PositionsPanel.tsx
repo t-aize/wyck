@@ -4,13 +4,12 @@ import { PRICE_SCALE, SYMBOL, toLots, toPips } from "../../constants.ts";
 import type { CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
 import { isUnmapped, type ReadPosition, readPosition } from "../../ctrader/mappers.ts";
 import { computeUnrealizedPnl } from "../../domain/trading.ts";
-import { alignLeft, alignRight, formatDuration, formatPriceOrDash } from "../format.ts";
+import { alignLeft, alignRight, formatPriceOrDash } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
 
 interface PositionsPanelProps {
   positions: GetPositionsResult | undefined;
-  now: Date;
   /** Bid/ask bruts (échelle x10^5, cf. constants.ts) — pour les distances en pips. */
   bid: number | undefined;
   ask: number | undefined;
@@ -28,7 +27,6 @@ const COLUMNS = {
   tp: 10,
   swap: 9,
   pnl: 13,
-  age: 7,
   dist: 14,
 } as const;
 
@@ -59,7 +57,6 @@ function headerRow() {
       {alignRight("TP", COLUMNS.tp)}
       {alignRight("SWAP", COLUMNS.swap)}
       {alignRight("P&L", COLUMNS.pnl)}
-      {alignRight("AGE", COLUMNS.age)}
       {alignRight("PROCHE", COLUMNS.dist)}
     </text>
   );
@@ -67,13 +64,11 @@ function headerRow() {
 
 function PositionRow({
   p,
-  now,
   mid,
   bidPrice,
   askPrice,
 }: {
   p: ReadPosition;
-  now: Date;
   mid: number | undefined;
   bidPrice: number | undefined;
   askPrice: number | undefined;
@@ -90,7 +85,6 @@ function PositionRow({
       : undefined;
   const pnlColor = pnl === undefined ? theme.textDim : pnl >= 0 ? theme.green : theme.red;
   const pnlLabel = pnl === undefined ? "—" : `${pnl >= 0 ? UP : DOWN} ${pnl.toFixed(2)}`;
-  const age = p.openTimestamp === undefined ? "—" : formatDuration(now.getTime() - p.openTimestamp);
   const nearest = nearestPipsLabel(mid, p.stopLoss, p.takeProfit);
 
   return (
@@ -105,7 +99,6 @@ function PositionRow({
       <span fg={theme.green}>{alignRight(formatPriceOrDash(p.takeProfit), COLUMNS.tp)}</span>
       <span fg={theme.textDim}>{alignRight(p.swap?.toFixed(2) ?? "—", COLUMNS.swap)}</span>
       <span fg={pnlColor}>{alignRight(pnlLabel, COLUMNS.pnl)}</span>
-      <span fg={theme.textDim}>{alignRight(age, COLUMNS.age)}</span>
       <span fg={theme.textDim}>{alignRight(nearest, COLUMNS.dist)}</span>
     </text>
   );
@@ -159,7 +152,7 @@ function OrderRow({
   );
 }
 
-export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: PositionsPanelProps) {
+export function PositionsPanel({ positions, bid, ask, trackedOrderIds }: PositionsPanelProps) {
   const openPositions = positions?.positions ?? [];
   const pendingOrders = positions?.orders ?? [];
   const mid = bid === undefined || ask === undefined ? undefined : (bid + ask) / 2 / PRICE_SCALE;
@@ -219,7 +212,6 @@ export function PositionsPanel({ positions, now, bid, ask, trackedOrderIds }: Po
               // pour le cas — signalé ci-dessus — où le mapping échoue en pratique.
               key={p.id ?? index}
               p={p}
-              now={now}
               mid={mid}
               bidPrice={bidPrice}
               askPrice={askPrice}

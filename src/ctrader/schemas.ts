@@ -3,19 +3,26 @@
  *
  * `CtraderOrder`/`CtraderDeal` ont été vérifiés contre de vrais payloads
  * (get_order_history / get_deals, compte réel, symbole XAUUSD). `CtraderPosition`,
- * `GetPositionDetailsResult` et les résultats d'écriture restent volontairement
- * `z.record(z.string(), z.unknown())` : aucune position n'était ouverte lors du
- * dernier test (10/07/2026) et il n'y a pas de compte démo pour en ouvrir une sans
- * risque ; les outils d'écriture n'ont jamais été exercés sur le compte réel.
+ * `GetPositionDetailsResult` et les résultats d'écriture ont depuis été vérifiés à leur
+ * tour contre de vrais payloads — compte DÉMO, symbole XAUUSD, tous les 16 tools que le
+ * serveur expose (create_order/amend_order/cancel_order/amend_position/close_position
+ * exercés sur un ordre puis une position de test, chacun annulé/clôturé aussitôt après ;
+ * exploration ponctuelle, pas d'outil dédié conservé dans le dépôt).
  *
- * `CtraderPosition` reste délibérément permissif plutôt que d'être verrouillé sur la
- * base du seul recoupement avec le proto Open API (cf. ctrader/mappers.ts) : un schéma
- * strict qui se trompe ferait *planter* l'affichage des positions (échec `safeParse` →
- * `CtraderMcpError`), ce qui est pire pour un panel de trading que des valeurs
- * possiblement fausses mais visibles — cf. l'avertissement affiché par
- * `PositionsPanel.tsx` quand le mapping échoue. Les schémas d'écriture, eux, sont bas
- * risque même non verrouillés : `useOrderActions.ts` ne lit jamais leurs champs, il ne
- * regarde que succès/échec de la promesse.
+ * `CtraderPosition` reste malgré tout délibérément `z.record(z.string(), z.unknown())`
+ * plutôt qu'un `z.object` strict, verified ou pas : un schéma strict qui se trompe (ex.
+ * un champ optionnel présent seulement sur une classe d'actif jamais testée) ferait
+ * *planter* l'affichage des positions (échec `safeParse` → `CtraderMcpError`), ce qui
+ * est pire pour un panel de trading que des valeurs possiblement fausses mais visibles
+ * — cf. l'avertissement affiché par `PositionsPanel.tsx` quand le mapping échoue, et le
+ * commentaire en tête de `ctrader/mappers.ts` pour la forme réelle désormais confirmée.
+ * Les résultats d'écriture restent permissifs pour la même raison, en pire : un
+ * `safeParse` qui échoue sur `create_order` transformerait un ordre *réussi* en échec
+ * apparent côté UI (`useOrderActions.ts` ne lit déjà aujourd'hui aucun de leurs champs,
+ * seulement succès/échec de la Promise — verrouiller ces schémas n'apporterait donc
+ * aucun bénéfice, seulement ce risque). Leur forme réelle confirmée est documentée en
+ * commentaire à côté de chaque schéma ci-dessous, pour un futur consommateur qui
+ * voudrait lire `orderId`/`positionId` sans se re-taper toute cette exploration.
  */
 
 import { z } from "zod";
@@ -155,8 +162,10 @@ export interface CancelOrderParams {
 
 // ─── Résultats ───────────────────────────────────────────────────────────
 
-/** Payload non vérifié contre un payload réel — cf. commentaire en tête de fichier. */
-const UnverifiedPayloadSchema = z.record(z.string(), z.unknown());
+/** Volontairement permissif malgré une forme réelle désormais connue — cf. commentaire en tête
+ * de fichier pour pourquoi (positions : ne jamais planter l'affichage ; écriture : ne jamais
+ * transformer un ordre réussi en échec apparent). */
+const PermissiveRecordSchema = z.record(z.string(), z.unknown());
 
 export const GetVersionResultSchema = z.object({
   service: z.string(),
@@ -235,9 +244,17 @@ export const GetTrendbarsResultSchema = z.object({
 });
 export type GetTrendbarsResult = z.infer<typeof GetTrendbarsResultSchema>;
 
-// TODO(payload): jamais exercé contre un payload réel — cf. ctrader/mappers.ts pour les
-// noms de champs à haute confiance déduits du proto Open API en attendant.
-export const CtraderPositionSchema = UnverifiedPayloadSchema;
+/**
+ * Forme réelle confirmée (compte démo, cf. commentaire en tête de fichier) :
+ * `{ positionId, symbolId, tradeSide, volume, entryPrice, stopLoss?, takeProfit?,
+ * commission, swap }` — `volume`/`entryPrice` valent `0` sur le stub de position associé
+ * à un ordre pending pas encore rempli (ex: champ `position` de la réponse `create_order`
+ * pour un LIMIT). Pas de champ de P&L latent ni d'`openTimestamp` observé sur cette forme
+ * (contrairement à ce que `ctrader/mappers.ts` supposait avant vérification — cf. son
+ * commentaire de tête, mis à jour en conséquence). Reste un `z.record` malgré tout —
+ * cf. commentaire en tête de fichier.
+ */
+export const CtraderPositionSchema = PermissiveRecordSchema;
 export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
 
 /**
@@ -298,8 +315,17 @@ export const GetPendingOrdersResultSchema = z.object({
 });
 export type GetPendingOrdersResult = z.infer<typeof GetPendingOrdersResultSchema>;
 
-// TODO(payload): structure non vérifiée en détail (jamais appelé, aucune position disponible).
-export const GetPositionDetailsResultSchema = UnverifiedPayloadSchema;
+/** Vérifié (compte démo) : `{ position, orders, deals }`, où `orders`/`deals` incluent
+ * respectivement l'ordre d'ouverture et le deal d'exécution correspondant. Verrouillé (pas un
+ * `z.record`) : contrairement aux schémas d'écriture, cet outil n'a aujourd'hui aucun appelant
+ * dans `src/` (cf. client.ts) — un futur mismatch romprait la compilation/les tests avant de
+ * jamais atteindre un utilisateur, pas de risque de "faux échec" en prod. `position` reste
+ * `CtraderPositionSchema` (permissif) par cohérence avec le reste du fichier. */
+export const GetPositionDetailsResultSchema = z.object({
+  position: CtraderPositionSchema,
+  orders: z.array(CtraderOrderSchema),
+  deals: z.array(CtraderDealSchema),
+});
 export type GetPositionDetailsResult = z.infer<typeof GetPositionDetailsResultSchema>;
 
 export const GetOrderHistoryResultSchema = z.object({
@@ -315,21 +341,35 @@ export const GetDealsResultSchema = z.object({
 export type GetDealsResult = z.infer<typeof GetDealsResultSchema>;
 
 /**
- * Résultats non vérifiés : ces outils modifient un compte réel et n'ont
- * volontairement jamais été exercés pendant l'implémentation.
+ * Forme réelle confirmée (compte démo, cf. commentaire en tête de fichier), identique pour les
+ * 5 outils d'écriture : `{ orderId, positionId, executionType, order, position, deal? }`.
+ *
+ * - `executionType` : valeurs observées `ORDER_ACCEPTED` / `ORDER_REPLACED` / `ORDER_CANCELLED` /
+ *   `ORDER_FILLED` — liste probablement non exhaustive (rejets, exécutions partielles jamais
+ *   déclenchés pendant le test), d'où `z.string()` plutôt qu'un enum si ce champ était un jour lu.
+ * - `order`/`position` : mêmes formes que `CtraderOrderSchema`/`CtraderPositionSchema`, mais ne
+ *   décrivent pas toujours l'action "principale" de l'appel — ex. `close_position` sur une
+ *   position dont l'ordre SL/TP auto-attaché (relativeStopLoss/relativeTakeProfit à la création)
+ *   n'a jamais été déclenché renvoie `executionType: "ORDER_CANCELLED"` pour *cet* ordre SL/TP
+ *   (annulé en effet de bord), pas l'ordre MARKET qui a réellement clôturé la position.
+ * - `deal` (absent la plupart du temps) : présent seulement quand l'appel déclenche lui-même une
+ *   exécution immédiate (ex. `close_position` sur une position sans SL/TP attaché, où le serveur
+ *   crée et remplit directement un ordre MARKET de clôture) — forme minimale et *distincte* de
+ *   `CtraderDealSchema` : `{ dealId, volume, closePrice }` (pas de symbolId/tradeSide/dealStatus,
+ *   et `closePrice` au lieu d'`executionPrice`).
+ *
+ * Reste un `z.record` malgré cette forme connue — cf. commentaire en tête de fichier : rien dans
+ * `src/` ne lit ces champs aujourd'hui (`useOrderActions.ts` ne regarde que succès/échec de la
+ * Promise), verrouiller n'apporterait donc aucun bénéfice pour le risque pris (un `safeParse` qui
+ * échoue sur un cas non testé transformerait un ordre *réussi* en échec apparent côté UI).
  */
-// TODO(payload): idem, jamais exercé sur le compte réel.
-export const AmendPositionResultSchema = UnverifiedPayloadSchema;
+export const AmendPositionResultSchema = PermissiveRecordSchema;
 export type AmendPositionResult = z.infer<typeof AmendPositionResultSchema>;
-// TODO(payload): idem, jamais exercé sur le compte réel.
-export const ClosePositionResultSchema = UnverifiedPayloadSchema;
+export const ClosePositionResultSchema = PermissiveRecordSchema;
 export type ClosePositionResult = z.infer<typeof ClosePositionResultSchema>;
-// TODO(payload): idem, jamais exercé sur le compte réel.
-export const CreateOrderResultSchema = UnverifiedPayloadSchema;
+export const CreateOrderResultSchema = PermissiveRecordSchema;
 export type CreateOrderResult = z.infer<typeof CreateOrderResultSchema>;
-// TODO(payload): idem, jamais exercé sur le compte réel.
-export const AmendOrderResultSchema = UnverifiedPayloadSchema;
+export const AmendOrderResultSchema = PermissiveRecordSchema;
 export type AmendOrderResult = z.infer<typeof AmendOrderResultSchema>;
-// TODO(payload): idem, jamais exercé sur le compte réel.
-export const CancelOrderResultSchema = UnverifiedPayloadSchema;
+export const CancelOrderResultSchema = PermissiveRecordSchema;
 export type CancelOrderResult = z.infer<typeof CancelOrderResultSchema>;
