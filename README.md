@@ -108,7 +108,9 @@ bun run verify       # verify:fast + test (ce que fait la CI)
 bun run build        # binaire standalone compilé (bun build --compile)
 ```
 
-Husky (`.husky/`) fait tourner `verify:fast` avant chaque commit, et les tests avant chaque push. CI (GitHub Actions,
+Husky (`.husky/`) fait tourner lint-staged (Biome sur les fichiers indexés, cf. `.lintstagedrc.json`)
+puis `typecheck` avant chaque commit, et les tests avant chaque push. `verify:fast`/`verify` restent
+disponibles pour un contrôle complet en local. CI (GitHub Actions,
 `.github/workflows/ci.yml`) tourne `verify` en un seul appel plutôt que de relister les mêmes étapes séparément —
 `verify`/Husky/CI ne peuvent donc pas diverger silencieusement — puis vérifie que le build compile, sur chaque push
 sur `main` et chaque pull request. Release (`.github/workflows/release.yml`) : déclenchée par un tag `vX.Y.Z` (doit

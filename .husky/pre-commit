@@ -1,1 +1,2 @@
-bun run verify:fast
+bunx lint-staged
+bun run typecheck

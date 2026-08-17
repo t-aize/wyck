@@ -1,0 +1,34 @@
+version: 2
+
+updates:
+  # Dépendances du projet (bun.lock) — écosystème "bun" natif depuis Dependabot juin 2025.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      effect:
+        patterns:
+          - "effect"
+          - "@effect/*"
+      opentui:
+        patterns:
+          - "@opentui/*"
+
+  # Actions utilisées dans .github/workflows/*.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"
