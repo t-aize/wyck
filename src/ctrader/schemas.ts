@@ -1,5 +1,17 @@
 /**
- * Schémas zod des réponses du serveur MCP cTrader, et types dérivés (`z.infer`).
+ * Types et schémas des échanges avec le serveur MCP cTrader.
+ *
+ * Deux mondes délibérément distincts, pas un mélange accidentel :
+ * - **Params** (sortant) : `interface` TS simples, jamais validées à l'exécution — construites par
+ *   ce client lui-même à partir de valeurs déjà typées par `tsc`, jamais reçues du réseau. Rien à
+ *   valider à cette frontière.
+ * - **Results** (entrant) : schémas zod, validés via `safeParse` dans `client.ts`. La forme vient du
+ *   serveur, hors de notre contrôle à la compilation — zod est le filet de sécurité qui transforme un
+ *   payload inattendu en échec typé (`CtraderSchemaMismatch`) plutôt qu'un plantage plus loin dans le
+ *   mapping/l'UI.
+ * Exception : les enums (OrderType/TradeSide/TimeInForce) sont zod même si des Params les utilisent —
+ * ils doivent être validés côté Results (ex. `CtraderOrderSchema.tradeSide`), les Params se contentent
+ * d'emprunter le type déjà dérivé (`z.infer`) sans jamais appeler le schéma.
  *
  * `CtraderOrder`/`CtraderDeal` ont été vérifiés contre de vrais payloads
  * (get_order_history / get_deals, compte réel, symbole XAUUSD). `CtraderPosition`,
@@ -26,9 +38,9 @@
  */
 
 import { z } from "zod";
-import { TRENDBAR_PERIODS } from "../constants.ts";
+import { TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
 
-// ─── Enums ───────────────────────────────────────────────────────────────
+// ─── Enums (zod : validés côté Results, cf. commentaire en tête de fichier) ─
 
 export const OrderTypeSchema = z.enum(["MARKET", "LIMIT", "STOP", "MARKET_RANGE", "STOP_LIMIT"]);
 export type OrderType = z.infer<typeof OrderTypeSchema>;
@@ -53,119 +65,12 @@ export const HistoricalOrderTypeSchema = z.union([
 ]);
 export type HistoricalOrderType = z.infer<typeof HistoricalOrderTypeSchema>;
 
-// ─── Paramètres (fidèles au JSON Schema exposé par le serveur) ─────────────
-// Jamais validés à l'exécution : construits par ce client lui-même, pas reçus du réseau.
-
-export interface GetSpotPricesParams {
-  /** IDs des symboles */
-  symbolId: number[];
-}
-
-export interface GetTrendbarsParams {
-  symbolId: number;
-  period: (typeof TRENDBAR_PERIODS)[number];
-  /**
-   * Combinaisons valides : (count) → N dernières bougies ; (toTimestamp, count) →
-   * N bougies se terminant à toTimestamp ; (fromTimestamp, toTimestamp) → toutes
-   * les bougies sur la plage (≤ 720h). En pratique seule la 3e combinaison s'est
-   * montrée fiable lors des tests — les deux autres ont renvoyé une erreur 400
-   * côté serveur malgré une requête conforme au schéma annoncé.
-   */
-  fromTimestamp?: string;
-  toTimestamp?: string;
-  count?: number;
-}
-
-export interface GetPositionDetailsParams {
-  positionId: number;
-}
-
-export interface GetOrderHistoryParams {
-  /** Epoch ms ou ISO-8601. Plage plafonnée à 720h (30 jours) côté serveur. */
-  fromTimestamp: string;
-  toTimestamp: string;
-}
-
-export interface GetDealsParams {
-  fromTimestamp: string;
-  toTimestamp: string;
-  /** Défaut serveur : 50 */
-  maxRows?: number;
-}
-
-export interface AmendPositionParams {
-  positionId: number;
-  /** Nouveau SL en prix affiché (pas en pipettes) ; omis = inchangé */
-  stopLoss?: number;
-  /** Nouveau TP en prix affiché (pas en pipettes) ; omis = inchangé */
-  takeProfit?: number;
-  trailingStopLoss?: boolean;
-}
-
-export interface ClosePositionParams {
-  positionId: number;
-  /** Volume à clôturer en 1/100 d'unité d'actif de base (volume = lots × lotSize × 100) */
-  volume: number;
-}
-
-export interface CreateOrderParams {
-  symbolId: number;
-  orderType: OrderType;
-  tradeSide: TradeSide;
-  /**
-   * Volume en 1/100 d'unité d'actif de base (volume = lots × lotSize × 100).
-   * lotSize dépend de la classe d'actif : forex = 100000, métaux = 100 (XAUUSD :
-   * 1 lot = 10 000), indices/crypto = 1. Ne pas réutiliser la valeur forex pour
-   * les autres classes.
-   */
-  volume: number;
-  /** Requis pour LIMIT, STOP_LIMIT */
-  limitPrice?: number;
-  /** Requis pour STOP, STOP_LIMIT */
-  stopPrice?: number;
-  /** Prix absolu ; supporté sur LIMIT/STOP/STOP_LIMIT, PAS sur MARKET/MARKET_RANGE */
-  stopLoss?: number;
-  /** Prix absolu ; supporté sur LIMIT/STOP/STOP_LIMIT, PAS sur MARKET/MARKET_RANGE */
-  takeProfit?: number;
-  /** Distance en points depuis le prix d'exécution ; requis pour MARKET/MARKET_RANGE. Exclusif avec stopLoss. */
-  relativeStopLoss?: number;
-  /** Distance en points depuis le prix d'exécution ; requis pour MARKET/MARKET_RANGE. Exclusif avec takeProfit. */
-  relativeTakeProfit?: number;
-  comment?: string;
-  label?: string;
-  timeInForce?: TimeInForce;
-  baseSlippagePrice?: number;
-  slippageInPoints?: number;
-  /** Epoch ms (entier uniquement, pas d'ISO-8601 ici) */
-  expirationTimestamp?: number;
-}
-
-export interface AmendOrderParams {
-  orderId: number;
-  volume?: number;
-  limitPrice?: number;
-  stopPrice?: number;
-  /** Exclusif avec relativeStopLoss */
-  stopLoss?: number;
-  /** Exclusif avec relativeTakeProfit */
-  takeProfit?: number;
-  /** Exclusif avec stopLoss */
-  relativeStopLoss?: number;
-  /** Exclusif avec takeProfit */
-  relativeTakeProfit?: number;
-  expirationTimestamp?: number;
-}
-
-export interface CancelOrderParams {
-  orderId: number;
-}
-
-// ─── Résultats ───────────────────────────────────────────────────────────
-
 /** Volontairement permissif malgré une forme réelle désormais connue — cf. commentaire en tête
  * de fichier pour pourquoi (positions : ne jamais planter l'affichage ; écriture : ne jamais
  * transformer un ordre réussi en échec apparent). */
 const PermissiveRecordSchema = z.record(z.string(), z.unknown());
+
+// ─── Compte ─────────────────────────────────────────────────────────────
 
 export const GetVersionResultSchema = z.object({
   service: z.string(),
@@ -187,15 +92,7 @@ export const GetBalanceResultSchema = z.object({
 });
 export type GetBalanceResult = z.infer<typeof GetBalanceResultSchema>;
 
-export const CtraderAssetSchema = z.object({
-  assetId: z.number(),
-  name: z.string(),
-  displayName: z.string(),
-});
-export type CtraderAsset = z.infer<typeof CtraderAssetSchema>;
-
-export const GetAssetsResultSchema = z.object({ assets: z.array(CtraderAssetSchema) });
-export type GetAssetsResult = z.infer<typeof GetAssetsResultSchema>;
+// ─── Référentiel ────────────────────────────────────────────────────────
 
 export const CtraderSymbolSchema = z.object({
   symbolId: z.number(),
@@ -211,6 +108,21 @@ export type CtraderSymbol = z.infer<typeof CtraderSymbolSchema>;
 export const GetSymbolsResultSchema = z.object({ symbols: z.array(CtraderSymbolSchema) });
 export type GetSymbolsResult = z.infer<typeof GetSymbolsResultSchema>;
 
+export const CtraderAssetSchema = z.object({
+  assetId: z.number(),
+  name: z.string(),
+  displayName: z.string(),
+});
+export type CtraderAsset = z.infer<typeof CtraderAssetSchema>;
+
+export const GetAssetsResultSchema = z.object({ assets: z.array(CtraderAssetSchema) });
+export type GetAssetsResult = z.infer<typeof GetAssetsResultSchema>;
+
+export interface GetSpotPricesParams {
+  /** IDs des symboles */
+  symbolId: number[];
+}
+
 export const CtraderSpotPriceSchema = z.object({
   symbolId: z.number(),
   /** Prix à l'échelle x10^5 (ex: 410177000 → 4101.77) */
@@ -225,6 +137,21 @@ export type CtraderSpotPrice = z.infer<typeof CtraderSpotPriceSchema>;
 
 export const GetSpotPricesResultSchema = z.object({ prices: z.array(CtraderSpotPriceSchema) });
 export type GetSpotPricesResult = z.infer<typeof GetSpotPricesResultSchema>;
+
+export interface GetTrendbarsParams {
+  symbolId: number;
+  period: TrendbarPeriod;
+  /**
+   * Combinaisons valides : (count) → N dernières bougies ; (toTimestamp, count) →
+   * N bougies se terminant à toTimestamp ; (fromTimestamp, toTimestamp) → toutes
+   * les bougies sur la plage (≤ 720h). En pratique seule la 3e combinaison s'est
+   * montrée fiable lors des tests — les deux autres ont renvoyé une erreur 400
+   * côté serveur malgré une requête conforme au schéma annoncé.
+   */
+  fromTimestamp?: string;
+  toTimestamp?: string;
+  count?: number;
+}
 
 export const CtraderTrendbarSchema = z.object({
   timestamp: z.number(),
@@ -243,6 +170,8 @@ export const GetTrendbarsResultSchema = z.object({
   period: z.enum(TRENDBAR_PERIODS),
 });
 export type GetTrendbarsResult = z.infer<typeof GetTrendbarsResultSchema>;
+
+// ─── Positions & ordres (lecture) ───────────────────────────────────────
 
 /**
  * Forme réelle confirmée (compte démo, cf. commentaire en tête de fichier) :
@@ -309,11 +238,9 @@ export const GetPositionsResultSchema = z.object({
 });
 export type GetPositionsResult = z.infer<typeof GetPositionsResultSchema>;
 
-export const GetPendingOrdersResultSchema = z.object({
-  orders: z.array(CtraderOrderSchema),
-  hasMore: z.boolean(),
-});
-export type GetPendingOrdersResult = z.infer<typeof GetPendingOrdersResultSchema>;
+export interface GetPositionDetailsParams {
+  positionId: number;
+}
 
 /** Vérifié (compte démo) : `{ position, orders, deals }`, où `orders`/`deals` incluent
  * respectivement l'ordre d'ouverture et le deal d'exécution correspondant. Verrouillé (pas un
@@ -328,17 +255,40 @@ export const GetPositionDetailsResultSchema = z.object({
 });
 export type GetPositionDetailsResult = z.infer<typeof GetPositionDetailsResultSchema>;
 
+export const GetPendingOrdersResultSchema = z.object({
+  orders: z.array(CtraderOrderSchema),
+  hasMore: z.boolean(),
+});
+export type GetPendingOrdersResult = z.infer<typeof GetPendingOrdersResultSchema>;
+
+/** Plage temporelle requise par get_order_history/get_deals — plafonnée à 720h (30 jours)
+ * côté serveur. Partagée par les deux Params ci-dessous : même paire de champs, même contrainte. */
+interface TimestampRangeParams {
+  /** Epoch ms ou ISO-8601. */
+  fromTimestamp: string;
+  toTimestamp: string;
+}
+
+export type GetOrderHistoryParams = TimestampRangeParams;
+
 export const GetOrderHistoryResultSchema = z.object({
   orders: z.array(CtraderOrderSchema),
   hasMore: z.boolean(),
 });
 export type GetOrderHistoryResult = z.infer<typeof GetOrderHistoryResultSchema>;
 
+export interface GetDealsParams extends TimestampRangeParams {
+  /** Défaut serveur : 50 */
+  maxRows?: number;
+}
+
 export const GetDealsResultSchema = z.object({
   deals: z.array(CtraderDealSchema),
   hasMore: z.boolean(),
 });
 export type GetDealsResult = z.infer<typeof GetDealsResultSchema>;
+
+// ─── Trading (écriture — ordres réels) ──────────────────────────────────
 
 /**
  * Forme réelle confirmée (compte démo, cf. commentaire en tête de fichier), identique pour les
@@ -363,13 +313,88 @@ export type GetDealsResult = z.infer<typeof GetDealsResultSchema>;
  * Promise), verrouiller n'apporterait donc aucun bénéfice pour le risque pris (un `safeParse` qui
  * échoue sur un cas non testé transformerait un ordre *réussi* en échec apparent côté UI).
  */
-export const AmendPositionResultSchema = PermissiveRecordSchema;
-export type AmendPositionResult = z.infer<typeof AmendPositionResultSchema>;
-export const ClosePositionResultSchema = PermissiveRecordSchema;
-export type ClosePositionResult = z.infer<typeof ClosePositionResultSchema>;
-export const CreateOrderResultSchema = PermissiveRecordSchema;
+const WriteResultSchema = PermissiveRecordSchema;
+
+/**
+ * Champs de prix/protection partagés par create_order et amend_order (même nom, même sens dans
+ * les deux) — seule leur *contrainte* diffère selon le contexte, documentée par champ ci-dessous.
+ */
+interface OrderPriceFields {
+  /** Requis pour LIMIT, STOP_LIMIT (création). */
+  limitPrice?: number;
+  /** Requis pour STOP, STOP_LIMIT (création). */
+  stopPrice?: number;
+  /**
+   * Prix absolu ; supporté sur LIMIT/STOP/STOP_LIMIT, PAS sur MARKET/MARKET_RANGE en création.
+   * Exclusif avec relativeStopLoss.
+   */
+  stopLoss?: number;
+  /** Comme stopLoss, pour le take-profit. Exclusif avec relativeTakeProfit. */
+  takeProfit?: number;
+  /**
+   * Distance en points depuis le prix d'exécution ; requis pour MARKET/MARKET_RANGE en création.
+   * Exclusif avec stopLoss.
+   */
+  relativeStopLoss?: number;
+  /** Comme relativeStopLoss, pour le take-profit. Exclusif avec takeProfit. */
+  relativeTakeProfit?: number;
+  /** Epoch ms (entier uniquement, pas d'ISO-8601 ici). */
+  expirationTimestamp?: number;
+}
+
+export interface CreateOrderParams extends OrderPriceFields {
+  symbolId: number;
+  orderType: OrderType;
+  tradeSide: TradeSide;
+  /**
+   * Volume en 1/100 d'unité d'actif de base (volume = lots × lotSize × 100).
+   * lotSize dépend de la classe d'actif : forex = 100000, métaux = 100 (XAUUSD :
+   * 1 lot = 10 000), indices/crypto = 1. Ne pas réutiliser la valeur forex pour
+   * les autres classes.
+   */
+  volume: number;
+  comment?: string;
+  label?: string;
+  timeInForce?: TimeInForce;
+  baseSlippagePrice?: number;
+  slippageInPoints?: number;
+}
+
+export const CreateOrderResultSchema = WriteResultSchema;
 export type CreateOrderResult = z.infer<typeof CreateOrderResultSchema>;
-export const AmendOrderResultSchema = PermissiveRecordSchema;
+
+export interface AmendOrderParams extends OrderPriceFields {
+  orderId: number;
+  volume?: number;
+}
+
+export const AmendOrderResultSchema = WriteResultSchema;
 export type AmendOrderResult = z.infer<typeof AmendOrderResultSchema>;
-export const CancelOrderResultSchema = PermissiveRecordSchema;
+
+export interface CancelOrderParams {
+  orderId: number;
+}
+
+export const CancelOrderResultSchema = WriteResultSchema;
 export type CancelOrderResult = z.infer<typeof CancelOrderResultSchema>;
+
+export interface AmendPositionParams {
+  positionId: number;
+  /** Nouveau SL en prix affiché (pas en pipettes) ; omis = inchangé */
+  stopLoss?: number;
+  /** Nouveau TP en prix affiché (pas en pipettes) ; omis = inchangé */
+  takeProfit?: number;
+  trailingStopLoss?: boolean;
+}
+
+export const AmendPositionResultSchema = WriteResultSchema;
+export type AmendPositionResult = z.infer<typeof AmendPositionResultSchema>;
+
+export interface ClosePositionParams {
+  positionId: number;
+  /** Volume à clôturer en 1/100 d'unité d'actif de base (volume = lots × lotSize × 100) */
+  volume: number;
+}
+
+export const ClosePositionResultSchema = WriteResultSchema;
+export type ClosePositionResult = z.infer<typeof ClosePositionResultSchema>;
