@@ -13,6 +13,8 @@ updates:
     labels:
       - "dependencies"
     groups:
+      # effect/opentui : toujours groupés, y compris en major (packages liés entre eux, un décalage
+      # de version entre @effect/platform et effect casse le build).
       effect:
         patterns:
           - "effect"
@@ -20,6 +22,15 @@ updates:
       opentui:
         patterns:
           - "@opentui/*"
+      # Tout le reste (zod, mcp-sdk, biome, husky, lint-staged, typescript, @types/*...) : les minor/
+      # patch sont groupés en une seule PR hebdo pour limiter le bruit. Les major restent individuelles
+      # (potentiellement breaking, méritent une review à part).
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Actions utilisées dans .github/workflows/*.yml
   - package-ecosystem: "github-actions"
@@ -27,8 +38,16 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(ci)"
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Typecheck/lint/test n'ont rien de spécifique à l'OS : un seul run (ubuntu, le moins cher) suffit.
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,10 +33,35 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run verify
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
 
-      # Pas de bundle "léger" possible ici : @opentui/core résout ses binaires natifs par plateforme
-      # via des import() dynamiques que seul --compile élague au moment de la cible (un bundle
-      # generic tente de tout résoudre statiquement et échoue sur les plateformes non installées).
+  # @opentui/core résout ses binaires natifs par plateforme via des import() dynamiques que seul
+  # --compile élague au moment de la cible (un bundle generic tente de tout résoudre statiquement
+  # et échoue sur les plateformes non installées) — donc on vérifie que ça compile sur chaque OS
+  # livré (cf. release.yml), pas seulement sur celui du job `check` ci-dessus.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - run: bun install --frozen-lockfile
+
       - name: Verify the build compiles
-        run: bun build ./src/index.tsx --compile --outfile /tmp/build-check
+        run: bun run build:check
