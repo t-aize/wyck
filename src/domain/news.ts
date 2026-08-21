@@ -111,7 +111,7 @@ const CacheFileSchema = z.object({
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
 });
 
-// Erreurs taguées (cf. docs/ARCHITECTURE.md §1.4/§3.1) : le rate-limit distingue explicitement
+// Erreurs taguées : le rate-limit distingue explicitement
 // `retryAfterSeconds` — c'est cette valeur qui pilote maintenant le retry (avant, elle n'était
 // qu'affichée dans le message sans jamais déclencher de nouvelle tentative).
 export class CalendarRateLimited extends Data.TaggedError("CalendarRateLimited")<{
@@ -134,7 +134,7 @@ export type FetchCalendarError = CalendarRateLimited | CalendarHttpError | Calen
 /** `undefined` si absent, corrompu, ou d'un format antérieur — jamais en échec, on retombe sur un
  * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). Passe
  * par le service `FileSystem` (comme config.ts#readConfig) plutôt que `Bun.file` en direct — seul
- * point du code qui contournait encore ce service avant, cf. docs/ARCHITECTURE.md. */
+ * point du code qui contournait encore ce service avant. */
 function readCache(): Effect.Effect<
   { fetchedAt: string; events: CalendarEvent[] } | undefined,
   never,
@@ -228,7 +228,7 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
 }
 
 /** Réessaie sur 429 en respectant le `retry-after` renvoyé par le serveur (jusqu'à
- * `MAX_RATE_LIMIT_RETRIES` fois) — cf. docs/ARCHITECTURE.md §3.1 : avant cette passe, ce délai était lu
+ * `MAX_RATE_LIMIT_RETRIES` fois) — avant cette passe, ce délai était lu
  * et affiché mais jamais réellement utilisé pour patienter puis réessayer. Toute autre erreur
  * (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à réessayer
  * une 404 ou un JSON cassé immédiatement. */

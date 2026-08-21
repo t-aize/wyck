@@ -1,5 +1,5 @@
 /**
- * Seule vraie donnée transversale de l'app (cf. docs/ARCHITECTURE.md §8) : `feedback`/`setFeedback`
+ * Seule vraie donnée transversale de l'app : `feedback`/`setFeedback`
  * sont consommés par plusieurs hooks indépendants (le suivi ATR, le routeur de commandes, les
  * raccourcis clavier) qui ne peuvent pas se les passer directement entre eux — aucun d'eux ne peut
  * posséder cet état lui-même sans créer une dépendance circulaire. Avant ce Context, `setFeedback`

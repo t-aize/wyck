@@ -12,7 +12,7 @@ import {
 } from "./news.ts";
 
 /** Même pattern que config.test.ts : `FileSystem` remplacé par une chaîne en mémoire, pour tester
- * la vraie logique de cache (readCache/writeCache, cf. docs/ARCHITECTURE.md) sans jamais toucher
+ * la vraie logique de cache (readCache/writeCache) sans jamais toucher
  * ~/.aurum/calendar-cache.json. */
 function fakeFileSystem(initial?: string) {
   let stored = initial;

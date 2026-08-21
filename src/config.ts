@@ -20,7 +20,7 @@ const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
 
 /** Source unique de vérité pour ce qui constitue une config valide — réutilisé par SetupScreen.tsx
  * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
- * s'accordent par construction plutôt que par coïncidence (cf. docs/ARCHITECTURE.md §5.3).
+ * s'accordent par construction plutôt que par coïncidence.
  *
  * `rewardRiskRatio`/`atrMultiplier`/`atrPeriod`/`atrTimeframe` (réglages du mode ATR, cf.
  * domain/trading.ts) restent `.optional()` ici pour rester compatibles avec un config.json écrit
@@ -98,12 +98,12 @@ function decrypt(payload: string): string {
  * redemande la config dans ces cas plutôt que planter. Dépend de `FileSystem` (`@effect/platform`)
  * plutôt que d'appeler `node:fs` en dur : un test peut fournir une implémentation en mémoire sans
  * jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx, SetupScreen.tsx) :
- * `fsRuntime.runPromise(readConfig())` (cf. src/effectRuntime.ts, docs/ARCHITECTURE.md §7) — l'I/O
+ * `fsRuntime.runPromise(readConfig())` (cf. src/effectRuntime.ts) — l'I/O
  * de `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone),
  * donc `Effect.runSync` n'est plus utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
  * pratique) : App.tsx charge la config dans un `useEffect`, pas dans l'initializer de `useState`.
  * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré sur
- * disque — pas le bon outil ici malgré le nom (cf. docs/ARCHITECTURE.md §4.2).
+ * disque — pas le bon outil ici malgré le nom.
  */
 export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
   return Effect.gen(function* () {
