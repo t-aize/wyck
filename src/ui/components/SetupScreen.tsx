@@ -12,7 +12,7 @@ const DEFAULT_URL = "https://mcp.ctrader.com/trading/mcp";
 interface SetupScreenProps {
   initial?: CtraderClientConfig;
   onConfigured: (config: CtraderClientConfig) => void;
-  /** Fourni seulement pour un reconfig (commande `settings`) — pas de retour possible au tout premier lancement. */
+  /** Fourni seulement pour un reconfig (commande `config`) — pas de retour possible au tout premier lancement. */
   onCancel?: () => void;
 }
 

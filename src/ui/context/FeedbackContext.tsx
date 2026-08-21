@@ -14,7 +14,7 @@ import {
   useContext,
   useState,
 } from "react";
-import type { Feedback } from "../components/CommandBar.tsx";
+import type { Feedback } from "../feedback.ts";
 
 interface FeedbackContextValue {
   feedback: Feedback;

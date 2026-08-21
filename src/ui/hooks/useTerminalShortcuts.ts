@@ -1,7 +1,7 @@
 import { useKeyboard, useRenderer, useSelectionHandler } from "@opentui/react";
 import { type Dispatch, type SetStateAction, useRef } from "react";
-import type { Feedback } from "../components/CommandBar.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
+import type { Feedback } from "../feedback.ts";
 
 const QUIT_CONFIRM_WINDOW_MS = 2_000;
 const COPY_FEEDBACK_MS = 3_000;

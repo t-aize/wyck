@@ -1,13 +1,9 @@
 import type { InputRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { COMMANDS } from "../../commands/index.ts";
+import type { Feedback, FeedbackKind } from "../feedback.ts";
 import { theme } from "../theme.ts";
-
-export type FeedbackKind = "info" | "success" | "error";
-export interface Feedback {
-  kind: FeedbackKind;
-  message: string;
-}
 
 interface CommandBarProps {
   feedback: Feedback;
@@ -23,29 +19,20 @@ const FEEDBACK_COLOR: Record<FeedbackKind, string> = {
   error: theme.red,
 };
 
-const COMMANDS = [
-  "trade",
-  "modify",
-  "cancel",
-  "risk",
-  "settings",
-  "refresh",
-  "clear",
-  "help",
-] as const;
-
 /** Exposé au parent pour que Ctrl+C (géré globalement, cf. useTerminalShortcuts) vide la ligne. */
 export interface CommandBarHandle {
   /** Vide le champ s'il contient du texte. Retourne true si quelque chose a été effacé. */
   clearIfNotEmpty: () => boolean;
 }
 
-/** Autocomplétion sur le premier mot seulement — une fois un espace tapé, on est dans les arguments. */
+/** Autocomplétion sur le premier mot seulement — une fois un espace tapé, on est dans les arguments.
+ * Noms tirés du registre (commands/registry.ts) : une commande ajoutée là apparaît ici sans autre
+ * changement. */
 function matchCommands(value: string): string[] {
   if (value.includes(" ")) return [];
   const lower = value.toLowerCase();
   if (!lower) return [];
-  return COMMANDS.filter((c) => c.startsWith(lower) && c !== lower);
+  return COMMANDS.map((c) => c.name).filter((name) => name.startsWith(lower) && name !== lower);
 }
 
 export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function CommandBar(

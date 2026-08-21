@@ -261,6 +261,14 @@ export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): Cre
  * `changes` écrase juste ce qui doit réellement changer — impossible d'oublier un champ à un
  * nouveau point d'appel.
  */
+export function formatTradeSummary(trade: PreparedTrade): string {
+  return (
+    `${trade.tradeSide} ${trade.orderType} ${trade.entryPrice.toFixed(2)} · ` +
+    `SL ${trade.stopLoss.toFixed(2)} · TP ${trade.takeProfit.toFixed(2)} · ` +
+    `${trade.volumeLots.toFixed(2)} lots · risque ${trade.riskAmount.toFixed(2)} (${trade.riskPercent}%)`
+  );
+}
+
 export function toAmendOrderParams(
   order: CtraderOrder,
   changes: Partial<Omit<AmendOrderParams, "orderId">> = {},
