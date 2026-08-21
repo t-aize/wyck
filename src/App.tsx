@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
-import { fsRuntime } from "./effectRuntime.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
@@ -19,6 +18,7 @@ import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
 import { theme } from "./ui/theme.ts";
+import { fsRuntime } from "./utils/effectRuntime.ts";
 
 /**
  * Porte d'entrée : pas de client MCP tant que la config (URL/token) n'est pas connue.

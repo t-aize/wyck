@@ -12,7 +12,7 @@ import {
   TRADE_USAGE,
 } from "../../domain/commands.ts";
 import { prepareTrade } from "../../domain/trading.ts";
-import { toMessage } from "../../errors.ts";
+import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 import type { CancelConfirm } from "./useCancelConfirm.ts";

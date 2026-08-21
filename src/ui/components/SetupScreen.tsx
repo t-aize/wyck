@@ -3,8 +3,8 @@ import { Effect } from "effect";
 import { useState } from "react";
 import { writeConfig } from "../../config.ts";
 import { CtraderClient, type CtraderClientConfig } from "../../ctrader/client.ts";
-import { fsRuntime } from "../../effectRuntime.ts";
-import { toMessage } from "../../errors.ts";
+import { fsRuntime } from "../../utils/effectRuntime.ts";
+import { toMessage } from "../../utils/errors.ts";
 import { theme } from "../theme.ts";
 
 const DEFAULT_URL = "https://mcp.ctrader.com/trading/mcp";

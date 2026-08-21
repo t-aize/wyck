@@ -1,8 +1,8 @@
 /** Parsing des commandes CLI-style (`trade`, `modify`) tapées dans le CommandBar. */
 
 import { Schema } from "effect";
-import { roundPrice } from "../constants.ts";
 import type { CtraderOrder } from "../ctrader/schemas.ts";
+import { roundPrice } from "../utils/priceMath.ts";
 import type { PreparedTrade, TradeInput } from "./trading.ts";
 
 /**

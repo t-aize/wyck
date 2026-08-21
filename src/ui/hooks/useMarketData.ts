@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
-import { toMessage } from "../../errors.ts";
+import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
 

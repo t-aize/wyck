@@ -102,7 +102,7 @@ const READ_TIMEOUT_MS = 10_000;
  * Échec d'un appel à un outil MCP cTrader — transport (réseau/DNS/timeout), erreur explicite de
  * l'outil, réponse vide, contenu non-JSON, ou schéma zod inattendu. Une seule classe : l'ancienne
  * hiérarchie de 5 sous-types tagués (`Data.TaggedError`, un par cause) n'était discriminée par aucun
- * appelant (tous affichent juste `.message` via `errors.ts#toMessage`) — seule la distinction
+ * appelant (tous affichent juste `.message` via `utils/errors.ts#toMessage`) — seule la distinction
  * "échec de transport, donc retryable" servait réellement (cf. callWithRetry), portée ici par
  * `retryable` plutôt que par une classe séparée par cause.
  */

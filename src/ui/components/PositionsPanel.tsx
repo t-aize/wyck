@@ -1,7 +1,8 @@
 import { TextAttributes } from "@opentui/core";
-import { PRICE_SCALE, SYMBOL, toLots, toPips } from "../../constants.ts";
+import { PRICE_SCALE, SYMBOL } from "../../constants.ts";
 import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/schemas.ts";
 import { computeUnrealizedPnl } from "../../domain/trading.ts";
+import { toLots, toPips } from "../../utils/priceMath.ts";
 import { alignLeft, alignRight, formatPriceOrDash } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";

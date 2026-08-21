@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { type CalendarEvent, fetchCalendar } from "../../domain/news.ts";
-import { fsRuntime } from "../../effectRuntime.ts";
-import { toMessage } from "../../errors.ts";
+import { fsRuntime } from "../../utils/effectRuntime.ts";
+import { toMessage } from "../../utils/errors.ts";
 import { useInterval } from "./useInterval.ts";
 
 const NEWS_POLL_MS = 5 * 60_000;

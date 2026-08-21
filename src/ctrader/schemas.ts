@@ -42,7 +42,8 @@
  */
 
 import { z } from "zod";
-import { TRENDBAR_PERIODS, type TrendbarPeriod, toLots } from "../constants.ts";
+import { TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
+import { toLots } from "../utils/priceMath.ts";
 
 // ─── Enums (zod : validés côté Results, cf. commentaire en tête de fichier) ─
 

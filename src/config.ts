@@ -56,7 +56,7 @@ function decrypt(payload: string): string {
  * (pas de schéma) : un config.json à moitié écrit passerait tel quel. Dépend de `FileSystem`
  * (`@effect/platform`) plutôt que d'appeler `node:fs` en dur : un test peut fournir une
  * implémentation en mémoire sans jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx,
- * SetupScreen.tsx) : `fsRuntime.runPromise(readConfig())` (cf. src/effectRuntime.ts) — l'I/O
+ * SetupScreen.tsx) : `fsRuntime.runPromise(readConfig())` (cf. src/utils/effectRuntime.ts) — l'I/O
  * de `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone),
  * donc `Effect.runSync` n'est plus utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
  * pratique) : App.tsx charge la config dans un `useEffect`, pas dans l'initializer de `useState`.

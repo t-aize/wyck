@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { SYMBOL } from "../../constants.ts";
 import type { CtraderClient } from "../../ctrader/client.ts";
-import { toMessage } from "../../errors.ts";
+import { toMessage } from "../../utils/errors.ts";
 
 export interface CtraderConnection {
   connected: boolean;
