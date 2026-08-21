@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import type { GetPositionsResult } from "../../ctrader/client.ts";
+import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { toMessage } from "../../errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
@@ -23,8 +23,8 @@ export interface MarketData {
   refreshMarket: () => Promise<void>;
 }
 
-/** `client`/`symbolId` viennent de `useCtrader()` (cf. docs/ARCHITECTURE.md §8) — les erreurs
- * partagent `connectionError` du même Context (même affichage qu'un échec de connexion). */
+/** `client`/`symbolId` viennent de `useCtrader()` — les erreurs partagent `connectionError` du
+ * même Context (même affichage qu'un échec de connexion). */
 export function useMarketData(): MarketData {
   const { client, symbolId, reportConnectionError } = useCtrader();
   const [bid, setBid] = useState<number>();

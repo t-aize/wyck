@@ -1,7 +1,7 @@
 /** Liquidity sweep — mèche au-delà d'un niveau, PAS de clôture au-delà (distinct d'une vraie
  * cassure de structure, cf. structureEvents.ts). Extrait de trend.ts. */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { detectSwings, type FractalOptions } from "./swings.ts";
 
 export interface SweepState {

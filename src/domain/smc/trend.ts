@@ -1,6 +1,6 @@
 /**
  * Agrégateur de tendance (Bullish / Bearish / Range) — combine les méthodes/filtres extraits dans
- * les fichiers voisins de ce dossier (chacun une seule responsabilité, cf. docs/ARCHITECTURE.md) :
+ * les fichiers voisins de ce dossier (chacun une seule responsabilité) :
  *
  * - `structuralTrend.ts` — MÉTHODE 1, structurelle (HH/HL vs LH/LL, théorie de Dow).
  * - `structureEvents.ts` — MÉTHODE 2, événementielle (BOS/CHoCH + règle de confirmation).
@@ -14,7 +14,7 @@
  * publique qu'avant l'éclatement (rien en dehors de `domain/smc/` n'a besoin de changer un import).
  */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { computeAdx, computeEmaStack } from "./filters.ts";
 import { classifyStructuralTrend } from "./structuralTrend.ts";
 import {

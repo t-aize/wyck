@@ -1,5 +1,5 @@
 import type { AtrSettings } from "../../config.ts";
-import type { CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
+import type { CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
 import type { PreparedTrade } from "../../domain/trading.ts";
 import type { AtrOrderTracking } from "./useAtrOrderTracking.ts";
 import { useCancelConfirm } from "./useCancelConfirm.ts";
@@ -24,8 +24,8 @@ export interface OrderActions {
 }
 
 /**
- * Composition fine des 4 hooks à responsabilité unique issus de l'éclatement de ce fichier (cf.
- * docs/ARCHITECTURE.md §8) : `useTradeConfirm`/`useModifyConfirm`/`useCancelConfirm` possèdent
+ * Composition fine des 4 hooks à responsabilité unique issus de l'éclatement de ce fichier :
+ * `useTradeConfirm`/`useModifyConfirm`/`useCancelConfirm` possèdent
  * chacun un état de confirmation pendante, `useCommandRouter` parse/route les commandes du
  * CommandBar et les appelle sur succès. Retourne exactement la même forme `OrderActions` qu'avant
  * l'éclatement — le rendu (App.tsx, les 4 popups de confirmation) n'a pas besoin de changer. Un

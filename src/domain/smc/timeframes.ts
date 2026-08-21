@@ -1,4 +1,4 @@
-import type { GetTrendbarsParams } from "../../ctrader/client.ts";
+import type { GetTrendbarsParams } from "../../ctrader/schemas.ts";
 
 /** Les 3 timeframes suivis par le panneau structure — aussi la liste fermée proposée pour
  * `atr timeframe` (cf. domain/commands.ts) : le mode ATR ne peut choisir que parmi des bougies déjà

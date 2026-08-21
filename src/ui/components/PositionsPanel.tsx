@@ -1,8 +1,6 @@
 import { TextAttributes } from "@opentui/core";
-import { useMemo } from "react";
 import { PRICE_SCALE, SYMBOL, toLots, toPips } from "../../constants.ts";
-import type { CtraderOrder, GetPositionsResult } from "../../ctrader/client.ts";
-import { isUnmapped, type ReadPosition, readPosition } from "../../ctrader/mappers.ts";
+import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/schemas.ts";
 import { computeUnrealizedPnl } from "../../domain/trading.ts";
 import { alignLeft, alignRight, formatPriceOrDash } from "../format.ts";
 import { DOWN, UP } from "../glyphs.ts";
@@ -46,6 +44,18 @@ function nearestPipsLabel(
   return `${nearest.label} ${nearest.pips}p`;
 }
 
+/** Une position dont les champs à haute confiance (id/side/volumeLots/entry) ne résolvent pas du
+ * tout signale que l'hypothèse de mapping (cf. `CtraderPositionSchema` dans ctrader/schemas.ts)
+ * est cassée en pratique. */
+export function isUnmapped(position: CtraderPosition): boolean {
+  return (
+    position.id === undefined ||
+    position.side === undefined ||
+    position.volumeLots === undefined ||
+    position.entry === undefined
+  );
+}
+
 function headerRow() {
   return (
     <text fg={theme.textDim} attributes={TextAttributes.BOLD}>
@@ -68,7 +78,7 @@ function PositionRow({
   bidPrice,
   askPrice,
 }: {
-  p: ReadPosition;
+  p: CtraderPosition;
   mid: number | undefined;
   bidPrice: number | undefined;
   askPrice: number | undefined;
@@ -159,11 +169,10 @@ export function PositionsPanel({ positions, bid, ask, trackedOrderIds }: Positio
   const bidPrice = bid === undefined ? undefined : bid / PRICE_SCALE;
   const askPrice = ask === undefined ? undefined : ask / PRICE_SCALE;
 
-  const mapped = useMemo(() => openPositions.map(readPosition), [openPositions]);
-  // Si les champs à haute confiance (cf. commentaire en tête de ctrader/mappers.ts) ne
-  // résolvent pas sur des positions réellement ouvertes, l'hypothèse de mapping est
-  // cassée — mieux vaut le dire que d'afficher des "—" sans explication.
-  const hasUnmapped = mapped.some(isUnmapped);
+  // Si les champs à haute confiance (cf. isUnmapped ci-dessous) ne résolvent pas sur des
+  // positions réellement ouvertes, l'hypothèse de mapping (cf. CtraderPositionSchema dans
+  // ctrader/schemas.ts) est cassée — mieux vaut le dire que d'afficher des "—" sans explication.
+  const hasUnmapped = openPositions.some(isUnmapped);
 
   return (
     <box
@@ -206,10 +215,10 @@ export function PositionsPanel({ positions, bid, ask, trackedOrderIds }: Positio
           style={{ flexDirection: "column" }}
         >
           {headerRow()}
-          {mapped.map((p, index) => (
+          {openPositions.map((p, index) => (
             <PositionRow
-              // positionId a une confiance haute (cf. mappers.ts) ; l'index reste un filet
-              // pour le cas — signalé ci-dessus — où le mapping échoue en pratique.
+              // positionId a une confiance haute (cf. CtraderPositionSchema) ; l'index reste un
+              // filet pour le cas — signalé ci-dessus — où le mapping échoue en pratique.
               key={p.id ?? index}
               p={p}
               mid={mid}

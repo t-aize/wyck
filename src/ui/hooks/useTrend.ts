@@ -1,10 +1,7 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import type {
-  CtraderClientLive,
-  CtraderTrendbar,
-  GetTrendbarsParams,
-} from "../../ctrader/client.ts";
+import type { CtraderClient } from "../../ctrader/client.ts";
+import type { CtraderTrendbar, GetTrendbarsParams } from "../../ctrader/schemas.ts";
 import { dropFormingBar } from "../../domain/smc/bars.ts";
 import type { AtrTimeframeLabel } from "../../domain/smc/timeframes.ts";
 import { TREND_TIMEFRAMES, type TrendTimeframe } from "../../domain/smc/timeframes.ts";
@@ -44,7 +41,7 @@ export function requestCapMs(periodMs: number): number {
 }
 
 async function fetchHistory(
-  client: CtraderClientLive,
+  client: CtraderClient,
   symbolId: number,
   period: GetTrendbarsParams["period"],
   periodMs: number,

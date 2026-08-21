@@ -1,6 +1,7 @@
+import { Effect } from "effect";
 import { useState } from "react";
 import type { AtrSettings } from "../../config.ts";
-import type { GetPositionsResult } from "../../ctrader/client.ts";
+import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import {
   ATR_SETTINGS_USAGE,
   ATR_TRADE_USAGE,
@@ -54,8 +55,8 @@ export interface CommandRouter {
 }
 
 /** Parsing + dispatch des commandes du CommandBar — un des 4 hooks issus de l'éclatement de
- * useOrderActions.ts (cf. docs/ARCHITECTURE.md §8). Sur succès de `trade`/`modify`/`cancel`, délègue
- * au hook de confirmation correspondant plutôt que de posséder lui-même cet état. */
+ * useOrderActions.ts. Sur succès de `trade`/`modify`/`cancel`, délègue au hook de confirmation
+ * correspondant plutôt que de posséder lui-même cet état. */
 export function useCommandRouter(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
@@ -84,7 +85,7 @@ export function useCommandRouter(opts: {
     modifyConfirm,
     cancelConfirm,
   } = opts;
-  const { runtime, symbolId } = useCtrader();
+  const { client, symbolId } = useCtrader();
   const { setFeedback } = useFeedback();
 
   // Basculé au Shift+Tab, jamais persisté, repart à "manuel" à chaque lancement.
@@ -188,17 +189,15 @@ export function useCommandRouter(opts: {
             return;
           }
           setFeedback({ kind: "info", message: "calcul ATR en cours…" });
-          void runtime
-            .runPromise(
-              prepareAtrTrade(symbolId, parsed, {
-                rawValue: atrRaw,
-                multiplier: atrSettings.atrMultiplier,
-                rewardRiskRatio: atrSettings.rewardRiskRatio,
-                period: atrSettings.atrPeriod,
-                timeframe: atrSettings.atrTimeframe,
-              }),
-            )
-            .then(tradeConfirm.proposeTrade, onFailed);
+          void Effect.runPromise(
+            prepareAtrTrade(client, symbolId, parsed, {
+              rawValue: atrRaw,
+              multiplier: atrSettings.atrMultiplier,
+              rewardRiskRatio: atrSettings.rewardRiskRatio,
+              period: atrSettings.atrPeriod,
+              timeframe: atrSettings.atrTimeframe,
+            }),
+          ).then(tradeConfirm.proposeTrade, onFailed);
           return;
         }
 
@@ -208,9 +207,10 @@ export function useCommandRouter(opts: {
           return;
         }
         setFeedback({ kind: "info", message: "calcul en cours…" });
-        void runtime
-          .runPromise(prepareTrade(symbolId, parsed))
-          .then(tradeConfirm.proposeTrade, onFailed);
+        void Effect.runPromise(prepareTrade(client, symbolId, parsed)).then(
+          tradeConfirm.proposeTrade,
+          onFailed,
+        );
         return;
       }
       case "modify": {
@@ -219,9 +219,8 @@ export function useCommandRouter(opts: {
           setFeedback({ kind: "error", message: parsed });
           return;
         }
-        // Seuls les ordres en attente ont une structure vérifiée (CtraderOrder) — CtraderPosition
-        // reste non vérifié (aucune position réelle observée), donc `modify` ne cible que les
-        // ordres pour l'instant. Cf. commentaire équivalent dans ctrader/mappers.ts.
+        // `modify` ne cible que les ordres en attente pour l'instant, pas les positions ouvertes —
+        // cf. `CtraderPositionSchema` dans ctrader/schemas.ts pour la forme désormais confirmée.
         const order = positions?.orders.find((o) => o.orderId === parsed.id);
         if (!order) {
           setFeedback({

@@ -1,7 +1,7 @@
 /** Détection de fractale/swing — extrait de trend.ts, partagé par structuralTrend.ts,
  * structureEvents.ts et sweep.ts (les 3 méthodes qui en dérivent leur propre lecture). */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 
 export interface FractalOptions {
   left: number;

@@ -11,8 +11,8 @@
  * par un id qu'on n'a pas.
  */
 
-import type { CtraderOrder, OrderType, TradeSide } from "../ctrader/client.ts";
-import { computeAtrLevels } from "./trading.ts";
+import type { CtraderOrder, OrderType, TradeSide } from "../ctrader/schemas.ts";
+import { computeAtrLevels, computeVolumeFromRisk, VOLUME_STEP } from "./trading.ts";
 
 export interface PendingAtrRegistration {
   symbolId: number;
@@ -24,17 +24,24 @@ export interface PendingAtrRegistration {
   price: number;
   atrMultiplier: number;
   rewardRiskRatio: number;
+  /** Risque$ voulu à la création (PreparedTrade.riskAmount) — permet de recalculer le volume à
+   * chaque réamend pour que le risque$ reste constant quand l'ATR bouge (cf. AtrTrackedOrder). */
+  riskAmount: number;
   /** epoch ms à la création de la registration — sert à la purger si jamais matchée. */
   queuedAt: number;
 }
 
 /** Réglages figés à la création de l'ordre (pas relus depuis les réglages globaux à chaque
- * réamend — changer `atr rr` ne doit pas modifier rétroactivement un ordre déjà en attente). */
+ * réamend — changer `atr rr` ne doit pas modifier rétroactivement un ordre déjà en attente).
+ * `riskAmount` fixé de la même façon : sans lui, le volume resterait celui de la création pendant
+ * que le SL/TP suit l'ATR courant, et le risque$ réel dériverait avec l'ATR (ex. ATR qui double ⇒
+ * stop deux fois plus loin au même volume ⇒ risque$ doublé) — c'est le bug que ce champ corrige. */
 export interface AtrTrackedOrder {
   side: TradeSide;
   entryPrice: number;
   atrMultiplier: number;
   rewardRiskRatio: number;
+  riskAmount: number;
 }
 
 /** Trouve, parmi `orders`, celui qui correspond à `registration` et n'est pas déjà suivi —
@@ -59,14 +66,22 @@ export interface AtrAmendment {
   orderId: number;
   stopLoss: number;
   takeProfit: number;
+  volume: number;
 }
 
 /**
  * Pour chaque ordre suivi encore présent dans `orders`, recalcule SL/TP depuis `atrValue` (prix
- * affiché, pas l'échelle brute x10^5 — cf. commentaire de tête de trading.ts) et ne retient que ceux
- * dont le résultat diffère du SL/TP actuellement rapporté par le serveur. La source de vérité est
- * `order.stopLoss`/`order.takeProfit` (pas un cache local) : après un amend réussi, le prochain poll
- * ramène la valeur à jour et cette fonction cesse naturellement de le ré-amender.
+ * affiché, pas l'échelle brute x10^5 — cf. commentaire de tête de trading.ts), ainsi que le volume
+ * nécessaire pour garder `meta.riskAmount` constant sur la nouvelle distance de stop — sans ça, le
+ * volume resterait celui de la création pendant que le stop suit l'ATR courant, et le risque$ réel
+ * dériverait avec l'ATR. Ne retient que les ordres dont le résultat (SL, TP ou volume) diffère de ce
+ * que le serveur rapporte actuellement. La source de vérité est `order.stopLoss`/`order.takeProfit`/
+ * `order.volume` (pas un cache local) : après un amend réussi, le prochain poll ramène la valeur à
+ * jour et cette fonction cesse naturellement de le ré-amender.
+ *
+ * Le volume recalculé est plancher à `VOLUME_STEP` (0.01 lot, cf. trading.ts) : un ATR qui augmente
+ * fortement peut faire tomber le volume théorique sous le minimum du compte — mieux vaut risquer
+ * légèrement plus que ne pas pouvoir amender du tout.
  */
 export function computeAtrAmendments(
   tracked: ReadonlyMap<number, AtrTrackedOrder>,
@@ -85,8 +100,11 @@ export function computeAtrAmendments(
       meta.atrMultiplier,
       meta.rewardRiskRatio,
     );
-    if (stopLoss !== order.stopLoss || takeProfit !== order.takeProfit) {
-      amendments.push({ orderId, stopLoss, takeProfit });
+    const stopDistance = Math.abs(meta.entryPrice - stopLoss);
+    const volume = Math.max(VOLUME_STEP, computeVolumeFromRisk(meta.riskAmount, stopDistance));
+
+    if (stopLoss !== order.stopLoss || takeProfit !== order.takeProfit || volume !== order.volume) {
+      amendments.push({ orderId, stopLoss, takeProfit, volume });
     }
   }
   return amendments;

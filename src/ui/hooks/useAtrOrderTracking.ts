@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { PRICE_SCALE } from "../../constants.ts";
-import type { CtraderOrder } from "../../ctrader/client.ts";
+import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import {
   type AtrTrackedOrder,
   computeAtrAmendments,
@@ -51,7 +51,9 @@ export function useAtrOrderTracking(opts: {
   // Évite de ré-amender en boucle sur les polls (3s) qui précèdent la confirmation serveur du
   // dernier amend — sans ça, `computeAtrAmendments` continuerait de proposer le même changement
   // tant que `order.stopLoss` (source de vérité) n'a pas encore été rafraîchi côté serveur.
-  const lastAppliedRef = useRef(new Map<number, { stopLoss: number; takeProfit: number }>());
+  const lastAppliedRef = useRef(
+    new Map<number, { stopLoss: number; takeProfit: number; volume: number }>(),
+  );
   const [trackedOrderIds, setTrackedOrderIds] = useState<Set<number>>(new Set());
 
   function registerPendingAtrOrder(registration: Omit<PendingAtrRegistration, "queuedAt">) {
@@ -90,6 +92,7 @@ export function useAtrOrderTracking(opts: {
             entryPrice: registration.price,
             atrMultiplier: registration.atrMultiplier,
             rewardRiskRatio: registration.rewardRiskRatio,
+            riskAmount: registration.riskAmount,
           });
           setTrackedOrderIds((ids) => new Set(ids).add(match.orderId));
         } else if (now - registration.queuedAt > REGISTRATION_TIMEOUT_MS) {
@@ -131,13 +134,22 @@ export function useAtrOrderTracking(opts: {
     const amendments = computeAtrAmendments(registryRef.current, pendingOrders, atrValue).filter(
       (a) => {
         const applied = lastAppliedRef.current.get(a.orderId);
-        return !applied || applied.stopLoss !== a.stopLoss || applied.takeProfit !== a.takeProfit;
+        return (
+          !applied ||
+          applied.stopLoss !== a.stopLoss ||
+          applied.takeProfit !== a.takeProfit ||
+          applied.volume !== a.volume
+        );
       },
     );
     if (amendments.length === 0) return;
 
     for (const a of amendments) {
-      lastAppliedRef.current.set(a.orderId, { stopLoss: a.stopLoss, takeProfit: a.takeProfit });
+      lastAppliedRef.current.set(a.orderId, {
+        stopLoss: a.stopLoss,
+        takeProfit: a.takeProfit,
+        volume: a.volume,
+      });
     }
 
     // Même idiome que confirmPendingCancel dans useOrderActions.ts : chaque résultat porte
@@ -148,7 +160,13 @@ export function useAtrOrderTracking(opts: {
         const order = pendingOrders.find((o) => o.orderId === a.orderId);
         if (!order) return Effect.succeed({ orderId: a.orderId, ok: false as const });
         return client
-          .amendOrder(toAmendOrderParams(order, { stopLoss: a.stopLoss, takeProfit: a.takeProfit }))
+          .amendOrder(
+            toAmendOrderParams(order, {
+              stopLoss: a.stopLoss,
+              takeProfit: a.takeProfit,
+              volume: a.volume,
+            }),
+          )
           .pipe(
             Effect.as({ orderId: a.orderId, ok: true as const }),
             Effect.catchAll(() => Effect.succeed({ orderId: a.orderId, ok: false as const })),

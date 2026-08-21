@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useState } from "react";
-import type { CtraderOrder } from "../../ctrader/client.ts";
+import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import { toAmendOrderParams } from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
@@ -20,9 +20,9 @@ export interface ModifyConfirm {
   cancelPendingModify: () => void;
 }
 
-/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts (cf.
- * docs/ARCHITECTURE.md §8). Une intervention manuelle sur un ordre suivi ATR désactive son suivi
- * automatique dès la confirmation (l'intervention manuelle prime, cf. useAtrOrderTracking.ts). */
+/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts. Une intervention
+ * manuelle sur un ordre suivi ATR désactive son suivi automatique dès la confirmation
+ * (l'intervention manuelle prime, cf. useAtrOrderTracking.ts). */
 export function useModifyConfirm(opts: {
   refreshMarket: () => Promise<void>;
   atrTracking: Pick<AtrOrderTracking, "untrackOrder">;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CtraderOrder } from "../ctrader/client.ts";
+import type { CtraderOrder } from "../ctrader/schemas.ts";
 import {
   type AtrTrackedOrder,
   computeAtrAmendments,
@@ -26,6 +26,7 @@ function registration(overrides: Partial<PendingAtrRegistration> = {}): PendingA
     price: 4095,
     atrMultiplier: 1,
     rewardRiskRatio: 1.2,
+    riskAmount: 50,
     queuedAt: 0,
     ...overrides,
   };
@@ -71,17 +72,23 @@ describe("computeAtrAmendments", () => {
     entryPrice: 4100,
     atrMultiplier: 1,
     rewardRiskRatio: 1.2,
+    riskAmount: 50,
   };
-  // atrValue=5 ⇒ SL=4095, TP=4106 (mêmes chiffres que computeAtrLevels dans trading.test.ts).
+  // atrValue=5 ⇒ stopDistance=5 ⇒ SL=4095, TP=4106 (mêmes chiffres que computeAtrLevels dans
+  // trading.test.ts) ⇒ volume=round((50/5*100)/100)*100=1000, inchangé par rapport à `order()`.
 
   test("détecte un changement quand le SL/TP serveur diverge du calcul", () => {
-    const orders = [order({ orderId: 1, limitPrice: 4100, stopLoss: 4093, takeProfit: 4106 })];
+    const orders = [
+      order({ orderId: 1, limitPrice: 4100, stopLoss: 4093, takeProfit: 4106, volume: 1000 }),
+    ];
     const result = computeAtrAmendments(new Map([[1, tracked]]), orders, 5);
-    expect(result).toEqual([{ orderId: 1, stopLoss: 4095, takeProfit: 4106 }]);
+    expect(result).toEqual([{ orderId: 1, stopLoss: 4095, takeProfit: 4106, volume: 1000 }]);
   });
 
-  test("aucun changement quand le SL/TP serveur est déjà à jour", () => {
-    const orders = [order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106 })];
+  test("aucun changement quand le SL/TP/volume serveur sont déjà à jour", () => {
+    const orders = [
+      order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106, volume: 1000 }),
+    ];
     expect(computeAtrAmendments(new Map([[1, tracked]]), orders, 5)).toEqual([]);
   });
 
@@ -95,15 +102,17 @@ describe("computeAtrAmendments", () => {
       entryPrice: 4100,
       atrMultiplier: 1,
       rewardRiskRatio: 1.2,
+      riskAmount: 50,
     };
     const orders = [
-      order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106 }), // BUY, à jour
+      order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106, volume: 1000 }), // BUY, à jour
       order({
         orderId: 2,
         tradeSide: "SELL",
         limitPrice: 4100,
         stopLoss: 4090,
         takeProfit: 4094,
+        volume: 1000,
       }), // SELL, SL désynchronisé (devrait être 4105)
     ];
     const result = computeAtrAmendments(
@@ -114,6 +123,25 @@ describe("computeAtrAmendments", () => {
       orders,
       5,
     );
-    expect(result).toEqual([{ orderId: 2, stopLoss: 4105, takeProfit: 4094 }]);
+    expect(result).toEqual([{ orderId: 2, stopLoss: 4105, takeProfit: 4094, volume: 1000 }]);
+  });
+
+  test("recalcule le volume pour garder le risque$ constant quand l'ATR augmente (bug rapporté : sans ça le risque$ dérive avec l'ATR)", () => {
+    // Ordre créé à atrValue=5 (SL=4095, TP=4106, volume=1000 pour risque$=50) — l'ATR passe à 10 :
+    // stopDistance double, le volume doit être divisé par 2 pour garder le même risque$.
+    const orders = [
+      order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106, volume: 1000 }),
+    ];
+    const result = computeAtrAmendments(new Map([[1, tracked]]), orders, 10);
+    expect(result).toEqual([{ orderId: 1, stopLoss: 4090, takeProfit: 4112, volume: 500 }]);
+  });
+
+  test("volume théorique sous le pas minimum ⇒ plancher à VOLUME_STEP (0.01 lot) plutôt que de bloquer l'amend", () => {
+    const tinyRisk: AtrTrackedOrder = { ...tracked, riskAmount: 0.01 };
+    const orders = [
+      order({ orderId: 1, limitPrice: 4100, stopLoss: 4095, takeProfit: 4106, volume: 1000 }),
+    ];
+    const result = computeAtrAmendments(new Map([[1, tinyRisk]]), orders, 5);
+    expect(result).toEqual([{ orderId: 1, stopLoss: 4095, takeProfit: 4106, volume: 100 }]);
   });
 });

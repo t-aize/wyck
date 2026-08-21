@@ -1,24 +1,19 @@
 /**
- * Deuxième (et dernier, cf. docs/ARCHITECTURE.md §8) Context transversal de l'app : la connexion
- * cTrader (client, runtime Effect pour l'injection de dépendance de prepareTrade/prepareAtrTrade —
- * cf. §4.1 —, statut, symbolId). Absorbe la construction du client/runtime et l'ancien
+ * Deuxième (et dernier) Context transversal de l'app : la connexion
+ * cTrader (client, statut, symbolId). Absorbe la construction du client et l'ancien
  * `useCtraderConnection` — ce hook devient un détail d'implémentation interne à ce fichier, plus
  * importé ailleurs. `reportConnectionError` remplace le `setConnectionError` brut qu'exposait
  * `useCtraderConnection` (seul hook du projet à exposer un setter React direct plutôt qu'une
  * fonction d'action).
  */
 
-import { Layer, ManagedRuntime } from "effect";
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import type { AppConfig } from "../../config.ts";
-import { CtraderClient, CtraderClientLive } from "../../ctrader/client.ts";
+import { CtraderClient } from "../../ctrader/client.ts";
 import { useCtraderConnection } from "../hooks/useCtraderConnection.ts";
 
 interface CtraderContextValue {
-  client: CtraderClientLive;
-  /** Réservé à `prepareTrade`/`prepareAtrTrade` (injection Effect, cf. docs/ARCHITECTURE.md §4.1) —
-   * tout le reste consomme `client` directement. */
-  runtime: ManagedRuntime.ManagedRuntime<CtraderClient, never>;
+  client: CtraderClient;
   connected: boolean;
   symbolId: number | undefined;
   connectionError: string | undefined;
@@ -28,18 +23,12 @@ interface CtraderContextValue {
 const CtraderReactContext = createContext<CtraderContextValue | undefined>(undefined);
 
 export function CtraderProvider({ config, children }: { config: AppConfig; children: ReactNode }) {
-  const [client] = useState(() => new CtraderClientLive(config));
-  const runtime = useMemo(
-    () => ManagedRuntime.make(Layer.succeed(CtraderClient, client)),
-    [client],
-  );
-  useEffect(() => () => void runtime.dispose(), [runtime]);
+  const [client] = useState(() => new CtraderClient(config));
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);
 
   const value: CtraderContextValue = {
     client,
-    runtime,
     connected,
     symbolId,
     connectionError,

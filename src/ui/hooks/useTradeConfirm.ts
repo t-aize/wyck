@@ -21,8 +21,8 @@ export interface TradeConfirm {
   cancelPendingTrade: () => void;
 }
 
-/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts (cf.
- * docs/ARCHITECTURE.md §8) — possède `pendingTrade` et tout son cycle de vie, y compris
+/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts — possède
+ * `pendingTrade` et tout son cycle de vie, y compris
  * l'avertissement de biais H1 (dépend de `trendRows`, propre à la proposition d'un trade) et
  * l'enregistrement au suivi ATR sur succès (dépend de `atrTracking`, propre à la confirmation). */
 export function useTradeConfirm(opts: {
@@ -64,6 +64,7 @@ export function useTradeConfirm(opts: {
           price: trade.entryPrice,
           atrMultiplier: trade.atrTracking.atrMultiplier,
           rewardRiskRatio: trade.atrTracking.rewardRiskRatio,
+          riskAmount: trade.riskAmount,
         });
       },
       (error) => setFeedback({ kind: "error", message: `échec envoi : ${toMessage(error)}` }),

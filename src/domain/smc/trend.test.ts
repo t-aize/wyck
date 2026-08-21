@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { computeTrendState } from "./trend.ts";
 
 /** Bougie synthétique. */
@@ -35,7 +35,7 @@ const ZIGZAG_UP: CtraderTrendbar[] = [
 
 // Tests d'intégration de l'agrégateur uniquement — les tests unitaires de chaque méthode/filtre
 // vivent désormais dans leur propre fichier (structuralTrend.test.ts, structureEvents.test.ts,
-// sweep.test.ts, filters.test.ts, atr.test.ts), cf. docs/ARCHITECTURE.md.
+// sweep.test.ts, filters.test.ts, atr.test.ts).
 describe("computeTrendState", () => {
   test("historique trop court ⇒ état vide", () => {
     const bars = ZIGZAG_UP.slice(0, 3);

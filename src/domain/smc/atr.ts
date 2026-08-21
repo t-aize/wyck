@@ -1,6 +1,6 @@
 /** ATR/true range et filtre de displacement — extrait de trend.ts. */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { rollingMean, trueRangeSeries } from "./series.ts";
 
 /** Série ATR(period) complète, une valeur par bougie — `undefined` tant que l'historique est plus

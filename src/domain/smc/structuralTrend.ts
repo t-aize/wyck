@@ -4,7 +4,7 @@
  * génère des faux positifs en range. Extrait de trend.ts.
  */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { detectSwings, type FractalOptions } from "./swings.ts";
 import type { Trend } from "./types.ts";
 

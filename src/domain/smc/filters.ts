@@ -1,6 +1,6 @@
 /** Filtres classiques (pas du SMC) — EMA stack + ADX. Extrait de trend.ts. */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { rollingMean, trueRangeSeries } from "./series.ts";
 
 /** ADX > ce seuil ~ marché "en tendance" (seuil usuel, pas une loi physique). */

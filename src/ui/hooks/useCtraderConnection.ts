@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { SYMBOL } from "../../constants.ts";
-import type { CtraderClientLive } from "../../ctrader/client.ts";
+import type { CtraderClient } from "../../ctrader/client.ts";
 import { toMessage } from "../../errors.ts";
 
 export interface CtraderConnection {
@@ -12,7 +12,7 @@ export interface CtraderConnection {
   setConnectionError: Dispatch<SetStateAction<string | undefined>>;
 }
 
-export function useCtraderConnection(client: CtraderClientLive): CtraderConnection {
+export function useCtraderConnection(client: CtraderClient): CtraderConnection {
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string>();
   const [symbolId, setSymbolId] = useState<number>();

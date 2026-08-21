@@ -1,4 +1,4 @@
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 
 /** get_trendbars renvoie la bougie en formation en dernière position ; on l'écarte, sinon un pivot pourrait "apparaître" puis disparaître d'un poll à l'autre. */
 export function dropFormingBar(

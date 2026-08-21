@@ -21,14 +21,18 @@
  * exercés sur un ordre puis une position de test, chacun annulé/clôturé aussitôt après ;
  * exploration ponctuelle, pas d'outil dédié conservé dans le dépôt).
  *
- * `CtraderPosition` reste malgré tout délibérément `z.record(z.string(), z.unknown())`
+ * `CtraderPositionSchema` valide toujours l'entrée en `z.record(z.string(), z.unknown())`
  * plutôt qu'un `z.object` strict, verified ou pas : un schéma strict qui se trompe (ex.
  * un champ optionnel présent seulement sur une classe d'actif jamais testée) ferait
  * *planter* l'affichage des positions (échec `safeParse` → `CtraderMcpError`), ce qui
- * est pire pour un panel de trading que des valeurs possiblement fausses mais visibles
- * — cf. l'avertissement affiché par `PositionsPanel.tsx` quand le mapping échoue, et le
- * commentaire en tête de `ctrader/mappers.ts` pour la forme réelle désormais confirmée.
- * Les résultats d'écriture restent permissifs pour la même raison, en pire : un
+ * est pire pour un panel de trading que des valeurs possiblement fausses mais visibles.
+ * Un `.transform()` post-parse (jamais un `.refine()`, qui pourrait faire échouer le
+ * parse) projette ensuite ce record sur la forme réellement utile, champ par champ,
+ * chacun `undefined` plutôt qu'une erreur s'il est absent/du mauvais type — cf. le type
+ * `CtraderPosition` ci-dessous pour la forme réelle désormais confirmée. `isUnmapped`
+ * (cf. `PositionsPanel.tsx`) détecte après coup si les champs à haute confiance n'ont
+ * rien résolu, pour avertir plutôt qu'afficher silencieusement des positions fausses.
+ * Les résultats d'écriture restent en `z.record` brut pour la même raison, en pire : un
  * `safeParse` qui échoue sur `create_order` transformerait un ordre *réussi* en échec
  * apparent côté UI (`useOrderActions.ts` ne lit déjà aujourd'hui aucun de leurs champs,
  * seulement succès/échec de la Promise — verrouiller ces schémas n'apporterait donc
@@ -38,7 +42,7 @@
  */
 
 import { z } from "zod";
-import { TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
+import { TRENDBAR_PERIODS, type TrendbarPeriod, toLots } from "../constants.ts";
 
 // ─── Enums (zod : validés côté Results, cf. commentaire en tête de fichier) ─
 
@@ -173,17 +177,45 @@ export type GetTrendbarsResult = z.infer<typeof GetTrendbarsResultSchema>;
 
 // ─── Positions & ordres (lecture) ───────────────────────────────────────
 
+/** Lit `keys[0]`, sinon `keys[1]`... dans un record non typé — `undefined` si aucune clé
+ * n'est présente ou si la valeur trouvée n'a pas le bon type, plutôt qu'une exception. */
+function readNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number") return value;
+  }
+  return undefined;
+}
+
+function readTradeSide(record: Record<string, unknown>): TradeSide | undefined {
+  const value = record.tradeSide;
+  return value === "BUY" || value === "SELL" ? value : undefined;
+}
+
 /**
  * Forme réelle confirmée (compte démo, cf. commentaire en tête de fichier) :
  * `{ positionId, symbolId, tradeSide, volume, entryPrice, stopLoss?, takeProfit?,
  * commission, swap }` — `volume`/`entryPrice` valent `0` sur le stub de position associé
  * à un ordre pending pas encore rempli (ex: champ `position` de la réponse `create_order`
- * pour un LIMIT). Pas de champ de P&L latent ni d'`openTimestamp` observé sur cette forme
- * (contrairement à ce que `ctrader/mappers.ts` supposait avant vérification — cf. son
- * commentaire de tête, mis à jour en conséquence). Reste un `z.record` malgré tout —
- * cf. commentaire en tête de fichier.
+ * pour un LIMIT). Pas de champ de P&L latent ni d'`openTimestamp` observé sur cette forme.
+ * Projetée (`.transform()`, jamais en échec) sur les seuls champs utiles à `PositionsPanel.tsx` —
+ * `symbolId`/`commission` ignorés faute de consommateur aujourd'hui, à réintroduire si un jour
+ * nécessaire plutôt que de les porter sans usage.
  */
-export const CtraderPositionSchema = PermissiveRecordSchema;
+export const CtraderPositionSchema = PermissiveRecordSchema.transform((position) => {
+  const volume = readNumber(position, ["volume"]);
+  return {
+    id: readNumber(position, ["positionId"]),
+    side: readTradeSide(position),
+    // lotSize métaux = 100 → volume(1/100 unités) / 10000 = lots. Approximation valable pour XAUUSD,
+    // seul symbole tradé par ce panel — à revoir si d'autres classes d'actifs sont ajoutées un jour.
+    volumeLots: volume === undefined ? undefined : toLots(volume),
+    entry: readNumber(position, ["entryPrice"]),
+    stopLoss: readNumber(position, ["stopLoss"]),
+    takeProfit: readNumber(position, ["takeProfit"]),
+    swap: readNumber(position, ["swap"]),
+  };
+});
 export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
 
 /**

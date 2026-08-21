@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CtraderOrder } from "../ctrader/client.ts";
+import type { CtraderOrder } from "../ctrader/schemas.ts";
 import {
   ATR_SETTINGS_USAGE,
   ATR_TRADE_USAGE,

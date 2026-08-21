@@ -1,6 +1,6 @@
 /** Séries numériques bas niveau partagées par atr.ts et filters.ts (ADX) — extrait de trend.ts. */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 
 export function trueRangeSeries(bars: CtraderTrendbar[]): number[] {
   const tr: number[] = [0];

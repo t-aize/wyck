@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
-import { CtraderClient, type CtraderClientLive } from "../ctrader/client.ts";
+import type { CtraderClient } from "../ctrader/client.ts";
 import {
   type AtrTradeInput,
   computeAtrLevels,
@@ -19,7 +19,7 @@ function fakeClient(opts: {
   ask: number;
   equity: number;
   moneyDigits: number;
-}): CtraderClientLive {
+}): CtraderClient {
   return {
     getSpotPrices: () =>
       Effect.succeed({
@@ -44,26 +44,24 @@ function fakeClient(opts: {
         moneyDigits: opts.moneyDigits,
         depositAssetId: 0,
       }),
-  } as unknown as CtraderClientLive;
+  } as unknown as CtraderClient;
 }
 
 // equity=1_000_000 à moneyDigits=2 → 10 000 $ de compte.
 const client = fakeClient({ bid: 4100.0, ask: 4100.2, equity: 1_000_000, moneyDigits: 2 });
-const testLayer = Layer.succeed(CtraderClient, client);
 
-/** `prepareTrade` reçoit désormais CtraderClient par injection (§4.1) plutôt qu'en paramètre —
- * ce helper fournit la Layer de test et exécute l'Effect, pour garder les tests ci-dessous
- * inchangés par ailleurs (même forme `await runPrepareTrade(...)` qu'un `await prepareTrade(...)`). */
+/** `prepareTrade`/`prepareAtrTrade` reçoivent le client en paramètre explicite — ce helper garde
+ * les tests ci-dessous inchangés par ailleurs (même forme `await runPrepareTrade(...)`). */
 function runPrepareTrade(symbolId: number, input: TradeInput) {
-  return Effect.runPromise(Effect.provide(prepareTrade(symbolId, input), testLayer));
+  return Effect.runPromise(prepareTrade(client, symbolId, input));
 }
 
 function runPrepareAtrTrade(
   symbolId: number,
   input: AtrTradeInput,
-  atr: Parameters<typeof prepareAtrTrade>[2],
+  atr: Parameters<typeof prepareAtrTrade>[3],
 ) {
-  return Effect.runPromise(Effect.provide(prepareAtrTrade(symbolId, input, atr), testLayer));
+  return Effect.runPromise(prepareAtrTrade(client, symbolId, input, atr));
 }
 
 describe("prepareTrade", () => {

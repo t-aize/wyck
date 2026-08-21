@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { useState } from "react";
 import type { AppConfig } from "../../config.ts";
 import { AppConfigSchema, DEFAULT_ATR_SETTINGS, writeConfig } from "../../config.ts";
-import { CtraderClientLive } from "../../ctrader/client.ts";
+import { CtraderClient } from "../../ctrader/client.ts";
 import { fsRuntime } from "../../effectRuntime.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
@@ -57,7 +57,7 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
     setError(undefined);
     setStep("checkingToken");
     void (async () => {
-      const client = new CtraderClientLive({ url, token: trimmed });
+      const client = new CtraderClient({ url, token: trimmed });
       try {
         await client.connect();
         await Effect.runPromise(client.getBalance());

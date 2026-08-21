@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { useState } from "react";
-import type { CtraderOrder } from "../../ctrader/client.ts";
+import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 
@@ -13,8 +13,7 @@ export interface CancelConfirm {
   dismissPendingCancel: () => void;
 }
 
-/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts (cf.
- * docs/ARCHITECTURE.md §8). */
+/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts. */
 export function useCancelConfirm(opts: { refreshMarket: () => Promise<void> }): CancelConfirm {
   const { refreshMarket } = opts;
   const { client } = useCtrader();
@@ -35,7 +34,7 @@ export function useCancelConfirm(opts: { refreshMarket: () => Promise<void> }): 
     setPendingCancel(undefined);
     setFeedback({ kind: "info", message: "annulation en cours…" });
 
-    // Chaque résultat porte directement sa commande (§2.2, docs/ARCHITECTURE.md) plutôt que
+    // Chaque résultat porte directement sa commande plutôt que
     // d'associer orders[i]/results[i] par index — plus robuste si les deux tableaux divergeaient.
     const cancelAll = Effect.forEach(
       orders,

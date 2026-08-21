@@ -9,7 +9,7 @@ import { type AppConfig, DEFAULT_ATR_SETTINGS, readConfig, writeConfig } from ".
  * (schéma, chiffrement/déchiffrement) sans jamais toucher `~/.aurum/config.json`. Seules les 4
  * méthodes que config.ts appelle réellement sont implémentées ; le reste de l'interface
  * `FileSystem` (readFile, stream, chmod…) n'a pas besoin d'exister pour ce test — cast plutôt
- * qu'une implémentation complète, même logique que le fake `CtraderClientLive` de trading.test.ts.
+ * qu'une implémentation complète, même logique que le fake `CtraderClient` de trading.test.ts.
  */
 function fakeFileSystem(initial?: string) {
   let stored = initial;

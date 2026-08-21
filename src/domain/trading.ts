@@ -10,67 +10,32 @@
  * lecture des données brutes.
  */
 
-import { Data, Effect } from "effect";
+import { Effect } from "effect";
 import { LOT_VOLUME, PRICE_SCALE, roundPrice } from "../constants.ts";
-import {
-  type AmendOrderParams,
-  type CreateOrderParams,
-  CtraderClient,
-  type CtraderMcpError,
-  type CtraderOrder,
-  type OrderType,
-  type TradeSide,
-} from "../ctrader/client.ts";
+import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
+import type {
+  AmendOrderParams,
+  CreateOrderParams,
+  CtraderOrder,
+  OrderType,
+  TradeSide,
+} from "../ctrader/schemas.ts";
 import type { AtrTimeframeLabel } from "./smc/timeframes.ts";
 import type { Trend } from "./smc/trend.ts";
 
-// Erreurs de validation métier taguées (cf. docs/ARCHITECTURE.md §1.4) — une par ancien
-// `throw new Error(...)` distinct. Permet à un appelant de faire `Effect.catchTag(...)` sur un cas
-// précis (ex. VolumeBelowMinimum pour suggérer d'augmenter le risque%) plutôt que de parser un message.
-
-export class InvalidRiskPercent extends Data.TaggedError("InvalidRiskPercent")<{
-  readonly riskPercent: number;
-  readonly message: string;
-}> {}
-
-export class PriceUnavailable extends Data.TaggedError("PriceUnavailable")<{
-  readonly symbolId: number;
-  readonly message: string;
-}> {}
-
-export class StopTakeProfitEqual extends Data.TaggedError("StopTakeProfitEqual")<{
-  readonly message: string;
-}> {}
-
-export class InconsistentStopTakeProfit extends Data.TaggedError("InconsistentStopTakeProfit")<{
-  readonly side: TradeSide;
-  readonly message: string;
-}> {}
-
-export class InvalidStopDistance extends Data.TaggedError("InvalidStopDistance")<{
-  readonly message: string;
-}> {}
-
-export class VolumeBelowMinimum extends Data.TaggedError("VolumeBelowMinimum")<{
-  readonly computedVolumeLots: number;
-  readonly message: string;
-}> {}
-
-/** Mode ATR uniquement (cf. prepareAtrTrade) : l'ATR sur le timeframe configuré n'a pas encore
- * assez de bougies closes pour être calculé (juste après connexion, ou historique pas encore
- * chargé). */
-export class AtrUnavailable extends Data.TaggedError("AtrUnavailable")<{
-  readonly message: string;
-}> {}
-
-export type TradeValidationError =
-  | InvalidRiskPercent
-  | PriceUnavailable
-  | StopTakeProfitEqual
-  | InconsistentStopTakeProfit
-  | InvalidStopDistance
-  | VolumeBelowMinimum
-  | AtrUnavailable;
+/**
+ * Erreur de validation métier d'un trade (risque%, prix indisponible, SL/TP incohérents, volume
+ * sous le minimum, ATR indisponible…). Une seule classe : l'ancienne hiérarchie de 7 sous-types
+ * tagués (`Data.TaggedError`, un par ancien `throw new Error(...)` distinct) n'était discriminée
+ * par aucun appelant — tous se contentent de `.message` (`toMessage`, `error.rejects.toThrow(...)`
+ * dans les tests) — donc la distinction par tag n'apportait rien en pratique.
+ */
+export class TradeValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TradeValidationError";
+  }
+}
 
 export interface TradeInput {
   /** "market" = prix courant (ordre MARKET) ; un nombre = prix affiché (LIMIT/STOP déduit) */
@@ -113,30 +78,34 @@ export interface PreparedTrade {
 
 // Pas/minimum de volume imposés par ce compte sur XAUUSD : 0.01 lot (confirmé via la
 // plateforme du broker — pas de dropdown 0.01→1.00 lot par incréments de 0.01).
-const VOLUME_STEP = 100; // 0.01 lot
+export const VOLUME_STEP = 100; // 0.01 lot
+
+/** Partie pure du calcul de volume (arrondi au pas du compte, sans validation) — extraite pour être
+ * réutilisée par `computeAtrAmendments` (cf. atrTracking.ts), qui doit recalculer le volume à chaque
+ * réamend ATR pour garder le risque$ constant quand l'ATR bouge, sans dupliquer la formule ni son
+ * habillage Effect (une amende de suivi n'a pas de canal d'erreur utilisateur comme `prepareTrade`). */
+export function computeVolumeFromRisk(riskAmount: number, stopDistance: number): number {
+  const ounces = riskAmount / stopDistance;
+  return Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
+}
 
 function computeVolume(
   riskAmount: number,
   stopDistance: number,
-): Effect.Effect<number, InvalidStopDistance | VolumeBelowMinimum> {
+): Effect.Effect<number, TradeValidationError> {
   return Effect.gen(function* () {
     if (stopDistance <= 0) {
       return yield* Effect.fail(
-        new InvalidStopDistance({
-          message: "Distance de stop invalide (SL identique à l'entrée ?)",
-        }),
+        new TradeValidationError("Distance de stop invalide (SL identique à l'entrée ?)"),
       );
     }
-    const ounces = riskAmount / stopDistance;
-    const volume = Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
+    const volume = computeVolumeFromRisk(riskAmount, stopDistance);
     if (volume < VOLUME_STEP) {
       return yield* Effect.fail(
-        new VolumeBelowMinimum({
-          computedVolumeLots: volume / LOT_VOLUME,
-          message:
-            `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
+        new TradeValidationError(
+          `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
             "(0.01 lot) — augmente le risque% ou resserre le stop",
-        }),
+        ),
       );
     }
     return volume;
@@ -154,13 +123,10 @@ function inferOrderType(side: TradeSide, entryPrice: number, referencePrice: num
   return entryPrice < referencePrice ? "STOP" : "LIMIT";
 }
 
-function validateRiskPercent(riskPercent: number): Effect.Effect<void, InvalidRiskPercent> {
+function validateRiskPercent(riskPercent: number): Effect.Effect<void, TradeValidationError> {
   if (!Number.isFinite(riskPercent) || riskPercent <= 0 || riskPercent > 100) {
     return Effect.fail(
-      new InvalidRiskPercent({
-        riskPercent,
-        message: "Risque invalide : doit être un pourcentage entre 0 et 100",
-      }),
+      new TradeValidationError("Risque invalide : doit être un pourcentage entre 0 et 100"),
     );
   }
   return Effect.void;
@@ -169,14 +135,13 @@ function validateRiskPercent(riskPercent: number): Effect.Effect<void, InvalidRi
 /** Fetch spot+balance concurrent, commun à `prepareTrade`/`prepareAtrTrade` — prix déjà convertis en
  * prix affiché (÷ PRICE_SCALE), comme le reste de ce fichier. */
 function fetchTradeContext(
+  client: CtraderClient,
   symbolId: number,
 ): Effect.Effect<
   { bid: number; ask: number; equity: number; moneyDigits: number },
-  PriceUnavailable | CtraderMcpError,
-  CtraderClient
+  TradeValidationError | CtraderMcpError
 > {
   return Effect.gen(function* () {
-    const client = yield* CtraderClient;
     const [{ prices }, { equity, moneyDigits }] = yield* Effect.all(
       [client.getSpotPrices({ symbolId: [symbolId] }), client.getBalance()],
       { concurrency: "unbounded" },
@@ -184,9 +149,7 @@ function fetchTradeContext(
 
     const spot = prices[0];
     if (!spot) {
-      return yield* Effect.fail(
-        new PriceUnavailable({ symbolId, message: "Prix indisponible pour ce symbole" }),
-      );
+      return yield* Effect.fail(new TradeValidationError("Prix indisponible pour ce symbole"));
     }
     return { bid: spot.bid / PRICE_SCALE, ask: spot.ask / PRICE_SCALE, equity, moneyDigits };
   });
@@ -231,23 +194,24 @@ export function computeAtrLevels(
 }
 
 /**
- * `CtraderClient` reçu par injection (`yield* CtraderClient`, résolu via la `Layer` fournie au
- * `ManagedRuntime` d'App.tsx) plutôt qu'en paramètre explicite — cf. docs/ARCHITECTURE.md §4.1.
- * Chaque règle de validation échoue via `Effect.fail(new XxxError(...))` (erreur taguée, §1.4) au
- * lieu d'un `throw` générique — un appelant peut réagir à un cas précis via `Effect.catchTag`.
+ * `client` reçu en paramètre explicite, comme partout ailleurs dans l'app (cf. commentaire de tête
+ * de `CtraderClient`) — pas de DI Effect ici. Chaque règle de validation échoue via
+ * `Effect.fail(new TradeValidationError(...))` plutôt qu'un `throw` générique, pour rester dans le
+ * canal d'erreur typé d'Effect.
  */
 export function prepareTrade(
+  client: CtraderClient,
   symbolId: number,
   input: TradeInput,
-): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError, CtraderClient> {
+): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError> {
   return Effect.gen(function* () {
     yield* validateRiskPercent(input.riskPercent);
-    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(symbolId);
+    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(client, symbolId);
 
     const { stopLoss, takeProfit } = input;
     if (stopLoss === takeProfit) {
       return yield* Effect.fail(
-        new StopTakeProfitEqual({ message: "SL et TP ne peuvent pas être identiques" }),
+        new TradeValidationError("SL et TP ne peuvent pas être identiques"),
       );
     }
     // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
@@ -257,19 +221,16 @@ export function prepareTrade(
 
     if (side === "BUY" && !(stopLoss < entryPrice && takeProfit > entryPrice)) {
       return yield* Effect.fail(
-        new InconsistentStopTakeProfit({
-          side,
-          message: "Incohérent pour un achat : le SL doit être sous l'entrée et le TP au-dessus",
-        }),
+        new TradeValidationError(
+          "Incohérent pour un achat : le SL doit être sous l'entrée et le TP au-dessus",
+        ),
       );
     }
     if (side === "SELL" && !(stopLoss > entryPrice && takeProfit < entryPrice)) {
       return yield* Effect.fail(
-        new InconsistentStopTakeProfit({
-          side,
-          message:
-            "Incohérent pour une vente : le SL doit être au-dessus de l'entrée et le TP en dessous",
-        }),
+        new TradeValidationError(
+          "Incohérent pour une vente : le SL doit être au-dessus de l'entrée et le TP en dessous",
+        ),
       );
     }
 
@@ -309,10 +270,11 @@ export interface AtrTradeInput {
  * manuelle. `atr.rawValue` est l'ATR le plus récent (période/timeframe configurés, cf.
  * config.ts#DEFAULT_ATR_SETTINGS) en échelle brute x10^5 (cf. smc/trend.ts#computeAtr) —
  * `undefined` tant qu'il n'y a pas assez de bougies closes sur ce timeframe, auquel cas cette
- * fonction échoue `AtrUnavailable` plutôt que de calculer un stop sur une valeur absente.
+ * fonction échoue avec `TradeValidationError` plutôt que de calculer un stop sur une valeur absente.
  * `period`/`timeframe` ne sont là que pour affichage (cf. PreparedTrade.atrTracking).
  */
 export function prepareAtrTrade(
+  client: CtraderClient,
   symbolId: number,
   input: AtrTradeInput,
   atr: {
@@ -322,23 +284,19 @@ export function prepareAtrTrade(
     period: number;
     timeframe: AtrTimeframeLabel;
   },
-): Effect.Effect<
-  PreparedTrade,
-  TradeValidationError | AtrUnavailable | CtraderMcpError,
-  CtraderClient
-> {
+): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError> {
   return Effect.gen(function* () {
     yield* validateRiskPercent(input.riskPercent);
     if (atr.rawValue === undefined) {
       return yield* Effect.fail(
-        new AtrUnavailable({
-          message: `ATR(${atr.period}) ${atr.timeframe} pas encore disponible — réessaie dans quelques instants`,
-        }),
+        new TradeValidationError(
+          `ATR(${atr.period}) ${atr.timeframe} pas encore disponible — réessaie dans quelques instants`,
+        ),
       );
     }
     const atrValue = atr.rawValue / PRICE_SCALE;
 
-    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(symbolId);
+    const { bid, ask, equity, moneyDigits } = yield* fetchTradeContext(client, symbolId);
     const { side } = input;
     const reference = side === "BUY" ? ask : bid;
     const { entryPrice, orderType } = resolveEntry(side, input.entry, reference);
@@ -380,7 +338,8 @@ export function prepareAtrTrade(
 
 /**
  * P&L latent d'une position ouverte, calculé plutôt que lu : l'API cTrader (Open API
- * `ProtoOAPosition`, que ce MCP reflète — cf. commentaire en tête de ctrader/mappers.ts)
+ * `ProtoOAPosition`, que ce MCP reflète — cf. commentaire sur `CtraderPositionSchema` dans
+ * ctrader/schemas.ts)
  * n'expose aucun champ de profit latent, seulement des données réalisées (swap,
  * commission). Mark-to-market au bid pour un long (prix de sortie si on clôturait
  * maintenant), à l'ask pour un short — convention standard, cohérente avec le reste du

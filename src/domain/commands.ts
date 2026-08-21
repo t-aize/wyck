@@ -2,13 +2,13 @@
 
 import { Schema } from "effect";
 import { roundPrice } from "../constants.ts";
-import type { CtraderOrder, TradeSide } from "../ctrader/client.ts";
+import type { CtraderOrder, TradeSide } from "../ctrader/schemas.ts";
 import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./smc/timeframes.ts";
 import type { AtrTradeInput, PreparedTrade, TradeInput } from "./trading.ts";
 
 /**
- * Coercion + validation d'un champ numérique (chaîne → nombre fini), cf. docs/ARCHITECTURE.md §5.1 :
- * remplace les 5 `Number(raw); if (!Number.isFinite(raw))` dupliqués par un seul schéma déclaratif
+ * Coercion + validation d'un champ numérique (chaîne → nombre fini) : remplace les 5
+ * `Number(raw); if (!Number.isFinite(raw))` dupliqués par un seul schéma déclaratif
  * réutilisé pour risque/entrée/sl/tp/id. Le tokenizing lui-même (flags `--sl`, arité positionnelle
  * du risque%) reste du code impératif ordinaire : ce n'est pas de la validation de données mais du
  * parsing de ligne de commande, un fit naturellement pauvre pour Schema.
@@ -202,8 +202,8 @@ export type CancelTargets = CancelTargetsAll | CancelTargetsIds | CancelTargetsR
 
 /**
  * Résout `cancel <id...>`/`cancel all` en la liste d'ordres réellement ciblée, étant donné les
- * ordres en attente actuels — extrait de useCancelConfirm.ts (cf. docs/ARCHITECTURE.md §8) pour
- * rester testable sans monter de hook React.
+ * ordres en attente actuels — extrait de useCancelConfirm.ts pour rester testable sans monter de
+ * hook React.
  */
 export function resolveCancelTargets(args: string[], pendingOrders: CtraderOrder[]): CancelTargets {
   if (args.length === 0) return { kind: "rejected", level: "error", message: CANCEL_USAGE };

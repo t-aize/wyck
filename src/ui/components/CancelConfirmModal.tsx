@@ -1,5 +1,5 @@
 import { toLots } from "../../constants.ts";
-import type { CtraderOrder } from "../../ctrader/client.ts";
+import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import { formatPriceOrDash } from "../format.ts";
 import { theme } from "../theme.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";

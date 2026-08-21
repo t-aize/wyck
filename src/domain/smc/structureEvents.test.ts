@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import {
   classifyEventTrend,
   detectStructureEvents,

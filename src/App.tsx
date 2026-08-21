@@ -101,9 +101,9 @@ export function App() {
   );
 }
 
-/** `connected`/`connectionError` viennent de `useCtrader()`, `feedback` de `useFeedback()` (cf.
- * docs/ARCHITECTURE.md §8) — `client`/`runtime`/`symbolId`/`setFeedback` ne sont plus lus ici :
- * useOrderActions.ts et les hooks issus de son éclatement les lisent eux-mêmes via ces Contexts. */
+/** `connected`/`connectionError` viennent de `useCtrader()`, `feedback` de `useFeedback()` —
+ * `client`/`symbolId`/`setFeedback` ne sont plus lus ici : useOrderActions.ts et les hooks issus de
+ * son éclatement les lisent eux-mêmes via ces Contexts. */
 function ConnectedApp({
   config,
   onReconfigure,

@@ -5,7 +5,7 @@
  * confirme dans le même sens que le CHoCH précédent. Extrait de trend.ts.
  */
 
-import type { CtraderTrendbar } from "../../ctrader/client.ts";
+import type { CtraderTrendbar } from "../../ctrader/schemas.ts";
 import { computeAtrSeries, hasDisplacement } from "./atr.ts";
 import { detectSwings, type FractalOptions } from "./swings.ts";
 import type { Trend } from "./types.ts";
