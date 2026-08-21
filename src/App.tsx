@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppConfig, type AtrSettings, readConfig, writeConfig } from "./config.ts";
+import { readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
+import type { CtraderClientConfig } from "./ctrader/client.ts";
 import { fsRuntime } from "./effectRuntime.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
@@ -10,16 +11,13 @@ import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
-import { TrendPanel } from "./ui/components/TrendPanel.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
-import { useAtrOrderTracking } from "./ui/hooks/useAtrOrderTracking.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
-import { useTrend } from "./ui/hooks/useTrend.ts";
 import { theme } from "./ui/theme.ts";
 
 /**
@@ -33,7 +31,7 @@ export function App() {
   // readFileSync/existsSync d'avant) — impossible à résoudre avec Effect.runSync dans
   // l'initializer synchrone de useState (AsyncFiberException à l'exécution, vérifié en
   // pratique) : il faut vraiment attendre le premier rendu.
-  const [config, setConfig] = useState<AppConfig | undefined | null>(null);
+  const [config, setConfig] = useState<CtraderClientConfig | undefined | null>(null);
   const [reconfiguring, setReconfiguring] = useState(false);
   // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
   // changé importe pour déclencher le remount, pas sa valeur.
@@ -74,28 +72,10 @@ export function App() {
     );
   }
 
-  // Persiste (config.json) + met à jour l'état local en une passe — `setConfig` reçoit une
-  // fonction plutôt que `{ ...config, ...patch }` construit en dehors : si `config` avait déjà
-  // changé entretemps (peu probable ici vu la source unique de mise à jour, mais cohérent avec le
-  // reste du fichier qui préfère les mises à jour fonctionnelles), on part toujours de la valeur
-  // la plus fraîche.
-  function updateAtrSettings(patch: Partial<AtrSettings>) {
-    setConfig((current) => {
-      if (!current) return current;
-      const next = { ...current, ...patch };
-      void fsRuntime.runPromise(writeConfig(next));
-      return next;
-    });
-  }
-
   return (
     <CtraderProvider key={generation} config={config}>
       <FeedbackProvider>
-        <ConnectedApp
-          config={config}
-          onReconfigure={() => setReconfiguring(true)}
-          onUpdateAtrSettings={updateAtrSettings}
-        />
+        <ConnectedApp onReconfigure={() => setReconfiguring(true)} />
       </FeedbackProvider>
     </CtraderProvider>
   );
@@ -104,15 +84,7 @@ export function App() {
 /** `connected`/`connectionError` viennent de `useCtrader()`, `feedback` de `useFeedback()` —
  * `client`/`symbolId`/`setFeedback` ne sont plus lus ici : useOrderActions.ts et les hooks issus de
  * son éclatement les lisent eux-mêmes via ces Contexts. */
-function ConnectedApp({
-  config,
-  onReconfigure,
-  onUpdateAtrSettings,
-}: {
-  config: AppConfig;
-  onReconfigure: () => void;
-  onUpdateAtrSettings: (patch: Partial<AtrSettings>) => void;
-}) {
+function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
   const now = useClock();
   const { connected, connectionError } = useCtrader();
   const { feedback } = useFeedback();
@@ -121,29 +93,9 @@ function ConnectedApp({
   const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } =
     useMarketData();
   const { calendar, newsError, refreshNews } = useCalendar();
-  const {
-    rows: trendRows,
-    atr: atrRaw,
-    trendError,
-    refreshTrend,
-  } = useTrend(config.atrPeriod, config.atrTimeframe);
-
-  const atrSettings: AtrSettings = {
-    rewardRiskRatio: config.rewardRiskRatio,
-    atrMultiplier: config.atrMultiplier,
-    atrPeriod: config.atrPeriod,
-    atrTimeframe: config.atrTimeframe,
-  };
-
-  const { trackedOrderIds, registerPendingAtrOrder, untrackOrder } = useAtrOrderTracking({
-    pendingOrders: positions?.orders ?? [],
-    atrRaw,
-  });
 
   const {
     runCommand,
-    atrMode,
-    toggleAtrMode,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,
@@ -153,18 +105,7 @@ function ConnectedApp({
     pendingCancel,
     confirmPendingCancel,
     dismissPendingCancel,
-  } = useOrderActions({
-    positions,
-    refreshMarket,
-    refreshNews,
-    refreshTrend,
-    trendRows,
-    onReconfigure,
-    atrRaw,
-    atrSettings,
-    onUpdateAtrSettings,
-    atrTracking: { registerPendingAtrOrder, untrackOrder },
-  });
+  } = useOrderActions({ positions, refreshMarket, refreshNews, onReconfigure });
 
   useTerminalShortcuts(useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []));
 
@@ -183,18 +124,13 @@ function ConnectedApp({
         balance={balance}
         moneyDigits={moneyDigits}
       />
-      <PositionsPanel positions={positions} bid={bid} ask={ask} trackedOrderIds={trackedOrderIds} />
-      <box style={{ flexDirection: "row", flexGrow: 2, flexBasis: 0 }}>
-        <NewsPanel events={calendar} errorMessage={newsError} now={now} />
-        <TrendPanel rows={trendRows} errorMessage={trendError} />
-      </box>
+      <PositionsPanel positions={positions} bid={bid} ask={ask} />
+      <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}
         onSubmit={runCommand}
         focused={!pendingTrade && !pendingModify && !pendingCancel}
-        atrMode={atrMode}
-        onToggleAtrMode={toggleAtrMode}
       />
       {pendingTrade && (
         <TradeConfirmModal

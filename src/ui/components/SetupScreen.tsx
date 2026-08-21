@@ -1,9 +1,8 @@
 import { useKeyboard } from "@opentui/react";
 import { Effect } from "effect";
 import { useState } from "react";
-import type { AppConfig } from "../../config.ts";
-import { AppConfigSchema, DEFAULT_ATR_SETTINGS, writeConfig } from "../../config.ts";
-import { CtraderClient } from "../../ctrader/client.ts";
+import { writeConfig } from "../../config.ts";
+import { CtraderClient, type CtraderClientConfig } from "../../ctrader/client.ts";
 import { fsRuntime } from "../../effectRuntime.ts";
 import { toMessage } from "../../errors.ts";
 import { theme } from "../theme.ts";
@@ -11,8 +10,8 @@ import { theme } from "../theme.ts";
 const DEFAULT_URL = "https://mcp.ctrader.com/trading/mcp";
 
 interface SetupScreenProps {
-  initial?: AppConfig;
-  onConfigured: (config: AppConfig) => void;
+  initial?: CtraderClientConfig;
+  onConfigured: (config: CtraderClientConfig) => void;
   /** Fourni seulement pour un reconfig (commande `settings`) — pas de retour possible au tout premier lancement. */
   onCancel?: () => void;
 }
@@ -38,10 +37,6 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
 
   function submitUrl(value: string) {
     const trimmed = value.trim() || DEFAULT_URL;
-    if (!AppConfigSchema.shape.url.safeParse(trimmed).success) {
-      setError(`URL invalide : "${trimmed}"`);
-      return;
-    }
     setUrl(trimmed);
     setError(undefined);
     setStep("token");
@@ -49,36 +44,27 @@ export function SetupScreen({ initial, onConfigured, onCancel }: SetupScreenProp
 
   function submitToken(value: string) {
     const trimmed = value.trim();
-    if (!AppConfigSchema.shape.token.safeParse(trimmed).success) {
-      setError("token requis");
-      return;
-    }
     setToken(trimmed);
     setError(undefined);
     setStep("checkingToken");
     void (async () => {
-      const client = new CtraderClient({ url, token: trimmed });
+      // Construction du client incluse dans le try : une URL invalide (aucune validation en amont,
+      // cf. commentaire de tête de config.ts) fait planter `new URL(...)` dans le constructeur,
+      // sinon cette exception passerait au travers du try/catch (rejet de Promise non catché,
+      // "checkingToken" resterait affiché indéfiniment sans jamais montrer d'erreur).
+      let client: CtraderClient | undefined;
       try {
+        client = new CtraderClient({ url, token: trimmed });
         await client.connect();
         await Effect.runPromise(client.getBalance());
-        // Ce wizard ne saisit que URL/token — les réglages ATR (cf. domain/trading.ts) sont
-        // reportés depuis `initial` (reconfiguration via la commande `settings`) plutôt que
-        // silencieusement réinitialisés, ou pris à leurs valeurs par défaut au tout premier lancement.
-        const config: AppConfig = {
-          url,
-          token: trimmed,
-          rewardRiskRatio: initial?.rewardRiskRatio ?? DEFAULT_ATR_SETTINGS.rewardRiskRatio,
-          atrMultiplier: initial?.atrMultiplier ?? DEFAULT_ATR_SETTINGS.atrMultiplier,
-          atrPeriod: initial?.atrPeriod ?? DEFAULT_ATR_SETTINGS.atrPeriod,
-          atrTimeframe: initial?.atrTimeframe ?? DEFAULT_ATR_SETTINGS.atrTimeframe,
-        };
+        const config: CtraderClientConfig = { url, token: trimmed };
         await fsRuntime.runPromise(writeConfig(config));
         onConfigured(config);
       } catch (err) {
         setError(toMessage(err));
         setStep("token");
       } finally {
-        void client.close();
+        void client?.close();
       }
     })();
   }

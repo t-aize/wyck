@@ -15,13 +15,15 @@
  *
  * Mirroir volontairement complet de la surface `trading`/`account`/`market data` du
  * serveur MCP, pas seulement des méthodes déjà câblées dans l'UI : `getVersion`,
- * `getAssets`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory`, `getDeals`,
- * `amendPosition` et `closePosition` n'ont aujourd'hui aucun appelant dans `src/`. Choix
- * assumé plutôt qu'angle mort — `amendPosition`/`closePosition` en particulier
- * attendent que `CtraderPositionSchema` soit verrouillé (cf. ctrader/schemas.ts) avant
- * d'être exposées dans une commande, pour ne pas cibler une position réelle sur la base
- * d'un `positionId` deviné. Si une méthode reste inutilisée longtemps après avoir été
- * implémentée côté UI, c'est le signal pour la retirer plutôt que la garder « au cas où ».
+ * `getAssets`, `getTrendbars`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory`,
+ * `getDeals`, `amendPosition` et `closePosition` n'ont aujourd'hui aucun appelant dans `src/`
+ * (`getTrendbars` en particulier depuis le retrait du mode ATR et de l'analyse SMC, seuls
+ * consommateurs de bougies historiques). Choix assumé plutôt qu'angle mort —
+ * `amendPosition`/`closePosition` en particulier attendent que `CtraderPositionSchema` soit
+ * verrouillé (cf. ctrader/schemas.ts) avant d'être exposées dans une commande, pour ne pas cibler
+ * une position réelle sur la base d'un `positionId` deviné. Si une méthode reste inutilisée
+ * longtemps après avoir été implémentée côté UI, c'est le signal pour la retirer plutôt que la
+ * garder « au cas où ».
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -149,16 +151,25 @@ function isTextBlock(
   return block.type === "text";
 }
 
+/** Params sortants, jamais reçus tels quels du réseau (lus depuis `~/.aurum/config.json` ou saisis
+ * dans SetupScreen.tsx, cf. config.ts#readConfig) — `interface` simple, pas de schéma zod, même
+ * convention que les Params de ctrader/schemas.ts. Aucune validation de forme volontairement (cf.
+ * config.ts) : une URL/un token invalide échoue au premier appel réseau plutôt qu'à la lecture. */
+export interface CtraderClientConfig {
+  url: string;
+  token: string;
+}
+
 /**
  * Implémentation concrète, construite directement (`new CtraderClient(config)`) et reçue en
  * paramètre explicite partout (App.tsx, SetupScreen.tsx, les hooks, `domain/trading.ts`) — pas de
- * DI Effect (`Context.Tag`/`Layer`) : ça n'aurait servi qu'à `prepareTrade`/`prepareAtrTrade`,
- * seuls consommateurs à jamais en avoir eu besoin, pendant que tout le reste de l'app passe déjà le
- * client en paramètre simple.
+ * DI Effect (`Context.Tag`/`Layer`) : ça n'aurait servi qu'à `prepareTrade`, seul consommateur à
+ * jamais en avoir eu besoin, pendant que tout le reste de l'app passe déjà le client en paramètre
+ * simple.
  */
 export class CtraderClient {
   private readonly client: Client;
-  private readonly config: { url: string; token: string };
+  private readonly config: CtraderClientConfig;
   private connected = false;
   // Fuite corrigée : sans ce suivi, un close() qui arrive pendant
   // qu'un connect() est encore en vol (ex. démontage rapide du composant React propriétaire, cf.
@@ -166,7 +177,7 @@ export class CtraderClient {
   // finissait par résoudre en arrière-plan sur un transport que plus personne ne fermait jamais.
   private connecting: Promise<void> | undefined;
 
-  constructor(config: { url: string; token: string }) {
+  constructor(config: CtraderClientConfig) {
     this.config = config;
     this.client = new Client(CLIENT_INFO);
   }

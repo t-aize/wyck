@@ -8,8 +8,7 @@
  */
 
 import { createContext, type ReactNode, useContext, useState } from "react";
-import type { AppConfig } from "../../config.ts";
-import { CtraderClient } from "../../ctrader/client.ts";
+import { CtraderClient, type CtraderClientConfig } from "../../ctrader/client.ts";
 import { useCtraderConnection } from "../hooks/useCtraderConnection.ts";
 
 interface CtraderContextValue {
@@ -22,7 +21,13 @@ interface CtraderContextValue {
 
 const CtraderReactContext = createContext<CtraderContextValue | undefined>(undefined);
 
-export function CtraderProvider({ config, children }: { config: AppConfig; children: ReactNode }) {
+export function CtraderProvider({
+  config,
+  children,
+}: {
+  config: CtraderClientConfig;
+  children: ReactNode;
+}) {
   const [client] = useState(() => new CtraderClient(config));
 
   const { connected, symbolId, connectionError, setConnectionError } = useCtraderConnection(client);

@@ -12,53 +12,10 @@ import { join } from "node:path";
 import { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
-import { z } from "zod";
 import { APP_DATA_DIR } from "./constants.ts";
-import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./domain/smc/timeframes.ts";
+import type { CtraderClientConfig } from "./ctrader/client.ts";
 
 const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
-
-/** Source unique de vérité pour ce qui constitue une config valide — réutilisé par SetupScreen.tsx
- * pour valider la saisie utilisateur, pour que les deux points d'entrée (saisie, fichier relu)
- * s'accordent par construction plutôt que par coïncidence.
- *
- * `rewardRiskRatio`/`atrMultiplier`/`atrPeriod`/`atrTimeframe` (réglages du mode ATR, cf.
- * domain/trading.ts) restent `.optional()` ici pour rester compatibles avec un config.json écrit
- * avant leur ajout — `readConfig` applique `DEFAULT_ATR_SETTINGS` quand ils sont absents.
- * `atrTimeframe` est verrouillé sur `ATR_TIMEFRAME_LABELS` (pas une string libre) : c'est la liste
- * fermée des TF déjà suivis par TREND_TIMEFRAMES, pas un TF arbitraire. */
-export const AppConfigSchema = z.object({
-  url: z.url(),
-  token: z.string().min(1),
-  rewardRiskRatio: z.number().positive().optional(),
-  atrMultiplier: z.number().positive().optional(),
-  atrPeriod: z.number().int().min(2).optional(),
-  atrTimeframe: z.enum(ATR_TIMEFRAME_LABELS).optional(),
-});
-
-export interface AppConfig {
-  url: string;
-  token: string;
-  rewardRiskRatio: number;
-  atrMultiplier: number;
-  atrPeriod: number;
-  atrTimeframe: AtrTimeframeLabel;
-}
-
-/** Le sous-ensemble "réglages du mode ATR" de `AppConfig`, sans url/token — réutilisé par
- * useOrderActions.ts (opt `atrSettings`) et App.tsx (`updateAtrSettings`) plutôt que répété
- * inline à chaque endroit qui les manipule. */
-export type AtrSettings = Pick<
-  AppConfig,
-  "rewardRiskRatio" | "atrMultiplier" | "atrPeriod" | "atrTimeframe"
->;
-
-export const DEFAULT_ATR_SETTINGS = {
-  rewardRiskRatio: 1.2,
-  atrMultiplier: 1,
-  atrPeriod: 14,
-  atrTimeframe: "M5",
-} as const satisfies AtrSettings;
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
 // cross-platform genre keytar). Ça évite le token en clair dans le fichier — protège
@@ -94,18 +51,23 @@ function decrypt(payload: string): string {
 }
 
 /**
- * `undefined` si absent, corrompu, incomplet, ou déchiffrable seulement sur une autre machine —
- * redemande la config dans ces cas plutôt que planter. Dépend de `FileSystem` (`@effect/platform`)
- * plutôt que d'appeler `node:fs` en dur : un test peut fournir une implémentation en mémoire sans
- * jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx, SetupScreen.tsx) :
- * `fsRuntime.runPromise(readConfig())` (cf. src/effectRuntime.ts) — l'I/O
+ * `undefined` si absent, JSON invalide, ou déchiffrable seulement sur une autre machine —
+ * redemande la config dans ces cas plutôt que planter. Aucune validation de forme au-delà de ça
+ * (pas de schéma) : un config.json à moitié écrit passerait tel quel. Dépend de `FileSystem`
+ * (`@effect/platform`) plutôt que d'appeler `node:fs` en dur : un test peut fournir une
+ * implémentation en mémoire sans jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx,
+ * SetupScreen.tsx) : `fsRuntime.runPromise(readConfig())` (cf. src/effectRuntime.ts) — l'I/O
  * de `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone),
  * donc `Effect.runSync` n'est plus utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
  * pratique) : App.tsx charge la config dans un `useEffect`, pas dans l'initializer de `useState`.
  * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré sur
  * disque — pas le bon outil ici malgré le nom.
  */
-export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
+export function readConfig(): Effect.Effect<
+  CtraderClientConfig | undefined,
+  never,
+  FileSystem.FileSystem
+> {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     // Une lecture fs cassée (permissions, race avec un fichier supprimé entretemps…) est traitée
@@ -118,16 +80,8 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
     // seulement sur une autre machine) — Effect.try (pas Effect.sync) pour ne pas laisser
     // l'exception s'échapper en defect non catché.
     return yield* Effect.try(() => {
-      const parsed = AppConfigSchema.safeParse(JSON.parse(raw));
-      if (!parsed.success) return undefined;
-      return {
-        url: parsed.data.url,
-        token: decrypt(parsed.data.token),
-        rewardRiskRatio: parsed.data.rewardRiskRatio ?? DEFAULT_ATR_SETTINGS.rewardRiskRatio,
-        atrMultiplier: parsed.data.atrMultiplier ?? DEFAULT_ATR_SETTINGS.atrMultiplier,
-        atrPeriod: parsed.data.atrPeriod ?? DEFAULT_ATR_SETTINGS.atrPeriod,
-        atrTimeframe: parsed.data.atrTimeframe ?? DEFAULT_ATR_SETTINGS.atrTimeframe,
-      };
+      const parsed = JSON.parse(raw) as CtraderClientConfig;
+      return { url: parsed.url, token: decrypt(parsed.token) };
     }).pipe(Effect.orElseSucceed(() => undefined));
   });
 }
@@ -135,7 +89,7 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
 /** Échoue tel quel (disque plein, permissions) — contrairement à `readConfig`, un échec
  * d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé. */
 export function writeConfig(
-  config: AppConfig,
+  config: CtraderClientConfig,
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -144,18 +98,7 @@ export function writeConfig(
     }
     yield* fs.writeFileString(
       CONFIG_PATH,
-      JSON.stringify(
-        {
-          url: config.url,
-          token: encrypt(config.token),
-          rewardRiskRatio: config.rewardRiskRatio,
-          atrMultiplier: config.atrMultiplier,
-          atrPeriod: config.atrPeriod,
-          atrTimeframe: config.atrTimeframe,
-        },
-        null,
-        2,
-      ),
+      JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
       { mode: 0o600 },
     );
   });
