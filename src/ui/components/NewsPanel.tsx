@@ -5,7 +5,7 @@ import {
   classifyImpact,
   isGoldRelevant,
   PARIS_TZ,
-  parisDayKey,
+  parisDayKeyFormat,
 } from "../../domain/news.ts";
 import { alignLeft, formatRelative } from "../format.ts";
 import { theme } from "../theme.ts";
@@ -51,7 +51,7 @@ function isDefaultVisible(event: CalendarEvent): boolean {
  * panneau vide en fin de semaine une fois les gros événements déjà publiés.
  */
 function buildRows(events: CalendarEvent[], now: Date): Row[] {
-  const todayKey = parisDayKey(now);
+  const todayKey = parisDayKeyFormat.format(now);
   const visible = events.filter((event) => isDefaultVisible(event));
 
   const rows: Row[] = [];
@@ -60,7 +60,7 @@ function buildRows(events: CalendarEvent[], now: Date): Row[] {
 
   for (const event of visible) {
     const eventDate = new Date(event.timestamp);
-    const dayKey = parisDayKey(eventDate);
+    const dayKey = parisDayKeyFormat.format(eventDate);
 
     if (dayKey !== currentDayKey) {
       currentDayKey = dayKey;

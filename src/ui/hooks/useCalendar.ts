@@ -20,7 +20,7 @@ export function useCalendar(): Calendar {
     () =>
       async (options: { force?: boolean } = {}) => {
         try {
-          setCalendar(await fsRuntime.runPromise(fetchCalendar(options)));
+          setCalendar(await fsRuntime.runPromise(fetchCalendar(options.force)));
           setNewsError(undefined);
         } catch (error) {
           setNewsError(toMessage(error));

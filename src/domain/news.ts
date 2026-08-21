@@ -8,22 +8,18 @@ import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
 
 const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
-const CACHE_PATH = join(APP_DATA_DIR, "calendar-cache.json");
+const CACHE_PATH = join(APP_DATA_DIR, "ff-calendar.json");
 
 // Le calendrier est toujours raisonné en heure de Paris, indépendamment du fuseau système —
 // autant pour l'affichage (NewsPanel) que pour la limite "un jour" du cache ci-dessous. Utiliser
 // le fuseau système ici serait incohérent avec l'affichage si l'app tourne ailleurs qu'à Paris.
 export const PARIS_TZ = "Europe/Paris";
-const parisDayKeyFormat = new Intl.DateTimeFormat("en-CA", {
+export const parisDayKeyFormat = new Intl.DateTimeFormat("en-CA", {
   timeZone: PARIS_TZ,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
-
-export function parisDayKey(date: Date): string {
-  return parisDayKeyFormat.format(date);
-}
 
 const CalendarEventSchema = z.object({
   title: z.string(),
@@ -34,23 +30,18 @@ const CalendarEventSchema = z.object({
   previous: z.string(),
 });
 
-export interface CalendarEvent {
-  title: string;
-  country: string;
-  date: string;
-  impact: string;
-  forecast: string;
-  previous: string;
-  /** epoch ms, dérivé de `date` */
-  timestamp: number;
-}
+/** Schéma décoré du `timestamp` dérivé (epoch ms, cf. `fetchCalendar`) — sert à la fois à valider
+ * le cache disque (qui stocke les events déjà décorés) et à dériver `CalendarEvent`, pour ne pas
+ * retaper les 6 champs de `CalendarEventSchema` une deuxième fois dans une interface à part. */
+const DecoratedCalendarEventSchema = CalendarEventSchema.extend({ timestamp: z.number() });
+export type CalendarEvent = z.infer<typeof DecoratedCalendarEventSchema>;
 
-export type NewsImpact = "high" | "medium" | "low" | "other";
+const NewsImpactSchema = z.enum(["high", "medium", "low"]);
+export type NewsImpact = z.infer<typeof NewsImpactSchema> | "other";
 
 export function classifyImpact(raw: string): NewsImpact {
-  const value = raw.trim().toLowerCase();
-  if (value === "high" || value === "medium" || value === "low") return value;
-  return "other";
+  const parsed = NewsImpactSchema.safeParse(raw.trim().toLowerCase());
+  return parsed.success ? parsed.data : "other";
 }
 
 /**
@@ -66,15 +57,15 @@ export function isGoldRelevant(event: Pick<CalendarEvent, "country" | "title">):
 
 const CacheFileSchema = z.object({
   fetchedAt: z.string(),
-  events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
+  events: z.array(DecoratedCalendarEventSchema),
 });
 
 /**
  * Échec de récupération du calendrier — réseau, HTTP non-200, ou payload inattendu. Une seule
- * classe plutôt qu'une hiérarchie taguée par cause : rien en dehors de `fetchWithRetry` (ci-dessous)
- * ne discrimine jamais par cause, seulement "est-ce un rate-limit retryable, et avec quel délai" —
- * porté par `retryAfterSeconds` (défini = oui). Même convention que `CtraderMcpError`
- * (ctrader/client.ts), pour la même raison.
+ * classe plutôt qu'une hiérarchie taguée par cause : rien en dehors de la boucle de retry
+ * (`fetchCalendar` ci-dessous) ne discrimine jamais par cause, seulement "est-ce un rate-limit
+ * retryable, et avec quel délai" — porté par `retryAfterSeconds` (défini = oui). Même convention
+ * que `CtraderMcpError` (ctrader/client.ts), pour la même raison.
  */
 export class FetchCalendarError extends Data.TaggedError("FetchCalendarError")<{
   readonly message: string;
@@ -115,8 +106,23 @@ function writeCache(
 
 const MAX_RATE_LIMIT_RETRIES = 3;
 
-function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
-  return Effect.gen(function* () {
+/**
+ * Le calendrier ("cette semaine") ne change quasiment pas d'un jour à l'autre — un fetch par jour
+ * calendaire suffit largement et évite le rate limit du serveur. `force: true` (commande /refresh)
+ * bypasse le cache same-day, mais retombe quand même sur les données en cache si le réseau échoue.
+ *
+ * Retry : sur 429, réessaie en respectant le `retry-after` renvoyé par le serveur (jusqu'à
+ * `MAX_RATE_LIMIT_RETRIES` fois de plus) ; toute autre erreur (HTTP non-200, payload invalide,
+ * réseau down) n'est pas retentée — pas de valeur à réessayer une 404 ou un JSON cassé
+ * immédiatement.
+ */
+export function fetchCalendar(
+  force = false,
+): Effect.Effect<CalendarEvent[], FetchCalendarError, FileSystem.FileSystem> {
+  // Description d'une tentative unique, réexécutée telle quelle par la boucle de retry ci-dessous
+  // (un Effect est une description pure, rejouable — pas une Promise déjà résolue une fois pour
+  // toutes) : pas besoin d'un helper séparé pour "refaire la même chose une fois de plus".
+  const attempt: Effect.Effect<CalendarEvent[], FetchCalendarError> = Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
       try: () => fetch(CALENDAR_URL),
       catch: (cause) =>
@@ -126,8 +132,7 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
     });
 
     if (response.status === 429) {
-      // Délai suggéré par le serveur si présent et exploitable, sinon 5s par défaut — la valeur
-      // finale posée ici une fois pour toutes, pas recalculée côté appelant (cf. fetchWithRetry).
+      // Délai suggéré par le serveur si présent et exploitable, sinon 5s par défaut.
       const retryAfterHeader = response.headers.get("retry-after");
       const parsedRetryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined;
       const retryAfterSeconds =
@@ -163,45 +168,29 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
       .map((event) => ({ ...event, timestamp: new Date(event.date).getTime() }))
       .sort((a, b) => a.timestamp - b.timestamp);
   });
-}
 
-/** Réessaie sur 429 en respectant le `retry-after` renvoyé par le serveur (jusqu'à
- * `MAX_RATE_LIMIT_RETRIES` fois, `retryAfterSeconds` défini = c'est un rate-limit). Toute autre
- * erreur (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à
- * réessayer une 404 ou un JSON cassé immédiatement. */
-function fetchWithRetry(
-  attemptsLeft = MAX_RATE_LIMIT_RETRIES,
-): Effect.Effect<CalendarEvent[], FetchCalendarError> {
-  return fetchOnce().pipe(
-    Effect.catchTag("FetchCalendarError", (error) => {
-      if (error.retryAfterSeconds === undefined || attemptsLeft <= 0) return Effect.fail(error);
-      return Effect.sleep(`${error.retryAfterSeconds} seconds`).pipe(
-        Effect.andThen(() => fetchWithRetry(attemptsLeft - 1)),
-      );
-    }),
-  );
-}
-
-/**
- * Le calendrier ("cette semaine") ne change quasiment pas d'un jour à l'autre —
- * un fetch par jour calendaire suffit largement et évite le rate limit du
- * serveur. `force: true` (commande /refresh) bypasse le cache same-day, mais
- * retombe quand même sur les données en cache si le réseau échoue.
- */
-export function fetchCalendar(
-  options: { force?: boolean } = {},
-): Effect.Effect<CalendarEvent[], FetchCalendarError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const cached = yield* readCache();
     if (
-      !options.force &&
+      !force &&
       cached &&
-      parisDayKey(new Date(cached.fetchedAt)) === parisDayKey(new Date())
+      parisDayKeyFormat.format(new Date(cached.fetchedAt)) === parisDayKeyFormat.format(new Date())
     ) {
       return cached.events;
     }
 
-    const result = yield* Effect.either(fetchWithRetry());
+    let result = yield* Effect.either(attempt);
+    for (
+      let retries = 0;
+      result._tag === "Left" &&
+      result.left.retryAfterSeconds !== undefined &&
+      retries < MAX_RATE_LIMIT_RETRIES;
+      retries++
+    ) {
+      yield* Effect.sleep(`${result.left.retryAfterSeconds} seconds`);
+      result = yield* Effect.either(attempt);
+    }
+
     if (result._tag === "Right") {
       // Écriture cache best-effort : un échec d'écriture ne doit pas faire échouer le refresh.
       yield* Effect.ignore(writeCache(result.right));
