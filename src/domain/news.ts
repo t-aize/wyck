@@ -64,72 +64,22 @@ export function isGoldRelevant(event: Pick<CalendarEvent, "country" | "title">):
   return event.country === "USD" || GOLD_KEYWORD.test(event.title);
 }
 
-export type Direction = "up" | "down" | "flat";
-
-/** "3.5%" → 3.5, "255K" → 255000, "-1.2M" → -1200000. */
-function parseFigure(raw: string): number | undefined {
-  const match = raw?.trim().match(/(-?[\d.,]+)\s*([KMB])?/i);
-  if (!match) return undefined;
-  const num = Number(match[1]!.replace(/,/g, ""));
-  if (Number.isNaN(num)) return undefined;
-  const multiplier = { K: 1e3, M: 1e6, B: 1e9 }[match[2]?.toUpperCase() as "K" | "M" | "B"] ?? 1;
-  return num * multiplier;
-}
-
-/** forecast vs previous : le marché anticipe-t-il une lecture plus forte, plus faible, ou stable ? */
-function figureDirection(
-  event: Pick<CalendarEvent, "forecast" | "previous">,
-): Direction | undefined {
-  const forecast = parseFigure(event.forecast);
-  const previous = parseFigure(event.previous);
-  if (forecast === undefined || previous === undefined) return undefined;
-  if (forecast === previous) return "flat";
-  return forecast > previous ? "up" : "down";
-}
-
-/**
- * Heuristique de calendrier, pas un signal de trading : la plupart des indicateurs
- * US à fort impact (NFP, GDP, retail sales, PMI, CPI...) sont "pro-USD" — une lecture
- * anticipée plus forte que la précédente renforce le dollar, donc pèse sur XAUUSD
- * (corrélation inverse). Une poignée d'indicateurs "négatifs" (chômage, jobless
- * claims) vont dans l'autre sens : une hausse traduit un affaiblissement
- * économique, donc plutôt haussier pour l'or. Le marché intègre déjà une bonne
- * part du consensus, donc ceci reste indicatif, pas prédictif.
- */
-const INVERSE_FOR_GOLD = /unemployment|jobless claims|claimant count/i;
-
-export function goldDirection(event: CalendarEvent): Direction | undefined {
-  const dataDirection = figureDirection(event);
-  if (!dataDirection || dataDirection === "flat") return dataDirection;
-  const inverse = INVERSE_FOR_GOLD.test(event.title);
-  if (dataDirection === "up") return inverse ? "up" : "down";
-  return inverse ? "down" : "up";
-}
-
 const CacheFileSchema = z.object({
   fetchedAt: z.string(),
   events: z.array(CalendarEventSchema.extend({ timestamp: z.number() })),
 });
 
-// Erreurs taguées : le rate-limit distingue explicitement
-// `retryAfterSeconds` — c'est cette valeur qui pilote maintenant le retry (avant, elle n'était
-// qu'affichée dans le message sans jamais déclencher de nouvelle tentative).
-export class CalendarRateLimited extends Data.TaggedError("CalendarRateLimited")<{
-  readonly retryAfterSeconds: number | undefined;
+/**
+ * Échec de récupération du calendrier — réseau, HTTP non-200, ou payload inattendu. Une seule
+ * classe plutôt qu'une hiérarchie taguée par cause : rien en dehors de `fetchWithRetry` (ci-dessous)
+ * ne discrimine jamais par cause, seulement "est-ce un rate-limit retryable, et avec quel délai" —
+ * porté par `retryAfterSeconds` (défini = oui). Même convention que `CtraderMcpError`
+ * (ctrader/client.ts), pour la même raison.
+ */
+export class FetchCalendarError extends Data.TaggedError("FetchCalendarError")<{
   readonly message: string;
+  readonly retryAfterSeconds?: number;
 }> {}
-
-export class CalendarHttpError extends Data.TaggedError("CalendarHttpError")<{
-  readonly status: number;
-  readonly message: string;
-}> {}
-
-export class CalendarInvalidPayload extends Data.TaggedError("CalendarInvalidPayload")<{
-  readonly issues: string;
-  readonly message: string;
-}> {}
-
-export type FetchCalendarError = CalendarRateLimited | CalendarHttpError | CalendarInvalidPayload;
 
 /** `undefined` si absent, corrompu, ou d'un format antérieur — jamais en échec, on retombe sur un
  * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). Passe
@@ -170,52 +120,40 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
     const response = yield* Effect.tryPromise({
       try: () => fetch(CALENDAR_URL),
       catch: (cause) =>
-        new CalendarHttpError({
-          status: 0,
+        new FetchCalendarError({
           message: `Calendrier économique : réseau indisponible (${cause instanceof Error ? cause.message : String(cause)})`,
         }),
     });
 
     if (response.status === 429) {
+      // Délai suggéré par le serveur si présent et exploitable, sinon 5s par défaut — la valeur
+      // finale posée ici une fois pour toutes, pas recalculée côté appelant (cf. fetchWithRetry).
       const retryAfterHeader = response.headers.get("retry-after");
-      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : undefined;
-      const validRetryAfter =
-        retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
-          ? retryAfterSeconds
-          : undefined;
+      const parsedRetryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined;
+      const retryAfterSeconds =
+        parsedRetryAfter !== undefined && Number.isFinite(parsedRetryAfter) ? parsedRetryAfter : 5;
       return yield* Effect.fail(
-        new CalendarRateLimited({
-          retryAfterSeconds: validRetryAfter,
-          message:
-            validRetryAfter === undefined
-              ? "Calendrier économique : limité par le serveur"
-              : `Calendrier économique : limité par le serveur (réessai dans ${validRetryAfter}s)`,
+        new FetchCalendarError({
+          message: `Calendrier économique : limité par le serveur (réessai dans ${retryAfterSeconds}s)`,
+          retryAfterSeconds,
         }),
       );
     }
     if (!response.ok) {
       return yield* Effect.fail(
-        new CalendarHttpError({
-          status: response.status,
-          message: `Calendrier économique : HTTP ${response.status}`,
-        }),
+        new FetchCalendarError({ message: `Calendrier économique : HTTP ${response.status}` }),
       );
     }
 
     const raw = yield* Effect.tryPromise({
       try: () => response.json(),
-      catch: () =>
-        new CalendarInvalidPayload({
-          issues: "réponse non-JSON",
-          message: "Calendrier économique : réponse non-JSON",
-        }),
+      catch: () => new FetchCalendarError({ message: "Calendrier économique : réponse non-JSON" }),
     });
 
     const parsed = z.array(CalendarEventSchema).safeParse(raw);
     if (!parsed.success) {
       return yield* Effect.fail(
-        new CalendarInvalidPayload({
-          issues: parsed.error.message,
+        new FetchCalendarError({
           message: `Calendrier économique : réponse inattendue (${parsed.error.message})`,
         }),
       );
@@ -228,17 +166,16 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
 }
 
 /** Réessaie sur 429 en respectant le `retry-after` renvoyé par le serveur (jusqu'à
- * `MAX_RATE_LIMIT_RETRIES` fois) — avant cette passe, ce délai était lu
- * et affiché mais jamais réellement utilisé pour patienter puis réessayer. Toute autre erreur
- * (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à réessayer
- * une 404 ou un JSON cassé immédiatement. */
+ * `MAX_RATE_LIMIT_RETRIES` fois, `retryAfterSeconds` défini = c'est un rate-limit). Toute autre
+ * erreur (HTTP non-200, payload invalide, réseau down) n'est pas retentée : pas de valeur à
+ * réessayer une 404 ou un JSON cassé immédiatement. */
 function fetchWithRetry(
   attemptsLeft = MAX_RATE_LIMIT_RETRIES,
 ): Effect.Effect<CalendarEvent[], FetchCalendarError> {
   return fetchOnce().pipe(
-    Effect.catchTag("CalendarRateLimited", (error) => {
-      if (attemptsLeft <= 0) return Effect.fail(error);
-      return Effect.sleep(`${error.retryAfterSeconds ?? 5} seconds`).pipe(
+    Effect.catchTag("FetchCalendarError", (error) => {
+      if (error.retryAfterSeconds === undefined || attemptsLeft <= 0) return Effect.fail(error);
+      return Effect.sleep(`${error.retryAfterSeconds} seconds`).pipe(
         Effect.andThen(() => fetchWithRetry(attemptsLeft - 1)),
       );
     }),
