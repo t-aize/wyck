@@ -222,9 +222,8 @@ export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
  * Vérifié via get_order_history (10 ordres réels, XAUUSD). Les champs propres aux
  * ordres *en attente* (label, comment, timeInForce, statut) restent non vérifiés :
  * aucun ordre pending observé lors du test. expirationTimestamp est repris malgré
- * tout (même nom que dans CreateOrderParams/AmendOrderParams) — sans lui, un amend
- * (manuel ou auto ATR, cf. useModifyConfirm.ts/useAtrOrderTracking.ts) ne peut pas
- * le renvoyer et cTrader l'efface silencieusement.
+ * tout (même nom que dans CreateOrderParams/AmendOrderParams) — sans lui, un amend manuel (cf.
+ * useModifyConfirm.ts) ne peut pas le renvoyer et cTrader l'efface silencieusement.
  */
 export const CtraderOrderSchema = z.object({
   orderId: z.number(),

@@ -2,9 +2,8 @@
 
 import { Schema } from "effect";
 import { roundPrice } from "../constants.ts";
-import type { CtraderOrder, TradeSide } from "../ctrader/schemas.ts";
-import { ATR_TIMEFRAME_LABELS, type AtrTimeframeLabel } from "./smc/timeframes.ts";
-import type { AtrTradeInput, PreparedTrade, TradeInput } from "./trading.ts";
+import type { CtraderOrder } from "../ctrader/schemas.ts";
+import type { PreparedTrade, TradeInput } from "./trading.ts";
 
 /**
  * Coercion + validation d'un champ numérique (chaîne → nombre fini) : remplace les 5
@@ -107,52 +106,6 @@ export function parseTradeCommand(
   return { entry, riskPercent, stopLoss: roundPrice(stopLoss), takeProfit: roundPrice(takeProfit) };
 }
 
-export const ATR_TRADE_USAGE =
-  "usage (mode ATR) : trade [<risque%>] <entrée|market> <buy|sell>  (SL/TP calculés depuis " +
-  "l'ATR(14) M5 ; risque% optionnel si un défaut est défini avec `risk`)";
-
-/**
- * Équivalent de `parseTradeCommand` pour le mode ATR (basculé via Shift+Tab, cf.
- * CommandBar.tsx) : plus de SL/TP saisis à la main, la direction est donnée directement
- * (`buy`/`sell`) plutôt que déduite. Même règle de risque% optionnel que `parseTradeCommand`
- * (2 arguments avec un défaut défini, sinon 3).
- */
-export function parseAtrTradeCommand(
-  args: string[],
-  defaultRiskPercent?: number,
-): AtrTradeInput | string {
-  let riskRaw: string | undefined;
-  let entryRaw: string | undefined;
-  let sideRaw: string | undefined;
-
-  if (args.length === 2 && defaultRiskPercent !== undefined) {
-    riskRaw = String(defaultRiskPercent);
-    [entryRaw, sideRaw] = args;
-  } else {
-    [riskRaw, entryRaw, sideRaw] = args;
-  }
-
-  if (!riskRaw || !entryRaw || !sideRaw) return `arguments manquants — ${ATR_TRADE_USAGE}`;
-
-  const riskPercent = decodeFiniteNumber(riskRaw);
-  if (riskPercent === undefined) return `risque invalide : "${riskRaw}"`;
-
-  const isMarket = entryRaw.toLowerCase() === "market";
-  const entryNumber = isMarket ? undefined : decodeFiniteNumber(entryRaw);
-  if (!isMarket && entryNumber === undefined) {
-    return `entrée invalide : "${entryRaw}"`;
-  }
-  const entry = entryNumber === undefined ? "market" : roundPrice(entryNumber);
-
-  const sideLower = sideRaw.toLowerCase();
-  if (sideLower !== "buy" && sideLower !== "sell") {
-    return `direction invalide : "${sideRaw}" (buy/sell attendu)`;
-  }
-  const side: TradeSide = sideLower === "buy" ? "BUY" : "SELL";
-
-  return { entry, riskPercent, side };
-}
-
 export interface ModifyInput {
   id: number;
   stopLoss?: number;
@@ -245,58 +198,6 @@ export function parseRiskCommand(args: string[]): number | string {
     return `risque invalide : "${raw}" — ${RISK_USAGE}`;
   }
   return value;
-}
-
-export const ATR_SETTINGS_USAGE =
-  "usage : atr [rr <valeur> | mult <valeur> | period <entier> | timeframe " +
-  `<${ATR_TIMEFRAME_LABELS.join("|")}>]  (sans argument : affiche les réglages actuels)`;
-
-export interface AtrSettingsUpdate {
-  rewardRiskRatio?: number;
-  atrMultiplier?: number;
-  atrPeriod?: number;
-  atrTimeframe?: AtrTimeframeLabel;
-}
-
-function isAtrTimeframeLabel(value: string): value is AtrTimeframeLabel {
-  return (ATR_TIMEFRAME_LABELS as readonly string[]).includes(value);
-}
-
-/** `{}` sans argument (l'appelant affiche alors les réglages actuels) — un message d'erreur (string)
- * sinon. Les réglages sont persistés dans config.json par l'appelant (cf. useOrderActions.ts).
- * `timeframe` est verrouillé sur `ATR_TIMEFRAME_LABELS` (liste fermée, pas une string libre) — cf.
- * commentaire équivalent dans config.ts#AppConfigSchema. */
-export function parseAtrSettingsCommand(args: string[]): AtrSettingsUpdate | string {
-  if (args.length === 0) return {};
-
-  const [sub, valueRaw] = args;
-
-  if (sub?.toLowerCase() === "timeframe") {
-    const upper = valueRaw?.toUpperCase() ?? "";
-    if (!isAtrTimeframeLabel(upper)) {
-      return `timeframe invalide : "${valueRaw ?? ""}" — ${ATR_SETTINGS_USAGE}`;
-    }
-    return { atrTimeframe: upper };
-  }
-
-  const value = decodeFiniteNumber(valueRaw ?? "");
-  if (value === undefined) return `valeur invalide : "${valueRaw ?? ""}" — ${ATR_SETTINGS_USAGE}`;
-
-  switch (sub?.toLowerCase()) {
-    case "rr":
-      if (value <= 0) return `RR invalide : "${valueRaw}" — ${ATR_SETTINGS_USAGE}`;
-      return { rewardRiskRatio: value };
-    case "mult":
-      if (value <= 0) return `multiplicateur invalide : "${valueRaw}" — ${ATR_SETTINGS_USAGE}`;
-      return { atrMultiplier: value };
-    case "period":
-      if (!Number.isInteger(value) || value < 2) {
-        return `période invalide : "${valueRaw}" — ${ATR_SETTINGS_USAGE}`;
-      }
-      return { atrPeriod: value };
-    default:
-      return `sous-commande inconnue : "${sub ?? ""}" — ${ATR_SETTINGS_USAGE}`;
-  }
 }
 
 export function formatTradeSummary(trade: PreparedTrade): string {

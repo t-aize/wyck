@@ -1,4 +1,4 @@
-import { type InputRenderable, TextAttributes } from "@opentui/core";
+import type { InputRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { theme } from "../theme.ts";
@@ -14,10 +14,6 @@ interface CommandBarProps {
   onSubmit: (command: string) => void;
   /** Désactivé pendant qu'une popup (ex: confirmation de trade) a le focus clavier. */
   focused?: boolean;
-  /** Basculé au Shift+Tab, comme les modes de Claude Code — `trade` ne prend alors que
-   * risque/entrée/direction, cf. domain/trading.ts#prepareAtrTrade. */
-  atrMode: boolean;
-  onToggleAtrMode: () => void;
 }
 
 const FEEDBACK_ICON: Record<FeedbackKind, string> = { info: "›", success: "✓", error: "✗" };
@@ -32,7 +28,6 @@ const COMMANDS = [
   "modify",
   "cancel",
   "risk",
-  "atr",
   "settings",
   "refresh",
   "clear",
@@ -54,7 +49,7 @@ function matchCommands(value: string): string[] {
 }
 
 export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function CommandBar(
-  { feedback, onSubmit, focused = true, atrMode, onToggleAtrMode },
+  { feedback, onSubmit, focused = true },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -86,13 +81,6 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
 
   useKeyboard((key) => {
     if (!focused) return;
-
-    // Comme les modes de Claude Code : Shift+Tab bascule, ne doit jamais aussi déclencher
-    // l'autocomplétion ci-dessous (même touche "tab" sous-jacente).
-    if (key.name === "tab" && key.shift) {
-      onToggleAtrMode();
-      return;
-    }
 
     if (key.name === "tab" && suggestions.length > 0) {
       const first = suggestions[0];
@@ -155,13 +143,6 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
           </>
         )}
       </text>
-      {/* Comme les modes de Claude Code : silencieux en mode normal, un repère visuel seulement
-       * quand le mode ATR est actif (cf. domain/trading.ts#prepareAtrTrade). */}
-      {atrMode && (
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-          {"⏵⏵ mode ATR actif (Shift+Tab pour basculer)"}
-        </text>
-      )}
       <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
         <text fg={theme.accent}>›</text>
         <input

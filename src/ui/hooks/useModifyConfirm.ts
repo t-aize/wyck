@@ -5,7 +5,6 @@ import { toAmendOrderParams } from "../../domain/trading.ts";
 import { toMessage } from "../../errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
-import type { AtrOrderTracking } from "./useAtrOrderTracking.ts";
 
 export interface PendingModify {
   order: CtraderOrder;
@@ -20,14 +19,9 @@ export interface ModifyConfirm {
   cancelPendingModify: () => void;
 }
 
-/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts. Une intervention
- * manuelle sur un ordre suivi ATR désactive son suivi automatique dès la confirmation
- * (l'intervention manuelle prime, cf. useAtrOrderTracking.ts). */
-export function useModifyConfirm(opts: {
-  refreshMarket: () => Promise<void>;
-  atrTracking: Pick<AtrOrderTracking, "untrackOrder">;
-}): ModifyConfirm {
-  const { refreshMarket, atrTracking } = opts;
+/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts. */
+export function useModifyConfirm(opts: { refreshMarket: () => Promise<void> }): ModifyConfirm {
+  const { refreshMarket } = opts;
   const { client } = useCtrader();
   const { setFeedback } = useFeedback();
   const [pendingModify, setPendingModify] = useState<PendingModify>();
@@ -41,7 +35,6 @@ export function useModifyConfirm(opts: {
     if (!pendingModify) return;
     const { order, stopLoss, takeProfit } = pendingModify;
     setPendingModify(undefined);
-    atrTracking.untrackOrder(order.orderId);
     setFeedback({ kind: "info", message: "modification en cours…" });
     void Effect.runPromise(
       client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit })),
