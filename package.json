@@ -15,6 +15,7 @@
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
     "build": "bun build ./src/index.tsx --compile --minify --sourcemap --outfile ./dist/aurum",
+    "build:check": "bun build ./src/index.tsx --compile --outfile ./dist/.build-check",
     "typecheck": "tsc --noEmit",
     "check": "biome check .",
     "check:fix": "biome check --write .",

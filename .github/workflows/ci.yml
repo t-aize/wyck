@@ -4,10 +4,10 @@ on:
   push:
     branches: [ main ]
   pull_request:
-  workflow_call:
+  workflow_dispatch:
 
-permissions:
-  contents: read
+# Pas de permission par défaut : chaque job déclare explicitement ce dont il a besoin.
+permissions: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,28 +18,22 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-
+          persist-credentials: false
 
-      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-bun
 
       - run: bun run typecheck
-      - run: bun run lint
+      - run: bun run check
 
   # @opentui/core résout ses binaires natifs par plateforme via des import() dynamiques que seul
   # --compile élague au moment de la cible (un bundle generic tente de tout résoudre statiquement
   # et échoue sur les plateformes non installées) — donc on vérifie que ça compile sur chaque OS
-  # livré (cf. release.yml), pas seulement sur celui du job `check` ci-dessus.
+  # cible, pas seulement sur celui du job `check` ci-dessus.
   build:
     strategy:
       fail-fast: false
@@ -47,20 +41,34 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-
+          persist-credentials: false
 
-      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-bun
 
       - name: Verify the build compiles
         run: bun run build:check
+
+  # Analyse statique des workflows eux-mêmes (permissions excessives, injections de template via
+  # des champs contrôlés par l'auteur d'une PR, actions non épinglées à un SHA...). Informatif pour
+  # l'instant (continue-on-error) le temps de trier les premiers résultats ; à basculer en
+  # bloquant une fois la baseline nettoyée.
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Run zizmor
+        run: uvx zizmor@1.29.0 --format=github .
+        continue-on-error: true
