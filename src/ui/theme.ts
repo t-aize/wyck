@@ -12,6 +12,7 @@
  */
 import type { TradeSide } from "../ctrader/schemas.ts";
 import type { KillzoneId, MarketSessionId } from "../sessions/types.ts";
+import type { StructureBias } from "../structure/types.ts";
 
 export const theme = {
   bg: "#0A0A0A",
@@ -56,4 +57,12 @@ export function sideColor(side: TradeSide | undefined): string {
 export function pnlColor(pnl: number | undefined): string {
   if (pnl === undefined) return theme.textDim;
   return pnl >= 0 ? theme.green : theme.red;
+}
+
+/** Biais de structure (cf. structure/bias.ts) : bullish = vert, bearish = rouge, neutral/indisponible
+ * = atténué — même convention que sideColor()/pnlColor() ci-dessus. */
+export function biasColor(bias: StructureBias | undefined): string {
+  if (bias === "bullish") return theme.green;
+  if (bias === "bearish") return theme.red;
+  return theme.textDim;
 }

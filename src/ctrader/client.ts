@@ -15,10 +15,11 @@
  *
  * Mirroir volontairement complet de la surface `trading`/`account`/`market data` du
  * serveur MCP, pas seulement des méthodes déjà câblées dans l'UI : `getVersion`,
- * `getAssets`, `getTrendbars`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory` et
- * `getDeals` n'ont aujourd'hui aucun appelant dans `src/` (`getTrendbars` en particulier depuis le
- * retrait du mode ATR et de l'analyse SMC, seuls consommateurs de bougies historiques). Choix
- * assumé plutôt qu'angle mort. `amendPosition`/`closePosition` ont désormais un appelant
+ * `getAssets`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory` et
+ * `getDeals` n'ont aujourd'hui aucun appelant dans `src/`. Choix assumé plutôt qu'angle mort.
+ * `getTrendbars` avait le même statut jusqu'au retrait du mode ATR/SMC — désormais appelé par
+ * `trading/atr.ts#fetchAtr` et `structure/fetch.ts#fetchStructure`. `amendPosition`/`closePosition`
+ * ont aussi désormais un appelant
  * (`trading/amendParams.ts#toAmendPositionParams`/`toClosePositionParams`, câblés via les
  * commandes `amend`/`close`) — attendaient que `CtraderPositionSchema` soit verrouillé (cf. ctrader/
  * schemas.ts) avant d'être exposées, précondition désormais satisfaite. Si une méthode reste

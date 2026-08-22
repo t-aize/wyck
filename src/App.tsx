@@ -11,6 +11,7 @@ import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
+import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
@@ -18,6 +19,7 @@ import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
+import { useStructure } from "./ui/hooks/useStructure.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
 import { theme } from "./ui/theme.ts";
 import { fsRuntime } from "./utils/effectRuntime.ts";
@@ -104,6 +106,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     refreshMarket,
   } = useMarketData();
   const { calendar, newsError, refreshNews } = useCalendar();
+  const { structure, structureError } = useStructure();
 
   const {
     runCommand,
@@ -141,6 +144,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         balance={balance}
         moneyDigits={moneyDigits}
       />
+      <StructureBar structure={structure} errorMessage={structureError} />
       <PositionsPanel positions={positions} bidPrice={bidPrice} askPrice={askPrice} />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
