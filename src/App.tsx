@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
+import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CloseConfirmModal } from "./ui/components/CloseConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
-import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
+import { Row } from "./ui/components/ConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
-import { PositionAmendConfirmModal } from "./ui/components/PositionAmendConfirmModal.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
@@ -92,8 +92,17 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
   const { feedback } = useFeedback();
   const commandBarRef = useRef<CommandBarHandle>(null);
 
-  const { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket } =
-    useMarketData();
+  const {
+    bid,
+    ask,
+    bidPrice,
+    askPrice,
+    priceHistory,
+    positions,
+    balance,
+    moneyDigits,
+    refreshMarket,
+  } = useMarketData();
   const { calendar, newsError, refreshNews } = useCalendar();
 
   const {
@@ -132,7 +141,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         balance={balance}
         moneyDigits={moneyDigits}
       />
-      <PositionsPanel positions={positions} bid={bid} ask={ask} />
+      <PositionsPanel positions={positions} bidPrice={bidPrice} askPrice={askPrice} />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
         ref={commandBarRef}
@@ -154,10 +163,19 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         />
       )}
       {pendingModify && (
-        <ModifyConfirmModal
-          order={pendingModify.order}
-          stopLoss={pendingModify.stopLoss}
-          takeProfit={pendingModify.takeProfit}
+        <AmendConfirmModal
+          title="MODIFIER L'ORDRE"
+          confirmLabel="✓ Confirmer — modifier l'ordre"
+          subjectRow={
+            <Row
+              label="Ordre"
+              value={`${pendingModify.order.orderId} ${pendingModify.order.tradeSide} ${pendingModify.order.orderType}`}
+            />
+          }
+          currentStopLoss={pendingModify.order.stopLoss}
+          currentTakeProfit={pendingModify.order.takeProfit}
+          nextStopLoss={pendingModify.stopLoss}
+          nextTakeProfit={pendingModify.takeProfit}
           onConfirm={confirmPendingModify}
           onCancel={cancelPendingModify}
         />
@@ -170,10 +188,19 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         />
       )}
       {pendingPositionAmend && (
-        <PositionAmendConfirmModal
-          position={pendingPositionAmend.position}
-          stopLoss={pendingPositionAmend.stopLoss}
-          takeProfit={pendingPositionAmend.takeProfit}
+        <AmendConfirmModal
+          title="MODIFIER LA POSITION"
+          confirmLabel="✓ Confirmer — modifier la position"
+          subjectRow={
+            <Row
+              label="Position"
+              value={`${pendingPositionAmend.position.id} ${pendingPositionAmend.position.side ?? "—"} ${pendingPositionAmend.position.volumeLots?.toFixed(2) ?? "—"} lots`}
+            />
+          }
+          currentStopLoss={pendingPositionAmend.position.stopLoss}
+          currentTakeProfit={pendingPositionAmend.position.takeProfit}
+          nextStopLoss={pendingPositionAmend.stopLoss}
+          nextTakeProfit={pendingPositionAmend.takeProfit}
           onConfirm={confirmPendingPositionAmend}
           onCancel={cancelPendingPositionAmend}
         />
@@ -181,8 +208,8 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
       {pendingClose && (
         <CloseConfirmModal
           position={pendingClose}
-          bid={bid}
-          ask={ask}
+          bidPrice={bidPrice}
+          askPrice={askPrice}
           onConfirm={confirmPendingClose}
           onCancel={dismissPendingClose}
         />

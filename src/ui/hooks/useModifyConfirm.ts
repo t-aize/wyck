@@ -1,10 +1,7 @@
-import { Effect } from "effect";
-import { useState } from "react";
 import type { CtraderOrder } from "../../ctrader/schemas.ts";
-import { toAmendOrderParams } from "../../domain/trading.ts";
-import { toMessage } from "../../utils/errors.ts";
+import { toAmendOrderParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
-import { useFeedback } from "../context/FeedbackContext.tsx";
+import { usePendingAction } from "./usePendingAction.ts";
 
 export interface PendingModify {
   order: CtraderOrder;
@@ -19,38 +16,27 @@ export interface ModifyConfirm {
   cancelPendingModify: () => void;
 }
 
-/** Un des 3 hooks de confirmation issus de l'éclatement de useOrderActions.ts. */
+/** Un des 4 hooks de confirmation bâtis sur usePendingAction.ts. */
 export function useModifyConfirm(opts: { refreshMarket: () => Promise<void> }): ModifyConfirm {
-  const { refreshMarket } = opts;
   const { client } = useCtrader();
-  const { setFeedback } = useFeedback();
-  const [pendingModify, setPendingModify] = useState<PendingModify>();
+  const {
+    pending: pendingModify,
+    propose,
+    confirm: confirmPendingModify,
+    cancel: cancelPendingModify,
+  } = usePendingAction<PendingModify>({
+    refreshMarket: opts.refreshMarket,
+    proposeMessage: "modification calculée — confirme dans la popup",
+    progressMessage: "modification en cours…",
+    cancelMessage: "modification annulée",
+    errorPrefix: "échec modification",
+    run: ({ order, stopLoss, takeProfit }) =>
+      client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit })),
+    successMessage: ({ order }) => `ordre ${order.orderId} modifié`,
+  });
 
   function proposeModify(order: CtraderOrder, stopLoss?: number, takeProfit?: number) {
-    setPendingModify({ order, stopLoss, takeProfit });
-    setFeedback({ kind: "info", message: "modification calculée — confirme dans la popup" });
-  }
-
-  function confirmPendingModify() {
-    if (!pendingModify) return;
-    const { order, stopLoss, takeProfit } = pendingModify;
-    setPendingModify(undefined);
-    setFeedback({ kind: "info", message: "modification en cours…" });
-    void Effect.runPromise(
-      client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit })),
-    ).then(
-      () => {
-        setFeedback({ kind: "success", message: `ordre ${order.orderId} modifié` });
-        void refreshMarket();
-      },
-      (error) =>
-        setFeedback({ kind: "error", message: `échec modification : ${toMessage(error)}` }),
-    );
-  }
-
-  function cancelPendingModify() {
-    setPendingModify(undefined);
-    setFeedback({ kind: "info", message: "modification annulée" });
+    propose({ order, stopLoss, takeProfit });
   }
 
   return { pendingModify, proposeModify, confirmPendingModify, cancelPendingModify };

@@ -1,7 +1,7 @@
 import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import { toLots } from "../../utils/priceMath.ts";
 import { formatPriceOrDash } from "../format.ts";
-import { theme } from "../theme.ts";
+import { sideColor, theme } from "../theme.ts";
 import { ConfirmModal, Row } from "./ConfirmModal.tsx";
 
 interface CancelConfirmModalProps {
@@ -26,14 +26,17 @@ export function CancelConfirmModal({ orders, onConfirm, onCancel }: CancelConfir
       onCancel={onCancel}
     >
       {orders.map((order, i) => {
-        const sideColor = order.tradeSide === "SELL" ? theme.red : theme.green;
         return (
           <box
             key={order.orderId}
             style={{ flexDirection: "column", marginTop: i > 0 ? 1 : 0, rowGap: 0 }}
           >
             <Row label="Ordre" value={String(order.orderId)} />
-            <Row label="Direction" value={`${order.tradeSide} ${order.orderType}`} fg={sideColor} />
+            <Row
+              label="Direction"
+              value={`${order.tradeSide} ${order.orderType}`}
+              fg={sideColor(order.tradeSide)}
+            />
             <Row label="Volume" value={`${toLots(order.volume).toFixed(2)} lots`} />
             <Row label="Prix" value={formatPriceOrDash(order.limitPrice ?? order.stopPrice)} />
             <Row label="Stop loss" value={formatPriceOrDash(order.stopLoss)} fg={theme.red} />

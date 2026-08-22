@@ -26,7 +26,7 @@ const dayLabelFormat = new Intl.DateTimeFormat("fr-FR", {
   month: "long",
 });
 
-type Row =
+type CalendarRow =
   | { kind: "day"; key: string; label: string }
   | { kind: "event"; key: string; event: CalendarEvent; isNext: boolean };
 
@@ -48,11 +48,11 @@ function isDefaultVisible(event: CalendarEvent): boolean {
  * double filtre or+high, donc ni besoin de scroll ni de clutter — et ça évite un
  * panneau vide en fin de semaine une fois les gros événements déjà publiés.
  */
-function buildRows(events: CalendarEvent[], now: Date): Row[] {
+function buildRows(events: CalendarEvent[], now: Date): CalendarRow[] {
   const todayKey = parisDayKeyFormat.format(now);
   const visible = events.filter((event) => isDefaultVisible(event));
 
-  const rows: Row[] = [];
+  const rows: CalendarRow[] = [];
   let currentDayKey: string | undefined;
   let nextMarked = false;
 

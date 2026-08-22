@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
+import { PRICE_SCALE } from "../../constants.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
@@ -10,9 +11,15 @@ const PRICE_POLL_MS = 3_000;
  * toute la largeur du header. */
 const PRICE_HISTORY_LENGTH = 20;
 
-export interface MarketData {
+interface MarketData {
   bid: number | undefined;
   ask: number | undefined;
+  /** `bid`/`ask` déjà convertis en prix affiché (÷ PRICE_SCALE) — pour les consommateurs qui font
+   * du calcul (P&L, distance en pips) plutôt que de l'affichage brut (cf. PriceHeader, qui préfère
+   * les valeurs brutes pour formatPrice()). Calculés une seule fois ici plutôt que par chaque
+   * consommateur. */
+  bidPrice: number | undefined;
+  askPrice: number | undefined;
   /** Prix moyen (bid+ask)/2, un point par poll, plafonné à PRICE_HISTORY_LENGTH — pour le
    * sparkline de tendance dans PriceHeader. */
   priceHistory: number[];
@@ -71,5 +78,18 @@ export function useMarketData(): MarketData {
     if (symbolId) void refreshMarket();
   }, [symbolId, refreshMarket]);
 
-  return { bid, ask, priceHistory, positions, balance, moneyDigits, refreshMarket };
+  const bidPrice = useMemo(() => (bid === undefined ? undefined : bid / PRICE_SCALE), [bid]);
+  const askPrice = useMemo(() => (ask === undefined ? undefined : ask / PRICE_SCALE), [ask]);
+
+  return {
+    bid,
+    ask,
+    bidPrice,
+    askPrice,
+    priceHistory,
+    positions,
+    balance,
+    moneyDigits,
+    refreshMarket,
+  };
 }

@@ -1,8 +1,13 @@
 /** Contrat commun à toutes les commandes du CommandBar (`src/commands/*.ts`). */
 
 import type { CtraderClient } from "../ctrader/client.ts";
-import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../ctrader/schemas.ts";
-import type { PreparedTrade } from "../domain/trading.ts";
+import type {
+  AmendablePosition,
+  ClosablePosition,
+  CtraderOrder,
+  GetPositionsResult,
+} from "../ctrader/schemas.ts";
+import type { PreparedTrade } from "../trading/types.ts";
 import type { Feedback } from "../ui/feedback.ts";
 
 /**
@@ -27,11 +32,11 @@ export interface CommandContext {
   proposeModify: (order: CtraderOrder, stopLoss?: number, takeProfit?: number) => void;
   proposeCancel: (orders: CtraderOrder[]) => void;
   proposePositionAmend: (
-    position: CtraderPosition & { id: number },
+    position: AmendablePosition,
     stopLoss?: number,
     takeProfit?: number,
   ) => void;
-  proposeClose: (position: CtraderPosition & { id: number; volumeLots: number }) => void;
+  proposeClose: (position: ClosablePosition) => void;
   /** Registre complet — seule `help` en a besoin (cf. help.ts). Injecté ici plutôt qu'importé
    * depuis registry.ts pour éviter un cycle d'import registry.ts → help.ts → registry.ts. */
   commands: Command[];

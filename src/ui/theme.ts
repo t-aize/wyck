@@ -10,6 +10,7 @@
  * de l'ambre d'origine. Vert/rouge restent strictement réservés à la direction
  * et au P&L : convention universelle chez les traders, pas un endroit pour innover.
  */
+import type { TradeSide } from "../ctrader/schemas.ts";
 import type { KillzoneId, MarketSessionId } from "../sessions/types.ts";
 
 export const theme = {
@@ -41,3 +42,18 @@ export const theme = {
     londonClose: "#38BDF8",
   } as const satisfies Record<KillzoneId, string>,
 } as const;
+
+/** BUY = vert, SELL = rouge, absent (mapping incomplet, cf. CtraderPositionSchema) = atténué —
+ * même convention partout où un side/tradeSide colore une ligne (modales de confirmation,
+ * PositionsPanel). */
+export function sideColor(side: TradeSide | undefined): string {
+  if (side === "BUY") return theme.green;
+  if (side === "SELL") return theme.red;
+  return theme.textDim;
+}
+
+/** P&L latent : vert si positif ou nul, rouge si négatif, atténué si indisponible. */
+export function pnlColor(pnl: number | undefined): string {
+  if (pnl === undefined) return theme.textDim;
+  return pnl >= 0 ? theme.green : theme.red;
+}

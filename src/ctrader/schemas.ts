@@ -219,6 +219,16 @@ export const CtraderPositionSchema = PermissiveRecordSchema.transform((position)
 });
 export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
 
+/** `CtraderPosition` dont `id` a été confirmé résolu (potentiellement absent sur un mapping
+ * incomplet, cf. commentaire sur `CtraderPositionSchema` ci-dessus) — le sous-ensemble
+ * réellement actionnable pour amend/close, plutôt que de retaper `CtraderPosition & { id: number }`
+ * à chaque site d'appel. */
+export type AmendablePosition = CtraderPosition & { id: number };
+
+/** `AmendablePosition` dont `volumeLots` a lui aussi été confirmé résolu — nécessaire pour calculer
+ * le volume de clôture (cf. trading/amendParams.ts#toClosePositionParams). */
+export type ClosablePosition = AmendablePosition & { volumeLots: number };
+
 /**
  * Vérifié via get_order_history (10 ordres réels, XAUUSD). Les champs propres aux
  * ordres *en attente* (label, comment, timeInForce, statut) restent non vérifiés :

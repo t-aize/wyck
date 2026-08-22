@@ -4,7 +4,7 @@ import { SYMBOL } from "../../constants.ts";
 import type { CtraderClient } from "../../ctrader/client.ts";
 import { toMessage } from "../../utils/errors.ts";
 
-export interface CtraderConnection {
+interface CtraderConnection {
   connected: boolean;
   symbolId: number | undefined;
   connectionError: string | undefined;

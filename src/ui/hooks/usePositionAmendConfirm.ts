@@ -1,13 +1,10 @@
-import { Effect } from "effect";
-import { useState } from "react";
-import type { CtraderPosition } from "../../ctrader/schemas.ts";
-import { toAmendPositionParams } from "../../domain/trading.ts";
-import { toMessage } from "../../utils/errors.ts";
+import type { AmendablePosition } from "../../ctrader/schemas.ts";
+import { toAmendPositionParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
-import { useFeedback } from "../context/FeedbackContext.tsx";
+import { usePendingAction } from "./usePendingAction.ts";
 
 export interface PendingPositionAmend {
-  position: CtraderPosition & { id: number };
+  position: AmendablePosition;
   stopLoss?: number;
   takeProfit?: number;
 }
@@ -15,7 +12,7 @@ export interface PendingPositionAmend {
 export interface PositionAmendConfirm {
   pendingPositionAmend: PendingPositionAmend | undefined;
   proposePositionAmend: (
-    position: CtraderPosition & { id: number },
+    position: AmendablePosition,
     stopLoss?: number,
     takeProfit?: number,
   ) => void;
@@ -23,45 +20,34 @@ export interface PositionAmendConfirm {
   cancelPendingPositionAmend: () => void;
 }
 
-/** Un des hooks de confirmation issus de l'éclatement de useOrderActions.ts — pendant de
- * useModifyConfirm.ts, pour les positions ouvertes plutôt que les ordres en attente. */
+/** Un des hooks de confirmation bâtis sur usePendingAction.ts — pendant de useModifyConfirm.ts,
+ * pour les positions ouvertes plutôt que les ordres en attente. */
 export function usePositionAmendConfirm(opts: {
   refreshMarket: () => Promise<void>;
 }): PositionAmendConfirm {
-  const { refreshMarket } = opts;
   const { client } = useCtrader();
-  const { setFeedback } = useFeedback();
-  const [pendingPositionAmend, setPendingPositionAmend] = useState<PendingPositionAmend>();
+  const {
+    pending: pendingPositionAmend,
+    propose,
+    confirm: confirmPendingPositionAmend,
+    cancel: cancelPendingPositionAmend,
+  } = usePendingAction<PendingPositionAmend>({
+    refreshMarket: opts.refreshMarket,
+    proposeMessage: "modification calculée — confirme dans la popup",
+    progressMessage: "modification en cours…",
+    cancelMessage: "modification annulée",
+    errorPrefix: "échec modification",
+    run: ({ position, stopLoss, takeProfit }) =>
+      client.amendPosition(toAmendPositionParams(position, { stopLoss, takeProfit })),
+    successMessage: ({ position }) => `position ${position.id} modifiée`,
+  });
 
   function proposePositionAmend(
-    position: CtraderPosition & { id: number },
+    position: AmendablePosition,
     stopLoss?: number,
     takeProfit?: number,
   ) {
-    setPendingPositionAmend({ position, stopLoss, takeProfit });
-    setFeedback({ kind: "info", message: "modification calculée — confirme dans la popup" });
-  }
-
-  function confirmPendingPositionAmend() {
-    if (!pendingPositionAmend) return;
-    const { position, stopLoss, takeProfit } = pendingPositionAmend;
-    setPendingPositionAmend(undefined);
-    setFeedback({ kind: "info", message: "modification en cours…" });
-    void Effect.runPromise(
-      client.amendPosition(toAmendPositionParams(position, { stopLoss, takeProfit })),
-    ).then(
-      () => {
-        setFeedback({ kind: "success", message: `position ${position.id} modifiée` });
-        void refreshMarket();
-      },
-      (error) =>
-        setFeedback({ kind: "error", message: `échec modification : ${toMessage(error)}` }),
-    );
-  }
-
-  function cancelPendingPositionAmend() {
-    setPendingPositionAmend(undefined);
-    setFeedback({ kind: "info", message: "modification annulée" });
+    propose({ position, stopLoss, takeProfit });
   }
 
   return {

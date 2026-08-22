@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { useState } from "react";
 import type { CtraderOrder } from "../../ctrader/schemas.ts";
+import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 
@@ -41,14 +42,14 @@ export function useCancelConfirm(opts: { refreshMarket: () => Promise<void> }): 
       (order) =>
         client.cancelOrder({ orderId: order.orderId }).pipe(
           Effect.as({ order, ok: true as const }),
-          Effect.catchAll(() => Effect.succeed({ order, ok: false as const })),
+          Effect.catchAll((error) => Effect.succeed({ order, ok: false as const, error })),
         ),
       { concurrency: "unbounded" },
     );
 
     void Effect.runPromise(cancelAll).then((results) => {
       void refreshMarket();
-      const failed = results.filter((r) => !r.ok).map((r) => r.order);
+      const failed = results.filter((r): r is typeof r & { ok: false } => !r.ok);
       if (failed.length === 0) {
         setFeedback({
           kind: "success",
@@ -57,7 +58,7 @@ export function useCancelConfirm(opts: { refreshMarket: () => Promise<void> }): 
       } else {
         setFeedback({
           kind: "error",
-          message: `échec annulation : ${failed.map((o) => o.orderId).join(", ")}`,
+          message: `échec annulation : ${failed.map((r) => `${r.order.orderId} (${toMessage(r.error)})`).join(", ")}`,
         });
       }
     });

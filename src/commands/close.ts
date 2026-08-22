@@ -1,4 +1,4 @@
-import type { CtraderPosition } from "../ctrader/schemas.ts";
+import type { AmendablePosition, ClosablePosition } from "../ctrader/schemas.ts";
 import { parseFiniteNumber } from "./_shared.ts";
 import type { Command } from "./types.ts";
 
@@ -18,9 +18,7 @@ export const closeCommand: Command = {
       return;
     }
 
-    const position = ctx.positions?.positions.find(
-      (p): p is CtraderPosition & { id: number } => p.id === id,
-    );
+    const position = ctx.positions?.positions.find((p): p is AmendablePosition => p.id === id);
     if (!position) {
       ctx.setFeedback({ kind: "error", message: `position ${id} introuvable` });
       return;
@@ -36,6 +34,6 @@ export const closeCommand: Command = {
     // `volumeLots` vient d'être vérifié défini ci-dessus — TS ne propage pas cette narrowing à
     // travers l'intersection posée par le type predicate de `find` (limitation connue sur les
     // types issus de z.infer/.transform()), d'où l'assertion plutôt qu'une simple inférence.
-    ctx.proposeClose(position as CtraderPosition & { id: number; volumeLots: number });
+    ctx.proposeClose(position as ClosablePosition);
   },
 };

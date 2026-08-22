@@ -19,8 +19,8 @@
  * `getDeals` n'ont aujourd'hui aucun appelant dans `src/` (`getTrendbars` en particulier depuis le
  * retrait du mode ATR et de l'analyse SMC, seuls consommateurs de bougies historiques). Choix
  * assumé plutôt qu'angle mort. `amendPosition`/`closePosition` ont désormais un appelant
- * (`domain/trading.ts#toAmendPositionParams`/`toClosePositionParams`, câblés via les commandes
- * `amend`/`close`) — attendaient que `CtraderPositionSchema` soit verrouillé (cf. ctrader/
+ * (`trading/amendParams.ts#toAmendPositionParams`/`toClosePositionParams`, câblés via les
+ * commandes `amend`/`close`) — attendaient que `CtraderPositionSchema` soit verrouillé (cf. ctrader/
  * schemas.ts) avant d'être exposées, précondition désormais satisfaite. Si une méthode reste
  * inutilisée longtemps après avoir été implémentée côté UI, c'est le signal pour la retirer plutôt
  * que la garder « au cas où ».
@@ -162,7 +162,7 @@ export interface CtraderClientConfig {
 
 /**
  * Implémentation concrète, construite directement (`new CtraderClient(config)`) et reçue en
- * paramètre explicite partout (App.tsx, SetupScreen.tsx, les hooks, `domain/trading.ts`) — pas de
+ * paramètre explicite partout (App.tsx, SetupScreen.tsx, les hooks, `trading/prepare.ts`) — pas de
  * DI Effect (`Context.Tag`/`Layer`) : ça n'aurait servi qu'à `prepareTrade`, seul consommateur à
  * jamais en avoir eu besoin, pendant que tout le reste de l'app passe déjà le client en paramètre
  * simple.

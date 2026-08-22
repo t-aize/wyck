@@ -1,52 +1,34 @@
-import { Effect } from "effect";
-import { useState } from "react";
-import type { CtraderPosition } from "../../ctrader/schemas.ts";
-import { toClosePositionParams } from "../../domain/trading.ts";
-import { toMessage } from "../../utils/errors.ts";
+import type { ClosablePosition } from "../../ctrader/schemas.ts";
+import { toClosePositionParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
-import { useFeedback } from "../context/FeedbackContext.tsx";
+import { usePendingAction } from "./usePendingAction.ts";
 
 export interface CloseConfirm {
-  pendingClose: (CtraderPosition & { id: number; volumeLots: number }) | undefined;
-  proposeClose: (position: CtraderPosition & { id: number; volumeLots: number }) => void;
+  pendingClose: ClosablePosition | undefined;
+  proposeClose: (position: ClosablePosition) => void;
   confirmPendingClose: () => void;
   dismissPendingClose: () => void;
 }
 
-/** Un des hooks de confirmation issus de l'éclatement de useOrderActions.ts — cible unique (pas
- * de "close all", contrairement à useCancelConfirm.ts) : clôturer une position engage un P&L réel,
- * un mauvais coup groupé est d'un tout autre ordre de gravité qu'annuler des ordres en attente. */
+/** Un des hooks de confirmation bâtis sur usePendingAction.ts — cible unique (pas de "close all",
+ * contrairement à useCancelConfirm.ts) : clôturer une position engage un P&L réel, un mauvais coup
+ * groupé est d'un tout autre ordre de gravité qu'annuler des ordres en attente. */
 export function useCloseConfirm(opts: { refreshMarket: () => Promise<void> }): CloseConfirm {
-  const { refreshMarket } = opts;
   const { client } = useCtrader();
-  const { setFeedback } = useFeedback();
-  const [pendingClose, setPendingClose] = useState<
-    CtraderPosition & { id: number; volumeLots: number }
-  >();
-
-  function proposeClose(position: CtraderPosition & { id: number; volumeLots: number }) {
-    setPendingClose(position);
-    setFeedback({ kind: "info", message: "clôture calculée — confirme dans la popup" });
-  }
-
-  function confirmPendingClose() {
-    if (!pendingClose) return;
-    const position = pendingClose;
-    setPendingClose(undefined);
-    setFeedback({ kind: "info", message: "clôture en cours…" });
-    void Effect.runPromise(client.closePosition(toClosePositionParams(position))).then(
-      () => {
-        setFeedback({ kind: "success", message: `position ${position.id} clôturée` });
-        void refreshMarket();
-      },
-      (error) => setFeedback({ kind: "error", message: `échec clôture : ${toMessage(error)}` }),
-    );
-  }
-
-  function dismissPendingClose() {
-    setPendingClose(undefined);
-    setFeedback({ kind: "info", message: "clôture annulée" });
-  }
+  const {
+    pending: pendingClose,
+    propose: proposeClose,
+    confirm: confirmPendingClose,
+    cancel: dismissPendingClose,
+  } = usePendingAction<ClosablePosition>({
+    refreshMarket: opts.refreshMarket,
+    proposeMessage: "clôture calculée — confirme dans la popup",
+    progressMessage: "clôture en cours…",
+    cancelMessage: "clôture annulée",
+    errorPrefix: "échec clôture",
+    run: (position) => client.closePosition(toClosePositionParams(position)),
+    successMessage: (position) => `position ${position.id} clôturée`,
+  });
 
   return { pendingClose, proposeClose, confirmPendingClose, dismissPendingClose };
 }

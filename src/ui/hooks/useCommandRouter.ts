@@ -10,7 +10,7 @@ import type { ModifyConfirm } from "./useModifyConfirm.ts";
 import type { PositionAmendConfirm } from "./usePositionAmendConfirm.ts";
 import type { TradeConfirm } from "./useTradeConfirm.ts";
 
-export interface CommandRouter {
+interface CommandRouter {
   runCommand: (raw: string) => void;
 }
 

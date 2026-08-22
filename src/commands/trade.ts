@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { prepareTrade } from "../domain/trading.ts";
+import { prepareTrade } from "../trading/prepare.ts";
 import { toMessage } from "../utils/errors.ts";
 import { parseFiniteNumber, parseFlags, parsePrice } from "./_shared.ts";
 import type { Command } from "./types.ts";

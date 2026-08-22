@@ -1,5 +1,5 @@
-import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/schemas.ts";
-import type { PreparedTrade } from "../../domain/trading.ts";
+import type { ClosablePosition, CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
+import type { PreparedTrade } from "../../trading/types.ts";
 import { useCancelConfirm } from "./useCancelConfirm.ts";
 import { useCloseConfirm } from "./useCloseConfirm.ts";
 import { useCommandRouter } from "./useCommandRouter.ts";
@@ -7,7 +7,7 @@ import { type PendingModify, useModifyConfirm } from "./useModifyConfirm.ts";
 import { type PendingPositionAmend, usePositionAmendConfirm } from "./usePositionAmendConfirm.ts";
 import { useTradeConfirm } from "./useTradeConfirm.ts";
 
-export interface OrderActions {
+interface OrderActions {
   runCommand: (raw: string) => void;
   pendingTrade: PreparedTrade | undefined;
   confirmPendingTrade: () => void;
@@ -21,7 +21,7 @@ export interface OrderActions {
   pendingPositionAmend: PendingPositionAmend | undefined;
   confirmPendingPositionAmend: () => void;
   cancelPendingPositionAmend: () => void;
-  pendingClose: (CtraderPosition & { id: number; volumeLots: number }) | undefined;
+  pendingClose: ClosablePosition | undefined;
   confirmPendingClose: () => void;
   dismissPendingClose: () => void;
 }

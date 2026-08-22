@@ -1,4 +1,4 @@
-import type { CtraderPosition } from "../ctrader/schemas.ts";
+import type { AmendablePosition } from "../ctrader/schemas.ts";
 import { parseFiniteNumber, parseFlags, parseOptionalPrice } from "./_shared.ts";
 import type { Command } from "./types.ts";
 
@@ -7,7 +7,7 @@ export const AMEND_USAGE = "usage : amend <id> [--sl <prix>] [--tp <prix>]  (rac
 const AMEND_FLAG_ALIASES = { sl: ["--sl", "-sl"], tp: ["--tp", "-tp"] };
 
 /** Ex-"modify" — renommé pour matcher le vocabulaire déjà utilisé partout ailleurs dans le domaine
- * (`toAmendOrderParams`, `client.amendOrder`, cf. domain/trading.ts et ctrader/client.ts) : "modify"
+ * (`toAmendOrderParams`, `client.amendOrder`, cf. trading/amendParams.ts et ctrader/client.ts) : "modify"
  * était le seul endroit de l'app à parler de "modification" plutôt que d'"amend". Cible un ordre
  * en attente OU une position ouverte selon où l'id se trouve — cTrader utilise déjà "amend" pour
  * les deux (`amend_order`/`amend_position`), pas de raison d'avoir deux commandes distinctes côté
@@ -53,9 +53,7 @@ export const amendCommand: Command = {
       return;
     }
 
-    const position = ctx.positions?.positions.find(
-      (p): p is CtraderPosition & { id: number } => p.id === id,
-    );
+    const position = ctx.positions?.positions.find((p): p is AmendablePosition => p.id === id);
     if (position) {
       ctx.proposePositionAmend(position, sl.value, tp.value);
       return;

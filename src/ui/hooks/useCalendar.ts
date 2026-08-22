@@ -7,7 +7,7 @@ import { useInterval } from "./useInterval.ts";
 
 const NEWS_POLL_MS = 5 * 60_000;
 
-export interface Calendar {
+interface Calendar {
   calendar: CalendarEvent[];
   newsError: string | undefined;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;

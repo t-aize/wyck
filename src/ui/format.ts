@@ -24,7 +24,7 @@ export function formatClock(date: Date): string {
 }
 
 /** Durée compacte : "2j14h", "3h05", "12m". */
-export function formatDuration(ms: number): string {
+function formatDuration(ms: number): string {
   const clamped = Math.max(0, ms);
   const totalMinutes = Math.floor(clamped / 60_000);
   const days = Math.floor(totalMinutes / 1440);

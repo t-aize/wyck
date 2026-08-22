@@ -21,7 +21,7 @@ export function toLots(volume: number): number {
 
 /** Inverse de toLots : lots → volume API (1/100 d'once). Arrondit uniquement l'imprécision
  * flottante de la multiplication — pas de snap sur VOLUME_STEP ici (contrairement à
- * domain/trading.ts#computeVolume) : cette fonction inverse un volume déjà valide venu de l'API,
+ * trading/risk.ts#computeVolume) : cette fonction inverse un volume déjà valide venu de l'API,
  * elle n'en dérive pas un nouveau depuis du calcul de risque. */
 export function toVolume(lots: number): number {
   return Math.round(lots * LOT_VOLUME);
