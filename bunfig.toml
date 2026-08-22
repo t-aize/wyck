@@ -1,0 +1,5 @@
+# Config `bun test` — voir aussi package.json#scripts.test.
+[test]
+# Enregistre un DOM happy-dom global avant tout fichier de test (cf. test/happydom.ts) : requis par
+# @testing-library/react, seul consommateur d'un vrai DOM dans cette suite.
+preload = ["./src/testSetup.ts"]
