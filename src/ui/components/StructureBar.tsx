@@ -24,6 +24,7 @@ export function StructureBar({ structure, errorMessage }: StructureBarProps) {
     <box
       style={{
         flexDirection: "row",
+        justifyContent: "center",
         alignItems: "center",
         columnGap: 2,
         paddingLeft: 2,
