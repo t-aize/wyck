@@ -54,10 +54,11 @@ updates:
       - "ci"
     # Les actions tournent avec les privilèges du run CI (accès repo, parfois secrets) : cooldown
     # plus long que les dépendances applicatives, cf. incidents de supply chain sur des actions
-    # tierces compromises peu après publication d'un tag.
+    # tierces compromises peu après publication d'un tag. Pas de semver-major-days ici : cette
+    # option n'est pas supportée pour l'écosystème "github-actions" (les tags d'actions ne suivent
+    # pas forcément le semver).
     cooldown:
       default-days: 7
-      semver-major-days: 14
     groups:
       minor-and-patch:
         patterns:
