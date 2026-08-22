@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Typecheck/lint n'ont rien de spécifique à l'OS : un seul run (ubuntu, le moins cher) suffit.
+  # Typecheck/lint/tests n'ont rien de spécifique à l'OS : un seul run (ubuntu, le moins cher) suffit.
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -29,6 +29,7 @@ jobs:
 
       - run: bun run typecheck
       - run: bun run check
+      - run: bun run test
 
   # @opentui/core résout ses binaires natifs par plateforme via des import() dynamiques que seul
   # --compile élague au moment de la cible (un bundle generic tente de tout résoudre statiquement
