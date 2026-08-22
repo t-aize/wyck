@@ -21,17 +21,30 @@ export function runFail<A, E>(effect: Effect.Effect<A, E>): E {
   return Cause.squash(exit.cause) as E;
 }
 
-/** Mock minimal de `CtraderClient` — seules `getSpotPrices`/`getBalance` sont jamais appelées côté
- * `trading/` (cf. context.ts#fetchTradeContext). `CtraderClient` a des champs privés (cf.
- * ctrader/client.ts), donc pas structurellement compatible avec un simple objet littéral : cast
- * assumé, réservé aux tests. */
+/** Mock minimal de `CtraderClient` — seules `getSpotPrices`/`getBalance`/`getTrendbars` sont jamais
+ * appelées côté `trading/` (cf. context.ts#fetchTradeContext, atr.ts#fetchAtr). `CtraderClient` a
+ * des champs privés (cf. ctrader/client.ts), donc pas structurellement compatible avec un simple
+ * objet littéral : cast assumé, réservé aux tests. */
 export function fakeCtraderClient(
-  opts: { prices?: { bid: number; ask: number }[]; equity?: number; moneyDigits?: number } = {},
+  opts: {
+    prices?: { bid: number; ask: number }[];
+    equity?: number;
+    moneyDigits?: number;
+    trendbars?: {
+      timestamp: number;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+    }[];
+  } = {},
 ): CtraderClient {
   const {
     prices = [{ bid: 200_000_000, ask: 200_100_000 }],
     equity = 1_000_000,
     moneyDigits = 2,
+    trendbars = [],
   } = opts;
   return {
     getSpotPrices: () =>
@@ -55,5 +68,6 @@ export function fakeCtraderClient(
         moneyDigits,
         depositAssetId: 1,
       }),
+    getTrendbars: () => Effect.succeed({ trendbars, symbolId: 1, period: "M_5" }),
   } as unknown as CtraderClient;
 }
