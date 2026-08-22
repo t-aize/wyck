@@ -5,6 +5,7 @@
  * automatiquement aux trois endroits. */
 
 import { amendCommand } from "./amend.ts";
+import { atrRefreshCommand } from "./atrrefresh.ts";
 import { cancelCommand } from "./cancel.ts";
 import { clearCommand } from "./clear.ts";
 import { closeCommand } from "./close.ts";
@@ -21,6 +22,7 @@ export const COMMANDS: Command[] = [
   tradeCommand,
   tradeAtrCommand,
   amendCommand,
+  atrRefreshCommand,
   cancelCommand,
   closeCommand,
   riskCommand,
