@@ -3,9 +3,11 @@ import { readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
+import { CloseConfirmModal } from "./ui/components/CloseConfirmModal.tsx";
 import { CommandBar, type CommandBarHandle } from "./ui/components/CommandBar.tsx";
 import { ModifyConfirmModal } from "./ui/components/ModifyConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
+import { PositionAmendConfirmModal } from "./ui/components/PositionAmendConfirmModal.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { SetupScreen } from "./ui/components/SetupScreen.tsx";
@@ -105,6 +107,12 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     pendingCancel,
     confirmPendingCancel,
     dismissPendingCancel,
+    pendingPositionAmend,
+    confirmPendingPositionAmend,
+    cancelPendingPositionAmend,
+    pendingClose,
+    confirmPendingClose,
+    dismissPendingClose,
   } = useOrderActions({ positions, refreshMarket, refreshNews, onReconfigure });
 
   useTerminalShortcuts(useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []));
@@ -130,7 +138,13 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         ref={commandBarRef}
         feedback={feedback}
         onSubmit={runCommand}
-        focused={!pendingTrade && !pendingModify && !pendingCancel}
+        focused={
+          !pendingTrade &&
+          !pendingModify &&
+          !pendingCancel &&
+          !pendingPositionAmend &&
+          !pendingClose
+        }
       />
       {pendingTrade && (
         <TradeConfirmModal
@@ -153,6 +167,24 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
           orders={pendingCancel}
           onConfirm={confirmPendingCancel}
           onCancel={dismissPendingCancel}
+        />
+      )}
+      {pendingPositionAmend && (
+        <PositionAmendConfirmModal
+          position={pendingPositionAmend.position}
+          stopLoss={pendingPositionAmend.stopLoss}
+          takeProfit={pendingPositionAmend.takeProfit}
+          onConfirm={confirmPendingPositionAmend}
+          onCancel={cancelPendingPositionAmend}
+        />
+      )}
+      {pendingClose && (
+        <CloseConfirmModal
+          position={pendingClose}
+          bid={bid}
+          ask={ask}
+          onConfirm={confirmPendingClose}
+          onCancel={dismissPendingClose}
         />
       )}
     </box>

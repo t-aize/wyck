@@ -1,3 +1,4 @@
+import type { CtraderPosition } from "../ctrader/schemas.ts";
 import { parseFiniteNumber, parseFlags, parseOptionalPrice } from "./_shared.ts";
 import type { Command } from "./types.ts";
 
@@ -7,11 +8,14 @@ const AMEND_FLAG_ALIASES = { sl: ["--sl", "-sl"], tp: ["--tp", "-tp"] };
 
 /** Ex-"modify" — renommé pour matcher le vocabulaire déjà utilisé partout ailleurs dans le domaine
  * (`toAmendOrderParams`, `client.amendOrder`, cf. domain/trading.ts et ctrader/client.ts) : "modify"
- * était le seul endroit de l'app à parler de "modification" plutôt que d'"amend". */
+ * était le seul endroit de l'app à parler de "modification" plutôt que d'"amend". Cible un ordre
+ * en attente OU une position ouverte selon où l'id se trouve — cTrader utilise déjà "amend" pour
+ * les deux (`amend_order`/`amend_position`), pas de raison d'avoir deux commandes distinctes côté
+ * app pour la même intention utilisateur ("change le SL/TP de #id"). */
 export const amendCommand: Command = {
   name: "amend",
   usage: AMEND_USAGE,
-  summary: "modifie le SL/TP d'un ordre en attente",
+  summary: "modifie le SL/TP d'un ordre en attente ou d'une position ouverte",
   run(args, ctx) {
     const id = parseFiniteNumber(args[0]);
     if (id === undefined) {
@@ -43,14 +47,20 @@ export const amendCommand: Command = {
       return;
     }
 
-    // `amend` ne cible que les ordres en attente pour l'instant, pas les positions ouvertes — cf.
-    // `CtraderPositionSchema` dans ctrader/schemas.ts pour la forme désormais confirmée.
     const order = ctx.positions?.orders.find((o) => o.orderId === id);
-    if (!order) {
-      ctx.setFeedback({ kind: "error", message: `ordre en attente ${id} introuvable` });
+    if (order) {
+      ctx.proposeModify(order, sl.value, tp.value);
       return;
     }
 
-    ctx.proposeModify(order, sl.value, tp.value);
+    const position = ctx.positions?.positions.find(
+      (p): p is CtraderPosition & { id: number } => p.id === id,
+    );
+    if (position) {
+      ctx.proposePositionAmend(position, sl.value, tp.value);
+      return;
+    }
+
+    ctx.setFeedback({ kind: "error", message: `ordre/position ${id} introuvable` });
   },
 };

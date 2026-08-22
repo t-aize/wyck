@@ -35,8 +35,8 @@ export const cancelCommand: Command = {
       ids.push(id);
     }
 
-    // Même limite que `amend` : seuls les ordres en attente (structure vérifiée) sont annulables
-    // pour l'instant, pas les positions ouvertes (closePosition non exercé).
+    // `cancel` ne cible que les ordres en attente — pour clôturer une position ouverte, cf. la
+    // commande `close`.
     const orders: CtraderOrder[] = [];
     for (const id of ids) {
       const order = pendingOrders.find((o) => o.orderId === id);

@@ -10,6 +10,8 @@
  * de l'ambre d'origine. Vert/rouge restent strictement réservés à la direction
  * et au P&L : convention universelle chez les traders, pas un endroit pour innover.
  */
+import type { KillzoneId, MarketSessionId } from "../sessions/types.ts";
+
 export const theme = {
   bg: "#0A0A0A",
   panelBg: "#141414",
@@ -21,20 +23,21 @@ export const theme = {
   accent: "#E5E5E5",
   green: "#3DD68C",
   red: "#F0555A",
-  /** Une couleur par session de marché (cf. domain/sessions.ts) — même teinte que la killzone de
+  /** Une couleur par session de marché (cf. sessions/catalog.ts) — même teinte que la killzone de
    * la même place (Londres/New York) pour rester cohérent visuellement entre les deux badges. */
   sessions: {
     sydney: "#F472B6",
     tokyo: "#FBBF24",
     london: "#60A5FA",
     newYork: "#A78BFA",
-  },
-  /** Une couleur par killzone ICT (cf. domain/sessions.ts) — distinctes de vert/rouge, réservés
-   * à la direction et au P&L. */
+  } as const satisfies Record<MarketSessionId, string>,
+  /** Une couleur par killzone ICT (cf. sessions/catalog.ts) — distinctes de vert/rouge, réservés
+   * à la direction et au P&L. Asia (20h-00h NY) reprend la teinte de la session Tokyo, dont elle
+   * recouvre les horaires. */
   killzones: {
-    asia: "#FBBF24",
+    asia: "#FBBF24", // = sessions.tokyo, cf. commentaire ci-dessus
     london: "#60A5FA",
     newYork: "#A78BFA",
     londonClose: "#38BDF8",
-  },
+  } as const satisfies Record<KillzoneId, string>,
 } as const;

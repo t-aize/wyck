@@ -1,13 +1,11 @@
 import { TextAttributes } from "@opentui/core";
 import { useMemo } from "react";
-import {
-  type CalendarEvent,
-  classifyImpact,
-  isGoldRelevant,
-  PARIS_TZ,
-  parisDayKeyFormat,
-} from "../../domain/news.ts";
+import { type GoldBias, goldBias } from "../../news/bias.ts";
+import { classifyImpact, isGoldRelevant } from "../../news/relevance.ts";
+import type { CalendarEvent } from "../../news/schemas.ts";
+import { PARIS_TZ, parisDayKeyFormat } from "../../news/time.ts";
 import { alignLeft, formatRelative } from "../format.ts";
+import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
 
 interface NewsPanelProps {
@@ -99,6 +97,15 @@ function formatFigures(event: CalendarEvent): string {
   return parts.join("  ");
 }
 
+const BIAS_GLYPH: Record<GoldBias, string> = { bullish: UP, bearish: DOWN, neutral: FLAT };
+
+/** Biais XAUUSD anticipé (forecast vs previous) : vert = haussier, rouge = baissier. */
+function BiasBadge({ bias }: { bias: GoldBias | undefined }) {
+  if (!bias) return <span>{"  "}</span>;
+  const color = bias === "bullish" ? theme.green : bias === "bearish" ? theme.red : theme.textMuted;
+  return <span fg={color}>{`${BIAS_GLYPH[bias]} `}</span>;
+}
+
 function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean; now: Date }) {
   const isPast = event.timestamp < now.getTime();
   const time = timeFormat.format(new Date(event.timestamp));
@@ -111,6 +118,7 @@ function NewsRow({ event, isNext, now }: { event: CalendarEvent; isNext: boolean
       <span fg={isNext ? theme.accent : theme.textMuted}>{isNext ? "▸ " : "  "}</span>
       <span fg={theme.textMuted}>{alignLeft(time, 6)}</span>
       <span fg={theme.textDim}>{alignLeft(event.country, 5)}</span>
+      <BiasBadge bias={goldBias(event)} />
       <span fg={titleColor}>{event.title}</span>
       {figures && <span fg={theme.textMuted}>{`  ${figures}`}</span>}
       <span fg={theme.textMuted}>{`  (${relative})`}</span>

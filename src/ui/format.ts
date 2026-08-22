@@ -1,4 +1,5 @@
 import { PRICE_SCALE } from "../constants.ts";
+import { PARIS_TZ } from "../news/time.ts";
 
 /** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export function formatPrice(raw: number | undefined, digits = 2): string {
@@ -19,7 +20,7 @@ export function formatMoney(raw: number | undefined, moneyDigits: number): strin
 }
 
 export function formatClock(date: Date): string {
-  return date.toLocaleTimeString("fr-FR", { hour12: false });
+  return date.toLocaleTimeString("fr-FR", { hour12: false, timeZone: PARIS_TZ });
 }
 
 /** Durée compacte : "2j14h", "3h05", "12m". */

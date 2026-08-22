@@ -15,18 +15,22 @@ import { LOT_VOLUME, PRICE_SCALE } from "../constants.ts";
 import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
 import type {
   AmendOrderParams,
+  AmendPositionParams,
+  ClosePositionParams,
   CreateOrderParams,
   CtraderOrder,
+  CtraderPosition,
   OrderType,
   TradeSide,
 } from "../ctrader/schemas.ts";
+import { toLots, toVolume } from "../utils/priceMath.ts";
 
 /**
  * Erreur de validation métier d'un trade (risque%, prix indisponible, SL/TP incohérents, volume
  * sous le minimum…). Une seule classe : l'ancienne hiérarchie de 7 sous-types
  * tagués (`Data.TaggedError`, un par ancien `throw new Error(...)` distinct) n'était discriminée
- * par aucun appelant — tous se contentent de `.message` (`toMessage`, `error.rejects.toThrow(...)`
- * dans les tests) — donc la distinction par tag n'apportait rien en pratique.
+ * par aucun appelant — tous se contentent de `.message` (`toMessage`) — donc la distinction par
+ * tag n'apportait rien en pratique.
  */
 export class TradeValidationError extends Error {
   constructor(message: string) {
@@ -197,7 +201,7 @@ export function prepareTrade(
       stopLoss,
       takeProfit,
       volume,
-      volumeLots: volume / LOT_VOLUME,
+      volumeLots: toLots(volume),
       riskAmount,
       riskPercent: input.riskPercent,
       rewardAmount: (volume / 100) * targetDistance,
@@ -253,14 +257,6 @@ export function toCreateOrderParams(symbolId: number, trade: PreparedTrade): Cre
   };
 }
 
-/**
- * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
- * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts — d'où le bug où une
- * date d'expiration disparaissait après un réamend qui ne la reprenait pas). Seul point de
- * construction d'un payload amend dans l'app : reprend tout l'état resendable de l'ordre existant,
- * `changes` écrase juste ce qui doit réellement changer — impossible d'oublier un champ à un
- * nouveau point d'appel.
- */
 export function formatTradeSummary(trade: PreparedTrade): string {
   return (
     `${trade.tradeSide} ${trade.orderType} ${trade.entryPrice.toFixed(2)} · ` +
@@ -269,6 +265,21 @@ export function formatTradeSummary(trade: PreparedTrade): string {
   );
 }
 
+/**
+ * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
+ * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts). Seul point de
+ * construction d'un payload amend dans l'app : reprend tout l'état resendable de l'ordre existant,
+ * `changes` écrase juste ce qui doit réellement changer — impossible d'oublier un champ à un
+ * nouveau point d'appel.
+ *
+ * Limite confirmée (vérifiée en live, compte démo, ordre GOOD_TILL_DATE réel) : `get_positions`
+ * ne renvoie jamais `expirationTimestamp` pour un ordre en attente — ce n'est pas un problème de
+ * nom de champ côté `CtraderOrderSchema`, la donnée est absente du payload serveur lui-même. Donc
+ * `order.expirationTimestamp` ci-dessous vaut toujours `undefined` en pratique : un ordre GTD qui
+ * se fait amender (même seulement SL/TP) perd silencieusement son expiration, sans qu'aucun code
+ * côté client puisse la préserver faute de pouvoir la lire quelque part. À rouvrir seulement si un
+ * autre endpoint (get_order_history, get_position_details) s'avère l'exposer.
+ */
 export function toAmendOrderParams(
   order: CtraderOrder,
   changes: Partial<Omit<AmendOrderParams, "orderId">> = {},
@@ -288,4 +299,34 @@ export function toAmendOrderParams(
     expirationTimestamp: order.expirationTimestamp,
     ...definedChanges,
   };
+}
+
+/** Même logique que `toAmendOrderParams`, pour une position ouverte plutôt qu'un ordre en attente.
+ * `position.id` garanti défini par le type (`& { id: number }`) — c'est à l'appelant (commands/
+ * amend.ts) de garder cette garantie via un type guard sur `find`, pas à cette fonction de la
+ * revalider : même partage de responsabilité qu'ailleurs dans ce fichier (validation métier dans
+ * `prepareTrade`, pas ici — un id manquant est un problème de plomberie de données, pas une règle
+ * de trading). */
+export function toAmendPositionParams(
+  position: CtraderPosition & { id: number },
+  changes: Partial<Omit<AmendPositionParams, "positionId">> = {},
+): AmendPositionParams {
+  const definedChanges = Object.fromEntries(
+    Object.entries(changes).filter(([, value]) => value !== undefined),
+  );
+  return {
+    positionId: position.id,
+    stopLoss: position.stopLoss,
+    takeProfit: position.takeProfit,
+    ...definedChanges,
+  };
+}
+
+/** Clôture totale : `volume` repris intégralement depuis `position.volumeLots` (converti via
+ * `toVolume`, l'inverse de `toLots`) — pas de clôture partielle pour l'instant, cf. commands/
+ * close.ts. */
+export function toClosePositionParams(
+  position: CtraderPosition & { id: number; volumeLots: number },
+): ClosePositionParams {
+  return { positionId: position.id, volume: toVolume(position.volumeLots) };
 }

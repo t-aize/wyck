@@ -15,15 +15,15 @@
  *
  * Mirroir volontairement complet de la surface `trading`/`account`/`market data` du
  * serveur MCP, pas seulement des méthodes déjà câblées dans l'UI : `getVersion`,
- * `getAssets`, `getTrendbars`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory`,
- * `getDeals`, `amendPosition` et `closePosition` n'ont aujourd'hui aucun appelant dans `src/`
- * (`getTrendbars` en particulier depuis le retrait du mode ATR et de l'analyse SMC, seuls
- * consommateurs de bougies historiques). Choix assumé plutôt qu'angle mort —
- * `amendPosition`/`closePosition` en particulier attendent que `CtraderPositionSchema` soit
- * verrouillé (cf. ctrader/schemas.ts) avant d'être exposées dans une commande, pour ne pas cibler
- * une position réelle sur la base d'un `positionId` deviné. Si une méthode reste inutilisée
- * longtemps après avoir été implémentée côté UI, c'est le signal pour la retirer plutôt que la
- * garder « au cas où ».
+ * `getAssets`, `getTrendbars`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory` et
+ * `getDeals` n'ont aujourd'hui aucun appelant dans `src/` (`getTrendbars` en particulier depuis le
+ * retrait du mode ATR et de l'analyse SMC, seuls consommateurs de bougies historiques). Choix
+ * assumé plutôt qu'angle mort. `amendPosition`/`closePosition` ont désormais un appelant
+ * (`domain/trading.ts#toAmendPositionParams`/`toClosePositionParams`, câblés via les commandes
+ * `amend`/`close`) — attendaient que `CtraderPositionSchema` soit verrouillé (cf. ctrader/
+ * schemas.ts) avant d'être exposées, précondition désormais satisfaite. Si une méthode reste
+ * inutilisée longtemps après avoir été implémentée côté UI, c'est le signal pour la retirer plutôt
+ * que la garder « au cas où ».
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";

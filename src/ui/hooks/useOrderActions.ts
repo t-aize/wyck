@@ -1,8 +1,10 @@
-import type { CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
+import type { CtraderOrder, CtraderPosition, GetPositionsResult } from "../../ctrader/schemas.ts";
 import type { PreparedTrade } from "../../domain/trading.ts";
 import { useCancelConfirm } from "./useCancelConfirm.ts";
+import { useCloseConfirm } from "./useCloseConfirm.ts";
 import { useCommandRouter } from "./useCommandRouter.ts";
 import { type PendingModify, useModifyConfirm } from "./useModifyConfirm.ts";
+import { type PendingPositionAmend, usePositionAmendConfirm } from "./usePositionAmendConfirm.ts";
 import { useTradeConfirm } from "./useTradeConfirm.ts";
 
 export interface OrderActions {
@@ -16,16 +18,22 @@ export interface OrderActions {
   pendingCancel: CtraderOrder[] | undefined;
   confirmPendingCancel: () => void;
   dismissPendingCancel: () => void;
+  pendingPositionAmend: PendingPositionAmend | undefined;
+  confirmPendingPositionAmend: () => void;
+  cancelPendingPositionAmend: () => void;
+  pendingClose: (CtraderPosition & { id: number; volumeLots: number }) | undefined;
+  confirmPendingClose: () => void;
+  dismissPendingClose: () => void;
 }
 
 /**
- * Composition fine des 4 hooks à responsabilité unique issus de l'éclatement de ce fichier :
- * `useTradeConfirm`/`useModifyConfirm`/`useCancelConfirm` possèdent
- * chacun un état de confirmation pendante, `useCommandRouter` parse/route les commandes du
- * CommandBar et les appelle sur succès. Retourne exactement la même forme `OrderActions` qu'avant
- * l'éclatement — le rendu (App.tsx, les 4 popups de confirmation) n'a pas besoin de changer. Un
- * futur 5ᵉ flux de confirmation ajoute un `useXConfirm.ts` + un cas dans `useCommandRouter.ts`,
- * sans faire regrossir un fichier unique.
+ * Composition fine des 6 hooks à responsabilité unique issus de l'éclatement de ce fichier :
+ * `useTradeConfirm`/`useModifyConfirm`/`useCancelConfirm`/`usePositionAmendConfirm`/
+ * `useCloseConfirm` possèdent chacun un état de confirmation pendante, `useCommandRouter`
+ * parse/route les commandes du CommandBar et les appelle sur succès. Retourne exactement la même
+ * forme `OrderActions` qu'avant l'éclatement — le rendu (App.tsx, les popups de confirmation) n'a
+ * pas besoin de changer de structure. Un futur flux de confirmation ajoute un `useXConfirm.ts` + un
+ * cas dans `useCommandRouter.ts`, sans faire regrossir un fichier unique.
  */
 export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
@@ -38,6 +46,8 @@ export function useOrderActions(opts: {
   const tradeConfirm = useTradeConfirm({ refreshMarket });
   const modifyConfirm = useModifyConfirm({ refreshMarket });
   const cancelConfirm = useCancelConfirm({ refreshMarket });
+  const positionAmendConfirm = usePositionAmendConfirm({ refreshMarket });
+  const closeConfirm = useCloseConfirm({ refreshMarket });
   const { runCommand } = useCommandRouter({
     positions,
     refreshMarket,
@@ -46,6 +56,8 @@ export function useOrderActions(opts: {
     tradeConfirm,
     modifyConfirm,
     cancelConfirm,
+    positionAmendConfirm,
+    closeConfirm,
   });
 
   return {
@@ -59,5 +71,11 @@ export function useOrderActions(opts: {
     pendingCancel: cancelConfirm.pendingCancel,
     confirmPendingCancel: cancelConfirm.confirmPendingCancel,
     dismissPendingCancel: cancelConfirm.dismissPendingCancel,
+    pendingPositionAmend: positionAmendConfirm.pendingPositionAmend,
+    confirmPendingPositionAmend: positionAmendConfirm.confirmPendingPositionAmend,
+    cancelPendingPositionAmend: positionAmendConfirm.cancelPendingPositionAmend,
+    pendingClose: closeConfirm.pendingClose,
+    confirmPendingClose: closeConfirm.confirmPendingClose,
+    dismissPendingClose: closeConfirm.dismissPendingClose,
   };
 }

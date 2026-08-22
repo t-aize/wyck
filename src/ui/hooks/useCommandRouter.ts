@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { COMMANDS, type CommandContext, findCommand } from "../../commands/index.ts";
+import { COMMANDS, findCommand } from "../../commands/registry.ts";
+import type { CommandContext } from "../../commands/types.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 import type { CancelConfirm } from "./useCancelConfirm.ts";
+import type { CloseConfirm } from "./useCloseConfirm.ts";
 import type { ModifyConfirm } from "./useModifyConfirm.ts";
+import type { PositionAmendConfirm } from "./usePositionAmendConfirm.ts";
 import type { TradeConfirm } from "./useTradeConfirm.ts";
 
 export interface CommandRouter {
@@ -25,6 +28,8 @@ export function useCommandRouter(opts: {
   tradeConfirm: Pick<TradeConfirm, "proposeTrade">;
   modifyConfirm: Pick<ModifyConfirm, "proposeModify">;
   cancelConfirm: Pick<CancelConfirm, "proposeCancel">;
+  positionAmendConfirm: Pick<PositionAmendConfirm, "proposePositionAmend">;
+  closeConfirm: Pick<CloseConfirm, "proposeClose">;
 }): CommandRouter {
   const {
     positions,
@@ -34,6 +39,8 @@ export function useCommandRouter(opts: {
     tradeConfirm,
     modifyConfirm,
     cancelConfirm,
+    positionAmendConfirm,
+    closeConfirm,
   } = opts;
   const { client, symbolId } = useCtrader();
   const { setFeedback } = useFeedback();
@@ -67,6 +74,8 @@ export function useCommandRouter(opts: {
       proposeTrade: tradeConfirm.proposeTrade,
       proposeModify: modifyConfirm.proposeModify,
       proposeCancel: cancelConfirm.proposeCancel,
+      proposePositionAmend: positionAmendConfirm.proposePositionAmend,
+      proposeClose: closeConfirm.proposeClose,
       commands: COMMANDS,
     };
     command.run(args, ctx);

@@ -7,6 +7,7 @@
 import { amendCommand } from "./amend.ts";
 import { cancelCommand } from "./cancel.ts";
 import { clearCommand } from "./clear.ts";
+import { closeCommand } from "./close.ts";
 import { configCommand } from "./config.ts";
 import { helpCommand } from "./help.ts";
 import { refreshCommand } from "./refresh.ts";
@@ -19,6 +20,7 @@ export const COMMANDS: Command[] = [
   tradeCommand,
   amendCommand,
   cancelCommand,
+  closeCommand,
   riskCommand,
   configCommand,
   refreshCommand,

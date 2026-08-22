@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { type CalendarEvent, fetchCalendar } from "../../domain/news.ts";
+import { fetchCalendar } from "../../news/calendar.ts";
+import type { CalendarEvent } from "../../news/schemas.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useInterval } from "./useInterval.ts";

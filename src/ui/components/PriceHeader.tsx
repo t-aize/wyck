@@ -1,6 +1,6 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
-import { activeKillzone, activeMarketSessions } from "../../domain/sessions.ts";
+import { activeKillzone, activeMarketSessions } from "../../sessions/active.ts";
 import { formatClock, formatMoney, formatPrice, sparkline } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
