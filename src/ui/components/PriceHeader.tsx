@@ -1,9 +1,30 @@
 import { TextAttributes } from "@opentui/core";
 import { useRef } from "react";
+import { PRICE_SCALE } from "../../constants.ts";
 import { activeKillzone, activeMarketSessions } from "../../sessions/active.ts";
 import { formatClock, formatMoney, formatPrice, sparkline } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";
+
+/** Ratio spread courant / médiane récente au-delà duquel le spread est signalé comme élargi
+ * (news, rollover, liquidité faible) — pertinent pour un scalp où ça mange le take-profit. */
+const WIDE_SPREAD_RATIO = 1.5;
+/** Sous ce nombre d'échantillons, la médiane n'est pas assez fiable (ex : juste après connexion)
+ * pour servir de référence — pas d'alerte plutôt qu'un faux positif. */
+const MIN_SPREAD_SAMPLES = 5;
+/** Seuil absolu ($ sur XAUUSD) au-delà duquel le spread est signalé "trop grand" quelle que soit
+ * sa médiane récente — complète le seuil relatif ci-dessus, qui ne réagit pas si le spread est
+ * déjà large en continu (médiane elle-même élevée) ou avant d'avoir assez d'historique. */
+const MAX_SPREAD_DOLLARS = 1;
+
+/** Médiane simple — moins sensible qu'une moyenne à un pic isolé (une bougie de news) dans la
+ * fenêtre de référence du spread. */
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+}
 
 interface PriceHeaderProps {
   symbol: string;
@@ -11,6 +32,8 @@ interface PriceHeaderProps {
   ask: number | undefined;
   /** Prix moyen des derniers polls (cf. useMarketData) — rendu en sparkline à côté du bid/ask. */
   priceHistory: number[];
+  /** ask-bid des derniers polls (cf. useMarketData) — référence pour repérer un spread élargi. */
+  spreadHistory: number[];
   connected: boolean;
   now: Date;
   errorMessage: string | undefined;
@@ -23,6 +46,7 @@ export function PriceHeader({
   bid,
   ask,
   priceHistory,
+  spreadHistory,
   connected,
   now,
   errorMessage,
@@ -57,6 +81,16 @@ export function PriceHeader({
         ? theme.green
         : theme.red;
 
+  const spread = hasPrice ? ask - bid : undefined;
+  const spreadBaseline = median(spreadHistory);
+  const isRelativelyWide =
+    spread !== undefined &&
+    spreadHistory.length >= MIN_SPREAD_SAMPLES &&
+    spreadBaseline > 0 &&
+    spread > spreadBaseline * WIDE_SPREAD_RATIO;
+  const isAbsolutelyWide = spread !== undefined && spread / PRICE_SCALE > MAX_SPREAD_DOLLARS;
+  const spreadColor = isRelativelyWide || isAbsolutelyWide ? theme.red : theme.textMuted;
+
   const sessions = activeMarketSessions(now);
   const killzone = activeKillzone(now);
 
@@ -88,6 +122,12 @@ export function PriceHeader({
               {formatPrice(bid)}
             </text>
             <text fg={theme.textMuted}> / {formatPrice(ask)}</text>
+            {spread !== undefined && (
+              <text fg={spreadColor}>
+                {" · "}
+                {formatPrice(spread)}
+              </text>
+            )}
             {priceHistory.length >= 2 && (
               <text fg={theme.textMuted}> {sparkline(priceHistory)}</text>
             )}

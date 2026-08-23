@@ -100,6 +100,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     bidPrice,
     askPrice,
     priceHistory,
+    spreadHistory,
     positions,
     balance,
     moneyDigits,
@@ -138,6 +139,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         bid={bid}
         ask={ask}
         priceHistory={priceHistory}
+        spreadHistory={spreadHistory}
         connected={connected}
         now={now}
         errorMessage={connectionError}

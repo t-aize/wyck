@@ -23,6 +23,9 @@ interface MarketData {
   /** Prix moyen (bid+ask)/2, un point par poll, plafonné à PRICE_HISTORY_LENGTH — pour le
    * sparkline de tendance dans PriceHeader. */
   priceHistory: number[];
+  /** ask-bid (échelle brute, cf. formatPrice), même cadence/fenêtre que priceHistory — sert de
+   * référence récente pour repérer un spread anormalement large dans PriceHeader. */
+  spreadHistory: number[];
   positions: GetPositionsResult | undefined;
   /** Capital du compte, entier à l'échelle `moneyDigits` (cf. formatMoney) */
   balance: number | undefined;
@@ -37,6 +40,7 @@ export function useMarketData(): MarketData {
   const [bid, setBid] = useState<number>();
   const [ask, setAsk] = useState<number>();
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
+  const [spreadHistory, setSpreadHistory] = useState<number[]>([]);
   const [positions, setPositions] = useState<GetPositionsResult>();
   const [balance, setBalance] = useState<number>();
   const [moneyDigits, setMoneyDigits] = useState<number>();
@@ -56,6 +60,9 @@ export function useMarketData(): MarketData {
           setAsk(price.ask);
           const mid = (price.bid + price.ask) / 2;
           setPriceHistory((history) => [...history, mid].slice(-PRICE_HISTORY_LENGTH));
+          setSpreadHistory((history) =>
+            [...history, price.ask - price.bid].slice(-PRICE_HISTORY_LENGTH),
+          );
         }
         setPositions(pos);
         setBalance(bal.balance);
@@ -87,6 +94,7 @@ export function useMarketData(): MarketData {
     bidPrice,
     askPrice,
     priceHistory,
+    spreadHistory,
     positions,
     balance,
     moneyDigits,
