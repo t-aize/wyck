@@ -33,7 +33,23 @@ describe("goldBias", () => {
   });
 
   test("a title with no polarity rule returns undefined (no bet, not a guess)", () => {
-    expect(goldBias({ title: "CPI y/y", forecast: "3.1%", previous: "3.0%" })).toBeUndefined();
+    expect(
+      goldBias({ title: "Trade Balance", forecast: "-65B", previous: "-63B" }),
+    ).toBeUndefined();
+  });
+
+  test("direct polarity (inflation): Core PCE forecast above previous -> bearish for gold", () => {
+    expect(
+      goldBias({ title: "Core PCE Price Index m/m", forecast: "0.3%", previous: "0.2%" }),
+    ).toBe("bearish");
+  });
+
+  test("direct polarity (inflation): CPI forecast below previous -> bullish for gold", () => {
+    expect(goldBias({ title: "CPI y/y", forecast: "3.0%", previous: "3.1%" })).toBe("bullish");
+  });
+
+  test("direct polarity (inflation): PPI forecast equal previous -> neutral", () => {
+    expect(goldBias({ title: "PPI m/m", forecast: "0.2%", previous: "0.2%" })).toBe("neutral");
   });
 
   test("unparsable forecast/previous returns undefined", () => {

@@ -24,9 +24,11 @@ interface PolarityRule {
 }
 
 /**
- * Seuls les indicateurs avec un appel directionnel réel, étayé par la recherche (littérature
- * macro sur le driver rendement réel / fonction de réaction Fed). CPI/PCE/PPI/Trade Balance et
- * tous les events texte FOMC/Fed en sont délibérément absents (confirmé : pas de badge plutôt
+ * Indicateurs avec un appel directionnel réel, étayé par la recherche (littérature macro sur
+ * le driver rendement réel / fonction de réaction Fed). Croissance, emploi, PMI, ventes de
+ * détail ET inflation (CPI/PCE/PPI) y sont couverts : une lecture au-dessus du forecast s'y lit
+ * systématiquement comme un signal Fed hawkish, donc baissière pour l'or. Trade Balance et tous
+ * les events texte FOMC/Fed en restent délibérément absents (confirmé : pas de badge plutôt
  * qu'un pari) — ces derniers n'ont pas besoin d'exclusion explicite : ForexFactory ne renseigne
  * jamais forecast/previous pour eux (vérifié en live), ils retombent donc naturellement sur
  * `undefined`.
@@ -41,6 +43,7 @@ const POLARITY_TABLE: PolarityRule[] = [
   { pattern: /\bjolts\b/i, polarity: "direct" },
   { pattern: /consumer (confidence|sentiment)/i, polarity: "direct" },
   { pattern: /building permits|housing starts|existing home sales/i, polarity: "direct" },
+  { pattern: /\b(cpi|pce|ppi)\b/i, polarity: "direct" }, // inflation (CPI/PCE/PPI, y compris "Core ... Price Index") : même logique que GDP/PMI
   // inverse : lecture au-dessus du forecast = marché du travail qui s'affaiblit = lecture Fed dovish = haussier pour l'or
   // "unemployment claims" : titre réel du flux ForexFactory pour les inscriptions hebdo au
   // chômage US (vérifié en live) — "jobless claims" n'apparaît jamais tel quel dans ce flux.
