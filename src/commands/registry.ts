@@ -14,13 +14,11 @@ import { helpCommand } from "./help.ts";
 import { refreshCommand } from "./refresh.ts";
 import { riskCommand } from "./risk.ts";
 import { tradeCommand } from "./trade.ts";
-import { tradeAtrCommand } from "./tradeatr.ts";
 import type { Command } from "./types.ts";
 
 /** Ordre d'affichage dans `help` et l'autocomplétion du CommandBar. */
 export const COMMANDS: Command[] = [
   tradeCommand,
-  tradeAtrCommand,
   amendCommand,
   atrRefreshCommand,
   cancelCommand,

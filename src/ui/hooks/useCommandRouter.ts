@@ -12,6 +12,8 @@ import type { TradeConfirm } from "./useTradeConfirm.ts";
 
 interface CommandRouter {
   runCommand: (raw: string) => void;
+  atrMode: boolean;
+  toggleAtrMode: () => void;
 }
 
 /**
@@ -49,6 +51,12 @@ export function useCommandRouter(opts: {
   // continuer à trader silencieusement sur un risque défini une session précédente et oublié.
   const [defaultRiskPercent, setDefaultRiskPercent] = useState<number>();
 
+  // Basculé par Shift+Tab (cf. useTerminalShortcuts.ts), lu par `trade` via ctx.atrMode.
+  const [atrMode, setAtrMode] = useState(false);
+  function toggleAtrMode() {
+    setAtrMode((v) => !v);
+  }
+
   function runCommand(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed) return;
@@ -67,6 +75,7 @@ export function useCommandRouter(opts: {
       positions,
       defaultRiskPercent,
       setDefaultRiskPercent,
+      atrMode,
       setFeedback,
       refreshMarket,
       refreshNews,
@@ -81,5 +90,5 @@ export function useCommandRouter(opts: {
     command.run(args, ctx);
   }
 
-  return { runCommand };
+  return { runCommand, atrMode, toggleAtrMode };
 }

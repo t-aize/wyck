@@ -9,6 +9,8 @@ import { useTradeConfirm } from "./useTradeConfirm.ts";
 
 interface OrderActions {
   runCommand: (raw: string) => void;
+  atrMode: boolean;
+  toggleAtrMode: () => void;
   pendingTrade: PreparedTrade | undefined;
   confirmPendingTrade: () => void;
   cancelPendingTrade: () => void;
@@ -48,7 +50,7 @@ export function useOrderActions(opts: {
   const cancelConfirm = useCancelConfirm({ refreshMarket });
   const positionAmendConfirm = usePositionAmendConfirm({ refreshMarket });
   const closeConfirm = useCloseConfirm({ refreshMarket });
-  const { runCommand } = useCommandRouter({
+  const { runCommand, atrMode, toggleAtrMode } = useCommandRouter({
     positions,
     refreshMarket,
     refreshNews,
@@ -62,6 +64,8 @@ export function useOrderActions(opts: {
 
   return {
     runCommand,
+    atrMode,
+    toggleAtrMode,
     pendingTrade: tradeConfirm.pendingTrade,
     confirmPendingTrade: tradeConfirm.confirmPendingTrade,
     cancelPendingTrade: tradeConfirm.cancelPendingTrade,

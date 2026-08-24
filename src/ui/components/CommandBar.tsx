@@ -10,6 +10,9 @@ interface CommandBarProps {
   onSubmit: (command: string) => void;
   /** Désactivé pendant qu'une popup (ex: confirmation de trade) a le focus clavier. */
   focused?: boolean;
+  /** Mode ATR de `trade`, basculé par Shift+Tab (cf. useTerminalShortcuts.ts) — purement pour
+   * l'affichage ici, la bascule elle-même est gérée globalement, pas par ce composant. */
+  atrMode?: boolean;
 }
 
 const FEEDBACK_ICON: Record<FeedbackKind, string> = { info: "›", success: "✓", error: "✗" };
@@ -36,7 +39,7 @@ function matchCommands(value: string): string[] {
 }
 
 export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function CommandBar(
-  { feedback, onSubmit, focused = true },
+  { feedback, onSubmit, focused = true, atrMode = false },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -69,7 +72,7 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
   useKeyboard((key) => {
     if (!focused) return;
 
-    if (key.name === "tab" && suggestions.length > 0) {
+    if (key.name === "tab" && !key.shift && suggestions.length > 0) {
       const first = suggestions[0];
       if (first) complete(first);
       return;
@@ -103,15 +106,17 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
 
   return (
     <box
-      title=" COMMANDE "
-      titleColor={focused ? theme.accent : theme.textMuted}
+      title={atrMode ? " COMMANDE · MODE ATR " : " COMMANDE "}
+      titleColor={atrMode ? theme.atrMode : focused ? theme.accent : theme.textMuted}
       style={{
         flexDirection: "column",
         flexShrink: 0,
         border: true,
         // Le seul repère visuel de "qui a le clavier" : gris clair quand la barre est active,
-        // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx).
-        borderColor: focused ? theme.borderActive : theme.border,
+        // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx) —
+        // sauf en mode ATR, où la bordure reste orange tant que la barre est active, pour rester
+        // visible même si l'utilisateur ne regarde pas le titre.
+        borderColor: focused ? (atrMode ? theme.atrMode : theme.borderActive) : theme.border,
         backgroundColor: theme.panelBg,
         paddingLeft: 2,
         paddingRight: 2,
@@ -123,15 +128,20 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
         {feedback.message && `${FEEDBACK_ICON[feedback.kind]} ${feedback.message}`}
       </text>
       <text fg={theme.textMuted}>
-        {suggestions.length > 0 && (
+        {suggestions.length > 0 ? (
           <>
             <span fg={theme.accent}>Tab</span>
             {` → ${suggestions.join("  ")}`}
           </>
+        ) : (
+          <>
+            <span fg={theme.atrMode}>Shift+Tab</span>
+            {atrMode ? " → mode manuel" : " → mode ATR"}
+          </>
         )}
       </text>
       <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
-        <text fg={theme.accent}>›</text>
+        <text fg={atrMode ? theme.atrMode : theme.accent}>›</text>
         <input
           ref={inputRef}
           style={{ flexGrow: 1 }}

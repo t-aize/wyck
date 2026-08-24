@@ -34,8 +34,15 @@ function showTemporaryFeedback(
  * Comportement façon shell : si la commande a du texte, Ctrl+C vide la ligne
  * au lieu d'armer la sortie (`tryClearInput` renvoie true si elle a effacé
  * quelque chose).
+ * Comportement façon Claude Code (bis) : Shift+Tab bascule le mode ATR de `trade`, peu importe où
+ * se trouve le focus clavier — comme Ctrl+C ci-dessous, `useKeyboard` est un event bus global, pas
+ * scopé à un composant focused (cf. CommandBar.tsx qui se scope lui-même via `if (!focused) return`).
  */
-export function useTerminalShortcuts(tryClearInput: () => boolean): void {
+export function useTerminalShortcuts(
+  tryClearInput: () => boolean,
+  toggleAtrMode: () => void,
+  atrMode: boolean,
+): void {
   const { setFeedback } = useFeedback();
   const renderer = useRenderer();
   const quitArmedRef = useRef(false);
@@ -53,6 +60,21 @@ export function useTerminalShortcuts(tryClearInput: () => boolean): void {
   });
 
   useKeyboard((key) => {
+    if (key.name === "tab" && key.shift) {
+      toggleAtrMode();
+      showTemporaryFeedback(
+        setFeedback,
+        {
+          kind: "info",
+          message: atrMode
+            ? "mode manuel réactivé"
+            : "mode ATR activé — Shift+Tab pour repasser en mode manuel",
+        },
+        COPY_FEEDBACK_MS,
+      );
+      return;
+    }
+
     if (key.name !== "c" || !key.ctrl) return;
     if (tryClearInput()) return;
 

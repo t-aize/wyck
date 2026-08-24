@@ -35,6 +35,25 @@ export function parseOptionalPrice(
   return { value };
 }
 
+/** Résout `--risk` vs le défaut de la commande `risk`, et valide la borne (0, 100] — partagé par les
+ * deux modes de `trade` (manuel et ATR), qui faisaient auparavant ce calcul à l'identique chacun de
+ * son côté (avant la fusion de `tradeatr` dans `trade`). `usage` est celui du mode appelant, pour que
+ * l'erreur "requis" cite la bonne syntaxe. */
+export function resolveRiskPercent(
+  raw: string | undefined,
+  defaultRiskPercent: number | undefined,
+  usage: string,
+): { value?: number; error?: string } {
+  const riskPercent = parseFiniteNumber(raw) ?? defaultRiskPercent;
+  if (riskPercent === undefined) {
+    return { error: `--risk requis (aucun défaut réglé — voir la commande \`risk\`) — ${usage}` };
+  }
+  if (riskPercent <= 0 || riskPercent > 100) {
+    return { error: `risque invalide : "${riskPercent}" — doit être entre 0 et 100` };
+  }
+  return { value: riskPercent };
+}
+
 /**
  * Parseur `--flag valeur` / `-f valeur` (style CLI, ordre libre) — partagé par `trade` et `amend`,
  * ses deux seuls clients (contrairement à l'ancien `parseFlags` de `commands.ts`, un moteur générique

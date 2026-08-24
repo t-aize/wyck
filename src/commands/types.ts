@@ -24,6 +24,8 @@ export interface CommandContext {
   /** Réglé via la commande `risk`, cf. risk.ts. */
   defaultRiskPercent: number | undefined;
   setDefaultRiskPercent: (percent: number) => void;
+  /** Basculé par Shift+Tab (cf. `useTerminalShortcuts.ts`), lu ici en lecture seule par `trade`. */
+  atrMode: boolean;
   setFeedback: (feedback: Feedback) => void;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;

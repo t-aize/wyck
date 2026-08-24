@@ -25,6 +25,9 @@ export const theme = {
   accent: "#E5E5E5",
   green: "#3DD68C",
   red: "#F0555A",
+  /** Badge de bascule mode ATR dans CommandBar (Shift+Tab) — teinte dédiée, distincte des badges
+   * de session/killzone ci-dessous et de vert/rouge (direction/P&L). */
+  atrMode: "#FB923C",
   /** Une couleur par session de marché (cf. sessions/catalog.ts) — même teinte que la killzone de
    * la même place (Londres/New York) pour rester cohérent visuellement entre les deux badges. */
   sessions: {

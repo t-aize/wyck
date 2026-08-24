@@ -16,7 +16,7 @@ const ATRREFRESH_FLAG_ALIASES = { rr: ["--rr", "-rr"] };
  * Volontairement manuel et ciblé par id explicite plutôt qu'un refresh automatique/en masse — cf.
  * discussion : un re-tracking silencieux casserait la philosophie de confirmation de toute l'app
  * (`amend`/`cancel`/`close` passent tous par une modale), et il n'y a de toute façon aucun moyen
- * fiable de savoir quels ordres viennent de `tradeatr` (le `label` d'un ordre n'est pas exposé par
+ * fiable de savoir quels ordres viennent de `trade` en mode ATR (le `label` d'un ordre n'est pas exposé par
  * `CtraderOrderSchema` — jamais vérifié en pratique, cf. son commentaire de tête).
  *
  * Ordres en attente seulement (jamais une position déjà ouverte) : un ordre pending n'a pas encore

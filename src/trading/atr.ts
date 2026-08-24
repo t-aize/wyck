@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
 import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
 import type { TradeSide } from "../ctrader/schemas.ts";
+import { roundPrice } from "../utils/priceMath.ts";
 import { TradeValidationError } from "./types.ts";
 
 export const ATR_PERIOD = 14;
@@ -82,5 +83,7 @@ export function atrLevels(
   const stopLoss = side === "BUY" ? entryPrice - atr : entryPrice + atr;
   const takeProfit =
     side === "BUY" ? entryPrice + atr * rewardRiskRatio : entryPrice - atr * rewardRiskRatio;
-  return { stopLoss, takeProfit };
+  // atr vient d'une division (sum / period) : sans arrondi ici, le SL/TP hérite de bien plus de
+  // décimales que les 2 digits acceptés côté API pour ce symbole (cf. priceMath.ts#roundPrice).
+  return { stopLoss: roundPrice(stopLoss), takeProfit: roundPrice(takeProfit) };
 }

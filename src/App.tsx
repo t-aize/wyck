@@ -111,6 +111,8 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
 
   const {
     runCommand,
+    atrMode,
+    toggleAtrMode,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,
@@ -128,7 +130,11 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     dismissPendingClose,
   } = useOrderActions({ positions, refreshMarket, refreshNews, onReconfigure });
 
-  useTerminalShortcuts(useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []));
+  useTerminalShortcuts(
+    useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []),
+    toggleAtrMode,
+    atrMode,
+  );
 
   return (
     <box
@@ -152,6 +158,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}
+        atrMode={atrMode}
         onSubmit={runCommand}
         focused={
           !pendingTrade &&
