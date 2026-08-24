@@ -8,7 +8,6 @@ import { amendCommand } from "./amend.ts";
 import { cancelCommand } from "./cancel.ts";
 import { clearCommand } from "./clear.ts";
 import { closeCommand } from "./close.ts";
-import { configCommand } from "./config.ts";
 import { helpCommand } from "./help.ts";
 import { refreshCommand } from "./refresh.ts";
 import { settingsCommand } from "./settings.ts";
@@ -22,7 +21,6 @@ export const COMMANDS: Command[] = [
   cancelCommand,
   closeCommand,
   settingsCommand,
-  configCommand,
   refreshCommand,
   clearCommand,
   helpCommand,

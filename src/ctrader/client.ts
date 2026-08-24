@@ -152,10 +152,11 @@ function isTextBlock(
   return block.type === "text";
 }
 
-/** Params sortants, jamais reçus tels quels du réseau (lus depuis `~/.aurum/config.json` ou saisis
- * dans SetupScreen.tsx, cf. config.ts#readConfig) — `interface` simple, pas de schéma zod, même
- * convention que les Params de ctrader/schemas.ts. Aucune validation de forme volontairement (cf.
- * config.ts) : une URL/un token invalide échoue au premier appel réseau plutôt qu'à la lecture. */
+/** Params sortants, jamais reçus tels quels du réseau (lus depuis `~/.aurum/settings.json` ou
+ * saisis via `settings url`/`settings token`, cf. commands/settings.ts et settings.ts#readConfig) —
+ * `interface` simple, pas de schéma zod, même convention que les Params de ctrader/schemas.ts.
+ * Aucune validation de forme volontairement (cf. settings.ts) : une URL/un token invalide échoue au
+ * premier appel réseau plutôt qu'à la lecture. */
 export interface CtraderClientConfig {
   url: string;
   token: string;
@@ -163,7 +164,7 @@ export interface CtraderClientConfig {
 
 /**
  * Implémentation concrète, construite directement (`new CtraderClient(config)`) et reçue en
- * paramètre explicite partout (App.tsx, SetupScreen.tsx, les hooks, `trading/prepare.ts`) — pas de
+ * paramètre explicite partout (App.tsx, les hooks, `trading/prepare.ts`) — pas de
  * DI Effect (`Context.Tag`/`Layer`) : ça n'aurait servi qu'à `prepareTrade`, seul consommateur à
  * jamais en avoir eu besoin, pendant que tout le reste de l'app passe déjà le client en paramètre
  * simple.
@@ -222,6 +223,15 @@ export class CtraderClient {
    * propre état React distinct plutôt que de lire celui-ci). */
   get isConnected(): boolean {
     return this.connected;
+  }
+
+  /** `false` tant qu'url/token n'ont pas encore été réglés via `settings url`/`settings token`
+   * (cf. commands/settings.ts) — permet à useCtraderConnection.ts de ne même pas tenter connect()
+   * dans ce cas (sinon `new URL("")` lève une exception peu claire), laissant l'app dans son état
+   * neutre "pas encore connecté" plutôt que d'afficher une erreur avant que l'utilisateur ait rien
+   * configuré. */
+  get isConfigured(): boolean {
+    return this.config.url.trim() !== "" && this.config.token.trim() !== "";
   }
 
   /** Lève explicitement plutôt que de laisser le SDK renvoyer une erreur peu claire si appelé

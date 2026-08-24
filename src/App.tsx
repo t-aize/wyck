@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
+import { type AppConfig, EMPTY_APP_CONFIG, readConfig } from "./settings.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CloseConfirmModal } from "./ui/components/CloseConfirmModal.tsx";
@@ -9,7 +9,6 @@ import { Row } from "./ui/components/ConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
-import { SetupScreen } from "./ui/components/SetupScreen.tsx";
 import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
@@ -25,25 +24,38 @@ import { theme } from "./ui/theme.ts";
 import { fsRuntime } from "./utils/effectRuntime.ts";
 
 /**
- * Porte d'entrée : pas de client MCP tant que la config (URL/token) n'est pas connue.
- * `key` sur ConnectedApp force un remount complet (nouveau client, hooks réinitialisés)
- * quand la commande `config` fait passer par un nouveau round de SetupScreen — sans rapport avec la
- * commande `settings` (cf. commands/settings.ts), qui ne touche jamais à l'url/au token.
+ * Porte d'entrée : rend toujours `ConnectedApp` dès que la lecture disque initiale est terminée —
+ * configuré ou non. Sans url/token, `CtraderClient#isConfigured` est `false` (cf.
+ * useCtraderConnection.ts) : l'app reste dans son état "pas encore connecté" neutre (header en
+ * CONNEXION…, positions/prix vides) jusqu'à ce que `settings url`/`settings token` (cf.
+ * commands/settings.ts) persistent des identifiants et déclenchent `reloadConfig` ci-dessous — plus
+ * d'assistant de configuration séparé à bloquer dessus.
+ * `key` sur CtraderProvider force un remount complet (nouveau client, hooks réinitialisés) à chaque
+ * appel de `reloadConfig`.
  */
 export function App() {
-  // `null` = pas encore chargée (distinct de `undefined` = chargée, aucune config trouvée).
+  // `null` = pas encore chargée (distinct de `undefined` = chargée, aucun fichier trouvé).
   // FileSystem (@effect/platform-bun) fait de l'I/O réellement async (contrairement aux
   // readFileSync/existsSync d'avant) — impossible à résoudre avec Effect.runSync dans
   // l'initializer synchrone de useState (AsyncFiberException à l'exécution, vérifié en
   // pratique) : il faut vraiment attendre le premier rendu.
   const [config, setConfig] = useState<AppConfig | undefined | null>(null);
-  const [reconfiguring, setReconfiguring] = useState(false);
   // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
   // changé importe pour déclencher le remount, pas sa valeur.
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
     void fsRuntime.runPromise(readConfig()).then(setConfig);
+  }, []);
+
+  // Appelé par `settings url`/`settings token` (cf. useCommandRouter.ts) une fois l'écriture sur
+  // disque terminée : relit le fichier puis force le remount ci-dessous, qui reconstruit le
+  // CtraderClient avec les nouveaux identifiants et retente une connexion.
+  const reloadConfig = useCallback(() => {
+    void fsRuntime.runPromise(readConfig()).then((next) => {
+      setConfig(next);
+      setGeneration((g) => g + 1);
+    });
   }, []);
 
   if (config === null) {
@@ -63,32 +75,23 @@ export function App() {
     );
   }
 
-  if (!config || reconfiguring) {
-    return (
-      <SetupScreen
-        initial={config}
-        onConfigured={(next) => {
-          // SetupScreen ne connaît que url/token (cf. son commentaire de tête) — on complète avec
-          // l'atrRefreshEnabled déjà en mémoire (ou le défaut) plutôt que de lui faire porter ce
-          // réglage, qui lui est étranger.
-          setConfig({ ...next, atrRefreshEnabled: config?.atrRefreshEnabled ?? true });
-          setReconfiguring(false);
-          setGeneration((g) => g + 1);
-        }}
-        onCancel={config ? () => setReconfiguring(false) : undefined}
-      />
-    );
-  }
+  const effectiveConfig = config ?? EMPTY_APP_CONFIG;
 
   return (
-    <CtraderProvider key={generation} config={config}>
-      <FeedbackProvider>
+    // FeedbackProvider au-dessus de CtraderProvider (pas dedans) : un remount déclenché par
+    // reloadConfig démonte tout ce qui est sous CtraderProvider, feedback compris si imbriqué — en
+    // le sortant, le message de confirmation de `settings url`/`settings token` reste affiché
+    // pendant la reconnexion au lieu de disparaître aussitôt.
+    <FeedbackProvider>
+      <CtraderProvider key={generation} config={effectiveConfig}>
         <ConnectedApp
-          onReconfigure={() => setReconfiguring(true)}
-          initialAtrRefreshEnabled={config.atrRefreshEnabled}
+          onCredentialsChanged={reloadConfig}
+          hasMcpUrl={effectiveConfig.url.trim() !== ""}
+          hasMcpToken={effectiveConfig.token.trim() !== ""}
+          initialAtrRefreshEnabled={effectiveConfig.atrRefreshEnabled}
         />
-      </FeedbackProvider>
-    </CtraderProvider>
+      </CtraderProvider>
+    </FeedbackProvider>
   );
 }
 
@@ -96,10 +99,14 @@ export function App() {
  * `client`/`symbolId`/`setFeedback` ne sont plus lus ici : useOrderActions.ts et les hooks issus de
  * son éclatement les lisent eux-mêmes via ces Contexts. */
 function ConnectedApp({
-  onReconfigure,
+  onCredentialsChanged,
+  hasMcpUrl,
+  hasMcpToken,
   initialAtrRefreshEnabled,
 }: {
-  onReconfigure: () => void;
+  onCredentialsChanged: () => void;
+  hasMcpUrl: boolean;
+  hasMcpToken: boolean;
   initialAtrRefreshEnabled: boolean;
 }) {
   const now = useClock();
@@ -146,7 +153,9 @@ function ConnectedApp({
     positions,
     refreshMarket,
     refreshNews,
-    onReconfigure,
+    onCredentialsChanged,
+    hasMcpUrl,
+    hasMcpToken,
     initialAtrRefreshEnabled,
   });
 

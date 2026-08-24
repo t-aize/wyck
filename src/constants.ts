@@ -15,6 +15,11 @@ export const SYMBOL = "XAUUSD";
 /** Dossier de données de l'app dans le homedir (config, cache) — indépendant du dossier de lancement. */
 export const APP_DATA_DIR = join(homedir(), ".aurum");
 
+/** Proposée par `settings url` (cf. commands/settings.ts) quand aucun argument n'est fourni — texte
+ * affiché dans la ligne de feedback, sélectionnable/copiable via le copier-coller déjà supporté par
+ * le terminal (cf. useTerminalShortcuts.ts). */
+export const DEFAULT_MCP_URL = "https://mcp.ctrader.com/trading/mcp";
+
 export const TRENDBAR_PERIODS = [
   "M_1",
   "M_5",

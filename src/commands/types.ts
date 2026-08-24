@@ -23,14 +23,22 @@ export interface CommandContext {
   positions: GetPositionsResult | undefined;
   /** Basculé par Shift+Tab (cf. `useTerminalShortcuts.ts`), lu ici en lecture seule par `trade`. */
   atrMode: boolean;
-  /** Réglé via `settings atrrefresh on|off` (cf. settings.ts), persisté dans config.ts — lu par
-   * `useAtrAutoRefresh.ts`, pas par une commande. */
+  /** Réglé via `settings atrrefresh on|off` (cf. commands/settings.ts), persisté dans settings.ts —
+   * lu par `useAtrAutoRefresh.ts`, pas par une commande. */
   atrRefreshEnabled: boolean;
   setAtrRefreshEnabled: (enabled: boolean) => void;
+  /** `true` dès qu'une url/un token non vide est persisté — jamais la valeur elle-même (le token ne
+   * doit jamais transiter par du texte affiché). Lu par `settings url`/`settings token` pour
+   * répondre "défini/non défini" sans avoir à relire le disque depuis une commande. */
+  hasMcpUrl: boolean;
+  hasMcpToken: boolean;
+  /** Persistent puis déclenchent une reconnexion (nouveau CtraderClient, cf. App.tsx#reloadConfig)
+   * — utilisés uniquement par `settings url <url>`/`settings token <token>`. */
+  setMcpUrl: (url: string) => void;
+  setMcpToken: (token: string) => void;
   setFeedback: (feedback: Feedback) => void;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
-  onReconfigure: () => void;
   proposeTrade: (trade: PreparedTrade) => void;
   proposeModify: (order: CtraderOrder, stopLoss?: number, takeProfit?: number) => void;
   proposeCancel: (orders: CtraderOrder[]) => void;

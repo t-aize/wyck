@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { COMMANDS, findCommand } from "../../commands/registry.ts";
 import type { CommandContext } from "../../commands/types.ts";
-import { writeConfig } from "../../config.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
+import { writeConfig } from "../../settings.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
@@ -29,8 +29,12 @@ export function useCommandRouter(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
-  onReconfigure: () => void;
-  /** Valeur chargée depuis `~/.aurum/config.json` (cf. config.ts#readConfig) au montage — pas de
+  /** Appelé par `setMcpUrl`/`setMcpToken` ci-dessous une fois l'écriture disque terminée — relit la
+   * config et force un remount avec un nouveau CtraderClient (cf. App.tsx#reloadConfig). */
+  onCredentialsChanged: () => void;
+  hasMcpUrl: boolean;
+  hasMcpToken: boolean;
+  /** Valeur chargée depuis `~/.aurum/settings.json` (cf. settings.ts#readConfig) au montage — pas de
    * défaut codé en dur ici, App.tsx est seul responsable de résoudre "absent du fichier = activé". */
   initialAtrRefreshEnabled: boolean;
   tradeConfirm: Pick<TradeConfirm, "proposeTrade">;
@@ -43,7 +47,9 @@ export function useCommandRouter(opts: {
     positions,
     refreshMarket,
     refreshNews,
-    onReconfigure,
+    onCredentialsChanged,
+    hasMcpUrl,
+    hasMcpToken,
     initialAtrRefreshEnabled,
     tradeConfirm,
     modifyConfirm,
@@ -60,14 +66,25 @@ export function useCommandRouter(opts: {
     setAtrMode((v) => !v);
   }
 
-  // Réglé via `settings atrrefresh on|off` (cf. settings.ts) ou lu depuis le disque au lancement —
-  // contrairement à `atrMode`, celui-ci est persisté : `setAtrRefreshEnabled` met à jour le state ET
-  // écrit sur disque (fusion, cf. config.ts#writeConfig), pour que `settings.ts` n'ait pas besoin de
-  // connaître config.ts.
+  // Réglé via `settings atrrefresh on|off` (cf. commands/settings.ts) ou lu depuis le disque au
+  // lancement — contrairement à `atrMode`, celui-ci est persisté : `setAtrRefreshEnabled` met à
+  // jour le state ET écrit sur disque (fusion, cf. settings.ts#writeConfig), pour que
+  // `commands/settings.ts` n'ait pas besoin de connaître settings.ts.
   const [atrRefreshEnabled, setAtrRefreshEnabledState] = useState(initialAtrRefreshEnabled);
   function setAtrRefreshEnabled(enabled: boolean) {
     setAtrRefreshEnabledState(enabled);
     void fsRuntime.runPromise(writeConfig({ atrRefreshEnabled: enabled }));
+  }
+
+  // Contrairement à `setAtrRefreshEnabled`, pas de state local à mettre à jour : url/token changent
+  // déclenchent toujours un remount complet via `onCredentialsChanged` (nouveau CtraderClient,
+  // besoin d'un connect() frais) — `hasMcpUrl`/`hasMcpToken` viennent donc directement d'App.tsx,
+  // pas d'un state possédé ici.
+  function setMcpUrl(url: string) {
+    void fsRuntime.runPromise(writeConfig({ url })).then(onCredentialsChanged);
+  }
+  function setMcpToken(token: string) {
+    void fsRuntime.runPromise(writeConfig({ token })).then(onCredentialsChanged);
   }
 
   function runCommand(raw: string) {
@@ -89,10 +106,13 @@ export function useCommandRouter(opts: {
       atrMode,
       atrRefreshEnabled,
       setAtrRefreshEnabled,
+      hasMcpUrl,
+      hasMcpToken,
+      setMcpUrl,
+      setMcpToken,
       setFeedback,
       refreshMarket,
       refreshNews,
-      onReconfigure,
       proposeTrade: tradeConfirm.proposeTrade,
       proposeModify: modifyConfirm.proposeModify,
       proposeCancel: cancelConfirm.proposeCancel,

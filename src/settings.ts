@@ -1,9 +1,11 @@
 /**
- * Config utilisateur (URL + token MCP cTrader), persistée dans le homedir plutôt que
- * dans `.env` : un `.exe` compilé (`bun build --compile`) n'embarque pas `.env` et peut
- * être lancé depuis n'importe quel dossier (double-clic), donc `process.cwd()` au
- * runtime n'a aucune raison de contenir le fichier — la config doit vivre à un endroit
- * stable indépendant du dossier de lancement. dev et .exe lisent donc la même chose ici.
+ * Réglages utilisateur (URL + token MCP cTrader, plus les préférences applicatives comme
+ * `atrRefreshEnabled`), persistés dans le homedir plutôt que dans `.env` : un `.exe` compilé
+ * (`bun build --compile`) n'embarque pas `.env` et peut être lancé depuis n'importe quel dossier
+ * (double-clic), donc `process.cwd()` au runtime n'a aucune raison de contenir le fichier — les
+ * réglages doivent vivre à un endroit stable indépendant du dossier de lancement. dev et .exe
+ * lisent donc la même chose ici. Seule la commande `settings` (cf. commands/settings.ts) écrit ici
+ * — pas d'assistant de configuration séparé, cf. App.tsx#EMPTY_APP_CONFIG.
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
@@ -15,7 +17,7 @@ import { Effect } from "effect";
 import { APP_DATA_DIR } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
 
-const CONFIG_PATH = join(APP_DATA_DIR, "config.json");
+const SETTINGS_PATH = join(APP_DATA_DIR, "settings.json");
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
 // cross-platform genre keytar). Ça évite le token en clair dans le fichier — protège
@@ -61,18 +63,24 @@ export interface AppConfig extends CtraderClientConfig {
   atrRefreshEnabled: boolean;
 }
 
+/** Réglages "vides" utilisés par App.tsx tant qu'aucun fichier n'existe encore (premier lancement)
+ * ou tant qu'url/token n'ont pas été réglés — l'app se rend quand même normalement dans cet état
+ * (cf. CtraderClient#isConfigured), pas d'assistant de configuration séparé à afficher. */
+export const EMPTY_APP_CONFIG: AppConfig = { url: "", token: "", atrRefreshEnabled: true };
+
 /**
  * `undefined` si absent, JSON invalide, ou déchiffrable seulement sur une autre machine —
- * redemande la config dans ces cas plutôt que planter. Aucune validation de forme au-delà de ça
- * (pas de schéma) : un config.json à moitié écrit passerait tel quel. Dépend de `FileSystem`
- * (`@effect/platform`) plutôt que d'appeler `node:fs` en dur : un test peut fournir une
- * implémentation en mémoire sans jamais toucher `~/.aurum/config.json`. Consommateurs (App.tsx,
- * SetupScreen.tsx) : `fsRuntime.runPromise(readConfig())` (cf. src/utils/effectRuntime.ts) — l'I/O
- * de `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone),
- * donc `Effect.runSync` n'est plus utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
- * pratique) : App.tsx charge la config dans un `useEffect`, pas dans l'initializer de `useState`.
- * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré sur
- * disque — pas le bon outil ici malgré le nom.
+ * redemande implicitement les réglages dans ces cas plutôt que planter (cf.
+ * App.tsx#EMPTY_APP_CONFIG). Aucune validation de forme au-delà de ça (pas de schéma) : un
+ * settings.json à moitié écrit passerait tel quel. Dépend de `FileSystem` (`@effect/platform`)
+ * plutôt que d'appeler `node:fs` en dur : un test peut fournir une implémentation en mémoire sans
+ * jamais toucher `~/.aurum/settings.json`. Consommateur : `fsRuntime.runPromise(readConfig())`
+ * (cf. src/utils/effectRuntime.ts) — l'I/O de `@effect/platform-bun` est réellement async
+ * (contrairement à l'ancien `node:fs` synchrone), donc `Effect.runSync` n'est pas utilisable ici
+ * (`AsyncFiberException` à l'exécution, vérifié en pratique) : App.tsx charge les réglages dans un
+ * `useEffect`, pas dans l'initializer de `useState`. Le module `Config` d'Effect cible des
+ * variables d'environnement, pas un fichier JSON chiffré sur disque — pas le bon outil ici malgré
+ * le nom.
  */
 export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
   return Effect.gen(function* () {
@@ -80,7 +88,7 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
     // Une lecture fs cassée (permissions, race avec un fichier supprimé entretemps…) est traitée
     // comme "pas de config", même logique que le reste de cette fonction — un fichier illisible
     // n'est pas plus fatal qu'un fichier absent.
-    const raw = yield* fs.readFileString(CONFIG_PATH).pipe(Effect.orElseSucceed(() => undefined));
+    const raw = yield* fs.readFileString(SETTINGS_PATH).pipe(Effect.orElseSucceed(() => undefined));
     if (raw === undefined) return undefined;
 
     // `JSON.parse`/`decrypt` peuvent tous deux throw (JSON invalide, ciphertext corrompu/déchiffrable
@@ -98,14 +106,14 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
 }
 
 /** Échoue tel quel (disque plein, permissions) — contrairement à `readConfig`, un échec
- * d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé.
+ * d'écriture doit remonter à l'utilisateur (cf. commands/settings.ts), pas être avalé.
  *
  * `patch` plutôt qu'un `AppConfig` complet : fusionne uniquement les clés fournies par-dessus le
  * fichier existant, au lieu de le réécrire en entier. Avant ce fix, un appel qui ne voulait changer
  * que `atrRefreshEnabled` (cf. useCommandRouter.ts) aurait effacé `url`/`token` — et vice-versa, un
- * changement d'url/token depuis SetupScreen.tsx aurait effacé les réglages. Le contenu existant est
- * lu en JSON brut (pas via `readConfig`, qui déchiffre `token` — inutile ici, on ne fait que le
- * recopier tel quel si `patch.token` n'est pas fourni). */
+ * changement d'url/token via `settings url`/`settings token` aurait effacé les réglages. Le contenu
+ * existant est lu en JSON brut (pas via `readConfig`, qui déchiffre `token` — inutile ici, on ne
+ * fait que le recopier tel quel si `patch.token` n'est pas fourni). */
 export function writeConfig(
   patch: Partial<AppConfig>,
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
@@ -116,7 +124,7 @@ export function writeConfig(
     }
 
     const existingRaw = yield* fs
-      .readFileString(CONFIG_PATH)
+      .readFileString(SETTINGS_PATH)
       .pipe(Effect.orElseSucceed(() => undefined));
     const existing: Record<string, unknown> =
       existingRaw === undefined
@@ -134,6 +142,6 @@ export function writeConfig(
         : {}),
     };
 
-    yield* fs.writeFileString(CONFIG_PATH, JSON.stringify(merged, null, 2), { mode: 0o600 });
+    yield* fs.writeFileString(SETTINGS_PATH, JSON.stringify(merged, null, 2), { mode: 0o600 });
   });
 }

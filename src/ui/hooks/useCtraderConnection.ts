@@ -19,6 +19,11 @@ export function useCtraderConnection(client: CtraderClient): CtraderConnection {
 
   useEffect(() => {
     let cancelled = false;
+    // Pas encore configuré (url/token vides, cf. App.tsx#EMPTY_APP_CONFIG) : laisser
+    // connected=false/connectionError=undefined plutôt que de tenter connect() (qui échouerait sur
+    // `new URL("")` avec une erreur peu claire) — état neutre "pas encore connecté" jusqu'à ce que
+    // `settings url`/`settings token` déclenchent un remount avec un client configuré.
+    if (!client.isConfigured) return;
 
     void (async () => {
       try {

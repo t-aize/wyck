@@ -43,10 +43,20 @@ export function useOrderActions(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
-  onReconfigure: () => void;
+  onCredentialsChanged: () => void;
+  hasMcpUrl: boolean;
+  hasMcpToken: boolean;
   initialAtrRefreshEnabled: boolean;
 }): OrderActions {
-  const { positions, refreshMarket, refreshNews, onReconfigure, initialAtrRefreshEnabled } = opts;
+  const {
+    positions,
+    refreshMarket,
+    refreshNews,
+    onCredentialsChanged,
+    hasMcpUrl,
+    hasMcpToken,
+    initialAtrRefreshEnabled,
+  } = opts;
 
   const tradeConfirm = useTradeConfirm({ refreshMarket });
   const modifyConfirm = useModifyConfirm({ refreshMarket });
@@ -58,7 +68,9 @@ export function useOrderActions(opts: {
       positions,
       refreshMarket,
       refreshNews,
-      onReconfigure,
+      onCredentialsChanged,
+      hasMcpUrl,
+      hasMcpToken,
       initialAtrRefreshEnabled,
       tradeConfirm,
       modifyConfirm,
