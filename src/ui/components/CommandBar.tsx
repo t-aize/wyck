@@ -13,6 +13,12 @@ interface CommandBarProps {
   /** Mode ATR de `trade`, basculé par Shift+Tab (cf. useTerminalShortcuts.ts) — purement pour
    * l'affichage ici, la bascule elle-même est gérée globalement, pas par ce composant. */
   atrMode?: boolean;
+  /** Réglage `settings atrrefresh` (cf. useAtrAutoRefresh.ts) — sans rapport avec `atrMode`
+   * ci-dessus : celui-ci contrôle la boucle de fond qui rafraîchit les ordres ATR déjà en attente,
+   * `atrMode` ne fait qu'influencer comment le *prochain* `trade` tapé est interprété. */
+  atrRefreshEnabled?: boolean;
+  /** Secondes avant la prochaine passe de refresh ATR auto, `undefined` avant la toute première. */
+  atrRefreshSecondsRemaining?: number;
 }
 
 const FEEDBACK_ICON: Record<FeedbackKind, string> = { info: "›", success: "✓", error: "✗" };
@@ -39,7 +45,14 @@ function matchCommands(value: string): string[] {
 }
 
 export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function CommandBar(
-  { feedback, onSubmit, focused = true, atrMode = false },
+  {
+    feedback,
+    onSubmit,
+    focused = true,
+    atrMode = false,
+    atrRefreshEnabled = false,
+    atrRefreshSecondsRemaining,
+  },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -127,19 +140,26 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
       <text fg={FEEDBACK_COLOR[feedback.kind]}>
         {feedback.message && `${FEEDBACK_ICON[feedback.kind]} ${feedback.message}`}
       </text>
-      <text fg={theme.textMuted}>
-        {suggestions.length > 0 ? (
-          <>
-            <span fg={theme.accent}>Tab</span>
-            {` → ${suggestions.join("  ")}`}
-          </>
-        ) : (
-          <>
-            <span fg={theme.atrMode}>Shift+Tab</span>
-            {atrMode ? " → mode manuel" : " → mode ATR"}
-          </>
-        )}
-      </text>
+      <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <text fg={theme.textMuted}>
+          {suggestions.length > 0 ? (
+            <>
+              <span fg={theme.accent}>Tab</span>
+              {` → ${suggestions.join("  ")}`}
+            </>
+          ) : (
+            <>
+              <span fg={theme.atrMode}>Shift+Tab</span>
+              {atrMode ? " → mode manuel" : " → mode ATR"}
+            </>
+          )}
+        </text>
+        <text fg={atrRefreshEnabled ? theme.atrMode : theme.textMuted}>
+          {atrRefreshEnabled
+            ? `refresh ATR ${atrRefreshSecondsRemaining === undefined ? "—" : `${atrRefreshSecondsRemaining}s`}`
+            : "refresh ATR désactivé"}
+        </text>
+      </box>
       <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
         <text fg={atrMode ? theme.atrMode : theme.accent}>›</text>
         <input

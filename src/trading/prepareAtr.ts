@@ -66,6 +66,7 @@ export function prepareAtrTrade(
       riskAmount,
       riskPercent: input.riskPercent,
       rewardAmount: (volume / 100) * (atr * input.rewardRiskRatio),
+      atrRewardRiskRatio: input.rewardRiskRatio,
     };
     return trade;
   });

@@ -9,9 +9,17 @@ interface PositionsPanelProps {
   /** Prix affiché (déjà divisé par PRICE_SCALE, cf. useMarketData). */
   bidPrice: number | undefined;
   askPrice: number | undefined;
+  /** Ids d'ordres suivis par le refresh auto ATR (cf. useAtrAutoRefresh.ts), pour la colonne ATR de
+   * OrdersTable.tsx. */
+  atrOrderIds: Set<number>;
 }
 
-export function PositionsPanel({ positions, bidPrice, askPrice }: PositionsPanelProps) {
+export function PositionsPanel({
+  positions,
+  bidPrice,
+  askPrice,
+  atrOrderIds,
+}: PositionsPanelProps) {
   const openPositions = positions?.positions ?? [];
   const pendingOrders = positions?.orders ?? [];
   const mid =
@@ -58,7 +66,9 @@ export function PositionsPanel({ positions, bidPrice, askPrice }: PositionsPanel
         />
       )}
 
-      {pendingOrders.length > 0 && <OrdersTable orders={pendingOrders} mid={mid} />}
+      {pendingOrders.length > 0 && (
+        <OrdersTable orders={pendingOrders} mid={mid} atrOrderIds={atrOrderIds} />
+      )}
     </box>
   );
 }

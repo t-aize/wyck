@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { COMMANDS, findCommand } from "../../commands/registry.ts";
 import type { CommandContext } from "../../commands/types.ts";
+import { writeConfig } from "../../config.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
+import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useFeedback } from "../context/FeedbackContext.tsx";
 import type { CancelConfirm } from "./useCancelConfirm.ts";
@@ -14,19 +16,23 @@ interface CommandRouter {
   runCommand: (raw: string) => void;
   atrMode: boolean;
   toggleAtrMode: () => void;
+  atrRefreshEnabled: boolean;
+  setAtrRefreshEnabled: (enabled: boolean) => void;
 }
 
 /**
  * Découpe la ligne tapée, résout la commande dans le registre (`commands/registry.ts`) et lui
  * délègue tout le reste (parsing + exécution) — un des 4 hooks issus de l'éclatement de
- * useOrderActions.ts. Ne possède plus lui-même qu'un seul bout d'état propre au routeur :
- * `defaultRiskPercent`, car il est partagé par plusieurs commandes (`risk` le règle, `trade` le lit).
+ * useOrderActions.ts.
  */
 export function useCommandRouter(opts: {
   positions: GetPositionsResult | undefined;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
   onReconfigure: () => void;
+  /** Valeur chargée depuis `~/.aurum/config.json` (cf. config.ts#readConfig) au montage — pas de
+   * défaut codé en dur ici, App.tsx est seul responsable de résoudre "absent du fichier = activé". */
+  initialAtrRefreshEnabled: boolean;
   tradeConfirm: Pick<TradeConfirm, "proposeTrade">;
   modifyConfirm: Pick<ModifyConfirm, "proposeModify">;
   cancelConfirm: Pick<CancelConfirm, "proposeCancel">;
@@ -38,6 +44,7 @@ export function useCommandRouter(opts: {
     refreshMarket,
     refreshNews,
     onReconfigure,
+    initialAtrRefreshEnabled,
     tradeConfirm,
     modifyConfirm,
     cancelConfirm,
@@ -47,14 +54,20 @@ export function useCommandRouter(opts: {
   const { client, symbolId } = useCtrader();
   const { setFeedback } = useFeedback();
 
-  // Réglé via la commande `risk`, jamais persisté : repart à zéro à chaque lancement plutôt que de
-  // continuer à trader silencieusement sur un risque défini une session précédente et oublié.
-  const [defaultRiskPercent, setDefaultRiskPercent] = useState<number>();
-
   // Basculé par Shift+Tab (cf. useTerminalShortcuts.ts), lu par `trade` via ctx.atrMode.
   const [atrMode, setAtrMode] = useState(false);
   function toggleAtrMode() {
     setAtrMode((v) => !v);
+  }
+
+  // Réglé via `settings atrrefresh on|off` (cf. settings.ts) ou lu depuis le disque au lancement —
+  // contrairement à `atrMode`, celui-ci est persisté : `setAtrRefreshEnabled` met à jour le state ET
+  // écrit sur disque (fusion, cf. config.ts#writeConfig), pour que `settings.ts` n'ait pas besoin de
+  // connaître config.ts.
+  const [atrRefreshEnabled, setAtrRefreshEnabledState] = useState(initialAtrRefreshEnabled);
+  function setAtrRefreshEnabled(enabled: boolean) {
+    setAtrRefreshEnabledState(enabled);
+    void fsRuntime.runPromise(writeConfig({ atrRefreshEnabled: enabled }));
   }
 
   function runCommand(raw: string) {
@@ -73,9 +86,9 @@ export function useCommandRouter(opts: {
       client,
       symbolId,
       positions,
-      defaultRiskPercent,
-      setDefaultRiskPercent,
       atrMode,
+      atrRefreshEnabled,
+      setAtrRefreshEnabled,
       setFeedback,
       refreshMarket,
       refreshNews,
@@ -90,5 +103,5 @@ export function useCommandRouter(opts: {
     command.run(args, ctx);
   }
 
-  return { runCommand, atrMode, toggleAtrMode };
+  return { runCommand, atrMode, toggleAtrMode, atrRefreshEnabled, setAtrRefreshEnabled };
 }

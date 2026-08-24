@@ -37,4 +37,8 @@ export interface PreparedTrade {
   riskPercent: number;
   /** Gain potentiel si le TP est atteint (même formule que riskAmount, distance TP) */
   rewardAmount: number;
+  /** Renseigné uniquement par `prepareAtr.ts` (jamais `prepare.ts`) — signal "ce trade vient du
+   * mode ATR", lu par `useTradeConfirm.ts` pour décider s'il faut suivre cet ordre dans
+   * `atrTradeStore.ts` en vue du refresh automatique (cf. useAtrAutoRefresh.ts). */
+  atrRewardRiskRatio?: number;
 }

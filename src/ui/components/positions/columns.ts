@@ -11,6 +11,8 @@ export const COLUMNS = {
   swap: 9,
   pnl: 13,
   dist: 14,
+  /** Colonne "ATR" de OrdersTable.tsx uniquement (ordres en attente) — glyphe seul, pas de texte. */
+  atr: 5,
 } as const;
 
 /** Distance (en pips) au SL/TP le plus proche du prix courant, avec l'étiquette du côté concerné. */

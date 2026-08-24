@@ -5,14 +5,13 @@
  * automatiquement aux trois endroits. */
 
 import { amendCommand } from "./amend.ts";
-import { atrRefreshCommand } from "./atrrefresh.ts";
 import { cancelCommand } from "./cancel.ts";
 import { clearCommand } from "./clear.ts";
 import { closeCommand } from "./close.ts";
 import { configCommand } from "./config.ts";
 import { helpCommand } from "./help.ts";
 import { refreshCommand } from "./refresh.ts";
-import { riskCommand } from "./risk.ts";
+import { settingsCommand } from "./settings.ts";
 import { tradeCommand } from "./trade.ts";
 import type { Command } from "./types.ts";
 
@@ -20,10 +19,9 @@ import type { Command } from "./types.ts";
 export const COMMANDS: Command[] = [
   tradeCommand,
   amendCommand,
-  atrRefreshCommand,
   cancelCommand,
   closeCommand,
-  riskCommand,
+  settingsCommand,
   configCommand,
   refreshCommand,
   clearCommand,

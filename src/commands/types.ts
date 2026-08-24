@@ -21,11 +21,12 @@ export interface CommandContext {
   client: CtraderClient;
   symbolId: number | undefined;
   positions: GetPositionsResult | undefined;
-  /** Réglé via la commande `risk`, cf. risk.ts. */
-  defaultRiskPercent: number | undefined;
-  setDefaultRiskPercent: (percent: number) => void;
   /** Basculé par Shift+Tab (cf. `useTerminalShortcuts.ts`), lu ici en lecture seule par `trade`. */
   atrMode: boolean;
+  /** Réglé via `settings atrrefresh on|off` (cf. settings.ts), persisté dans config.ts — lu par
+   * `useAtrAutoRefresh.ts`, pas par une commande. */
+  atrRefreshEnabled: boolean;
+  setAtrRefreshEnabled: (enabled: boolean) => void;
   setFeedback: (feedback: Feedback) => void;
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;

@@ -11,6 +11,8 @@ interface OrderActions {
   runCommand: (raw: string) => void;
   atrMode: boolean;
   toggleAtrMode: () => void;
+  atrRefreshEnabled: boolean;
+  setAtrRefreshEnabled: (enabled: boolean) => void;
   pendingTrade: PreparedTrade | undefined;
   confirmPendingTrade: () => void;
   cancelPendingTrade: () => void;
@@ -42,30 +44,35 @@ export function useOrderActions(opts: {
   refreshMarket: () => Promise<void>;
   refreshNews: (options?: { force?: boolean }) => Promise<void>;
   onReconfigure: () => void;
+  initialAtrRefreshEnabled: boolean;
 }): OrderActions {
-  const { positions, refreshMarket, refreshNews, onReconfigure } = opts;
+  const { positions, refreshMarket, refreshNews, onReconfigure, initialAtrRefreshEnabled } = opts;
 
   const tradeConfirm = useTradeConfirm({ refreshMarket });
   const modifyConfirm = useModifyConfirm({ refreshMarket });
   const cancelConfirm = useCancelConfirm({ refreshMarket });
   const positionAmendConfirm = usePositionAmendConfirm({ refreshMarket });
   const closeConfirm = useCloseConfirm({ refreshMarket });
-  const { runCommand, atrMode, toggleAtrMode } = useCommandRouter({
-    positions,
-    refreshMarket,
-    refreshNews,
-    onReconfigure,
-    tradeConfirm,
-    modifyConfirm,
-    cancelConfirm,
-    positionAmendConfirm,
-    closeConfirm,
-  });
+  const { runCommand, atrMode, toggleAtrMode, atrRefreshEnabled, setAtrRefreshEnabled } =
+    useCommandRouter({
+      positions,
+      refreshMarket,
+      refreshNews,
+      onReconfigure,
+      initialAtrRefreshEnabled,
+      tradeConfirm,
+      modifyConfirm,
+      cancelConfirm,
+      positionAmendConfirm,
+      closeConfirm,
+    });
 
   return {
     runCommand,
     atrMode,
     toggleAtrMode,
+    atrRefreshEnabled,
+    setAtrRefreshEnabled,
     pendingTrade: tradeConfirm.pendingTrade,
     confirmPendingTrade: tradeConfirm.confirmPendingTrade,
     cancelPendingTrade: tradeConfirm.cancelPendingTrade,

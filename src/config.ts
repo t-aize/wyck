@@ -50,6 +50,17 @@ function decrypt(payload: string): string {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
 
+/** Config + réglages persistés : `CtraderClientConfig` (url/token, cf. ctrader/client.ts) plus les
+ * réglages applicatifs qui s'accumulent dans le même fichier (aujourd'hui : juste
+ * `atrRefreshEnabled`, cf. useAtrAutoRefresh.ts). Un seul type plutôt que deux fichiers séparés :
+ * même contrainte de fusion (§writeConfig), pas la peine de dupliquer toute la mécanique
+ * lecture/écriture pour une poignée de booléens. */
+export interface AppConfig extends CtraderClientConfig {
+  /** Rafraîchissement auto du SL/TP des ordres ATR en attente (toutes les 60s, cf.
+   * useAtrAutoRefresh.ts). Absent du fichier = activé (comportement par défaut). */
+  atrRefreshEnabled: boolean;
+}
+
 /**
  * `undefined` si absent, JSON invalide, ou déchiffrable seulement sur une autre machine —
  * redemande la config dans ces cas plutôt que planter. Aucune validation de forme au-delà de ça
@@ -63,11 +74,7 @@ function decrypt(payload: string): string {
  * Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON chiffré sur
  * disque — pas le bon outil ici malgré le nom.
  */
-export function readConfig(): Effect.Effect<
-  CtraderClientConfig | undefined,
-  never,
-  FileSystem.FileSystem
-> {
+export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     // Une lecture fs cassée (permissions, race avec un fichier supprimé entretemps…) est traitée
@@ -80,26 +87,53 @@ export function readConfig(): Effect.Effect<
     // seulement sur une autre machine) — Effect.try (pas Effect.sync) pour ne pas laisser
     // l'exception s'échapper en defect non catché.
     return yield* Effect.try(() => {
-      const parsed = JSON.parse(raw) as CtraderClientConfig;
-      return { url: parsed.url, token: decrypt(parsed.token) };
+      const parsed = JSON.parse(raw) as { url: string; token: string; atrRefreshEnabled?: boolean };
+      return {
+        url: parsed.url,
+        token: decrypt(parsed.token),
+        atrRefreshEnabled: parsed.atrRefreshEnabled ?? true,
+      };
     }).pipe(Effect.orElseSucceed(() => undefined));
   });
 }
 
 /** Échoue tel quel (disque plein, permissions) — contrairement à `readConfig`, un échec
- * d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé. */
+ * d'écriture doit remonter à l'utilisateur (cf. SetupScreen.tsx), pas être avalé.
+ *
+ * `patch` plutôt qu'un `AppConfig` complet : fusionne uniquement les clés fournies par-dessus le
+ * fichier existant, au lieu de le réécrire en entier. Avant ce fix, un appel qui ne voulait changer
+ * que `atrRefreshEnabled` (cf. useCommandRouter.ts) aurait effacé `url`/`token` — et vice-versa, un
+ * changement d'url/token depuis SetupScreen.tsx aurait effacé les réglages. Le contenu existant est
+ * lu en JSON brut (pas via `readConfig`, qui déchiffre `token` — inutile ici, on ne fait que le
+ * recopier tel quel si `patch.token` n'est pas fourni). */
 export function writeConfig(
-  config: CtraderClientConfig,
+  patch: Partial<AppConfig>,
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     if (!(yield* fs.exists(APP_DATA_DIR))) {
       yield* fs.makeDirectory(APP_DATA_DIR, { recursive: true });
     }
-    yield* fs.writeFileString(
-      CONFIG_PATH,
-      JSON.stringify({ url: config.url, token: encrypt(config.token) }, null, 2),
-      { mode: 0o600 },
-    );
+
+    const existingRaw = yield* fs
+      .readFileString(CONFIG_PATH)
+      .pipe(Effect.orElseSucceed(() => undefined));
+    const existing: Record<string, unknown> =
+      existingRaw === undefined
+        ? {}
+        : yield* Effect.try(() => JSON.parse(existingRaw) as Record<string, unknown>).pipe(
+            Effect.orElseSucceed(() => ({}) as Record<string, unknown>),
+          );
+
+    const merged: Record<string, unknown> = {
+      ...existing,
+      ...(patch.url !== undefined ? { url: patch.url } : {}),
+      ...(patch.token !== undefined ? { token: encrypt(patch.token) } : {}),
+      ...(patch.atrRefreshEnabled !== undefined
+        ? { atrRefreshEnabled: patch.atrRefreshEnabled }
+        : {}),
+    };
+
+    yield* fs.writeFileString(CONFIG_PATH, JSON.stringify(merged, null, 2), { mode: 0o600 });
   });
 }

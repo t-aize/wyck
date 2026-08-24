@@ -2,7 +2,7 @@ import { TextAttributes } from "@opentui/core";
 import type { CtraderOrder } from "../../../ctrader/schemas.ts";
 import { toLots, toPips } from "../../../utils/priceMath.ts";
 import { alignLeft, alignRight, formatPriceOrDash } from "../../format.ts";
-import { DOWN, UP } from "../../glyphs.ts";
+import { ATR_TRACKED, DOWN, UP } from "../../glyphs.ts";
 import { sideColor, theme } from "../../theme.ts";
 import { COLUMNS } from "./columns.ts";
 
@@ -16,11 +16,21 @@ function orderHeaderRow() {
       {alignRight("SL", COLUMNS.sl)}
       {alignRight("TP", COLUMNS.tp)}
       {alignRight("DIST", COLUMNS.dist)}
+      {"  "}
+      {alignLeft("ATR", COLUMNS.atr)}
     </text>
   );
 }
 
-function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined }) {
+function OrderRow({
+  order,
+  mid,
+  atrTracked,
+}: {
+  order: CtraderOrder;
+  mid: number | undefined;
+  atrTracked: boolean;
+}) {
   const side = order.tradeSide;
   const sideLabel = `${side === "BUY" ? UP : side === "SELL" ? DOWN : "—"} ${side ?? "—"} ${order.orderType}`;
   // limitPrice/stopPrice/stopLoss/takeProfit sont des "prix affichés" (cf. commentaire sur
@@ -38,11 +48,24 @@ function OrderRow({ order, mid }: { order: CtraderOrder; mid: number | undefined
       <span fg={theme.red}>{alignRight(formatPriceOrDash(order.stopLoss), COLUMNS.sl)}</span>
       <span fg={theme.green}>{alignRight(formatPriceOrDash(order.takeProfit), COLUMNS.tp)}</span>
       <span fg={theme.textDim}>{alignRight(dist, COLUMNS.dist)}</span>
+      <span>{"  "}</span>
+      <span fg={atrTracked ? theme.atrMode : theme.textMuted}>
+        {alignLeft(atrTracked ? ATR_TRACKED : "—", COLUMNS.atr)}
+      </span>
     </text>
   );
 }
 
-export function OrdersTable({ orders, mid }: { orders: CtraderOrder[]; mid: number | undefined }) {
+export function OrdersTable({
+  orders,
+  mid,
+  atrOrderIds,
+}: {
+  orders: CtraderOrder[];
+  mid: number | undefined;
+  /** Ids d'ordres suivis par le refresh auto ATR (cf. useAtrAutoRefresh.ts) — colore la colonne ATR. */
+  atrOrderIds: Set<number>;
+}) {
   return (
     <box style={{ flexDirection: "column", marginTop: 1 }}>
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
@@ -58,7 +81,12 @@ export function OrdersTable({ orders, mid }: { orders: CtraderOrder[]; mid: numb
       >
         {orderHeaderRow()}
         {orders.map((order) => (
-          <OrderRow key={order.orderId} order={order} mid={mid} />
+          <OrderRow
+            key={order.orderId}
+            order={order}
+            mid={mid}
+            atrTracked={atrOrderIds.has(order.orderId)}
+          />
         ))}
       </scrollbox>
     </box>

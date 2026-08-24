@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { readConfig } from "./config.ts";
+import { type AppConfig, readConfig } from "./config.ts";
 import { SYMBOL } from "./constants.ts";
-import type { CtraderClientConfig } from "./ctrader/client.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
 import { CloseConfirmModal } from "./ui/components/CloseConfirmModal.tsx";
@@ -15,6 +14,7 @@ import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
+import { ATR_REFRESH_MS, useAtrAutoRefresh } from "./ui/hooks/useAtrAutoRefresh.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
@@ -27,7 +27,8 @@ import { fsRuntime } from "./utils/effectRuntime.ts";
 /**
  * Porte d'entrée : pas de client MCP tant que la config (URL/token) n'est pas connue.
  * `key` sur ConnectedApp force un remount complet (nouveau client, hooks réinitialisés)
- * quand la commande `settings` fait passer par un nouveau round de SetupScreen.
+ * quand la commande `config` fait passer par un nouveau round de SetupScreen — sans rapport avec la
+ * commande `settings` (cf. commands/settings.ts), qui ne touche jamais à l'url/au token.
  */
 export function App() {
   // `null` = pas encore chargée (distinct de `undefined` = chargée, aucune config trouvée).
@@ -35,7 +36,7 @@ export function App() {
   // readFileSync/existsSync d'avant) — impossible à résoudre avec Effect.runSync dans
   // l'initializer synchrone de useState (AsyncFiberException à l'exécution, vérifié en
   // pratique) : il faut vraiment attendre le premier rendu.
-  const [config, setConfig] = useState<CtraderClientConfig | undefined | null>(null);
+  const [config, setConfig] = useState<AppConfig | undefined | null>(null);
   const [reconfiguring, setReconfiguring] = useState(false);
   // Compteur de générations plutôt que le secret lui-même : seul le fait que la config a
   // changé importe pour déclencher le remount, pas sa valeur.
@@ -67,7 +68,10 @@ export function App() {
       <SetupScreen
         initial={config}
         onConfigured={(next) => {
-          setConfig(next);
+          // SetupScreen ne connaît que url/token (cf. son commentaire de tête) — on complète avec
+          // l'atrRefreshEnabled déjà en mémoire (ou le défaut) plutôt que de lui faire porter ce
+          // réglage, qui lui est étranger.
+          setConfig({ ...next, atrRefreshEnabled: config?.atrRefreshEnabled ?? true });
           setReconfiguring(false);
           setGeneration((g) => g + 1);
         }}
@@ -79,7 +83,10 @@ export function App() {
   return (
     <CtraderProvider key={generation} config={config}>
       <FeedbackProvider>
-        <ConnectedApp onReconfigure={() => setReconfiguring(true)} />
+        <ConnectedApp
+          onReconfigure={() => setReconfiguring(true)}
+          initialAtrRefreshEnabled={config.atrRefreshEnabled}
+        />
       </FeedbackProvider>
     </CtraderProvider>
   );
@@ -88,7 +95,13 @@ export function App() {
 /** `connected`/`connectionError` viennent de `useCtrader()`, `feedback` de `useFeedback()` —
  * `client`/`symbolId`/`setFeedback` ne sont plus lus ici : useOrderActions.ts et les hooks issus de
  * son éclatement les lisent eux-mêmes via ces Contexts. */
-function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
+function ConnectedApp({
+  onReconfigure,
+  initialAtrRefreshEnabled,
+}: {
+  onReconfigure: () => void;
+  initialAtrRefreshEnabled: boolean;
+}) {
   const now = useClock();
   const { connected, connectionError } = useCtrader();
   const { feedback } = useFeedback();
@@ -113,6 +126,7 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     runCommand,
     atrMode,
     toggleAtrMode,
+    atrRefreshEnabled,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,
@@ -128,13 +142,29 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
     pendingClose,
     confirmPendingClose,
     dismissPendingClose,
-  } = useOrderActions({ positions, refreshMarket, refreshNews, onReconfigure });
+  } = useOrderActions({
+    positions,
+    refreshMarket,
+    refreshNews,
+    onReconfigure,
+    initialAtrRefreshEnabled,
+  });
 
   useTerminalShortcuts(
     useCallback(() => commandBarRef.current?.clearIfNotEmpty() ?? false, []),
     toggleAtrMode,
     atrMode,
   );
+
+  const { lastRunAt: atrRefreshLastRunAt, trackedOrderIds: atrOrderIds } = useAtrAutoRefresh({
+    positions,
+    enabled: atrRefreshEnabled,
+    refreshMarket,
+  });
+  const atrRefreshSecondsRemaining =
+    atrRefreshLastRunAt === undefined
+      ? undefined
+      : Math.max(0, Math.ceil((atrRefreshLastRunAt + ATR_REFRESH_MS - now.getTime()) / 1000));
 
   return (
     <box
@@ -153,12 +183,19 @@ function ConnectedApp({ onReconfigure }: { onReconfigure: () => void }) {
         moneyDigits={moneyDigits}
       />
       <StructureBar structure={structure} errorMessage={structureError} />
-      <PositionsPanel positions={positions} bidPrice={bidPrice} askPrice={askPrice} />
+      <PositionsPanel
+        positions={positions}
+        bidPrice={bidPrice}
+        askPrice={askPrice}
+        atrOrderIds={atrOrderIds}
+      />
       <NewsPanel events={calendar} errorMessage={newsError} now={now} />
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}
         atrMode={atrMode}
+        atrRefreshEnabled={atrRefreshEnabled}
+        atrRefreshSecondsRemaining={atrRefreshSecondsRemaining}
         onSubmit={runCommand}
         focused={
           !pendingTrade &&
