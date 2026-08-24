@@ -5,6 +5,7 @@ import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { toAmendOrderParams } from "../../trading/amendParams.ts";
 import { atrLevels, fetchAtr } from "../../trading/atr.ts";
 import { readAtrTrades, removeAtrTrades } from "../../trading/atrTradeStore.ts";
+import { computeVolume } from "../../trading/risk.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
@@ -51,8 +52,12 @@ async function runRefresh(
   if (stillPending.length === 0) return;
 
   try {
-    const atr = await Effect.runPromise(fetchAtr(client, symbolId));
+    const [atr, { equity, moneyDigits }] = await Promise.all([
+      Effect.runPromise(fetchAtr(client, symbolId)),
+      Effect.runPromise(client.getBalance()),
+    ]);
     let amended = 0;
+    let volumeUnchanged = 0;
     for (const record of stillPending) {
       const order = orders.find((o) => o.orderId === record.orderId);
       if (!order) continue;
@@ -64,15 +69,33 @@ async function runRefresh(
         atr,
         record.rewardRiskRatio,
       );
+
+      // Le volume est recalculé à chaque passe, pas juste figé à la prise du trade : si l'ATR
+      // s'écarte, le SL (= distance ATR) s'écarte aussi — sans réajuster le volume en conséquence,
+      // le risque réel dériverait bien au-delà du risque% demandé (ex. 0.1% visé, 20$ de distance de
+      // stop obtenus au lieu de 10$ si l'ATR double entretemps). `atr` sert de distance de stop, même
+      // formule qu'à la création (cf. prepareAtr.ts).
+      const riskAmount = (equity / 10 ** moneyDigits) * (record.riskPercent / 100);
+      const volumeResult = await Effect.runPromise(Effect.either(computeVolume(riskAmount, atr)));
+      // Volume sous le minimum du compte (ATR devenu trop large pour ce risque%) : on ne peut pas
+      // resynchroniser le risque à la baisse, mais on met quand même le SL/TP à jour plutôt que de
+      // tout bloquer — `toAmendOrderParams` garde `order.volume` tel quel si `volume` n'est pas fourni.
+      if (volumeResult._tag === "Left") volumeUnchanged++;
+      const volume = volumeResult._tag === "Right" ? volumeResult.right : undefined;
+
       await Effect.runPromise(
-        client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit })),
+        client.amendOrder(toAmendOrderParams(order, { stopLoss, takeProfit, volume })),
       );
       amended++;
     }
     if (amended > 0) {
+      const suffix =
+        volumeUnchanged > 0
+          ? ` (${volumeUnchanged} volume inchangé — sous le minimum pour ce risque%)`
+          : "";
       setFeedback({
         kind: "success",
-        message: `refresh ATR auto : ${amended} ordre(s) mis à jour`,
+        message: `refresh ATR auto : ${amended} ordre(s) mis à jour${suffix}`,
       });
       void refreshMarket();
     }

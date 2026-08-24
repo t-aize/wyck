@@ -66,6 +66,7 @@ export function useTradeConfirm(opts: { refreshMarket: () => Promise<void> }): T
                 orderId,
                 tradeSide: trade.tradeSide,
                 rewardRiskRatio: trade.atrRewardRiskRatio as number,
+                riskPercent: trade.riskPercent,
               }),
             ),
           );

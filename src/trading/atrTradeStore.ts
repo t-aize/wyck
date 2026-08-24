@@ -15,6 +15,10 @@ const AtrTradeRecordSchema = z.object({
   orderId: z.number(),
   tradeSide: TradeSideSchema,
   rewardRiskRatio: z.number(),
+  /** Risque% d'origine du trade — recalculé à chaque passe de useAtrAutoRefresh.ts pour que le
+   * volume suive l'ATR courant : sans ça, un SL qui s'écarte (ATR en hausse) avec un volume figé
+   * fait dériver le risque réel bien au-delà de ce qui a été demandé à la prise du trade. */
+  riskPercent: z.number(),
 });
 export type AtrTradeRecord = z.infer<typeof AtrTradeRecordSchema>;
 
