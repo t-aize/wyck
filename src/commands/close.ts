@@ -24,8 +24,10 @@ export const closeCommand: Command = {
     const openPositions = ctx.positions?.positions ?? [];
     const pendingOrders = ctx.positions?.orders ?? [];
 
+    // Aucun argument : probablement quelqu'un qui cherche l'usage plutôt qu'une vraie tentative
+    // ratée — même traitement que `help close`, pas une erreur.
     if (args.length === 0) {
-      ctx.setFeedback({ kind: "error", message: CLOSE_USAGE });
+      ctx.setFeedback({ kind: "info", message: CLOSE_USAGE });
       return;
     }
 

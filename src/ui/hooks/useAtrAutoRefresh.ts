@@ -13,7 +13,22 @@ import { useFeedback } from "../context/FeedbackContext.tsx";
 import type { Feedback } from "../feedback.ts";
 import { useInterval } from "./useInterval.ts";
 
-export const ATR_REFRESH_MS = 60_000;
+/** L'ATR est calculé sur M5 (cf. atr.ts#fetchAtr) : sa valeur ne change réellement qu'à chaque
+ * clôture de bougie M5, pas en continu — refresh toutes les 5 minutes plutôt que toutes les 60s
+ * pour matcher cette cadence, au lieu de refetch la même valeur ~4 fois sur 5 pour rien. */
+export const ATR_REFRESH_MS = 5 * 60_000;
+
+/** Prochaine clôture M5 (epoch ms), alignée sur l'horloge murale plutôt que sur l'instant de
+ * lancement de l'app — `Date.now()` est déjà en epoch UTC, donc un multiple de `ATR_REFRESH_MS`
+ * tombe directement sur une vraie borne M5 (`:00`/`:05`/`:10`…), aucune conversion de fuseau
+ * nécessaire. Sans cet alignement, fermer/rouvrir le terminal repartait à 5min pile à chaque fois
+ * au lieu de reprendre "3 minutes" si on est à 13h02 et que la bougie clôture à 13h05. Exportée
+ * pour qu'App.tsx calcule le compte à rebours affiché directement depuis `now` (useClock), sans
+ * avoir besoin d'un état dédié dans ce hook. */
+export function nextAtrBoundaryMs(now: number): number {
+  return Math.ceil(now / ATR_REFRESH_MS) * ATR_REFRESH_MS;
+}
+
 /** Cadence de relecture du store pour la colonne ATR de OrdersTable.tsx (§trackedOrderIds) — pas
  * liée à ATR_REFRESH_MS : juste assez court pour qu'un trade tout juste confirmé y apparaisse vite,
  * même cadence que le poll marché (PRICE_POLL_MS, cf. useMarketData.ts) pour rester cohérent avec
@@ -22,9 +37,6 @@ const TRACKED_IDS_POLL_MS = 3_000;
 
 export interface AtrAutoRefresh {
   enabled: boolean;
-  /** Epoch ms de la dernière passe déclenchée (pas forcément terminée) — `undefined` avant la
-   * toute première, pour l'affichage du compte à rebours dans CommandBar.tsx. */
-  lastRunAt: number | undefined;
   /** Ids d'ordres suivis par atrTradeStore.ts, pour la colonne "ATR" de OrdersTable.tsx — un ordre
    * qui a depuis déclenché/été annulé disparaît naturellement (n'apparaît plus dans
    * `positions.orders`), pas besoin de croiser avec la purge de `runRefresh`. */
@@ -105,11 +117,10 @@ async function runRefresh(
 }
 
 /**
- * Boucle 60s qui recalcule et pousse le SL/TP des ordres ATR encore en attente (suivis par
- * `atrTradeStore.ts`, alimenté par `useTradeConfirm.ts`) — sans passer par une modale de
- * confirmation, contrairement à l'ancien `atrrefresh.ts` manuel : c'est un refresh en tâche de
- * fond, pas une action tapée. Calqué sur `useMarketData.ts` (même primitive `useInterval`, même
- * pattern de déclenchement immédiat dès que `symbolId`/`positions` sont connus).
+ * Boucle alignée sur les clôtures M5 réelles (cf. nextAtrBoundaryMs) qui recalcule et pousse le
+ * SL/TP des ordres ATR encore en attente (suivis par `atrTradeStore.ts`, alimenté par
+ * `useTradeConfirm.ts`) — sans passer par une modale de confirmation, contrairement à l'ancien
+ * `atrrefresh.ts` manuel : c'est un refresh en tâche de fond, pas une action tapée.
  */
 export function useAtrAutoRefresh(opts: {
   positions: GetPositionsResult | undefined;
@@ -118,39 +129,77 @@ export function useAtrAutoRefresh(opts: {
 }): AtrAutoRefresh {
   const { client, symbolId } = useCtrader();
   const { setFeedback } = useFeedback();
-  const [lastRunAt, setLastRunAt] = useState<number>();
   const [trackedOrderIds, setTrackedOrderIds] = useState(EMPTY_TRACKED_IDS);
 
-  // Relecture indépendante de la boucle 60s ci-dessous — la colonne ATR de OrdersTable.tsx doit
-  // refléter un trade tout juste confirmé sans attendre le prochain vrai tick de refresh.
+  // Relecture indépendante de la boucle de refresh ci-dessous — la colonne ATR de
+  // OrdersTable.tsx doit refléter un trade tout juste confirmé sans attendre la prochaine
+  // clôture M5.
   useInterval(() => {
     void fsRuntime.runPromise(readAtrTrades()).then((trades) => {
       setTrackedOrderIds(new Set(trades.map((t) => t.orderId)));
     });
   }, TRACKED_IDS_POLL_MS);
 
-  useInterval(() => {
-    // `positions` pas encore connu (premier fetch de useMarketData pas encore arrivé) : ne rien
-    // faire plutôt que traiter chaque trade suivi comme "disparu" et vider le store à chaque
-    // démarrage (orders serait vu comme [] sinon).
-    if (!opts.enabled || !symbolId || opts.positions === undefined) return;
-    setLastRunAt(Date.now());
-    void runRefresh(client, symbolId, opts.positions, setFeedback, opts.refreshMarket);
-  }, ATR_REFRESH_MS);
+  // Toujours les dernières valeurs au moment où le timeout se déclenche, sans redémarrer la
+  // chaîne à chaque changement de `positions` (qui bouge toutes les 3s, cf. useMarketData.ts) —
+  // même raisonnement que le `callbackRef` de useInterval.ts, mais appliqué ici à un setTimeout
+  // auto-réarmé plutôt qu'à `Schedule.spaced` : `Schedule.spaced` répète à intervalle fixe depuis
+  // son démarrage, il ne peut pas se recaler sur une borne d'horloge murale à chaque tick.
+  const latestRef = useRef({
+    client,
+    symbolId,
+    positions: opts.positions,
+    refreshMarket: opts.refreshMarket,
+    setFeedback,
+  });
+  latestRef.current = {
+    client,
+    symbolId,
+    positions: opts.positions,
+    refreshMarket: opts.refreshMarket,
+    setFeedback,
+  };
 
-  // `useInterval` déclenche son premier appel immédiat au montage, mais avant que `symbolId`/
-  // `positions` soient connus (connexion + premier fetch marché sont async) — ce premier appel n'a
-  // donc aucun effet (garde ci-dessus). Sans ce second effet, un ordre ATR déjà en attente d'une
-  // session précédente n'aurait son premier refresh qu'au bout de 60s au lieu d'être immédiat —
-  // même raisonnement que useMarketData.ts pour refreshMarket.
+  useEffect(() => {
+    if (!opts.enabled) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    function scheduleNext() {
+      const delay = Math.max(0, nextAtrBoundaryMs(Date.now()) - Date.now());
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        const current = latestRef.current;
+        if (current.symbolId && current.positions !== undefined) {
+          void runRefresh(
+            current.client,
+            current.symbolId,
+            current.positions,
+            current.setFeedback,
+            current.refreshMarket,
+          );
+        }
+        scheduleNext();
+      }, delay);
+    }
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [opts.enabled]);
+
+  // Passe immédiate dès que `symbolId`/`positions` sont connus (connexion + premier fetch marché
+  // sont async) : un ordre ATR déjà en attente d'une session précédente est ainsi rafraîchi tout
+  // de suite plutôt que d'attendre potentiellement près de 5 minutes la prochaine clôture M5.
   const hasRunInitialRef = useRef(false);
   useEffect(() => {
     if (hasRunInitialRef.current) return;
     if (!opts.enabled || !symbolId || opts.positions === undefined) return;
     hasRunInitialRef.current = true;
-    setLastRunAt(Date.now());
     void runRefresh(client, symbolId, opts.positions, setFeedback, opts.refreshMarket);
   }, [opts.enabled, symbolId, opts.positions, client, opts.refreshMarket, setFeedback]);
 
-  return { enabled: opts.enabled, lastRunAt, trackedOrderIds };
+  return { enabled: opts.enabled, trackedOrderIds };
 }

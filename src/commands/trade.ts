@@ -138,6 +138,17 @@ export const tradeCommand: Command = {
   summary:
     "prépare un ordre et demande confirmation — SL/TP manuels par défaut, Shift+Tab pour basculer en mode ATR (SL/TP auto)",
   run(args, ctx) {
+    // Aucun argument : probablement quelqu'un qui cherche l'usage plutôt qu'une vraie tentative
+    // ratée — même traitement que `help trade`, pas une erreur. Avant la garde de connexion : voir
+    // l'usage ne nécessite pas d'être connecté.
+    if (args.length === 0) {
+      ctx.setFeedback({
+        kind: "info",
+        message: ctx.atrMode ? TRADE_ATR_USAGE : TRADE_MANUAL_USAGE,
+      });
+      return;
+    }
+
     if (!ctx.symbolId) {
       ctx.setFeedback({ kind: "error", message: "pas encore connecté au serveur" });
       return;

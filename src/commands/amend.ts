@@ -17,6 +17,13 @@ export const amendCommand: Command = {
   usage: AMEND_USAGE,
   summary: "modifie le SL/TP d'un ordre en attente ou d'une position ouverte",
   run(args, ctx) {
+    // Aucun argument : probablement quelqu'un qui cherche l'usage plutôt qu'une vraie tentative
+    // ratée — même traitement que `help amend`, pas une erreur.
+    if (args.length === 0) {
+      ctx.setFeedback({ kind: "info", message: AMEND_USAGE });
+      return;
+    }
+
     const id = parseFiniteNumber(args[0]);
     if (id === undefined) {
       ctx.setFeedback({

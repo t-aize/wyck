@@ -13,7 +13,7 @@ import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
-import { ATR_REFRESH_MS, useAtrAutoRefresh } from "./ui/hooks/useAtrAutoRefresh.ts";
+import { nextAtrBoundaryMs, useAtrAutoRefresh } from "./ui/hooks/useAtrAutoRefresh.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
@@ -165,15 +165,17 @@ function ConnectedApp({
     atrMode,
   );
 
-  const { lastRunAt: atrRefreshLastRunAt, trackedOrderIds: atrOrderIds } = useAtrAutoRefresh({
+  const { trackedOrderIds: atrOrderIds } = useAtrAutoRefresh({
     positions,
     enabled: atrRefreshEnabled,
     refreshMarket,
   });
-  const atrRefreshSecondsRemaining =
-    atrRefreshLastRunAt === undefined
-      ? undefined
-      : Math.max(0, Math.ceil((atrRefreshLastRunAt + ATR_REFRESH_MS - now.getTime()) / 1000));
+  // Aligné sur la vraie clôture M5 (cf. nextAtrBoundaryMs), pas sur l'instant de lancement de
+  // l'app — fermer/rouvrir le terminal ne fait donc pas repartir le compte à rebours à 5min pile.
+  const atrRefreshSecondsRemaining = Math.max(
+    0,
+    Math.ceil((nextAtrBoundaryMs(now.getTime()) - now.getTime()) / 1000),
+  );
 
   return (
     <box
