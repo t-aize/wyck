@@ -38,8 +38,8 @@ export function PositionsPanel({
         flexDirection: "column",
         // Dynamique plutôt qu'une part fixe de l'écran (flexGrow) : la plupart du temps il n'y a
         // que 2-3 positions max (pas d'automatisation), pas de raison de réserver une grosse
-        // portion d'écran vide au-dessus du calendrier/de la structure quand "Aucune position
-        // ouverte." s'affiche seul.
+        // portion d'écran vide au-dessus du calendrier/de la structure quand les deux tableaux
+        // n'affichent que leurs en-têtes (aucune position/ordre).
         flexShrink: 0,
         border: true,
         borderColor: theme.border,
@@ -55,19 +55,11 @@ export function PositionsPanel({
       )}
       {positions === undefined ? (
         <text fg={theme.textDim}>chargement…</text>
-      ) : openPositions.length === 0 ? (
-        <text fg={theme.textDim}>Aucune position ouverte.</text>
       ) : (
-        <PositionsTable
-          positions={openPositions}
-          mid={mid}
-          bidPrice={bidPrice}
-          askPrice={askPrice}
-        />
-      )}
-
-      {pendingOrders.length > 0 && (
-        <OrdersTable orders={pendingOrders} mid={mid} atrOrderIds={atrOrderIds} />
+        <>
+          <PositionsTable positions={openPositions} mid={mid} />
+          <OrdersTable orders={pendingOrders} mid={mid} atrOrderIds={atrOrderIds} />
+        </>
       )}
     </box>
   );

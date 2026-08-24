@@ -8,8 +8,6 @@ export const COLUMNS = {
   entry: 10,
   sl: 10,
   tp: 10,
-  swap: 9,
-  pnl: 13,
   dist: 14,
   /** Colonne "ATR" de OrdersTable.tsx uniquement (ordres en attente) — glyphe seul, pas de texte. */
   atr: 5,
