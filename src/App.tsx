@@ -190,6 +190,7 @@ function ConnectedApp({
         errorMessage={connectionError}
         balance={balance}
         moneyDigits={moneyDigits}
+        configured={hasMcpUrl && hasMcpToken}
       />
       <StructureBar structure={structure} errorMessage={structureError} />
       <PositionsPanel

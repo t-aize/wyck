@@ -7,8 +7,9 @@ import { useFeedback } from "../context/FeedbackContext.tsx";
 
 export interface CancelConfirm {
   pendingCancel: CtraderOrder[] | undefined;
-  /** Reçoit la liste déjà résolue (cf. commands/cancel.ts, appelé via useCommandRouter.ts) — pas de
-   * parsing ici, uniquement le cycle propose → confirme/annule. */
+  /** Reçoit la liste déjà résolue (cf. commands/close.ts, qui fusionne l'ancienne commande `cancel`
+   * — appelé via useCommandRouter.ts) — pas de parsing ici, uniquement le cycle propose →
+   * confirme/annule. */
   proposeCancel: (orders: CtraderOrder[]) => void;
   confirmPendingCancel: () => void;
   dismissPendingCancel: () => void;

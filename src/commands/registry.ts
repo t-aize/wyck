@@ -5,7 +5,6 @@
  * automatiquement aux trois endroits. */
 
 import { amendCommand } from "./amend.ts";
-import { cancelCommand } from "./cancel.ts";
 import { clearCommand } from "./clear.ts";
 import { closeCommand } from "./close.ts";
 import { helpCommand } from "./help.ts";
@@ -18,7 +17,6 @@ import type { Command } from "./types.ts";
 export const COMMANDS: Command[] = [
   tradeCommand,
   amendCommand,
-  cancelCommand,
   closeCommand,
   settingsCommand,
   refreshCommand,

@@ -39,6 +39,10 @@ interface PriceHeaderProps {
   errorMessage: string | undefined;
   balance: number | undefined;
   moneyDigits: number | undefined;
+  /** `false` tant qu'url/token n'ont pas été réglés via `settings url`/`settings token` (cf.
+   * commands/settings.ts) — distingue "pas encore configuré" (jamais tenté connect(), pas
+   * d'erreur) de "connexion en cours" pour ne pas laisser "chargement…" indéfiniment sans piste. */
+  configured: boolean;
 }
 
 export function PriceHeader({
@@ -52,6 +56,7 @@ export function PriceHeader({
   errorMessage,
   balance,
   moneyDigits,
+  configured,
 }: PriceHeaderProps) {
   const statusColor = errorMessage ? theme.red : connected ? theme.green : theme.textDim;
   const statusLabel = errorMessage ? "ERREUR" : connected ? "LIVE" : "CONNEXION…";
@@ -132,6 +137,10 @@ export function PriceHeader({
               <text fg={theme.textMuted}> {sparkline(priceHistory)}</text>
             )}
           </>
+        ) : !configured ? (
+          <text fg={theme.red}>
+            {"non configuré — settings url <url> puis settings token <token>"}
+          </text>
         ) : (
           <text fg={theme.textDim}>{errorMessage ?? "chargement…"}</text>
         )}
