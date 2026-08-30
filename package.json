@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
-    "build": "bun build ./src/index.tsx --compile --minify --sourcemap --outfile ./dist/aurum",
+    "build": "bun build ./src/index.tsx --compile --minify --sourcemap --outfile ./dist/aurum --windows-icon=./assets/icon.ico --windows-title=Aurum --windows-publisher=t-aize --windows-description=\"Panel de trading terminal XAUUSD\" --windows-version=0.2.0.0",
     "build:check": "bun build ./src/index.tsx --compile --outfile ./dist/.build-check",
     "typecheck": "tsc --noEmit",
     "check": "biome check .",

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#1c1c1c"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#F5D98A"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#A3760F"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Enso : cercle brossé, incomplet, trait épais pour rester lisible en petite taille (16-32px) -->
+  <circle
+    cx="256" cy="256" r="110"
+    fill="none"
+    stroke="url(#gold)"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-dasharray="618 73"
+    transform="rotate(-25 256 256)"
+  />
+</svg>
