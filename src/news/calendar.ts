@@ -1,21 +1,21 @@
-/** Calendrier économique ForexFactory (semaine en cours), avec cache disque journalier. */
+/** Calendrier économique ForexFactory (semaine en cours), avec cache disque journalier — I/O
+ * déléguée à `storage/jsonFile.ts` (cf. ce fichier pour la discipline lecture/écriture partagée). */
 
 import { join } from "node:path";
-import { FileSystem } from "@effect/platform";
-import type { PlatformError } from "@effect/platform/Error";
+import type { FileSystem } from "@effect/platform";
 import { Data, Effect, Schedule } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
-import {
-  type CacheFile,
-  CacheFileSchema,
-  type CalendarEvent,
-  CalendarEventSchema,
-} from "./schemas.ts";
+import { readJsonFile, writeJsonFile } from "../storage/jsonFile.ts";
+import { CacheFileSchema, type CalendarEvent, CalendarEventSchema } from "./schemas.ts";
 import { parisDayKeyFormat } from "./time.ts";
 
 const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
-const CACHE_PATH = join(APP_DATA_DIR, "ff-calendar.json");
+/** Anciennement `ff-calendar.json` — renommé pour rester compréhensible hors du contexte de ce
+ * fichier (ex: en listant `~/.aurum/`) sans savoir que "ff" = ForexFactory. Un ancien fichier sous
+ * l'ancien nom devient simplement orphelin (jamais relu) : le prochain `fetchCalendar` retombe sur
+ * un cache absent et refait un fetch réseau, sans conséquence au-delà de ce fetch supplémentaire. */
+const CACHE_PATH = join(APP_DATA_DIR, "calendar-cache.json");
 const MAX_RATE_LIMIT_RETRIES = 3;
 
 /**
@@ -92,44 +92,18 @@ function fetchOnce(): Effect.Effect<CalendarEvent[], FetchCalendarError> {
   });
 }
 
-/** `undefined` si absent, corrompu, ou d'un format antérieur — jamais en échec, on retombe sur un
- * fetch réseau dans tous les cas (comportement inchangé, juste routé par le canal Effect). Passe
- * par le service `FileSystem` (comme config.ts#readConfig) plutôt que `Bun.file` en direct — seul
- * point du code qui contournait encore ce service avant. */
-function readCache(): Effect.Effect<CacheFile | undefined, never, FileSystem.FileSystem> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const raw = yield* fs.readFileString(CACHE_PATH).pipe(Effect.orElseSucceed(() => undefined));
-    if (raw === undefined) return undefined;
-
-    return yield* Effect.try(() => CacheFileSchema.parse(JSON.parse(raw))).pipe(
-      Effect.orElseSucceed(() => undefined),
-    );
-  });
-}
-
-/** Échoue tel quel (`PlatformError`) — c'est l'appelant (`fetchCalendar`, "écriture best-effort")
- * qui décide de l'ignorer, pas cette fonction elle-même (un seul point qui avale l'erreur, pas deux). */
-function writeCache(
-  events: CalendarEvent[],
-): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const payload = { fetchedAt: new Date().toISOString(), events };
-    yield* fs.writeFileString(CACHE_PATH, JSON.stringify(payload, null, 2));
-  });
-}
-
 /**
  * Le calendrier ("cette semaine") ne change quasiment pas d'un jour à l'autre — un fetch par jour
  * calendaire suffit largement et évite le rate limit du serveur. `force: true` (commande /refresh)
  * bypasse le cache same-day, mais retombe quand même sur les données en cache si le réseau échoue.
+ * Cache disque en lecture "jamais en échec" / écriture "échoue tel quel, avalée ici en best-effort" —
+ * cf. storage/jsonFile.ts pour cette discipline partagée avec les autres stores de l'app.
  */
 export function fetchCalendar(
   force = false,
 ): Effect.Effect<CalendarEvent[], FetchCalendarError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
-    const cached = yield* readCache();
+    const cached = yield* readJsonFile(CACHE_PATH, CacheFileSchema);
     if (
       !force &&
       cached &&
@@ -141,7 +115,8 @@ export function fetchCalendar(
     const result = yield* Effect.either(fetchOnce().pipe(Effect.retry(rateLimitRetry)));
     if (result._tag === "Right") {
       // Écriture cache best-effort : un échec d'écriture ne doit pas faire échouer le refresh.
-      yield* Effect.ignore(writeCache(result.right));
+      const payload = { fetchedAt: new Date().toISOString(), events: result.right };
+      yield* Effect.ignore(writeJsonFile(APP_DATA_DIR, CACHE_PATH, payload));
       return result.right;
     }
 

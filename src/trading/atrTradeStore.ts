@@ -1,13 +1,16 @@
 /** Ordres ATR en attente encore à suivre, avec cache/persistance disque — même convention que
- * `news/calendar.ts` (Effect + `FileSystem`, zod, best-effort). Alimenté par `useTradeConfirm.ts` à
- * la confirmation d'un trade en mode ATR, consommé par `useAtrAutoRefresh.ts` toutes les 60s. */
+ * `news/calendar.ts` (Effect + `FileSystem`, zod, best-effort), I/O disque déléguée à
+ * `storage/jsonFile.ts` (cf. ce fichier pour la discipline lecture/écriture partagée). Alimenté par
+ * `useTradeConfirm.ts` à la confirmation d'un trade en mode ATR, consommé par
+ * `useAtrAutoRefresh.ts` toutes les 60s. */
 
 import { join } from "node:path";
-import { FileSystem } from "@effect/platform";
+import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
 import { TradeSideSchema } from "../ctrader/schemas.ts";
+import { readJsonFile, writeJsonFile } from "../storage/jsonFile.ts";
 
 const STORE_PATH = join(APP_DATA_DIR, "atr-trades.json");
 
@@ -24,31 +27,15 @@ export type AtrTradeRecord = z.infer<typeof AtrTradeRecordSchema>;
 
 const StoreFileSchema = z.object({ trades: z.array(AtrTradeRecordSchema) });
 
-/** `[]` si absent, corrompu, ou d'un format antérieur — jamais en échec, même logique que
- * `calendar.ts#readCache`/`config.ts#readConfig` : un fichier illisible n'est pas plus fatal
- * qu'un fichier absent. */
+/** `[]` si absent, corrompu, ou d'un format antérieur — jamais en échec (cf. `readJsonFile`). */
 function readAll(): Effect.Effect<AtrTradeRecord[], never, FileSystem.FileSystem> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const raw = yield* fs.readFileString(STORE_PATH).pipe(Effect.orElseSucceed(() => undefined));
-    if (raw === undefined) return [];
-
-    return yield* Effect.try(() => StoreFileSchema.parse(JSON.parse(raw)).trades).pipe(
-      Effect.orElseSucceed(() => [] as AtrTradeRecord[]),
-    );
-  });
+  return readJsonFile(STORE_PATH, StoreFileSchema).pipe(Effect.map((file) => file?.trades ?? []));
 }
 
 /** Écriture best-effort (avalée ici, pas par l'appelant) : un échec ne doit jamais faire échouer
  * un envoi d'ordre par ailleurs réussi (cf. useTradeConfirm.ts) ni bloquer une passe de refresh. */
 function writeAll(trades: AtrTradeRecord[]): Effect.Effect<void, never, FileSystem.FileSystem> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    if (!(yield* fs.exists(APP_DATA_DIR))) {
-      yield* fs.makeDirectory(APP_DATA_DIR, { recursive: true });
-    }
-    yield* fs.writeFileString(STORE_PATH, JSON.stringify({ trades }, null, 2));
-  }).pipe(Effect.ignore);
+  return writeJsonFile(APP_DATA_DIR, STORE_PATH, { trades }).pipe(Effect.ignore);
 }
 
 export function readAtrTrades(): Effect.Effect<AtrTradeRecord[], never, FileSystem.FileSystem> {

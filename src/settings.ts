@@ -5,19 +5,37 @@
  * (double-clic), donc `process.cwd()` au runtime n'a aucune raison de contenir le fichier — les
  * réglages doivent vivre à un endroit stable indépendant du dossier de lancement. dev et .exe
  * lisent donc la même chose ici. Seule la commande `settings` (cf. commands/settings.ts) écrit ici
- * — pas d'assistant de configuration séparé, cf. App.tsx#EMPTY_APP_CONFIG.
+ * — pas d'assistant de configuration séparé, cf. App.tsx#EMPTY_APP_CONFIG. I/O disque déléguée à
+ * `storage/jsonFile.ts` (cf. ce fichier pour la discipline lecture/écriture partagée).
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { hostname, userInfo } from "node:os";
 import { join } from "node:path";
-import { FileSystem } from "@effect/platform";
+import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
+import { z } from "zod";
 import { APP_DATA_DIR } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
+import { readJsonFile, writeJsonFile } from "./storage/jsonFile.ts";
 
 const SETTINGS_PATH = join(APP_DATA_DIR, "settings.json");
+
+/** Les trois champs sont optionnels : `url`/`token` peuvent être réglés l'un sans l'autre (commandes
+ * `settings url`/`settings token` séparées, cf. commands/settings.ts) — un fichier qui n'a encore
+ * que l'un des deux est un état normal, pas une anomalie. Avant l'introduction de ce schéma, `token`
+ * était supposé toujours présent (`as {url: string; token: string; ...}` non vérifié) : régler
+ * seulement `url` produisait un fichier sans `token`, et `decrypt(undefined)` levait une exception
+ * silencieusement avalée par `readConfig` — qui retournait alors `undefined`, faisant réapparaître
+ * l'app comme totalement non configurée (`EMPTY_APP_CONFIG`) alors que `url` était bel et bien
+ * sauvegardée sur disque. Correction : chaque champ est maintenant lu indépendamment. */
+const SettingsFileSchema = z.object({
+  url: z.string().optional(),
+  token: z.string().optional(),
+  atrRefreshEnabled: z.boolean().optional(),
+});
+type SettingsFile = z.infer<typeof SettingsFileSchema>;
 
 // ponytail: clé dérivée de la machine/l'utilisateur (pas de dépendance keychain
 // cross-platform genre keytar). Ça évite le token en clair dans le fichier — protège
@@ -69,39 +87,36 @@ export interface AppConfig extends CtraderClientConfig {
 export const EMPTY_APP_CONFIG: AppConfig = { url: "", token: "", atrRefreshEnabled: true };
 
 /**
- * `undefined` si absent, JSON invalide, ou déchiffrable seulement sur une autre machine —
- * redemande implicitement les réglages dans ces cas plutôt que planter (cf.
- * App.tsx#EMPTY_APP_CONFIG). Aucune validation de forme au-delà de ça (pas de schéma) : un
- * settings.json à moitié écrit passerait tel quel. Dépend de `FileSystem` (`@effect/platform`)
- * plutôt que d'appeler `node:fs` en dur : un test peut fournir une implémentation en mémoire sans
- * jamais toucher `~/.aurum/settings.json`. Consommateur : `fsRuntime.runPromise(readConfig())`
- * (cf. src/utils/effectRuntime.ts) — l'I/O de `@effect/platform-bun` est réellement async
- * (contrairement à l'ancien `node:fs` synchrone), donc `Effect.runSync` n'est pas utilisable ici
- * (`AsyncFiberException` à l'exécution, vérifié en pratique) : App.tsx charge les réglages dans un
- * `useEffect`, pas dans l'initializer de `useState`. Le module `Config` d'Effect cible des
- * variables d'environnement, pas un fichier JSON chiffré sur disque — pas le bon outil ici malgré
- * le nom.
+ * `undefined` seulement si le fichier est totalement absent, illisible, ou d'une forme rejetée par
+ * `SettingsFileSchema` — redemande implicitement les réglages dans ce cas plutôt que planter (cf.
+ * App.tsx#EMPTY_APP_CONFIG). Un `token` présent mais déchiffrable seulement sur une autre machine
+ * (ciphertext corrompu, clé dérivée différente) invalide aussi tout le résultat, pour la même
+ * raison : rien d'exploitable à en tirer. En revanche `url`/`token` simplement absents du fichier
+ * (réglés indépendamment, cf. `SettingsFileSchema`) retombent sur `""`, pas sur `undefined` global
+ * — c'est le bug corrigé par ce schéma (cf. son commentaire). Dépend de `FileSystem`
+ * (`@effect/platform`) plutôt que d'appeler `node:fs` en dur : un test peut fournir une
+ * implémentation en mémoire sans jamais toucher `~/.aurum/settings.json`. Consommateur :
+ * `fsRuntime.runPromise(readConfig())` (cf. src/utils/effectRuntime.ts) — l'I/O de
+ * `@effect/platform-bun` est réellement async (contrairement à l'ancien `node:fs` synchrone), donc
+ * `Effect.runSync` n'est pas utilisable ici (`AsyncFiberException` à l'exécution, vérifié en
+ * pratique) : App.tsx charge les réglages dans un `useEffect`, pas dans l'initializer de
+ * `useState`. Le module `Config` d'Effect cible des variables d'environnement, pas un fichier JSON
+ * chiffré sur disque — pas le bon outil ici malgré le nom.
  */
 export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSystem.FileSystem> {
   return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    // Une lecture fs cassée (permissions, race avec un fichier supprimé entretemps…) est traitée
-    // comme "pas de config", même logique que le reste de cette fonction — un fichier illisible
-    // n'est pas plus fatal qu'un fichier absent.
-    const raw = yield* fs.readFileString(SETTINGS_PATH).pipe(Effect.orElseSucceed(() => undefined));
-    if (raw === undefined) return undefined;
+    const file = yield* readJsonFile(SETTINGS_PATH, SettingsFileSchema);
+    if (file === undefined) return undefined;
 
-    // `JSON.parse`/`decrypt` peuvent tous deux throw (JSON invalide, ciphertext corrompu/déchiffrable
-    // seulement sur une autre machine) — Effect.try (pas Effect.sync) pour ne pas laisser
-    // l'exception s'échapper en defect non catché.
-    return yield* Effect.try(() => {
-      const parsed = JSON.parse(raw) as { url: string; token: string; atrRefreshEnabled?: boolean };
-      return {
-        url: parsed.url,
-        token: decrypt(parsed.token),
-        atrRefreshEnabled: parsed.atrRefreshEnabled ?? true,
-      };
-    }).pipe(Effect.orElseSucceed(() => undefined));
+    // `decrypt` peut throw (ciphertext corrompu, ou déchiffrable seulement sur une autre machine) —
+    // Effect.try (pas Effect.sync) pour ne pas laisser l'exception s'échapper en defect non catché.
+    // Pas de decrypt du tout si `token` n'est pas encore réglé : `""` n'est pas un ciphertext.
+    const token = yield* Effect.try(() => (file.token ? decrypt(file.token) : "")).pipe(
+      Effect.orElseSucceed(() => undefined),
+    );
+    if (token === undefined) return undefined;
+
+    return { url: file.url ?? "", token, atrRefreshEnabled: file.atrRefreshEnabled ?? true };
   });
 }
 
@@ -112,28 +127,15 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
  * fichier existant, au lieu de le réécrire en entier. Avant ce fix, un appel qui ne voulait changer
  * que `atrRefreshEnabled` (cf. useCommandRouter.ts) aurait effacé `url`/`token` — et vice-versa, un
  * changement d'url/token via `settings url`/`settings token` aurait effacé les réglages. Le contenu
- * existant est lu en JSON brut (pas via `readConfig`, qui déchiffre `token` — inutile ici, on ne
- * fait que le recopier tel quel si `patch.token` n'est pas fourni). */
+ * existant est lu via `SettingsFileSchema` (pas via `readConfig`, qui déchiffre `token` — inutile
+ * ici, on ne fait que le recopier tel quel si `patch.token` n'est pas fourni). */
 export function writeConfig(
   patch: Partial<AppConfig>,
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    if (!(yield* fs.exists(APP_DATA_DIR))) {
-      yield* fs.makeDirectory(APP_DATA_DIR, { recursive: true });
-    }
+    const existing = (yield* readJsonFile(SETTINGS_PATH, SettingsFileSchema)) ?? {};
 
-    const existingRaw = yield* fs
-      .readFileString(SETTINGS_PATH)
-      .pipe(Effect.orElseSucceed(() => undefined));
-    const existing: Record<string, unknown> =
-      existingRaw === undefined
-        ? {}
-        : yield* Effect.try(() => JSON.parse(existingRaw) as Record<string, unknown>).pipe(
-            Effect.orElseSucceed(() => ({}) as Record<string, unknown>),
-          );
-
-    const merged: Record<string, unknown> = {
+    const merged: SettingsFile = {
       ...existing,
       ...(patch.url !== undefined ? { url: patch.url } : {}),
       ...(patch.token !== undefined ? { token: encrypt(patch.token) } : {}),
@@ -142,6 +144,6 @@ export function writeConfig(
         : {}),
     };
 
-    yield* fs.writeFileString(SETTINGS_PATH, JSON.stringify(merged, null, 2), { mode: 0o600 });
+    yield* writeJsonFile(APP_DATA_DIR, SETTINGS_PATH, merged, { mode: 0o600 });
   });
 }
