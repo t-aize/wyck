@@ -33,18 +33,18 @@ const trendbars = DISPLAYED.map((bar, i) => ({
 }));
 
 describe("fetchStructure", () => {
-  test("converts raw x10^5 trendbars and computes the same reading independently on all three timeframes", () => {
+  test("converts raw x10^5 trendbars and computes the same reading independently on all four timeframes", () => {
     const client = fakeCtraderClient({ trendbars });
     const result = runOk(fetchStructure(client, 1));
     const expected = { bias: "bullish" as const, resistance: 18, support: 12 };
-    expect(result).toEqual({ M_5: expected, M_15: expected, H_1: expected });
+    expect(result).toEqual({ M_1: expected, M_5: expected, M_15: expected, H_1: expected });
   });
 
   test("not enough candles on a timeframe resolves to neutral, not an error", () => {
     const client = fakeCtraderClient({ trendbars: trendbars.slice(0, 2) });
     const result = runOk(fetchStructure(client, 1));
     const expected = { bias: "neutral" as const, resistance: undefined, support: undefined };
-    expect(result).toEqual({ M_5: expected, M_15: expected, H_1: expected });
+    expect(result).toEqual({ M_1: expected, M_5: expected, M_15: expected, H_1: expected });
   });
 
   test("propagates a transport failure from getTrendbars", () => {

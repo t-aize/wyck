@@ -5,10 +5,10 @@ import { computeStructure, type StructureReading } from "./bias.ts";
 import { detectSwings } from "./swings.ts";
 import type { StructureBar } from "./types.ts";
 
-export const STRUCTURE_PERIODS = ["M_5", "M_15", "H_1"] as const;
+export const STRUCTURE_PERIODS = ["M_1", "M_5", "M_15", "H_1"] as const;
 export type StructurePeriod = (typeof STRUCTURE_PERIODS)[number];
 
-const PERIOD_MINUTES: Record<StructurePeriod, number> = { M_5: 5, M_15: 15, H_1: 60 };
+const PERIOD_MINUTES: Record<StructurePeriod, number> = { M_1: 1, M_5: 5, M_15: 15, H_1: 60 };
 
 /** ~200 bougies clôturées par timeframe — assez pour plusieurs paires de swings confirmées ; en
  * dessous, le biais retombe naturellement sur "neutral" faute de swings à casser (cf. bias.ts),
@@ -48,17 +48,17 @@ function fetchTimeframeStructure(
   });
 }
 
-/** Structure (biais + résistance/support) sur M5/M15/H1, calculés indépendamment (aucune corrélation
- * entre timeframes) — purement informatif, aucune commande n'en dépend. */
+/** Structure (biais + résistance/support) sur M1/M5/M15/H1, calculés indépendamment (aucune
+ * corrélation entre timeframes) — purement informatif, aucune commande n'en dépend. */
 export function fetchStructure(
   client: CtraderClient,
   symbolId: number,
 ): Effect.Effect<Record<StructurePeriod, StructureReading>, CtraderMcpError> {
   return Effect.gen(function* () {
-    const [m5, m15, h1] = yield* Effect.all(
+    const [m1, m5, m15, h1] = yield* Effect.all(
       STRUCTURE_PERIODS.map((period) => fetchTimeframeStructure(client, symbolId, period)),
       { concurrency: "unbounded" },
     );
-    return { M_5: m5!, M_15: m15!, H_1: h1! };
+    return { M_1: m1!, M_5: m5!, M_15: m15!, H_1: h1! };
   });
 }

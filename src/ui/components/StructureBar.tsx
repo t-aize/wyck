@@ -7,7 +7,7 @@ import { formatPriceOrDash } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { biasColor, theme } from "../theme.ts";
 
-const LABELS: Record<StructurePeriod, string> = { M_5: "M5", M_15: "M15", H_1: "H1" };
+const LABELS: Record<StructurePeriod, string> = { M_1: "M1", M_5: "M5", M_15: "M15", H_1: "H1" };
 const GLYPH: Record<StructureBias, string> = { bullish: UP, bearish: DOWN, neutral: FLAT };
 const SCALP_GLYPH: Record<ScalpBias, string> = { bullish: UP, bearish: DOWN, mixed: FLAT };
 const SCALP_LABEL: Record<ScalpBias, string> = {
@@ -77,12 +77,12 @@ export function StructureBar({ structure, errorMessage }: StructureBarProps) {
   );
 }
 
-/** Verdict de scalp piloté par H1 avec confirmation M15/M5 (cf. structure/confluence.ts) — seul
+/** Verdict de scalp piloté par H1 avec confirmation M15/M5/M1 (cf. structure/confluence.ts) — seul
  * segment de la barre en `theme.text` (au lieu de `textDim`/`textMuted`) : c'est la seule
  * information de cette ligne pensée pour être lue d'un coup d'œil plutôt que consultée en détail,
  * le contraste de clarté fait le "pop" (cf. theme.ts, pas de couleur saturée hors vert/rouge). Le
- * glyphe est doublé en "strong" (M15 et M5 confirment tous les deux H1) pour le distinguer
- * visuellement du "moderate" (un seul des deux confirme) sans introduire de troisième couleur. */
+ * glyphe est doublé en "strong" (M15, M5 ET M1 confirment tous les trois H1) pour le distinguer
+ * visuellement du "moderate" (au moins un des trois neutre) sans introduire de troisième couleur. */
 function ScalpDirectionBadge({
   structure,
 }: {

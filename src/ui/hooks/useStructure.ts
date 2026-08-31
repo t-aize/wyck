@@ -7,7 +7,7 @@ import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
 
-/** Un swing M5/M15/H1 ne bouge pas plus vite que ça — pas besoin du rythme 3s de useMarketData.ts. */
+/** Un swing M1/M5/M15/H1 ne bouge pas plus vite que ça — pas besoin du rythme 3s de useMarketData.ts. */
 const STRUCTURE_POLL_MS = 60_000;
 
 interface Structure {
