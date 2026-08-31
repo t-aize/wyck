@@ -225,6 +225,8 @@ function ConnectedApp({
         ref={commandBarRef}
         feedback={feedback}
         atrMode={atrMode}
+        atrPeriod={atrPeriod}
+        atrTimeframe={atrTimeframe}
         atrRefreshEnabled={atrRefreshEnabled}
         atrRefreshSecondsRemaining={atrRefreshSecondsRemaining}
         onSubmit={runCommand}

@@ -2,6 +2,7 @@ import type { InputRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { COMMANDS } from "../../commands/registry.ts";
+import type { TrendbarPeriod } from "../../constants.ts";
 import type { Feedback, FeedbackKind } from "../feedback.ts";
 import { theme } from "../theme.ts";
 
@@ -13,6 +14,11 @@ interface CommandBarProps {
   /** Mode ATR de `trade`, basculé par Shift+Tab (cf. useTerminalShortcuts.ts) — purement pour
    * l'affichage ici, la bascule elle-même est gérée globalement, pas par ce composant. */
   atrMode?: boolean;
+  /** Période/timeframe courants (`settings atrperiod`/`settings atrtimeframe`, cf.
+   * commands/settings.ts) — affichés dans le titre uniquement en mode ATR, pour voir d'un coup
+   * d'œil ce que `trade` en mode ATR va utiliser sans avoir à taper `settings`. */
+  atrPeriod?: number;
+  atrTimeframe?: TrendbarPeriod;
   /** Réglage `settings atrrefresh` (cf. useAtrAutoRefresh.ts) — sans rapport avec `atrMode`
    * ci-dessus : celui-ci contrôle la boucle de fond qui rafraîchit les ordres ATR déjà en attente,
    * `atrMode` ne fait qu'influencer comment le *prochain* `trade` tapé est interprété. */
@@ -50,6 +56,8 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
     onSubmit,
     focused = true,
     atrMode = false,
+    atrPeriod,
+    atrTimeframe,
     atrRefreshEnabled = false,
     atrRefreshSecondsRemaining,
   },
@@ -117,9 +125,14 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
     }
   });
 
+  const atrModeTitle =
+    atrPeriod !== undefined && atrTimeframe !== undefined
+      ? ` COMMANDE · MODE ATR · ATR(${atrPeriod}) ${atrTimeframe} `
+      : " COMMANDE · MODE ATR ";
+
   return (
     <box
-      title={atrMode ? " COMMANDE · MODE ATR " : " COMMANDE "}
+      title={atrMode ? atrModeTitle : " COMMANDE "}
       titleColor={atrMode ? theme.atrMode : focused ? theme.accent : theme.textMuted}
       style={{
         flexDirection: "column",
