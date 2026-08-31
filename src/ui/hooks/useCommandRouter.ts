@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { COMMANDS, findCommand } from "../../commands/registry.ts";
 import type { CommandContext } from "../../commands/types.ts";
+import type { TrendbarPeriod } from "../../constants.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { writeConfig } from "../../settings.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
@@ -18,6 +19,10 @@ interface CommandRouter {
   toggleAtrMode: () => void;
   atrRefreshEnabled: boolean;
   setAtrRefreshEnabled: (enabled: boolean) => void;
+  atrPeriod: number;
+  atrTimeframe: TrendbarPeriod;
+  setAtrPeriod: (period: number) => void;
+  setAtrTimeframe: (timeframe: TrendbarPeriod) => void;
 }
 
 /**
@@ -37,6 +42,9 @@ export function useCommandRouter(opts: {
   /** Valeur chargée depuis `~/.aurum/settings.json` (cf. settings.ts#readConfig) au montage — pas de
    * défaut codé en dur ici, App.tsx est seul responsable de résoudre "absent du fichier = activé". */
   initialAtrRefreshEnabled: boolean;
+  /** Même provenance que `initialAtrRefreshEnabled` ci-dessus (settings.ts#readConfig au montage). */
+  initialAtrPeriod: number;
+  initialAtrTimeframe: TrendbarPeriod;
   tradeConfirm: Pick<TradeConfirm, "proposeTrade">;
   modifyConfirm: Pick<ModifyConfirm, "proposeModify">;
   cancelConfirm: Pick<CancelConfirm, "proposeCancel">;
@@ -51,6 +59,8 @@ export function useCommandRouter(opts: {
     hasMcpUrl,
     hasMcpToken,
     initialAtrRefreshEnabled,
+    initialAtrPeriod,
+    initialAtrTimeframe,
     tradeConfirm,
     modifyConfirm,
     cancelConfirm,
@@ -74,6 +84,19 @@ export function useCommandRouter(opts: {
   function setAtrRefreshEnabled(enabled: boolean) {
     setAtrRefreshEnabledState(enabled);
     void fsRuntime.runPromise(writeConfig({ atrRefreshEnabled: enabled }));
+  }
+
+  // Réglés via `settings atrperiod`/`settings atrtimeframe` — même discipline state+disque que
+  // `atrRefreshEnabled` ci-dessus.
+  const [atrPeriod, setAtrPeriodState] = useState(initialAtrPeriod);
+  function setAtrPeriod(period: number) {
+    setAtrPeriodState(period);
+    void fsRuntime.runPromise(writeConfig({ atrPeriod: period }));
+  }
+  const [atrTimeframe, setAtrTimeframeState] = useState(initialAtrTimeframe);
+  function setAtrTimeframe(timeframe: TrendbarPeriod) {
+    setAtrTimeframeState(timeframe);
+    void fsRuntime.runPromise(writeConfig({ atrTimeframe: timeframe }));
   }
 
   // Contrairement à `setAtrRefreshEnabled`, pas de state local à mettre à jour : url/token changent
@@ -106,6 +129,10 @@ export function useCommandRouter(opts: {
       atrMode,
       atrRefreshEnabled,
       setAtrRefreshEnabled,
+      atrPeriod,
+      atrTimeframe,
+      setAtrPeriod,
+      setAtrTimeframe,
       hasMcpUrl,
       hasMcpToken,
       setMcpUrl,
@@ -123,5 +150,15 @@ export function useCommandRouter(opts: {
     command.run(args, ctx);
   }
 
-  return { runCommand, atrMode, toggleAtrMode, atrRefreshEnabled, setAtrRefreshEnabled };
+  return {
+    runCommand,
+    atrMode,
+    toggleAtrMode,
+    atrRefreshEnabled,
+    setAtrRefreshEnabled,
+    atrPeriod,
+    atrTimeframe,
+    setAtrPeriod,
+    setAtrTimeframe,
+  };
 }

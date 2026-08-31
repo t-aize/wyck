@@ -16,9 +16,10 @@ import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
 import { z } from "zod";
-import { APP_DATA_DIR } from "./constants.ts";
+import { APP_DATA_DIR, TRENDBAR_PERIODS, type TrendbarPeriod } from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
 import { readJsonFile, writeJsonFile } from "./storage/jsonFile.ts";
+import { ATR_PERIOD, ATR_TIMEFRAME } from "./trading/atr.ts";
 
 const SETTINGS_PATH = join(APP_DATA_DIR, "settings.json");
 
@@ -34,6 +35,8 @@ const SettingsFileSchema = z.object({
   url: z.string().optional(),
   token: z.string().optional(),
   atrRefreshEnabled: z.boolean().optional(),
+  atrPeriod: z.number().int().positive().optional(),
+  atrTimeframe: z.enum(TRENDBAR_PERIODS).optional(),
 });
 type SettingsFile = z.infer<typeof SettingsFileSchema>;
 
@@ -79,12 +82,23 @@ export interface AppConfig extends CtraderClientConfig {
   /** Rafraîchissement auto du SL/TP des ordres ATR en attente (toutes les 60s, cf.
    * useAtrAutoRefresh.ts). Absent du fichier = activé (comportement par défaut). */
   atrRefreshEnabled: boolean;
+  /** Période et timeframe de l'ATR utilisé en mode trade ATR (cf. trading/atr.ts#fetchAtr) et par le
+   * refresh auto (useAtrAutoRefresh.ts). Réglables via `settings atrperiod`/`settings atrtimeframe`
+   * (commands/settings.ts). Absents du fichier = défauts historiques (ATR_PERIOD/ATR_TIMEFRAME). */
+  atrPeriod: number;
+  atrTimeframe: TrendbarPeriod;
 }
 
 /** Réglages "vides" utilisés par App.tsx tant qu'aucun fichier n'existe encore (premier lancement)
  * ou tant qu'url/token n'ont pas été réglés — l'app se rend quand même normalement dans cet état
  * (cf. CtraderClient#isConfigured), pas d'assistant de configuration séparé à afficher. */
-export const EMPTY_APP_CONFIG: AppConfig = { url: "", token: "", atrRefreshEnabled: true };
+export const EMPTY_APP_CONFIG: AppConfig = {
+  url: "",
+  token: "",
+  atrRefreshEnabled: true,
+  atrPeriod: ATR_PERIOD,
+  atrTimeframe: ATR_TIMEFRAME,
+};
 
 /**
  * `undefined` seulement si le fichier est totalement absent, illisible, ou d'une forme rejetée par
@@ -116,7 +130,13 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
     );
     if (token === undefined) return undefined;
 
-    return { url: file.url ?? "", token, atrRefreshEnabled: file.atrRefreshEnabled ?? true };
+    return {
+      url: file.url ?? "",
+      token,
+      atrRefreshEnabled: file.atrRefreshEnabled ?? true,
+      atrPeriod: file.atrPeriod ?? ATR_PERIOD,
+      atrTimeframe: file.atrTimeframe ?? ATR_TIMEFRAME,
+    };
   });
 }
 
@@ -142,6 +162,8 @@ export function writeConfig(
       ...(patch.atrRefreshEnabled !== undefined
         ? { atrRefreshEnabled: patch.atrRefreshEnabled }
         : {}),
+      ...(patch.atrPeriod !== undefined ? { atrPeriod: patch.atrPeriod } : {}),
+      ...(patch.atrTimeframe !== undefined ? { atrTimeframe: patch.atrTimeframe } : {}),
     };
 
     yield* writeJsonFile(APP_DATA_DIR, SETTINGS_PATH, merged, { mode: 0o600 });

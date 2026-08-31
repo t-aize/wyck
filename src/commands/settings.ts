@@ -1,11 +1,18 @@
-import { DEFAULT_MCP_URL } from "../constants.ts";
+import { DEFAULT_MCP_URL, TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
+import { parseFiniteNumber } from "./_shared.ts";
 import type { Command } from "./types.ts";
+
+function isTrendbarPeriod(value: string): value is TrendbarPeriod {
+  return (TRENDBAR_PERIODS as readonly string[]).includes(value);
+}
 
 export const SETTINGS_USAGE =
   "usage : settings — liste les réglages et leur valeur actuelle\n" +
   "  settings url [<url>] — sans argument, propose l'url MCP par défaut ; avec, l'enregistre et relance la connexion\n" +
   "  settings token [<token>] — sans argument, indique si un token est déjà défini (jamais sa valeur) ; avec, l'enregistre et relance la connexion\n" +
-  "  settings atrrefresh [on|off] — consulte/active/désactive le rafraîchissement auto du SL/TP des ordres ATR en attente (toutes les 60s)";
+  "  settings atrrefresh [on|off] — consulte/active/désactive le rafraîchissement auto du SL/TP des ordres ATR en attente (toutes les 60s)\n" +
+  "  settings atrperiod [<n>] — consulte/règle la période de l'ATR (défaut 14)\n" +
+  `  settings atrtimeframe [<tf>] — consulte/règle le timeframe de l'ATR (défaut M_5) — ${TRENDBAR_PERIODS.join("|")}`;
 
 /** Commande générique à un seul niveau (`settings <clé> [valeur]`) plutôt qu'une commande dédiée
  * par réglage — un seul point d'entrée pour tout futur réglage, pas de redesign nécessaire pour en
@@ -25,7 +32,9 @@ export const settingsCommand: Command = {
         message:
           `réglages : url (${ctx.hasMcpUrl ? "défini" : "non défini"}), ` +
           `token (${ctx.hasMcpToken ? "défini" : "non défini"}), ` +
-          `atrrefresh (${ctx.atrRefreshEnabled ? "on" : "off"})`,
+          `atrrefresh (${ctx.atrRefreshEnabled ? "on" : "off"}), ` +
+          `atrperiod (${ctx.atrPeriod}), ` +
+          `atrtimeframe (${ctx.atrTimeframe})`,
       });
       return;
     }
@@ -79,6 +88,42 @@ export const settingsCommand: Command = {
           kind: "info",
           message: `rafraîchissement auto ATR ${next ? "activé" : "désactivé"}`,
         });
+        return;
+      }
+
+      case "atrperiod": {
+        if (!value) {
+          ctx.setFeedback({ kind: "info", message: `période ATR : ${ctx.atrPeriod}` });
+          return;
+        }
+        const period = parseFiniteNumber(value);
+        if (period === undefined || !Number.isInteger(period) || period <= 0) {
+          ctx.setFeedback({
+            kind: "error",
+            message: `valeur invalide : "${value}" — attendu un entier positif`,
+          });
+          return;
+        }
+        ctx.setAtrPeriod(period);
+        ctx.setFeedback({ kind: "success", message: `période ATR réglée sur ${period}` });
+        return;
+      }
+
+      case "atrtimeframe": {
+        if (!value) {
+          ctx.setFeedback({ kind: "info", message: `timeframe ATR : ${ctx.atrTimeframe}` });
+          return;
+        }
+        const upper = value.toUpperCase();
+        if (!isTrendbarPeriod(upper)) {
+          ctx.setFeedback({
+            kind: "error",
+            message: `valeur invalide : "${value}" — attendu ${TRENDBAR_PERIODS.join("|")}`,
+          });
+          return;
+        }
+        ctx.setAtrTimeframe(upper);
+        ctx.setFeedback({ kind: "success", message: `timeframe ATR réglé sur ${upper}` });
         return;
       }
 

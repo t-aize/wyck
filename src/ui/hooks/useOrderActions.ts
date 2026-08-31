@@ -1,3 +1,4 @@
+import type { TrendbarPeriod } from "../../constants.ts";
 import type { ClosablePosition, CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
 import type { PreparedTrade } from "../../trading/types.ts";
 import { useCancelConfirm } from "./useCancelConfirm.ts";
@@ -13,6 +14,10 @@ interface OrderActions {
   toggleAtrMode: () => void;
   atrRefreshEnabled: boolean;
   setAtrRefreshEnabled: (enabled: boolean) => void;
+  atrPeriod: number;
+  atrTimeframe: TrendbarPeriod;
+  setAtrPeriod: (period: number) => void;
+  setAtrTimeframe: (timeframe: TrendbarPeriod) => void;
   pendingTrade: PreparedTrade | undefined;
   confirmPendingTrade: () => void;
   cancelPendingTrade: () => void;
@@ -47,6 +52,8 @@ export function useOrderActions(opts: {
   hasMcpUrl: boolean;
   hasMcpToken: boolean;
   initialAtrRefreshEnabled: boolean;
+  initialAtrPeriod: number;
+  initialAtrTimeframe: TrendbarPeriod;
 }): OrderActions {
   const {
     positions,
@@ -56,6 +63,8 @@ export function useOrderActions(opts: {
     hasMcpUrl,
     hasMcpToken,
     initialAtrRefreshEnabled,
+    initialAtrPeriod,
+    initialAtrTimeframe,
   } = opts;
 
   const tradeConfirm = useTradeConfirm({ refreshMarket });
@@ -63,21 +72,32 @@ export function useOrderActions(opts: {
   const cancelConfirm = useCancelConfirm({ refreshMarket });
   const positionAmendConfirm = usePositionAmendConfirm({ refreshMarket });
   const closeConfirm = useCloseConfirm({ refreshMarket });
-  const { runCommand, atrMode, toggleAtrMode, atrRefreshEnabled, setAtrRefreshEnabled } =
-    useCommandRouter({
-      positions,
-      refreshMarket,
-      refreshNews,
-      onCredentialsChanged,
-      hasMcpUrl,
-      hasMcpToken,
-      initialAtrRefreshEnabled,
-      tradeConfirm,
-      modifyConfirm,
-      cancelConfirm,
-      positionAmendConfirm,
-      closeConfirm,
-    });
+  const {
+    runCommand,
+    atrMode,
+    toggleAtrMode,
+    atrRefreshEnabled,
+    setAtrRefreshEnabled,
+    atrPeriod,
+    atrTimeframe,
+    setAtrPeriod,
+    setAtrTimeframe,
+  } = useCommandRouter({
+    positions,
+    refreshMarket,
+    refreshNews,
+    onCredentialsChanged,
+    hasMcpUrl,
+    hasMcpToken,
+    initialAtrRefreshEnabled,
+    initialAtrPeriod,
+    initialAtrTimeframe,
+    tradeConfirm,
+    modifyConfirm,
+    cancelConfirm,
+    positionAmendConfirm,
+    closeConfirm,
+  });
 
   return {
     runCommand,
@@ -85,6 +105,10 @@ export function useOrderActions(opts: {
     toggleAtrMode,
     atrRefreshEnabled,
     setAtrRefreshEnabled,
+    atrPeriod,
+    atrTimeframe,
+    setAtrPeriod,
+    setAtrTimeframe,
     pendingTrade: tradeConfirm.pendingTrade,
     confirmPendingTrade: tradeConfirm.confirmPendingTrade,
     cancelPendingTrade: tradeConfirm.cancelPendingTrade,

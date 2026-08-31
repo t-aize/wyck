@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
+import { TRENDBAR_PERIOD_MS, type TrendbarPeriod } from "../../constants.ts";
 import type { CtraderClient } from "../../ctrader/client.ts";
 import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { toAmendOrderParams } from "../../trading/amendParams.ts";
@@ -13,20 +14,23 @@ import { useFeedback } from "../context/FeedbackContext.tsx";
 import type { Feedback } from "../feedback.ts";
 import { useInterval } from "./useInterval.ts";
 
-/** L'ATR est calculé sur M5 (cf. atr.ts#fetchAtr) : sa valeur ne change réellement qu'à chaque
- * clôture de bougie M5, pas en continu — refresh toutes les 5 minutes plutôt que toutes les 60s
- * pour matcher cette cadence, au lieu de refetch la même valeur ~4 fois sur 5 pour rien. */
-export const ATR_REFRESH_MS = 5 * 60_000;
+/** La valeur ATR ne change réellement qu'à chaque clôture de bougie du timeframe configuré (cf.
+ * atr.ts#fetchAtr, `settings atrtimeframe`), pas en continu — refresh cadencé sur cette clôture
+ * plutôt que sur un intervalle fixe, pour ne pas refetch la même valeur pour rien entre deux
+ * clôtures. */
+export function atrRefreshMs(timeframe: TrendbarPeriod): number {
+  return TRENDBAR_PERIOD_MS[timeframe];
+}
 
-/** Prochaine clôture M5 (epoch ms), alignée sur l'horloge murale plutôt que sur l'instant de
- * lancement de l'app — `Date.now()` est déjà en epoch UTC, donc un multiple de `ATR_REFRESH_MS`
- * tombe directement sur une vraie borne M5 (`:00`/`:05`/`:10`…), aucune conversion de fuseau
- * nécessaire. Sans cet alignement, fermer/rouvrir le terminal repartait à 5min pile à chaque fois
- * au lieu de reprendre "3 minutes" si on est à 13h02 et que la bougie clôture à 13h05. Exportée
- * pour qu'App.tsx calcule le compte à rebours affiché directement depuis `now` (useClock), sans
- * avoir besoin d'un état dédié dans ce hook. */
-export function nextAtrBoundaryMs(now: number): number {
-  return Math.ceil(now / ATR_REFRESH_MS) * ATR_REFRESH_MS;
+/** Prochaine clôture de bougie (epoch ms) pour un intervalle donné (cf. `atrRefreshMs`), alignée sur
+ * l'horloge murale plutôt que sur l'instant de lancement de l'app — `Date.now()` est déjà en epoch
+ * UTC, donc un multiple de `intervalMs` tombe directement sur une vraie borne de bougie (`:00`/`:05`/
+ * `:10`… pour M5), aucune conversion de fuseau nécessaire. Sans cet alignement, fermer/rouvrir le
+ * terminal repartait à l'intervalle plein à chaque fois au lieu de reprendre "3 minutes" si on est à
+ * 13h02 et que la bougie clôture à 13h05. Exportée pour qu'App.tsx calcule le compte à rebours
+ * affiché directement depuis `now` (useClock), sans avoir besoin d'un état dédié dans ce hook. */
+export function nextAtrBoundaryMs(now: number, intervalMs: number): number {
+  return Math.ceil(now / intervalMs) * intervalMs;
 }
 
 /** Cadence de relecture du store pour la colonne ATR de OrdersTable.tsx (§trackedOrderIds) — pas
@@ -51,6 +55,8 @@ async function runRefresh(
   positions: GetPositionsResult,
   setFeedback: (feedback: Feedback) => void,
   refreshMarket: () => Promise<void>,
+  atrPeriod: number,
+  atrTimeframe: TrendbarPeriod,
 ): Promise<void> {
   const trades = await fsRuntime.runPromise(readAtrTrades());
   if (trades.length === 0) return;
@@ -65,7 +71,7 @@ async function runRefresh(
 
   try {
     const [atr, { equity, moneyDigits }] = await Promise.all([
-      Effect.runPromise(fetchAtr(client, symbolId)),
+      Effect.runPromise(fetchAtr(client, symbolId, { period: atrPeriod, timeframe: atrTimeframe })),
       Effect.runPromise(client.getBalance()),
     ]);
     let amended = 0;
@@ -126,6 +132,8 @@ export function useAtrAutoRefresh(opts: {
   positions: GetPositionsResult | undefined;
   enabled: boolean;
   refreshMarket: () => Promise<void>;
+  atrPeriod: number;
+  atrTimeframe: TrendbarPeriod;
 }): AtrAutoRefresh {
   const { client, symbolId } = useCtrader();
   const { setFeedback } = useFeedback();
@@ -133,7 +141,7 @@ export function useAtrAutoRefresh(opts: {
 
   // Relecture indépendante de la boucle de refresh ci-dessous — la colonne ATR de
   // OrdersTable.tsx doit refléter un trade tout juste confirmé sans attendre la prochaine
-  // clôture M5.
+  // clôture de bougie.
   useInterval(() => {
     void fsRuntime.runPromise(readAtrTrades()).then((trades) => {
       setTrackedOrderIds(new Set(trades.map((t) => t.orderId)));
@@ -145,12 +153,16 @@ export function useAtrAutoRefresh(opts: {
   // même raisonnement que le `callbackRef` de useInterval.ts, mais appliqué ici à un setTimeout
   // auto-réarmé plutôt qu'à `Schedule.spaced` : `Schedule.spaced` répète à intervalle fixe depuis
   // son démarrage, il ne peut pas se recaler sur une borne d'horloge murale à chaque tick.
+  // `atrTimeframe` n'est PAS dans ce ref : un changement de timeframe doit redémarrer la boucle
+  // ci-dessous avec la nouvelle cadence, contrairement à `atrPeriod` (n'affecte que le calcul, pas
+  // le rythme de refresh) qui peut rester lu via le ref sans redémarrage.
   const latestRef = useRef({
     client,
     symbolId,
     positions: opts.positions,
     refreshMarket: opts.refreshMarket,
     setFeedback,
+    atrPeriod: opts.atrPeriod,
   });
   latestRef.current = {
     client,
@@ -158,15 +170,17 @@ export function useAtrAutoRefresh(opts: {
     positions: opts.positions,
     refreshMarket: opts.refreshMarket,
     setFeedback,
+    atrPeriod: opts.atrPeriod,
   };
 
   useEffect(() => {
     if (!opts.enabled) return;
+    const intervalMs = atrRefreshMs(opts.atrTimeframe);
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
 
     function scheduleNext() {
-      const delay = Math.max(0, nextAtrBoundaryMs(Date.now()) - Date.now());
+      const delay = Math.max(0, nextAtrBoundaryMs(Date.now(), intervalMs) - Date.now());
       timeoutId = setTimeout(() => {
         if (cancelled) return;
         const current = latestRef.current;
@@ -177,6 +191,8 @@ export function useAtrAutoRefresh(opts: {
             current.positions,
             current.setFeedback,
             current.refreshMarket,
+            current.atrPeriod,
+            opts.atrTimeframe,
           );
         }
         scheduleNext();
@@ -188,18 +204,35 @@ export function useAtrAutoRefresh(opts: {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [opts.enabled]);
+  }, [opts.enabled, opts.atrTimeframe]);
 
   // Passe immédiate dès que `symbolId`/`positions` sont connus (connexion + premier fetch marché
   // sont async) : un ordre ATR déjà en attente d'une session précédente est ainsi rafraîchi tout
-  // de suite plutôt que d'attendre potentiellement près de 5 minutes la prochaine clôture M5.
+  // de suite plutôt que d'attendre potentiellement près de l'intervalle plein la prochaine clôture.
   const hasRunInitialRef = useRef(false);
   useEffect(() => {
     if (hasRunInitialRef.current) return;
     if (!opts.enabled || !symbolId || opts.positions === undefined) return;
     hasRunInitialRef.current = true;
-    void runRefresh(client, symbolId, opts.positions, setFeedback, opts.refreshMarket);
-  }, [opts.enabled, symbolId, opts.positions, client, opts.refreshMarket, setFeedback]);
+    void runRefresh(
+      client,
+      symbolId,
+      opts.positions,
+      setFeedback,
+      opts.refreshMarket,
+      opts.atrPeriod,
+      opts.atrTimeframe,
+    );
+  }, [
+    opts.enabled,
+    symbolId,
+    opts.positions,
+    client,
+    opts.refreshMarket,
+    opts.atrPeriod,
+    opts.atrTimeframe,
+    setFeedback,
+  ]);
 
   return { enabled: opts.enabled, trackedOrderIds };
 }

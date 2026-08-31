@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SYMBOL } from "./constants.ts";
+import { SYMBOL, type TrendbarPeriod } from "./constants.ts";
 import { type AppConfig, EMPTY_APP_CONFIG, readConfig } from "./settings.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
@@ -13,7 +13,11 @@ import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
-import { nextAtrBoundaryMs, useAtrAutoRefresh } from "./ui/hooks/useAtrAutoRefresh.ts";
+import {
+  atrRefreshMs,
+  nextAtrBoundaryMs,
+  useAtrAutoRefresh,
+} from "./ui/hooks/useAtrAutoRefresh.ts";
 import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
@@ -89,6 +93,8 @@ export function App() {
           hasMcpUrl={effectiveConfig.url.trim() !== ""}
           hasMcpToken={effectiveConfig.token.trim() !== ""}
           initialAtrRefreshEnabled={effectiveConfig.atrRefreshEnabled}
+          initialAtrPeriod={effectiveConfig.atrPeriod}
+          initialAtrTimeframe={effectiveConfig.atrTimeframe}
         />
       </CtraderProvider>
     </FeedbackProvider>
@@ -103,11 +109,15 @@ function ConnectedApp({
   hasMcpUrl,
   hasMcpToken,
   initialAtrRefreshEnabled,
+  initialAtrPeriod,
+  initialAtrTimeframe,
 }: {
   onCredentialsChanged: () => void;
   hasMcpUrl: boolean;
   hasMcpToken: boolean;
   initialAtrRefreshEnabled: boolean;
+  initialAtrPeriod: number;
+  initialAtrTimeframe: TrendbarPeriod;
 }) {
   const now = useClock();
   const { connected, connectionError } = useCtrader();
@@ -134,6 +144,8 @@ function ConnectedApp({
     atrMode,
     toggleAtrMode,
     atrRefreshEnabled,
+    atrPeriod,
+    atrTimeframe,
     pendingTrade,
     confirmPendingTrade,
     cancelPendingTrade,
@@ -157,6 +169,8 @@ function ConnectedApp({
     hasMcpUrl,
     hasMcpToken,
     initialAtrRefreshEnabled,
+    initialAtrPeriod,
+    initialAtrTimeframe,
   });
 
   useTerminalShortcuts(
@@ -169,12 +183,17 @@ function ConnectedApp({
     positions,
     enabled: atrRefreshEnabled,
     refreshMarket,
+    atrPeriod,
+    atrTimeframe,
   });
-  // Aligné sur la vraie clôture M5 (cf. nextAtrBoundaryMs), pas sur l'instant de lancement de
-  // l'app — fermer/rouvrir le terminal ne fait donc pas repartir le compte à rebours à 5min pile.
+  // Aligné sur la vraie clôture de bougie du timeframe ATR configuré (cf. nextAtrBoundaryMs), pas
+  // sur l'instant de lancement de l'app — fermer/rouvrir le terminal ne fait donc pas repartir le
+  // compte à rebours à l'intervalle plein.
   const atrRefreshSecondsRemaining = Math.max(
     0,
-    Math.ceil((nextAtrBoundaryMs(now.getTime()) - now.getTime()) / 1000),
+    Math.ceil(
+      (nextAtrBoundaryMs(now.getTime(), atrRefreshMs(atrTimeframe)) - now.getTime()) / 1000,
+    ),
   );
 
   return (

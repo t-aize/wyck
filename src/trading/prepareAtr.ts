@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import type { TrendbarPeriod } from "../constants.ts";
 import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
 import type { TradeSide } from "../ctrader/schemas.ts";
 import { toLots } from "../utils/priceMath.ts";
@@ -17,6 +18,11 @@ export interface AtrTradeInput {
   riskPercent: number;
   /** Reward:Risk — TP = distance ATR × ce ratio. */
   rewardRiskRatio: number;
+  /** Réglages ATR courants (cf. settings.ts#AppConfig, `settings atrperiod`/`settings atrtimeframe`)
+   * — absents = défauts historiques de `fetchAtr` (ATR_PERIOD/ATR_TIMEFRAME), pour ne pas forcer
+   * chaque appelant/test à les fournir explicitement. */
+  atrPeriod?: number;
+  atrTimeframe?: TrendbarPeriod;
 }
 
 /**
@@ -42,7 +48,13 @@ export function prepareAtrTrade(
     }
 
     const [{ bid, ask, equity, moneyDigits }, atr] = yield* Effect.all(
-      [fetchTradeContext(client, symbolId), fetchAtr(client, symbolId)],
+      [
+        fetchTradeContext(client, symbolId),
+        fetchAtr(client, symbolId, {
+          period: input.atrPeriod,
+          timeframe: input.atrTimeframe,
+        }),
+      ],
       { concurrency: "unbounded" },
     );
 

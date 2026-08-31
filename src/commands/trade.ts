@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import type { TradeSide } from "../ctrader/schemas.ts";
+import { ATR_PERIOD, ATR_TIMEFRAME } from "../trading/atr.ts";
 import { prepareTrade } from "../trading/prepare.ts";
 import { prepareAtrTrade } from "../trading/prepareAtr.ts";
 import { toMessage } from "../utils/errors.ts";
@@ -7,12 +8,19 @@ import { parseFiniteNumber, parsePrice } from "./_shared.ts";
 import type { Command, CommandContext } from "./types.ts";
 
 const TRADE_MANUAL_USAGE = "usage : trade <entrée|market> <sl> <tp> <risk%>";
-const TRADE_ATR_USAGE =
-  "usage (mode ATR, Shift+Tab) : trade <BUY|SELL|buy|sell> <entrée|market> <rr> <risk%>  " +
-  "(SL = ATR(14) M5, TP = SL × rr)";
+/** Période/timeframe réglables via `settings atrperiod`/`settings atrtimeframe` (cf.
+ * commands/settings.ts) — usage recalculé à chaque appel plutôt que figé en constante, pour refléter
+ * le réglage courant. */
+function tradeAtrUsage(ctx: Pick<CommandContext, "atrPeriod" | "atrTimeframe">): string {
+  return (
+    "usage (mode ATR, Shift+Tab) : trade <BUY|SELL|buy|sell> <entrée|market> <rr> <risk%>  " +
+    `(SL = ATR(${ctx.atrPeriod}) ${ctx.atrTimeframe}, TP = SL × rr)`
+  );
+}
 /** Affiché par `help trade` uniquement — les messages d'erreur inline citent chacun leur propre
- * usage (`TRADE_MANUAL_USAGE`/`TRADE_ATR_USAGE`) plutôt que cette version combinée. */
-export const TRADE_USAGE = `${TRADE_MANUAL_USAGE}\n${TRADE_ATR_USAGE}`;
+ * usage (`TRADE_MANUAL_USAGE`/`tradeAtrUsage`) plutôt que cette version combinée. Défauts
+ * ATR_PERIOD/ATR_TIMEFRAME ici : `help` n'a pas de `CommandContext` sous la main (cf. help.ts). */
+export const TRADE_USAGE = `${TRADE_MANUAL_USAGE}\n${tradeAtrUsage({ atrPeriod: ATR_PERIOD, atrTimeframe: ATR_TIMEFRAME })}`;
 
 /** Direction explicite en argument plutôt que déduite (cf. commande `trade` en mode manuel) : l'ATR
  * donne une distance, pas un sens — et c'est justement l'ancien sous-système qui inférait un biais
@@ -81,18 +89,19 @@ function runManual(symbolId: number, args: string[], ctx: CommandContext): void 
 }
 
 function runAtr(symbolId: number, args: string[], ctx: CommandContext): void {
+  const usage = tradeAtrUsage(ctx);
   const [sideRaw, entryRaw, rrRaw, riskRaw] = args;
   const side = parseSide(sideRaw);
   if (!side) {
     ctx.setFeedback({
       kind: "error",
-      message: `direction invalide : "${sideRaw ?? ""}" — ${TRADE_ATR_USAGE}`,
+      message: `direction invalide : "${sideRaw ?? ""}" — ${usage}`,
     });
     return;
   }
 
   if (!entryRaw || !rrRaw || !riskRaw) {
-    ctx.setFeedback({ kind: "error", message: `arguments manquants — ${TRADE_ATR_USAGE}` });
+    ctx.setFeedback({ kind: "error", message: `arguments manquants — ${usage}` });
     return;
   }
 
@@ -101,7 +110,7 @@ function runAtr(symbolId: number, args: string[], ctx: CommandContext): void {
   if (entry === undefined) {
     ctx.setFeedback({
       kind: "error",
-      message: `entrée invalide : "${entryRaw}" — ${TRADE_ATR_USAGE}`,
+      message: `entrée invalide : "${entryRaw}" — ${usage}`,
     });
     return;
   }
@@ -126,7 +135,14 @@ function runAtr(symbolId: number, args: string[], ctx: CommandContext): void {
 
   ctx.setFeedback({ kind: "info", message: "calcul ATR en cours…" });
   void Effect.runPromise(
-    prepareAtrTrade(ctx.client, symbolId, { tradeSide: side, entry, riskPercent, rewardRiskRatio }),
+    prepareAtrTrade(ctx.client, symbolId, {
+      tradeSide: side,
+      entry,
+      riskPercent,
+      rewardRiskRatio,
+      atrPeriod: ctx.atrPeriod,
+      atrTimeframe: ctx.atrTimeframe,
+    }),
   ).then(ctx.proposeTrade, (error) =>
     ctx.setFeedback({ kind: "error", message: toMessage(error) }),
   );
@@ -144,7 +160,7 @@ export const tradeCommand: Command = {
     if (args.length === 0) {
       ctx.setFeedback({
         kind: "info",
-        message: ctx.atrMode ? TRADE_ATR_USAGE : TRADE_MANUAL_USAGE,
+        message: ctx.atrMode ? tradeAtrUsage(ctx) : TRADE_MANUAL_USAGE,
       });
       return;
     }

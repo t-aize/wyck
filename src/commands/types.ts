@@ -1,5 +1,6 @@
 /** Contrat commun à toutes les commandes du CommandBar (`src/commands/*.ts`). */
 
+import type { TrendbarPeriod } from "../constants.ts";
 import type { CtraderClient } from "../ctrader/client.ts";
 import type {
   AmendablePosition,
@@ -27,6 +28,12 @@ export interface CommandContext {
    * lu par `useAtrAutoRefresh.ts`, pas par une commande. */
   atrRefreshEnabled: boolean;
   setAtrRefreshEnabled: (enabled: boolean) => void;
+  /** Réglés via `settings atrperiod <n>`/`settings atrtimeframe <tf>` (cf. commands/settings.ts),
+   * persistés dans settings.ts — lus par `trade.ts` (mode ATR) et `useAtrAutoRefresh.ts`. */
+  atrPeriod: number;
+  atrTimeframe: TrendbarPeriod;
+  setAtrPeriod: (period: number) => void;
+  setAtrTimeframe: (timeframe: TrendbarPeriod) => void;
   /** `true` dès qu'une url/un token non vide est persisté — jamais la valeur elle-même (le token ne
    * doit jamais transiter par du texte affiché). Lu par `settings url`/`settings token` pour
    * répondre "défini/non défini" sans avoir à relire le disque depuis une commande. */

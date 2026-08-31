@@ -1,11 +1,15 @@
 import { Effect } from "effect";
-import { PRICE_SCALE } from "../constants.ts";
+import { PRICE_SCALE, TRENDBAR_PERIOD_MS, type TrendbarPeriod } from "../constants.ts";
 import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
 import type { TradeSide } from "../ctrader/schemas.ts";
 import { roundPrice } from "../utils/priceMath.ts";
 import { TradeValidationError } from "./types.ts";
 
+/** Défauts appliqués tant que l'utilisateur n'a rien réglé via `settings atrperiod`/`settings
+ * atrtimeframe` (cf. commands/settings.ts, settings.ts#EMPTY_APP_CONFIG) — inchangés par rapport au
+ * comportement d'avant ces réglages. */
 export const ATR_PERIOD = 14;
+export const ATR_TIMEFRAME: TrendbarPeriod = "M_5";
 
 function trueRange(high: number, low: number, prevClose: number): number {
   return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
@@ -33,23 +37,33 @@ export function computeAtr(
   return sum / period;
 }
 
-const ATR_WINDOW_MS = 6 * 60 * 60_000; // 6h ≈ 72 bougies M5, largement plus que period+1 requis
+// Ratio conservé de l'ancien 6h/M5 = 72 bougies pour period+1 = 15 requises (~×4.8) — appliqué en
+// proportion de `period` plutôt qu'en durée fixe, pour rester généreux sur tout timeframe/period au
+// lieu de sur-fetcher massivement sur W_1/MN_1 ou sous-fetcher sur un `period` élevé en M_1.
+const ATR_WINDOW_CANDLES_FACTOR = 5;
 
-/** ATR(14) sur M5, en prix affiché (÷ PRICE_SCALE, même convention que le reste de `trading/`). */
+/** ATR(`period`) sur `timeframe`, en prix affiché (÷ PRICE_SCALE, même convention que le reste de
+ * `trading/`). Défauts = comportement historique (M5, période 14) tant qu'aucun réglage n'est
+ * fourni — cf. `settings atrperiod`/`settings atrtimeframe` (commands/settings.ts), qui alimentent
+ * ces options depuis `prepareAtr.ts`/`useAtrAutoRefresh.ts`. */
 export function fetchAtr(
   client: CtraderClient,
   symbolId: number,
+  options?: { timeframe?: TrendbarPeriod; period?: number },
 ): Effect.Effect<number, TradeValidationError | CtraderMcpError> {
+  const timeframe = options?.timeframe ?? ATR_TIMEFRAME;
+  const period = options?.period ?? ATR_PERIOD;
   return Effect.gen(function* () {
     const now = Date.now();
+    const windowMs = TRENDBAR_PERIOD_MS[timeframe] * (period + 1) * ATR_WINDOW_CANDLES_FACTOR;
     // (fromTimestamp, toTimestamp) est la seule combinaison de get_trendbars fiable en pratique
     // (cf. ctrader/schemas.ts#GetTrendbarsParams) — `count` seul renvoie une erreur 400 côté serveur
     // malgré un schéma de requête valide. Fenêtre large pour absorber un marché calme/weekend tout
-    // en gardant confortablement plus que les `ATR_PERIOD + 1` bougies nécessaires.
+    // en gardant confortablement plus que les `period + 1` bougies nécessaires.
     const { trendbars } = yield* client.getTrendbars({
       symbolId,
-      period: "M_5",
-      fromTimestamp: String(now - ATR_WINDOW_MS),
+      period: timeframe,
+      fromTimestamp: String(now - windowMs),
       toTimestamp: String(now),
     });
 
@@ -58,12 +72,12 @@ export function fetchAtr(
       low: bar.low / PRICE_SCALE,
       close: bar.close / PRICE_SCALE,
     }));
-    const atr = computeAtr(bars);
+    const atr = computeAtr(bars, period);
     if (atr === undefined) {
       return yield* Effect.fail(
         new TradeValidationError(
-          `Pas assez de bougies M5 pour calculer l'ATR(${ATR_PERIOD}) ` +
-            `(${bars.length} reçues, ${ATR_PERIOD + 1} requises)`,
+          `Pas assez de bougies ${timeframe} pour calculer l'ATR(${period}) ` +
+            `(${bars.length} reçues, ${period + 1} requises)`,
         ),
       );
     }

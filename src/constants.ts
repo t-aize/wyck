@@ -33,6 +33,24 @@ export const TRENDBAR_PERIODS = [
 ] as const;
 export type TrendbarPeriod = (typeof TRENDBAR_PERIODS)[number];
 
+/** Durée d'une bougie par timeframe, pour aligner le refresh auto ATR sur sa vraie clôture (cf.
+ * useAtrAutoRefresh.ts#nextAtrBoundaryMs) et dimensionner la fenêtre de fetch (cf.
+ * atr.ts#fetchAtr). Approximatif pour D_1/W_1/MN_1 : `Math.ceil(now / ms) * ms` suppose des bougies
+ * de taille fixe alignées sur epoch 0, ce qui ne correspond ni aux vraies bornes de session (weekend
+ * cTrader) ni à un mois calendaire réel — sans conséquence pratique ici, ces timeframes servent tout
+ * au plus à une distance ATR large, pas à un refresh cadencé à la minute près. */
+export const TRENDBAR_PERIOD_MS: Record<TrendbarPeriod, number> = {
+  M_1: 60_000,
+  M_5: 5 * 60_000,
+  M_15: 15 * 60_000,
+  M_30: 30 * 60_000,
+  H_1: 60 * 60_000,
+  H_4: 4 * 60 * 60_000,
+  D_1: 24 * 60 * 60_000,
+  W_1: 7 * 24 * 60 * 60_000,
+  MN_1: 30 * 24 * 60 * 60_000,
+};
+
 /** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export const PRICE_SCALE = 100_000;
 
