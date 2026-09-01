@@ -77,12 +77,12 @@ export function StructureBar({ structure, errorMessage }: StructureBarProps) {
   );
 }
 
-/** Verdict de scalp piloté par H1 avec confirmation M15/M5/M1 (cf. structure/confluence.ts) — seul
- * segment de la barre en `theme.text` (au lieu de `textDim`/`textMuted`) : c'est la seule
+/** Verdict de scalp piloté par H1 avec un score d'accord M15/M5/M1 (cf. structure/confluence.ts) —
+ * seul segment de la barre en `theme.text` (au lieu de `textDim`/`textMuted`) : c'est la seule
  * information de cette ligne pensée pour être lue d'un coup d'œil plutôt que consultée en détail,
  * le contraste de clarté fait le "pop" (cf. theme.ts, pas de couleur saturée hors vert/rouge). Le
- * glyphe est doublé en "strong" (M15, M5 ET M1 confirment tous les trois H1) pour le distinguer
- * visuellement du "moderate" (au moins un des trois neutre) sans introduire de troisième couleur. */
+ * glyphe est répété une fois par timeframe qui confirme H1 (1 à 3 fois) pour donner une lecture
+ * graduée de la force sans introduire de troisième couleur. */
 function ScalpDirectionBadge({
   structure,
 }: {
@@ -90,13 +90,12 @@ function ScalpDirectionBadge({
 }) {
   const direction = computeScalpDirection(structure);
   const glyph = SCALP_GLYPH[direction.bias];
+  const repeat = direction.strength === "strong" ? 3 : direction.strength === "moderate" ? 2 : 1;
   return (
     <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
       <text fg={theme.textMuted}>·</text>
       <text fg={theme.textMuted}>SCALP</text>
-      <text fg={scalpColor(direction.bias)}>
-        {direction.strength === "strong" ? glyph + glyph : glyph}
-      </text>
+      <text fg={scalpColor(direction.bias)}>{glyph.repeat(repeat)}</text>
       <text fg={theme.text}>{SCALP_LABEL[direction.bias]}</text>
     </box>
   );

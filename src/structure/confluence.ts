@@ -3,7 +3,7 @@ import type { StructurePeriod } from "./fetch.ts";
 import type { StructureBias } from "./types.ts";
 
 export type ScalpBias = "bullish" | "bearish" | "mixed";
-export type ScalpStrength = "strong" | "moderate";
+export type ScalpStrength = "strong" | "moderate" | "weak";
 
 export interface ScalpDirection {
   bias: ScalpBias;
@@ -11,10 +11,6 @@ export interface ScalpDirection {
   strength: ScalpStrength | undefined;
   bullishCount: number;
   bearishCount: number;
-}
-
-function opposes(bias: StructureBias, h1: StructureBias): boolean {
-  return bias !== "neutral" && bias !== h1;
 }
 
 /** Timeframes subordonnés à H1, du plus lent au plus rapide — H1 lui-même n'y figure pas, c'est
@@ -28,13 +24,14 @@ const LOWER_TIMEFRAMES = ["M_15", "M_5", "M_1"] as const satisfies readonly Stru
  * quatre résultats a posteriori.
  *
  * H1 fait autorité sur la direction (approche top-down standard du scalping : H1 = filtre de
- * tendance, M15 = structure/pullback, M5 = timing d'entrée, M1 = affinage de l'entrée dans le M5 —
- * la HTF fixe le sens, les LTF ne font que chronométrer l'entrée dedans, jamais contre — cf. sources
- * en commentaire de commit). Donc :
- * - H1 neutre, ou contredit par M15, M5 ou M1 (bias strictement opposé, pas juste neutre) ->
- *   "mixed" : pas de filtre de tendance fiable, pas de conviction suffisante pour scalper.
- * - H1 confirmé par les trois autres (aucune opposition) -> bias = H1, "strong" si M15, M5 ET M1
- *   s'alignent tous activement dessus, "moderate" sinon (au moins un neutre, ni pour ni contre).
+ * tendance, M15 = structure/pullback, M5 = timing d'entrée, M1 = affinage de l'entrée dans le M5).
+ * Plutôt qu'un veto binaire (une seule opposition annule tout), on note le degré d'accord — pratique
+ * standard en MTF confluence scoring (cf. sources en commentaire de commit) : un score gradué reflète
+ * mieux la réalité qu'un pass/fail, un M1 isolé contre la tendance ne devrait pas effacer une
+ * confluence H1+M15+M5. Donc :
+ * - H1 neutre -> "mixed" : pas de filtre de tendance, rien à noter.
+ * - H1 non neutre -> bias = H1, force = nombre de M15/M5/M1 dont le bias vaut exactement H1 (0 à 3) :
+ *   3 -> "strong", 2 -> "moderate", 1 -> "weak", 0 -> "mixed" (aucune confirmation, H1 isolé).
  */
 export function computeScalpDirection(
   structure: Record<StructurePeriod, StructureReading>,
@@ -46,8 +43,12 @@ export function computeScalpDirection(
   const bearishCount = allBiases.filter((bias) => bias === "bearish").length;
   const mixed: ScalpDirection = { bias: "mixed", strength: undefined, bullishCount, bearishCount };
 
-  if (h1 === "neutral" || lowerBiases.some((bias) => opposes(bias, h1))) return mixed;
+  if (h1 === "neutral") return mixed;
 
-  const strength: ScalpStrength = lowerBiases.every((bias) => bias === h1) ? "strong" : "moderate";
+  const agreement = lowerBiases.filter((bias) => bias === h1).length;
+  if (agreement === 0) return mixed;
+
+  const strength: ScalpStrength =
+    agreement === 3 ? "strong" : agreement === 2 ? "moderate" : "weak";
   return { bias: h1, strength, bullishCount, bearishCount };
 }
