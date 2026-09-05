@@ -36,17 +36,15 @@ interface StructureBarProps {
 export function StructureBar({ structure, errorMessage }: StructureBarProps) {
   return (
     <box
-      style={{
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        columnGap: 2,
-        paddingLeft: 2,
-        paddingRight: 2,
-        height: 1,
-        flexShrink: 0,
-        backgroundColor: theme.bg,
-      }}
+      flexDirection="row"
+      justifyContent="center"
+      alignItems="center"
+      columnGap={2}
+      paddingLeft={2}
+      paddingRight={2}
+      height={1}
+      flexShrink={0}
+      backgroundColor={theme.bg}
     >
       <text fg={theme.textMuted}>STRUCTURE</text>
       {structure === undefined ? (
@@ -56,10 +54,7 @@ export function StructureBar({ structure, errorMessage }: StructureBarProps) {
           {STRUCTURE_PERIODS.map((period, index) => {
             const reading = structure[period];
             return (
-              <box
-                key={period}
-                style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}
-              >
+              <box key={period} flexDirection="row" alignItems="center" columnGap={1}>
                 {index > 0 && <text fg={theme.textMuted}>·</text>}
                 <text fg={theme.textDim}>{LABELS[period]}</text>
                 <text fg={biasColor(reading.bias)}>{GLYPH[reading.bias]}</text>
@@ -92,7 +87,7 @@ function ScalpDirectionBadge({
   const glyph = SCALP_GLYPH[direction.bias];
   const repeat = direction.strength === "strong" ? 3 : direction.strength === "moderate" ? 2 : 1;
   return (
-    <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
+    <box flexDirection="row" alignItems="center" columnGap={1}>
       <text fg={theme.textMuted}>·</text>
       <text fg={theme.textMuted}>SCALP</text>
       <text fg={scalpColor(direction.bias)}>{glyph.repeat(repeat)}</text>

@@ -65,14 +65,12 @@ export function App() {
   if (config === null) {
     return (
       <box
-        style={{
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: theme.bg,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+        flexDirection="column"
+        width="100%"
+        height="100%"
+        backgroundColor={theme.bg}
+        justifyContent="center"
+        alignItems="center"
       >
         <text fg={theme.textDim}>chargement…</text>
       </box>
@@ -197,9 +195,7 @@ function ConnectedApp({
   );
 
   return (
-    <box
-      style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.bg }}
-    >
+    <box flexDirection="column" width="100%" height="100%" backgroundColor={theme.bg}>
       <PriceHeader
         symbol={SYMBOL}
         bid={bid}

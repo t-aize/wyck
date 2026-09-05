@@ -67,7 +67,7 @@ export function OrdersTable({
   atrOrderIds: Set<number>;
 }) {
   return (
-    <box style={{ flexDirection: "column", marginTop: 1 }}>
+    <box flexDirection="column" marginTop={1}>
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
         — ordres en attente —
       </text>

@@ -27,10 +27,7 @@ export function CancelConfirmModal({ orders, onConfirm, onCancel }: CancelConfir
     >
       {orders.map((order, i) => {
         return (
-          <box
-            key={order.orderId}
-            style={{ flexDirection: "column", marginTop: i > 0 ? 1 : 0, rowGap: 0 }}
-          >
+          <box key={order.orderId} flexDirection="column" marginTop={i > 0 ? 1 : 0} rowGap={0}>
             <Row label="Ordre" value={String(order.orderId)} />
             <Row
               label="Direction"

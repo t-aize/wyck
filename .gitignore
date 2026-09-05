@@ -24,3 +24,6 @@ desktop.ini
 
 # Jetbrains folder
 .idea
+
+# Claude Code runtime lock (session-specific, not project content)
+.claude/scheduled_tasks.lock

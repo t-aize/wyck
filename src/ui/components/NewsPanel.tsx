@@ -135,16 +135,14 @@ export function NewsPanel({ events, errorMessage, now }: NewsPanelProps) {
       titleColor={theme.accent}
       bottomTitle=" ▸prochain "
       bottomTitleAlignment="right"
-      style={{
-        flexDirection: "column",
-        flexGrow: 2,
-        flexBasis: 0,
-        border: true,
-        borderColor: theme.border,
-        backgroundColor: theme.bg,
-        paddingLeft: 1,
-        paddingRight: 1,
-      }}
+      flexDirection="column"
+      flexGrow={2}
+      flexBasis={0}
+      border
+      borderColor={theme.border}
+      backgroundColor={theme.bg}
+      paddingLeft={1}
+      paddingRight={1}
     >
       {errorMessage ? (
         <text fg={theme.red}>{errorMessage}</text>

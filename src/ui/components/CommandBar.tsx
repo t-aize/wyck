@@ -134,26 +134,24 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
     <box
       title={atrMode ? atrModeTitle : " COMMANDE "}
       titleColor={atrMode ? theme.atrMode : focused ? theme.accent : theme.textMuted}
-      style={{
-        flexDirection: "column",
-        flexShrink: 0,
-        border: true,
-        // Le seul repère visuel de "qui a le clavier" : gris clair quand la barre est active,
-        // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx) —
-        // sauf en mode ATR, où la bordure reste orange tant que la barre est active, pour rester
-        // visible même si l'utilisateur ne regarde pas le titre.
-        borderColor: focused ? (atrMode ? theme.atrMode : theme.borderActive) : theme.border,
-        backgroundColor: theme.panelBg,
-        paddingLeft: 2,
-        paddingRight: 2,
-        paddingTop: 0,
-        paddingBottom: 0,
-      }}
+      flexDirection="column"
+      flexShrink={0}
+      border
+      // Le seul repère visuel de "qui a le clavier" : gris clair quand la barre est active,
+      // neutre quand une popup de confirmation a pris le focus (cf. `focused` dans App.tsx) —
+      // sauf en mode ATR, où la bordure reste orange tant que la barre est active, pour rester
+      // visible même si l'utilisateur ne regarde pas le titre.
+      borderColor={focused ? (atrMode ? theme.atrMode : theme.borderActive) : theme.border}
+      backgroundColor={theme.panelBg}
+      paddingLeft={2}
+      paddingRight={2}
+      paddingTop={0}
+      paddingBottom={0}
     >
       <text fg={FEEDBACK_COLOR[feedback.kind]}>
         {feedback.message && `${FEEDBACK_ICON[feedback.kind]} ${feedback.message}`}
       </text>
-      <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.textMuted}>
           {suggestions.length > 0 ? (
             <>
@@ -173,11 +171,11 @@ export const CommandBar = forwardRef<CommandBarHandle, CommandBarProps>(function
             : "refresh ATR désactivé"}
         </text>
       </box>
-      <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
+      <box flexDirection="row" alignItems="center" columnGap={1}>
         <text fg={atrMode ? theme.atrMode : theme.accent}>›</text>
         <input
           ref={inputRef}
-          style={{ flexGrow: 1 }}
+          flexGrow={1}
           placeholder="commande… (help)"
           focused={focused}
           value={value}

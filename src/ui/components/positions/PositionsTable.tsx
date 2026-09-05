@@ -49,7 +49,7 @@ interface PositionsTableProps {
  * side, volume, prix, SL, TP, distance) plutôt que d'afficher des "—" sans grande valeur. */
 export function PositionsTable({ positions, mid }: PositionsTableProps) {
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box flexDirection="column">
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
         — positions ouvertes —
       </text>

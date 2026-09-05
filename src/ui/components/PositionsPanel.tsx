@@ -34,19 +34,17 @@ export function PositionsPanel({
     <box
       title=" POSITIONS "
       titleColor={theme.accent}
-      style={{
-        flexDirection: "column",
-        // Dynamique plutôt qu'une part fixe de l'écran (flexGrow) : la plupart du temps il n'y a
-        // que 2-3 positions max (pas d'automatisation), pas de raison de réserver une grosse
-        // portion d'écran vide au-dessus du calendrier/de la structure quand les deux tableaux
-        // n'affichent que leurs en-têtes (aucune position/ordre).
-        flexShrink: 0,
-        border: true,
-        borderColor: theme.border,
-        backgroundColor: theme.bg,
-        paddingLeft: 1,
-        paddingRight: 1,
-      }}
+      flexDirection="column"
+      // Dynamique plutôt qu'une part fixe de l'écran (flexGrow) : la plupart du temps il n'y a
+      // que 2-3 positions max (pas d'automatisation), pas de raison de réserver une grosse
+      // portion d'écran vide au-dessus du calendrier/de la structure quand les deux tableaux
+      // n'affichent que leurs en-têtes (aucune position/ordre).
+      flexShrink={0}
+      border
+      borderColor={theme.border}
+      backgroundColor={theme.bg}
+      paddingLeft={1}
+      paddingRight={1}
     >
       {hasUnmapped && (
         <text fg={theme.red}>

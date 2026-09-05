@@ -101,25 +101,23 @@ export function PriceHeader({
 
   return (
     <box
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingLeft: 2,
-        paddingRight: 2,
-        height: 1,
-        flexShrink: 0,
-        backgroundColor: theme.panelBg,
-      }}
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      paddingLeft={2}
+      paddingRight={2}
+      height={1}
+      flexShrink={0}
+      backgroundColor={theme.panelBg}
     >
-      <box style={{ flexDirection: "row", alignItems: "center", columnGap: 2 }}>
+      <box flexDirection="row" alignItems="center" columnGap={2}>
         <text attributes={TextAttributes.BOLD} fg={theme.accent}>
           AURUM
         </text>
         <text fg={theme.textDim}>{symbol}</text>
       </box>
 
-      <box style={{ flexDirection: "row", alignItems: "center", columnGap: 1 }}>
+      <box flexDirection="row" alignItems="center" columnGap={1}>
         {hasPrice ? (
           <>
             <text fg={directionColor}>{directionIcon}</text>
@@ -146,7 +144,7 @@ export function PriceHeader({
         )}
       </box>
 
-      <box style={{ flexDirection: "row", alignItems: "center", columnGap: 2 }}>
+      <box flexDirection="row" alignItems="center" columnGap={2}>
         <text fg={statusColor} attributes={TextAttributes.BOLD}>
           ● {statusLabel}
         </text>
@@ -157,7 +155,7 @@ export function PriceHeader({
           {balance !== undefined && moneyDigits !== undefined ? "· " : ""}
           {formatClock(now)}
         </text>
-        <box style={{ flexDirection: "row", alignItems: "center" }}>
+        <box flexDirection="row" alignItems="center">
           <text fg={theme.textDim}>· </text>
           {sessions.length === 0 ? (
             <text fg={theme.textMuted}>marché fermé</text>
