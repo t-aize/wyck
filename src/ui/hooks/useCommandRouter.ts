@@ -1,8 +1,7 @@
+import type { GetPositionsResult, TrendbarPeriod } from "@aurum/ctrader";
 import { useState } from "react";
 import { COMMANDS, findCommand } from "../../commands/registry.ts";
 import type { CommandContext } from "../../commands/types.ts";
-import type { TrendbarPeriod } from "../../constants.ts";
-import type { GetPositionsResult } from "../../ctrader/schemas.ts";
 import { writeConfig } from "../../settings.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";

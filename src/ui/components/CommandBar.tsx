@@ -1,8 +1,8 @@
+import type { TrendbarPeriod } from "@aurum/ctrader";
 import type { InputRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { COMMANDS } from "../../commands/registry.ts";
-import type { TrendbarPeriod } from "../../constants.ts";
 import type { Feedback, FeedbackKind } from "../feedback.ts";
 import { theme } from "../theme.ts";
 

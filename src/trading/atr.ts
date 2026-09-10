@@ -1,7 +1,12 @@
+import {
+  type CtraderClient,
+  type CtraderMcpError,
+  TRENDBAR_PERIOD_MS,
+  type TradeSide,
+  type TrendbarPeriod,
+} from "@aurum/ctrader";
 import { Effect } from "effect";
-import { PRICE_SCALE, TRENDBAR_PERIOD_MS, type TrendbarPeriod } from "../constants.ts";
-import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
-import type { TradeSide } from "../ctrader/schemas.ts";
+import { PRICE_SCALE } from "../constants.ts";
 import { roundPrice } from "../utils/priceMath.ts";
 import { TradeValidationError } from "./types.ts";
 

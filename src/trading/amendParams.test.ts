@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { AmendablePosition, ClosablePosition, CtraderOrder } from "../ctrader/schemas.ts";
+import type { AmendablePosition, ClosablePosition, CtraderOrder } from "@aurum/ctrader";
 import { toAmendOrderParams, toAmendPositionParams, toClosePositionParams } from "./amendParams.ts";
 
 const order: CtraderOrder = {

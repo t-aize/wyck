@@ -1,4 +1,4 @@
-import type { OrderType, TradeSide } from "../ctrader/schemas.ts";
+import type { OrderType, TradeSide } from "@aurum/ctrader";
 import type { PreparedTrade } from "./types.ts";
 
 /** LIMIT/STOP déduit de la position de l'entrée par rapport au prix de référence (ask pour BUY, bid pour SELL). */

@@ -1,5 +1,5 @@
+import type { TrendbarPeriod } from "@aurum/ctrader";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TrendbarPeriod } from "./constants.ts";
 import { type AppConfig, EMPTY_APP_CONFIG, readConfig } from "./settings.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";

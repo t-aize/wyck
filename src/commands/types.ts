@@ -1,13 +1,13 @@
 /** Contrat commun à toutes les commandes du CommandBar (`src/commands/*.ts`). */
 
-import type { TrendbarPeriod } from "../constants.ts";
-import type { CtraderClient } from "../ctrader/client.ts";
 import type {
   AmendablePosition,
   ClosablePosition,
+  CtraderClient,
   CtraderOrder,
   GetPositionsResult,
-} from "../ctrader/schemas.ts";
+  TrendbarPeriod,
+} from "@aurum/ctrader";
 import type { InstrumentSpecs } from "../instrument/specs.ts";
 import type { PreparedTrade } from "../trading/types.ts";
 import type { Feedback } from "../ui/feedback.ts";

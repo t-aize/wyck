@@ -1,3 +1,4 @@
+import type { CtraderClient } from "@aurum/ctrader";
 import { Effect } from "effect";
 import {
   type Dispatch,
@@ -8,7 +9,6 @@ import {
   useState,
 } from "react";
 import { DEFAULT_SYMBOL } from "../../constants.ts";
-import type { CtraderClient } from "../../ctrader/client.ts";
 import { buildCatalog, findInstrument, type InstrumentSpecs } from "../../instrument/specs.ts";
 import { writeConfig } from "../../settings.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";

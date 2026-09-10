@@ -1,4 +1,4 @@
-import type { CtraderOrder } from "../../ctrader/schemas.ts";
+import type { CtraderOrder } from "@aurum/ctrader";
 import { toAmendOrderParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { usePendingAction } from "./usePendingAction.ts";

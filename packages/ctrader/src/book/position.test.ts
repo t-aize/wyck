@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CtraderPositionSchema } from "./schemas.ts";
+import { CtraderPositionSchema } from "./position.ts";
 
 describe("CtraderPositionSchema", () => {
   test("maps a full real-shaped payload", () => {

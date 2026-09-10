@@ -1,6 +1,6 @@
+import type { CtraderClient, CtraderMcpError } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
-import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
 import { computeStructure, type StructureReading } from "./bias.ts";
 import { detectSwings } from "./swings.ts";
 import type { StructureBar } from "./types.ts";

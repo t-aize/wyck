@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { type CtraderClient, CtraderMcpError } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
-import type { CtraderClient } from "../ctrader/client.ts";
-import { CtraderMcpError } from "../ctrader/client.ts";
 import { fakeCtraderClient, runFail, runOk } from "../trading/testUtils.ts";
 import { fetchStructure } from "./fetch.ts";
 

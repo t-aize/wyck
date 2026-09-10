@@ -1,4 +1,4 @@
-import type { TradeSide } from "../ctrader/schemas.ts";
+import type { TradeSide } from "@aurum/ctrader";
 
 /**
  * P&L latent d'une position ouverte, calculé plutôt que lu : l'API cTrader n'expose

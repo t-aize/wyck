@@ -1,4 +1,4 @@
-import type { ClosablePosition } from "../../ctrader/schemas.ts";
+import type { ClosablePosition } from "@aurum/ctrader";
 import type { InstrumentSpecs } from "../../instrument/specs.ts";
 import { computeUnrealizedPnlOrUndefined } from "../../trading/pnl.ts";
 import { toLots } from "../../utils/priceMath.ts";

@@ -1,6 +1,6 @@
+import type { CtraderOrder } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { useState } from "react";
-import type { CtraderOrder } from "../../ctrader/schemas.ts";
 import { removeAtrTrades } from "../../trading/atrTradeStore.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";

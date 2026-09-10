@@ -5,7 +5,7 @@ import type {
   ClosablePosition,
   ClosePositionParams,
   CtraderOrder,
-} from "../ctrader/schemas.ts";
+} from "@aurum/ctrader";
 /**
  * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
  * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts). Seul point de

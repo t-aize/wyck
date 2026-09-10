@@ -1,6 +1,5 @@
+import type { CtraderClient, CtraderMcpError, TradeSide } from "@aurum/ctrader";
 import { Effect } from "effect";
-import type { CtraderClient, CtraderMcpError } from "../ctrader/client.ts";
-import type { TradeSide } from "../ctrader/schemas.ts";
 import { toLots } from "../utils/priceMath.ts";
 import { fetchTradeContext } from "./context.ts";
 import { resolveEntry } from "./entry.ts";

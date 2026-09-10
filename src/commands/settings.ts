@@ -1,4 +1,5 @@
-import { DEFAULT_MCP_URL, TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
+import { TRENDBAR_PERIODS, type TrendbarPeriod } from "@aurum/ctrader";
+import { DEFAULT_MCP_URL } from "../constants.ts";
 import { parseFiniteNumber } from "./_shared.ts";
 import type { Command } from "./types.ts";
 

@@ -5,10 +5,10 @@
     "": {
       "name": "aurum",
       "dependencies": {
+        "@aurum/ctrader": "workspace:*",
         "@aurum/news": "workspace:*",
         "@effect/platform": "catalog:",
         "@effect/platform-bun": "^0.91.2",
-        "@modelcontextprotocol/sdk": "^1.30.0",
         "@opentui/core": "^0.5.11",
         "@opentui/react": "^0.5.11",
         "effect": "catalog:",
@@ -30,6 +30,15 @@
         "typescript": "^7.0.2",
       },
     },
+    "packages/ctrader": {
+      "name": "@aurum/ctrader",
+      "version": "0.2.0",
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "catalog:",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+    },
     "packages/news": {
       "name": "@aurum/news",
       "version": "0.2.0",
@@ -42,10 +51,13 @@
   },
   "catalog": {
     "@effect/platform": "^0.97.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "effect": "^3.22.2",
     "zod": "^4.6.1",
   },
   "packages": {
+    "@aurum/ctrader": ["@aurum/ctrader@workspace:packages/ctrader"],
+
     "@aurum/news": ["@aurum/news@workspace:packages/news"],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],

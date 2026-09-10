@@ -8,8 +8,8 @@
  * standard, le broker peut dévier.
  */
 
+import type { CtraderAsset, CtraderSymbol } from "@aurum/ctrader";
 import { type AssetClass, type NewsProfile, newsProfile } from "@aurum/news";
-import type { CtraderAsset, CtraderSymbol } from "../ctrader/schemas.ts";
 
 export interface InstrumentSpecs {
   symbolId: number;

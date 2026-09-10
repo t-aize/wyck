@@ -10,7 +10,7 @@
  * de l'ambre d'origine. Vert/rouge restent strictement réservés à la direction
  * et au P&L : convention universelle chez les traders, pas un endroit pour innover.
  */
-import type { TradeSide } from "../ctrader/schemas.ts";
+import type { TradeSide } from "@aurum/ctrader";
 import type { KillzoneId, MarketSessionId } from "../sessions/types.ts";
 import type { StructureBias } from "../structure/types.ts";
 

@@ -1,5 +1,9 @@
-import type { TrendbarPeriod } from "../../constants.ts";
-import type { ClosablePosition, CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
+import type {
+  ClosablePosition,
+  CtraderOrder,
+  GetPositionsResult,
+  TrendbarPeriod,
+} from "@aurum/ctrader";
 import type { PreparedTrade } from "../../trading/types.ts";
 import { useCancelConfirm } from "./useCancelConfirm.ts";
 import { useCloseConfirm } from "./useCloseConfirm.ts";

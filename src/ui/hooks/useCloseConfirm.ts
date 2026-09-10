@@ -1,4 +1,4 @@
-import type { ClosablePosition } from "../../ctrader/schemas.ts";
+import type { ClosablePosition } from "@aurum/ctrader";
 import { toClosePositionParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { usePendingAction } from "./usePendingAction.ts";
