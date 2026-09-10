@@ -8,6 +8,7 @@ describe("normalizeSymbolName", () => {
     expect(normalizeSymbolName("XAUUSD.r")).toBe("XAUUSD");
     expect(normalizeSymbolName("EURUSD.a")).toBe("EURUSD");
     expect(normalizeSymbolName("US100_SB")).toBe("US100");
+    expect(normalizeSymbolName("XAUUSDm")).toBe("XAUUSD");
     expect(normalizeSymbolName("btcusd")).toBe("BTCUSD");
   });
 });
@@ -31,6 +32,11 @@ describe("inferBaseQuote", () => {
   test("keeps index tickers as base", () => {
     expect(inferBaseQuote("US100")).toEqual({ base: "US100", quote: "USD" });
     expect(inferBaseQuote("GER40")).toEqual({ base: "GER40", quote: "USD" });
+  });
+
+  test("fills the missing side from the ticker when only one asset is provided", () => {
+    expect(inferBaseQuote("EURUSD", "EUR")).toEqual({ base: "EUR", quote: "USD" });
+    expect(inferBaseQuote("XAUUSD", undefined, "EUR")).toEqual({ base: "XAU", quote: "EUR" });
   });
 });
 
@@ -56,14 +62,14 @@ describe("newsProfile", () => {
     }
   });
 
-  test("GER40 maps to EUR", () => {
+  test("GER40 maps to EUR home + USD (US prints move DAX)", () => {
     const profile = newsProfile({ symbolName: "GER40" });
     expect(profile.assetClass).toBe("index");
-    expect(profile.countries).toEqual(["EUR"]);
+    expect(profile.countries).toEqual(["EUR", "USD"]);
   });
 
-  test("UK100 maps to GBP", () => {
-    expect(newsProfile({ symbolName: "UK100" }).countries).toEqual(["GBP"]);
+  test("UK100 maps to GBP home + USD", () => {
+    expect(newsProfile({ symbolName: "UK100" }).countries).toEqual(["GBP", "USD"]);
   });
 
   test("BTCUSD is crypto driven by USD + crypto keywords", () => {
@@ -91,5 +97,13 @@ describe("newsProfile", () => {
 describe("classifyAssetClass", () => {
   test("does not tag EURUSD as metal just because USD is the quote", () => {
     expect(classifyAssetClass("EUR", "USD", "EURUSD")).toBe("forex");
+  });
+
+  test("classifies exotic ISO pairs as forex (lot size), even outside FF countries", () => {
+    expect(classifyAssetClass("USD", "THB", "USDTHB")).toBe("forex");
+  });
+
+  test("GOLD ticker is metal via the bases table, not a title regex", () => {
+    expect(classifyAssetClass("GOLD", "USD", "GOLD")).toBe("metal");
   });
 });

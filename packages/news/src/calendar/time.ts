@@ -1,11 +1,11 @@
 /**
- * Le calendrier est toujours raisonné en heure de Paris, indépendamment du
- * fuseau système — autant pour l'affichage (NewsPanel) que pour la limite
- * « un jour » du cache. Utiliser le fuseau machine ici serait incohérent
- * avec l'affichage si l'app tourne ailleurs qu'à Paris.
+ * Le calendrier est toujours affiché en heure de Paris, indépendamment du
+ * fuseau système. Utiliser le fuseau machine ici serait incohérent avec
+ * l'affichage si l'app tourne ailleurs qu'à Paris. Le TTL du cache, lui,
+ * est en temps wall-clock (cf. `isCacheFresh`), pas une clé de jour.
  */
 
-/** Fuseau unique du domaine news (affichage + clé de cache same-day). */
+/** Fuseau unique du domaine news (affichage des events). */
 export const PARIS_TZ = "Europe/Paris";
 
 /**

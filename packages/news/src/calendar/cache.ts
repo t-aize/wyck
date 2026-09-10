@@ -11,7 +11,7 @@
 import { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
-import { type CacheFile, CacheFileSchema } from "./schemas.ts";
+import { type CacheFile, parseCacheFile } from "./schemas.ts";
 
 /** Nom du fichier, volontairement stable — un rename orphelinise l'ancien cache
  * (un fetch réseau de plus, pas de perte fonctionnelle). */
@@ -28,7 +28,7 @@ export function readCache(
     const fs = yield* FileSystem.FileSystem;
     const raw = yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => undefined));
     if (raw === undefined) return undefined;
-    return yield* Effect.try(() => CacheFileSchema.parse(JSON.parse(raw))).pipe(
+    return yield* Effect.try(() => parseCacheFile(JSON.parse(raw))).pipe(
       Effect.orElseSucceed(() => undefined),
     );
   });
@@ -41,7 +41,7 @@ export function readCache(
 export function writeCache(
   dir: string,
   path: string,
-  data: unknown,
+  data: CacheFile,
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

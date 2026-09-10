@@ -15,11 +15,12 @@
  *
  * - `growth` — activité réelle (NFP, GDP, PMI, retail…). Plus haut = économie
  *   plus forte / banque centrale plus hawkish.
- * - `inflation` — CPI / PCE / PPI. Plus haut = plus hawkish (taux réels).
+ * - `inflation` — CPI / PCE / PPI / salaires horaires. Plus haut = plus hawkish.
+ * - `rates` — décision de taux (Fed, BCE, BoE…). Plus haut = plus hawkish.
  * - `labor_slack` — chômage / inscriptions. Plus haut = marché du travail
  *   plus faible / plus dovish.
  */
-export type IndicatorKind = "growth" | "inflation" | "labor_slack";
+export type IndicatorKind = "growth" | "inflation" | "rates" | "labor_slack";
 
 /**
  * Impulsion **de devise** (pas encore de l'instrument).
@@ -42,11 +43,16 @@ const POLARITY_TABLE: PolarityRule[] = [
   { pattern: /\bgdp\b(?!.*price)/i, kind: "growth" },
   { pattern: /\bpmi\b/i, kind: "growth" },
   { pattern: /retail sales/i, kind: "growth" },
-  { pattern: /average hourly earnings/i, kind: "growth" },
   { pattern: /\bjolts\b/i, kind: "growth" },
   { pattern: /consumer (confidence|sentiment)/i, kind: "growth" },
   { pattern: /building permits|housing starts|existing home sales/i, kind: "growth" },
+  { pattern: /average hourly earnings/i, kind: "inflation" },
   { pattern: /\b(cpi|pce|ppi)\b/i, kind: "inflation" },
+  {
+    pattern:
+      /interest rate decision|main refinancing rate|federal funds rate|official bank rate|cash rate|overnight rate|deposit facility rate|refinancing rate/i,
+    kind: "rates",
+  },
   { pattern: /unemployment (rate|claims)/i, kind: "labor_slack" },
   { pattern: /jobless claims|claimant count/i, kind: "labor_slack" },
 ];

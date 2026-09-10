@@ -6,7 +6,13 @@
  * assets, ou appel hors connexion).
  */
 
-import { BROKER_SUFFIX, FF_CURRENCIES, QUOTE_ALIASES, QUOTE_CANDIDATES } from "./aliases.ts";
+import {
+  BROKER_SUFFIX,
+  FF_CURRENCIES,
+  ISO_CURRENCIES,
+  QUOTE_ALIASES,
+  QUOTE_CANDIDATES,
+} from "./aliases.ts";
 
 /**
  * Ticker en majuscules, suffixe broker retiré.
@@ -33,31 +39,12 @@ export function isFfCurrency(code: string): boolean {
   return FF_CURRENCIES.has(canonicalCurrency(code));
 }
 
-/**
- * Déduit `{ base, quote }` d'un symbole.
- *
- * Ordre :
- * 1. Assets cTrader si les deux sont fournis (source de vérité).
- * 2. Suffixe quote connu (`EURUSD` → EUR/USD, `BTCUSDT` → BTC/USD).
- * 3. Découpage 6 lettres (filet pour une paire ISO+ISO).
- * 4. Ticker entier en base, quote `USD` (indices `US100`, `GER40`…).
- *
- * @param symbolName - Nom brut cTrader (suffixe OK).
- * @param baseFromAssets - `assets[symbol.baseAssetId].name`, si on l'a.
- * @param quoteFromAssets - idem quote.
- */
-export function inferBaseQuote(
-  symbolName: string,
-  baseFromAssets?: string,
-  quoteFromAssets?: string,
-): { base: string; quote: string } {
-  if (baseFromAssets && quoteFromAssets) {
-    return {
-      base: canonicalCurrency(baseFromAssets),
-      quote: canonicalCurrency(quoteFromAssets),
-    };
-  }
+/** `true` si le code est une devise ISO connue (classification forex / lot size). */
+export function isIsoCurrency(code: string): boolean {
+  return ISO_CURRENCIES.has(canonicalCurrency(code));
+}
 
+function parseName(symbolName: string): { base: string; quote: string } {
   const cleaned = normalizeSymbolName(symbolName);
   for (const quote of QUOTE_CANDIDATES) {
     if (cleaned.endsWith(quote) && cleaned.length > quote.length) {
@@ -71,4 +58,29 @@ export function inferBaseQuote(
     return { base: cleaned.slice(0, 3), quote: canonicalCurrency(cleaned.slice(3)) };
   }
   return { base: cleaned, quote: "USD" };
+}
+
+/**
+ * Déduit `{ base, quote }` d'un symbole.
+ *
+ * Ordre :
+ * 1. Assets cTrader fournis (chacun gagne s'il est là ; l'autre tombe sur le nom).
+ * 2. Suffixe quote connu (`EURUSD` → EUR/USD, `BTCUSDT` → BTC/USD).
+ * 3. Découpage 6 lettres (filet pour une paire ISO+ISO).
+ * 4. Ticker entier en base, quote `USD` (indices `US100`, `GER40`…).
+ *
+ * @param symbolName - Nom brut cTrader (suffixe OK).
+ * @param baseFromAssets - `assets[symbol.baseAssetId].name`, si on l'a.
+ * @param quoteFromAssets - idem quote.
+ */
+export function inferBaseQuote(
+  symbolName: string,
+  baseFromAssets?: string,
+  quoteFromAssets?: string,
+): { base: string; quote: string } {
+  const inferred = parseName(symbolName);
+  return {
+    base: baseFromAssets ? canonicalCurrency(baseFromAssets) : inferred.base,
+    quote: quoteFromAssets ? canonicalCurrency(quoteFromAssets) : inferred.quote,
+  };
 }

@@ -34,6 +34,34 @@ export const FF_CURRENCIES = new Set([
 ]);
 
 /**
+ * Devises ISO pour classer une paire en `forex` (lot size), même si ForexFactory
+ * ne les tague pas. Distinct de {@link FF_CURRENCIES} : on ne les écoute pas
+ * dans le calendrier s'ils n'y sont pas.
+ */
+export const ISO_CURRENCIES = new Set([
+  ...FF_CURRENCIES,
+  "THB",
+  "IDR",
+  "MYR",
+  "PHP",
+  "ILS",
+  "AED",
+  "SAR",
+  "TWD",
+  "CLP",
+  "COP",
+  "ARS",
+  "RON",
+  "BGN",
+  "ISK",
+  "PKR",
+  "EGP",
+  "VND",
+  "UAH",
+  "PEN",
+]);
+
+/**
  * Suffixe broker collé au ticker. Pepperstone `.a`, IC `.r`, `_SB`, mini `m`
  * (`XAUUSDm`). Appliqué une fois : `EURUSD.r` → `EURUSD`.
  */
@@ -49,7 +77,10 @@ export const INDEX_HOME: Record<string, string> = {
   USTEC: "USD",
   NDX: "USD",
   NDX100: "USD",
+  NQ100: "USD",
   NASUSD: "USD",
+  SPX: "USD",
+  DJIA: "USD",
   US500: "USD",
   SPX500: "USD",
   SP500: "USD",
@@ -111,6 +142,13 @@ export const CRYPTO_BASES = new Set([
   "LINK",
   "UNI",
   "MATIC",
+  "POL",
+  "TRX",
+  "XLM",
+  "XMR",
+  "ETC",
+  "FIL",
+  "AAVE",
   "TON",
   "SUI",
   "PEPE",
@@ -133,6 +171,8 @@ export const ENERGY_BASES = new Set([
   "USOIL",
   "UKOIL",
   "NATGAS",
+  "NGAS",
+  "OIL",
 ]);
 
 /** Titres hors devise qui restent pertinents pour un métal. */
@@ -162,6 +202,6 @@ export const QUOTE_ALIASES: Record<string, string> = { USDT: "USD", USDC: "USD",
  * Candidats de suffixe quote, **les plus longs d'abord** pour ne pas couper
  * `BTCUSDT` en `BTCUS` + `DT` : `USDT` doit gagner contre `USD`.
  */
-export const QUOTE_CANDIDATES = [...FF_CURRENCIES, "USDT", "USDC"].sort(
+export const QUOTE_CANDIDATES = [...ISO_CURRENCIES, "USDT", "USDC"].sort(
   (a, b) => b.length - a.length,
 );

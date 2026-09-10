@@ -8,13 +8,7 @@
  * standard, le broker peut dévier.
  */
 
-import {
-  type AssetClass,
-  classifyAssetClass,
-  inferBaseQuote,
-  type NewsProfile,
-  newsProfile,
-} from "@aurum/news";
+import { type AssetClass, type NewsProfile, newsProfile } from "@aurum/news";
 import type { CtraderAsset, CtraderSymbol } from "../ctrader/schemas.ts";
 
 export interface InstrumentSpecs {
@@ -70,22 +64,23 @@ export function specsFromSymbol(
   symbol: CtraderSymbol,
   assetsById: ReadonlyMap<number, CtraderAsset>,
 ): InstrumentSpecs {
-  const baseAsset = assetsById.get(symbol.baseAssetId)?.name;
-  const quoteAsset = assetsById.get(symbol.quoteAssetId)?.name;
-  const { base, quote } = inferBaseQuote(symbol.symbolName, baseAsset, quoteAsset);
-  const assetClass = classifyAssetClass(base, quote, symbol.symbolName);
+  const news = newsProfile({
+    symbolName: symbol.symbolName,
+    base: assetsById.get(symbol.baseAssetId)?.name,
+    quote: assetsById.get(symbol.quoteAssetId)?.name,
+  });
   return {
     symbolId: symbol.symbolId,
     symbolName: symbol.symbolName,
     enabled: symbol.enabled,
     description: symbol.description,
-    base,
-    quote,
-    assetClass,
-    lotSize: lotSizeFor(assetClass, base),
-    digits: digitsFor(assetClass, base, quote),
-    pipSize: pipSizeFor(assetClass, base, quote),
-    news: newsProfile({ symbolName: symbol.symbolName, base, quote }),
+    base: news.base,
+    quote: news.quote,
+    assetClass: news.assetClass,
+    lotSize: lotSizeFor(news.assetClass, news.base),
+    digits: digitsFor(news.assetClass, news.base, news.quote),
+    pipSize: pipSizeFor(news.assetClass, news.base, news.quote),
+    news,
   };
 }
 

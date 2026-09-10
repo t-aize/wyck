@@ -1,11 +1,12 @@
-import { type CalendarEvent, fetchCalendar } from "@aurum/news";
+import { CALENDAR_CACHE_TTL_MS, type CalendarEvent, fetchCalendar } from "@aurum/news";
 import { useMemo, useState } from "react";
 import { APP_DATA_DIR } from "../../constants.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useInterval } from "./useInterval.ts";
 
-const NEWS_POLL_MS = 5 * 60_000;
+/** Plus court que le TTL cache : un tick sur cache frais est un read disque, pas un fetch. */
+const NEWS_POLL_MS = Math.min(5 * 60_000, CALENDAR_CACHE_TTL_MS);
 
 interface Calendar {
   calendar: CalendarEvent[];

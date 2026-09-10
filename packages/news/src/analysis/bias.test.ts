@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { newsProfile } from "../profile/profile.ts";
+import { btc, eurusd, gold, us100, usoil } from "../testFixtures.ts";
 import { instrumentBias } from "./bias.ts";
-
-const gold = newsProfile({ symbolName: "XAUUSD" });
-const eurusd = newsProfile({ symbolName: "EURUSD" });
-const us100 = newsProfile({ symbolName: "US100" });
-const btc = newsProfile({ symbolName: "BTCUSD" });
 
 describe("instrumentBias — metal (XAUUSD)", () => {
   test("direct polarity (NFP): forecast above previous reads Fed-hawkish -> bearish for gold", () => {
@@ -100,6 +95,15 @@ describe("instrumentBias — forex (EURUSD)", () => {
     ).toBe("bullish");
   });
 
+  test("ECB rate hike is bullish for EURUSD", () => {
+    expect(
+      instrumentBias(
+        { title: "Main Refinancing Rate", country: "EUR", forecast: "2.65%", previous: "2.40%" },
+        eurusd,
+      ),
+    ).toBe("bullish");
+  });
+
   test("dovish USD (unemployment up) is bullish for EURUSD", () => {
     expect(
       instrumentBias(
@@ -138,6 +142,29 @@ describe("instrumentBias — index (US100)", () => {
     ).toBe("bearish");
   });
 
+  test("Fed hike is bearish for US equities", () => {
+    expect(
+      instrumentBias(
+        { title: "Federal Funds Rate", country: "USD", forecast: "4.50%", previous: "4.25%" },
+        us100,
+      ),
+    ).toBe("bearish");
+  });
+
+  test("hotter average hourly earnings are bearish for equities (wages = inflation)", () => {
+    expect(
+      instrumentBias(
+        {
+          title: "Average Hourly Earnings m/m",
+          country: "USD",
+          forecast: "0.4%",
+          previous: "0.2%",
+        },
+        us100,
+      ),
+    ).toBe("bearish");
+  });
+
   test("higher unemployment claims are bearish for US equities", () => {
     expect(
       instrumentBias(
@@ -162,5 +189,22 @@ describe("instrumentBias — crypto (BTCUSD)", () => {
         btc,
       ),
     ).toBe("bullish");
+  });
+});
+
+describe("instrumentBias — energy (USOIL)", () => {
+  test("treats oil like a risk asset: strong growth is bullish, hotter CPI is bearish", () => {
+    expect(
+      instrumentBias(
+        { title: "Non-Farm Employment Change", country: "USD", forecast: "255K", previous: "230K" },
+        usoil,
+      ),
+    ).toBe("bullish");
+    expect(
+      instrumentBias(
+        { title: "CPI y/y", country: "USD", forecast: "3.2%", previous: "3.0%" },
+        usoil,
+      ),
+    ).toBe("bearish");
   });
 });

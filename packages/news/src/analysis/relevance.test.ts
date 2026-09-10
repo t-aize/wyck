@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { newsProfile } from "../profile/profile.ts";
+import { btc, eurusd, ger40, gold, us100 } from "../testFixtures.ts";
 import { classifyImpact, isDefaultVisible, isRelevant } from "./relevance.ts";
-
-const gold = newsProfile({ symbolName: "XAUUSD" });
-const eurusd = newsProfile({ symbolName: "EURUSD" });
-const us100 = newsProfile({ symbolName: "US100" });
-const btc = newsProfile({ symbolName: "BTCUSD" });
 
 describe("classifyImpact", () => {
   test("parses a valid impact regardless of case/whitespace", () => {
@@ -16,6 +11,7 @@ describe("classifyImpact", () => {
 
   test("falls back to 'other' for anything not in the enum", () => {
     expect(classifyImpact("critical")).toBe("other");
+    expect(classifyImpact("Holiday")).toBe("other");
     expect(classifyImpact("")).toBe("other");
   });
 });
@@ -44,6 +40,12 @@ describe("isRelevant", () => {
     expect(isRelevant({ country: "USD", title: "CPI m/m" }, us100)).toBe(true);
     expect(isRelevant({ country: "EUR", title: "German CPI" }, us100)).toBe(false);
     expect(isRelevant({ country: "EUR", title: "Nasdaq futures" }, us100)).toBe(true);
+  });
+
+  test("GER40: home EUR and USD prints are relevant, JPY is not", () => {
+    expect(isRelevant({ country: "EUR", title: "German CPI" }, ger40)).toBe(true);
+    expect(isRelevant({ country: "USD", title: "NFP" }, ger40)).toBe(true);
+    expect(isRelevant({ country: "JPY", title: "Tankan" }, ger40)).toBe(false);
   });
 
   test("BTCUSD: USD events and bitcoin titles are relevant", () => {

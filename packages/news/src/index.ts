@@ -4,8 +4,8 @@
  * Trois domaines, volontairement séparés :
  *
  * 1. **calendar** — aller chercher le flux ForexFactory (semaine en cours), le
- *    valider, le cacher un jour (fuseau Paris). Aucune idée de ce qu'est un
- *    XAUUSD ou un US100.
+ *    valider event par event, le cacher {@link CALENDAR_CACHE_TTL_MS}. Aucune
+ *    idée de ce qu'est un XAUUSD ou un US100.
  * 2. **profile** — à partir d'un ticker cTrader (et idéalement de ses
  *    base/quote `get_assets`), produire un {@link NewsProfile} : classe d'actif,
  *    devises ForexFactory pertinentes, mots-clés de titre.
@@ -31,7 +31,11 @@ export {
   isHighImpact,
   isRelevant,
 } from "./analysis/relevance.ts";
-export { FetchCalendarError, fetchCalendar } from "./calendar/fetch.ts";
+export {
+  CALENDAR_CACHE_TTL_MS,
+  FetchCalendarError,
+  fetchCalendar,
+} from "./calendar/fetch.ts";
 export type { CacheFile, CalendarEvent, NewsImpact } from "./calendar/schemas.ts";
 export {
   CacheFileSchema,

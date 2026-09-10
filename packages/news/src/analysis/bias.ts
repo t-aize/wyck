@@ -13,7 +13,7 @@
  * |--------|--------|
  * | forex BASE/QUOTE | hawkish base → haussier ; hawkish quote → baissier |
  * | métal | inverse de la devise de cotation (USD hawkish → or baissier) |
- * | indice / crypto / énergie | croissance hawkish → haussier (risk-on) ; inflation hawkish → baissier (taux) ; chômage en hausse → baissier |
+ * | indice / crypto / énergie | croissance hawkish → haussier (risk-on) ; inflation / taux hawkish → baissier ; chômage en hausse → baissier |
  *
  * `undefined` = on n'affiche pas de badge, on ne devine pas.
  */
@@ -75,7 +75,7 @@ export function instrumentBias(
     case "other": {
       if (!profile.countries.includes(country)) return undefined;
       if (kind === "growth") return hawkish ? "bullish" : "bearish";
-      if (kind === "inflation") return hawkish ? "bearish" : "bullish";
+      if (kind === "inflation" || kind === "rates") return hawkish ? "bearish" : "bullish";
       // labor_slack : chômage en hausse → impulse dovish → baissier pour un risk-asset.
       return hawkish ? "bullish" : "bearish";
     }

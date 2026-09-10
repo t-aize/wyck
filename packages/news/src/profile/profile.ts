@@ -8,7 +8,6 @@
 import {
   CRYPTO_KEYWORDS,
   ENERGY_KEYWORDS,
-  FF_CURRENCIES,
   INDEX_HOME,
   INDEX_KEYWORDS,
   METAL_KEYWORDS,
@@ -22,8 +21,8 @@ import type { AssetClass, NewsProfile } from "./types.ts";
  * Devises ForexFactory à écouter pour cette classe.
  *
  * - forex : base **et** quote (EURUSD → EUR + USD).
- * - indice : devise « home » (`GER40` → EUR), pas le USD de cotation s'il
- *   n'est que le quote du contrat.
+ * - indice : devise « home » (`GER40` → EUR) **et** USD (NFP / CPI / FOMC
+ *   bougent DAX, FTSE, Nikkei autant que le Nasdaq).
  * - métal / crypto / énergie / other : devise de cotation, USD par défaut.
  */
 function countriesFor(
@@ -36,8 +35,7 @@ function countriesFor(
   const cleaned = normalizeSymbolName(symbolName);
 
   const addIfFf = (code: string) => {
-    const canonical = canonicalCurrency(code);
-    if (FF_CURRENCIES.has(canonical)) countries.add(canonical);
+    if (isFfCurrency(code)) countries.add(canonicalCurrency(code));
   };
 
   switch (assetClass) {
@@ -48,6 +46,7 @@ function countriesFor(
     case "index": {
       const home = INDEX_HOME[cleaned] ?? INDEX_HOME[base] ?? (isFfCurrency(quote) ? quote : "USD");
       addIfFf(home);
+      addIfFf("USD");
       break;
     }
     case "metal":
