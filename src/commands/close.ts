@@ -93,16 +93,13 @@ export const closeCommand: Command = {
 
     if (positions.length === 1) {
       const position = positions[0]!;
-      if (position.volumeLots === undefined) {
+      if (position.volume === undefined) {
         ctx.setFeedback({
           kind: "error",
           message: `position ${position.id} : volume indisponible — mapping de données cassé, clôture refusée par sécurité`,
         });
         return;
       }
-      // `volumeLots` vient d'être vérifié défini ci-dessus — TS ne propage pas cette narrowing à
-      // travers l'intersection posée par le type predicate de `find` (limitation connue sur les
-      // types issus de z.infer/.transform()), d'où l'assertion plutôt qu'une simple inférence.
       ctx.proposeClose(position as ClosablePosition);
       return;
     }

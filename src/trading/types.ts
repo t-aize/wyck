@@ -29,9 +29,9 @@ export interface PreparedTrade {
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
-  /** Volume au format API (1/100 d'once pour XAUUSD) */
+  /** Volume au format API (lots × lotSize × 100) */
   volume: number;
-  /** Volume en lots (1 lot = 100 onces), pour l'affichage */
+  /** Volume en lots, pour l'affichage */
   volumeLots: number;
   riskAmount: number;
   riskPercent: number;

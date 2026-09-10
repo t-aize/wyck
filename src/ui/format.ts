@@ -1,5 +1,5 @@
+import { PARIS_TZ } from "@aurum/news";
 import { PRICE_SCALE } from "../constants.ts";
-import { PARIS_TZ } from "../news/time.ts";
 
 /** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export function formatPrice(raw: number | undefined, digits = 2): string {
@@ -8,8 +8,8 @@ export function formatPrice(raw: number | undefined, digits = 2): string {
 }
 
 /** Prix déjà affiché (pas à l'échelle x10^5) : simple fallback "—" si absent. */
-export function formatPriceOrDash(price: number | undefined): string {
-  return price === undefined ? "—" : price.toFixed(2);
+export function formatPriceOrDash(price: number | undefined, digits = 2): string {
+  return price === undefined ? "—" : price.toFixed(digits);
 }
 
 /** Montants cTrader (balance, P&L…) : entier à l'échelle x10^moneyDigits. */

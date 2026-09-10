@@ -1,70 +1,110 @@
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
 import { PRICE_SCALE } from "../../constants.ts";
-import type { GetPositionsResult } from "../../ctrader/schemas.ts";
+import type { CtraderOrder, GetPositionsResult } from "../../ctrader/schemas.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";
 
 const PRICE_POLL_MS = 3_000;
-/** ~1min de tendance à 3s/tick (cf. PRICE_POLL_MS) — assez pour un sparkline lisible sans manger
- * toute la largeur du header. */
 const PRICE_HISTORY_LENGTH = 20;
+
+export interface SpotQuote {
+  bid: number;
+  ask: number;
+  bidPrice: number;
+  askPrice: number;
+}
 
 interface MarketData {
   bid: number | undefined;
   ask: number | undefined;
-  /** `bid`/`ask` déjà convertis en prix affiché (÷ PRICE_SCALE) — pour les consommateurs qui font
-   * du calcul (P&L, distance en pips) plutôt que de l'affichage brut (cf. PriceHeader, qui préfère
-   * les valeurs brutes pour formatPrice()). Calculés une seule fois ici plutôt que par chaque
-   * consommateur. */
   bidPrice: number | undefined;
   askPrice: number | undefined;
-  /** Prix moyen (bid+ask)/2, un point par poll, plafonné à PRICE_HISTORY_LENGTH — pour le
-   * sparkline de tendance dans PriceHeader. */
   priceHistory: number[];
-  /** ask-bid (échelle brute, cf. formatPrice), même cadence/fenêtre que priceHistory — sert de
-   * référence récente pour repérer un spread anormalement large dans PriceHeader. */
   spreadHistory: number[];
+  quotesBySymbolId: ReadonlyMap<number, SpotQuote>;
   positions: GetPositionsResult | undefined;
-  /** Capital du compte, entier à l'échelle `moneyDigits` (cf. formatMoney) */
   balance: number | undefined;
   moneyDigits: number | undefined;
   refreshMarket: () => Promise<void>;
 }
 
-/** `client`/`symbolId` viennent de `useCtrader()` — les erreurs partagent `connectionError` du
- * même Context (même affichage qu'un échec de connexion). */
+function mergeOrders(fromPositions: CtraderOrder[], fromPending: CtraderOrder[]): CtraderOrder[] {
+  const byId = new Map<number, CtraderOrder>();
+  for (const order of fromPositions) byId.set(order.orderId, order);
+  for (const order of fromPending) byId.set(order.orderId, order);
+  return [...byId.values()];
+}
+
 export function useMarketData(): MarketData {
-  const { client, symbolId, reportConnectionError } = useCtrader();
+  const { client, symbolId, connected, reportConnectionError } = useCtrader();
   const [bid, setBid] = useState<number>();
   const [ask, setAsk] = useState<number>();
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const [spreadHistory, setSpreadHistory] = useState<number[]>([]);
+  const [quotesBySymbolId, setQuotesBySymbolId] = useState<ReadonlyMap<number, SpotQuote>>(
+    new Map(),
+  );
   const [positions, setPositions] = useState<GetPositionsResult>();
   const [balance, setBalance] = useState<number>();
   const [moneyDigits, setMoneyDigits] = useState<number>();
 
+  useEffect(() => {
+    setBid(undefined);
+    setAsk(undefined);
+    setPriceHistory([]);
+    setSpreadHistory([]);
+    if (symbolId === undefined) return;
+  }, [symbolId]);
+
   const refreshMarket = useMemo(
     () => async () => {
-      if (!symbolId) return;
+      if (!connected) return;
       try {
-        const [spot, pos, bal] = await Promise.all([
-          Effect.runPromise(client.getSpotPrices({ symbolId: [symbolId] })),
+        const [pos, pendingResult, bal] = await Promise.all([
           Effect.runPromise(client.getPositions()),
+          Effect.runPromise(Effect.either(client.getPendingOrders())),
           Effect.runPromise(client.getBalance()),
         ]);
-        const price = spot.prices[0];
-        if (price) {
-          setBid(price.bid);
-          setAsk(price.ask);
-          const mid = (price.bid + price.ask) / 2;
-          setPriceHistory((history) => [...history, mid].slice(-PRICE_HISTORY_LENGTH));
-          setSpreadHistory((history) =>
-            [...history, price.ask - price.bid].slice(-PRICE_HISTORY_LENGTH),
-          );
+        const pendingOrders = pendingResult._tag === "Right" ? pendingResult.right.orders : [];
+        const orders = mergeOrders(pos.orders, pendingOrders);
+        const book: GetPositionsResult = { positions: pos.positions, orders };
+
+        const bookSymbolIds = [
+          ...book.positions.map((p) => p.symbolId).filter((id): id is number => id !== undefined),
+          ...book.orders.map((o) => o.symbolId),
+        ];
+        const ids = [...new Set([...(symbolId !== undefined ? [symbolId] : []), ...bookSymbolIds])];
+        const spot =
+          ids.length > 0
+            ? await Effect.runPromise(client.getSpotPrices({ symbolId: ids }))
+            : { prices: [] };
+
+        const nextQuotes = new Map<number, SpotQuote>();
+        for (const price of spot.prices) {
+          nextQuotes.set(price.symbolId, {
+            bid: price.bid,
+            ask: price.ask,
+            bidPrice: price.bid / PRICE_SCALE,
+            askPrice: price.ask / PRICE_SCALE,
+          });
         }
-        setPositions(pos);
+        setQuotesBySymbolId(nextQuotes);
+
+        if (symbolId !== undefined) {
+          const selected = nextQuotes.get(symbolId);
+          if (selected) {
+            setBid(selected.bid);
+            setAsk(selected.ask);
+            const mid = (selected.bid + selected.ask) / 2;
+            setPriceHistory((history) => [...history, mid].slice(-PRICE_HISTORY_LENGTH));
+            setSpreadHistory((history) =>
+              [...history, selected.ask - selected.bid].slice(-PRICE_HISTORY_LENGTH),
+            );
+          }
+        }
+        setPositions(book);
         setBalance(bal.balance);
         setMoneyDigits(bal.moneyDigits);
         reportConnectionError(undefined);
@@ -72,18 +112,14 @@ export function useMarketData(): MarketData {
         reportConnectionError(toMessage(error));
       }
     },
-    [client, symbolId, reportConnectionError],
+    [client, connected, symbolId, reportConnectionError],
   );
 
   useInterval(refreshMarket, PRICE_POLL_MS);
 
-  // `useInterval` déclenche son premier appel immédiat au montage, donc avant que `symbolId`
-  // soit connu (connect() est async) — ce premier appel n'a aucun effet. Sans ce second effet,
-  // positions/ordres n'apparaissent qu'au prochain tick (jusqu'à PRICE_POLL_MS de retard) après
-  // la connexion, au lieu d'être visibles immédiatement.
   useEffect(() => {
-    if (symbolId) void refreshMarket();
-  }, [symbolId, refreshMarket]);
+    if (connected) void refreshMarket();
+  }, [connected, refreshMarket]);
 
   const bidPrice = useMemo(() => (bid === undefined ? undefined : bid / PRICE_SCALE), [bid]);
   const askPrice = useMemo(() => (ask === undefined ? undefined : ask / PRICE_SCALE), [ask]);
@@ -95,6 +131,7 @@ export function useMarketData(): MarketData {
     askPrice,
     priceHistory,
     spreadHistory,
+    quotesBySymbolId,
     positions,
     balance,
     moneyDigits,

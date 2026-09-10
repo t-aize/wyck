@@ -1,38 +1,64 @@
 import { Effect } from "effect";
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
-import { SYMBOL } from "../../constants.ts";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { DEFAULT_SYMBOL } from "../../constants.ts";
 import type { CtraderClient } from "../../ctrader/client.ts";
+import { buildCatalog, findInstrument, type InstrumentSpecs } from "../../instrument/specs.ts";
+import { writeConfig } from "../../settings.ts";
+import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 
-interface CtraderConnection {
+export interface CtraderConnection {
   connected: boolean;
-  symbolId: number | undefined;
+  catalog: InstrumentSpecs[];
+  instrument: InstrumentSpecs | undefined;
   connectionError: string | undefined;
-  /** Exposé pour que useMarketData reporte aussi ses erreurs dans le même état. */
   setConnectionError: Dispatch<SetStateAction<string | undefined>>;
+  selectSymbol: (name: string) => boolean;
 }
 
-export function useCtraderConnection(client: CtraderClient): CtraderConnection {
+export function useCtraderConnection(
+  client: CtraderClient,
+  initialSymbol: string,
+): CtraderConnection {
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string>();
-  const [symbolId, setSymbolId] = useState<number>();
+  const [catalog, setCatalog] = useState<InstrumentSpecs[]>([]);
+  const [selectedName, setSelectedName] = useState(initialSymbol);
 
   useEffect(() => {
     let cancelled = false;
-    // Pas encore configuré (url/token vides, cf. App.tsx#EMPTY_APP_CONFIG) : laisser
-    // connected=false/connectionError=undefined plutôt que de tenter connect() (qui échouerait sur
-    // `new URL("")` avec une erreur peu claire) — état neutre "pas encore connecté" jusqu'à ce que
-    // `settings url`/`settings token` déclenchent un remount avec un client configuré.
     if (!client.isConfigured) return;
 
     void (async () => {
       try {
         await client.connect();
-        const { symbols } = await Effect.runPromise(client.getSymbols());
-        const symbol = symbols.find((s) => s.symbolName === SYMBOL);
-        if (!symbol) throw new Error(`Symbole ${SYMBOL} introuvable côté serveur`);
+        const [{ symbols }, assetsResult] = await Promise.all([
+          Effect.runPromise(client.getSymbols()),
+          Effect.runPromise(client.getAssets()).then(
+            (result) => result,
+            () => ({ assets: [] }),
+          ),
+        ]);
         if (cancelled) return;
-        setSymbolId(symbol.symbolId);
+        const nextCatalog = buildCatalog(symbols, assetsResult.assets);
+        setCatalog(nextCatalog);
+
+        const requested = findInstrument(nextCatalog, initialSymbol);
+        const fallback = requested ?? findInstrument(nextCatalog, DEFAULT_SYMBOL) ?? nextCatalog[0];
+        if (!fallback) {
+          throw new Error("Aucun symbole tradable renvoyé par le serveur");
+        }
+        if (!requested) {
+          setSelectedName(fallback.symbolName);
+          void fsRuntime.runPromise(writeConfig({ symbol: fallback.symbolName }));
+        }
         setConnected(true);
       } catch (error) {
         if (!cancelled) setConnectionError(toMessage(error));
@@ -43,7 +69,30 @@ export function useCtraderConnection(client: CtraderClient): CtraderConnection {
       cancelled = true;
       void client.close();
     };
-  }, [client]);
+  }, [client, initialSymbol]);
 
-  return { connected, symbolId, connectionError, setConnectionError };
+  const instrument = useMemo(
+    () => findInstrument(catalog, selectedName) ?? catalog[0],
+    [catalog, selectedName],
+  );
+
+  const selectSymbol = useCallback(
+    (name: string): boolean => {
+      const found = findInstrument(catalog, name);
+      if (!found) return false;
+      setSelectedName(found.symbolName);
+      void fsRuntime.runPromise(writeConfig({ symbol: found.symbolName }));
+      return true;
+    },
+    [catalog],
+  );
+
+  return {
+    connected,
+    catalog,
+    instrument,
+    connectionError,
+    setConnectionError,
+    selectSymbol,
+  };
 }

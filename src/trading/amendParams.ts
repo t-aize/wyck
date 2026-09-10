@@ -6,8 +6,6 @@ import type {
   ClosePositionParams,
   CtraderOrder,
 } from "../ctrader/schemas.ts";
-import { toVolume } from "../utils/priceMath.ts";
-
 /**
  * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
  * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts). Seul point de
@@ -65,9 +63,7 @@ export function toAmendPositionParams(
   };
 }
 
-/** Clôture totale : `volume` repris intégralement depuis `position.volumeLots` (converti via
- * `toVolume`, l'inverse de `toLots`) — pas de clôture partielle pour l'instant, cf. commands/
- * close.ts. */
+/** Clôture totale : volume API repris tel quel — pas de clôture partielle pour l'instant. */
 export function toClosePositionParams(position: ClosablePosition): ClosePositionParams {
-  return { positionId: position.id, volume: toVolume(position.volumeLots) };
+  return { positionId: position.id, volume: position.volume };
 }

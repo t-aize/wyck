@@ -1,8 +1,10 @@
 import { TextAttributes } from "@opentui/core";
-import { SYMBOL } from "../../../constants.ts";
 import type { CtraderPosition } from "../../../ctrader/schemas.ts";
+import type { InstrumentSpecs } from "../../../instrument/specs.ts";
+import { toLots } from "../../../utils/priceMath.ts";
 import { alignLeft, alignRight, formatPriceOrDash } from "../../format.ts";
 import { DOWN, UP } from "../../glyphs.ts";
+import type { SpotQuote } from "../../hooks/useMarketData.ts";
 import { sideColor, theme } from "../../theme.ts";
 import { COLUMNS, nearestPipsLabel } from "./columns.ts";
 
@@ -20,20 +22,38 @@ function headerRow() {
   );
 }
 
-function PositionRow({ p, mid }: { p: CtraderPosition; mid: number | undefined }) {
+function PositionRow({
+  p,
+  specs,
+  quote,
+  active,
+}: {
+  p: CtraderPosition;
+  specs: InstrumentSpecs | undefined;
+  quote: SpotQuote | undefined;
+  active: boolean;
+}) {
   const sideLabel = p.side === "BUY" ? `${UP} BUY` : p.side === "SELL" ? `${DOWN} SELL` : "—";
-  const nearest = nearestPipsLabel(mid, p.stopLoss, p.takeProfit);
+  const mid = quote === undefined ? undefined : (quote.bidPrice + quote.askPrice) / 2;
+  const nearest = nearestPipsLabel(mid, p.stopLoss, p.takeProfit, specs?.pipSize);
+  const digits = specs?.digits ?? 2;
+  const lots =
+    p.volume === undefined || specs === undefined ? undefined : toLots(p.volume, specs.lotSize);
+  const name = specs?.symbolName ?? (p.symbolId !== undefined ? `#${p.symbolId}` : "—");
+  const symbolFg = active ? theme.accent : theme.text;
 
   return (
     <text>
-      <span fg={theme.text}>
-        {alignLeft(p.id === undefined ? SYMBOL : String(p.id), COLUMNS.symbol)}
+      <span fg={symbolFg} attributes={active ? TextAttributes.BOLD : TextAttributes.NONE}>
+        {alignLeft(name, COLUMNS.symbol)}
       </span>
       <span fg={sideColor(p.side)}>{alignLeft(sideLabel, COLUMNS.side)}</span>
-      <span fg={theme.text}>{alignRight(p.volumeLots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
-      <span fg={theme.text}>{alignRight(formatPriceOrDash(p.entry), COLUMNS.entry)}</span>
-      <span fg={theme.red}>{alignRight(formatPriceOrDash(p.stopLoss), COLUMNS.sl)}</span>
-      <span fg={theme.green}>{alignRight(formatPriceOrDash(p.takeProfit), COLUMNS.tp)}</span>
+      <span fg={theme.text}>{alignRight(lots?.toFixed(2) ?? "—", COLUMNS.volume)}</span>
+      <span fg={theme.text}>{alignRight(formatPriceOrDash(p.entry, digits), COLUMNS.entry)}</span>
+      <span fg={theme.red}>{alignRight(formatPriceOrDash(p.stopLoss, digits), COLUMNS.sl)}</span>
+      <span fg={theme.green}>
+        {alignRight(formatPriceOrDash(p.takeProfit, digits), COLUMNS.tp)}
+      </span>
       <span fg={theme.textDim}>{alignRight(nearest, COLUMNS.dist)}</span>
     </text>
   );
@@ -41,21 +61,22 @@ function PositionRow({ p, mid }: { p: CtraderPosition; mid: number | undefined }
 
 interface PositionsTableProps {
   positions: CtraderPosition[];
-  mid: number | undefined;
+  catalogById: ReadonlyMap<number, InstrumentSpecs>;
+  quotesBySymbolId: ReadonlyMap<number, SpotQuote>;
+  activeSymbolId: number | undefined;
 }
 
-/** Pas de colonnes SWAP/P&L : ces deux champs se sont avérés peu fiables en pratique (souvent
- * indisponibles selon le compte/broker) — même jeu de colonnes que OrdersTable.tsx (symbole,
- * side, volume, prix, SL, TP, distance) plutôt que d'afficher des "—" sans grande valeur. */
-export function PositionsTable({ positions, mid }: PositionsTableProps) {
+export function PositionsTable({
+  positions,
+  catalogById,
+  quotesBySymbolId,
+  activeSymbolId,
+}: PositionsTableProps) {
   return (
     <box flexDirection="column">
       <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-        — positions ouvertes —
+        — positions ouvertes (tous symboles) —
       </text>
-      {/* Les colonnes sont à largeur fixe — sur un terminal plus étroit, mieux vaut pouvoir défiler
-       * horizontalement que perdre des colonnes recadrées par le terminal. `scrollX` seul (pas de
-       * flexGrow/height imposé) laisse la hauteur continuer à s'ajuster au contenu comme avant. */}
       <scrollbox
         scrollX
         scrollY={false}
@@ -65,11 +86,19 @@ export function PositionsTable({ positions, mid }: PositionsTableProps) {
         style={{ flexDirection: "column" }}
       >
         {headerRow()}
-        {positions.map((p, index) => (
-          // positionId a une confiance haute (cf. CtraderPositionSchema) ; l'index reste un filet
-          // pour le cas — signalé par le parent (PositionsPanel.tsx) — où le mapping échoue en pratique.
-          <PositionRow key={p.id ?? index} p={p} mid={mid} />
-        ))}
+        {positions.length === 0 ? (
+          <text fg={theme.textMuted}>aucune position ouverte</text>
+        ) : (
+          positions.map((p, index) => (
+            <PositionRow
+              key={p.id ?? index}
+              p={p}
+              specs={p.symbolId !== undefined ? catalogById.get(p.symbolId) : undefined}
+              quote={p.symbolId !== undefined ? quotesBySymbolId.get(p.symbolId) : undefined}
+              active={activeSymbolId !== undefined && p.symbolId === activeSymbolId}
+            />
+          ))
+        )}
       </scrollbox>
     </box>
   );

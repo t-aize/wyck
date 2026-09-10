@@ -17,8 +17,9 @@ const order: CtraderOrder = {
 
 const position: AmendablePosition = {
   id: 7,
+  symbolId: 1,
   side: "SELL",
-  volumeLots: 0.5,
+  volume: 5000,
   entry: 2000,
   stopLoss: 2010,
   takeProfit: 1980,
@@ -67,8 +68,8 @@ describe("toAmendPositionParams", () => {
 });
 
 describe("toClosePositionParams", () => {
-  test("converts volumeLots back to API volume", () => {
-    const closable: ClosablePosition = { ...position, volumeLots: 1.5 };
+  test("resends the API volume as-is", () => {
+    const closable: ClosablePosition = { ...position, volume: 15_000 };
     expect(toClosePositionParams(closable)).toEqual({ positionId: 7, volume: 15_000 });
   });
 });

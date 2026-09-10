@@ -38,6 +38,7 @@ export function prepareAtrTrade(
   client: CtraderClient,
   symbolId: number,
   input: AtrTradeInput,
+  specs: { lotSize: number; digits: number } = { lotSize: 100, digits: 2 },
 ): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError> {
   return Effect.gen(function* () {
     yield* validateRiskPercent(input.riskPercent);
@@ -62,10 +63,16 @@ export function prepareAtrTrade(
     const reference = side === "BUY" ? ask : bid;
     const { entryPrice, orderType } = resolveEntry(side, input.entry, reference);
 
-    const { stopLoss, takeProfit } = atrLevels(entryPrice, side, atr, input.rewardRiskRatio);
+    const { stopLoss, takeProfit } = atrLevels(
+      entryPrice,
+      side,
+      atr,
+      input.rewardRiskRatio,
+      specs.digits,
+    );
 
     const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
-    const volume = yield* computeVolume(riskAmount, atr);
+    const volume = yield* computeVolume(riskAmount, atr, specs.lotSize);
 
     const trade: PreparedTrade = {
       orderType,
@@ -74,7 +81,7 @@ export function prepareAtrTrade(
       stopLoss,
       takeProfit,
       volume,
-      volumeLots: toLots(volume),
+      volumeLots: toLots(volume, specs.lotSize),
       riskAmount,
       riskPercent: input.riskPercent,
       rewardAmount: (volume / 100) * (atr * input.rewardRiskRatio),

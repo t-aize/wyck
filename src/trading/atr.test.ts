@@ -34,11 +34,11 @@ describe("computeAtr", () => {
 
 describe("atrLevels", () => {
   test("BUY: SL below entry, TP above, at the RR-scaled distance", () => {
-    expect(atrLevels(2000, "BUY", 10, 1.2)).toEqual({ stopLoss: 1990, takeProfit: 2012 });
+    expect(atrLevels(2000, "BUY", 10, 1.2, 2)).toEqual({ stopLoss: 1990, takeProfit: 2012 });
   });
 
   test("SELL: SL above entry, TP below, at the RR-scaled distance", () => {
-    expect(atrLevels(2000, "SELL", 10, 1.2)).toEqual({ stopLoss: 2010, takeProfit: 1988 });
+    expect(atrLevels(2000, "SELL", 10, 1.2, 2)).toEqual({ stopLoss: 2010, takeProfit: 1988 });
   });
 });
 

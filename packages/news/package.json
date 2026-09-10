@@ -1,0 +1,17 @@
+{
+  "name": "@aurum/news",
+  "version": "0.2.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "t-aize",
+  "description": "Calendrier économique et biais macro par symbole — paquet privé d'Aurum.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.97.2",
+    "effect": "^3.22.2",
+    "zod": "^4.6.1"
+  }
+}

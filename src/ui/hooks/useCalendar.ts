@@ -1,6 +1,6 @@
+import { type CalendarEvent, fetchCalendar } from "@aurum/news";
 import { useMemo, useState } from "react";
-import { fetchCalendar } from "../../news/calendar.ts";
-import type { CalendarEvent } from "../../news/schemas.ts";
+import { APP_DATA_DIR } from "../../constants.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useInterval } from "./useInterval.ts";
@@ -21,7 +21,11 @@ export function useCalendar(): Calendar {
     () =>
       async (options: { force?: boolean } = {}) => {
         try {
-          setCalendar(await fsRuntime.runPromise(fetchCalendar(options.force)));
+          setCalendar(
+            await fsRuntime.runPromise(
+              fetchCalendar({ cacheDir: APP_DATA_DIR, force: options.force }),
+            ),
+          );
           setNewsError(undefined);
         } catch (error) {
           setNewsError(toMessage(error));

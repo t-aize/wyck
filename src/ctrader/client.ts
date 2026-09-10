@@ -13,18 +13,8 @@
  * toutes les méthodes qui appellent un outil MCP retournent un `Effect<T, CtraderMcpError>`
  * — rien ne se passe tant qu'on ne les exécute pas via `Effect.runPromise`/`Effect.runSync` etc.
  *
- * Mirroir volontairement complet de la surface `trading`/`account`/`market data` du
- * serveur MCP, pas seulement des méthodes déjà câblées dans l'UI : `getVersion`,
- * `getAssets`, `getPositionDetails`, `getPendingOrders`, `getOrderHistory` et
- * `getDeals` n'ont aujourd'hui aucun appelant dans `src/`. Choix assumé plutôt qu'angle mort.
- * `getTrendbars` avait le même statut jusqu'au retrait du mode ATR/SMC — désormais appelé par
- * `trading/atr.ts#fetchAtr` et `structure/fetch.ts#fetchStructure`. `amendPosition`/`closePosition`
- * ont aussi désormais un appelant
- * (`trading/amendParams.ts#toAmendPositionParams`/`toClosePositionParams`, câblés via les
- * commandes `amend`/`close`) — attendaient que `CtraderPositionSchema` soit verrouillé (cf. ctrader/
- * schemas.ts) avant d'être exposées, précondition désormais satisfaite. Si une méthode reste
- * inutilisée longtemps après avoir été implémentée côté UI, c'est le signal pour la retirer plutôt
- * que la garder « au cas où ».
+ * Surface MCP réellement utilisée par l'app : account (balance), référentiel (symbols,
+ * assets, prices, trendbars), positions, et les 5 outils d'écriture.
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -55,17 +45,8 @@ import {
   GetAssetsResultSchema,
   type GetBalanceResult,
   GetBalanceResultSchema,
-  type GetDealsParams,
-  type GetDealsResult,
-  GetDealsResultSchema,
-  type GetOrderHistoryParams,
-  type GetOrderHistoryResult,
-  GetOrderHistoryResultSchema,
   type GetPendingOrdersResult,
   GetPendingOrdersResultSchema,
-  type GetPositionDetailsParams,
-  type GetPositionDetailsResult,
-  GetPositionDetailsResultSchema,
   type GetPositionsResult,
   GetPositionsResultSchema,
   type GetSpotPricesParams,
@@ -76,11 +57,9 @@ import {
   type GetTrendbarsParams,
   type GetTrendbarsResult,
   GetTrendbarsResultSchema,
-  type GetVersionResult,
-  GetVersionResultSchema,
 } from "./schemas.ts";
 
-const CLIENT_INFO = { name: "aurum", version: "0.1.0" };
+const CLIENT_INFO = { name: "aurum", version: "0.2.0" };
 
 // Retry avec backoff exponentiel (200ms, 400ms), 2 tentatives supplémentaires max — appliqué
 // uniquement aux méthodes de lecture (cf. callWithRetry). Jamais sur
@@ -334,10 +313,6 @@ export class CtraderClient {
 
   // --- Compte -----------------------------------------------------------
 
-  getVersion(): Effect.Effect<GetVersionResult, CtraderMcpError> {
-    return this.callWithRetry("get_version", GetVersionResultSchema);
-  }
-
   getBalance(): Effect.Effect<GetBalanceResult, CtraderMcpError> {
     return this.callWithRetry("get_balance", GetBalanceResultSchema);
   }
@@ -366,24 +341,9 @@ export class CtraderClient {
     return this.callWithRetry("get_positions", GetPositionsResultSchema);
   }
 
-  getPositionDetails(
-    params: GetPositionDetailsParams,
-  ): Effect.Effect<GetPositionDetailsResult, CtraderMcpError> {
-    return this.callWithRetry("get_position_details", GetPositionDetailsResultSchema, params);
-  }
-
+  /** Tous les pendings du compte, tous symboles — à fusionner avec `get_positions.orders`. */
   getPendingOrders(): Effect.Effect<GetPendingOrdersResult, CtraderMcpError> {
     return this.callWithRetry("get_pending_orders", GetPendingOrdersResultSchema);
-  }
-
-  getOrderHistory(
-    params: GetOrderHistoryParams,
-  ): Effect.Effect<GetOrderHistoryResult, CtraderMcpError> {
-    return this.callWithRetry("get_order_history", GetOrderHistoryResultSchema, params);
-  }
-
-  getDeals(params: GetDealsParams): Effect.Effect<GetDealsResult, CtraderMcpError> {
-    return this.callWithRetry("get_deals", GetDealsResultSchema, params);
   }
 
   // --- Trading (écriture — ordres réels) ----------------------------------

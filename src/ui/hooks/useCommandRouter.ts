@@ -67,7 +67,7 @@ export function useCommandRouter(opts: {
     positionAmendConfirm,
     closeConfirm,
   } = opts;
-  const { client, symbolId } = useCtrader();
+  const { client, symbolId, instrument, catalog, selectSymbol } = useCtrader();
   const { setFeedback } = useFeedback();
 
   // Basculé par Shift+Tab (cf. useTerminalShortcuts.ts), lu par `trade` via ctx.atrMode.
@@ -125,6 +125,9 @@ export function useCommandRouter(opts: {
     const ctx: CommandContext = {
       client,
       symbolId,
+      instrument,
+      catalog,
+      selectSymbol,
       positions,
       atrMode,
       atrRefreshEnabled,

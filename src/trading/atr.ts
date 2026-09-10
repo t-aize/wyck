@@ -93,11 +93,10 @@ export function atrLevels(
   side: TradeSide,
   atr: number,
   rewardRiskRatio: number,
+  digits = 2,
 ): { stopLoss: number; takeProfit: number } {
   const stopLoss = side === "BUY" ? entryPrice - atr : entryPrice + atr;
   const takeProfit =
     side === "BUY" ? entryPrice + atr * rewardRiskRatio : entryPrice - atr * rewardRiskRatio;
-  // atr vient d'une division (sum / period) : sans arrondi ici, le SL/TP hérite de bien plus de
-  // décimales que les 2 digits acceptés côté API pour ce symbole (cf. priceMath.ts#roundPrice).
-  return { stopLoss: roundPrice(stopLoss), takeProfit: roundPrice(takeProfit) };
+  return { stopLoss: roundPrice(stopLoss, digits), takeProfit: roundPrice(takeProfit, digits) };
 }

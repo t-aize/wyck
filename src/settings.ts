@@ -16,7 +16,12 @@ import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
 import { z } from "zod";
-import { APP_DATA_DIR, TRENDBAR_PERIODS, type TrendbarPeriod } from "./constants.ts";
+import {
+  APP_DATA_DIR,
+  DEFAULT_SYMBOL,
+  TRENDBAR_PERIODS,
+  type TrendbarPeriod,
+} from "./constants.ts";
 import type { CtraderClientConfig } from "./ctrader/client.ts";
 import { readJsonFile, writeJsonFile } from "./storage/jsonFile.ts";
 import { ATR_PERIOD, ATR_TIMEFRAME } from "./trading/atr.ts";
@@ -37,6 +42,7 @@ const SettingsFileSchema = z.object({
   atrRefreshEnabled: z.boolean().optional(),
   atrPeriod: z.number().int().positive().optional(),
   atrTimeframe: z.enum(TRENDBAR_PERIODS).optional(),
+  symbol: z.string().min(1).optional(),
 });
 type SettingsFile = z.infer<typeof SettingsFileSchema>;
 
@@ -87,6 +93,8 @@ export interface AppConfig extends CtraderClientConfig {
    * (commands/settings.ts). Absents du fichier = défauts historiques (ATR_PERIOD/ATR_TIMEFRAME). */
   atrPeriod: number;
   atrTimeframe: TrendbarPeriod;
+  /** Symbole actif (nom cTrader, ex. XAUUSD / US100). Absent du fichier = DEFAULT_SYMBOL. */
+  symbol: string;
 }
 
 /** Réglages "vides" utilisés par App.tsx tant qu'aucun fichier n'existe encore (premier lancement)
@@ -98,6 +106,7 @@ export const EMPTY_APP_CONFIG: AppConfig = {
   atrRefreshEnabled: true,
   atrPeriod: ATR_PERIOD,
   atrTimeframe: ATR_TIMEFRAME,
+  symbol: DEFAULT_SYMBOL,
 };
 
 /**
@@ -136,6 +145,7 @@ export function readConfig(): Effect.Effect<AppConfig | undefined, never, FileSy
       atrRefreshEnabled: file.atrRefreshEnabled ?? true,
       atrPeriod: file.atrPeriod ?? ATR_PERIOD,
       atrTimeframe: file.atrTimeframe ?? ATR_TIMEFRAME,
+      symbol: file.symbol ?? DEFAULT_SYMBOL,
     };
   });
 }
@@ -164,6 +174,7 @@ export function writeConfig(
         : {}),
       ...(patch.atrPeriod !== undefined ? { atrPeriod: patch.atrPeriod } : {}),
       ...(patch.atrTimeframe !== undefined ? { atrTimeframe: patch.atrTimeframe } : {}),
+      ...(patch.symbol !== undefined ? { symbol: patch.symbol } : {}),
     };
 
     yield* writeJsonFile(APP_DATA_DIR, SETTINGS_PATH, merged, { mode: 0o600 });

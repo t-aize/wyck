@@ -1,6 +1,6 @@
 # aurum
 
-Panel de trading terminal (TUI) pour **XAUUSD**, en TypeScript + [Bun](https://bun.sh) + [OpenTUI](https://opentui.com), connecté au MCP cTrader. Tout se pilote au clavier : `trade`, `modify`, `cancel`, etc. SL/TP/direction donnés à la main (ou dérivés de l'ATR), taille de position calculée depuis le risque en %.
+Panel de trading terminal (TUI) multi-symboles, en TypeScript + [Bun](https://bun.sh) + [OpenTUI](https://opentui.com), connecté au MCP cTrader. Tout se pilote au clavier : `trade`, `amend`, `close`, etc. SL/TP/direction donnés à la main (ou dérivés de l'ATR), taille de position calculée depuis le risque en %.
 
 Projet perso, privé, solo — pas de distribution publique prévue.
 
@@ -14,16 +14,27 @@ Passe par le MCP officiel de cTrader (`mcp.ctrader.com`). Teste sur un **compte 
 bun install
 ```
 
+Workspace Bun : le calendrier économique vit dans le paquet privé `@aurum/news`.
+
 ## Configuration
 
-Pas de `.env` : au premier lancement, écran de config en 2 étapes (redemandable avec `settings` dans l'app) :
+Pas de `.env` : au premier lancement, l'app se rend même sans identifiants. Ensuite, dans le CommandBar :
 
-1. URL du serveur MCP (`https://mcp.ctrader.com/trading/mcp` par défaut)
-2. Token MCP — cTrader Web → **Settings** → **Remote MCP**
+1. `settings url` — URL du serveur MCP (`https://mcp.ctrader.com/trading/mcp` par défaut)
+2. `settings token <token>` — cTrader Web → **Settings** → **Remote MCP**
 
-Stocké (chiffré) dans `~/.aurum/config.json`. Si le token expire (401), régénère-le puis relance `settings`.
+Stocké (token chiffré) dans `~/.aurum/settings.json`. Si le token expire (401), régénère-le puis relance `settings token`.
 
-Risque toujours en % de l'équity. Symbole fixé à `XAUUSD` (`src/constants.ts`), pas configurable.
+Risque toujours en % de l'équity.
+
+## Symbole
+
+N'importe quel symbole exposé par le compte cTrader (XAUUSD, US100, BTCUSD, EURUSD…).
+
+- Clic sur le nom du symbole (en-tête, à côté de **AURUM**) → liste filtrable
+- `settings symbol <nom>` — ex. `settings symbol US100`
+
+Le calendrier économique (ForexFactory) se filtre et calcule un biais en fonction de la classe d'actif (forex, métal, indice, crypto, énergie).
 
 ## Ressources
 

@@ -5,6 +5,7 @@
     "": {
       "name": "aurum",
       "dependencies": {
+        "@aurum/news": "workspace:*",
         "@effect/platform": "^0.97.2",
         "@effect/platform-bun": "^0.91.2",
         "@modelcontextprotocol/sdk": "^1.30.0",
@@ -29,8 +30,19 @@
         "typescript": "^7.0.2",
       },
     },
+    "packages/news": {
+      "name": "@aurum/news",
+      "version": "0.2.0",
+      "dependencies": {
+        "@effect/platform": "^0.97.2",
+        "effect": "^3.22.2",
+        "zod": "^4.6.1",
+      },
+    },
   },
   "packages": {
+    "@aurum/news": ["@aurum/news@workspace:packages/news"],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.29.7", "", {}, "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="],

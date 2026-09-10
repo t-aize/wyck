@@ -7,7 +7,7 @@ describe("CtraderPositionSchema", () => {
       positionId: 7,
       symbolId: 1,
       tradeSide: "BUY",
-      volume: 5000, // 1/100 oz -> 0.5 lot
+      volume: 5000,
       entryPrice: 2000,
       stopLoss: 1990,
       takeProfit: 2020,
@@ -16,8 +16,9 @@ describe("CtraderPositionSchema", () => {
     });
     expect(result).toEqual({
       id: 7,
+      symbolId: 1,
       side: "BUY",
-      volumeLots: 0.5,
+      volume: 5000,
       entry: 2000,
       stopLoss: 1990,
       takeProfit: 2020,
@@ -34,8 +35,9 @@ describe("CtraderPositionSchema", () => {
       entryPrice: 0,
     });
     expect(result.id).toBe(8);
+    expect(result.symbolId).toBe(1);
     expect(result.side).toBe("SELL");
-    expect(result.volumeLots).toBe(0);
+    expect(result.volume).toBe(0);
     expect(result.entry).toBe(0);
     expect(result.stopLoss).toBeUndefined();
     expect(result.takeProfit).toBeUndefined();
@@ -43,13 +45,12 @@ describe("CtraderPositionSchema", () => {
 
   test("missing/mistyped fields resolve to undefined instead of throwing", () => {
     const result = CtraderPositionSchema.parse({
-      positionId: "not-a-number", // wrong type
-      tradeSide: "HOLD", // not a valid TradeSide
-      // volume/entryPrice entirely absent
+      positionId: "not-a-number",
+      tradeSide: "HOLD",
     });
     expect(result.id).toBeUndefined();
     expect(result.side).toBeUndefined();
-    expect(result.volumeLots).toBeUndefined();
+    expect(result.volume).toBeUndefined();
     expect(result.entry).toBeUndefined();
   });
 
@@ -57,8 +58,9 @@ describe("CtraderPositionSchema", () => {
     const result = CtraderPositionSchema.parse({});
     expect(result).toEqual({
       id: undefined,
+      symbolId: undefined,
       side: undefined,
-      volumeLots: undefined,
+      volume: undefined,
       entry: undefined,
       stopLoss: undefined,
       takeProfit: undefined,

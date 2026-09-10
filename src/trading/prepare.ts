@@ -18,6 +18,7 @@ export function prepareTrade(
   client: CtraderClient,
   symbolId: number,
   input: TradeInput,
+  lotSize = 100,
 ): Effect.Effect<PreparedTrade, TradeValidationError | CtraderMcpError> {
   return Effect.gen(function* () {
     yield* validateRiskPercent(input.riskPercent);
@@ -52,7 +53,7 @@ export function prepareTrade(
     const stopDistance = Math.abs(entryPrice - stopLoss);
     const targetDistance = Math.abs(entryPrice - takeProfit);
     const riskAmount = (equity / 10 ** moneyDigits) * (input.riskPercent / 100);
-    const volume = yield* computeVolume(riskAmount, stopDistance);
+    const volume = yield* computeVolume(riskAmount, stopDistance, lotSize);
 
     const trade: PreparedTrade = {
       orderType,
@@ -61,7 +62,7 @@ export function prepareTrade(
       stopLoss,
       takeProfit,
       volume,
-      volumeLots: toLots(volume),
+      volumeLots: toLots(volume, lotSize),
       riskAmount,
       riskPercent: input.riskPercent,
       rewardAmount: (volume / 100) * targetDistance,

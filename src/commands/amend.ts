@@ -39,12 +39,25 @@ export const amendCommand: Command = {
       return;
     }
 
-    const sl = parseOptionalPrice(flags.sl, "sl");
+    const order = ctx.positions?.orders.find((o) => o.orderId === id);
+    const position = ctx.positions?.positions.find((p): p is AmendablePosition => p.id === id);
+    if (!order && !position) {
+      ctx.setFeedback({ kind: "error", message: `ordre/position ${id} introuvable` });
+      return;
+    }
+
+    const targetSymbolId = order?.symbolId ?? position?.symbolId;
+    const targetSpecs =
+      targetSymbolId !== undefined
+        ? ctx.catalog.find((item) => item.symbolId === targetSymbolId)
+        : undefined;
+    const digits = targetSpecs?.digits ?? ctx.instrument?.digits ?? 2;
+    const sl = parseOptionalPrice(flags.sl, "sl", digits);
     if (sl.error) {
       ctx.setFeedback({ kind: "error", message: sl.error });
       return;
     }
-    const tp = parseOptionalPrice(flags.tp, "tp");
+    const tp = parseOptionalPrice(flags.tp, "tp", digits);
     if (tp.error) {
       ctx.setFeedback({ kind: "error", message: tp.error });
       return;
@@ -54,18 +67,10 @@ export const amendCommand: Command = {
       return;
     }
 
-    const order = ctx.positions?.orders.find((o) => o.orderId === id);
     if (order) {
       ctx.proposeModify(order, sl.value, tp.value);
       return;
     }
-
-    const position = ctx.positions?.positions.find((p): p is AmendablePosition => p.id === id);
-    if (position) {
-      ctx.proposePositionAmend(position, sl.value, tp.value);
-      return;
-    }
-
-    ctx.setFeedback({ kind: "error", message: `ordre/position ${id} introuvable` });
+    ctx.proposePositionAmend(position!, sl.value, tp.value);
   },
 };

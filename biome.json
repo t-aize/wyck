@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**", "*.json", "*.jsonc"]
+    "includes": ["src/**", "packages/**", "*.json", "*.jsonc"]
   },
   "formatter": {
     "enabled": true,

@@ -1,26 +1,29 @@
 import { Effect } from "effect";
-import { LOT_VOLUME } from "../constants.ts";
+import { volumeStep } from "../instrument/specs.ts";
+import { toLots } from "../utils/priceMath.ts";
 import { TradeValidationError } from "./types.ts";
 
-// Pas/minimum de volume imposés par ce compte sur XAUUSD : 0.01 lot (confirmé via la
-// plateforme du broker — pas de dropdown 0.01→1.00 lot par incréments de 0.01).
-export const VOLUME_STEP = 100; // 0.01 lot
-
+/**
+ * P&L (devise de cotation) = Δprix × (volume / 100). Donc
+ * volume = (riskAmount / stopDistance) × 100, puis snap au pas de 0.01 lot.
+ */
 export function computeVolume(
   riskAmount: number,
   stopDistance: number,
+  lotSize: number,
 ): Effect.Effect<number, TradeValidationError> {
   if (stopDistance <= 0) {
     return Effect.fail(
       new TradeValidationError("Distance de stop invalide (SL identique à l'entrée ?)"),
     );
   }
-  const ounces = riskAmount / stopDistance;
-  const volume = Math.round((ounces * 100) / VOLUME_STEP) * VOLUME_STEP;
-  if (volume < VOLUME_STEP) {
+  const step = volumeStep(lotSize);
+  const units = riskAmount / stopDistance;
+  const volume = Math.round((units * 100) / step) * step;
+  if (volume < step) {
     return Effect.fail(
       new TradeValidationError(
-        `Volume calculé (${(volume / LOT_VOLUME).toFixed(4)} lot) sous le minimum de ce compte ` +
+        `Volume calculé (${toLots(volume, lotSize).toFixed(4)} lot) sous le minimum de ce compte ` +
           "(0.01 lot) — augmente le risque% ou resserre le stop",
       ),
     );

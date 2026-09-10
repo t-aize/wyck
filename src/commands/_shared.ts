@@ -15,22 +15,21 @@ export function parseFiniteNumber(raw: string | undefined): number | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
-/** Comme `parseFiniteNumber`, avec arrondi à la précision API et rejet des prix ≤ 0 (jamais valides
- * pour XAUUSD) — avant, un prix négatif ou nul passait le parsing sans erreur et n'était rattrapé
- * (parfois) que bien plus tard, après un aller-retour réseau dans `prepareTrade`. */
-export function parsePrice(raw: string | undefined): number | undefined {
+/** Comme `parseFiniteNumber`, avec arrondi à la précision API du symbole et rejet des prix ≤ 0. */
+export function parsePrice(raw: string | undefined, digits = 2): number | undefined {
   const value = parseFiniteNumber(raw);
   if (value === undefined || value <= 0) return undefined;
-  return roundPrice(value);
+  return roundPrice(value, digits);
 }
 
 /** Parse un flag prix optionnel (`--sl`/`--tp`) : absent → `{}`, invalide → `{ error }`. */
 export function parseOptionalPrice(
   raw: string | undefined,
   label: string,
+  digits = 2,
 ): { value?: number; error?: string } {
   if (raw === undefined) return {};
-  const value = parsePrice(raw);
+  const value = parsePrice(raw, digits);
   if (value === undefined) return { error: `${label} invalide : "${raw}"` };
   return { value };
 }

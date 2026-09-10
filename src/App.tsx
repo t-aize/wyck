@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SYMBOL, type TrendbarPeriod } from "./constants.ts";
+import type { TrendbarPeriod } from "./constants.ts";
 import { type AppConfig, EMPTY_APP_CONFIG, readConfig } from "./settings.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
@@ -10,6 +10,7 @@ import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
 import { StructureBar } from "./ui/components/StructureBar.tsx";
+import { SymbolPicker } from "./ui/components/SymbolPicker.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
 import { FeedbackProvider, useFeedback } from "./ui/context/FeedbackContext.tsx";
@@ -85,7 +86,11 @@ export function App() {
     // le sortant, le message de confirmation de `settings url`/`settings token` reste affiché
     // pendant la reconnexion au lieu de disparaître aussitôt.
     <FeedbackProvider>
-      <CtraderProvider key={generation} config={effectiveConfig}>
+      <CtraderProvider
+        key={generation}
+        config={effectiveConfig}
+        initialSymbol={effectiveConfig.symbol}
+      >
         <ConnectedApp
           onCredentialsChanged={reloadConfig}
           hasMcpUrl={effectiveConfig.url.trim() !== ""}
@@ -118,9 +123,10 @@ function ConnectedApp({
   initialAtrTimeframe: TrendbarPeriod;
 }) {
   const now = useClock();
-  const { connected, connectionError } = useCtrader();
+  const { connected, connectionError, instrument, catalog, selectSymbol } = useCtrader();
   const { feedback } = useFeedback();
   const commandBarRef = useRef<CommandBarHandle>(null);
+  const [symbolPickerOpen, setSymbolPickerOpen] = useState(false);
 
   const {
     bid,
@@ -129,6 +135,7 @@ function ConnectedApp({
     askPrice,
     priceHistory,
     spreadHistory,
+    quotesBySymbolId,
     positions,
     balance,
     moneyDigits,
@@ -197,7 +204,10 @@ function ConnectedApp({
   return (
     <box flexDirection="column" width="100%" height="100%" backgroundColor={theme.bg}>
       <PriceHeader
-        symbol={SYMBOL}
+        symbol={instrument?.symbolName ?? "—"}
+        digits={instrument?.digits}
+        pipSize={instrument?.pipSize}
+        onSymbolClick={() => setSymbolPickerOpen(true)}
         bid={bid}
         ask={ask}
         priceHistory={priceHistory}
@@ -212,11 +222,12 @@ function ConnectedApp({
       <StructureBar structure={structure} errorMessage={structureError} />
       <PositionsPanel
         positions={positions}
-        bidPrice={bidPrice}
-        askPrice={askPrice}
+        catalog={catalog}
+        quotesBySymbolId={quotesBySymbolId}
         atrOrderIds={atrOrderIds}
+        activeSymbolId={instrument?.symbolId}
       />
-      <NewsPanel events={calendar} errorMessage={newsError} now={now} />
+      <NewsPanel events={calendar} errorMessage={newsError} now={now} profile={instrument?.news} />
       <CommandBar
         ref={commandBarRef}
         feedback={feedback}
@@ -231,7 +242,8 @@ function ConnectedApp({
           !pendingModify &&
           !pendingCancel &&
           !pendingPositionAmend &&
-          !pendingClose
+          !pendingClose &&
+          !symbolPickerOpen
         }
       />
       {pendingTrade && (
@@ -273,7 +285,7 @@ function ConnectedApp({
           subjectRow={
             <Row
               label="Position"
-              value={`${pendingPositionAmend.position.id} ${pendingPositionAmend.position.side ?? "—"} ${pendingPositionAmend.position.volumeLots?.toFixed(2) ?? "—"} lots`}
+              value={`${pendingPositionAmend.position.id} ${pendingPositionAmend.position.side ?? "—"}`}
             />
           }
           currentStopLoss={pendingPositionAmend.position.stopLoss}
@@ -287,10 +299,34 @@ function ConnectedApp({
       {pendingClose && (
         <CloseConfirmModal
           position={pendingClose}
-          bidPrice={bidPrice}
-          askPrice={askPrice}
+          specs={
+            pendingClose.symbolId !== undefined
+              ? catalog.find((item) => item.symbolId === pendingClose.symbolId)
+              : instrument
+          }
+          bidPrice={
+            pendingClose.symbolId !== undefined
+              ? quotesBySymbolId.get(pendingClose.symbolId)?.bidPrice
+              : bidPrice
+          }
+          askPrice={
+            pendingClose.symbolId !== undefined
+              ? quotesBySymbolId.get(pendingClose.symbolId)?.askPrice
+              : askPrice
+          }
           onConfirm={confirmPendingClose}
           onCancel={dismissPendingClose}
+        />
+      )}
+      {symbolPickerOpen && (
+        <SymbolPicker
+          catalog={catalog}
+          current={instrument?.symbolName}
+          onSelect={(name) => {
+            selectSymbol(name);
+            setSymbolPickerOpen(false);
+          }}
+          onCancel={() => setSymbolPickerOpen(false)}
         />
       )}
     </box>

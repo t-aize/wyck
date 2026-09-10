@@ -1,6 +1,5 @@
 import type { StructureReading } from "./bias.ts";
 import type { StructurePeriod } from "./fetch.ts";
-import type { StructureBias } from "./types.ts";
 
 export type ScalpBias = "bullish" | "bearish" | "mixed";
 export type ScalpStrength = "strong" | "moderate" | "weak";

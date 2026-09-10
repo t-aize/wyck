@@ -49,8 +49,9 @@ function runManual(symbolId: number, args: string[], ctx: CommandContext): void 
     return;
   }
 
+  const digits = ctx.instrument?.digits ?? 2;
   const isMarket = entryRaw.toLowerCase() === "market";
-  const entry = isMarket ? ("market" as const) : parsePrice(entryRaw);
+  const entry = isMarket ? ("market" as const) : parsePrice(entryRaw, digits);
   if (entry === undefined) {
     ctx.setFeedback({
       kind: "error",
@@ -59,13 +60,13 @@ function runManual(symbolId: number, args: string[], ctx: CommandContext): void 
     return;
   }
 
-  const stopLoss = parsePrice(slRaw);
+  const stopLoss = parsePrice(slRaw, digits);
   if (stopLoss === undefined) {
     ctx.setFeedback({ kind: "error", message: `sl invalide : "${slRaw}" — ${TRADE_MANUAL_USAGE}` });
     return;
   }
 
-  const takeProfit = parsePrice(tpRaw);
+  const takeProfit = parsePrice(tpRaw, digits);
   if (takeProfit === undefined) {
     ctx.setFeedback({ kind: "error", message: `tp invalide : "${tpRaw}" — ${TRADE_MANUAL_USAGE}` });
     return;
@@ -82,7 +83,12 @@ function runManual(symbolId: number, args: string[], ctx: CommandContext): void 
 
   ctx.setFeedback({ kind: "info", message: "calcul en cours…" });
   void Effect.runPromise(
-    prepareTrade(ctx.client, symbolId, { entry, riskPercent, stopLoss, takeProfit }),
+    prepareTrade(
+      ctx.client,
+      symbolId,
+      { entry, riskPercent, stopLoss, takeProfit },
+      ctx.instrument?.lotSize ?? 100,
+    ),
   ).then(ctx.proposeTrade, (error) =>
     ctx.setFeedback({ kind: "error", message: toMessage(error) }),
   );
@@ -105,8 +111,9 @@ function runAtr(symbolId: number, args: string[], ctx: CommandContext): void {
     return;
   }
 
+  const digits = ctx.instrument?.digits ?? 2;
   const isMarket = entryRaw.toLowerCase() === "market";
-  const entry = isMarket ? ("market" as const) : parsePrice(entryRaw);
+  const entry = isMarket ? ("market" as const) : parsePrice(entryRaw, digits);
   if (entry === undefined) {
     ctx.setFeedback({
       kind: "error",
@@ -135,14 +142,19 @@ function runAtr(symbolId: number, args: string[], ctx: CommandContext): void {
 
   ctx.setFeedback({ kind: "info", message: "calcul ATR en cours…" });
   void Effect.runPromise(
-    prepareAtrTrade(ctx.client, symbolId, {
-      tradeSide: side,
-      entry,
-      riskPercent,
-      rewardRiskRatio,
-      atrPeriod: ctx.atrPeriod,
-      atrTimeframe: ctx.atrTimeframe,
-    }),
+    prepareAtrTrade(
+      ctx.client,
+      symbolId,
+      {
+        tradeSide: side,
+        entry,
+        riskPercent,
+        rewardRiskRatio,
+        atrPeriod: ctx.atrPeriod,
+        atrTimeframe: ctx.atrTimeframe,
+      },
+      { lotSize: ctx.instrument?.lotSize ?? 100, digits: ctx.instrument?.digits ?? 2 },
+    ),
   ).then(ctx.proposeTrade, (error) =>
     ctx.setFeedback({ kind: "error", message: toMessage(error) }),
   );

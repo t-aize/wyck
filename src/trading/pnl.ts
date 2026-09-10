@@ -1,44 +1,38 @@
 import type { TradeSide } from "../ctrader/schemas.ts";
 
 /**
- * P&L latent d'une position ouverte, calculé plutôt que lu : l'API cTrader (Open API
- * `ProtoOAPosition`, que ce MCP reflète — cf. commentaire sur `CtraderPositionSchema` dans
- * ctrader/schemas.ts)
- * n'expose aucun champ de profit latent, seulement des données réalisées (swap,
- * commission). Mark-to-market au bid pour un long (prix de sortie si on clôturait
- * maintenant), à l'ask pour un short — convention standard, cohérente avec le reste du
- * domaine trading qui déduit toujours le prix de référence du côté de la position.
+ * P&L latent d'une position ouverte, calculé plutôt que lu : l'API cTrader n'expose
+ * aucun champ de profit latent. Mark-to-market au bid pour un long, à l'ask pour un
+ * short. `volume` est le volume API (1/100 d'unité de base) — P&L = Δprix × volume/100,
+ * indépendant de la classe d'actif tant que le compte est dans la devise de cotation.
  */
 export function computeUnrealizedPnl(
   side: TradeSide,
-  volumeLots: number,
+  volume: number,
   entryPrice: number,
   bid: number,
   ask: number,
 ): number {
   const markPrice = side === "BUY" ? bid : ask;
   const priceDiff = side === "BUY" ? markPrice - entryPrice : entryPrice - markPrice;
-  return priceDiff * volumeLots * 100;
+  return priceDiff * (volume / 100);
 }
 
-/** `computeUnrealizedPnl`, mais ne calcule que si les cinq entrées sont disponibles — évite de
- * retaper cette garde à chaque site d'affichage (CloseConfirmModal, PositionsPanel) qui reçoit ces
- * valeurs potentiellement absentes (mapping de position incomplet, prix pas encore chargé). */
 export function computeUnrealizedPnlOrUndefined(
   side: TradeSide | undefined,
-  volumeLots: number | undefined,
+  volume: number | undefined,
   entryPrice: number | undefined,
   bid: number | undefined,
   ask: number | undefined,
 ): number | undefined {
   if (
     side === undefined ||
-    volumeLots === undefined ||
+    volume === undefined ||
     entryPrice === undefined ||
     bid === undefined ||
     ask === undefined
   ) {
     return undefined;
   }
-  return computeUnrealizedPnl(side, volumeLots, entryPrice, bid, ask);
+  return computeUnrealizedPnl(side, volume, entryPrice, bid, ask);
 }

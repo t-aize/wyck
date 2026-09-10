@@ -8,6 +8,7 @@ import type {
   CtraderOrder,
   GetPositionsResult,
 } from "../ctrader/schemas.ts";
+import type { InstrumentSpecs } from "../instrument/specs.ts";
 import type { PreparedTrade } from "../trading/types.ts";
 import type { Feedback } from "../ui/feedback.ts";
 
@@ -21,6 +22,9 @@ import type { Feedback } from "../ui/feedback.ts";
 export interface CommandContext {
   client: CtraderClient;
   symbolId: number | undefined;
+  instrument: InstrumentSpecs | undefined;
+  catalog: InstrumentSpecs[];
+  selectSymbol: (name: string) => boolean;
   positions: GetPositionsResult | undefined;
   /** Basculé par Shift+Tab (cf. `useTerminalShortcuts.ts`), lu ici en lecture seule par `trade`. */
   atrMode: boolean;

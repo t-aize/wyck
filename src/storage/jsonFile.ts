@@ -1,6 +1,6 @@
 /**
- * I/O JSON partagé par les stores disque de l'app (cf. `settings.ts`, `trading/atrTradeStore.ts`,
- * `news/calendar.ts`) — tous dans `APP_DATA_DIR` (cf. constants.ts), tous avec la même discipline
+ * I/O JSON partagé par les stores disque de l'app (cf. `settings.ts`, `trading/atrTradeStore.ts`)
+ * — tous dans `APP_DATA_DIR` (cf. constants.ts), tous avec la même discipline
  * qu'avant ce regroupement : lecture tolérante à tout (fichier absent, JSON invalide, format d'une
  * version antérieure -> `undefined`, jamais un échec — à l'appelant de fournir la valeur de repli),
  * écriture qui échoue "tel quel" (`PlatformError`) en laissant l'appelant décider s'il doit remonter

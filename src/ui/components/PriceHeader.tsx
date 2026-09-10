@@ -12,10 +12,8 @@ const WIDE_SPREAD_RATIO = 1.5;
 /** Sous ce nombre d'échantillons, la médiane n'est pas assez fiable (ex : juste après connexion)
  * pour servir de référence — pas d'alerte plutôt qu'un faux positif. */
 const MIN_SPREAD_SAMPLES = 5;
-/** Seuil absolu ($ sur XAUUSD) au-delà duquel le spread est signalé "trop grand" quelle que soit
- * sa médiane récente — complète le seuil relatif ci-dessus, qui ne réagit pas si le spread est
- * déjà large en continu (médiane elle-même élevée) ou avant d'avoir assez d'historique. */
-const MAX_SPREAD_DOLLARS = 1;
+/** Spread "trop large" en pips, quelle que soit la médiane récente. */
+const MAX_SPREAD_PIPS = 10;
 
 /** Médiane simple — moins sensible qu'une moyenne à un pic isolé (une bougie de news) dans la
  * fenêtre de référence du spread. */
@@ -28,6 +26,9 @@ function median(values: number[]): number {
 
 interface PriceHeaderProps {
   symbol: string;
+  digits?: number;
+  pipSize?: number;
+  onSymbolClick?: () => void;
   bid: number | undefined;
   ask: number | undefined;
   /** Prix moyen des derniers polls (cf. useMarketData) — rendu en sparkline à côté du bid/ask. */
@@ -47,6 +48,9 @@ interface PriceHeaderProps {
 
 export function PriceHeader({
   symbol,
+  digits = 2,
+  pipSize = 0.1,
+  onSymbolClick,
   bid,
   ask,
   priceHistory,
@@ -93,7 +97,8 @@ export function PriceHeader({
     spreadHistory.length >= MIN_SPREAD_SAMPLES &&
     spreadBaseline > 0 &&
     spread > spreadBaseline * WIDE_SPREAD_RATIO;
-  const isAbsolutelyWide = spread !== undefined && spread / PRICE_SCALE > MAX_SPREAD_DOLLARS;
+  const isAbsolutelyWide =
+    spread !== undefined && pipSize > 0 && spread / PRICE_SCALE / pipSize > MAX_SPREAD_PIPS;
   const spreadColor = isRelativelyWide || isAbsolutelyWide ? theme.red : theme.textMuted;
 
   const sessions = activeMarketSessions(now);
@@ -114,7 +119,13 @@ export function PriceHeader({
         <text attributes={TextAttributes.BOLD} fg={theme.accent}>
           AURUM
         </text>
-        <text fg={theme.textDim}>{symbol}</text>
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: hit-target TUI OpenTUI, pas un élément web */}
+        <box flexDirection="row" onMouseUp={onSymbolClick}>
+          <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+            {symbol}
+          </text>
+          <text fg={theme.textMuted}> ▾</text>
+        </box>
       </box>
 
       <box flexDirection="row" alignItems="center" columnGap={1}>
@@ -122,13 +133,13 @@ export function PriceHeader({
           <>
             <text fg={directionColor}>{directionIcon}</text>
             <text attributes={TextAttributes.BOLD} fg={theme.accent}>
-              {formatPrice(bid)}
+              {formatPrice(bid, digits)}
             </text>
-            <text fg={theme.textMuted}> / {formatPrice(ask)}</text>
+            <text fg={theme.textMuted}> / {formatPrice(ask, digits)}</text>
             {spread !== undefined && (
               <text fg={spreadColor}>
                 {" · "}
-                {formatPrice(spread)}
+                {formatPrice(spread, digits)}
               </text>
             )}
             {priceHistory.length >= 2 && (

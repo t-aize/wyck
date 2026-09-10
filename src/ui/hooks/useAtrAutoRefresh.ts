@@ -57,6 +57,8 @@ async function runRefresh(
   refreshMarket: () => Promise<void>,
   atrPeriod: number,
   atrTimeframe: TrendbarPeriod,
+  lotSize: number,
+  digits: number,
 ): Promise<void> {
   const trades = await fsRuntime.runPromise(readAtrTrades());
   if (trades.length === 0) return;
@@ -86,6 +88,7 @@ async function runRefresh(
         record.tradeSide,
         atr,
         record.rewardRiskRatio,
+        digits,
       );
 
       // Le volume est recalculé à chaque passe, pas juste figé à la prise du trade : si l'ATR
@@ -94,7 +97,9 @@ async function runRefresh(
       // stop obtenus au lieu de 10$ si l'ATR double entretemps). `atr` sert de distance de stop, même
       // formule qu'à la création (cf. prepareAtr.ts).
       const riskAmount = (equity / 10 ** moneyDigits) * (record.riskPercent / 100);
-      const volumeResult = await Effect.runPromise(Effect.either(computeVolume(riskAmount, atr)));
+      const volumeResult = await Effect.runPromise(
+        Effect.either(computeVolume(riskAmount, atr, lotSize)),
+      );
       // Volume sous le minimum du compte (ATR devenu trop large pour ce risque%) : on ne peut pas
       // resynchroniser le risque à la baisse, mais on met quand même le SL/TP à jour plutôt que de
       // tout bloquer — `toAmendOrderParams` garde `order.volume` tel quel si `volume` n'est pas fourni.
@@ -135,7 +140,7 @@ export function useAtrAutoRefresh(opts: {
   atrPeriod: number;
   atrTimeframe: TrendbarPeriod;
 }): AtrAutoRefresh {
-  const { client, symbolId } = useCtrader();
+  const { client, symbolId, instrument } = useCtrader();
   const { setFeedback } = useFeedback();
   const [trackedOrderIds, setTrackedOrderIds] = useState(EMPTY_TRACKED_IDS);
 
@@ -156,6 +161,8 @@ export function useAtrAutoRefresh(opts: {
   // `atrTimeframe` n'est PAS dans ce ref : un changement de timeframe doit redémarrer la boucle
   // ci-dessous avec la nouvelle cadence, contrairement à `atrPeriod` (n'affecte que le calcul, pas
   // le rythme de refresh) qui peut rester lu via le ref sans redémarrage.
+  const lotSize = instrument?.lotSize ?? 100;
+  const digits = instrument?.digits ?? 2;
   const latestRef = useRef({
     client,
     symbolId,
@@ -163,6 +170,8 @@ export function useAtrAutoRefresh(opts: {
     refreshMarket: opts.refreshMarket,
     setFeedback,
     atrPeriod: opts.atrPeriod,
+    lotSize,
+    digits,
   });
   latestRef.current = {
     client,
@@ -171,6 +180,8 @@ export function useAtrAutoRefresh(opts: {
     refreshMarket: opts.refreshMarket,
     setFeedback,
     atrPeriod: opts.atrPeriod,
+    lotSize,
+    digits,
   };
 
   useEffect(() => {
@@ -193,6 +204,8 @@ export function useAtrAutoRefresh(opts: {
             current.refreshMarket,
             current.atrPeriod,
             opts.atrTimeframe,
+            current.lotSize,
+            current.digits,
           );
         }
         scheduleNext();
@@ -222,6 +235,8 @@ export function useAtrAutoRefresh(opts: {
       opts.refreshMarket,
       opts.atrPeriod,
       opts.atrTimeframe,
+      lotSize,
+      digits,
     );
   }, [
     opts.enabled,
@@ -232,6 +247,8 @@ export function useAtrAutoRefresh(opts: {
     opts.atrPeriod,
     opts.atrTimeframe,
     setFeedback,
+    lotSize,
+    digits,
   ]);
 
   return { enabled: opts.enabled, trackedOrderIds };

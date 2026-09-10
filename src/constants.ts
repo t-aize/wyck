@@ -2,22 +2,20 @@
  * Constantes partagées entre plusieurs modules qui, sinon, s'importeraient
  * mutuellement (cycle d'import, plante au démarrage selon l'ordre — vérifié en
  * pratique). En dépendant tous de ce fichier neutre, aucun n'a besoin d'importer
- * son propre importeur. Les fonctions dérivées de ces valeurs (roundPrice, toLots,
- * toPips) vivent dans utils/priceMath.ts — ce fichier ne garde que les valeurs.
+ * son propre importeur. Les fonctions dérivées (roundPrice, toLots, toPips)
+ * vivent dans utils/priceMath.ts — ce fichier ne garde que les valeurs.
  */
 
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** Seul symbole tradé par ce panel — pas un réglage, un choix de scope du projet. */
-export const SYMBOL = "XAUUSD";
+/** Symbole par défaut au premier lancement — ensuite persisté dans settings.json. */
+export const DEFAULT_SYMBOL = "XAUUSD";
 
 /** Dossier de données de l'app dans le homedir (config, cache) — indépendant du dossier de lancement. */
 export const APP_DATA_DIR = join(homedir(), ".aurum");
 
-/** Proposée par `settings url` (cf. commands/settings.ts) quand aucun argument n'est fourni — texte
- * affiché dans la ligne de feedback, sélectionnable/copiable via le copier-coller déjà supporté par
- * le terminal (cf. useTerminalShortcuts.ts). */
+/** Proposée par `settings url` (cf. commands/settings.ts) quand aucun argument n'est fourni. */
 export const DEFAULT_MCP_URL = "https://mcp.ctrader.com/trading/mcp";
 
 export const TRENDBAR_PERIODS = [
@@ -33,12 +31,9 @@ export const TRENDBAR_PERIODS = [
 ] as const;
 export type TrendbarPeriod = (typeof TRENDBAR_PERIODS)[number];
 
-/** Durée d'une bougie par timeframe, pour aligner le refresh auto ATR sur sa vraie clôture (cf.
- * useAtrAutoRefresh.ts#nextAtrBoundaryMs) et dimensionner la fenêtre de fetch (cf.
- * atr.ts#fetchAtr). Approximatif pour D_1/W_1/MN_1 : `Math.ceil(now / ms) * ms` suppose des bougies
- * de taille fixe alignées sur epoch 0, ce qui ne correspond ni aux vraies bornes de session (weekend
- * cTrader) ni à un mois calendaire réel — sans conséquence pratique ici, ces timeframes servent tout
- * au plus à une distance ATR large, pas à un refresh cadencé à la minute près. */
+/** Durée d'une bougie par timeframe, pour aligner le refresh auto ATR sur sa vraie clôture.
+ * Approximatif pour D_1/W_1/MN_1 : `Math.ceil(now / ms) * ms` suppose des bougies de taille
+ * fixe alignées sur epoch 0. */
 export const TRENDBAR_PERIOD_MS: Record<TrendbarPeriod, number> = {
   M_1: 60_000,
   M_5: 5 * 60_000,
@@ -51,13 +46,5 @@ export const TRENDBAR_PERIOD_MS: Record<TrendbarPeriod, number> = {
   MN_1: 30 * 24 * 60 * 60_000,
 };
 
-/** Prix cTrader : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
+/** Prix cTrader spot/trendbar : entier à l'échelle x10^5 (ex: 410177000 → 4101.77). */
 export const PRICE_SCALE = 100_000;
-
-/**
- * XAUUSD (métaux) : 1 lot = 100 onces, prix coté en $/once. Volume API = onces × 100
- * (cf. commentaire équivalent dans PositionsPanel.tsx). Seul symbole tradé ici — à
- * revoir si d'autres classes d'actifs sont ajoutées un jour (lotSize/valeur du point
- * diffèrent : forex, indices, crypto).
- */
-export const LOT_VOLUME = 10_000; // 1.00 lot en unités API

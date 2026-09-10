@@ -43,7 +43,6 @@
 
 import { z } from "zod";
 import { TRENDBAR_PERIODS, type TrendbarPeriod } from "../constants.ts";
-import { toLots } from "../utils/priceMath.ts";
 
 // ─── Enums (zod : validés côté Results, cf. commentaire en tête de fichier) ─
 
@@ -76,15 +75,6 @@ export type HistoricalOrderType = z.infer<typeof HistoricalOrderTypeSchema>;
 const PermissiveRecordSchema = z.record(z.string(), z.unknown());
 
 // ─── Compte ─────────────────────────────────────────────────────────────
-
-export const GetVersionResultSchema = z.object({
-  service: z.string(),
-  version: z.string(),
-  springBootVersion: z.string(),
-  javaVersion: z.string(),
-  buildTime: z.string(),
-});
-export type GetVersionResult = z.infer<typeof GetVersionResultSchema>;
 
 export const GetBalanceResultSchema = z.object({
   /** Valeur entière à l'échelle `moneyDigits` (ex: moneyDigits=2 → centimes) */
@@ -199,18 +189,16 @@ function readTradeSide(record: Record<string, unknown>): TradeSide | undefined {
  * commission, swap }` — `volume`/`entryPrice` valent `0` sur le stub de position associé
  * à un ordre pending pas encore rempli (ex: champ `position` de la réponse `create_order`
  * pour un LIMIT). Pas de champ de P&L latent ni d'`openTimestamp` observé sur cette forme.
- * Projetée (`.transform()`, jamais en échec) sur les seuls champs utiles à `PositionsPanel.tsx` —
- * `symbolId`/`commission` ignorés faute de consommateur aujourd'hui, à réintroduire si un jour
- * nécessaire plutôt que de les porter sans usage.
+ * Projetée (`.transform()`, jamais en échec) sur les champs utiles à l'UI. `volume` reste
+ * en unités API : le passage en lots dépend du lotSize du symbole (cf. instrument/specs.ts),
+ * connu seulement après `get_symbols`/`get_assets`.
  */
 export const CtraderPositionSchema = PermissiveRecordSchema.transform((position) => {
-  const volume = readNumber(position, ["volume"]);
   return {
     id: readNumber(position, ["positionId"]),
+    symbolId: readNumber(position, ["symbolId"]),
     side: readTradeSide(position),
-    // lotSize métaux = 100 → volume(1/100 unités) / 10000 = lots. Approximation valable pour XAUUSD,
-    // seul symbole tradé par ce panel — à revoir si d'autres classes d'actifs sont ajoutées un jour.
-    volumeLots: volume === undefined ? undefined : toLots(volume),
+    volume: readNumber(position, ["volume"]),
     entry: readNumber(position, ["entryPrice"]),
     stopLoss: readNumber(position, ["stopLoss"]),
     takeProfit: readNumber(position, ["takeProfit"]),
@@ -219,15 +207,11 @@ export const CtraderPositionSchema = PermissiveRecordSchema.transform((position)
 });
 export type CtraderPosition = z.infer<typeof CtraderPositionSchema>;
 
-/** `CtraderPosition` dont `id` a été confirmé résolu (potentiellement absent sur un mapping
- * incomplet, cf. commentaire sur `CtraderPositionSchema` ci-dessus) — le sous-ensemble
- * réellement actionnable pour amend/close, plutôt que de retaper `CtraderPosition & { id: number }`
- * à chaque site d'appel. */
+/** `CtraderPosition` dont `id` a été confirmé résolu. */
 export type AmendablePosition = CtraderPosition & { id: number };
 
-/** `AmendablePosition` dont `volumeLots` a lui aussi été confirmé résolu — nécessaire pour calculer
- * le volume de clôture (cf. trading/amendParams.ts#toClosePositionParams). */
-export type ClosablePosition = AmendablePosition & { volumeLots: number };
+/** `AmendablePosition` dont `volume` API a lui aussi été confirmé résolu. */
+export type ClosablePosition = AmendablePosition & { volume: number };
 
 /**
  * Vérifié via get_order_history (10 ordres réels, XAUUSD). Les champs propres aux
@@ -254,81 +238,19 @@ export const CtraderOrderSchema = z.object({
 });
 export type CtraderOrder = z.infer<typeof CtraderOrderSchema>;
 
-/** Vérifié via get_deals (4 deals réels, XAUUSD). */
-export const CtraderDealSchema = z.object({
-  dealId: z.number(),
-  orderId: z.number(),
-  positionId: z.number(),
-  symbolId: z.number(),
-  tradeSide: TradeSideSchema,
-  volume: z.number(),
-  filledVolume: z.number(),
-  /** Prix affiché (pas à l'échelle x10^5, contrairement à CtraderSpotPrice/CtraderTrendbar) */
-  executionPrice: z.number(),
-  /** Epoch ms */
-  executionTimestamp: z.number(),
-  /** Seule valeur observée : "FILLED". Les autres statuts possibles ne sont pas vérifiés. */
-  dealStatus: z.string(),
-  /** Valeur signée à l'échelle moneyDigits (négatif = coût) */
-  commission: z.number(),
-});
-export type CtraderDeal = z.infer<typeof CtraderDealSchema>;
-
 export const GetPositionsResultSchema = z.object({
   positions: z.array(CtraderPositionSchema),
   orders: z.array(CtraderOrderSchema),
 });
 export type GetPositionsResult = z.infer<typeof GetPositionsResultSchema>;
 
-export interface GetPositionDetailsParams {
-  positionId: number;
-}
-
-/** Vérifié (compte démo) : `{ position, orders, deals }`, où `orders`/`deals` incluent
- * respectivement l'ordre d'ouverture et le deal d'exécution correspondant. Verrouillé (pas un
- * `z.record`) : contrairement aux schémas d'écriture, cet outil n'a aujourd'hui aucun appelant
- * dans `src/` (cf. client.ts) — un futur mismatch romprait la compilation/les tests avant de
- * jamais atteindre un utilisateur, pas de risque de "faux échec" en prod. `position` reste
- * `CtraderPositionSchema` (permissif) par cohérence avec le reste du fichier. */
-export const GetPositionDetailsResultSchema = z.object({
-  position: CtraderPositionSchema,
-  orders: z.array(CtraderOrderSchema),
-  deals: z.array(CtraderDealSchema),
-});
-export type GetPositionDetailsResult = z.infer<typeof GetPositionDetailsResultSchema>;
-
+/** Tous les ordres en attente du compte (tous symboles) — distinct de `get_positions.orders`,
+ * qui ne reprend souvent que les SL/TP attachés aux positions ouvertes. */
 export const GetPendingOrdersResultSchema = z.object({
   orders: z.array(CtraderOrderSchema),
   hasMore: z.boolean(),
 });
 export type GetPendingOrdersResult = z.infer<typeof GetPendingOrdersResultSchema>;
-
-/** Plage temporelle requise par get_order_history/get_deals — plafonnée à 720h (30 jours)
- * côté serveur. Partagée par les deux Params ci-dessous : même paire de champs, même contrainte. */
-interface TimestampRangeParams {
-  /** Epoch ms ou ISO-8601. */
-  fromTimestamp: string;
-  toTimestamp: string;
-}
-
-export type GetOrderHistoryParams = TimestampRangeParams;
-
-export const GetOrderHistoryResultSchema = z.object({
-  orders: z.array(CtraderOrderSchema),
-  hasMore: z.boolean(),
-});
-export type GetOrderHistoryResult = z.infer<typeof GetOrderHistoryResultSchema>;
-
-export interface GetDealsParams extends TimestampRangeParams {
-  /** Défaut serveur : 50 */
-  maxRows?: number;
-}
-
-export const GetDealsResultSchema = z.object({
-  deals: z.array(CtraderDealSchema),
-  hasMore: z.boolean(),
-});
-export type GetDealsResult = z.infer<typeof GetDealsResultSchema>;
 
 // ─── Trading (écriture — ordres réels) ──────────────────────────────────
 

@@ -12,7 +12,8 @@ export const SETTINGS_USAGE =
   "  settings token [<token>] — sans argument, indique si un token est déjà défini (jamais sa valeur) ; avec, l'enregistre et relance la connexion\n" +
   "  settings atrrefresh [on|off] — consulte/active/désactive le rafraîchissement auto du SL/TP des ordres ATR en attente (toutes les 60s)\n" +
   "  settings atrperiod [<n>] — consulte/règle la période de l'ATR (défaut 14)\n" +
-  `  settings atrtimeframe [<tf>] — consulte/règle le timeframe de l'ATR (défaut M_5) — ${TRENDBAR_PERIODS.join("|")}`;
+  `  settings atrtimeframe [<tf>] — consulte/règle le timeframe de l'ATR (défaut M_5) — ${TRENDBAR_PERIODS.join("|")}\n` +
+  "  settings symbol [<nom>] — consulte/règle le symbole tradé (liste cTrader, ex. XAUUSD, US100, BTCUSD)";
 
 /** Commande générique à un seul niveau (`settings <clé> [valeur]`) plutôt qu'une commande dédiée
  * par réglage — un seul point d'entrée pour tout futur réglage, pas de redesign nécessaire pour en
@@ -22,7 +23,7 @@ export const SETTINGS_USAGE =
 export const settingsCommand: Command = {
   name: "settings",
   usage: SETTINGS_USAGE,
-  summary: "consulte ou modifie les réglages de l'app (connexion MCP, rafraîchissement auto ATR)",
+  summary: "consulte ou modifie les réglages (MCP, ATR, symbole)",
   run(args, ctx) {
     const [key, value] = args;
 
@@ -34,7 +35,8 @@ export const settingsCommand: Command = {
           `token (${ctx.hasMcpToken ? "défini" : "non défini"}), ` +
           `atrrefresh (${ctx.atrRefreshEnabled ? "on" : "off"}), ` +
           `atrperiod (${ctx.atrPeriod}), ` +
-          `atrtimeframe (${ctx.atrTimeframe})`,
+          `atrtimeframe (${ctx.atrTimeframe}), ` +
+          `symbol (${ctx.instrument?.symbolName ?? "—"})`,
       });
       return;
     }
@@ -124,6 +126,43 @@ export const settingsCommand: Command = {
         }
         ctx.setAtrTimeframe(upper);
         ctx.setFeedback({ kind: "success", message: `timeframe ATR réglé sur ${upper}` });
+        return;
+      }
+
+      case "symbol": {
+        if (!value) {
+          ctx.setFeedback({
+            kind: "info",
+            message:
+              `symbole : ${ctx.instrument?.symbolName ?? "—"} — settings symbol <nom> ` +
+              "ou clic sur le symbole dans le header. " +
+              `${ctx.catalog.length} symboles disponibles côté cTrader.`,
+          });
+          return;
+        }
+        if (ctx.selectSymbol(value)) {
+          const resolved =
+            ctx.catalog.find((item) => item.symbolName.toUpperCase() === value.toUpperCase()) ??
+            ctx.catalog.find((item) =>
+              item.symbolName.toUpperCase().startsWith(value.toUpperCase()),
+            );
+          ctx.setFeedback({
+            kind: "success",
+            message: `symbole réglé sur ${resolved?.symbolName ?? value}`,
+          });
+          return;
+        }
+        const matches = ctx.catalog
+          .filter((item) => item.symbolName.toUpperCase().includes(value.toUpperCase()))
+          .slice(0, 8)
+          .map((item) => item.symbolName);
+        ctx.setFeedback({
+          kind: "error",
+          message:
+            matches.length > 0
+              ? `symbole introuvable : "${value}" — proches : ${matches.join(", ")}`
+              : `symbole introuvable : "${value}" — ${ctx.catalog.length} symboles côté serveur`,
+        });
         return;
       }
 

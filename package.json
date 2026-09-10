@@ -4,10 +4,13 @@
   "private": true,
   "license": "UNLICENSED",
   "author": "t-aize",
-  "description": "Panel de trading terminal (TUI) pour XAUUSD, connecté au MCP cTrader.",
+  "description": "Panel de trading terminal (TUI) multi-symboles, connecté au MCP cTrader.",
   "type": "module",
   "module": "src/index.tsx",
   "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "packages/*"
+  ],
   "engines": {
     "bun": ">=1.4.0"
   },
@@ -28,6 +31,7 @@
     "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}": "biome check --write --no-errors-on-unmatched"
   },
   "dependencies": {
+    "@aurum/news": "workspace:*",
     "@effect/platform": "^0.97.2",
     "@effect/platform-bun": "^0.91.2",
     "@modelcontextprotocol/sdk": "^1.30.0",
