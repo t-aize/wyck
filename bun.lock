@@ -6,14 +6,14 @@
       "name": "aurum",
       "dependencies": {
         "@aurum/news": "workspace:*",
-        "@effect/platform": "^0.97.2",
+        "@effect/platform": "catalog:",
         "@effect/platform-bun": "^0.91.2",
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@opentui/core": "^0.5.11",
         "@opentui/react": "^0.5.11",
-        "effect": "^3.22.2",
+        "effect": "catalog:",
         "react": "^19.3.0",
-        "zod": "^4.6.1",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@biomejs/biome": "^2.5.13",
@@ -34,11 +34,16 @@
       "name": "@aurum/news",
       "version": "0.2.0",
       "dependencies": {
-        "@effect/platform": "^0.97.2",
-        "effect": "^3.22.2",
-        "zod": "^4.6.1",
+        "@effect/platform": "catalog:",
+        "effect": "catalog:",
+        "zod": "catalog:",
       },
     },
+  },
+  "catalog": {
+    "@effect/platform": "^0.97.2",
+    "effect": "^3.22.2",
+    "zod": "^4.6.1",
   },
   "packages": {
     "@aurum/news": ["@aurum/news@workspace:packages/news"],
