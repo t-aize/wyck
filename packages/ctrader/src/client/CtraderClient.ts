@@ -18,8 +18,9 @@
  * timeout SDK 60 s — rejouer un `create_order` après un timeout risquerait de
  * dupliquer l'ordre si la première tentative avait en fait réussi.
  *
- * Construit en `new CtraderClient(config)`, passé en paramètre partout — pas de
- * DI Effect (`Context.Tag` / `Layer`) : l'app a déjà le client en main.
+ * Le SDK valide l'enveloppe MCP. Le JSON dans le bloc texte est lu tel quel
+ * (`as T`), sauf `get_positions` qui passe par {@link mapGetPositionsResult}
+ * (renommage `positionId` → `id`, jamais d'échec).
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -29,46 +30,27 @@ import {
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { Effect, Schedule } from "effect";
-import type { z } from "zod";
-import { type GetBalanceResult, GetBalanceResultSchema } from "../account/schemas.ts";
-import {
-  type GetPendingOrdersResult,
-  GetPendingOrdersResultSchema,
-  type GetPositionsResult,
-  GetPositionsResultSchema,
-} from "../book/schemas.ts";
-import {
-  type GetAssetsResult,
-  GetAssetsResultSchema,
-  type GetSpotPricesParams,
-  type GetSpotPricesResult,
-  GetSpotPricesResultSchema,
-  type GetSymbolsResult,
-  GetSymbolsResultSchema,
-  type GetTrendbarsParams,
-  type GetTrendbarsResult,
-  GetTrendbarsResultSchema,
-} from "../catalog/schemas.ts";
-import type {
-  AmendOrderParams,
-  AmendPositionParams,
-  CancelOrderParams,
-  ClosePositionParams,
-  CreateOrderParams,
-} from "../trading/params.ts";
-import {
-  type AmendOrderResult,
-  AmendOrderResultSchema,
-  type AmendPositionResult,
-  AmendPositionResultSchema,
-  type CancelOrderResult,
-  CancelOrderResultSchema,
-  type ClosePositionResult,
-  ClosePositionResultSchema,
-  type CreateOrderResult,
-  CreateOrderResultSchema,
-} from "../trading/results.ts";
-import { CtraderMcpError } from "./error.ts";
+import type { GetBalanceResult } from "../account/GetBalanceResult.ts";
+import type { GetPendingOrdersResult } from "../book/GetPendingOrdersResult.ts";
+import { type GetPositionsResult, mapGetPositionsResult } from "../book/GetPositionsResult.ts";
+import type { GetAssetsResult } from "../catalog/GetAssetsResult.ts";
+import type { GetSpotPricesParams } from "../catalog/GetSpotPricesParams.ts";
+import type { GetSpotPricesResult } from "../catalog/GetSpotPricesResult.ts";
+import type { GetSymbolsResult } from "../catalog/GetSymbolsResult.ts";
+import type { GetTrendbarsParams } from "../catalog/GetTrendbarsParams.ts";
+import type { GetTrendbarsResult } from "../catalog/GetTrendbarsResult.ts";
+import type { AmendOrderParams } from "../trading/AmendOrderParams.ts";
+import type { AmendOrderResult } from "../trading/AmendOrderResult.ts";
+import type { AmendPositionParams } from "../trading/AmendPositionParams.ts";
+import type { AmendPositionResult } from "../trading/AmendPositionResult.ts";
+import type { CancelOrderParams } from "../trading/CancelOrderParams.ts";
+import type { CancelOrderResult } from "../trading/CancelOrderResult.ts";
+import type { ClosePositionParams } from "../trading/ClosePositionParams.ts";
+import type { ClosePositionResult } from "../trading/ClosePositionResult.ts";
+import type { CreateOrderParams } from "../trading/CreateOrderParams.ts";
+import type { CreateOrderResult } from "../trading/CreateOrderResult.ts";
+import type { CtraderClientConfig } from "./CtraderClientConfig.ts";
+import { CtraderMcpError } from "./CtraderMcpError.ts";
 
 const CLIENT_INFO = { name: "aurum", version: "0.2.0" };
 
@@ -94,11 +76,6 @@ type ToolCallResult = Awaited<ReturnType<Client["callTool"]>>;
 type ModernToolResult = Extract<ToolCallResult, { content: unknown[] }>;
 type ToolContentBlock = ModernToolResult["content"][number];
 
-/**
- * Le SDK union « moderne (`content[]`) / legacy (`toolResult`) ». Les deux
- * portent un index signature, donc `"content" in result` ne narrow pas :
- * un garde explicite reste le seul moyen fiable.
- */
 function isModernToolResult(result: ToolCallResult): result is ModernToolResult {
   return Array.isArray((result as ModernToolResult).content);
 }
@@ -107,18 +84,6 @@ function isTextBlock(
   block: ToolContentBlock,
 ): block is Extract<ToolContentBlock, { type: "text" }> {
   return block.type === "text";
-}
-
-/**
- * Identifiants MCP (url + token), lus depuis `~/.aurum/settings.json`.
- * Pas de schéma zod : une URL / un token invalide échoue au premier appel
- * réseau plutôt qu'à la lecture du fichier.
- */
-export interface CtraderClientConfig {
-  /** URL du serveur MCP (ex. `https://mcp.ctrader.com/trading/mcp`). */
-  url: string;
-  /** Bearer token cTrader. */
-  token: string;
 }
 
 /**
@@ -199,7 +164,6 @@ export class CtraderClient {
 
   private call<T>(
     name: string,
-    schema: z.ZodType<T>,
     args: object = {},
     options?: { timeout?: number },
   ): Effect.Effect<T, CtraderMcpError> {
@@ -207,7 +171,6 @@ export class CtraderClient {
 
     return Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
-        // `signal` Effect : si la Fiber est interrompue, la requête HTTP est coupée.
         try: (signal) =>
           client.callTool(
             { name, arguments: args as Record<string, unknown> },
@@ -242,29 +205,15 @@ export class CtraderClient {
         return yield* Effect.fail(new CtraderMcpError(`L'outil ${name} n'a renvoyé aucun contenu`));
       }
 
-      const json = yield* Effect.try({
-        try: () => JSON.parse(text) as unknown,
+      return yield* Effect.try({
+        try: () => JSON.parse(text) as T,
         catch: () => new CtraderMcpError(`L'outil ${name} a renvoyé un contenu non-JSON : ${text}`),
       });
-
-      const parsed = schema.safeParse(json);
-      if (!parsed.success) {
-        return yield* Effect.fail(
-          new CtraderMcpError(
-            `L'outil ${name} a renvoyé une réponse inattendue : ${parsed.error.message}`,
-          ),
-        );
-      }
-      return parsed.data;
     });
   }
 
-  private callWithRetry<T>(
-    name: string,
-    schema: z.ZodType<T>,
-    args: object = {},
-  ): Effect.Effect<T, CtraderMcpError> {
-    return this.call(name, schema, args, { timeout: READ_TIMEOUT_MS }).pipe(
+  private callWithRetry<T>(name: string, args: object = {}): Effect.Effect<T, CtraderMcpError> {
+    return this.call<T>(name, args, { timeout: READ_TIMEOUT_MS }).pipe(
       Effect.retry({
         schedule: READ_RETRY_SCHEDULE,
         while: (error) => error.retryable,
@@ -274,22 +223,22 @@ export class CtraderClient {
 
   /** Solde, equity, marge libre — montants à l'échelle `moneyDigits`. */
   getBalance(): Effect.Effect<GetBalanceResult, CtraderMcpError> {
-    return this.callWithRetry("get_balance", GetBalanceResultSchema);
+    return this.callWithRetry("get_balance");
   }
 
   /** Catalogue des symboles du compte (tickers, base/quote asset ids). */
   getSymbols(): Effect.Effect<GetSymbolsResult, CtraderMcpError> {
-    return this.callWithRetry("get_symbols", GetSymbolsResultSchema);
+    return this.callWithRetry("get_symbols");
   }
 
   /** Assets (devises, métaux…) référencés par les symboles. */
   getAssets(): Effect.Effect<GetAssetsResult, CtraderMcpError> {
-    return this.callWithRetry("get_assets", GetAssetsResultSchema);
+    return this.callWithRetry("get_assets");
   }
 
   /** Bid / ask courants, prix en entier × 10⁵. */
   getSpotPrices(params: GetSpotPricesParams): Effect.Effect<GetSpotPricesResult, CtraderMcpError> {
-    return this.callWithRetry("get_spot_prices", GetSpotPricesResultSchema, params);
+    return this.callWithRetry("get_spot_prices", params);
   }
 
   /**
@@ -297,41 +246,41 @@ export class CtraderClient {
    * renvoyé une 400 malgré le schéma annoncé.
    */
   getTrendbars(params: GetTrendbarsParams): Effect.Effect<GetTrendbarsResult, CtraderMcpError> {
-    return this.callWithRetry("get_trendbars", GetTrendbarsResultSchema, params);
+    return this.callWithRetry("get_trendbars", params);
   }
 
   /** Positions ouvertes + ordres souvent limités aux SL/TP attachés. */
   getPositions(): Effect.Effect<GetPositionsResult, CtraderMcpError> {
-    return this.callWithRetry("get_positions", GetPositionsResultSchema);
+    return this.callWithRetry<unknown>("get_positions").pipe(Effect.map(mapGetPositionsResult));
   }
 
   /** Tous les pendings du compte, tous symboles — à fusionner avec `get_positions.orders`. */
   getPendingOrders(): Effect.Effect<GetPendingOrdersResult, CtraderMcpError> {
-    return this.callWithRetry("get_pending_orders", GetPendingOrdersResultSchema);
+    return this.callWithRetry("get_pending_orders");
   }
 
   /** Crée un ordre. **Pas de retry.** */
   createOrder(params: CreateOrderParams): Effect.Effect<CreateOrderResult, CtraderMcpError> {
-    return this.call("create_order", CreateOrderResultSchema, params);
+    return this.call("create_order", params);
   }
 
   /** Amend un ordre existant (payload complet, pas un patch). **Pas de retry.** */
   amendOrder(params: AmendOrderParams): Effect.Effect<AmendOrderResult, CtraderMcpError> {
-    return this.call("amend_order", AmendOrderResultSchema, params);
+    return this.call("amend_order", params);
   }
 
   /** Annule un ordre pending. **Pas de retry.** */
   cancelOrder(params: CancelOrderParams): Effect.Effect<CancelOrderResult, CtraderMcpError> {
-    return this.call("cancel_order", CancelOrderResultSchema, params);
+    return this.call("cancel_order", params);
   }
 
   /** Amend SL / TP d'une position ouverte. **Pas de retry.** */
   amendPosition(params: AmendPositionParams): Effect.Effect<AmendPositionResult, CtraderMcpError> {
-    return this.call("amend_position", AmendPositionResultSchema, params);
+    return this.call("amend_position", params);
   }
 
   /** Clôture (tout ou partie) une position. **Pas de retry.** */
   closePosition(params: ClosePositionParams): Effect.Effect<ClosePositionResult, CtraderMcpError> {
-    return this.call("close_position", ClosePositionResultSchema, params);
+    return this.call("close_position", params);
   }
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { OrderType, TradeSide } from "@aurum/ctrader";
 import { prepareTrade } from "./prepare.ts";
 import { fakeCtraderClient, runFail, runOk } from "./testUtils.ts";
 import { TradeValidationError } from "./types.ts";
@@ -22,8 +23,8 @@ describe("prepareTrade", () => {
       }),
     );
     expect(trade).toEqual({
-      orderType: "MARKET",
-      tradeSide: "BUY",
+      orderType: OrderType.MARKET,
+      tradeSide: TradeSide.BUY,
       entryPrice: 2001, // ask, side BUY at market
       stopLoss: 1990,
       takeProfit: 2020,
@@ -40,8 +41,8 @@ describe("prepareTrade", () => {
       prepareTrade(client, 1, { entry: 2010, riskPercent: 1, stopLoss: 2020, takeProfit: 1990 }),
     );
     expect(trade).toEqual({
-      orderType: "LIMIT",
-      tradeSide: "SELL",
+      orderType: OrderType.LIMIT,
+      tradeSide: TradeSide.SELL,
       entryPrice: 2010,
       stopLoss: 2020,
       takeProfit: 1990,

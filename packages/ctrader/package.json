@@ -4,14 +4,13 @@
   "private": true,
   "license": "UNLICENSED",
   "author": "t-aize",
-  "description": "Client MCP cTrader et schémas d'échange — paquet privé d'Aurum.",
+  "description": "Client MCP cTrader et types d'échange — paquet privé d'Aurum.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
-    "effect": "catalog:",
-    "zod": "catalog:"
+    "effect": "catalog:"
   }
 }

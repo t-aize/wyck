@@ -1,23 +1,24 @@
 import { describe, expect, test } from "bun:test";
+import { TradeSide } from "@aurum/ctrader";
 import { computeUnrealizedPnl, computeUnrealizedPnlOrUndefined } from "./pnl.ts";
 
 const GOLD_1_LOT = 10_000; // 1.00 lot XAUUSD en volume API
 
 describe("computeUnrealizedPnl", () => {
   test("BUY marks to bid", () => {
-    expect(computeUnrealizedPnl("BUY", GOLD_1_LOT, 2000, 2010, 2011)).toBe(1000);
+    expect(computeUnrealizedPnl(TradeSide.BUY, GOLD_1_LOT, 2000, 2010, 2011)).toBe(1000);
   });
 
   test("SELL marks to ask", () => {
-    expect(computeUnrealizedPnl("SELL", GOLD_1_LOT, 2000, 1990, 1991)).toBe(900);
+    expect(computeUnrealizedPnl(TradeSide.SELL, GOLD_1_LOT, 2000, 1990, 1991)).toBe(900);
   });
 
   test("scales with volume", () => {
-    expect(computeUnrealizedPnl("BUY", 25_000, 2000, 2010, 2011)).toBe(2500);
+    expect(computeUnrealizedPnl(TradeSide.BUY, 25_000, 2000, 2010, 2011)).toBe(2500);
   });
 
   test("a loss comes back negative", () => {
-    expect(computeUnrealizedPnl("BUY", GOLD_1_LOT, 2000, 1990, 1991)).toBe(-1000);
+    expect(computeUnrealizedPnl(TradeSide.BUY, GOLD_1_LOT, 2000, 1990, 1991)).toBe(-1000);
   });
 });
 
@@ -26,19 +27,21 @@ describe("computeUnrealizedPnlOrUndefined", () => {
     expect(
       computeUnrealizedPnlOrUndefined(undefined, GOLD_1_LOT, 2000, 2010, 2011),
     ).toBeUndefined();
-    expect(computeUnrealizedPnlOrUndefined("BUY", undefined, 2000, 2010, 2011)).toBeUndefined();
     expect(
-      computeUnrealizedPnlOrUndefined("BUY", GOLD_1_LOT, undefined, 2010, 2011),
+      computeUnrealizedPnlOrUndefined(TradeSide.BUY, undefined, 2000, 2010, 2011),
     ).toBeUndefined();
     expect(
-      computeUnrealizedPnlOrUndefined("BUY", GOLD_1_LOT, 2000, undefined, 2011),
+      computeUnrealizedPnlOrUndefined(TradeSide.BUY, GOLD_1_LOT, undefined, 2010, 2011),
     ).toBeUndefined();
     expect(
-      computeUnrealizedPnlOrUndefined("BUY", GOLD_1_LOT, 2000, 2010, undefined),
+      computeUnrealizedPnlOrUndefined(TradeSide.BUY, GOLD_1_LOT, 2000, undefined, 2011),
+    ).toBeUndefined();
+    expect(
+      computeUnrealizedPnlOrUndefined(TradeSide.BUY, GOLD_1_LOT, 2000, 2010, undefined),
     ).toBeUndefined();
   });
 
   test("delegates to computeUnrealizedPnl once everything is defined", () => {
-    expect(computeUnrealizedPnlOrUndefined("BUY", GOLD_1_LOT, 2000, 2010, 2011)).toBe(1000);
+    expect(computeUnrealizedPnlOrUndefined(TradeSide.BUY, GOLD_1_LOT, 2000, 2010, 2011)).toBe(1000);
   });
 });

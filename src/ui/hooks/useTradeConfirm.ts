@@ -1,3 +1,4 @@
+import { OrderType } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { recordAtrTrade } from "../../trading/atrTradeStore.ts";
 import { formatTradeSummary, toCreateOrderParams } from "../../trading/orderParams.ts";
@@ -15,8 +16,7 @@ export interface TradeConfirm {
   cancelPendingTrade: () => void;
 }
 
-/** `CreateOrderResult` est un `z.record` permissif (cf. ctrader/schemas.ts#WriteResultSchema,
- * commentaire : rien d'autre dans `src/` ne lit ses champs) — `orderId` n'est donc pas typé.
+/** `CreateOrderResult` est un {@link WriteResult} peu contractuel — `orderId` n'est pas garanti.
  * `undefined` plutôt qu'une exception si absent ou de forme inattendue : un ordre réellement créé
  * ne doit jamais apparaître en échec côté UI faute d'avoir pu extraire son id pour le suivi ATR. */
 function extractOrderId(result: Record<string, unknown>): number | undefined {
@@ -55,7 +55,7 @@ export function useTradeConfirm(opts: { refreshMarket: () => Promise<void> }): T
         // d'écriture du suivi ne doit jamais faire échouer un ordre par ailleurs bien créé
         // (`recordAtrTrade` avale déjà ses propres erreurs, cf. atrTradeStore.ts).
         Effect.tap((result) => {
-          if (trade.atrRewardRiskRatio === undefined || trade.orderType === "MARKET") {
+          if (trade.atrRewardRiskRatio === undefined || trade.orderType === OrderType.MARKET) {
             return Effect.void;
           }
           const orderId = extractOrderId(result);

@@ -5,7 +5,7 @@
  * `useAtrAutoRefresh.ts` toutes les 60s. */
 
 import { join } from "node:path";
-import { TradeSideSchema } from "@aurum/ctrader";
+import { TradeSide } from "@aurum/ctrader";
 import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { z } from "zod";
@@ -16,7 +16,7 @@ const STORE_PATH = join(APP_DATA_DIR, "atr-trades.json");
 
 const AtrTradeRecordSchema = z.object({
   orderId: z.number(),
-  tradeSide: TradeSideSchema,
+  tradeSide: z.nativeEnum(TradeSide),
   rewardRiskRatio: z.number(),
   /** Risque% d'origine du trade — recalculé à chaque passe de useAtrAutoRefresh.ts pour que le
    * volume suive l'ATR courant : sans ça, un SL qui s'écarte (ATR en hausse) avec un volume figé

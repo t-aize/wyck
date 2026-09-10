@@ -1,4 +1,4 @@
-import type { CtraderClient, CtraderMcpError, TradeSide } from "@aurum/ctrader";
+import { type CtraderClient, type CtraderMcpError, TradeSide } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { toLots } from "../utils/priceMath.ts";
 import { fetchTradeContext } from "./context.ts";
@@ -30,7 +30,7 @@ export function prepareTrade(
       );
     }
     // direction déduite du SL/TP : BUY si le SL est sous le TP, SELL sinon.
-    const side: TradeSide = stopLoss < takeProfit ? "BUY" : "SELL";
+    const side: TradeSide = stopLoss < takeProfit ? TradeSide.BUY : TradeSide.SELL;
     const reference = side === "BUY" ? ask : bid;
     const { entryPrice, orderType } = resolveEntry(side, input.entry, reference);
 

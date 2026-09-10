@@ -1,14 +1,24 @@
-import type { CtraderClient, CtraderMcpError } from "@aurum/ctrader";
+import { type CtraderClient, type CtraderMcpError, TrendbarPeriod } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
 import { computeStructure, type StructureReading } from "./bias.ts";
 import { detectSwings } from "./swings.ts";
 import type { StructureBar } from "./types.ts";
 
-export const STRUCTURE_PERIODS = ["M_1", "M_5", "M_15", "H_1"] as const;
+export const STRUCTURE_PERIODS = [
+  TrendbarPeriod.M_1,
+  TrendbarPeriod.M_5,
+  TrendbarPeriod.M_15,
+  TrendbarPeriod.H_1,
+] as const;
 export type StructurePeriod = (typeof STRUCTURE_PERIODS)[number];
 
-const PERIOD_MINUTES: Record<StructurePeriod, number> = { M_1: 1, M_5: 5, M_15: 15, H_1: 60 };
+const PERIOD_MINUTES: Record<StructurePeriod, number> = {
+  [TrendbarPeriod.M_1]: 1,
+  [TrendbarPeriod.M_5]: 5,
+  [TrendbarPeriod.M_15]: 15,
+  [TrendbarPeriod.H_1]: 60,
+};
 
 /** ~200 bougies clôturées par timeframe — assez pour plusieurs paires de swings confirmées ; en
  * dessous, le biais retombe naturellement sur "neutral" faute de swings à casser (cf. bias.ts),

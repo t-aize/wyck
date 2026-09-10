@@ -3,7 +3,7 @@ import {
   type CtraderMcpError,
   TRENDBAR_PERIOD_MS,
   type TradeSide,
-  type TrendbarPeriod,
+  TrendbarPeriod,
 } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
@@ -14,7 +14,7 @@ import { TradeValidationError } from "./types.ts";
  * atrtimeframe` (cf. commands/settings.ts, settings.ts#EMPTY_APP_CONFIG) — inchangés par rapport au
  * comportement d'avant ces réglages. */
 export const ATR_PERIOD = 14;
-export const ATR_TIMEFRAME: TrendbarPeriod = "M_5";
+export const ATR_TIMEFRAME: TrendbarPeriod = TrendbarPeriod.M_5;
 
 function trueRange(high: number, low: number, prevClose: number): number {
   return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));

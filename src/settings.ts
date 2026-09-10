@@ -12,7 +12,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { hostname, userInfo } from "node:os";
 import { join } from "node:path";
-import { type CtraderClientConfig, TRENDBAR_PERIODS, type TrendbarPeriod } from "@aurum/ctrader";
+import { type CtraderClientConfig, TrendbarPeriod } from "@aurum/ctrader";
 import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
@@ -36,7 +36,7 @@ const SettingsFileSchema = z.object({
   token: z.string().optional(),
   atrRefreshEnabled: z.boolean().optional(),
   atrPeriod: z.number().int().positive().optional(),
-  atrTimeframe: z.enum(TRENDBAR_PERIODS).optional(),
+  atrTimeframe: z.nativeEnum(TrendbarPeriod).optional(),
   symbol: z.string().min(1).optional(),
 });
 type SettingsFile = z.infer<typeof SettingsFileSchema>;

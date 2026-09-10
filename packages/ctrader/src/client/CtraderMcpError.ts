@@ -2,18 +2,18 @@
  * Échec d'un appel à un outil MCP cTrader.
  *
  * Une seule classe — transport (réseau / DNS / timeout), erreur explicite de
- * l'outil, réponse vide, contenu non-JSON, ou schéma zod inattendu. L'ancienne
- * hiérarchie de sous-types tagués n'était discriminée par aucun appelant (tous
- * affichent `.message`). Seule la distinction « échec de transport, donc
- * retryable » servait réellement, portée ici par {@link CtraderMcpError.retryable}.
+ * l'outil, réponse vide, ou contenu non-JSON. L'enveloppe MCP est déjà validée
+ * par le SDK (`CallToolResultSchema`). Le JSON *métier* n'est plus re-parsé
+ * par Zod : on lui fait confiance, ou on le mappe ({@link mapPosition}).
+ *
+ * Seule la distinction « retryable » compte pour le client : un 4xx (token,
+ * requête malformée) ne se répare pas en rejouant.
  */
 
 /**
- * Erreur d'un appel MCP.
- *
  * @param message - Texte affichable (l'app passe par `toMessage`).
  * @param retryable - `true` seulement pour un échec de transport (réseau, 5xx,
- *   timeout). Un 4xx (token, requête malformée) ne se répare pas en rejouant.
+ *   timeout). Un 4xx ne se répare pas en rejouant.
  */
 export class CtraderMcpError extends Error {
   constructor(

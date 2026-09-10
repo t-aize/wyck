@@ -1,4 +1,4 @@
-import type { OrderType, TradeSide } from "@aurum/ctrader";
+import { OrderType, TradeSide } from "@aurum/ctrader";
 import type { PreparedTrade } from "./types.ts";
 
 /** LIMIT/STOP déduit de la position de l'entrée par rapport au prix de référence (ask pour BUY, bid pour SELL). */
@@ -7,9 +7,9 @@ export function inferOrderType(
   entryPrice: number,
   referencePrice: number,
 ): OrderType {
-  if (entryPrice === referencePrice) return "MARKET";
-  if (side === "BUY") return entryPrice > referencePrice ? "STOP" : "LIMIT";
-  return entryPrice < referencePrice ? "STOP" : "LIMIT";
+  if (entryPrice === referencePrice) return OrderType.MARKET;
+  if (side === TradeSide.BUY) return entryPrice > referencePrice ? OrderType.STOP : OrderType.LIMIT;
+  return entryPrice < referencePrice ? OrderType.STOP : OrderType.LIMIT;
 }
 
 /** Résout le prix d'entrée effectif et le type d'ordre à partir de la direction (déduite du SL/TP,
@@ -21,6 +21,6 @@ export function resolveEntry(
 ): Pick<PreparedTrade, "entryPrice" | "orderType"> {
   const entryPrice = entry === "market" ? reference : entry;
   const orderType: OrderType =
-    entry === "market" ? "MARKET" : inferOrderType(side, entryPrice, reference);
+    entry === "market" ? OrderType.MARKET : inferOrderType(side, entryPrice, reference);
   return { entryPrice, orderType };
 }

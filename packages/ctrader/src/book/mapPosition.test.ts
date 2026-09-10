@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { CtraderPositionSchema } from "./position.ts";
+import { TradeSide } from "../protocol/TradeSide.ts";
+import { mapPosition } from "./CtraderPosition.ts";
 
-describe("CtraderPositionSchema", () => {
+describe("mapPosition", () => {
   test("maps a full real-shaped payload", () => {
-    const result = CtraderPositionSchema.parse({
+    const result = mapPosition({
       positionId: 7,
       symbolId: 1,
       tradeSide: "BUY",
@@ -17,7 +18,7 @@ describe("CtraderPositionSchema", () => {
     expect(result).toEqual({
       id: 7,
       symbolId: 1,
-      side: "BUY",
+      side: TradeSide.BUY,
       volume: 5000,
       entry: 2000,
       stopLoss: 1990,
@@ -27,7 +28,7 @@ describe("CtraderPositionSchema", () => {
   });
 
   test("a pending order's stub position (volume/entryPrice at 0) still maps", () => {
-    const result = CtraderPositionSchema.parse({
+    const result = mapPosition({
       positionId: 8,
       symbolId: 1,
       tradeSide: "SELL",
@@ -36,7 +37,7 @@ describe("CtraderPositionSchema", () => {
     });
     expect(result.id).toBe(8);
     expect(result.symbolId).toBe(1);
-    expect(result.side).toBe("SELL");
+    expect(result.side).toBe(TradeSide.SELL);
     expect(result.volume).toBe(0);
     expect(result.entry).toBe(0);
     expect(result.stopLoss).toBeUndefined();
@@ -44,7 +45,7 @@ describe("CtraderPositionSchema", () => {
   });
 
   test("missing/mistyped fields resolve to undefined instead of throwing", () => {
-    const result = CtraderPositionSchema.parse({
+    const result = mapPosition({
       positionId: "not-a-number",
       tradeSide: "HOLD",
     });
@@ -54,9 +55,8 @@ describe("CtraderPositionSchema", () => {
     expect(result.entry).toBeUndefined();
   });
 
-  test("an empty object is valid (permissive record) and maps to all-undefined", () => {
-    const result = CtraderPositionSchema.parse({});
-    expect(result).toEqual({
+  test("an empty object / non-object maps to all-undefined", () => {
+    const empty = {
       id: undefined,
       symbolId: undefined,
       side: undefined,
@@ -65,6 +65,8 @@ describe("CtraderPositionSchema", () => {
       stopLoss: undefined,
       takeProfit: undefined,
       swap: undefined,
-    });
+    };
+    expect(mapPosition({})).toEqual(empty);
+    expect(mapPosition(null)).toEqual(empty);
   });
 });

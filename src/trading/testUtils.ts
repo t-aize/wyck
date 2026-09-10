@@ -1,4 +1,4 @@
-import type { CtraderClient } from "@aurum/ctrader";
+import { type CtraderClient, TrendbarPeriod } from "@aurum/ctrader";
 import { Cause, Effect, Exit } from "effect";
 
 /** Exécute un Effect purement synchrone (aucune I/O) et retourne sa valeur de succès, ou fait
@@ -68,6 +68,6 @@ export function fakeCtraderClient(
         moneyDigits,
         depositAssetId: 1,
       }),
-    getTrendbars: () => Effect.succeed({ trendbars, symbolId: 1, period: "M_5" }),
+    getTrendbars: () => Effect.succeed({ trendbars, symbolId: 1, period: TrendbarPeriod.M_5 }),
   } as unknown as CtraderClient;
 }

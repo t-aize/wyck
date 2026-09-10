@@ -1,4 +1,4 @@
-import type { TradeSide } from "@aurum/ctrader";
+import { TradeSide } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { ATR_PERIOD, ATR_TIMEFRAME } from "../trading/atr.ts";
 import { prepareTrade } from "../trading/prepare.ts";
@@ -28,7 +28,9 @@ export const TRADE_USAGE = `${TRADE_MANUAL_USAGE}\n${tradeAtrUsage({ atrPeriod: 
  * `.toUpperCase()` avant comparaison : "buy"/"Buy"/"BUY" sont tous acceptés. */
 function parseSide(raw: string | undefined): TradeSide | undefined {
   const upper = raw?.toUpperCase();
-  return upper === "BUY" || upper === "SELL" ? upper : undefined;
+  if (upper === TradeSide.BUY) return TradeSide.BUY;
+  if (upper === TradeSide.SELL) return TradeSide.SELL;
+  return undefined;
 }
 
 function parseRiskPercent(raw: string | undefined): number | undefined {

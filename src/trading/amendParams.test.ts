@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import type { AmendablePosition, ClosablePosition, CtraderOrder } from "@aurum/ctrader";
+import {
+  type AmendablePosition,
+  type ClosablePosition,
+  type CtraderOrder,
+  HistoricalOrderType,
+  TradeSide,
+} from "@aurum/ctrader";
 import { toAmendOrderParams, toAmendPositionParams, toClosePositionParams } from "./amendParams.ts";
 
 const order: CtraderOrder = {
   orderId: 42,
   symbolId: 1,
-  orderType: "LIMIT",
-  tradeSide: "BUY",
+  orderType: HistoricalOrderType.LIMIT,
+  tradeSide: TradeSide.BUY,
   volume: 1000,
   limitPrice: 1990,
   stopPrice: undefined,
@@ -18,7 +24,7 @@ const order: CtraderOrder = {
 const position: AmendablePosition = {
   id: 7,
   symbolId: 1,
-  side: "SELL",
+  side: TradeSide.SELL,
   volume: 5000,
   entry: 2000,
   stopLoss: 2010,

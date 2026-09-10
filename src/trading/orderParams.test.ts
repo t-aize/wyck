@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { OrderType, TradeSide } from "@aurum/ctrader";
 import { formatTradeSummary, toCreateOrderParams } from "./orderParams.ts";
 import type { PreparedTrade } from "./types.ts";
 
 function trade(overrides: Partial<PreparedTrade> = {}): PreparedTrade {
   return {
-    orderType: "MARKET",
-    tradeSide: "BUY",
+    orderType: OrderType.MARKET,
+    tradeSide: TradeSide.BUY,
     entryPrice: 2000,
     stopLoss: 1990,
     takeProfit: 2020,
@@ -23,8 +24,8 @@ describe("toCreateOrderParams", () => {
     const params = toCreateOrderParams(1, trade());
     expect(params).toEqual({
       symbolId: 1,
-      orderType: "MARKET",
-      tradeSide: "BUY",
+      orderType: OrderType.MARKET,
+      tradeSide: TradeSide.BUY,
       volume: 1000,
       label: "aurum",
       relativeStopLoss: 1_000_000, // |2000-1990| * PRICE_SCALE
@@ -33,9 +34,9 @@ describe("toCreateOrderParams", () => {
   });
 
   test("LIMIT order: absolute SL/TP, limitPrice set, stopPrice absent", () => {
-    const params = toCreateOrderParams(1, trade({ orderType: "LIMIT", entryPrice: 1990 }));
+    const params = toCreateOrderParams(1, trade({ orderType: OrderType.LIMIT, entryPrice: 1990 }));
     expect(params).toMatchObject({
-      orderType: "LIMIT",
+      orderType: OrderType.LIMIT,
       limitPrice: 1990,
       stopPrice: undefined,
       stopLoss: 1990,
@@ -44,9 +45,9 @@ describe("toCreateOrderParams", () => {
   });
 
   test("STOP order: absolute SL/TP, stopPrice set, limitPrice absent", () => {
-    const params = toCreateOrderParams(1, trade({ orderType: "STOP", entryPrice: 2010 }));
+    const params = toCreateOrderParams(1, trade({ orderType: OrderType.STOP, entryPrice: 2010 }));
     expect(params).toMatchObject({
-      orderType: "STOP",
+      orderType: OrderType.STOP,
       stopPrice: 2010,
       limitPrice: undefined,
       stopLoss: 1990,

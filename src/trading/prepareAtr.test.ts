@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { OrderType, TradeSide } from "@aurum/ctrader";
 import { prepareAtrTrade } from "./prepareAtr.ts";
 import { fakeCtraderClient, runFail, runOk } from "./testUtils.ts";
 import { TradeValidationError } from "./types.ts";
@@ -26,14 +27,14 @@ describe("prepareAtrTrade", () => {
   test("BUY at market: entry resolves to ask, SL/TP derived from ATR and RR", () => {
     const trade = runOk(
       prepareAtrTrade(client, 1, {
-        tradeSide: "BUY",
+        tradeSide: TradeSide.BUY,
         entry: "market",
         riskPercent: 1,
         rewardRiskRatio: 1.2,
       }),
     );
-    expect(trade.orderType).toBe("MARKET");
-    expect(trade.tradeSide).toBe("BUY");
+    expect(trade.orderType).toBe(OrderType.MARKET);
+    expect(trade.tradeSide).toBe(TradeSide.BUY);
     expect(trade.entryPrice).toBe(2001); // ask
     expect(trade.stopLoss).toBe(1999); // entry - ATR(2)
     expect(trade.takeProfit).toBeCloseTo(2003.4, 10); // entry + ATR*1.2
@@ -46,7 +47,7 @@ describe("prepareAtrTrade", () => {
   test("SELL with an explicit entry price: SL above, TP below", () => {
     const trade = runOk(
       prepareAtrTrade(client, 1, {
-        tradeSide: "SELL",
+        tradeSide: TradeSide.SELL,
         entry: 1995,
         riskPercent: 1,
         rewardRiskRatio: 2,
@@ -63,7 +64,7 @@ describe("prepareAtrTrade", () => {
   test("rejects an invalid risk% before touching the network", () => {
     const error = runFail(
       prepareAtrTrade(client, 1, {
-        tradeSide: "BUY",
+        tradeSide: TradeSide.BUY,
         entry: "market",
         riskPercent: 0,
         rewardRiskRatio: 1.2,
@@ -76,7 +77,7 @@ describe("prepareAtrTrade", () => {
   test("rejects a non-positive reward:risk ratio", () => {
     const error = runFail(
       prepareAtrTrade(client, 1, {
-        tradeSide: "BUY",
+        tradeSide: TradeSide.BUY,
         entry: "market",
         riskPercent: 1,
         rewardRiskRatio: 0,
@@ -89,7 +90,7 @@ describe("prepareAtrTrade", () => {
     const thinClient = fakeCtraderClient({ trendbars: [] });
     const error = runFail(
       prepareAtrTrade(thinClient, 1, {
-        tradeSide: "BUY",
+        tradeSide: TradeSide.BUY,
         entry: "market",
         riskPercent: 1,
         rewardRiskRatio: 1.2,
@@ -101,7 +102,7 @@ describe("prepareAtrTrade", () => {
   test("propagates a computeVolume failure (risk% too small for the ATR distance)", () => {
     const error = runFail(
       prepareAtrTrade(client, 1, {
-        tradeSide: "BUY",
+        tradeSide: TradeSide.BUY,
         entry: "market",
         riskPercent: 0.0001,
         rewardRiskRatio: 1.2,

@@ -1,3 +1,4 @@
+import { TrendbarPeriod } from "@aurum/ctrader";
 import type { StructureReading } from "./bias.ts";
 import type { StructurePeriod } from "./fetch.ts";
 
@@ -14,7 +15,11 @@ export interface ScalpDirection {
 
 /** Timeframes subordonnés à H1, du plus lent au plus rapide — H1 lui-même n'y figure pas, c'est
  * l'autorité contre laquelle ils sont tous comparés (cf. `computeScalpDirection`). */
-const LOWER_TIMEFRAMES = ["M_15", "M_5", "M_1"] as const satisfies readonly StructurePeriod[];
+const LOWER_TIMEFRAMES = [
+  TrendbarPeriod.M_15,
+  TrendbarPeriod.M_5,
+  TrendbarPeriod.M_1,
+] as const satisfies readonly StructurePeriod[];
 
 /**
  * Agrège les quatre lectures M1/M5/M15/H1 déjà calculées indépendamment (cf. fetch.ts) en une seule

@@ -36,7 +36,6 @@
       "dependencies": {
         "@modelcontextprotocol/sdk": "catalog:",
         "effect": "catalog:",
-        "zod": "catalog:",
       },
     },
     "packages/news": {
