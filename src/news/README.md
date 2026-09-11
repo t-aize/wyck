@@ -1,13 +1,7 @@
-# `@aurum/news`
+# `src/news`
 
-Paquet **privé** : calendrier économique ForexFactory, profil d'un symbole, filtrage des
+Calendrier économique ForexFactory, profil d'un symbole, filtrage des
 événements et biais macro (haussier / baissier / neutre) selon la classe d'actif.
-
-Rien ici n'est public. `private: true` empêche un `npm publish` accidentel.
-`license: "UNLICENSED"` (identifiant SPDX) signifie **aucune licence accordée à
-autrui** — c'est la convention npm pour du code propriétaire, à côté du
-`LICENSE` racine (« tous droits réservés »). Les deux se complètent : `private`
-bloque la publication, `UNLICENSED` documente l'absence de droit de réutilisation.
 
 ## Source du calendrier
 
@@ -21,8 +15,7 @@ aussi de repli si le réseau lâche.
 ## Architecture
 
 ```
-src/
-  index.ts                 façade publique (réexport uniquement)
+src/news/
   calendar/                récupération + cache du flux ForexFactory
     schemas.ts             formes JSON (event, cache disque), parse permissif
     time.ts                fuseau Paris (affichage)
@@ -43,10 +36,13 @@ src/
 
 Les tests collent au dossier qu'ils couvrent (`profile/profile.test.ts`, etc.).
 
-## Usage (côté app)
+## Usage
 
 ```ts
-import { fetchCalendar, newsProfile, isDefaultVisible, instrumentBias } from "@aurum/news";
+import { instrumentBias } from "./news/analysis/bias.ts";
+import { isDefaultVisible } from "./news/analysis/relevance.ts";
+import { fetchCalendar } from "./news/calendar/fetch.ts";
+import { newsProfile } from "./news/profile/profile.ts";
 
 const profile = newsProfile({ symbolName: "US100", base: "US100", quote: "USD" });
 const events = await runtime.runPromise(fetchCalendar({ cacheDir: APP_DATA_DIR }));

@@ -1,4 +1,5 @@
-import type { OrderType, TradeSide } from "@aurum/ctrader";
+import type { OrderType } from "../ctrader/protocol/OrderType.ts";
+import type { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 
 /**
  * Erreur de validation métier d'un trade (risque%, prix indisponible, SL/TP incohérents, volume

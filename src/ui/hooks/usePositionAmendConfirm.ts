@@ -1,4 +1,4 @@
-import type { AmendablePosition } from "@aurum/ctrader";
+import type { AmendablePosition } from "../../ctrader/book/AmendablePosition.ts";
 import { toAmendPositionParams } from "../../trading/amendParams.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { usePendingAction } from "./usePendingAction.ts";

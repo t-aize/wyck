@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { TradeSide } from "@aurum/ctrader";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { atrLevels, computeAtr, fetchAtr } from "./atr.ts";
 import { fakeCtraderClient, runFail, runOk } from "./testUtils.ts";
 import { TradeValidationError } from "./types.ts";

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { TradeSide } from "@aurum/ctrader";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { computeUnrealizedPnl, computeUnrealizedPnlOrUndefined } from "./pnl.ts";
 
 const GOLD_1_LOT = 10_000; // 1.00 lot XAUUSD en volume API

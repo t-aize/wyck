@@ -1,11 +1,8 @@
-import {
-  type CtraderClient,
-  type GetPositionsResult,
-  TRENDBAR_PERIOD_MS,
-  type TrendbarPeriod,
-} from "@aurum/ctrader";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
+import type { GetPositionsResult } from "../../ctrader/book/GetPositionsResult.ts";
+import type { CtraderClient } from "../../ctrader/client/CtraderClient.ts";
+import { TRENDBAR_PERIOD_MS, type TrendbarPeriod } from "../../ctrader/protocol/TrendbarPeriod.ts";
 import { toAmendOrderParams } from "../../trading/amendParams.ts";
 import { atrLevels, fetchAtr } from "../../trading/atr.ts";
 import { readAtrTrades, removeAtrTrades } from "../../trading/atrTradeStore.ts";

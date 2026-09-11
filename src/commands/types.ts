@@ -1,13 +1,11 @@
 /** Contrat commun à toutes les commandes du CommandBar (`src/commands/*.ts`). */
 
-import type {
-  AmendablePosition,
-  ClosablePosition,
-  CtraderClient,
-  CtraderOrder,
-  GetPositionsResult,
-  TrendbarPeriod,
-} from "@aurum/ctrader";
+import type { AmendablePosition } from "../ctrader/book/AmendablePosition.ts";
+import type { ClosablePosition } from "../ctrader/book/ClosablePosition.ts";
+import type { CtraderOrder } from "../ctrader/book/CtraderOrder.ts";
+import type { GetPositionsResult } from "../ctrader/book/GetPositionsResult.ts";
+import type { CtraderClient } from "../ctrader/client/CtraderClient.ts";
+import type { TrendbarPeriod } from "../ctrader/protocol/TrendbarPeriod.ts";
 import type { InstrumentSpecs } from "../instrument/specs.ts";
 import type { PreparedTrade } from "../trading/types.ts";
 import type { Feedback } from "../ui/feedback.ts";

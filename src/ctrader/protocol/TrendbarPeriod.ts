@@ -2,7 +2,7 @@
  * Timeframe d'une bougie, identifiant `get_trendbars.period`.
  *
  * Vit ici (pas dans l'app) : {@link GetTrendbarsParams} et le client MCP en
- * dépendent. L'UI (ATR, `settings atrtimeframe`) réimporte depuis `@aurum/ctrader`.
+ * dépendent. L'UI (ATR, `settings atrtimeframe`) réimporte depuis `src/ctrader`.
  */
 export enum TrendbarPeriod {
   M_1 = "M_1",

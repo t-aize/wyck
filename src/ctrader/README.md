@@ -1,10 +1,6 @@
-# `@aurum/ctrader`
+# `src/ctrader`
 
-Paquet **privé** : client MCP cTrader et types d'échange.
-
-Rien ici n'est public. `private: true` empêche un `npm publish` accidentel.
-`license: "UNLICENSED"` (identifiant SPDX) signifie **aucune licence accordée à
-autrui** — convention npm pour du code propriétaire, à côté du `LICENSE` racine.
+Client MCP cTrader et types d'échange.
 
 ## Pas de Zod
 
@@ -21,8 +17,7 @@ Un fichier par enum, interface ou type.
 ## Architecture
 
 ```
-src/
-  index.ts                      façade publique
+src/ctrader/
   protocol/                     vocabulaire filaire (enums string)
     TradeSide.ts
     OrderType.ts
@@ -56,10 +51,12 @@ src/
 
 Les tests collent au dossier (`book/mapPosition.test.ts`).
 
-## Usage (côté app)
+## Usage
 
 ```ts
-import { CtraderClient, TradeSide, type CreateOrderParams } from "@aurum/ctrader";
+import { CtraderClient } from "./ctrader/client/CtraderClient.ts";
+import { TradeSide } from "./ctrader/protocol/TradeSide.ts";
+import type { CreateOrderParams } from "./ctrader/trading/CreateOrderParams.ts";
 
 const client = new CtraderClient({ url, token });
 await client.connect();

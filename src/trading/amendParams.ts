@@ -1,11 +1,9 @@
-import type {
-  AmendablePosition,
-  AmendOrderParams,
-  AmendPositionParams,
-  ClosablePosition,
-  ClosePositionParams,
-  CtraderOrder,
-} from "@aurum/ctrader";
+import type { AmendablePosition } from "../ctrader/book/AmendablePosition.ts";
+import type { ClosablePosition } from "../ctrader/book/ClosablePosition.ts";
+import type { CtraderOrder } from "../ctrader/book/CtraderOrder.ts";
+import type { AmendOrderParams } from "../ctrader/trading/AmendOrderParams.ts";
+import type { AmendPositionParams } from "../ctrader/trading/AmendPositionParams.ts";
+import type { ClosePositionParams } from "../ctrader/trading/ClosePositionParams.ts";
 /**
  * cTrader n'a pas d'amend partiel : tout champ non renvoyé sur `amend_order` est effacé côté
  * serveur (constaté sur limitPrice/stopPrice/SL/TP — cf. useModifyConfirm.ts). Seul point de

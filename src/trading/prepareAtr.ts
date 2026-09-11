@@ -1,5 +1,8 @@
-import type { CtraderClient, CtraderMcpError, TradeSide, TrendbarPeriod } from "@aurum/ctrader";
 import { Effect } from "effect";
+import type { CtraderClient } from "../ctrader/client/CtraderClient.ts";
+import type { CtraderMcpError } from "../ctrader/client/CtraderMcpError.ts";
+import type { TradeSide } from "../ctrader/protocol/TradeSide.ts";
+import type { TrendbarPeriod } from "../ctrader/protocol/TrendbarPeriod.ts";
 import { toLots } from "../utils/priceMath.ts";
 import { atrLevels, fetchAtr } from "./atr.ts";
 import { fetchTradeContext } from "./context.ts";

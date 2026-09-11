@@ -1,4 +1,4 @@
-import type { CtraderOrder } from "@aurum/ctrader";
+import type { CtraderOrder } from "../../ctrader/book/CtraderOrder.ts";
 import { toLots } from "../../utils/priceMath.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { formatPriceOrDash } from "../format.ts";

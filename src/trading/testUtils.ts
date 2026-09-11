@@ -1,5 +1,6 @@
-import { type CtraderClient, TrendbarPeriod } from "@aurum/ctrader";
 import { Cause, Effect, Exit } from "effect";
+import type { CtraderClient } from "../ctrader/client/CtraderClient.ts";
+import { TrendbarPeriod } from "../ctrader/protocol/TrendbarPeriod.ts";
 
 /** Exécute un Effect purement synchrone (aucune I/O) et retourne sa valeur de succès, ou fait
  * échouer le test si l'Effect a en fait échoué — évite de dupliquer ce dépliage `Exit` dans chaque

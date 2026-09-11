@@ -14,7 +14,7 @@ Passe par le MCP officiel de cTrader (`mcp.ctrader.com`). Teste sur un **compte 
 bun install
 ```
 
-Workspace Bun : le calendrier économique vit dans le paquet privé `@aurum/news`.
+Le calendrier économique vit dans `src/news`. Le client MCP cTrader vit dans `src/ctrader`.
 
 ## Configuration
 

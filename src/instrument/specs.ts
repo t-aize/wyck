@@ -1,5 +1,5 @@
 /**
- * Spécifications d'un symbole cTrader : classe d'actif (via @aurum/news), taille de lot,
+ * Spécifications d'un symbole cTrader : classe d'actif (via `src/news`), taille de lot,
  * digits, pip. `get_symbols` ne renvoie pas lotSize/digits — on les infère de la classe,
  * avec base/quote idéalement issus de `get_assets`.
  *
@@ -8,8 +8,10 @@
  * standard, le broker peut dévier.
  */
 
-import type { CtraderAsset, CtraderSymbol } from "@aurum/ctrader";
-import { type AssetClass, type NewsProfile, newsProfile } from "@aurum/news";
+import type { CtraderAsset } from "../ctrader/catalog/CtraderAsset.ts";
+import type { CtraderSymbol } from "../ctrader/catalog/CtraderSymbol.ts";
+import { newsProfile } from "../news/profile/profile.ts";
+import type { AssetClass, NewsProfile } from "../news/profile/types.ts";
 
 export interface InstrumentSpecs {
   symbolId: number;

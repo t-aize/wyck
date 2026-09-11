@@ -1,7 +1,8 @@
-import type { CtraderOrder, GetPositionsResult } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
 import { PRICE_SCALE } from "../../constants.ts";
+import type { CtraderOrder } from "../../ctrader/book/CtraderOrder.ts";
+import type { GetPositionsResult } from "../../ctrader/book/GetPositionsResult.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useCtrader } from "../context/CtraderContext.tsx";
 import { useInterval } from "./useInterval.ts";

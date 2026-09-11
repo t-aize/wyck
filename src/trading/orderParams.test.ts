@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { OrderType, TradeSide } from "@aurum/ctrader";
+import { OrderType } from "../ctrader/protocol/OrderType.ts";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { formatTradeSummary, toCreateOrderParams } from "./orderParams.ts";
 import type { PreparedTrade } from "./types.ts";
 

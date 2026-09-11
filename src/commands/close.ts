@@ -1,4 +1,6 @@
-import type { AmendablePosition, ClosablePosition, CtraderOrder } from "@aurum/ctrader";
+import type { AmendablePosition } from "../ctrader/book/AmendablePosition.ts";
+import type { ClosablePosition } from "../ctrader/book/ClosablePosition.ts";
+import type { CtraderOrder } from "../ctrader/book/CtraderOrder.ts";
 import { parseFiniteNumber } from "./_shared.ts";
 import type { Command } from "./types.ts";
 

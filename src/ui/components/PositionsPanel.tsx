@@ -1,4 +1,4 @@
-import type { GetPositionsResult } from "@aurum/ctrader";
+import type { GetPositionsResult } from "../../ctrader/book/GetPositionsResult.ts";
 import type { InstrumentSpecs } from "../../instrument/specs.ts";
 import type { SpotQuote } from "../hooks/useMarketData.ts";
 import { theme } from "../theme.ts";

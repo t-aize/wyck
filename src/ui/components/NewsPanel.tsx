@@ -1,14 +1,10 @@
-import {
-  type CalendarEvent,
-  type InstrumentBias,
-  instrumentBias,
-  isDefaultVisible,
-  type NewsProfile,
-  PARIS_TZ,
-  parisDayKeyFormat,
-} from "@aurum/news";
 import { TextAttributes } from "@opentui/core";
 import { useMemo } from "react";
+import { type InstrumentBias, instrumentBias } from "../../news/analysis/bias.ts";
+import { isDefaultVisible } from "../../news/analysis/relevance.ts";
+import type { CalendarEvent } from "../../news/calendar/schemas.ts";
+import { PARIS_TZ, parisDayKeyFormat } from "../../news/calendar/time.ts";
+import type { NewsProfile } from "../../news/profile/types.ts";
 import { alignLeft, formatRelative } from "../format.ts";
 import { DOWN, FLAT, UP } from "../glyphs.ts";
 import { theme } from "../theme.ts";

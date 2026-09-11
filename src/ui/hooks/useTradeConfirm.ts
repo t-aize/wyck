@@ -1,5 +1,5 @@
-import { OrderType } from "@aurum/ctrader";
 import { Effect } from "effect";
+import { OrderType } from "../../ctrader/protocol/OrderType.ts";
 import { recordAtrTrade } from "../../trading/atrTradeStore.ts";
 import { formatTradeSummary, toCreateOrderParams } from "../../trading/orderParams.ts";
 import type { PreparedTrade } from "../../trading/types.ts";

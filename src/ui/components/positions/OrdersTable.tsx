@@ -1,5 +1,5 @@
-import type { CtraderOrder } from "@aurum/ctrader";
 import { TextAttributes } from "@opentui/core";
+import type { CtraderOrder } from "../../../ctrader/book/CtraderOrder.ts";
 import type { InstrumentSpecs } from "../../../instrument/specs.ts";
 import { toLots, toPips } from "../../../utils/priceMath.ts";
 import { alignLeft, alignRight, formatPriceOrDash } from "../../format.ts";

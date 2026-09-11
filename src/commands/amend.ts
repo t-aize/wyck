@@ -1,4 +1,4 @@
-import type { AmendablePosition } from "@aurum/ctrader";
+import type { AmendablePosition } from "../ctrader/book/AmendablePosition.ts";
 import { parseFiniteNumber, parseFlags, parseOptionalPrice } from "./_shared.ts";
 import type { Command } from "./types.ts";
 

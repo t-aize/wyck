@@ -2,8 +2,9 @@
  * Connexion cTrader (client, statut, catalogue de symboles, instrument actif).
  */
 
-import { CtraderClient, type CtraderClientConfig } from "@aurum/ctrader";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import { CtraderClient } from "../../ctrader/client/CtraderClient.ts";
+import type { CtraderClientConfig } from "../../ctrader/client/CtraderClientConfig.ts";
 import type { InstrumentSpecs } from "../../instrument/specs.ts";
 import { useCtraderConnection } from "../hooks/useCtraderConnection.ts";
 

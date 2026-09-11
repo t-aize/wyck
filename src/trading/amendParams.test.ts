@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  type AmendablePosition,
-  type ClosablePosition,
-  type CtraderOrder,
-  HistoricalOrderType,
-  TradeSide,
-} from "@aurum/ctrader";
+import type { AmendablePosition } from "../ctrader/book/AmendablePosition.ts";
+import type { ClosablePosition } from "../ctrader/book/ClosablePosition.ts";
+import type { CtraderOrder } from "../ctrader/book/CtraderOrder.ts";
+import { HistoricalOrderType } from "../ctrader/protocol/HistoricalOrderType.ts";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { toAmendOrderParams, toAmendPositionParams, toClosePositionParams } from "./amendParams.ts";
 
 const order: CtraderOrder = {

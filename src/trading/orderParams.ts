@@ -1,5 +1,5 @@
-import type { CreateOrderParams } from "@aurum/ctrader";
 import { PRICE_SCALE } from "../constants.ts";
+import type { CreateOrderParams } from "../ctrader/trading/CreateOrderParams.ts";
 import type { PreparedTrade } from "./types.ts";
 
 function toPoints(priceDistance: number): number {

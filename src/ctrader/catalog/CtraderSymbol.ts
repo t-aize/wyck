@@ -2,7 +2,7 @@
  * Un symbole cTrader tel que `get_symbols` le renvoie.
  *
  * `symbolName` est le ticker **broker** (`XAUUSD`, `US100.r`…) : le suffixe est
- * conservé. La normalisation (classe d'actif, base/quote) vit dans `@aurum/news`.
+ * conservé. La normalisation (classe d'actif, base/quote) vit dans `src/news`.
  */
 export interface CtraderSymbol {
   symbolId: number;

@@ -5,11 +5,11 @@
  * `useAtrAutoRefresh.ts` toutes les 60s. */
 
 import { join } from "node:path";
-import { TradeSide } from "@aurum/ctrader";
 import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR } from "../constants.ts";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { readJsonFile, writeJsonFile } from "../storage/jsonFile.ts";
 
 const STORE_PATH = join(APP_DATA_DIR, "atr-trades.json");

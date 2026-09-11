@@ -12,12 +12,13 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { hostname, userInfo } from "node:os";
 import { join } from "node:path";
-import { type CtraderClientConfig, TrendbarPeriod } from "@aurum/ctrader";
 import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { Effect } from "effect";
 import { z } from "zod";
 import { APP_DATA_DIR, DEFAULT_SYMBOL } from "./constants.ts";
+import type { CtraderClientConfig } from "./ctrader/client/CtraderClientConfig.ts";
+import { TrendbarPeriod } from "./ctrader/protocol/TrendbarPeriod.ts";
 import { readJsonFile, writeJsonFile } from "./storage/jsonFile.ts";
 import { ATR_PERIOD, ATR_TIMEFRAME } from "./trading/atr.ts";
 

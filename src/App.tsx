@@ -1,5 +1,5 @@
-import type { TrendbarPeriod } from "@aurum/ctrader";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { TrendbarPeriod } from "./ctrader/protocol/TrendbarPeriod.ts";
 import { type AppConfig, EMPTY_APP_CONFIG, readConfig } from "./settings.ts";
 import { AmendConfirmModal } from "./ui/components/AmendConfirmModal.tsx";
 import { CancelConfirmModal } from "./ui/components/CancelConfirmModal.tsx";
@@ -9,7 +9,6 @@ import { Row } from "./ui/components/ConfirmModal.tsx";
 import { NewsPanel } from "./ui/components/NewsPanel.tsx";
 import { PositionsPanel } from "./ui/components/PositionsPanel.tsx";
 import { PriceHeader } from "./ui/components/PriceHeader.tsx";
-import { StructureBar } from "./ui/components/StructureBar.tsx";
 import { SymbolPicker } from "./ui/components/SymbolPicker.tsx";
 import { TradeConfirmModal } from "./ui/components/TradeConfirmModal.tsx";
 import { CtraderProvider, useCtrader } from "./ui/context/CtraderContext.tsx";
@@ -23,7 +22,6 @@ import { useCalendar } from "./ui/hooks/useCalendar.ts";
 import { useClock } from "./ui/hooks/useClock.ts";
 import { useMarketData } from "./ui/hooks/useMarketData.ts";
 import { useOrderActions } from "./ui/hooks/useOrderActions.ts";
-import { useStructure } from "./ui/hooks/useStructure.ts";
 import { useTerminalShortcuts } from "./ui/hooks/useTerminalShortcuts.ts";
 import { theme } from "./ui/theme.ts";
 import { fsRuntime } from "./utils/effectRuntime.ts";
@@ -142,7 +140,6 @@ function ConnectedApp({
     refreshMarket,
   } = useMarketData();
   const { calendar, newsError, refreshNews } = useCalendar();
-  const { structure, structureError } = useStructure();
 
   const {
     runCommand,
@@ -219,7 +216,6 @@ function ConnectedApp({
         moneyDigits={moneyDigits}
         configured={hasMcpUrl && hasMcpToken}
       />
-      <StructureBar structure={structure} errorMessage={structureError} />
       <PositionsPanel
         positions={positions}
         catalog={catalog}

@@ -8,17 +8,6 @@
   "type": "module",
   "module": "src/index.tsx",
   "packageManager": "bun@1.4.2",
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ],
-    "catalog": {
-      "@effect/platform": "^0.97.2",
-      "@modelcontextprotocol/sdk": "^1.30.0",
-      "effect": "^3.22.2",
-      "zod": "^4.6.1"
-    }
-  },
   "engines": {
     "bun": ">=1.4.0"
   },
@@ -39,15 +28,14 @@
     "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}": "biome check --write --no-errors-on-unmatched"
   },
   "dependencies": {
-    "@aurum/ctrader": "workspace:*",
-    "@aurum/news": "workspace:*",
-    "@effect/platform": "catalog:",
+    "@effect/platform": "^0.97.2",
     "@effect/platform-bun": "^0.91.2",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@opentui/core": "^0.5.11",
     "@opentui/react": "^0.5.11",
-    "effect": "catalog:",
+    "effect": "^3.22.2",
     "react": "^19.3.0",
-    "zod": "catalog:"
+    "zod": "^4.6.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",

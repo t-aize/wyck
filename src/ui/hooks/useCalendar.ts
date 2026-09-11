@@ -1,6 +1,7 @@
-import { CALENDAR_CACHE_TTL_MS, type CalendarEvent, fetchCalendar } from "@aurum/news";
 import { useMemo, useState } from "react";
 import { APP_DATA_DIR } from "../../constants.ts";
+import { CALENDAR_CACHE_TTL_MS, fetchCalendar } from "../../news/calendar/fetch.ts";
+import type { CalendarEvent } from "../../news/calendar/schemas.ts";
 import { fsRuntime } from "../../utils/effectRuntime.ts";
 import { toMessage } from "../../utils/errors.ts";
 import { useInterval } from "./useInterval.ts";

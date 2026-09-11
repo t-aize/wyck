@@ -1,4 +1,4 @@
-import type { CtraderPosition } from "@aurum/ctrader";
+import type { CtraderPosition } from "../../../ctrader/book/CtraderPosition.ts";
 import { toPips } from "../../../utils/priceMath.ts";
 
 export const DEFAULT_PIP_SIZE = 0.1;

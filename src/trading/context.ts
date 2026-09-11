@@ -1,6 +1,7 @@
-import type { CtraderClient, CtraderMcpError } from "@aurum/ctrader";
 import { Effect } from "effect";
 import { PRICE_SCALE } from "../constants.ts";
+import type { CtraderClient } from "../ctrader/client/CtraderClient.ts";
+import type { CtraderMcpError } from "../ctrader/client/CtraderMcpError.ts";
 import { TradeValidationError } from "./types.ts";
 
 /** Fetch spot+balance concurrent — prix déjà convertis en prix affiché (÷ PRICE_SCALE), comme le

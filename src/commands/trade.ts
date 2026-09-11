@@ -1,5 +1,5 @@
-import { TradeSide } from "@aurum/ctrader";
 import { Effect } from "effect";
+import { TradeSide } from "../ctrader/protocol/TradeSide.ts";
 import { ATR_PERIOD, ATR_TIMEFRAME } from "../trading/atr.ts";
 import { prepareTrade } from "../trading/prepare.ts";
 import { prepareAtrTrade } from "../trading/prepareAtr.ts";
