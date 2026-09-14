@@ -35,7 +35,7 @@
     "@opentui/react": "^0.5.11",
     "effect": "^3.22.2",
     "react": "^19.3.0",
-    "zod": "^4.6.1"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
