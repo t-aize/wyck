@@ -133,6 +133,13 @@ tool, Tradovate and Quantower each cover separately — modern, fully customizab
 end to end. That's the ambitious version of this project; the TUI above is step one toward it,
 not a separate thing.
 
+The final goal also folds in the parts most terminals leave as separate apps: backtesting
+against historical data, a trade journal (entries, exits, notes, running stats over time),
+and an economic calendar with real filtering — by impact, currency, custom watchlist —
+instead of a wall of every release on earth. The point is genuinely to take what the biggest
+trading terminals and apps each do well and bring it under one roof, instead of juggling five
+different tools for five different jobs.
+
 ## Roadmap
 
 ### TUI (current)
@@ -153,6 +160,9 @@ not a separate thing.
       not just the single token the TUI targets today
 - [ ] Multi-order management — track and act on multiple concurrent positions/orders across
       accounts, not just one at a time
+- [ ] Backtesting engine — run a strategy or ruleset against historical data
+- [ ] Trade journal — entries, exits, notes, and running stats over time
+- [ ] Economic calendar with real filters (impact, currency, custom watchlist)
 - [ ] Everything that follows from the above (per-account state, routing orders to the right
       account, aggregated multi-account P&L, etc.)
 
