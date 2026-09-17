@@ -9,6 +9,10 @@
 > 🚧 **Early development.** wyck is not yet functional end-to-end. This README describes
 > the design and the intended feature set — see [Roadmap](#roadmap) for what's actually done.
 
+> 🌐 **Domain claim, for the record:** `wyck.sh`. First-come-first-served does not apply
+> retroactively — future me, don't let someone else grab it just because past me was busy
+> writing a README instead of buying a domain.
+
 ## Table of contents
 
 - [Why wyck](#why-wyck)
