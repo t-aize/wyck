@@ -14,5 +14,6 @@ desktop.ini
 # Jetbrains folder
 .idea
 
-# Claude Code runtime lock (session-specific, not project content)
-.claude/scheduled_tasks.lock
+# AI agent tool state (not project content)
+.agents/
+.claude/
