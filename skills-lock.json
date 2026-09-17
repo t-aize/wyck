@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "ctrader-cli": {
+      "source": "spotware/ctrader-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ctrader-cli/SKILL.md",
+      "computedHash": "cd342405da7d977d0c15fe663f8a9396d2cd9be67faabf8d5b911e83c192b66a"
+    },
+    "ctrader-mcp-servers": {
+      "source": "spotware/ctrader-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ctrader-mcp-servers/SKILL.md",
+      "computedHash": "f36171f9d31419c797309b32c8282e637e96d6fef9f5c4cce86898b85f18ed64"
+    }
+  }
+}
