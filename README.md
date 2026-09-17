@@ -173,6 +173,8 @@ different tools for five different jobs.
 - [ ] Economic calendar with real filters (impact, currency, custom watchlist)
 - [ ] Floating instant-trade panel for the GUI (Axiom.trade/GMGN-style) — customizable size
       presets, configurable unit (lots, shares, contracts, base units...)
+- [ ] Prop-firm guardrails — non-blocking warnings when a multi-account setup looks like it
+      could break a firm's rules; wyck warns, the user decides
 - [ ] Everything that follows from the above (per-account state, routing orders to the right
       account, aggregated multi-account P&L, etc.)
 
@@ -187,6 +189,17 @@ The MCP token wyck connects with is scoped to a single cTrader account — demo 
 prop-firm or not. It can be used against a demo account for testing, but wyck has no
 awareness of which kind of account it's pointed at, so double-check your token before
 running anything against a funded account.
+
+Planned multi-account guardrails (see [Roadmap](#roadmap)) will warn, not block, when a
+setup might conflict with a prop firm's rules on running multiple funded accounts. wyck
+doesn't know or enforce any firm's actual terms — the warnings are a nudge, not a guarantee
+of compliance, and the user stays responsible for reading and following their own firm's
+rules.
+
+wyck is not affiliated with, endorsed by, or officially connected to cTrader/Spotware,
+TradingView, Tradovate, Quantower, Axiom.trade or GMGN. They're mentioned in this README
+purely for comparison and inspiration (and, for cTrader, genuine technical interoperability
+through its public MCP server) — all trademarks belong to their respective owners.
 
 ## License
 
