@@ -133,6 +133,14 @@ tool, Tradovate and Quantower each cover separately — modern, fully customizab
 end to end. That's the ambitious version of this project; the TUI above is step one toward it,
 not a separate thing.
 
+Personal touch for that future GUI: a compact floating execution panel, in the spirit of the
+quick-trade panels in Axiom.trade / GMGN — always-on-top, hotkey-driven, sitting on top of
+whatever chart you're actually looking at instead of stealing focus. Customizable preset
+buttons for order size (configurable count and values, not whatever a handful of hardcoded
+defaults happen to ship with), and not hardcoded to lots either — some brokers/instruments
+size in lots, others in shares, contracts, or base units, so the panel needs to speak whichever
+unit the instrument actually uses, not force everything into one.
+
 The final goal also folds in the parts most terminals leave as separate apps: backtesting
 against historical data, a trade journal (entries, exits, notes, running stats over time),
 and an economic calendar with real filtering — by impact, currency, custom watchlist —
@@ -163,6 +171,8 @@ different tools for five different jobs.
 - [ ] Backtesting engine — run a strategy or ruleset against historical data
 - [ ] Trade journal — entries, exits, notes, and running stats over time
 - [ ] Economic calendar with real filters (impact, currency, custom watchlist)
+- [ ] Floating instant-trade panel for the GUI (Axiom.trade/GMGN-style) — customizable size
+      presets, configurable unit (lots, shares, contracts, base units...)
 - [ ] Everything that follows from the above (per-account state, routing orders to the right
       account, aggregated multi-account P&L, etc.)
 
