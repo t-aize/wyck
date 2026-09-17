@@ -1,4 +1,4 @@
-# aurum
+# wyck
 
 **A terminal trading panel for cTrader — built for speed, not for staring at it.**
 
@@ -6,12 +6,12 @@
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
 ![Rust](https://img.shields.io/badge/rust-2024%20edition-orange)
 
-> 🚧 **Early development.** aurum is not yet functional end-to-end. This README describes
+> 🚧 **Early development.** wyck is not yet functional end-to-end. This README describes
 > the design and the intended feature set — see [Roadmap](#roadmap) for what's actually done.
 
 ## Table of contents
 
-- [Why aurum](#why-aurum)
+- [Why wyck](#why-wyck)
 - [Features](#features)
 - [Status](#status)
 - [Installation](#installation)
@@ -22,21 +22,21 @@
 - [Disclaimer](#disclaimer)
 - [License](#license)
 
-## Why aurum
+## Why wyck
 
 cTrader already has fast market-order buttons and hotkeys — pressing "buy" isn't the
 problem. What it doesn't have natively is risk-based position sizing: turning a stop-loss
 distance and a risk percentage into the correct lot size. That gap is real enough that a
 whole marketplace of third-party cBots exists just to patch it inside cTrader's own charts.
 
-aurum exists to close that gap in one hotkey: set a stop loss and a risk amount, it
+wyck exists to close that gap in one hotkey: set a stop loss and a risk amount, it
 calculates the correct lot size and sends the order — no manual math under pressure while
 scalping, and (eventually) the same flow across more than one broker instead of being stuck
 inside cTrader's own chart the way a cBot is.
 
 Two design decisions follow directly from that goal:
 
-- **No LLM in the execution path.** aurum talks to [cTrader's MCP server](https://mcp.spotware.com/)
+- **No LLM in the execution path.** wyck talks to [cTrader's MCP server](https://mcp.spotware.com/)
   with structured, direct tool calls — buy, sell, close, modify. A language model is a great
   tool for analysis and automation, but it has no place between a hotkey and a live order;
   the added latency and interpretation risk aren't worth it for scalping.
@@ -44,7 +44,7 @@ Two design decisions follow directly from that goal:
 
 ## Features
 
-- Risk-based position sizing — set a stop loss and a risk %/amount, aurum computes the lot
+- Risk-based position sizing — set a stop loss and a risk %/amount, wyck computes the lot
   size and fires the order in one hotkey
 - Terminal UI (`ratatui` + `crossterm`) — lightweight, always-on-top of your workflow,
   no context switch to place a trade
@@ -57,7 +57,7 @@ Two design decisions follow directly from that goal:
 
 ## Status
 
-aurum is a from-scratch project, currently at the scaffolding stage (dependencies and
+wyck is a from-scratch project, currently at the scaffolding stage (dependencies and
 project layout in place; no working client yet). It's being built to a "trade with it in a
 few months" timeline first, with a more ambitious multi-client architecture planned as a
 longer-running effort once the basics are proven by actual use.
@@ -67,20 +67,20 @@ longer-running effort once the basics are proven by actual use.
 **Prerequisites:** Rust 1.98+ (2024 edition).
 
 ```bash
-git clone https://github.com/t-aize/aurum.git
-cd aurum
+git clone https://github.com/t-aize/wyck.git
+cd wyck
 cargo build --release
 ```
 
-The binary is produced at `target/release/aurum`.
+The binary is produced at `target/release/wyck`.
 
 ## Configuration
 
-aurum connects to cTrader through its official MCP server. You'll need:
+wyck connects to cTrader through its official MCP server. You'll need:
 
 - A cTrader account with [AI Agent Connect](https://mcp.spotware.com/) enabled
 - MCP connection details (remote MCP endpoint, or a local MCP server running alongside
-  cTrader Windows/Mac), copied from cTrader into aurum's config
+  cTrader Windows/Mac), copied from cTrader into wyck's config
 
 Config and credentials are stored in the platform's standard application directory
 (via the `directories` crate) rather than in the repo or the working directory.
@@ -91,7 +91,7 @@ Config and credentials are stored in the platform's standard application directo
 ## Usage
 
 ```bash
-aurum
+wyck
 ```
 
 Planned default keybindings (subject to change):
@@ -108,7 +108,7 @@ Planned default keybindings (subject to change):
 
 ## Architecture
 
-Today, aurum is a single binary that talks to the cTrader MCP directly — simple on purpose,
+Today, wyck is a single binary that talks to the cTrader MCP directly — simple on purpose,
 so there's something usable to trade with soon.
 
 The long-term target (v1) is a zeron-style split: pull the MCP client, order execution and
@@ -154,13 +154,13 @@ not a separate thing.
 
 ## Disclaimer
 
-aurum places real orders on a real trading account. It is a personal tool, provided as-is,
+wyck places real orders on a real trading account. It is a personal tool, provided as-is,
 with no guarantee of correctness. It does not provide financial, investment, legal or tax
 advice. You are solely responsible for verifying its behavior, securing your credentials,
 and any trading decisions and losses that result from using it.
 
-The MCP token aurum connects with is scoped to a single cTrader account — demo or live,
-prop-firm or not. It can be used against a demo account for testing, but aurum has no
+The MCP token wyck connects with is scoped to a single cTrader account — demo or live,
+prop-firm or not. It can be used against a demo account for testing, but wyck has no
 awareness of which kind of account it's pointed at, so double-check your token before
 running anything against a funded account.
 

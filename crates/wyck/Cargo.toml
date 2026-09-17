@@ -1,5 +1,5 @@
 [package]
-name = "aurum"
+name = "wyck"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ description = "Terminal trading panel (TUI) connected to the cTrader MCP."
 publish.workspace = true
 
 [[bin]]
-name = "aurum"
+name = "wyck"
 path = "src/main.rs"
 
 [dependencies]
