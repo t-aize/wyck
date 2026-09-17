@@ -1,0 +1,14 @@
+[package]
+name = "aurum"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["t-aize"]
+description = "Terminal trading panel (TUI) connected to the cTrader MCP."
+publish = false
+
+[[bin]]
+name = "aurum"
+path = "src/main.rs"
+
+[dependencies]

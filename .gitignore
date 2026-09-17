@@ -1,16 +1,5 @@
-# Dependencies
-node_modules/
-
-# Build output (bun run build → ./dist/aurum)
-dist/
-*.tsbuildinfo
-
-# Test coverage (bun test --coverage)
-coverage/
-*.lcov
-
-# Logs
-*.log
+# Build output
+/target/
 
 # Env
 .env

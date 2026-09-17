@@ -6,7 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Pas de permission par défaut : chaque job déclare explicitement ce dont il a besoin.
 permissions: {}
 
 concurrency:
@@ -14,28 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Typecheck/lint/tests n'ont rien de spécifique à l'OS : un seul run (ubuntu, le moins cher) suffit.
-  check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup-bun
-
-      - run: bun run typecheck
-      - run: bun run check
-      - run: bun run test
-
-  # @opentui/core résout ses binaires natifs par plateforme via des import() dynamiques que seul
-  # --compile élague au moment de la cible (un bundle generic tente de tout résoudre statiquement
-  # et échoue sur les plateformes non installées) — donc on vérifie que ça compile sur chaque OS
-  # cible, pas seulement sur celui du job `check` ci-dessus.
-  build:
+  ci:
     strategy:
       fail-fast: false
       matrix:
@@ -45,31 +23,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-bun
-
-      - name: Verify the build compiles
-        run: bun run build:check
-
-  # Analyse statique des workflows eux-mêmes (permissions excessives, injections de template via
-  # des champs contrôlés par l'auteur d'une PR, actions non épinglées à un SHA...). Informatif pour
-  # l'instant (continue-on-error) le temps de trier les premiers résultats ; à basculer en
-  # bloquant une fois la baseline nettoyée.
-  zizmor:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          persist-credentials: false
+          components: clippy, rustfmt
 
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: Swatinem/rust-cache@v2.9.2
 
-      - name: Run zizmor
-        run: uvx zizmor@1.29.0 --format=github .
-        continue-on-error: true
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test --all-features
+      - run: cargo build --release --locked

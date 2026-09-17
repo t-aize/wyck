@@ -1,15 +1,7 @@
 {
   "recommendations": [
-    // Lint + format (seul outil du projet, cf. biome.json)
-    "biomejs.biome",
-    // Runtime/debugger Bun (scripts, tests, debug)
-    "oven.bun-vscode",
-    // Respecte .editorconfig pour les fichiers non couverts par Biome (*.md, etc.)
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
     "editorconfig.editorconfig"
-  ],
-  "unwantedRecommendations": [
-    // Ce projet n'utilise ni ESLint ni Prettier — Biome remplace les deux.
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode"
   ]
 }

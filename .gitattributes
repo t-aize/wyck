@@ -2,14 +2,8 @@
 * text=auto eol=lf
 
 # Source
-*.ts text eol=lf
-*.tsx text eol=lf
-*.js text eol=lf
-*.jsx text eol=lf
-*.mjs text eol=lf
-*.cjs text eol=lf
-*.json text eol=lf
-*.jsonc text eol=lf
+*.rs text eol=lf
+Cargo.toml text eol=lf
 
 # Docs / config
 *.md text eol=lf
@@ -25,11 +19,8 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
-# Husky hooks are shell scripts run by Git Bash — CRLF would break them on checkout
-.husky/* text eol=lf
-
 # Lockfile: don't let Git generate diffs, and mark it as generated for GitHub
-bun.lock -diff linguist-generated=true
+Cargo.lock -diff linguist-generated=true
 
 # Binaries: never touch, never diff as text
 *.png binary

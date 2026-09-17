@@ -11,3 +11,7 @@ indent_size = 2
 # Markdown: trailing double-space is a hard line break, don't strip it
 [*.md]
 trim_trailing_whitespace = false
+
+# Rust: rustfmt's default indent (kept in sync with any future rustfmt.toml)
+[*.rs]
+indent_size = 4
