@@ -1,0 +1,27 @@
+[package]
+name = "aurum"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Terminal trading panel (TUI) connected to the cTrader MCP."
+publish.workspace = true
+
+[[bin]]
+name = "aurum"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tui-input = { workspace = true }
+color-eyre = { workspace = true }
+tokio = { workspace = true }
+rmcp = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+directories = { workspace = true }
