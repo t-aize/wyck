@@ -34,6 +34,9 @@ rmcp = { version = "3.4.0", features = [
   "client-side-sse",
 ] }
 
+# Typed Rust client for cTrader's Local and Remote MCP servers (in-workspace crate)
+ctrader-mcp = { path = "crates/ctrader-mcp" }
+
 # Serialization (MCP JSON-RPC payloads/schemas)
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
