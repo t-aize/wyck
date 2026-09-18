@@ -2,6 +2,8 @@
 //! and caches the symbol/asset maps every other workflow assumes are already loaded.
 //! Run this exactly once per session, before any other workflow.
 
+use std::collections::HashMap;
+
 use crate::error::CTraderError;
 use crate::remote::RemoteClient;
 use crate::remote::dto::{Asset, RemoteSymbol};
@@ -9,6 +11,15 @@ use crate::remote::dto::{Asset, RemoteSymbol};
 /// The cached state W0 produces and every later workflow call in the session reuses,
 /// per `references/trader-workflows.md` W0's "Invariants": "W0's output (cached state)
 /// is the precondition every subsequent workflow assumes."
+///
+/// `symbols`/`assets` stay in server-returned order for iteration/display; symbol- and
+/// asset-lookups go through an index built once in [`bootstrap_remote`], so
+/// [`Self::find_symbol`]/[`Self::find_symbol_by_id`]/[`Self::find_asset_name`] are O(1)
+/// instead of scanning the full universe on every call. That matters here specifically
+/// because `wyck`'s whole premise is hotkey-driven, no-LLM-in-the-execution-path
+/// trading (see the crate root docs) — a symbol lookup sits directly on that hotkey path
+/// for every order placement, so it should not cost a linear scan over a symbol universe
+/// that can run into the thousands.
 #[derive(Debug, Clone)]
 pub struct RemoteSessionContext {
     /// `rest-proxy` build identifier — compare against this crate's documented minimum
@@ -25,10 +36,11 @@ pub struct RemoteSessionContext {
     pub balance_display: Option<f64>,
     pub equity_display: Option<f64>,
     pub free_margin_display: Option<f64>,
-    /// The full symbol universe — cache and reuse via [`Self::find_symbol`] rather than
-    /// re-fetching per lookup (`references/remote-http-server.md` "Symbol cache
-    /// discipline").
+    /// The full symbol universe, in server-returned order. Prefer
+    /// [`Self::find_symbol`]/[`Self::find_symbol_by_id`] over scanning this directly.
     pub symbols: Vec<RemoteSymbol>,
+    /// The full asset universe, in server-returned order. Prefer
+    /// [`Self::find_asset_name`] over scanning this directly.
     pub assets: Vec<Asset>,
     /// Whether this connection has the `trading` profile bound (mutating tools
     /// available) or only `data` (read-only) — surface to the user before attempting a
@@ -38,33 +50,46 @@ pub struct RemoteSessionContext {
     /// call's `label`/`comment` field for the rest of the session so a transient-failure
     /// retry can detect (and skip) a duplicate rather than placing a second order.
     pub idempotency_prefix: String,
+
+    /// Uppercased ticker -> index into `symbols`. Not `pub`: an implementation detail
+    /// of the O(1) lookup, not part of the public contract (the index encoding could
+    /// change without breaking callers who only ever go through
+    /// [`Self::find_symbol`]).
+    symbol_index_by_name: HashMap<String, usize>,
+    /// `symbolId` -> index into `symbols`.
+    symbol_index_by_id: HashMap<i64, usize>,
+    /// `assetId` -> index into `assets`.
+    asset_index_by_id: HashMap<i64, usize>,
 }
 
 impl RemoteSessionContext {
-    /// Looks up a cached symbol by its human ticker (e.g. `"EURUSD"`).
+    /// Looks up a cached symbol by its human ticker (e.g. `"EURUSD"`), case-insensitive.
+    /// O(1) via the index built in [`bootstrap_remote`].
     pub fn find_symbol(&self, symbol_name: &str) -> Option<&RemoteSymbol> {
-        self.symbols
-            .iter()
-            .find(|s| s.symbol_name.eq_ignore_ascii_case(symbol_name))
+        let key = symbol_name.to_ascii_uppercase();
+        self.symbol_index_by_name
+            .get(&key)
+            .map(|&index| &self.symbols[index])
     }
 
-    /// Looks up a cached symbol by its `symbolId`.
+    /// Looks up a cached symbol by its `symbolId`. O(1).
     pub fn find_symbol_by_id(&self, symbol_id: i64) -> Option<&RemoteSymbol> {
-        self.symbols.iter().find(|s| s.symbol_id == symbol_id)
+        self.symbol_index_by_id
+            .get(&symbol_id)
+            .map(|&index| &self.symbols[index])
     }
 
     /// Resolves an `assetId` (as seen on `depositAssetId`/`baseAssetId`/`quoteAssetId`)
-    /// to its currency name.
+    /// to its currency name. O(1).
     pub fn find_asset_name(&self, asset_id: i64) -> Option<&str> {
-        self.assets
-            .iter()
-            .find(|a| a.asset_id == Some(asset_id))
-            .and_then(|a| a.name.as_deref())
+        let index = *self.asset_index_by_id.get(&asset_id)?;
+        self.assets[index].name.as_deref()
     }
 }
 
 /// Runs W0 against a Remote connection: probes `get_version`, resolves the active
-/// account via `get_balance`, and caches `get_assets`/`get_symbols`.
+/// account via `get_balance`, and caches `get_assets`/`get_symbols` (indexed for O(1)
+/// lookup — see [`RemoteSessionContext`]'s doc comment).
 ///
 /// Does **not** run the optional Q-R4-RANGE `MARKET_RANGE` probe from W0 step 7 (it
 /// places a real order) — that remains an explicit, separate opt-in a caller makes only
@@ -83,10 +108,29 @@ pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionCont
     let symbols = client.get_symbols().await?;
     let has_trading_profile = client.has_trading_profile().await?;
 
+    let symbol_index_by_name: HashMap<String, usize> = symbols
+        .symbols
+        .iter()
+        .enumerate()
+        .map(|(index, symbol)| (symbol.symbol_name.to_ascii_uppercase(), index))
+        .collect();
+    let symbol_index_by_id: HashMap<i64, usize> = symbols
+        .symbols
+        .iter()
+        .enumerate()
+        .map(|(index, symbol)| (symbol.symbol_id, index))
+        .collect();
+    let asset_index_by_id: HashMap<i64, usize> = assets
+        .assets
+        .iter()
+        .enumerate()
+        .filter_map(|(index, asset)| asset.asset_id.map(|id| (id, index)))
+        .collect();
+
     let account_currency = balance
         .deposit_asset_id
-        .and_then(|id| assets.assets.iter().find(|a| a.asset_id == Some(id)))
-        .and_then(|asset| asset.name.clone());
+        .and_then(|id| asset_index_by_id.get(&id))
+        .and_then(|&index| assets.assets[index].name.clone());
 
     let idempotency_prefix = format!("sess-{}", &uuid::Uuid::new_v4().to_string()[..8]);
 
@@ -103,5 +147,91 @@ pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionCont
         assets: assets.assets,
         has_trading_profile,
         idempotency_prefix,
+        symbol_index_by_name,
+        symbol_index_by_id,
+        asset_index_by_id,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::remote::dto::Asset;
+    use rmcp::model::JsonObject;
+
+    fn symbol(id: i64, name: &str) -> RemoteSymbol {
+        RemoteSymbol {
+            symbol_id: id,
+            symbol_name: name.to_owned(),
+            enabled: Some(true),
+            base_asset_id: None,
+            quote_asset_id: None,
+            symbol_category_id: None,
+            description: None,
+            pip_digits: Some(5),
+            extra: JsonObject::new(),
+        }
+    }
+
+    fn context_with_symbols(symbols: Vec<RemoteSymbol>) -> RemoteSessionContext {
+        let symbol_index_by_name = symbols
+            .iter()
+            .enumerate()
+            .map(|(index, symbol)| (symbol.symbol_name.to_ascii_uppercase(), index))
+            .collect();
+        let symbol_index_by_id = symbols
+            .iter()
+            .enumerate()
+            .map(|(index, symbol)| (symbol.symbol_id, index))
+            .collect();
+        let assets: Vec<Asset> = vec![Asset {
+            asset_id: Some(1),
+            name: Some("USD".to_owned()),
+            extra: JsonObject::new(),
+        }];
+        let asset_index_by_id = assets
+            .iter()
+            .enumerate()
+            .filter_map(|(index, asset)| asset.asset_id.map(|id| (id, index)))
+            .collect();
+
+        RemoteSessionContext {
+            version: None,
+            build_time: None,
+            trader_id: None,
+            account_currency: None,
+            money_digits: None,
+            balance_display: None,
+            equity_display: None,
+            free_margin_display: None,
+            symbols,
+            assets,
+            has_trading_profile: true,
+            idempotency_prefix: "sess-test".to_owned(),
+            symbol_index_by_name,
+            symbol_index_by_id,
+            asset_index_by_id,
+        }
+    }
+
+    #[test]
+    fn find_symbol_is_case_insensitive() {
+        let context = context_with_symbols(vec![symbol(1, "EURUSD")]);
+        assert_eq!(context.find_symbol("eurusd").map(|s| s.symbol_id), Some(1));
+        assert_eq!(context.find_symbol("EURUSD").map(|s| s.symbol_id), Some(1));
+        assert_eq!(context.find_symbol("EurUsd").map(|s| s.symbol_id), Some(1));
+        assert!(context.find_symbol("GBPUSD").is_none());
+    }
+
+    #[test]
+    fn find_symbol_by_id_and_find_asset_name() {
+        let context = context_with_symbols(vec![symbol(1, "EURUSD"), symbol(2, "GBPUSD")]);
+        assert_eq!(
+            context.find_symbol_by_id(2).map(|s| s.symbol_name.as_str()),
+            Some("GBPUSD")
+        );
+        assert!(context.find_symbol_by_id(999).is_none());
+        assert_eq!(context.find_asset_name(1), Some("USD"));
+        assert_eq!(context.find_asset_name(999), None);
+    }
 }
