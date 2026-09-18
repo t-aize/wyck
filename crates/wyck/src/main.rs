@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     // — including on an early `Err` — rather than only at the very end of `main`, so
     // `color_eyre`'s error report (if any) prints to a normal, restored terminal.
     let app_result = {
-        let (_terminal_guard, mut terminal) = terminal::TerminalGuard::enter();
+        let (_terminal_guard, mut terminal) = terminal::TerminalGuard::enter()?;
         app.run(&mut terminal, engine_events).await
     };
 

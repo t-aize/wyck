@@ -23,9 +23,29 @@ impl TerminalGuard {
     /// to-draw [`ratatui::DefaultTerminal`]. Keep the guard bound to a variable for as
     /// long as the terminal should stay in TUI mode; drop it (or let it go out of
     /// scope) to restore.
-    pub fn enter() -> (Self, ratatui::DefaultTerminal) {
-        let terminal = ratatui::init();
-        (Self { _private: () }, terminal)
+    ///
+    /// Explicitly clears the terminal before returning it. Entering the alternate
+    /// screen is not reliably a blank slate on every terminal/platform combination —
+    /// notably on Windows, a prior process that left its own alternate-screen content
+    /// behind (e.g. one killed hard enough to skip its own `Drop`/restore, or a
+    /// preceding `cargo run`'s build-progress output) can otherwise bleed through
+    /// ratatui's diff-based redraw on the very first frame, since that diff is computed
+    /// against ratatui's own empty starting buffer, not against whatever bytes actually
+    /// happen to be sitting in the terminal. An explicit clear forces every cell to be
+    /// written on the first draw regardless of what was there before.
+    ///
+    /// # Errors
+    ///
+    /// Returns the backend I/O error if the initial clear fails.
+    pub fn enter() -> std::io::Result<(Self, ratatui::DefaultTerminal)> {
+        let mut terminal = ratatui::init();
+        // Constructed before the fallible `clear()` call so that if it fails, this
+        // guard is already live and its `Drop` still restores the terminal on the way
+        // out via `?` — rather than leaving raw mode / the alternate screen entered
+        // with nothing left to clean it up.
+        let guard = Self { _private: () };
+        terminal.clear()?;
+        Ok((guard, terminal))
     }
 }
 

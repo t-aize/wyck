@@ -63,8 +63,12 @@ impl DashboardScreen {
                 frame.render_widget(paragraph, rows[1]);
             }
             ConnectionStatus::Failed(message) => {
+                // Connection errors can be long (rmcp's transport error chain embeds
+                // the full cause chain in one line) — wrap rather than silently
+                // clipping at the box edge, so the whole message stays readable.
                 let paragraph = Paragraph::new(format!("Connection failed: {message}"))
-                    .style(Style::default().fg(Color::Red));
+                    .style(Style::default().fg(Color::Red))
+                    .wrap(ratatui::widgets::Wrap { trim: false });
                 frame.render_widget(paragraph, rows[1]);
             }
         }
