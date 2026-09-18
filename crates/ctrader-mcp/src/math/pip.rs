@@ -106,7 +106,7 @@ pub fn sl_tp_to_pip_distances(
 }
 
 /// Converts a pip distance to Remote's integer POINTS encoding for
-/// `relativeStopLoss`/`relativeTakeProfit` (see [`crate::quirks::market_relative`] and
+/// `relativeStopLoss`/`relativeTakeProfit` (see [`crate::quirks::market_with_relative_sl_tp`] and
 /// `Q-R4`'s **P-REMOTE-MARKET-RELATIVE** pattern). 1 point = `1 / 10^pip_digits`; for a
 /// 5-digit FX pair this is `points = pips * 10`, and it is the identity for a 4-digit
 /// pair. `pip_digits` here is the symbol's *pipette* precision (from `get_symbols`), not

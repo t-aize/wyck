@@ -53,8 +53,8 @@ pub struct RemoteBalanceResponse {
     /// money field.
     #[serde(alias = "moneyDigits")]
     pub money_digits: Option<u32>,
-    /// Resolve to a currency name via [`RemoteClient::get_assets`]'s cached map (see
-    /// `crate::remote::client`).
+    /// Resolve to a currency name via [`crate::remote::RemoteClient::get_assets`]'s
+    /// cached map.
     #[serde(alias = "depositAssetId")]
     pub deposit_asset_id: Option<i64>,
     /// Monotonic counter incremented on every balance-affecting event — compare two
@@ -457,9 +457,10 @@ pub enum TimeInForce {
 ///   of `relative_stop_loss`/`relative_take_profit` *before* the request ever reaches
 ///   the network.
 ///
-/// Construct via [`Self::new`] and the `with_*` builders, or via
-/// [`Self::market_with_relative_sl_tp`] for the common "MARKET entry with SL/TP as a
-/// point offset" case (**P-REMOTE-MARKET-RELATIVE**, the preferred single-call pattern).
+/// Construct via [`Self::market`], [`Self::limit`], or [`Self::stop`] and the `with_*`
+/// builders, or via [`Self::market_with_relative_sl_tp`] for the common "MARKET entry
+/// with SL/TP as a point offset" case (**P-REMOTE-MARKET-RELATIVE**, the preferred
+/// single-call pattern).
 #[derive(Debug, Clone, Serialize)]
 pub struct CreateOrderParams {
     #[serde(rename = "symbolId")]
