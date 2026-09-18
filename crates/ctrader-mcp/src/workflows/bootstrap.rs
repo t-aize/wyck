@@ -116,6 +116,18 @@ impl RemoteSessionContext {
 /// Propagates any [`CTraderError`] from the underlying `get_balance`/`get_assets`/
 /// `get_symbols`/`tools/list` calls (but not from `get_version` — see above).
 pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionContext, CTraderError> {
+    // Diagnostic-only, logged unconditionally before anything else: if a later step in
+    // this function fails with a "tool not found" style error, the full advertised
+    // catalog is what actually explains why, instead of guessing tool-by-tool against
+    // the skill's documented names (which are audited against a specific rest-proxy
+    // build and may not match every live deployment).
+    match client.session().list_tool_names().await {
+        Ok(tools) => tracing::info!(?tools, "remote server advertised tool catalog"),
+        Err(source) => {
+            tracing::warn!(error = %source, "failed to list the remote server's tool catalog")
+        }
+    }
+
     let (version, build_time) = match client.get_version().await {
         Ok(response) => (response.version, response.build_time),
         Err(source) => {
