@@ -97,12 +97,35 @@ impl RemoteSessionContext {
 /// and the skill's W0 step 7 for the exact probe sequence if a caller wants to implement
 /// it.
 ///
+/// # `get_version` is best-effort
+///
+/// The skill's reference docs (audited against `rest-proxy 1.0.18`) document
+/// `get_version` as part of the Remote surface, but it has been observed absent
+/// (`MCP -32602: Tool get_version not found`) on at least one live deployment — the
+/// build-identification step this tool feeds is a diagnostic nicety (it only gates
+/// *which* `known-quirks.md` workarounds a caller trusts), not something the rest of
+/// bootstrap — resolving the account, caching symbols — depends on. A missing
+/// `get_version` is therefore logged and swallowed rather than aborting the whole
+/// session: `version`/`build_time` on the returned [`RemoteSessionContext`] are simply
+/// `None`, and a caller relying on a specific quirk build-gate should treat `None` the
+/// same way W0 step 3 treats an unparseable version — decline to assume the workaround
+/// still applies rather than guessing.
+///
 /// # Errors
 ///
-/// Propagates any [`CTraderError`] from the underlying `get_version`/`get_balance`/
-/// `get_assets`/`get_symbols`/`tools/list` calls.
+/// Propagates any [`CTraderError`] from the underlying `get_balance`/`get_assets`/
+/// `get_symbols`/`tools/list` calls (but not from `get_version` — see above).
 pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionContext, CTraderError> {
-    let version = client.get_version().await?;
+    let (version, build_time) = match client.get_version().await {
+        Ok(response) => (response.version, response.build_time),
+        Err(source) => {
+            tracing::warn!(
+                error = %source,
+                "get_version failed; continuing session bootstrap without a build identifier"
+            );
+            (None, None)
+        }
+    };
     let balance = client.get_balance().await?;
     let assets = client.get_assets().await?;
     let symbols = client.get_symbols().await?;
@@ -135,8 +158,8 @@ pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionCont
     let idempotency_prefix = format!("sess-{}", &uuid::Uuid::new_v4().to_string()[..8]);
 
     Ok(RemoteSessionContext {
-        version: version.version,
-        build_time: version.build_time,
+        version,
+        build_time,
         trader_id: balance.trader_id,
         account_currency,
         money_digits: balance.money_digits,
