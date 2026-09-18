@@ -58,6 +58,30 @@ uuid = { version = "1.18.1", features = ["v4"] }
 # RFC 3339 timestamp formatting/parsing (ctrader-mcp Local server Z-suffix convention)
 time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
 
+# --- wyck-config: centralized app config + encrypted credential storage ---
+
+# Human-editable config file format (profiles, preferences)
+toml = "1.1.6"
+
+# Secret-in-memory hygiene (zeroize-on-drop, no accidental Debug/log exposure)
+secrecy = { version = "0.10.3", features = ["serde"] }
+
+# Primary credential backend: OS-native store (Windows Credential Manager /
+# macOS Keychain / Linux Secret Service via zbus). NEVER disable default-features
+# on this dependency -- see wyck-config's secret::keyring_store module docs for why
+# (pre-v4 releases of this crate silently fell back to a non-persistent in-memory
+# mock store when the platform feature wasn't compiled in).
+keyring = "4.2.0"
+
+# Fallback credential backend for environments without an OS keyring (headless
+# Linux/CI/always-on boxes) -- KDF (passphrase -> encryption key) and AEAD cipher.
+argon2 = "0.6.0"
+chacha20poly1305 = "0.11.0"
+getrandom = "0.4.3"
+
+# Test-only: isolated temp directories for wyck-config's config/secret-store tests
+tempfile = "3.27.0"
+
 [profile.release]
 lto = true
 codegen-units = 1
