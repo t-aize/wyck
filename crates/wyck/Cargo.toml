@@ -18,7 +18,9 @@ crossterm = { workspace = true }
 tui-input = { workspace = true }
 color-eyre = { workspace = true }
 tokio = { workspace = true }
-rmcp = { workspace = true }
+# The cTrader MCP client (Local + Remote, `rmcp`-based) lives in its own crate rather
+# than being wired up here directly.
+ctrader-mcp = { path = "../ctrader-mcp" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

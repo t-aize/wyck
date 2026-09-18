@@ -20,10 +20,19 @@ tui-input = "0.15.4"
 color-eyre = "0.6.5"
 
 # Async runtime (cTrader MCP client, market data streaming)
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1.53.1", features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+] }
 
 # cTrader MCP client (streamable HTTP + SSE, matches mcp.ctrader.com)
-rmcp = { version = "3.4.0", features = ["client", "transport-streamable-http-client-reqwest", "client-side-sse"] }
+rmcp = { version = "3.4.0", features = [
+  "client",
+  "transport-streamable-http-client-reqwest",
+  "client-side-sse",
+] }
 
 # Serialization (MCP JSON-RPC payloads/schemas)
 serde = { version = "1.0.229", features = ["derive"] }
@@ -36,6 +45,15 @@ tracing-appender = "0.2.5"
 
 # Config/credentials file locations
 directories = "6.0.0"
+
+# Structured error types (ctrader-mcp error classification)
+thiserror = "2.0.20"
+
+# Idempotency-key generation (ctrader-mcp session bootstrap, W0)
+uuid = { version = "1.18.1", features = ["v4"] }
+
+# RFC 3339 timestamp formatting/parsing (ctrader-mcp Local server Z-suffix convention)
+time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
 
 [profile.release]
 lto = true

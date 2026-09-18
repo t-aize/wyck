@@ -342,6 +342,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctrader-mcp"
+version = "0.1.0"
+dependencies = [
+ "rmcp",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "darling"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2832,9 +2846,9 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "crossterm",
+ "ctrader-mcp",
  "directories",
  "ratatui",
- "rmcp",
  "serde",
  "serde_json",
  "tokio",
