@@ -18,7 +18,10 @@ crossterm = { workspace = true }
 tui-input = { workspace = true }
 color-eyre = { workspace = true }
 tokio = { workspace = true }
+futures-util = { workspace = true }
 ctrader-mcp = { workspace = true }
+wyck-config = { workspace = true }
+secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }

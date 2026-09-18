@@ -3668,7 +3668,9 @@ dependencies = [
  "crossterm",
  "ctrader-mcp",
  "directories",
+ "futures-util",
  "ratatui",
+ "secrecy",
  "serde",
  "serde_json",
  "tokio",
@@ -3676,6 +3678,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "tui-input",
+ "wyck-config",
 ]
 
 [[package]]

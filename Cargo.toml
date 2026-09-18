@@ -37,6 +37,13 @@ rmcp = { version = "3.4.0", features = [
 # Typed Rust client for cTrader's Local and Remote MCP servers (in-workspace crate)
 ctrader-mcp = { path = "crates/ctrader-mcp" }
 
+# Centralized app config + encrypted credential storage (in-workspace crate)
+wyck-config = { path = "crates/wyck-config" }
+
+# Async adapter for crossterm's EventStream (terminal input as a Stream the TUI's
+# tokio::select! event loop can poll alongside engine events)
+futures-util = "0.3.34"
+
 # Serialization (MCP JSON-RPC payloads/schemas)
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
