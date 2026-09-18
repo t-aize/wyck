@@ -28,9 +28,22 @@ tokio = { version = "1.53.1", features = [
 ] }
 
 # cTrader MCP client (streamable HTTP + SSE, matches mcp.ctrader.com)
+#
+# `reqwest-native-tls` is NOT optional here: rmcp declares its `reqwest` dependency
+# with `default-features = false` (only pulling `json`/`stream`), so without
+# explicitly requesting a TLS backend feature, reqwest compiles with NONE at all --
+# it builds a working `Client` (no error at construction time), but every request
+# to an `https://` URL then fails at send-time with a generic "error sending
+# request" (no TLS connector available to actually perform the handshake). Verified
+# against mcp.spotware.com specifically: `native-tls` (OS-native -- SChannel on
+# Windows, Secure Transport on macOS, OpenSSL on Linux) connects and completes the
+# handshake there (matches what `curl` does through SChannel); the alternative
+# `reqwest` feature (rustls) was not verified against this endpoint. Do not swap to
+# `reqwest`/rustls without re-verifying a real connection first.
 rmcp = { version = "3.4.0", features = [
   "client",
   "transport-streamable-http-client-reqwest",
+  "reqwest-native-tls",
   "client-side-sse",
 ] }
 

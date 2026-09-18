@@ -80,7 +80,18 @@ impl McpSession {
                 .await
                 .map_err(|source| CTraderError::Connect {
                     uri: config.uri.clone(),
-                    message: source.to_string(),
+                    // `{:?}` (Debug), not `{}` (Display): rmcp's `ClientInitializeError`
+                    // doesn't wire every variant's inner error through `std::error::Error::
+                    // source()` (its `TransportError.error` field has no `#[source]`
+                    // attribute), so walking `.source()` here would silently stop one level
+                    // too early and drop the actual transport-layer cause (DNS failure, TLS
+                    // handshake failure, connection reset, ...). Every error in this chain
+                    // still derives/implements `Debug`, and each layer's own `Debug` impl
+                    // recursively embeds its `source`'s `Debug` (this is true of
+                    // `reqwest::Error` in particular, whose `Debug` includes `kind`, `url`,
+                    // AND `source`) — so formatting with `{:?}` surfaces the full chain
+                    // regardless of which attribute rmcp did or didn't add.
+                    message: format!("{source:?}"),
                 })?;
 
         Ok(Self { running })

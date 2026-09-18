@@ -180,7 +180,10 @@ impl CTraderError {
         }
         CTraderError::Transport {
             tool: Cow::Borrowed(tool),
-            message: source.to_string(),
+            // `{:?}`, not `{}` — see the matching comment on `McpSession::connect` in
+            // `transport.rs` for why Debug surfaces the full error chain here and
+            // Display can silently drop it.
+            message: format!("{source:?}"),
         }
     }
 
