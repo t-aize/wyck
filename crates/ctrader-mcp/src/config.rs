@@ -5,20 +5,29 @@ use std::time::Duration;
 
 /// Endpoint and authentication settings for a single cTrader MCP session.
 ///
-/// Both the Local server (bound to the cTrader Desktop application, typically
-/// `http://127.0.0.1:<port>/mcp`) and the Remote server (`rest-proxy`, typically
-/// `https://mcp.spotware.com/mcp` or a self-hosted equivalent) speak the same
-/// streamable-HTTP + SSE MCP transport, so they share this configuration shape.
+/// Both the Local server (bound to the cTrader Desktop application, enabled and
+/// configured from cTrader Desktop's own Advanced -> MCP Server settings page, which
+/// defaults to `http://127.0.0.1:9876/mcp/` — the port shown there is user-changeable, so
+/// do not assume 9876 without reading it back from that page) and the Remote server
+/// (`rest-proxy`, typically `https://mcp.ctrader.com/trading/mcp` or a self-hosted
+/// equivalent) speak the same streamable-HTTP + SSE MCP transport, so they share this
+/// configuration shape. Local does not require a bearer token by default (leave
+/// [`Self::bearer_token`] unset); Remote does.
 #[derive(Debug, Clone)]
 pub struct ConnectionConfig {
-    /// The MCP endpoint URI, e.g. `"http://127.0.0.1:9000/mcp"` (Local) or
-    /// `"https://mcp.spotware.com/mcp"` (Remote).
+    /// The MCP endpoint URI, e.g. `"http://127.0.0.1:9876/mcp/"` (Local, default port) or
+    /// `"https://mcp.ctrader.com/trading/mcp"` (Remote).
     pub uri: String,
 
-    /// The full `Authorization` header value, if the endpoint requires one
-    /// (e.g. `"Bearer <token>"`). Use [`Self::with_bearer_token`] to set this from a
-    /// bare token.
-    pub auth_header: Option<String>,
+    /// The bearer token sent as `Authorization: Bearer <token>`, if the endpoint requires
+    /// authentication. Use [`Self::with_bearer_token`] to set this.
+    ///
+    /// Stored as the bare token, NOT the full header value: [`crate::transport`] hands
+    /// this to `rmcp`'s `StreamableHttpClientTransportConfig::auth_header`, which itself
+    /// adds the `Bearer ` prefix (via reqwest's `bearer_auth`). Prefixing it here too
+    /// would send `Authorization: Bearer Bearer <token>`, which cTrader's remote MCP
+    /// endpoint rejects with `AuthRequired(invalid_token)`.
+    pub bearer_token: Option<String>,
 
     /// Timeout applied to each individual control request (initialize, `tools/call`,
     /// etc.). Does not bound long-lived SSE streams. Defaults to 30 seconds — generous
@@ -38,7 +47,7 @@ impl ConnectionConfig {
     pub fn new(uri: impl Into<String>) -> Self {
         Self {
             uri: uri.into(),
-            auth_header: None,
+            bearer_token: None,
             control_request_timeout: Duration::from_secs(30),
             session_recovery_timeout: Duration::from_secs(10),
         }
@@ -47,15 +56,7 @@ impl ConnectionConfig {
     /// Sets `Authorization: Bearer <token>` for every request on this session.
     #[must_use]
     pub fn with_bearer_token(mut self, token: impl Into<String>) -> Self {
-        self.auth_header = Some(format!("Bearer {}", token.into()));
-        self
-    }
-
-    /// Sets a raw `Authorization` header value (use this if the endpoint expects a
-    /// non-`Bearer` scheme).
-    #[must_use]
-    pub fn with_auth_header(mut self, value: impl Into<String>) -> Self {
-        self.auth_header = Some(value.into());
+        self.bearer_token = Some(token.into());
         self
     }
 

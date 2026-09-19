@@ -69,8 +69,8 @@ impl McpSession {
             StreamableHttpClientTransportConfig::with_uri(config.uri.clone())
                 .control_request_timeout(config.control_request_timeout)
                 .session_recovery_timeout(config.session_recovery_timeout);
-        if let Some(header) = &config.auth_header {
-            transport_config = transport_config.auth_header(header.clone());
+        if let Some(token) = &config.bearer_token {
+            transport_config = transport_config.auth_header(token.clone());
         }
 
         let transport = StreamableHttpClientTransport::from_config(transport_config);
@@ -146,11 +146,18 @@ impl McpSession {
 
     /// Calls `tool` with no arguments (e.g. `ping`, `get_server_time`,
     /// `get_accounts_list`), and decodes the response into `R`.
+    ///
+    /// Sends `"arguments": {}` rather than omitting the field entirely: cTrader's Remote
+    /// `rest-proxy` has been observed to validate some "no-arg" tools' input against a
+    /// Zod object schema (e.g. `get_balance`), which rejects an omitted/`undefined`
+    /// arguments field with `invalid_type` even though the object has no required
+    /// properties.
     pub async fn call_no_args<R: DeserializeOwned>(
         &self,
         tool: &'static str,
     ) -> Result<R, CTraderError> {
-        self.call_with_arguments(tool, None).await
+        self.call_with_arguments(tool, Some(JsonObject::default()))
+            .await
     }
 
     /// Escape hatch for tools this crate does not (yet) model with a typed DTO — see the
