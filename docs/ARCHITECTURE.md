@@ -13,7 +13,7 @@ engine and the GUI exist. Crates marked (planned) do not exist yet.
                                  |  typed commands down, events up
                                  |  (in-process channels first, RPC later)
    +-----------------------------v-------------------------------+
-   |  wyck-engine (planned): headless core, no UI code           |
+   |  wyck-engine: headless core, no UI code                     |
    |  owns connections, refresh loops, order flow, guardrails    |
    +------+------------------+-------------------+---------------+
           |                  |                   |
@@ -88,20 +88,33 @@ Economic calendar from the ForexFactory weekly feed.
 Used by: the engine, which starts the service once, feeds the filter from the
 `ctrader-mcp` symbol list, and forwards `CalendarState` changes and warnings to the GUI.
 
-### `wyck-engine` (planned)
+### `wyck-engine` (exists, first version)
 
-The headless core that replaces what `crates/wyck/src/engine.rs` did in the TUI, with
-more scope:
+The headless core. It replaces what `crates/wyck/src/engine.rs` did in the TUI, with far
+more scope. Full details in the crate docs (`cargo doc -p wyck-engine --open`).
 
-- connection lifecycle for a profile (Remote or Local, chosen from the profile's service)
-- periodic account, position and P&L refresh
-- order flow: size from risk, place, confirm by re-reading state, report result
-- hosting `CalendarService` and merging its warnings with trading state
-- guardrails that warn and never block (prop-firm rules, imminent news)
-- later: several accounts at once, journal, backtesting
+- **Session**: connects (Remote or Local, from a `ConnectRequest`, which can be built from a
+  `wyck-config` profile), refreshes account, positions and quotes, pings, reconnects with
+  backoff, and disarms trading whenever the session is not `Ready`.
+- **State and events**: one immutable `EngineState` snapshot on a `watch` channel, plus a
+  bounded broadcast of `Event`s. Both use plain `tokio::sync` primitives, so any executor can
+  await them.
+- **Planning**: `plan_entry` turns "side, stop, risk %" into an exact, validated order
+  (`risk::build_plan`, a pure function).
+- **Pipeline**: dry-run by default, explicit arming, single-use plans, one order in flight per
+  symbol, no replay of mutating calls, label-based reconciliation of uncertain outcomes,
+  two-step flatten.
+- **Guardrails and news**: warnings only. Hosts `wyck-calendar` and warns about high-impact
+  releases for the currencies being traded.
+- **Brokers**: a `Broker` trait with a Remote adapter, a Local adapter and a scriptable
+  `MockBroker` (feature `testing`).
 
-Its public surface is a small set of commands and events, so it can run in the GUI's
-process first and behind an RPC boundary later without changing the GUI.
+The engine does not manage profiles: a front end reads and edits them with `wyck-config`
+directly and hands the engine a `ConnectRequest`. It runs on its own Tokio runtime, so it can
+sit in the GUI's process today and behind an RPC boundary later without changing the GUI.
+
+Not done yet: verification of order placement on a live server, pending order placement,
+several simultaneous accounts, margin checks, journal and backtesting.
 
 ### `wyck-app` (planned)
 
@@ -141,7 +154,7 @@ engine: imminent_events(now = broker server time) --> event NewsWarning --> GUI 
 ## Build order
 
 1. Verify order placement live on a demo account (`ctrader-mcp`, no UI needed).
-2. Create `wyck-engine` around the three crates, testable without any UI.
+2. `wyck-engine` around the three crates, testable without any UI (done, first version).
 3. Create `wyck-app` on top of it.
 
 Steps 2 and 3 can overlap once the engine's command and event types are fixed.

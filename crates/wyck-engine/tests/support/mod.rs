@@ -222,3 +222,72 @@ pub async fn remote_scenario(trading: bool) -> RemoteScenario {
     let (url, handle) = spawn_mock_mcp_server(builder.build()).await;
     RemoteScenario { url, world, handle }
 }
+
+// ---------------------------------------------------------------------------------------
+// Engine-level helpers
+// ---------------------------------------------------------------------------------------
+
+use std::collections::VecDeque;
+
+use async_trait::async_trait;
+use wyck_engine::EngineError;
+use wyck_engine::broker::{Broker, ConnectRequest, Connector, MockBroker, ServiceKind};
+
+/// A connector that hands out pre-made mock brokers, one per connect call, and counts calls.
+pub struct MockConnector {
+    queue: Mutex<VecDeque<Result<Arc<MockBroker>, EngineError>>>,
+    last: Mutex<Option<Result<Arc<MockBroker>, EngineError>>>,
+    pub connects: Mutex<usize>,
+}
+
+impl MockConnector {
+    pub fn new(first: Arc<MockBroker>) -> Arc<Self> {
+        Arc::new(Self {
+            queue: Mutex::new(VecDeque::from([Ok(first)])),
+            last: Mutex::new(None),
+            connects: Mutex::new(0),
+        })
+    }
+
+    pub fn then(self: &Arc<Self>, next: Result<Arc<MockBroker>, EngineError>) {
+        self.queue.lock().unwrap().push_back(next);
+    }
+}
+
+#[async_trait]
+impl Connector for MockConnector {
+    async fn connect(&self, _request: &ConnectRequest) -> Result<Arc<dyn Broker>, EngineError> {
+        *self.connects.lock().unwrap() += 1;
+        // Serve queued entries in order; once the queue is empty keep serving the last one, so
+        // a reconnect loop is never starved by the test's own bookkeeping.
+        let next = {
+            let mut q = self.queue.lock().unwrap();
+            let mut last = self.last.lock().unwrap();
+            match q.pop_front() {
+                Some(entry) => {
+                    *last = Some(clone_entry(&entry));
+                    Some(entry)
+                }
+                None => last.as_ref().map(clone_entry),
+            }
+        };
+        match next {
+            Some(Ok(broker)) => Ok(broker as Arc<dyn Broker>),
+            Some(Err(e)) => Err(e),
+            None => Err(EngineError::Internal("no broker queued".into())),
+        }
+    }
+}
+
+fn clone_entry(
+    entry: &Result<Arc<MockBroker>, EngineError>,
+) -> Result<Arc<MockBroker>, EngineError> {
+    match entry {
+        Ok(b) => Ok(Arc::clone(b)),
+        Err(e) => Err(e.clone()),
+    }
+}
+
+pub fn request() -> ConnectRequest {
+    ConnectRequest::new(ServiceKind::CtraderRemote, "mock://broker", None)
+}

@@ -55,7 +55,9 @@ struct State {
     closed: bool,
 }
 
-/// See the [module docs](self).
+/// A scriptable in-memory broker: market orders fill at the current quote, and failures,
+/// lost replies and latency can be injected per call kind. See [`MockBroker::fail_next`],
+/// [`MockBroker::drop_reply_next`], [`MockBroker::set_delay`] and [`MockBroker::calls`].
 #[derive(Debug)]
 pub struct MockBroker {
     account_id: AccountId,
@@ -186,6 +188,13 @@ impl MockBroker {
             s.positions.push(position);
         }
         self
+    }
+
+    /// Adds an open position after construction (an order filled elsewhere, for example).
+    pub fn push_position(&self, position: Position) {
+        let mut s = self.lock();
+        s.next_position_id = s.next_position_id.max(position.id.get() + 1);
+        s.positions.push(position);
     }
 
     /// Updates a quote after construction.

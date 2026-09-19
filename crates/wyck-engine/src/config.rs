@@ -76,6 +76,10 @@ pub struct TradingConfig {
     /// How long a flatten preview stays valid. Default 30 s.
     #[serde(with = "duration_ms")]
     pub flatten_preview_ttl: Duration,
+    /// How long an order plan stays submittable. A plan is priced from a live quote, so an
+    /// old one must be re-planned rather than sent. Default 15 s.
+    #[serde(with = "duration_ms")]
+    pub plan_ttl: Duration,
 }
 
 impl Default for TradingConfig {
@@ -87,6 +91,7 @@ impl Default for TradingConfig {
             confirm_attempts: 5,
             market_slippage_points: None,
             flatten_preview_ttl: Duration::from_secs(30),
+            plan_ttl: Duration::from_secs(15),
         }
     }
 }
@@ -166,6 +171,8 @@ pub struct EngineConfig {
     pub event_buffer: usize,
     /// How many recent events the activity log keeps. Default 200.
     pub activity_log_len: usize,
+    /// Whether the engine hosts the economic calendar. Default `true`.
+    pub calendar_enabled: bool,
 }
 
 impl Default for EngineConfig {
@@ -177,6 +184,7 @@ impl Default for EngineConfig {
             assumed_specs: AssumedSpecs::default(),
             event_buffer: 256,
             activity_log_len: 200,
+            calendar_enabled: true,
         }
     }
 }
@@ -193,7 +201,7 @@ impl EngineConfig {
         let g = &self.guardrails;
         let a = &self.assumed_specs;
 
-        let positive: [(&str, Duration); 7] = [
+        let positive: [(&str, Duration); 8] = [
             ("session.refresh_interval", s.refresh_interval),
             ("session.quote_interval", s.quote_interval),
             ("session.ping_interval", s.ping_interval),
@@ -201,6 +209,7 @@ impl EngineConfig {
             ("session.request_timeout", s.request_timeout),
             ("trading.order_timeout", t.order_timeout),
             ("trading.flatten_preview_ttl", t.flatten_preview_ttl),
+            ("trading.plan_ttl", t.plan_ttl),
         ];
         for (name, value) in positive {
             if value.is_zero() {

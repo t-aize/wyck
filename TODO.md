@@ -10,7 +10,9 @@ The crate layout and data flows are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
   servers, 111 tests. Mutating calls (orders) not verified live yet.
 - `wyck-config`: complete and tested (profiles, keyring and encrypted-file secret stores).
 - `wyck-calendar`: complete and tested (feed client, filters, refresh service, warnings).
-  Not wired into anything yet.
+  Hosted by the engine.
+- `wyck-engine`: first version done and tested with mocks (session, state, planning, order
+  pipeline, guardrails, news). Not yet validated against a live server.
 - The ratatui TUI (`crates/wyck`) was removed. It is in git history (commit before
   `9f5a8ba`) if its engine loop is useful as a reference.
 - CI runs on every push to `main` (fmt, clippy `-D warnings`, tests, release build) on
@@ -51,44 +53,41 @@ Tick checkboxes as work lands.
 - [ ] **Decide the engine boundary.** Does the engine run in the GUI's process (channels)
       first with an RPC boundary later, or is a headless process required from the start?
       The command and event types should be the same either way.
-- [ ] **Create the `wyck-engine` crate** (see P2) once the two decisions above are made.
+- [x] **Create the `wyck-engine` crate** (first version done, see P2). The engine runs on its own
+      runtime and works from any executor, so the GUI choice does not affect it.
 
 ---
 
 ## P2: `wyck-engine` (headless core, no UI code)
 
-Everything the removed TUI engine did, plus the pieces it never had.
+First version done (`crates/wyck-engine`, see its docs and `docs/ARCHITECTURE.md`): session
+lifecycle, state and events, risk planning, dry-run-first order pipeline, guardrails, news
+hosting, Remote and Local adapters, mock broker, scenario tests.
 
-- [ ] Connection lifecycle for the active profile, using `wyck-config` for the profile
-      and token and `ctrader-mcp` for the session. Dispatch on `ProfileConfig.service`
-      (`crates/wyck-config/src/profile.rs`): `"ctrader-remote"` or `"ctrader-local"`.
-- [ ] Remote bootstrap: `workflows::bootstrap::bootstrap_remote`.
-- [ ] Local bootstrap: a `bootstrap_local` with its own smaller session context. Local has
-      no `symbolId` keyed `get_assets` / `get_symbols`, so `RemoteSessionContext` cannot
-      be reused. Worth a short design pass.
-- [ ] Periodic account, position and P&L refresh, non-fatal on failure (keep last state,
-      surface the error).
-- [ ] Risk-based order flow: size with `ctrader-mcp` `math::sizing` and
-      `workflows::sizing`, place, re-read positions to confirm, report the result.
-      Requires P0.
-- [ ] Modify stop loss and take profit, change size, close position, cycle instrument.
-- [ ] Host `wyck-calendar` (see below).
-- [ ] Guardrails that warn and never block: imminent high-impact news first, prop-firm
-      rules later.
+Remaining:
 
-### Calendar integration (uses the finished `wyck-calendar` crate)
+- [ ] **Live validation on a demo account** (the engine part of P0): connect Remote and Local,
+      place and close a minimal order, run a flatten, and confirm the assumptions listed
+      below. Until this is done, do not arm the engine on a funded account.
+- [ ] Confirm the **Local volume unit** (`crates/wyck-engine/src/broker/local.rs` module
+      docs): the adapter reads raw volume as lots of `lotSize` base units and fails closed
+      when that rounds to zero.
+- [ ] Confirm the **Remote volume rules**: the server publishes no lot size, minimum or step,
+      so the engine assumes them (`EngineConfig::assumed_specs`). Add per-symbol overrides
+      once real values are known.
+- [ ] `get_server_time` response shape on both servers (`broker::parse_server_time` accepts
+      several shapes; confirm which one is real).
+- [ ] Place pending orders (limit, stop) through the engine. Only market orders exist today.
+- [ ] Margin awareness: needs leverage tier data neither server provides.
+- [ ] Several accounts at once (the API already carries an `AccountId` everywhere).
+- [ ] Prop-firm guardrails (warnings for multi-account rule conflicts).
+- [ ] Persist the last good calendar to disk, so a restart does not spend a request from the
+      feed's budget (about 2 per 5 minutes per IP) or start empty offline.
+- [ ] Optional: an RPC boundary in front of `EngineHandle` for a separate engine process.
 
-- [ ] Start `CalendarService::spawn_default()` once in the engine and forward
-      `CalendarState` changes as events.
-- [ ] Build the filter from the session: `EventFilter::currencies` from
-      `currencies_from_symbols(...)` over the symbol list, plus the user's watchlist and
-      minimum impact from config.
-- [ ] Call `imminent_events` on a timer with `now` corrected by the broker's
-      `get_server_time`, and emit warnings.
-- [ ] Persist the last good calendar to disk, so an app restart does not spend a request
-      from the feed's budget (about 2 per 5 minutes per IP) or start empty offline.
-- [ ] Handle the week rollover in the UI: the feed only serves the current week, so on
-      Friday evening "nothing upcoming" must not read as "no news".
+Calendar integration (done in the engine): `CalendarService` hosting, filter from the symbols
+being traded, warnings timed with the broker's clock. Still for the UI: handle the week
+rollover so that "nothing upcoming" on a Friday evening does not read as "no news".
 
 ---
 
