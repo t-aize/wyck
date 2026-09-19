@@ -282,3 +282,202 @@ impl CTraderError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rmcp::ServiceError;
+    use rmcp::model::{ContentBlock, ErrorCode, ErrorData};
+    use serde_json::json;
+
+    use super::*;
+
+    // --- from_service_error --------------------------------------------------------
+
+    #[test]
+    fn from_service_error_maps_invalid_params_to_schema_mismatch() {
+        let source = ServiceError::McpError(ErrorData::new(
+            ErrorCode::INVALID_PARAMS,
+            "period must be one of the 9 documented values",
+            None,
+        ));
+
+        let error = CTraderError::from_service_error("get_trendbars", source);
+
+        assert!(matches!(
+            error,
+            CTraderError::SchemaMismatch { tool, message }
+                if tool == "get_trendbars"
+                    && message == "period must be one of the 9 documented values"
+        ));
+    }
+
+    #[test]
+    fn from_service_error_maps_everything_else_to_transport() {
+        let source = ServiceError::McpError(ErrorData::new(
+            ErrorCode::INTERNAL_ERROR,
+            "server panicked",
+            None,
+        ));
+
+        let error = CTraderError::from_service_error("get_balance", source);
+
+        assert!(matches!(error, CTraderError::Transport { tool, .. } if tool == "get_balance"));
+    }
+
+    // --- classify_tool_error: the self-healing-playbook.md §3 matrix, one case each -
+
+    #[test]
+    fn classifies_available_false_as_resource_unavailable() {
+        let result = CallToolResult::structured(json!({ "available": false }));
+
+        let error = CTraderError::classify_tool_error("get_account_statistics", &result);
+
+        assert!(matches!(
+            error,
+            CTraderError::ResourceUnavailable { tool } if tool == "get_account_statistics"
+        ));
+    }
+
+    #[test]
+    fn classifies_legacy_invalid_request_envelope_as_server_rejection() {
+        let result = CallToolResult::structured_error(json!({
+            "error": {
+                "code": "INVALID_REQUEST",
+                "httpStatus": 400,
+                "message": "symbolId is required"
+            }
+        }));
+
+        let error = CTraderError::classify_tool_error("create_order", &result);
+
+        match error {
+            CTraderError::ServerRejection {
+                tool,
+                code,
+                http_status,
+                message,
+            } => {
+                assert_eq!(tool, "create_order");
+                assert_eq!(code.as_deref(), Some("INVALID_REQUEST"));
+                assert_eq!(http_status, Some(400));
+                assert_eq!(message, "symbolId is required");
+            }
+            other => panic!("expected ServerRejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_502_code_as_upstream_broker_error() {
+        let result = CallToolResult::structured_error(json!({
+            "error": {
+                "code": "502 BAD_GATEWAY",
+                "message": "uProxy error: broker unavailable"
+            }
+        }));
+
+        let error = CTraderError::classify_tool_error("get_trendbars", &result);
+
+        match error {
+            CTraderError::UpstreamBrokerError {
+                tool,
+                code,
+                message,
+            } => {
+                assert_eq!(tool, "get_trendbars");
+                assert_eq!(code, "502 BAD_GATEWAY");
+                assert_eq!(message, "uProxy error: broker unavailable");
+            }
+            other => panic!("expected UpstreamBrokerError, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_upstream_by_message_even_without_a_502_code() {
+        let result = CallToolResult::structured_error(json!({
+            "error": {
+                "code": "GATEWAY_ERROR",
+                "message": "uProxy error: timed out waiting for the broker"
+            }
+        }));
+
+        let error = CTraderError::classify_tool_error("get_spot_prices", &result);
+
+        assert!(matches!(error, CTraderError::UpstreamBrokerError { .. }));
+    }
+
+    #[test]
+    fn classifies_rest_proxy_1_0_18_plain_string_hint_as_server_rejection_verbatim() {
+        let result = CallToolResult::error(vec![ContentBlock::text(
+            "create_order: Absolute stopLoss is not supported for MARKET orders; use relativeStopLoss instead",
+        )]);
+
+        let error = CTraderError::classify_tool_error("create_order", &result);
+
+        match error {
+            CTraderError::ServerRejection {
+                tool,
+                code,
+                http_status,
+                message,
+            } => {
+                assert_eq!(tool, "create_order");
+                assert_eq!(code, None);
+                assert_eq!(http_status, None);
+                assert_eq!(
+                    message,
+                    "create_order: Absolute stopLoss is not supported for MARKET orders; use relativeStopLoss instead"
+                );
+            }
+            other => panic!("expected ServerRejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_local_order_error_prefix_as_local_fault() {
+        let result = CallToolResult::error(vec![ContentBlock::text(
+            "Order error: Not enough funds to open this Position",
+        )]);
+
+        let error = CTraderError::classify_tool_error("place_market_order", &result);
+
+        match error {
+            CTraderError::LocalFault { tool, message } => {
+                assert_eq!(tool, "place_market_order");
+                assert_eq!(
+                    message,
+                    "Order error: Not enough funds to open this Position"
+                );
+            }
+            other => panic!("expected LocalFault, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_no_decodable_content_as_unclassified() {
+        let result = CallToolResult::error(vec![]);
+
+        let error = CTraderError::classify_tool_error("get_deals", &result);
+
+        assert!(matches!(
+            error,
+            CTraderError::UnclassifiedToolError { tool, .. } if tool == "get_deals"
+        ));
+    }
+
+    #[test]
+    fn structured_content_takes_priority_over_unparsable_text() {
+        // Some builds populate both `content` (human-readable) and `structured_content`
+        // (machine-readable) on the same error result; the JSON-envelope branch must
+        // still fire even when the accompanying text block isn't itself valid JSON.
+        let mut result = CallToolResult::error(vec![ContentBlock::text(
+            "Order rejected — see structured data",
+        )]);
+        result.structured_content = Some(json!({
+            "error": { "code": "INVALID_REQUEST", "message": "bad request" }
+        }));
+
+        let error = CTraderError::classify_tool_error("create_order", &result);
+
+        assert!(matches!(error, CTraderError::ServerRejection { .. }));
+    }
+}
