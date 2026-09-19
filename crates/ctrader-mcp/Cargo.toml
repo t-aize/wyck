@@ -20,3 +20,11 @@ time = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
+
+# In-process mock MCP server for the transport/session integration tests under `tests/`
+# — spins up `rmcp`'s own server-side streamable-HTTP implementation on `127.0.0.1:0`,
+# the same pattern `rmcp` uses in its own test suite (see `rmcp-*/tests/
+# test_server_discover_http.rs`). Additive on top of the workspace `rmcp` dependency's
+# client-only feature set; only affects test builds.
+rmcp = { workspace = true, features = ["server", "transport-streamable-http-server"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
