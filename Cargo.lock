@@ -481,6 +481,7 @@ name = "ctrader-mcp"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "ctrader-mcp",
  "rmcp",
  "serde",
  "serde_json",

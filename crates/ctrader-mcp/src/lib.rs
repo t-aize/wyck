@@ -64,6 +64,8 @@ pub mod quirks;
 mod rate_limit;
 pub mod remote;
 pub mod retry;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 pub mod time;
 pub mod transport;
 pub mod workflows;
