@@ -10,8 +10,8 @@
 //! since only declared DTO fields are ever serialized) in exactly one place.
 
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ClientCapabilities, ClientConfig, Implementation,
-    JsonObject,
+    CallToolRequestParams, CallToolResult, ClientCapabilities, ClientConfig, ClientRequest,
+    Implementation, JsonObject, PingRequest,
 };
 use rmcp::service::RunningService;
 use rmcp::transport::StreamableHttpClientTransport;
@@ -237,10 +237,13 @@ impl McpSession {
 
     /// Lists every tool the connected server currently advertises. Used by workflow W0
     /// (session bootstrap) to fingerprint the server family per `SKILL.md`'s routing
-    /// table (Local: `ping` + `get_accounts_list`; Remote: `get_version`) and to detect
-    /// whether the bound connection is `data`-only or also exposes the `trading`
-    /// profile's mutating tools (`references/remote-http-server.md` "Profile
-    /// distinction").
+    /// table (Local: `get_accounts_list`; Remote: `get_version`) and to detect whether
+    /// the bound connection is `data`-only or also exposes the `trading` profile's
+    /// mutating tools (`references/remote-http-server.md` "Profile distinction").
+    ///
+    /// `"ping"` is deliberately not part of either fingerprint despite appearing in
+    /// older versions of this crate's own documentation: neither server advertises it
+    /// here — see [`Self::ping`].
     pub async fn list_tool_names(&self) -> Result<Vec<String>, CTraderError> {
         let tools = self
             .peer()
@@ -251,6 +254,22 @@ impl McpSession {
             .into_iter()
             .map(|tool| tool.name.to_string())
             .collect())
+    }
+
+    /// Confirms round-trip liveness with the connected server via a native MCP protocol
+    /// `ping` (`ClientRequest::PingRequest`) — NOT a `tools/call`.
+    ///
+    /// Both `RemoteClient::ping` and `LocalClient::ping` used to send this as a tool
+    /// call named `"ping"`, which was silently broken: a live probe against both
+    /// server families (`examples/probe_remote.rs`, `examples/probe_local.rs`) found
+    /// that neither one advertises `"ping"` in `tools/list` — MCP's protocol-level ping
+    /// exists precisely so a client doesn't need a tool for this.
+    pub async fn ping(&self) -> Result<(), CTraderError> {
+        self.peer()
+            .send_request(ClientRequest::PingRequest(PingRequest::default()))
+            .await
+            .map(|_| ())
+            .map_err(|source| CTraderError::from_service_error("ping", source))
     }
 
     async fn call_with_arguments<R: DeserializeOwned>(

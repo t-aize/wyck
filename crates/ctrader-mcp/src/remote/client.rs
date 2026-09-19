@@ -120,9 +120,12 @@ impl RemoteClient {
         self.call_no_args_idempotent("get_server_time").await
     }
 
-    /// Confirms round-trip liveness, if exposed by the live build.
-    pub async fn ping(&self) -> Result<serde_json::Value, CTraderError> {
-        self.call_no_args_idempotent("ping").await
+    /// Confirms round-trip liveness with a native MCP protocol ping — see
+    /// [`McpSession::ping`] for why this is not (and, per a live probe, never was
+    /// successfully) a `tools/call`.
+    pub async fn ping(&self) -> Result<(), CTraderError> {
+        self.rate_limiter.acquire().await;
+        self.session.ping().await
     }
 
     // -----------------------------------------------------------------------------

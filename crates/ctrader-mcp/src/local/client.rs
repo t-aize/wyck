@@ -52,9 +52,11 @@ impl LocalClient {
     // Connection & diagnostics
     // -----------------------------------------------------------------------------
 
-    /// Confirms round-trip liveness with the Local server.
-    pub async fn ping(&self) -> Result<Value, CTraderError> {
-        self.session.call_no_args_idempotent("ping").await
+    /// Confirms round-trip liveness with the Local server via a native MCP protocol
+    /// ping — see [`McpSession::ping`] for why this is not (and, per a live probe,
+    /// never was successfully) a `tools/call`.
+    pub async fn ping(&self) -> Result<(), CTraderError> {
+        self.session.ping().await
     }
 
     /// The server's wall-clock time — prefer this over the agent's local clock for
