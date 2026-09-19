@@ -3,7 +3,7 @@
 //! A headless REST proxy (`rest-proxy`) fronting cTrader's Open API. Every tool this
 //! server exposes is named explicitly in `references/remote-http-server.md`, so unlike
 //! [`crate::local`], every method on [`RemoteClient`] is backed by a fully-typed
-//! request/response DTO (see [`dto`]) — there is no "best-effort inferred name"
+//! request/response DTO (see [`dto`]); there is no "best-effort inferred name"
 //! category here.
 //!
 //! Two profiles exist on the live server: `data` (every read-only tool) and `trading`
