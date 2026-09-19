@@ -156,22 +156,36 @@ async fn remote_broker_meets_the_contract() {
         .find(|(t, _)| t == "amend_position")
         .unwrap();
     assert!(
-        amend.1["stopLoss"].is_i64() && amend.1["takeProfit"].is_i64(),
-        "Q-R10: both legs are always sent"
+        amend.1["stopLoss"].is_f64() && amend.1["takeProfit"].is_f64(),
+        "Q-R10: both legs are always sent, as display prices"
     );
 }
 
 #[tokio::test]
-async fn remote_instruments_are_marked_as_assumed() {
-    let (broker, _scenario) = connect_remote(true).await;
+async fn remote_instruments_are_assumed_and_learn_their_precision_from_quotes() {
+    let (broker, scenario) = connect_remote(true).await;
     let usdjpy = broker.instrument("USDJPY").await.unwrap();
     assert_eq!(
         usdjpy.specs_source,
         wyck_engine::domain::SpecsSource::Assumed
     );
+    // The server sends no pipDigits. The quote 15012300 (units of 1e-5) shows 3 decimals.
+    assert_eq!(usdjpy.price_digits, 3);
     assert!(close(usdjpy.pip_size, 0.01));
     assert_eq!(usdjpy.base_currency.as_deref(), Some("USD"));
     assert_eq!(usdjpy.quote_currency.as_deref(), Some("JPY"));
+    assert_eq!(scenario.world.lock().unwrap().last_price_ids, vec![2]);
+
+    let quotes = broker.quotes(&["USDJPY".to_owned()]).await.unwrap();
+    assert!(close(quotes[0].bid, 150.123), "raw prices are 1e-5 units");
+    assert!(close(quotes[0].ask, 150.125));
+}
+
+#[tokio::test]
+async fn remote_has_no_server_clock() {
+    let (broker, _scenario) = connect_remote(true).await;
+    let error = broker.server_time().await.unwrap_err();
+    assert!(matches!(error, EngineError::Broker { .. }), "{error:?}");
 }
 
 #[tokio::test]

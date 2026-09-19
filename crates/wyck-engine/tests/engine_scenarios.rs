@@ -526,6 +526,83 @@ async fn an_order_whose_fate_cannot_be_determined_is_tracked_then_reconciled() {
     );
 }
 
+fn lookalike(id: i64, volume: wyck_engine::domain::Volume) -> wyck_engine::domain::Position {
+    wyck_engine::domain::Position {
+        id: id.into(),
+        symbol: "EURUSD".into(),
+        side: Side::Buy,
+        volume,
+        entry_price: Some(1.08501),
+        stop_loss: None,
+        take_profit: None,
+        swap: None,
+        commission: None,
+        unrealized_pnl: None,
+        label: None,
+    }
+}
+
+fn connection_reset() -> EngineError {
+    EngineError::Broker {
+        kind: wyck_engine::BrokerErrorKind::Connection,
+        retryable: true,
+        message: "connection reset".into(),
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_late_order_is_reconciled_by_shape_when_the_server_never_echoes_the_label() {
+    let f = armed().await;
+    f.broker
+        .fail_next(BrokerCall::PlaceMarket, connection_reset());
+    let plan = f.handle.plan_entry(intent(1.0)).await.unwrap();
+    let OrderOutcome::Unknown { label, .. } = f.handle.submit(plan.id).await.unwrap() else {
+        panic!("expected an unknown outcome");
+    };
+
+    // Remote's positions carry no label: the order is recognized by symbol, side, volume.
+    f.broker.push_position(lookalike(500, plan.volume));
+    sleep(6).await;
+
+    assert!(
+        f.handle
+            .state()
+            .warnings
+            .iter()
+            .all(|w| w.kind != wyck_engine::state::WarningKind::UnknownOrder)
+    );
+    assert!(
+        f.handle
+            .recent_events()
+            .iter()
+            .any(|e| matches!(&e.kind, EventKind::Reconciled { label: l, .. } if *l == label))
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_position_that_predates_the_order_is_not_mistaken_for_it() {
+    let f = armed().await;
+    let plan = f.handle.plan_entry(intent(1.0)).await.unwrap();
+    // Same symbol, side and volume, but already open when the order goes out.
+    f.broker.push_position(lookalike(400, plan.volume));
+    sleep(6).await;
+    f.broker
+        .fail_next(BrokerCall::PlaceMarket, connection_reset());
+    let OrderOutcome::Unknown { .. } = f.handle.submit(plan.id).await.unwrap() else {
+        panic!("expected an unknown outcome");
+    };
+    sleep(6).await;
+
+    assert!(
+        f.handle
+            .state()
+            .warnings
+            .iter()
+            .any(|w| w.kind == wyck_engine::state::WarningKind::UnknownOrder),
+        "nothing new appeared, so the order is still unaccounted for"
+    );
+}
+
 #[tokio::test(start_paused = true)]
 async fn an_unknown_order_warning_can_be_dismissed_by_the_user() {
     let f = armed().await;

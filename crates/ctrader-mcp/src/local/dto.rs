@@ -75,6 +75,8 @@ pub struct BalanceResponse {
     /// `SKILL.md` "Hedging vs netting accounts".
     #[serde(alias = "accountType")]
     pub account_type: Option<String>,
+    /// The live server calls this `depositAsset`.
+    #[serde(alias = "depositAsset")]
     pub currency: Option<String>,
     #[serde(flatten)]
     pub extra: JsonObject,
@@ -103,7 +105,8 @@ pub struct GetSymbolsParams {
 /// One entry in `get_symbols`' result set.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SymbolSummary {
-    #[serde(alias = "symbolName")]
+    /// The live server calls this `name`.
+    #[serde(alias = "symbolName", alias = "name")]
     pub symbol_name: String,
     pub description: Option<String>,
     #[serde(flatten)]
@@ -129,7 +132,8 @@ pub struct GetSymbolDetailsParams {
 /// this live response; the baseline is a fallback only (`Q-L1`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct SymbolDetails {
-    #[serde(alias = "symbolName")]
+    /// The live server calls this `name`.
+    #[serde(alias = "symbolName", alias = "name")]
     pub symbol_name: Option<String>,
     /// Base-asset units per lot. **Broker-dependent**: do not assume `100_000` (`Q-L1`).
     #[serde(alias = "lotSize")]
@@ -256,6 +260,20 @@ pub struct GetPositionsResponse {
     pub extra: JsonObject,
 }
 
+/// How the server reads a `volume` argument. Every Local tool that takes a volume requires
+/// this next to it (live server, 2026-09): `units` is the base-asset count the symbol's
+/// `minVolume`, `maxVolume` and `volumeStep` are also expressed in, `lots` is multiplied by
+/// the symbol's `lotSize` server side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VolumeType {
+    /// The volume is a number of lots.
+    Lots,
+    /// The volume is a number of base-asset units.
+    #[default]
+    Units,
+}
+
 /// Parameters for `place_market_order`. `stopLossPips`/`takeProfitPips` are **pip
 /// distances**, not absolute prices: see `references/local-http-server.md` "Stop loss
 /// and take profit semantics on Local" (`Q-L2`).
@@ -267,6 +285,9 @@ pub struct PlaceMarketOrderParams {
     /// [`TradeSide::as_local_input`]'s lowercase form.
     pub side: String,
     pub volume: f64,
+    /// Required by the server; [`VolumeType::Units`] unless set otherwise.
+    #[serde(rename = "volumeType")]
+    pub volume_type: VolumeType,
     #[serde(rename = "stopLossPips", skip_serializing_if = "Option::is_none")]
     pub stop_loss_pips: Option<i64>,
     #[serde(rename = "takeProfitPips", skip_serializing_if = "Option::is_none")]
@@ -283,6 +304,7 @@ impl PlaceMarketOrderParams {
             symbol_name: symbol_name.into(),
             side: side.as_local_input().to_owned(),
             volume,
+            volume_type: VolumeType::default(),
             stop_loss_pips: None,
             take_profit_pips: None,
             label: None,
@@ -329,6 +351,9 @@ pub struct ClosePositionPartialParams {
     #[serde(rename = "positionId")]
     pub position_id: i64,
     pub volume: f64,
+    /// Required by the server; [`VolumeType::Units`] unless set otherwise.
+    #[serde(rename = "volumeType")]
+    pub volume_type: VolumeType,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -406,6 +431,9 @@ pub struct PlacePendingOrderParams {
     pub symbol_name: String,
     pub side: String,
     pub volume: f64,
+    /// Required by the server; [`VolumeType::Units`] unless set otherwise.
+    #[serde(rename = "volumeType")]
+    pub volume_type: VolumeType,
     #[serde(rename = "limitPrice", skip_serializing_if = "Option::is_none")]
     pub limit_price: Option<f64>,
     #[serde(rename = "stopPrice", skip_serializing_if = "Option::is_none")]
@@ -434,6 +462,7 @@ impl PlacePendingOrderParams {
             symbol_name: symbol_name.into(),
             side: side.as_local_input().to_owned(),
             volume,
+            volume_type: VolumeType::default(),
             limit_price: None,
             stop_price: None,
             stop_loss_pips: None,
@@ -805,4 +834,62 @@ pub struct GetIndicatorValuesResponse {
 #[derive(Debug, Clone, Serialize)]
 pub struct ShowNotificationParams {
     pub message: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn volume_orders_always_carry_a_volume_type() {
+        let market = PlaceMarketOrderParams::new("BTCUSD", TradeSide::Buy, 0.01);
+        let value = serde_json::to_value(&market).unwrap();
+        assert_eq!(value["volumeType"], "units");
+        assert_eq!(value["volume"], 0.01);
+
+        let mut pending = PlacePendingOrderParams::new("EURUSD", TradeSide::Sell, 1.0);
+        pending.volume_type = VolumeType::Lots;
+        assert_eq!(
+            serde_json::to_value(&pending).unwrap()["volumeType"],
+            "lots"
+        );
+
+        let partial = ClosePositionPartialParams {
+            position_id: 7,
+            volume: 1000.0,
+            volume_type: VolumeType::default(),
+        };
+        assert_eq!(
+            serde_json::to_value(&partial).unwrap()["volumeType"],
+            "units"
+        );
+    }
+
+    /// A `get_balance` answer as the live Local server sent it (2026-09, values altered).
+    #[test]
+    fn balance_reads_the_live_shape() {
+        let balance: BalanceResponse = serde_json::from_value(json!({
+            "accountName": null,
+            "accountType": "Hedged",
+            "balance": 958.06,
+            "brokerName": "Spotware",
+            "connectionState": "Authenticated",
+            "depositAsset": "EUR",
+            "equity": 958.06,
+            "freeMargin": 958.06,
+            "grossProfit": 0,
+            "isSwapFree": false,
+            "leverage": 100,
+            "margin": 0,
+            "marginLevel": null,
+            "netProfit": 0,
+            "traderId": 3_382_707
+        }))
+        .unwrap();
+        assert_eq!(balance.currency.as_deref(), Some("EUR"));
+        assert_eq!(balance.trader_id, Some(3_382_707));
+        assert_eq!(balance.margin_level, None);
+    }
 }

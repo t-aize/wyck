@@ -14,6 +14,10 @@ pub enum SpecsSource {
     /// [`AssumedSpecs`](crate::config::AssumedSpecs). Risk sizing still works but the lot
     /// size, minimum and step may not match the broker's, and the planner warns.
     Assumed,
+    /// Entered by the user for this symbol in
+    /// [`AssumedSpecs::symbols`](crate::config::AssumedSpecs::symbols). Trusted like the
+    /// broker's own numbers: no planner warning.
+    Configured,
 }
 
 /// Volume rules for one instrument.

@@ -68,34 +68,31 @@ pub async fn remote_scenario(trading: bool) -> RemoteScenario {
     let mut builder = MockMcpServer::builder()
         .with_tool("get_version", |_| {
             CallToolResult::structured(json!({
-                "version": "1.0.18", "build_time": "2026-01-01T00:00:00Z", "service": "rest-proxy"
+                "version": "1.0.18", "buildTime": "2026-05-14T10:01:27.541Z", "service": "rest-proxy"
             }))
-        })
-        .with_tool("get_server_time", |_| {
-            CallToolResult::structured(json!({ "timestamp": 1_789_389_000_000_i64 }))
         })
         .with_tool("get_balance", |_| {
             CallToolResult::structured(json!({
-                "trader_id": 42, "balance": 1_000_000, "equity": 1_000_000,
-                "free_margin": 1_000_000, "money_digits": 2, "deposit_asset_id": 1
+                "balance": 1_000_000, "equity": 1_000_000,
+                "freeMargin": 1_000_000, "moneyDigits": 2, "depositAssetId": 1
             }))
         })
         .with_tool("get_assets", |_| {
             CallToolResult::structured(json!({
                 "assets": [
-                    {"asset_id": 1, "name": "USD"},
-                    {"asset_id": 2, "name": "EUR"},
-                    {"asset_id": 3, "name": "JPY"}
+                    {"assetId": 1, "name": "USD", "displayName": "USD"},
+                    {"assetId": 2, "name": "EUR", "displayName": "EUR"},
+                    {"assetId": 3, "name": "JPY", "displayName": "JPY"}
                 ]
             }))
         })
         .with_tool("get_symbols", |_| {
             CallToolResult::structured(json!({
                 "symbols": [
-                    {"symbol_id": 1, "symbol_name": "EURUSD", "enabled": true,
-                     "base_asset_id": 2, "quote_asset_id": 1, "pip_digits": 5},
-                    {"symbol_id": 2, "symbol_name": "USDJPY", "enabled": true,
-                     "base_asset_id": 1, "quote_asset_id": 3, "pip_digits": 3}
+                    {"symbolId": 1, "symbolName": "EURUSD", "enabled": true,
+                     "baseAssetId": 2, "quoteAssetId": 1, "description": "Euro vs US Dollar"},
+                    {"symbolId": 2, "symbolName": "USDJPY", "enabled": true,
+                     "baseAssetId": 1, "quoteAssetId": 3, "description": "US Dollar vs Japanese Yen"}
                 ]
             }))
         });
@@ -115,8 +112,8 @@ pub async fn remote_scenario(trading: bool) -> RemoteScenario {
             let prices: Vec<Value> = ids
                 .iter()
                 .map(|id| match id {
-                    1 => json!({"symbol_id": 1, "bid": 108_499, "ask": 108_501, "timestamp": 1_789_389_000_000_i64}),
-                    _ => json!({"symbol_id": 2, "bid": 150_123, "ask": 150_125, "timestamp": 1_789_389_000_000_i64}),
+                    1 => json!({"symbolId": 1, "bid": 108_499, "ask": 108_501, "high": 108_650, "low": 108_310, "sessionClose": 108_400, "timestamp": 1_789_389_000_000_i64}),
+                    _ => json!({"symbolId": 2, "bid": 15_012_300, "ask": 15_012_500, "high": 15_050_000, "low": 14_990_100, "sessionClose": 15_000_000, "timestamp": 1_789_389_000_000_i64}),
                 })
                 .collect();
             CallToolResult::structured(json!({ "prices": prices }))
@@ -147,9 +144,9 @@ pub async fn remote_scenario(trading: bool) -> RemoteScenario {
                 let mut w = world.lock().unwrap();
                 w.mutations.push(("create_order".to_owned(), a.clone()));
                 let (entry, sign) = if side_of(&a) == "BUY" {
-                    (108_501_i64, 1)
+                    (1.08501_f64, 1.0)
                 } else {
-                    (108_499, -1)
+                    (1.08499, -1.0)
                 };
                 let symbol_id = a["symbolId"].as_i64().unwrap_or(1);
                 let rel = |key: &str| a[key].as_i64();
@@ -158,8 +155,8 @@ pub async fn remote_scenario(trading: bool) -> RemoteScenario {
                 let position = json!({
                     "position_id": id, "symbol_id": symbol_id, "trade_side": side_of(&a),
                     "volume": a["volume"], "entry_price": entry,
-                    "stop_loss": rel("relativeStopLoss").map(|p| entry - sign * p),
-                    "take_profit": rel("relativeTakeProfit").map(|p| entry + sign * p),
+                    "stop_loss": rel("relativeStopLoss").map(|p| ((entry - sign * p as f64 * 1e-5) * 1e5).round() / 1e5),
+                    "take_profit": rel("relativeTakeProfit").map(|p| ((entry + sign * p as f64 * 1e-5) * 1e5).round() / 1e5),
                     "swap": 0, "commission": 0, "unrealized_pnl": 0,
                     "label": a["label"]
                 });

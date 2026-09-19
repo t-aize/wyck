@@ -26,7 +26,7 @@ use crate::remote::dto::{AmendPositionParams, AmendPositionResponse, CreateOrder
 /// re-read catches a violation).
 ///
 /// Pass `None` for whichever leg the caller wants left unchanged; pass `Some(price)`
-/// (absolute pipettes) for the leg being changed.
+/// (an absolute display price, not pipettes) for the leg being changed.
 ///
 /// # Errors
 ///
@@ -39,22 +39,20 @@ use crate::remote::dto::{AmendPositionParams, AmendPositionResponse, CreateOrder
 pub async fn amend_position_preserving_legs(
     client: &RemoteClient,
     position_id: i64,
-    new_stop_loss_pipettes: Option<i64>,
-    new_take_profit_pipettes: Option<i64>,
+    new_stop_loss: Option<f64>,
+    new_take_profit: Option<f64>,
 ) -> Result<AmendPositionResponse, CTraderError> {
     let details = client.get_position_details(position_id).await?;
     let position = details
         .position
         .ok_or_else(|| CTraderError::Invariant(format!("position {position_id} not found")))?;
 
-    let stop_loss = new_stop_loss_pipettes
-        .or(position.stop_loss)
-        .ok_or_else(|| {
-            CTraderError::Invariant(format!(
-                "position {position_id} has no current stopLoss to preserve, and none was provided"
-            ))
-        })?;
-    let take_profit = new_take_profit_pipettes.or(position.take_profit).ok_or_else(|| {
+    let stop_loss = new_stop_loss.or(position.stop_loss).ok_or_else(|| {
+        CTraderError::Invariant(format!(
+            "position {position_id} has no current stopLoss to preserve, and none was provided"
+        ))
+    })?;
+    let take_profit = new_take_profit.or(position.take_profit).ok_or_else(|| {
         CTraderError::Invariant(format!(
             "position {position_id} has no current takeProfit to preserve, and none was provided"
         ))
@@ -106,8 +104,8 @@ pub async fn market_two_step_open(
     symbol_id: i64,
     trade_side: crate::common::TradeSide,
     volume_cents: i64,
-    stop_loss_pipettes: i64,
-    take_profit_pipettes: i64,
+    stop_loss: f64,
+    take_profit: f64,
     label: Option<String>,
 ) -> Result<AmendPositionResponse, CTraderError> {
     let mut params = CreateOrderParams::market(symbol_id, trade_side, volume_cents);
@@ -127,13 +125,7 @@ pub async fn market_two_step_open(
         )
         })?;
 
-    amend_position_preserving_legs(
-        client,
-        position_id,
-        Some(stop_loss_pipettes),
-        Some(take_profit_pipettes),
-    )
-    .await
+    amend_position_preserving_legs(client, position_id, Some(stop_loss), Some(take_profit)).await
 }
 
 // ---------------------------------------------------------------------------------

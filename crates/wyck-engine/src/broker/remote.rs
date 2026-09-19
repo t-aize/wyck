@@ -1,6 +1,6 @@
 //! The [`Broker`] adapter for cTrader's Remote MCP server.
 //!
-//! Remote speaks integers: prices are pipettes (`price * 10^pipDigits`), volumes are cents
+//! Remote speaks integers: prices are pipettes (`price * 10^5`), volumes are cents
 //! of units, money is scaled by `moneyDigits`, and every symbol is a numeric `symbolId`.
 //! This adapter decodes all of that into the engine's display-value model and encodes
 //! orders back, applying the server quirks `ctrader-mcp` documents:
@@ -13,11 +13,22 @@
 //! - **`Q-R8`**: one unknown id in a `get_spot_prices` batch empties the whole response, so
 //!   only ids known from the session's symbol list are ever sent.
 //!
-//! What Remote does **not** publish is any per-symbol volume rule (lot size, minimum,
-//! step). Instruments built here take those from the engine's `AssumedSpecs` and are marked
-//! [`SpecsSource::Assumed`].
+//! What Remote does **not** publish, checked against a live server (2026-09):
+//!
+//! - **Volume rules** (lot size, minimum, step). Instruments take those from the engine's
+//!   `AssumedSpecs`: the per-symbol rules the user configured
+//!   ([`SpecsSource::Configured`]), or the global guess ([`SpecsSource::Assumed`]).
+//! - **Price digits and pip size.** `get_symbols` has no `pipDigits`. Every raw price is an
+//!   integer in units of 1e-5 whatever the symbol (`15676800` is USDJPY 156.768), so that
+//!   scale is a constant, [`PIPETTE_DIGITS`]. The number of decimals a symbol really quotes
+//!   is inferred from the trailing zeros of observed quotes. That can only under-estimate
+//!   it, which is the safe direction: prices and stop distances come out coarser than
+//!   needed, never finer. The pip size follows the forex convention from those digits, so
+//!   it is only trustworthy for currency pairs.
+//! - **A server clock.** There is no `get_server_time` tool on Remote.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
@@ -29,7 +40,7 @@ use ctrader_mcp::workflows::{RemoteSessionContext, bootstrap_remote};
 use ctrader_mcp::{ConnectionConfig, RemoteClient, quirks};
 use secrecy::ExposeSecret;
 
-use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind, parse_server_time};
+use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind};
 use crate::config::AssumedSpecs;
 use crate::domain::{
     AccountKind, AccountSnapshot, Instrument, OrderKind, PendingOrder, Position, Quote, Side,
@@ -37,6 +48,33 @@ use crate::domain::{
 };
 use crate::error::{BrokerErrorKind, EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
+
+/// Decimals of Remote's integer price encoding: every symbol is quoted in units of 1e-5.
+pub(crate) const PIPETTE_DIGITS: u32 = 5;
+
+fn pipette_price(raw: i64) -> f64 {
+    price_from_pipettes(raw, PIPETTE_DIGITS)
+}
+
+/// The number of decimals a symbol quotes, judged from raw prices (integers in units of
+/// 1e-5): five minus the trailing decimal zeros every value shares. `None` when there is
+/// nothing but zeros to look at.
+pub(crate) fn digits_from_pipettes(values: &[i64]) -> Option<u32> {
+    let shared_zeros = values
+        .iter()
+        .filter(|v| **v != 0)
+        .map(|v| {
+            let mut rest = v.unsigned_abs();
+            let mut zeros = 0;
+            while rest % 10 == 0 {
+                rest /= 10;
+                zeros += 1;
+            }
+            zeros
+        })
+        .min()?;
+    Some(PIPETTE_DIGITS.saturating_sub(shared_zeros))
+}
 
 /// The size of one pip for a symbol with `price_digits` decimals: one pipette-order coarser
 /// on 3-digit and longer symbols (`0.0001` for EURUSD at 5 digits, `0.01` for USDJPY at 3),
@@ -51,6 +89,47 @@ pub(crate) fn pip_size_for_digits(price_digits: u32) -> f64 {
     }
 }
 
+/// Used margin and margin level from equity and free margin. Remote's `get_balance` has no
+/// margin field, but checked live: with one open BTCUSD position, `equity - freeMargin` was
+/// the margin the platform showed. `None` when nothing is in use (no positions), which is the
+/// same "no margin level" answer Local gives.
+fn derive_margin(equity: Option<f64>, free_margin: Option<f64>) -> (Option<f64>, Option<f64>) {
+    let (Some(equity), Some(free)) = (equity, free_margin) else {
+        return (None, None);
+    };
+    let used = equity - free;
+    // Sub-cent differences are rounding, not margin.
+    if used > 0.005 {
+        (Some(used), Some(equity / used * 100.0))
+    } else {
+        (Some(0.0), None)
+    }
+}
+
+/// The volume rules for a symbol: what the user configured for it, else the global guess.
+fn volume_rules(assumed: &AssumedSpecs, symbol: &str) -> (VolumeSpecs, SpecsSource) {
+    match assumed.rules_for(symbol) {
+        Some(rules) => (
+            VolumeSpecs {
+                lot_size: rules.lot_size,
+                min: Volume::from_units_f64(rules.min_volume),
+                step: Volume::from_units_f64(rules.volume_step),
+                max: rules.max_volume.map(Volume::from_units_f64),
+            },
+            SpecsSource::Configured,
+        ),
+        None => (
+            VolumeSpecs {
+                lot_size: assumed.lot_size,
+                min: Volume::from_units(assumed.min_volume_units),
+                step: Volume::from_units(assumed.volume_step_units),
+                max: None,
+            },
+            SpecsSource::Assumed,
+        ),
+    }
+}
+
 /// Remote's [`Broker`]. Built by [`RemoteBroker::connect`].
 pub struct RemoteBroker {
     client: RemoteClient,
@@ -61,6 +140,8 @@ pub struct RemoteBroker {
     by_name: HashMap<String, usize>,
     by_id: HashMap<i64, usize>,
     money_digits: u32,
+    /// Decimals inferred per symbol id from observed quotes, see the module docs.
+    digits: Mutex<HashMap<i64, u32>>,
     closed: AtomicBool,
 }
 
@@ -109,7 +190,8 @@ impl RemoteBroker {
             .symbols
             .iter()
             .map(|symbol| {
-                let digits = symbol.pip_digits.unwrap_or(5);
+                let digits = symbol.pip_digits.unwrap_or(PIPETTE_DIGITS);
+                let (volume, specs_source) = volume_rules(assumed, &symbol.symbol_name);
                 Instrument {
                     symbol: symbol.symbol_name.clone(),
                     symbol_id: Some(symbol.symbol_id),
@@ -124,13 +206,8 @@ impl RemoteBroker {
                         .and_then(|id| session.find_asset_name(id))
                         .map(str::to_owned),
                     enabled: symbol.enabled.unwrap_or(true),
-                    volume: VolumeSpecs {
-                        lot_size: assumed.lot_size,
-                        min: Volume::from_units(assumed.min_volume_units),
-                        step: Volume::from_units(assumed.volume_step_units),
-                        max: None,
-                    },
-                    specs_source: SpecsSource::Assumed,
+                    volume,
+                    specs_source,
                 }
             })
             .collect();
@@ -153,6 +230,7 @@ impl RemoteBroker {
             instruments,
             by_name,
             by_id,
+            digits: Mutex::new(HashMap::new()),
             closed: AtomicBool::new(false),
         }
     }
@@ -168,27 +246,61 @@ impl RemoteBroker {
         self.by_id.get(&id).map(|&i| &self.instruments[i])
     }
 
-    fn price(&self, instrument: &Instrument, pipettes: i64) -> f64 {
-        price_from_pipettes(pipettes, instrument.price_digits)
+    fn known_digits(&self) -> std::sync::MutexGuard<'_, HashMap<i64, u32>> {
+        self.digits
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    fn money(&self, raw: i64) -> f64 {
-        money_from_raw(raw, self.money_digits)
+    /// Records what raw prices say about a symbol's decimals. Digits only ever go up: a
+    /// larger sample can reveal more precision, never less.
+    fn observe(&self, symbol_id: i64, raw: &[i64]) {
+        if let Some(digits) = digits_from_pipettes(raw) {
+            let mut known = self.known_digits();
+            let entry = known.entry(symbol_id).or_insert(digits);
+            *entry = (*entry).max(digits);
+        }
+    }
+
+    /// `instrument` with the decimals and pip size the quotes have shown so far.
+    fn with_precision(&self, instrument: &Instrument) -> Instrument {
+        let mut out = instrument.clone();
+        if let Some(digits) = instrument
+            .symbol_id
+            .and_then(|id| self.known_digits().get(&id).copied())
+        {
+            out.price_digits = digits;
+            out.pip_size = pip_size_for_digits(digits);
+        }
+        out
+    }
+
+    /// A money amount from a position. `get_balance` scales money by `10^moneyDigits`, but
+    /// positions were only ever seen with `0` in these fields, so the scale of a non-zero
+    /// one is a guess: a whole number is read as scaled, a fractional one as already
+    /// decimal. Informational only, never used for sizing.
+    fn money(&self, raw: f64) -> f64 {
+        if raw.fract() == 0.0 {
+            #[allow(clippy::cast_possible_truncation)]
+            money_from_raw(raw as i64, self.money_digits)
+        } else {
+            raw
+        }
     }
 
     fn decode_position(&self, raw: &RemotePosition) -> Option<Position> {
         let id = raw.position_id?;
         let instrument = self.instrument_by_id(raw.symbol_id?)?;
         let side = Side::parse(raw.trade_side.as_deref()?)?;
-        let price = |v: Option<i64>| v.map(|p| self.price(instrument, p));
         Some(Position {
             id: PositionId(id),
             symbol: instrument.symbol.clone(),
             side,
             volume: Volume::from_cents(raw.volume?),
-            entry_price: price(raw.entry_price),
-            stop_loss: price(raw.stop_loss),
-            take_profit: price(raw.take_profit),
+            // Display prices, see `ctrader_mcp::remote::dto`.
+            entry_price: raw.entry_price.filter(|p| *p > 0.0),
+            stop_loss: raw.stop_loss,
+            take_profit: raw.take_profit,
             swap: raw.swap.map(|v| self.money(v)),
             commission: raw.commission.map(|v| self.money(v)),
             unrealized_pnl: raw.unrealized_pnl.map(|v| self.money(v)),
@@ -215,19 +327,15 @@ impl RemoteBroker {
             Some("STOP_LIMIT") => OrderKind::StopLimit,
             _ => OrderKind::Other,
         };
-        let pipettes = |k: &str| raw.extra.get(k).and_then(serde_json::Value::as_i64);
         Some(PendingOrder {
             id: OrderId(id),
             symbol: instrument.symbol.clone(),
             side: Side::parse(raw.trade_side.as_deref()?)?,
             kind,
             volume: Volume::from_cents(raw.volume?),
-            price: raw
-                .limit_price
-                .or(raw.stop_price)
-                .map(|p| self.price(instrument, p)),
-            stop_loss: pipettes("stopLoss").map(|p| self.price(instrument, p)),
-            take_profit: pipettes("takeProfit").map(|p| self.price(instrument, p)),
+            price: raw.limit_price.or(raw.stop_price),
+            stop_loss: raw.stop_loss,
+            take_profit: raw.take_profit,
         })
     }
 }
@@ -257,15 +365,17 @@ impl Broker for RemoteBroker {
 
     async fn account(&self) -> Result<AccountSnapshot> {
         let balance = self.client.get_balance().await?;
+        let (equity, free_margin) = (balance.display_equity(), balance.display_free_margin());
+        let (used_margin, margin_level_pct) = derive_margin(equity, free_margin);
         Ok(AccountSnapshot {
             account_id: self.account_id.clone(),
             kind: self.kind,
             currency: self.session.account_currency.clone(),
             balance: balance.display_balance(),
-            equity: balance.display_equity(),
-            free_margin: balance.display_free_margin(),
-            used_margin: None,
-            margin_level_pct: None,
+            equity,
+            free_margin,
+            used_margin,
+            margin_level_pct,
             server_version: self.session.version.clone(),
             captured_at: now_millis(),
         })
@@ -276,7 +386,16 @@ impl Broker for RemoteBroker {
     }
 
     async fn instrument(&self, symbol: &str) -> Result<Instrument> {
-        self.instrument_by_name(symbol).cloned()
+        let base = self.instrument_by_name(symbol)?;
+        if let Some(id) = base.symbol_id
+            && !self.known_digits().contains_key(&id)
+        {
+            // One quote read teaches the decimals. A failed read is an error, not a shrug:
+            // the engine caches what this returns, and a wrong precision must not stick for
+            // the whole session. The caller can simply try again.
+            self.quotes(std::slice::from_ref(&base.symbol)).await?;
+        }
+        Ok(self.with_precision(base))
     }
 
     async fn positions(&self) -> Result<Vec<Position>> {
@@ -318,27 +437,39 @@ impl Broker for RemoteBroker {
             return Ok(Vec::new());
         }
         let response = self.client.get_spot_prices(ids).await?;
-        Ok(response
-            .prices
-            .iter()
-            .filter_map(|p| {
-                let instrument = self.instrument_by_id(p.symbol_id?)?;
-                Some(Quote {
+        let mut quotes = Vec::with_capacity(response.prices.len());
+        for p in &response.prices {
+            let Some(symbol_id) = p.symbol_id else {
+                continue;
+            };
+            let Some(instrument) = self.instrument_by_id(symbol_id) else {
+                continue;
+            };
+            let raw_extra = |key: &str| p.extra.get(key).and_then(serde_json::Value::as_i64);
+            let sample: Vec<i64> = [p.bid, p.ask, raw_extra("high"), raw_extra("low")]
+                .into_iter()
+                .flatten()
+                .chain(raw_extra("sessionClose"))
+                .collect();
+            self.observe(symbol_id, &sample);
+            if let (Some(bid), Some(ask)) = (p.bid, p.ask) {
+                quotes.push(Quote {
                     symbol: instrument.symbol.clone(),
-                    bid: self.price(instrument, p.bid?),
-                    ask: self.price(instrument, p.ask?),
+                    bid: pipette_price(bid),
+                    ask: pipette_price(ask),
                     timestamp: p.timestamp,
-                })
-            })
-            .collect())
+                });
+            }
+        }
+        Ok(quotes)
     }
 
     async fn server_time(&self) -> Result<UnixMillis> {
-        let value = self.client.get_server_time().await?;
-        parse_server_time(&value).ok_or_else(|| EngineError::Broker {
+        // Checked against a live server: the Remote tool list has no `get_server_time`.
+        Err(EngineError::Broker {
             kind: BrokerErrorKind::Protocol,
             retryable: false,
-            message: "get_server_time returned no recognizable timestamp".to_owned(),
+            message: "the Remote server publishes no clock".to_owned(),
         })
     }
 
@@ -360,7 +491,7 @@ impl Broker for RemoteBroker {
 
         let mut params = CreateOrderParams::market(symbol_id, side, order.volume.to_cents());
         // Distances travel as integer points (one pipette each), at least 1.
-        let points = |distance: f64| price_to_pipettes(distance, instrument.price_digits).max(1);
+        let points = |distance: f64| price_to_pipettes(distance, PIPETTE_DIGITS).max(1);
         params.relative_stop_loss = order.stop_loss_distance.map(points);
         params.relative_take_profit = order.take_profit_distance.map(points);
         params.slippage_in_points = order.slippage_points;
@@ -392,14 +523,13 @@ impl Broker for RemoteBroker {
                 "the Remote session is bound to the read-only `data` profile".to_owned(),
             ));
         }
-        let instrument = self.instrument_by_name(&position.symbol)?;
-        let pipettes = |price: f64| price_to_pipettes(price, instrument.price_digits);
-        // Q-R10: an omitted leg is silently removed, so re-read and send both.
+        // Q-R10: an omitted leg was silently removed on older builds, so re-read and send
+        // both. The prices go as display decimals: the server rejects nothing else here.
         quirks::amend_position_preserving_legs(
             &self.client,
             position.id.get(),
-            stop_loss.map(pipettes),
-            take_profit.map(pipettes),
+            stop_loss,
+            take_profit,
         )
         .await?;
         Ok(())
@@ -455,5 +585,48 @@ mod tests {
             "2-digit metal"
         );
         assert!((pip_size_for_digits(1) - 0.1).abs() < 1e-15);
+    }
+
+    /// Raw prices captured from the live Remote server (2026-09-19): bid, ask, high, low and
+    /// session close of each symbol. The server sends no `pipDigits`, every symbol is in
+    /// units of 1e-5, and the decimals it really quotes show in the trailing zeros.
+    #[test]
+    fn digits_are_inferred_from_live_quotes() {
+        let eurusd = [114_879, 114_880, 114_918, 114_549, 114_768];
+        let usdjpy = [15_676_700, 15_676_800, 15_805_400, 15_587_400, 15_596_600];
+        let xauusd = [
+            437_817_000,
+            437_857_000,
+            439_959_000,
+            433_437_000,
+            434_171_000,
+        ];
+        assert_eq!(digits_from_pipettes(&eurusd), Some(5));
+        assert_eq!(digits_from_pipettes(&usdjpy), Some(3));
+        assert_eq!(digits_from_pipettes(&xauusd), Some(2));
+        // BTCUSD really has 3 decimals, but this sample only shows 2: under-estimating is the
+        // safe direction, see the module docs.
+        let btcusd = [8_147_657_000, 8_149_649_000, 8_191_170_000];
+        assert_eq!(digits_from_pipettes(&btcusd), Some(2));
+        assert_eq!(digits_from_pipettes(&[0, 0]), None);
+        assert_eq!(digits_from_pipettes(&[]), None);
+        assert_eq!(digits_from_pipettes(&[100_000]), Some(0));
+    }
+
+    #[test]
+    fn margin_is_derived_from_equity_and_free_margin() {
+        // The live answer with one BTCUSD position open (2026-09-19, moneyDigits 2).
+        let (used, level) = derive_margin(Some(9996.66), Some(9964.06));
+        assert!((used.unwrap() - 32.60).abs() < 1e-6);
+        assert!((level.unwrap() - 30_664.1).abs() < 1.0);
+        // No position: nothing used, no level (as Local reports).
+        assert_eq!(derive_margin(Some(9999.7), Some(9999.7)), (Some(0.0), None));
+        assert_eq!(derive_margin(None, Some(1.0)), (None, None));
+    }
+    #[test]
+    fn raw_prices_use_a_fixed_scale_for_every_symbol() {
+        assert!((pipette_price(15_676_800) - 156.768).abs() < 1e-9);
+        assert!((pipette_price(437_857_000) - 4378.57).abs() < 1e-9);
+        assert!((pipette_price(114_880) - 1.1488).abs() < 1e-9);
     }
 }

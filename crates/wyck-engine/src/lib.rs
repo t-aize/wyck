@@ -101,7 +101,7 @@
 //! | **Explicit arming** | [`EngineHandle::arm`] needs a ready session, a trading-capable connection, the right account, and an acknowledgement of the account kind (demo, live or unknown). Leaving `Ready` disarms. |
 //! | **Plans are single use and expire** | Only a plan the engine created can be submitted, once, within `plan_ttl` (15 s). A plan is priced from a live quote; an old one must be re-planned. |
 //! | **One order in flight per symbol** | Plus a minimum interval between orders, so a held or double-tapped key cannot double a position. |
-//! | **Never replay a mutating call** | A lost reply is resolved by reading positions back and matching the order's label, never by sending it again. |
+//! | **Never replay a mutating call** | A lost reply is resolved by reading positions back and matching the order (by label where the server echoes it, else by symbol, side and volume), never by sending it again. |
 //! | **Uncertainty is a first-class outcome** | If the fate of an order cannot be established, it is [`OrderOutcome::Unknown`], a warning stays up, and later refreshes reconcile it. |
 //! | **Two-step flatten** | [`EngineHandle::preview_flatten`] shows what would happen and returns a single-use token that [`EngineHandle::flatten`] must present. |
 //! | **Warn, never block** | Guardrails ([`guardrails`]) only add sentences. Only structural problems refuse an order. |
@@ -109,29 +109,36 @@
 //! # Sizing, units and what the servers do not tell us
 //!
 //! [`risk::build_plan`] is a pure function. Volume is an exact integer ([`domain::Volume`],
-//! base-asset units); prices and money are `f64` display values.
+//! hundredths of a base-asset unit, so 0.01 of a coin is representable); prices and money are
+//! `f64` display values.
 //!
 //! ```text
-//! units = floor(target risk / (stop distance * quote->account rate)), rounded DOWN to the step
+//! volume = floor(target risk / (stop distance * quote->account rate)), rounded DOWN to the step
 //! ```
 //!
 //! Volume is always rounded down and the stop distance up, so the loss at the stop never
 //! exceeds the target (checked by a property test over random inputs).
 //!
-//! Two servers, two dialects, one model:
+//! Two servers, two dialects, one model (checked against live servers, 2026-09):
 //!
 //! | | Remote | Local |
 //! |---|---|---|
-//! | Prices | integer pipettes | display floats |
-//! | Volume | cents of units | broker-defined lots |
+//! | Quote prices | integer pipettes, always in units of 1e-5 | display floats |
+//! | Position and order prices | display floats | display floats |
+//! | Volume | hundredths of a unit (`volume = units * 100`) | base-asset units, sent with `volumeType: units` |
 //! | Symbols | numeric `symbolId` | ticker names |
-//! | Volume rules (lot, min, step) | **not published**, assumed from [`config::AssumedSpecs`] | from `get_symbol_details` |
-//! | Stop distances | integer points (0.1 pip on 5-digit symbols) | whole pips |
+//! | Volume rules (lot, min, step) | **not published**: configured per symbol in [`config::AssumedSpecs`], else assumed | from `get_symbol_details`, in units |
+//! | Price digits, pip size | **not published**: digits inferred from quotes | from `get_symbol_details` |
+//! | Stop distances | integer points (1e-5) | whole pips |
+//! | Server clock | none | `get_server_time` (`unixMs`) |
+//! | Account kind | from the token's `environment` claim | unknown unless the account is in `get_accounts_list` |
+//! | Order label echoed on positions | **no** | unknown |
 //!
 //! Where the engine assumed something, [`domain::Instrument::specs_source`] says
-//! [`domain::SpecsSource::Assumed`] and every plan for that symbol carries a warning. The Local
-//! volume unit is broker defined and unverified against a live server: the adapter refuses a
-//! symbol whose lot size would erase the minimum volume rather than guess.
+//! [`domain::SpecsSource::Assumed`] and every plan for that symbol carries a warning; rules
+//! entered by the user are [`domain::SpecsSource::Configured`]. Because Remote does not echo
+//! the order label, an order whose outcome is unknown is recognized later by its symbol, side
+//! and volume among the positions that appeared after it was sent.
 //!
 //! # Threads and executors
 //!

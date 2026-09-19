@@ -666,11 +666,29 @@ impl Inner {
         let matched: Vec<(UnknownOrder, PositionId)> = {
             let mut gate = lock(&self.gate);
             let mut matched = Vec::new();
+            // A position already claimed by an earlier order in this pass is not offered to
+            // the next one.
+            let mut claimed: Vec<PositionId> = Vec::new();
             gate.unknown.retain(|u| {
-                if let Some(p) = positions
+                let by_label = positions
                     .iter()
-                    .find(|p| p.label.as_deref() == Some(u.label.as_str()))
-                {
+                    .find(|p| p.label.as_deref() == Some(u.label.as_str()));
+                // Remote never echoes the label, so fall back to what the order was: a
+                // position that did not exist when it was sent, with its symbol, side and
+                // volume. This can clear the warning for a look-alike opened by hand, which
+                // is harmless: the exposure is on the account either way.
+                let by_shape = || {
+                    positions.iter().find(|p| {
+                        !u.before.contains(&p.id)
+                            && !claimed.contains(&p.id)
+                            && p.label.is_none()
+                            && p.symbol.eq_ignore_ascii_case(&u.symbol)
+                            && p.side == u.side
+                            && p.volume == u.volume
+                    })
+                };
+                if let Some(p) = by_label.or_else(by_shape) {
+                    claimed.push(p.id);
                     matched.push((u.clone(), p.id));
                     false
                 } else {

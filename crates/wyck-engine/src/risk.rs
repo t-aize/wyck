@@ -317,10 +317,10 @@ pub fn build_plan(intent: &EntryIntent, ctx: &PlanContext<'_>) -> Result<OrderPl
                 }
             };
             let per_unit = sl * rate;
-            // Truncation is the point: floor, then round down to the step.
+            // Truncation is the point: floor to hundredths of a unit, then round down to the step.
             #[allow(clippy::cast_possible_truncation)]
-            let raw_units = (target / per_unit).floor().min(9.0e18) as i64;
-            let mut volume = instrument.round_volume_down(Volume::from_units(raw_units));
+            let raw_cents = (target / per_unit * 100.0).floor().min(9.0e18) as i64;
+            let mut volume = instrument.round_volume_down(Volume::from_cents(raw_cents));
             if let Some(max) = instrument.volume.max
                 && volume > max
             {
@@ -330,7 +330,7 @@ pub fn build_plan(intent: &EntryIntent, ctx: &PlanContext<'_>) -> Result<OrderPl
                 ));
             }
             if volume < instrument.volume.min {
-                let min_risk = instrument.volume.min.units() as f64 * per_unit;
+                let min_risk = instrument.volume.min.as_units() * per_unit;
                 return Err(EngineError::Invalid(format!(
                     "a risk of {target:.2} is too small for {} at this stop: the minimum volume ({}) already risks {min_risk:.2}",
                     instrument.symbol, instrument.volume.min
@@ -343,7 +343,7 @@ pub fn build_plan(intent: &EntryIntent, ctx: &PlanContext<'_>) -> Result<OrderPl
     // Actual risk, when it can be computed.
     let risk_amount = match (stop_distance, ctx.conversion_rate) {
         (Some(sl), Some(rate)) if rate.is_finite() && rate > 0.0 => {
-            Some(volume.units() as f64 * sl * rate)
+            Some(volume.as_units() * sl * rate)
         }
         _ => None,
     };
@@ -702,7 +702,7 @@ mod tests {
                 prop_assert!(p.risk_amount.unwrap() <= target + 1e-6, "risk {} > target {}", p.risk_amount.unwrap(), target);
                 prop_assert!(i.check_volume(p.volume).is_ok());
                 // And not wastefully far below: within one step's worth of risk.
-                let step_risk = i.volume.step.units() as f64 * p.stop_loss_distance.unwrap() * rate;
+                let step_risk = i.volume.step.as_units() * p.stop_loss_distance.unwrap() * rate;
                 prop_assert!(p.risk_amount.unwrap() > target - step_risk - 1e-6 || p.volume == i.volume.max.unwrap());
             }
         }

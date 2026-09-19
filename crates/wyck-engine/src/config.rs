@@ -5,6 +5,7 @@
 //! rejects values that would make the engine misbehave (a zero refresh interval that
 //! would spin, a reconnect ceiling below its floor) instead of silently clamping them.
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -130,8 +131,10 @@ impl Default for GuardrailConfig {
 /// Volume rules assumed when the broker does not publish them.
 ///
 /// The Remote server exposes no lot size, volume step or minimum volume per symbol, so the
-/// engine has to assume them. Anything built from these values is flagged
-/// [`SpecsSource::Assumed`](crate::domain::SpecsSource) and planning says so.
+/// engine has to assume them. Anything built from the global values is flagged
+/// [`SpecsSource::Assumed`](crate::domain::SpecsSource) and planning says so. Rules the
+/// user entered for a symbol in [`AssumedSpecs::symbols`] are flagged
+/// [`SpecsSource::Configured`](crate::domain::SpecsSource) and do not raise that warning.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AssumedSpecs {
@@ -141,6 +144,46 @@ pub struct AssumedSpecs {
     pub min_volume_units: i64,
     /// Volume increment in units. Default 1_000 (0.01 lot).
     pub volume_step_units: i64,
+    /// Per-symbol rules, keyed by symbol name (case-insensitive). They win over the three
+    /// global values above. The live servers show why they are needed: EURUSD trades in
+    /// steps of 1000 units, XAUUSD in steps of 1 unit, BTCUSD in steps of 0.01 unit.
+    pub symbols: BTreeMap<String, SymbolVolumeRules>,
+}
+
+/// Volume rules for one symbol, all in base-asset units.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct SymbolVolumeRules {
+    /// Units per lot.
+    pub lot_size: f64,
+    /// Smallest tradable volume, in units (may be fractional, 0.01 for BTCUSD).
+    pub min_volume: f64,
+    /// Volume increment, in units.
+    pub volume_step: f64,
+    /// Largest tradable volume per order, in units, when known.
+    #[serde(default)]
+    pub max_volume: Option<f64>,
+}
+
+impl SymbolVolumeRules {
+    fn is_valid(&self) -> bool {
+        [self.lot_size, self.min_volume, self.volume_step]
+            .iter()
+            .all(|v| v.is_finite() && *v > 0.0)
+            && self
+                .max_volume
+                .is_none_or(|m| m.is_finite() && m >= self.min_volume)
+    }
+}
+
+impl AssumedSpecs {
+    /// The configured rules for `symbol`, when there are any.
+    #[must_use]
+    pub fn rules_for(&self, symbol: &str) -> Option<&SymbolVolumeRules> {
+        self.symbols
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(symbol))
+            .map(|(_, rules)| rules)
+    }
 }
 
 impl Default for AssumedSpecs {
@@ -149,6 +192,7 @@ impl Default for AssumedSpecs {
             lot_size: 100_000.0,
             min_volume_units: 1_000,
             volume_step_units: 1_000,
+            symbols: BTreeMap::new(),
         }
     }
 }
@@ -258,6 +302,11 @@ impl EngineConfig {
             return Err(EngineError::Config(
                 "assumed_specs volumes must be positive".into(),
             ));
+        }
+        if let Some((name, _)) = a.symbols.iter().find(|(_, rules)| !rules.is_valid()) {
+            return Err(EngineError::Config(format!(
+                "assumed_specs.symbols.{name} needs a positive lot size, minimum and step, and a maximum not below the minimum"
+            )));
         }
         if self.event_buffer == 0 {
             return Err(EngineError::Config(

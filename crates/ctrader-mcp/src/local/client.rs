@@ -228,6 +228,7 @@ impl LocalClient {
                 ClosePositionPartialParams {
                     position_id,
                     volume,
+                    volume_type: VolumeType::default(),
                 },
             )
             .await

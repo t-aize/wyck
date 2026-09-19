@@ -314,13 +314,17 @@ impl Connector for CtraderConnector {
     }
 }
 
-/// Reads a server time out of the loosely shaped JSON both servers return.
+/// Reads a server time out of the JSON a server returns.
 ///
-/// Looks for `timestamp`, `serverTime`, `time` or `utc` fields holding either epoch
-/// milliseconds, epoch seconds, or an RFC 3339 string. Returns `None` when nothing
-/// recognizable is present.
+/// Local's `get_server_time` answers `{"unixMs": 1789839318399, "utcTime":
+/// "2026-09-19T17:35:18.399Z", "localTime": "2026-09-19T19:35:18.399+02:00"}` (checked
+/// against a live server, 2026-09). Remote has no such tool. The field names tried are the
+/// live ones first, then a few plausible others; each may hold epoch milliseconds, epoch
+/// seconds or an RFC 3339 string. Returns `None` when nothing recognizable is present.
 pub(crate) fn parse_server_time(value: &serde_json::Value) -> Option<UnixMillis> {
     for key in [
+        "unixMs",
+        "utcTime",
         "timestamp",
         "serverTime",
         "server_time",
@@ -385,6 +389,19 @@ mod tests {
             Some(SecretString::from("super-secret-token".to_owned())),
         );
         assert!(!format!("{request:?}").contains("super-secret-token"));
+    }
+
+    #[test]
+    fn the_live_local_server_time_shape() {
+        let live = json!({
+            "localTime": "2026-09-19T19:35:18.3991894+02:00",
+            "unixMs": 1_789_839_318_399_i64,
+            "utcTime": "2026-09-19T17:35:18.3991893Z"
+        });
+        assert_eq!(parse_server_time(&live), Some(1_789_839_318_399));
+        // With no `unixMs`, the UTC string is enough (fraction digits beyond ms are dropped).
+        let text_only = json!({ "utcTime": "2026-09-19T17:35:18.3991893Z" });
+        assert_eq!(parse_server_time(&text_only), Some(1_789_839_318_399));
     }
 
     #[test]

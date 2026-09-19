@@ -48,7 +48,7 @@ pub fn estimate_open_risk<'a>(
             risk.unknown_positions += 1;
             continue;
         }
-        risk.amount += (entry - stop).abs() * p.volume.units() as f64;
+        risk.amount += (entry - stop).abs() * p.volume.as_units();
     }
     risk
 }

@@ -25,11 +25,13 @@ pub enum AccountKind {
 }
 
 impl AccountKind {
-    /// Reads the `environment` claim from an access token that is a JWT.
+    /// Reads the `environment` claim from an access token.
     ///
-    /// The payload segment is base64url-decoded and parsed; nothing else about the token is
-    /// inspected and the signature is **not** verified. Any token that is not a JWT, or has
-    /// no recognizable claim, yields [`AccountKind::Unknown`]. The token itself is never
+    /// Two shapes are understood. The Remote MCP tokens observed live are not JWTs: the whole
+    /// token is base64url-encoded JSON such as `{"plant":"ctrader","environment":"demo",
+    /// "token":"..."}`. A JWT is also accepted, its payload segment being the JSON. Nothing
+    /// else about the token is inspected and no signature is verified. Any other token, or one
+    /// with no recognizable claim, yields [`AccountKind::Unknown`]. The token itself is never
     /// logged or stored.
     #[must_use]
     pub fn from_token(token: &SecretString) -> Self {
@@ -37,24 +39,27 @@ impl AccountKind {
     }
 
     fn from_token_str(token: &str) -> Self {
-        let Some(payload) = token.split('.').nth(1) else {
-            return Self::Unknown;
-        };
-        let Ok(bytes) = URL_SAFE_NO_PAD.decode(payload.trim_end_matches('=')) else {
-            return Self::Unknown;
-        };
-        let Ok(claims) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-            return Self::Unknown;
-        };
+        let token = token.trim();
+        let mut candidates = vec![token];
+        candidates.extend(token.split('.').nth(1));
+        candidates
+            .into_iter()
+            .find_map(Self::from_encoded_claims)
+            .unwrap_or(Self::Unknown)
+    }
+
+    fn from_encoded_claims(encoded: &str) -> Option<Self> {
+        let bytes = URL_SAFE_NO_PAD.decode(encoded.trim_end_matches('=')).ok()?;
+        let claims = serde_json::from_slice::<serde_json::Value>(&bytes).ok()?;
         match claims
-            .get("environment")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_ascii_lowercase)
-            .as_deref()
+            .get("environment")?
+            .as_str()?
+            .to_ascii_lowercase()
+            .as_str()
         {
-            Some("demo") => Self::Demo,
-            Some("live") => Self::Live,
-            _ => Self::Unknown,
+            "demo" => Some(Self::Demo),
+            "live" => Some(Self::Live),
+            _ => None,
         }
     }
 }
@@ -104,6 +109,20 @@ mod tests {
         assert_eq!(
             AccountKind::from_token_str(&jwt(r#"{"environment":"LIVE"}"#)),
             AccountKind::Live
+        );
+    }
+
+    #[test]
+    fn reads_a_token_that_is_itself_encoded_json() {
+        // The shape of a real Remote token, with a made-up secret.
+        let demo = URL_SAFE_NO_PAD
+            .encode(r#"{"plant":"ctrader","environment":"demo","token":"not-a-real-secret"}"#);
+        let live = URL_SAFE_NO_PAD.encode(r#"{"plant":"ctrader","environment":"live"}"#);
+        assert_eq!(AccountKind::from_token_str(&demo), AccountKind::Demo);
+        assert_eq!(AccountKind::from_token_str(&live), AccountKind::Live);
+        assert_eq!(
+            AccountKind::from_token_str(&format!("  {demo}\n")),
+            AccountKind::Demo
         );
     }
 

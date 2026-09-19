@@ -119,6 +119,13 @@ pub enum OrderOutcome {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UnknownOrder {
     pub(crate) label: String,
+    /// What the order was, for the servers that do not echo the label on positions (Remote
+    /// does not): a new position with the same symbol, side and volume is taken to be it.
+    pub(crate) symbol: String,
+    pub(crate) side: crate::domain::Side,
+    pub(crate) volume: crate::domain::Volume,
+    /// The positions that existed when the order was sent, none of which can be it.
+    pub(crate) before: Vec<PositionId>,
 }
 
 /// Asks to enable real order sending.
@@ -524,7 +531,7 @@ impl Inner {
                 let reason = uncertainty.unwrap_or_else(|| {
                     "the broker accepted the order but no matching position appeared".to_owned()
                 });
-                self.track_unknown(&label, &plan);
+                self.track_unknown(&label, &plan, &before);
                 OrderOutcome::Unknown {
                     plan: plan.id,
                     label,
@@ -561,9 +568,13 @@ impl Inner {
         None
     }
 
-    fn track_unknown(&self, label: &str, plan: &OrderPlan) {
+    fn track_unknown(&self, label: &str, plan: &OrderPlan, before: &[PositionId]) {
         lock(&self.gate).unknown.push(UnknownOrder {
             label: label.to_owned(),
+            symbol: plan.symbol.clone(),
+            side: plan.side,
+            volume: plan.volume,
+            before: before.to_vec(),
         });
         self.raise_warning(
             format!("unknown-order:{label}"),

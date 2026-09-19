@@ -2,11 +2,17 @@
 //!
 //! Every response DTO carries `#[serde(flatten)] pub extra: JsonObject` so an
 //! undocumented or future field survives decoding: see the equivalent note on
-//! [`crate::local::dto`]. Every money field on a response DTO is Remote's raw
-//! `10^moneyDigits`-scaled integer encoding; every price field is raw integer pipettes
-//! (`Q-K19`): decode with [`crate::common::money_from_raw`] /
-//! [`crate::common::price_from_pipettes`] before displaying, never before re-submitting
-//! (mutation DTOs re-encode from display values themselves).
+//! [`crate::local::dto`]. Money on `get_balance` is Remote's raw `10^moneyDigits`-scaled
+//! integer encoding, and every quote and bar price is raw integer pipettes (`Q-K19`):
+//! decode with [`crate::common::money_from_raw`] / [`crate::common::price_from_pipettes`]
+//! before displaying.
+//!
+//! **Exception, checked against a live server (`rest-proxy 1.0.18`, 2026-09):** the prices
+//! on positions, orders and deals (`entryPrice`, `stopLoss`, `takeProfit`, `limitPrice`,
+//! `stopPrice`, `executionPrice`) are *display* decimals such as `81459.69`, not
+//! pipettes, and every price a request takes (`amend_position`, `create_order`,
+//! `amend_order`) is a display decimal too. Only `get_spot_prices` and `get_trendbars`
+//! answer in pipettes. The `f64` price fields below follow that split.
 
 use rmcp::model::JsonObject;
 use serde::{Deserialize, Serialize};
@@ -136,8 +142,9 @@ pub struct RemoteSymbol {
     #[serde(alias = "symbolCategoryId")]
     pub symbol_category_id: Option<i64>,
     pub description: Option<String>,
-    /// Decimal places for this symbol's pipette-encoded price fields: required to
-    /// decode/encode every price this symbol appears in (`Q-K19`).
+    /// Not sent by the live server (`rest-proxy 1.0.18`): every raw price is in units of
+    /// 1e-5 whatever the symbol. Kept for builds that do send it, where it is the number of
+    /// decimals for this symbol's pipette-encoded price fields.
     #[serde(alias = "pipDigits")]
     pub pip_digits: Option<u32>,
     #[serde(flatten)]
@@ -162,8 +169,9 @@ pub struct GetSpotPricesParams {
     pub symbol_id: Vec<i64>,
 }
 
-/// One quote from `get_spot_prices`. `bid`/`ask` are raw pipettes (`Q-K19`): decode
-/// with [`crate::common::price_from_pipettes`] using the symbol's cached `pip_digits`.
+/// One quote from `get_spot_prices`. `bid`/`ask` (and `high`, `low`, `sessionClose` in
+/// `extra`) are raw pipettes (`Q-K19`), always in units of 1e-5 on the live server: decode
+/// with [`crate::common::price_from_pipettes`] and 5 digits.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SpotPrice {
     #[serde(alias = "symbolId")]
@@ -243,24 +251,25 @@ pub struct RemotePosition {
     pub trade_side: Option<String>,
     /// Cents.
     pub volume: Option<i64>,
-    /// Raw pipettes.
+    /// Display price.
     #[serde(alias = "entryPrice")]
-    pub entry_price: Option<i64>,
-    /// Raw pipettes.
+    pub entry_price: Option<f64>,
+    /// Display price.
     #[serde(alias = "stopLoss")]
-    pub stop_loss: Option<i64>,
-    /// Raw pipettes.
+    pub stop_loss: Option<f64>,
+    /// Display price.
     #[serde(alias = "takeProfit")]
-    pub take_profit: Option<i64>,
+    pub take_profit: Option<f64>,
     #[serde(alias = "trailingStopLoss")]
     pub trailing_stop_loss: Option<bool>,
-    /// Raw `10^moneyDigits`-scaled.
-    pub swap: Option<i64>,
-    /// Raw `10^moneyDigits`-scaled.
-    pub commission: Option<i64>,
-    /// Raw `10^moneyDigits`-scaled.
+    /// Money. Only ever seen as `0` on a live server, so whether a non-zero value is
+    /// `10^moneyDigits`-scaled (like `get_balance`) or already a decimal is unconfirmed.
+    pub swap: Option<f64>,
+    /// See `swap`.
+    pub commission: Option<f64>,
+    /// See `swap`. Absent from the live `get_positions` answer.
     #[serde(alias = "unrealizedPnl")]
-    pub unrealized_pnl: Option<i64>,
+    pub unrealized_pnl: Option<f64>,
     #[serde(flatten)]
     pub extra: JsonObject,
 }
@@ -276,10 +285,18 @@ pub struct RemoteOrder {
     #[serde(alias = "tradeSide")]
     pub trade_side: Option<String>,
     pub volume: Option<i64>,
+    /// Display price.
     #[serde(alias = "limitPrice")]
-    pub limit_price: Option<i64>,
+    pub limit_price: Option<f64>,
+    /// Display price.
     #[serde(alias = "stopPrice")]
-    pub stop_price: Option<i64>,
+    pub stop_price: Option<f64>,
+    /// Display price.
+    #[serde(alias = "stopLoss")]
+    pub stop_loss: Option<f64>,
+    /// Display price.
+    #[serde(alias = "takeProfit")]
+    pub take_profit: Option<f64>,
     #[serde(flatten)]
     pub extra: JsonObject,
 }
@@ -374,8 +391,9 @@ pub struct Deal {
     pub volume: Option<i64>,
     #[serde(alias = "filledVolume")]
     pub filled_volume: Option<i64>,
+    /// Display price.
     #[serde(alias = "executionPrice")]
-    pub execution_price: Option<i64>,
+    pub execution_price: Option<f64>,
     #[serde(alias = "executionTimestamp")]
     pub execution_timestamp: Option<i64>,
     #[serde(alias = "dealStatus")]
@@ -471,14 +489,18 @@ pub struct CreateOrderParams {
     pub trade_side: TradeSide,
     /// Cents.
     pub volume: i64,
+    /// Display price.
     #[serde(rename = "limitPrice", skip_serializing_if = "Option::is_none")]
-    pub limit_price: Option<i64>,
+    pub limit_price: Option<f64>,
+    /// Display price.
     #[serde(rename = "stopPrice", skip_serializing_if = "Option::is_none")]
-    pub stop_price: Option<i64>,
+    pub stop_price: Option<f64>,
+    /// Display price.
     #[serde(rename = "stopLoss", skip_serializing_if = "Option::is_none")]
-    pub stop_loss: Option<i64>,
+    pub stop_loss: Option<f64>,
+    /// Display price.
     #[serde(rename = "takeProfit", skip_serializing_if = "Option::is_none")]
-    pub take_profit: Option<i64>,
+    pub take_profit: Option<f64>,
     /// Positive integer POINTS offset from fill price (mutually exclusive with
     /// `stop_loss`). Only honored on `MARKET`/`MARKET_RANGE`: see `Q-R4`.
     #[serde(rename = "relativeStopLoss", skip_serializing_if = "Option::is_none")]
@@ -487,8 +509,9 @@ pub struct CreateOrderParams {
     pub relative_take_profit: Option<i64>,
     #[serde(rename = "slippageInPoints", skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i64>,
+    /// Display price.
     #[serde(rename = "baseSlippagePrice", skip_serializing_if = "Option::is_none")]
-    pub base_slippage_price: Option<i64>,
+    pub base_slippage_price: Option<f64>,
     #[serde(rename = "timeInForce", skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<TimeInForce>,
     /// Integer epoch milliseconds ONLY (`Q-R2`): an ISO string here is rejected.
@@ -554,38 +577,33 @@ impl CreateOrderParams {
         symbol_id: i64,
         trade_side: TradeSide,
         volume_cents: i64,
-        limit_price_pipettes: i64,
+        limit_price: f64,
     ) -> Self {
         Self {
             order_type: RemoteOrderType::Limit,
-            limit_price: Some(limit_price_pipettes),
+            limit_price: Some(limit_price),
             ..Self::market(symbol_id, trade_side, volume_cents)
         }
     }
 
     /// A `STOP` order with absolute SL/TP.
-    pub fn stop(
-        symbol_id: i64,
-        trade_side: TradeSide,
-        volume_cents: i64,
-        stop_price_pipettes: i64,
-    ) -> Self {
+    pub fn stop(symbol_id: i64, trade_side: TradeSide, volume_cents: i64, stop_price: f64) -> Self {
         Self {
             order_type: RemoteOrderType::Stop,
-            stop_price: Some(stop_price_pipettes),
+            stop_price: Some(stop_price),
             ..Self::market(symbol_id, trade_side, volume_cents)
         }
     }
 
     #[must_use]
-    pub fn with_absolute_stop_loss(mut self, price_pipettes: i64) -> Self {
-        self.stop_loss = Some(price_pipettes);
+    pub fn with_absolute_stop_loss(mut self, price: f64) -> Self {
+        self.stop_loss = Some(price);
         self
     }
 
     #[must_use]
-    pub fn with_absolute_take_profit(mut self, price_pipettes: i64) -> Self {
-        self.take_profit = Some(price_pipettes);
+    pub fn with_absolute_take_profit(mut self, price: f64) -> Self {
+        self.take_profit = Some(price);
         self
     }
 
@@ -705,14 +723,18 @@ pub struct CreateOrderResponse {
 pub struct AmendOrderParams {
     #[serde(rename = "orderId")]
     pub order_id: i64,
+    /// Display price.
     #[serde(rename = "limitPrice", skip_serializing_if = "Option::is_none")]
-    pub limit_price: Option<i64>,
+    pub limit_price: Option<f64>,
+    /// Display price.
     #[serde(rename = "stopPrice", skip_serializing_if = "Option::is_none")]
-    pub stop_price: Option<i64>,
+    pub stop_price: Option<f64>,
+    /// Display price.
     #[serde(rename = "stopLoss", skip_serializing_if = "Option::is_none")]
-    pub stop_loss: Option<i64>,
+    pub stop_loss: Option<f64>,
+    /// Display price.
     #[serde(rename = "takeProfit", skip_serializing_if = "Option::is_none")]
-    pub take_profit: Option<i64>,
+    pub take_profit: Option<f64>,
     /// Integer epoch milliseconds ONLY (`Q-R2`).
     #[serde(
         rename = "expirationTimestamp",
@@ -742,10 +764,12 @@ pub struct CancelOrderParams {
 pub struct AmendPositionParams {
     #[serde(rename = "positionId")]
     pub position_id: i64,
+    /// Display price, not pipettes (the tool says so in its schema).
     #[serde(rename = "stopLoss")]
-    pub stop_loss: i64,
+    pub stop_loss: f64,
+    /// Display price, not pipettes.
     #[serde(rename = "takeProfit")]
-    pub take_profit: i64,
+    pub take_profit: f64,
     /// Only honored here, never on `create_order`/`amend_order` (`Q-R3`). Requires
     /// `stop_loss` to be present as the trail anchor (always true on this struct).
     #[serde(rename = "trailingStopLoss", skip_serializing_if = "Option::is_none")]
@@ -754,11 +778,11 @@ pub struct AmendPositionParams {
 
 impl AmendPositionParams {
     /// Constructs an amend payload with BOTH legs populated, per **P-AMEND-SAFE**.
-    pub fn new(position_id: i64, stop_loss_pipettes: i64, take_profit_pipettes: i64) -> Self {
+    pub fn new(position_id: i64, stop_loss: f64, take_profit: f64) -> Self {
         Self {
             position_id,
-            stop_loss: stop_loss_pipettes,
-            take_profit: take_profit_pipettes,
+            stop_loss,
+            take_profit,
             trailing_stop_loss: None,
         }
     }
@@ -794,4 +818,101 @@ pub struct ClosePositionResponse {
     pub position: Option<RemotePosition>,
     #[serde(flatten)]
     pub extra: JsonObject,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    /// `get_positions` as the live Remote server answered it (2026-09-19, BTCUSD, demo).
+    /// Prices are display decimals, there is no `unrealizedPnl`, no label.
+    #[test]
+    fn a_live_positions_answer_decodes_with_display_prices() {
+        let response: GetPositionsResponse = serde_json::from_value(json!({
+            "orders": [],
+            "positions": [{
+                "commission": 0,
+                "entryPrice": 81459.69,
+                "positionId": 290_707_959,
+                "stopLoss": 80959.69,
+                "swap": 0,
+                "symbolId": 22395,
+                "takeProfit": 82459.69,
+                "tradeSide": "BUY",
+                "volume": 2
+            }]
+        }))
+        .unwrap();
+        let p = &response.positions[0];
+        assert_eq!(p.position_id, Some(290_707_959));
+        assert_eq!(p.entry_price, Some(81459.69));
+        assert_eq!(p.stop_loss, Some(80959.69));
+        assert_eq!(p.take_profit, Some(82459.69));
+        assert_eq!(p.volume, Some(2), "cents: 0.02 of a bitcoin");
+        assert_eq!(p.unrealized_pnl, None);
+    }
+
+    /// The reply to `close_position`: a cancelled protective order and a position that is
+    /// already at zero volume with a zero entry price.
+    #[test]
+    fn a_live_close_answer_decodes() {
+        let response: ClosePositionResponse = serde_json::from_value(json!({
+            "executionType": "ORDER_CANCELLED",
+            "order": {
+                "limitPrice": 82459.69, "orderId": 319_004_055_i64,
+                "orderType": "STOP_LOSS_TAKE_PROFIT", "stopPrice": 80959.69,
+                "symbolId": 22395, "tradeSide": "SELL", "volume": 2
+            },
+            "orderId": 319_004_055_i64,
+            "position": {
+                "commission": 0, "entryPrice": 0, "positionId": 290_707_959,
+                "swap": 0, "symbolId": 22395, "tradeSide": "BUY", "volume": 0
+            },
+            "positionId": 290_707_959
+        }))
+        .unwrap();
+        let position = response.position.unwrap();
+        assert_eq!(position.volume, Some(0));
+        assert_eq!(position.entry_price, Some(0.0));
+    }
+
+    #[test]
+    fn a_live_deal_has_a_display_execution_price() {
+        let deal: Deal = serde_json::from_value(json!({
+            "commission": 0, "dealId": 334_528_116_i64, "dealStatus": "FILLED",
+            "executionPrice": 81459.69, "executionTimestamp": 1_789_840_244_841_i64,
+            "filledVolume": 2, "orderId": 319_004_054_i64, "positionId": 290_707_959,
+            "symbolId": 22395, "tradeSide": "BUY", "volume": 2
+        }))
+        .unwrap();
+        assert_eq!(deal.execution_price, Some(81459.69));
+    }
+
+    #[test]
+    fn requests_carry_display_prices_and_point_distances() {
+        let amend = AmendPositionParams::new(7, 80959.69, 82459.69);
+        let value = serde_json::to_value(&amend).unwrap();
+        assert_eq!(value["stopLoss"], 80959.69);
+        assert_eq!(value["takeProfit"], 82459.69);
+
+        // A market order: relative distances in points (1e-5), 500.00 is 50,000,000 points.
+        let market = CreateOrderParams::market_with_relative_sl_tp(
+            22395,
+            TradeSide::Buy,
+            2,
+            50_000_000,
+            100_000_000,
+        );
+        let value = serde_json::to_value(&market).unwrap();
+        assert_eq!(value["relativeStopLoss"], 50_000_000);
+        assert!(value.get("stopLoss").is_none());
+
+        let limit = CreateOrderParams::limit(1, TradeSide::Buy, 100_000, 1.08)
+            .with_absolute_stop_loss(1.07);
+        let value = serde_json::to_value(&limit).unwrap();
+        assert_eq!(value["limitPrice"], 1.08);
+        assert_eq!(value["stopLoss"], 1.07);
+    }
 }

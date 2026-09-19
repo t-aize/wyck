@@ -26,21 +26,23 @@ Contents
 
 | Crate | State | Notes |
 |---|---|---|
-| `ctrader-mcp` | Complete for the documented tools | Read paths verified live on Remote and Local. Mutating calls (orders) never verified live. Has a `test-support` feature exposing the mock MCP server. |
+| `ctrader-mcp` | Complete for the documented tools | Remote read and order paths verified live on a demo account (order, amend, close, cancel). Remote position, order and deal prices are display decimals, not pipettes (fixed). Local read paths verified; Local order paths not run yet (3.7). Has a `test-support` feature exposing the mock MCP server, and a `raw_call` example for looking at raw answers. |
 | `wyck-config` | Complete, tested | Profiles in TOML, tokens in the OS keyring or an encrypted file. |
 | `wyck-calendar` | Complete, tested | ForexFactory weekly feed: client, tolerant parser, filters, refresh service, alerts. Tuned to the feed's real rate limit. |
-| `wyck-engine` | First version, tested with mocks | Session, state and events, risk planning, dry-run-first order pipeline, guardrails, news hosting, Remote and Local adapters, `MockBroker`. Never run against a live server. |
+| `wyck-engine` | Validated live on Remote (demo), read only on Local | Session, state and events, risk planning, dry-run-first order pipeline, guardrails, news hosting, Remote and Local adapters, `MockBroker`. Section 3 has the results and what is still open. |
 | GUI (`wyck-app`) | Does not exist | Framework not chosen. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
 
 Other facts:
 
 - Everything lives on `main`. CI (fmt, clippy with warnings denied, tests, docs with
   warnings denied, release build with `--locked`) runs on every push, on ubuntu and windows.
-  The last push (`a1a0623`, the engine core) was **not confirmed green yet**: check
-  `gh run list --branch main` first.
+  The runs for `a1a0623` and `53cb4aa` were cancelled by later pushes and never finished:
+  check `gh run list --branch main` first.
 - Test suites: `cargo test --all-features` runs everything. The engine has unit tests, a
-  broker contract suite (mock and real Remote adapter against a scripted MCP server), 27
-  paused-time scenario tests, a news integration test and doctests.
+  broker contract suite (mock and real Remote adapter against a scripted MCP server that
+  mimics the real answers), 29 paused-time scenario tests, a news integration test and
+  doctests. The live tests (`live_remote.rs`, `live_local.rs`) are `#[ignore]`d and need a
+  demo account, see 3.1.
 - The engine has an example that needs no network:
   `cargo run -p wyck-engine --example dry_run_order --features testing`.
 
@@ -74,103 +76,203 @@ Docs must build with and without `--all-features` (the `testing` feature hides
 
 ## 3. P0: live validation before any real order
 
-Nothing that can send an order has ever touched a real server. This section is the gate.
-**Do not arm the engine on a funded account until every item here is ticked.**
+The engine has now been run against the real servers. **Remote is validated end to end on a
+demo account** (read paths, market orders with protection, protection changes, partial and
+full close, flatten, rejections, a lost reply, a closed market). **Local is validated read
+only**; its order path is not run yet because the account active in cTrader Desktop could not
+be shown to be a demo account (3.7). Validation found real defects, all fixed and pinned by
+tests; they are listed in 3.8 and in `crates/wyck-engine/CHANGELOG.md`.
 
-### 3.1 Preparation
+**Do not arm the engine on a funded account until 3.7 is empty**, or each item left there has
+a written reason and a workaround.
 
-- [ ] A **demo** cTrader account with AI Agent Connect enabled, and its Remote token.
-      Confirm it is a demo token (the JWT payload has `"environment":"demo"`; the engine
-      exposes this as `AccountKind`).
-- [ ] cTrader Desktop running with the Local MCP server enabled (Advanced > MCP Server, default
-      `http://127.0.0.1:9876/mcp/`), logged into the same demo account.
-- [ ] A scratch place for the token that is not the repository: an environment variable, or the
-      keyring through `wyck-config`. Never commit or paste a token into a file.
-- [ ] Decide how live tests are gated: `#[ignore]` tests reading `WYCK_LIVE_REMOTE_TOKEN`,
-      `WYCK_LIVE_LOCAL_ENDPOINT`, and a `WYCK_LIVE_CONFIRM_DEMO=1` switch that the test refuses
-      to run without. Put them in `crates/wyck-engine/tests/live_*.rs`. CI never runs them.
+### 3.1 The live tests (done)
 
-### 3.2 Read-only checks, Remote (safe, do first)
+Files: `crates/wyck-engine/tests/live_remote.rs`, `live_local.rs`, shared helpers in
+`live_support/mod.rs`. Every test is `#[ignore]`d, so `cargo test` and CI never touch a
+server.
 
-Run `cargo run -p wyck-engine --example headless` with `WYCK_SERVICE=remote`.
+```sh
+# Remote, read only:
+WYCK_LIVE_REMOTE_TOKEN=... cargo test -p wyck-engine --test live_remote -- --ignored read_only
+# Remote, places and closes real orders (demo token only):
+WYCK_LIVE_REMOTE_TOKEN=... WYCK_LIVE_CONFIRM_DEMO=1 \
+    cargo test -p wyck-engine --test live_remote -- --ignored --test-threads=1
+# Local, read only (prints the active account id and kind):
+cargo test -p wyck-engine --test live_local -- --ignored read_only --nocapture
+# Local, orders on the ACTIVE cTrader Desktop account (see 3.7 before using it):
+WYCK_LIVE_CONFIRM_DEMO=1 WYCK_LIVE_LOCAL_TRADER_ID=<id> \
+    cargo test -p wyck-engine --test live_local -- --ignored --test-threads=1 lifecycle
+```
 
-- [ ] Connects and reaches `Ready`; account id, currency, balance, equity, free margin look right.
-- [ ] `AccountKind` is `Demo`.
-- [ ] `get_server_time` answer shape: what field holds the time, in what unit. Update
-      `parse_server_time` in `crates/wyck-engine/src/broker/mod.rs` to match, and pin it with a
-      test using the real response. (Currently a guess over several shapes.)
-- [ ] Symbols list and `pipDigits` for EURUSD, USDJPY, XAUUSD, one index, one crypto: check
-      `pip_size_for_digits` (`broker/remote.rs`) gives the right pip for each.
-- [ ] **Volume rules.** The server publishes no lot size, minimum or step. Find the real ones
-      for the symbols you trade (platform symbol info) and compare with `AssumedSpecs`
-      (100,000 / 1,000 / 1,000). Decide the fix: per-symbol overrides in config (see 5.4).
-- [ ] Quotes: bid/ask decode correctly (compare with the platform), `timestamp` unit is
-      milliseconds.
-- [ ] Does `get_positions` echo the order `label` or `comment` on positions? The engine's
-      reconciliation of uncertain orders relies on it (`decode_position` reads `label` then
-      `comment` from the extra fields). If not echoed, reconciliation falls back to symbol,
-      side and volume matching; check that is good enough.
-- [ ] Pending orders decode: `stopLoss` and `takeProfit` on orders are read from the raw extra
-      fields (`decode_order`); confirm the field names.
-- [ ] `unrealized_pnl`, `swap`, `commission` scaling (money digits) on a position with a floating
-      result.
+Variables: `WYCK_LIVE_REMOTE_TOKEN`, `WYCK_LIVE_REMOTE_ENDPOINT`, `WYCK_LIVE_LOCAL_ENDPOINT`,
+`WYCK_LIVE_LOCAL_TRADER_ID`, `WYCK_LIVE_CONFIRM_DEMO`, `WYCK_LIVE_SYMBOL` (default `BTCUSD`,
+which trades at the weekend; `EURUSD`, `USDJPY` and `XAUUSD` are also sized in
+`live_support::sizing`), `WYCK_LIVE_ORDER_TIMEOUT_MS`.
 
-### 3.3 Read-only checks, Local
+Safety built into the tests:
 
-Run the headless example with `WYCK_SERVICE=local`.
+- A test that places orders needs `WYCK_LIVE_CONFIRM_DEMO=1`. The Remote tests also refuse a
+  token whose `environment` claim is not `demo`. The Local test also needs the trader id of the
+  account to be spelled out and equal to the active one.
+- They panic when the account already has a position or a working order, so they can never
+  flatten someone's trades.
+- They always flatten what they opened, even when an assertion fails (the lost-reply test
+  cleans up with a fresh engine, because its own timeout would cut the cleanup short).
+- The token only ever comes from the environment. Never write it to a file in the repository.
 
-- [ ] Connects; `get_balance` fields (`currency`, `accountType`, `traderId`, `margin`,
-      `marginLevel`) match what `LocalBroker::account` reads. Confirm `AccountKind` detection from
-      `accountType` (currently a guess: contains "demo", "live" or "real").
-- [ ] `get_symbol_details`: real `lotSize`, `minVolume`, `volumeStep`, `digits`, `pipSize` for
-      EURUSD, XAUUSD, an index. Check `instrument_from_details` (`broker/local.rs`), especially the
-      **volume unit** (section 9, item A1).
-- [ ] `get_spot_prices` per symbol works, and what a symbol without a quote returns (the adapter
-      treats a `Rejected` error as "no quote").
-- [ ] `get_positions` field names (`id`, `symbolName`, `tradeSide`, `volume`, and the P&L key: the
-      adapter tries `unrealizedPnl` then `netProfit`).
-- [ ] `get_server_time` shape (same as Remote).
+Cost of the whole Remote suite on the demo account: about 2 to 5 USD of spread.
 
-### 3.4 Order lifecycle on the demo account
+Also added: `crates/ctrader-mcp/examples/raw_call.rs` (prints raw answers for tools read from
+stdin, refuses state-changing tools without `CTRADER_CONFIRM_DEMO=1`), and an order round trip
+in `probe_remote.rs` behind the same switch.
 
-Only after 3.2 and 3.3. Use the smallest volume the symbol allows.
+### 3.2 Remote, read only (done, demo account)
 
-- [ ] Engine armed with the correct `acknowledged_kind`. Wrong kind and wrong account are refused.
-- [ ] **Remote market order with stop loss and take profit** through `plan_entry` and `submit`:
-      the position appears, volume is right in the platform, SL and TP are at the planned prices
-      (the engine sends relative distances in points).
-- [ ] The order's `label` shows up in the platform (comment or label field).
-- [ ] `set_protection` changes only one leg; the other is kept (Remote quirk Q-R10).
-- [ ] Partial close, then full close. Volume step respected.
-- [ ] `flatten` with two open positions: preview, token, execute, report.
-- [ ] Same list on **Local**: market order with pip-distance SL/TP, protection change, partial
-      and full close, flatten (Local has no volume-less close on Remote's model but does have
-      `close_all_positions`; the engine currently closes item by item).
-- [ ] Rejected order (for example a volume below the minimum forced past the planner): outcome is
-      `Rejected` with a readable reason, and no position appears.
-- [ ] Order while the market is closed: what error the servers return, and whether
-      `certainly_not_sent` (`crates/wyck-engine/src/trading.rs`) classifies it correctly.
+- [x] Connects and reaches `Ready`; currency, balance, equity, free margin match the platform.
+- [x] `AccountKind` is `Demo`. It was `Unknown`: the real token is base64url JSON, not a JWT.
+      Fixed in `AccountKind::from_token`, pinned by a test.
+- [x] `get_server_time`: **the tool does not exist on Remote** (16 tools, none for time).
+      `RemoteBroker::server_time` now says so; the engine falls back to the local clock. The
+      Local shape is pinned in `parse_server_time` (3.4).
+- [x] Symbols and precision: `get_symbols` has **no `pipDigits`**. Raw quote prices are always
+      integers in units of 1e-5 (USDJPY `15676800` is 156.768, XAUUSD `437857000` is 4378.57).
+      The adapter uses that constant and infers the decimals from quotes (EURUSD 5, USDJPY 3,
+      XAUUSD 2, BTCUSD 2 where the truth is 3, which is the safe direction). Pinned with
+      captured quotes and by the live test.
+- [x] Volume rules: not published, as expected. Per-symbol rules are now configurable
+      (`AssumedSpecs::symbols`, reported as `SpecsSource::Configured`). The live tests use the
+      values Local publishes for the same broker. Confirmed on Remote for BTCUSD only (0.01
+      accepted as volume 1 cent); the forex values are still unconfirmed on Remote (3.7).
+- [x] Quotes: bid and ask decode correctly, `timestamp` is milliseconds.
+- [x] `get_positions` does **not** echo the order `label` (or `comment`). Reconciliation of an
+      unknown order now falls back to symbol, side and volume in the background refresh too,
+      not only while confirming (this was a real gap, see 3.8).
+- [x] Pending orders: `limitPrice`, `stopPrice`, `stopLoss`, `takeProfit` are display prices.
+      Checked with a LIMIT order and its cancellation.
+- [x] Money on positions: only ever `0` so far (commission, swap). The scale of a non-zero
+      value is unconfirmed (3.7). There is **no per-position P&L** on Remote.
+- [x] Margin: `get_balance` has no margin fields, but with a position open
+      `equity - freeMargin` equals the margin in use. `RemoteBroker::account` now derives used
+      margin and margin level from it.
 
-### 3.5 Failure behavior, for real
+### 3.3 Remote, order lifecycle (done, demo account, BTCUSD)
 
+- [x] Engine armed with the acknowledged kind `Demo`.
+- [x] Market order with stop loss and take profit through `plan_entry` and `submit`: the
+      position appears with the planned volume, and the SL and TP are exactly the planned
+      distances from the fill (relative distances in points of 1e-5 are right).
+- [x] `set_protection` on one leg keeps the other. Also verified raw that **Q-R10 still holds
+      on build 1.0.18**: an `amend_position` without `takeProfit` removed it, whatever the
+      tool description says ("omit to leave unchanged"). Keep re-reading and sending both legs.
+- [x] Partial close, then full close. Volume is in cents of a unit on the wire.
+- [x] `flatten` with two open positions: preview, token, execute, report.
+- [x] Rejected order (zero volume sent straight to the adapter): `Rejected` with the server's
+      message, no position created.
+- [x] Market closed (EURUSD at the weekend): HTTP 409 "Trading is not available: Market is
+      closed." is reported as `Rejected` (`certainly_not_sent` classifies it correctly).
+- [x] Lost reply: with `order_timeout` at 150, 400 and 900 ms the outcome was `Filled` after
+      confirmation, with exactly one position each time, never two. With a 1 ms timeout the
+      request never leaves and the outcome is `Unknown` with no order on the account, which
+      is also correct. The path where the order lands but its confirmation fails is covered by
+      the mock scenarios (`a_late_order_is_reconciled_by_shape_...`), not by a live run.
+- [ ] Repeat the lifecycle on `EURUSD`, `USDJPY` and `XAUUSD` when the forex market is open
+      (Monday): `WYCK_LIVE_SYMBOL=EURUSD ... --ignored --test-threads=1`. This is what confirms
+      the configured forex volume rules, the precision inference and the stop rounding on Remote
+      for the symbols most people trade. Note whether a stop distance that is not a multiple of
+      the symbol's tick is rejected.
+
+### 3.4 Local, read only (done, on whatever account is active)
+
+- [x] Connects and reaches `Ready`. Currency is `depositAsset` (the DTO only knew
+      `currency`, so sizing would have had no account currency).
+- [x] Account kind: `get_balance` has no demo or live field (`accountType` is the margin mode,
+      `Hedged`). The adapter reports `Unknown` unless `traderId` is in `get_accounts_list`
+      (which has `isLive`). On the validation machine it was **not** in the list, and the
+      list showed a different, offline demo account (see 3.7).
+- [x] `get_symbol_details`: `minVolume`, `maxVolume` and `volumeStep` are **in units**, not
+      lots (EURUSD lot 100000, min 1000, step 1000; XAUUSD 100, 1, 1; BTCUSD 1, 0.01, 0.01).
+      The adapter read them as lots. Fixed and pinned with captured answers. `digits` and
+      `pipSize` are per symbol (BTCUSD digits 3, pip 0.1).
+- [x] Every volume tool **requires `volumeType`** (`lots` or `units`); `ctrader-mcp` did not
+      send it, so every Local order would have been refused. Now always sent as `units`.
+- [x] `get_symbols` names the field `name`, not `symbolName`. Fixed with an alias.
+- [x] `get_spot_prices` answers "No live quote ... unsubscribed" for a symbol that is not in
+      the Market Watch (BTCUSD here). The adapter treats a `Rejected` error as no quote.
+- [x] `get_server_time` returns `unixMs`, `utcTime` and `localTime`. The engine looked for
+      other names and always fell back to the local clock. Fixed and pinned.
+- [ ] `get_positions` and `get_pending_orders` field names: the validation account had no
+      position. The decoder follows the tool description (`volumeInUnits` canonical, then
+      `volumeInLots`, then `volume`) and logs and skips what it cannot read. Check with a real
+      position (3.7).
+
+### 3.5 Local, order lifecycle (not run)
+
+Blocked by 3.7. When it can run, the same list as 3.3, through
+`live_local.rs::lifecycle_...`:
+
+- [ ] Market order with SL and TP as pip distances: volume, SL and TP in the platform.
+- [ ] `set_protection` changes one leg and keeps the other.
+- [ ] Partial close (`close_position_partial` with `volumeType`), full close.
+- [ ] `flatten` with two positions (the engine closes item by item today; Local also has
+      `close_all_positions`).
+- [ ] Rejected order and closed-market answers, and `certainly_not_sent` on them.
+- [ ] Does Local echo `label` and `comment` on positions?
+
+### 3.6 Failure behavior (partly done)
+
+- [x] Lost reply, never a second order (3.3).
 - [ ] Kill the network during a session: state goes `Reconnecting`, trading disarms, the session
-      recovers when the network returns, and positions are reconciled.
+      recovers, positions are reconciled. Manual test with a demo session (disable the adapter
+      or pull the cable), not automated.
 - [ ] Interrupt cTrader Desktop while connected to Local: same expectations.
-- [ ] Lost reply for a real order is hard to reproduce; at minimum verify that a timeout shorter
-      than the server latency (set `trading.order_timeout` very low on the demo) yields `Unknown`
-      or `Filled` through confirmation, never a second order.
-- [ ] Rate limits: run the headless example for a long time with several watched symbols and
-      confirm no throttling errors (Remote reads are limited; the engine calls `get_positions`
-      twice per refresh, see 5.9).
+- [ ] Rate limits: run the headless example for an hour with four watched symbols and confirm no
+      throttling errors. The engine calls `get_positions` twice per refresh (5.9).
 
-### 3.6 Exit criteria
+### 3.7 What is still open (the gate)
 
-- [ ] All boxes above ticked, or each unticked one has a written reason and a workaround.
-- [ ] The live tests from 3.1 exist and pass against the demo account.
-- [ ] Section 9 assumptions all confirmed or corrected in code, with tests pinning the real
-      response shapes (use captured responses as fixtures, with tokens and account ids removed).
-- [ ] `crates/ctrader-mcp/examples/probe_remote.rs` and `probe_local.rs` extended with an
-      order round trip guarded by the same demo confirmation switch.
+1. **Local account identity.** `get_balance` on Local reported trader `3382707`, 958.06 EUR,
+   while `get_accounts_list` listed only account `48333320` (login 5884727, 9999.7 USD,
+   `isLive:false`, `isOnline:false`), which is the account of the Remote demo token.
+   `get_account_statistics` on the active account reports 20 closed trades. Nothing proves the
+   active account is a demo. Switch cTrader Desktop to the demo account (or confirm in the
+   platform that 3382707 is a demo), then run the Local order test with
+   `WYCK_LIVE_LOCAL_TRADER_ID` set to the id `get_balance` reports for it. No order was sent
+   to Local.
+2. **Forex on Remote** (3.3, last item), needs the forex market open.
+3. **Local positions and orders decoding** (3.4, 3.5), needs one open position on the demo.
+4. **Money scale on Remote positions**: `swap`, `commission` and a non-zero value of any money
+   field. `RemoteBroker::money` reads a whole number as scaled by `moneyDigits` and a fractional
+   one as decimal. Confirm with a symbol that charges commission (forex, on a weekday).
+5. **Failure drills** (3.6): network loss, cTrader Desktop restart, an hour of polling.
+6. **CI**: the pushes for the engine core and the previous TODO were cancelled by newer pushes
+   before finishing. Run `gh run list --branch main` and confirm the last run is green.
+
+### 3.8 What the live servers actually do (findings)
+
+Each row replaced an assumption in the code. Section 9 tracks the status of the rest.
+
+| Topic | Assumed | Real (2026-09-19, `rest-proxy 1.0.18`, Local 2026-09) |
+|---|---|---|
+| Remote token | a JWT | base64url JSON `{"plant","environment","token"}` |
+| Remote quote scale | per-symbol `pipDigits` | always 1e-5, `pipDigits` never sent |
+| Remote position, order, deal prices | integer pipettes | display decimals |
+| Remote amend and create prices | integer pipettes | display decimals (relative SL and TP stay in points of 1e-5) |
+| Remote server time | `get_server_time` | no such tool |
+| Remote order label on positions | echoed | not echoed |
+| Remote margin | not available | `equity - freeMargin` while a position is open |
+| Remote pending order reply | a position only for fills | a placeholder position with volume 0 and an id |
+| Local volume unit | lots of `lotSize` | units, with `volumeType` required on every volume tool |
+| Local currency field | `currency` | `depositAsset` |
+| Local symbol name field | `symbolName` | `name` |
+| Local server time | `timestamp`, `serverTime`, ... | `unixMs`, `utcTime`, `localTime` |
+| Local account kind | `accountType` says demo or live | `accountType` is the margin mode; `isLive` only in the account list |
+| Volume representation | whole units | hundredths of a unit (BTCUSD minimum is 0.01) |
+| Reconciling an unknown order | by label | by label, else symbol, side and volume |
+
+Two defects that would have hurt money if the order path had gone live unchecked: an
+`amend_position` that sent pipettes as prices (a stop at 8,095,969), and an unknown order that
+could never be reconciled on Remote because reconciliation only matched labels.
 
 ---
 
@@ -302,14 +404,21 @@ Only market orders are placed today. The engine can list and cancel working orde
 
 ### 5.4 Per-symbol volume rules (blocks trusting Remote sizing)
 
-Remote publishes no lot size, minimum or step, so `AssumedSpecs` is one global guess.
+Remote publishes no lot size, minimum or step. Local publishes them (in units), and the same
+broker's values are the best available seed: EURUSD and USDJPY lot 100000, min and step 1000,
+max 10,000,000; XAUUSD lot 100, min and step 1, max 10,000; BTCUSD lot 1, min and step 0.01,
+max 50 (read from Local on 2026-09-19).
 
-- [ ] Per-symbol overrides in `EngineConfig` (map symbol to lot size, min, step, max) and a way to
-      edit them in the GUI.
-- [ ] Seed table of known values per broker family, if a reliable source exists.
+- [x] Per-symbol rules in `EngineConfig` (`assumed_specs.symbols`, validated, reported as
+      `SpecsSource::Configured`).
+- [ ] A way to edit them in the GUI and to persist them in `wyck-config`.
+- [ ] Seed them automatically: when a Local session is also available, read
+      `get_symbol_details` for the watched symbols and offer those values for Remote (same
+      broker, same numbers), instead of asking the user to type them.
 - [ ] Learn from rejections: when the server rejects a volume, capture the message and suggest an
       override.
-- [ ] Keep the planner warning for assumed specs until values are confirmed.
+- [ ] Keep the planner warning for assumed specs until values are confirmed. Remote volume rules
+      are confirmed for BTCUSD only (3.3).
 
 ### 5.5 Multi-account
 
@@ -374,8 +483,12 @@ The API already carries `AccountId` on every command and event.
       and parallelize if the watch list grows.
 - [ ] `RemoteBroker::close` only marks intent; the MCP session closes on drop. Verify there is no
       lingering task after `Engine::shutdown` when the broker `Arc` is still referenced elsewhere.
-- [ ] `RemoteBroker::account` leaves `used_margin` and `margin_level_pct` empty (Remote's balance
-      response does not include them). Compute from positions if margin data becomes available.
+- [x] `RemoteBroker::account` derives used margin and margin level from `equity - freeMargin`
+      (checked live with one position open).
+- [ ] Remote positions carry no P&L. Floating profit is available for the account as a whole
+      (`equity - balance`); per position it would need quotes and the contract size.
+- [ ] Remote `create_order` on a pending order returns a placeholder `position` (volume 0, with an
+      id). Do not read it as a fill when pending orders are added (5.1).
 - [ ] Instrument cache never expires. Symbol lists are stable per session, but a reconnect should
       clear the cache (currently only the session state is reset; check `instruments` in `Inner`).
 - [ ] `Inner::plan_entry` reads the account every time (correct for sizing) but not in parallel
@@ -392,8 +505,10 @@ The API already carries `AccountId` on every command and event.
 - [ ] Config validation for cross-field sense (for example `confirm_delay * confirm_attempts`
       should fit inside `order_timeout` scale).
 - [ ] Time handling: the engine uses the local clock for event stamps and a measured offset for
-      news timing. If the offset check fails it falls back to the local clock silently (a debug
-      log); consider a visible warning.
+      news timing. Remote has no server clock, so there the offset is never measured and the local
+      clock is used (a warn log at connect, nothing visible). A clock that is off makes news timing
+      wrong; consider a visible warning, or measure the offset from a fresh quote timestamp when
+      the market is open.
 
 ### 5.10 Observability
 
@@ -581,32 +696,42 @@ From the README roadmap (Axiom.trade or GMGN style):
 
 ## 9. Assumptions to confirm
 
-Each is a place where the code guesses. Confirm live (section 3), then fix the code and pin the
-real answer with a test. Ordered by risk.
+Each row is a place where the code guessed. Section 3 has the live results; the status column
+says where each stands. A corrected row was wrong, is fixed in the code and pinned with a test
+using the real answer. An open row still needs a live check.
 
-| # | Assumption | Where | If wrong |
+| # | Assumption | Where | Status |
 |---|---|---|---|
-| A1 | Local raw volume `v` means `v` lots of `lotSize` base units | `broker/local.rs` (module docs, `instrument_from_details`) | Wrong sizes on Local. The adapter already refuses a symbol whose minimum volume rounds to zero units. |
-| A2 | Remote volume rules default to lot 100,000, min 1,000, step 1,000 units | `config.rs` (`AssumedSpecs`), `broker/remote.rs` | Orders rejected or wrongly sized. Fix with per-symbol overrides (5.4). |
-| A3 | Remote `pipDigits` gives the pip size: 5 and 3 digits mean pip is 10 points, other digit counts mean pip is one point | `pip_size_for_digits` in `broker/remote.rs` | Wrong pip distances for indices, metals, crypto. Affects stop planning and risk. |
-| A4 | Remote relative stop distances are integer points of one pipette each | `RemoteBroker::place_market` | Wrong protective levels on the position. Verify on every symbol class. |
-| A5 | `get_server_time` returns a time under one of `timestamp`, `serverTime`, `server_time`, `time`, `utc`, `now` | `parse_server_time` | Falls back to the local clock; news timing uses this computer's clock. |
-| A6 | Remote positions echo `label` or `comment` | `decode_position` | Reconciliation falls back to symbol, side and volume. |
-| A7 | Remote quote `timestamp` is in milliseconds | `RemoteBroker::quotes` | Only affects display and staleness checks. |
-| A8 | Local P&L key is `unrealizedPnl` or `netProfit`; account type text contains demo, live or real | `broker/local.rs` | P&L blank, account kind Unknown. Harmless but misleading. |
-| A9 | Local `place_market_order` takes pip distances as integers, at least 1 | `LocalBroker::place_market` | Wrong protective levels. |
-| A10 | A `Rejected` broker error means the order certainly was not sent; timeouts and connection errors are ambiguous | `certainly_not_sent` in `trading.rs` | Wrongly assuming "not sent" could hide a live order; wrongly assuming "maybe sent" only adds a confirmation read. Errors on the safe side today. |
-| A11 | The mock broker's behavior matches the real servers well enough for the scenario tests | `broker/mock.rs` | Tests pass while reality differs. The live tests (3.1) close this gap. |
-| A12 | The calendar feed rate limit is about 2 requests per 5 minutes per IP | `wyck-calendar` docs | Service defaults are conservative (5 minute minimum gap). |
+| A1 | Local volumes are lots of `lotSize` | `broker/local.rs` | **Corrected.** `minVolume`, `maxVolume`, `volumeStep` are in units and every volume tool needs `volumeType`; the adapter sends `units`. Position volume field names still open (3.4). |
+| A2 | Remote volume rules default to lot 100,000, min 1,000, step 1,000 units | `config.rs`, `broker/remote.rs` | **Partly confirmed.** Not published by Remote. Per-symbol rules exist (5.4). BTCUSD confirmed on Remote (0.01); forex open until the market is open (3.3). |
+| A3 | Remote `pipDigits` gives the pip size | `pip_size_for_digits` in `broker/remote.rs` | **Corrected.** `pipDigits` is never sent. Digits are inferred from quotes, pip size follows the forex convention and is only trustworthy for currency pairs (BTCUSD real pip is 0.1, inferred 0.01). Prefer price-distance stops on Remote for anything but forex. |
+| A4 | Remote relative stop distances are integer points of one pipette (1e-5) | `RemoteBroker::place_market` | **Confirmed** on BTCUSD: 500.00 sent as 50,000,000 gave a stop exactly 500.00 away. Open for symbols with a coarser tick (3.3). |
+| A5 | `get_server_time` returns a time under one of several guessed names | `parse_server_time` | **Corrected.** Local answers `unixMs`, `utcTime`, `localTime`. Remote has no such tool. |
+| A6 | Remote positions echo `label` or `comment` | `decode_position` | **Corrected.** Not echoed. Reconciliation uses symbol, side and volume, in the confirmation reads and in the background refresh. |
+| A7 | Remote quote `timestamp` is in milliseconds | `RemoteBroker::quotes` | **Confirmed.** |
+| A8 | Local P&L key, and account kind from `accountType` | `broker/local.rs` | **Corrected** for the kind: `accountType` is the margin mode. Kind comes from `isLive` in the account list, else `Unknown`. The P&L key is still open (no position). |
+| A9 | Local `place_market_order` takes pip distances as integers, at least 1 | `LocalBroker::place_market` | **Open.** The schema says `number`, so fractional pips are accepted; the adapter sends integers. Not run (3.5). |
+| A10 | A `Rejected` broker error means the order was not sent; timeouts and connection errors are ambiguous | `certainly_not_sent` in `trading.rs` | **Confirmed on Remote**: a zero volume and a closed market (HTTP 409) come back `Rejected` and leave nothing; a client-side timeout is settled by reading positions. Open on Local. |
+| A11 | The mock broker behaves like the real servers | `broker/mock.rs`, `tests/support/mod.rs` | **Narrowed.** The scripted Remote server now returns the real shapes. The mock still lacks a broker that does not echo labels, but the scenarios cover it. |
+| A12 | The calendar feed rate limit is about 2 requests per 5 minutes per IP | `wyck-calendar` docs | Verified earlier; service defaults are conservative (5 minute minimum gap). |
+| A13 | Remote money on positions (`swap`, `commission`, P&L) is scaled by `moneyDigits` like the balance | `RemoteBroker::money` | **Open.** Only `0` seen. A whole number is read as scaled, a fractional one as decimal (3.7). |
+| A14 | Q-R10: an `amend_position` without one leg removes it | `quirks::amend_position_preserving_legs` | **Confirmed** still true on build 1.0.18, despite the tool description. |
 
 ---
 
 ## 10. Risks and open questions
 
-- **Unverified order path.** The whole point of the app has never run against a server.
-  Mitigations in place: dry-run default, arming with acknowledgement, single-use plans, no
-  replay, label reconciliation. Mitigation still needed: section 3.
-- **Volume model differences between servers** (A1, A2). The riskiest technical unknown.
+- **Order path validated on Remote only.** Remote has run end to end on a demo account (3.3);
+  Local orders have not run (3.7). Mitigations in place: dry-run default, arming with
+  acknowledgement, single-use plans, no replay, label or shape reconciliation. Before any funded
+  account: empty the gate in 3.7.
+- **The reference notes were wrong in several places.** The `ctrader-mcp` DTOs and the skill
+  notes were written from documentation; the live servers disagreed on token format, price
+  encoding, volume units and required fields (3.8). Expect more of the same on paths not yet run
+  (forex on Remote, everything mutating on Local). The `raw_call` example and the live tests are
+  the way to check.
+- **Volume model differences between servers** (A1, A2). Local's are now read from the broker;
+  Remote's are configured per symbol and confirmed for BTCUSD only.
 - **Chart requirements versus framework choice.** If price charts are in scope for v1, the GUI
   framework decision (4.1) is really a charting decision.
 - **Unofficial calendar feed.** No SLA, single host, throttled. The app must work without it.
@@ -677,7 +802,8 @@ Mirrors the README roadmap. Not next, listed with the crates each touches.
 - **Engine and profile management are separate.** The GUI edits profiles with `wyck-config`
   directly and hands the engine a `ConnectRequest`.
 - **One `Broker` trait behind `dyn`.** Remote, Local and the mock share one behavior contract.
-- **Volumes are exact integers; prices and money are `f64`** display values.
+- **Volumes are exact integers, in hundredths of a base-asset unit; prices and money are `f64`**
+  display values. Hundredths because BTCUSD trades in steps of 0.01 of a coin.
 - **The ratatui TUI was dropped** in favor of a native GUI.
 - **Calendar defaults follow the feed's real limit** (about 2 requests per 5 minutes), verified
   live; the service polls every 30 minutes and never twice within 5.
@@ -702,6 +828,14 @@ cargo test --all-features                                   # everything
 cargo test -p wyck-engine --test engine_scenarios           # engine scenarios
 cargo run -p wyck-engine --example dry_run_order --features testing
 WYCK_SERVICE=remote WYCK_TOKEN=... cargo run -p wyck-engine --example headless   # read only
+# Live validation, demo accounts only (3.1):
+WYCK_LIVE_REMOTE_TOKEN=... cargo test -p wyck-engine --test live_remote -- --ignored read_only
+WYCK_LIVE_REMOTE_TOKEN=... WYCK_LIVE_CONFIRM_DEMO=1 \
+    cargo test -p wyck-engine --test live_remote -- --ignored --test-threads=1
+cargo test -p wyck-engine --test live_local -- --ignored read_only --nocapture
+# Raw server answers, one call per line on stdin (`tools`, `tools <name>`, `get_balance`, ...):
+CTRADER_SERVICE=remote CTRADER_REMOTE_TOKEN=... cargo run -p ctrader-mcp --example raw_call
+CTRADER_SERVICE=local cargo run -p ctrader-mcp --example raw_call
 cargo doc -p wyck-engine --open --all-features
 gh run list --branch main --limit 3                         # CI status
 ```

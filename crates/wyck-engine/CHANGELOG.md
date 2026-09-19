@@ -12,3 +12,28 @@ First version of the engine.
 - Order pipeline: dry-run default, explicit arming, single-use plans, in-flight and interval
   limits, label-based reconciliation, two-step flatten.
 - Economic calendar hosting with news warnings for the traded currencies.
+
+### Live validation against demo accounts (2026-09-19)
+
+Fixes that came from running the engine against the real Remote and Local servers.
+
+- **Breaking:** `Volume` now keeps hundredths of a unit (it was whole units), so symbols that
+  trade in fractions of a coin (BTCUSD, minimum 0.01) can be sized. `Volume::from_units` and
+  `Volume::units` keep their meaning; use `Volume::as_units` for arithmetic. The serialized
+  form is the count of hundredths.
+- Remote prices: raw quotes are always in units of 1e-5 (not per-symbol `pipDigits`, which the
+  server never sends), and position, order and deal prices are display decimals. The adapter
+  and the `ctrader-mcp` DTOs now follow that. Before, decoding a position failed and a
+  protection change would have sent pipettes as prices.
+- Remote price digits are inferred from quotes; the pip size follows from them.
+- Remote has no `get_server_time`: `server_time` says so instead of calling a missing tool.
+- Local: volumes are sent as `units` with the required `volumeType`, symbol rules are read in
+  units, the currency comes from `depositAsset`, the server time from `unixMs`, and the account
+  kind is `Unknown` unless the account is in `get_accounts_list`.
+- `AccountKind::from_token` reads the real Remote token (base64url JSON), not only JWTs.
+- Per-symbol volume rules in `AssumedSpecs::symbols`, reported as `SpecsSource::Configured`.
+- An unknown order is now reconciled by symbol, side and volume when the server does not echo
+  the label (Remote never does).
+- A failed quote read during `Broker::instrument` on Remote is an error instead of a silent
+  fallback to 5 decimals.
+- Live tests, `#[ignore]`d and env-gated: `tests/live_remote.rs`, `tests/live_local.rs`.
