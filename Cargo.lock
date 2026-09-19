@@ -3900,6 +3900,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "wyck-calendar"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "time",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "wyck-config"
 version = "0.1.0"
 dependencies = [

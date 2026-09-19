@@ -62,36 +62,37 @@ Sample record shape (from the feed, confirmed live 2026-09-19):
 
 ### Design
 
-- [ ] **Decide where this lives.** Recommendation: start as a `wyck::news` module
-      (`crates/wyck/src/news.rs`), not a new crate — it's UI-facing, has no reuse target
-      yet (unlike `ctrader-mcp`/`wyck-config`, which are shared infrastructure by
-      design), and splitting it out later is a mechanical move if it ever needs reuse
-      (e.g. a future headless engine, per the v1 architecture split). Don't
-      over-engineer a crate boundary before there's a second consumer.
-- [ ] **HTTP client.** `wyck` doesn't depend on `reqwest` directly today (only
+- [x] **Decide where this lives.** Built as its own crate, `crates/wyck-calendar` (user decision,
+      overriding the earlier "start as a module" recommendation): UI-agnostic, no ratatui, so the
+      TUI, a future GUI and a headless engine share it. See its crate docs (`cargo doc -p
+      wyck-calendar --open`) for the researched feed behavior (rate limit ~2 req / 5 min, `429` +
+      `Retry-After: 300`, current week only, ETag/304). **Remaining: wire it into `wyck` (spawn
+      `CalendarService` in the engine, feed `EventFilter::currencies` from the session symbols,
+      poll `imminent_events`) and build the UI panel below.**
+- [x] **HTTP client.** `wyck` doesn't depend on `reqwest` directly today (only
       `ctrader-mcp` does, transitively through `rmcp`). Add it as a direct dependency in
       `crates/wyck/Cargo.toml` rather than reaching into `ctrader-mcp`'s internals —
       this is a plain unauthenticated JSON fetch with nothing cTrader-specific about it.
-- [ ] **Model the DTO.** `country` is sometimes `"All"` (non-currency events like "BRICS
+- [x] **Model the DTO.** `country` is sometimes `"All"` (non-currency events like "BRICS
       Summit"); `forecast`/`previous` are free-form strings, frequently empty (`""`),
       and NOT always a clean number — e.g. `"3.65|1.3"` (bond auction yield|bid-to-cover)
       appears in the sample data. Model them as `Option<String>` (empty string ->
       `None`) rather than trying to parse every shape into `f64` up front; parse
       opportunistically at display time where a plain percentage/number is expected.
-- [ ] **Timestamps carry an explicit UTC offset** (`-04:00` in the sample — US
+- [x] **Timestamps carry an explicit UTC offset** (`-04:00` in the sample — US
       Eastern, DST-aware from the source). Parse with the `time` crate (already a
       workspace dependency, see `crates/ctrader-mcp/src/time.rs` for the existing
       RFC 3339 parsing pattern) into an `OffsetDateTime`, then convert to whatever this
       feature displays against (local system time, or the broker's server time via
       `get_server_time` — cTrader's own docs recommend the latter for any time-window
       computation; same reasoning applies here for "is this event happening soon").
-- [ ] **Caching / refresh interval.** Don't fetch on every render tick. Mirror
+- [x] **Caching / refresh interval.** Don't fetch on every render tick. Mirror
       `crates/wyck/src/engine.rs`'s existing `REFRESH_INTERVAL` pattern (currently 10s
       for account refresh) with its own, much longer interval — this feed changes at
       most a few times a day; every 15–30 minutes is already generous. Cache the last
       good response; a failed refresh should log and keep showing stale data, not clear
       the view (same non-fatal-refresh philosophy as `EngineEvent::RefreshFailed`).
-- [ ] **Filtering**, per the README roadmap wording ("real filtering — by impact,
+- [x] **Filtering**, per the README roadmap wording ("real filtering — by impact,
       currency, custom watchlist"):
       - by `impact` (`Low` / `Medium` / `High` — confirm there's no `Holiday`/other
         value by checking a few days of live feed output before hardcoding an enum)
@@ -100,14 +101,14 @@ Sample record shape (from the feed, confirmed live 2026-09-19):
         e.g. `RemoteSessionContext.symbols` from `crates/ctrader-mcp/src/workflows/
         bootstrap.rs`, to default the filter to "currencies I actually trade")
       - a user-defined watchlist on top of the above two
-- [ ] **Trading-safety hook (optional but high-value):** a non-blocking warning when a
+- [x] **Trading-safety hook (optional but high-value):** a non-blocking warning when a
       high-impact event for a relevant currency is imminent — same "warn, don't block"
       philosophy the README already commits to for prop-firm guardrails. This is the
       natural place this calendar earns its keep beyond just being a read-only panel.
-- [ ] **Error handling:** a fetch failure (network down, feed schema drift, non-200)
+- [x] **Error handling:** a fetch failure (network down, feed schema drift, non-200)
       must never crash the TUI — same treatment as every other engine-side failure in
       this codebase (log via `tracing`, surface a UI hint, keep going).
-- [ ] **Tests:**
+- [x] **Tests:**
       - JSON parsing unit tests covering: empty `forecast`/`previous`, `"All"` country,
         the `"3.65|1.3"`-style compound value, every known `impact` value.
       - An HTTP-level integration test using the same in-process mock-server pattern
