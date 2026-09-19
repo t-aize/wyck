@@ -36,7 +36,7 @@ impl Field {
             Field::DisplayName => "Display name",
             Field::Service => "Service",
             Field::Endpoint => "Endpoint URI",
-            Field::Token => "Token",
+            Field::Token => "Token (optional — leave blank for cTrader Local)",
         }
     }
 
@@ -68,7 +68,10 @@ pub enum FirstRunOutcome {
         display_name: String,
         service: String,
         endpoint: String,
-        token: SecretString,
+        /// `None` when the field is left empty — valid for services that don't require
+        /// a token (e.g. cTrader's Local server, which authenticates implicitly by only
+        /// ever binding to the cTrader Desktop instance on the same machine).
+        token: Option<SecretString>,
     },
     /// The user pressed Esc.
     Cancelled,
@@ -92,7 +95,7 @@ impl Default for FirstRunScreen {
             // Pre-filled with the most common defaults so the common case is just
             // "type a display name, paste a token, Enter" — Tab past the rest.
             service: Input::new("ctrader-remote".to_owned()),
-            endpoint: Input::new("https://mcp.spotware.com/mcp".to_owned()),
+            endpoint: Input::new("https://mcp.ctrader.com/trading/mcp".to_owned()),
             token: Input::default(),
             focus: Field::DisplayName,
             error: None,
@@ -166,17 +169,15 @@ impl FirstRunScreen {
             self.focus = Field::Endpoint;
             return FirstRunOutcome::Continue;
         }
-        if token.is_empty() {
-            self.error = Some("Token is required.".to_owned());
-            self.focus = Field::Token;
-            return FirstRunOutcome::Continue;
-        }
+        // Left empty on purpose is valid here (e.g. cTrader's Local server needs no
+        // token) — unlike the fields above, there is no "Token is required" check.
+        let token = (!token.is_empty()).then(|| SecretString::from(token.to_owned()));
 
         FirstRunOutcome::Submit {
             display_name: display_name.to_owned(),
             service: service.to_owned(),
             endpoint: endpoint.to_owned(),
-            token: SecretString::from(token.to_owned()),
+            token,
         }
     }
 

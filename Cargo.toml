@@ -35,7 +35,7 @@ tokio = { version = "1.53.1", features = [
 # it builds a working `Client` (no error at construction time), but every request
 # to an `https://` URL then fails at send-time with a generic "error sending
 # request" (no TLS connector available to actually perform the handshake). Verified
-# against mcp.spotware.com specifically: `native-tls` (OS-native -- SChannel on
+# against mcp.ctrader.com specifically: `native-tls` (OS-native -- SChannel on
 # Windows, Secure Transport on macOS, OpenSSL on Linux) connects and completes the
 # handshake there (matches what `curl` does through SChannel); the alternative
 # `reqwest` feature (rustls) was not verified against this endpoint. Do not swap to

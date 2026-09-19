@@ -18,7 +18,8 @@ use crate::ui::{ConnectionStatus, DashboardScreen, FirstRunOutcome, Screen};
 pub struct InitialConnect {
     pub display_name: String,
     pub endpoint: String,
-    pub token: SecretString,
+    /// `None` for a profile that legitimately has no stored token (e.g. cTrader Local).
+    pub token: Option<SecretString>,
 }
 
 /// The application: everything [`main`](crate::main) hands off control to once the
@@ -141,7 +142,7 @@ impl App {
         display_name: String,
         service: String,
         endpoint: String,
-        token: SecretString,
+        token: Option<SecretString>,
     ) -> Result<()> {
         let id = self.config.add_profile(
             display_name.clone(),

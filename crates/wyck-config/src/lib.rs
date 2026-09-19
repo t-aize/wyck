@@ -37,8 +37,8 @@
 //! let id = config.add_profile(
 //!     "Live — FTMO 100k",
 //!     "ctrader-remote",
-//!     Some("https://mcp.spotware.com/mcp".to_string()),
-//!     SecretString::from("the-account-token".to_string()),
+//!     Some("https://mcp.ctrader.com/trading/mcp".to_string()),
+//!     Some(SecretString::from("the-account-token".to_string())),
 //! )?;
 //! config.set_active_profile(Some(id.clone()))?;
 //!
@@ -115,10 +115,15 @@ impl WyckConfig {
         self.app_config.profile(id)
     }
 
-    /// Adds a new profile: stores `token` under the profile's derived
+    /// Adds a new profile: stores `token` (if given) under the profile's derived
     /// [`SecretKey`] (see [`SecretKey::for_profile`]) in the configured
     /// [`SecretStore`], appends the non-secret [`ProfileConfig`], and persists the
     /// updated [`AppConfig`] to disk.
+    ///
+    /// `token` is `None` for services that don't require one — e.g. `ctrader-mcp`'s
+    /// Local server, which authenticates the caller implicitly (it only ever binds to
+    /// the cTrader Desktop instance running on the same machine) rather than through a
+    /// bearer token like the Remote server does.
     ///
     /// If the secret-store write succeeds but the subsequent disk save fails, the
     /// stored credential is left in place (harmless — it's simply not yet referenced by
@@ -134,12 +139,14 @@ impl WyckConfig {
         display_name: impl Into<String>,
         service: impl Into<String>,
         endpoint: Option<String>,
-        token: SecretString,
+        token: Option<SecretString>,
     ) -> Result<ProfileId> {
         let profile = ProfileConfig::new(display_name, service, endpoint);
         let id = profile.id.clone();
 
-        self.secrets.store(&SecretKey::for_profile(&id), &token)?;
+        if let Some(token) = &token {
+            self.secrets.store(&SecretKey::for_profile(&id), token)?;
+        }
         self.app_config.profiles.push(profile);
         self.app_config.save(&self.paths)?;
 
@@ -214,7 +221,7 @@ mod tests {
                 "Demo",
                 "ctrader-remote",
                 None,
-                SecretString::from("token-123".to_owned()),
+                Some(SecretString::from("token-123".to_owned())),
             )
             .unwrap();
 
@@ -232,6 +239,19 @@ mod tests {
     }
 
     #[test]
+    fn add_profile_without_a_token_stores_no_secret() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut config = config_in(temp_dir.path());
+
+        let id = config
+            .add_profile("Local desktop", "ctrader-local", None, None)
+            .unwrap();
+
+        assert_eq!(config.profiles().len(), 1);
+        assert!(config.token_for(&id).unwrap().is_none());
+    }
+
+    #[test]
     fn remove_profile_deletes_config_entry_secret_and_active_pointer() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
@@ -240,7 +260,7 @@ mod tests {
                 "Demo",
                 "ctrader-remote",
                 None,
-                SecretString::from("token".to_owned()),
+                Some(SecretString::from("token".to_owned())),
             )
             .unwrap();
         config.set_active_profile(Some(id.clone())).unwrap();

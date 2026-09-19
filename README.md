@@ -40,7 +40,7 @@ inside cTrader's own chart the way a cBot is.
 
 Two design decisions follow directly from that goal:
 
-- **No LLM in the execution path.** wyck talks to [cTrader's MCP server](https://mcp.spotware.com/)
+- **No LLM in the execution path.** wyck talks to [cTrader's MCP server](https://mcp.ctrader.com/)
   with structured, direct tool calls — buy, sell, close, modify. A language model is a great
   tool for analysis and automation, but it has no place between a hotkey and a live order;
   the added latency and interpretation risk aren't worth it for scalping.
@@ -80,11 +80,14 @@ The binary is produced at `target/release/wyck`.
 
 ## Configuration
 
-wyck connects to cTrader through its official MCP server. You'll need:
+wyck connects to cTrader through its official MCP server, in one of two ways:
 
-- A cTrader account with [AI Agent Connect](https://mcp.spotware.com/) enabled
-- MCP connection details (remote MCP endpoint, or a local MCP server running alongside
-  cTrader Windows/Mac), copied from cTrader into wyck's config
+- **Remote** — `https://mcp.ctrader.com/trading/mcp`, authenticated with a bearer token
+  copied from a cTrader account with [AI Agent Connect](https://mcp.ctrader.com/) enabled.
+- **Local** — a server bound to a running cTrader Desktop instance, enabled and configured
+  from cTrader Desktop's own settings (Advanced → MCP Server). It defaults to
+  `http://127.0.0.1:9876/mcp/` (the port is shown, and changeable, on that settings page)
+  and does not require a bearer token.
 
 Config and credentials are stored in the platform's standard application directory
 (via the `directories` crate) rather than in the repo or the working directory.

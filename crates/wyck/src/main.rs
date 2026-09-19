@@ -69,8 +69,18 @@ async fn main() -> Result<()> {
 /// than from inside the async render loop — avoids ever blocking that loop on it.
 ///
 /// Returns `None` (falling back to the first-run screen) if there is no active
-/// profile, the profile has no endpoint configured, or the token can't be resolved for
-/// any reason — every failure path is logged, none of them are fatal to startup.
+/// profile, the profile has no endpoint configured, or the stored token can't be read
+/// due to a secret-store error — every failure path is logged, none of them are fatal to
+/// startup.
+///
+/// A profile with no stored token is NOT one of those failure paths: services like
+/// cTrader's Local server need no token at all (see
+/// [`wyck_config::WyckConfig::add_profile`]), so `token_for` returning `Ok(None)` is
+/// passed through as `InitialConnect.token: None` and the connection is attempted
+/// tokenless, exactly as it would be from a freshly submitted first-run form. If the
+/// service actually did require a token, the connection attempt fails on its own and
+/// surfaces as a normal `ConnectionFailed` event instead of silently bouncing back to
+/// first-run before even trying.
 fn resolve_initial_connect(config: &WyckConfig) -> Option<InitialConnect> {
     let profile = config.active_profile()?;
     let Some(endpoint) = profile.endpoint.clone() else {
@@ -79,15 +89,11 @@ fn resolve_initial_connect(config: &WyckConfig) -> Option<InitialConnect> {
     };
 
     match config.token_for(&profile.id) {
-        Ok(Some(token)) => Some(InitialConnect {
+        Ok(token) => Some(InitialConnect {
             display_name: profile.display_name.clone(),
             endpoint,
             token,
         }),
-        Ok(None) => {
-            tracing::warn!(profile = %profile.id, "active profile has no stored token; showing the first-run screen");
-            None
-        }
         Err(source) => {
             tracing::warn!(profile = %profile.id, error = %source, "failed to resolve the active profile's token");
             None

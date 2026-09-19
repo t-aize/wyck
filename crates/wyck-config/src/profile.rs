@@ -92,7 +92,7 @@ mod tests {
         let profile = ProfileConfig::new(
             "Live — FTMO 100k",
             "ctrader-remote",
-            Some("https://mcp.spotware.com/mcp".to_owned()),
+            Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
         );
         let toml_text = toml::to_string(&profile).unwrap();
         let parsed: ProfileConfig = toml::from_str(&toml_text).unwrap();

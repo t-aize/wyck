@@ -107,7 +107,7 @@ mod tests {
         let profile = ProfileConfig::new(
             "Demo",
             "ctrader-remote",
-            Some("https://mcp.spotware.com/mcp".to_owned()),
+            Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
         );
         config.active_profile = Some(profile.id.clone());
         config.profiles.push(profile);

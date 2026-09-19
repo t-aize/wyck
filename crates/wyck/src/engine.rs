@@ -61,10 +61,11 @@ impl AccountSnapshot {
 /// A request the UI sends to the engine.
 #[derive(Debug)]
 pub enum EngineCommand {
-    /// Connect to `endpoint` with `token`, then run session bootstrap (W0).
+    /// Connect to `endpoint`, then run session bootstrap (W0). `token` is `None` for
+    /// services that need no bearer token (e.g. cTrader's Local server).
     Connect {
         endpoint: String,
-        token: SecretString,
+        token: Option<SecretString>,
     },
     /// Re-fetch balance from the currently connected client, if any. A no-op (silently
     /// ignored) if nothing is connected yet.
@@ -215,9 +216,12 @@ impl Engine {
 
 async fn connect_and_bootstrap(
     endpoint: &str,
-    token: SecretString,
+    token: Option<SecretString>,
 ) -> Result<(RemoteClient, RemoteSessionContext), CTraderError> {
-    let connection = ConnectionConfig::new(endpoint).with_bearer_token(token.expose_secret());
+    let mut connection = ConnectionConfig::new(endpoint);
+    if let Some(token) = &token {
+        connection = connection.with_bearer_token(token.expose_secret());
+    }
     let client = RemoteClient::connect(&connection).await?;
     let session = bootstrap_remote(&client).await?;
     Ok((client, session))
