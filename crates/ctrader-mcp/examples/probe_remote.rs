@@ -6,10 +6,27 @@
 //! file is safe to commit and reuse:
 //!
 //! ```bash
+//! # macOS/Linux (bash/zsh)
 //! CTRADER_REMOTE_TOKEN=<your token> cargo run -p ctrader-mcp --example probe_remote
 //! # or, against a self-hosted rest-proxy:
 //! CTRADER_REMOTE_URL=https://my-proxy.example/mcp CTRADER_REMOTE_TOKEN=<token> \
 //!     cargo run -p ctrader-mcp --example probe_remote
+//! ```
+//!
+//! ```powershell
+//! # Windows (PowerShell)
+//! $env:CTRADER_REMOTE_TOKEN = "<your token>"
+//! cargo run -p ctrader-mcp --example probe_remote
+//! # or, against a self-hosted rest-proxy:
+//! $env:CTRADER_REMOTE_URL = "https://my-proxy.example/mcp"
+//! $env:CTRADER_REMOTE_TOKEN = "<your token>"
+//! cargo run -p ctrader-mcp --example probe_remote
+//! ```
+//!
+//! ```bat
+//! :: Windows (cmd.exe)
+//! set CTRADER_REMOTE_TOKEN=<your token>
+//! cargo run -p ctrader-mcp --example probe_remote
 //! ```
 
 use ctrader_mcp::config::ConnectionConfig;

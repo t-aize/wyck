@@ -5,11 +5,28 @@
 //! alerts) as "best-effort inferred, not confirmed against a live server"; this is the
 //! tool that confirms or disproves them.
 //!
+//! Enable the server first: cTrader Desktop -> Advanced -> MCP Server -> Enable MCP
+//! Server.
+//!
 //! ```bash
-//! # Enable it first: cTrader Desktop -> Advanced -> MCP Server -> Enable MCP Server.
+//! # macOS/Linux (bash/zsh)
 //! cargo run -p ctrader-mcp --example probe_local
 //! # or, if you changed the port on that settings page:
 //! CTRADER_LOCAL_URL=http://127.0.0.1:9999/mcp/ cargo run -p ctrader-mcp --example probe_local
+//! ```
+//!
+//! ```powershell
+//! # Windows (PowerShell)
+//! cargo run -p ctrader-mcp --example probe_local
+//! # or, if you changed the port on that settings page:
+//! $env:CTRADER_LOCAL_URL = "http://127.0.0.1:9999/mcp/"
+//! cargo run -p ctrader-mcp --example probe_local
+//! ```
+//!
+//! ```bat
+//! :: Windows (cmd.exe)
+//! set CTRADER_LOCAL_URL=http://127.0.0.1:9999/mcp/
+//! cargo run -p ctrader-mcp --example probe_local
 //! ```
 
 use ctrader_mcp::config::ConnectionConfig;
