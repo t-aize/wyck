@@ -10,7 +10,7 @@
 //! response for a `create_order`/`amend_order`/`cancel_order`/`amend_position`/
 //! `close_position` (Remote) or `place_*_order`/`cancel_all_pending_orders` (Local) call
 //! was lost in transit, the request may already have reached the broker: blindly
-//! retrying it risks placing (or cancelling) the same order twice. [`retry_with_backoff`]
+//! retrying it risks placing (or cancelling) the same order twice. `retry_with_backoff`
 //! is therefore only ever invoked by [`crate::transport::McpSession::connect`] (nothing
 //! has been sent yet at that point) and by
 //! [`crate::transport::McpSession::call_idempotent`] /
@@ -26,7 +26,7 @@ use std::time::Duration;
 use crate::error::CTraderError;
 
 /// How many attempts to make, and how long to wait between them, for a call wrapped in
-/// [`retry_with_backoff`]. The wait doubles after each failed attempt (`base_delay`,
+/// `retry_with_backoff`. The wait doubles after each failed attempt (`base_delay`,
 /// `2 * base_delay`, `4 * base_delay`, ...), capped at `max_delay`.
 ///
 /// Deliberately has no random jitter: jitter exists to prevent many independent clients

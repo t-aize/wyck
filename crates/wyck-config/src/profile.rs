@@ -48,7 +48,7 @@ impl std::fmt::Display for ProfileId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfileConfig {
     pub id: ProfileId,
-    /// User-facing label shown in the TUI/GUI (e.g. `"Live: FTMO 100k"`,
+    /// User-facing label shown in the UI (e.g. `"Live: FTMO 100k"`,
     /// `"Demo: scalping"`).
     pub display_name: String,
     /// Free-form tag identifying which client/service this profile authenticates

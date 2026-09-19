@@ -4,8 +4,8 @@
 //! feed, a tolerant parser, impact / currency / watchlist filtering, a self-refreshing
 //! cached service, and non-blocking "big release incoming" warnings.
 //!
-//! The crate is UI-agnostic on purpose (no `ratatui`, no terminal) so the TUI, a
-//! future GUI and a headless engine can all consume the same types. It knows nothing
+//! The crate is UI-agnostic on purpose (no UI toolkit, no terminal) so any front end
+//! (a desktop GUI, a headless engine) can consume the same types. It knows nothing
 //! about cTrader either; the one bridge to the trading side is
 //! [`currencies_from_symbols`], which turns the symbol names a session trades into the
 //! currency set for [`EventFilter::currencies`].
@@ -58,7 +58,7 @@
 //! | Block pages are HTML (`Request Denied: you've exceeded the limit for Calendar Export requests`). | Detected as [`CalendarError::HtmlResponse`] (transient, 5-minute hold) instead of a JSON decode error. |
 //! | Undocumented and unofficial: no SLA, no published terms for this host. | Everything degrades to "stale data + `last_error`"; nothing panics. Do not build order-blocking logic on it. |
 //!
-//! Practical corollary: every app restart is a request. Restarting the TUI repeatedly
+//! Practical corollary: every app restart is a request. Restarting the app repeatedly
 //! within minutes will trip the limiter (the service then simply waits out the
 //! `Retry-After`).
 //!

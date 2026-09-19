@@ -1,0 +1,147 @@
+# Architecture
+
+How the workspace crates fit together today, and how they are meant to be used once the
+engine and the GUI exist. Crates marked (planned) do not exist yet.
+
+## The picture
+
+```
+   +-------------------------------------------------------------+
+   |  wyck-app (planned): native desktop GUI                     |
+   |  hotkeys, position table, floating trade panel, news panel  |
+   +-----------------------------+-------------------------------+
+                                 |  typed commands down, events up
+                                 |  (in-process channels first, RPC later)
+   +-----------------------------v-------------------------------+
+   |  wyck-engine (planned): headless core, no UI code           |
+   |  owns connections, refresh loops, order flow, guardrails    |
+   +------+------------------+-------------------+---------------+
+          |                  |                   |
+          v                  v                   v
+   +--------------+   +--------------+   +----------------+
+   | wyck-config  |   | ctrader-mcp  |   | wyck-calendar  |
+   | (exists)     |   | (exists)     |   | (exists)       |
+   +------+-------+   +------+-------+   +--------+-------+
+          |                  |                    |
+          v                  v                    v
+    OS keyring or       cTrader MCP          nfs.faireconomy.media
+    encrypted file,     servers, Remote      (ForexFactory weekly
+    config.toml         (cloud) or Local     JSON feed)
+                        (desktop app)
+```
+
+Rules that keep this shape:
+
+- The three crates at the bottom never depend on each other, and never on anything above
+  them. Each can be tested, documented and reused alone.
+- No UI toolkit appears below the GUI. That is what makes the GUI replaceable (the
+  ratatui TUI was removed for exactly this reason) and what makes a headless mode possible.
+- All trading logic lives at or below the engine. The GUI only turns key presses into
+  commands and events into pixels.
+- The engine is the only place that knows about more than one of the three crates.
+
+## The crates
+
+### `ctrader-mcp` (exists)
+
+Typed Rust client for cTrader's two MCP servers, built on `rmcp`.
+
+| Module | Role |
+|---|---|
+| `remote::RemoteClient` | Cloud server (`mcp.ctrader.com`), bearer token, account-scoped, rate limited to 5 req/s on history endpoints |
+| `local::LocalClient` | Server inside cTrader Desktop, no token, also drives charts, drawings, indicators, watchlists |
+| `transport`, `config`, `retry` | Streamable HTTP + SSE session, connection settings, retry with backoff (reads only, never a mutating call) |
+| `error` | `CTraderError` with self-healing classification of server rejections |
+| `math` | Pure pip, unit and risk-based position sizing math |
+| `quirks` | Named recovery patterns for known server bugs (safe amend, relative SL/TP, history chunking) |
+| `workflows` | Composed flows: session bootstrap, sizing, pre-trade briefing, cost comparison, safe flatten, backfill |
+
+Used by: the engine, for everything that touches the broker. Status: read paths verified
+live on both servers. Order placement has not been verified live yet (see `TODO.md`, P0).
+
+### `wyck-config` (exists)
+
+Application settings and credentials, shared by every front end.
+
+- `AppConfig`: human-editable TOML with connection profiles (name, service tag, endpoint).
+  Never contains a token.
+- `SecretStore`: tokens, held in memory as `SecretString`, persisted in the OS keyring
+  (`KeyringSecretStore`) or an Argon2id plus ChaCha20-Poly1305 file
+  (`EncryptedFileSecretStore`) where no keyring exists.
+- `WyckConfig`: the facade. Load once at startup, list or add profiles, fetch a token.
+
+Used by: the engine (to build a `ctrader_mcp::ConnectionConfig` for the active profile)
+and by the GUI's first-run and account-management screens, through the engine.
+
+### `wyck-calendar` (exists)
+
+Economic calendar from the ForexFactory weekly feed.
+
+- `parse_feed`, `CalendarEvent`, `Impact`, `Scope`, `Currency`, `Reading`: pure model and
+  decoding.
+- `EventFilter`: impact, currency and watchlist filtering; `currencies_from_symbols`
+  derives "the currencies I trade" from the session's symbol list.
+- `imminent_events`: non-blocking warnings before high-impact releases.
+- `CalendarService`: background refresh tuned to the feed's rate limit, stale data kept
+  when a refresh fails.
+
+Used by: the engine, which starts the service once, feeds the filter from the
+`ctrader-mcp` symbol list, and forwards `CalendarState` changes and warnings to the GUI.
+
+### `wyck-engine` (planned)
+
+The headless core that replaces what `crates/wyck/src/engine.rs` did in the TUI, with
+more scope:
+
+- connection lifecycle for a profile (Remote or Local, chosen from the profile's service)
+- periodic account, position and P&L refresh
+- order flow: size from risk, place, confirm by re-reading state, report result
+- hosting `CalendarService` and merging its warnings with trading state
+- guardrails that warn and never block (prop-firm rules, imminent news)
+- later: several accounts at once, journal, backtesting
+
+Its public surface is a small set of commands and events, so it can run in the GUI's
+process first and behind an RPC boundary later without changing the GUI.
+
+### `wyck-app` (planned)
+
+The desktop GUI. Framework not decided yet (GPUI is the leading candidate). It talks only
+to the engine. It renders state, captures hotkeys, and never calls `ctrader-mcp`,
+`wyck-config` or `wyck-calendar` directly except for pure helpers such as formatting.
+
+## Data flows
+
+**Hotkey order (the point of the app)**
+
+```
+key press -> GUI command PlaceOrder{side, stop_loss, risk}
+          -> engine: sizing (ctrader-mcp math + workflows::sizing)
+          -> engine: guardrail check (calendar warnings, prop-firm rules) -> warn only
+          -> ctrader-mcp: create_order / place_market_order (no retry on mutating calls)
+          -> engine: re-read positions to confirm
+          -> event OrderResult -> GUI feedback (pending, filled, rejected)
+```
+
+**Startup and credentials**
+
+```
+wyck-config: load AppConfig -> pick active profile -> SecretStore::token
+          -> ctrader-mcp ConnectionConfig -> McpSession::connect
+          -> workflows::bootstrap (build id, account, symbols)
+```
+
+**News**
+
+```
+wyck-calendar service --(watch channel)--> engine
+engine: filter by currencies_from_symbols(session symbols)
+engine: imminent_events(now = broker server time) --> event NewsWarning --> GUI banner
+```
+
+## Build order
+
+1. Verify order placement live on a demo account (`ctrader-mcp`, no UI needed).
+2. Create `wyck-engine` around the three crates, testable without any UI.
+3. Create `wyck-app` on top of it.
+
+Steps 2 and 3 can overlap once the engine's command and event types are fixed.

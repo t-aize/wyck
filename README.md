@@ -1,6 +1,6 @@
 # wyck
 
-**A terminal trading panel for cTrader, built for speed, not for staring at it.**
+**A fast, keyboard-first trading panel for cTrader, built for speed, not for staring at it.**
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
@@ -50,19 +50,22 @@ Two design decisions follow directly from that goal:
 
 - Risk-based position sizing: set a stop loss and a risk %/amount, wyck computes the lot
   size and fires the order in one hotkey
-- Terminal UI (`ratatui` + `crossterm`): lightweight, always-on-top of your workflow,
-  no context switch to place a trade
+- Native desktop GUI (framework still being chosen): a compact panel that stays on top of
+  your workflow, no context switch to place a trade
 - Direct connection to cTrader's MCP server over streamable HTTP + SSE (`rmcp`)
 - Live account, position and P&L view
 - Hotkey-driven market/limit/stop orders and position management
 - Async core (`tokio`) so market data streaming never blocks order execution
-- File-based logging (`tracing`): stdout is reserved for the terminal UI itself
+- Economic calendar (ForexFactory feed) with impact, currency and watchlist filters, and
+  non-blocking warnings before high-impact releases
+- Structured logging through `tracing`
 - OS-standard config/credential locations (`directories`)
 
 ## Status
 
-wyck is a from-scratch project, currently at the scaffolding stage (dependencies and
-project layout in place; no working client yet). It's being built to a "trade with it in a
+wyck is a from-scratch project. The building blocks exist as library crates (cTrader MCP
+client, config and credential storage, economic calendar); the engine and the GUI that tie
+them together do not yet. It is being built to a "trade with it in a
 few months" timeline first, with a more ambitious multi-client architecture planned as a
 longer-running effort once the basics are proven by actual use.
 
@@ -76,7 +79,7 @@ cd wyck
 cargo build --release
 ```
 
-The binary is produced at `target/release/wyck`.
+This builds the library crates. There is no runnable application yet (see [Status](#status)).
 
 ## Configuration
 
@@ -97,11 +100,7 @@ Config and credentials are stored in the platform's standard application directo
 
 ## Usage
 
-```bash
-wyck
-```
-
-Planned default keybindings (subject to change):
+There is no runnable application yet. Planned default keybindings (subject to change):
 
 | Key       | Action                          |
 | --------- | -------------------------------- |
@@ -115,15 +114,15 @@ Planned default keybindings (subject to change):
 
 ## Architecture
 
-Today, wyck is a single binary that talks to the cTrader MCP directly, simple on purpose,
-so there's something usable to trade with soon.
+wyck is a Cargo workspace of small crates with one-way dependencies: `ctrader-mcp`
+(cTrader client), `wyck-config` (settings and credentials) and `wyck-calendar` (economic
+calendar) at the bottom, a headless engine above them, and a desktop GUI on top that only
+talks to the engine. The full picture, per-crate roles and data flows are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-The long-term target (v1) is a zeron-style split: pull the MCP client, order execution and
-position state into a small headless **engine**, talk to it over a typed RPC, and let the
-terminal UI become just one client among possibly several (a future richer GUI, a headless
-mode for an always-on box, etc.) without touching the trading logic. Nothing about the
-current version needs to change for this to happen later: it's an incremental split, not a
-rewrite.
+The engine owns the trading logic and exposes typed commands and events, so the GUI is
+replaceable and a headless mode for an always-on box stays possible (the v1 split, in the
+zeron style).
 
 Full customizability is part of that vision too: themes, layout, panels, the works, the way
 zeron treats its whole UI as its own rather than inheriting someone else's chrome. That
@@ -133,7 +132,7 @@ view. Scope-wise, v1 isn't meant to stop at a single cTrader token: a real accou
 panel (multiple cTrader accounts, and eventually other brokers/platforms), futures and
 order-flow support, aiming at something that covers the ground TradingView, a depth/order-flow
 tool, Tradovate and Quantower each cover separately: modern, fully customizable, open source,
-end to end. That's the ambitious version of this project; the TUI above is step one toward it,
+end to end. That's the ambitious version of this project; the first version above is step one toward it,
 not a separate thing.
 
 Personal touch for that future GUI: a compact floating execution panel, in the spirit of the
@@ -153,7 +152,7 @@ different tools for five different jobs.
 
 ## Roadmap
 
-### TUI (current)
+### First version (engine + GUI)
 
 - [ ] Connect and authenticate to the cTrader MCP server
 - [ ] Risk-based lot size calculation (stop loss + risk % to lot size)
@@ -166,9 +165,9 @@ different tools for five different jobs.
 
 ### v1 (Cargo workspace, engine/UI split)
 
-- [ ] Engine / UI split (headless engine + RPC, TUI as first client)
+- [ ] Engine / UI split (headless engine + RPC, GUI as first client)
 - [ ] Multi-account (token) management: hold and switch between several cTrader accounts,
-      not just the single token the TUI targets today
+      not just a single token
 - [ ] Multi-order management: track and act on multiple concurrent positions/orders across
       accounts, not just one at a time
 - [ ] Backtesting engine: run a strategy or ruleset against historical data

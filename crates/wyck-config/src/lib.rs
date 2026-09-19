@@ -2,7 +2,7 @@
 //!
 //! Centralized application configuration and encrypted credential storage, shared by
 //! every crate in the `wyck` workspace that needs to persist settings or hold a
-//! broker/API token: the TUI today, a future GUI and headless engine tomorrow, and any
+//! broker/API token: the desktop app, a headless engine, and any
 //! future crate for a service other than cTrader.
 //!
 //! ## Two kinds of state, kept apart on purpose
@@ -65,7 +65,7 @@ pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, Secret
 use secrecy::SecretString;
 
 /// The top-level entry point: [`AppPaths`] plus a loaded [`AppConfig`] plus a chosen
-/// [`SecretStore`] backend, combined into the single type a TUI/GUI actually imports
+/// [`SecretStore`] backend, combined into the single type a front end actually imports
 /// and holds for the lifetime of the app.
 ///
 /// Every mutating method here (`add_profile`, `remove_profile`, `set_active_profile`)
