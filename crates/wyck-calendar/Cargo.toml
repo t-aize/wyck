@@ -1,0 +1,24 @@
+[package]
+name = "wyck-calendar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Economic calendar for wyck: typed ForexFactory feed client, tolerant parser, impact/currency/watchlist filters, a self-refreshing cached service, and non-blocking high-impact-event warnings."
+
+[dependencies]
+reqwest = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
+# In-process mock of the feed for the HTTP integration tests under `tests/` (same
+# recipe as ctrader-mcp's integration tests: an axum router on `127.0.0.1:0`).
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }

@@ -53,6 +53,16 @@ ctrader-mcp = { path = "crates/ctrader-mcp" }
 # Centralized app config + encrypted credential storage (in-workspace crate)
 wyck-config = { path = "crates/wyck-config" }
 
+# Economic calendar (ForexFactory feed): fetch, parse, filter, refresh service, and
+# high-impact-event warnings (in-workspace crate)
+wyck-calendar = { path = "crates/wyck-calendar" }
+
+# Plain HTTPS client for unauthenticated JSON feeds (wyck-calendar). Same TLS backend
+# as rmcp's transport above (OS-native), for the same reason: with
+# `default-features = false` reqwest compiles with NO TLS connector unless one is
+# requested explicitly.
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
+
 # Async adapter for crossterm's EventStream (terminal input as a Stream the TUI's
 # tokio::select! event loop can poll alongside engine events)
 futures-util = "0.3.34"
