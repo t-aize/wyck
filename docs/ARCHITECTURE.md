@@ -120,7 +120,9 @@ journal and backtesting (see `TODO.md`, section 5).
 
 ### `wyck-app` (planned)
 
-The desktop GUI. Framework not decided yet (GPUI is the leading candidate). It talks only
+The desktop GUI, built on GPUI with `gpui-component` (decision in
+[decisions/0001-gui-framework.md](decisions/0001-gui-framework.md), dependency policy in
+[gpui-dependency.md](gpui-dependency.md)). It talks only
 to the engine. It renders state, captures hotkeys, and never calls `ctrader-mcp`,
 `wyck-config` or `wyck-calendar` directly except for profile management (`wyck-config`) and
 pure helpers such as formatting.
@@ -209,7 +211,8 @@ local clock is used there.
 
 ## Open decisions
 
-- The GUI framework (`TODO.md` 4.1).
+- Whether GPUI holds up on the Windows requirements (global hotkeys, focus-free floating panel,
+  key repeat), which the validation spike decides, with egui as the fallback (`TODO.md` 4.1).
 - Whether the engine stays in the GUI's process or moves behind an RPC boundary. In-process
   first; `EngineHandle` is the API either way (`TODO.md` 4.3, 5.14).
 - Whether news stay hosted by the engine once a journal or a backtest exists. The likely
@@ -222,6 +225,6 @@ The decisions already taken, and why, are in `TODO.md` section 12.2.
 
 1. Validate order placement live on demo accounts (done, `TODO.md` section 3).
 2. `wyck-engine` around the three crates, testable without any UI (done).
-3. Create `wyck-app` on top of it.
+3. Validate GPUI with a spike in `wyck-app` (`TODO.md` 4.1), then build the app on top of it.
 
 Steps 2 and 3 can overlap once the engine's command and event types are fixed.

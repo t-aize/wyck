@@ -30,7 +30,7 @@ Contents
 | `wyck-config` | Complete, tested | Profiles in TOML, tokens in the OS keyring or an encrypted file. |
 | `wyck-calendar` | Complete, tested | ForexFactory weekly feed: client, tolerant parser, filters, refresh service, alerts. Tuned to the feed's real rate limit. |
 | `wyck-engine` | Validated live on Remote and Local (demo accounts) | Session, state and events, risk planning, dry-run-first order pipeline, guardrails, news hosting, Remote and Local adapters, `MockBroker`. Section 3 has the results and what is still open. |
-| GUI (`wyck-app`) | Does not exist | Framework not chosen. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
+| GUI (`wyck-app`) | Does not exist | Framework chosen: GPUI (4.1), spike not done. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
 
 Other facts:
 
@@ -277,41 +277,38 @@ could never be reconciled on Remote because reconciliation only matched labels.
 
 ## 4. P1: decisions and foundations
 
-### 4.1 Choose the GUI framework
+### 4.1 GUI framework: GPUI (decided)
 
-GPUI is the leading candidate; the choice is open. Do a time-boxed evaluation (one day per
-candidate at most) and record the result in `docs/`.
+Decided on 2026-09-19: **GPUI** with `gpui-component`. The reasons, the options not chosen, the
+risks and the fallback are in [docs/decisions/0001-gui-framework.md](docs/decisions/0001-gui-framework.md).
+How the dependency is pinned, built and upgraded is in [docs/gpui-dependency.md](docs/gpui-dependency.md).
 
-Criteria, with what to check:
+- [x] Decision made and recorded.
+- [x] Dependency policy written and checked: a throwaway project resolved and compiled
+      `gpui-component =0.6.4` together with `wyck-engine` and `wyck-config` on `rustc 1.98.1`
+      (Windows), with no conflict and a single `reqwest` and TLS stack.
 
-- [ ] **Maturity and API stability.** GPUI is the framework of the Zed editor. Check how it is
-      consumed today (Zed repository, published crate, community fork), release cadence, breaking
-      changes over the last months, and the state of its documentation and examples.
-- [ ] **Windows support** (this is the development machine): rendering backend, IME, high DPI,
-      multi-monitor, always-on-top windows, borderless windows.
-- [ ] **Async model.** GPUI's executor is not Tokio (source: the Zed "Async Rust" post and the
-      `gpui-tokio-bridge` crate). The engine already works from any executor; confirm the pattern:
-      `cx.spawn` awaiting `watch_state().changed()` and `EngineHandle` calls.
-- [ ] **Tables and text.** A position table, a news table, a log panel: virtualized lists, cell
-      formatting, selection, keyboard navigation.
-- [ ] **Keyboard model.** Global hotkeys while another window (the chart platform) has focus? A
-      hotkey-driven app that sits on top of cTrader Desktop needs this. Check what each framework
-      can do and what needs OS-specific code.
-- [ ] **Floating, always-on-top, click-through-free panel** for the instant-trade panel (section 6).
-- [ ] **Custom drawing**, for price charts, order-flow displays and small sparklines. The biggest
-      risk with GPUI: charts must probably be drawn by hand. Estimate the cost of a candlestick
-      chart with pan and zoom.
-- [ ] **Theming** (dark first) and font handling.
-- [ ] **Testing story**: headless rendering, screenshot tests, interaction tests.
-- [ ] **Packaging**: installers, code signing, auto-update, binary size.
+What is not proven yet is the point of the validation spike (in `crates/wyck-app`, one day).
+Each item passes or triggers the fallback to egui, see the decision record:
 
-Candidates to compare with GPUI: Slint, Iced, egui (with eframe), Tauri with a web UI (best
-chart ecosystem, heaviest runtime), Dioxus desktop.
-
-Deliverable: a decision record with the pick, the rejected options and why, and the known
-risks. Then tick 4.2.
-
-- [ ] Decision made and recorded.
+- [ ] **Async bridge.** `cx.spawn` awaiting `watch_state().changed()` and `EngineHandle` calls,
+      with no `gpui_tokio` and no blocked executor.
+- [ ] **Floating panel.** A `WindowKind::PopUp` window (`focus: false`) stays on top of cTrader
+      Desktop and never takes its focus. Check the transparent border issue (#61508) if
+      transparency is wanted.
+- [ ] **Global hotkey** (`global-hotkey` crate) fires while cTrader has focus, on a thread with
+      its own Win32 message loop, without disturbing GPUI's loop.
+- [ ] **Held key.** No frame stall under key repeat (#61469), no phantom Alt on window
+      activation (#62404).
+- [ ] **Tables.** A few hundred rows in the `gpui-component` data table, virtualized and
+      keyboard navigable.
+- [ ] **Charts.** A simple candlestick chart with pan and zoom, and an estimate of the cost of
+      doing it properly.
+- [ ] **Testing.** How to test view models without a window, and whether GPUI's test support
+      helps.
+- [ ] **Packaging.** Installer, code signing, auto-update and binary size (also 6.5).
+- [ ] **Link check.** A binary that actually uses GPUI links and runs with `--locked`.
+- [ ] **CI.** `wyck-app` built on Windows only for now, ubuntu jobs excluding it.
 
 ### 4.2 Create `wyck-app`
 
@@ -537,7 +534,7 @@ The API already carries `AccountId` on every command and event.
 - [ ] A failure-modes table (what the engine does when X happens) kept next to the tests that
       prove it.
 - [ ] An integration guide for the GUI (GPUI pattern: `cx.spawn` plus `watch_state`, handling
-      `Lagged`, error mapping). Write it after the GUI choice.
+      `Lagged`, error mapping). Write it after the spike (4.1).
 - [ ] Update the workspace `README.md` "Configuration" section (still says the format is in flux).
 - [ ] `CHANGELOG.md` kept per crate as behavior changes.
 
@@ -559,7 +556,7 @@ The API already carries `AccountId` on every command and event.
 
 ## 6. P3: the GUI
 
-Talks only to the engine (`EngineHandle`). Framework: see 4.1.
+Talks only to the engine (`EngineHandle`). Framework: GPUI, see 4.1.
 
 ### 6.1 Screens and panels
 
@@ -731,8 +728,9 @@ using the real answer. An open row still needs a live check.
   the way to check.
 - **Volume model differences between servers** (A1, A2). Local's are now read from the broker;
   Remote's are configured per symbol and confirmed for BTCUSD only.
-- **Chart requirements versus framework choice.** If price charts are in scope for v1, the GUI
-  framework decision (4.1) is really a charting decision.
+- **Charts on GPUI.** If price charts are in scope for v1, they are ours to build on GPUI's
+  primitives or on the `gpui-component` charts; a candlestick chart with pan and zoom is unproven
+  (4.1 spike).
 - **Unofficial calendar feed.** No SLA, single host, throttled. The app must work without it.
 - **cTrader MCP servers are young.** Behavior and quirks can change between builds
   (`rest-proxy 1.0.18` is the reference in the skill notes). Check the build id at connect and
@@ -804,6 +802,8 @@ Mirrors the README roadmap. Not next, listed with the crates each touches.
 - **Volumes are exact integers, in hundredths of a base-asset unit; prices and money are `f64`**
   display values. Hundredths because BTCUSD trades in steps of 0.01 of a coin.
 - **The ratatui TUI was dropped** in favor of a native GUI.
+- **GPUI with `gpui-component` for the GUI** (2026-09-19), pinned to exact versions through the
+  crates.io snapshot. egui is the fallback. See `docs/decisions/0001-gui-framework.md`.
 - **Calendar defaults follow the feed's real limit** (about 2 requests per 5 minutes), verified
   live; the service polls every 30 minutes and never twice within 5.
 - **Push straight to `main`**, no branches, no attribution lines, plain ASCII text.
