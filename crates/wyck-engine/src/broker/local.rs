@@ -13,7 +13,9 @@
 //! goes over the wire as `volume.as_units()` with no lot arithmetic in between. On the way
 //! back a position's `volumeInUnits` is the canonical field per the tool description; the
 //! decoder falls back to `volumeInLots * lotSize`, then to a bare `volume` read as units.
-//! Positions and pending orders have not been read from a live Local server yet (the account
+//! A live position (2026-09-19) has `id`, `symbolName`, `tradeSide` ("Buy"), `entryPrice`,
+//! `stopLossPrice`, `takeProfitPrice`, `netProfit`, `label`, `volumeInUnits`. Pending orders
+//! have not been read from a live Local server yet (the account
 //! used for validation had none), so those field names still follow the tool descriptions.
 //!
 //! Local can only fetch symbol details one call at a time, so they are loaded on first use
@@ -182,6 +184,11 @@ fn text_field<'a>(extra: &'a serde_json::Map<String, Value>, keys: &[&str]) -> O
         .find_map(|k| extra.get(*k).and_then(Value::as_str))
 }
 
+/// A price under `key`, ignoring the zero some answers use for "none".
+fn price_field(extra: &serde_json::Map<String, Value>, key: &str) -> Option<f64> {
+    extra.get(key).and_then(Value::as_f64).filter(|p| *p > 0.0)
+}
+
 /// A position's or order's volume, see the [module docs](self).
 fn decode_volume(
     extra: &serde_json::Map<String, Value>,
@@ -324,8 +331,12 @@ impl Broker for LocalBroker {
                 side,
                 volume,
                 entry_price: raw.entry_price,
-                stop_loss: raw.stop_loss,
-                take_profit: raw.take_profit,
+                stop_loss: raw
+                    .stop_loss
+                    .or_else(|| price_field(&raw.extra, "stopLossPrice")),
+                take_profit: raw
+                    .take_profit
+                    .or_else(|| price_field(&raw.extra, "takeProfitPrice")),
                 swap: raw.swap,
                 commission: raw.commission,
                 unrealized_pnl: raw
@@ -376,8 +387,12 @@ impl Broker for LocalBroker {
                 kind,
                 volume,
                 price: raw.target_price.or(raw.entry_price),
-                stop_loss: raw.stop_loss,
-                take_profit: raw.take_profit,
+                stop_loss: raw
+                    .stop_loss
+                    .or_else(|| price_field(&raw.extra, "stopLossPrice")),
+                take_profit: raw
+                    .take_profit
+                    .or_else(|| price_field(&raw.extra, "takeProfitPrice")),
             });
         }
         Ok(out)
@@ -445,7 +460,11 @@ impl Broker for LocalBroker {
         params.label = Some(order.label.clone());
         let response = self.client.place_market_order(params).await?;
         Ok(PlacedOrder {
-            position_id: None,
+            position_id: response
+                .extra
+                .get("positionId")
+                .and_then(Value::as_i64)
+                .map(PositionId),
             order_id: response.order_id.map(OrderId),
         })
     }
@@ -629,6 +648,14 @@ mod tests {
         assert_eq!(kind_from_accounts(&live, Some(1)), AccountKind::Live);
     }
 
+    #[test]
+    fn live_local_position_prices_are_read_and_zero_means_none() {
+        let map = |v: Value| v.as_object().unwrap().clone();
+        let live = map(json!({"stopLossPrice": 80896.64, "takeProfitPrice": 0.0}));
+        assert_eq!(price_field(&live, "stopLossPrice"), Some(80896.64));
+        assert_eq!(price_field(&live, "takeProfitPrice"), None);
+        assert_eq!(price_field(&live, "missing"), None);
+    }
     #[test]
     fn position_volume_prefers_units_then_lots_then_the_bare_field() {
         let map = |v: Value| v.as_object().unwrap().clone();

@@ -37,3 +37,5 @@ Fixes that came from running the engine against the real Remote and Local server
 - A failed quote read during `Broker::instrument` on Remote is an error instead of a silent
   fallback to 5 decimals.
 - Live tests, `#[ignore]`d and env-gated: `tests/live_remote.rs`, `tests/live_local.rs`.
+- Local positions carry `stopLossPrice` and `takeProfitPrice`; the decoder read `stopLoss` and
+  saw no protection. `place_market_order` answers with a `positionId`, now used.
