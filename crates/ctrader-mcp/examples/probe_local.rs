@@ -1,6 +1,6 @@
 //! Live smoke test for a Local connection (cTrader Desktop's built-in MCP server).
 //! Connects, lists the tools the live server actually advertises, and cross-checks that
-//! list against every tool name [`ctrader_mcp::local::LocalClient`] calls — this crate
+//! list against every tool name [`ctrader_mcp::local::LocalClient`] calls: this crate
 //! documents several Local tool names (chart templates, workspaces, watchlists, price
 //! alerts) as "best-effort inferred, not confirmed against a live server"; this is the
 //! tool that confirms or disproves them.
@@ -81,7 +81,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "removeChartIndicator",
     "update_indicator_parameters",
     "getIndicatorValues",
-    // Best-effort inferred — never confirmed against a live server before now.
+    // Best-effort inferred: never confirmed against a live server before now.
     "save_chart_template",
     "list_chart_templates",
     "apply_chart_template",
@@ -165,7 +165,7 @@ async fn main() {
     if !missing.is_empty() {
         println!(
             "\nMISSING ({}): this crate calls these, but the live server does not advertise them \
-             — likely a wrong inferred name in `local/client.rs`, or a build that doesn't \
+: likely a wrong inferred name in `local/client.rs`, or a build that doesn't \
              expose them",
             missing.len()
         );
@@ -177,7 +177,7 @@ async fn main() {
     if !unrecognized.is_empty() {
         println!(
             "\nUNRECOGNIZED ({}): the live server advertises these, but this crate never calls \
-             them — candidates for new `LocalClient` capabilities",
+             them: candidates for new `LocalClient` capabilities",
             unrecognized.len()
         );
         for name in &unrecognized {

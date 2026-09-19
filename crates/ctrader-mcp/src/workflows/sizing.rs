@@ -1,4 +1,4 @@
-//! **W5 — Risk sizing** (`SKILL.md` recipe 1, "Position sizing by risk %").
+//! **W5: Risk sizing** (`SKILL.md` recipe 1, "Position sizing by risk %").
 //!
 //! Translates a risk percentage or flat risk amount plus a stop-loss distance into a
 //! server-native volume, then validates the resulting position against the account's
@@ -58,12 +58,12 @@ pub struct MarginSafetyInputs {
 pub struct RiskSizingDecision {
     pub sizing: SizingResult,
     pub margin: TieredMarginResult,
-    /// `None` when `used_margin_before + margin.margin_account_ccy == 0` — per `Q-L18`,
+    /// `None` when `used_margin_before + margin.margin_account_ccy == 0`: per `Q-L18`,
     /// this is the "no positions / unconstrained" sentinel, not a missing-data error;
     /// the stop-out check is vacuously satisfied in this case.
     pub post_trade_margin_level_pct: Option<f64>,
     /// `true` iff the position may be opened without breaching the 2x stop-out floor.
-    /// `SKILL.md`'s W5 invariant: "the 2x stop-out buffer is the FLOOR — never allow
+    /// `SKILL.md`'s W5 invariant: "the 2x stop-out buffer is the FLOOR: never allow
     /// opening that brings `post_trade_margin_level` below 2x the broker's stop-out
     /// level."
     pub approved: bool,
@@ -121,7 +121,7 @@ pub fn size_position_by_risk(
         Some(level) if level >= stop_out_floor_pct => true,
         Some(level) => {
             reasons.push(format!(
-                "would bring margin level to {level:.1}%, below the 2x stop-out floor of {stop_out_floor_pct:.1}% — refusing"
+                "would bring margin level to {level:.1}%, below the 2x stop-out floor of {stop_out_floor_pct:.1}%: refusing"
             ));
             false
         }

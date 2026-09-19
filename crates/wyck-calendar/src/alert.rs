@@ -21,7 +21,7 @@ use crate::filter::EventFilter;
 pub struct AlertPolicy {
     /// How far ahead of an event to start warning. Default 30 minutes.
     pub lead_time: Duration,
-    /// How long after its scheduled time an event still counts as "underway" — the
+    /// How long after its scheduled time an event still counts as "underway": the
     /// volatile window right after a release. Default 15 minutes.
     pub grace: Duration,
     /// Which events are relevant. Default: [`Impact::High`] and above, any currency.

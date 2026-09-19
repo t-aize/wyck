@@ -2,8 +2,8 @@
 //!
 //! Deliberately tolerant at the *record* level and strict at the *document* level: one
 //! malformed record (a new date format, a missing field) is skipped and counted rather
-//! than discarding the other ~100 events, but a body that is not an array at all — or an
-//! array where nothing decodes — is an error, so schema drift is loud and never replaces
+//! than discarding the other ~100 events, but a body that is not an array at all (or an
+//! array where nothing decodes) is an error, so schema drift is loud and never replaces
 //! a good cache with an empty calendar.
 
 use serde::Deserialize;

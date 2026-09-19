@@ -1,7 +1,7 @@
 //! Pip distance <-> absolute price conversion, ported from `scripts/pip_math.py`.
 //!
 //! Operates on **display** prices throughout. Remote returns integer pipettes on market
-//! data and DTO price fields (`Q-K19`) — decode via [`crate::math::units::pipettes_to_price`]
+//! data and DTO price fields (`Q-K19`): decode via [`crate::math::units::pipettes_to_price`]
 //! before calling anything here, and re-encode the result afterward.
 
 use crate::common::TradeSide;
@@ -19,10 +19,10 @@ pub enum PriceLeg {
 ///
 /// | Side | Leg         | Polarity |
 /// |------|-------------|----------|
-/// | Buy  | StopLoss    | −1       |
+/// | Buy  | StopLoss    | -1       |
 /// | Buy  | TakeProfit  | +1       |
 /// | Sell | StopLoss    | +1       |
-/// | Sell | TakeProfit  | −1       |
+/// | Sell | TakeProfit  | -1       |
 fn polarity(side: TradeSide, leg: PriceLeg) -> f64 {
     match (side, leg) {
         (TradeSide::Buy, PriceLeg::StopLoss) => -1.0,
@@ -37,7 +37,7 @@ fn polarity(side: TradeSide, leg: PriceLeg) -> f64 {
 ///
 /// `reference_price` is the entry price (for SL/TP placement) or the current quote;
 /// `pip_size` is the symbol's price increment per pip (`0.0001` for most FX majors,
-/// `0.01` for JPY pairs and `XAUUSD`, broker-dependent for indices — always read it from
+/// `0.01` for JPY pairs and `XAUUSD`, broker-dependent for indices: always read it from
 /// `get_symbol_details` / `get_symbols`, never assume).
 pub fn pips_to_price(
     reference_price: f64,
@@ -54,7 +54,7 @@ pub fn pips_to_price(
 /// Converts an absolute `target_price` into a pip distance from `reference_price`.
 ///
 /// Returns `(rounded_pips, raw_pips)`: the rounded integer distance (half-up) and the
-/// unrounded distance, both non-negative (this function reports magnitude only — pair it
+/// unrounded distance, both non-negative (this function reports magnitude only: pair it
 /// with the known `side`/`leg` context if the caller also needs to reconstruct
 /// direction).
 ///

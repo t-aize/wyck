@@ -1,7 +1,7 @@
 //! An end-to-end happy path through the real HTTP + MCP + decode pipeline: connect a
 //! [`RemoteClient`] to an in-process mock server, list its advertised tools, and call two
 //! typed methods, proving the whole stack works together (not just the error classifier
-//! in isolation — see `crates/ctrader-mcp/src/error.rs`'s own unit tests for that).
+//! in isolation: see `crates/ctrader-mcp/src/error.rs`'s own unit tests for that).
 
 mod support;
 

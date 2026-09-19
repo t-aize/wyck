@@ -5,43 +5,43 @@
 //! MCP server families, and this crate provides a typed, documented, quirk-aware wrapper
 //! around both of them:
 //!
-//! - **Local** (`ctrader-local-mcp`, see [`local`]) — bound to the cTrader Desktop
+//! - **Local** (`ctrader-local-mcp`, see [`local`]): bound to the cTrader Desktop
 //!   application over local HTTP. Owns charts, drawings, indicators, watchlists,
 //!   workspaces, alerts, cBot plugins, and multi-account desktop context. Volumes are in
 //!   broker-defined units, prices are display floats, and symbols are identified by
 //!   string ticker.
-//! - **Remote** (`ctrader-remote-mcp`, see [`remote`]) — a headless REST proxy
+//! - **Remote** (`ctrader-remote-mcp`, see [`remote`]): a headless REST proxy
 //!   (`rest-proxy`) fronting cTrader's Open API. Owns trailing stop loss, `MARKET_RANGE`
 //!   orders, batched quote fetches, and granular timeframe history. Volumes are in
 //!   integer cents, prices are integer pipettes, and symbols are identified by numeric
 //!   `symbolId`.
 //!
 //! Mixing values between the two servers without conversion silently produces wrong
-//! sizes, wrong prices, or schema rejections — see [`math`] for the conversion routines
+//! sizes, wrong prices, or schema rejections: see [`math`] for the conversion routines
 //! (pip/price math, lot/cents/units encoding, tiered margin, currency-chain conversion,
 //! risk-based position sizing) and [`quirks`] for the documented runtime-behavior
 //! divergences and their recovery patterns.
 //!
 //! ## Module map
 //!
-//! - [`config`] — connection configuration (endpoint URI, bearer/auth header, timeouts).
-//! - [`transport`] — the underlying [`rmcp`] streamable-HTTP+SSE session and the generic
+//! - [`config`]: connection configuration (endpoint URI, bearer/auth header, timeouts).
+//! - [`transport`]: the underlying [`rmcp`] streamable-HTTP+SSE session and the generic
 //!   typed `tools/call` helper shared by both server clients.
-//! - [`error`] — the crate's error type, including the self-healing error-classification
+//! - [`error`]: the crate's error type, including the self-healing error-classification
 //!   matrix that distinguishes caller schema mismatches, server rejections, upstream
 //!   broker failures, and local-server faults.
-//! - [`common`] — types shared by both servers (trade side, timestamps, money helpers).
-//! - [`math`] — pure, unit-tested conversion and sizing routines (no network I/O).
-//! - [`local`] — the [`local::LocalClient`] wrapping every documented `ctrader-local-mcp`
+//! - [`common`]: types shared by both servers (trade side, timestamps, money helpers).
+//! - [`math`]: pure, unit-tested conversion and sizing routines (no network I/O).
+//! - [`local`]: the [`local::LocalClient`] wrapping every documented `ctrader-local-mcp`
 //!   capability.
-//! - [`remote`] — the [`remote::RemoteClient`] wrapping every documented
+//! - [`remote`]: the [`remote::RemoteClient`] wrapping every documented
 //!   `ctrader-remote-mcp` capability.
-//! - [`quirks`] — the named recovery patterns (P-AMEND-SAFE, P-REMOTE-MARKET-RELATIVE,
+//! - [`quirks`]: the named recovery patterns (P-AMEND-SAFE, P-REMOTE-MARKET-RELATIVE,
 //!   P-REMOTE-HISTORY-CHUNK, P-LOCAL-OLDEST-FIRST, ...) implemented as reusable functions.
-//! - [`retry`] — [`retry::RetryPolicy`] and the backoff loop wrapping session
-//!   establishment and read-only calls (never mutating ones — see that module's doc
+//! - [`retry`], [`retry::RetryPolicy`] and the backoff loop wrapping session
+//!   establishment and read-only calls (never mutating ones, see that module's doc
 //!   comment for why).
-//! - [`workflows`] — end-to-end trader workflows (session bootstrap, entry orders, modify,
+//! - [`workflows`]: end-to-end trader workflows (session bootstrap, entry orders, modify,
 //!   close, read, risk sizing, history) composed from the two clients plus [`math`] and
 //!   [`quirks`].
 //!

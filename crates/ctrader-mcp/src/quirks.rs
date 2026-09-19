@@ -13,7 +13,7 @@ use crate::remote::RemoteClient;
 use crate::remote::dto::{AmendPositionParams, AmendPositionResponse, CreateOrderParams};
 
 // ---------------------------------------------------------------------------------
-// P-AMEND-SAFE (§5.1) — read-then-amend with BOTH SL+TP always present
+// P-AMEND-SAFE (§5.1): read-then-amend with BOTH SL+TP always present
 // ---------------------------------------------------------------------------------
 
 /// Amends a Remote position's SL and/or TP while preserving whichever leg the caller
@@ -22,7 +22,7 @@ use crate::remote::dto::{AmendPositionParams, AmendPositionResponse, CreateOrder
 /// Implements **P-AMEND-SAFE** end to end: [`AmendPositionParams::new`] already forces
 /// both legs to be populated in the request; this function is the "read current value
 /// to preserve the untouched leg" half of the pattern, plus the post-flight check that
-/// both legs survived the round-trip (`Q-R10` is silent at the wire level — only a
+/// both legs survived the round-trip (`Q-R10` is silent at the wire level: only a
 /// re-read catches a violation).
 ///
 /// Pass `None` for whichever leg the caller wants left unchanged; pass `Some(price)`
@@ -73,7 +73,7 @@ pub async fn amend_position_preserving_legs(
     {
         return Err(CTraderError::Invariant(format!(
             "P-AMEND-SAFE violation: amend_position on position {position_id} returned with a \
-             missing leg (stop_loss={:?}, take_profit={:?}) despite both being sent — re-issue \
+             missing leg (stop_loss={:?}, take_profit={:?}) despite both being sent: re-issue \
              the amend or escalate per the unknown-quirk decision tree",
             amended.stop_loss, amended.take_profit
         )));
@@ -83,23 +83,23 @@ pub async fn amend_position_preserving_legs(
 }
 
 // ---------------------------------------------------------------------------------
-// P-REMOTE-MARKET-2STEP (§5.2) — MARKET without SL/TP, then amend_position
+// P-REMOTE-MARKET-2STEP (§5.2): MARKET without SL/TP, then amend_position
 // ---------------------------------------------------------------------------------
 
 /// Opens a Remote `MARKET` position with absolute SL/TP applied via a follow-up
 /// `amend_position`, per `Q-R4`'s two-step fallback pattern.
 ///
 /// Use this ONLY when the user stated SL/TP as absolute prices that can't be cleanly
-/// converted to point offsets — prefer [`market_with_relative_sl_tp`] (**P-REMOTE-
+/// converted to point offsets: prefer [`market_with_relative_sl_tp`] (**P-REMOTE-
 /// MARKET-RELATIVE**) whenever the SL/TP is expressible as a pip/point distance, since
 /// that pattern lands both legs atomically with no unprotected window. Between this
-/// function's fill and its amend call, the position is genuinely unprotected — for
+/// function's fill and its amend call, the position is genuinely unprotected: for
 /// high-volatility instruments or large size, prefer the relative pattern instead.
 ///
 /// # Errors
 ///
 /// [`CTraderError::Invariant`] if `create_order`'s response doesn't include a
-/// `position_id` to amend (unexpected — normally means the order didn't fill
+/// `position_id` to amend (unexpected: normally means the order didn't fill
 /// synchronously; re-read `get_positions` to locate it before retrying this function).
 pub async fn market_two_step_open(
     client: &RemoteClient,
@@ -122,7 +122,7 @@ pub async fn market_two_step_open(
         .ok_or_else(|| {
             CTraderError::Invariant(
             "P-REMOTE-MARKET-2STEP step 1: create_order response had no position_id to amend in \
-             step 2 — poll get_positions to locate the fill before retrying"
+             step 2: poll get_positions to locate the fill before retrying"
                 .to_owned(),
         )
         })?;
@@ -137,15 +137,15 @@ pub async fn market_two_step_open(
 }
 
 // ---------------------------------------------------------------------------------
-// P-REMOTE-MARKET-RELATIVE (§5.6) — single-call MARKET with relative SL/TP (preferred)
+// P-REMOTE-MARKET-RELATIVE (§5.6): single-call MARKET with relative SL/TP (preferred)
 // ---------------------------------------------------------------------------------
 
 /// Builds a `MARKET` order with SL/TP expressed as pip distances, converted to Remote's
-/// integer POINTS encoding and passed as `relativeStopLoss`/`relativeTakeProfit` — the
+/// integer POINTS encoding and passed as `relativeStopLoss`/`relativeTakeProfit`: the
 /// preferred, atomic, single-call replacement for [`market_two_step_open`] (`Q-R4`).
 ///
 /// `pip_digits` is the symbol's pipette precision from `get_symbols` (NOT the pip size
-/// itself) — see [`crate::math::pip::pips_to_points`].
+/// itself): see [`crate::math::pip::pips_to_points`].
 pub fn market_with_relative_sl_tp(
     symbol_id: i64,
     trade_side: crate::common::TradeSide,
@@ -164,7 +164,7 @@ pub fn market_with_relative_sl_tp(
 }
 
 // ---------------------------------------------------------------------------------
-// P-LOCAL-OLDEST-FIRST (§5.4) — reverse getIndicatorValues
+// P-LOCAL-OLDEST-FIRST (§5.4): reverse getIndicatorValues
 // ---------------------------------------------------------------------------------
 
 /// Reverses a Local `getIndicatorValues` result so index `0` is the most recent bar,
@@ -175,14 +175,14 @@ pub fn local_oldest_first(mut values: Vec<f64>) -> Vec<f64> {
 }
 
 // ---------------------------------------------------------------------------------
-// Q-L2 — normalize the asymmetric SL/TP shape on Local's get_pending_orders
+// Q-L2: normalize the asymmetric SL/TP shape on Local's get_pending_orders
 // ---------------------------------------------------------------------------------
 
 /// Decodes a Local [`PendingOrder`]'s asymmetric SL/TP shape (`Q-L2`: `stop_loss` is an
 /// absolute price, but `take_profit` is a RAW PIP DISTANCE from `entry_price`) into two
 /// absolute prices, so both legs compare/display uniformly.
 ///
-/// `pip_size` and `trade_side` (`"Buy"`/`"Sell"`, as echoed by the response — see
+/// `pip_size` and `trade_side` (`"Buy"`/`"Sell"`, as echoed by the response: see
 /// `Q-L3`) determine the sign applied to `take_profit`'s pip distance. Returns `None`
 /// for a leg the order doesn't have.
 pub fn normalize_pending_order_take_profit(order: &PendingOrder, pip_size: f64) -> Option<f64> {
@@ -202,7 +202,7 @@ pub fn normalize_pending_order_take_profit(order: &PendingOrder, pip_size: f64) 
 }
 
 // ---------------------------------------------------------------------------------
-// P-REMOTE-HISTORY-CHUNK (§5.5) — 720h windowed loop
+// P-REMOTE-HISTORY-CHUNK (§5.5): 720h windowed loop
 // ---------------------------------------------------------------------------------
 
 const REMOTE_HISTORY_WINDOW_MS: i64 = 720 * 3_600 * 1_000;
@@ -210,7 +210,7 @@ const REMOTE_HISTORY_WINDOW_MS: i64 = 720 * 3_600 * 1_000;
 /// Splits `[from_epoch_ms, to_epoch_ms)` into windows no wider than Remote's 720-hour
 /// history cap (`Q-R7`), in chronological order. The 1.0.18 rejection hint explicitly
 /// states the resulting per-window calls can be issued in parallel; this function only
-/// computes the windows — pacing/parallelism is the caller's choice (mind the Remote
+/// computes the windows: pacing/parallelism is the caller's choice (mind the Remote
 /// historical-endpoint rate limit of 5 req/s if issuing them concurrently).
 ///
 /// Returns a single `(from, to)` window unchanged if the span already fits.
@@ -229,14 +229,14 @@ pub fn remote_history_windows(from_epoch_ms: i64, to_epoch_ms: i64) -> Vec<(i64,
 }
 
 // ---------------------------------------------------------------------------------
-// Q-L4 — Local get_trendbars pagination windows
+// Q-L4: Local get_trendbars pagination windows
 // ---------------------------------------------------------------------------------
 
 /// Splits `[from_epoch_ms, to_epoch_ms)` into windows sized so each one requests at most
 /// 1000 bars of `period` granularity (`Q-L4`: Local silently truncates a wider request
 /// and sets `truncated: true` rather than rejecting it, so unlike
-/// [`remote_history_windows`] this is a proactive sizing choice, not a hard requirement
-/// — but sizing windows this way means the caller never has to inspect `truncated` and
+/// [`remote_history_windows`] this is a proactive sizing choice, not a hard requirement,
+/// but sizing windows this way means the caller never has to inspect `truncated` and
 /// retry).
 pub fn local_trendbar_windows(
     from_epoch_ms: i64,

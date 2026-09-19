@@ -1,6 +1,6 @@
 //! Live smoke test for a Remote connection: walks the same path `wyck` does on connect
 //! (`RemoteClient::connect` + `bootstrap_remote`), printing every step to stdout as it
-//! happens — useful for telling apart a bad token/endpoint from a real code bug.
+//! happens: useful for telling apart a bad token/endpoint from a real code bug.
 //!
 //! Reads connection details from the environment rather than hardcoding them, so this
 //! file is safe to commit and reuse:

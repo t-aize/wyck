@@ -2,7 +2,7 @@
 //! `scripts/units_encoding.py`.
 //!
 //! `--lot-size` is **always required** on every lots-based conversion here (never
-//! defaulted to `100_000`): broker lot sizes vary — Remote forex is typically `100000`
+//! defaulted to `100_000`): broker lot sizes vary: Remote forex is typically `100000`
 //! base-asset units per lot, but Local ICMarkets has been observed returning `lotSize: 1`
 //! for `EURUSD` (`Q-L1`). Always read the live `lotSize` from `get_symbol_details`
 //! (Local) or the symbol's static metadata (Remote) before calling these functions.
@@ -63,7 +63,7 @@ pub fn price_to_pipettes(price: f64, pip_digits: u32) -> i64 {
     crate::common::price_to_pipettes(price, pip_digits)
 }
 
-/// Rounds a candidate volume (in base-asset units, or cents — the step and value must be
+/// Rounds a candidate volume (in base-asset units, or cents: the step and value must be
 /// in the same unit) DOWN to the nearest multiple of `volume_step`, per the
 /// `self-healing-playbook.md` §1.4 pre-flight gate ("round to the nearest valid step in
 /// the direction of the user's intent (typically toward smaller risk)").

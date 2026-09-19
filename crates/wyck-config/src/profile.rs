@@ -1,4 +1,4 @@
-//! A configured connection profile — the non-secret half of an account (display name,
+//! A configured connection profile: the non-secret half of an account (display name,
 //! which service it's for, its endpoint). The secret half (the token itself) never
 //! lives here; see [`crate::secret`].
 
@@ -39,7 +39,7 @@ impl std::fmt::Display for ProfileId {
 /// A configured connection profile: everything about an account EXCEPT its token.
 ///
 /// `service` is deliberately a free-form string rather than an enum owned by this
-/// crate — `wyck-config` has no knowledge of cTrader, or of any other specific
+/// crate: `wyck-config` has no knowledge of cTrader, or of any other specific
 /// broker/API, on purpose. A caller in `ctrader-mcp`'s orbit might use
 /// `"ctrader-remote"`/`"ctrader-local"`; a future crate for a different broker or a
 /// different kind of API key entirely reuses the exact same struct with its own tag.
@@ -48,8 +48,8 @@ impl std::fmt::Display for ProfileId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfileConfig {
     pub id: ProfileId,
-    /// User-facing label shown in the TUI/GUI (e.g. `"Live — FTMO 100k"`,
-    /// `"Demo — scalping"`).
+    /// User-facing label shown in the TUI/GUI (e.g. `"Live: FTMO 100k"`,
+    /// `"Demo: scalping"`).
     pub display_name: String,
     /// Free-form tag identifying which client/service this profile authenticates
     /// against. Not validated or interpreted by this crate.
@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn profile_config_round_trips_through_toml() {
         let profile = ProfileConfig::new(
-            "Live — FTMO 100k",
+            "Live: FTMO 100k",
             "ctrader-remote",
             Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
         );

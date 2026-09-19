@@ -3,7 +3,7 @@
 //!
 //! Every response DTO carries `#[serde(flatten)] pub extra: JsonObject` so a field this
 //! crate doesn't yet model (or a future server build adds) survives decoding instead of
-//! being silently dropped — inspect `extra` for anything not exposed as a named field.
+//! being silently dropped: inspect `extra` for anything not exposed as a named field.
 //! Request DTOs deliberately do **not** have this catch-all: only fields this crate
 //! declares are ever serialized and sent, which is the schema-fields-only pre-flight
 //! gate (`self-healing-playbook.md` §1.5) enforced structurally rather than by a runtime
@@ -20,7 +20,7 @@ use crate::common::{Period, TradeSide};
 
 /// Response shape for `get_server_time`. The exact field name for the timestamp itself
 /// is not pinned down by the skill's reference docs (only that the tool exists and
-/// should be preferred over the agent's local clock — `Q-L8`); this DTO captures every
+/// should be preferred over the agent's local clock: `Q-L8`); this DTO captures every
 /// field via `extra` and [`crate::local::client::LocalClient::get_server_time`] extracts
 /// the timestamp defensively (`serverTime` or `time`, whichever the live build uses).
 #[derive(Debug, Clone, Deserialize)]
@@ -34,7 +34,7 @@ pub struct ServerTimeResponse {
 // ---------------------------------------------------------------------------------
 
 /// One entry from `get_accounts_list`. Per `Q-L15`, the currently active account may be
-/// **absent** from this list — resolve the active account via
+/// **absent** from this list: resolve the active account via
 /// [`BalanceResponse::trader_id`] instead.
 #[derive(Debug, Clone, Deserialize)]
 pub struct AccountSummary {
@@ -67,7 +67,7 @@ pub struct BalanceResponse {
     pub margin: Option<f64>,
     #[serde(alias = "freeMargin")]
     pub free_margin: Option<f64>,
-    /// `None` when the account has zero open positions — this is a **normal** sentinel,
+    /// `None` when the account has zero open positions: this is a **normal** sentinel,
     /// not a missing-data error (`Q-L18`). Callers must not treat it as a stop-out.
     #[serde(alias = "marginLevel")]
     pub margin_level: Option<f64>,
@@ -81,7 +81,7 @@ pub struct BalanceResponse {
 }
 
 /// Response shape for `get_account_statistics`. Per `Q-L12`, `available` may be `false`
-/// instead of populated statistics — check it before consuming any other field.
+/// instead of populated statistics: check it before consuming any other field.
 #[derive(Debug, Clone, Deserialize)]
 pub struct AccountStatisticsResponse {
     pub available: bool,
@@ -124,14 +124,14 @@ pub struct GetSymbolDetailsParams {
     pub symbol_name: String,
 }
 
-/// Response shape for `get_symbol_details` — the authoritative per-symbol precision the
+/// Response shape for `get_symbol_details`: the authoritative per-symbol precision the
 /// `assets/symbol_precision_table.json` baseline exists to approximate. Always prefer
 /// this live response; the baseline is a fallback only (`Q-L1`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct SymbolDetails {
     #[serde(alias = "symbolName")]
     pub symbol_name: Option<String>,
-    /// Base-asset units per lot. **Broker-dependent** — do not assume `100_000` (`Q-L1`).
+    /// Base-asset units per lot. **Broker-dependent**: do not assume `100_000` (`Q-L1`).
     #[serde(alias = "lotSize")]
     pub lot_size: Option<f64>,
     #[serde(alias = "minVolume")]
@@ -140,7 +140,7 @@ pub struct SymbolDetails {
     pub volume_step: Option<f64>,
     /// Decimal places in the display price.
     pub digits: Option<u32>,
-    /// Price increment per pip — do not assume `0.0001` (`references/local-http-server.md`
+    /// Price increment per pip: do not assume `0.0001` (`references/local-http-server.md`
     /// "Price encoding on Local").
     #[serde(alias = "pipSize")]
     pub pip_size: Option<f64>,
@@ -161,7 +161,7 @@ pub struct SymbolSessionsResponse {
     pub extra: JsonObject,
 }
 
-/// Query parameters for `get_spot_prices` (Local takes one symbol per call — see
+/// Query parameters for `get_spot_prices` (Local takes one symbol per call: see
 /// `SKILL.md` "Currency conversion" for the Local-vs-Remote batching contrast).
 #[derive(Debug, Clone, Serialize)]
 pub struct GetSpotPricesParams {
@@ -169,7 +169,7 @@ pub struct GetSpotPricesParams {
     pub symbol_name: String,
 }
 
-/// Response shape for `get_spot_prices` — a live quote in **display** prices (Local
+/// Response shape for `get_spot_prices`: a live quote in **display** prices (Local
 /// never uses pipettes).
 #[derive(Debug, Clone, Deserialize)]
 pub struct SpotPriceResponse {
@@ -186,7 +186,7 @@ pub struct GetTrendbarsParams {
     #[serde(rename = "symbolName")]
     pub symbol_name: String,
     pub period: Period,
-    /// ISO 8601 with mandatory `Z` — see [`crate::time::to_local_iso8601_z`] (`Q-L8`).
+    /// ISO 8601 with mandatory `Z`: see [`crate::time::to_local_iso8601_z`] (`Q-L8`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -210,7 +210,7 @@ pub struct Trendbar {
 }
 
 /// Response shape for `get_trendbars`. When `truncated` is `true`, more bars exist in
-/// the requested window than were returned — loop with an advanced `from`/`to` window
+/// the requested window than were returned: loop with an advanced `from`/`to` window
 /// per `Q-L4`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct TrendbarsResponse {
@@ -223,7 +223,7 @@ pub struct TrendbarsResponse {
 }
 
 // ---------------------------------------------------------------------------------
-// Trading — positions
+// Trading: positions
 // ---------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
@@ -257,7 +257,7 @@ pub struct GetPositionsResponse {
 }
 
 /// Parameters for `place_market_order`. `stopLossPips`/`takeProfitPips` are **pip
-/// distances**, not absolute prices — see `references/local-http-server.md` "Stop loss
+/// distances**, not absolute prices: see `references/local-http-server.md` "Stop loss
 /// and take profit semantics on Local" (`Q-L2`).
 #[derive(Debug, Clone, Serialize)]
 pub struct PlaceMarketOrderParams {
@@ -292,7 +292,7 @@ impl PlaceMarketOrderParams {
 }
 
 /// Response shape for every `place_*_order` tool. Per `Q-L5`, this is genuinely all the
-/// server echoes — no volume, price, or SL/TP confirmation. ALWAYS re-read via
+/// server echoes: no volume, price, or SL/TP confirmation. ALWAYS re-read via
 /// `get_positions`/`get_pending_orders` after placement (see
 /// `self-healing-playbook.md` §2.3).
 #[derive(Debug, Clone, Deserialize)]
@@ -305,7 +305,7 @@ pub struct PlaceOrderResponse {
 }
 
 /// Parameters for `amend_position` (an OPEN position). Unlike Remote's `amend_position`,
-/// Local does not omit-remove an unset leg (`Q-R10` is Remote-only) — but this crate
+/// Local does not omit-remove an unset leg (`Q-R10` is Remote-only), but this crate
 /// still recommends always passing both legs (read current values first) for symmetry
 /// and to catch any future behavior change immediately via the post-flight re-read.
 #[derive(Debug, Clone, Serialize)]
@@ -347,13 +347,13 @@ pub struct Acknowledgement {
 }
 
 // ---------------------------------------------------------------------------------
-// Trading — pending orders
+// Trading: pending orders
 // ---------------------------------------------------------------------------------
 
 /// One entry from `get_pending_orders`.
 ///
 /// **Response-shape asymmetry (`Q-L2`, CRITICAL):** `stop_loss` is an ABSOLUTE PRICE,
-/// but `take_profit` is a RAW PIP DISTANCE from `entry_price` — these two fields are NOT
+/// but `take_profit` is a RAW PIP DISTANCE from `entry_price`: these two fields are NOT
 /// symmetric with each other despite the naming. Use
 /// [`crate::quirks::normalize_pending_order_take_profit`] before comparing or displaying
 /// `take_profit` as a price.
@@ -376,7 +376,7 @@ pub struct PendingOrder {
     /// input, per `Q-L6`'s input/response field-name map.
     #[serde(alias = "targetPrice")]
     pub target_price: Option<f64>,
-    /// ABSOLUTE PRICE (see the struct-level `Q-L2` note — asymmetric with `take_profit`).
+    /// ABSOLUTE PRICE (see the struct-level `Q-L2` note: asymmetric with `take_profit`).
     #[serde(alias = "stopLoss")]
     pub stop_loss: Option<f64>,
     /// RAW PIP DISTANCE from `entry_price` (see the struct-level `Q-L2` note).
@@ -398,7 +398,7 @@ pub struct GetPendingOrdersResponse {
 
 /// Parameters shared by `place_limit_order`, `place_stop_order`, and
 /// `place_stop_limit_order`. Set `limit_price` for LIMIT, `stop_price` for STOP, and
-/// both for STOP_LIMIT — the caller-facing helpers on [`crate::local::LocalClient`]
+/// both for STOP_LIMIT: the caller-facing helpers on [`crate::local::LocalClient`]
 /// enforce which combination each order type needs.
 #[derive(Debug, Clone, Serialize)]
 pub struct PlacePendingOrderParams {
@@ -414,7 +414,7 @@ pub struct PlacePendingOrderParams {
     pub stop_loss_pips: Option<i64>,
     #[serde(rename = "takeProfitPips", skip_serializing_if = "Option::is_none")]
     pub take_profit_pips: Option<i64>,
-    /// `"trade"` (default) or `"opposite"` — only meaningful on `place_stop_order` /
+    /// `"trade"` (default) or `"opposite"`: only meaningful on `place_stop_order` /
     /// `place_stop_limit_order`. See `references/local-http-server.md` "Stop-order
     /// `triggerMethod`".
     #[serde(rename = "triggerMethod", skip_serializing_if = "Option::is_none")]
@@ -451,7 +451,7 @@ impl PlacePendingOrderParams {
 pub enum TriggerMethod {
     /// Trigger on the actual trade-side quote (default).
     Trade,
-    /// Trigger on the opposite-side quote (ask for sells, bid for buys) — reduces
+    /// Trigger on the opposite-side quote (ask for sells, bid for buys): reduces
     /// premature triggers from spread spikes during news or low-liquidity sessions.
     Opposite,
 }
@@ -465,7 +465,7 @@ impl TriggerMethod {
     }
 }
 
-/// Parameters for `amend_order` (a PENDING order) — pip-distance SL/TP, per
+/// Parameters for `amend_order` (a PENDING order): pip-distance SL/TP, per
 /// `references/local-http-server.md`'s pip/absolute split table.
 #[derive(Debug, Clone, Serialize)]
 pub struct AmendOrderParams {
@@ -510,7 +510,7 @@ pub struct Trade {
 }
 
 /// Response shape for `get_order_history`. Per `Q-L7`, executed trades are under the
-/// `trades` key, NOT `orders` — this struct is named to match the wire key directly so
+/// `trades` key, NOT `orders`: this struct is named to match the wire key directly so
 /// there's no chance of reaching for a nonexistent `orders` field.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GetOrderHistoryResponse {
@@ -522,7 +522,7 @@ pub struct GetOrderHistoryResponse {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct GetDealsParams {
-    /// Capped at 200 per request — loop with a timestamp-advanced window and dedupe by
+    /// Capped at 200 per request: loop with a timestamp-advanced window and dedupe by
     /// `dealId` for larger spans (`Q-L4`-adjacent pagination note in
     /// `references/local-http-server.md`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -548,7 +548,7 @@ pub struct GetDealsResponse {
 }
 
 // ---------------------------------------------------------------------------------
-// Charts — lifecycle & navigation
+// Charts: lifecycle & navigation
 // ---------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
@@ -609,13 +609,13 @@ pub struct ZoomChartParams {
 }
 
 // ---------------------------------------------------------------------------------
-// Charts — drawing objects
+// Charts: drawing objects
 // ---------------------------------------------------------------------------------
 
 /// The `object_type` values `add_chart_object` accepts, grouped by the anchor pattern
 /// `references/local-http-server.md` "Drawing object anchor requirements" (`Q-L10`)
 /// documents for each. Passing the wrong combination of price/time anchors for a given
-/// type silently produces an ill-positioned (not rejected) object — always pass every
+/// type silently produces an ill-positioned (not rejected) object: always pass every
 /// anchor the type's row calls for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -661,14 +661,14 @@ pub enum ChartObjectType {
 /// Parameters for `add_chart_object`. See [`ChartObjectType`] and
 /// `references/local-http-server.md`'s anchor-requirement table (`Q-L10`) for which
 /// combination of `price1`/`time1`/`price2`/`time2`/`price3`/`time3` a given
-/// `object_type` needs — this crate does not validate the combination client-side
+/// `object_type` needs: this crate does not validate the combination client-side
 /// (the server accepts an incomplete anchor set silently and mis-positions the object,
 /// per `Q-L10`, so client-side validation could not catch this anyway; always re-read
 /// via `get_chart_objects` after placement to verify the visual position).
 #[derive(Debug, Clone, Serialize)]
 pub struct AddChartObjectParams {
     /// Wire field name is literally `object_type` (snake_case) per the skill's `Q-L10`
-    /// example — this is the one documented exception to Local's otherwise-camelCase
+    /// example: this is the one documented exception to Local's otherwise-camelCase
     /// parameter naming convention.
     #[serde(rename = "object_type")]
     pub object_type: ChartObjectType,
@@ -691,7 +691,7 @@ pub struct AddChartObjectParams {
     /// `rectangle` / `ellipse` / `triangle` only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fill: Option<bool>,
-    /// `risk_reward` only — `"buy"` or `"sell"`.
+    /// `risk_reward` only: `"buy"` or `"sell"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub side: Option<String>,
 }
@@ -736,7 +736,7 @@ pub struct DeleteChartObjectParams {
 }
 
 // ---------------------------------------------------------------------------------
-// Charts — indicators
+// Charts: indicators
 // ---------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
@@ -787,7 +787,7 @@ pub struct GetIndicatorValuesParams {
     pub count: Option<u32>,
 }
 
-/// Response shape for `getIndicatorValues`. Per `Q-L9`, `values` is OLDEST-first —
+/// Response shape for `getIndicatorValues`. Per `Q-L9`, `values` is OLDEST-first:
 /// apply [`crate::quirks::local_oldest_first`] (**P-LOCAL-OLDEST-FIRST**) before
 /// charting or signal generation.
 #[derive(Debug, Clone, Deserialize)]
@@ -799,7 +799,7 @@ pub struct GetIndicatorValuesResponse {
 }
 
 // ---------------------------------------------------------------------------------
-// UI — notifications
+// UI: notifications
 // ---------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize)]

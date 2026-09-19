@@ -11,7 +11,7 @@
 //!   offset. [`to_local_iso8601_z`] guarantees the suffix is present.
 //! - **Remote** accepts either epoch milliseconds or an ISO 8601 string on history
 //!   window endpoints, but requires **integer epoch milliseconds only** on
-//!   `expirationTimestamp` (`Q-R2`) — an ISO string there is rejected by Zod validation.
+//!   `expirationTimestamp` (`Q-R2`): an ISO string there is rejected by Zod validation.
 //!   [`RemoteTimestamp`] models this distinction in the type system so a caller cannot
 //!   accidentally send an ISO string where only an integer is accepted.
 
@@ -67,7 +67,7 @@ pub fn local_iso8601_to_epoch_millis(iso: &str) -> Result<i64, TimeError> {
 /// `references/remote-http-server.md` "Time encoding on Remote" documents that
 /// `fromTimestamp`/`toTimestamp` on history-window endpoints accept **either** form,
 /// while `expirationTimestamp` on `create_order`/`amend_order` accepts **only** the
-/// integer-epoch-milliseconds form (`Q-R2` — an ISO string there is rejected by Zod
+/// integer-epoch-milliseconds form (`Q-R2`: an ISO string there is rejected by Zod
 /// validation). Modeling both shapes as one `#[serde(untagged)]` enum lets a single DTO
 /// field type serialize correctly for whichever endpoint uses it, while
 /// [`RemoteTimestamp::epoch_millis`] is the only constructor exposed on

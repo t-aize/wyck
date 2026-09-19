@@ -1,8 +1,8 @@
 //! Pure, network-free conversion and sizing routines.
 //!
-//! This module is a faithful Rust port of the skill's Python `scripts/` — `pip_math.py`,
+//! This module is a faithful Rust port of the skill's Python `scripts/` (`pip_math.py`,
 //! `units_encoding.py`, `tiered_margin.py`, `conversion_rate.py`, and
-//! `position_sizing.py` — so a workflow (see [`crate::workflows`]) never has to shell out
+//! `position_sizing.py`) so a workflow (see [`crate::workflows`]) never has to shell out
 //! to a subprocess to do this math. Every public function here is a pure computation: no
 //! I/O, no `async`, safe to call from anywhere (including a hot-path UI thread).
 //!
@@ -19,7 +19,7 @@
 //! reference implementation's self-test fixtures (ported below as unit tests) to within
 //! floating-point tolerance. If exact decimal arithmetic becomes a hard requirement
 //! (e.g. for accounting/reconciliation rather than pre-trade sizing), swap the `f64`
-//! scalar type for `rust_decimal::Decimal` — every function signature here was kept
+//! scalar type for `rust_decimal::Decimal`: every function signature here was kept
 //! narrow specifically so that swap would be local to this module.
 //!
 //! [`decimal.Decimal`]: https://docs.python.org/3/library/decimal.html
@@ -44,7 +44,7 @@ pub(crate) fn round_half_up_to_digits(value: f64, digits: u32) -> f64 {
 ///
 /// # Panics
 ///
-/// Panics if `step` is not strictly positive or `value` is negative — both are
+/// Panics if `step` is not strictly positive or `value` is negative: both are
 /// programming errors at every call site in this crate (never user input passed through
 /// unchecked), matching the Python original's `ValueError` behavior translated to a
 /// debug-time invariant.

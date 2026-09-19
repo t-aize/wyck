@@ -9,7 +9,7 @@ pub type Result<T> = std::result::Result<T, ConfigError>;
 /// [`crate::secret`] backends.
 ///
 /// Every variant that touches a file carries the path; every variant that touches a
-/// secret carries the [`crate::SecretKey`] it was operating on — never the secret value
+/// secret carries the [`crate::SecretKey`] it was operating on: never the secret value
 /// itself, so a `{:?}`/`{}` of this error (e.g. in a log line) can never leak a token.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -46,13 +46,13 @@ pub enum ConfigError {
     Serialize(#[from] toml::ser::Error),
 
     /// A [`crate::secret::SecretStore`] backend failed. `message` is the backend's own
-    /// error text (e.g. from `keyring::Error`'s `Display` impl) — never the secret
+    /// error text (e.g. from `keyring::Error`'s `Display` impl): never the secret
     /// value, which the backend never has a reason to put in an error message.
     #[error("credential store error for key `{key}`: {message}")]
     SecretStore { key: String, message: String },
 
     /// The requested secret does not exist in the store (distinct from a backend
-    /// failure — this is the normal "not set yet" case, returned as `Ok(None)` from
+    /// failure: this is the normal "not set yet" case, returned as `Ok(None)` from
     /// [`crate::secret::SecretStore::retrieve`] rather than this variant in most call
     /// paths; this variant exists for operations that require the secret to already
     /// exist, e.g. an explicit `delete`).
@@ -69,7 +69,7 @@ pub enum ConfigError {
     /// AEAD encryption or decryption failed in
     /// [`crate::secret::EncryptedFileSecretStore`]. On decrypt, this most commonly
     /// means the supplied passphrase does not match the one the secret was encrypted
-    /// with (the AEAD authentication tag will not verify) — surface this to the user as
+    /// with (the AEAD authentication tag will not verify): surface this to the user as
     /// "wrong passphrase", not as file corruption.
     #[error("encryption/decryption failed for key `{key}`: {message}")]
     Crypto { key: String, message: String },
@@ -84,7 +84,7 @@ pub enum ConfigError {
     #[error("no profile with id `{0}` is configured")]
     UnknownProfile(String),
 
-    /// Secure random byte generation failed (extremely rare — indicates a broken or
+    /// Secure random byte generation failed (extremely rare: indicates a broken or
     /// exhausted OS entropy source).
     #[error("failed to generate random bytes: {0}")]
     Random(#[from] getrandom::Error),

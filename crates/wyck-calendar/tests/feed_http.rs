@@ -1,5 +1,5 @@
 //! HTTP-level tests against an in-process mock of the feed (real sockets on
-//! `127.0.0.1:0`, no live network) — the same recipe as `ctrader-mcp`'s integration
+//! `127.0.0.1:0`, no live network): the same recipe as `ctrader-mcp`'s integration
 //! tests.
 
 use std::sync::Arc;

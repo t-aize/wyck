@@ -4,7 +4,7 @@
 //! `tools/call` can surface as:
 //!
 //! - an MCP protocol-level error (`-32602 Input validation error`, a Zod schema
-//!   mismatch on the *caller's* request — never worth retrying as-is);
+//!   mismatch on the *caller's* request: never worth retrying as-is);
 //! - a structured JSON envelope (`{"error":{"code":"INVALID_REQUEST", ...}}` on
 //!   Remote `rest-proxy` builds up to 1.0.14, or `{"error":{"code":"502 BAD_GATEWAY",
 //!   "message":"uProxy error: ..."}}` for upstream broker failures on any build);
@@ -51,7 +51,7 @@ pub enum CTraderError {
     },
 
     /// `serde_json` could not encode this crate's request DTO into a JSON object
-    /// (should only happen if a DTO's `Serialize` impl is broken — the pre-flight gate
+    /// (should only happen if a DTO's `Serialize` impl is broken: the pre-flight gate
     /// "schema-fields-only enforcement" from `self-healing-playbook.md` §1.5 relies on
     /// every request type serializing to a plain object).
     #[error("failed to encode request for `{tool}`: {source}")]
@@ -63,7 +63,7 @@ pub enum CTraderError {
 
     /// The response body for `{tool}` could not be decoded into the expected DTO shape.
     /// Frequently indicates the live server's response shape has drifted from what this
-    /// crate documents — check the tool's live JSON-Schema before assuming a crate bug.
+    /// crate documents: check the tool's live JSON-Schema before assuming a crate bug.
     #[error("failed to decode response for `{tool}`: {source}")]
     Decode {
         tool: Cow<'static, str>,
@@ -78,7 +78,7 @@ pub enum CTraderError {
 
     /// MCP protocol-level `-32602 Input validation error` (a Zod schema mismatch on the
     /// *caller's* request). Per the error-classification matrix this is **never**
-    /// retryable as-is — the caller's request shape must change (e.g. an unsupported
+    /// retryable as-is: the caller's request shape must change (e.g. an unsupported
     /// `period` enum value; see `Q-R1`).
     #[error("`{tool}` rejected the request (MCP -32602 schema mismatch): {message}")]
     SchemaMismatch {
@@ -105,7 +105,7 @@ pub enum CTraderError {
     },
 
     /// A `502 {"error":{"code":"502 BAD_GATEWAY","message":"uProxy error: ..."}}`
-    /// envelope — the request reached the Remote proxy but failed at the upstream
+    /// envelope: the request reached the Remote proxy but failed at the upstream
     /// broker gateway (e.g. `Q-R8`'s unknown-symbol `UNKNOWN_SYMBOL` on
     /// `get_trendbars`). Per the classification matrix: retry at most once, and prefer
     /// surfacing a "try again" message over a silent automatic retry loop.
@@ -180,7 +180,7 @@ impl CTraderError {
         }
         CTraderError::Transport {
             tool: Cow::Borrowed(tool),
-            // `{:?}`, not `{}` — see the matching comment on `McpSession::connect` in
+            // `{:?}`, not `{}`: see the matching comment on `McpSession::connect` in
             // `transport.rs` for why Debug surfaces the full error chain here and
             // Display can silently drop it.
             message: format!("{source:?}"),
@@ -196,8 +196,8 @@ impl CTraderError {
     ///    (`INVALID_REQUEST`).
     /// 2. Otherwise treat the payload as a plain string. A Local `"Order error: ..."`
     ///    prefix indicates a local-server fault (`Q-L11`); anything else is treated as
-    ///    a 1.0.18-style Remote rejection and surfaced **verbatim** (never regex-stripped
-    ///    — the embedded hint is the whole point).
+    ///    a 1.0.18-style Remote rejection and surfaced **verbatim** (never regex-stripped:
+    ///    the embedded hint is the whole point).
     /// 3. If neither branch matches (e.g. the payload is `{"available": false}`, or is
     ///    empty, or is some other shape entirely), fall back to
     ///    [`CTraderError::ResourceUnavailable`] or
@@ -470,7 +470,7 @@ mod tests {
         // (machine-readable) on the same error result; the JSON-envelope branch must
         // still fire even when the accompanying text block isn't itself valid JSON.
         let mut result = CallToolResult::error(vec![ContentBlock::text(
-            "Order rejected — see structured data",
+            "Order rejected: see structured data",
         )]);
         result.structured_content = Some(json!({
             "error": { "code": "INVALID_REQUEST", "message": "bad request" }

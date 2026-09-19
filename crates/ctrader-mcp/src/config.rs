@@ -9,7 +9,7 @@ use crate::retry::RetryPolicy;
 ///
 /// Both the Local server (bound to the cTrader Desktop application, enabled and
 /// configured from cTrader Desktop's own Advanced -> MCP Server settings page, which
-/// defaults to `http://127.0.0.1:9876/mcp/` — the port shown there is user-changeable, so
+/// defaults to `http://127.0.0.1:9876/mcp/`: the port shown there is user-changeable, so
 /// do not assume 9876 without reading it back from that page) and the Remote server
 /// (`rest-proxy`, typically `https://mcp.ctrader.com/trading/mcp` or a self-hosted
 /// equivalent) speak the same streamable-HTTP + SSE MCP transport, so they share this
@@ -32,7 +32,7 @@ pub struct ConnectionConfig {
     pub bearer_token: Option<String>,
 
     /// Timeout applied to each individual control request (initialize, `tools/call`,
-    /// etc.). Does not bound long-lived SSE streams. Defaults to 30 seconds — generous
+    /// etc.). Does not bound long-lived SSE streams. Defaults to 30 seconds: generous
     /// enough for Remote's historical endpoints under the 5 req/s rate limit, but still
     /// bounded so a hung connection surfaces as an error rather than hanging a workflow
     /// indefinitely.
@@ -45,7 +45,7 @@ pub struct ConnectionConfig {
     /// How [`crate::transport::McpSession::connect`] and
     /// [`crate::transport::McpSession::call_idempotent`]/`call_no_args_idempotent`
     /// retry on transient failures. Defaults to [`RetryPolicy::default`]. Never applied
-    /// to a mutating `tools/call` — see [`crate::retry`]'s module doc comment for why.
+    /// to a mutating `tools/call`: see [`crate::retry`]'s module doc comment for why.
     pub retry_policy: RetryPolicy,
 }
 

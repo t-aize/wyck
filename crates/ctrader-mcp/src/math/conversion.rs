@@ -55,7 +55,7 @@ pub struct ChainResult {
     pub chain: Vec<String>,
     pub hops: usize,
     /// Non-fatal notices: symbols skipped during loose normalization, or a "no chain
-    /// found" notice (which is not itself an error — `rate` will be `0.0` and the caller
+    /// found" notice (which is not itself an error: `rate` will be `0.0` and the caller
     /// decides how to handle it, per `SKILL.md`'s W5 "Conversion chain undefined" edge
     /// case).
     pub warnings: Vec<String>,
@@ -86,7 +86,7 @@ fn normalize_symbol(raw: &str) -> Result<String, String> {
 /// Parses a raw `symbol -> quote` map into the normalized `symbol -> (base, quote,
 /// rate)` edges [`compute_chain`] operates on.
 ///
-/// When `strict` is `false` (the default the skill recommends — see
+/// When `strict` is `false` (the default the skill recommends: see
 /// `references/*.md` "Phase 4 forward-reference" notes), symbols that don't normalize to
 /// 6 uppercase letters are skipped with a warning rather than rejected outright, so a
 /// batch `get_spot_prices` response containing a stray malformed entry doesn't fail the

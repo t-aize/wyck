@@ -1,5 +1,5 @@
 //! **Multi-window historical backfill** (`SKILL.md` recipe 5 / `references/trader-
-//! workflows.md` W6) — pulls more trendbars than a single `get_trendbars` call can
+//! workflows.md` W6): pulls more trendbars than a single `get_trendbars` call can
 //! return, applying **P-REMOTE-HISTORY-CHUNK** (`Q-R7`'s 720-hour window cap) and
 //! `hasMore` pagination, deduped by bar-open timestamp.
 
@@ -18,7 +18,7 @@ use crate::time::RemoteTimestamp;
 ///
 /// Returned bars are sorted ascending by timestamp (oldest first). Windows are issued
 /// sequentially here, not in parallel, to stay conservative against Remote's 5 req/s
-/// historical-endpoint rate limit — a caller backfilling a very wide span and willing to
+/// historical-endpoint rate limit: a caller backfilling a very wide span and willing to
 /// manage its own concurrency budget can instead call
 /// [`crate::quirks::remote_history_windows`] directly and fan the resulting windows out
 /// itself (the 1.0.18 rejection hint confirms per-window calls may run in parallel).

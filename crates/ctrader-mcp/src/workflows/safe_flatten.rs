@@ -1,6 +1,6 @@
-//! **Safe flatten** (`SKILL.md` recipe 6) — closes every open position and cancels
+//! **Safe flatten** (`SKILL.md` recipe 6): closes every open position and cancels
 //! every pending order, optionally scoped to one symbol. Read-then-mutate, and never
-//! silently swallows a per-item failure — every close/cancel attempt is accounted for
+//! silently swallows a per-item failure: every close/cancel attempt is accounted for
 //! in the returned [`FlattenReport`].
 
 use crate::error::CTraderError;
@@ -25,14 +25,14 @@ impl FlattenReport {
 }
 
 /// Closes every open position and cancels every pending order on the account,
-/// optionally restricted to `symbol_id`. **Destructive — irreversible.** Callers should
+/// optionally restricted to `symbol_id`. **Destructive: irreversible.** Callers should
 /// present the affected positions/orders to the user for confirmation before invoking
 /// this (per `references/local-http-server.md` "Destructive operations", which applies
 /// equally to this Remote-side equivalent of `close_all_positions` +
 /// `cancel_all_pending_orders`).
 ///
 /// Reads the current book once via `get_positions` (which returns both positions and
-/// orders on Remote), then issues one `close_position`/`cancel_order` call per item — it
+/// orders on Remote), then issues one `close_position`/`cancel_order` call per item: it
 /// does not re-read between items, so a position closed by an SL/TP hit concurrently
 /// with this call surfaces as a per-item error in the report rather than aborting the
 /// whole flatten.

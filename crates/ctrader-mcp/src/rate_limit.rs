@@ -6,7 +6,7 @@
 //! one client's outgoing calls is a couple dozen lines, and this workspace deliberately
 //! keeps its dependency list small (see the `native-tls` comment on the workspace
 //! `Cargo.toml`'s `rmcp` entry for the same philosophy applied elsewhere). Local is
-//! intentionally never wrapped in this — the 5 req/s cap is specific to the Remote
+//! intentionally never wrapped in this: the 5 req/s cap is specific to the Remote
 //! `rest-proxy`, not a general MCP transport concern.
 
 use tokio::sync::Mutex;

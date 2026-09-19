@@ -20,7 +20,7 @@ pub struct ClientConfig {
     pub url: String,
     /// Total time allowed for one request, connect through last body byte. Default 15 s.
     pub timeout: Duration,
-    /// Response-body cap. Default 2 MiB — over 100× a real week.
+    /// Response-body cap. Default 2 MiB, over 100 times a real week.
     pub max_body_bytes: usize,
     /// `User-Agent` header. Default `wyck-calendar/<crate version>`.
     pub user_agent: String,

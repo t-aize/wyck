@@ -13,7 +13,7 @@ const APPLICATION: &str = "wyck";
 /// The directories `wyck-config` reads and writes: a config directory for
 /// [`crate::AppConfig`]'s TOML file, and a data directory for anything a
 /// [`crate::secret::SecretStore`] backend needs to persist on disk (currently only
-/// [`crate::secret::EncryptedFileSecretStore`] — the default
+/// [`crate::secret::EncryptedFileSecretStore`]: the default
 /// [`crate::secret::KeyringSecretStore`] backend stores nothing here, the OS credential
 /// store owns that).
 ///
@@ -34,7 +34,7 @@ impl AppPaths {
     /// # Errors
     ///
     /// Returns [`ConfigError::NoProjectDirs`] if the OS reports no home directory for
-    /// the current user (e.g. running as a system service account on some platforms) —
+    /// the current user (e.g. running as a system service account on some platforms):
     /// see [`directories::ProjectDirs::from`].
     pub fn discover() -> Result<Self> {
         let dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)

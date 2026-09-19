@@ -1,4 +1,4 @@
-//! [`RemoteClient`] — the typed wrapper around every documented `ctrader-remote-mcp`
+//! [`RemoteClient`]: the typed wrapper around every documented `ctrader-remote-mcp`
 //! tool.
 
 use serde::Serialize;
@@ -11,7 +11,7 @@ use crate::remote::dto::*;
 use crate::transport::McpSession;
 
 /// Requests per second Remote's `rest-proxy` documents as its rate limit, in particular
-/// on the historical-data endpoints (`get_trendbars`/`get_order_history`/`get_deals`) —
+/// on the historical-data endpoints (`get_trendbars`/`get_order_history`/`get_deals`):
 /// see `references/remote-http-server.md` and [`crate::workflows::backfill`]'s doc
 /// comment. Applied to every call this client makes, not just the historical ones,
 /// since the server does not document the cap as endpoint-specific.
@@ -23,7 +23,7 @@ pub struct RemoteClient {
     session: McpSession,
     /// Gates every call this client makes to [`REMOTE_RATE_LIMIT_PER_SECOND`]. Held
     /// separately from [`McpSession`] (rather than built into it) because the 5 req/s cap
-    /// is a Remote-specific server constraint, not a general MCP transport concern —
+    /// is a Remote-specific server constraint, not a general MCP transport concern:
     /// [`crate::local::LocalClient`] shares the same session type but has no such limit.
     rate_limiter: RateLimiter,
 }
@@ -45,12 +45,12 @@ impl RemoteClient {
         Ok(Self::new(McpSession::connect(config).await?))
     }
 
-    /// Rate-limited counterpart to [`McpSession::call`] — every method below that
+    /// Rate-limited counterpart to [`McpSession::call`], every method below that
     /// mutates account state uses this (not [`Self::call_idempotent`], since retrying a
-    /// mutating call risks double-submitting it — see [`crate::retry`]'s doc comment).
+    /// mutating call risks double-submitting it, see [`crate::retry`]'s doc comment).
     ///
     /// The rate limiter is only acquired once per logical call, not once per retry
-    /// attempt — irrelevant here since this path never retries, and for
+    /// attempt: irrelevant here since this path never retries, and for
     /// [`Self::call_idempotent`] a bounded handful of retries spread over at most a few
     /// seconds does not meaningfully risk violating a 5 req/s server-side cap even
     /// without re-throttling each attempt individually.
@@ -64,7 +64,7 @@ impl RemoteClient {
     }
 
     /// Rate-limited AND retried counterpart to [`McpSession::call_idempotent`]. Only
-    /// ever used by this client's read-only getters — see that method's doc comment.
+    /// ever used by this client's read-only getters: see that method's doc comment.
     async fn call_idempotent<P, R>(&self, tool: &'static str, params: P) -> Result<R, CTraderError>
     where
         P: Serialize,
@@ -107,7 +107,7 @@ impl RemoteClient {
     // Version & diagnostics
     // -----------------------------------------------------------------------------
 
-    /// Build identification — cache `version`/`build_time`/`service` once per session
+    /// Build identification: cache `version`/`build_time`/`service` once per session
     /// (W0) and compare `version` against this crate's documented minimum build
     /// (`rest-proxy 1.0.18`) before applying any `known-quirks.md` workaround.
     pub async fn get_version(&self) -> Result<VersionResponse, CTraderError> {
@@ -120,7 +120,7 @@ impl RemoteClient {
         self.call_no_args_idempotent("get_server_time").await
     }
 
-    /// Confirms round-trip liveness with a native MCP protocol ping — see
+    /// Confirms round-trip liveness with a native MCP protocol ping: see
     /// [`McpSession::ping`] for why this is not (and, per a live probe, never was
     /// successfully) a `tools/call`.
     pub async fn ping(&self) -> Result<(), CTraderError> {
@@ -133,14 +133,14 @@ impl RemoteClient {
     // -----------------------------------------------------------------------------
 
     /// The active account's balance/equity/margin snapshot, in Remote's raw
-    /// `10^money_digits`-scaled encoding — see [`RemoteBalanceResponse`]'s
+    /// `10^money_digits`-scaled encoding: see [`RemoteBalanceResponse`]'s
     /// `display_*` helpers.
     pub async fn get_balance(&self) -> Result<RemoteBalanceResponse, CTraderError> {
         self.call_no_args_idempotent("get_balance").await
     }
 
     /// Resolves `assetId` values (`depositAssetId`, `baseAssetId`, `quoteAssetId`) to
-    /// currency names. Stable for the session — cache it (`references/remote-http-
+    /// currency names. Stable for the session: cache it (`references/remote-http-
     /// server.md` "Symbol cache discipline" applies equally to this endpoint).
     pub async fn get_assets(&self) -> Result<GetAssetsResponse, CTraderError> {
         self.call_no_args_idempotent("get_assets").await
@@ -151,7 +151,7 @@ impl RemoteClient {
     // -----------------------------------------------------------------------------
 
     /// The full symbol universe (`symbolId` <-> `symbolName` plus static metadata).
-    /// Stable for the session — cache it, do not re-fetch per tool call
+    /// Stable for the session: cache it, do not re-fetch per tool call
     /// (`references/remote-http-server.md` "Symbol cache discipline").
     pub async fn get_symbols(&self) -> Result<GetSymbolsResponse, CTraderError> {
         self.call_no_args_idempotent("get_symbols").await
@@ -162,7 +162,7 @@ impl RemoteClient {
     // -----------------------------------------------------------------------------
 
     /// Batched live quotes for the given `symbol_ids`. Per `Q-R8`, validate every id
-    /// against the cached [`Self::get_symbols`] map first — a single unknown id
+    /// against the cached [`Self::get_symbols`] map first: a single unknown id
     /// silently empties the ENTIRE `prices` array, with no per-symbol error to localize
     /// the bad id.
     pub async fn get_spot_prices(
@@ -181,7 +181,7 @@ impl RemoteClient {
     /// Historical OHLCV bars for one symbol over `[from_timestamp, to_timestamp)`. Per
     /// `Q-R1`, `period` is one of exactly 9 values (enforced at the type level by
     /// [`crate::common::Period`]). Per `Q-R7`, a window spanning more than 720 hours is
-    /// rejected outright (not paginated) — use
+    /// rejected outright (not paginated): use
     /// [`crate::quirks::remote_history_windows`] (**P-REMOTE-HISTORY-CHUNK**) to split a
     /// wider request into compliant windows first.
     pub async fn get_trendbars(
@@ -220,9 +220,9 @@ impl RemoteClient {
     }
 
     /// Order history over `[from_timestamp, to_timestamp)`. Per `Q-R7`, a window
-    /// spanning more than 720 hours is rejected — chunk first (see
+    /// spanning more than 720 hours is rejected: chunk first (see
     /// [`crate::quirks::remote_history_windows`]). Per `Q-R11`, a just-created/-closed
-    /// order may not appear here immediately — prefer the object embedded in the
+    /// order may not appear here immediately: prefer the object embedded in the
     /// mutation response for immediate post-mutation verification.
     pub async fn get_order_history(
         &self,
@@ -242,15 +242,15 @@ impl RemoteClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Trading mutations (requires the `trading` profile — see
+    // Trading mutations (requires the `trading` profile: see
     // [`Self::has_trading_profile`])
     // -----------------------------------------------------------------------------
 
-    /// Places an order. Runs [`CreateOrderParams::validate`] client-side before sending
-    /// — see that method's doc comment for exactly which `self-healing-playbook.md` §1
+    /// Places an order. Runs [`CreateOrderParams::validate`] client-side before sending:
+    /// see that method's doc comment for exactly which `self-healing-playbook.md` §1
     /// gates it structurally enforces (`Q-R4`, required conditional fields, label/
     /// comment length limits). Per `Q-R11`, the returned `order`/`position`/`deal`
-    /// objects are the authoritative immediate confirmation — prefer them over an
+    /// objects are the authoritative immediate confirmation: prefer them over an
     /// immediate follow-up `get_deals`/`get_order_history` call.
     ///
     /// # Errors
@@ -280,10 +280,10 @@ impl RemoteClient {
     }
 
     /// Amends an OPEN position's SL/TP (and optionally trailing SL). `params` must be
-    /// built via [`AmendPositionParams::new`], which requires both legs — see that
+    /// built via [`AmendPositionParams::new`], which requires both legs: see that
     /// type's doc comment for why (`Q-R10`, **P-AMEND-SAFE**). ALWAYS re-read via
     /// [`Self::get_position_details`] afterward and confirm both legs survived
-    /// (`self-healing-playbook.md` §2.2) — the omit-removes quirk is silent at the wire
+    /// (`self-healing-playbook.md` §2.2): the omit-removes quirk is silent at the wire
     /// level.
     pub async fn amend_position(
         &self,
@@ -292,7 +292,7 @@ impl RemoteClient {
         self.call("amend_position", params).await
     }
 
-    /// Closes a position, fully or partially. `params.volume` (cents) is REQUIRED —
+    /// Closes a position, fully or partially. `params.volume` (cents) is REQUIRED:
     /// pass the position's current open volume (read via [`Self::get_positions`] first)
     /// to close entirely; Remote has no "close all without volume" form (contrast with
     /// Local's `close_position`, which takes no volume and always closes the full

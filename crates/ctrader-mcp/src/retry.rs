@@ -9,7 +9,7 @@
 //! `tools/call`. If a [`crate::error::CTraderError::Transport`] happens because the
 //! response for a `create_order`/`amend_order`/`cancel_order`/`amend_position`/
 //! `close_position` (Remote) or `place_*_order`/`cancel_all_pending_orders` (Local) call
-//! was lost in transit, the request may already have reached the broker — blindly
+//! was lost in transit, the request may already have reached the broker: blindly
 //! retrying it risks placing (or cancelling) the same order twice. [`retry_with_backoff`]
 //! is therefore only ever invoked by [`crate::transport::McpSession::connect`] (nothing
 //! has been sent yet at that point) and by
@@ -48,7 +48,7 @@ pub struct RetryPolicy {
 
 impl Default for RetryPolicy {
     /// 3 total attempts, starting at a 250ms delay and doubling up to a 4s cap (250ms,
-    /// 500ms) — enough to ride out a brief SSE reconnect or a transient DNS/TLS blip
+    /// 500ms): enough to ride out a brief SSE reconnect or a transient DNS/TLS blip
     /// without leaving a caller waiting for more than a few seconds.
     fn default() -> Self {
         Self {
@@ -60,7 +60,7 @@ impl Default for RetryPolicy {
 }
 
 impl RetryPolicy {
-    /// A policy that never retries — every call gets exactly one attempt. Useful for
+    /// A policy that never retries: every call gets exactly one attempt. Useful for
     /// tests that want deterministic, immediate failure, or for a caller that wants to
     /// implement its own retry strategy at a higher level.
     pub fn none() -> Self {
@@ -88,12 +88,12 @@ impl CTraderError {
     /// Mirrors the per-variant guidance already documented on [`CTraderError`]'s own doc
     /// comments (the `self-healing-playbook.md` §3 classification matrix):
     ///
-    /// - [`CTraderError::Connect`] / [`CTraderError::Transport`] — "safe to retry with
+    /// - [`CTraderError::Connect`] / [`CTraderError::Transport`]: "safe to retry with
     ///   backoff": no independent cap, deferred entirely to the [`RetryPolicy`].
-    /// - [`CTraderError::UpstreamBrokerError`] — "retry at most once": capped at 2 total
+    /// - [`CTraderError::UpstreamBrokerError`]: "retry at most once": capped at 2 total
     ///   attempts even if the policy would otherwise allow more.
     /// - Everything else (schema mismatches, server rejections, local faults, decode
-    ///   failures, ...) — never retryable: capped at 1 (the original attempt only).
+    ///   failures, ...): never retryable: capped at 1 (the original attempt only).
     pub(crate) fn max_retry_attempts(&self) -> u32 {
         match self {
             CTraderError::Connect { .. } | CTraderError::Transport { .. } => u32::MAX,
@@ -105,7 +105,7 @@ impl CTraderError {
 
 /// Calls `operation` repeatedly until it succeeds, it returns an error whose
 /// [`CTraderError::max_retry_attempts`] has been reached, or `policy.max_attempts` has
-/// been reached (whichever limit is stricter) — sleeping with [`RetryPolicy`]'s
+/// been reached (whichever limit is stricter): sleeping with [`RetryPolicy`]'s
 /// doubling backoff between attempts and logging every retry via [`tracing::warn`].
 ///
 /// See this module's top-level doc comment for which call sites are safe to wrap in

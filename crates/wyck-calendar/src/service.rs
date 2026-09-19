@@ -121,7 +121,7 @@ impl CalendarHandle {
         self.state.borrow().clone()
     }
 
-    /// A receiver that wakes whenever the state changes — `await` its `changed()` in a
+    /// A receiver that wakes whenever the state changes: `await` its `changed()` in a
     /// `select!` alongside terminal input.
     #[must_use]
     pub fn subscribe(&self) -> watch::Receiver<CalendarState> {

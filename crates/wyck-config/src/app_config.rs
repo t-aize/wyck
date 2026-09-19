@@ -10,7 +10,7 @@ use crate::profile::{ProfileConfig, ProfileId};
 const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
-/// [`ProfileConfig`]s exist and which one is active. Never contains a token — see
+/// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
 /// [`crate::secret`] for where those live instead.
 ///
 /// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is
@@ -43,7 +43,7 @@ impl Default for AppConfig {
 
 impl AppConfig {
     /// Loads the config from `paths.config_file()`. Returns [`AppConfig::default`]
-    /// (empty, no profiles) if the file doesn't exist yet — a fresh install is not an
+    /// (empty, no profiles) if the file doesn't exist yet: a fresh install is not an
     /// error condition.
     ///
     /// # Errors

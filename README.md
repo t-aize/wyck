@@ -6,10 +6,10 @@
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
 ![Rust](https://img.shields.io/badge/rust-2024%20edition-orange)
 
-> 🚧 **Early development.** wyck is not yet functional end-to-end. This README describes
+> **Early development.** wyck is not yet functional end-to-end. This README describes
 > the design and the intended feature set. See [Roadmap](#roadmap) for what's actually done.
 
-> 🌐 **Domain claim, for the record:** `wyck.sh`. First-come-first-served does not apply
+> **Domain claim, for the record:** `wyck.sh`. First-come-first-served does not apply
 > retroactively: future me, don't let someone else grab it just because past me was busy
 > writing a README instead of buying a domain.
 
@@ -85,7 +85,7 @@ wyck connects to cTrader through its official MCP server, in one of two ways:
 - **Remote**: `https://mcp.ctrader.com/trading/mcp`, authenticated with a bearer token
   copied from a cTrader account with [AI Agent Connect](https://mcp.ctrader.com/) enabled.
 - **Local**: a server bound to a running cTrader Desktop instance, enabled and configured
-  from cTrader Desktop's own settings (Advanced → MCP Server). It defaults to
+  from cTrader Desktop's own settings (Advanced > MCP Server). It defaults to
   `http://127.0.0.1:9876/mcp/` (the port is shown, and changeable, on that settings page)
   and does not require a bearer token.
 
@@ -108,7 +108,7 @@ Planned default keybindings (subject to change):
 | `b`       | Buy at market                    |
 | `s`       | Sell at market                   |
 | `c`       | Close current position           |
-| `↑` / `↓` | Adjust position size             |
+| `Up` / `Down` | Adjust position size             |
 | `[` / `]` | Adjust stop loss / take profit   |
 | `Tab`     | Cycle instrument                 |
 | `q`       | Quit                             |
@@ -156,7 +156,7 @@ different tools for five different jobs.
 ### TUI (current)
 
 - [ ] Connect and authenticate to the cTrader MCP server
-- [ ] Risk-based lot size calculation (stop loss + risk % → lot size)
+- [ ] Risk-based lot size calculation (stop loss + risk % to lot size)
 - [ ] Live account, position and P&L view
 - [ ] Hotkey market order execution
 - [ ] Limit/stop orders and position modification

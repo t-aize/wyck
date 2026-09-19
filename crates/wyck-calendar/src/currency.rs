@@ -19,7 +19,7 @@ const CALENDAR_CURRENCIES: [Currency; 9] = [
     Currency::USD,
 ];
 
-/// A three-letter, upper-case ASCII currency code (`USD`, `EUR`, …).
+/// A three-letter, upper-case ASCII currency code (`USD`, `EUR`, etc.).
 ///
 /// `Copy`, hashable and ordered, so it is cheap to keep in a filter set. Any three ASCII
 /// letters are accepted by [`FromStr`] (the feed could add a currency tomorrow);
@@ -149,7 +149,7 @@ pub fn currencies_from_symbol(symbol: &str) -> Vec<Currency> {
         .collect()
 }
 
-/// The union of [`currencies_from_symbol`] over many symbols — the natural default for
+/// The union of [`currencies_from_symbol`] over many symbols: the natural default for
 /// [`crate::EventFilter::currencies`]: "the currencies I actually trade".
 #[must_use]
 pub fn currencies_from_symbols<I, S>(symbols: I) -> BTreeSet<Currency>
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn rejects_malformed_codes() {
-        for bad in ["", "US", "USDX", "U5D", "€UR"] {
+        for bad in ["", "US", "USDX", "U5D", "{20AC}UR"] {
             assert!(bad.parse::<Currency>().is_err(), "{bad:?}");
         }
     }

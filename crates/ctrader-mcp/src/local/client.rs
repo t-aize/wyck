@@ -1,4 +1,4 @@
-//! [`LocalClient`] — the typed wrapper around every documented `ctrader-local-mcp` tool.
+//! [`LocalClient`]: the typed wrapper around every documented `ctrader-local-mcp` tool.
 
 use rmcp::model::JsonObject;
 use serde_json::{Value, json};
@@ -53,13 +53,13 @@ impl LocalClient {
     // -----------------------------------------------------------------------------
 
     /// Confirms round-trip liveness with the Local server via a native MCP protocol
-    /// ping — see [`McpSession::ping`] for why this is not (and, per a live probe,
+    /// ping: see [`McpSession::ping`] for why this is not (and, per a live probe,
     /// never was successfully) a `tools/call`.
     pub async fn ping(&self) -> Result<(), CTraderError> {
         self.session.ping().await
     }
 
-    /// The server's wall-clock time — prefer this over the agent's local clock for
+    /// The server's wall-clock time: prefer this over the agent's local clock for
     /// every time-window computation (`Q-L8`).
     pub async fn get_server_time(&self) -> Result<ServerTimeResponse, CTraderError> {
         self.session
@@ -72,7 +72,7 @@ impl LocalClient {
     // -----------------------------------------------------------------------------
 
     /// Enumerates known accounts. Per `Q-L15`, the currently ACTIVE account may be
-    /// absent from this list — resolve it via [`Self::get_balance`]'s `trader_id`
+    /// absent from this list: resolve it via [`Self::get_balance`]'s `trader_id`
     /// instead of assuming it appears here.
     pub async fn get_accounts_list(&self) -> Result<GetAccountsListResponse, CTraderError> {
         self.session
@@ -81,13 +81,13 @@ impl LocalClient {
     }
 
     /// The active account's balance/equity/margin snapshot. `margin_level: None` is
-    /// normal with zero open positions (`Q-L18`) — do not treat it as an error.
+    /// normal with zero open positions (`Q-L18`): do not treat it as an error.
     pub async fn get_balance(&self) -> Result<BalanceResponse, CTraderError> {
         self.session.call_no_args_idempotent("get_balance").await
     }
 
     /// Lifetime account statistics. Per `Q-L12`, may return `available: false` instead
-    /// of populated data — check that flag before consuming any other field, and fall
+    /// of populated data: check that flag before consuming any other field, and fall
     /// back to deriving the needed metric from in-session reads.
     pub async fn get_account_statistics(&self) -> Result<AccountStatisticsResponse, CTraderError> {
         self.session
@@ -116,7 +116,7 @@ impl LocalClient {
     }
 
     /// The authoritative per-symbol precision (`lotSize`, `minVolume`, `volumeStep`,
-    /// `digits`, `pipSize`) — always call this before any volume- or price-bearing
+    /// `digits`, `pipSize`): always call this before any volume- or price-bearing
     /// mutation on `symbol_name` (`Q-L1`); the `assets/symbol_precision_table.json`
     /// baseline this crate does not embed is a fallback only, never authoritative.
     pub async fn get_symbol_details(
@@ -133,7 +133,7 @@ impl LocalClient {
             .await
     }
 
-    /// The symbol's trading sessions — use this to detect a closed market before
+    /// The symbol's trading sessions: use this to detect a closed market before
     /// placing a pending order (`references/trader-workflows.md` W1 edge case).
     pub async fn get_symbol_sessions(
         &self,
@@ -166,7 +166,7 @@ impl LocalClient {
     }
 
     /// Historical OHLCV bars. Capped at 1000 bars per request; a wider request is
-    /// silently truncated with `truncated: true` on the response (`Q-L4`) — see
+    /// silently truncated with `truncated: true` on the response (`Q-L4`): see
     /// [`crate::quirks::local_trendbar_windows`] for the pagination-window helper.
     pub async fn get_trendbars(
         &self,
@@ -176,7 +176,7 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Trading — positions
+    // Trading: positions
     // -----------------------------------------------------------------------------
 
     /// Every open position on the active account.
@@ -186,7 +186,7 @@ impl LocalClient {
 
     /// Places a market order. `params.stop_loss_pips`/`params.take_profit_pips` are pip
     /// distances, not absolute prices (`Q-L2`). Per `Q-L5`, the response is only
-    /// `{orderId, status}` — ALWAYS re-read via [`Self::get_positions`] afterward to
+    /// `{orderId, status}`: ALWAYS re-read via [`Self::get_positions`] afterward to
     /// confirm the fill matched intent.
     pub async fn place_market_order(
         &self,
@@ -206,7 +206,7 @@ impl LocalClient {
         self.session.call("amend_position", params).await
     }
 
-    /// Fully closes a position (no volume parameter — Local always closes the entire
+    /// Fully closes a position (no volume parameter: Local always closes the entire
     /// remainder). For a partial close use [`Self::close_position_partial`].
     pub async fn close_position(&self, position_id: i64) -> Result<Acknowledgement, CTraderError> {
         self.session
@@ -215,7 +215,7 @@ impl LocalClient {
     }
 
     /// Partially closes a position by `volume` (base-asset units, rounded to the
-    /// symbol's `volumeStep` — round DOWN toward smaller risk if the caller's requested
+    /// symbol's `volumeStep`: round DOWN toward smaller risk if the caller's requested
     /// volume doesn't divide evenly, per `self-healing-playbook.md` §1.4).
     pub async fn close_position_partial(
         &self,
@@ -233,8 +233,8 @@ impl LocalClient {
             .await
     }
 
-    /// Closes every open position, optionally scoped to one `symbol_name`. **Destructive
-    /// — irreversible.** Always confirm the affected positions with the user first (see
+    /// Closes every open position, optionally scoped to one `symbol_name`. **Destructive:
+    /// irreversible.** Always confirm the affected positions with the user first (see
     /// `references/local-http-server.md` "Destructive operations").
     pub async fn close_all_positions(
         &self,
@@ -251,11 +251,11 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Trading — pending orders
+    // Trading: pending orders
     // -----------------------------------------------------------------------------
 
     /// Every working (not yet filled) order. Per `Q-L2`, each entry's `stop_loss` is an
-    /// absolute price but `take_profit` is a raw pip distance — see
+    /// absolute price but `take_profit` is a raw pip distance: see
     /// [`crate::quirks::normalize_pending_order_take_profit`] before comparing or
     /// displaying.
     pub async fn get_pending_orders(&self) -> Result<GetPendingOrdersResponse, CTraderError> {
@@ -265,7 +265,7 @@ impl LocalClient {
     }
 
     /// Places a LIMIT order. `params.limit_price` must be set (buy-limit below current
-    /// ask, sell-limit above current bid — pre-flight gate `self-healing-playbook.md`
+    /// ask, sell-limit above current bid: pre-flight gate `self-healing-playbook.md`
     /// §1.2).
     pub async fn place_limit_order(
         &self,
@@ -293,7 +293,7 @@ impl LocalClient {
         self.session.call("place_stop_limit_order", params).await
     }
 
-    /// Amends a PENDING order (pip-distance SL/TP — contrast with
+    /// Amends a PENDING order (pip-distance SL/TP: contrast with
     /// [`Self::amend_position`]'s absolute-price form for OPEN positions).
     pub async fn amend_order(
         &self,
@@ -310,7 +310,7 @@ impl LocalClient {
     }
 
     /// Cancels every working order, optionally scoped to one `symbol_name`.
-    /// **Destructive — irreversible.**
+    /// **Destructive: irreversible.**
     pub async fn cancel_all_pending_orders(
         &self,
         symbol_name: Option<&str>,
@@ -338,7 +338,7 @@ impl LocalClient {
             .await
     }
 
-    /// Recent deals, capped at 200 per request — loop with a timestamp-advanced
+    /// Recent deals, capped at 200 per request: loop with a timestamp-advanced
     /// `symbol_name`-scoped window and dedupe by `deal_id` for a larger span.
     pub async fn get_deals(
         &self,
@@ -348,7 +348,7 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Charts — lifecycle & navigation
+    // Charts: lifecycle & navigation
     // -----------------------------------------------------------------------------
 
     /// Enumerates open chart tabs.
@@ -357,7 +357,7 @@ impl LocalClient {
     }
 
     /// Switches chart focus. Every chart-mutating tool below acts on the FOCUSED chart,
-    /// never on a `chartId` parameter — call this first, then re-confirm with
+    /// never on a `chartId` parameter: call this first, then re-confirm with
     /// [`Self::get_active_chart`] before issuing chart-mutating calls
     /// (`references/local-http-server.md` "Active chart focus model").
     pub async fn focus_chart(&self, chart_id: i64) -> Result<Acknowledgement, CTraderError> {
@@ -366,7 +366,7 @@ impl LocalClient {
             .await
     }
 
-    /// The currently focused chart — call this to re-confirm focus before any
+    /// The currently focused chart: call this to re-confirm focus before any
     /// chart-mutating sequence.
     pub async fn get_active_chart(&self) -> Result<ChartSummary, CTraderError> {
         self.session
@@ -424,7 +424,7 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Charts — drawing objects
+    // Charts: drawing objects
     // -----------------------------------------------------------------------------
 
     /// Adds a drawing object to the FOCUSED chart. See [`ChartObjectType`] and
@@ -450,7 +450,7 @@ impl LocalClient {
     /// mirrors [`AddChartObjectParams`] but targets an existing `object_id`; exposed
     /// here via [`crate::transport::McpSession::call_raw`] because the skill's reference
     /// docs do not pin down which subset of fields an update call accepts versus a
-    /// create call — pass only the fields you intend to change.
+    /// create call: pass only the fields you intend to change.
     pub async fn update_chart_object(
         &self,
         object_id: i64,
@@ -473,19 +473,19 @@ impl LocalClient {
             .await
     }
 
-    /// Deletes EVERY drawing object on the FOCUSED chart. **Destructive —
+    /// Deletes EVERY drawing object on the FOCUSED chart. **Destructive:
     /// irreversible.**
     pub async fn clear_chart_objects(&self) -> Result<Acknowledgement, CTraderError> {
         self.session.call_no_args("clear_chart_objects").await
     }
 
     // -----------------------------------------------------------------------------
-    // Charts — indicators
+    // Charts: indicators
     // -----------------------------------------------------------------------------
 
     /// The indicator catalog and/or currently attached indicators on the FOCUSED chart
     /// (the skill's capability description covers both; the exact response shape is not
-    /// pinned down further — inspect `extra` on each [`IndicatorSummary`]).
+    /// pinned down further: inspect `extra` on each [`IndicatorSummary`]).
     pub async fn list_chart_indicators(&self) -> Result<ListChartIndicatorsResponse, CTraderError> {
         self.session
             .call_no_args_idempotent("listChartIndicators")
@@ -531,7 +531,7 @@ impl LocalClient {
     }
 
     /// Reads an attached indicator's output values, capped at 1000 per request. Per
-    /// `Q-L9`, the result is OLDEST-first — apply
+    /// `Q-L9`, the result is OLDEST-first: apply
     /// [`crate::quirks::local_oldest_first`] (**P-LOCAL-OLDEST-FIRST**) before charting
     /// or signal generation.
     pub async fn get_indicator_values(
@@ -544,11 +544,11 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Chart templates — capability named by the skill; exact wire tool names are NOT
+    // Chart templates: capability named by the skill; exact wire tool names are NOT
     // pinned down beyond "save / list / apply / delete templates" plus the explicitly
     // named `save_chart_template`, `apply_chart_template`, and `delete_chart_template`
     // (the last from the destructive-operations list). `list_chart_templates` is this
-    // crate's best-effort inferred name for the missing fourth verb — verify against
+    // crate's best-effort inferred name for the missing fourth verb: verify against
     // the live `tools/list` schema before depending on it.
     // -----------------------------------------------------------------------------
 
@@ -559,7 +559,7 @@ impl LocalClient {
             .await
     }
 
-    /// Lists saved chart templates. Best-effort inferred tool name — see this section's
+    /// Lists saved chart templates. Best-effort inferred tool name: see this section's
     /// module-level note.
     pub async fn list_chart_templates(&self) -> Result<Value, CTraderError> {
         self.session.call_raw("list_chart_templates", None).await
@@ -572,7 +572,7 @@ impl LocalClient {
             .await
     }
 
-    /// Deletes a saved chart template. **Destructive — irreversible.**
+    /// Deletes a saved chart template. **Destructive: irreversible.**
     pub async fn delete_chart_template(&self, name: &str) -> Result<Value, CTraderError> {
         self.session
             .call_raw("delete_chart_template", as_object(json!({ "name": name })))
@@ -580,10 +580,10 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Workspaces — capability named by the skill ("Save / load / delete the full UI
+    // Workspaces: capability named by the skill ("Save / load / delete the full UI
     // layout snapshot") plus `delete_workspace` from the destructive-operations list;
     // `save_workspace`/`load_workspace`/`list_workspaces` are this crate's best-effort
-    // inferred names — verify against the live `tools/list` schema.
+    // inferred names: verify against the live `tools/list` schema.
     // -----------------------------------------------------------------------------
 
     /// Saves the current full UI layout as a named workspace.
@@ -605,7 +605,7 @@ impl LocalClient {
         self.session.call_raw("list_workspaces", None).await
     }
 
-    /// Deletes a saved workspace. **Destructive — irreversible.**
+    /// Deletes a saved workspace. **Destructive: irreversible.**
     pub async fn delete_workspace(&self, name: &str) -> Result<Value, CTraderError> {
         self.session
             .call_raw("delete_workspace", as_object(json!({ "name": name })))
@@ -613,7 +613,7 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // UI — notifications
+    // UI: notifications
     // -----------------------------------------------------------------------------
 
     /// Surfaces a native notification in the cTrader Desktop UI.
@@ -629,10 +629,10 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Watchlists — capability named by the skill ("enumeration, creation, renaming,
+    // Watchlists: capability named by the skill ("enumeration, creation, renaming,
     // deletion, and symbol membership editing") plus `delete_watchlist` and
     // `remove_symbol_from_watchlist` (from the state-verification table). The
-    // remaining verbs are this crate's best-effort inferred names — verify against
+    // remaining verbs are this crate's best-effort inferred names: verify against
     // the live `tools/list` schema.
     // -----------------------------------------------------------------------------
 
@@ -662,7 +662,7 @@ impl LocalClient {
             .await
     }
 
-    /// Deletes a watchlist, including its symbol membership. **Destructive —
+    /// Deletes a watchlist, including its symbol membership. **Destructive:
     /// irreversible.**
     pub async fn delete_watchlist(&self, watchlist_id: i64) -> Result<Value, CTraderError> {
         self.session
@@ -702,12 +702,12 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // Price alerts — capability named by the skill ("List / create / delete
+    // Price alerts: capability named by the skill ("List / create / delete
     // price-trigger alerts (above/below, bid/ask)") plus `delete_price_alert` (from the
     // destructive-operations list). `get_price_alerts`/`create_price_alert` are this
-    // crate's best-effort inferred names — verify against the live `tools/list` schema.
+    // crate's best-effort inferred names: verify against the live `tools/list` schema.
     // Per `Q-L13`, response enum value-names (e.g. `conditionType: "GreaterOrEqual"`)
-    // do NOT match the input enum (`condition: "above"`) — this crate does not attempt
+    // do NOT match the input enum (`condition: "above"`): this crate does not attempt
     // to normalize that mapping automatically since the skill does not enumerate every
     // pair; inspect the raw response and cross-reference `Q-L13` when consuming it.
     // -----------------------------------------------------------------------------
@@ -739,7 +739,7 @@ impl LocalClient {
             .await
     }
 
-    /// Deletes a price alert by id. **Destructive — irreversible.**
+    /// Deletes a price alert by id. **Destructive: irreversible.**
     pub async fn delete_price_alert(&self, alert_id: i64) -> Result<Value, CTraderError> {
         self.session
             .call_raw(
@@ -750,7 +750,7 @@ impl LocalClient {
     }
 
     // -----------------------------------------------------------------------------
-    // cBot plugins — `listPlugins`, `startPlugin`, `stopPlugin` are literally named by
+    // cBot plugins: `listPlugins`, `startPlugin`, `stopPlugin` are literally named by
     // the skill's surface map (camelCase, matching `listChartIndicators` et al.).
     // -----------------------------------------------------------------------------
 
@@ -767,7 +767,7 @@ impl LocalClient {
     }
 
     /// Stops a running cBot/plugin by id. **Destructive** in the sense that it
-    /// interrupts a live automated strategy mid-execution — confirm with the user first.
+    /// interrupts a live automated strategy mid-execution: confirm with the user first.
     pub async fn stop_plugin(&self, plugin_id: i64) -> Result<Value, CTraderError> {
         self.session
             .call_raw("stopPlugin", as_object(json!({ "pluginId": plugin_id })))

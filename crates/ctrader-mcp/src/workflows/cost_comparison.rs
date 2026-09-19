@@ -1,4 +1,4 @@
-//! **Cost-of-trading comparison** (`SKILL.md` recipe 3) — ranks a set of symbols by
+//! **Cost-of-trading comparison** (`SKILL.md` recipe 3): ranks a set of symbols by
 //! current spread, for "which is cheaper to trade, A or B" style requests.
 
 use crate::error::CTraderError;
@@ -11,7 +11,7 @@ pub struct SymbolCost {
     pub symbol_name: String,
     pub symbol_id: i64,
     /// Raw pipette spread (`ask - bid`); `None` if a quote wasn't returned for this
-    /// symbol (see `Q-R8` — a single unknown id can empty the whole batch response, so
+    /// symbol (see `Q-R8`: a single unknown id can empty the whole batch response, so
     /// a missing entry here may mean a DIFFERENT symbol in the batch was invalid, not
     /// necessarily this one).
     pub spread_pipettes: Option<i64>,

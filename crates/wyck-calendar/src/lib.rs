@@ -4,7 +4,7 @@
 //! feed, a tolerant parser, impact / currency / watchlist filtering, a self-refreshing
 //! cached service, and non-blocking "big release incoming" warnings.
 //!
-//! The crate is UI-agnostic on purpose — no `ratatui`, no terminal — so the TUI, a
+//! The crate is UI-agnostic on purpose (no `ratatui`, no terminal) so the TUI, a
 //! future GUI and a headless engine can all consume the same types. It knows nothing
 //! about cTrader either; the one bridge to the trading side is
 //! [`currencies_from_symbols`], which turns the symbol names a session trades into the
@@ -15,33 +15,33 @@
 //! | Layer | Items | Does I/O? |
 //! |---|---|---|
 //! | Model | [`CalendarEvent`], [`Impact`], [`Scope`], [`Currency`], [`Reading`] | no |
-//! | Decode | [`parse_feed`] → [`Feed`] | no |
+//! | Decode | [`parse_feed`] -> [`Feed`] | no |
 //! | Query | [`EventFilter`], [`between`], [`upcoming`], [`imminent_events`] | no |
 //! | Fetch | [`CalendarClient`] (one conditional GET), [`Fetch`] trait | yes |
-//! | Service | [`CalendarService`] → [`CalendarHandle`] → [`CalendarState`] | yes (background) |
+//! | Service | [`CalendarService`] -> [`CalendarHandle`] -> [`CalendarState`] | yes (background) |
 //!
 //! Everything below the *Fetch* layer is pure and synchronous, so it can be called from
 //! a render loop freely.
 //!
 //! ## The feed, and what this crate does about its quirks
 //!
-//! Source: `https://nfs.faireconomy.media/ff_calendar_thisweek.json` — no auth, one JSON
-//! array per week:
+//! Source: `https://nfs.faireconomy.media/ff_calendar_thisweek.json`, which needs no
+//! authentication and serves one JSON array per week:
 //!
 //! ```json
 //! {"title":"CPI m/m","country":"CAD","date":"2026-09-14T08:30:00-04:00",
 //!  "impact":"High","forecast":"-0.1%","previous":"0.5%"}
 //! ```
 //!
-//! - `country` is a currency code **or `"All"`** → [`Scope::Global`].
-//! - `forecast` / `previous` are free-form display strings, often `""` → [`Option`];
+//! - `country` is a currency code **or `"All"`** -> [`Scope::Global`].
+//! - `forecast` / `previous` are free-form display strings, often `""` -> [`Option`];
 //!   numeric shapes (`0.1%`, `8.3K`, `-1.00T`) are interpreted on demand by
 //!   [`Reading::parse`], and non-numeric ones (`3.65|1.3` auction yield | bid-to-cover,
 //!   `3-0-6` vote splits) degrade to [`Reading::Compound`] / [`Reading::Text`] rather
 //!   than failing.
-//! - `date` carries an explicit UTC offset (US Eastern, DST-aware) →
+//! - `date` carries an explicit UTC offset (US Eastern, DST-aware) ->
 //!   [`time::OffsetDateTime`]; instants compare correctly across offsets.
-//! - The feed **rate-limits** aggressive clients (`429`) → the service polls every 30
+//! - The feed **rate-limits** aggressive clients (`429`) -> the service polls every 30
 //!   minutes by default, sends `ETag`/`Last-Modified` validators, and backs off.
 //! - **Schema drift** is contained: a malformed record is skipped and counted
 //!   ([`Feed::skipped`]); a document where *nothing* decodes is an error, so a good
@@ -51,11 +51,11 @@
 //!
 //! | Fact | Consequence here |
 //! |---|---|
-//! | **Rate limit ≈ 2 requests / 5 min / IP.** Beyond it: `429` with `Retry-After: 300` and an HTML body. A `304` may well count too. | [`ServiceConfig`] defaults: poll every 30 min, never two attempts closer than 5 min, retries floored at 5 min, `429` honored via [`DEFAULT_RATE_LIMIT_HOLD`]. Manual refresh cannot bypass any of it. |
+//! | **Rate limit about 2 requests / 5 min / IP.** Beyond it: `429` with `Retry-After: 300` and an HTML body. A `304` may well count too. | [`ServiceConfig`] defaults: poll every 30 min, never two attempts closer than 5 min, retries floored at 5 min, `429` honored via [`DEFAULT_RATE_LIMIT_HOLD`]. Manual refresh cannot bypass any of it. |
 //! | Sits behind Cloudflare: `Cache-Control: public, max-age=60`, a (weak) `ETag`, `Last-Modified`; conditional GETs return `304`. | [`Validators`] are replayed on every refresh. |
-//! | **Only the current week exists** (Sunday–Saturday). `…nextweek.json` / `…lastweek.json` are `404`. | The calendar is empty of next-week events until the source rolls over; a UI should not present "nothing upcoming" on a Friday evening as "no news". |
+//! | **Only the current week exists** (Sunday to Saturday). `ff_calendar_nextweek.json` / `ff_calendar_lastweek.json` are `404`. | The calendar is empty of next-week events until the source rolls over; a UI should not present "nothing upcoming" on a Friday evening as "no news". |
 //! | Sibling formats exist (`.xml`, `.csv`); the JSON has exactly six fields and **no `actual`** value. | This crate models JSON only; there is no "actual vs forecast" surprise data to compute. |
-//! | Block pages are HTML (`Request Denied — you've exceeded the limit for Calendar Export requests`). | Detected as [`CalendarError::HtmlResponse`] (transient, 5-minute hold) instead of a JSON decode error. |
+//! | Block pages are HTML (`Request Denied: you've exceeded the limit for Calendar Export requests`). | Detected as [`CalendarError::HtmlResponse`] (transient, 5-minute hold) instead of a JSON decode error. |
 //! | Undocumented and unofficial: no SLA, no published terms for this host. | Everything degrades to "stale data + `last_error`"; nothing panics. Do not build order-blocking logic on it. |
 //!
 //! Practical corollary: every app restart is a request. Restarting the TUI repeatedly
@@ -99,7 +99,7 @@
 //! ## Errors
 //!
 //! Fetch problems are values ([`CalendarError`]), never panics, and the service turns
-//! them into [`CalendarState::last_error`] while keeping the last good data — see
+//! them into [`CalendarState::last_error`] while keeping the last good data: see
 //! [`Freshness`]. Failures are logged through `tracing`; this crate installs no
 //! subscriber.
 

@@ -9,14 +9,14 @@ use crate::error::{ConfigError, Result};
 /// Writes `contents` to `path` atomically: write to a uniquely-named temp file in the
 /// same directory, then rename over the target. Rename-over-existing-file is atomic on
 /// the same filesystem on every platform this crate targets, so a crash or power loss
-/// mid-write can never leave a half-written config or secret-envelope file behind —
+/// mid-write can never leave a half-written config or secret-envelope file behind:
 /// readers only ever see the old complete file or the new complete file, never a
 /// partial one.
 ///
 /// On Unix, the temp file is created with `0600` permissions (owner read/write only)
 /// before any content is written, since every caller of this function writes either a
 /// [`crate::SecretKey`] reference (in the config file) or ciphertext (in an encrypted
-/// envelope) — neither should be world-readable.
+/// envelope): neither should be world-readable.
 pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
     let dir = path.parent().ok_or_else(|| ConfigError::Write {
         path: path.to_path_buf(),

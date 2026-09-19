@@ -3,7 +3,7 @@
 //! Enum *casing* still differs per server at the wire level (Local accepts
 //! case-insensitive input and echoes PascalCase, per `Q-L3`; Remote requires uppercase
 //! input and always echoes uppercase) even though the underlying concept (buy vs. sell)
-//! is identical — [`TradeSide`] centralizes that with server-specific serialization
+//! is identical: [`TradeSide`] centralizes that with server-specific serialization
 //! helpers instead of duplicating the enum per server.
 
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ impl TradeSide {
         }
     }
 
-    /// The opposite side — useful when computing the closing-deal side expected during
+    /// The opposite side: useful when computing the closing-deal side expected during
     /// post-flight verification (`self-healing-playbook.md` §2.1: "closing trade is
     /// recorded ... with side opposite to `tradeSide`").
     pub fn opposite(self) -> Self {
@@ -70,7 +70,7 @@ impl TradeSide {
 ///
 /// `references/remote-http-server.md` "`period` enum: 9 values" (`Q-R1`) documents that
 /// the Remote `get_trendbars.period` field accepts exactly these 9 values, not the
-/// 26-value superset earlier documentation claimed — `get_trendbars(period="M_2", ...)`
+/// 26-value superset earlier documentation claimed: `get_trendbars(period="M_2", ...)`
 /// returns an MCP `-32602` schema-mismatch error. Local's `get_trendbars.period` uses an
 /// equivalent 9-timeframe set. Centralizing the enum here means an unsupported
 /// granularity (`M_2`, `M_3`, `H_3`, ...) is a compile error in caller code, not a
@@ -117,7 +117,7 @@ impl Period {
     /// pagination window sizes (`Q-L4`: `window_minutes = 1000 * timeframe_minutes`).
     /// `MN1` (calendar month) has no fixed minute duration; this returns the average
     /// Gregorian month length (43,200 minutes / 30 days) as a conservative window-sizing
-    /// approximation — callers doing exact calendar-month windowing should compute
+    /// approximation: callers doing exact calendar-month windowing should compute
     /// month boundaries directly instead of relying on this value.
     pub fn approx_minutes(self) -> i64 {
         match self {
@@ -136,8 +136,8 @@ impl Period {
     /// If `label` is a granularity this enum does not support (e.g. the legacy claim's
     /// `"M_2"`, `"M_3"`, `"H_3"`), suggests the nearest supported alternative per the
     /// `Q-R1` workaround ("propose the nearest supported alternative"). Returns `None`
-    /// when `label` already names a supported [`Period`] (use `label.parse()` — see the
-    /// [`std::str::FromStr`] impl — for the exact match instead).
+    /// when `label` already names a supported [`Period`] (use `label.parse()`, see the
+    /// [`std::str::FromStr`] impl, for the exact match instead).
     pub fn suggest_alternative(label: &str) -> Option<Period> {
         match label {
             "M_2" | "M_3" | "M_4" => Some(Period::M5),
@@ -179,14 +179,14 @@ impl std::str::FromStr for Period {
 #[derive(Debug, thiserror::Error)]
 #[error(
     "unsupported trendbar period `{requested}` (only M_1, M_5, M_15, M_30, H_1, H_4, D_1, W_1, MN_1 are supported){}",
-    suggestion.map(|p| format!(" — did you mean {}?", p.as_wire_str())).unwrap_or_default()
+    suggestion.map(|p| format!(": did you mean {}?", p.as_wire_str())).unwrap_or_default()
 )]
 pub struct UnsupportedPeriod {
     pub requested: String,
     pub suggestion: Option<Period>,
 }
 
-/// Converts a raw `10^money_digits`-scaled integer (Remote's money encoding — see
+/// Converts a raw `10^money_digits`-scaled integer (Remote's money encoding: see
 /// `references/remote-http-server.md` "Money encoding on Remote") to its display value.
 pub fn money_from_raw(raw: i64, money_digits: u32) -> f64 {
     raw as f64 / 10f64.powi(money_digits as i32)

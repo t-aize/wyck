@@ -1,4 +1,4 @@
-//! **Pre-trade briefing** (`SKILL.md` recipe 2) — a symbol's static metadata, live
+//! **Pre-trade briefing** (`SKILL.md` recipe 2): a symbol's static metadata, live
 //! quote, and recent price history in one call, for "should I trade X" / "what does X
 //! look like right now" style requests.
 
@@ -19,14 +19,14 @@ pub struct PreTradeBriefing {
 }
 
 /// Assembles a [`PreTradeBriefing`] for `symbol_name`, resolving it against `session`'s
-/// cached symbol map (see [`RemoteSessionContext::find_symbol`] — populated by
+/// cached symbol map (see [`RemoteSessionContext::find_symbol`]: populated by
 /// [`crate::workflows::bootstrap_remote`]).
 ///
 /// # Errors
 ///
 /// [`CTraderError::Invariant`] if `symbol_name` isn't in the cached symbol map, or if
 /// `get_spot_prices` returns no quote for it (per `Q-R8`, this can also mean the id is
-/// unknown to the broker even though it appeared in `get_symbols` — e.g. a disabled or
+/// unknown to the broker even though it appeared in `get_symbols`: e.g. a disabled or
 /// stale entry).
 pub async fn pre_trade_briefing(
     client: &RemoteClient,
@@ -44,7 +44,7 @@ pub async fn pre_trade_briefing(
     let prices = client.get_spot_prices(vec![symbol.symbol_id]).await?;
     let spot = prices.prices.into_iter().next().ok_or_else(|| {
         CTraderError::Invariant(format!(
-            "get_spot_prices returned no quote for `{symbol_name}` (symbolId {}) — see Q-R8",
+            "get_spot_prices returned no quote for `{symbol_name}` (symbolId {}): see Q-R8",
             symbol.symbol_id
         ))
     })?;

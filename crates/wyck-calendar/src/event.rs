@@ -27,7 +27,7 @@ pub enum Impact {
     Low,
     /// Moderately market-moving.
     Medium,
-    /// Highly market-moving (rate decisions, CPI, payrolls, …).
+    /// Highly market-moving (rate decisions, CPI, payrolls, etc.).
     High,
 }
 
@@ -60,7 +60,7 @@ impl fmt::Display for Impact {
 /// What an event applies to.
 ///
 /// The feed's `country` field is normally a currency code but is the literal `"All"` for
-/// events that are not tied to one currency (`BRICS Summit`, `ECOFIN Meetings` …).
+/// events that are not tied to one currency (`BRICS Summit`, `ECOFIN Meetings`, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Scope {
     /// Not tied to a single currency.
@@ -134,7 +134,7 @@ impl CalendarEvent {
     }
 }
 
-/// Events whose time lies in `[from, to)`. `events` must be sorted by time — the order
+/// Events whose time lies in `[from, to)`. `events` must be sorted by time: the order
 /// [`crate::parse_feed`] returns and [`crate::CalendarState::events`] holds.
 #[must_use]
 pub fn between(

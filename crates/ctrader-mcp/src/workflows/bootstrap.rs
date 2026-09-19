@@ -1,4 +1,4 @@
-//! **W0 — Session bootstrap.** Identifies the live build, resolves the active account,
+//! **W0: Session bootstrap.** Identifies the live build, resolves the active account,
 //! and caches the symbol/asset maps every other workflow assumes are already loaded.
 //! Run this exactly once per session, before any other workflow.
 
@@ -17,12 +17,12 @@ use crate::remote::dto::{Asset, RemoteSymbol};
 /// [`Self::find_symbol`]/[`Self::find_symbol_by_id`]/[`Self::find_asset_name`] are O(1)
 /// instead of scanning the full universe on every call. That matters here specifically
 /// because `wyck`'s whole premise is hotkey-driven, no-LLM-in-the-execution-path
-/// trading (see the crate root docs) — a symbol lookup sits directly on that hotkey path
+/// trading (see the crate root docs): a symbol lookup sits directly on that hotkey path
 /// for every order placement, so it should not cost a linear scan over a symbol universe
 /// that can run into the thousands.
 #[derive(Debug, Clone)]
 pub struct RemoteSessionContext {
-    /// `rest-proxy` build identifier — compare against this crate's documented minimum
+    /// `rest-proxy` build identifier: compare against this crate's documented minimum
     /// build (`rest-proxy 1.0.18`) before trusting `known-quirks.md` workarounds still
     /// apply verbatim (W0 step 3: older builds may not have the fields these workarounds
     /// assume; newer builds may have already fixed some of them).
@@ -43,10 +43,10 @@ pub struct RemoteSessionContext {
     /// [`Self::find_asset_name`] over scanning this directly.
     pub assets: Vec<Asset>,
     /// Whether this connection has the `trading` profile bound (mutating tools
-    /// available) or only `data` (read-only) — surface to the user before attempting a
+    /// available) or only `data` (read-only): surface to the user before attempting a
     /// mutating workflow if this is `false`.
     pub has_trading_profile: bool,
-    /// A session-scoped prefix (`"sess-<8 hex chars>"`) — include it in every mutating
+    /// A session-scoped prefix (`"sess-<8 hex chars>"`): include it in every mutating
     /// call's `label`/`comment` field for the rest of the session so a transient-failure
     /// retry can detect (and skip) a duplicate rather than placing a second order.
     pub idempotency_prefix: String,
@@ -89,10 +89,10 @@ impl RemoteSessionContext {
 
 /// Runs W0 against a Remote connection: probes `get_version`, resolves the active
 /// account via `get_balance`, and caches `get_assets`/`get_symbols` (indexed for O(1)
-/// lookup — see [`RemoteSessionContext`]'s doc comment).
+/// lookup: see [`RemoteSessionContext`]'s doc comment).
 ///
 /// Does **not** run the optional Q-R4-RANGE `MARKET_RANGE` probe from W0 step 7 (it
-/// places a real order) — that remains an explicit, separate opt-in a caller makes only
+/// places a real order): that remains an explicit, separate opt-in a caller makes only
 /// on a demo account; see `self-healing-playbook.md` §5.3 (**P-REMOTE-MARKET-RANGE**)
 /// and the skill's W0 step 7 for the exact probe sequence if a caller wants to implement
 /// it.
@@ -101,20 +101,20 @@ impl RemoteSessionContext {
 ///
 /// The skill's reference docs (audited against `rest-proxy 1.0.18`) document
 /// `get_version` as part of the Remote surface, but it has been observed absent
-/// (`MCP -32602: Tool get_version not found`) on at least one live deployment — the
+/// (`MCP -32602: Tool get_version not found`) on at least one live deployment: the
 /// build-identification step this tool feeds is a diagnostic nicety (it only gates
 /// *which* `known-quirks.md` workarounds a caller trusts), not something the rest of
-/// bootstrap — resolving the account, caching symbols — depends on. A missing
+/// bootstrap: resolving the account, caching symbols: depends on. A missing
 /// `get_version` is therefore logged and swallowed rather than aborting the whole
 /// session: `version`/`build_time` on the returned [`RemoteSessionContext`] are simply
 /// `None`, and a caller relying on a specific quirk build-gate should treat `None` the
-/// same way W0 step 3 treats an unparseable version — decline to assume the workaround
+/// same way W0 step 3 treats an unparseable version: decline to assume the workaround
 /// still applies rather than guessing.
 ///
 /// # Errors
 ///
 /// Propagates any [`CTraderError`] from the underlying `get_balance`/`get_assets`/
-/// `get_symbols`/`tools/list` calls (but not from `get_version` — see above).
+/// `get_symbols`/`tools/list` calls (but not from `get_version`: see above).
 pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionContext, CTraderError> {
     // Diagnostic-only, logged unconditionally before anything else: if a later step in
     // this function fails with a "tool not found" style error, the full advertised

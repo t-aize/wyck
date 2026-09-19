@@ -1,10 +1,10 @@
 //! The underlying [`rmcp`] session and the generic, typed `tools/call` helper shared by
 //! [`crate::local::LocalClient`] and [`crate::remote::RemoteClient`].
 //!
-//! Neither server-specific client talks to [`rmcp`] directly — both hold an
+//! Neither server-specific client talks to [`rmcp`] directly, both hold an
 //! [`McpSession`] and express every tool as a call to [`McpSession::call`],
 //! [`McpSession::call_no_args`], or (for tools this crate does not yet model with a typed
-//! DTO — see the per-category notes in [`crate::local`] and [`crate::remote`])
+//! DTO, see the per-category notes in [`crate::local`] and [`crate::remote`])
 //! [`McpSession::call_raw`]. This keeps the encoding/decoding, error-classification
 //! (`self-healing-playbook.md` §3), and schema-fields-only enforcement (§1.5, implicit
 //! since only declared DTO fields are ever serialized) in exactly one place.
@@ -28,7 +28,7 @@ use crate::retry::{RetryPolicy, retry_with_backoff};
 /// The [`rmcp::ClientHandler`] identity this crate presents to every cTrader MCP server
 /// during the `initialize` handshake. It declines every server-initiated capability
 /// (sampling, roots, elicitation) because this crate is a pure tool-calling client, not
-/// an interactive agent host — cTrader's servers do not currently call back into the
+/// an interactive agent host: cTrader's servers do not currently call back into the
 /// client for any of those capabilities.
 #[derive(Debug, Clone, Copy, Default)]
 struct ClientIdentity;
@@ -36,7 +36,7 @@ struct ClientIdentity;
 impl ClientHandler for ClientIdentity {
     fn get_info(&self) -> ClientConfig {
         // `Implementation` is `#[non_exhaustive]`, so it cannot be built with a struct
-        // literal from outside `rmcp` — start from its `Default` impl and overwrite the
+        // literal from outside `rmcp`: start from its `Default` impl and overwrite the
         // fields this crate cares about.
         let mut implementation = Implementation::default();
         implementation.name = "ctrader-mcp".to_string();
@@ -49,20 +49,20 @@ impl ClientHandler for ClientIdentity {
 }
 
 /// A live MCP session against exactly one cTrader server endpoint (either a Local
-/// desktop instance or a Remote `rest-proxy` deployment — this type is server-family
+/// desktop instance or a Remote `rest-proxy` deployment: this type is server-family
 /// agnostic; [`crate::local::LocalClient`] and [`crate::remote::RemoteClient`] are the
 /// server-family-aware layers built on top of it).
 pub struct McpSession {
     running: RunningService<RoleClient, ClientIdentity>,
     /// Copied from [`ConnectionConfig::retry_policy`] at connect time, and used by
     /// [`Self::call_idempotent`]/[`Self::call_no_args_idempotent`]. `connect` itself is
-    /// also retried against this same policy — see this method's body.
+    /// also retried against this same policy: see this method's body.
     retry_policy: RetryPolicy,
 }
 
 impl McpSession {
     /// Opens a streamable-HTTP + SSE MCP session against `config.uri`, performing the
-    /// MCP `initialize` handshake before returning. Retried per `config.retry_policy` —
+    /// MCP `initialize` handshake before returning. Retried per `config.retry_policy`:
     /// always safe to retry, since nothing has been sent to any tool yet at this point.
     ///
     /// # Errors
@@ -97,7 +97,7 @@ impl McpSession {
                         // still derives/implements `Debug`, and each layer's own `Debug` impl
                         // recursively embeds its `source`'s `Debug` (this is true of
                         // `reqwest::Error` in particular, whose `Debug` includes `kind`, `url`,
-                        // AND `source`) — so formatting with `{:?}` surfaces the full chain
+                        // AND `source`), so formatting with `{:?}` surfaces the full chain
                         // regardless of which attribute rmcp did or didn't add.
                         message: format!("{source:?}"),
                     })
@@ -123,12 +123,12 @@ impl McpSession {
     /// `params` must serialize to a JSON object (every request DTO in [`crate::local`]
     /// and [`crate::remote`] does) or `Null` (equivalent to no arguments). Response
     /// decoding prefers `structured_content` when the server populates it, falling back
-    /// to parsing the first text content block as JSON — cTrader's servers have been
+    /// to parsing the first text content block as JSON: cTrader's servers have been
     /// observed to use either shape depending on build and tool.
     ///
     /// # Errors
     ///
-    /// See [`CTraderError`] — transport failures, schema mismatches, server rejections,
+    /// See [`CTraderError`]: transport failures, schema mismatches, server rejections,
     /// upstream broker failures, and decode failures are all distinguished.
     pub async fn call<P, R>(&self, tool: &'static str, params: P) -> Result<R, CTraderError>
     where
@@ -159,7 +159,7 @@ impl McpSession {
     /// [`crate::config::ConnectionConfig::retry_policy`] on transient failures.
     ///
     /// Only ever call this for a tool that is safe to run more than once for a single
-    /// logical request — i.e. a read-only getter. Never wrap a mutating call
+    /// logical request: i.e. a read-only getter. Never wrap a mutating call
     /// (`create_order`, `amend_order`, `cancel_order`, `amend_position`,
     /// `close_position`, `place_*_order`, ...) in this: see [`crate::retry`]'s module doc
     /// comment for why a lost response cannot be told apart from a lost request.
@@ -179,7 +179,7 @@ impl McpSession {
         .await
     }
 
-    /// The no-argument counterpart to [`Self::call_idempotent`] — see that method's doc
+    /// The no-argument counterpart to [`Self::call_idempotent`]: see that method's doc
     /// comment for which tools this is safe to use for.
     pub async fn call_no_args_idempotent<R: DeserializeOwned>(
         &self,
@@ -208,7 +208,7 @@ impl McpSession {
             other => {
                 // A DTO that serializes to a JSON scalar/array instead of an object is a
                 // programming error in this crate, not a runtime condition callers can
-                // recover from — surface it the same way a serialization failure would
+                // recover from: surface it the same way a serialization failure would
                 // be surfaced, rather than silently dropping the arguments.
                 Err(CTraderError::Encode {
                     tool: tool.into(),
@@ -220,7 +220,7 @@ impl McpSession {
         }
     }
 
-    /// Escape hatch for tools this crate does not (yet) model with a typed DTO — see the
+    /// Escape hatch for tools this crate does not (yet) model with a typed DTO: see the
     /// "inferred tool name" notes on [`crate::local::LocalClient`] methods for
     /// categories (watchlists, workspaces, chart templates, price alerts) where the
     /// skill's reference documentation names the *capability* but not always the exact
@@ -243,7 +243,7 @@ impl McpSession {
     ///
     /// `"ping"` is deliberately not part of either fingerprint despite appearing in
     /// older versions of this crate's own documentation: neither server advertises it
-    /// here — see [`Self::ping`].
+    /// here: see [`Self::ping`].
     pub async fn list_tool_names(&self) -> Result<Vec<String>, CTraderError> {
         let tools = self
             .peer()
@@ -257,12 +257,12 @@ impl McpSession {
     }
 
     /// Confirms round-trip liveness with the connected server via a native MCP protocol
-    /// `ping` (`ClientRequest::PingRequest`) — NOT a `tools/call`.
+    /// `ping` (`ClientRequest::PingRequest`), NOT a `tools/call`.
     ///
     /// Both `RemoteClient::ping` and `LocalClient::ping` used to send this as a tool
     /// call named `"ping"`, which was silently broken: a live probe against both
     /// server families (`examples/probe_remote.rs`, `examples/probe_local.rs`) found
-    /// that neither one advertises `"ping"` in `tools/list` — MCP's protocol-level ping
+    /// that neither one advertises `"ping"` in `tools/list`: MCP's protocol-level ping
     /// exists precisely so a client doesn't need a tool for this.
     pub async fn ping(&self) -> Result<(), CTraderError> {
         self.peer()

@@ -1,7 +1,7 @@
 //! Regression coverage for the `ping` bug found by a live probe against both server
 //! families (`examples/probe_remote.rs`, `examples/probe_local.rs`): neither Remote nor
 //! Local advertises `"ping"` in `tools/list`, because MCP's `ping` is a protocol-level
-//! request (`ClientRequest::PingRequest`), not a tool — `McpSession::ping`/
+//! request (`ClientRequest::PingRequest`), not a tool: `McpSession::ping`/
 //! `RemoteClient::ping`/`LocalClient::ping` used to send it as a `tools/call` and would
 //! have failed against a real server.
 
@@ -14,7 +14,7 @@ use ctrader_mcp::transport::McpSession;
 use support::MockMcpServer;
 
 /// `rmcp`'s default `ServerHandler::ping` implementation (which `MockMcpServer` doesn't
-/// override) already answers `Ok(())` — no tool registration needed for this to work.
+/// override) already answers `Ok(())`: no tool registration needed for this to work.
 #[tokio::test]
 async fn session_ping_succeeds_without_registering_a_ping_tool() {
     let server = MockMcpServer::builder().build();

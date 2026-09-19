@@ -1,7 +1,7 @@
 //! Regression coverage for the double-Bearer-prefix auth bug: `ConnectionConfig::
 //! with_bearer_token` used to store `"Bearer <token>"`, which `rmcp`'s streamable-HTTP
 //! transport then prefixed with `Bearer ` AGAIN (via `reqwest::RequestBuilder::
-//! bearer_auth`), sending `Authorization: Bearer Bearer <token>` — which cTrader's
+//! bearer_auth`), sending `Authorization: Bearer Bearer <token>`, which cTrader's
 //! remote MCP endpoint rejected with `AuthRequired(invalid_token)`.
 //!
 //! These tests talk to a raw `axum` router with no MCP semantics at all (mirroring
@@ -54,7 +54,7 @@ async fn bearer_token_is_sent_without_a_doubled_bearer_prefix() {
     assert_eq!(
         captured_auth_header.lock().unwrap().as_deref(),
         Some("Bearer secret-token"),
-        "must be exactly \"Bearer secret-token\" — a doubled prefix (\"Bearer Bearer \
+        "must be exactly \"Bearer secret-token\": a doubled prefix (\"Bearer Bearer \
          secret-token\") is the regression this test guards against"
     );
 

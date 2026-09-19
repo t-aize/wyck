@@ -11,7 +11,7 @@
 //! for every tool ([`crate::local`]'s doc comments explain which categories are
 //! best-effort). A Local-server equivalent of any workflow below composes the same way
 //! from [`crate::local::LocalClient`]'s 1:1-equivalent methods (`get_positions`,
-//! `get_pending_orders`, `place_market_order`, `close_position`, ...) — the *shape* of
+//! `get_pending_orders`, `place_market_order`, `close_position`, ...): the *shape* of
 //! the workflow (read -> compute -> pre-flight gate -> mutate -> re-read) does not
 //! change between servers, only the DTOs and unit encodings do.
 

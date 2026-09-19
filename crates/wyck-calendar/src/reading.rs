@@ -15,13 +15,13 @@ pub enum Unit {
     Plain,
     /// `%`.
     Percent,
-    /// `K` — thousands.
+    /// `K`: thousands.
     Thousand,
-    /// `M` — millions.
+    /// `M`: millions.
     Million,
-    /// `B` — billions.
+    /// `B`: billions.
     Billion,
-    /// `T` — trillions.
+    /// `T`: trillions.
     Trillion,
 }
 
@@ -43,7 +43,7 @@ impl Unit {
 /// A parsed `forecast` / `previous` value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reading {
-    /// A single number with its unit, exactly as printed (`"8.3K"` → `8.3` +
+    /// A single number with its unit, exactly as printed (`"8.3K"` becomes `8.3` +
     /// [`Unit::Thousand`]).
     Number {
         /// The printed number, unscaled.

@@ -1,6 +1,6 @@
 //! Credential storage: the [`SecretStore`] trait and its two implementations.
 //!
-//! Tokens never live in [`crate::AppConfig`]'s plaintext TOML file — only a
+//! Tokens never live in [`crate::AppConfig`]'s plaintext TOML file: only a
 //! [`SecretKey`] identifying *where* to look one up does. The actual secret bytes go
 //! through a [`SecretStore`] backend and are held in memory as
 //! [`secrecy::SecretString`] (zeroized on drop, never printed by `Debug`), never as a
@@ -8,10 +8,10 @@
 //!
 //! Two backends are provided:
 //!
-//! - [`KeyringSecretStore`] (default, recommended) — delegates to the OS-native
+//! - [`KeyringSecretStore`] (default, recommended): delegates to the OS-native
 //!   credential store (Windows Credential Manager, macOS Keychain, Linux Secret
 //!   Service). No key management burden on this crate at all; the OS owns it.
-//! - [`EncryptedFileSecretStore`] (fallback) — for environments without an OS keyring
+//! - [`EncryptedFileSecretStore`] (fallback): for environments without an OS keyring
 //!   (headless Linux boxes, some CI/container environments, `wyck`'s own planned
 //!   "always-on box" headless mode per the project README). Encrypts each secret with
 //!   ChaCha20-Poly1305 under a key derived from a caller-supplied passphrase via
@@ -64,7 +64,7 @@ impl std::fmt::Display for SecretKey {
 /// A backend capable of storing, retrieving, and deleting secrets by [`SecretKey`].
 ///
 /// Implementations must never let a secret value escape into an error message, a log
-/// line, or any other diagnostic output — only the [`SecretKey`] (never sensitive on
+/// line, or any other diagnostic output: only the [`SecretKey`] (never sensitive on
 /// its own) is safe to include in an [`crate::ConfigError`].
 pub trait SecretStore: Send + Sync {
     /// Stores `secret` under `key`, overwriting any existing value.

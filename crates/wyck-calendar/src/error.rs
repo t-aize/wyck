@@ -41,7 +41,7 @@ pub enum CalendarError {
     },
 
     /// A success status, but the body is an HTML page rather than JSON: the shape of the
-    /// feed's "Request Denied — you've exceeded the limit for Calendar Export requests"
+    /// feed's "Request Denied: you've exceeded the limit for Calendar Export requests"
     /// block page, or of a CDN/maintenance page. Treated like a rate limit (transient,
     /// long hold) rather than as schema drift.
     #[error("calendar feed returned an HTML page instead of JSON (blocked or maintenance page)")]

@@ -2,21 +2,21 @@
 //!
 //! Centralized application configuration and encrypted credential storage, shared by
 //! every crate in the `wyck` workspace that needs to persist settings or hold a
-//! broker/API token — the TUI today, a future GUI and headless engine tomorrow, and any
+//! broker/API token: the TUI today, a future GUI and headless engine tomorrow, and any
 //! future crate for a service other than cTrader.
 //!
 //! ## Two kinds of state, kept apart on purpose
 //!
-//! - **[`AppConfig`]** — plaintext, human-editable, versioned TOML at
+//! - **[`AppConfig`]**: plaintext, human-editable, versioned TOML at
 //!   [`AppPaths::config_file`]. Holds [`ProfileConfig`]s: a display name, a free-form
 //!   `service` tag, and an optional endpoint URI. Safe to `cat`, back up, or sync
 //!   between machines.
-//! - **[`secret::SecretStore`]** — the token for each profile, held only in memory as a
+//! - **[`secret::SecretStore`]**: the token for each profile, held only in memory as a
 //!   [`secrecy::SecretString`] (zeroized on drop, never printed by `Debug`) and
-//!   persisted through a pluggable backend: [`secret::KeyringSecretStore`] (default —
+//!   persisted through a pluggable backend: [`secret::KeyringSecretStore`] (default:
 //!   delegates to the OS credential manager) or [`secret::EncryptedFileSecretStore`]
-//!   (fallback — ChaCha20-Poly1305 under an Argon2id-derived key, for environments with
-//!   no OS keyring). **A token never appears in [`AppConfig`]'s TOML file** — only a
+//!   (fallback: ChaCha20-Poly1305 under an Argon2id-derived key, for environments with
+//!   no OS keyring). **A token never appears in [`AppConfig`]'s TOML file**: only a
 //!   [`secret::SecretKey`] derived from the profile's id does, and that key identifies
 //!   *where* to look the token up, not the token itself.
 //!
@@ -35,7 +35,7 @@
 //! let mut config = WyckConfig::load(paths, Box::new(KeyringSecretStore::default()))?;
 //!
 //! let id = config.add_profile(
-//!     "Live — FTMO 100k",
+//!     "Live: FTMO 100k",
 //!     "ctrader-remote",
 //!     Some("https://mcp.ctrader.com/trading/mcp".to_string()),
 //!     Some(SecretString::from("the-account-token".to_string())),
@@ -70,7 +70,7 @@ use secrecy::SecretString;
 ///
 /// Every mutating method here (`add_profile`, `remove_profile`, `set_active_profile`)
 /// persists [`AppConfig`] to disk before returning `Ok`, so the in-memory state and the
-/// on-disk state never drift — a caller never needs to remember to call an explicit
+/// on-disk state never drift: a caller never needs to remember to call an explicit
 /// `save` afterward.
 pub struct WyckConfig {
     paths: AppPaths,
@@ -120,13 +120,13 @@ impl WyckConfig {
     /// [`SecretStore`], appends the non-secret [`ProfileConfig`], and persists the
     /// updated [`AppConfig`] to disk.
     ///
-    /// `token` is `None` for services that don't require one — e.g. `ctrader-mcp`'s
+    /// `token` is `None` for services that don't require one: e.g. `ctrader-mcp`'s
     /// Local server, which authenticates the caller implicitly (it only ever binds to
     /// the cTrader Desktop instance running on the same machine) rather than through a
     /// bearer token like the Remote server does.
     ///
     /// If the secret-store write succeeds but the subsequent disk save fails, the
-    /// stored credential is left in place (harmless — it's simply not yet referenced by
+    /// stored credential is left in place (harmless: it's simply not yet referenced by
     /// any profile in the config) rather than attempting a rollback; retrying
     /// `add_profile` with the same inputs after fixing the save failure is always safe,
     /// since [`SecretStore::store`] overwrites rather than erroring on an existing key.

@@ -7,7 +7,7 @@ use crate::error::{ConfigError, Result};
 use crate::secret::{SecretKey, SecretStore};
 
 /// Stores secrets in the OS-native credential store: Windows Credential Manager, macOS
-/// Keychain, or (on Linux) the Secret Service D-Bus API via a pure-Rust `zbus` client —
+/// Keychain, or (on Linux) the Secret Service D-Bus API via a pure-Rust `zbus` client:
 /// whichever backend the [`keyring`] crate resolves for the current platform. This is
 /// the recommended default: the OS owns key management entirely, so there is no
 /// passphrase to prompt for or key file to protect.
@@ -18,19 +18,19 @@ use crate::secret::{SecretKey, SecretStore};
 /// opt into a platform-native backend via a Cargo feature (`windows-native`,
 /// `apple-native`, `sync-secret-service`, ...); if a project's `Cargo.toml` forgot one,
 /// `keyring` silently fell back to a non-persistent in-memory *mock* store on that
-/// platform — no compile error, no runtime error, just credentials that vanish on
+/// platform: no compile error, no runtime error, just credentials that vanish on
 /// restart. This bit multiple real projects (see the `keyring-rs` issue tracker for
 /// reports of exactly this: session tokens that "never persist" because the build was
 /// missing a platform feature). As of `keyring` 4.x this crate depends on, the `v1`
-/// feature — which bundles the Windows, Apple, and Secret-Service-via-`zbus` backends —
+/// feature, which bundles the Windows, Apple, and Secret-Service-via-`zbus` backends:
 /// is enabled by `default-features`, so a plain `keyring = "4.2"` dependency already
 /// gets real native backends on every platform `wyck` targets. **Never set
 /// `default-features = false` on the `keyring` dependency** in this crate's `Cargo.toml`
-/// without re-verifying which backend is actually selected — that footgun is exactly
+/// without re-verifying which backend is actually selected: that footgun is exactly
 /// what silently reintroduces the mock-store failure mode above.
 pub struct KeyringSecretStore {
     /// The "service" field under which every [`SecretKey`] is namespaced in the OS
-    /// store (distinct from [`SecretKey`]'s own namespace convention — this is the
+    /// store (distinct from [`SecretKey`]'s own namespace convention: this is the
     /// outer namespace the OS credential manager itself groups entries by).
     service: String,
 }

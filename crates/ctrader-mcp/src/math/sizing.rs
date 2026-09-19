@@ -3,7 +3,7 @@
 //! Translates a risk percentage (or a flat risk amount) plus a stop-loss distance into a
 //! server-native volume figure (units for Local, cents for Remote), rounding DOWN to the
 //! symbol's `volumeStep` so the sized position never exceeds the requested risk budget
-//! (`SKILL.md` W5 invariant: "Risk amount is the UPPER BOUND — the script rounds DOWN
+//! (`SKILL.md` W5 invariant: "Risk amount is the UPPER BOUND: the script rounds DOWN
 //! volumes to respect `volumeStep`").
 
 use crate::math::round_down_to_step;
@@ -16,11 +16,11 @@ pub struct SizingParams {
     pub sl_pips: i64,
     /// Pip value per lot in the symbol's quote currency (must be > 0).
     pub pip_value_per_lot: f64,
-    /// Multiplier converting quote currency to account currency — resolve with
+    /// Multiplier converting quote currency to account currency: resolve with
     /// [`crate::math::conversion::compute_chain`] when the two differ. `1.0` if they
     /// match.
     pub conversion_rate: f64,
-    /// Base-asset units per lot — always read live from `get_symbol_details`
+    /// Base-asset units per lot: always read live from `get_symbol_details`
     /// (`Q-L1`: broker-dependent, sometimes `1` rather than the FX-market convention of
     /// `100_000`).
     pub lot_size: f64,
@@ -42,7 +42,7 @@ pub struct SizingResult {
     pub cents: i64,
     /// The resulting size in display lots.
     pub lots: f64,
-    /// The actual risk (in account currency) the rounded volume represents — may differ
+    /// The actual risk (in account currency) the rounded volume represents: may differ
     /// slightly from the requested risk amount due to step rounding or min/max
     /// clipping; see `warnings` when it does.
     pub risk_currency_amount: f64,

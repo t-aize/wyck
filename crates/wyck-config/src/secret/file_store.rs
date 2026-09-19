@@ -19,7 +19,7 @@ const KEY_LEN: usize = 32;
 const NONCE_LEN: usize = 12;
 
 /// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
-/// use where no OS credential store is available — headless Linux boxes, some
+/// use where no OS credential store is available: headless Linux boxes, some
 /// containers/CI environments, or `wyck`'s own planned "always-on box" headless mode
 /// (see the project README's roadmap). Prefer [`crate::secret::KeyringSecretStore`]
 /// whenever an OS keyring is actually available; this backend exists specifically for
@@ -29,7 +29,7 @@ const NONCE_LEN: usize = 12;
 ///
 /// Each call to [`Self::store`] generates a fresh random 16-byte salt and derives a
 /// fresh 32-byte ChaCha20-Poly1305 key from `passphrase` via Argon2id
-/// (`Argon2::default()`'s parameters — the algorithm's current recommended default
+/// (`Argon2::default()`'s parameters: the algorithm's current recommended default
 /// work factor). A fresh random 12-byte nonce is generated per encryption. Salt, nonce,
 /// and ciphertext are hex-encoded into a small versioned TOML envelope and written
 /// atomically (see the crate-internal `atomic_write` helper) to `{dir}/{sanitized key}.toml`,
@@ -37,14 +37,14 @@ const NONCE_LEN: usize = 12;
 ///
 /// Because a fresh salt (and therefore a fresh derived key) is used per secret, two
 /// secrets stored under the same passphrase never share key material, even though they
-/// share a passphrase — so nonce reuse under the same key, the one catastrophic failure
+/// share a passphrase, so nonce reuse under the same key, the one catastrophic failure
 /// mode for an AEAD cipher, cannot happen across secrets. Within one secret, exactly one
 /// nonce is ever generated per [`Self::store`] call (each call re-derives a new
 /// salt+key+nonce triple from scratch, it never reuses a previous encryption's nonce
 /// under the same key).
 ///
 /// On [`Self::retrieve`], a failed AEAD authentication (wrong passphrase, or a tampered
-/// file) surfaces as [`ConfigError::Crypto`] with a message that says so — it is
+/// file) surfaces as [`ConfigError::Crypto`] with a message that says so: it is
 /// deliberately NOT reported as a generic I/O or parse failure, since "wrong passphrase"
 /// is the overwhelmingly common real-world cause and the caller should be able to
 /// present that specific message to the user.
@@ -57,7 +57,7 @@ impl EncryptedFileSecretStore {
     /// Creates a store rooted at `dir` (typically [`crate::AppPaths::secrets_dir`]),
     /// encrypting/decrypting under `passphrase`.
     ///
-    /// This crate does not prompt for the passphrase itself — reading one from a
+    /// This crate does not prompt for the passphrase itself: reading one from a
     /// terminal, an OS secure-prompt dialog, or an environment variable is a UI/app
     /// concern, deliberately kept out of this crate so it stays usable from a TUI, a
     /// future GUI, and a headless engine alike.
@@ -149,7 +149,7 @@ impl SecretStore for EncryptedFileSecretStore {
             .map_err(|_| malformed("nonce is not exactly 12 bytes".to_owned()))?;
         let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref()).map_err(|_source| ConfigError::Crypto {
             key: key.to_string(),
-            message: "decryption failed — this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
+            message: "decryption failed: this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
         })?;
 
         let plaintext = String::from_utf8(plaintext)
@@ -169,7 +169,7 @@ impl SecretStore for EncryptedFileSecretStore {
 
 /// The on-disk envelope for one encrypted secret. All three byte fields are hex-encoded
 /// so the file stays plain ASCII TOML (consistent with [`crate::AppConfig`]'s format,
-/// easy to `cat`/diff for debugging without special tooling — only the plaintext they
+/// easy to `cat`/diff for debugging without special tooling: only the plaintext they
 /// decode to is sensitive, and that never touches disk).
 #[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
@@ -181,7 +181,7 @@ struct Envelope {
 
 /// Maps a [`SecretKey`]'s raw string to a filesystem-safe file stem by replacing every
 /// character outside `[A-Za-z0-9._-]` with `_`. [`SecretKey`] values are always built by
-/// this crate's own code (namespace:name pairs — see [`SecretKey::new`]), never from
+/// this crate's own code (namespace:name pairs: see [`SecretKey::new`]), never from
 /// unsanitized external input, so this only needs to guarantee a valid, collision-free-
 /// in-practice filename, not defend against adversarial input.
 fn sanitize_filename(raw: &str) -> String {

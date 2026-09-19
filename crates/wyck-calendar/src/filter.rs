@@ -11,8 +11,8 @@ use crate::event::{CalendarEvent, Impact, Scope};
 ///
 /// An event is kept when **either**
 ///
-/// 1. it satisfies the *criteria* — `impact >= min_impact` **and** its scope is allowed
-///    by `currencies` / `include_global` — **or**
+/// 1. it satisfies the *criteria* (`impact >= min_impact` **and** its scope is allowed
+///    by `currencies` / `include_global`) **or**
 /// 2. its title contains one of the [`watchlist`](Self::watchlist) terms.
 ///
 /// The watchlist is an override, not a further restriction: it exists to say "always
@@ -32,7 +32,7 @@ pub struct EventFilter {
     /// Currencies to keep (empty = no restriction). See the type docs.
     pub currencies: BTreeSet<Currency>,
     /// With a non-empty `currencies`, whether currency-less events (`BRICS Summit`,
-    /// `ECOFIN Meetings`, …) are kept too.
+    /// `ECOFIN Meetings`, etc.) are kept too.
     pub include_global: bool,
     /// Case-insensitive title substrings that always pass, e.g. `"fomc"`, `"nonfarm"`.
     /// Stored trimmed, lower-cased and deduplicated by [`EventFilter::watch`].

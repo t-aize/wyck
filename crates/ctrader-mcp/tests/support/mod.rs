@@ -1,15 +1,15 @@
 //! Shared test-only infrastructure for `ctrader-mcp`'s integration tests: an in-process
 //! mock MCP server (real HTTP round-trip, no live network dependency) built on `rmcp`'s
-//! own server-side streamable-HTTP implementation — the same pattern `rmcp` uses in its
+//! own server-side streamable-HTTP implementation: the same pattern `rmcp` uses in its
 //! own test suite (`rmcp-*/tests/test_server_discover_http.rs`).
 //!
 //! Named `support/mod.rs` (not `support.rs`) so `cargo test` does not treat it as its own
-//! test binary — every file under `tests/` that ISN'T reachable as a module of another
+//! test binary: every file under `tests/` that ISN'T reachable as a module of another
 //! `tests/*.rs` file gets compiled and run as a separate test crate.
 //!
 //! Each `tests/*.rs` file that does `mod support;` compiles its OWN copy of this module,
 //! and typically only exercises a subset of what it exposes (e.g. a pure-HTTP header
-//! test never touches [`MockMcpServer`]) — `#![allow(dead_code)]` avoids a `-D warnings`
+//! test never touches [`MockMcpServer`]): `#![allow(dead_code)]` avoids a `-D warnings`
 //! failure in whichever integration-test binary doesn't happen to use every helper.
 #![allow(dead_code)]
 
@@ -136,7 +136,7 @@ pub async fn spawn_mock_mcp_server(server: MockMcpServer) -> (String, JoinHandle
     (format!("http://{address}/mcp"), handle)
 }
 
-/// Spins up a raw `axum` router with no MCP semantics at all — for tests that only care
+/// Spins up a raw `axum` router with no MCP semantics at all: for tests that only care
 /// about what happens at the HTTP layer (which headers a request carried, what status a
 /// response returned) below where MCP framing would even apply. Mirrors the pattern in
 /// `rmcp`'s own `tests/test_streamable_http_get_stream_auth_challenge.rs`.

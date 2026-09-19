@@ -1,7 +1,7 @@
 //! Proves the retry/rate-limit split works end to end: [`McpSession::call_no_args_idempotent`]
 //! recovers from a transient failure, while the plain (non-idempotent)
-//! [`McpSession::call_no_args`] path — the one every mutating method on
-//! [`ctrader_mcp::remote::RemoteClient`]/[`ctrader_mcp::local::LocalClient`] uses — never
+//! [`McpSession::call_no_args`] path (the one every mutating method on
+//! [`ctrader_mcp::remote::RemoteClient`]/[`ctrader_mcp::local::LocalClient`] uses) never
 //! retries, even for the exact same error. See `crates/ctrader-mcp/src/retry.rs`'s module
 //! doc comment for why that split exists (double-submitting a real order).
 
@@ -17,7 +17,7 @@ use rmcp::model::CallToolResult;
 use serde_json::json;
 use support::MockMcpServer;
 
-/// A `502 uProxy` envelope — classified as [`CTraderError::UpstreamBrokerError`],
+/// A `502 uProxy` envelope: classified as [`CTraderError::UpstreamBrokerError`],
 /// documented as "retry at most once".
 fn upstream_broker_error() -> CallToolResult {
     CallToolResult::structured_error(json!({
