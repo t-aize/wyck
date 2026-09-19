@@ -38,6 +38,9 @@
 //!   `ctrader-remote-mcp` capability.
 //! - [`quirks`] — the named recovery patterns (P-AMEND-SAFE, P-REMOTE-MARKET-RELATIVE,
 //!   P-REMOTE-HISTORY-CHUNK, P-LOCAL-OLDEST-FIRST, ...) implemented as reusable functions.
+//! - [`retry`] — [`retry::RetryPolicy`] and the backoff loop wrapping session
+//!   establishment and read-only calls (never mutating ones — see that module's doc
+//!   comment for why).
 //! - [`workflows`] — end-to-end trader workflows (session bootstrap, entry orders, modify,
 //!   close, read, risk sizing, history) composed from the two clients plus [`math`] and
 //!   [`quirks`].
@@ -58,7 +61,9 @@ pub mod error;
 pub mod local;
 pub mod math;
 pub mod quirks;
+mod rate_limit;
 pub mod remote;
+pub mod retry;
 pub mod time;
 pub mod transport;
 pub mod workflows;
@@ -67,4 +72,5 @@ pub use config::ConnectionConfig;
 pub use error::CTraderError;
 pub use local::LocalClient;
 pub use remote::RemoteClient;
+pub use retry::RetryPolicy;
 pub use transport::McpSession;

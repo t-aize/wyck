@@ -3,6 +3,8 @@
 
 use std::time::Duration;
 
+use crate::retry::RetryPolicy;
+
 /// Endpoint and authentication settings for a single cTrader MCP session.
 ///
 /// Both the Local server (bound to the cTrader Desktop application, enabled and
@@ -39,6 +41,12 @@ pub struct ConnectionConfig {
     /// Timeout allowed for session recovery after a dropped SSE stream. Defaults to 10
     /// seconds.
     pub session_recovery_timeout: Duration,
+
+    /// How [`crate::transport::McpSession::connect`] and
+    /// [`crate::transport::McpSession::call_idempotent`]/`call_no_args_idempotent`
+    /// retry on transient failures. Defaults to [`RetryPolicy::default`]. Never applied
+    /// to a mutating `tools/call` — see [`crate::retry`]'s module doc comment for why.
+    pub retry_policy: RetryPolicy,
 }
 
 impl ConnectionConfig {
@@ -50,6 +58,7 @@ impl ConnectionConfig {
             bearer_token: None,
             control_request_timeout: Duration::from_secs(30),
             session_recovery_timeout: Duration::from_secs(10),
+            retry_policy: RetryPolicy::default(),
         }
     }
 
@@ -71,6 +80,14 @@ impl ConnectionConfig {
     #[must_use]
     pub fn with_session_recovery_timeout(mut self, timeout: Duration) -> Self {
         self.session_recovery_timeout = timeout;
+        self
+    }
+
+    /// Overrides the retry policy (e.g. [`RetryPolicy::none`] for tests that want
+    /// deterministic, immediate failure).
+    #[must_use]
+    pub fn with_retry_policy(mut self, policy: RetryPolicy) -> Self {
+        self.retry_policy = policy;
         self
     }
 }

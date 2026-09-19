@@ -54,13 +54,15 @@ impl LocalClient {
 
     /// Confirms round-trip liveness with the Local server.
     pub async fn ping(&self) -> Result<Value, CTraderError> {
-        self.session.call_no_args("ping").await
+        self.session.call_no_args_idempotent("ping").await
     }
 
     /// The server's wall-clock time — prefer this over the agent's local clock for
     /// every time-window computation (`Q-L8`).
     pub async fn get_server_time(&self) -> Result<ServerTimeResponse, CTraderError> {
-        self.session.call_no_args("get_server_time").await
+        self.session
+            .call_no_args_idempotent("get_server_time")
+            .await
     }
 
     // -----------------------------------------------------------------------------
@@ -71,20 +73,24 @@ impl LocalClient {
     /// absent from this list — resolve it via [`Self::get_balance`]'s `trader_id`
     /// instead of assuming it appears here.
     pub async fn get_accounts_list(&self) -> Result<GetAccountsListResponse, CTraderError> {
-        self.session.call_no_args("get_accounts_list").await
+        self.session
+            .call_no_args_idempotent("get_accounts_list")
+            .await
     }
 
     /// The active account's balance/equity/margin snapshot. `margin_level: None` is
     /// normal with zero open positions (`Q-L18`) — do not treat it as an error.
     pub async fn get_balance(&self) -> Result<BalanceResponse, CTraderError> {
-        self.session.call_no_args("get_balance").await
+        self.session.call_no_args_idempotent("get_balance").await
     }
 
     /// Lifetime account statistics. Per `Q-L12`, may return `available: false` instead
     /// of populated data — check that flag before consuming any other field, and fall
     /// back to deriving the needed metric from in-session reads.
     pub async fn get_account_statistics(&self) -> Result<AccountStatisticsResponse, CTraderError> {
-        self.session.call_no_args("get_account_statistics").await
+        self.session
+            .call_no_args_idempotent("get_account_statistics")
+            .await
     }
 
     // -----------------------------------------------------------------------------
@@ -98,7 +104,7 @@ impl LocalClient {
         filter: Option<&str>,
     ) -> Result<GetSymbolsResponse, CTraderError> {
         self.session
-            .call(
+            .call_idempotent(
                 "get_symbols",
                 GetSymbolsParams {
                     filter: filter.map(str::to_owned),
@@ -116,7 +122,7 @@ impl LocalClient {
         symbol_name: &str,
     ) -> Result<SymbolDetails, CTraderError> {
         self.session
-            .call(
+            .call_idempotent(
                 "get_symbol_details",
                 GetSymbolDetailsParams {
                     symbol_name: symbol_name.to_owned(),
@@ -132,7 +138,7 @@ impl LocalClient {
         symbol_name: &str,
     ) -> Result<SymbolSessionsResponse, CTraderError> {
         self.session
-            .call(
+            .call_idempotent(
                 "get_symbol_sessions",
                 GetSymbolSessionsParams {
                     symbol_name: symbol_name.to_owned(),
@@ -148,7 +154,7 @@ impl LocalClient {
         symbol_name: &str,
     ) -> Result<SpotPriceResponse, CTraderError> {
         self.session
-            .call(
+            .call_idempotent(
                 "get_spot_prices",
                 GetSpotPricesParams {
                     symbol_name: symbol_name.to_owned(),
@@ -164,7 +170,7 @@ impl LocalClient {
         &self,
         params: GetTrendbarsParams,
     ) -> Result<TrendbarsResponse, CTraderError> {
-        self.session.call("get_trendbars", params).await
+        self.session.call_idempotent("get_trendbars", params).await
     }
 
     // -----------------------------------------------------------------------------
@@ -173,7 +179,7 @@ impl LocalClient {
 
     /// Every open position on the active account.
     pub async fn get_positions(&self) -> Result<GetPositionsResponse, CTraderError> {
-        self.session.call_no_args("get_positions").await
+        self.session.call_no_args_idempotent("get_positions").await
     }
 
     /// Places a market order. `params.stop_loss_pips`/`params.take_profit_pips` are pip
@@ -251,7 +257,9 @@ impl LocalClient {
     /// [`crate::quirks::normalize_pending_order_take_profit`] before comparing or
     /// displaying.
     pub async fn get_pending_orders(&self) -> Result<GetPendingOrdersResponse, CTraderError> {
-        self.session.call_no_args("get_pending_orders").await
+        self.session
+            .call_no_args_idempotent("get_pending_orders")
+            .await
     }
 
     /// Places a LIMIT order. `params.limit_price` must be set (buy-limit below current
@@ -323,7 +331,9 @@ impl LocalClient {
     /// to scroll the History tab in the cTrader UI to force older periods to load).
     /// Per `Q-L7`, results live under the `trades` key, not `orders`.
     pub async fn get_order_history(&self) -> Result<GetOrderHistoryResponse, CTraderError> {
-        self.session.call_no_args("get_order_history").await
+        self.session
+            .call_no_args_idempotent("get_order_history")
+            .await
     }
 
     /// Recent deals, capped at 200 per request — loop with a timestamp-advanced
@@ -332,7 +342,7 @@ impl LocalClient {
         &self,
         params: GetDealsParams,
     ) -> Result<GetDealsResponse, CTraderError> {
-        self.session.call("get_deals", params).await
+        self.session.call_idempotent("get_deals", params).await
     }
 
     // -----------------------------------------------------------------------------
@@ -341,7 +351,7 @@ impl LocalClient {
 
     /// Enumerates open chart tabs.
     pub async fn list_charts(&self) -> Result<ListChartsResponse, CTraderError> {
-        self.session.call_no_args("list_charts").await
+        self.session.call_no_args_idempotent("list_charts").await
     }
 
     /// Switches chart focus. Every chart-mutating tool below acts on the FOCUSED chart,
@@ -357,7 +367,9 @@ impl LocalClient {
     /// The currently focused chart — call this to re-confirm focus before any
     /// chart-mutating sequence.
     pub async fn get_active_chart(&self) -> Result<ChartSummary, CTraderError> {
-        self.session.call_no_args("get_active_chart").await
+        self.session
+            .call_no_args_idempotent("get_active_chart")
+            .await
     }
 
     /// Changes the FOCUSED chart's symbol.
@@ -390,7 +402,9 @@ impl LocalClient {
 
     /// The FOCUSED chart's current viewport (visible time/price range).
     pub async fn get_chart_viewport(&self) -> Result<ChartViewport, CTraderError> {
-        self.session.call_no_args("get_chart_viewport").await
+        self.session
+            .call_no_args_idempotent("get_chart_viewport")
+            .await
     }
 
     /// Scrolls the FOCUSED chart by `bars` (positive = forward in time).
@@ -425,7 +439,9 @@ impl LocalClient {
 
     /// Every drawing object currently on the FOCUSED chart.
     pub async fn get_chart_objects(&self) -> Result<GetChartObjectsResponse, CTraderError> {
-        self.session.call_no_args("get_chart_objects").await
+        self.session
+            .call_no_args_idempotent("get_chart_objects")
+            .await
     }
 
     /// Updates an existing drawing object on the FOCUSED chart. The parameter shape
@@ -469,7 +485,9 @@ impl LocalClient {
     /// (the skill's capability description covers both; the exact response shape is not
     /// pinned down further — inspect `extra` on each [`IndicatorSummary`]).
     pub async fn list_chart_indicators(&self) -> Result<ListChartIndicatorsResponse, CTraderError> {
-        self.session.call_no_args("listChartIndicators").await
+        self.session
+            .call_no_args_idempotent("listChartIndicators")
+            .await
     }
 
     /// Attaches an indicator to the FOCUSED chart.
@@ -518,7 +536,9 @@ impl LocalClient {
         &self,
         params: GetIndicatorValuesParams,
     ) -> Result<GetIndicatorValuesResponse, CTraderError> {
-        self.session.call("getIndicatorValues", params).await
+        self.session
+            .call_idempotent("getIndicatorValues", params)
+            .await
     }
 
     // -----------------------------------------------------------------------------

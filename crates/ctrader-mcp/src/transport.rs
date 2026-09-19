@@ -23,6 +23,7 @@ use serde_json::Value;
 
 use crate::config::ConnectionConfig;
 use crate::error::CTraderError;
+use crate::retry::{RetryPolicy, retry_with_backoff};
 
 /// The [`rmcp::ClientHandler`] identity this crate presents to every cTrader MCP server
 /// during the `initialize` handshake. It declines every server-initiated capability
@@ -53,17 +54,22 @@ impl ClientHandler for ClientIdentity {
 /// server-family-aware layers built on top of it).
 pub struct McpSession {
     running: RunningService<RoleClient, ClientIdentity>,
+    /// Copied from [`ConnectionConfig::retry_policy`] at connect time, and used by
+    /// [`Self::call_idempotent`]/[`Self::call_no_args_idempotent`]. `connect` itself is
+    /// also retried against this same policy — see this method's body.
+    retry_policy: RetryPolicy,
 }
 
 impl McpSession {
     /// Opens a streamable-HTTP + SSE MCP session against `config.uri`, performing the
-    /// MCP `initialize` handshake before returning.
+    /// MCP `initialize` handshake before returning. Retried per `config.retry_policy` —
+    /// always safe to retry, since nothing has been sent to any tool yet at this point.
     ///
     /// # Errors
     ///
     /// Returns [`CTraderError::Connect`] if the transport cannot be established or the
     /// `initialize` handshake fails (unreachable host, TLS failure, auth rejection,
-    /// protocol-version mismatch).
+    /// protocol-version mismatch) and every retry attempt is exhausted.
     pub async fn connect(config: &ConnectionConfig) -> Result<Self, CTraderError> {
         let mut transport_config =
             StreamableHttpClientTransportConfig::with_uri(config.uri.clone())
@@ -73,28 +79,36 @@ impl McpSession {
             transport_config = transport_config.auth_header(token.clone());
         }
 
-        let transport = StreamableHttpClientTransport::from_config(transport_config);
-        let running =
-            ClientIdentity
-                .serve(transport)
-                .await
-                .map_err(|source| CTraderError::Connect {
-                    uri: config.uri.clone(),
-                    // `{:?}` (Debug), not `{}` (Display): rmcp's `ClientInitializeError`
-                    // doesn't wire every variant's inner error through `std::error::Error::
-                    // source()` (its `TransportError.error` field has no `#[source]`
-                    // attribute), so walking `.source()` here would silently stop one level
-                    // too early and drop the actual transport-layer cause (DNS failure, TLS
-                    // handshake failure, connection reset, ...). Every error in this chain
-                    // still derives/implements `Debug`, and each layer's own `Debug` impl
-                    // recursively embeds its `source`'s `Debug` (this is true of
-                    // `reqwest::Error` in particular, whose `Debug` includes `kind`, `url`,
-                    // AND `source`) — so formatting with `{:?}` surfaces the full chain
-                    // regardless of which attribute rmcp did or didn't add.
-                    message: format!("{source:?}"),
-                })?;
+        let running = retry_with_backoff(&config.retry_policy, || {
+            let transport_config = transport_config.clone();
+            async {
+                let transport = StreamableHttpClientTransport::from_config(transport_config);
+                ClientIdentity
+                    .serve(transport)
+                    .await
+                    .map_err(|source| CTraderError::Connect {
+                        uri: config.uri.clone(),
+                        // `{:?}` (Debug), not `{}` (Display): rmcp's `ClientInitializeError`
+                        // doesn't wire every variant's inner error through `std::error::Error::
+                        // source()` (its `TransportError.error` field has no `#[source]`
+                        // attribute), so walking `.source()` here would silently stop one level
+                        // too early and drop the actual transport-layer cause (DNS failure, TLS
+                        // handshake failure, connection reset, ...). Every error in this chain
+                        // still derives/implements `Debug`, and each layer's own `Debug` impl
+                        // recursively embeds its `source`'s `Debug` (this is true of
+                        // `reqwest::Error` in particular, whose `Debug` includes `kind`, `url`,
+                        // AND `source`) — so formatting with `{:?}` surfaces the full chain
+                        // regardless of which attribute rmcp did or didn't add.
+                        message: format!("{source:?}"),
+                    })
+            }
+        })
+        .await?;
 
-        Ok(Self { running })
+        Ok(Self {
+            running,
+            retry_policy: config.retry_policy.clone(),
+        })
     }
 
     /// The MCP peer handle for this session, used for direct protocol operations
@@ -121,26 +135,7 @@ impl McpSession {
         P: Serialize,
         R: DeserializeOwned,
     {
-        let value = serde_json::to_value(&params).map_err(|source| CTraderError::Encode {
-            tool: tool.into(),
-            source,
-        })?;
-        let arguments = match value {
-            Value::Object(map) => Some(map),
-            Value::Null => None,
-            other => {
-                // A DTO that serializes to a JSON scalar/array instead of an object is a
-                // programming error in this crate, not a runtime condition callers can
-                // recover from — surface it the same way a serialization failure would
-                // be surfaced, rather than silently dropping the arguments.
-                return Err(CTraderError::Encode {
-                    tool: tool.into(),
-                    source: serde::de::Error::custom(format!(
-                        "request DTO for `{tool}` serialized to a non-object JSON value: {other}"
-                    )),
-                });
-            }
-        };
+        let arguments = Self::encode_arguments(tool, params)?;
         self.call_with_arguments(tool, arguments).await
     }
 
@@ -158,6 +153,71 @@ impl McpSession {
     ) -> Result<R, CTraderError> {
         self.call_with_arguments(tool, Some(JsonObject::default()))
             .await
+    }
+
+    /// Like [`Self::call`], but retried per this session's
+    /// [`crate::config::ConnectionConfig::retry_policy`] on transient failures.
+    ///
+    /// Only ever call this for a tool that is safe to run more than once for a single
+    /// logical request — i.e. a read-only getter. Never wrap a mutating call
+    /// (`create_order`, `amend_order`, `cancel_order`, `amend_position`,
+    /// `close_position`, `place_*_order`, ...) in this: see [`crate::retry`]'s module doc
+    /// comment for why a lost response cannot be told apart from a lost request.
+    pub async fn call_idempotent<P, R>(
+        &self,
+        tool: &'static str,
+        params: P,
+    ) -> Result<R, CTraderError>
+    where
+        P: Serialize,
+        R: DeserializeOwned,
+    {
+        let arguments = Self::encode_arguments(tool, params)?;
+        retry_with_backoff(&self.retry_policy, || {
+            self.call_with_arguments(tool, arguments.clone())
+        })
+        .await
+    }
+
+    /// The no-argument counterpart to [`Self::call_idempotent`] — see that method's doc
+    /// comment for which tools this is safe to use for.
+    pub async fn call_no_args_idempotent<R: DeserializeOwned>(
+        &self,
+        tool: &'static str,
+    ) -> Result<R, CTraderError> {
+        retry_with_backoff(&self.retry_policy, || {
+            self.call_with_arguments(tool, Some(JsonObject::default()))
+        })
+        .await
+    }
+
+    /// Shared by [`Self::call`] and [`Self::call_idempotent`]: serializes `params` into
+    /// the `arguments` object a `tools/call` request expects, or `None` for a params type
+    /// that serializes to `Null` (equivalent to no arguments).
+    fn encode_arguments<P: Serialize>(
+        tool: &'static str,
+        params: P,
+    ) -> Result<Option<JsonObject>, CTraderError> {
+        let value = serde_json::to_value(&params).map_err(|source| CTraderError::Encode {
+            tool: tool.into(),
+            source,
+        })?;
+        match value {
+            Value::Object(map) => Ok(Some(map)),
+            Value::Null => Ok(None),
+            other => {
+                // A DTO that serializes to a JSON scalar/array instead of an object is a
+                // programming error in this crate, not a runtime condition callers can
+                // recover from — surface it the same way a serialization failure would
+                // be surfaced, rather than silently dropping the arguments.
+                Err(CTraderError::Encode {
+                    tool: tool.into(),
+                    source: serde::de::Error::custom(format!(
+                        "request DTO for `{tool}` serialized to a non-object JSON value: {other}"
+                    )),
+                })
+            }
+        }
     }
 
     /// Escape hatch for tools this crate does not (yet) model with a typed DTO — see the
