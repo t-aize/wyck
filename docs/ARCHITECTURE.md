@@ -1,18 +1,24 @@
 # Architecture
 
-How the workspace crates fit together, and how they are meant to be used once the GUI
-exists. Crates marked (planned) do not exist yet. For what is left to build, see
+How the workspace crates fit together, and how a front end is meant to use them. Crates marked (planned)
+do not exist yet. For what is left to build, see
 [TODO.md](../TODO.md); for the rules of the repository, see [AGENTS.md](../AGENTS.md).
 
 ## The picture
 
 ```
    +-------------------------------------------------------------+
-   |  wyck-app (planned): native desktop GUI                     |
-   |  hotkeys, position table, floating trade panel, news panel  |
+   |  your views (GPUI): position table, panels, styling         |
+   |  the visual design is the owner's, not in the repository    |
+   +-----------------------------+-------------------------------+
+                                 |  plugged in at shell::run
+   +-----------------------------v-------------------------------+
+   |  wyck-app (exists): application layer + GPUI shell          |
+   |  settings, startup, use cases, formatting, messages,        |
+   |  hotkeys, logging, crash marker; window and plumbing        |
    +-----------------------------+-------------------------------+
                                  |  typed commands down, events up
-                                 |  (in-process channels first, RPC later)
+                                 |  (in-process, on the engine's own runtime)
    +-----------------------------v-------------------------------+
    |  wyck-engine: headless core, no UI code                     |
    |  owns connections, refresh loops, order flow, guardrails    |
@@ -118,14 +124,20 @@ The headless core. Full details in the crate docs (`cargo doc -p wyck-engine --o
 Not done yet: pending orders, several simultaneous accounts, margin checks, order history,
 journal and backtesting (see `TODO.md`, section 5).
 
-### `wyck-app` (planned)
+### `wyck-app` (exists)
 
-The desktop GUI, built on GPUI with `gpui-component` (decision in
-[decisions/0001-gui-framework.md](decisions/0001-gui-framework.md), dependency policy in
-[gpui-dependency.md](gpui-dependency.md)). It talks only
-to the engine. It renders state, captures hotkeys, and never calls `ctrader-mcp`,
-`wyck-config` or `wyck-calendar` directly except for profile management (`wyck-config`) and
-pure helpers such as formatting.
+The application layer and a GPUI shell. `cargo run -p wyck-app` opens an empty dark window wired
+to the engine: it follows the engine's state, opens the connection, and registers global
+shortcuts that plan **dry-run** orders. It has no visuals; the owner's views plug in at one place,
+`shell::run` in `src/main.rs`. Details in [../crates/wyck-app/README.md](../crates/wyck-app/README.md).
+
+Everything below the shell is plain Rust, tested without a window: `settings`, `startup`,
+`controller`, `presentation` (state to strings and tones, never colors), `model`, `messages`
+(errors to notices, in one place), `hotkeys`, `logging` and `session_marker`. The GPUI part is
+behind the `gui` feature, so `--no-default-features` builds the layer with no windowing toolkit.
+
+It depends on `wyck-engine`, `wyck-config` and `gpui-kit`, and never on `ctrader-mcp` or
+`wyck-calendar` directly. It talks to the engine only through `EngineHandle`.
 
 ## The broker port
 
@@ -192,7 +204,7 @@ key press -> GUI command
 **Startup and credentials**
 
 ```
-GUI: wyck-config loads AppConfig -> active profile -> SecretStore::token
+wyck-app: wyck-config loads AppConfig -> active profile -> SecretStore::token
   -> ConnectRequest -> engine.connect
   -> Broker adapter: MCP session, bootstrap (build id, account, symbols)
   -> session Ready
@@ -211,8 +223,9 @@ local clock is used there.
 
 ## Open decisions
 
-- Whether GPUI holds up on the Windows requirements (global hotkeys, focus-free floating panel,
-  key repeat), which the validation spike decides, with egui as the fallback (`TODO.md` 4.1).
+- Whether GPUI holds up on the rest of the Windows requirements: a focus-free floating panel and
+  key repeat. Global hotkeys and the async bridge are already proven. egui is the fallback
+  (`TODO.md` 4.1).
 - Whether the engine stays in the GUI's process or moves behind an RPC boundary. In-process
   first; `EngineHandle` is the API either way (`TODO.md` 4.3, 5.14).
 - Whether news stay hosted by the engine once a journal or a backtest exists. The likely
@@ -225,6 +238,6 @@ The decisions already taken, and why, are in `TODO.md` section 12.2.
 
 1. Validate order placement live on demo accounts (done, `TODO.md` section 3).
 2. `wyck-engine` around the three crates, testable without any UI (done).
-3. Validate GPUI with a spike in `wyck-app` (`TODO.md` 4.1), then build the app on top of it.
+3. `wyck-app`: application layer and GPUI shell (done). Then the remaining GPUI checks (`TODO.md` 4.1) and the views.
 
 Steps 2 and 3 can overlap once the engine's command and event types are fixed.

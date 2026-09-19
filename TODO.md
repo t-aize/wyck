@@ -30,7 +30,7 @@ Contents
 | `wyck-config` | Complete, tested | Profiles in TOML, tokens in the OS keyring or an encrypted file. |
 | `wyck-calendar` | Complete, tested | ForexFactory weekly feed: client, tolerant parser, filters, refresh service, alerts. Tuned to the feed's real rate limit. |
 | `wyck-engine` | Validated live on Remote and Local (demo accounts) | Session, state and events, risk planning, dry-run-first order pipeline, guardrails, news hosting, Remote and Local adapters, `MockBroker`. Section 3 has the results and what is still open. |
-| GUI (`wyck-app`) | Does not exist | Framework chosen: GPUI (4.1), spike not done. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
+| `wyck-app` | Application layer and GPUI shell, no visuals | `cargo run` opens an empty window wired to the engine, with global hotkeys that plan dry-run orders. GPUI chosen (4.1); your views come next. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
 
 Other facts:
 
@@ -279,74 +279,80 @@ could never be reconciled on Remote because reconciliation only matched labels.
 
 ### 4.1 GUI framework: GPUI (decided)
 
-Decided on 2026-09-19: **GPUI** with `gpui-component`. The reasons, the options not chosen, the
-risks and the fallback are in [docs/decisions/0001-gui-framework.md](docs/decisions/0001-gui-framework.md).
+Decided on 2026-09-19: **GPUI**, through `gpui-kit` (GPUI plus `gpui-component`). The visual
+design is the owner's, so the application ships no visuals. The reasons, the options not chosen,
+the risks and the fallback are in [docs/decisions/0001-gui-framework.md](docs/decisions/0001-gui-framework.md).
 How the dependency is pinned, built and upgraded is in [docs/gpui-dependency.md](docs/gpui-dependency.md).
 
 - [x] Decision made and recorded.
-- [x] Dependency policy written and checked: a throwaway project resolved and compiled
-      `gpui-component =0.6.4` together with `wyck-engine` and `wyck-config` on `rustc 1.98.1`
-      (Windows), with no conflict and a single `reqwest` and TLS stack.
+- [x] Dependency policy written and checked: `gpui-kit =0.6.4` resolves and builds with the
+      workspace on `rustc 1.98.1` (Windows), with a single `reqwest` and TLS stack.
+- [x] **Async bridge.** `cx.spawn` awaiting `watch_state().changed()`, no `gpui_tokio`, no blocked
+      executor: the shell follows the engine from Disconnected to Ready.
+- [x] **Global hotkey** fires while another program has the focus, on GPUI's own message loop,
+      with no extra thread and no `unsafe`.
+- [x] **Link check.** A binary that uses GPUI links and runs with `--locked`, and the window
+      renders (Direct3D 11.1).
 
-What is not proven yet is the point of the validation spike (in `crates/wyck-app`, one day).
-Each item passes or triggers the fallback to egui, see the decision record:
+The rest is what the validation still has to prove. Each item passes or triggers the fallback to
+egui, see the decision record:
 
-- [ ] **Async bridge.** `cx.spawn` awaiting `watch_state().changed()` and `EngineHandle` calls,
-      with no `gpui_tokio` and no blocked executor.
 - [ ] **Floating panel.** A `WindowKind::PopUp` window (`focus: false`) stays on top of cTrader
       Desktop and never takes its focus. Check the transparent border issue (#61508) if
       transparency is wanted.
-- [ ] **Global hotkey** (`global-hotkey` crate) fires while cTrader has focus, on a thread with
-      its own Win32 message loop, without disturbing GPUI's loop.
 - [ ] **Held key.** No frame stall under key repeat (#61469), no phantom Alt on window
       activation (#62404).
 - [ ] **Tables.** A few hundred rows in the `gpui-component` data table, virtualized and
       keyboard navigable.
 - [ ] **Charts.** A simple candlestick chart with pan and zoom, and an estimate of the cost of
       doing it properly.
-- [ ] **Testing.** How to test view models without a window, and whether GPUI's test support
-      helps.
+- [ ] **Testing.** Whether GPUI's test support helps beyond the view-model tests that already
+      run without a window.
 - [ ] **Packaging.** Installer, code signing, auto-update and binary size (also 6.5).
-- [ ] **Link check.** A binary that actually uses GPUI links and runs with `--locked`.
-- [ ] **CI.** `wyck-app` built on Windows only for now, ubuntu jobs excluding it.
+- [ ] **Linux.** GPUI needs system packages there; CI builds `wyck-app` without the `gui` feature
+      on ubuntu for now.
 
-### 4.2 Create `wyck-app`
+### 4.2 `wyck-app` (done)
 
-- [ ] New crate `crates/wyck-app`, depends only on `wyck-engine`, `wyck-config` and the chosen UI
-      toolkit. It must not depend on `ctrader-mcp` or `wyck-calendar` directly (pure formatting
-      helpers excepted).
-- [ ] Thin binary, all logic testable without a window.
-- [ ] Update `docs/ARCHITECTURE.md`: crate marked as existing.
+- [x] Crate `crates/wyck-app`: depends on `wyck-engine`, `wyck-config` and, behind the `gui`
+      feature, `gpui-kit`. It does not depend on `ctrader-mcp` or `wyck-calendar`.
+- [x] `cargo run` opens the window. The binary is thin; the logic is a library tested without a
+      window (59 tests).
+- [x] No visuals: an empty dark window, and one function in `main.rs` where your own views plug in
+      (`shell::run`). `presentation` returns strings and tones, never colors.
+- [x] `docs/ARCHITECTURE.md` and `crates/wyck-app/README.md` updated.
+- [ ] Your views.
 
 ### 4.3 Engine boundary
 
-- [ ] Decide: engine in the app's process (works today, simplest) or a separate process behind an
-      RPC. Recommendation: in-process first. `EngineHandle` is the API either way.
+- [x] Decision: the engine runs **in the app's process**, on its own runtime, behind
+      `EngineHandle`. It works today and is what `wyck-app` does. RPC only if a headless
+      always-on engine or several front ends are wanted (5.14).
 - [ ] If a separate process is wanted later: define the wire protocol from the existing serde
       types (`EngineState`, `Event`, `OrderPlan`, `EntryIntent`, ...), pick a transport (local
       socket, gRPC, or JSON over a pipe), and add a client crate implementing the same handle
       surface. See 5.14.
 
-### 4.4 Application shell concerns (need an owner before the GUI grows)
+### 4.4 Application shell concerns
 
-- [ ] **Logging.** The engine and libraries emit `tracing` events and install no subscriber. The
-      app installs one: file logging with rotation (the TUI used `tracing-appender`; the
-      dependency was removed with it and can come back), an env filter, and a rule that tokens and
-      account secrets never reach a log line. `ConnectRequest` and `SecretString` already redact
-      themselves in `Debug`; keep it that way in any new type.
+- [x] **Logging.** `wyck-app::logging`: a daily rolling file (kept 14 days) under the data
+      directory, filtered by `WYCK_LOG`, plus stderr in debug builds. A test keeps tokens out of
+      log lines.
 - [ ] **Engine configuration persistence.** `EngineConfig` is `serde` with defaults but nothing
       stores it. Add a section to `wyck-config`'s `AppConfig` (or a sibling file) and load it at
       startup; validate with `EngineConfig::validate` and show errors instead of failing silently.
-- [ ] **Error presentation.** Map `EngineError::kind()` and `is_retryable()` to user messages once,
-      in one place, instead of per screen.
-- [ ] **Startup flow.** Load config, pick the active profile, build `ConnectRequest::from_profile`,
-      connect, and show progress from `SessionState`. First run without a profile goes to the
-      profile creation screen.
-- [ ] **Crash safety.** A panic hook that logs, and on next start a notice if the last session
-      ended with an armed engine or an `Unknown` order warning (persist those two facts).
+      Until then the app takes its settings from environment variables (`wyck-app::settings`).
+- [x] **Error presentation.** `wyck-app::messages::describe_error` maps every `EngineError` to a
+      notice once, in one place.
+- [x] **Startup flow.** `wyck-app::startup`: environment or active profile to a `ConnectRequest`,
+      then connect. A first run without a profile is a banner, not a crash.
+- [ ] **Profile creation.** Profiles are made with `wyck-config` for now; the app has no screen
+      for it.
+- [x] **Crash safety.** A panic hook that logs, and a session marker: the next start reports a
+      session that did not end cleanly. It does not record an armed engine or an `Unknown` order,
+      because the app cannot arm yet (6.1); add them with the arming flow.
 
 ---
-
 ## 5. P2: wyck-engine, what is left
 
 Crate: `crates/wyck-engine`. Start with its crate docs (`cargo doc -p wyck-engine --open`).

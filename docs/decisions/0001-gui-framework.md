@@ -22,7 +22,7 @@ The engine deliberately has no UI code and no UI dependency, so this choice only
 
 ## Decision
 
-Use **GPUI**, the UI framework of the Zed editor, with the **gpui-component** library on top.
+Use **GPUI**, the UI framework of the Zed editor, through the **gpui-kit** crate (GPUI plus the gpui-component library). The visual design is the owner's and is not part of this decision: `wyck-app` ships a shell with an empty window.
 
 ## Why
 
@@ -75,8 +75,7 @@ what is known:
    - #63471: a display change re-shows hidden windows.
 3. **No global hotkeys in GPUI.** The usual crate is `global-hotkey` 0.8.0 (Tauri, 2026-05-01).
    On Windows it needs a Win32 event loop on the thread that creates the manager, and on Linux
-   it supports X11 only. How that meets GPUI's own loop is untested. The likely shape is a
-   dedicated thread with its own message loop that sends events over a channel.
+   it supports X11 only. Checked on Windows: registered on GPUI's main thread, the shortcuts are delivered by GPUI's own message loop, so no dedicated thread is needed.
 4. **Charts.** The component library advertises charts, but a candlestick chart with pan and
    zoom is unproven.
 5. **Packaging, code signing and auto-update** are not addressed yet (`TODO.md` 6.5).
@@ -85,25 +84,34 @@ what is known:
 
 ## Validation and fallback
 
-The risks are retired by a one-day spike in `crates/wyck-app` (`TODO.md` 4.1): a GPUI window
-that connects the engine to a demo account, shows balance and positions from `watch_state`,
-and fires a dry-run order from a hotkey. It passes when all of these hold on the Windows
-development machine:
+The risks are retired by a validation spike in `crates/wyck-app` (`TODO.md` 4.1): a GPUI window
+that connects the engine to a demo account, follows `watch_state`, and reacts to a global
+hotkey. The window has no visuals of its own, since the owner brings the design. It passes when
+all of these hold on the Windows development machine.
 
-- the engine's state updates reach the UI without blocking either executor;
-- a `PopUp` panel stays on top of cTrader Desktop and never takes its focus;
-- a global hotkey fires while cTrader has focus, and does not disturb GPUI's own event loop;
-- holding a key does not freeze presentation (#61469), and window activation does not inject
-  Alt (#62404);
-- a table of a few hundred rows scrolls smoothly, and a simple chart can be drawn.
+Done on 2026-09-19:
 
-**Fall back to egui** if the global hotkey or the focus-free panel cannot be made reliable
-without native code out of proportion to the app, or if the frame stall reproduces and has no
-workaround. Because the engine is UI-agnostic, that switch costs `wyck-app` only.
+- [x] The engine's state updates reach the UI without blocking either executor, and without
+  `gpui_tokio`.
+- [x] A global hotkey fires while another program has the focus, on GPUI's own message loop, with
+  no extra thread and no `unsafe`.
+- [x] A binary that uses GPUI links and runs with `--locked`, and the window renders (Direct3D
+  11.1).
+
+Still to check:
+
+- [ ] A `PopUp` panel stays on top of cTrader Desktop and never takes its focus.
+- [ ] Holding a key does not freeze presentation (#61469), and window activation does not inject
+  Alt (#62404).
+- [ ] A table of a few hundred rows scrolls smoothly, and a simple chart can be drawn.
+
+**Fall back to egui** if the focus-free panel cannot be made reliable without native code out of
+proportion to the app, or if the frame stall reproduces and has no workaround. Because the engine
+is UI-agnostic, that switch costs `wyck-app` only.
 
 ## Consequences
 
-- `wyck-app` depends on GPUI, `gpui-component`, `wyck-engine` and `wyck-config`, nothing else
+- `wyck-app` depends on `gpui-kit` (behind its `gui` feature), `wyck-engine` and `wyck-config`, nothing else
   from the workspace.
 - CI must be able to build GPUI: system packages on Linux, or a Windows-only job for
   `wyck-app` at first.

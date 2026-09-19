@@ -17,9 +17,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          # Windows builds everything, GPUI included. Ubuntu leaves out the window: GPUI needs
+          # system packages there (docs/gpui-dependency.md), and `wyck-app` is checked without
+          # its `gui` feature in a separate step instead.
+          - os: ubuntu-latest
+            scope: --workspace --exclude wyck-app
+          - os: windows-latest
+            scope: --workspace
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    # The GPUI build is the slow part.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -34,9 +42,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.2
 
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo test --all-features
-      - run: cargo doc --workspace --no-deps
+      - run: cargo clippy ${{ matrix.scope }} --all-targets --all-features -- -D warnings
+      - run: cargo test ${{ matrix.scope }} --all-features
+      - run: cargo doc ${{ matrix.scope }} --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
-      - run: cargo build --release --locked
+      - run: cargo build ${{ matrix.scope }} --release --locked
+
+      - name: wyck-app without the GUI (application layer only)
+        if: runner.os == 'Linux'
+        run: |
+          cargo clippy -p wyck-app --no-default-features --all-targets -- -D warnings
+          cargo test -p wyck-app --no-default-features

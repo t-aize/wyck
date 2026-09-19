@@ -77,6 +77,24 @@ serde_json = "1.0.151"
 # Logging facade (libraries emit events; the application chooses the subscriber)
 tracing = "0.1.44"
 
+# Application-side logging (wyck-app): subscriber with an env filter, and a rolling file
+# appender. Libraries only use the `tracing` facade above.
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["env-filter", "fmt", "std", "ansi"] }
+tracing-appender = "0.2.5"
+
+# GUI (wyck-app): GPUI with the gpui-component library, through the single `gpui-kit`
+# crate that pins and re-exports them. Exact version on purpose: GPUI is pre-1.0 and
+# breaks often, and this is a community snapshot of Zed, see docs/gpui-dependency.md
+# before touching it. Automated updates must ignore it.
+gpui-kit = "=0.6.4"
+
+# System-wide keyboard shortcuts for the GUI (Win32 RegisterHotKey on Windows)
+global-hotkey = "0.8.0"
+
+# Unbounded channel from the hotkey handler (runs inside the Windows message loop, must not
+# block) to the GPUI task that reacts to it
+async-channel = "2.5.0"
+
 # Config/credentials file locations
 directories = "6.0.0"
 
