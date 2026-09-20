@@ -98,6 +98,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod account;
+mod account_api;
 pub mod auth;
 pub mod callback;
 pub mod client;

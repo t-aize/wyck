@@ -89,10 +89,50 @@ pub mod payload {
     pub const SUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2165;
     /// `ProtoOAUnsubscribeLiveTrendbarRes`.
     pub const UNSUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2166;
+    /// `ProtoOAAssetListReq`.
+    pub const ASSET_LIST_REQ: u32 = 2112;
+    /// `ProtoOAAssetListRes`.
+    pub const ASSET_LIST_RES: u32 = 2113;
+    /// `ProtoOATraderReq`.
+    pub const TRADER_REQ: u32 = 2121;
+    /// `ProtoOATraderRes`.
+    pub const TRADER_RES: u32 = 2122;
+    /// `ProtoOATraderUpdatedEvent`.
+    pub const TRADER_UPDATE_EVENT: u32 = 2123;
+    /// `ProtoOAReconcileReq`.
+    pub const RECONCILE_REQ: u32 = 2124;
+    /// `ProtoOAReconcileRes`.
+    pub const RECONCILE_RES: u32 = 2125;
+    /// `ProtoOAExecutionEvent`.
+    pub const EXECUTION_EVENT: u32 = 2126;
+    /// `ProtoOADealListReq`.
+    pub const DEAL_LIST_REQ: u32 = 2133;
+    /// `ProtoOADealListRes`.
+    pub const DEAL_LIST_RES: u32 = 2134;
+    /// `ProtoOAGetCtidProfileByTokenReq`.
+    pub const GET_CTID_PROFILE_BY_TOKEN_REQ: u32 = 2151;
+    /// `ProtoOAGetCtidProfileByTokenRes`.
+    pub const GET_CTID_PROFILE_BY_TOKEN_RES: u32 = 2152;
+    /// `ProtoOAAssetClassListReq`.
+    pub const ASSET_CLASS_LIST_REQ: u32 = 2153;
+    /// `ProtoOAAssetClassListRes`.
+    pub const ASSET_CLASS_LIST_RES: u32 = 2154;
+    /// `ProtoOASymbolCategoryListReq`.
+    pub const SYMBOL_CATEGORY_REQ: u32 = 2160;
+    /// `ProtoOASymbolCategoryListRes`.
+    pub const SYMBOL_CATEGORY_RES: u32 = 2161;
+    /// `ProtoOAAccountLogoutReq`.
+    pub const ACCOUNT_LOGOUT_REQ: u32 = 2162;
+    /// `ProtoOAAccountLogoutRes`.
+    pub const ACCOUNT_LOGOUT_RES: u32 = 2163;
     /// `ProtoOARefreshTokenReq`.
     pub const REFRESH_TOKEN_REQ: u32 = 2173;
     /// `ProtoOARefreshTokenRes`.
     pub const REFRESH_TOKEN_RES: u32 = 2174;
+    /// `ProtoOAOrderListReq`.
+    pub const ORDER_LIST_REQ: u32 = 2175;
+    /// `ProtoOAOrderListRes`.
+    pub const ORDER_LIST_RES: u32 = 2176;
 }
 
 /// One message on the wire.
@@ -224,6 +264,11 @@ mod tests {
 
     #[test]
     fn payload_numbers_match_the_official_enum() {
+        assert_eq!(payload::TRADER_REQ, 2121);
+        assert_eq!(payload::RECONCILE_RES, 2125);
+        assert_eq!(payload::DEAL_LIST_REQ, 2133);
+        assert_eq!(payload::ORDER_LIST_RES, 2176);
+        assert_eq!(payload::ACCOUNT_LOGOUT_RES, 2163);
         // A few spot checks against ProtoOAPayloadType, so a typo cannot slip in.
         assert_eq!(payload::APPLICATION_AUTH_REQ, 2100);
         assert_eq!(payload::SUBSCRIBE_SPOTS_REQ, 2127);

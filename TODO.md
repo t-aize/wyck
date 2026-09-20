@@ -311,9 +311,18 @@ work. It also showed two things the documentation did not say, both now fixed an
       little richer than the tick history, or the history drops some ticks. It is not a decoding
       error (286 of 299 minutes match exactly). Lost ticks at a page seam would look the same,
       which is why the seam check is being strengthened.
-- [ ] Run the live test again: the seam check over six hours, and the new line comparing the
-      bar volume with the tick count over the same minutes, settle it. A bar volume above the tick
-      count means the tick history is thinner than the feed behind the bars.
+- [x] The seam check over six hours and the bar volume comparison were run: see the fifth run below.
+
+#### Fifth live run: seams and volume
+
+- [x] **No tick is lost where pages meet.** Six hours in one call (several pages) and in twelve pieces
+      of half an hour (one page each) gave the same 14 208 ticks, identical.
+- [x] **A bar counts bid and ask changes.** Over 299 minutes the bars' volume adds up to 20 384 against
+      10 234 bid ticks; the ask side has about as many, so the volume of a bar is roughly the number of
+      bid ticks plus the number of ask ticks. The 13 minutes whose bar range is 1 to 3 units wider
+      than the bid ticks are consistent with the bars being built from that richer feed. So the tick
+      history is a faithful record of each side, and bars from ticks will differ a little from the
+      broker's own bars: expected, and worth showing in the chart as a small note.
 
 ---
 ---

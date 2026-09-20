@@ -10,6 +10,7 @@
 
 use serde_json::Value;
 
+use crate::account::TraderUpdatedEvent;
 use crate::error::OpenApiError;
 use crate::model::{
     AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, DepthEvent,
@@ -38,6 +39,8 @@ pub enum Event {
     Spot(SpotEvent),
     /// A change of the order book.
     Depth(DepthEvent),
+    /// The account changed (a balance moved, for example).
+    TraderUpdated(TraderUpdatedEvent),
     /// Tokens stopped working: refresh them, or sign in again.
     TokensInvalidated(AccountsTokenInvalidatedEvent),
     /// An account was logged out of this connection: authorize it again to keep using it.
@@ -71,6 +74,10 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
         payload::DEPTH_EVENT => envelope
             .decode()
             .map(Event::Depth)
+            .unwrap_or_else(decode_failed),
+        payload::TRADER_UPDATE_EVENT => envelope
+            .decode()
+            .map(Event::TraderUpdated)
             .unwrap_or_else(decode_failed),
         payload::ACCOUNTS_TOKEN_INVALIDATED_EVENT => envelope
             .decode()

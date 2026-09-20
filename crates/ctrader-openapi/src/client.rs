@@ -59,7 +59,7 @@ const OUTGOING_QUEUE: usize = 256;
 
 /// Which limit a request counts against.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RateClass {
+pub(crate) enum RateClass {
     /// Everything but history: 50 per second.
     Standard,
     /// Bars and ticks: 5 per second.
@@ -237,7 +237,7 @@ impl Client {
     // ---- the request machinery ----
 
     /// One request with its answer, sent again when the server refuses it for its rate.
-    async fn call<Req, Res>(
+    pub(crate) async fn call<Req, Res>(
         &self,
         request_type: u32,
         response_type: u32,
