@@ -81,6 +81,10 @@ struct Fetched {
     quote: Option<Quote>,
     loading: bool,
     error: Option<String>,
+    /// A quote was asked for and the answer has come back, with or without one.
+    quote_checked: bool,
+    /// Why a quote could not be read.
+    quote_error: Option<String>,
 }
 
 /// The open picker.
@@ -104,6 +108,9 @@ pub(super) struct Picker {
     fetch_task: Option<Task<()>>,
     /// When a key last moved the highlight.
     keyboard_at: Option<Instant>,
+    /// The pointer has moved since the picker opened. Until then a pointer resting over the list
+    /// must not take the highlight from the current symbol.
+    pointer_moved: bool,
     _subscription: Subscription,
 }
 
@@ -146,6 +153,7 @@ impl AppView {
             fetched: HashMap::new(),
             fetch_task: None,
             keyboard_at: None,
+            pointer_moved: false,
             _subscription: subscription,
         });
         search.update(cx, |state, cx| state.focus(window, cx));
@@ -340,8 +348,18 @@ impl AppView {
         cx.notify();
     }
 
+    /// The pointer moved over the palette: from now on hovering a symbol highlights it.
+    fn picker_pointer_moved(&mut self) {
+        if let Some(picker) = self.picker.as_mut() {
+            picker.pointer_moved = true;
+        }
+    }
+
     /// The pointer went over a symbol.
     fn picker_hover(&mut self, index: usize, cx: &mut Context<Self>) {
+        if !self.picker.as_ref().is_some_and(|p| p.pointer_moved) {
+            return;
+        }
         let held = self
             .picker
             .as_ref()
@@ -459,9 +477,17 @@ impl AppView {
     ) {
         if let Some(picker) = self.picker.as_mut() {
             let entry = picker.fetched.entry(symbol.to_owned()).or_default();
-            if let Ok(quote) = result {
-                entry.quote = quote;
+            match result {
+                Ok(quote) => {
+                    entry.quote = quote;
+                    entry.quote_error = None;
+                }
+                Err(error) => {
+                    tracing::debug!(%error, symbol, "a quote could not be read");
+                    entry.quote_error = Some(describe_error(&error).title);
+                }
             }
+            entry.quote_checked = true;
             cx.notify();
         }
     }
@@ -615,6 +641,7 @@ impl AppView {
             // A click inside the palette is not a click on the dimmed window behind it.
             .occlude()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_move(cx.listener(|this, _, _, _| this.picker_pointer_moved()))
             .child(header)
             .child(chips)
             .child(
@@ -1132,6 +1159,20 @@ fn details_pane(
             )
         }));
 
+    // Said out loud: silence would read as a bug. The forex market is closed on weekends, and
+    // some symbols have no quote outside their session.
+    let no_quote: Option<Div> = (fetched.quote_checked && fetched.quote.is_none()).then(|| {
+        div()
+            .mt(sz(12.))
+            .text_size(sz(11.5))
+            .line_height(gpui_kit::relative(1.5))
+            .text_color(theme::dim())
+            .child(match &fetched.quote_error {
+                Some(reason) => format!("No quote could be read: {reason}"),
+                None => "No quote right now. The market may be closed for this symbol.".to_owned(),
+            })
+    });
+
     let status: Option<Div> = if let Some(error) = &fetched.error {
         Some(
             div()
@@ -1208,6 +1249,7 @@ fn details_pane(
             )
             .child(badges)
             .children(live)
+            .children(no_quote)
             .child(table)
             .children(status),
     )

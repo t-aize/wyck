@@ -627,19 +627,21 @@ pub fn describe(
                 _ => "Assumed by Wyck",
             },
         ));
-        if let Some(quote) = quote {
-            let digits = instrument.price_digits;
-            live.push(detail("Bid", format_price(quote.bid, digits)));
-            live.push(detail("Ask", format_price(quote.ask, digits)));
-            if instrument.pip_size > 0.0 {
-                live.push(detail(
-                    "Spread",
-                    format!(
-                        "{:.1} pips",
-                        instrument.distance_to_pips(quote.ask - quote.bid)
-                    ),
-                ));
-            }
+    }
+    // A quote is shown as soon as there is one, even before the instrument details arrive: the
+    // digits are then the usual five, and the spread waits for the pip size.
+    if let Some(quote) = quote {
+        let digits = instrument.map_or(5, |i| i.price_digits);
+        live.push(detail("Bid", format_price(quote.bid, digits)));
+        live.push(detail("Ask", format_price(quote.ask, digits)));
+        if let Some(instrument) = instrument.filter(|i| i.pip_size > 0.0) {
+            live.push(detail(
+                "Spread",
+                format!(
+                    "{:.1} pips",
+                    instrument.distance_to_pips(quote.ask - quote.bid)
+                ),
+            ));
         }
     }
     DetailsView {
@@ -993,6 +995,22 @@ mod tests {
         let catalog = sample();
         let hits = names(&catalog, &catalog.query("gold", None));
         assert_eq!(hits[0], "XAUUSD");
+    }
+
+    #[test]
+    fn a_quote_is_shown_even_before_the_instrument_details_arrive() {
+        let catalog = sample();
+        let entry = catalog.entry(catalog.find("USDJPY").unwrap()).unwrap();
+        let quote = Quote {
+            symbol: "USDJPY".to_owned(),
+            bid: 150.123,
+            ask: 150.125,
+            timestamp: None,
+        };
+        let sheet = describe(entry, None, Some(&quote));
+        let labels: Vec<_> = sheet.live.iter().map(|d| d.label).collect();
+        assert_eq!(labels, ["Bid", "Ask"], "no spread without the pip size");
+        assert_eq!(sheet.live[0].value, "150.12300");
     }
 
     #[test]
