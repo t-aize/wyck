@@ -5,9 +5,9 @@
 //! - In auto mode the range follows the bars on screen ([`PriceScale::fit`]): it is the lowest
 //!   low to the highest high of the visible bars, with some air above and below. Scrolling or
 //!   zooming horizontally moves the range by itself, which is what a trader expects.
-//! - In manual mode the range stays where the user put it. Dragging the chart up or down, or
-//!   zooming on the price axis, switches to manual; [`PriceScale::reset_auto`] (a double click on
-//!   the axis) goes back.
+//! - In manual mode the range stays where the user put it, and only then can it be dragged up or
+//!   down or zoomed on the price axis. Nothing switches between the two by itself: the auto button
+//!   does, and [`PriceScale::reset_auto`] (a double click on the price axis) goes back to auto.
 //!
 //! [`nice_ticks`] chooses the grid lines: a step of 1, 2 or 5 times a power of ten, so the labels
 //! read as round numbers whatever the range is. [`format_price`] writes a price with the

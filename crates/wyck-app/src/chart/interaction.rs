@@ -24,18 +24,21 @@
 //! |---|---|---|
 //! | plot, time axis | wheel | zoom in time around the pointer |
 //! | plot | Shift + wheel, or a sideways wheel | scroll in time |
-//! | plot | Ctrl + wheel | zoom the price range around the pointer |
-//! | price axis | wheel | zoom the price range around the pointer |
-//! | plot | drag | scroll in time, and in price once the drag goes vertical |
-//! | price axis | drag | stretch or squash the price range |
+//! | plot | Ctrl + wheel | zoom the price range around the pointer (auto button off) |
+//! | price axis | wheel | zoom the price range around the pointer (auto button off) |
+//! | plot | drag | scroll in time; also in price, but only with the auto button off |
+//! | price axis | drag | stretch or squash the price range (auto button off) |
 //! | time axis | drag | stretch or squash the bars |
-//! | price axis | double click | back to the automatic price range |
+//! | price axis | double click | auto button on again |
 //! | time axis, plot corner | double click | back to the newest bars |
 //! | Auto button | click | freeze the price range where it is, or fit it to the bars again |
 //! | Log button | click | logarithmic price axis instead of linear |
 //!
-//! Anything that moves the price range by hand switches the scale to manual (see
-//! [`scale`](super::scale)); the double click on the price axis switches it back.
+//! The auto button is a plain on or off, as on the usual trading platforms. On (the start), the
+//! price range follows the bars on screen and the chart only moves along time: a vertical drag or
+//! a price zoom is ignored. Off, the range stays where it is and can be dragged and zoomed freely.
+//! Nothing switches it by itself; only the button, or a double click on the price axis (on), does
+//! (see [`scale`](super::scale)).
 
 use wyck_engine::domain::{Candle, Period, UnixMillis};
 
@@ -51,10 +54,6 @@ const AXIS_DRAG_RATE: f64 = 0.005;
 
 /// A key zoom step.
 const KEY_ZOOM: f64 = 1.2;
-
-/// A vertical drag inside the plot is ignored until it has gone this far (pixels), so a
-/// horizontal scroll that wobbles does not leave automatic scaling.
-const VERTICAL_DEAD_ZONE: f64 = 4.0;
 
 /// Which part of the chart a point is in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,12 +90,8 @@ pub enum ChartKey {
 /// A drag in progress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Drag {
-    /// Moving the plot. `origin_y` and `vertical` decide when the price range starts to follow.
-    Pan {
-        last: (f64, f64),
-        origin_y: f64,
-        vertical: bool,
-    },
+    /// Moving the plot: along time always, and along price only with the scale on manual.
+    Pan { last: (f64, f64) },
     /// Stretching the price range from the axis.
     PriceZoom { last_y: f64 },
     /// Stretching the bars from the axis.
@@ -317,6 +312,10 @@ impl ChartModel {
         let zoom = (dy * WHEEL_ZOOM_RATE).exp();
 
         if region == Region::PriceAxis || (region == Region::Plot && ctrl) {
+            // The price range follows the data while the scale is automatic: nothing to zoom.
+            if self.is_auto() {
+                return false;
+            }
             self.scale.zoom_at(y.min(height), zoom, height);
         } else if shift || dx.abs() > dy.abs() {
             let along = if dx.abs() > dy.abs() { dx } else { dy };
@@ -338,12 +337,10 @@ impl ChartModel {
             return self.double_click(region);
         }
         self.drag = match region {
-            Region::Plot => Some(Drag::Pan {
-                last: (x, y),
-                origin_y: y,
-                vertical: false,
-            }),
-            Region::PriceAxis => Some(Drag::PriceZoom { last_y: y }),
+            Region::Plot => Some(Drag::Pan { last: (x, y) }),
+            // With the automatic scale on, the price range is not the user's to stretch.
+            Region::PriceAxis if !self.is_auto() => Some(Drag::PriceZoom { last_y: y }),
+            Region::PriceAxis => None,
             Region::TimeAxis => Some(Drag::TimeZoom { last_x: x }),
             Region::Corner | Region::Outside => None,
         };
@@ -382,22 +379,13 @@ impl ChartModel {
             return false;
         };
         match drag {
-            Drag::Pan {
-                last,
-                origin_y,
-                vertical,
-            } => {
+            Drag::Pan { last } => {
                 let (dx, dy) = (x - last.0, y - last.1);
-                let vertical = vertical || (y - origin_y).abs() >= VERTICAL_DEAD_ZONE;
                 self.viewport.pan_by(dx, count);
-                if vertical {
+                if !self.is_auto() {
                     self.scale.pan_by(dy, height);
                 }
-                self.drag = Some(Drag::Pan {
-                    last: (x, y),
-                    origin_y,
-                    vertical,
-                });
+                self.drag = Some(Drag::Pan { last: (x, y) });
             }
             Drag::PriceZoom { last_y } => {
                 let factor = ((y - last_y) * AXIS_DRAG_RATE).exp();
@@ -553,12 +541,26 @@ mod tests {
     }
 
     #[test]
-    fn the_wheel_on_the_price_axis_zooms_the_price_and_goes_manual() {
+    fn the_wheel_on_the_price_axis_is_ignored_while_auto_is_on() {
         let mut m = model_with(500);
+        let range = (m.scale.low, m.scale.high);
+        assert!(!m.wheel(830.0, 200.0, 0.0, 72.0, false, false));
+        assert!(
+            !m.wheel(300.0, 100.0, 0.0, 72.0, true, false),
+            "ctrl wheel too"
+        );
+        assert_eq!((m.scale.low, m.scale.high), range);
+        assert!(m.is_auto(), "nothing switched it off");
+    }
+
+    #[test]
+    fn the_wheel_on_the_price_axis_zooms_the_price_once_auto_is_off() {
+        let mut m = model_with(500);
+        m.toggle_auto();
         let span = m.scale.span();
         assert!(m.wheel(830.0, 200.0, 0.0, 72.0, false, false));
         assert!(m.scale.span() < span);
-        assert!(!m.is_auto());
+        assert!(!m.is_auto(), "still off");
         assert_eq!(m.viewport.bar_spacing, 8.0);
     }
 
@@ -578,22 +580,49 @@ mod tests {
     }
 
     #[test]
-    fn dragging_the_plot_scrolls_and_stays_automatic_while_horizontal() {
+    fn dragging_the_plot_moves_only_along_time_while_auto_is_on() {
         let mut m = model_with(500);
+        let range = (m.scale.low, m.scale.high);
         m.press(400.0, 200.0, 1);
         assert!(m.is_dragging());
-        m.drag_to(480.0, 201.0);
-        assert!(m.viewport.right_offset < 0.0);
-        assert!(m.is_auto(), "a wobble of one pixel is not a vertical drag");
-        m.drag_to(480.0, 260.0);
-        assert!(!m.is_auto(), "a real vertical drag frees the price range");
+        m.drag_to(480.0, 320.0);
+        assert!(m.viewport.right_offset < 0.0, "scrolled along time");
+        assert!(m.is_auto(), "a vertical drag does not switch auto off");
         assert!(m.release());
+        assert!(!m.is_dragging());
+        assert!(
+            m.scale.high > range.0 && m.scale.low < range.1,
+            "the range only refit to the new bars"
+        );
+    }
+
+    #[test]
+    fn dragging_the_plot_moves_in_both_directions_once_auto_is_off() {
+        let mut m = model_with(500);
+        m.toggle_auto();
+        let range = (m.scale.low, m.scale.high);
+        m.press(400.0, 200.0, 1);
+        m.drag_to(480.0, 260.0);
+        m.release();
+        assert!(m.viewport.right_offset < 0.0);
+        assert!(
+            m.scale.low > range.0 && m.scale.high > range.1,
+            "the range moved up"
+        );
+        assert!(!m.is_auto());
+    }
+
+    #[test]
+    fn a_press_on_the_price_axis_does_nothing_while_auto_is_on() {
+        let mut m = model_with(500);
+        m.press(830.0, 100.0, 1);
         assert!(!m.is_dragging());
     }
 
     #[test]
     fn dragging_the_price_axis_stretches_the_range() {
         let mut m = model_with(500);
+        m.toggle_auto();
         m.press(830.0, 100.0, 1);
         let span = m.scale.span();
         m.drag_to(830.0, 160.0);
@@ -616,8 +645,10 @@ mod tests {
     #[test]
     fn double_clicks_reset_what_belongs_to_the_axis() {
         let mut m = model_with(500);
+        m.toggle_auto();
         m.wheel(830.0, 200.0, 0.0, 200.0, false, false);
         m.wheel(300.0, 100.0, 0.0, 200.0, false, false);
+        assert!(!m.is_auto());
         m.press(830.0, 100.0, 2);
         assert!(m.is_auto());
         assert!(

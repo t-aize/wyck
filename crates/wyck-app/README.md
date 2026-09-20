@@ -80,14 +80,14 @@ quotes.
 |---|---|
 | Wheel | Zoom in time around the pointer |
 | Shift + wheel, sideways wheel | Scroll in time |
-| Ctrl + wheel | Zoom the price range |
-| Wheel or drag on the price axis | Zoom the price range |
-| Drag on the plot | Scroll (and move the price range once the drag goes vertical) |
+| Ctrl + wheel | Zoom the price range (auto button off only) |
+| Wheel or drag on the price axis | Zoom the price range (auto button off only) |
+| Drag on the plot | Scroll in time; also in price when the auto button is off |
 | Drag on the time axis | Stretch or squash the bars |
-| Double click on the price axis | Automatic price range again |
+| Double click on the price axis | Auto button on again |
 | Double click on the time axis | Default zoom, newest bars |
 | Left, Right, +, -, End, Home | Scroll, zoom, jump to the newest bar, reset |
-| Auto button | Freeze the price range, or fit it to the bars on screen again |
+| Auto button | On (default): the range fits the bars, the chart moves along time only. Off: free in both directions |
 | Log button | Logarithmic price axis |
 
 The crosshair shows the price and the time of the bar under it, and the legend the figures of that
