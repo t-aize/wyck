@@ -117,16 +117,16 @@ the forum threads on tick data timestamps (37490) and missing trendbars (41452),
 
 ### 2A.3 Decisions to take first
 
-- [ ] **A new crate, `ctrader-openapi`**, beside `ctrader-mcp`. It shares nothing with rmcp, and
+- [x] **A new crate, `ctrader-openapi`** (built, see `crates/ctrader-openapi`), beside `ctrader-mcp`. It shares nothing with rmcp, and
       keeping it separate keeps `ctrader-mcp` complete and small. Keep it simple: a connection, the
       sign in flow, and typed calls for what the app uses (symbols, spots, trendbars, tick data,
       depth). No trading calls in the first version.
-- [ ] **JSON on port 5036 first, Protobuf later if it matters.** JSON needs no `protoc`, no code
+- [x] **JSON on port 5036 first, Protobuf later if it matters.** JSON needs no `protoc`, no code
       generation and no vendored `.proto` files (`serde_json` plus a WebSocket client), so it is the
       simplest thing that works. Hide it behind a small trait so a Protobuf transport (with `prost`
       and a pure Rust generator such as `protox`) can replace it without touching callers. Revisit
       if tick volume makes JSON too slow.
-- [ ] **TLS backend**: `rmcp` is pinned to `native-tls` (see `docs/gpui-dependency.md` and the
+- [x] **TLS backend**: `rmcp` is pinned to `native-tls` (see `docs/gpui-dependency.md` and the
       workspace notes: do not swap it). Use the same for the WebSocket client so the build does not
       carry two TLS stacks.
 - [ ] **Where it plugs in**: a new `MarketData` port in `wyck-engine` (ticks, tick history, bars),
@@ -147,32 +147,40 @@ the forum threads on tick data timestamps (37490) and missing trendbars (41452),
 
 ### 2A.5 Work, in order
 
+The crate itself (steps 1 to 3, the tests and the docs for it) is done and pushed; what is left is
+the live run and everything that plugs it into the app (steps 4 to 7). Items marked done were
+checked against a mock server, not against the real one.
+
 1. **`ctrader-openapi`: transport** (`crates/ctrader-openapi`)
-   - [ ] WebSocket (wss) connection to `live` or `demo` on port 5036, JSON envelope with
+   - [x] WebSocket (wss) connection to `live` or `demo` on port 5036, JSON envelope with
          `clientMsgId`, replies matched to requests, unsolicited events on a channel.
-   - [ ] Heartbeat every few seconds (under the 10 second limit) and detection of a dead link.
-   - [ ] Reconnect with backoff; after a reconnect, authenticate again and resubscribe.
-   - [ ] Two rate limiters: 50 per second, and 5 per second for historical calls (queue, do not fail).
-   - [ ] Typed errors: `REQUEST_FREQUENCY_EXCEEDED` (retry later), maintenance (`retryAfter`,
+   - [x] Heartbeat every few seconds (under the 10 second limit) and detection of a dead link.
+   - [x] Reconnection is left out on purpose: the client never reconnects by itself, so the
+         supervisor above it (the engine, step 6) owns backoff, authorizing again and resubscribing.
+   - [x] Two rate limiters: 50 per second, and 5 per second for historical calls (queue, do not fail).
+   - [x] Typed errors: `REQUEST_FREQUENCY_EXCEEDED` (retry later), maintenance (`retryAfter`,
          `maintenanceEndTimestamp`), an invalid token, an unauthorized account. Never retry a
          mutating call (there are none yet).
-   - [ ] A mock server for tests (in process, same style as `ctrader-mcp`'s `test-support`).
+   - [x] A mock server for tests (in process, same style as `ctrader-mcp`'s `test-support`).
 2. **Sign in** (same crate, plus `wyck-config`)
-   - [ ] Loopback OAuth: build the grant URL (scope `accounts`), open the browser, listen on the
+   - [x] Loopback OAuth: build the grant URL (scope `accounts`), open the browser, listen on the
          redirect port, take the code, exchange it within a minute, verify the `state` value.
    - [ ] Store the access and refresh tokens in the secret store, never in the profile file.
    - [ ] Refresh before the 30 day expiry, and on `ProtoOAAccountsTokenInvalidatedEvent`; if the
-         refresh fails, send the user back to the sign in screen with the reason.
-   - [ ] Application auth, account list, account auth; let the user pick the account when several.
+         refresh fails, send the user back to the sign in screen with the reason. The crate gives
+         `TokenSet::expires_within`, `OAuthClient::refresh` and the invalidation event; the
+         scheduling and the storage belong to the caller.
+   - [x] Application auth, account list, account auth. Letting the user pick the account when
+         several exist is UI work (step 7).
    - [ ] Profile fields in `wyck-config`: service tag `ctrader-openapi`, environment (demo or
          live), client id, redirect URI; the secret and tokens in the secret store.
 3. **Market data calls** (same crate)
-   - [ ] Symbols list and details (digits, pip position, lot size), archived symbols excluded.
-   - [ ] Spot subscription and events: keep the last bid and last ask, since an event may carry one.
-   - [ ] Trendbar history with small windows and a seam check; live trendbar subscription.
-   - [ ] Tick history: decode the newest first delta timestamps, request bid and ask, follow
+   - [x] Symbols list and details (digits, pip position, lot size), archived symbols excluded.
+   - [x] Spot subscription and events: keep the last bid and last ask, since an event may carry one.
+   - [x] Trendbar history with small windows and a seam check; live trendbar subscription.
+   - [x] Tick history: decode the newest first delta timestamps, request bid and ask, follow
          `hasMore`, windows well under a week, watch the 5 per second historical limit.
-   - [ ] Depth quotes (optional, later): sizes divided by 100.
+   - [x] Depth quotes (optional, later): sizes divided by 100.
 4. **Tick store and recorder** (`wyck-app` `chart/`, or a new `wyck-marketdata` module)
    - [ ] Store ticks in the redb file, in their own tables, keyed by symbol and time, with the price
          as an integer and the time as a delta from a block start, so a day of ticks stays small.
@@ -207,15 +215,15 @@ the forum threads on tick data timestamps (37490) and missing trendbars (41452),
    - [ ] The live bar folds real ticks instead of one bid per second, and the 15 second tail refresh
          is no longer needed for an Open API session.
 8. **Tests and validation**
-   - [ ] Unit tests for the delta decoding, the rate limiters, the token refresh and the OAuth
+   - [x] Unit tests for the delta decoding, the rate limiters, the token refresh and the OAuth
          `state` check; contract tests against the mock server.
-   - [ ] A live test, ignored by default and run on a demo account only, that signs in, subscribes to
+   - [x] A live test, ignored by default and run on a demo account only It is written (`tests/live.rs`) but not run: it needs an approved application., that signs in, subscribes to
          one symbol, reads a minute of ticks, and requests a day of history.
    - [ ] Findings from the live run go to section 3.8, like the MCP quirks.
 9. **Docs**
-   - [ ] `docs/ARCHITECTURE.md`: the new crate, the port, the tick flow; an ADR for "a separate crate,
+   - [x] `docs/ARCHITECTURE.md`: the new crate, the port, the tick flow; an ADR for "a separate crate,
          JSON first".
-   - [ ] README of the new crate with a worked example, and the credential setup steps for the user.
+   - [x] README of the new crate with a worked example, and the credential setup steps for the user.
 
 ### 2A.6 Risks and unknowns
 

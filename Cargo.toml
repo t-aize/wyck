@@ -100,6 +100,16 @@ directories = "6.0.0"
 # The chart's on-disk bar cache: pure Rust, transactional, no C toolchain.
 redb = "4.3.0"
 
+# WebSocket client for the cTrader Open API (ctrader-openapi). Same TLS backend as rmcp and
+# reqwest above (OS-native), for the same reason: one TLS stack in the build.
+tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+
+# Stream and sink combinators for splitting the WebSocket (ctrader-openapi)
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+
+# cTrader Open API client: sign in, live ticks, tick and bar history (in-workspace crate)
+ctrader-openapi = { path = "crates/ctrader-openapi" }
+
 # Structured error types (ctrader-mcp error classification)
 thiserror = "2.0.20"
 

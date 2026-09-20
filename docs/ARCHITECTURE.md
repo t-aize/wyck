@@ -39,13 +39,13 @@ do not exist yet. For what is left to build, see
 
 Rules that keep this shape:
 
-- The three crates at the bottom never depend on each other, and never on anything above
+- The crates at the bottom (`wyck-config`, `ctrader-mcp`, `ctrader-openapi`, `wyck-calendar`) never depend on each other, and never on anything above
   them. Each can be tested, documented and reused alone.
 - No UI toolkit appears below the GUI. That is what makes the GUI replaceable (the
   ratatui TUI was removed for exactly this reason) and what makes a headless mode possible.
 - All trading logic lives at or below the engine. The GUI only turns key presses into
   commands and events into pixels.
-- The engine is the only place that knows about more than one of the three crates.
+- The engine is the only place that knows about more than one of those crates.
 
 ## The crates
 
@@ -66,6 +66,34 @@ Typed Rust client for cTrader's two MCP servers, built on `rmcp`.
 Used by: the engine, for everything that touches the broker. The DTOs follow what the live
 servers really send, which differs from the documentation in places (see `TODO.md` 3.8).
 The `raw_call` example prints raw server answers, which is how those differences were found.
+
+### `ctrader-openapi` (exists, not wired in yet)
+
+Typed Rust client for the cTrader Open API over its JSON WebSocket, built for what the MCP
+servers cannot give: real ticks, tick history, bars of fourteen periods, live bars and the order
+book. Read only. It shares nothing with `ctrader-mcp` and, like the other crates at the bottom of
+the picture, depends on none of the others. Details in
+[../crates/ctrader-openapi/README.md](../crates/ctrader-openapi/README.md).
+
+| Module | Role |
+|---|---|
+| `client` | `Client`: one WebSocket, requests matched by `clientMsgId`, heartbeat, events, state |
+| `history` | `fetch_ticks` and `fetch_bars`: whole ranges, page by page, windows under the server's limits |
+| `auth`, `callback` | OAuth 2: consent URL, loopback redirect listener, code exchange, token refresh |
+| `types`, `model`, `wire` | Periods, bars, ticks, quotes; the messages; the envelope and payload numbers |
+| `rate_limit`, `error`, `config`, `event` | 50 and 5 requests per second, typed errors, settings, unsolicited messages |
+
+- **Limits**: 50 requests per second per connection, 5 for history; the limiter spaces requests
+  so a burst waits instead of failing. A heartbeat keeps the connection under the server's 10
+  second silence limit.
+- **No automatic reconnect**: after a disconnect the caller builds a new client and authorizes
+  again, so the engine's supervisor stays the one place that owns reconnection.
+- **Secrets**: client secret and tokens are `SecretString`s, `Debug` redacts them, and errors from
+  the HTTP layer are stripped of their URL (which carries the secret and the code).
+- **Not yet verified live**: it was written from the documentation without an approved
+  application. `tests/live.rs` (ignored) settles the open points; they are listed in the README and
+  in `TODO.md` section 2A. The engine `MarketData` port, the tick store and the connection screen
+  are the next steps there.
 
 ### `wyck-config` (exists)
 
