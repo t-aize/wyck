@@ -9,6 +9,7 @@ Contents
 
 1. [Where things stand](#1-where-things-stand)
 2. [Working rules](#2-working-rules)
+   - 2A. [URGENT: the cTrader Open API](#2a-urgent-the-ctrader-open-api-real-ticks-seconds-one-connection-choice)
 3. [P0: live validation before any real order](#3-p0-live-validation-before-any-real-order)
 4. [P1: decisions and foundations](#4-p1-decisions-and-foundations)
 5. [P2: wyck-engine, what is left](#5-p2-wyck-engine-what-is-left)
@@ -71,6 +72,165 @@ cargo build --release --locked
 
 Docs must build with and without `--all-features` (the `testing` feature hides
 `MockBroker`; never link to feature-gated items with intra-doc links).
+
+---
+
+## 2A. URGENT: the cTrader Open API (real ticks, seconds, one connection choice)
+
+Researched on 2026-09-20 from the official documentation and forum. Nothing of this is built yet.
+It is placed before P0 on purpose: it decides what data the chart can ever show below one minute,
+and it changes the connection screen and the engine boundary, so it is cheaper to plan now than
+after more UI depends on the MCP-only shape.
+
+### 2A.1 Why
+
+The two MCP servers cannot give sub-minute data. `get_trendbars` starts at one minute (M1 to MN1,
+nine periods), `get_spot_prices` is a snapshot the engine polls once a second, and neither has a
+tick history, a tick stream, or a per-tick volume. So today: no tick chart, no 1s or 5s bars, and
+the last bar is built from one price per second (see `docs/ARCHITECTURE.md`, "The price chart").
+
+The Open API is the protocol cTrader itself offers for this. Goal: a third way to connect, next to
+"MCP Local" and "MCP Remote", where the user enters their own application credentials (client id,
+client secret, callback address) and signs in with their cTrader ID. The engine then gets live
+ticks and tick history, records them, and the chart aggregates them into any time bar or tick bar.
+
+### 2A.2 What the research found
+
+| Topic | Finding |
+|---|---|
+| Access | Anyone with a cTID on a cTrader-affiliated broker. The application must be registered at `openapi.ctrader.com`; it starts as "submitted" and Spotware approves it by email, so this can take time. No fee is mentioned. |
+| Endpoints | `live.ctraderapi.com` and `demo.ctraderapi.com`. Port `5035` is Protobuf, port `5036` is JSON. Both accept TCP (with TLS) and WebSocket. Demo and live are separate: one connection per environment, accounts cannot be mixed. |
+| Framing | Protobuf over TCP: a 4 byte big endian length, then a `ProtoMessage` envelope (`payloadType`, `payload`, optional `clientMsgId` to match replies). WebSocket needs no length prefix. JSON uses the same envelope as `{clientMsgId, payloadType, payload}`. |
+| Heartbeat | Send a heartbeat at least every 10 seconds or the connection is dropped. |
+| Limits | 50 requests per second per connection, 5 per second for historical requests. Over it: `REQUEST_FREQUENCY_EXCEEDED`. Limits are per connection, not per user. No documented limit on subscribed symbols. |
+| Sign in | OAuth 2 authorization code. Register a redirect URI (a loopback such as `http://localhost:8765` is the documented way for a desktop app). The user grants a scope (`accounts` is read only, `trading` is full). The code lives one minute, is exchanged at `openapi.ctrader.com/apps/token` for an access token (about 30 days) and a refresh token (no expiry until used). Then: `ProtoOAApplicationAuthReq` (client id and secret), `ProtoOAGetAccountListByAccessTokenReq`, `ProtoOAAccountAuthReq` per account. The default redirect URI of the portal is for its playground only. |
+| Live ticks | `ProtoOASubscribeSpotsReq` then `ProtoOASpotEvent` on every bid or ask change (fields `bid`, `ask`, `trendbar[]`, `sessionClose`, `timestamp`). A spot event may carry only one side. |
+| Tick history | `ProtoOAGetTickDataReq`: a symbol, a quote type (bid or ask, so two requests for both), a range of at most one week (604 800 000 ms), a per-response cap that depends on the broker's backend, and `hasMore`. Ticks come **newest first** and their timestamps are **deltas** (the first is absolute, each next one is added), which is a known trap. Prices are integers to divide by 100 000. The docs do not say how long a broker keeps ticks. |
+| Volume | A historical tick is a price and a time only. There is no per-tick volume. A trendbar has a volume, and `ProtoOASubscribeDepthQuotesReq` gives the order book with sizes (divide by 100). So "volume" for tick charts can only be a tick count, and real footprint style volume is not available. |
+| Bars | `ProtoOAGetTrendbarsReq` with a per-period maximum range, `hasMore`, and live bars via `ProtoOASubscribeLiveTrendbarReq` (needs the spot subscription). A forum report shows silent gaps when many maximum size requests are chained: use small windows and check the seams (we hit a related server behavior on MCP, see 3.8). |
+| SDKs | Official: C# (`OpenAPI.Net`) and Python (`OpenApiPy`). No official Rust. `ctrader-rs` on crates.io is a young 1K line client (three releases), useful as a reference, not to depend on. Proto files: `github.com/spotware/openapi-proto-messages`. |
+
+Sources: help.ctrader.com/open-api (getting started, messages, model messages, symbol data,
+account authentication, register an application, proxies and endpoints, protobuf and JSON, FAQ),
+the forum threads on tick data timestamps (37490) and missing trendbars (41452), and the
+`ctrader-rs` page on lib.rs.
+
+### 2A.3 Decisions to take first
+
+- [ ] **A new crate, `ctrader-openapi`**, beside `ctrader-mcp`. It shares nothing with rmcp, and
+      keeping it separate keeps `ctrader-mcp` complete and small. Keep it simple: a connection, the
+      sign in flow, and typed calls for what the app uses (symbols, spots, trendbars, tick data,
+      depth). No trading calls in the first version.
+- [ ] **JSON on port 5036 first, Protobuf later if it matters.** JSON needs no `protoc`, no code
+      generation and no vendored `.proto` files (`serde_json` plus a WebSocket client), so it is the
+      simplest thing that works. Hide it behind a small trait so a Protobuf transport (with `prost`
+      and a pure Rust generator such as `protox`) can replace it without touching callers. Revisit
+      if tick volume makes JSON too slow.
+- [ ] **TLS backend**: `rmcp` is pinned to `native-tls` (see `docs/gpui-dependency.md` and the
+      workspace notes: do not swap it). Use the same for the WebSocket client so the build does not
+      carry two TLS stacks.
+- [ ] **Where it plugs in**: a new `MarketData` port in `wyck-engine` (ticks, tick history, bars),
+      separate from the `Broker` port, so a session can trade over MCP and read data over the Open
+      API, or read data only. `ServiceKind` gets a third value and `ConnectRequest` an Open API
+      variant. Decide whether one session may hold both.
+- [ ] **Scope**: ask for `accounts` (read only) first. Trading over the Open API is a later,
+      separate item, because it would need the whole order pipeline and its safety rules ported.
+
+### 2A.4 What the user has to do (cannot be done in code)
+
+- [ ] Register an application at `https://openapi.ctrader.com/`, with a full description (it speeds
+      up approval), and wait for the approval email.
+- [ ] Add the redirect URI the app will listen on (for example `http://localhost:8765`; check that
+      the portal accepts a plain http loopback address) and note the client id and secret.
+- [ ] Keep the client secret out of the repository, the logs and the profile TOML: it goes in the
+      same secret store as the MCP tokens (`wyck-config`).
+
+### 2A.5 Work, in order
+
+1. **`ctrader-openapi`: transport** (`crates/ctrader-openapi`)
+   - [ ] WebSocket (wss) connection to `live` or `demo` on port 5036, JSON envelope with
+         `clientMsgId`, replies matched to requests, unsolicited events on a channel.
+   - [ ] Heartbeat every few seconds (under the 10 second limit) and detection of a dead link.
+   - [ ] Reconnect with backoff; after a reconnect, authenticate again and resubscribe.
+   - [ ] Two rate limiters: 50 per second, and 5 per second for historical calls (queue, do not fail).
+   - [ ] Typed errors: `REQUEST_FREQUENCY_EXCEEDED` (retry later), maintenance (`retryAfter`,
+         `maintenanceEndTimestamp`), an invalid token, an unauthorized account. Never retry a
+         mutating call (there are none yet).
+   - [ ] A mock server for tests (in process, same style as `ctrader-mcp`'s `test-support`).
+2. **Sign in** (same crate, plus `wyck-config`)
+   - [ ] Loopback OAuth: build the grant URL (scope `accounts`), open the browser, listen on the
+         redirect port, take the code, exchange it within a minute, verify the `state` value.
+   - [ ] Store the access and refresh tokens in the secret store, never in the profile file.
+   - [ ] Refresh before the 30 day expiry, and on `ProtoOAAccountsTokenInvalidatedEvent`; if the
+         refresh fails, send the user back to the sign in screen with the reason.
+   - [ ] Application auth, account list, account auth; let the user pick the account when several.
+   - [ ] Profile fields in `wyck-config`: service tag `ctrader-openapi`, environment (demo or
+         live), client id, redirect URI; the secret and tokens in the secret store.
+3. **Market data calls** (same crate)
+   - [ ] Symbols list and details (digits, pip position, lot size), archived symbols excluded.
+   - [ ] Spot subscription and events: keep the last bid and last ask, since an event may carry one.
+   - [ ] Trendbar history with small windows and a seam check; live trendbar subscription.
+   - [ ] Tick history: decode the newest first delta timestamps, request bid and ask, follow
+         `hasMore`, windows well under a week, watch the 5 per second historical limit.
+   - [ ] Depth quotes (optional, later): sizes divided by 100.
+4. **Tick store and recorder** (`wyck-app` `chart/`, or a new `wyck-marketdata` module)
+   - [ ] Store ticks in the redb file, in their own tables, keyed by symbol and time, with the price
+         as an integer and the time as a delta from a block start, so a day of ticks stays small.
+   - [ ] A coverage list per symbol (like `chart::coverage`) for the ranges fetched from history,
+         and a separate marker for the ranges the app recorded live.
+   - [ ] A background recorder that writes the live ticks in batches, so the app builds a history
+         longer than the broker keeps.
+   - [ ] A pruning setting (size or age), since tick data grows fast; expose the size on disk.
+   - [ ] Decide bid, ask or mid as the bar price, and make it a chart setting.
+5. **Aggregation** (pure, tested without a window, like the rest of `chart/`)
+   - [ ] Ticks to time bars for any length (1s, 5s, 15s, and so on), to tick bars (every N ticks),
+         and later range and volume bars. The volume of a bar is its tick count, and the chart must
+         say so.
+   - [ ] Incremental: a new tick updates the last bar without rebuilding; a seam between recorded
+         and fetched ticks must not create a fake bar.
+   - [ ] Property tests: the bars of any partition of the same ticks agree; M1 built from ticks
+         matches the broker's own M1 within the expected difference.
+6. **Engine** (`wyck-engine`)
+   - [ ] The `MarketData` port and a tick `broadcast` channel next to the `EngineState` watch.
+   - [ ] `ServiceKind::CtraderOpenApi`, `ConnectRequest` variant, `ConnectFlow` states for the new
+         sign in (waiting for the browser, exchanging the code, choosing an account).
+   - [ ] Keep the rule that no order is sent without arming; the Open API adapter has no order
+         methods until a separate item adds them.
+7. **UI** (`wyck-app`)
+   - [ ] The first screen offers three choices: cTrader Desktop (MCP Local), a token (MCP Remote),
+         and "Open API" (client id, secret, callback address, then "Sign in with cTrader").
+   - [ ] Screens for the waiting browser, a failed or expired sign in, and the account picker,
+         written like the existing connection screens (plain, with the reason and what to try).
+   - [ ] Chart: new time frames (tick counts and seconds) shown only when a tick source is
+         connected; a small label of the data source; a clear message when the connected source has
+         no ticks. With MCP only, nothing changes.
+   - [ ] The live bar folds real ticks instead of one bid per second, and the 15 second tail refresh
+         is no longer needed for an Open API session.
+8. **Tests and validation**
+   - [ ] Unit tests for the delta decoding, the rate limiters, the token refresh and the OAuth
+         `state` check; contract tests against the mock server.
+   - [ ] A live test, ignored by default and run on a demo account only, that signs in, subscribes to
+         one symbol, reads a minute of ticks, and requests a day of history.
+   - [ ] Findings from the live run go to section 3.8, like the MCP quirks.
+9. **Docs**
+   - [ ] `docs/ARCHITECTURE.md`: the new crate, the port, the tick flow; an ADR for "a separate crate,
+         JSON first".
+   - [ ] README of the new crate with a worked example, and the credential setup steps for the user.
+
+### 2A.6 Risks and unknowns
+
+- **Approval time and rules** of the application are outside our control, and the documentation says
+  nothing about limits on users or accounts per application.
+- **Tick retention** is not documented, so how far back history goes is only known by trying, per
+  broker.
+- **No tick volume**: order flow style charts (footprint, volume profile from real trades) stay out
+  of reach; a tick count is what can be offered.
+- **The client secret in a desktop app** is a known weak point of the OAuth flow; the design where
+  each user enters their own application credentials (as planned) avoids shipping one shared secret.
+- **Demo and live are separate connections**, so an account switch between them means a second
+  connection, not a setting.
+- **Windows firewall and port use**: the loopback listener must pick a free port and match a
+  registered redirect URI exactly; handle "port busy" with a clear message.
 
 ---
 
