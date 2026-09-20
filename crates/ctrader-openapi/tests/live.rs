@@ -231,9 +231,59 @@ last bar  {:?}",
             compared += 1;
             if *low == bar.low && *high == bar.high {
                 matching += 1;
+            } else {
+                println!(
+                    "  differs at {}: bar low {} high {}, ticks low {} high {} ({} ticks)",
+                    bar.time_ms,
+                    bar.low,
+                    bar.high,
+                    low,
+                    high,
+                    inside.len()
+                );
             }
         }
     }
     println!("bars against ticks: {matching} of {compared} minutes have the same high and low");
+
+    // Seam check: the same hour fetched in one call and in twelve pieces must hold the same ticks.
+    // A difference means ticks are lost where two pages meet.
+    let whole = fetch_ticks(
+        &client,
+        account_id,
+        symbol.symbol_id,
+        QuoteType::Bid,
+        now - hour,
+        now,
+    )
+    .await
+    .unwrap();
+    let mut pieces = Vec::new();
+    for i in 0..12 {
+        let start = now - hour + i * 300_000;
+        let end = if i == 11 { now } else { start + 299_999 };
+        pieces.extend(
+            fetch_ticks(
+                &client,
+                account_id,
+                symbol.symbol_id,
+                QuoteType::Bid,
+                start,
+                end,
+            )
+            .await
+            .unwrap(),
+        );
+    }
+    println!(
+        "seam check: {} ticks in one call, {} in twelve pieces{}",
+        whole.len(),
+        pieces.len(),
+        if whole == pieces {
+            " (identical)"
+        } else {
+            " (DIFFERENT)"
+        }
+    );
     client.close().await;
 }

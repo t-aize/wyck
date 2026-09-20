@@ -294,9 +294,12 @@ work. It also showed two things the documentation did not say, both now fixed an
       six hour bid and ask histories, a one hour pair and a day of M1 bars ran without a block.
 - [x] **Volume of the history**: 2 158 quotes in the last hour before the anchor, 1 400 M1 bars in
       one request range of a day (a full trading day is about 1 380), so a day of M1 is not cut.
-- [ ] The live test now also prints the first and last bar and compares the high and low of each
-      minute with the bid ticks of that minute. Run it once more to see how many minutes match:
-      that settles the bar decoding (a low plus offsets) and which side the bars are built on.
+- [x] **Bars are decoded correctly**: the first and last bar are sensible and 286 of 299 minutes
+      have exactly the same high and low as the bid ticks of that minute (95.7 percent), so the
+      low-plus-offsets decoding is right and bars are built on the bid.
+- [ ] The 13 minutes that differ: either ticks at the edge of a minute, or ticks lost where two
+      pages of `fetch_ticks` meet. The live test now prints each differing minute and runs a seam
+      check (one hour in one call against twelve pieces). Run it once more and settle it.
 
 
 ---
