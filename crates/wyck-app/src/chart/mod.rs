@@ -12,6 +12,8 @@
 //! | [`coverage`] | Which time ranges were already fetched, empty ones included |
 //! | [`history`] | What to ask the server for: the tail, older pages, what counts as fetched |
 //! | [`store`] | The bars on disk, in one transactional file |
+//! | [`lod`] | Level of detail and pixel snapped boxes for candles, lines and columns |
+//! | [`interaction`] | The chart model: data, view, and what each wheel turn, drag and key does |
 //!
 //! The data flows one way. The engine hands over [`wyck_engine::domain::Candle`]s; the
 //! [`store`] keeps the closed ones between launches; a [`series::Series`] holds them in order in
@@ -29,6 +31,8 @@
 
 pub mod coverage;
 pub mod history;
+pub mod interaction;
+pub mod lod;
 pub mod scale;
 pub mod series;
 pub mod store;
