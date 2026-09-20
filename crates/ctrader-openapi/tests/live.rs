@@ -218,6 +218,7 @@ last bar  {:?}",
     .await
     .unwrap();
     let (mut compared, mut matching) = (0, 0);
+    let (mut volume_sum, mut tick_sum) = (0i64, 0usize);
     for bar in bars
         .iter()
         .filter(|b| b.time_ms >= now - 5 * hour && b.time_ms + 60_000 <= now)
@@ -229,6 +230,8 @@ last bar  {:?}",
             .collect();
         if let (Some(low), Some(high)) = (inside.iter().min(), inside.iter().max()) {
             compared += 1;
+            volume_sum += bar.volume;
+            tick_sum += inside.len();
             if *low == bar.low && *high == bar.high {
                 matching += 1;
             } else {
@@ -245,6 +248,9 @@ last bar  {:?}",
         }
     }
     println!("bars against ticks: {matching} of {compared} minutes have the same high and low");
+    println!(
+        "bar volume against tick count over those minutes: {volume_sum} against {tick_sum} (a bar counts ticks; if the bars count more, the tick history is thinner than the feed the bars come from)"
+    );
 
     // Seam check: the same hour fetched in one call and in twelve pieces must hold the same ticks.
     // A difference means ticks are lost where two pages meet.
@@ -260,8 +266,8 @@ last bar  {:?}",
     .unwrap();
     let mut pieces = Vec::new();
     for i in 0..12 {
-        let start = now - hour + i * 300_000;
-        let end = if i == 11 { now } else { start + 299_999 };
+        let start = now - 6 * hour + i * 1_800_000;
+        let end = if i == 11 { now } else { start + 1_799_999 };
         pieces.extend(
             fetch_ticks(
                 &client,

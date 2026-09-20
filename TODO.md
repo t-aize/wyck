@@ -297,10 +297,23 @@ work. It also showed two things the documentation did not say, both now fixed an
 - [x] **Bars are decoded correctly**: the first and last bar are sensible and 286 of 299 minutes
       have exactly the same high and low as the bid ticks of that minute (95.7 percent), so the
       low-plus-offsets decoding is right and bars are built on the bid.
-- [ ] The 13 minutes that differ: either ticks at the edge of a minute, or ticks lost where two
-      pages of `fetch_ticks` meet. The live test now prints each differing minute and runs a seam
-      check (one hour in one call against twelve pieces). Run it once more and settle it.
+- [x] The 13 minutes that differ were printed and analysed, see the next run below.
 
+
+#### Fourth live run: the 13 minutes
+
+- [x] The seam check (one hour in one call, against twelve pieces) came back identical, 1628 ticks
+      each. It was too weak: an hour probably fits in one page, so no seam was exercised. It now
+      compares six hours with twelve pieces of half an hour.
+- [x] The 13 minutes that differ all show the same thing: the bar range is wider than the range of
+      the bid ticks of that minute, by one to three units of the last digit (for example bar high
+      114677 against a tick high of 114676), and never narrower. The bars are built from a feed a
+      little richer than the tick history, or the history drops some ticks. It is not a decoding
+      error (286 of 299 minutes match exactly). Lost ticks at a page seam would look the same,
+      which is why the seam check is being strengthened.
+- [ ] Run the live test again: the seam check over six hours, and the new line comparing the
+      bar volume with the tick count over the same minutes, settle it. A bar volume above the tick
+      count means the tick history is thinner than the feed behind the bars.
 
 ---
 ---
