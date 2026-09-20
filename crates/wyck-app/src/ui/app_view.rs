@@ -16,11 +16,12 @@
 use std::time::Duration;
 
 use gpui_kit::base::{MotionReveal, Presence, PresencePhase, Transition, TransitionId, transition};
+use gpui_kit::component::Sizable as _;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     AnyElement, App, Context, Div, ElementId, Entity, FocusHandle, Focusable as _, KeyDownEvent,
-    SharedString, Stateful, Subscription, Task, Window, div, px,
+    SharedString, Stateful, Subscription, Task, Window, div,
 };
 use secrecy::SecretString;
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
@@ -28,7 +29,7 @@ use wyck_engine::domain::now_millis;
 
 use super::motion::{self, Direction, Hover};
 use super::screens;
-use super::theme;
+use super::theme::{self, sz};
 use super::titlebar::titlebar;
 use super::widgets::{Glyph, glyph};
 use crate::flow::{
@@ -460,23 +461,23 @@ impl AppView {
                     .flex()
                     .flex_row()
                     .items_start()
-                    .gap(px(10.))
-                    .px(px(16.))
-                    .py(px(9.))
+                    .gap(sz(10.))
+                    .px(sz(16.))
+                    .py(sz(9.))
                     .opacity(progress)
                     .bg(theme::alpha(color, 0.08))
                     .border_b_1()
                     .border_color(theme::alpha(color, 0.25))
                     .child(
                         div()
-                            .mt(px(1.))
+                            .mt(sz(1.))
                             .child(glyph(level_glyph(banner.level), 14., color)),
                     )
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(12.))
+                            .text_size(sz(12.))
                             .line_height(gpui_kit::relative(1.5))
                             .text_color(theme::fg())
                             .child(
@@ -534,19 +535,19 @@ impl AppView {
                 Some(
                     div()
                         .relative()
-                        .top(px((1.0 - progress) * 10.0))
+                        .top(sz((1.0 - progress) * 10.0))
                         .opacity(progress)
                         .flex()
                         .flex_row()
                         .items_start()
-                        .gap(px(10.))
-                        .px(px(13.))
-                        .py(px(11.))
+                        .gap(sz(10.))
+                        .px(sz(13.))
+                        .py(sz(11.))
                         .bg(theme::card())
                         .border_1()
                         .border_color(theme::alpha(color, 0.35))
-                        .rounded(px(10.))
-                        .child(div().mt(px(1.)).child(glyph(
+                        .rounded(sz(10.))
+                        .child(div().mt(sz(1.)).child(glyph(
                             level_glyph(toast.notice.level),
                             14.,
                             color,
@@ -557,8 +558,8 @@ impl AppView {
                                 .min_w_0()
                                 .flex()
                                 .flex_col()
-                                .gap(px(2.))
-                                .text_size(px(12.))
+                                .gap(sz(2.))
+                                .text_size(sz(12.))
                                 .line_height(gpui_kit::relative(1.5))
                                 .child(
                                     div()
@@ -587,12 +588,12 @@ impl AppView {
             .collect();
         div()
             .absolute()
-            .bottom(px(16.))
-            .right(px(16.))
-            .w(px(330.))
+            .bottom(sz(16.))
+            .right(sz(16.))
+            .w(sz(330.))
             .flex()
             .flex_col()
-            .gap(px(8.))
+            .gap(sz(8.))
             .children(items)
     }
 
@@ -624,6 +625,7 @@ impl AppView {
         };
         let field: AnyElement = if live {
             Input::new(&self.token)
+                .large()
                 .appearance(false)
                 .bordered(false)
                 .focus_bordered(false)
@@ -642,7 +644,7 @@ impl AppView {
                 (value, theme::fg())
             };
             div()
-                .pl(px(11.))
+                .pl(sz(11.))
                 .text_color(color)
                 .child(text)
                 .into_any_element()
@@ -666,20 +668,20 @@ impl AppView {
             .flex_row()
             .items_center()
             .w_full()
-            .h(px(38.))
-            .pl(px(2.))
-            .pr(px(6.))
-            .gap(px(4.))
-            .rounded(px(8.))
+            .h(sz(44.))
+            .pl(sz(2.))
+            .pr(sz(6.))
+            .gap(sz(4.))
+            .rounded(sz(8.))
             .bg(theme::bg())
             .border_1()
             .border_color(border)
             .when(!failed && glow > 0.0, |el| {
                 el.shadow(vec![gpui_kit::BoxShadow {
                     color: theme::alpha(theme::ring(), 0.20 * glow),
-                    offset: gpui_kit::point(px(0.), px(0.)),
-                    blur_radius: px(0.),
-                    spread_radius: px(3.0 * glow),
+                    offset: gpui_kit::point(sz(0.), sz(0.)),
+                    blur_radius: sz(0.),
+                    spread_radius: sz(3.0 * glow),
                     inset: false,
                 }])
             })
@@ -688,7 +690,7 @@ impl AppView {
                     .flex_1()
                     .min_w_0()
                     .font_features(theme::tabular())
-                    .text_size(px(12.5))
+                    .text_size(sz(14.))
                     .child(field),
             )
             .child(toggle)
@@ -728,7 +730,7 @@ impl AppView {
             .absolute()
             .top_0()
             .size_full()
-            .left(px(motion::slide(self.direction, arriving, progress)))
+            .left(sz(motion::slide(self.direction, arriving, progress)))
             .opacity(progress)
             .child(content)
             .into_any_element()
@@ -745,8 +747,8 @@ fn icon_button(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) -> S
         .flex_none()
         .items_center()
         .justify_center()
-        .size(px(26.))
-        .rounded(px(6.))
+        .size(sz(30.))
+        .rounded(sz(6.))
         .bg(hover.mix(theme::alpha(theme::muted(), 0.0), theme::muted()))
         .cursor_pointer()
         .on_hover(hover.handler())
@@ -814,7 +816,7 @@ impl Render for AppView {
             .bg(theme::bg())
             .text_color(theme::fg())
             .font_family(theme::SANS)
-            .text_size(px(13.))
+            .text_size(sz(13.))
             .child(titlebar(window, cx))
             .child(self.banners(window, cx))
             .child(

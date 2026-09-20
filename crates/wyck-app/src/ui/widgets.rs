@@ -13,11 +13,11 @@ use gpui_kit::prelude::*;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, App, BoxShadow, Div, FontWeight, Hsla, SharedString,
     Stateful, Svg, Transformation, Window, div, ease_in_out, hsla, linear_color_stop,
-    linear_gradient, percentage, point, pulsating_between, px, relative, svg, transparent_black,
+    linear_gradient, percentage, point, pulsating_between, relative, svg, transparent_black,
 };
 
 use super::motion::{self, Hover};
-use super::theme;
+use super::theme::{self, sz};
 use crate::presentation::{Badge, Tone};
 
 /// The icons of the application. Each is a file under `assets/icons`.
@@ -93,7 +93,7 @@ impl Glyph {
 pub fn glyph(glyph: Glyph, size: f32, color: Hsla) -> Svg {
     svg()
         .path(glyph.path())
-        .size(px(size))
+        .size(sz(size))
         .flex_none()
         .text_color(color)
 }
@@ -135,7 +135,7 @@ fn rise(index: usize, child: AnyElement, window: &mut Window, cx: &mut App) -> D
         .progress;
     div()
         .relative()
-        .top(px((1.0 - progress) * motion::RISE))
+        .top(sz((1.0 - progress) * motion::RISE))
         .opacity(progress)
         .w_full()
         .flex()
@@ -148,9 +148,9 @@ impl RenderOnce for Card {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
             color: hsla(0., 0., 0., alpha),
-            offset: point(px(0.), px(y)),
-            blur_radius: px(blur),
-            spread_radius: px(spread),
+            offset: point(sz(0.), sz(y)),
+            blur_radius: sz(blur),
+            spread_radius: sz(spread),
             inset: false,
         };
         let children: Vec<Div> = self
@@ -160,18 +160,18 @@ impl RenderOnce for Card {
             .map(|(index, child)| rise(index, child, window, cx))
             .collect();
         div()
-            .w(px(self.width))
+            .w(sz(self.width))
             .flex_none()
             .my_auto()
             .flex()
             .flex_col()
             .items_center()
-            .px(px(34.))
-            .py(px(36.))
+            .px(sz(34.))
+            .py(sz(36.))
             .bg(theme::card())
             .border_1()
             .border_color(theme::border())
-            .rounded(px(12.))
+            .rounded(sz(12.))
             .shadow(vec![shadow(0.4, 1., 2., 0.), shadow(0.6, 12., 32., -16.)])
             .children(children)
     }
@@ -180,7 +180,7 @@ impl RenderOnce for Card {
 /// The heading of a card.
 pub fn title(text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(19.))
+        .text_size(sz(19.))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(theme::fg())
         .text_center()
@@ -190,10 +190,10 @@ pub fn title(text: impl Into<SharedString>) -> Div {
 /// The paragraph under a heading, at most `max_width` pixels wide.
 pub fn lead(text: impl Into<SharedString>, max_width: f32) -> Div {
     div()
-        .mt(px(8.))
-        .mb(px(24.))
-        .max_w(px(max_width))
-        .text_size(px(13.))
+        .mt(sz(8.))
+        .mb(sz(24.))
+        .max_w(sz(max_width))
+        .text_size(sz(13.))
         .line_height(relative(1.6))
         .text_color(theme::dim())
         .text_center()
@@ -214,11 +214,11 @@ pub fn primary_button(
         .items_center()
         .justify_center()
         .w_full()
-        .h(px(38.))
-        .rounded(px(8.))
+        .h(sz(44.))
+        .rounded(sz(8.))
         .bg(hover.mix(theme::accent(), theme::accent_hover()))
         .text_color(theme::card())
-        .text_size(px(13.))
+        .text_size(sz(13.))
         .font_weight(FontWeight::MEDIUM)
         .cursor_pointer()
         .active(|style| style.bg(theme::accent()).opacity(0.88))
@@ -241,13 +241,13 @@ pub fn secondary_button(
         .items_center()
         .justify_center()
         .w_full()
-        .h(px(38.))
-        .rounded(px(8.))
+        .h(sz(44.))
+        .rounded(sz(8.))
         .bg(hover.mix(theme::bg(), theme::muted()))
         .border_1()
         .border_color(theme::alpha(theme::fg(), 0.16))
         .text_color(theme::fg())
-        .text_size(px(13.))
+        .text_size(sz(13.))
         .font_weight(FontWeight::MEDIUM)
         .cursor_pointer()
         .active(|style| style.opacity(0.88))
@@ -275,13 +275,13 @@ pub fn text_link(
         .id(id)
         .flex()
         .items_center()
-        .gap(px(4.))
-        .text_size(px(12.))
+        .gap(sz(4.))
+        .text_size(sz(12.))
         .text_color(color)
         .cursor_pointer()
         .on_hover(hover.handler())
         .child(label.into())
-        .children(trailing.map(|g| glyph(g, 12., color).relative().left(px(nudge))))
+        .children(trailing.map(|g| glyph(g, 12., color).relative().left(sz(nudge))))
 }
 
 /// The "Back" link in the top left corner of a screen. Its chevron slides 2 px to the left under
@@ -292,19 +292,19 @@ pub fn back_button(id: &'static str, window: &mut Window, cx: &mut App) -> State
     div()
         .id(id)
         .absolute()
-        .top(px(24.))
-        .left(px(28.))
+        .top(sz(24.))
+        .left(sz(28.))
         .flex()
         .items_center()
-        .gap(px(6.))
-        .text_size(px(12.))
+        .gap(sz(6.))
+        .text_size(sz(12.))
         .text_color(color)
         .cursor_pointer()
         .on_hover(hover.handler())
         .child(
             glyph(Glyph::ChevronLeft, 12., color)
                 .relative()
-                .left(px(-2.0 * hover.amount)),
+                .left(sz(-2.0 * hover.amount)),
         )
         .child("Back")
 }
@@ -318,7 +318,7 @@ pub fn panel() -> Div {
         .bg(theme::bg())
         .border_1()
         .border_color(theme::border())
-        .rounded(px(10.))
+        .rounded(sz(10.))
         .overflow_hidden()
 }
 
@@ -334,9 +334,9 @@ pub fn row(
         .flex()
         .flex_row()
         .items_center()
-        .gap(px(10.))
-        .px(px(14.))
-        .py(px(11.))
+        .gap(sz(10.))
+        .px(sz(14.))
+        .py(sz(11.))
         .when(divider, |row| {
             row.border_b_1().border_color(theme::border())
         })
@@ -345,7 +345,7 @@ pub fn row(
             div()
                 .flex_1()
                 .min_w_0()
-                .text_size(px(12.))
+                .text_size(sz(12.))
                 .line_height(relative(1.5))
                 .text_color(theme::dim())
                 .child(label.into()),
@@ -357,7 +357,7 @@ pub fn row(
 pub fn value(text: impl Into<SharedString>) -> Div {
     div()
         .font_features(theme::tabular())
-        .text_size(px(12.))
+        .text_size(sz(12.))
         .text_color(theme::fg())
         .child(text.into())
 }
@@ -366,12 +366,12 @@ pub fn value(text: impl Into<SharedString>) -> Div {
 pub fn pill(text: impl Into<SharedString>, color: Hsla, background: Hsla) -> Div {
     let text: SharedString = text.into();
     div()
-        .px(px(6.))
-        .py(px(2.))
-        .rounded(px(4.))
+        .px(sz(6.))
+        .py(sz(2.))
+        .rounded(sz(4.))
         .bg(background)
         .text_color(color)
-        .text_size(px(9.5))
+        .text_size(sz(9.5))
         .font_weight(FontWeight::MEDIUM)
         .child(text.to_uppercase())
 }
@@ -409,14 +409,14 @@ pub fn status_disc(
         .flex()
         .items_center()
         .justify_center()
-        .size(px(52.))
-        .mb(px(16.))
+        .size(sz(52.))
+        .mb(sz(16.))
         .child(
             div()
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(52. * scale))
+                .size(sz(52. * scale))
                 .rounded_full()
                 .bg(background)
                 .child(glyph(icon, 22. * scale, color)),
@@ -427,20 +427,20 @@ pub fn status_disc(
 pub fn error_box(text: impl Into<SharedString>) -> Div {
     div()
         .w_full()
-        .mb(px(18.))
+        .mb(sz(18.))
         .flex()
         .flex_row()
         .items_start()
-        .gap(px(10.))
-        .px(px(13.))
-        .py(px(11.))
-        .rounded(px(8.))
+        .gap(sz(10.))
+        .px(sz(13.))
+        .py(sz(11.))
+        .rounded(sz(8.))
         .bg(theme::alpha(theme::red(), 0.06))
         .border_1()
         .border_color(theme::alpha(theme::red(), 0.25))
         .child(
             div()
-                .mt(px(2.))
+                .mt(sz(2.))
                 .child(glyph(Glyph::TriangleAlert, 14., theme::red())),
         )
         .child(
@@ -448,7 +448,7 @@ pub fn error_box(text: impl Into<SharedString>) -> Div {
                 .flex_1()
                 .min_w_0()
                 .font_features(theme::tabular())
-                .text_size(px(11.5))
+                .text_size(sz(11.5))
                 .line_height(relative(1.5))
                 .text_color(theme::red_text())
                 .child(text.into()),
@@ -473,17 +473,17 @@ pub fn spinner(icon: Glyph, disc: f32, rings: bool) -> Div {
                     let eased = 1.0 - (1.0 - t) * (1.0 - t);
                     let side = BOX * (0.9 + 0.7 * eased);
                     let offset = (BOX - side) / 2.0;
-                    el.top(px(offset))
-                        .left(px(offset))
-                        .size(px(side))
+                    el.top(sz(offset))
+                        .left(sz(offset))
+                        .size(sz(side))
                         .opacity(0.5 * (1.0 - eased))
                 },
             )
     };
     div()
         .relative()
-        .size(px(BOX))
-        .mb(px(18.))
+        .size(sz(BOX))
+        .mb(sz(18.))
         .flex()
         .items_center()
         .justify_center()
@@ -495,18 +495,18 @@ pub fn spinner(icon: Glyph, disc: f32, rings: bool) -> Div {
             svg()
                 .path("wyck/ring.svg")
                 .absolute()
-                .top(px(4.))
-                .left(px(4.))
-                .size(px(48.))
+                .top(sz(4.))
+                .left(sz(4.))
+                .size(sz(48.))
                 .text_color(theme::muted()),
         )
         .child(
             svg()
                 .path("wyck/arc.svg")
                 .absolute()
-                .top(px(4.))
-                .left(px(4.))
-                .size(px(48.))
+                .top(sz(4.))
+                .left(sz(4.))
+                .size(sz(48.))
                 .text_color(theme::fg())
                 .with_animation(
                     "spin",
@@ -519,7 +519,7 @@ pub fn spinner(icon: Glyph, disc: f32, rings: bool) -> Div {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(disc))
+                .size(sz(disc))
                 .rounded_full()
                 .bg(theme::muted())
                 .child(glyph(icon, disc * 0.47, theme::fg())),
@@ -528,7 +528,7 @@ pub fn spinner(icon: Glyph, disc: f32, rings: bool) -> Div {
 
 /// A dot that breathes: something is happening.
 pub fn pulse_dot(color: Hsla) -> impl IntoElement {
-    div().size(px(6.)).rounded_full().bg(color).with_animation(
+    div().size(sz(6.)).rounded_full().bg(color).with_animation(
         "pulse-dot",
         Animation::new(Duration::from_millis(1600))
             .repeat()
@@ -545,7 +545,7 @@ pub fn progress_bar() -> Div {
     div()
         .relative()
         .w_full()
-        .h(px(2.))
+        .h(sz(2.))
         .bg(theme::muted())
         .overflow_hidden()
         .child(
@@ -580,19 +580,19 @@ pub fn progress_bar() -> Div {
 
 /// The "or" between two ways of doing the same thing.
 pub fn or_divider() -> Div {
-    let line = || div().flex_1().h(px(1.)).bg(theme::border());
+    let line = || div().flex_1().h(sz(1.)).bg(theme::border());
     div()
         .w_full()
-        .mt(px(20.))
-        .mb(px(4.))
+        .mt(sz(20.))
+        .mb(sz(4.))
         .flex()
         .flex_row()
         .items_center()
-        .gap(px(12.))
+        .gap(sz(12.))
         .child(line())
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(sz(11.))
                 .text_color(theme::dim())
                 .child("or"),
         )

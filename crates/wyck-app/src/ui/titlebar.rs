@@ -1,6 +1,6 @@
 //! The title bar, drawn by the application instead of the operating system.
 //!
-//! It is 38 pixels high: the logo and the name on the left, the version on the right, then the
+//! It is 38 pixels high, at any interface scale (only the window and its content grow): the logo and the name on the left, the version on the right, then the
 //! minimize, maximize (or restore) and close buttons. The window is created without a native
 //! title bar (see [`window_options`]), so this bar is all there is, and it does three jobs a
 //! native one would:
@@ -22,7 +22,7 @@ use gpui_kit::{
 };
 
 use super::motion::Hover;
-use super::theme;
+use super::theme::{self, sz};
 
 /// The height of the bar.
 pub const HEIGHT: f32 = 38.;
@@ -32,15 +32,31 @@ const BUTTON_WIDTH: f32 = 44.;
 const MAC_INSET: f32 = 80.;
 
 /// The size the main window opens at.
-pub const DEFAULT_SIZE: (f32, f32) = (960., 680.);
+pub const DEFAULT_SIZE: (f32, f32) = (960., 720.);
 /// The smallest the main window can be made.
 pub const MIN_SIZE: (f32, f32) = (800., 560.);
+
+/// A window size given in design pixels, scaled (the window is larger with the content, the bar is not), and cut to 92 percent of `available` (the screen, in
+/// logical pixels) when that is known and smaller.
+#[must_use]
+pub fn fitted(design: (f32, f32), available: Option<(f32, f32)>) -> (f32, f32) {
+    let (width, height) = (f32::from(sz(design.0)), f32::from(sz(design.1)));
+    match available {
+        Some((w, h)) => (width.min(w * 0.92), height.min(h * 0.92)),
+        None => (width, height),
+    }
+}
 
 /// The options of a window that draws its own title bar: no native bar, a size, a minimum size.
 #[must_use]
 pub fn window_options(cx: &App) -> WindowOptions {
-    let (width, height) = DEFAULT_SIZE;
-    let (min_width, min_height) = MIN_SIZE;
+    // The screen the window opens on, in logical pixels: the window never opens larger than it.
+    let available = cx.primary_display().map(|display| {
+        let screen = display.bounds().size;
+        (f32::from(screen.width), f32::from(screen.height))
+    });
+    let (width, height) = fitted(DEFAULT_SIZE, available);
+    let (min_width, min_height) = fitted(MIN_SIZE, available);
     WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
             None,
@@ -236,6 +252,15 @@ mod tests {
         let label = version_label();
         assert!(label.starts_with(concat!("v", env!("CARGO_PKG_VERSION"))));
         assert_eq!(label.ends_with("-dev"), cfg!(debug_assertions));
+    }
+
+    #[test]
+    fn a_window_never_opens_larger_than_its_screen() {
+        let (w, h) = fitted((1000., 700.), Some((1366., 768.)));
+        assert!(w <= 1366. * 0.92 && h <= 768. * 0.92, "{w}x{h}");
+        let (w, h) = fitted((100., 100.), Some((4000., 3000.)));
+        assert_eq!((w, h), (f32::from(sz(100.)), f32::from(sz(100.))));
+        assert_eq!(fitted((100., 100.), None).0, f32::from(sz(100.)));
     }
 
     #[test]

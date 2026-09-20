@@ -4,12 +4,40 @@
 //! screen never contains a color literal. The palette is neutral grays plus one green and one
 //! red; amber is added for warnings, which the connection screens do not use but toasts do.
 
-use gpui_kit::component::{Theme, ThemeMode};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-use gpui_kit::{App, FontFeatures, Hsla, Rgba, px, rgb};
+use gpui_kit::component::{Theme, ThemeMode};
+use gpui_kit::{App, FontFeatures, Hsla, Pixels, Rgba, px, rgb};
 
 use crate::presentation::Tone;
+
+use crate::settings::{DEFAULT_UI_SCALE as DEFAULT_SCALE, UI_SCALE_RANGE as SCALE_RANGE};
+
+static SCALE: AtomicU32 = AtomicU32::new(DEFAULT_SCALE.to_bits());
+
+/// Sets the scale of the whole interface, kept within [`SCALE_RANGE`]. A value that is not a number
+/// is ignored. Call it before the first window is opened.
+pub fn set_scale(scale: f32) {
+    if scale.is_finite() {
+        let (low, high) = SCALE_RANGE;
+        SCALE.store(scale.clamp(low, high).to_bits(), Ordering::Relaxed);
+    }
+}
+
+/// The current scale of the interface.
+#[must_use]
+pub fn scale() -> f32 {
+    f32::from_bits(SCALE.load(Ordering::Relaxed))
+}
+
+/// A size in design pixels, as the pixels to draw at the current [`scale`]. Every size in the
+/// interface (text, icons, paddings, radii, the window) goes through this, so that one number
+/// makes the whole thing larger or smaller. Hairlines (1 px borders) do not scale.
+#[must_use]
+pub fn sz(design: f32) -> Pixels {
+    px(design * scale())
+}
 
 /// The font of the whole application.
 pub const SANS: &str = "Geist";
@@ -150,8 +178,8 @@ pub fn install(cx: &mut App) {
     let theme = Theme::global_mut(cx);
     theme.font_family = SANS.into();
     theme.mono_font_family = SANS.into();
-    theme.font_size = px(13.);
-    theme.mono_font_size = px(12.);
+    theme.font_size = sz(13.);
+    theme.mono_font_size = sz(12.);
     theme.shadow = false;
 
     let colors = &mut theme.colors;
@@ -176,6 +204,20 @@ pub fn install(cx: &mut App) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_scale_stays_in_range_and_ignores_garbage() {
+        let before = scale();
+        set_scale(f32::NAN);
+        assert_eq!(scale(), before);
+        set_scale(50.0);
+        assert_eq!(scale(), SCALE_RANGE.1);
+        set_scale(0.01);
+        assert_eq!(scale(), SCALE_RANGE.0);
+        set_scale(1.5);
+        assert_eq!(sz(10.0), px(15.0));
+        set_scale(DEFAULT_SCALE);
+    }
 
     #[test]
     fn the_border_is_a_faint_white() {

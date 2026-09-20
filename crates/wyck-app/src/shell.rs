@@ -123,6 +123,8 @@ fn start<V: Render + 'static>(
 ) {
     gpui_kit::init(cx);
     // A trading screen is dark first. The fonts come before the theme that names them.
+    // Before any size is computed, that is before the window options.
+    theme::set_scale(args.settings.ui_scale);
     assets::load_fonts(cx);
     theme::install(cx);
     // The system's "animation effects" setting was read by `gpui_kit::init`; an explicit choice wins.

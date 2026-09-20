@@ -14,12 +14,12 @@ use gpui_kit::base::{Presence, Transition, TransitionId};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     Animation, AnimationExt as _, AnyElement, Context, Div, ElementId, FontWeight, SharedString,
-    Stateful, Window, div, px,
+    Stateful, Window, div,
 };
 
 use super::app_view::{AppView, LOCAL_HELP_URL, REMOTE_HELP_URL};
 use super::motion::{self, Hover};
-use super::theme;
+use super::theme::{self, sz};
 use super::widgets::{
     Glyph, back_button, badge, card, error_box, glyph, lead, or_divider, panel, primary_button,
     progress_bar, pulse_dot, row, secondary_button, spinner, status_disc, text_link, title, value,
@@ -41,7 +41,7 @@ fn stage() -> Stateful<Div> {
         .flex()
         .flex_col()
         .items_center()
-        .py(px(20.))
+        .py(sz(20.))
 }
 
 /// The Back link, wired to [`AppView::go_back`].
@@ -67,15 +67,15 @@ fn choice(
         .flex()
         .flex_row()
         .items_center()
-        .gap(px(13.))
+        .gap(sz(13.))
         .w_full()
-        .py(px(16.))
-        .pl(px(18.))
-        .pr(px(16.))
+        .py(sz(16.))
+        .pl(sz(18.))
+        .pr(sz(16.))
         .bg(hover.mix(theme::bg(), theme::over(theme::bg(), theme::fg(), 0.04)))
         .border_1()
         .border_color(hover.mix(theme::border(), theme::alpha(theme::fg(), 0.24)))
-        .rounded(px(10.))
+        .rounded(sz(10.))
         .cursor_pointer()
         .on_hover(hover.handler())
         .child(
@@ -84,8 +84,8 @@ fn choice(
                 .items_center()
                 .justify_center()
                 .flex_none()
-                .size(px(34.))
-                .rounded(px(8.))
+                .size(sz(34.))
+                .rounded(sz(8.))
                 .bg(hover.mix(
                     theme::muted(),
                     theme::over(theme::muted(), theme::fg(), 0.12),
@@ -100,10 +100,10 @@ fn choice(
                     div()
                         .flex()
                         .items_center()
-                        .gap(px(8.))
+                        .gap(sz(8.))
                         .child(
                             div()
-                                .text_size(px(13.))
+                                .text_size(sz(13.))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme::fg())
                                 .child(name),
@@ -114,8 +114,8 @@ fn choice(
                 )
                 .child(
                     div()
-                        .mt(px(3.))
-                        .text_size(px(12.))
+                        .mt(sz(3.))
+                        .text_size(sz(12.))
                         .line_height(gpui_kit::relative(1.5))
                         .text_color(theme::dim())
                         .child(description),
@@ -128,7 +128,7 @@ fn choice(
                 hover.mix(theme::dim(), theme::fg()),
             )
             .relative()
-            .left(px(3.0 * hover.amount)),
+            .left(sz(3.0 * hover.amount)),
         )
 }
 
@@ -152,7 +152,7 @@ pub(super) fn choose(window: &mut Window, cx: &mut Context<AppView>) -> impl Int
         window,
         cx,
     )
-    .mb(px(10.))
+    .mb(sz(10.))
     .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
     let remote = choice(
         "choose-remote",
@@ -189,7 +189,7 @@ fn token_instead(
         window,
         cx,
     )
-    .mt(px(18.))
+    .mt(sz(18.))
     .on_click(cx.listener(|this, _, window, cx| this.open_token(window, cx)))
 }
 
@@ -221,7 +221,7 @@ pub(super) fn searching(
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(7.))
+                            .gap(sz(7.))
                             .child(pulse_dot(theme::dim()))
                             .child(value(endpoint.to_owned())),
                         false,
@@ -248,7 +248,7 @@ pub(super) fn local_found(
         cx,
     );
     let go = primary_button("continue", "Continue to Wyck", window, cx)
-        .mt(px(22.))
+        .mt(sz(22.))
         .on_click(cx.listener(|this, _, _, cx| this.continue_local(cx)));
     let instead = token_instead(
         "Prefer to connect a different way? Use a token instead",
@@ -280,7 +280,7 @@ pub(super) fn local_found(
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(8.))
+                            .gap(sz(8.))
                             .child(value(format!("#{}", session.account_id)))
                             .child(badge(&session.kind)),
                         false,
@@ -308,7 +308,7 @@ pub(super) fn local_not_found(
     let back = back(window, cx);
     let disc = status_disc(Glyph::CircleAlert, theme::fg(), theme::muted(), window, cx);
     let retry = primary_button("retry-local", "Try again", window, cx)
-        .mt(px(22.))
+        .mt(sz(22.))
         .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
     let help = text_link(
         "local-help",
@@ -317,7 +317,7 @@ pub(super) fn local_not_found(
         window,
         cx,
     )
-    .mt(px(18.))
+    .mt(sz(18.))
     .on_click(cx.listener(|this, _, _, cx| this.open_url(LOCAL_HELP_URL, cx)));
     let instead = token_instead("Or connect with a token instead", window, cx);
     stage().child(back).child(
@@ -337,9 +337,9 @@ pub(super) fn local_not_found(
             .child(
                 div()
                     .w_full()
-                    .mt(px(12.))
+                    .mt(sz(12.))
                     .font_features(theme::tabular())
-                    .text_size(px(11.))
+                    .text_size(sz(11.))
                     .line_height(gpui_kit::relative(1.5))
                     .text_color(theme::dim())
                     .child(failure_text(failure, endpoint)),
@@ -364,7 +364,7 @@ fn shaken(field: impl IntoElement, generation: u32) -> AnyElement {
         .with_animation(
             ElementId::from(("shake", generation as usize)),
             Animation::new(motion::SHAKE_TIME),
-            |el, t| el.left(px(motion::shake(t))),
+            |el, t| el.left(sz(motion::shake(t))),
         )
         .into_any_element()
 }
@@ -393,16 +393,16 @@ pub(super) fn token(
             window,
             cx,
         )
-        .text_size(px(11.))
+        .text_size(sz(11.))
         .on_click(cx.listener(|this, _, _, cx| this.open_url(REMOTE_HELP_URL, cx)))
     });
     let label = div()
         .w_full()
-        .mb(px(6.))
+        .mb(sz(6.))
         .flex()
         .items_center()
         .justify_between()
-        .text_size(px(11.))
+        .text_size(sz(11.))
         .font_weight(FontWeight::MEDIUM)
         .text_color(theme::dim())
         .child("API token")
@@ -414,18 +414,18 @@ pub(super) fn token(
             .sample(window, cx)
             .progress;
         div()
-            .mt(px(6.))
+            .mt(sz(6.))
             .relative()
-            .top(px((1.0 - progress) * -4.0))
+            .top(sz((1.0 - progress) * -4.0))
             .opacity(progress)
-            .text_size(px(11.5))
+            .text_size(sz(11.5))
             .line_height(gpui_kit::relative(1.5))
             .text_color(theme::red_text())
             .child(error.to_string())
     });
     let field = div()
         .w_full()
-        .mb(px(8.))
+        .mb(sz(8.))
         .child(label)
         .child(shaken(field, shake))
         .children(message);
@@ -443,7 +443,7 @@ pub(super) fn token(
                 window,
                 cx,
             )
-            .mt(px(14.))
+            .mt(sz(14.))
             .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
             stage().child(back).child(
                 card(420.)
@@ -490,7 +490,7 @@ pub(super) fn token(
                 window,
                 cx,
             )
-            .mt(px(16.))
+            .mt(sz(16.))
             .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
             stage().child(back).child(
                 card(400.)
@@ -547,7 +547,7 @@ pub(super) fn connected(
         cx,
     );
     let switch = secondary_button("switch-connection", "Switch connection", window, cx)
-        .mt(px(22.))
+        .mt(sz(22.))
         .on_click(cx.listener(|this, _, window, cx| this.switch_connection(window, cx)));
     stage().child(
         card(460.)
@@ -566,7 +566,7 @@ pub(super) fn connected(
                         div()
                             .flex()
                             .items_center()
-                            .gap(px(8.))
+                            .gap(sz(8.))
                             .child(value(
                                 head.account_id
                                     .map_or_else(|| "-".to_owned(), |id| format!("#{id}")),

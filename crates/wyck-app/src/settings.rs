@@ -21,6 +21,7 @@
 //! | `WYCK_LOG` | `tracing` filter directive | `warn,wyck_app=info,wyck_engine=info` |
 //! | `WYCK_NEWS` | `on` or `off`: host the economic calendar | `on` |
 //! | `WYCK_REDUCE_MOTION` | `on` shows every screen and control in its final state at once, `off` always animates | the system's "animation effects" setting |
+//! | `WYCK_UI_SCALE` | How large everything is drawn, from 0.75 to 2 (1 is the size of the design, which is small on a large screen) | `1.25` |
 
 use secrecy::SecretString;
 use wyck_engine::broker::ServiceKind;
@@ -37,6 +38,12 @@ pub enum SettingsError {
         reason: String,
     },
 }
+
+/// The smallest and the largest scale of the interface.
+pub const UI_SCALE_RANGE: (f32, f32) = (0.75, 2.0);
+/// The scale of the interface when nothing says otherwise: the design was drawn for a 13 px body,
+/// which is small on a large screen, so everything is drawn a quarter larger.
+pub const DEFAULT_UI_SCALE: f32 = 1.25;
 
 /// Where the connection comes from.
 #[derive(Debug)]
@@ -121,6 +128,8 @@ pub struct AppSettings {
     /// Whether to turn animations off (`Some(true)`) or on (`Some(false)`) whatever the system
     /// says, or follow the system (`None`).
     pub reduce_motion: Option<bool>,
+    /// How large everything is drawn, within [`UI_SCALE_RANGE`]. 1 is the size of the design.
+    pub ui_scale: f32,
 }
 
 impl AppSettings {
@@ -236,6 +245,7 @@ impl AppSettings {
             log_filter: get("WYCK_LOG")
                 .unwrap_or_else(|| "warn,wyck_app=info,wyck_engine=info".to_owned()),
             news_enabled: parse_switch("WYCK_NEWS", get("WYCK_NEWS"), true)?,
+            ui_scale: parse_scale(get("WYCK_UI_SCALE"))?,
             reduce_motion: get("WYCK_REDUCE_MOTION")
                 .map(|value| parse_switch("WYCK_REDUCE_MOTION", Some(value), false))
                 .transpose()?,
@@ -293,6 +303,19 @@ fn parse_switch(
     }
 }
 
+/// The interface scale: a number within [`UI_SCALE_RANGE`], or the default when not set.
+fn parse_scale(text: Option<String>) -> Result<f32, SettingsError> {
+    let (low, high) = UI_SCALE_RANGE;
+    let value = parse_number("WYCK_UI_SCALE", text, f64::from(DEFAULT_UI_SCALE))?;
+    if value < f64::from(low) || value > f64::from(high) {
+        return Err(invalid(
+            "WYCK_UI_SCALE",
+            format!("must be between {low} and {high}, got {value}"),
+        ));
+    }
+    Ok(value as f32)
+}
+
 fn parse_number(
     name: &'static str,
     text: Option<String>,
@@ -332,6 +355,15 @@ mod tests {
         let moved = settings(&[("WYCK_LOCAL_ENDPOINT", "http://127.0.0.1:9000/mcp/")]).unwrap();
         assert_eq!(moved.local_endpoint, "http://127.0.0.1:9000/mcp/");
         assert!(matches!(moved.connection, ConnectionChoice::ActiveProfile));
+    }
+
+    #[test]
+    fn the_interface_scale_defaults_to_a_larger_size_and_is_bounded() {
+        assert!((settings(&[]).unwrap().ui_scale - DEFAULT_UI_SCALE).abs() < 1e-6);
+        assert!((settings(&[("WYCK_UI_SCALE", "1.5")]).unwrap().ui_scale - 1.5).abs() < 1e-6);
+        assert!(settings(&[("WYCK_UI_SCALE", "0.2")]).is_err());
+        assert!(settings(&[("WYCK_UI_SCALE", "9")]).is_err());
+        assert!(settings(&[("WYCK_UI_SCALE", "big")]).is_err());
     }
 
     #[test]

@@ -108,6 +108,22 @@ WYCK_PREVIEW=notfound cargo run -p wyck-app
 The names are `choose`, `searching`, `found`, `notfound`, `token`, `verifying`, `refused`,
 `unreachable`. A release build ignores the variable.
 
+### Size
+
+The design was drawn for a 13 px body, which is small on a large screen. Every size (text, icons,
+paddings, radii, the window itself) goes through `theme::sz`, which multiplies by one scale: **1.25
+by default**. `WYCK_UI_SCALE` sets it, from 0.75 to 2 (`WYCK_UI_SCALE=1.5 cargo run -p wyck-app`).
+The window never opens larger than 92 percent of the screen it opens on. Hairline borders stay
+1 px.
+
+### Size
+
+The design was drawn for a 13 px body, which is small on a large screen. Every size of the content
+(text, icons, paddings, radii) and the window itself go through `theme::sz`, which multiplies by one
+scale: **1.25 by default**. `WYCK_UI_SCALE` sets it, from 0.75 to 2 (`WYCK_UI_SCALE=1.5 cargo run
+-p wyck-app`). The title bar is not scaled: it keeps the size of the design. The window never opens
+larger than 92 percent of the screen it opens on. Hairline borders stay 1 px.
+
 ### Fonts and icons
 
 The whole application is set in Geist, tokens, addresses and figures included (with tabular
