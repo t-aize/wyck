@@ -11,6 +11,7 @@
 use wyck_engine::{BrokerErrorKind, EngineError, OrderOutcome};
 
 use crate::presentation::{Tone, outcome_text, outcome_tone};
+use crate::startup::StartupError;
 
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,6 +174,24 @@ pub fn describe_error(e: &EngineError) -> Notice {
     }
 }
 
+/// Translates a startup problem into a banner. `None` for a first run without an account: the
+/// first screen is the explanation.
+#[must_use]
+pub fn describe_startup(error: &StartupError) -> Option<Notice> {
+    match error {
+        StartupError::NoProfile => None,
+        StartupError::Config(reason) => Some(Notice {
+            level: Level::Error,
+            title: "The saved account could not be read".to_owned(),
+            detail: Some(reason.clone()),
+            hint: Some(
+                "Connect again below. Check the configuration file and the credential store.",
+            ),
+        }),
+        StartupError::Engine(e) => Some(describe_error(e)),
+    }
+}
+
 /// Translates an order outcome into a notice.
 #[must_use]
 pub fn describe_outcome(outcome: &OrderOutcome) -> Notice {
@@ -202,6 +221,14 @@ mod tests {
             retryable,
             message: "boom".to_owned(),
         }
+    }
+
+    #[test]
+    fn a_first_run_is_not_a_problem_but_a_broken_configuration_is() {
+        assert!(describe_startup(&StartupError::NoProfile).is_none());
+        let notice = describe_startup(&StartupError::Config("disk".into())).unwrap();
+        assert_eq!(notice.level, Level::Error);
+        assert_eq!(notice.detail.as_deref(), Some("disk"));
     }
 
     #[test]

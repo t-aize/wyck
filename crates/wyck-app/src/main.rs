@@ -2,8 +2,7 @@
 //!
 //! This file only wires things together: it reads the settings, starts logging, the crash marker
 //! and the engine, builds the connection request, and hands over to [`wyck_app::shell`]. The
-//! window's content is [`BlankView`](wyck_app::shell::BlankView) until a real view is plugged in
-//! where `shell::run` is called.
+//! window's content is [`AppView`](wyck_app::ui::AppView), passed to `shell::run`.
 
 #![forbid(unsafe_code)]
 // A release build is a window, not a console program. Logs go to a file.
@@ -18,8 +17,9 @@ use wyck_app::logging;
 use wyck_app::messages::{Level, Notice};
 use wyck_app::session_marker::SessionMarker;
 use wyck_app::settings::{AppSettings, ConnectionChoice};
-use wyck_app::shell::{self, AppArgs, BlankView, Hooks};
+use wyck_app::shell::{self, AppArgs, Hooks};
 use wyck_app::startup::{StartupError, connect_request, open_user_config};
+use wyck_app::ui::{AppView, preview};
 use wyck_config::AppPaths;
 use wyck_engine::domain::now_millis;
 
@@ -84,6 +84,21 @@ fn main() -> ExitCode {
         tracing::warn!(%reason, "the configuration could not be read");
     }
 
+    // `WYCK_PREVIEW=<screen>` opens on a given screen with sample data, in a debug build only.
+    let preview = cfg!(debug_assertions)
+        .then(|| std::env::var("WYCK_PREVIEW").ok())
+        .flatten()
+        .and_then(|name| {
+            let screen = preview::parse(&name);
+            if screen.is_none() {
+                eprintln!(
+                    "wyck-app: unknown WYCK_PREVIEW `{name}`, expected one of {}",
+                    preview::NAMES.join(", ")
+                );
+            }
+            screen
+        });
+
     shell::run(
         AppArgs {
             settings,
@@ -92,7 +107,9 @@ fn main() -> ExitCode {
             banners,
         },
         Hooks::default(),
-        |_shell, _window, cx| cx.new(|_| BlankView),
+        move |shell, connection, window, cx| {
+            cx.new(|cx| AppView::new(shell, connection, preview, window, cx))
+        },
     );
 
     tracing::info!("wyck-app stopped");

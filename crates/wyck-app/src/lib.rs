@@ -3,12 +3,13 @@
 //! The application layer between [`wyck_engine`] and a front end: everything an interface needs
 //! that is not drawing. It reads the settings, builds the connection, starts logging, runs the
 //! use cases (connect, a hotkey order), turns the engine's state into strings and tones, and
-//! translates errors into messages. Apart from the optional `shell` module it contains **no user interface code and no UI toolkit**:
-//! a front end, whatever it is built with, draws what this crate computes.
+//! translates errors into messages, and drives the connection flow. Apart from the optional `shell` and
+//! `ui` modules it contains **no user interface code and no UI toolkit**: a front end, whatever it
+//! is built with, draws what this crate computes.
 //!
 //! # Modules
 //!
-//! Every module is plain Rust and tested without a window.
+//! Every module but the last two is plain Rust and tested without a window.
 //!
 //! | Module | Role |
 //! |---|---|
@@ -20,7 +21,9 @@
 //! | [`messages`] | Errors and outcomes to user-facing notices, in one place |
 //! | [`hotkeys`] | Global shortcuts: parsing, registration, debouncing |
 //! | [`logging`], [`session_marker`] | Log files, crash detection |
-//! | `shell` (feature `gui`) | The GPUI shell: window, engine plumbing, shortcuts; no visuals |
+//! | [`flow`] | The connection flow: screens, transitions, token checks |
+//! | `shell` (feature `gui`) | The GPUI window, engine plumbing and shortcuts |
+//! | `ui` (feature `gui`) | The screens, the title bar, the theme: drawing only |
 //!
 //! # A front end's job
 //!
@@ -42,6 +45,7 @@
 #![warn(missing_docs)]
 
 pub mod controller;
+pub mod flow;
 pub mod hotkeys;
 pub mod logging;
 pub mod messages;
@@ -52,3 +56,5 @@ pub mod settings;
 #[cfg(feature = "gui")]
 pub mod shell;
 pub mod startup;
+#[cfg(feature = "gui")]
+pub mod ui;

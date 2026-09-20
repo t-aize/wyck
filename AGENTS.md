@@ -40,6 +40,6 @@ the concrete thing once, in the fewest words that stay accurate.
 Before committing, check for leftovers (prints nothing when clean):
 
 ```sh
-git ls-files ':!LICENSE' ':!*.lock' \
+git ls-files ':!LICENSE' ':!*.lock' ':!*.ttf' \
   | xargs perl -CSD -ne 'print "$ARGV:$.: $_" if /[\x{2013}\x{2014}\x{2018}\x{2019}\x{201C}\x{201D}\x{2026}\x{2190}-\x{2193}\x{2212}\x{D7}\x{2248}\x{200B}\x{FEFF}\x{1F300}-\x{1FAFF}]/'
 ```

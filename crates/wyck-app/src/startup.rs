@@ -10,9 +10,10 @@
 //! A missing profile is not a crash: it is a state the front end explains (`NoProfile`), because
 //! a first run has no profile and must say what to do.
 
+use secrecy::SecretString;
 use wyck_config::{AppPaths, KeyringSecretStore, WyckConfig};
 use wyck_engine::EngineError;
-use wyck_engine::broker::ConnectRequest;
+use wyck_engine::broker::{ConnectRequest, ServiceKind};
 
 use crate::settings::ConnectionChoice;
 
@@ -59,6 +60,49 @@ pub fn connect_request(
             Ok(ConnectRequest::from_profile(&config, &profile.id)?)
         }
     }
+}
+
+/// The name of the saved account for a service.
+fn profile_name(service: ServiceKind) -> &'static str {
+    match service {
+        ServiceKind::CtraderLocal => "cTrader Desktop (local)",
+        _ => "cTrader Remote",
+    }
+}
+
+/// Saves an account the user has just connected to and makes it the active one, so the next
+/// start connects by itself. The token goes to the credential store, never to the config file.
+///
+/// There is one saved account per service: a previous one with the same name is replaced.
+/// `open_config` is injected like in [`connect_request`].
+///
+/// # Errors
+///
+/// [`StartupError::Config`] when the configuration or the credential store cannot be written.
+pub fn remember_connection(
+    service: ServiceKind,
+    token: Option<SecretString>,
+    open_config: impl FnOnce() -> Result<WyckConfig, StartupError>,
+) -> Result<(), StartupError> {
+    let tag = match service {
+        ServiceKind::CtraderLocal => "ctrader-local",
+        _ => "ctrader-remote",
+    };
+    let name = profile_name(service);
+    let mut config = open_config()?;
+    let stale: Vec<_> = config
+        .profiles()
+        .iter()
+        .filter(|p| p.display_name == name)
+        .map(|p| p.id.clone())
+        .collect();
+    let fail = |e: wyck_config::ConfigError| StartupError::Config(e.to_string());
+    for id in stale {
+        config.remove_profile(&id).map_err(fail)?;
+    }
+    let id = config.add_profile(name, tag, None, token).map_err(fail)?;
+    config.set_active_profile(Some(id)).map_err(fail)?;
+    Ok(())
 }
 
 /// Opens the user's real configuration: the OS-standard directories, and the OS keyring for tokens.
@@ -154,6 +198,74 @@ mod tests {
         assert_eq!(request.service, ServiceKind::CtraderRemote);
         assert_eq!(request.label, "Demo");
         assert_eq!(request.token.as_ref().unwrap().expose_secret(), "tok");
+    }
+
+    #[test]
+    fn a_remembered_token_is_the_next_startup_connection() {
+        let dir = tempfile::tempdir().unwrap();
+        remember_connection(
+            ServiceKind::CtraderRemote,
+            Some(SecretString::from("tok-1")),
+            || Ok(config_in(dir.path())),
+        )
+        .unwrap();
+        let request = connect_request(ConnectionChoice::ActiveProfile, || {
+            Ok(config_in(dir.path()))
+        })
+        .unwrap();
+        assert_eq!(request.service, ServiceKind::CtraderRemote);
+        assert_eq!(request.token.as_ref().unwrap().expose_secret(), "tok-1");
+    }
+
+    #[test]
+    fn remembering_again_replaces_the_account_instead_of_piling_up() {
+        let dir = tempfile::tempdir().unwrap();
+        for token in ["old", "new"] {
+            remember_connection(
+                ServiceKind::CtraderRemote,
+                Some(SecretString::from(token)),
+                || Ok(config_in(dir.path())),
+            )
+            .unwrap();
+        }
+        let config = config_in(dir.path());
+        assert_eq!(config.profiles().len(), 1);
+        let id = config.active_profile().unwrap().id.clone();
+        assert_eq!(
+            config.token_for(&id).unwrap().unwrap().expose_secret(),
+            "new"
+        );
+    }
+
+    #[test]
+    fn a_local_account_is_remembered_without_a_token_and_switches_the_active_one() {
+        let dir = tempfile::tempdir().unwrap();
+        remember_connection(
+            ServiceKind::CtraderRemote,
+            Some(SecretString::from("tok")),
+            || Ok(config_in(dir.path())),
+        )
+        .unwrap();
+        remember_connection(ServiceKind::CtraderLocal, None, || {
+            Ok(config_in(dir.path()))
+        })
+        .unwrap();
+        let request = connect_request(ConnectionChoice::ActiveProfile, || {
+            Ok(config_in(dir.path()))
+        })
+        .unwrap();
+        assert_eq!(request.service, ServiceKind::CtraderLocal);
+        assert!(request.token.is_none());
+        assert_eq!(config_in(dir.path()).profiles().len(), 2);
+    }
+
+    #[test]
+    fn remembering_reports_a_configuration_that_cannot_be_opened() {
+        let error = remember_connection(ServiceKind::CtraderLocal, None, || {
+            Err(StartupError::Config("locked".into()))
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("locked"));
     }
 
     #[test]

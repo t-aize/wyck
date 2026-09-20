@@ -11,6 +11,7 @@
 //! | `WYCK_SERVICE` | `remote` or `local`. Setting any of the three connection variables selects the environment instead of the active profile | active profile |
 //! | `WYCK_ENDPOINT` | Server URL | the service's default |
 //! | `WYCK_TOKEN` | Remote bearer token | none |
+//! | `WYCK_LOCAL_ENDPOINT` | Where the "Local session" screen looks for cTrader Desktop (the port is set in its Settings, MCP Server) | `http://127.0.0.1:9876/mcp/` |
 //! | `WYCK_SYMBOL` | The symbol the hotkeys trade | `EURUSD` |
 //! | `WYCK_WATCH` | Comma separated extra symbols to quote | none |
 //! | `WYCK_RISK_PERCENT` | Risk per hotkey order, percent of balance | `0.25` |
@@ -110,6 +111,8 @@ pub struct AppSettings {
     pub order: OrderDefaults,
     /// The global shortcuts.
     pub hotkeys: HotkeyText,
+    /// The endpoint the "Local session" screen tries.
+    pub local_endpoint: String,
     /// The `tracing` filter directive.
     pub log_filter: String,
     /// Whether the engine hosts the economic calendar (one request to a public feed).
@@ -210,12 +213,22 @@ impl AppSettings {
             panel: get("WYCK_HOTKEY_PANEL").unwrap_or(hotkey_defaults.panel),
         };
 
+        let local_endpoint = get("WYCK_LOCAL_ENDPOINT")
+            .unwrap_or_else(|| ServiceKind::CtraderLocal.default_endpoint().to_owned());
+        if !(local_endpoint.starts_with("http://") || local_endpoint.starts_with("https://")) {
+            return Err(invalid(
+                "WYCK_LOCAL_ENDPOINT",
+                format!("expected an http:// or https:// URL, got `{local_endpoint}`"),
+            ));
+        }
+
         Ok(Self {
             connection,
             symbol,
             watch,
             order,
             hotkeys,
+            local_endpoint,
             log_filter: get("WYCK_LOG")
                 .unwrap_or_else(|| "warn,wyck_app=info,wyck_engine=info".to_owned()),
             news_enabled: parse_switch("WYCK_NEWS", get("WYCK_NEWS"), true)?,
@@ -301,6 +314,23 @@ mod tests {
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
         AppSettings::from_lookup(|name| map.get(name).cloned())
+    }
+
+    #[test]
+    fn the_local_endpoint_defaults_to_the_documented_port_and_can_be_moved() {
+        assert_eq!(
+            settings(&[]).unwrap().local_endpoint,
+            "http://127.0.0.1:9876/mcp/"
+        );
+        let moved = settings(&[("WYCK_LOCAL_ENDPOINT", "http://127.0.0.1:9000/mcp/")]).unwrap();
+        assert_eq!(moved.local_endpoint, "http://127.0.0.1:9000/mcp/");
+        assert!(matches!(moved.connection, ConnectionChoice::ActiveProfile));
+    }
+
+    #[test]
+    fn a_local_endpoint_that_is_not_a_url_is_refused() {
+        let error = settings(&[("WYCK_LOCAL_ENDPOINT", "127.0.0.1:9876")]).unwrap_err();
+        assert!(error.to_string().contains("WYCK_LOCAL_ENDPOINT"));
     }
 
     #[test]

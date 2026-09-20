@@ -1,37 +1,37 @@
-//! The GPUI shell: everything an application window needs except what it looks like.
+//! The GPUI shell: the window and the plumbing around it.
 //!
-//! [`run`] opens the main window and does the plumbing: it applies the dark theme, follows the
-//! engine's state into an [`AppModel`], opens the connection, registers the global shortcuts and
-//! routes them to the [`AppController`], and quits when the main window closes. What the window
-//! **shows** is not decided here: the caller passes a function that builds the root view from a
-//! [`Shell`], which gives it the shared model and the actions. [`BlankView`] is the default: an
-//! empty dark window.
+//! [`run`] opens the main window without a native title bar (the view draws its own, see
+//! [`crate::ui::titlebar`]), applies the theme and the fonts, follows the engine's state into an
+//! [`AppModel`], registers the global shortcuts and routes them to the [`AppController`], and
+//! quits when the main window closes. What the window shows is the view built by the function
+//! passed to [`run`], given a [`Shell`] and the connection to open at startup: the application
+//! passes [`AppView`](crate::ui::AppView).
 //!
 //! ```ignore
-//! wyck_app::shell::run(args, Hooks::default(), |shell, _window, cx| cx.new(|cx| MyView::new(shell, cx)));
+//! wyck_app::shell::run(args, Hooks::default(), |shell, connection, window, cx| {
+//!     cx.new(|cx| AppView::new(shell, connection, None, window, cx))
+//! });
 //! ```
 //!
-//! Nothing here decides anything: the rules live in [`crate::controller`], [`crate::presentation`]
-//! and [`crate::messages`], which are tested without a window.
+//! Nothing here decides anything: the rules live in [`crate::controller`], [`crate::flow`],
+//! [`crate::presentation`] and [`crate::messages`], which are tested without a window.
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui_kit::component::{ActiveTheme as _, Root, Theme, ThemeMode};
-use gpui_kit::{
-    App, AppContext as _, Bounds, Context, Entity, IntoElement, Render, Styled as _,
-    TitlebarOptions, Window, WindowBounds, WindowOptions, div, px, size,
-};
+use gpui_kit::component::Root;
+use gpui_kit::{App, AppContext as _, Entity, Render, Window};
 use wyck_engine::broker::ConnectRequest;
 use wyck_engine::domain::{Side, now_millis};
 
 use crate::controller::AppController;
 use crate::hotkeys::{Debounce, HotkeyAction, Hotkeys, forward_presses, parse_bindings};
-use crate::messages::{Level, Notice, describe_error};
+use crate::messages::Notice;
 use crate::model::AppModel;
 use crate::presentation::session_badge;
 use crate::settings::AppSettings;
 use crate::startup::StartupError;
+use crate::ui::{assets, theme, titlebar};
 
 /// Minimum time between two accepted presses of the same shortcut: drops key repeat.
 const DEBOUNCE_MS: i64 = 400;
@@ -91,36 +91,40 @@ impl Shell {
     }
 }
 
-/// An empty dark window: the default root view until a real one is plugged in.
-pub struct BlankView;
-
-impl Render for BlankView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().bg(cx.theme().background)
-    }
-}
-
 /// Runs the application until the main window is closed. `build_root` makes the content of the
 /// main window; it is called once, when the window exists.
 pub fn run<V: Render + 'static>(
     args: AppArgs,
     hooks: Hooks,
-    build_root: impl FnOnce(Shell, &mut Window, &mut App) -> Entity<V> + 'static,
+    build_root: impl FnOnce(
+        Shell,
+        Result<ConnectRequest, StartupError>,
+        &mut Window,
+        &mut App,
+    ) -> Entity<V>
+    + 'static,
 ) {
     gpui_kit::application()
-        .with_assets(gpui_kit::assets::Assets)
+        .with_assets(assets::AppAssets)
         .run(move |cx| start(args, hooks, build_root, cx));
 }
 
 fn start<V: Render + 'static>(
     args: AppArgs,
     hooks: Hooks,
-    build_root: impl FnOnce(Shell, &mut Window, &mut App) -> Entity<V> + 'static,
+    build_root: impl FnOnce(
+        Shell,
+        Result<ConnectRequest, StartupError>,
+        &mut Window,
+        &mut App,
+    ) -> Entity<V>
+    + 'static,
     cx: &mut App,
 ) {
     gpui_kit::init(cx);
-    // A trading screen is dark first.
-    Theme::change(ThemeMode::Dark, None, cx);
+    // A trading screen is dark first. The fonts come before the theme that names them.
+    assets::load_fonts(cx);
+    theme::install(cx);
 
     let AppArgs {
         settings,
@@ -139,10 +143,10 @@ fn start<V: Render + 'static>(
     let hotkeys = register_hotkeys(&settings, &mut banners);
     model.update(cx, |m, _| m.banners = banners);
 
-    let opened = cx.open_window(main_window_options(cx), {
+    let opened = cx.open_window(titlebar::window_options(cx), {
         let shell = shell.clone();
         move |window, cx| {
-            let view = build_root(shell, window, cx);
+            let view = build_root(shell, connection, window, cx);
             cx.new(|cx| Root::new(view, window, cx))
         }
     });
@@ -163,25 +167,8 @@ fn start<V: Render + 'static>(
     .detach();
 
     follow_engine(&shell, cx);
-    connect(shell.clone(), connection, settings.watched_symbols(), cx);
     if let Some(hotkeys) = hotkeys {
         route_hotkeys(shell, hooks, hotkeys, cx);
-    }
-}
-
-fn main_window_options(cx: &App) -> WindowOptions {
-    WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-            None,
-            size(px(1200.), px(720.)),
-            cx,
-        ))),
-        titlebar: Some(TitlebarOptions {
-            title: Some("wyck".into()),
-            ..TitlebarOptions::default()
-        }),
-        window_min_size: Some(size(px(900.), px(520.))),
-        ..WindowOptions::default()
     }
 }
 
@@ -243,54 +230,6 @@ fn follow_engine(shell: &Shell, cx: &mut App) {
             if states.changed().await.is_err() {
                 break;
             }
-        }
-    })
-    .detach();
-}
-
-/// Opens the connection, or explains why there is none.
-fn connect(
-    shell: Shell,
-    connection: Result<ConnectRequest, StartupError>,
-    watched: Vec<String>,
-    cx: &mut App,
-) {
-    let request = match connection {
-        Ok(request) => request,
-        Err(error) => {
-            let notice = match error {
-                StartupError::NoProfile => Notice {
-                    level: Level::Warning,
-                    title: "No account is set up yet".to_owned(),
-                    detail: Some("The application has no connection to open.".to_owned()),
-                    hint: Some(
-                        "Set WYCK_SERVICE, WYCK_ENDPOINT and WYCK_TOKEN in the environment, or add a profile with wyck-config.",
-                    ),
-                },
-                StartupError::Config(reason) => Notice {
-                    level: Level::Error,
-                    title: "The configuration could not be read".to_owned(),
-                    detail: Some(reason),
-                    hint: Some("Check the configuration file and the credential store."),
-                },
-                StartupError::Engine(e) => describe_error(&e),
-            };
-            tracing::warn!(title = %notice.title, "no connection to open");
-            shell.model.update(cx, |m, cx| {
-                m.banners.push(notice);
-                cx.notify();
-            });
-            return;
-        }
-    };
-    cx.spawn(async move |cx| {
-        if let Err(notice) = shell.controller.connect(request, watched).await {
-            tracing::warn!(title = %notice.title, "the connection failed");
-            let now = now_millis();
-            shell.model.update(cx, |m, cx| {
-                m.push_notice(notice, now);
-                cx.notify();
-            });
         }
     })
     .detach();

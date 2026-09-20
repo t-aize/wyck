@@ -11,13 +11,25 @@ use std::sync::Arc;
 use wyck_engine::domain::UnixMillis;
 use wyck_engine::{EngineState, Event};
 
-use crate::messages::Notice;
+use crate::messages::{Level, Notice};
 use crate::presentation::{ActivityRow, activity_row};
 
 /// How many notices are kept.
 const MAX_NOTICES: usize = 30;
 /// How many activity rows are kept.
 const MAX_ACTIVITY: usize = 60;
+/// How many toasts are on screen at once.
+const MAX_TOASTS: usize = 4;
+
+/// How long a toast stays, in milliseconds. Errors stay longer: they are worth reading twice.
+#[must_use]
+pub const fn toast_ttl_ms(level: Level) -> i64 {
+    match level {
+        Level::Error => 15_000,
+        Level::Warning => 10_000,
+        _ => 6_000,
+    }
+}
 
 /// A notice and when it was raised.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +37,17 @@ pub struct TimedNotice {
     /// When, in Unix milliseconds.
     pub at: UnixMillis,
     /// What.
+    pub notice: Notice,
+}
+
+/// A notice on screen, until it expires or is dismissed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Toast {
+    /// Identifies the toast to dismiss it.
+    pub id: u64,
+    /// When it appeared.
+    pub at: UnixMillis,
+    /// What it says.
     pub notice: Notice,
 }
 
@@ -40,6 +63,9 @@ pub struct AppModel {
     /// Problems that outlive a notice: no profile, a session that ended badly, a shortcut that
     /// could not be registered. Shown until the user has dealt with them.
     pub banners: Vec<Notice>,
+    /// Notices currently on screen, most recent first.
+    pub toasts: Vec<Toast>,
+    next_toast: u64,
 }
 
 impl AppModel {
@@ -51,6 +77,8 @@ impl AppModel {
             activity: Vec::new(),
             notices: VecDeque::new(),
             banners,
+            toasts: Vec::new(),
+            next_toast: 0,
         }
     }
 
@@ -65,10 +93,45 @@ impl AppModel {
             .collect();
     }
 
-    /// Records a notice, most recent first, keeping the last few.
+    /// Records a notice, most recent first, keeping the last few, and shows it as a toast.
     pub fn push_notice(&mut self, notice: Notice, now: UnixMillis) {
+        self.next_toast += 1;
+        self.toasts.insert(
+            0,
+            Toast {
+                id: self.next_toast,
+                at: now,
+                notice: notice.clone(),
+            },
+        );
+        self.toasts.truncate(MAX_TOASTS);
         self.notices.push_front(TimedNotice { at: now, notice });
         self.notices.truncate(MAX_NOTICES);
+    }
+
+    /// Removes a toast. Returns whether it was there.
+    pub fn dismiss_toast(&mut self, id: u64) -> bool {
+        let before = self.toasts.len();
+        self.toasts.retain(|t| t.id != id);
+        self.toasts.len() != before
+    }
+
+    /// Removes the toasts that have been on screen long enough. Returns whether any went.
+    pub fn expire_toasts(&mut self, now: UnixMillis) -> bool {
+        let before = self.toasts.len();
+        self.toasts
+            .retain(|t| now.saturating_sub(t.at) < toast_ttl_ms(t.notice.level));
+        self.toasts.len() != before
+    }
+
+    /// Removes the banner at `index`. Returns whether there was one.
+    pub fn dismiss_banner(&mut self, index: usize) -> bool {
+        if index < self.banners.len() {
+            self.banners.remove(index);
+            true
+        } else {
+            false
+        }
     }
 
     /// The most recent notice, if any.
@@ -148,6 +211,59 @@ mod tests {
             model.activity[0].text.contains("n499"),
             "the newest is kept"
         );
+    }
+
+    #[test]
+    fn a_notice_is_a_toast_until_it_expires_or_is_dismissed() {
+        let mut model = AppModel::new(state(), Vec::new());
+        model.push_notice(Notice::info("a"), 0);
+        model.push_notice(Notice::info("b"), 1_000);
+        assert_eq!(model.toasts.len(), 2);
+        assert_eq!(model.toasts[0].notice.title, "b", "newest first");
+
+        assert!(!model.expire_toasts(5_000), "nothing is old enough yet");
+        assert!(model.expire_toasts(6_500), "a is 6.5 s old");
+        assert_eq!(model.toasts.len(), 1);
+        let id = model.toasts[0].id;
+        assert!(model.dismiss_toast(id));
+        assert!(!model.dismiss_toast(id));
+        assert_eq!(model.notices.len(), 2, "the history keeps them");
+    }
+
+    #[test]
+    fn an_error_toast_outlives_an_info_one() {
+        let mut model = AppModel::new(state(), Vec::new());
+        model.push_notice(Notice::info("i"), 0);
+        model.push_notice(
+            Notice {
+                level: Level::Error,
+                title: "e".into(),
+                detail: None,
+                hint: None,
+            },
+            0,
+        );
+        model.expire_toasts(7_000);
+        assert_eq!(model.toasts.len(), 1);
+        assert_eq!(model.toasts[0].notice.title, "e");
+    }
+
+    #[test]
+    fn only_a_few_toasts_are_shown_at_once() {
+        let mut model = AppModel::new(state(), Vec::new());
+        for i in 0..10 {
+            model.push_notice(Notice::info(format!("n{i}")), i);
+        }
+        assert_eq!(model.toasts.len(), MAX_TOASTS);
+        assert_eq!(model.toasts[0].notice.title, "n9");
+    }
+
+    #[test]
+    fn a_banner_can_be_dismissed_by_position() {
+        let mut model = AppModel::new(state(), vec![Notice::info("one"), Notice::info("two")]);
+        assert!(model.dismiss_banner(0));
+        assert_eq!(model.banners[0].title, "two");
+        assert!(!model.dismiss_banner(5));
     }
 
     #[test]

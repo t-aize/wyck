@@ -1,0 +1,242 @@
+//! The title bar, drawn by the application instead of the operating system.
+//!
+//! It is 38 pixels high: the logo and the name on the left, the version on the right, then the
+//! minimize, maximize (or restore) and close buttons. The window is created without a native
+//! title bar (see [`window_options`]), so this bar is all there is, and it does three jobs a
+//! native one would:
+//!
+//! - **Dragging and double click.** The bar is a `Drag` control area. On Windows the system then
+//!   moves the window and maximizes it on a double click, with snap layouts and edge snapping
+//!   intact. On Linux the bar starts the move itself, and maximizes on a double click.
+//! - **The three buttons.** On Windows each is a `Min`, `Max` or `Close` control area, so the
+//!   system does the work and the buttons behave exactly like native ones (including the snap
+//!   layout flyout on the maximize button). On Linux they call the window methods on click.
+//! - **macOS** keeps the system's traffic lights: the bar leaves room for them and draws no
+//!   buttons of its own.
+
+use gpui_kit::App;
+use gpui_kit::prelude::*;
+use gpui_kit::{
+    Bounds, Div, ElementId, FontWeight, MouseButton, Pixels, Stateful, TitlebarOptions, Window,
+    WindowBounds, WindowControlArea, WindowOptions, div, point, px, size, svg,
+};
+
+use super::theme;
+
+/// The height of the bar.
+pub const HEIGHT: f32 = 38.;
+/// The width of each window button.
+const BUTTON_WIDTH: f32 = 44.;
+/// Room for the traffic lights on macOS.
+const MAC_INSET: f32 = 80.;
+
+/// The size the main window opens at.
+pub const DEFAULT_SIZE: (f32, f32) = (960., 680.);
+/// The smallest the main window can be made.
+pub const MIN_SIZE: (f32, f32) = (800., 560.);
+
+/// The options of a window that draws its own title bar: no native bar, a size, a minimum size.
+#[must_use]
+pub fn window_options(cx: &App) -> WindowOptions {
+    let (width, height) = DEFAULT_SIZE;
+    let (min_width, min_height) = MIN_SIZE;
+    WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+            None,
+            size(px(width), px(height)),
+            cx,
+        ))),
+        titlebar: Some(TitlebarOptions {
+            title: Some("Wyck".into()),
+            appears_transparent: true,
+            traffic_light_position: Some(point(px(12.), px(12.))),
+        }),
+        window_min_size: Some(size(px(min_width), px(min_height))),
+        // The bar moves the window itself, so AppKit must not treat it as a move region too.
+        app_owns_titlebar_drag: true,
+        ..WindowOptions::default()
+    }
+}
+
+/// The version text: `v0.1.0`, with `-dev` in a debug build.
+#[must_use]
+pub fn version_label() -> String {
+    let suffix = if cfg!(debug_assertions) { "-dev" } else { "" };
+    format!("v{}{suffix}", env!("CARGO_PKG_VERSION"))
+}
+
+/// The logo: a light tile with three dark bars.
+fn logo() -> Div {
+    div()
+        .relative()
+        .size(px(16.))
+        .flex_none()
+        .child(
+            svg()
+                .path("wyck/logo-tile.svg")
+                .absolute()
+                .size_full()
+                .text_color(theme::accent()),
+        )
+        .child(
+            svg()
+                .path("wyck/logo-bars.svg")
+                .absolute()
+                .size_full()
+                .text_color(theme::card()),
+        )
+}
+
+/// One of the three buttons.
+fn button(
+    id: &'static str,
+    area: WindowControlArea,
+    icon: &'static str,
+    close: bool,
+    on_click: impl Fn(&mut Window, &mut App) + 'static,
+) -> Stateful<Div> {
+    let button = div()
+        .id(ElementId::from(id))
+        .group(id)
+        .flex()
+        .items_center()
+        .justify_center()
+        .flex_none()
+        .w(px(BUTTON_WIDTH))
+        .h_full()
+        .text_color(theme::dim())
+        .when(close, |b| {
+            b.hover(|s| s.bg(theme::red()).text_color(theme::fg()))
+                .active(|s| s.bg(theme::red_pressed()))
+        })
+        .when(!close, |b| {
+            b.hover(|s| s.bg(theme::muted()))
+                .active(|s| s.bg(theme::muted()))
+        })
+        .child(
+            svg()
+                .path(icon)
+                .size(px(10.))
+                .flex_none()
+                .text_color(theme::dim())
+                .group_hover(id, |s| s.text_color(theme::fg())),
+        );
+    if cfg!(target_os = "windows") {
+        // The system handles the click; nothing to do here.
+        button.window_control_area(area)
+    } else {
+        button.on_click(move |_, window, cx| {
+            cx.stop_propagation();
+            on_click(window, cx);
+        })
+    }
+}
+
+/// The bar. `window` says whether to show the maximize or the restore icon.
+pub fn titlebar(window: &Window) -> impl IntoElement {
+    let macos = cfg!(target_os = "macos");
+    let maximized = window.is_maximized();
+
+    let controls = (!macos).then(|| {
+        div()
+            .flex()
+            .flex_row()
+            .items_stretch()
+            .flex_none()
+            .h_full()
+            .child(button(
+                "window-minimize",
+                WindowControlArea::Min,
+                "wyck/win-min.svg",
+                false,
+                |window, _| window.minimize_window(),
+            ))
+            .child(button(
+                "window-maximize",
+                WindowControlArea::Max,
+                if maximized {
+                    "wyck/win-restore.svg"
+                } else {
+                    "wyck/win-max.svg"
+                },
+                false,
+                |window, _| window.zoom_window(),
+            ))
+            .child(button(
+                "window-close",
+                WindowControlArea::Close,
+                "wyck/win-close.svg",
+                true,
+                |window, _| window.remove_window(),
+            ))
+    });
+
+    let drag = div()
+        .id("titlebar-drag")
+        .flex()
+        .flex_row()
+        .flex_1()
+        .items_center()
+        .gap(px(10.))
+        .h_full()
+        .window_control_area(WindowControlArea::Drag)
+        .when(cfg!(target_os = "linux"), |bar| {
+            bar.on_mouse_down(MouseButton::Left, |event, window, _| {
+                if event.click_count >= 2 {
+                    window.zoom_window();
+                } else {
+                    window.start_window_move();
+                }
+            })
+        })
+        .child(
+            div().flex().items_center().gap(px(7.)).child(logo()).child(
+                div()
+                    .text_size(px(12.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(theme::fg())
+                    .child("Wyck"),
+            ),
+        )
+        .child(div().flex_1())
+        .child(
+            div()
+                .mr(px(14.))
+                .font_family(theme::MONO)
+                .text_size(px(11.))
+                .text_color(theme::dim())
+                .child(version_label()),
+        );
+
+    let left_inset: Pixels = px(if macos { MAC_INSET } else { 14. });
+    div()
+        .flex()
+        .flex_row()
+        .flex_none()
+        .items_center()
+        .w_full()
+        .h(px(HEIGHT))
+        .pl(left_inset)
+        .bg(theme::card())
+        .border_b_1()
+        .border_color(theme::border())
+        .child(drag)
+        .children(controls)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_version_label_names_the_crate_version() {
+        let label = version_label();
+        assert!(label.starts_with(concat!("v", env!("CARGO_PKG_VERSION"))));
+        assert_eq!(label.ends_with("-dev"), cfg!(debug_assertions));
+    }
+
+    #[test]
+    fn the_minimum_size_fits_inside_the_default_size() {
+        assert!(MIN_SIZE.0 <= DEFAULT_SIZE.0 && MIN_SIZE.1 <= DEFAULT_SIZE.1);
+    }
+}

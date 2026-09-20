@@ -30,7 +30,7 @@ Contents
 | `wyck-config` | Complete, tested | Profiles in TOML, tokens in the OS keyring or an encrypted file. |
 | `wyck-calendar` | Complete, tested | ForexFactory weekly feed: client, tolerant parser, filters, refresh service, alerts. Tuned to the feed's real rate limit. |
 | `wyck-engine` | Validated live on Remote and Local (demo accounts) | Session, state and events, risk planning, dry-run-first order pipeline, guardrails, news hosting, Remote and Local adapters, `MockBroker`. Section 3 has the results and what is still open. |
-| `wyck-app` | Application layer and GPUI shell, no visuals | `cargo run` opens an empty window wired to the engine, with global hotkeys that plan dry-run orders. GPUI chosen (4.1); your views come next. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
+| `wyck-app` | Application layer, GPUI shell, connection screens | `cargo run` opens a window with a custom title bar and the connection flow (local session, token, saved account), wired to the engine, with global hotkeys that plan dry-run orders. The trading views come next. The ratatui TUI was removed (`crates/wyck`, in git history before commit `9f5a8ba`). |
 
 Other facts:
 
@@ -584,8 +584,9 @@ Talks only to the engine (`EngineHandle`). Framework: GPUI, see 4.1.
 - [ ] **Activity log**: recent events with command correlation (`recent_events`).
 - [ ] **Settings**: engine config (limits, guardrails), per-symbol volume overrides, hotkeys,
       theme, news filter, logging level.
-- [ ] **First run and account management**: add, edit, remove profiles (`wyck-config`), token
-      entry with secure storage, connection test, service choice (Remote or Local).
+- [ ] **First run and account management**: first run, token entry with secure storage,
+      connection test and service choice (Remote or Local) are done (`wyck-app` connection flow).
+      Still to do: add several profiles, edit and remove them.
 - [ ] **Watchlist and instrument cycling**.
 - [ ] **Charts**, if they are in scope: see 4.1 and section 11.
 
