@@ -1,13 +1,15 @@
 //! **Multi-window historical backfill** (`SKILL.md` recipe 5 / `references/trader-
 //! workflows.md` W6): pulls more trendbars than a single `get_trendbars` call can
 //! return, applying **P-REMOTE-HISTORY-CHUNK** (`Q-R7`'s 720-hour window cap) and
-//! `hasMore` pagination, deduped by bar-open timestamp.
+//! pagination, deduped by bar-open timestamp. `hasMore` is not trusted: checked live (2026-09), the
+//! server cuts a window to its newest 100 bars and still answers `hasMore: false`, so a full page is
+//! followed by another request further back (see [`crate::quirks::REMOTE_TRENDBARS_PAGE_CAP`]).
 
 use std::collections::HashSet;
 
 use crate::common::Period;
 use crate::error::CTraderError;
-use crate::quirks::remote_history_windows;
+use crate::quirks::{remote_history_windows, remote_trendbars_may_continue};
 use crate::remote::RemoteClient;
 use crate::remote::dto::{GetTrendbarsParams, RemoteTrendbar};
 use crate::time::RemoteTimestamp;
@@ -37,38 +39,45 @@ pub async fn backfill_trendbars(
     let mut seen_timestamps: HashSet<i64> = HashSet::new();
 
     for (window_from, window_to) in remote_history_windows(from_epoch_ms, to_epoch_ms) {
-        let mut cursor = window_from;
+        // A window with more bars than a page comes back as its newest bars (see
+        // `REMOTE_TRENDBARS_PAGE_CAP`), so the rest is fetched by moving the upper bound back to
+        // just before the oldest bar received, until a page is not full.
+        let mut upper = window_to;
         loop {
             let response = client
                 .get_trendbars(GetTrendbarsParams {
                     symbol_id,
                     period,
-                    from_timestamp: Some(RemoteTimestamp::epoch_millis(cursor)),
-                    to_timestamp: Some(RemoteTimestamp::epoch_millis(window_to)),
+                    from_timestamp: Some(RemoteTimestamp::epoch_millis(window_from)),
+                    to_timestamp: Some(RemoteTimestamp::epoch_millis(upper)),
                     count: None,
                 })
                 .await?;
 
-            let mut latest_new_timestamp = None;
+            let page_len = response.trendbars.len();
+            let mut oldest_new_timestamp = None;
             for bar in response.trendbars {
                 if let Some(timestamp) = bar.timestamp
                     && seen_timestamps.insert(timestamp)
                 {
-                    latest_new_timestamp =
-                        Some(latest_new_timestamp.map_or(timestamp, |t: i64| t.max(timestamp)));
+                    oldest_new_timestamp =
+                        Some(oldest_new_timestamp.map_or(timestamp, |t: i64| t.min(timestamp)));
                     all_bars.push(bar);
                 }
             }
 
-            if !response.has_more {
+            if !remote_trendbars_may_continue(response.has_more, page_len) {
                 break;
             }
-            // Guard against a `has_more: true` response that produced no new bars
-            // (would otherwise loop forever re-requesting the same window).
-            let Some(latest) = latest_new_timestamp else {
+            // Guard against an answer that produced no new bars (would otherwise loop forever
+            // re-requesting the same range), and stop once the window start is reached.
+            let Some(oldest) = oldest_new_timestamp else {
                 break;
             };
-            cursor = latest + 1;
+            if oldest <= window_from {
+                break;
+            }
+            upper = oldest - 1;
         }
     }
 

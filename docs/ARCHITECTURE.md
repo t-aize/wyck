@@ -156,8 +156,9 @@ window (about 110 tests); `src/ui/chart.rs` only draws it with GPUI's low level 
 | `store` | The bars on disk, in one redb file (`<data dir>/cache/candles.redb`) |
 
 - **Data**: `Broker::bars` and `EngineHandle::candles` return bars for a span. Remote pages through
-  `backfill_trendbars` (the server caps a call at 720 hours, for every period, and wants ISO 8601
-  times), Local in windows of 1000 bars. Each time frame is fetched natively, never rebuilt from
+  `backfill_trendbars` (the server caps a call at 720 hours for every period, wants ISO 8601
+  times, and answers at most 100 bars per call, the newest ones of the window, without saying so:
+  the rest is fetched by moving the upper bound back), Local in windows of 1000 bars. Each time frame is fetched natively, never rebuilt from
   smaller ones, so the broker's own session and time zone cuts are kept.
 - **Cache**: memory for what is drawn, redb for what was downloaded. Only closed bars are stored
   (the forming one is fetched again), and a coverage list records the ranges already asked for, so

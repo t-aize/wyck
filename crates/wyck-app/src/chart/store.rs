@@ -10,10 +10,10 @@
 //! Two tables, both keyed by a text made of a **namespace**, the symbol and the period (see
 //! [`SeriesKey`]):
 //!
-//! - `bars`: key `(series, open time)`, value the five numbers of the bar (open, high, low,
+//! - `bars_v2`: key `(series, open time)`, value the five numbers of the bar (open, high, low,
 //!   close, volume) as 40 bytes. The time is part of the key, so the bars of one series sit next
 //!   to each other in time order and a range read is one scan.
-//! - `coverage`: key `series`, value the list of fetched ranges (see [`Coverage`]).
+//! - `coverage_v2`: key `series`, value the list of fetched ranges (see [`Coverage`]).
 //!
 //! The namespace separates data that must not be mixed: Remote and Local quote in different
 //! units (Local's volume is a float, Remote's an integer) and may differ in history.
@@ -39,10 +39,16 @@ use wyck_engine::domain::{Candle, Period, UnixMillis};
 use super::coverage::Coverage;
 
 /// `(series, open time) -> open, high, low, close, volume`.
-const BARS: TableDefinition<(&str, i64), [u8; 40]> = TableDefinition::new("bars");
+const BARS: TableDefinition<(&str, i64), [u8; 40]> = TableDefinition::new("bars_v2");
+
+/// The tables of the first layout. Bars fetched then were cut to 100 per request by a Remote quirk
+/// while their ranges were recorded as complete, so they hold holes that coverage hides: they are
+/// dropped when the file is opened.
+const LEGACY_BARS: TableDefinition<(&str, i64), [u8; 40]> = TableDefinition::new("bars");
+const LEGACY_COVERAGE: TableDefinition<&str, &[u8]> = TableDefinition::new("coverage");
 
 /// `series -> ranges fetched`.
-const COVERAGE: TableDefinition<&str, &[u8]> = TableDefinition::new("coverage");
+const COVERAGE: TableDefinition<&str, &[u8]> = TableDefinition::new("coverage_v2");
 
 /// What went wrong reading or writing the cache. The text is for the log.
 #[derive(Debug)]
@@ -143,6 +149,9 @@ impl CandleStore {
         let db = Database::create(path).map_err(err)?;
         // Make sure both tables exist so a first read finds them.
         let txn = db.begin_write().map_err(err)?;
+        // A missing table is not an error: these only exist in files from the first layout.
+        let _ = txn.delete_table(LEGACY_BARS);
+        let _ = txn.delete_table(LEGACY_COVERAGE);
         txn.open_table(BARS).map_err(err)?;
         txn.open_table(COVERAGE).map_err(err)?;
         txn.commit().map_err(err)?;
@@ -417,6 +426,34 @@ mod tests {
         assert!(store.load(&key(), 0, 20).unwrap().is_empty());
         assert!(store.coverage(&key()).unwrap().is_empty());
         assert_eq!(store.load(&other, 0, 20).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn tables_of_the_first_layout_are_dropped_on_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("candles.redb");
+        {
+            let db = Database::create(&path).unwrap();
+            let txn = db.begin_write().unwrap();
+            {
+                let mut old = txn.open_table(LEGACY_BARS).unwrap();
+                old.insert(("remote/EURUSD/H_1", 10), encode(&bar(10, 1.0)))
+                    .unwrap();
+                let mut cov = txn.open_table(LEGACY_COVERAGE).unwrap();
+                cov.insert("remote/EURUSD/H_1", Coverage::new().to_bytes().as_slice())
+                    .unwrap();
+            }
+            txn.commit().unwrap();
+        }
+        let store = CandleStore::open(&path).unwrap();
+        assert!(store.load(&key(), 0, 100).unwrap().is_empty());
+        drop(store);
+        let db = Database::create(&path).unwrap();
+        let txn = db.begin_read().unwrap();
+        assert!(
+            txn.open_table(LEGACY_BARS).is_err(),
+            "the old table is gone"
+        );
     }
 
     #[test]

@@ -199,6 +199,18 @@ pub fn normalize_pending_order_take_profit(order: &PendingOrder, pip_size: f64) 
 
 const REMOTE_HISTORY_WINDOW_MS: i64 = 720 * 3_600 * 1_000;
 
+/// How many bars one `get_trendbars` call returns at most. Checked against a live server
+/// (2026-09): a window holding more bars than this comes back cut to its newest 100 bars with
+/// `hasMore: false`, so the flag cannot be trusted and a full page must be followed by another
+/// request for the part before its oldest bar.
+pub const REMOTE_TRENDBARS_PAGE_CAP: usize = 100;
+
+/// Whether a `get_trendbars` answer may have left bars out: the server says so, or the page is
+/// as full as a page can be (see [`REMOTE_TRENDBARS_PAGE_CAP`]).
+pub fn remote_trendbars_may_continue(has_more: bool, returned: usize) -> bool {
+    has_more || returned >= REMOTE_TRENDBARS_PAGE_CAP
+}
+
 /// Splits `[from_epoch_ms, to_epoch_ms)` into windows no wider than Remote's 720-hour
 /// history cap (`Q-R7`), in chronological order. The 1.0.18 rejection hint explicitly
 /// states the resulting per-window calls can be issued in parallel; this function only
@@ -256,6 +268,19 @@ mod tests {
     #[test]
     fn local_oldest_first_reverses() {
         assert_eq!(local_oldest_first(vec![1.0, 2.0, 3.0]), vec![3.0, 2.0, 1.0]);
+    }
+
+    #[test]
+    fn a_full_page_may_continue_even_when_the_server_says_no_more() {
+        assert!(remote_trendbars_may_continue(
+            false,
+            REMOTE_TRENDBARS_PAGE_CAP
+        ));
+        assert!(remote_trendbars_may_continue(true, 3));
+        assert!(!remote_trendbars_may_continue(
+            false,
+            REMOTE_TRENDBARS_PAGE_CAP - 1
+        ));
     }
 
     #[test]
