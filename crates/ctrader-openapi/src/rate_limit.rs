@@ -1,7 +1,10 @@
 //! Keeping under the request limits.
 //!
 //! The server allows 50 requests per second per connection, and only 5 per second for historical
-//! data (bars and ticks); beyond that it answers `REQUEST_FREQUENCY_EXCEEDED`. A [`RateLimiter`]
+//! data (bars and ticks); beyond that it answers `REQUEST_FREQUENCY_EXCEEDED`. It may also block one type
+//! of request for a while (`BLOCKED_PAYLOAD_TYPE`, seen on tick history in a live run) and says for how
+//! many seconds. The client is configured a little under both limits and retries such a refusal (see
+//! [`crate::config::ConnectionConfig`]). A [`RateLimiter`]
 //! spaces requests evenly so the limit is never reached: a caller that asks faster is made to wait
 //! its turn (in order) instead of getting an error.
 //!

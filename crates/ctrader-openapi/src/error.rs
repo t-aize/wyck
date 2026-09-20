@@ -67,9 +67,10 @@ pub enum OpenApiError {
         code: String,
         /// The server's explanation, when it gives one.
         description: Option<String>,
-        /// How long to wait before trying again, when the server says.
+        /// How long to wait before trying again, when the server says (it sends seconds). With
+        /// `BLOCKED_PAYLOAD_TYPE` it is the time until that type of request is unblocked.
         retry_after: Option<Duration>,
-        /// When maintenance ends, in Unix milliseconds, when the server says.
+        /// When maintenance ends, as a Unix time in seconds, when the server says.
         maintenance_end: Option<i64>,
     },
 
@@ -83,20 +84,21 @@ pub enum OpenApiError {
 }
 
 impl OpenApiError {
-    /// A server error from the fields of `ProtoOAErrorRes`. `retry_after` is in milliseconds.
+    /// A server error from the fields of `ProtoOAErrorRes`. `retry_after_secs` is in seconds and
+    /// `maintenance_end` is a Unix time in seconds, both as the server sends them.
     #[must_use]
     pub fn server(
         code: impl Into<String>,
         description: Option<String>,
-        retry_after_ms: Option<i64>,
+        retry_after_secs: Option<i64>,
         maintenance_end: Option<i64>,
     ) -> Self {
         Self::Server {
             code: code.into(),
             description,
-            retry_after: retry_after_ms
-                .and_then(|ms| u64::try_from(ms).ok())
-                .map(Duration::from_millis),
+            retry_after: retry_after_secs
+                .and_then(|s| u64::try_from(s).ok())
+                .map(Duration::from_secs),
             maintenance_end,
         }
     }
@@ -120,7 +122,9 @@ impl OpenApiError {
             Self::Timeout { .. } => ErrorKind::Timeout,
             Self::Protocol(_) | Self::Auth(_) => ErrorKind::Protocol,
             Self::Server { code, .. } => match code.as_str() {
-                "REQUEST_FREQUENCY_EXCEEDED" => ErrorKind::RateLimited,
+                // `BLOCKED_PAYLOAD_TYPE` is the server blocking one type of request for a while after
+                // too many, with `retryAfter` seconds until it is unblocked.
+                "REQUEST_FREQUENCY_EXCEEDED" | "BLOCKED_PAYLOAD_TYPE" => ErrorKind::RateLimited,
                 "SERVER_IS_UNDER_MAINTENANCE" => ErrorKind::Maintenance,
                 "OA_AUTH_TOKEN_EXPIRED" | "CH_ACCESS_TOKEN_INVALID" => ErrorKind::TokenInvalid,
                 "ACCOUNT_NOT_AUTHORIZED"
@@ -203,9 +207,10 @@ mod tests {
 
     #[test]
     fn the_server_advice_on_waiting_is_kept() {
-        let e = OpenApiError::server("REQUEST_FREQUENCY_EXCEEDED", None, Some(1500), None);
-        assert_eq!(e.retry_after(), Some(Duration::from_millis(1500)));
-        assert_eq!(e.code(), Some("REQUEST_FREQUENCY_EXCEEDED"));
+        let e = OpenApiError::server("BLOCKED_PAYLOAD_TYPE", None, Some(2), None);
+        assert_eq!(e.retry_after(), Some(Duration::from_secs(2)));
+        assert_eq!(e.kind(), ErrorKind::RateLimited);
+        assert_eq!(e.code(), Some("BLOCKED_PAYLOAD_TYPE"));
         assert_eq!(OpenApiError::Closed.retry_after(), None);
         let negative = OpenApiError::server("X", None, Some(-5), None);
         assert_eq!(negative.retry_after(), None, "a nonsense value is dropped");

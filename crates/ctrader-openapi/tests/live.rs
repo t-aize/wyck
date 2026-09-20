@@ -127,6 +127,24 @@ async fn read_a_demo_account_end_to_end() {
             ticks.first(),
             ticks.last()
         );
+        // The prices must be plausible end to end: a tick history whose prices are misread (a
+        // difference taken for a price) shows a range far wider than a few percent.
+        if let (Some(low), Some(high), Some(last)) = (
+            ticks.iter().map(|t| t.price).min(),
+            ticks.iter().map(|t| t.price).max(),
+            ticks.last(),
+        ) {
+            println!(
+                "{side:?} price range {} to {} (last {})",
+                to_price(low),
+                to_price(high),
+                to_price(last.price)
+            );
+            assert!(
+                (high - low) * 20 < last.price.abs().max(1),
+                "the tick prices are spread too wide to be prices"
+            );
+        }
     }
     let bids = fetch_ticks(
         &client,

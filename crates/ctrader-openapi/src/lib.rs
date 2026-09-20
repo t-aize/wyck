@@ -76,19 +76,24 @@
 //!
 //! - **Endpoints**: `demo.ctraderapi.com` and `live.ctraderapi.com`, JSON on port `5036`. Demo and
 //!   live are separate: one connection each, and accounts of one cannot be used on the other.
-//! - **Limits**: 50 requests per second, 5 per second for history, per connection. Silence for more
-//!   than 10 seconds drops the connection, hence the heartbeat.
+//! - **Limits**: 50 requests per second, 5 per second for history, per connection; the client stays
+//!   a little under (40 and 4) and sends a request again, after the wait the server asks for
+//!   (`retryAfter` is in **seconds**), when it is refused for its rate (`REQUEST_FREQUENCY_EXCEEDED`, or
+//!   `BLOCKED_PAYLOAD_TYPE`, which a live run produced). Silence for more than 10 seconds drops the
+//!   connection, hence the heartbeat.
 //! - **Prices** are integers scaled by 100 000 ([`types::PRICE_SCALE`]).
-//! - **Ticks** come newest first with times as differences ([`types::decode_ticks`]), at most one
-//!   week per request, bid and ask requested separately. There is **no volume per tick**: a bar's
+//! - **Ticks** come newest first with their times **and prices** as differences from the tick before
+//!   ([`types::decode_ticks`], confirmed on a live demo account), at most one week per request, bid and ask requested separately. There is **no volume per tick**: a bar's
 //!   volume counts ticks, and only the order book has sizes.
 //!
-//! # What has not been verified against a live server
+//! # What has and has not been verified against a live server
 //!
-//! Everything above the wire is covered by tests with a local mock server, but this client was
-//! written without an approved application to try it on. To confirm on the first real run: that
-//! enumerations are accepted as numbers in JSON, whether the consent page echoes `state`, the range
-//! limit of bar requests per period, and how long a broker keeps ticks. `TODO.md` 2A lists them.
+//! Everything above the wire is covered by tests with a local mock server. A first run on a demo
+//! account (`tests/live.rs`) confirmed the connection, both sign in steps, the symbol list, the price
+//! subscription and the tick encoding (prices are differences too), and produced the rate limit
+//! behavior described above. Still open: the range limit of bar requests per period, which end a
+//! truncated bar answer holds, whether the consent page echoes `state`, and how long a broker keeps
+//! ticks. `TODO.md` 2A.7 keeps the list.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]

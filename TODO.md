@@ -262,6 +262,28 @@ Run with `tests/live.rs` on a demo account while the market was closed (Sunday).
       holds, the range limit per period, the tick count per response, and how far back ticks go.
 - [ ] Run `examples/sign_in.rs` to learn whether the consent page echoes `state`.
 
+#### Second live run and what it changed
+
+The run with the history anchored at the last price (about 47 hours before the clock, the market
+closed) gave 14 208 bid ticks and 13 752 ask ticks for six hours, so the request and the paging
+work. It also showed two things the documentation did not say, both now fixed and tested:
+
+- [x] **Tick prices are differences too.** The oldest bid tick read `1` and the oldest ask tick `-1`
+      beside a newest price of `114880`. Like the time, every tick after the first is a step from
+      the one before it, so `types::decode_ticks` now keeps a running sum of the price as well. (The
+      `.proto` comment only says so for the time.) The live test now fails if the prices of a history
+      spread wider than a few percent.
+- [x] **`BLOCKED_PAYLOAD_TYPE`.** After the six hour bid and ask histories, the next tick request was
+      refused with this code, "You are being rate limited", `retryAfter` 1. The `.proto` says the
+      field is **seconds until that payload type is unblocked** (I had read milliseconds; the same
+      goes for `maintenanceEndTimestamp`, Unix seconds). So this server blocks one type of request
+      for a while, and did so at our documented 5 per second. The client now keeps under the limits
+      (40 and 4 per second), and resends a request refused for its rate after the wait the server
+      asks for, up to three times (`rate_limit_retries`, `max_retry_wait`).
+- [ ] Find the real limit for tick requests: run the live test again and see whether the margin
+      and the retries are enough, or whether tick history needs its own, lower rate.
+
+
 ---
 ---
 

@@ -42,7 +42,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, trace, warn};
 
 use crate::config::{ClientCredentials, ConnectionConfig};
-use crate::error::{OpenApiError, Result};
+use crate::error::{ErrorKind, OpenApiError, Result};
 use crate::event::{DisconnectReason, Event, error_of, event_from};
 use crate::model::{
     AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, GetAccountsByAccessTokenReq,
@@ -91,6 +91,8 @@ struct Shared {
     standard: RateLimiter,
     historical: RateLimiter,
     request_timeout: Duration,
+    rate_limit_retries: u32,
+    max_retry_wait: Duration,
 }
 
 impl Shared {
@@ -189,6 +191,8 @@ impl Client {
             standard: RateLimiter::new(config.standard_rate),
             historical: RateLimiter::new(config.historical_rate),
             request_timeout: config.request_timeout,
+            rate_limit_retries: config.rate_limit_retries,
+            max_retry_wait: config.max_retry_wait,
         });
         tokio::spawn(run(
             socket,
@@ -232,7 +236,52 @@ impl Client {
 
     // ---- the request machinery ----
 
+    /// One request with its answer, sent again when the server refuses it for its rate.
     async fn call<Req, Res>(
+        &self,
+        request_type: u32,
+        response_type: u32,
+        request: &Req,
+        class: RateClass,
+        operation: &'static str,
+    ) -> Result<Res>
+    where
+        Req: Serialize,
+        Res: DeserializeOwned,
+    {
+        let mut retries = 0;
+        loop {
+            let result = self
+                .call_once(request_type, response_type, request, class, operation)
+                .await;
+            match result {
+                Err(error)
+                    if error.kind() == ErrorKind::RateLimited
+                        && retries < self.shared.rate_limit_retries =>
+                {
+                    retries += 1;
+                    // The server says how long (in seconds); without advice wait a second. A short
+                    // margin covers the server counting slightly differently from the clock here.
+                    let wait = error
+                        .retry_after()
+                        .unwrap_or(Duration::from_secs(1))
+                        .clamp(Duration::from_millis(250), self.shared.max_retry_wait)
+                        + Duration::from_millis(100);
+                    warn!(
+                        operation,
+                        retries,
+                        ?wait,
+                        "refused for its rate, waiting to try again"
+                    );
+                    tokio::time::sleep(wait).await;
+                }
+                other => return other,
+            }
+        }
+    }
+
+    /// One attempt.
+    async fn call_once<Req, Res>(
         &self,
         request_type: u32,
         response_type: u32,

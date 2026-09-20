@@ -485,10 +485,11 @@ pub struct ErrorRes {
     /// The explanation.
     #[serde(default)]
     pub description: Option<String>,
-    /// When maintenance ends, in Unix milliseconds.
+    /// When maintenance ends, as a Unix time in seconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub maintenance_end_timestamp: Option<i64>,
-    /// How long to wait before trying again, in milliseconds.
+    /// How long to wait before trying again, in seconds (with `BLOCKED_PAYLOAD_TYPE`, the time until
+    /// that type of request is unblocked).
     #[serde(default, deserialize_with = "flex::opt")]
     pub retry_after: Option<i64>,
 }
@@ -612,9 +613,9 @@ mod tests {
     #[test]
     fn an_error_answer_keeps_the_retry_advice() {
         let e: ErrorRes = serde_json::from_value(json!({
-            "errorCode": "REQUEST_FREQUENCY_EXCEEDED", "description": "slow down", "retryAfter": 900
+            "errorCode": "REQUEST_FREQUENCY_EXCEEDED", "description": "slow down", "retryAfter": 2
         }))
         .unwrap();
-        assert_eq!(e.retry_after, Some(900));
+        assert_eq!(e.retry_after, Some(2));
     }
 }

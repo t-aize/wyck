@@ -55,10 +55,19 @@ pub struct ConnectionConfig {
     pub heartbeat_interval: Duration,
     /// How many events may wait unread before the slowest reader starts to lose the oldest.
     pub event_capacity: usize,
-    /// Requests per second for everything but history (documented limit: 50).
+    /// Requests per second for everything but history. The documented limit is 50; the default is
+    /// 40, a margin under it so that requests spaced evenly cannot add up to more than 50 inside a
+    /// window the server counts differently.
     pub standard_rate: u32,
-    /// Requests per second for history (documented limit: 5).
+    /// Requests per second for history. The documented limit is 5; the default is 4, for the same
+    /// reason, and because a live run got a tick request blocked (`BLOCKED_PAYLOAD_TYPE`) after a
+    /// burst of tick pages spaced at 5 per second.
     pub historical_rate: u32,
+    /// How many times a request refused for its rate is sent again, after the wait the server asks
+    /// for. 0 turns it off: the error is then returned at once.
+    pub rate_limit_retries: u32,
+    /// The longest wait before such a retry, whatever the server asks for.
+    pub max_retry_wait: Duration,
 }
 
 impl ConnectionConfig {
@@ -77,8 +86,10 @@ impl ConnectionConfig {
             request_timeout: Duration::from_secs(30),
             heartbeat_interval: Duration::from_secs(5),
             event_capacity: 8192,
-            standard_rate: 50,
-            historical_rate: 5,
+            standard_rate: 40,
+            historical_rate: 4,
+            rate_limit_retries: 3,
+            max_retry_wait: Duration::from_secs(30),
         }
     }
 
@@ -140,9 +151,11 @@ mod tests {
     }
 
     #[test]
-    fn the_defaults_follow_the_documented_limits_and_validate() {
+    fn the_defaults_stay_under_the_documented_limits_and_validate() {
         let config = ConnectionConfig::new(Environment::Demo);
-        assert_eq!((config.standard_rate, config.historical_rate), (50, 5));
+        assert!(config.standard_rate <= 50 && config.standard_rate > 0);
+        assert!(config.historical_rate <= 5 && config.historical_rate > 0);
+        assert!(config.rate_limit_retries > 0);
         assert!(config.heartbeat_interval < Duration::from_secs(10));
         assert!(config.validate().is_ok());
     }

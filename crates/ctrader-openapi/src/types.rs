@@ -7,7 +7,7 @@
 //!   `108501`. [`to_price`] and [`from_price`] convert. Keep the integer for exact work and
 //!   comparisons; the `f64` is for display.
 //! - **Bars** come as a low price plus offsets ([`decode_bar`]); their time is in Unix minutes.
-//! - **Ticks** come newest first with their times as differences ([`decode_ticks`]).
+//! - **Ticks** come newest first with their times and prices as differences ([`decode_ticks`]).
 
 use crate::model::{WireTick, WireTrendbar};
 
@@ -238,29 +238,29 @@ pub struct Spot {
 
 /// Turns the ticks of a `ProtoOAGetTickDataRes` into ticks with absolute times, oldest first.
 ///
-/// The server sends them **newest first**. The time of the first is absolute (Unix milliseconds);
-/// the time of each next one is the difference from the one before it, which is negative going back
-/// in time, so the absolute time is a running sum. Prices are absolute. This is the layout of the
-/// official `.proto` comments and the trap reported on the cTrader forum: treating every time as
-/// absolute yields a few seconds of data where an hour was asked for.
+/// The server sends them **newest first**. The first tick is absolute: its time is in Unix
+/// milliseconds and its price is the price. Every next tick is a **difference** from the one before it
+/// in the list, in both fields (going back in time the time difference is negative), so the real
+/// time and the real price are running sums. The `.proto` comment only says so for the time; that
+/// the price is a difference too was seen on a live demo account (a tick history whose oldest
+/// prices read `1` and `-1` beside a newest price of `114880`). Reading the times as absolute yields
+/// a few seconds of data where an hour was asked for, and the prices as absolute yields nonsense.
 ///
 /// The result is sorted and ticks that share a time and a price are kept (two identical ticks are
 /// real).
 #[must_use]
 pub fn decode_ticks(wire: &[WireTick]) -> Vec<Tick> {
-    let mut time = 0i64;
+    let (mut time, mut price) = (0i64, 0i64);
     let mut ticks: Vec<Tick> = wire
         .iter()
-        .enumerate()
-        .map(|(i, tick)| {
-            time = if i == 0 {
-                tick.timestamp
-            } else {
-                time.saturating_add(tick.timestamp)
-            };
+        .map(|tick| {
+            // The first tick is absolute and the running sums start at zero, so the same
+            // addition serves every tick.
+            time = time.saturating_add(tick.timestamp);
+            price = price.saturating_add(tick.tick);
             Tick {
                 time_ms: time,
-                price: tick.tick,
+                price,
             }
         })
         .collect();
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn ticks_are_decoded_from_newest_first_deltas() {
+    fn ticks_are_decoded_from_newest_first_deltas_in_time_and_price() {
         let wire = [
             WireTick {
                 timestamp: 1_000_000,
@@ -375,11 +375,11 @@ mod tests {
             },
             WireTick {
                 timestamp: -500,
-                tick: 108_499,
+                tick: -2,
             },
             WireTick {
                 timestamp: -250,
-                tick: 108_500,
+                tick: 1,
             },
         ];
         let ticks = decode_ticks(&wire);
@@ -400,6 +400,35 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_live_shaped_history_gives_sensible_prices_at_every_end() {
+        // Shaped like the first live answer: the newest price absolute, the rest small steps.
+        let wire = [
+            WireTick {
+                timestamp: 1_789_763_387_232,
+                tick: 114_880,
+            },
+            WireTick {
+                timestamp: -651,
+                tick: -1,
+            },
+            WireTick {
+                timestamp: -1_020,
+                tick: 2,
+            },
+            WireTick {
+                timestamp: -300,
+                tick: -1,
+            },
+        ];
+        let ticks = decode_ticks(&wire);
+        assert_eq!(ticks.last().unwrap().price, 114_880);
+        for tick in &ticks {
+            assert!((114_870..=114_890).contains(&tick.price), "{tick:?}");
+        }
+        assert!(ticks.windows(2).all(|w| w[0].time_ms <= w[1].time_ms));
     }
 
     #[test]

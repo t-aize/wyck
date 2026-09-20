@@ -124,14 +124,20 @@ async fn a_server_error_becomes_a_typed_error_with_its_advice() {
     let server = MockServer::start(answers(vec![(
         payload::VERSION_REQ,
         payload::ERROR_RES,
-        json!({"errorCode": "REQUEST_FREQUENCY_EXCEEDED", "description": "slow down", "retryAfter": 750}),
+        json!({"errorCode": "REQUEST_FREQUENCY_EXCEEDED", "description": "slow down", "retryAfter": 3}),
     )]))
     .await;
-    let client = connect(&server).await;
+    let mut config = config(&server);
+    config.rate_limit_retries = 0; // look at the error itself
+    let client = Client::connect(&config).await.unwrap();
     let error = client.version().await.unwrap_err();
     assert_eq!(error.kind(), ErrorKind::RateLimited);
     assert!(error.is_retryable());
-    assert_eq!(error.retry_after(), Some(Duration::from_millis(750)));
+    assert_eq!(
+        error.retry_after(),
+        Some(Duration::from_secs(3)),
+        "the server sends seconds"
+    );
     assert_eq!(error.code(), Some("REQUEST_FREQUENCY_EXCEEDED"));
 }
 
@@ -489,8 +495,8 @@ async fn ticks_are_decoded_to_absolute_times_oldest_first() {
         payload::GET_TICK_DATA_RES,
         json!({"tickData": [
             {"timestamp": 1_000_000, "tick": 108501},
-            {"timestamp": -400, "tick": 108499},
-            {"timestamp": -100, "tick": 108500}
+            {"timestamp": -400, "tick": -2},
+            {"timestamp": -100, "tick": 1}
         ], "hasMore": false}),
     )]))
     .await;
@@ -502,6 +508,9 @@ async fn ticks_are_decoded_to_absolute_times_oldest_first() {
     assert!(!more);
     let times: Vec<i64> = ticks.iter().map(|t| t.time_ms).collect();
     assert_eq!(times, vec![999_500, 999_600, 1_000_000]);
+    // Prices are differences too: the newest is absolute, the others are steps from the one before.
+    let prices: Vec<i64> = ticks.iter().map(|t| t.price).collect();
+    assert_eq!(prices, vec![108_500, 108_499, 108_501]);
     let request = &server.received_of(payload::GET_TICK_DATA_REQ)[0].payload;
     assert_eq!(request["type"], 2, "ask ticks are type 2");
 }
@@ -595,4 +604,93 @@ async fn a_truncated_bar_answer_is_continued_from_the_missing_side() {
     assert!(bars.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
     let second = &server.received_of(payload::GET_TRENDBARS_REQ)[1].payload;
     assert_eq!(second["toTimestamp"], 50 * m - 1);
+}
+
+// ---- rate limit refusals ----
+
+fn blocked_then_ok(blocked_times: usize) -> (Arc<AtomicUsize>, support::Handler) {
+    let seen = Arc::new(AtomicUsize::new(0));
+    let counter = seen.clone();
+    let handler: support::Handler = Arc::new(move |request| {
+        if request.payload_type != payload::VERSION_REQ {
+            return vec![];
+        }
+        if counter.fetch_add(1, Ordering::SeqCst) < blocked_times {
+            vec![Reply::Answer(
+                payload::ERROR_RES,
+                json!({"errorCode": "BLOCKED_PAYLOAD_TYPE", "description": "You are being rate limited", "retryAfter": 0}),
+            )]
+        } else {
+            vec![Reply::Answer(
+                payload::VERSION_RES,
+                json!({"version": "ok"}),
+            )]
+        }
+    });
+    (seen, handler)
+}
+
+#[tokio::test]
+async fn a_request_refused_for_its_rate_is_sent_again_after_the_wait() {
+    let (seen, handler) = blocked_then_ok(1);
+    let server = MockServer::start(handler).await;
+    let client = connect(&server).await;
+    let started = Instant::now();
+    assert_eq!(client.version().await.unwrap(), "ok");
+    assert_eq!(seen.load(Ordering::SeqCst), 2, "one refusal, one success");
+    assert!(
+        started.elapsed() >= Duration::from_millis(300),
+        "it waited: {:?}",
+        started.elapsed()
+    );
+}
+
+#[tokio::test]
+async fn retries_stop_after_the_configured_number() {
+    let (seen, handler) = blocked_then_ok(usize::MAX);
+    let server = MockServer::start(handler).await;
+    let mut config = config(&server);
+    config.rate_limit_retries = 2;
+    let client = Client::connect(&config).await.unwrap();
+    let error = client.version().await.unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::RateLimited);
+    assert_eq!(
+        seen.load(Ordering::SeqCst),
+        3,
+        "the first try and two retries"
+    );
+}
+
+#[tokio::test]
+async fn with_retries_off_the_refusal_is_returned_at_once() {
+    let (seen, handler) = blocked_then_ok(usize::MAX);
+    let server = MockServer::start(handler).await;
+    let mut config = config(&server);
+    config.rate_limit_retries = 0;
+    let client = Client::connect(&config).await.unwrap();
+    let started = Instant::now();
+    assert!(client.version().await.is_err());
+    assert_eq!(seen.load(Ordering::SeqCst), 1);
+    assert!(started.elapsed() < Duration::from_millis(250));
+}
+
+#[tokio::test]
+async fn other_errors_are_never_retried() {
+    let seen = Arc::new(AtomicUsize::new(0));
+    let counter = seen.clone();
+    let server = MockServer::start(Arc::new(move |request| {
+        if request.payload_type == payload::VERSION_REQ {
+            counter.fetch_add(1, Ordering::SeqCst);
+            vec![Reply::Answer(
+                payload::ERROR_RES,
+                json!({"errorCode": "SYMBOL_NOT_FOUND"}),
+            )]
+        } else {
+            vec![]
+        }
+    }))
+    .await;
+    let client = connect(&server).await;
+    assert!(client.version().await.is_err());
+    assert_eq!(seen.load(Ordering::SeqCst), 1);
 }

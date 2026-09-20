@@ -15,7 +15,7 @@ bar history, with the request matching, heartbeats and rate limits it takes to u
 |---|---|
 | Connection | `wss://demo.ctraderapi.com:5036` or `live`, JSON envelope, one connection per environment |
 | Requests | Matched to answers by `clientMsgId`, many in flight at once, a timeout each |
-| Limits | 50 requests per second, 5 per second for history, enforced by spacing (a request waits, it does not fail) |
+| Limits | 50 requests per second, 5 for history (the client keeps a little under: 40 and 4), enforced by spacing; a request refused for its rate is sent again after the wait the server asks for (in seconds) |
 | Keep alive | A heartbeat every few seconds (the server drops a connection silent for 10) |
 | Sign in | The consent URL, a loopback web server for the redirect, code exchange, token refresh |
 | Live data | Prices (`Event::Spot`), live bars, the order book (`Event::Depth`), account and token notices |
@@ -89,8 +89,8 @@ A complete, compiling version is in the crate docs (`cargo doc -p ctrader-openap
 ## Things to know
 
 - **Prices are integers** scaled by 100 000 (`1.08501` is `108501`). `types::to_price` converts.
-- **Ticks** arrive newest first with their times as differences from the tick before. `decode_ticks`
-  turns that into absolute, ascending times; the two sides (bid, ask) are separate requests and
+- **Ticks** arrive newest first with their times **and prices** as differences from the tick before
+  (confirmed live). `decode_ticks` turns that into absolute, ascending times and prices; the two sides (bid, ask) are separate requests and
   `merge_sides` joins them.
 - **There is no volume per tick.** A bar's `volume` counts ticks. Only the order book has sizes.
 - **Demo and live never mix.** An app that needs both opens two connections.
@@ -119,13 +119,13 @@ This client was written from the official documentation and `.proto` files, with
 application to try it on. The live test exists to settle these, and the answers belong in
 `TODO.md` section 2A:
 
-- ~~That the JSON endpoint accepts enumerations (periods, quote type) as numbers.~~ Probably settled by the first live run (the server answered without an error), see `TODO.md` 2A.7.
+- That the JSON endpoint accepts enumerations (periods, quote type) as numbers: settled by the live runs, see `TODO.md` 2A.7.
 - Whether the consent page echoes the `state` parameter (the callback accepts a redirect without
   one and reports it, see `AuthorizationCode::state_echoed`).
 - Which end of the range a truncated bar answer holds, and the range limit of a bar request per
   period (`history::fetch_bars` copes with either end).
-- That the tick price is an absolute value and the tick time a difference (as the `.proto` comments
-  say), and how far back a broker keeps ticks.
+- How far back a broker keeps ticks. (The tick price turned out to be a difference like the time:
+  fixed, see `TODO.md` 2A.7.)
 - The tick count per response, and the exact behavior at the boundary between two pages.
 
 ## Sources
