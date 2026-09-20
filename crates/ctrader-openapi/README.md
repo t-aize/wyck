@@ -36,6 +36,7 @@ bar history, with the request matching, heartbeats and rate limits it takes to u
 | `wire` | The envelope and the payload type numbers |
 | `config` | `Environment`, `ConnectionConfig`, `ClientCredentials` |
 | `rate_limit` | `RateLimiter` |
+| `examples/sign_in.rs` | Signs a user in from the terminal and lists the accounts the token reaches |
 | `error` | `OpenApiError`, `ErrorKind` |
 
 ## Using it
@@ -71,6 +72,17 @@ client.subscribe_spots(account, &[symbol_id], true).await?;
 let ticks = fetch_ticks(&client, account, symbol_id, QuoteType::Bid, from_ms, to_ms).await?;
 let bars = fetch_bars(&client, account, symbol_id, Period::M1, from_ms, to_ms).await?;
 ```
+
+To get a token without writing code, run the example (it opens the browser, catches the redirect,
+trades the code, connects, lists the accounts and prints the tokens):
+
+```powershell
+$env:WYCK_OPENAPI_CLIENT_ID = "..."; $env:WYCK_OPENAPI_CLIENT_SECRET = "..."
+cargo run -p ctrader-openapi --example sign_in
+```
+
+The redirect URI `http://localhost:8765` (or the port in `WYCK_OPENAPI_PORT`) must be registered
+for the application. The tokens it prints are secrets.
 
 A complete, compiling version is in the crate docs (`cargo doc -p ctrader-openapi --open`).
 

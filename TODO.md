@@ -165,6 +165,9 @@ checked against a mock server, not against the real one.
 2. **Sign in** (same crate, plus `wyck-config`)
    - [x] Loopback OAuth: build the grant URL (scope `accounts`), open the browser, listen on the
          redirect port, take the code, exchange it within a minute, verify the `state` value.
+   - [x] `examples/sign_in.rs`: runs that flow from the terminal and lists the accounts, to get a
+         first token and to settle whether the server echoes `state`. Not run yet (no approved
+         application).
    - [ ] Store the access and refresh tokens in the secret store, never in the profile file.
    - [ ] Refresh before the 30 day expiry, and on `ProtoOAAccountsTokenInvalidatedEvent`; if the
          refresh fails, send the user back to the sign in screen with the reason. The crate gives

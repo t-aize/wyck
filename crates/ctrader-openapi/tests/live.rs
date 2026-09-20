@@ -8,7 +8,7 @@
 //!
 //! - `WYCK_OPENAPI_CLIENT_ID` and `WYCK_OPENAPI_CLIENT_SECRET`: the registered application.
 //! - `WYCK_OPENAPI_ACCESS_TOKEN`: an access token with at least the `accounts` scope (get one with
-//!   the sign in flow of the `auth` module).
+//!   the `sign_in` example: `cargo run -p ctrader-openapi --example sign_in`).
 //! - `WYCK_OPENAPI_SYMBOL` (optional, default `EURUSD`).
 //!
 //! Never put the values in a file. The test refuses a live account.
