@@ -222,7 +222,7 @@ pub fn format_price(raw: i64, digits: u32) -> String {
 
 // ---- the order book ----
 
-/// One price level of the book.
+/// One price level of the book: the total size of the entries at that price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DepthLevel {
     /// The raw price (see [`crate::types::to_price`]).
@@ -271,32 +271,32 @@ impl DepthBook {
         }
     }
 
-    /// The bid side, best (highest price) first.
+    /// The bid side as price levels, best (highest price) first. Entries at the same price are added
+    /// into one level, as in any order book.
     #[must_use]
     pub fn bids(&self) -> Vec<DepthLevel> {
-        let mut levels: Vec<DepthLevel> = self.bids.values().copied().collect();
-        levels.sort_by_key(|l| std::cmp::Reverse(l.price));
+        let mut levels = levels_of(&self.bids);
+        levels.reverse();
         levels
     }
 
-    /// The ask side, best (lowest price) first.
+    /// The ask side as price levels, best (lowest price) first. Entries at the same price are added
+    /// into one level.
     #[must_use]
     pub fn asks(&self) -> Vec<DepthLevel> {
-        let mut levels: Vec<DepthLevel> = self.asks.values().copied().collect();
-        levels.sort_by_key(|l| l.price);
-        levels
+        levels_of(&self.asks)
     }
 
-    /// The highest bid.
+    /// The highest bid level.
     #[must_use]
     pub fn best_bid(&self) -> Option<DepthLevel> {
-        self.bids.values().max_by_key(|l| l.price).copied()
+        self.bids().first().copied()
     }
 
-    /// The lowest ask.
+    /// The lowest ask level.
     #[must_use]
     pub fn best_ask(&self) -> Option<DepthLevel> {
-        self.asks.values().min_by_key(|l| l.price).copied()
+        self.asks().first().copied()
     }
 
     /// The gap between the best ask and the best bid, when both exist. Negative in a crossed book.
@@ -328,6 +328,18 @@ impl DepthBook {
     pub fn is_empty(&self) -> bool {
         self.bids.is_empty() && self.asks.is_empty()
     }
+}
+
+/// Adds the entries at each price into one level, lowest price first.
+fn levels_of(entries: &BTreeMap<i64, DepthLevel>) -> Vec<DepthLevel> {
+    let mut by_price: BTreeMap<i64, i64> = BTreeMap::new();
+    for level in entries.values() {
+        *by_price.entry(level.price).or_default() += level.size;
+    }
+    by_price
+        .into_iter()
+        .map(|(price, size)| DepthLevel { price, size })
+        .collect()
 }
 
 /// The number of raw price units in a price of 1.0 (re-exported for convenience next to
@@ -607,5 +619,64 @@ mod tests {
             vec![],
         ));
         assert_eq!(book.spread(), Some(-2));
+    }
+}
+
+#[cfg(test)]
+mod level_tests {
+    use super::*;
+    use crate::model::DepthQuote;
+
+    fn quote(id: i64, size: i64, bid: Option<i64>, ask: Option<i64>) -> DepthQuote {
+        DepthQuote {
+            id: Some(id),
+            size: Some(size),
+            bid,
+            ask,
+        }
+    }
+
+    #[test]
+    fn entries_at_the_same_price_are_one_level() {
+        let mut book = DepthBook::new();
+        book.apply(&DepthEvent {
+            symbol_id: 1,
+            new_quotes: vec![
+                quote(1, 100, Some(105), None),
+                quote(2, 250, Some(105), None),
+                quote(3, 50, Some(104), None),
+                quote(4, 70, None, Some(106)),
+                quote(5, 30, None, Some(106)),
+            ],
+            deleted_quotes: vec![],
+        });
+        assert_eq!(
+            book.bids(),
+            vec![
+                DepthLevel {
+                    price: 105,
+                    size: 350
+                },
+                DepthLevel {
+                    price: 104,
+                    size: 50
+                }
+            ]
+        );
+        assert_eq!(
+            book.asks(),
+            vec![DepthLevel {
+                price: 106,
+                size: 100
+            }]
+        );
+        assert_eq!(
+            book.best_bid(),
+            Some(DepthLevel {
+                price: 105,
+                size: 350
+            })
+        );
+        assert_eq!(book.bid_size(), 400, "the totals count every entry");
     }
 }

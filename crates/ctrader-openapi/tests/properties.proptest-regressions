@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 2eb5b748323815a66e0a77486f0bd387f428d5d32cb8fbc277825368f8eca609 # shrinks to steps = [([(1, 1, true, 105), (2, 2, true, 105)], [])]
+cc 1d34916e04ef5b7c82df68e885f0b3adb7b6d169d711dec6138de68e68d47163 # shrinks to original = [Tick { time_ms: 1700000000000, price: 110000 }, Tick { time_ms: 1700000000000, price: 110001 }]

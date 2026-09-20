@@ -38,6 +38,7 @@ pub type Handler = Arc<dyn Fn(&Envelope) -> Vec<Reply> + Send + Sync>;
 
 enum Command {
     Send(Envelope),
+    Raw(Message),
     Close,
 }
 
@@ -132,6 +133,27 @@ impl MockServer {
         }
     }
 
+    /// Sends a text frame as is, valid or not.
+    pub fn push_raw_text(&self, text: &str) {
+        self.raw(Message::text(text.to_owned()));
+    }
+
+    /// Sends a binary frame.
+    pub fn push_binary(&self, bytes: Vec<u8>) {
+        self.raw(Message::binary(bytes));
+    }
+
+    /// Sends a ping frame.
+    pub fn push_ping(&self) {
+        self.raw(Message::Ping(vec![1, 2, 3].into()));
+    }
+
+    fn raw(&self, message: Message) {
+        if let Some(commands) = self.current.lock().unwrap().as_ref() {
+            let _ = commands.send(Command::Raw(message));
+        }
+    }
+
     /// Closes the current connection from the server side. The server keeps accepting.
     pub fn close(&self) {
         if let Some(commands) = self.current.lock().unwrap().as_ref() {
@@ -212,6 +234,9 @@ async fn serve(
             command = command_rx.recv() => match command {
                 Some(Command::Send(envelope)) => {
                     let _ = out.send(Message::text(envelope.to_text().unwrap()));
+                }
+                Some(Command::Raw(message)) => {
+                    let _ = out.send(message);
                 }
                 Some(Command::Close) | None => {
                     close(&out);

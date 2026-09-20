@@ -246,8 +246,9 @@ pub struct Spot {
 /// prices read `1` and `-1` beside a newest price of `114880`). Reading the times as absolute yields
 /// a few seconds of data where an hour was asked for, and the prices as absolute yields nonsense.
 ///
-/// The result is sorted and ticks that share a time and a price are kept (two identical ticks are
-/// real).
+/// The result is in time order. Ticks that share a millisecond keep the order they happened in (it
+/// decides the last price), and identical ticks are kept: two ticks at the same time and price are
+/// real.
 #[must_use]
 pub fn decode_ticks(wire: &[WireTick]) -> Vec<Tick> {
     let (mut time, mut price) = (0i64, 0i64);
@@ -264,6 +265,10 @@ pub fn decode_ticks(wire: &[WireTick]) -> Vec<Tick> {
             }
         })
         .collect();
+    // The list is newest first, so reversing it gives chronological order; the stable sort only
+    // has to repair a server that breaks its own ordering, and keeps ticks that share a
+    // millisecond in the order they happened (their order decides the last price).
+    ticks.reverse();
     ticks.sort_by_key(|t| t.time_ms);
     ticks
 }
@@ -444,6 +449,31 @@ mod tests {
                 time_ms: 77,
                 price: 5
             }]
+        );
+    }
+
+    #[test]
+    fn ticks_in_one_millisecond_keep_the_order_they_happened_in() {
+        // Newest first: the last tick of the millisecond comes first on the wire.
+        let wire = [
+            WireTick {
+                timestamp: 5_000,
+                tick: 110_002,
+            },
+            WireTick {
+                timestamp: 0,
+                tick: -1,
+            },
+            WireTick {
+                timestamp: 0,
+                tick: -1,
+            },
+        ];
+        let prices: Vec<i64> = decode_ticks(&wire).iter().map(|t| t.price).collect();
+        assert_eq!(
+            prices,
+            vec![110_000, 110_001, 110_002],
+            "oldest first, the last price last"
         );
     }
 
