@@ -119,7 +119,7 @@ This client was written from the official documentation and `.proto` files, with
 application to try it on. The live test exists to settle these, and the answers belong in
 `TODO.md` section 2A:
 
-- That the JSON endpoint accepts enumerations (periods, quote type) as numbers.
+- ~~That the JSON endpoint accepts enumerations (periods, quote type) as numbers.~~ Probably settled by the first live run (the server answered without an error), see `TODO.md` 2A.7.
 - Whether the consent page echoes the `state` parameter (the callback accepts a redirect without
   one and reports it, see `AuthorizationCode::state_echoed`).
 - Which end of the range a truncated bar answer holds, and the range limit of a bar request per

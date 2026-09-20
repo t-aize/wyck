@@ -79,10 +79,12 @@ async fn read_a_demo_account_end_to_end() {
         .await
         .expect("spot subscription");
     let mut seen = 0;
+    let mut last_spot_time: Option<i64> = None;
     let _ = tokio::time::timeout(Duration::from_secs(8), async {
         while let Ok(event) = events.recv().await {
             if let Event::Spot(spot) = event {
                 seen += 1;
+                last_spot_time = spot.timestamp.or(last_spot_time);
                 println!(
                     "spot: bid {:?} ask {:?} at {:?}",
                     spot.bid.map(to_price),
@@ -95,11 +97,18 @@ async fn read_a_demo_account_end_to_end() {
     .await;
     println!("{seen} spot events in 8 seconds");
 
-    // History: an hour of ticks on each side, and a day of M1 bars.
-    let now = std::time::SystemTime::now()
+    // History: ticks on each side, and M1 bars. The range ends at the time of the last price seen,
+    // not at the clock: with the market closed (a weekend) the last hours hold nothing, and an
+    // empty answer would say nothing about the client.
+    let clock = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis() as i64;
+    let now = last_spot_time.unwrap_or(clock);
+    println!(
+        "history anchored at {now} ({} minutes before the clock)",
+        (clock - now) / 60_000
+    );
     let hour = 3_600_000;
     for side in [QuoteType::Bid, QuoteType::Ask] {
         let ticks = fetch_ticks(

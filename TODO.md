@@ -243,6 +243,26 @@ checked against a mock server, not against the real one.
 - **Windows firewall and port use**: the loopback listener must pick a free port and match a
   registered redirect URI exactly; handle "port busy" with a clear message.
 
+### 2A.7 What the first live run showed (2026-09-20, demo account, `Spotware` broker)
+
+Run with `tests/live.rs` on a demo account while the market was closed (Sunday).
+
+- [x] **Confirmed**: the JSON WebSocket on `demo.ctraderapi.com:5036` works with this client;
+      application sign in, account list (permission scope 0, view), account sign in, the symbol list
+      (830 symbols) and symbol details (`digits 5`, `pipPosition 4`, `lotSize 10000000`, volumes in
+      hundredths of a unit, schedule time zone `America/New_York`), the proxy version (`101`), the
+      spot subscription, and a first spot event that carries the last price and its timestamp even
+      with the market closed (as the `.proto` comment says). Ids come as plain numbers.
+- [x] **Probably confirmed**: enumerations as numbers. The tick and bar requests carry a quote type
+      and a period as numbers and the server answered without an error.
+- [ ] **Still open**: history. Both tick sides and a day of M1 bars came back empty, but the range
+      ended at the clock and the market had been closed for about a day, so it proves nothing. The test
+      now ends the range at the time of the last price seen. Run it again, and once more with the
+      market open, then settle: the tick price and time encoding, which end a truncated bar answer
+      holds, the range limit per period, the tick count per response, and how far back ticks go.
+- [ ] Run `examples/sign_in.rs` to learn whether the consent page echoes `state`.
+
+---
 ---
 
 ## 3. P0: live validation before any real order
