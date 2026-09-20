@@ -43,8 +43,8 @@ use secrecy::ExposeSecret;
 use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind};
 use crate::config::AssumedSpecs;
 use crate::domain::{
-    AccountKind, AccountSnapshot, Instrument, OrderKind, PendingOrder, Position, Quote, Side,
-    SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
+    AccountKind, AccountSnapshot, Candle, Instrument, OrderKind, PendingOrder, Period, Position,
+    Quote, Side, SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
 };
 use crate::error::{BrokerErrorKind, EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -484,6 +484,39 @@ impl Broker for RemoteBroker {
             }
         }
         Ok(quotes)
+    }
+
+    async fn bars(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>> {
+        let symbol_id = self
+            .instrument_by_name(symbol)?
+            .symbol_id
+            .ok_or_else(|| EngineError::Invalid(format!("`{symbol}` has no symbol id")))?;
+        let raw =
+            ctrader_mcp::workflows::backfill_trendbars(&self.client, symbol_id, period, from, to)
+                .await?;
+        let mut bars: Vec<Candle> = raw
+            .iter()
+            .filter_map(|bar| {
+                let candle = Candle {
+                    time: bar.timestamp?,
+                    open: pipette_price(bar.open?),
+                    high: pipette_price(bar.high?),
+                    low: pipette_price(bar.low?),
+                    close: pipette_price(bar.close?),
+                    volume: bar.volume.unwrap_or(0) as f64,
+                };
+                (candle.time >= from && candle.time < to && candle.is_sane()).then_some(candle)
+            })
+            .collect();
+        bars.sort_by_key(|bar| bar.time);
+        bars.dedup_by_key(|bar| bar.time);
+        Ok(bars)
     }
 
     async fn server_time(&self) -> Result<UnixMillis> {

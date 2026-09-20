@@ -210,3 +210,35 @@ async fn a_read_only_remote_session_refuses_every_mutation_without_calling_the_s
     );
     assert_eq!(scenario.mutation_count(), 0);
 }
+
+#[tokio::test]
+async fn the_mock_serves_bars_oldest_first_and_only_inside_the_span() {
+    use wyck_engine::domain::{Candle, Period};
+
+    let broker = MockBroker::new();
+    let minute = 60_000;
+    broker.set_bars(
+        "EURUSD",
+        Period::M1,
+        [3, 1, 2, 0]
+            .into_iter()
+            .map(|i| Candle::at(i * minute, 1.0 + i as f64 / 1000.0))
+            .collect(),
+    );
+
+    let bars = broker
+        .bars("EURUSD", Period::M1, minute, 3 * minute)
+        .await
+        .unwrap();
+    let times: Vec<i64> = bars.iter().map(|bar| bar.time).collect();
+    assert_eq!(times, vec![minute, 2 * minute], "[from, to) and sorted");
+
+    let none = broker
+        .bars("EURUSD", Period::H1, 0, 10 * minute)
+        .await
+        .unwrap();
+    assert!(
+        none.is_empty(),
+        "no bars for a period is empty, not an error"
+    );
+}

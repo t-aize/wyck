@@ -10,11 +10,14 @@
 //! - identifiers are distinct newtypes
 
 mod account;
+mod candle;
 mod instrument;
 mod position;
 mod volume;
 
 pub use account::{AccountKind, AccountSnapshot};
+pub use candle::Candle;
+pub use ctrader_mcp::common::Period;
 pub use instrument::{Instrument, SpecsSource, SymbolInfo, VolumeSpecs};
 pub use position::{OrderKind, PendingOrder, Position, Quote, Side};
 pub use volume::Volume;

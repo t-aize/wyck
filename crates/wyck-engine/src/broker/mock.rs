@@ -31,8 +31,8 @@ use async_trait::async_trait;
 
 use super::{Broker, BrokerCall, MarketOrder, PlacedOrder, ServiceKind};
 use crate::domain::{
-    AccountKind, AccountSnapshot, Instrument, PendingOrder, Position, Quote, SpecsSource,
-    UnixMillis, Volume, VolumeSpecs, now_millis,
+    AccountKind, AccountSnapshot, Candle, Instrument, PendingOrder, Period, Position, Quote,
+    SpecsSource, UnixMillis, Volume, VolumeSpecs, now_millis,
 };
 use crate::error::{EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -47,6 +47,7 @@ struct State {
     positions: Vec<Position>,
     orders: Vec<PendingOrder>,
     quotes: HashMap<String, Quote>,
+    bars: HashMap<(String, Period), Vec<Candle>>,
     next_position_id: i64,
     failures: HashMap<BrokerCall, VecDeque<EngineError>>,
     dropped_replies: HashMap<BrokerCall, u32>,
@@ -124,6 +125,7 @@ impl MockBroker {
                 positions: Vec::new(),
                 orders: Vec::new(),
                 quotes,
+                bars: HashMap::new(),
                 next_position_id: 1,
                 failures: HashMap::new(),
                 dropped_replies: HashMap::new(),
@@ -208,6 +210,12 @@ impl MockBroker {
                 timestamp: Some(now_millis()),
             },
         );
+    }
+
+    /// Sets the bars the server holds for `symbol` at `period` (any order).
+    pub fn set_bars(&self, symbol: &str, period: Period, mut bars: Vec<Candle>) {
+        bars.sort_by_key(|bar| bar.time);
+        self.lock().bars.insert((symbol.to_owned(), period), bars);
     }
 
     /// Makes the next call of kind `op` fail with `error`. Queues: call it twice to fail
@@ -356,6 +364,26 @@ impl Broker for MockBroker {
             .iter()
             .filter_map(|sym| s.quotes.get(sym).cloned())
             .collect())
+    }
+
+    async fn bars(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>> {
+        self.enter(BrokerCall::Bars).await?;
+        let s = self.lock();
+        Ok(s.bars
+            .get(&(symbol.to_owned(), period))
+            .map(|bars| {
+                bars.iter()
+                    .filter(|bar| bar.time >= from && bar.time < to)
+                    .copied()
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     async fn server_time(&self) -> Result<UnixMillis> {

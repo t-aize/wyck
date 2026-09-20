@@ -39,17 +39,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use async_trait::async_trait;
 use ctrader_mcp::local::dto::{
     AccountSummary, AmendPositionParams, BalanceResponse, GetAccountsListResponse,
-    PlaceMarketOrderParams, SymbolDetails, VolumeType,
+    GetTrendbarsParams, PlaceMarketOrderParams, SymbolDetails, VolumeType,
 };
-use ctrader_mcp::time::local_iso8601_to_epoch_millis;
+use ctrader_mcp::time::{epoch_millis_to_local_iso8601_z, local_iso8601_to_epoch_millis};
 use ctrader_mcp::{ConnectionConfig, LocalClient};
 use serde_json::Value;
 
 use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind, parse_server_time};
 use crate::config::AssumedSpecs;
 use crate::domain::{
-    AccountKind, AccountSnapshot, Instrument, OrderKind, PendingOrder, Position, Quote, Side,
-    SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
+    AccountKind, AccountSnapshot, Candle, Instrument, OrderKind, PendingOrder, Period, Position,
+    Quote, Side, SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
 };
 use crate::error::{BrokerErrorKind, EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -139,6 +139,13 @@ fn instrument_from_details(
         enabled: true,
         volume,
         specs_source: source,
+    })
+}
+
+/// A Local history bound: an ISO 8601 time with the mandatory `Z`.
+fn iso_z(millis: UnixMillis) -> Result<String> {
+    epoch_millis_to_local_iso8601_z(millis).map_err(|error| {
+        EngineError::Invalid(format!("cannot express {millis} as a time: {error}"))
     })
 }
 
@@ -539,6 +546,45 @@ impl Broker for LocalBroker {
             }
         }
         Ok(out)
+    }
+
+    async fn bars(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>> {
+        let mut bars = Vec::new();
+        for (window_from, window_to) in
+            ctrader_mcp::quirks::local_trendbar_windows(from, to, period)
+        {
+            let response = self
+                .client
+                .get_trendbars(GetTrendbarsParams {
+                    symbol_name: symbol.to_owned(),
+                    period,
+                    from: Some(iso_z(window_from)?),
+                    to: Some(iso_z(window_to)?),
+                    count: None,
+                })
+                .await?;
+            bars.extend(response.bars.iter().filter_map(|bar| {
+                let time = local_iso8601_to_epoch_millis(bar.timestamp.as_deref()?).ok()?;
+                let candle = Candle {
+                    time,
+                    open: bar.open?,
+                    high: bar.high?,
+                    low: bar.low?,
+                    close: bar.close?,
+                    volume: bar.volume.unwrap_or(0.0),
+                };
+                (candle.time >= from && candle.time < to && candle.is_sane()).then_some(candle)
+            }));
+        }
+        bars.sort_by_key(|bar| bar.time);
+        bars.dedup_by_key(|bar| bar.time);
+        Ok(bars)
     }
 
     async fn server_time(&self) -> Result<UnixMillis> {

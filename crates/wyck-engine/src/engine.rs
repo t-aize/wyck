@@ -10,7 +10,7 @@ use wyck_calendar::{CalendarHandle, CalendarService};
 use crate::broker::{ConnectRequest, Connector, CtraderConnector};
 use crate::config::EngineConfig;
 use crate::core::Inner;
-use crate::domain::{Instrument, Quote, SymbolInfo};
+use crate::domain::{Candle, Instrument, Period, Quote, SymbolInfo, UnixMillis};
 use crate::error::{EngineError, Result};
 use crate::event::Event;
 use crate::ids::{CommandId, OrderId, PositionId};
@@ -289,6 +289,26 @@ impl EngineHandle {
         let inner = Arc::clone(&self.inner);
         let symbol = symbol.to_owned();
         self.run(async move { inner.quote_of(&symbol).await }).await
+    }
+
+    /// Bars of `period` for `symbol` whose open time falls in `[from, to)`, oldest first. Read
+    /// now, nothing is kept. A wide span costs several server calls and shares one request
+    /// timeout, so ask for a page at a time.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::NotReady`], [`EngineError::Timeout`], or the broker's error.
+    pub async fn candles(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>> {
+        let inner = Arc::clone(&self.inner);
+        let symbol = symbol.to_owned();
+        self.run(async move { inner.bars_of(&symbol, period, from, to).await })
+            .await
     }
 
     /// Sets the symbols the engine keeps quotes for (symbols with open positions are always

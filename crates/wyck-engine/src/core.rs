@@ -20,7 +20,8 @@ use wyck_calendar::CalendarHandle;
 use crate::broker::{Broker, ConnectRequest, Connector};
 use crate::config::EngineConfig;
 use crate::domain::{
-    AccountSnapshot, Instrument, PendingOrder, Position, Quote, SymbolInfo, UnixMillis, now_millis,
+    AccountSnapshot, Candle, Instrument, PendingOrder, Period, Position, Quote, SymbolInfo,
+    UnixMillis, now_millis,
 };
 use crate::error::{EngineError, Result};
 use crate::event::{Event, EventKind};
@@ -272,6 +273,20 @@ impl Inner {
             .io("a quote", broker.quotes(&[symbol.to_owned()]))
             .await?;
         Ok(quotes.into_iter().next())
+    }
+
+    /// Bars of one symbol, read now. The whole span runs under one request timeout, so callers
+    /// ask for a page at a time.
+    pub(crate) async fn bars_of(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>> {
+        let broker = self.ready_broker()?;
+        self.io("the price history", broker.bars(symbol, period, from, to))
+            .await
     }
 
     /// The details of one symbol, from the cache or the broker.

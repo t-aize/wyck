@@ -96,7 +96,7 @@ fn header(
     div()
         .w_full()
         .flex_none()
-        .h(sz(48.))
+        .h(sz(38.))
         .flex()
         .flex_row()
         .items_center()
@@ -139,7 +139,7 @@ fn symbol_block(
         .on_hover(hover.handler())
         .tooltip(tip("Change symbol (Ctrl+K)"))
         .on_click(cx.listener(|this, _, window, cx| this.open_picker(window, cx)))
-        .child(symbol_icon(&symbol.icon, 30., theme::bg()))
+        .child(symbol_icon(&symbol.icon, 26., theme::bg()))
         .child(
             div()
                 .child(

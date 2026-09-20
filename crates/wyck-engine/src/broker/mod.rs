@@ -37,8 +37,8 @@ pub use remote::RemoteBroker;
 
 use crate::config::AssumedSpecs;
 use crate::domain::{
-    AccountSnapshot, Instrument, PendingOrder, Position, Quote, Side, SymbolInfo, UnixMillis,
-    Volume,
+    AccountSnapshot, Candle, Instrument, PendingOrder, Period, Position, Quote, Side, SymbolInfo,
+    UnixMillis, Volume,
 };
 use crate::error::{EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -190,6 +190,8 @@ pub enum BrokerCall {
     PendingOrders,
     /// `quotes`
     Quotes,
+    /// `bars`
+    Bars,
     /// `server_time`
     ServerTime,
     /// `ping`
@@ -260,6 +262,17 @@ pub trait Broker: Send + Sync + 'static {
     /// result (not an error): Remote in particular can empty a whole batch for one unknown
     /// id, and adapters must guard against that.
     async fn quotes(&self, symbols: &[String]) -> Result<Vec<Quote>>;
+
+    /// Bars of `period` for `symbol` whose open time falls in `[from, to)`, oldest first, one
+    /// per open time. A span with no trading (a weekend) is an empty result, not an error.
+    /// Adapters page through the server's own limits, so a wide span costs several calls.
+    async fn bars(
+        &self,
+        symbol: &str,
+        period: Period,
+        from: UnixMillis,
+        to: UnixMillis,
+    ) -> Result<Vec<Candle>>;
 
     /// The server's clock in Unix milliseconds.
     async fn server_time(&self) -> Result<UnixMillis>;
