@@ -21,9 +21,8 @@ use super::app_view::{AppView, LOCAL_HELP_URL, REMOTE_HELP_URL};
 use super::motion::{self, Hover};
 use super::theme;
 use super::widgets::{
-    Glyph, back_button, badge, card, error_box, glyph, lead, mono, or_divider, panel,
-    primary_button, progress_bar, pulse_dot, row, secondary_button, spinner, status_disc,
-    text_link, title,
+    Glyph, back_button, badge, card, error_box, glyph, lead, or_divider, panel, primary_button,
+    progress_bar, pulse_dot, row, secondary_button, spinner, status_disc, text_link, title, value,
 };
 use crate::flow::{Failure, FailureKind, LocalSession, endpoint_authority};
 use crate::presentation::header;
@@ -224,7 +223,7 @@ pub(super) fn searching(
                             .items_center()
                             .gap(px(7.))
                             .child(pulse_dot(theme::dim()))
-                            .child(mono(endpoint.to_owned())),
+                            .child(value(endpoint.to_owned())),
                         false,
                     ))
                     .child(progress_bar()),
@@ -269,11 +268,11 @@ pub(super) fn local_found(
                     .child(row(
                         Some(Glyph::Scan),
                         "Server",
-                        mono(session.endpoint.clone()),
+                        value(session.endpoint.clone()),
                         true,
                     ))
                     .children(version.map(|v| {
-                        row(Some(Glyph::AppWindow), "cTrader version", mono(v), true)
+                        row(Some(Glyph::AppWindow), "cTrader version", value(v), true)
                     }))
                     .child(row(
                         Some(Glyph::User),
@@ -282,7 +281,7 @@ pub(super) fn local_found(
                             .flex()
                             .items_center()
                             .gap(px(8.))
-                            .child(mono(format!("#{}", session.account_id)))
+                            .child(value(format!("#{}", session.account_id)))
                             .child(badge(&session.kind)),
                         false,
                     )),
@@ -339,7 +338,7 @@ pub(super) fn local_not_found(
                 div()
                     .w_full()
                     .mt(px(12.))
-                    .font_family(theme::MONO)
+                    .font_features(theme::tabular())
                     .text_size(px(11.))
                     .line_height(gpui_kit::relative(1.5))
                     .text_color(theme::dim())
@@ -524,7 +523,7 @@ pub(super) fn verifying(
             ))
             .child(
                 panel()
-                    .child(row(None, "Token", mono(hint.to_owned()), false))
+                    .child(row(None, "Token", value(hint.to_owned()), false))
                     .child(progress_bar()),
             ),
     )
@@ -539,7 +538,7 @@ pub(super) fn connected(
     let state = view.shell.model.read(cx).state.clone();
     let head = header(&state);
     let figure =
-        |label: &'static str, value: String, divider: bool| row(None, label, mono(value), divider);
+        |label: &'static str, text: String, divider: bool| row(None, label, value(text), divider);
     let disc = status_disc(
         Glyph::Check,
         theme::green(),
@@ -560,7 +559,7 @@ pub(super) fn connected(
             ))
             .child(
                 panel()
-                    .child(row(None, "Server", mono(head.service.unwrap_or("-")), true))
+                    .child(row(None, "Server", value(head.service.unwrap_or("-")), true))
                     .child(row(
                         None,
                         "Account",
@@ -568,7 +567,7 @@ pub(super) fn connected(
                             .flex()
                             .items_center()
                             .gap(px(8.))
-                            .child(mono(
+                            .child(value(
                                 head.account_id
                                     .map_or_else(|| "-".to_owned(), |id| format!("#{id}")),
                             ))

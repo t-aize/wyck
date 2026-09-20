@@ -205,7 +205,7 @@ pub fn titlebar(window: &mut Window, cx: &mut App) -> impl IntoElement {
         .child(
             div()
                 .mr(px(14.))
-                .font_family(theme::MONO)
+                .font_features(theme::tabular())
                 .text_size(px(11.))
                 .text_color(theme::dim())
                 .child(version_label()),

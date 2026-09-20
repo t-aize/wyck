@@ -110,8 +110,9 @@ The names are `choose`, `searching`, `found`, `notfound`, `token`, `verifying`, 
 
 ### Fonts and icons
 
-The design uses Geist and Geist Mono. The web design shipped them as WOFF2, which the text engine
-on Windows cannot read, so the crate embeds the TTF files from the official Geist repository
+The whole application is set in Geist, tokens, addresses and figures included (with tabular
+figures so numbers line up, no monospace font). The web design shipped Geist as WOFF2, which the
+text engine on Windows cannot read, so the crate embeds the TTF files from the official Geist repository
 (`assets/fonts`, SIL Open Font License, text in `assets/fonts/OFL.txt`). The icons are SVG files in
 `assets/icons`, drawn with the same paths as the design. Both are compiled into the binary.
 

@@ -5,14 +5,14 @@
 //! red; amber is added for warnings, which the connection screens do not use but toasts do.
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, Rgba, px, rgb};
+use std::sync::Arc;
+
+use gpui_kit::{App, FontFeatures, Hsla, Rgba, px, rgb};
 
 use crate::presentation::Tone;
 
-/// The UI font.
+/// The font of the whole application.
 pub const SANS: &str = "Geist";
-/// The font of tokens, addresses and figures.
-pub const MONO: &str = "Geist Mono";
 
 const BG: u32 = 0x0a_0a_0a;
 const CARD: u32 = 0x17_17_17;
@@ -135,13 +135,21 @@ pub fn tone_color(tone: Tone) -> Hsla {
     }
 }
 
+/// Tabular figures: every digit is as wide as the others, so a column of amounts or a running
+/// number does not shift. Geist has them, so tokens, addresses and figures stay in Geist and do
+/// not need a monospace font.
+#[must_use]
+pub fn tabular() -> FontFeatures {
+    FontFeatures(Arc::new(vec![("tnum".to_owned(), 1)]))
+}
+
 /// Installs the dark theme with this palette and the Geist fonts. Call once, after
 /// `gpui_kit::init` and after [`super::assets::load_fonts`].
 pub fn install(cx: &mut App) {
     Theme::change(ThemeMode::Dark, None, cx);
     let theme = Theme::global_mut(cx);
     theme.font_family = SANS.into();
-    theme.mono_font_family = MONO.into();
+    theme.mono_font_family = SANS.into();
     theme.font_size = px(13.);
     theme.mono_font_size = px(12.);
     theme.shadow = false;

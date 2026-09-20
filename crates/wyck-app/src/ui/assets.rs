@@ -53,8 +53,6 @@ static FONTS: &[&[u8]] = &[
     include_bytes!("../../assets/fonts/Geist-Regular.ttf"),
     include_bytes!("../../assets/fonts/Geist-Medium.ttf"),
     include_bytes!("../../assets/fonts/Geist-SemiBold.ttf"),
-    include_bytes!("../../assets/fonts/GeistMono-Regular.ttf"),
-    include_bytes!("../../assets/fonts/GeistMono-Medium.ttf"),
 ];
 
 /// The application's asset source.
@@ -84,6 +82,10 @@ pub fn load_fonts(cx: &mut App) {
     let fonts = FONTS.iter().map(|bytes| Cow::Borrowed(*bytes)).collect();
     if let Err(error) = cx.text_system().add_fonts(fonts) {
         tracing::warn!(%error, "the Geist fonts could not be loaded, using the system font");
+    } else {
+        let names = cx.text_system().all_font_names();
+        let ours: Vec<_> = names.iter().filter(|n| n.contains("Geist")).collect();
+        tracing::info!(?ours, total = names.len(), "fonts registered");
     }
 }
 

@@ -353,10 +353,10 @@ pub fn row(
         .child(value)
 }
 
-/// Text in the monospace font, for tokens, addresses and figures.
-pub fn mono(text: impl Into<SharedString>) -> Div {
+/// The value side of a row: tokens, addresses and figures, in tabular figures.
+pub fn value(text: impl Into<SharedString>) -> Div {
     div()
-        .font_family(theme::MONO)
+        .font_features(theme::tabular())
         .text_size(px(12.))
         .text_color(theme::fg())
         .child(text.into())
@@ -447,7 +447,7 @@ pub fn error_box(text: impl Into<SharedString>) -> Div {
             div()
                 .flex_1()
                 .min_w_0()
-                .font_family(theme::MONO)
+                .font_features(theme::tabular())
                 .text_size(px(11.5))
                 .line_height(relative(1.5))
                 .text_color(theme::red_text())

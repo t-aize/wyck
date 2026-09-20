@@ -456,6 +456,7 @@ impl AppView {
                     .sample(window, cx)
                     .progress;
                 let strip = div()
+                    .w_full()
                     .flex()
                     .flex_row()
                     .items_start()
@@ -666,6 +667,7 @@ impl AppView {
             .items_center()
             .w_full()
             .h(px(38.))
+            .pl(px(2.))
             .pr(px(6.))
             .gap(px(4.))
             .rounded(px(8.))
@@ -685,7 +687,7 @@ impl AppView {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .font_family(theme::MONO)
+                    .font_features(theme::tabular())
                     .text_size(px(12.5))
                     .child(field),
             )

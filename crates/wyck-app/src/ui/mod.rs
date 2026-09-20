@@ -19,7 +19,7 @@
 //! # Looks
 //!
 //! The design is a dark neutral palette with one accent for success and one for danger (see
-//! [`theme`]), in Geist and Geist Mono. Window chrome is drawn by the application, not by the
+//! [`theme`]), in Geist, everywhere. Window chrome is drawn by the application, not by the
 //! operating system: the title bar, its three buttons and the drag area are in [`titlebar`].
 //! The account kind is never drawn as a demo unless the account is known to be one (see
 //! [`crate::presentation::kind_badge`]).
