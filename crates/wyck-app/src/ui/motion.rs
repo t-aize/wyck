@@ -144,7 +144,7 @@ pub fn depth(screen: &Screen) -> u8 {
         Screen::Choose => 0,
         Screen::Searching | Screen::Token { .. } => 1,
         Screen::Verifying { .. } | Screen::LocalFound(_) | Screen::LocalNotFound(_) => 2,
-        Screen::Connected => 3,
+        Screen::Dashboard => 3,
     }
 }
 
@@ -280,7 +280,7 @@ mod tests {
             Screen::Verifying {
                 hint: String::new(),
             },
-            Screen::Connected,
+            Screen::Dashboard,
         ]
     }
 
@@ -295,7 +295,7 @@ mod tests {
             Direction::Forward
         );
         assert_eq!(
-            direction(&Screen::LocalFound(session()), &Screen::Connected),
+            direction(&Screen::LocalFound(session()), &Screen::Dashboard),
             Direction::Forward
         );
         assert_eq!(
@@ -313,7 +313,7 @@ mod tests {
             "a refused token returns to the form"
         );
         assert_eq!(
-            direction(&Screen::Connected, &Screen::Choose),
+            direction(&Screen::Dashboard, &Screen::Choose),
             Direction::Back
         );
     }
@@ -331,7 +331,7 @@ mod tests {
         for screen in all() {
             assert!(depth(&screen) >= depth(&Screen::Choose));
         }
-        assert!(depth(&Screen::Connected) > depth(&Screen::Searching));
+        assert!(depth(&Screen::Dashboard) > depth(&Screen::Searching));
     }
 
     #[test]

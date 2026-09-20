@@ -218,8 +218,8 @@ pub enum Screen {
         /// The masked token, or a phrase for a saved one. Safe to show.
         hint: String,
     },
-    /// Connected: the application proper.
-    Connected,
+    /// Connected: the dashboard, the application proper.
+    Dashboard,
 }
 
 /// A numbered connection attempt. See the module docs on stale results.
@@ -271,7 +271,7 @@ impl ConnectFlow {
     }
 
     /// A flow for a connection opened without the user, at startup (a saved account). It shows
-    /// the matching waiting screen; on success it goes straight to [`Screen::Connected`], on
+    /// the matching waiting screen; on success it goes straight to [`Screen::Dashboard`], on
     /// failure it lands on the screen that explains it.
     ///
     /// `local` says whether the saved account is a local session. `hint` is what the verifying
@@ -315,7 +315,7 @@ impl ConnectFlow {
     /// success is only dropped when this is false and nothing is running.
     #[must_use]
     pub fn holds_session(&self) -> bool {
-        matches!(self.screen, Screen::LocalFound(_) | Screen::Connected)
+        matches!(self.screen, Screen::LocalFound(_) | Screen::Dashboard)
     }
 
     fn next_attempt(&mut self) -> Attempt {
@@ -347,7 +347,7 @@ impl ConnectFlow {
             return Delivery::Stale;
         }
         self.screen = match result {
-            Ok(_) if self.resuming => Screen::Connected,
+            Ok(_) if self.resuming => Screen::Dashboard,
             Ok(session) => Screen::LocalFound(session),
             Err(failure) => Screen::LocalNotFound(failure),
         };
@@ -361,7 +361,7 @@ impl ConnectFlow {
             return Delivery::Stale;
         }
         self.screen = match result {
-            Ok(()) => Screen::Connected,
+            Ok(()) => Screen::Dashboard,
             Err(failure) => Screen::Token {
                 refused: Some(failure),
             },
@@ -387,7 +387,7 @@ impl ConnectFlow {
     /// connected (use [`switch`](Self::switch)).
     pub fn back(&mut self) -> Exit {
         let (next, exit) = match &self.screen {
-            Screen::Choose | Screen::Connected => return Exit::Nothing,
+            Screen::Choose | Screen::Dashboard => return Exit::Nothing,
             Screen::Verifying { .. } => (Screen::Token { refused: None }, Exit::Nothing),
             Screen::LocalFound(_) => (Screen::Choose, Exit::DropSession),
             Screen::Searching | Screen::LocalNotFound(_) | Screen::Token { .. } => {
@@ -402,13 +402,13 @@ impl ConnectFlow {
     /// "Continue to Wyck" on the found screen.
     pub fn accept_local(&mut self) {
         if matches!(self.screen, Screen::LocalFound(_)) {
-            self.screen = Screen::Connected;
+            self.screen = Screen::Dashboard;
         }
     }
 
     /// Leaves the connected application for the first screen. The caller disconnects.
     pub fn switch(&mut self) -> Exit {
-        if self.screen != Screen::Connected {
+        if self.screen != Screen::Dashboard {
             return Exit::Nothing;
         }
         self.cancel();
@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(flow.finish_local(attempt, Ok(session())), Delivery::Applied);
         assert_eq!(flow.screen(), &Screen::LocalFound(session()));
         flow.accept_local();
-        assert_eq!(flow.screen(), &Screen::Connected);
+        assert_eq!(flow.screen(), &Screen::Dashboard);
     }
 
     #[test]
@@ -472,7 +472,7 @@ mod tests {
         let attempt = flow.begin_remote("hint".to_owned());
         assert!(matches!(flow.screen(), Screen::Verifying { hint } if hint == "hint"));
         assert_eq!(flow.finish_remote(attempt, Ok(())), Delivery::Applied);
-        assert_eq!(flow.screen(), &Screen::Connected);
+        assert_eq!(flow.screen(), &Screen::Dashboard);
     }
 
     #[test]
@@ -547,7 +547,7 @@ mod tests {
         let attempt = flow.begin_remote(String::new());
         flow.finish_remote(attempt, Ok(()));
         assert_eq!(flow.back(), Exit::Nothing, "back does not leave the app");
-        assert_eq!(flow.screen(), &Screen::Connected);
+        assert_eq!(flow.screen(), &Screen::Dashboard);
         assert_eq!(flow.switch(), Exit::DropSession);
         assert_eq!(flow.screen(), &Screen::Choose);
     }
@@ -572,7 +572,7 @@ mod tests {
         flow.finish_local(attempt, Ok(session()));
         assert_eq!(
             flow.screen(),
-            &Screen::Connected,
+            &Screen::Dashboard,
             "no click needed at startup"
         );
 

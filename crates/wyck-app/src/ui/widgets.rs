@@ -11,8 +11,8 @@ use std::time::Duration;
 use gpui_kit::base::{Presence, Transition, TransitionId};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    Animation, AnimationExt as _, AnyElement, App, BoxShadow, Div, FontWeight, Hsla, SharedString,
-    Stateful, Svg, Transformation, Window, div, ease_in_out, hsla, linear_color_stop,
+    Animation, AnimationExt as _, AnyElement, App, BoxShadow, Div, ElementId, FontWeight, Hsla,
+    SharedString, Stateful, Svg, Transformation, Window, div, ease_in_out, hsla, linear_color_stop,
     linear_gradient, percentage, point, pulsating_between, relative, svg, transparent_black,
 };
 
@@ -61,6 +61,18 @@ pub enum Glyph {
     ArrowUpRight,
     /// A cross: dismiss.
     X,
+    /// Three sliders: the chart's indicators.
+    Sliders,
+    /// Four squares: the full workspace.
+    LayoutGrid,
+    /// One square: the chart-only workspace.
+    Square,
+    /// An arrow leaving a box: switch to another connection.
+    LogOut,
+    /// A small triangle pointing up: the price rose.
+    TickUp,
+    /// A small triangle pointing down: the price fell.
+    TickDown,
 }
 
 impl Glyph {
@@ -85,6 +97,12 @@ impl Glyph {
             Self::User => "wyck/user.svg",
             Self::ArrowUpRight => "wyck/arrow-up-right.svg",
             Self::X => "wyck/x.svg",
+            Self::Sliders => "wyck/sliders.svg",
+            Self::LayoutGrid => "wyck/layout-grid.svg",
+            Self::Square => "wyck/square.svg",
+            Self::LogOut => "wyck/log-out.svg",
+            Self::TickUp => "wyck/tick-up.svg",
+            Self::TickDown => "wyck/tick-down.svg",
         }
     }
 }
@@ -125,7 +143,7 @@ impl ParentElement for Card {
 }
 
 /// One child of a card, faded in and lifted into place after its turn.
-fn rise(index: usize, child: AnyElement, window: &mut Window, cx: &mut App) -> Div {
+pub fn rise(index: usize, child: AnyElement, window: &mut Window, cx: &mut App) -> Div {
     let transition = Transition::new(motion::RISE_TIME)
         .delay(motion::RISE_START + motion::STAGGER * u32::try_from(index).unwrap_or(0))
         .easing(motion::enter());
@@ -597,4 +615,37 @@ pub fn or_divider() -> Div {
                 .child("or"),
         )
         .child(line())
+}
+
+/// A small square button with an icon, whose ground fades in under the pointer.
+pub fn icon_button(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) -> Stateful<Div> {
+    icon_button_sized(id, 30., 6., window, cx)
+}
+
+/// An [`icon_button`] of `side` design pixels with corners of `radius`.
+pub fn icon_button_sized(
+    id: impl Into<ElementId>,
+    side: f32,
+    radius: f32,
+    window: &mut Window,
+    cx: &mut App,
+) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let hover = Hover::track(id.clone(), window, cx);
+    div()
+        .id(id)
+        .flex()
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .size(sz(side))
+        .rounded(sz(radius))
+        .bg(hover.mix(theme::alpha(theme::muted(), 0.0), theme::muted()))
+        .cursor_pointer()
+        .on_hover(hover.handler())
+}
+
+/// The builder of a tooltip that says `text`, to pass to `.tooltip(...)` of an element.
+pub fn tip(text: &'static str) -> impl Fn(&mut Window, &mut App) -> gpui_kit::AnyView + 'static {
+    move |window, cx| gpui_kit::component::tooltip::Tooltip::new(text).build(window, cx)
 }

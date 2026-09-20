@@ -13,7 +13,8 @@
 //! | [`widgets`] | Small drawing helpers: card, buttons, rows, badges, spinner |
 //! | [`titlebar`] | The custom title bar and its window buttons |
 //! | [`app_view`] | The root view: title bar, banners, current screen, toasts |
-//! | [`screens`] | One function per screen of the connection flow, and the connected screen |
+//! | [`screens`] | One function per screen of the connection flow, the dashboard is in `dashboard` |
+//! | [`dashboard`] | The dashboard the application lands on once connected: the header and the chart area |
 //! | [`preview`] | Names for the screens, to open the application on any of them while designing |
 //!
 //! # Looks
@@ -26,6 +27,7 @@
 
 pub mod app_view;
 pub mod assets;
+pub mod dashboard;
 pub mod motion;
 pub mod preview;
 pub mod screens;

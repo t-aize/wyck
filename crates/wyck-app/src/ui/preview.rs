@@ -9,7 +9,7 @@ use crate::flow::{Failure, FailureKind, LocalSession, Screen};
 use crate::presentation::{Badge, Tone};
 
 /// The names [`parse`] understands, in the order of the flow.
-pub const NAMES: [&str; 8] = [
+pub const NAMES: [&str; 9] = [
     "choose",
     "searching",
     "found",
@@ -18,6 +18,7 @@ pub const NAMES: [&str; 8] = [
     "verifying",
     "refused",
     "unreachable",
+    "dashboard",
 ];
 
 /// The screen called `name`, with sample data, or `None` for an unknown name.
@@ -51,6 +52,7 @@ pub fn parse(name: &str) -> Option<Screen> {
                 raw: String::new(),
             }),
         },
+        "dashboard" => Screen::Dashboard,
         "unreachable" => Screen::Token {
             refused: Some(Failure {
                 kind: FailureKind::Unreachable,
@@ -76,6 +78,6 @@ mod tests {
     #[test]
     fn names_are_not_case_sensitive_and_unknown_ones_are_refused() {
         assert_eq!(parse(" Found "), parse("found"));
-        assert!(parse("dashboard").is_none());
+        assert!(parse("nonsense").is_none());
     }
 }

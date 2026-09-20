@@ -1,4 +1,4 @@
-//! One function per screen: the seven of the connection flow and the connected screen.
+//! One function per screen: the seven of the connection flow. The dashboard is in [`super::dashboard`].
 //!
 //! A function reads what it needs (the flow's data, the engine state) and returns elements. A
 //! click calls a method of [`AppView`], which changes the flow. The words on the screens are
@@ -22,10 +22,9 @@ use super::motion::{self, Hover};
 use super::theme::{self, sz};
 use super::widgets::{
     Glyph, back_button, badge, card, error_box, glyph, lead, or_divider, panel, primary_button,
-    progress_bar, pulse_dot, row, secondary_button, spinner, status_disc, text_link, title, value,
+    progress_bar, pulse_dot, row, spinner, status_disc, text_link, title, value,
 };
 use crate::flow::{Failure, FailureKind, LocalSession, endpoint_authority};
-use crate::presentation::header;
 
 /// The area a screen is drawn in: fills the space under the title bar, centers its card, and
 /// scrolls when the window is too low for it. (The card centers itself with auto margins, which
@@ -526,59 +525,5 @@ pub(super) fn verifying(
                     .child(row(None, "Token", value(hint.to_owned()), false))
                     .child(progress_bar()),
             ),
-    )
-}
-
-/// Connected. The trading screens are not built yet: this shows the account and the way back.
-pub(super) fn connected(
-    view: &mut AppView,
-    window: &mut Window,
-    cx: &mut Context<AppView>,
-) -> impl IntoElement {
-    let state = view.shell.model.read(cx).state.clone();
-    let head = header(&state);
-    let figure =
-        |label: &'static str, text: String, divider: bool| row(None, label, value(text), divider);
-    let disc = status_disc(
-        Glyph::Check,
-        theme::green(),
-        theme::alpha(theme::green(), 0.14),
-        window,
-        cx,
-    );
-    let switch = secondary_button("switch-connection", "Switch connection", window, cx)
-        .mt(sz(22.))
-        .on_click(cx.listener(|this, _, window, cx| this.switch_connection(window, cx)));
-    stage().child(
-        card(460.)
-            .child(disc)
-            .child(title("Connected"))
-            .child(lead(
-                "The trading screens are not built yet. The account below is live, and the global shortcuts plan dry-run orders.",
-                360.,
-            ))
-            .child(
-                panel()
-                    .child(row(None, "Server", value(head.service.unwrap_or("-")), true))
-                    .child(row(
-                        None,
-                        "Account",
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(sz(8.))
-                            .child(value(
-                                head.account_id
-                                    .map_or_else(|| "-".to_owned(), |id| format!("#{id}")),
-                            ))
-                            .child(badge(&head.kind)),
-                        true,
-                    ))
-                    .child(row(None, "Session", badge(&head.session), true))
-                    .child(row(None, "Orders", badge(&head.mode), true))
-                    .child(figure("Balance", head.balance, true))
-                    .child(figure("Equity", head.equity, false)),
-            )
-            .child(switch),
     )
 }

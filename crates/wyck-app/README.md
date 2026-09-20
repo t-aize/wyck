@@ -24,8 +24,8 @@ On a first run there is no saved account, and the window opens on "Connect to cT
 
 When a connection succeeds, the account is saved (its token in the OS credential store, never in
 the config file) and becomes the active one, so the next start connects by itself and goes straight
-to the connected screen. If that automatic connection fails, the window lands on the screen that
-explains why. "Switch connection" on the connected screen goes back to the first screen.
+to the dashboard. If that automatic connection fails, the window lands on the screen that
+explains why. The "switch connection" button of the dashboard goes back to the first screen.
 
 Without the saved account, `WYCK_SERVICE`, `WYCK_ENDPOINT` and `WYCK_TOKEN` connect from the
 environment instead (development and demo accounts, nothing is saved). All variables are listed in
@@ -58,8 +58,20 @@ Seven screens make the connection flow, in `src/ui/screens.rs`, driven by `src/f
 | Verifying your token | While the token is checked |
 | That token didn't work | The token was refused, or the server could not be reached: says which |
 
-Then a **Connected** screen with the account, its kind, the session state and the balance. It is a
-placeholder for the trading views, which are not built yet.
+Once connected, the window lands on the **dashboard** (`src/ui/dashboard.rs`). For now it is its
+header and an empty chart area:
+
+- the traded symbol (tile, ticker, long name), its latest bid, an arrow for the direction of its
+  last move (the figure takes the color of the move for a moment), and the spread in pips;
+- the time frame selector (1m, 5m, 15m, 1H, 4H, 1D), remembered for the chart to come;
+- the account kind (DEMO, LIVE or UNKNOWN ACCOUNT), the mode (DRY RUN or ARMED) and, when it is not
+  ready, the session state;
+- the buttons: full screen and switch connection work; indicators and the full workspace layout are
+  dimmed until they exist.
+
+All of it comes from the engine. There is no daily change next to the price yet, because the
+engine has no candles: a made-up number would be worse than none. The header data is computed in
+`src/dashboard.rs`, without a window.
 
 Escape and the Back link go back one step. Going back during a search or a check cancels it: a
 session that opens after that is dropped, so leaving never leaves a hidden connection.
@@ -106,7 +118,7 @@ WYCK_PREVIEW=notfound cargo run -p wyck-app
 ```
 
 The names are `choose`, `searching`, `found`, `notfound`, `token`, `verifying`, `refused`,
-`unreachable`. A release build ignores the variable.
+`unreachable`, `dashboard`. A release build ignores the variable.
 
 ### Size
 
@@ -141,6 +153,7 @@ Every module below `shell` is plain Rust, tested without a window.
 | `settings` | What the application is configured with, from the environment |
 | `startup` | From settings to a connection request (profile or environment), and saving the account |
 | `flow` | The connection flow: which screen, what moves it on, token checks, stale results |
+| `dashboard` | What the dashboard header shows: symbol, price, spread, time frames |
 | `controller` | The use cases: start the engine, connect (local, remote, saved), disconnect, hotkey order |
 | `presentation` | Engine state to formatted rows, badges and tones |
 | `model` | The data the windows share: state, activity, notices, toasts, banners |

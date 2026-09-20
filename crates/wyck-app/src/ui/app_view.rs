@@ -20,18 +20,20 @@ use gpui_kit::component::Sizable as _;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnyElement, App, Context, Div, ElementId, Entity, FocusHandle, Focusable as _, KeyDownEvent,
-    SharedString, Stateful, Subscription, Task, Window, div,
+    AnyElement, Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, SharedString,
+    Subscription, Task, Window, div,
 };
 use secrecy::SecretString;
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
 use wyck_engine::domain::now_millis;
 
-use super::motion::{self, Direction, Hover};
+use super::dashboard;
+use super::motion::{self, Direction};
 use super::screens;
 use super::theme::{self, sz};
 use super::titlebar::titlebar;
-use super::widgets::{Glyph, glyph};
+use super::widgets::{Glyph, glyph, icon_button};
+use crate::dashboard::{Tick, Timeframe, tick};
 use crate::flow::{
     ConnectFlow, Delivery, Exit, Failure, LocalSession, Screen, TokenError, mask_token,
     validate_token,
@@ -73,6 +75,14 @@ pub struct AppView {
     outgoing: Option<Layer>,
     /// Which way the last change of screen went.
     direction: Direction,
+    /// The time frame chosen on the dashboard.
+    pub(super) timeframe: Timeframe,
+    /// The last bid seen for the traded symbol, to tell which way the price moves.
+    last_bid: Option<f64>,
+    /// Which way the price last moved, if it has.
+    pub(super) tick_dir: Option<Tick>,
+    /// Counts the moves of the price: each new value plays the colored flash once.
+    pub(super) tick: u32,
     focus: FocusHandle,
     toast_timer: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -121,6 +131,10 @@ impl AppView {
             },
             outgoing: None,
             direction: Direction::Forward,
+            timeframe: Timeframe::default(),
+            last_bid: None,
+            tick_dir: None,
+            tick: 0,
             focus,
             toast_timer: None,
             _subscriptions: subscriptions,
@@ -267,11 +281,44 @@ impl AppView {
         cx.notify();
     }
 
-    /// "Switch connection" on the connected screen.
+    /// Picks the time frame of the chart.
+    pub(super) fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
+        if self.timeframe != timeframe {
+            self.timeframe = timeframe;
+            cx.notify();
+        }
+    }
+
+    /// Notes which way the traded symbol's price just moved.
+    fn track_tick(&mut self, cx: &mut Context<Self>) {
+        let bid = self
+            .shell
+            .model
+            .read(cx)
+            .state
+            .quotes
+            .get(self.shell.controller.symbol())
+            .map(|quote| quote.bid);
+        if let (Some(previous), Some(now)) = (self.last_bid, bid)
+            && let Some(direction) = tick(previous, now)
+        {
+            self.tick_dir = Some(direction);
+            self.tick = self.tick.wrapping_add(1);
+        }
+        if bid.is_some() {
+            self.last_bid = bid;
+        }
+    }
+
+    /// "Switch connection" on the dashboard.
     pub(super) fn switch_connection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.flow.switch() == Exit::DropSession {
             self.drop_session(cx);
         }
+        // The next connection may be another account: forget the last price.
+        self.last_bid = None;
+        self.tick_dir = None;
+        self.tick = 0;
         self.settle_focus(window, cx);
         cx.notify();
     }
@@ -395,6 +442,7 @@ impl AppView {
     }
 
     fn model_changed(&mut self, cx: &mut Context<Self>) {
+        self.track_tick(cx);
         cx.notify();
         if self.toast_timer.is_some() || self.shell.model.read(cx).toasts.is_empty() {
             return;
@@ -723,7 +771,7 @@ impl AppView {
                 screens::token(self, refused.as_ref(), arriving, window, cx).into_any_element()
             }
             Screen::Verifying { hint } => screens::verifying(hint, window, cx).into_any_element(),
-            Screen::Connected => screens::connected(self, window, cx).into_any_element(),
+            Screen::Dashboard => dashboard::dashboard(self, window, cx).into_any_element(),
         };
         div()
             .id(("layer", layer.key))
@@ -735,23 +783,6 @@ impl AppView {
             .child(content)
             .into_any_element()
     }
-}
-
-/// A small square button with an icon, whose ground fades in under the pointer.
-fn icon_button(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) -> Stateful<Div> {
-    let id: ElementId = id.into();
-    let hover = Hover::track(id.clone(), window, cx);
-    div()
-        .id(id)
-        .flex()
-        .flex_none()
-        .items_center()
-        .justify_center()
-        .size(sz(30.))
-        .rounded(sz(6.))
-        .bg(hover.mix(theme::alpha(theme::muted(), 0.0), theme::muted()))
-        .cursor_pointer()
-        .on_hover(hover.handler())
 }
 
 /// The color of a notice level.

@@ -22,6 +22,7 @@
 //! | [`hotkeys`] | Global shortcuts: parsing, registration, debouncing |
 //! | [`logging`], [`session_marker`] | Log files, crash detection |
 //! | [`flow`] | The connection flow: screens, transitions, token checks |
+//! | [`dashboard`] | What the dashboard header shows: symbol, price, spread, time frames |
 //! | `shell` (feature `gui`) | The GPUI window, engine plumbing and shortcuts |
 //! | `ui` (feature `gui`) | The screens, the title bar, the theme: drawing only |
 //!
@@ -45,6 +46,7 @@
 #![warn(missing_docs)]
 
 pub mod controller;
+pub mod dashboard;
 pub mod flow;
 pub mod hotkeys;
 pub mod logging;
