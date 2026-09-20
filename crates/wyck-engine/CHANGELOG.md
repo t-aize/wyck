@@ -13,6 +13,13 @@ First version of the engine.
   limits, label-based reconciliation, two-step flatten.
 - Economic calendar hosting with news warnings for the traded currencies.
 
+### Local account kind (2026-09-20)
+
+- The Local adapter no longer reports `Unknown` for a demo account whose `traderId` is missing from
+  `get_accounts_list`: it recognizes the listed account by broker, currency, account type and
+  balance to the cent, and only when every matching listed account agrees on `isLive`. Anything
+  less certain stays `Unknown`, which a front end treats as possibly live.
+
 ### Live validation against demo accounts (2026-09-19)
 
 Fixes that came from running the engine against the real Remote and Local servers.

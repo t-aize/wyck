@@ -24,10 +24,13 @@
 //! # Account kind
 //!
 //! `get_balance` does not say whether the account is demo or live (`accountType` is the
-//! margin mode, `Hedged` or `Netted`). `get_accounts_list` has an `isLive` flag, but the
-//! active account is not always in that list (`Q-L15`), so the kind is only reported when
-//! the balance's `traderId` matches a listed account. Otherwise it is
-//! [`AccountKind::Unknown`], and a front end must treat that as possibly live.
+//! margin mode, `Hedged` or `Netted`). `get_accounts_list` has an `isLive` flag, but the active
+//! account is not always listed under the number `get_balance` gives it (`Q-L15`: on a real
+//! server `traderId` was neither the listed `id` nor the `login`). So the kind is read in two
+//! steps: by identity when the numbers match, and otherwise from a listed account that has the
+//! same broker, currency, account type and balance to the cent, provided every such account
+//! agrees. See `kind_from_accounts`. Anything less certain is [`AccountKind::Unknown`], and a
+//! front end must treat that as possibly live.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -35,7 +38,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
 use ctrader_mcp::local::dto::{
-    AmendPositionParams, GetAccountsListResponse, PlaceMarketOrderParams, SymbolDetails, VolumeType,
+    AccountSummary, AmendPositionParams, BalanceResponse, GetAccountsListResponse,
+    PlaceMarketOrderParams, SymbolDetails, VolumeType,
 };
 use ctrader_mcp::time::local_iso8601_to_epoch_millis;
 use ctrader_mcp::{ConnectionConfig, LocalClient};
@@ -153,28 +157,89 @@ fn split_pair(symbol: &str) -> (Option<String>, Option<String>) {
     }
 }
 
-/// The account kind, when `trader_id` is one of the listed accounts. See the
+/// The account kind of the active account, read from `get_accounts_list`. See the
 /// [module docs](self).
-fn kind_from_accounts(list: &GetAccountsListResponse, trader_id: Option<i64>) -> AccountKind {
-    let Some(trader_id) = trader_id else {
-        return AccountKind::Unknown;
-    };
-    let matches = |account: &ctrader_mcp::local::dto::AccountSummary| {
+///
+/// The list is looked at in two steps, and the first that gives an answer wins:
+///
+/// 1. **By identity.** The balance's `traderId` is one of the listed accounts' `traderId`, `id` or
+///    `login`. This is the certain case.
+/// 2. **By evidence.** The active account is not in the list under any of those numbers (`Q-L15`),
+///    but a listed account has the same broker, the same currency, the same account type and the
+///    same balance to the cent. The two answers are read a moment apart, so a balance that equal
+///    on all four is the same account. The kind is taken from those listed accounts only if there
+///    is at least one, every one of them says `isLive`, and they all agree.
+///
+/// Anything short of that is [`AccountKind::Unknown`], which a front end treats as possibly live:
+/// a wrong "demo" is the one mistake this function must never make.
+fn kind_from_accounts(list: &GetAccountsListResponse, balance: &BalanceResponse) -> AccountKind {
+    kind_by_identity(list, balance.trader_id).unwrap_or_else(|| kind_by_evidence(list, balance))
+}
+
+/// The `isLive` flag of a listed account, as a kind.
+fn listed_kind(account: &AccountSummary) -> Option<AccountKind> {
+    match account.extra.get("isLive").and_then(Value::as_bool) {
+        Some(true) => Some(AccountKind::Live),
+        Some(false) => Some(AccountKind::Demo),
+        None => None,
+    }
+}
+
+/// The kind of the listed account that `trader_id` names, if there is one.
+fn kind_by_identity(list: &GetAccountsListResponse, trader_id: Option<i64>) -> Option<AccountKind> {
+    let trader_id = trader_id?;
+    let matches = |account: &AccountSummary| {
         let field = |key: &str| account.extra.get(key).and_then(Value::as_i64);
         account.trader_id == Some(trader_id)
             || field("id") == Some(trader_id)
             || field("login") == Some(trader_id)
     };
-    match list
-        .accounts
+    list.accounts
         .iter()
         .find(|a| matches(a))
-        .and_then(|a| a.extra.get("isLive"))
-        .and_then(Value::as_bool)
-    {
-        Some(true) => AccountKind::Live,
-        Some(false) => AccountKind::Demo,
-        None => AccountKind::Unknown,
+        .and_then(listed_kind)
+}
+
+/// Whether two optional texts are both present and equal, ignoring case.
+fn same_text(a: Option<&str>, b: Option<&str>) -> bool {
+    matches!((a, b), (Some(a), Some(b)) if a.trim().eq_ignore_ascii_case(b.trim()))
+}
+
+/// The kind of the listed accounts that are the active account by the evidence described in
+/// [`kind_from_accounts`], if they are unambiguous.
+fn kind_by_evidence(list: &GetAccountsListResponse, balance: &BalanceResponse) -> AccountKind {
+    let Some(active_balance) = balance.balance else {
+        return AccountKind::Unknown;
+    };
+    let broker = text_field(&balance.extra, &["brokerName"]);
+    let same_account = |account: &&AccountSummary| {
+        let listed_balance = account.extra.get("balance").and_then(Value::as_f64);
+        let listed_broker = account
+            .broker
+            .as_deref()
+            .or_else(|| text_field(&account.extra, &["brokerTitle"]));
+        listed_balance.is_some_and(|b| (b - active_balance).abs() < 0.005)
+            && same_text(listed_broker, broker)
+            && same_text(
+                text_field(&account.extra, &["currency"]),
+                balance.currency.as_deref(),
+            )
+            && same_text(
+                text_field(&account.extra, &["accountType"]),
+                balance.account_type.as_deref(),
+            )
+    };
+    let same: Vec<&AccountSummary> = list.accounts.iter().filter(same_account).collect();
+    let kinds: Vec<Option<AccountKind>> = same.iter().map(|a| listed_kind(a)).collect();
+    match kinds.first() {
+        Some(Some(first)) if kinds.iter().all(|k| k == &Some(*first)) => {
+            tracing::info!(
+                kind = ?first,
+                "the active account is not listed under its own id, but a listed account has the same broker, currency, type and balance: taking its kind"
+            );
+            *first
+        }
+        _ => AccountKind::Unknown,
     }
 }
 
@@ -212,7 +277,7 @@ impl LocalBroker {
         let client = LocalClient::connect(&ConnectionConfig::new(&request.endpoint)).await?;
         let balance = client.get_balance().await?;
         let kind = match client.get_accounts_list().await {
-            Ok(list) => kind_from_accounts(&list, balance.trader_id),
+            Ok(list) => kind_from_accounts(&list, &balance),
             Err(error) => {
                 tracing::debug!(%error, "could not read the account list; the account kind stays unknown");
                 AccountKind::Unknown
@@ -618,34 +683,143 @@ mod tests {
         serde_json::from_value(value).unwrap()
     }
 
+    /// The listed account as the live Local server answered (2026-09, balance altered).
+    fn listed_demo() -> Value {
+        json!({
+            "accountName": "", "accountType": "Hedged", "balance": 10004.03,
+            "brokerTitle": "Spotware", "currency": "USD", "id": 48_333_320,
+            "isLive": false, "isOnline": false, "login": 5_884_727
+        })
+    }
+
+    /// The active account as `get_balance` answered on the same server, at the same moment.
+    fn active(balance: f64) -> BalanceResponse {
+        serde_json::from_value(json!({
+            "accountName": null, "accountType": "Hedged", "balance": balance,
+            "brokerName": "Spotware", "connectionState": "Authenticated",
+            "depositAsset": "USD", "equity": balance, "freeMargin": balance,
+            "leverage": 100, "margin": 0, "marginLevel": null, "traderId": 3_382_746
+        }))
+        .unwrap()
+    }
+
     #[test]
-    fn account_kind_needs_the_active_account_in_the_list() {
-        // As the live server answered: the listed account is not the active one.
-        let list = accounts(json!({
-            "accounts": [{
-                "accountName": "", "accountType": "Hedged", "balance": 9999.7,
-                "brokerTitle": "Spotware", "currency": "USD", "id": 48_333_320,
-                "isLive": false, "isOnline": false, "login": 5_884_727
-            }],
-            "count": 1
-        }));
+    fn an_account_named_by_the_balance_takes_its_kind_from_the_list() {
+        let list = accounts(json!({ "accounts": [listed_demo()] }));
         assert_eq!(
-            kind_from_accounts(&list, Some(3_382_707)),
-            AccountKind::Unknown,
-            "an unlisted account must not be assumed demo"
-        );
-        assert_eq!(kind_from_accounts(&list, None), AccountKind::Unknown);
-        assert_eq!(
-            kind_from_accounts(&list, Some(48_333_320)),
-            AccountKind::Demo
+            kind_by_identity(&list, Some(48_333_320)),
+            Some(AccountKind::Demo)
         );
         assert_eq!(
-            kind_from_accounts(&list, Some(5_884_727)),
-            AccountKind::Demo
+            kind_by_identity(&list, Some(5_884_727)),
+            Some(AccountKind::Demo)
         );
+        assert_eq!(kind_by_identity(&list, Some(3_382_746)), None);
+        assert_eq!(kind_by_identity(&list, None), None);
 
         let live = accounts(json!({ "accounts": [{ "id": 1, "isLive": true }] }));
-        assert_eq!(kind_from_accounts(&live, Some(1)), AccountKind::Live);
+        assert_eq!(kind_by_identity(&live, Some(1)), Some(AccountKind::Live));
+    }
+
+    #[test]
+    fn the_real_servers_answers_are_recognized_as_one_demo_account() {
+        // traderId 3382746 is neither the listed id nor the login, yet broker, currency, type and
+        // balance to the cent all agree.
+        let list = accounts(json!({ "accounts": [listed_demo()] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.03)),
+            AccountKind::Demo
+        );
+    }
+
+    #[test]
+    fn a_balance_that_differs_is_not_taken_for_the_same_account() {
+        let list = accounts(json!({ "accounts": [listed_demo()] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.04)),
+            AccountKind::Unknown,
+            "a cent off is another account, or a moved one: never assume demo"
+        );
+    }
+
+    #[test]
+    fn another_broker_currency_or_type_is_not_the_same_account() {
+        for (field, value) in [
+            ("brokerTitle", json!("Someone Else")),
+            ("currency", json!("EUR")),
+            ("accountType", json!("Netted")),
+        ] {
+            let mut listed = listed_demo();
+            listed[field] = value;
+            let list = accounts(json!({ "accounts": [listed] }));
+            assert_eq!(
+                kind_from_accounts(&list, &active(10004.03)),
+                AccountKind::Unknown,
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_listed_account_that_does_not_say_whether_it_is_live_proves_nothing() {
+        let mut listed = listed_demo();
+        listed.as_object_mut().unwrap().remove("isLive");
+        let list = accounts(json!({ "accounts": [listed] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.03)),
+            AccountKind::Unknown
+        );
+    }
+
+    #[test]
+    fn a_demo_and_a_live_account_with_the_same_figures_are_ambiguous() {
+        let mut live = listed_demo();
+        live["isLive"] = json!(true);
+        live["id"] = json!(1);
+        let list = accounts(json!({ "accounts": [listed_demo(), live] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.03)),
+            AccountKind::Unknown
+        );
+    }
+
+    #[test]
+    fn a_live_account_that_matches_is_reported_live() {
+        let mut live = listed_demo();
+        live["isLive"] = json!(true);
+        let list = accounts(json!({ "accounts": [live] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.03)),
+            AccountKind::Live
+        );
+    }
+
+    #[test]
+    fn identity_wins_over_the_evidence() {
+        // The balance names a live account by id, while a demo account happens to share the figures.
+        let mut named_live = listed_demo();
+        named_live["isLive"] = json!(true);
+        named_live["id"] = json!(3_382_746);
+        named_live["balance"] = json!(1.0);
+        let list = accounts(json!({ "accounts": [listed_demo(), named_live] }));
+        assert_eq!(
+            kind_from_accounts(&list, &active(10004.03)),
+            AccountKind::Live
+        );
+    }
+
+    #[test]
+    fn an_empty_list_or_a_missing_balance_leaves_the_kind_unknown() {
+        assert_eq!(
+            kind_from_accounts(&accounts(json!({ "accounts": [] })), &active(1.0)),
+            AccountKind::Unknown
+        );
+        let list = accounts(json!({ "accounts": [listed_demo()] }));
+        let no_balance: BalanceResponse = serde_json::from_value(json!({
+            "accountType": "Hedged", "brokerName": "Spotware", "depositAsset": "USD"
+        }))
+        .unwrap();
+        assert_eq!(kind_from_accounts(&list, &no_balance), AccountKind::Unknown);
     }
 
     #[test]

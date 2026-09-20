@@ -186,9 +186,9 @@ in `probe_remote.rs` behind the same switch.
 - [x] Connects and reaches `Ready`. Currency is `depositAsset` (the DTO only knew
       `currency`, so sizing would have had no account currency).
 - [x] Account kind: `get_balance` has no demo or live field (`accountType` is the margin mode,
-      `Hedged`). The adapter reports `Unknown` unless `traderId` is in `get_accounts_list`
-      (which has `isLive`). On the validation machine it was **not** in the list, and the
-      list showed a different, offline demo account (see 3.7).
+      `Hedged`). The adapter reads `isLive` from `get_accounts_list`, by identity when `traderId`
+      is listed and otherwise by matching broker, currency, type and balance (see 3.7). On the
+      validation machine `traderId` was **not** in the list.
 - [x] `get_symbol_details`: `minVolume`, `maxVolume` and `volumeStep` are **in units**, not
       lots (EURUSD lot 100000, min 1000, step 1000; XAUUSD 100, 1, 1; BTCUSD 1, 0.01, 0.01).
       The adapter read them as lots. Fixed and pinned with captured answers. `digits` and
@@ -232,11 +232,15 @@ account is a demo:
 
 ### 3.7 What is still open (the gate)
 
-1. **Local account kind stays `Unknown`.** The active account (3382707) is not in
-   `get_accounts_list`, so the engine cannot tell demo from live and reports `Unknown`; arming
-   must acknowledge exactly that. The user confirmed it is a demo, and the Local order test
-   only runs with `WYCK_LIVE_LOCAL_TRADER_ID` naming it. A front end must keep treating
-   `Unknown` as possibly live.
+1. **Local account kind is inferred, and `Unknown` when it cannot be.** The active account
+   (`traderId` 3382746 on 2026-09-20) is not in `get_accounts_list` under its `id` or `login`,
+   but the one listed account has the same broker, currency, account type and balance to the
+   cent, and no other tool says demo or live. The adapter now takes the kind from listed accounts
+   that match on all four and agree on `isLive`, and reports `Unknown` in every other case (no
+   match, a cent of difference, a demo and a live account with the same figures). Not proof: it
+   rests on the two answers being read a moment apart. Arming acknowledges whatever kind is
+   reported, and a front end must keep treating `Unknown` as possibly live. The Local order test
+   still only runs with `WYCK_LIVE_LOCAL_TRADER_ID` naming the account.
 2. **Forex on Remote** (3.3, last item), needs the forex market open. Same for Local with a
    forex symbol in the Market Watch.
 3. **Rejections on Local** (3.5, last items) and pending order fields (3.4).
