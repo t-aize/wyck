@@ -20,6 +20,7 @@
 //! | `WYCK_HOTKEY_BUY`, `WYCK_HOTKEY_SELL`, `WYCK_HOTKEY_PANEL` | Global shortcuts | `ctrl+alt+b`, `ctrl+alt+s`, `ctrl+alt+p` |
 //! | `WYCK_LOG` | `tracing` filter directive | `warn,wyck_app=info,wyck_engine=info` |
 //! | `WYCK_NEWS` | `on` or `off`: host the economic calendar | `on` |
+//! | `WYCK_REDUCE_MOTION` | `on` shows every screen and control in its final state at once, `off` always animates | the system's "animation effects" setting |
 
 use secrecy::SecretString;
 use wyck_engine::broker::ServiceKind;
@@ -117,6 +118,9 @@ pub struct AppSettings {
     pub log_filter: String,
     /// Whether the engine hosts the economic calendar (one request to a public feed).
     pub news_enabled: bool,
+    /// Whether to turn animations off (`Some(true)`) or on (`Some(false)`) whatever the system
+    /// says, or follow the system (`None`).
+    pub reduce_motion: Option<bool>,
 }
 
 impl AppSettings {
@@ -232,6 +236,9 @@ impl AppSettings {
             log_filter: get("WYCK_LOG")
                 .unwrap_or_else(|| "warn,wyck_app=info,wyck_engine=info".to_owned()),
             news_enabled: parse_switch("WYCK_NEWS", get("WYCK_NEWS"), true)?,
+            reduce_motion: get("WYCK_REDUCE_MOTION")
+                .map(|value| parse_switch("WYCK_REDUCE_MOTION", Some(value), false))
+                .transpose()?,
         })
     }
 
@@ -325,6 +332,16 @@ mod tests {
         let moved = settings(&[("WYCK_LOCAL_ENDPOINT", "http://127.0.0.1:9000/mcp/")]).unwrap();
         assert_eq!(moved.local_endpoint, "http://127.0.0.1:9000/mcp/");
         assert!(matches!(moved.connection, ConnectionChoice::ActiveProfile));
+    }
+
+    #[test]
+    fn reduced_motion_follows_the_system_unless_told_otherwise() {
+        assert_eq!(settings(&[]).unwrap().reduce_motion, None);
+        let on = settings(&[("WYCK_REDUCE_MOTION", "on")]).unwrap();
+        assert_eq!(on.reduce_motion, Some(true));
+        let off = settings(&[("WYCK_REDUCE_MOTION", "off")]).unwrap();
+        assert_eq!(off.reduce_motion, Some(false));
+        assert!(settings(&[("WYCK_REDUCE_MOTION", "maybe")]).is_err());
     }
 
     #[test]

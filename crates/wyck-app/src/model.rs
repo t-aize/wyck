@@ -21,6 +21,9 @@ const MAX_ACTIVITY: usize = 60;
 /// How many toasts are on screen at once.
 const MAX_TOASTS: usize = 4;
 
+/// How long a toast takes to fade out before it is dropped, in milliseconds.
+pub const TOAST_EXIT_MS: i64 = 160;
+
 /// How long a toast stays, in milliseconds. Errors stay longer: they are worth reading twice.
 #[must_use]
 pub const fn toast_ttl_ms(level: Level) -> i64 {
@@ -49,6 +52,9 @@ pub struct Toast {
     pub at: UnixMillis,
     /// What it says.
     pub notice: Notice,
+    /// When it started to leave, once it has expired or been dismissed. The screen fades it out
+    /// during [`TOAST_EXIT_MS`] and the model then drops it.
+    pub leaving: Option<UnixMillis>,
 }
 
 /// The shared data of all windows.
@@ -102,6 +108,7 @@ impl AppModel {
                 id: self.next_toast,
                 at: now,
                 notice: notice.clone(),
+                leaving: None,
             },
         );
         self.toasts.truncate(MAX_TOASTS);
@@ -109,19 +116,39 @@ impl AppModel {
         self.notices.truncate(MAX_NOTICES);
     }
 
-    /// Removes a toast. Returns whether it was there.
-    pub fn dismiss_toast(&mut self, id: u64) -> bool {
-        let before = self.toasts.len();
-        self.toasts.retain(|t| t.id != id);
-        self.toasts.len() != before
+    /// Starts a toast's exit. Returns whether there was such a toast that was not already leaving.
+    pub fn dismiss_toast(&mut self, id: u64, now: UnixMillis) -> bool {
+        match self
+            .toasts
+            .iter_mut()
+            .find(|t| t.id == id && t.leaving.is_none())
+        {
+            Some(toast) => {
+                toast.leaving = Some(now);
+                true
+            }
+            None => false,
+        }
     }
 
-    /// Removes the toasts that have been on screen long enough. Returns whether any went.
+    /// Starts the exit of the toasts that have been on screen long enough, and drops the ones
+    /// whose exit is over. Returns whether anything changed.
     pub fn expire_toasts(&mut self, now: UnixMillis) -> bool {
+        let mut changed = false;
+        for toast in &mut self.toasts {
+            if toast.leaving.is_none()
+                && now.saturating_sub(toast.at) >= toast_ttl_ms(toast.notice.level)
+            {
+                toast.leaving = Some(now);
+                changed = true;
+            }
+        }
         let before = self.toasts.len();
-        self.toasts
-            .retain(|t| now.saturating_sub(t.at) < toast_ttl_ms(t.notice.level));
-        self.toasts.len() != before
+        self.toasts.retain(|t| {
+            t.leaving
+                .is_none_or(|at| now.saturating_sub(at) < TOAST_EXIT_MS)
+        });
+        changed || self.toasts.len() != before
     }
 
     /// Removes the banner at `index`. Returns whether there was one.
@@ -222,11 +249,24 @@ mod tests {
         assert_eq!(model.toasts[0].notice.title, "b", "newest first");
 
         assert!(!model.expire_toasts(5_000), "nothing is old enough yet");
-        assert!(model.expire_toasts(6_500), "a is 6.5 s old");
+        assert!(
+            model.expire_toasts(6_500),
+            "a is 6.5 s old and starts to leave"
+        );
+        assert_eq!(model.toasts.len(), 2, "it fades out before it goes");
+        assert_eq!(model.toasts[1].leaving, Some(6_500));
+        assert!(!model.expire_toasts(6_600), "still fading");
+        assert!(
+            model.expire_toasts(6_500 + TOAST_EXIT_MS),
+            "the fade is over"
+        );
         assert_eq!(model.toasts.len(), 1);
         let id = model.toasts[0].id;
-        assert!(model.dismiss_toast(id));
-        assert!(!model.dismiss_toast(id));
+        assert!(model.dismiss_toast(id, 7_000));
+        assert!(!model.dismiss_toast(id, 7_010), "already leaving");
+        assert_eq!(model.toasts[0].leaving, Some(7_000));
+        assert!(model.expire_toasts(7_000 + TOAST_EXIT_MS));
+        assert!(model.toasts.is_empty());
         assert_eq!(model.notices.len(), 2, "the history keeps them");
     }
 
@@ -244,8 +284,10 @@ mod tests {
             0,
         );
         model.expire_toasts(7_000);
+        model.expire_toasts(7_000 + TOAST_EXIT_MS);
         assert_eq!(model.toasts.len(), 1);
         assert_eq!(model.toasts[0].notice.title, "e");
+        assert!(model.toasts[0].leaving.is_none());
     }
 
     #[test]

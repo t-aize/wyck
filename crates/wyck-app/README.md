@@ -75,6 +75,27 @@ registered as native control areas, so dragging, double-click to maximize, edge 
 snap layouts flyout behave as in any Windows program. On Linux the bar starts the move itself.
 macOS keeps its traffic lights.
 
+### Motion
+
+Everything that moves speaks one language, defined in `src/ui/motion.rs` (durations, curves,
+distances) from desktop motion guidelines and the defaults of the component library:
+
+| What | How |
+|---|---|
+| A screen changes | The old one fades and slides 12 px out in 110 ms (accelerating), then the new one fades and slides 18 px in over 280 ms (decelerating). Going deeper slides from the right, going back from the left. Clicks are ignored while it moves |
+| A card fills in | Its pieces (mark, title, text, content, buttons) rise 8 px and fade in one after the other, 32 ms apart, so a card is in place in well under half a second |
+| The mark on a card | Pops in: grows from 70 percent, goes slightly past, settles |
+| Buttons, links, choices, window buttons | Their colors fade in 120 ms under the pointer instead of flipping; chevrons slide a few pixels toward where they lead |
+| The token field | Its border and glow fade with the focus; it shakes sideways (three swings, 8 px, dying out) when the text is refused, and the message under it fades in |
+| Toasts | Rise 10 px and fade in; fade out before they are removed, whether they expire or are dismissed |
+| Banners | Open like a drawer the first time they show |
+| Waiting | A spinning arc, two swelling rings, a breathing dot and a sliding bar |
+
+What arrives decelerates, what leaves accelerates and takes about half the time, and nothing
+spatial is linear. The animations are built on GPUI's motion functions (`Presence`, `transition`),
+which follow the system's "Animation effects" setting: with it off, every screen and control is
+shown in its final state at once. `WYCK_REDUCE_MOTION=on` or `off` overrides the system.
+
 ### Looking at a screen without going through the flow
 
 In a debug build, `WYCK_PREVIEW=<name>` opens the window on that screen with sample data and
@@ -110,7 +131,7 @@ Every module below `shell` is plain Rust, tested without a window.
 | `hotkeys` | Global shortcuts: parsing, registration, key-repeat debouncing |
 | `logging`, `session_marker` | Log files, and detection of a session that did not end cleanly |
 | `shell` (feature `gui`) | The GPUI window, engine plumbing, shortcuts |
-| `ui` (feature `gui`) | Drawing: theme, assets, widgets, title bar, screens, the root view |
+| `ui` (feature `gui`) | Drawing: theme, assets, motion, widgets, title bar, screens, the root view |
 
 Notices raised by the application (an order result, an account that could not be saved) show as
 toasts at the bottom right and expire by themselves, errors last longest. Problems that outlive a

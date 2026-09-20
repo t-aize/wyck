@@ -1,18 +1,22 @@
 //! Small drawing helpers shared by the screens: the card, the buttons, the info rows, the
 //! badges and the animated indicators.
 //!
-//! Each function returns an element and holds no state. Sizes are in logical pixels and follow
-//! the design: a card is 380 to 440 wide, a button 38 high, a row 11 pixels of padding.
+//! Each function returns an element. Sizes are in logical pixels and follow the design: a card is
+//! 380 to 460 wide, a button 38 high, a row 11 pixels of padding. The ones that react to the
+//! pointer (buttons, links) take the window so that the reaction fades instead of flipping, see
+//! [`motion::Hover`]. The [`Card`] brings its children in one after the other.
 
 use std::time::Duration;
 
+use gpui_kit::base::{Presence, Transition, TransitionId};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    Animation, AnimationExt as _, BoxShadow, Div, ElementId, FontWeight, Hsla, SharedString,
-    Stateful, Svg, Transformation, div, ease_in_out, hsla, linear_color_stop, linear_gradient,
-    percentage, point, pulsating_between, px, relative, svg, transparent_black,
+    Animation, AnimationExt as _, AnyElement, App, BoxShadow, Div, FontWeight, Hsla, SharedString,
+    Stateful, Svg, Transformation, Window, div, ease_in_out, hsla, linear_color_stop,
+    linear_gradient, percentage, point, pulsating_between, px, relative, svg, transparent_black,
 };
 
+use super::motion::{self, Hover};
 use super::theme;
 use crate::presentation::{Badge, Tone};
 
@@ -47,7 +51,7 @@ pub enum Glyph {
     EyeOff,
     /// A clipboard: paste.
     Clipboard,
-    /// Four corners: the bridge address.
+    /// Four corners: the server address.
     Scan,
     /// A window: the platform version.
     AppWindow,
@@ -96,28 +100,81 @@ pub fn glyph(glyph: Glyph, size: f32, color: Hsla) -> Svg {
 
 /// The panel of a screen: a rounded, bordered, softly shadowed card of `width` pixels whose
 /// content is centered.
-pub fn card(width: f32) -> Div {
-    let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
-        color: hsla(0., 0., 0., alpha),
-        offset: point(px(0.), px(y)),
-        blur_radius: px(blur),
-        spread_radius: px(spread),
-        inset: false,
-    };
+///
+/// Its children do not appear all at once: each rises 8 px into place and fades in, one after the
+/// other (see [`motion`]). The first child starts 90 ms after the card is mounted, and every next
+/// one 32 ms later.
+#[derive(IntoElement)]
+pub struct Card {
+    width: f32,
+    children: Vec<AnyElement>,
+}
+
+/// A [`Card`] of `width` pixels.
+pub fn card(width: f32) -> Card {
+    Card {
+        width,
+        children: Vec::new(),
+    }
+}
+
+impl ParentElement for Card {
+    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
+        self.children.extend(elements);
+    }
+}
+
+/// One child of a card, faded in and lifted into place after its turn.
+fn rise(index: usize, child: AnyElement, window: &mut Window, cx: &mut App) -> Div {
+    let transition = Transition::new(motion::RISE_TIME)
+        .delay(motion::RISE_START + motion::STAGGER * u32::try_from(index).unwrap_or(0))
+        .easing(motion::enter());
+    let progress = Presence::new(TransitionId::from((index, "rise")), true)
+        .transition(transition)
+        .sample(window, cx)
+        .progress;
     div()
-        .w(px(width))
-        .flex_none()
-        .my_auto()
+        .relative()
+        .top(px((1.0 - progress) * motion::RISE))
+        .opacity(progress)
+        .w_full()
         .flex()
         .flex_col()
         .items_center()
-        .px(px(34.))
-        .py(px(36.))
-        .bg(theme::card())
-        .border_1()
-        .border_color(theme::border())
-        .rounded(px(12.))
-        .shadow(vec![shadow(0.4, 1., 2., 0.), shadow(0.6, 12., 32., -16.)])
+        .child(child)
+}
+
+impl RenderOnce for Card {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
+            color: hsla(0., 0., 0., alpha),
+            offset: point(px(0.), px(y)),
+            blur_radius: px(blur),
+            spread_radius: px(spread),
+            inset: false,
+        };
+        let children: Vec<Div> = self
+            .children
+            .into_iter()
+            .enumerate()
+            .map(|(index, child)| rise(index, child, window, cx))
+            .collect();
+        div()
+            .w(px(self.width))
+            .flex_none()
+            .my_auto()
+            .flex()
+            .flex_col()
+            .items_center()
+            .px(px(34.))
+            .py(px(36.))
+            .bg(theme::card())
+            .border_1()
+            .border_color(theme::border())
+            .rounded(px(12.))
+            .shadow(vec![shadow(0.4, 1., 2., 0.), shadow(0.6, 12., 32., -16.)])
+            .children(children)
+    }
 }
 
 /// The heading of a card.
@@ -143,8 +200,14 @@ pub fn lead(text: impl Into<SharedString>, max_width: f32) -> Div {
         .child(text.into())
 }
 
-/// The full-width main button.
-pub fn primary_button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Stateful<Div> {
+/// The full-width main button. It brightens under the pointer.
+pub fn primary_button(
+    id: &'static str,
+    label: impl Into<SharedString>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
     div()
         .id(id)
         .flex()
@@ -153,42 +216,81 @@ pub fn primary_button(id: impl Into<ElementId>, label: impl Into<SharedString>) 
         .w_full()
         .h(px(38.))
         .rounded(px(8.))
-        .bg(theme::accent())
+        .bg(hover.mix(theme::accent(), theme::accent_hover()))
         .text_color(theme::card())
         .text_size(px(13.))
         .font_weight(FontWeight::MEDIUM)
         .cursor_pointer()
-        .hover(|style| style.bg(theme::accent_hover()))
+        .active(|style| style.bg(theme::accent()).opacity(0.88))
+        .on_hover(hover.handler())
         .child(label.into())
 }
 
-/// A quiet text link, with an optional icon after the text.
+/// A full-width outlined button, for actions that are not the main one. It fills in under the
+/// pointer.
+pub fn secondary_button(
+    id: &'static str,
+    label: impl Into<SharedString>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
+    div()
+        .id(id)
+        .flex()
+        .items_center()
+        .justify_center()
+        .w_full()
+        .h(px(38.))
+        .rounded(px(8.))
+        .bg(hover.mix(theme::bg(), theme::muted()))
+        .border_1()
+        .border_color(theme::alpha(theme::fg(), 0.16))
+        .text_color(theme::fg())
+        .text_size(px(13.))
+        .font_weight(FontWeight::MEDIUM)
+        .cursor_pointer()
+        .active(|style| style.opacity(0.88))
+        .on_hover(hover.handler())
+        .child(label.into())
+}
+
+/// A quiet text link, with an optional icon after the text. The text and the icon brighten under
+/// the pointer, and a chevron slides 2 px toward where the link leads.
 pub fn text_link(
     id: &'static str,
     label: impl Into<SharedString>,
     trailing: Option<Glyph>,
+    window: &mut Window,
+    cx: &mut App,
 ) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
+    let color = hover.mix(theme::dim(), theme::fg());
+    let nudge = if trailing == Some(Glyph::ChevronRight) {
+        2.0 * hover.amount
+    } else {
+        0.0
+    };
     div()
         .id(id)
-        .group(id)
         .flex()
         .items_center()
         .gap(px(4.))
         .text_size(px(12.))
-        .text_color(theme::dim())
+        .text_color(color)
         .cursor_pointer()
-        .hover(|style| style.text_color(theme::fg()))
+        .on_hover(hover.handler())
         .child(label.into())
-        .children(trailing.map(|g| {
-            glyph(g, 12., theme::dim()).group_hover(id, |style| style.text_color(theme::fg()))
-        }))
+        .children(trailing.map(|g| glyph(g, 12., color).relative().left(px(nudge))))
 }
 
-/// The "Back" link in the top left corner of a screen.
-pub fn back_button(id: &'static str) -> Stateful<Div> {
+/// The "Back" link in the top left corner of a screen. Its chevron slides 2 px to the left under
+/// the pointer.
+pub fn back_button(id: &'static str, window: &mut Window, cx: &mut App) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
+    let color = hover.mix(theme::dim(), theme::fg());
     div()
         .id(id)
-        .group(id)
         .absolute()
         .top(px(24.))
         .left(px(28.))
@@ -196,12 +298,13 @@ pub fn back_button(id: &'static str) -> Stateful<Div> {
         .items_center()
         .gap(px(6.))
         .text_size(px(12.))
-        .text_color(theme::dim())
+        .text_color(color)
         .cursor_pointer()
-        .hover(|style| style.text_color(theme::fg()))
+        .on_hover(hover.handler())
         .child(
-            glyph(Glyph::ChevronLeft, 12., theme::dim())
-                .group_hover(id, |style| style.text_color(theme::fg())),
+            glyph(Glyph::ChevronLeft, 12., color)
+                .relative()
+                .left(px(-2.0 * hover.amount)),
         )
         .child("Back")
 }
@@ -242,8 +345,8 @@ pub fn row(
             div()
                 .flex_1()
                 .min_w_0()
-                .line_height(relative(1.5))
                 .text_size(px(12.))
+                .line_height(relative(1.5))
                 .text_color(theme::dim())
                 .child(label.into()),
         )
@@ -284,17 +387,40 @@ pub fn badge(badge: &Badge) -> Div {
     }
 }
 
-/// A round 52 pixel badge with an icon: the mark at the top of a card.
-pub fn status_disc(icon: Glyph, color: Hsla, background: Hsla) -> Div {
+/// A round 52 pixel badge with an icon: the mark at the top of a card. It pops in: it grows from
+/// 70 percent, goes a little past its size, and settles.
+pub fn status_disc(
+    icon: Glyph,
+    color: Hsla,
+    background: Hsla,
+    window: &mut Window,
+    cx: &mut App,
+) -> Div {
+    let pop = Presence::new(TransitionId::from("disc-pop"), true)
+        .transition(
+            Transition::new(Duration::from_millis(460))
+                .delay(motion::RISE_START)
+                .ease(motion::overshoot),
+        )
+        .sample(window, cx)
+        .progress;
+    let scale = 0.7 + 0.3 * pop;
     div()
         .flex()
         .items_center()
         .justify_center()
         .size(px(52.))
         .mb(px(16.))
-        .rounded_full()
-        .bg(background)
-        .child(glyph(icon, 22., color))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(52. * scale))
+                .rounded_full()
+                .bg(background)
+                .child(glyph(icon, 22. * scale, color)),
+        )
 }
 
 /// A tinted box with a warning icon and a line of monospace text: an error as the server said it.
@@ -471,25 +597,4 @@ pub fn or_divider() -> Div {
                 .child("or"),
         )
         .child(line())
-}
-
-/// A full-width outlined button, for actions that are not the main one.
-pub fn secondary_button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Stateful<Div> {
-    div()
-        .id(id)
-        .flex()
-        .items_center()
-        .justify_center()
-        .w_full()
-        .h(px(38.))
-        .rounded(px(8.))
-        .bg(theme::bg())
-        .border_1()
-        .border_color(theme::alpha(theme::fg(), 0.16))
-        .text_color(theme::fg())
-        .text_size(px(13.))
-        .font_weight(FontWeight::MEDIUM)
-        .cursor_pointer()
-        .hover(|style| style.bg(theme::muted()))
-        .child(label.into())
 }

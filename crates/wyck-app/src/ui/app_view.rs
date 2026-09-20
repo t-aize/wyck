@@ -15,16 +15,19 @@
 
 use std::time::Duration;
 
+use gpui_kit::base::animation::Lerp as _;
+use gpui_kit::base::{MotionReveal, Presence, PresencePhase, Transition, TransitionId, transition};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, SharedString, Subscription, Task,
-    Window, div, px,
+    AnyElement, App, Context, Div, ElementId, Entity, FocusHandle, Focusable as _, KeyDownEvent,
+    SharedString, Stateful, Subscription, Task, Window, div, px,
 };
 use secrecy::SecretString;
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
 use wyck_engine::domain::now_millis;
 
+use super::motion::{self, Direction, Hover};
 use super::screens;
 use super::theme;
 use super::titlebar::titlebar;
@@ -43,8 +46,17 @@ pub const REMOTE_HELP_URL: &str = "https://help.ctrader.com/ctrader-ai-agent-con
 pub const LOCAL_HELP_URL: &str =
     "https://help.ctrader.com/ctrader-ai-agent-connect/local-mcp/setup/";
 
-/// How often expired toasts are removed while there are some.
-const TOAST_TICK: Duration = Duration::from_millis(500);
+/// How often toasts are checked for expiry while there are some. It is also the slack before a
+/// toast that has faded out is removed, so it stays well under the fade itself.
+const TOAST_TICK: Duration = Duration::from_millis(100);
+
+/// One screen as the window keeps it while it is on screen or on its way out. `key` is unique per
+/// change of screen and scopes the animation state of everything inside.
+#[derive(Clone)]
+struct Layer {
+    key: usize,
+    screen: Screen,
+}
 
 /// The root view of the main window.
 pub struct AppView {
@@ -53,6 +65,14 @@ pub struct AppView {
     pub(super) token: Entity<InputState>,
     pub(super) token_masked: bool,
     pub(super) token_error: Option<TokenError>,
+    /// How many times the token field has refused what was typed. Each new value shakes it once.
+    pub(super) shake: u32,
+    /// The screen on show.
+    layer: Layer,
+    /// The screen that was on show before the last change, until its exit has played.
+    outgoing: Option<Layer>,
+    /// Which way the last change of screen went.
+    direction: Direction,
     focus: FocusHandle,
     toast_timer: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -74,17 +94,18 @@ impl AppView {
                 .masked(true)
                 .placeholder("Paste your API token")
         });
-        let subscriptions =
-            vec![
-                cx.subscribe_in(&token, window, |this, _, event: &InputEvent, window, cx| {
-                    match event {
-                        InputEvent::PressEnter { .. } => this.submit_token(window, cx),
-                        InputEvent::Change if this.token_error.take().is_some() => cx.notify(),
-                        _ => {}
-                    }
-                }),
-                cx.observe(&shell.model, |this, _, cx| this.model_changed(cx)),
-            ];
+        let subscriptions = vec![
+            cx.subscribe_in(&token, window, |this, _, event: &InputEvent, window, cx| {
+                match event {
+                    InputEvent::PressEnter { .. } => this.submit_token(window, cx),
+                    InputEvent::Change if this.token_error.take().is_some() => cx.notify(),
+                    // The field's ring fades with its focus, so it has to be drawn again.
+                    InputEvent::Focus | InputEvent::Blur => cx.notify(),
+                    _ => {}
+                }
+            }),
+            cx.observe(&shell.model, |this, _, cx| this.model_changed(cx)),
+        ];
 
         let focus = cx.focus_handle();
         let mut view = Self {
@@ -93,6 +114,13 @@ impl AppView {
             token,
             token_masked: true,
             token_error: None,
+            shake: 0,
+            layer: Layer {
+                key: 0,
+                screen: Screen::Choose,
+            },
+            outgoing: None,
+            direction: Direction::Forward,
             focus,
             toast_timer: None,
             _subscriptions: subscriptions,
@@ -113,8 +141,26 @@ impl AppView {
                 }
             }
         }
+        view.layer.screen = view.flow.screen().clone();
         view.settle_focus(window, cx);
         view
+    }
+
+    /// Follows the flow: when it has moved to another screen, the one on show becomes the
+    /// outgoing one and a new layer, with a new key, takes its place. A change inside the same
+    /// screen (a refused token on the form) only updates the data.
+    fn sync_layers(&mut self) {
+        let now = self.flow.screen();
+        if motion::same_page(&self.layer.screen, now) {
+            self.layer.screen = now.clone();
+            return;
+        }
+        self.direction = motion::direction(&self.layer.screen, now);
+        let next = Layer {
+            key: self.layer.key + 1,
+            screen: now.clone(),
+        };
+        self.outgoing = Some(std::mem::replace(&mut self.layer, next));
     }
 
     // ---- automatic connection at startup ----
@@ -180,6 +226,7 @@ impl AppView {
             Ok(token) => token,
             Err(error) => {
                 self.token_error = Some(error);
+                self.shake += 1;
                 cx.notify();
                 return;
             }
@@ -379,13 +426,13 @@ impl AppView {
 
     // ---- drawing ----
 
-    fn banners(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The banners under the title bar. A banner opens like a drawer the first time it shows.
+    fn banners(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let banners = self.shell.model.read(cx).banners.clone();
-        div()
-            .flex()
-            .flex_col()
-            .flex_none()
-            .children(banners.into_iter().enumerate().map(|(index, banner)| {
+        let items: Vec<AnyElement> = banners
+            .into_iter()
+            .enumerate()
+            .map(|(index, banner)| {
                 let color = level_color(banner.level);
                 let text = match (&banner.detail, banner.hint) {
                     (Some(detail), Some(hint)) => format!("{detail} {hint}"),
@@ -393,13 +440,30 @@ impl AppView {
                     (None, Some(hint)) => hint.to_owned(),
                     (None, None) => String::new(),
                 };
-                div()
+                let dismiss = icon_button(
+                    SharedString::from(format!("banner-dismiss-{index}")),
+                    window,
+                    cx,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.shell.model.update(cx, |model, cx| {
+                        model.dismiss_banner(index);
+                        cx.notify();
+                    });
+                }))
+                .child(glyph(Glyph::X, 12., theme::dim()));
+                let progress = Presence::new(TransitionId::from((index, "banner")), true)
+                    .transition(Transition::new(motion::SLOW).easing(motion::enter()))
+                    .sample(window, cx)
+                    .progress;
+                let strip = div()
                     .flex()
                     .flex_row()
                     .items_start()
                     .gap(px(10.))
                     .px(px(16.))
                     .py(px(9.))
+                    .opacity(progress)
                     .bg(theme::alpha(color, 0.08))
                     .border_b_1()
                     .border_color(theme::alpha(color, 0.25))
@@ -424,27 +488,103 @@ impl AppView {
                                 el.child(div().text_color(theme::dim()).child(text))
                             }),
                     )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("banner-dismiss-{index}")))
-                            .flex_none()
-                            .p(px(3.))
-                            .rounded(px(5.))
-                            .cursor_pointer()
-                            .hover(|s| s.bg(theme::muted()))
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.shell.model.update(cx, |model, cx| {
-                                    model.dismiss_banner(index);
-                                    cx.notify();
-                                });
-                            }))
-                            .child(glyph(Glyph::X, 12., theme::dim())),
-                    )
-            }))
+                    .child(dismiss);
+                MotionReveal::new(("banner", index), progress, strip.into_any_element())
+                    .into_any_element()
+            })
+            .collect();
+        div().flex().flex_col().flex_none().children(items)
     }
 
-    fn toasts(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The toasts at the bottom right. A toast rises 10 px as it fades in, and sinks as it fades
+    /// out when it expires or is dismissed.
+    fn toasts(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let toasts = self.shell.model.read(cx).toasts.clone();
+        let items: Vec<AnyElement> = toasts
+            .into_iter()
+            .filter_map(|toast| {
+                let present = toast.leaving.is_none();
+                let transition = if present {
+                    Transition::new(motion::SLOW).easing(motion::enter())
+                } else {
+                    motion::screen_out()
+                };
+                let sample =
+                    Presence::new(TransitionId::from((toast.id as usize, "toast")), present)
+                        .transition(transition)
+                        .sample(window, cx);
+                if !sample.should_render() {
+                    return None;
+                }
+                let progress = sample.progress;
+                let color = level_color(toast.notice.level);
+                let id = toast.id;
+                let dismiss = icon_button(
+                    SharedString::from(format!("toast-dismiss-{id}")),
+                    window,
+                    cx,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.shell.model.update(cx, |model, cx| {
+                        model.dismiss_toast(id, now_millis());
+                        cx.notify();
+                    });
+                }))
+                .child(glyph(Glyph::X, 12., theme::dim()));
+                Some(
+                    div()
+                        .relative()
+                        .top(px((1.0 - progress) * 10.0))
+                        .opacity(progress)
+                        .flex()
+                        .flex_row()
+                        .items_start()
+                        .gap(px(10.))
+                        .px(px(13.))
+                        .py(px(11.))
+                        .bg(theme::card())
+                        .border_1()
+                        .border_color(theme::alpha(color, 0.35))
+                        .rounded(px(10.))
+                        .child(div().mt(px(1.)).child(glyph(
+                            level_glyph(toast.notice.level),
+                            14.,
+                            color,
+                        )))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .gap(px(2.))
+                                .text_size(px(12.))
+                                .line_height(gpui_kit::relative(1.5))
+                                .child(
+                                    div()
+                                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                                        .text_color(theme::fg())
+                                        .child(toast.notice.title.clone()),
+                                )
+                                .children(
+                                    toast
+                                        .notice
+                                        .detail
+                                        .clone()
+                                        .map(|d| div().text_color(theme::dim()).child(d)),
+                                )
+                                .children(
+                                    toast
+                                        .notice
+                                        .hint
+                                        .map(|h| div().text_color(theme::dim()).child(h)),
+                                ),
+                        )
+                        .child(dismiss)
+                        .into_any_element(),
+                )
+            })
+            .collect();
         div()
             .absolute()
             .bottom(px(16.))
@@ -453,119 +593,92 @@ impl AppView {
             .flex()
             .flex_col()
             .gap(px(8.))
-            .children(toasts.into_iter().map(|toast| {
-                let color = level_color(toast.notice.level);
-                let id = toast.id;
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_start()
-                    .gap(px(10.))
-                    .px(px(13.))
-                    .py(px(11.))
-                    .bg(theme::card())
-                    .border_1()
-                    .border_color(theme::alpha(color, 0.35))
-                    .rounded(px(10.))
-                    .child(div().mt(px(1.)).child(glyph(
-                        level_glyph(toast.notice.level),
-                        14.,
-                        color,
-                    )))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.))
-                            .text_size(px(12.))
-                            .line_height(gpui_kit::relative(1.5))
-                            .child(
-                                div()
-                                    .font_weight(gpui_kit::FontWeight::MEDIUM)
-                                    .text_color(theme::fg())
-                                    .child(toast.notice.title.clone()),
-                            )
-                            .children(
-                                toast
-                                    .notice
-                                    .detail
-                                    .clone()
-                                    .map(|d| div().text_color(theme::dim()).child(d)),
-                            )
-                            .children(
-                                toast
-                                    .notice
-                                    .hint
-                                    .map(|h| div().text_color(theme::dim()).child(h)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("toast-dismiss-{id}")))
-                            .flex_none()
-                            .p(px(3.))
-                            .rounded(px(5.))
-                            .cursor_pointer()
-                            .hover(|s| s.bg(theme::muted()))
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.shell.model.update(cx, |model, cx| {
-                                    model.dismiss_toast(id);
-                                    cx.notify();
-                                });
-                            }))
-                            .child(glyph(Glyph::X, 12., theme::dim())),
-                    )
-            }))
+            .children(items)
     }
 
     /// The token field with its show and paste buttons. `failed` draws it in the error color.
+    ///
+    /// Its border and glow fade in and out with the focus. `live` is false for the copy of the
+    /// screen that is on its way out: it shows the text as a plain label instead of a second
+    /// input.
     pub(super) fn token_field(
         &mut self,
         failed: bool,
-        window: &Window,
+        live: bool,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
-        let focused = self.token.read(cx).focus_handle(cx).is_focused(window);
+        let focused = live && self.token.read(cx).focus_handle(cx).is_focused(window);
+        let glow = transition(
+            TransitionId::from("token-focus"),
+            if focused { 1.0_f32 } else { 0.0 },
+            motion::quick(),
+            window,
+            cx,
+        );
+        let idle = theme::alpha(theme::fg(), 0.16);
         let border = if failed {
             theme::alpha(theme::red(), 0.45)
-        } else if focused {
-            theme::ring()
         } else {
-            theme::alpha(theme::fg(), 0.16)
+            idle.lerp(&theme::ring(), glow)
         };
-        let small_button = |id: &'static str| {
+        let field: AnyElement = if live {
+            Input::new(&self.token)
+                .appearance(false)
+                .bordered(false)
+                .focus_bordered(false)
+                .into_any_element()
+        } else {
+            // The exit copy: the same text, masked the same way, without a second input.
+            let value = self.token.read(cx).value();
+            let (text, color) = if value.is_empty() {
+                (SharedString::from("Paste your API token"), theme::dim())
+            } else if self.token_masked {
+                (
+                    SharedString::from("\u{2022}".repeat(value.chars().count())),
+                    theme::fg(),
+                )
+            } else {
+                (value, theme::fg())
+            };
             div()
-                .id(id)
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(px(26.))
-                .rounded(px(6.))
-                .text_color(theme::dim())
-                .cursor_pointer()
-                .hover(|s| s.bg(theme::muted()))
+                .pl(px(11.))
+                .text_color(color)
+                .child(text)
+                .into_any_element()
         };
+        let toggle = icon_button("token-toggle", window, cx)
+            .on_click(cx.listener(|this, _, window, cx| this.toggle_mask(window, cx)))
+            .child(glyph(
+                if self.token_masked {
+                    Glyph::Eye
+                } else {
+                    Glyph::EyeOff
+                },
+                14.,
+                theme::dim(),
+            ));
+        let paste = icon_button("token-paste", window, cx)
+            .on_click(cx.listener(|this, _, window, cx| this.paste_token(window, cx)))
+            .child(glyph(Glyph::Clipboard, 14., theme::dim()));
         div()
             .flex()
             .flex_row()
             .items_center()
             .w_full()
             .h(px(38.))
-            .pl(px(0.))
             .pr(px(6.))
             .gap(px(4.))
             .rounded(px(8.))
             .bg(theme::bg())
             .border_1()
             .border_color(border)
-            .when(focused && !failed, |el| {
+            .when(!failed && glow > 0.0, |el| {
                 el.shadow(vec![gpui_kit::BoxShadow {
-                    color: theme::alpha(theme::ring(), 0.20),
+                    color: theme::alpha(theme::ring(), 0.20 * glow),
                     offset: gpui_kit::point(px(0.), px(0.)),
                     blur_radius: px(0.),
-                    spread_radius: px(3.),
+                    spread_radius: px(3.0 * glow),
                     inset: false,
                 }])
             })
@@ -575,32 +688,67 @@ impl AppView {
                     .min_w_0()
                     .font_family(theme::MONO)
                     .text_size(px(12.5))
-                    .child(
-                        Input::new(&self.token)
-                            .appearance(false)
-                            .bordered(false)
-                            .focus_bordered(false),
-                    ),
+                    .child(field),
             )
-            .child(
-                small_button("token-toggle")
-                    .on_click(cx.listener(|this, _, window, cx| this.toggle_mask(window, cx)))
-                    .child(glyph(
-                        if self.token_masked {
-                            Glyph::Eye
-                        } else {
-                            Glyph::EyeOff
-                        },
-                        14.,
-                        theme::dim(),
-                    )),
-            )
-            .child(
-                small_button("token-paste")
-                    .on_click(cx.listener(|this, _, window, cx| this.paste_token(window, cx)))
-                    .child(glyph(Glyph::Clipboard, 14., theme::dim())),
-            )
+            .child(toggle)
+            .child(paste)
     }
+
+    /// One screen, placed and faded for its moment of the change. `arriving` is the incoming
+    /// screen, and `progress` is 0 when it is gone and 1 when it is settled.
+    fn layer_element(
+        &mut self,
+        layer: &Layer,
+        progress: f32,
+        arriving: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let content = match &layer.screen {
+            Screen::Choose => screens::choose(window, cx).into_any_element(),
+            Screen::Searching => {
+                screens::searching(&self.local_endpoint(), window, cx).into_any_element()
+            }
+            Screen::LocalFound(session) => {
+                screens::local_found(session, window, cx).into_any_element()
+            }
+            Screen::LocalNotFound(failure) => {
+                screens::local_not_found(failure, &self.local_endpoint(), window, cx)
+                    .into_any_element()
+            }
+            Screen::Token { refused } => {
+                screens::token(self, refused.as_ref(), arriving, window, cx).into_any_element()
+            }
+            Screen::Verifying { hint } => screens::verifying(hint, window, cx).into_any_element(),
+            Screen::Connected => screens::connected(self, window, cx).into_any_element(),
+        };
+        div()
+            .id(("layer", layer.key))
+            .absolute()
+            .top_0()
+            .size_full()
+            .left(px(motion::slide(self.direction, arriving, progress)))
+            .opacity(progress)
+            .child(content)
+            .into_any_element()
+    }
+}
+
+/// A small square button with an icon, whose ground fades in under the pointer.
+fn icon_button(id: impl Into<ElementId>, window: &mut Window, cx: &mut App) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let hover = Hover::track(id.clone(), window, cx);
+    div()
+        .id(id)
+        .flex()
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .size(px(26.))
+        .rounded(px(6.))
+        .bg(hover.mix(theme::alpha(theme::muted(), 0.0), theme::muted()))
+        .cursor_pointer()
+        .on_hover(hover.handler())
 }
 
 /// The color of a notice level.
@@ -625,20 +773,30 @@ pub(super) fn level_glyph(level: Level) -> Glyph {
 
 impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let screen = self.flow.screen().clone();
-        let content = match screen {
-            Screen::Choose => screens::choose(cx).into_any_element(),
-            Screen::Searching => screens::searching(&self.local_endpoint(), cx).into_any_element(),
-            Screen::LocalFound(session) => screens::local_found(&session, cx).into_any_element(),
-            Screen::LocalNotFound(failure) => {
-                screens::local_not_found(&failure, &self.local_endpoint(), cx).into_any_element()
+        self.sync_layers();
+
+        // The screen that is leaving, if one is: it plays its exit and is dropped once it is gone.
+        let mut layers: Vec<AnyElement> = Vec::new();
+        let mut changing = false;
+        if let Some(outgoing) = self.outgoing.clone() {
+            let sample = Presence::new(TransitionId::from((outgoing.key, "layer")), false)
+                .transition(motion::screen_out())
+                .sample(window, cx);
+            if sample.should_render() {
+                changing = true;
+                layers.push(self.layer_element(&outgoing, sample.progress, false, window, cx));
+            } else {
+                self.outgoing = None;
             }
-            Screen::Token { refused } => {
-                screens::token(self, refused.as_ref(), window, cx).into_any_element()
-            }
-            Screen::Verifying { hint } => screens::verifying(&hint, cx).into_any_element(),
-            Screen::Connected => screens::connected(self, cx).into_any_element(),
-        };
+        }
+
+        // The screen that is arriving, or settled.
+        let sample = Presence::new(TransitionId::from((self.layer.key, "layer")), true)
+            .transition(motion::screen_in())
+            .sample(window, cx);
+        changing |= sample.phase != PresencePhase::Present;
+        let current = self.layer.clone();
+        layers.push(self.layer_element(&current, sample.progress, true, window, cx));
 
         div()
             .id("app")
@@ -656,18 +814,20 @@ impl Render for AppView {
             .text_color(theme::fg())
             .font_family(theme::SANS)
             .text_size(px(13.))
-            .child(titlebar(window))
-            .child(self.banners(cx))
+            .child(titlebar(window, cx))
+            .child(self.banners(window, cx))
             .child(
                 div()
                     .relative()
                     .flex_1()
-                    .flex()
-                    .items_center()
-                    .justify_center()
                     .overflow_hidden()
-                    .child(content)
-                    .child(self.toasts(cx)),
+                    .children(layers)
+                    // While a screen is moving, neither takes a click: the leaving one is on its
+                    // way out and the arriving one is not yet where it will be.
+                    .when(changing, |el| {
+                        el.child(div().absolute().inset_0().occlude())
+                    })
+                    .child(self.toasts(window, cx)),
             )
     }
 }

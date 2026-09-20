@@ -21,6 +21,7 @@ use gpui_kit::{
     WindowBounds, WindowControlArea, WindowOptions, div, point, px, size, svg,
 };
 
+use super::motion::Hover;
 use super::theme;
 
 /// The height of the bar.
@@ -87,40 +88,36 @@ fn logo() -> Div {
         )
 }
 
-/// One of the three buttons.
+/// One of the three buttons. Its ground and its icon fade to the hover colors in 120 ms: gray
+/// for minimize and maximize, red for close.
 fn button(
     id: &'static str,
     area: WindowControlArea,
     icon: &'static str,
     close: bool,
     on_click: impl Fn(&mut Window, &mut App) + 'static,
+    window: &mut Window,
+    cx: &mut App,
 ) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
+    let (ground, lit) = if close {
+        (theme::red(), theme::fg())
+    } else {
+        (theme::muted(), theme::fg())
+    };
+    let color = hover.mix(theme::dim(), lit);
     let button = div()
         .id(ElementId::from(id))
-        .group(id)
         .flex()
         .items_center()
         .justify_center()
         .flex_none()
         .w(px(BUTTON_WIDTH))
         .h_full()
-        .text_color(theme::dim())
-        .when(close, |b| {
-            b.hover(|s| s.bg(theme::red()).text_color(theme::fg()))
-                .active(|s| s.bg(theme::red_pressed()))
-        })
-        .when(!close, |b| {
-            b.hover(|s| s.bg(theme::muted()))
-                .active(|s| s.bg(theme::muted()))
-        })
-        .child(
-            svg()
-                .path(icon)
-                .size(px(10.))
-                .flex_none()
-                .text_color(theme::dim())
-                .group_hover(id, |s| s.text_color(theme::fg())),
-        );
+        .bg(hover.mix(theme::alpha(ground, 0.0), ground))
+        .on_hover(hover.handler())
+        .when(close, |b| b.active(|s| s.bg(theme::red_pressed())))
+        .child(svg().path(icon).size(px(10.)).flex_none().text_color(color));
     if cfg!(target_os = "windows") {
         // The system handles the click; nothing to do here.
         button.window_control_area(area)
@@ -133,7 +130,7 @@ fn button(
 }
 
 /// The bar. `window` says whether to show the maximize or the restore icon.
-pub fn titlebar(window: &Window) -> impl IntoElement {
+pub fn titlebar(window: &mut Window, cx: &mut App) -> impl IntoElement {
     let macos = cfg!(target_os = "macos");
     let maximized = window.is_maximized();
 
@@ -150,6 +147,8 @@ pub fn titlebar(window: &Window) -> impl IntoElement {
                 "wyck/win-min.svg",
                 false,
                 |window, _| window.minimize_window(),
+                window,
+                cx,
             ))
             .child(button(
                 "window-maximize",
@@ -161,6 +160,8 @@ pub fn titlebar(window: &Window) -> impl IntoElement {
                 },
                 false,
                 |window, _| window.zoom_window(),
+                window,
+                cx,
             ))
             .child(button(
                 "window-close",
@@ -168,6 +169,8 @@ pub fn titlebar(window: &Window) -> impl IntoElement {
                 "wyck/win-close.svg",
                 true,
                 |window, _| window.remove_window(),
+                window,
+                cx,
             ))
     });
 

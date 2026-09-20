@@ -9,6 +9,7 @@
 //! |---|---|
 //! | [`theme`] | The palette, the fonts, and the dark theme installed in GPUI |
 //! | [`assets`] | The icons and the Geist fonts, compiled into the binary |
+//! | [`motion`] | Durations, curves and directions: how screens change and controls react |
 //! | [`widgets`] | Small drawing helpers: card, buttons, rows, badges, spinner |
 //! | [`titlebar`] | The custom title bar and its window buttons |
 //! | [`app_view`] | The root view: title bar, banners, current screen, toasts |
@@ -25,6 +26,7 @@
 
 pub mod app_view;
 pub mod assets;
+pub mod motion;
 pub mod preview;
 pub mod screens;
 pub mod theme;

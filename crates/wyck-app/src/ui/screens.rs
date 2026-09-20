@@ -5,11 +5,20 @@
 //! the design's, except where the design showed sample data or a fact that is not true of the
 //! real servers: addresses, versions and accounts come from the engine, and the instructions
 //! name the real menu of cTrader Desktop and the real place of the Remote token.
+//!
+//! A screen does not animate itself in as a whole: [`AppView`] moves it in and out (see
+//! [`super::motion`]). What a screen does animate is what belongs to it: the pieces of its card
+//! (see [`card`]), its mark, its pointer reactions, and the token field's shake.
 
+use gpui_kit::base::{Presence, Transition, TransitionId};
 use gpui_kit::prelude::*;
-use gpui_kit::{Context, Div, FontWeight, SharedString, Stateful, Window, div, px};
+use gpui_kit::{
+    Animation, AnimationExt as _, AnyElement, Context, Div, ElementId, FontWeight, SharedString,
+    Stateful, Window, div, px,
+};
 
 use super::app_view::{AppView, LOCAL_HELP_URL, REMOTE_HELP_URL};
+use super::motion::{self, Hover};
 use super::theme;
 use super::widgets::{
     Glyph, back_button, badge, card, error_box, glyph, lead, mono, or_divider, panel,
@@ -37,18 +46,23 @@ fn stage() -> Stateful<Div> {
 }
 
 /// The Back link, wired to [`AppView::go_back`].
-fn back(cx: &mut Context<AppView>) -> Stateful<Div> {
-    back_button("back").on_click(cx.listener(|this, _, window, cx| this.go_back(window, cx)))
+fn back(window: &mut Window, cx: &mut Context<AppView>) -> Stateful<Div> {
+    back_button("back", window, cx)
+        .on_click(cx.listener(|this, _, window, cx| this.go_back(window, cx)))
 }
 
-/// One of the two big choices of the first screen.
+/// One of the two big choices of the first screen. Under the pointer its border and ground fade
+/// in and its chevron slides 3 px.
 fn choice(
     id: &'static str,
     icon: Glyph,
     name: &'static str,
     tag: Option<&'static str>,
     description: &'static str,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
 ) -> Stateful<Div> {
+    let hover = Hover::track(id, window, cx);
     div()
         .id(id)
         .flex()
@@ -59,16 +73,12 @@ fn choice(
         .py(px(16.))
         .pl(px(18.))
         .pr(px(16.))
-        .bg(theme::bg())
+        .bg(hover.mix(theme::bg(), theme::alpha(theme::fg(), 0.035)))
         .border_1()
-        .border_color(theme::border())
+        .border_color(hover.mix(theme::border(), theme::alpha(theme::fg(), 0.24)))
         .rounded(px(10.))
         .cursor_pointer()
-        .hover(|style| {
-            style
-                .border_color(theme::alpha(theme::fg(), 0.22))
-                .bg(theme::alpha(theme::fg(), 0.02))
-        })
+        .on_hover(hover.handler())
         .child(
             div()
                 .flex()
@@ -77,7 +87,7 @@ fn choice(
                 .flex_none()
                 .size(px(34.))
                 .rounded(px(8.))
-                .bg(theme::muted())
+                .bg(hover.mix(theme::muted(), theme::alpha(theme::fg(), 0.14)))
                 .child(glyph(icon, 16., theme::fg())),
         )
         .child(
@@ -109,7 +119,15 @@ fn choice(
                         .child(description),
                 ),
         )
-        .child(glyph(Glyph::ChevronRight, 15., theme::dim()))
+        .child(
+            glyph(
+                Glyph::ChevronRight,
+                15.,
+                hover.mix(theme::dim(), theme::fg()),
+            )
+            .relative()
+            .left(px(3.0 * hover.amount)),
+        )
 }
 
 /// What to say under the checklist of the "not found" screen: where nothing answered, or what
@@ -122,7 +140,28 @@ fn failure_text(failure: &Failure, endpoint: &str) -> String {
 }
 
 /// The first screen: local session or token.
-pub(super) fn choose(cx: &mut Context<AppView>) -> impl IntoElement {
+pub(super) fn choose(window: &mut Window, cx: &mut Context<AppView>) -> impl IntoElement {
+    let local = choice(
+        "choose-local",
+        Glyph::Monitor,
+        "Local session",
+        Some("Recommended"),
+        "Finds cTrader Desktop running on this machine. No token needed.",
+        window,
+        cx,
+    )
+    .mb(px(10.))
+    .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
+    let remote = choice(
+        "choose-remote",
+        Glyph::Cloud,
+        "Remote: use a token",
+        None,
+        "Paste a token from cTrader Web to control your account from another machine.",
+        window,
+        cx,
+    )
+    .on_click(cx.listener(|this, _, window, cx| this.open_token(window, cx)));
     stage().child(
         card(440.)
             .child(title("Connect to cTrader"))
@@ -130,40 +169,41 @@ pub(super) fn choose(cx: &mut Context<AppView>) -> impl IntoElement {
                 "Choose how Wyck talks to your cTrader account. You can switch at any time.",
                 360.,
             ))
-            .child(
-                choice(
-                    "choose-local",
-                    Glyph::Monitor,
-                    "Local session",
-                    Some("Recommended"),
-                    "Finds cTrader Desktop running on this machine. No token needed.",
-                )
-                .mb(px(10.))
-                .on_click(cx.listener(|this, _, _, cx| this.start_local(cx))),
-            )
-            .child(
-                choice(
-                    "choose-remote",
-                    Glyph::Cloud,
-                    "Remote: use a token",
-                    None,
-                    "Paste a token from cTrader Web to control your account from another machine.",
-                )
-                .on_click(cx.listener(|this, _, window, cx| this.open_token(window, cx))),
-            ),
+            .child(local)
+            .child(remote),
     )
 }
 
 /// "Use a token instead", under the local screens.
-fn token_instead(label: &'static str, cx: &mut Context<AppView>) -> Stateful<Div> {
-    text_link("token-instead", label, Some(Glyph::ChevronRight))
-        .mt(px(18.))
-        .on_click(cx.listener(|this, _, window, cx| this.open_token(window, cx)))
+fn token_instead(
+    label: &'static str,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> Stateful<Div> {
+    text_link(
+        "token-instead",
+        label,
+        Some(Glyph::ChevronRight),
+        window,
+        cx,
+    )
+    .mt(px(18.))
+    .on_click(cx.listener(|this, _, window, cx| this.open_token(window, cx)))
 }
 
 /// Looking for cTrader Desktop.
-pub(super) fn searching(endpoint: &str, cx: &mut Context<AppView>) -> impl IntoElement {
-    stage().child(back(cx)).child(
+pub(super) fn searching(
+    endpoint: &str,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> impl IntoElement {
+    let back = back(window, cx);
+    let instead = token_instead(
+        "Prefer to connect a different way? Use a token instead",
+        window,
+        cx,
+    );
+    stage().child(back).child(
         card(400.)
             .child(spinner(Glyph::Monitor, 38., true))
             .child(title("Looking for cTrader Desktop..."))
@@ -186,20 +226,36 @@ pub(super) fn searching(endpoint: &str, cx: &mut Context<AppView>) -> impl IntoE
                     ))
                     .child(progress_bar()),
             )
-            .child(token_instead("Prefer to connect a different way? Use a token instead", cx)),
+            .child(instead),
     )
 }
 
 /// cTrader Desktop answered.
-pub(super) fn local_found(session: &LocalSession, cx: &mut Context<AppView>) -> impl IntoElement {
+pub(super) fn local_found(
+    session: &LocalSession,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> impl IntoElement {
     let version = session.server_version.clone();
-    stage().child(back(cx)).child(
+    let back = back(window, cx);
+    let disc = status_disc(
+        Glyph::Check,
+        theme::green(),
+        theme::alpha(theme::green(), 0.14),
+        window,
+        cx,
+    );
+    let go = primary_button("continue", "Continue to Wyck", window, cx)
+        .mt(px(22.))
+        .on_click(cx.listener(|this, _, _, cx| this.continue_local(cx)));
+    let instead = token_instead(
+        "Prefer to connect a different way? Use a token instead",
+        window,
+        cx,
+    );
+    stage().child(back).child(
         card(400.)
-            .child(status_disc(
-                Glyph::Check,
-                theme::green(),
-                theme::alpha(theme::green(), 0.14),
-            ))
+            .child(disc)
             .child(title("cTrader Desktop detected"))
             .child(lead(
                 "Wyck found the local MCP server of cTrader Desktop on this machine. No further setup needed.",
@@ -213,7 +269,9 @@ pub(super) fn local_found(session: &LocalSession, cx: &mut Context<AppView>) -> 
                         mono(session.endpoint.clone()),
                         true,
                     ))
-                    .children(version.map(|v| row(Some(Glyph::AppWindow), "cTrader version", mono(v), true)))
+                    .children(version.map(|v| {
+                        row(Some(Glyph::AppWindow), "cTrader version", mono(v), true)
+                    }))
                     .child(row(
                         Some(Glyph::User),
                         "Account",
@@ -226,12 +284,8 @@ pub(super) fn local_found(session: &LocalSession, cx: &mut Context<AppView>) -> 
                         false,
                     )),
             )
-            .child(
-                primary_button("continue", "Continue to Wyck")
-                    .mt(px(22.))
-                    .on_click(cx.listener(|this, _, _, cx| this.continue_local(cx))),
-            )
-            .child(token_instead("Prefer to connect a different way? Use a token instead", cx)),
+            .child(go)
+            .child(instead),
     )
 }
 
@@ -239,6 +293,7 @@ pub(super) fn local_found(session: &LocalSession, cx: &mut Context<AppView>) -> 
 pub(super) fn local_not_found(
     failure: &Failure,
     endpoint: &str,
+    window: &mut Window,
     cx: &mut Context<AppView>,
 ) -> impl IntoElement {
     let address = endpoint_authority(endpoint).to_owned();
@@ -248,17 +303,35 @@ pub(super) fn local_not_found(
         format!("Nothing blocks {address}, the port set on that settings page").into(),
     ];
     let last = checks.len() - 1;
-    stage().child(back(cx)).child(
+    let back = back(window, cx);
+    let disc = status_disc(Glyph::CircleAlert, theme::fg(), theme::muted(), window, cx);
+    let retry = primary_button("retry-local", "Try again", window, cx)
+        .mt(px(22.))
+        .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
+    let help = text_link(
+        "local-help",
+        "How to enable the local MCP server",
+        Some(Glyph::ArrowUpRight),
+        window,
+        cx,
+    )
+    .mt(px(18.))
+    .on_click(cx.listener(|this, _, _, cx| this.open_url(LOCAL_HELP_URL, cx)));
+    let instead = token_instead("Or connect with a token instead", window, cx);
+    stage().child(back).child(
         card(400.)
-            .child(status_disc(Glyph::CircleAlert, theme::fg(), theme::muted()))
+            .child(disc)
             .child(title("Couldn't find cTrader Desktop"))
             .child(lead(
                 "Wyck didn't get an answer from a local session. Check the following, then try again.",
                 350.,
             ))
-            .child(panel().children(checks.into_iter().enumerate().map(|(i, text)| {
-                row(Some(Glyph::Circle), text, div(), i != last)
-            })))
+            .child(panel().children(
+                checks
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, text)| row(Some(Glyph::Circle), text, div(), i != last)),
+            ))
             .child(
                 div()
                     .w_full()
@@ -269,31 +342,58 @@ pub(super) fn local_not_found(
                     .text_color(theme::dim())
                     .child(failure_text(failure, endpoint)),
             )
-            .child(
-                primary_button("retry-local", "Try again")
-                    .mt(px(22.))
-                    .on_click(cx.listener(|this, _, _, cx| this.start_local(cx))),
-            )
-            .child(
-                text_link("local-help", "How to enable the local MCP server", Some(Glyph::ArrowUpRight))
-                    .mt(px(18.))
-                    .on_click(cx.listener(|this, _, _, cx| this.open_url(LOCAL_HELP_URL, cx))),
-            )
-            .child(token_instead("Or connect with a token instead", cx)),
+            .child(retry)
+            .child(help)
+            .child(instead),
     )
 }
 
+/// Wraps the token field so that it shakes when `generation` changes to a new non-zero value: a
+/// short, damped side to side that says "no" (see [`motion::shake`]). With generation 0 nothing
+/// has gone wrong yet and there is no wrapper.
+fn shaken(field: impl IntoElement, generation: u32) -> AnyElement {
+    if generation == 0 {
+        return field.into_any_element();
+    }
+    div()
+        .relative()
+        .w_full()
+        .child(field)
+        .with_animation(
+            ElementId::from(("shake", generation as usize)),
+            Animation::new(motion::SHAKE_TIME),
+            |el, t| el.left(px(motion::shake(t))),
+        )
+        .into_any_element()
+}
+
 /// The token form, fresh or after a failed attempt.
+///
+/// `live` is false for the copy of the screen that is on its way out: it draws the field without
+/// the input itself, so that there is only ever one text input on screen.
 pub(super) fn token(
     view: &mut AppView,
     refused: Option<&Failure>,
-    window: &Window,
+    live: bool,
+    window: &mut Window,
     cx: &mut Context<AppView>,
 ) -> impl IntoElement {
     let failed = refused.is_some() || view.token_error.is_some();
-    let field = view.token_field(failed, window, cx);
+    let field = view.token_field(failed, live, window, cx);
     let input_error = view.token_error;
+    let shake = view.shake;
 
+    let help = refused.is_none().then(|| {
+        text_link(
+            "token-help",
+            "Where do I find this?",
+            Some(Glyph::ArrowUpRight),
+            window,
+            cx,
+        )
+        .text_size(px(11.))
+        .on_click(cx.listener(|this, _, _, cx| this.open_url(REMOTE_HELP_URL, cx)))
+    });
     let label = div()
         .w_full()
         .mb(px(6.))
@@ -304,58 +404,59 @@ pub(super) fn token(
         .font_weight(FontWeight::MEDIUM)
         .text_color(theme::dim())
         .child("API token")
-        .when(refused.is_none(), |el| {
-            el.child(
-                text_link(
-                    "token-help",
-                    "Where do I find this?",
-                    Some(Glyph::ArrowUpRight),
-                )
-                .text_size(px(11.))
-                .on_click(cx.listener(|this, _, _, cx| this.open_url(REMOTE_HELP_URL, cx))),
-            )
-        });
+        .children(help);
+    // The message under the field fades in and settles 4 px, once per new error.
+    let message = input_error.map(|error| {
+        let progress = Presence::new(TransitionId::from((shake as usize, "token-error")), true)
+            .transition(Transition::new(motion::NORMAL).easing(motion::enter()))
+            .sample(window, cx)
+            .progress;
+        div()
+            .mt(px(6.))
+            .relative()
+            .top(px((1.0 - progress) * -4.0))
+            .opacity(progress)
+            .text_size(px(11.5))
+            .line_height(gpui_kit::relative(1.5))
+            .text_color(theme::red_text())
+            .child(error.to_string())
+    });
     let field = div()
         .w_full()
         .mb(px(8.))
         .child(label)
-        .child(field)
-        .children(input_error.map(|error| {
-            div()
-                .mt(px(6.))
-                .text_size(px(11.5))
-                .line_height(gpui_kit::relative(1.5))
-                .text_color(theme::red_text())
-                .child(error.to_string())
-        }));
+        .child(shaken(field, shake))
+        .children(message);
 
-    let connect = |label: &'static str, cx: &mut Context<AppView>| {
-        primary_button("connect-token", label)
-            .on_click(cx.listener(|this, _, window, cx| this.submit_token(window, cx)))
-    };
-
+    let back = back(window, cx);
     match refused {
-        None => stage().child(back(cx)).child(
-            card(420.)
-                .child(status_disc(Glyph::Cloud, theme::fg(), theme::muted()))
-                .child(title("Connect with a token"))
-                .child(lead(
-                    "Copy the token from cTrader Web (Settings > Remote MCP) to control your account from another machine. Each trading account has its own token.",
-                    340.,
-                ))
-                .child(field)
-                .child(connect("Connect", cx))
-                .child(or_divider())
-                .child(
-                    text_link(
-                        "local-instead",
-                        "Have cTrader Desktop open here instead? Auto-detect",
-                        Some(Glyph::ChevronRight),
-                    )
-                    .mt(px(14.))
-                    .on_click(cx.listener(|this, _, _, cx| this.start_local(cx))),
-                ),
-        ),
+        None => {
+            let disc = status_disc(Glyph::Cloud, theme::fg(), theme::muted(), window, cx);
+            let connect = primary_button("connect-token", "Connect", window, cx)
+                .on_click(cx.listener(|this, _, window, cx| this.submit_token(window, cx)));
+            let instead = text_link(
+                "local-instead",
+                "Have cTrader Desktop open here instead? Auto-detect",
+                Some(Glyph::ChevronRight),
+                window,
+                cx,
+            )
+            .mt(px(14.))
+            .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
+            stage().child(back).child(
+                card(420.)
+                    .child(disc)
+                    .child(title("Connect with a token"))
+                    .child(lead(
+                        "Copy the token from cTrader Web (Settings > Remote MCP) to control your account from another machine. Each trading account has its own token.",
+                        340.,
+                    ))
+                    .child(field)
+                    .child(connect)
+                    .child(or_divider())
+                    .child(instead),
+            )
+        }
         Some(failure) => {
             let (heading, text) = match failure.kind {
                 FailureKind::Refused => (
@@ -371,35 +472,46 @@ pub(super) fn token(
                     "Something went wrong while connecting. The details are below.",
                 ),
             };
-            stage().child(back(cx)).child(
+            let disc = status_disc(
+                Glyph::CircleX,
+                theme::red(),
+                theme::alpha(theme::red(), 0.12),
+                window,
+                cx,
+            );
+            let retry = primary_button("connect-token", "Try again", window, cx)
+                .on_click(cx.listener(|this, _, window, cx| this.submit_token(window, cx)));
+            let instead = text_link(
+                "local-instead",
+                "Use a local session instead",
+                Some(Glyph::ChevronRight),
+                window,
+                cx,
+            )
+            .mt(px(16.))
+            .on_click(cx.listener(|this, _, _, cx| this.start_local(cx)));
+            stage().child(back).child(
                 card(400.)
-                    .child(status_disc(
-                        Glyph::CircleX,
-                        theme::red(),
-                        theme::alpha(theme::red(), 0.12),
-                    ))
+                    .child(disc)
                     .child(title(heading))
                     .child(lead(text, 340.))
                     .child(error_box(failure.detail.clone()))
                     .child(field)
-                    .child(connect("Try again", cx))
-                    .child(
-                        text_link(
-                            "local-instead",
-                            "Use a local session instead",
-                            Some(Glyph::ChevronRight),
-                        )
-                        .mt(px(16.))
-                        .on_click(cx.listener(|this, _, _, cx| this.start_local(cx))),
-                    ),
+                    .child(retry)
+                    .child(instead),
             )
         }
     }
 }
 
 /// Checking a token.
-pub(super) fn verifying(hint: &str, cx: &mut Context<AppView>) -> impl IntoElement {
-    stage().child(back(cx)).child(
+pub(super) fn verifying(
+    hint: &str,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> impl IntoElement {
+    let back = back(window, cx);
+    stage().child(back).child(
         card(380.)
             .child(spinner(Glyph::Cloud, 34., false))
             .child(title("Verifying your token..."))
@@ -416,18 +528,28 @@ pub(super) fn verifying(hint: &str, cx: &mut Context<AppView>) -> impl IntoEleme
 }
 
 /// Connected. The trading screens are not built yet: this shows the account and the way back.
-pub(super) fn connected(view: &mut AppView, cx: &mut Context<AppView>) -> impl IntoElement {
+pub(super) fn connected(
+    view: &mut AppView,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> impl IntoElement {
     let state = view.shell.model.read(cx).state.clone();
     let head = header(&state);
     let figure =
         |label: &'static str, value: String, divider: bool| row(None, label, mono(value), divider);
+    let disc = status_disc(
+        Glyph::Check,
+        theme::green(),
+        theme::alpha(theme::green(), 0.14),
+        window,
+        cx,
+    );
+    let switch = secondary_button("switch-connection", "Switch connection", window, cx)
+        .mt(px(22.))
+        .on_click(cx.listener(|this, _, window, cx| this.switch_connection(window, cx)));
     stage().child(
         card(460.)
-            .child(status_disc(
-                Glyph::Check,
-                theme::green(),
-                theme::alpha(theme::green(), 0.14),
-            ))
+            .child(disc)
             .child(title("Connected"))
             .child(lead(
                 "The trading screens are not built yet. The account below is live, and the global shortcuts plan dry-run orders.",
@@ -435,12 +557,7 @@ pub(super) fn connected(view: &mut AppView, cx: &mut Context<AppView>) -> impl I
             ))
             .child(
                 panel()
-                    .child(row(
-                        None,
-                        "Server",
-                        mono(head.service.unwrap_or("-")),
-                        true,
-                    ))
+                    .child(row(None, "Server", mono(head.service.unwrap_or("-")), true))
                     .child(row(
                         None,
                         "Account",
@@ -448,7 +565,10 @@ pub(super) fn connected(view: &mut AppView, cx: &mut Context<AppView>) -> impl I
                             .flex()
                             .items_center()
                             .gap(px(8.))
-                            .child(mono(head.account_id.map_or_else(|| "-".to_owned(), |id| format!("#{id}"))))
+                            .child(mono(
+                                head.account_id
+                                    .map_or_else(|| "-".to_owned(), |id| format!("#{id}")),
+                            ))
                             .child(badge(&head.kind)),
                         true,
                     ))
@@ -457,10 +577,6 @@ pub(super) fn connected(view: &mut AppView, cx: &mut Context<AppView>) -> impl I
                     .child(figure("Balance", head.balance, true))
                     .child(figure("Equity", head.equity, false)),
             )
-            .child(
-                secondary_button("switch-connection", "Switch connection")
-                    .mt(px(22.))
-                    .on_click(cx.listener(|this, _, window, cx| this.switch_connection(window, cx))),
-            ),
+            .child(switch),
     )
 }

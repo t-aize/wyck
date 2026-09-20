@@ -125,6 +125,10 @@ fn start<V: Render + 'static>(
     // A trading screen is dark first. The fonts come before the theme that names them.
     assets::load_fonts(cx);
     theme::install(cx);
+    // The system's "animation effects" setting was read by `gpui_kit::init`; an explicit choice wins.
+    if let Some(reduce) = args.settings.reduce_motion {
+        cx.set_reduce_motion(reduce);
+    }
 
     let AppArgs {
         settings,
