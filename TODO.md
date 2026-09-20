@@ -280,8 +280,23 @@ work. It also showed two things the documentation did not say, both now fixed an
       for a while, and did so at our documented 5 per second. The client now keeps under the limits
       (40 and 4 per second), and resends a request refused for its rate after the wait the server
       asks for, up to three times (`rate_limit_retries`, `max_retry_wait`).
-- [ ] Find the real limit for tick requests: run the live test again and see whether the margin
-      and the retries are enough, or whether tick history needs its own, lower rate.
+- [x] Find the real limit for tick requests: not needed so far, the margin and the retries were
+      enough on the third run (see below). Keep an eye on it with a long history.
+
+#### Third live run: confirmed
+
+- [x] **Tick prices are right end to end**: bid 1.14585 to 1.14904 with the last at 1.14880, ask
+      1.14586 to 1.14904 (14 208 bid and 13 752 ask ticks over six hours), so the running sum of
+      prices and times is correct. The first bid and ask ticks of the range differ by one
+      unit and the ask sits one unit under the bid, which is a tick pair about 0.6 second apart,
+      not a decoding error.
+- [x] **The refusal did not come back.** With the margin (4 per second) and the retries, the
+      six hour bid and ask histories, a one hour pair and a day of M1 bars ran without a block.
+- [x] **Volume of the history**: 2 158 quotes in the last hour before the anchor, 1 400 M1 bars in
+      one request range of a day (a full trading day is about 1 380), so a day of M1 is not cut.
+- [ ] The live test now also prints the first and last bar and compares the high and low of each
+      minute with the bid ticks of that minute. Run it once more to see how many minutes match:
+      that settles the bar decoding (a low plus offsets) and which side the bars are built on.
 
 
 ---

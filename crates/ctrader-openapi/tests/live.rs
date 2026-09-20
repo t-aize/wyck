@@ -182,5 +182,58 @@ async fn read_a_demo_account_end_to_end() {
     .await
     .expect("bar history");
     println!("{} M1 bars in a day", bars.len());
+    if let (Some(first), Some(last)) = (bars.first(), bars.last()) {
+        println!(
+            "first bar {:?}
+last bar  {:?}",
+            (
+                first.time_ms,
+                to_price(first.open),
+                to_price(first.high),
+                to_price(first.low),
+                to_price(first.close),
+                first.volume
+            ),
+            (
+                last.time_ms,
+                to_price(last.open),
+                to_price(last.high),
+                to_price(last.low),
+                to_price(last.close),
+                last.volume
+            ),
+        );
+    }
+    // Cross check: the bars and the ticks are two views of the same prices, so the high and the
+    // low of a bar should be the highest and lowest bid tick of its minute (bars are built on the
+    // bid). A few differences at the edges are normal; a systematic one means a decoding mistake.
+    let ticks = fetch_ticks(
+        &client,
+        account_id,
+        symbol.symbol_id,
+        QuoteType::Bid,
+        now - 6 * hour,
+        now,
+    )
+    .await
+    .unwrap();
+    let (mut compared, mut matching) = (0, 0);
+    for bar in bars
+        .iter()
+        .filter(|b| b.time_ms >= now - 5 * hour && b.time_ms + 60_000 <= now)
+    {
+        let inside: Vec<i64> = ticks
+            .iter()
+            .filter(|t| t.time_ms >= bar.time_ms && t.time_ms < bar.time_ms + 60_000)
+            .map(|t| t.price)
+            .collect();
+        if let (Some(low), Some(high)) = (inside.iter().min(), inside.iter().max()) {
+            compared += 1;
+            if *low == bar.low && *high == bar.high {
+                matching += 1;
+            }
+        }
+    }
+    println!("bars against ticks: {matching} of {compared} minutes have the same high and low");
     client.close().await;
 }
