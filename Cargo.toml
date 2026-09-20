@@ -97,6 +97,8 @@ async-channel = "2.5.0"
 
 # Config/credentials file locations
 directories = "6.0.0"
+# The chart's on-disk bar cache: pure Rust, transactional, no C toolchain.
+redb = "4.3.0"
 
 # Structured error types (ctrader-mcp error classification)
 thiserror = "2.0.20"

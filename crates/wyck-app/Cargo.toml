@@ -30,6 +30,7 @@ tracing-appender = { workspace = true }
 secrecy = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
+redb = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }
 gpui-kit = { workspace = true, optional = true }
 async-channel = { workspace = true, optional = true }
