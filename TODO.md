@@ -352,9 +352,12 @@ egui, see the decision record:
       then connect. A first run without a profile is a banner, not a crash.
 - [ ] **Profile creation.** Profiles are made with `wyck-config` for now; the app has no screen
       for it.
-- [x] **Crash safety.** A panic hook that logs, and a session marker: the next start reports a
-      session that did not end cleanly. It does not record an armed engine or an `Unknown` order,
-      because the app cannot arm yet (6.1); add them with the arming flow.
+- [x] **Crash safety.** A session marker: the next start warns about a session that did not end
+      cleanly **only if it was at risk** (engine armed, an order in flight, or an order of unknown
+      outcome, see `session_marker::at_risk`). A dry-run session stopped from an editor or killed
+      is logged, not announced: the app cannot arm yet (6.1), so nothing could be in flight, and a
+      warning at every start would only teach the user to ignore it. A marker that cannot be read
+      is still reported.
 
 ---
 ## 5. P2: wyck-engine, what is left

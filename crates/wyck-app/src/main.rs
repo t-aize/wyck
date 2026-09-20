@@ -51,16 +51,24 @@ fn main() -> ExitCode {
     let marker = data_dir.as_ref().and_then(|dir| {
         match SessionMarker::begin(dir, now_millis(), std::process::id()) {
             Ok((marker, previous)) => {
-                if let Some(previous) = previous {
-                    tracing::warn!(?previous, "the previous session did not end cleanly");
-                    banners.push(Notice {
-                        level: Level::Warning,
-                        title: "The last session did not end cleanly".to_owned(),
-                        detail: Some("The application crashed or was killed. An order may have been in flight.".to_owned()),
-                        hint: Some("Check your positions and orders in the platform before trading."),
-                    });
+                match previous {
+                    // Ended badly with something at stake: the user must go and look.
+                    Some(previous) if previous.at_risk => {
+                        tracing::warn!(?previous, "the previous session did not end cleanly, and was at risk");
+                        banners.push(Notice {
+                            level: Level::Warning,
+                            title: "The last session did not end cleanly".to_owned(),
+                            detail: Some("The application crashed or was killed while orders could be in flight.".to_owned()),
+                            hint: Some("Check your positions and orders in the platform before trading."),
+                        });
+                    }
+                    // Stopped from an editor, killed, power cut: nothing was at stake, no alarm.
+                    Some(previous) => {
+                        tracing::info!(?previous, "the previous session was stopped without a clean exit, but nothing was at risk");
+                    }
+                    None => {}
                 }
-                Some(marker)
+                Some(Arc::new(marker))
             }
             Err(error) => {
                 tracing::warn!(%error, "crash detection is off");
@@ -105,6 +113,7 @@ fn main() -> ExitCode {
             controller,
             connection,
             banners,
+            session_marker: marker.clone(),
         },
         Hooks::default(),
         move |shell, connection, window, cx| {

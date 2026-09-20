@@ -159,13 +159,14 @@ Every module below `shell` is plain Rust, tested without a window.
 | `model` | The data the windows share: state, activity, notices, toasts, banners |
 | `messages` | Errors and outcomes to user-facing notices, in one place |
 | `hotkeys` | Global shortcuts: parsing, registration, key-repeat debouncing |
-| `logging`, `session_marker` | Log files, and detection of a session that did not end cleanly |
+| `logging`, `session_marker` | Log files, and detection of a session that ended badly while orders could be in flight |
 | `shell` (feature `gui`) | The GPUI window, engine plumbing, shortcuts |
 | `ui` (feature `gui`) | Drawing: theme, assets, motion, widgets, title bar, screens, the root view |
 
 Notices raised by the application (an order result, an account that could not be saved) show as
 toasts at the bottom right and expire by themselves, errors last longest. Problems that outlive a
-notice (a crashed previous session, a shortcut that could not be registered) show as banners under
+notice (a previous session that ended badly while orders could be in flight, a shortcut that could
+not be registered) show as banners under
 the title bar until dismissed.
 
 ## Without GPUI

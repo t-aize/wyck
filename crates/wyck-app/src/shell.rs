@@ -29,6 +29,7 @@ use crate::hotkeys::{Debounce, HotkeyAction, Hotkeys, forward_presses, parse_bin
 use crate::messages::Notice;
 use crate::model::AppModel;
 use crate::presentation::session_badge;
+use crate::session_marker::{SessionMarker, at_risk};
 use crate::settings::AppSettings;
 use crate::startup::StartupError;
 use crate::ui::{assets, theme, titlebar};
@@ -46,6 +47,9 @@ pub struct AppArgs {
     pub connection: Result<ConnectRequest, StartupError>,
     /// Notices that must stay visible from the start (a crashed previous session, say).
     pub banners: Vec<Notice>,
+    /// The marker of this session, told when the engine first becomes one whose sudden end
+    /// would matter (see [`crate::session_marker::at_risk`]).
+    pub session_marker: Option<Arc<SessionMarker>>,
 }
 
 /// A callback that gets the shell and the app context.
@@ -137,6 +141,7 @@ fn start<V: Render + 'static>(
         controller,
         connection,
         mut banners,
+        session_marker,
     } = args;
 
     let model = cx.new(|_| AppModel::new(controller.handle().state(), Vec::new()));
@@ -172,7 +177,7 @@ fn start<V: Render + 'static>(
     })
     .detach();
 
-    follow_engine(&shell, cx);
+    follow_engine(&shell, session_marker, cx);
     if let Some(hotkeys) = hotkeys {
         route_hotkeys(shell, hooks, hotkeys, cx);
     }
@@ -214,7 +219,7 @@ fn register_hotkeys(settings: &AppSettings, banners: &mut Vec<Notice>) -> Option
 }
 
 /// Mirrors the engine's state into the model, on every change.
-fn follow_engine(shell: &Shell, cx: &mut App) {
+fn follow_engine(shell: &Shell, marker: Option<Arc<SessionMarker>>, cx: &mut App) {
     let shell = shell.clone();
     let handle = shell.controller.handle();
     let mut states = handle.watch_state();
@@ -224,6 +229,15 @@ fn follow_engine(shell: &Shell, cx: &mut App) {
             // Clone out of the receiver before awaiting anything: never hold its lock across a suspension.
             let state = states.borrow_and_update().clone();
             let events = handle.recent_events();
+            if let Some(marker) = &marker
+                && !marker.is_at_risk()
+                && at_risk(&state)
+            {
+                tracing::info!(
+                    "the engine is now at risk: a sudden end will be reported next time"
+                );
+                marker.mark_at_risk();
+            }
             let session = session_badge(&state.session).text;
             if session != last_session {
                 tracing::info!(%session, "session changed");
