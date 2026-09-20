@@ -58,20 +58,42 @@ Seven screens make the connection flow, in `src/ui/screens.rs`, driven by `src/f
 | Verifying your token | While the token is checked |
 | That token didn't work | The token was refused, or the server could not be reached: says which |
 
-Once connected, the window lands on the **dashboard** (`src/ui/dashboard.rs`). For now it is its
-header and an empty chart area:
+Once connected, the window lands on the **dashboard** (`src/ui/dashboard.rs`): a header and the price
+chart. The header:
 
 - the traded symbol (tile, ticker, long name), its latest bid, an arrow for the direction of its
   last move (the figure takes the color of the move for a moment), and the spread in pips;
-- the time frame selector (1m, 5m, 15m, 1H, 4H, 1D), remembered for the chart to come;
+- the time frame selector (1m, 5m, 15m, 30m, 1H, 4H, 1D, 1W, 1M), which drives the chart;
 - the account kind (DEMO, LIVE or UNKNOWN ACCOUNT), the mode (DRY RUN or ARMED) and, when it is not
   ready, the session state;
 - the buttons: full screen and switch connection work; indicators and the full workspace layout are
   dimmed until they exist.
 
-All of it comes from the engine. There is no daily change next to the price yet, because the
-engine has no candles: a made-up number would be worse than none. The header data is computed in
-`src/dashboard.rs`, without a window.
+All of it comes from the engine. The header data is computed in `src/dashboard.rs`, without a
+window.
+
+**The chart** (`src/ui/chart.rs`, logic in `src/chart/`) draws candles from the engine and keeps them
+in a disk cache. It follows the traded symbol and the time frame, and the newest bar moves with the
+quotes.
+
+| Input | Effect |
+|---|---|
+| Wheel | Zoom in time around the pointer |
+| Shift + wheel, sideways wheel | Scroll in time |
+| Ctrl + wheel | Zoom the price range |
+| Wheel or drag on the price axis | Zoom the price range |
+| Drag on the plot | Scroll (and move the price range once the drag goes vertical) |
+| Drag on the time axis | Stretch or squash the bars |
+| Double click on the price axis | Automatic price range again |
+| Double click on the time axis | Default zoom, newest bars |
+| Left, Right, +, -, End, Home | Scroll, zoom, jump to the newest bar, reset |
+| Auto button | Freeze the price range, or fit it to the bars on screen again |
+| Log button | Logarithmic price axis |
+
+The crosshair shows the price and the time of the bar under it, and the legend the figures of that
+bar (the newest one without a crosshair). "Latest" brings the newest bars back after scrolling
+away. The bars are kept in `<data dir>/cache/candles.redb`; deleting the file only costs a
+download.
 
 Escape and the Back link go back one step. Going back during a search or a check cancels it: a
 session that opens after that is dropped, so leaving never leaves a hidden connection.

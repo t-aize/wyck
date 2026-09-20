@@ -66,6 +66,8 @@ pub fn local_iso8601_to_epoch_millis(iso: &str) -> Result<i64, TimeError> {
 ///
 /// `references/remote-http-server.md` "Time encoding on Remote" documents that
 /// `fromTimestamp`/`toTimestamp` on history-window endpoints accept **either** form,
+/// (checked against a live server in 2026-09: `get_trendbars` now wants the ISO string and
+/// rejects a number, so its DTO writes ISO),
 /// while `expirationTimestamp` on `create_order`/`amend_order` accepts **only** the
 /// integer-epoch-milliseconds form (`Q-R2`: an ISO string there is rejected by Zod
 /// validation). Modeling both shapes as one `#[serde(untagged)]` enum lets a single DTO

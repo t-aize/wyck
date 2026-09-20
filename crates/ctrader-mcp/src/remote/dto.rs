@@ -201,13 +201,39 @@ pub struct GetTrendbarsParams {
     #[serde(rename = "symbolId")]
     pub symbol_id: i64,
     pub period: crate::common::Period,
-    /// Accepts either epoch milliseconds or an ISO 8601 string on this endpoint.
-    #[serde(rename = "fromTimestamp", skip_serializing_if = "Option::is_none")]
+    /// Sent as an ISO 8601 string: checked against a live server (2026-09), `get_trendbars` now
+    /// rejects epoch milliseconds here (`expected string, received number`), although older
+    /// builds took either.
+    #[serde(
+        rename = "fromTimestamp",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_iso"
+    )]
     pub from_timestamp: Option<RemoteTimestamp>,
-    #[serde(rename = "toTimestamp", skip_serializing_if = "Option::is_none")]
+    /// See `from_timestamp`.
+    #[serde(
+        rename = "toTimestamp",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_iso"
+    )]
     pub to_timestamp: Option<RemoteTimestamp>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
+}
+
+/// Writes a timestamp as an ISO 8601 string with a `Z` suffix.
+fn serialize_iso<S: serde::Serializer>(
+    value: &Option<RemoteTimestamp>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match value {
+        Some(timestamp) => {
+            let iso = crate::time::epoch_millis_to_local_iso8601_z(timestamp.as_epoch_millis())
+                .map_err(serde::ser::Error::custom)?;
+            serializer.serialize_str(&iso)
+        }
+        None => serializer.serialize_none(),
+    }
 }
 
 /// One bar from `get_trendbars`. Price fields are raw pipettes (`Q-K19`).
@@ -914,5 +940,25 @@ mod tests {
         let value = serde_json::to_value(&limit).unwrap();
         assert_eq!(value["limitPrice"], 1.08);
         assert_eq!(value["stopLoss"], 1.07);
+    }
+}
+
+#[cfg(test)]
+mod trendbar_params_tests {
+    use super::*;
+    use crate::common::Period;
+
+    #[test]
+    fn trendbar_bounds_are_sent_as_iso_strings() {
+        let params = GetTrendbarsParams {
+            symbol_id: 1,
+            period: Period::H1,
+            from_timestamp: Some(RemoteTimestamp::epoch_millis(1_767_225_600_000)),
+            to_timestamp: Some(RemoteTimestamp::epoch_millis(1_769_904_000_000)),
+            count: None,
+        };
+        let json = serde_json::to_value(&params).unwrap();
+        assert_eq!(json["fromTimestamp"], "2026-01-01T00:00:00Z");
+        assert_eq!(json["toTimestamp"], "2026-02-01T00:00:00Z");
     }
 }

@@ -139,6 +139,34 @@ behind the `gui` feature, so `--no-default-features` builds the layer with no wi
 It depends on `wyck-engine`, `wyck-config` and `gpui-kit`, and never on `ctrader-mcp` or
 `wyck-calendar` directly. It talks to the engine only through `EngineHandle`.
 
+#### The price chart
+
+The chart is `wyck-app`'s biggest feature. Its logic is in `src/chart/`, plain Rust tested without a
+window (about 110 tests); `src/ui/chart.rs` only draws it with GPUI's low level painting.
+
+| Module | Role |
+|---|---|
+| `series` | Bars of one symbol and period: merge, the live bar, the memory cap |
+| `viewport` | Zoom (bar spacing) and pan (right offset), measured from the right edge |
+| `scale` | The price range: auto or manual, linear or logarithmic, round grid steps |
+| `timeaxis` | Time labels with day, month and year boundaries, stable while dragging |
+| `lod` | Candles, lines or one column per pixel by zoom, snapped to whole pixels |
+| `interaction` | `ChartModel`: what each wheel turn, drag, double click and key does |
+| `coverage`, `history` | Which time ranges were fetched; what to ask the server for next |
+| `store` | The bars on disk, in one redb file (`<data dir>/cache/candles.redb`) |
+
+- **Data**: `Broker::bars` and `EngineHandle::candles` return bars for a span. Remote pages through
+  `backfill_trendbars` (the server caps a call at 720 hours, for every period, and wants ISO 8601
+  times), Local in windows of 1000 bars. Each time frame is fetched natively, never rebuilt from
+  smaller ones, so the broker's own session and time zone cuts are kept.
+- **Cache**: memory for what is drawn, redb for what was downloaded. Only closed bars are stored
+  (the forming one is fetched again), and a coverage list records the ranges already asked for, so
+  a weekend is never requested twice. The second launch draws at once and fetches only the tail.
+- **Live**: the engine polls quotes once a second, so the bid is folded into the newest bar, and every
+  15 seconds the tail is fetched again so the server's own bar replaces the one built from quotes.
+- **Pages**: a request spans at most about six 720-hour windows, so weekly and monthly pages are
+  short, and a scroll loads as many pages as the screen needs.
+
 ## The broker port
 
 `Broker` is one trait behind `dyn`, implemented by the Remote adapter, the Local adapter and

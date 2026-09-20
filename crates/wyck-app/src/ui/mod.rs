@@ -28,6 +28,7 @@
 
 pub mod app_view;
 pub mod assets;
+pub mod chart;
 pub mod dashboard;
 pub mod motion;
 pub mod preview;

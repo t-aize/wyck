@@ -1,6 +1,6 @@
 //! The dashboard: the screen the application lands on once it is connected.
 //!
-//! For now it is the header and an empty chart area. The header follows the design: the traded
+//! The header on top and the price chart under it. The header follows the design: the traded
 //! symbol with its tile and name, its price, the time frame selector, and the controls on the
 //! right. Where the design showed sample values, this shows the engine's:
 //!
@@ -23,8 +23,10 @@ use gpui_kit::{
     Stateful, Window, div,
 };
 use wyck_engine::SessionState;
+use wyck_engine::broker::ServiceKind;
 
 use super::app_view::AppView;
+use super::chart::Target;
 use super::motion::{self, Hover, blend};
 use super::theme::{self, sz};
 use super::widgets::{Glyph, badge, glyph, icon_button_sized, rise, symbol_icon, tip};
@@ -49,6 +51,21 @@ pub(super) fn dashboard(
     let ready = matches!(state.session, SessionState::Ready);
 
     let bar = header(view, &symbol, &info, ready, window, cx);
+    let namespace = match state.service {
+        Some(ServiceKind::CtraderLocal) => "local",
+        _ => "remote",
+    };
+    view.chart.update(cx, |chart, cx| {
+        chart.retarget(
+            Target {
+                symbol: active.clone(),
+                timeframe: view.timeframe,
+                namespace,
+                ready,
+            },
+            cx,
+        );
+    });
     div()
         .absolute()
         .top_0()
@@ -57,19 +74,7 @@ pub(super) fn dashboard(
         .flex()
         .flex_col()
         .child(rise(0, bar.into_any_element(), window, cx))
-        .child(chart_area())
-}
-
-/// Where the chart will be.
-fn chart_area() -> Div {
-    div()
-        .flex_1()
-        .flex()
-        .items_center()
-        .justify_center()
-        .text_size(sz(13.))
-        .text_color(theme::dim())
-        .child("The chart is not built yet.")
+        .child(view.chart.clone())
 }
 
 /// The header bar: symbol, price, time frames, then status and controls.

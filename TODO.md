@@ -308,8 +308,9 @@ egui, see the decision record:
       activation (#62404).
 - [ ] **Tables.** A few hundred rows in the `gpui-component` data table, virtualized and
       keyboard navigable.
-- [ ] **Charts.** A simple candlestick chart with pan and zoom, and an estimate of the cost of
-      doing it properly.
+- [x] **Charts.** A candlestick chart with pan, zoom, crosshair, auto and log scale, live bar and a disk
+      cache is built on GPUI canvas painting (see `docs/ARCHITECTURE.md`). Still to do: indicators,
+      drawing tools, chart types, several charts.
 - [ ] **Testing.** Whether GPUI's test support helps beyond the view-model tests that already
       run without a window.
 - [ ] **Packaging.** Installer, code signing, auto-update and binary size (also 6.5).
@@ -476,9 +477,8 @@ The API already carries `AccountId` on every command and event.
 - [ ] Order history and deals (Remote `get_order_history`, `get_deals`; Local equivalents), for a
       journal and for realized P&L today and this week.
 - [ ] Symbol sessions (`get_symbol_sessions`, Local) to know when a market is open.
-- [ ] Trendbars for a small chart or ATR (Remote and Local `get_trendbars`; the crate has window
-      helpers that respect the servers' limits: `remote_history_windows`, `local_trendbar_windows`,
-      `backfill_trendbars`).
+- [x] Trendbars: `Broker::bars` and `EngineHandle::candles` (Remote and Local `get_trendbars`), used by
+      the chart. Still open: an ATR from them, and a pruning setting for the disk cache.
 - [ ] Quote stream instead of polling every second: check whether either server can push. Today
       `refresh_quotes` polls the watched symbols and open-position symbols.
 - [ ] Realized P&L, daily statistics, equity curve snapshots.

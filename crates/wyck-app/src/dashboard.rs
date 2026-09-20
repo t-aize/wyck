@@ -7,16 +7,18 @@
 //! number. The daily change of the price is not here because the engine does not have it yet: it
 //! needs candles.
 //!
-//! [`Timeframe`] is the chart's time frame selector. The chart itself is not built yet, so the
-//! choice is only remembered.
+//! [`Timeframe`] is the chart's time frame selector, and knows the [`Period`] each one asks the
+//! servers for.
 
 use wyck_engine::EngineState;
-use wyck_engine::domain::SymbolInfo;
+use wyck_engine::domain::{Period, SymbolInfo};
 
 use crate::presentation::quote_line;
 use crate::symbols::{SymbolIcon, classify, icon_for};
 
-/// The time frame of the chart.
+/// The time frame of the chart. Each one is a period the servers serve natively, so its bars come
+/// from the server as the broker cuts them (sessions and time zones included) and are never
+/// rebuilt from smaller ones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Timeframe {
     /// One minute.
@@ -25,6 +27,8 @@ pub enum Timeframe {
     M5,
     /// Fifteen minutes.
     M15,
+    /// Thirty minutes.
+    M30,
     /// One hour.
     #[default]
     H1,
@@ -32,11 +36,25 @@ pub enum Timeframe {
     H4,
     /// One day.
     D1,
+    /// One week.
+    W1,
+    /// One month.
+    MN1,
 }
 
 impl Timeframe {
     /// Every time frame, shortest first, in the order the selector shows them.
-    pub const ALL: [Self; 6] = [Self::M1, Self::M5, Self::M15, Self::H1, Self::H4, Self::D1];
+    pub const ALL: [Self; 9] = [
+        Self::M1,
+        Self::M5,
+        Self::M15,
+        Self::M30,
+        Self::H1,
+        Self::H4,
+        Self::D1,
+        Self::W1,
+        Self::MN1,
+    ];
 
     /// The label on the selector.
     #[must_use]
@@ -45,9 +63,28 @@ impl Timeframe {
             Self::M1 => "1m",
             Self::M5 => "5m",
             Self::M15 => "15m",
+            Self::M30 => "30m",
             Self::H1 => "1H",
             Self::H4 => "4H",
             Self::D1 => "1D",
+            Self::W1 => "1W",
+            Self::MN1 => "1M",
+        }
+    }
+
+    /// The period the servers know it by.
+    #[must_use]
+    pub fn period(self) -> Period {
+        match self {
+            Self::M1 => Period::M1,
+            Self::M5 => Period::M5,
+            Self::M15 => Period::M15,
+            Self::M30 => Period::M30,
+            Self::H1 => Period::H1,
+            Self::H4 => Period::H4,
+            Self::D1 => Period::D1,
+            Self::W1 => Period::W1,
+            Self::MN1 => Period::MN1,
         }
     }
 }
@@ -255,7 +292,10 @@ mod tests {
     fn the_default_time_frame_is_one_hour_and_all_are_listed_shortest_first() {
         assert_eq!(Timeframe::default(), Timeframe::H1);
         let labels: Vec<_> = Timeframe::ALL.iter().map(|t| t.label()).collect();
-        assert_eq!(labels, ["1m", "5m", "15m", "1H", "4H", "1D"]);
+        assert_eq!(
+            labels,
+            ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
+        );
         assert!(Timeframe::ALL.contains(&Timeframe::default()));
     }
 

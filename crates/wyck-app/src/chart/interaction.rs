@@ -31,6 +31,8 @@
 //! | time axis | drag | stretch or squash the bars |
 //! | price axis | double click | back to the automatic price range |
 //! | time axis, plot corner | double click | back to the newest bars |
+//! | Auto button | click | freeze the price range where it is, or fit it to the bars again |
+//! | Log button | click | logarithmic price axis instead of linear |
 //!
 //! Anything that moves the price range by hand switches the scale to manual (see
 //! [`scale`](super::scale)); the double click on the price axis switches it back.
@@ -208,7 +210,11 @@ impl ChartModel {
         self.period = period;
         self.digits = digits;
         self.viewport = Viewport::new(self.plot_width());
-        self.scale = PriceScale::default();
+        // The axis type is a preference of the user, not of the symbol: it survives.
+        self.scale = PriceScale {
+            log: self.scale.log,
+            ..PriceScale::default()
+        };
         self.drag = None;
     }
 
@@ -455,6 +461,35 @@ impl ChartModel {
     #[must_use]
     pub fn is_auto(&self) -> bool {
         self.scale.mode == ScaleMode::Auto
+    }
+
+    /// The "auto" button: switches between a price range that fits the bars on screen and one
+    /// frozen where it is. Returns whether anything changed.
+    pub fn toggle_auto(&mut self) -> bool {
+        if self.is_auto() {
+            self.scale.mode = ScaleMode::Manual;
+        } else {
+            self.scale.reset_auto();
+            self.refit();
+        }
+        true
+    }
+
+    /// The "log" button: switches between a linear and a logarithmic price axis. Turning it on is
+    /// refused, and `false` returned, when the range reaches zero or below.
+    pub fn toggle_log(&mut self) -> bool {
+        let on = !self.scale.log;
+        if !self.scale.set_log(on) {
+            return false;
+        }
+        self.refit();
+        true
+    }
+
+    /// Whether the price axis is logarithmic.
+    #[must_use]
+    pub fn is_log(&self) -> bool {
+        self.scale.log
     }
 }
 
@@ -721,5 +756,67 @@ mod tests {
         assert_eq!((m.period, m.digits), (Period::H1, 3));
         assert!(m.is_auto());
         assert_eq!(m.viewport.bar_spacing, 8.0);
+    }
+}
+
+#[cfg(test)]
+mod scale_button_tests {
+    use super::*;
+    use wyck_engine::domain::{Candle, Period};
+
+    fn model() -> ChartModel {
+        let mut m = ChartModel::new(Period::M1, 60.0, 24.0);
+        m.set_size(860.0, 424.0, 60.0, 24.0);
+        m.merge((0..100).map(|i| {
+            let p = 100.0 + i as f64;
+            Candle {
+                time: i * 60_000,
+                open: p,
+                high: p + 2.0,
+                low: p - 2.0,
+                close: p + 1.0,
+                volume: 1.0,
+            }
+        }));
+        m
+    }
+
+    #[test]
+    fn auto_freezes_the_range_and_a_second_press_fits_it_again() {
+        let mut m = model();
+        assert!(m.is_auto());
+        let frozen = (m.scale.low, m.scale.high);
+        m.toggle_auto();
+        assert!(!m.is_auto());
+        m.key(ChartKey::Left);
+        assert_eq!((m.scale.low, m.scale.high), frozen, "the range stayed put");
+        m.toggle_auto();
+        assert!(m.is_auto());
+        assert_ne!(
+            (m.scale.low, m.scale.high),
+            frozen,
+            "refitted to the new view"
+        );
+    }
+
+    #[test]
+    fn log_switches_the_axis_and_survives_a_new_symbol() {
+        let mut m = model();
+        assert!(!m.is_log());
+        assert!(m.toggle_log());
+        assert!(m.is_log() && m.scale.is_log());
+        m.clear(Period::H1, 5);
+        assert!(m.is_log(), "the axis type is the user's choice");
+        assert!(m.toggle_log());
+        assert!(!m.is_log());
+    }
+
+    #[test]
+    fn log_is_refused_while_the_range_reaches_zero() {
+        let mut m = ChartModel::new(Period::M1, 60.0, 24.0);
+        m.set_size(860.0, 424.0, 60.0, 24.0);
+        // An empty chart has the default 0 to 1 range.
+        assert!(!m.toggle_log());
+        assert!(!m.is_log());
     }
 }

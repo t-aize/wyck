@@ -512,6 +512,11 @@ impl AppView {
                 self.open_picker(window, cx);
                 return true;
             }
+            if matches!(self.flow.screen(), Screen::Dashboard) {
+                return self
+                    .chart
+                    .update(cx, |chart, cx| chart.on_keystroke(keystroke, cx));
+            }
             return false;
         }
         let control = modifiers.control;

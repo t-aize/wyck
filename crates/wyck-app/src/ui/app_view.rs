@@ -28,6 +28,7 @@ use secrecy::SecretString;
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
 use wyck_engine::domain::now_millis;
 
+use super::chart::ChartView;
 use super::dashboard;
 use super::motion::{self, Direction};
 use super::screens;
@@ -86,6 +87,8 @@ pub struct AppView {
     pub(super) tick_dir: Option<Tick>,
     /// Counts the moves of the price: each new value plays the colored flash once.
     pub(super) tick: u32,
+    /// The price chart on the dashboard.
+    pub(super) chart: Entity<ChartView>,
     /// The open symbol picker, if any.
     pub(super) picker: Option<Picker>,
     /// The symbols the account offers, once read. Cleared with the connection.
@@ -130,6 +133,7 @@ impl AppView {
         ];
 
         let focus = cx.focus_handle();
+        let chart = cx.new(|cx| ChartView::new(shell.clone(), cx));
         let mut view = Self {
             shell,
             flow: ConnectFlow::new(),
@@ -147,6 +151,7 @@ impl AppView {
             last_bid: None,
             tick_dir: None,
             tick: 0,
+            chart,
             picker: None,
             catalog: None,
             picker_opens: 0,
@@ -335,6 +340,23 @@ impl AppView {
         }
     }
 
+    /// Hands the traded symbol's latest quote to the chart, which folds it into the newest bar.
+    fn feed_chart(&mut self, cx: &mut Context<Self>) {
+        let quote = self
+            .shell
+            .model
+            .read(cx)
+            .state
+            .quotes
+            .get(&self.shell.controller.symbol())
+            .cloned();
+        if let Some(quote) = quote {
+            self.chart.update(cx, |chart, cx| {
+                chart.on_price(quote.bid, quote.timestamp, cx)
+            });
+        }
+    }
+
     /// Notes which way the traded symbol's price just moved.
     fn track_tick(&mut self, cx: &mut Context<Self>) {
         let bid = self
@@ -493,6 +515,7 @@ impl AppView {
 
     fn model_changed(&mut self, cx: &mut Context<Self>) {
         self.track_tick(cx);
+        self.feed_chart(cx);
         cx.notify();
         if self.toast_timer.is_some() || self.shell.model.read(cx).toasts.is_empty() {
             return;

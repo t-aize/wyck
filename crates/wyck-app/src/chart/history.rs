@@ -7,7 +7,8 @@
 //!
 //! # Pages
 //!
-//! Requests are made a page at a time, [`PAGE_BARS`] bars of the period wide. A page is small
+//! Requests are made a page at a time, [`page_bars`] bars of the period wide (at most
+//! [`PAGE_BARS`]). A page is small
 //! enough to answer within the engine's request timeout on both servers (Local caps a call at
 //! 1000 bars, Remote a window at 720 hours) and big enough that a few pages fill a screen at any
 //! zoom. Two kinds of span come up:
@@ -33,6 +34,16 @@ use super::series::period_millis;
 /// How many bars one request covers, at most.
 pub const PAGE_BARS: i64 = 1000;
 
+/// Six 720-hour windows, in milliseconds.
+const SIX_WINDOWS_MS: i64 = 6 * 720 * 3_600_000;
+
+/// The fewest bars a page holds, however long the period.
+const MIN_PAGE_BARS: i64 = 12;
+
+/// Nothing is asked for before this date: no symbol has history that old, and the server
+/// refuses a negative time.
+pub const EARLIEST: UnixMillis = 946_684_800_000;
+
 /// How many pages the tail may span. A cache older than this is not caught up in one go: the
 /// missing middle stays uncovered and is fetched if the user scrolls back to it.
 pub const MAX_TAIL_PAGES: i64 = 3;
@@ -44,10 +55,19 @@ pub fn unit_millis(period: Period) -> i64 {
     period_millis(period).unwrap_or(30 * 24 * 3_600_000)
 }
 
+/// How many bars one request covers for `period`. A page is kept to about six 720-hour windows,
+/// which is what the server allows a call to span and what fits the engine's request timeout at its
+/// rate limit, so a weekly or monthly page is short.
+#[must_use]
+pub fn page_bars(period: Period) -> i64 {
+    let budget = SIX_WINDOWS_MS / unit_millis(period);
+    budget.clamp(MIN_PAGE_BARS, PAGE_BARS)
+}
+
 /// The width of one request.
 #[must_use]
 pub fn page_millis(period: Period) -> i64 {
-    PAGE_BARS * unit_millis(period)
+    page_bars(period) * unit_millis(period)
 }
 
 /// The span to fetch to bring a series up to date at `now`: from the end of what is covered (or
@@ -58,17 +78,17 @@ pub fn page_millis(period: Period) -> i64 {
 pub fn tail_span(coverage: &Coverage, now: UnixMillis, period: Period) -> Span {
     let page = page_millis(period);
     let to = now + unit_millis(period);
-    let floor = to - MAX_TAIL_PAGES * page;
+    let floor = (to - MAX_TAIL_PAGES * page).max(EARLIEST);
     let from = coverage
         .latest()
-        .map_or(to - page, |latest| latest.max(floor));
+        .map_or((to - page).max(EARLIEST), |latest| latest.max(floor));
     (from, to)
 }
 
 /// The span of the page just before `before` (the open of the oldest bar loaded).
 #[must_use]
 pub fn older_span(before: UnixMillis, period: Period) -> Span {
-    (before - page_millis(period), before)
+    ((before - page_millis(period)).max(EARLIEST), before)
 }
 
 /// What to record as fetched after `span` was answered with `bars`. See the module docs.
@@ -157,9 +177,29 @@ mod tests {
 
     #[test]
     fn the_older_page_ends_where_the_data_starts() {
-        let (from, to) = older_span(500 * H, Period::H1);
-        assert_eq!(to, 500 * H);
+        let before = EARLIEST + 5000 * H;
+        let (from, to) = older_span(before, Period::H1);
+        assert_eq!(to, before);
         assert_eq!(to - from, PAGE_BARS * H);
+    }
+
+    #[test]
+    fn long_periods_get_short_pages_and_short_ones_the_full_page() {
+        assert_eq!(page_bars(Period::M1), PAGE_BARS);
+        assert_eq!(page_bars(Period::H1), PAGE_BARS);
+        assert!(page_bars(Period::D1) < PAGE_BARS);
+        assert!(page_bars(Period::W1) < page_bars(Period::D1));
+        assert_eq!(page_bars(Period::MN1), 12);
+    }
+
+    #[test]
+    fn no_span_starts_before_the_earliest_date() {
+        // A month page from a fresh series must not reach back before 1970 or 2000.
+        let (from, _) = tail_span(&Coverage::new(), NOW, Period::MN1);
+        assert!(from >= EARLIEST);
+        let (from, to) = older_span(EARLIEST + H, Period::H1);
+        assert_eq!(from, EARLIEST);
+        assert!(to > from);
     }
 
     #[test]
