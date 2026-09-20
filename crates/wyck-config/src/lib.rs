@@ -195,6 +195,20 @@ impl WyckConfig {
         self.app_config.active_profile = id;
         self.app_config.save(&self.paths)
     }
+
+    /// The symbol the user was last on, if one was remembered.
+    pub fn last_symbol(&self) -> Option<&str> {
+        self.app_config.last_symbol.as_deref()
+    }
+
+    /// Remembers (or with `None` forgets) the symbol the user is on, and persists the change. A
+    /// blank name forgets it.
+    pub fn set_last_symbol(&mut self, symbol: Option<String>) -> Result<()> {
+        self.app_config.last_symbol = symbol
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
+        self.app_config.save(&self.paths)
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +223,30 @@ mod tests {
             SecretString::from("test-passphrase".to_owned()),
         ));
         WyckConfig::load(paths, secrets).unwrap()
+    }
+
+    #[test]
+    fn the_last_symbol_survives_a_restart_and_a_config_without_one_still_loads() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut config = config_in(temp_dir.path());
+        assert_eq!(config.last_symbol(), None, "a first run remembers nothing");
+
+        config
+            .set_last_symbol(Some("  XAUUSD ".to_owned()))
+            .unwrap();
+        assert_eq!(config.last_symbol(), Some("XAUUSD"));
+        drop(config);
+        let mut again = config_in(temp_dir.path());
+        assert_eq!(again.last_symbol(), Some("XAUUSD"));
+
+        again.set_last_symbol(Some("   ".to_owned())).unwrap();
+        assert_eq!(again.last_symbol(), None, "a blank name forgets it");
+        assert!(
+            !std::fs::read_to_string(AppPaths::at(temp_dir.path()).config_file())
+                .unwrap()
+                .contains("last_symbol"),
+            "nothing is written for a forgotten symbol"
+        );
     }
 
     #[test]

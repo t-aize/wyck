@@ -37,7 +37,8 @@ pub use remote::RemoteBroker;
 
 use crate::config::AssumedSpecs;
 use crate::domain::{
-    AccountSnapshot, Instrument, PendingOrder, Position, Quote, Side, UnixMillis, Volume,
+    AccountSnapshot, Instrument, PendingOrder, Position, Quote, Side, SymbolInfo, UnixMillis,
+    Volume,
 };
 use crate::error::{EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -231,6 +232,18 @@ pub trait Broker: Send + Sync + 'static {
 
     /// Every symbol name this session can trade. Cheap: names only.
     async fn symbols(&self) -> Result<Vec<String>>;
+
+    /// Every symbol this session can trade, with what the broker says about each: description,
+    /// asset class, category, currencies. One call, no per-symbol details. The default knows
+    /// names only.
+    async fn catalog(&self) -> Result<Vec<SymbolInfo>> {
+        Ok(self
+            .symbols()
+            .await?
+            .into_iter()
+            .map(SymbolInfo::named)
+            .collect())
+    }
 
     /// Full details for one symbol. Remote answers from its session cache; Local fetches
     /// on first use and caches, since listing details for every symbol would cost one call

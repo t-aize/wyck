@@ -4,6 +4,42 @@ use serde::{Deserialize, Serialize};
 
 use super::volume::Volume;
 
+/// One entry of the list of symbols an account can trade: what a picker shows before the details of a
+/// symbol are loaded. Cheap to build for every symbol, unlike an [`Instrument`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SymbolInfo {
+    /// The ticker, as the broker names it.
+    pub symbol: String,
+    /// The long name (`Euro vs US Dollar`), when the broker gives one.
+    pub description: Option<String>,
+    /// The asset class the broker files it under (`Forex`, `Indices`, `US Shares`), when it says.
+    pub asset_class: Option<String>,
+    /// A finer category (a country for shares), when the broker says.
+    pub category: Option<String>,
+    /// Base currency or asset, when known.
+    pub base_currency: Option<String>,
+    /// Quote currency, when known.
+    pub quote_currency: Option<String>,
+    /// Whether the broker currently allows trading it.
+    pub enabled: bool,
+}
+
+impl SymbolInfo {
+    /// An entry that knows nothing but the ticker.
+    #[must_use]
+    pub fn named(symbol: impl Into<String>) -> Self {
+        Self {
+            symbol: symbol.into(),
+            description: None,
+            asset_class: None,
+            category: None,
+            base_currency: None,
+            quote_currency: None,
+            enabled: true,
+        }
+    }
+}
+
 /// Where an instrument's volume rules came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]

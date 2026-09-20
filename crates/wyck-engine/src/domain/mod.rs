@@ -15,7 +15,7 @@ mod position;
 mod volume;
 
 pub use account::{AccountKind, AccountSnapshot};
-pub use instrument::{Instrument, SpecsSource, VolumeSpecs};
+pub use instrument::{Instrument, SpecsSource, SymbolInfo, VolumeSpecs};
 pub use position::{OrderKind, PendingOrder, Position, Quote, Side};
 pub use volume::Volume;
 

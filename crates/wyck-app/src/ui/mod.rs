@@ -15,6 +15,7 @@
 //! | [`app_view`] | The root view: title bar, banners, current screen, toasts |
 //! | [`screens`] | One function per screen of the connection flow, the dashboard is in `dashboard` |
 //! | [`dashboard`] | The dashboard the application lands on once connected: the header and the chart area |
+//! | [`symbol_picker`] | The palette that lists the account's symbols and switches to the one chosen |
 //! | [`preview`] | Names for the screens, to open the application on any of them while designing |
 //!
 //! # Looks
@@ -31,6 +32,7 @@ pub mod dashboard;
 pub mod motion;
 pub mod preview;
 pub mod screens;
+pub mod symbol_picker;
 pub mod theme;
 pub mod titlebar;
 pub mod widgets;

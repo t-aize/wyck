@@ -10,6 +10,7 @@ use wyck_calendar::{CalendarHandle, CalendarService};
 use crate::broker::{ConnectRequest, Connector, CtraderConnector};
 use crate::config::EngineConfig;
 use crate::core::Inner;
+use crate::domain::{Instrument, Quote, SymbolInfo};
 use crate::error::{EngineError, Result};
 use crate::event::Event;
 use crate::ids::{CommandId, OrderId, PositionId};
@@ -251,6 +252,43 @@ impl EngineHandle {
             Ok(())
         })
         .await
+    }
+
+    /// Every symbol the connected account can trade, with what the broker says about each. Read
+    /// once per connection; later calls answer from memory.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::NotReady`] without a ready session, or the broker's error.
+    pub async fn symbol_catalog(&self) -> Result<Arc<Vec<SymbolInfo>>> {
+        let inner = Arc::clone(&self.inner);
+        self.run(async move { inner.catalog().await }).await
+    }
+
+    /// The details of one symbol: digits, pip size, lot size and volume rules. Loaded on first use
+    /// and cached for the session.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::NotReady`], [`EngineError::Invalid`] for an unknown symbol, or the broker's
+    /// error.
+    pub async fn instrument(&self, symbol: &str) -> Result<Instrument> {
+        let inner = Arc::clone(&self.inner);
+        let symbol = symbol.to_owned();
+        self.run(async move { inner.details_of(&symbol).await })
+            .await
+    }
+
+    /// The current quote of one symbol, read now. It does not add the symbol to the watch list;
+    /// `None` when the broker has no quote for it.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::NotReady`] or the broker's error.
+    pub async fn quote(&self, symbol: &str) -> Result<Option<Quote>> {
+        let inner = Arc::clone(&self.inner);
+        let symbol = symbol.to_owned();
+        self.run(async move { inner.quote_of(&symbol).await }).await
     }
 
     /// Sets the symbols the engine keeps quotes for (symbols with open positions are always

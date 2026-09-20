@@ -23,6 +23,7 @@
 //! | [`logging`], [`session_marker`] | Log files, crash detection |
 //! | [`flow`] | The connection flow: screens, transitions, token checks |
 //! | [`dashboard`] | What the dashboard header shows: symbol, price, spread, time frames |
+//! | [`symbols`] | The symbols an account offers: classes, icons, search, details sheet |
 //! | `shell` (feature `gui`) | The GPUI window, engine plumbing and shortcuts |
 //! | `ui` (feature `gui`) | The screens, the title bar, the theme: drawing only |
 //!
@@ -58,5 +59,6 @@ pub mod settings;
 #[cfg(feature = "gui")]
 pub mod shell;
 pub mod startup;
+pub mod symbols;
 #[cfg(feature = "gui")]
 pub mod ui;

@@ -13,6 +13,14 @@ First version of the engine.
   limits, label-based reconciliation, two-step flatten.
 - Economic calendar hosting with news warnings for the traded currencies.
 
+### Symbol catalog (2026-09-20)
+
+- New `SymbolInfo` (symbol, description, asset class, category, currencies, enabled) and
+  `Broker::catalog`, read with one call: Local from `get_symbols`, Remote from the session's symbols.
+- New on `EngineHandle`: `symbol_catalog` (read once per connection, then from memory), `instrument`
+  (the details of one symbol, loaded on demand and cached) and `quote` (one quote, read now, without
+  changing the watch list).
+
 ### Local account kind (2026-09-20)
 
 - The Local adapter no longer reports `Unknown` for a demo account whose `traderId` is missing from

@@ -13,6 +13,7 @@
 //! screen. A connection the user makes is saved on success, so the next start is the first case
 //! (see [`crate::startup::remember_connection`]).
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui_kit::base::{MotionReveal, Presence, PresencePhase, Transition, TransitionId, transition};
@@ -30,6 +31,7 @@ use wyck_engine::domain::now_millis;
 use super::dashboard;
 use super::motion::{self, Direction};
 use super::screens;
+use super::symbol_picker::Picker;
 use super::theme::{self, sz};
 use super::titlebar::titlebar;
 use super::widgets::{Glyph, glyph, icon_button};
@@ -41,6 +43,7 @@ use crate::flow::{
 use crate::messages::{Level, Notice, describe_startup};
 use crate::shell::Shell;
 use crate::startup::{StartupError, open_user_config, remember_connection};
+use crate::symbols::Catalog;
 
 /// Where the token is found, opened by the link on the token screen.
 pub const REMOTE_HELP_URL: &str = "https://help.ctrader.com/ctrader-ai-agent-connect/remote-mcp/";
@@ -83,6 +86,15 @@ pub struct AppView {
     pub(super) tick_dir: Option<Tick>,
     /// Counts the moves of the price: each new value plays the colored flash once.
     pub(super) tick: u32,
+    /// The open symbol picker, if any.
+    pub(super) picker: Option<Picker>,
+    /// The symbols the account offers, once read. Cleared with the connection.
+    pub(super) catalog: Option<Arc<Catalog>>,
+    /// How many times the picker has been opened: scopes its animation state.
+    pub(super) picker_opens: usize,
+    /// Debug builds only: open the picker as soon as the dashboard is on screen, to look at it
+    /// (`WYCK_OPEN_PICKER=1`).
+    pending_picker: bool,
     focus: FocusHandle,
     toast_timer: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -135,6 +147,11 @@ impl AppView {
             last_bid: None,
             tick_dir: None,
             tick: 0,
+            picker: None,
+            catalog: None,
+            picker_opens: 0,
+            pending_picker: cfg!(debug_assertions)
+                && std::env::var_os("WYCK_OPEN_PICKER").is_some(),
             focus,
             toast_timer: None,
             _subscriptions: subscriptions,
@@ -156,6 +173,19 @@ impl AppView {
             }
         }
         view.layer.screen = view.flow.screen().clone();
+        // Keys are read ahead of the search field, which would keep the arrows for itself.
+        let weak = cx.entity().downgrade();
+        view._subscriptions
+            .push(cx.intercept_keystrokes(move |event, window, cx| {
+                let taken = weak
+                    .update(cx, |this, cx| {
+                        this.on_keystroke(&event.keystroke, window, cx)
+                    })
+                    .unwrap_or(false);
+                if taken {
+                    cx.stop_propagation();
+                }
+            }));
         view.settle_focus(window, cx);
         view
     }
@@ -278,7 +308,23 @@ impl AppView {
         }
         self.flow.accept_local();
         self.remember(ServiceKind::CtraderLocal, None, cx);
+        self.on_flow_changed(cx);
         cx.notify();
+    }
+
+    /// Forgets the last price, so that the price of another symbol is not read as a move.
+    pub(super) fn reset_price_tracking(&mut self) {
+        self.last_bid = None;
+        self.tick_dir = None;
+        self.tick = 0;
+    }
+
+    /// Reads the symbols of the account once the dashboard is on screen, so that the header has the
+    /// broker's name and icon for the symbol and the picker opens ready.
+    fn on_flow_changed(&mut self, cx: &mut Context<Self>) {
+        if matches!(self.flow.screen(), Screen::Dashboard) && self.catalog.is_none() {
+            self.load_catalog(cx);
+        }
     }
 
     /// Picks the time frame of the chart.
@@ -297,7 +343,7 @@ impl AppView {
             .read(cx)
             .state
             .quotes
-            .get(self.shell.controller.symbol())
+            .get(&self.shell.controller.symbol())
             .map(|quote| quote.bid);
         if let (Some(previous), Some(now)) = (self.last_bid, bid)
             && let Some(direction) = tick(previous, now)
@@ -315,10 +361,10 @@ impl AppView {
         if self.flow.switch() == Exit::DropSession {
             self.drop_session(cx);
         }
-        // The next connection may be another account: forget the last price.
-        self.last_bid = None;
-        self.tick_dir = None;
-        self.tick = 0;
+        // The next connection may be another account: forget its symbols and the last price.
+        self.picker = None;
+        self.catalog = None;
+        self.reset_price_tracking();
         self.settle_focus(window, cx);
         cx.notify();
     }
@@ -362,7 +408,10 @@ impl AppView {
             tracing::info!(reason = %failure.raw, "no local session");
         }
         match self.flow.finish_local(attempt, result) {
-            Delivery::Applied => cx.notify(),
+            Delivery::Applied => {
+                self.on_flow_changed(cx);
+                cx.notify();
+            }
             Delivery::Stale => self.drop_stale(opened, cx),
         }
     }
@@ -383,6 +432,7 @@ impl AppView {
                 if opened && token.is_some() {
                     self.remember(ServiceKind::CtraderRemote, token, cx);
                 }
+                self.on_flow_changed(cx);
                 cx.notify();
             }
             Delivery::Stale => self.drop_stale(opened, cx),
@@ -433,7 +483,7 @@ impl AppView {
 
     /// Gives the keyboard to the token field on the token form, and to the window otherwise, so
     /// that Escape always reaches the view.
-    fn settle_focus(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn settle_focus(&self, window: &mut Window, cx: &mut Context<Self>) {
         if matches!(self.flow.screen(), Screen::Token { .. }) {
             self.token.update(cx, |state, cx| state.focus(window, cx));
         } else {
@@ -832,6 +882,11 @@ impl Render for AppView {
         let current = self.layer.clone();
         layers.push(self.layer_element(&current, sample.progress, true, window, cx));
 
+        if self.pending_picker && matches!(self.flow.screen(), Screen::Dashboard) {
+            self.pending_picker = false;
+            self.open_picker(window, cx);
+        }
+        let picker = self.picker_overlay(window, cx);
         div()
             .id("app")
             .key_context("WyckApp")
@@ -861,6 +916,7 @@ impl Render for AppView {
                     .when(changing, |el| {
                         el.child(div().absolute().inset_0().occlude())
                     })
+                    .children(picker)
                     .child(self.toasts(window, cx)),
             )
     }

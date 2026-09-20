@@ -77,6 +77,15 @@ fn main() -> ExitCode {
         }
     });
 
+    // The symbol of the last run, unless one was asked for explicitly.
+    if !settings.symbol_explicit
+        && let Some(last) = wyck_app::startup::last_symbol(open_user_config)
+        && let Some(symbol) = wyck_app::settings::valid_symbol(&last)
+    {
+        tracing::info!(%symbol, "opening on the symbol of the last run");
+        settings.symbol = symbol;
+    }
+
     let controller = match AppController::start(&settings) {
         Ok(controller) => Arc::new(controller),
         Err(error) => {

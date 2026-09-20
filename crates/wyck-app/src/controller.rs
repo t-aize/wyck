@@ -14,6 +14,8 @@
 //! confirmation (`TODO.md` 6.1).
 
 use secrecy::{ExposeSecret, SecretString};
+use std::sync::Mutex;
+
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
 use wyck_engine::domain::Side;
 use wyck_engine::{
@@ -28,8 +30,11 @@ use crate::settings::{AppSettings, OrderDefaults};
 /// Owns the engine and turns UI intents into engine calls.
 pub struct AppController {
     engine: Engine,
-    symbol: String,
-    watched: Vec<String>,
+    /// The symbol the application is on: the traded one, the one of the chart. Changes when the
+    /// user picks another.
+    symbol: Mutex<String>,
+    /// Extra symbols to keep quotes for, besides the current one.
+    extra_watch: Vec<String>,
     local_endpoint: String,
     order: OrderDefaults,
 }
@@ -56,8 +61,8 @@ impl AppController {
         };
         Ok(Self {
             engine: Engine::start_with(config, options)?,
-            symbol: settings.symbol.clone(),
-            watched: settings.watched_symbols(),
+            symbol: Mutex::new(settings.symbol.clone()),
+            extra_watch: settings.watch.clone(),
             local_endpoint: settings.local_endpoint.clone(),
             order: settings.order,
         })
@@ -77,8 +82,47 @@ impl AppController {
 
     /// The symbol hotkey orders trade.
     #[must_use]
-    pub fn symbol(&self) -> &str {
-        &self.symbol
+    pub fn symbol(&self) -> String {
+        self.symbol
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Makes `symbol` the one the application is on, and has the engine quote it. Returns whether
+    /// it changed. A blank name is refused.
+    pub fn set_symbol(&self, symbol: &str) -> bool {
+        let symbol = symbol.trim();
+        if symbol.is_empty() {
+            return false;
+        }
+        let changed = {
+            let mut current = self
+                .symbol
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if *current == symbol {
+                false
+            } else {
+                symbol.clone_into(&mut current);
+                true
+            }
+        };
+        if changed {
+            self.handle().watch_symbols(self.watched_now());
+        }
+        changed
+    }
+
+    /// The symbols to quote: the current one first, then the extras, without duplicates.
+    fn watched_now(&self) -> Vec<String> {
+        let mut out = vec![self.symbol()];
+        for extra in &self.extra_watch {
+            if !out.contains(extra) {
+                out.push(extra.clone());
+            }
+        }
+        out
     }
 
     /// Connects and starts quoting `watched`.
@@ -162,7 +206,7 @@ impl AppController {
             .connect(request)
             .await
             .map_err(|e| Failure::from_error(&e, secret.as_deref()))?;
-        handle.watch_symbols(self.watched.clone());
+        handle.watch_symbols(self.watched_now());
         Ok(())
     }
 
@@ -188,7 +232,7 @@ impl AppController {
             };
         }
         let intent = EntryIntent {
-            symbol: self.symbol.clone(),
+            symbol: self.symbol(),
             side,
             size: SizeSpec::Risk(RiskSpec::PercentOfBalance(self.order.risk_percent)),
             stop_loss: Some(StopSpec::Pips(self.order.stop_pips)),
@@ -424,6 +468,42 @@ mod tests {
         app.disconnect().await;
         assert_eq!(app.handle().state().session, SessionState::Disconnected);
         app.disconnect().await;
+    }
+
+    #[tokio::test]
+    async fn choosing_another_symbol_changes_what_is_quoted_and_traded() {
+        let (app, _broker) = controller();
+        app.connect(request(), app.watched_now()).await.unwrap();
+        assert_eq!(app.symbol(), "EURUSD");
+
+        assert!(
+            app.set_symbol("  GBPUSD "),
+            "surrounding spaces are ignored"
+        );
+        assert_eq!(app.symbol(), "GBPUSD");
+        assert_eq!(app.handle().state().watched, ["GBPUSD"]);
+
+        assert!(!app.set_symbol("GBPUSD"), "the same symbol is not a change");
+        assert!(!app.set_symbol("   "), "a blank name is refused");
+        assert_eq!(app.symbol(), "GBPUSD");
+    }
+
+    #[tokio::test]
+    async fn the_extra_watch_list_survives_a_change_of_symbol() {
+        let mut s = settings();
+        s.watch = vec!["USDJPY".to_owned(), "GBPUSD".to_owned()];
+        let options = EngineOptions {
+            connector: Some(Arc::new(FixedConnector(Arc::new(MockBroker::new())))),
+            calendar: CalendarSource::Disabled,
+        };
+        let app = AppController::start_with(&s, options).unwrap();
+        assert_eq!(app.watched_now(), ["EURUSD", "USDJPY", "GBPUSD"]);
+        app.set_symbol("GBPUSD");
+        assert_eq!(
+            app.watched_now(),
+            ["GBPUSD", "USDJPY"],
+            "no duplicate, current first"
+        );
     }
 
     #[tokio::test]

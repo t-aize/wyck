@@ -19,6 +19,7 @@ use gpui_kit::{
 use super::motion::{self, Hover};
 use super::theme::{self, sz};
 use crate::presentation::{Badge, Tone};
+use crate::symbols::{AssetClass, Mark, SymbolIcon};
 
 /// The icons of the application. Each is a file under `assets/icons`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +74,16 @@ pub enum Glyph {
     TickUp,
     /// A small triangle pointing down: the price fell.
     TickDown,
+    /// A magnifying glass: search.
+    Search,
+    /// Two chevrons, one up and one down: a control that opens a list.
+    ChevronsUpDown,
+    /// An arrow up: a key.
+    ArrowUp,
+    /// An arrow down: a key.
+    ArrowDown,
+    /// The return key.
+    Enter,
 }
 
 impl Glyph {
@@ -103,6 +114,11 @@ impl Glyph {
             Self::LogOut => "wyck/log-out.svg",
             Self::TickUp => "wyck/tick-up.svg",
             Self::TickDown => "wyck/tick-down.svg",
+            Self::Search => "wyck/lucide-search.svg",
+            Self::ChevronsUpDown => "wyck/lucide-chevrons-up-down.svg",
+            Self::ArrowUp => "wyck/lucide-arrow-up.svg",
+            Self::ArrowDown => "wyck/lucide-arrow-down.svg",
+            Self::Enter => "wyck/lucide-corner-down-left.svg",
         }
     }
 }
@@ -648,4 +664,97 @@ pub fn icon_button_sized(
 /// The builder of a tooltip that says `text`, to pass to `.tooltip(...)` of an element.
 pub fn tip(text: &'static str) -> impl Fn(&mut Window, &mut App) -> gpui_kit::AnyView + 'static {
     move |window, cx| gpui_kit::component::tooltip::Tooltip::new(text).build(window, cx)
+}
+
+/// The svg of an asset class icon.
+fn class_icon_path(class: AssetClass) -> &'static str {
+    match class {
+        AssetClass::Metals => "wyck/lucide-gem.svg",
+        AssetClass::Energies => "wyck/lucide-fuel.svg",
+        AssetClass::Indices => "wyck/lucide-trending-up.svg",
+        AssetClass::Crypto => "wyck/lucide-bitcoin.svg",
+        AssetClass::Shares => "wyck/lucide-building-2.svg",
+        AssetClass::Commodities => "wyck/lucide-wheat.svg",
+        AssetClass::Bonds => "wyck/lucide-landmark.svg",
+        AssetClass::Forex | AssetClass::Other => "wyck/lucide-layers.svg",
+    }
+}
+
+/// One mark (a flag, an asset icon or letters) in a circle of `diameter` design pixels.
+fn mark_circle(mark: &Mark, diameter: f32) -> AnyElement {
+    match mark {
+        Mark::Flag(code) => gpui_kit::img(SharedString::from(format!("wyck/flags/{code}.svg")))
+            .size(sz(diameter))
+            .flex_none()
+            .rounded_full()
+            .into_any_element(),
+        Mark::Class(class) => div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .flex_none()
+            .size(sz(diameter))
+            .rounded_full()
+            .bg(theme::muted())
+            .child(
+                svg()
+                    .path(class_icon_path(*class))
+                    .size(sz(diameter * 0.52))
+                    .flex_none()
+                    .text_color(theme::fg()),
+            )
+            .into_any_element(),
+        Mark::Letters(text) => div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .flex_none()
+            .size(sz(diameter))
+            .rounded_full()
+            .bg(theme::muted())
+            .text_size(sz(diameter * 0.34))
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(theme::fg())
+            .child(text.clone())
+            .into_any_element(),
+    }
+}
+
+/// The icon of a symbol in a square of `size` design pixels: one round mark, or two overlapped for
+/// a pair (the base at the top left, the quote at the bottom right, ringed in `ring` so it reads as
+/// laid over the first).
+pub fn symbol_icon(icon: &SymbolIcon, size: f32, ring: Hsla) -> AnyElement {
+    let Some(secondary) = &icon.secondary else {
+        return div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .flex_none()
+            .size(sz(size))
+            .child(mark_circle(&icon.primary, size * 0.92))
+            .into_any_element();
+    };
+    let diameter = size * 0.68;
+    div()
+        .relative()
+        .flex_none()
+        .size(sz(size))
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .child(mark_circle(&icon.primary, diameter)),
+        )
+        .child(
+            div()
+                .absolute()
+                .bottom_0()
+                .right_0()
+                .rounded_full()
+                .border_2()
+                .border_color(ring)
+                .child(mark_circle(secondary, diameter - 3.0)),
+        )
+        .into_any_element()
 }

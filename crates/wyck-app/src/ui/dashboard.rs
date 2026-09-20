@@ -27,7 +27,7 @@ use wyck_engine::SessionState;
 use super::app_view::AppView;
 use super::motion::{self, Hover, blend};
 use super::theme::{self, sz};
-use super::widgets::{Glyph, badge, glyph, icon_button_sized, rise, tip};
+use super::widgets::{Glyph, badge, glyph, icon_button_sized, rise, symbol_icon, tip};
 use crate::dashboard::{SymbolHeader, Tick, Timeframe, symbol_header};
 use crate::presentation::{self, Header};
 
@@ -38,7 +38,13 @@ pub(super) fn dashboard(
     cx: &mut Context<AppView>,
 ) -> impl IntoElement {
     let state = view.shell.model.read(cx).state.clone();
-    let symbol = symbol_header(&state, view.shell.controller.symbol());
+    let active = view.shell.controller.symbol();
+    let listed = view
+        .catalog
+        .as_ref()
+        .and_then(|c| c.find(&active).and_then(|i| c.entry(i)))
+        .map(|e| e.info.clone());
+    let symbol = symbol_header(&state, &active, listed.as_ref());
     let info = presentation::header(&state);
     let ready = matches!(state.session, SessionState::Ready);
 
@@ -98,7 +104,7 @@ fn header(
         .gap(sz(16.))
         .border_b_1()
         .border_color(theme::border())
-        .child(symbol_block(symbol))
+        .child(symbol_block(symbol, window, cx))
         .child(price_block(view, symbol))
         .child(divider)
         .child(timeframes)
@@ -107,27 +113,33 @@ fn header(
         .child(controls)
 }
 
-/// The tile with the currency mark, the ticker and the long name.
-fn symbol_block(symbol: &SymbolHeader) -> Div {
+/// The symbol: its icon, the ticker and the long name. It is a button: it opens the symbol picker
+/// (Ctrl+K does too), and shows a chevron pair for that. Its ground fades in under the pointer.
+fn symbol_block(
+    symbol: &SymbolHeader,
+    window: &mut Window,
+    cx: &mut Context<AppView>,
+) -> Stateful<Div> {
+    let hover = Hover::track("dashboard-symbol", window, cx);
     div()
+        .id("dashboard-symbol")
         .flex()
         .flex_row()
         .items_center()
         .flex_none()
-        .gap(sz(8.))
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(sz(26.))
-                .rounded(sz(6.))
-                .bg(theme::muted())
-                .text_size(sz(11.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(theme::fg())
-                .child(symbol.mark.clone()),
-        )
+        .gap(sz(10.))
+        .my(sz(-4.))
+        .py(sz(4.))
+        .pl(sz(6.))
+        .pr(sz(8.))
+        .ml(sz(-6.))
+        .rounded(sz(8.))
+        .bg(hover.mix(theme::alpha(theme::muted(), 0.0), theme::muted()))
+        .cursor_pointer()
+        .on_hover(hover.handler())
+        .tooltip(tip("Change symbol (Ctrl+K)"))
+        .on_click(cx.listener(|this, _, window, cx| this.open_picker(window, cx)))
+        .child(symbol_icon(&symbol.icon, 30., theme::bg()))
         .child(
             div()
                 .child(
@@ -139,11 +151,18 @@ fn symbol_block(symbol: &SymbolHeader) -> Div {
                 )
                 .child(
                     div()
+                        .max_w(sz(220.))
+                        .truncate()
                         .text_size(sz(9.5))
                         .text_color(theme::dim())
                         .child(symbol.name.clone()),
                 ),
         )
+        .child(glyph(
+            Glyph::ChevronsUpDown,
+            13.,
+            hover.mix(theme::dim(), theme::fg()),
+        ))
 }
 
 /// The price, the direction of its last move, and the spread.

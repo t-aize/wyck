@@ -25,6 +25,9 @@ pub struct AppConfig {
     pub active_profile: Option<ProfileId>,
     #[serde(default)]
     pub profiles: Vec<ProfileConfig>,
+    /// The symbol the user was on when the application last ran, so the next start opens on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_symbol: Option<String>,
 }
 
 fn current_schema_version() -> u32 {
@@ -37,6 +40,7 @@ impl Default for AppConfig {
             schema_version: CURRENT_SCHEMA_VERSION,
             active_profile: None,
             profiles: Vec::new(),
+            last_symbol: None,
         }
     }
 }

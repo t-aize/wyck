@@ -53,6 +53,34 @@ static ICONS: &[(&str, &[u8])] = icons![
     "win-min",
     "win-restore",
     "x",
+    "lucide-arrow-down",
+    "lucide-arrow-up",
+    "lucide-bitcoin",
+    "lucide-building-2",
+    "lucide-chevrons-up-down",
+    "lucide-corner-down-left",
+    "lucide-fuel",
+    "lucide-gem",
+    "lucide-landmark",
+    "lucide-layers",
+    "lucide-search",
+    "lucide-trending-up",
+    "lucide-wheat",
+];
+
+macro_rules! flags {
+    ($($code:literal),* $(,)?) => {
+        &[$((
+            concat!("wyck/flags/", $code, ".svg"),
+            include_bytes!(concat!("../../assets/flags/", $code, ".svg")).as_slice(),
+        )),*]
+    };
+}
+
+static FLAGS: &[(&str, &[u8])] = flags![
+    "at", "au", "be", "br", "ca", "ch", "cn", "cz", "de", "dk", "es", "eu", "fi", "fr", "gb", "hk",
+    "hu", "ie", "il", "in", "it", "jp", "kr", "mx", "nl", "no", "nz", "pl", "pt", "ru", "se", "sg",
+    "th", "tr", "us", "za",
 ];
 
 static FONTS: &[&[u8]] = &[
@@ -66,7 +94,7 @@ pub struct AppAssets;
 
 impl AssetSource for AppAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
-        if let Some((_, bytes)) = ICONS.iter().find(|(name, _)| *name == path) {
+        if let Some((_, bytes)) = ICONS.iter().chain(FLAGS).find(|(name, _)| *name == path) {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
         gpui_kit::assets::Assets.load(path)
@@ -75,6 +103,7 @@ impl AssetSource for AppAssets {
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         let mut out: Vec<SharedString> = ICONS
             .iter()
+            .chain(FLAGS)
             .filter(|(name, _)| name.starts_with(path))
             .map(|(name, _)| SharedString::from(*name))
             .collect();
@@ -115,6 +144,24 @@ mod tests {
                 bytes[..4],
                 [0, 1, 0, 0],
                 "a TrueType file starts with 0x00010000"
+            );
+        }
+    }
+
+    use crate::symbols::FLAG_CODES;
+
+    #[test]
+    fn every_flag_code_has_its_file_and_a_flag_is_served_like_an_icon() {
+        assert_eq!(FLAG_CODES.len(), FLAGS.len());
+        for code in FLAG_CODES {
+            let path = format!("wyck/flags/{code}.svg");
+            let file = AppAssets.load(&path).unwrap();
+            assert!(file.is_some(), "{path}");
+        }
+        for (name, bytes) in FLAGS {
+            assert!(
+                std::str::from_utf8(bytes).unwrap().contains("<svg"),
+                "{name}"
             );
         }
     }

@@ -113,6 +113,8 @@ pub struct AppSettings {
     pub connection: ConnectionChoice,
     /// The symbol the hotkeys trade.
     pub symbol: String,
+    /// Whether `WYCK_SYMBOL` named it. Otherwise the symbol remembered from the last run wins.
+    pub symbol_explicit: bool,
     /// Extra symbols to keep quotes for. The traded symbol is always watched.
     pub watch: Vec<String>,
     /// What a hotkey order looks like.
@@ -176,6 +178,7 @@ impl AppSettings {
             }
         };
 
+        let symbol_explicit = get("WYCK_SYMBOL").is_some();
         let symbol = match get("WYCK_SYMBOL") {
             Some(text) => parse_symbol("WYCK_SYMBOL", &text)?,
             None => "EURUSD".to_owned(),
@@ -238,6 +241,7 @@ impl AppSettings {
         Ok(Self {
             connection,
             symbol,
+            symbol_explicit,
             watch,
             order,
             hotkeys,
@@ -268,6 +272,12 @@ impl AppSettings {
 
 fn invalid(name: &'static str, reason: String) -> SettingsError {
     SettingsError::Invalid { name, reason }
+}
+
+/// A symbol name that can be used as the application's symbol, upper-cased, or `None`.
+#[must_use]
+pub fn valid_symbol(text: &str) -> Option<String> {
+    parse_symbol("symbol", text.trim()).ok()
 }
 
 /// A ticker: letters, digits, spaces and a few separators, upper-cased.
@@ -344,6 +354,23 @@ mod tests {
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
         AppSettings::from_lookup(|name| map.get(name).cloned())
+    }
+
+    #[test]
+    fn a_remembered_symbol_is_only_used_when_it_is_a_usable_name() {
+        assert_eq!(valid_symbol(" xauusd "), Some("XAUUSD".to_owned()));
+        assert_eq!(
+            valid_symbol("HONG KONG 50"),
+            Some("HONG KONG 50".to_owned())
+        );
+        assert_eq!(valid_symbol("<script>"), None);
+        assert_eq!(valid_symbol(""), None);
+        assert!(!settings(&[]).unwrap().symbol_explicit);
+        assert!(
+            settings(&[("WYCK_SYMBOL", "GBPUSD")])
+                .unwrap()
+                .symbol_explicit
+        );
     }
 
     #[test]

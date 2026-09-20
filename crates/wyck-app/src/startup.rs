@@ -105,6 +105,30 @@ pub fn remember_connection(
     Ok(())
 }
 
+/// The symbol remembered from the last run, if there is one. A configuration that cannot be read
+/// is not worth a message here: the application then simply opens on its default symbol.
+pub fn last_symbol(
+    open_config: impl FnOnce() -> Result<WyckConfig, StartupError>,
+) -> Option<String> {
+    open_config()
+        .ok()
+        .and_then(|config| config.last_symbol().map(str::to_owned))
+}
+
+/// Remembers the symbol the user is on, for the next start.
+///
+/// # Errors
+///
+/// [`StartupError::Config`] when the configuration cannot be written.
+pub fn remember_symbol(
+    symbol: &str,
+    open_config: impl FnOnce() -> Result<WyckConfig, StartupError>,
+) -> Result<(), StartupError> {
+    open_config()?
+        .set_last_symbol(Some(symbol.to_owned()))
+        .map_err(|e| StartupError::Config(e.to_string()))
+}
+
 /// Opens the user's real configuration: the OS-standard directories, and the OS keyring for tokens.
 ///
 /// # Errors
@@ -265,6 +289,25 @@ mod tests {
             Err(StartupError::Config("locked".into()))
         })
         .unwrap_err();
+        assert!(error.to_string().contains("locked"));
+    }
+
+    #[test]
+    fn the_last_symbol_is_remembered_between_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(last_symbol(|| Ok(config_in(dir.path()))), None);
+        remember_symbol("XAUUSD", || Ok(config_in(dir.path()))).unwrap();
+        assert_eq!(
+            last_symbol(|| Ok(config_in(dir.path()))).as_deref(),
+            Some("XAUUSD")
+        );
+        assert_eq!(
+            last_symbol(|| Err(StartupError::Config("locked".into()))),
+            None,
+            "an unreadable configuration is not an error here"
+        );
+        let error =
+            remember_symbol("XAUUSD", || Err(StartupError::Config("locked".into()))).unwrap_err();
         assert!(error.to_string().contains("locked"));
     }
 

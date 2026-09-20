@@ -19,7 +19,9 @@ use wyck_calendar::CalendarHandle;
 
 use crate::broker::{Broker, ConnectRequest, Connector};
 use crate::config::EngineConfig;
-use crate::domain::{AccountSnapshot, Instrument, PendingOrder, Position, UnixMillis, now_millis};
+use crate::domain::{
+    AccountSnapshot, Instrument, PendingOrder, Position, Quote, SymbolInfo, UnixMillis, now_millis,
+};
 use crate::error::{EngineError, Result};
 use crate::event::{Event, EventKind};
 use crate::ids::{AccountId, CommandId, PositionId};
@@ -59,6 +61,8 @@ pub(crate) struct Inner {
     pub(crate) gate: Mutex<Gate>,
     pub(crate) plans: Mutex<HashMap<PlanId, StoredPlan>>,
     instruments: Mutex<HashMap<String, Instrument>>,
+    /// The symbol list of the current session, with the connection generation it was read for.
+    catalog: Mutex<Option<(u64, Arc<Vec<SymbolInfo>>)>>,
     watched: Mutex<BTreeSet<String>>,
     clock_offset_ms: AtomicI64,
     pub(crate) shutdown: CancellationToken,
@@ -85,6 +89,7 @@ impl Inner {
             gate: Mutex::new(Gate::default()),
             plans: Mutex::new(HashMap::new()),
             instruments: Mutex::new(HashMap::new()),
+            catalog: Mutex::new(None),
             watched: Mutex::new(BTreeSet::new()),
             clock_offset_ms: AtomicI64::new(0),
             shutdown: CancellationToken::new(),
@@ -245,6 +250,35 @@ impl Inner {
     }
 
     // ---- instruments and watch list ----
+
+    /// The symbols this session can trade. Read once per connection, then served from memory.
+    pub(crate) async fn catalog(&self) -> Result<Arc<Vec<SymbolInfo>>> {
+        let broker = self.ready_broker()?;
+        let generation = lock(&self.conn).generation;
+        if let Some((cached, list)) = lock(&self.catalog).as_ref()
+            && *cached == generation
+        {
+            return Ok(Arc::clone(list));
+        }
+        let list = Arc::new(self.io("the symbol list", broker.catalog()).await?);
+        *lock(&self.catalog) = Some((generation, Arc::clone(&list)));
+        Ok(list)
+    }
+
+    /// One quote, read now, without touching the watch list.
+    pub(crate) async fn quote_of(&self, symbol: &str) -> Result<Option<Quote>> {
+        let broker = self.ready_broker()?;
+        let quotes = self
+            .io("a quote", broker.quotes(&[symbol.to_owned()]))
+            .await?;
+        Ok(quotes.into_iter().next())
+    }
+
+    /// The details of one symbol, from the cache or the broker.
+    pub(crate) async fn details_of(&self, symbol: &str) -> Result<Instrument> {
+        let broker = self.ready_broker()?;
+        self.instrument(&broker, symbol).await
+    }
 
     pub(crate) fn cached_instrument(&self, symbol: &str) -> Option<Instrument> {
         lock(&self.instruments)

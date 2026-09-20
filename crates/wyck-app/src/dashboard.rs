@@ -11,8 +11,10 @@
 //! choice is only remembered.
 
 use wyck_engine::EngineState;
+use wyck_engine::domain::SymbolInfo;
 
 use crate::presentation::quote_line;
+use crate::symbols::{SymbolIcon, classify, icon_for};
 
 /// The time frame of the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -81,17 +83,25 @@ pub struct SymbolHeader {
     pub symbol: String,
     /// The mark in the tile: the symbol of the base currency (`$`, an euro sign) or its first letter.
     pub mark: String,
-    /// The long name: `Euro / US Dollar`, or the ticker when no currency is known.
+    /// The long name: the broker's description when the symbol list is loaded, else `Euro / US
+    /// Dollar` read from the currencies, else the ticker.
     pub name: String,
+    /// The icon: two flags for a pair, a flag or an asset icon for the rest.
+    pub icon: SymbolIcon,
     /// The latest bid with the instrument's digits, once a quote has arrived.
     pub price: Option<String>,
     /// The spread in pips, once the quote and the instrument are known.
     pub spread_pips: Option<String>,
 }
 
-/// Builds the header of `symbol` from the engine state.
+/// Builds the header of `symbol` from the engine state, and from the broker's entry for it once the
+/// list of symbols has been loaded.
 #[must_use]
-pub fn symbol_header(state: &EngineState, symbol: &str) -> SymbolHeader {
+pub fn symbol_header(
+    state: &EngineState,
+    symbol: &str,
+    listed: Option<&SymbolInfo>,
+) -> SymbolHeader {
     let instrument = state.instruments.get(symbol);
     let (base, quote) = match instrument {
         Some(i) => (i.base_currency.clone(), i.quote_currency.clone()),
@@ -105,15 +115,24 @@ pub fn symbol_header(state: &EngineState, symbol: &str) -> SymbolHeader {
     let mark = base
         .as_deref()
         .map_or_else(|| first_letter(symbol), currency_mark);
-    let name = match (&base, &quote) {
+    let described = listed
+        .and_then(|l| l.description.clone())
+        .filter(|d| !d.trim().is_empty());
+    let name = described.unwrap_or_else(|| match (&base, &quote) {
         (Some(base), Some(quote)) => format!("{} / {}", currency_name(base), currency_name(quote)),
         _ => symbol.to_owned(),
-    };
+    });
+    let mut info = listed.cloned().unwrap_or_else(|| SymbolInfo::named(symbol));
+    info.base_currency = info.base_currency.or_else(|| base.clone());
+    info.quote_currency = info.quote_currency.or_else(|| quote.clone());
+    let class = classify(&info);
+    let icon = icon_for(&info, class);
     let line = quote_line(state, symbol);
     SymbolHeader {
         symbol: symbol.to_owned(),
         mark,
         name,
+        icon,
         price: line.as_ref().map(|l| l.bid.clone()),
         spread_pips: line.and_then(|l| l.spread_pips),
     }
@@ -250,7 +269,7 @@ mod tests {
 
     #[test]
     fn a_known_instrument_gives_a_named_pair_a_price_and_a_spread() {
-        let header = symbol_header(&with_quote(1.08423, 1.08431), "EURUSD");
+        let header = symbol_header(&with_quote(1.08423, 1.08431), "EURUSD", None);
         assert_eq!(header.symbol, "EURUSD");
         assert_eq!(header.mark, "\u{20AC}");
         assert_eq!(header.name, "Euro / US Dollar");
@@ -262,7 +281,7 @@ mod tests {
     fn before_the_first_quote_there_is_no_price() {
         let mut state = blank_state();
         state.instruments.insert("EURUSD".to_owned(), eurusd());
-        let header = symbol_header(&state, "EURUSD");
+        let header = symbol_header(&state, "EURUSD", None);
         assert_eq!(header.price, None, "no made-up number");
         assert_eq!(header.spread_pips, None);
         assert_eq!(header.name, "Euro / US Dollar");
@@ -270,18 +289,40 @@ mod tests {
 
     #[test]
     fn an_unknown_forex_ticker_is_read_from_its_letters() {
-        let header = symbol_header(&blank_state(), "gbpjpy");
+        let header = symbol_header(&blank_state(), "gbpjpy", None);
         assert_eq!(header.mark, "\u{A3}");
         assert_eq!(header.name, "British Pound / Japanese Yen");
     }
 
     #[test]
     fn something_that_is_not_a_pair_is_named_by_its_ticker() {
-        let header = symbol_header(&blank_state(), "XAUUSD.x");
+        let header = symbol_header(&blank_state(), "XAUUSD.x", None);
         assert_eq!(header.name, "XAUUSD.x");
         assert_eq!(header.mark, "X");
-        let header = symbol_header(&blank_state(), "");
+        let header = symbol_header(&blank_state(), "", None);
         assert_eq!((header.mark.as_str(), header.name.as_str()), ("", ""));
+    }
+
+    #[test]
+    fn the_brokers_description_and_class_win_once_the_list_is_loaded() {
+        let mut listed = SymbolInfo::named("CANON");
+        listed.description = Some("CANON INC".to_owned());
+        listed.asset_class = Some("Asia/Pacific Shares".to_owned());
+        listed.category = Some("Japan".to_owned());
+        let header = symbol_header(&blank_state(), "CANON", Some(&listed));
+        assert_eq!(header.name, "CANON INC");
+        assert_eq!(header.icon.primary, crate::symbols::Mark::Flag("jp"));
+        assert_eq!(header.icon.secondary, None);
+    }
+
+    #[test]
+    fn a_pair_gets_two_flags_even_before_the_list_is_loaded() {
+        let header = symbol_header(&with_quote(1.0, 1.0001), "EURUSD", None);
+        assert_eq!(header.icon.primary, crate::symbols::Mark::Flag("eu"));
+        assert_eq!(
+            header.icon.secondary,
+            Some(crate::symbols::Mark::Flag("us"))
+        );
     }
 
     #[test]

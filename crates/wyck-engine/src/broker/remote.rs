@@ -44,7 +44,7 @@ use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind};
 use crate::config::AssumedSpecs;
 use crate::domain::{
     AccountKind, AccountSnapshot, Instrument, OrderKind, PendingOrder, Position, Quote, Side,
-    SpecsSource, UnixMillis, Volume, VolumeSpecs, now_millis,
+    SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
 };
 use crate::error::{BrokerErrorKind, EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -383,6 +383,28 @@ impl Broker for RemoteBroker {
 
     async fn symbols(&self) -> Result<Vec<String>> {
         Ok(self.instruments.iter().map(|i| i.symbol.clone()).collect())
+    }
+
+    async fn catalog(&self) -> Result<Vec<SymbolInfo>> {
+        Ok(self
+            .session
+            .symbols
+            .iter()
+            .zip(&self.instruments)
+            .map(|(symbol, instrument)| SymbolInfo {
+                symbol: symbol.symbol_name.clone(),
+                description: symbol
+                    .description
+                    .as_deref()
+                    .map(|d| d.split_whitespace().collect::<Vec<_>>().join(" "))
+                    .filter(|d| !d.is_empty()),
+                asset_class: None,
+                category: None,
+                base_currency: instrument.base_currency.clone(),
+                quote_currency: instrument.quote_currency.clone(),
+                enabled: instrument.enabled,
+            })
+            .collect())
     }
 
     async fn instrument(&self, symbol: &str) -> Result<Instrument> {

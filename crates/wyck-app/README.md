@@ -87,6 +87,34 @@ registered as native control areas, so dragging, double-click to maximize, edge 
 snap layouts flyout behave as in any Windows program. On Linux the bar starts the move itself.
 macOS keeps its traffic lights.
 
+### Symbol picker
+
+Click the symbol in the dashboard header (or press Ctrl+K, Cmd+K on macOS) to open a palette in the
+middle of the window with **every symbol the account offers**, on Remote and Local alike, read once
+per connection from the broker (`EngineHandle::symbol_catalog`). The rest of the window is dimmed
+behind it.
+
+- **Icons**: two overlapped round flags for a forex pair, a flag for an index or a share when its
+  country is known, an asset icon (gold, oil, bitcoin, a building) for the rest.
+- **Search** like a command palette: every word must match somewhere (ticker, name, currency,
+  country) and the best match comes first: `gold` finds `XAUUSD` before `GOLDMAN SACHS`, and
+  `eur/usd` finds `EURUSD`. Filters by asset class with counts, and headings when nothing is typed.
+- **Details** of the highlighted symbol on the right: name, class, category, currencies, digits, pip
+  size, lot size, minimum, step and maximum volume, whether the volume rules are the broker's or
+  assumed, and the live bid, ask and spread. They are fetched after a short pause on the symbol, so
+  scrolling does not ask for each one.
+- **Keys**: Up and Down (Ctrl+N, Ctrl+P), Page Up and Down, Enter to choose, Tab and Shift+Tab to
+  step through the filters, Escape to close. The mouse works too. The list is virtualized, so
+  thousands of shares scroll smoothly.
+- **Choosing** a symbol makes it the one the application is on: the header, the quotes the engine
+  follows, hotkey orders and, later, the chart. It is remembered for the next start, unless
+  `WYCK_SYMBOL` names one.
+
+The background is **dimmed, not blurred**: GPUI cannot blur what is drawn behind an element. The
+flags come from [circle-flags](https://github.com/HatScripts/circle-flags) (MIT) and the asset icons
+from Lucide (ISC); both licenses are next to the files. In a debug build, `WYCK_OPEN_PICKER=1` opens
+the picker as soon as the dashboard shows.
+
 ### Motion
 
 Everything that moves speaks one language, defined in `src/ui/motion.rs` (durations, curves,

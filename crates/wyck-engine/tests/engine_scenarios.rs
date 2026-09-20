@@ -801,3 +801,55 @@ async fn a_dry_run_does_not_consume_the_interval_between_real_orders() {
         OrderOutcome::Filled { .. }
     ));
 }
+
+// ---- the symbol catalog, details and one-off quotes ----
+
+#[tokio::test(start_paused = true)]
+async fn the_symbol_catalog_is_read_once_per_connection() {
+    let f = connected().await;
+    let first = f.handle.symbol_catalog().await.unwrap();
+    assert!(!first.is_empty());
+    assert!(first.iter().any(|s| s.symbol == "EURUSD"));
+    let second = f.handle.symbol_catalog().await.unwrap();
+    assert!(
+        Arc::ptr_eq(&first, &second),
+        "the second answer comes from memory"
+    );
+    assert_eq!(f.broker.call_count(BrokerCall::Symbols), 1);
+
+    // A new connection may be another account: the list is read again.
+    f.handle.connect(request()).await.unwrap();
+    f.handle.symbol_catalog().await.unwrap();
+    assert_eq!(f.broker.call_count(BrokerCall::Symbols), 2);
+}
+
+#[tokio::test(start_paused = true)]
+async fn without_a_session_the_symbol_catalog_is_an_error_not_a_hang() {
+    let f = fixture().await;
+    assert!(f.handle.symbol_catalog().await.is_err());
+    assert!(f.handle.instrument("EURUSD").await.is_err());
+    assert!(f.handle.quote("EURUSD").await.is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_details_of_a_symbol_are_loaded_on_demand_and_cached() {
+    let f = connected().await;
+    let details = f.handle.instrument("EURUSD").await.unwrap();
+    assert_eq!(details.symbol, "EURUSD");
+    f.handle.instrument("eurusd").await.unwrap();
+    assert!(
+        f.broker.call_count(BrokerCall::Instrument) <= 1,
+        "the second read is served from the cache"
+    );
+    let unknown = f.handle.instrument("NOPE").await.unwrap_err();
+    assert!(matches!(unknown, EngineError::Invalid(_)), "{unknown:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_one_off_quote_does_not_change_the_watch_list() {
+    let f = connected().await;
+    let before = f.handle.state().watched.clone();
+    let quote = f.handle.quote("EURUSD").await.unwrap();
+    assert!(quote.is_some());
+    assert_eq!(f.handle.state().watched, before);
+}

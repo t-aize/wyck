@@ -49,7 +49,7 @@ use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind, parse
 use crate::config::AssumedSpecs;
 use crate::domain::{
     AccountKind, AccountSnapshot, Instrument, OrderKind, PendingOrder, Position, Quote, Side,
-    SpecsSource, UnixMillis, Volume, VolumeSpecs, now_millis,
+    SpecsSource, SymbolInfo, UnixMillis, Volume, VolumeSpecs, now_millis,
 };
 use crate::error::{BrokerErrorKind, EngineError, Result};
 use crate::ids::{AccountId, OrderId, PositionId};
@@ -140,6 +140,44 @@ fn instrument_from_details(
         volume,
         specs_source: source,
     })
+}
+
+/// A Local symbol list entry as a [`SymbolInfo`]. The currencies are only read from the letters of
+/// the ticker for classes where a ticker is a pair (forex, metals, crypto): a six-letter share
+/// name is not one.
+fn local_symbol_info(summary: ctrader_mcp::local::dto::SymbolSummary) -> SymbolInfo {
+    let text = |key: &str| {
+        summary
+            .extra
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let asset_class = text("assetClass");
+    let category = text("category").filter(|c| c != "Default Category");
+    let pair_like = asset_class.as_deref().is_some_and(|class| {
+        let class = class.to_ascii_lowercase();
+        class.contains("forex") || class.contains("metal") || class.contains("crypto")
+    });
+    let (base_currency, quote_currency) = if pair_like {
+        split_pair(&summary.symbol_name)
+    } else {
+        (None, None)
+    };
+    SymbolInfo {
+        description: summary
+            .description
+            .map(|d| d.split_whitespace().collect::<Vec<_>>().join(" "))
+            .filter(|d| !d.is_empty()),
+        asset_class,
+        category,
+        base_currency,
+        quote_currency,
+        enabled: true,
+        symbol: summary.symbol_name,
+    }
 }
 
 /// Splits a six-letter pair such as `EURUSD` into currencies. Anything else is `(None,
@@ -363,6 +401,15 @@ impl Broker for LocalBroker {
             .symbols
             .into_iter()
             .map(|s| s.symbol_name)
+            .collect())
+    }
+
+    async fn catalog(&self) -> Result<Vec<SymbolInfo>> {
+        let response = self.client.get_symbols(None).await?;
+        Ok(response
+            .symbols
+            .into_iter()
+            .map(local_symbol_info)
             .collect())
     }
 
@@ -820,6 +867,48 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(kind_from_accounts(&list, &no_balance), AccountKind::Unknown);
+    }
+
+    fn summary(value: Value) -> ctrader_mcp::local::dto::SymbolSummary {
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn a_forex_entry_gets_its_currencies_and_a_share_does_not_get_invented_ones() {
+        let eurusd = local_symbol_info(summary(json!({
+            "assetClass": "Forex", "category": "Default Category",
+            "description": "Euro vs US Dollar", "name": "EURUSD"
+        })));
+        assert_eq!(eurusd.symbol, "EURUSD");
+        assert_eq!(eurusd.asset_class.as_deref(), Some("Forex"));
+        assert_eq!(eurusd.category, None, "the placeholder category is dropped");
+        assert_eq!(eurusd.base_currency.as_deref(), Some("EUR"));
+        assert_eq!(eurusd.quote_currency.as_deref(), Some("USD"));
+        assert_eq!(eurusd.description.as_deref(), Some("Euro vs US Dollar"));
+
+        // A six-letter share name is not a pair.
+        let toyota = local_symbol_info(summary(json!({
+            "assetClass": "Asia/Pacific Shares", "category": "Japan",
+            "description": "TOYOTA  MOTOR", "name": "TOYOTA"
+        })));
+        assert_eq!(toyota.base_currency, None);
+        assert_eq!(toyota.category.as_deref(), Some("Japan"));
+        assert_eq!(
+            toyota.description.as_deref(),
+            Some("TOYOTA MOTOR"),
+            "spaces are collapsed"
+        );
+
+        let gold = local_symbol_info(summary(json!({
+            "assetClass": "Metals", "description": "Gold vs US Dollar", "name": "XAUUSD"
+        })));
+        assert_eq!(gold.base_currency.as_deref(), Some("XAU"));
+    }
+
+    #[test]
+    fn an_entry_with_nothing_but_a_name_is_still_usable() {
+        let bare = local_symbol_info(summary(json!({ "name": "US30" })));
+        assert_eq!(bare, SymbolInfo::named("US30"));
     }
 
     #[test]
