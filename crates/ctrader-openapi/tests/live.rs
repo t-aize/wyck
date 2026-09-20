@@ -252,14 +252,15 @@ last bar  {:?}",
         "bar volume against tick count over those minutes: {volume_sum} against {tick_sum} (a bar counts ticks; if the bars count more, the tick history is thinner than the feed the bars come from)"
     );
 
-    // Seam check: the same hour fetched in one call and in twelve pieces must hold the same ticks.
-    // A difference means ticks are lost where two pages meet.
+    // Seam check: six hours fetched in one call and in twelve pieces of half an hour must hold the
+    // same ticks. The whole range needs several pages and each piece one, so a difference means
+    // ticks are lost where two pages meet.
     let whole = fetch_ticks(
         &client,
         account_id,
         symbol.symbol_id,
         QuoteType::Bid,
-        now - hour,
+        now - 6 * hour,
         now,
     )
     .await
