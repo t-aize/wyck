@@ -23,6 +23,7 @@
 //! | [`logging`], [`session_marker`] | Log files, crash detection |
 //! | [`flow`] | The connection flow: screens, transitions, token checks |
 //! | [`dashboard`] | What the dashboard header shows: symbol, price, spread, time frames |
+//! | [`chart`] | The price chart's logic: bars, viewport, price scale, time axis |
 //! | [`symbols`] | The symbols an account offers: classes, icons, search, details sheet |
 //! | `shell` (feature `gui`) | The GPUI window, engine plumbing and shortcuts |
 //! | `ui` (feature `gui`) | The screens, the title bar, the theme: drawing only |
@@ -46,6 +47,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod chart;
 pub mod controller;
 pub mod dashboard;
 pub mod flow;
