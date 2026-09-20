@@ -16,6 +16,9 @@
 //! |---|---|
 //! | [`client`] | The connection: [`Client`], one method per call, events, state |
 //! | [`history`] | Whole ranges of ticks and bars, fetched page by page |
+//! | [`account`] | Balance, positions, orders, deals, catalogs: the read-only account messages |
+//! | [`market`] | Symbol lookup, latest prices, the order book, price formatting |
+//! | [`handle`] | [`handle::AccountClient`]: a client bound to one account |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh |
 //! | [`callback`] | The loopback web server that catches the sign in redirect |
 //! | [`event`] | What the server sends unasked: prices, order book, notices |
@@ -106,7 +109,9 @@ pub mod client;
 pub mod config;
 pub mod error;
 pub mod event;
+pub mod handle;
 pub mod history;
+pub mod market;
 pub mod model;
 pub mod rate_limit;
 pub mod types;
@@ -116,3 +121,4 @@ pub use client::{Client, ConnectionState};
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{ErrorKind, OpenApiError, Result};
 pub use event::{DisconnectReason, Event};
+pub use handle::AccountClient;
