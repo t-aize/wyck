@@ -299,13 +299,12 @@ async fn a_peer_that_vanishes_without_a_goodbye_ends_the_connection_cleanly() {
     );
 
     let reason = loop {
-        match tokio::time::timeout(Duration::from_secs(2), events.recv())
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
             .await
             .unwrap()
-            .unwrap()
-        {
-            Event::Disconnected(reason) => break reason,
-            _ => {}
+            .unwrap();
+        if let Event::Disconnected(reason) = event {
+            break reason;
         }
     };
     assert!(
