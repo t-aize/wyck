@@ -15,6 +15,10 @@
 //! 5. The access token goes to the connection: [`crate::Client::accounts`], then
 //!    [`crate::Client::authorize_account`].
 //!
+//! Errors are told apart on purpose: a refusal by the server (a bad code, a revoked refresh token) is
+//! [`OpenApiError::Auth`] and will not get better by trying again, while a failure to reach the endpoint
+//! is [`OpenApiError::Transport`] and may. The session relies on that difference.
+//!
 //! The token endpoint is a plain HTTPS `GET` with the secret in the query string. That is how the
 //! server wants it, and it is why errors from the HTTP layer are stripped of their URL here: a
 //! message that included it would put the client secret and the code in a log.
@@ -254,14 +258,14 @@ impl OAuthClient {
         }
         // `without_url` matters: the URL holds the secret and the code.
         let response = self.http.get(url).send().await.map_err(|e| {
-            OpenApiError::Auth(format!(
+            OpenApiError::Transport(format!(
                 "the token endpoint could not be reached: {}",
                 e.without_url()
             ))
         })?;
         let status = response.status();
         let body = response.bytes().await.map_err(|e| {
-            OpenApiError::Auth(format!(
+            OpenApiError::Transport(format!(
                 "the token answer could not be read: {}",
                 e.without_url()
             ))

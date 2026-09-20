@@ -158,7 +158,8 @@ async fn an_unreachable_endpoint_never_leaks_the_secret_or_the_code_in_the_error
         !text.contains("SUPER-SECRET-CODE"),
         "the code leaked: {text}"
     );
-    assert!(matches!(error, OpenApiError::Auth(_)));
+    // A network failure is a transport error (worth retrying), not a refusal of the sign in.
+    assert!(matches!(error, OpenApiError::Transport(_)), "{error:?}");
 }
 
 #[tokio::test]

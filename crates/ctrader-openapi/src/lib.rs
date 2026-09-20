@@ -19,6 +19,7 @@
 //! | [`account`] | Balance, positions, orders, deals, catalogs: the read-only account messages |
 //! | [`market`] | Symbol lookup, latest prices, the order book, price formatting |
 //! | [`handle`] | [`handle::AccountClient`]: a client bound to one account |
+//! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions by itself |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh |
 //! | [`callback`] | The loopback web server that catches the sign in redirect |
 //! | [`event`] | What the server sends unasked: prices, order book, notices |
@@ -114,6 +115,7 @@ pub mod history;
 pub mod market;
 pub mod model;
 pub mod rate_limit;
+pub mod session;
 pub mod types;
 pub mod wire;
 

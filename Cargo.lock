@@ -1532,6 +1532,7 @@ dependencies = [
 name = "ctrader-openapi"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "futures-util",
  "reqwest",
  "secrecy",

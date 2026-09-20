@@ -9,6 +9,7 @@ publish.workspace = true
 description = "Rust client for the cTrader Open API over its JSON WebSocket: application and account sign in (OAuth loopback), live ticks, tick and bar history, with request matching, heartbeat and rate limits."
 
 [dependencies]
+async-trait = { workspace = true }
 tokio = { workspace = true, features = ["net", "io-util"] }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true }
