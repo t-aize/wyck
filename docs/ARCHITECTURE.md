@@ -77,17 +77,23 @@ the picture, depends on none of the others. Details in
 
 | Module | Role |
 |---|---|
-| `client` | `Client`: one WebSocket, requests matched by `clientMsgId`, heartbeat, events, state |
+| `client` | `Client`: one WebSocket, requests matched by `clientMsgId`, heartbeat, events, state, retries of rate limit refusals |
+| `session` | `Session`: reconnects with backoff, signs in again, restores subscriptions, renews tokens through a `TokenStore` |
 | `history` | `fetch_ticks` and `fetch_bars`: whole ranges, page by page, windows under the server's limits |
+| `account`, `handle` | Read only account data (balance, positions, orders, deals, catalogs) and `AccountClient` |
+| `market` | Symbol lookup, latest quote per symbol, an order book, price formatting |
 | `auth`, `callback` | OAuth 2: consent URL, loopback redirect listener, code exchange, token refresh |
 | `types`, `model`, `wire` | Periods, bars, ticks, quotes; the messages; the envelope and payload numbers |
-| `rate_limit`, `error`, `config`, `event` | 50 and 5 requests per second, typed errors, settings, unsolicited messages |
+| `rate_limit`, `error`, `config`, `event` | Request limits, typed errors, settings, unsolicited messages |
 
 - **Limits**: 50 requests per second per connection, 5 for history; the limiter spaces requests
   so a burst waits instead of failing. A heartbeat keeps the connection under the server's 10
   second silence limit.
-- **No automatic reconnect**: after a disconnect the caller builds a new client and authorizes
-  again, so the engine's supervisor stays the one place that owns reconnection.
+- **Reconnection lives in `Session`**, not in `Client`: a client is one connection, and a `Session`
+  (used by the engine, or by anything that stays up) owns backoff, signing in again, restoring
+  subscriptions and renewing the tokens.
+- **Tested hard**: over 200 tests (mock server, stand-in token endpoint, property tests, robustness
+  tests) and an ignored live test for a demo account.
 - **Secrets**: client secret and tokens are `SecretString`s, `Debug` redacts them, and errors from
   the HTTP layer are stripped of their URL (which carries the secret and the code).
 - **Not yet verified live**: it was written from the documentation without an approved

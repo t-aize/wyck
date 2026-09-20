@@ -65,6 +65,15 @@ impl SymbolTable {
     }
 
     /// The symbol with this name, in any case.
+    ///
+    /// ```
+    /// use ctrader_openapi::market::SymbolTable;
+    /// use ctrader_openapi::model::LightSymbol;
+    ///
+    /// let symbol: LightSymbol = serde_json::from_str(r#"{"symbolId": 1, "symbolName": "EURUSD"}"#).unwrap();
+    /// let table = SymbolTable::new([symbol]);
+    /// assert_eq!(table.id_of("eurusd"), Some(1));
+    /// ```
     #[must_use]
     pub fn find(&self, name: &str) -> Option<&LightSymbol> {
         self.by_name
@@ -191,6 +200,14 @@ fn live_bar(wire: &WireTrendbar) -> Option<(Period, Bar)> {
     Some((period, decode_bar(wire)?))
 }
 
+/// ```
+/// use ctrader_openapi::market::format_price;
+///
+/// assert_eq!(format_price(114_880, 5), "1.14880");
+/// assert_eq!(format_price(114_886, 4), "1.1489"); // rounded to the decimals asked for
+/// assert_eq!(format_price(15_676_800, 3), "156.768");
+/// ```
+///
 /// A raw price as text with `digits` decimals, as the symbol quotes it (`114880` with 5 digits is
 /// `1.14880`, with 3 digits `1.149`). The price is rounded to the decimals asked for.
 ///

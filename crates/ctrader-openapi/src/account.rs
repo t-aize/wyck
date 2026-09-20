@@ -164,6 +164,13 @@ number_enum! {
     }
 }
 
+/// ```
+/// use ctrader_openapi::account::money;
+///
+/// assert_eq!(money(1_000_050, Some(2)), 10_000.5);
+/// assert_eq!(money(500, None), 5.0); // two digits when the server did not say
+/// ```
+///
 /// An integer amount of money as a real number, given the account's `money_digits` (2 when the
 /// server did not say).
 #[must_use]

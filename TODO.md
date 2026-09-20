@@ -155,8 +155,8 @@ checked against a mock server, not against the real one.
    - [x] WebSocket (wss) connection to `live` or `demo` on port 5036, JSON envelope with
          `clientMsgId`, replies matched to requests, unsolicited events on a channel.
    - [x] Heartbeat every few seconds (under the 10 second limit) and detection of a dead link.
-   - [x] Reconnection is left out on purpose: the client never reconnects by itself, so the
-         supervisor above it (the engine, step 6) owns backoff, authorizing again and resubscribing.
+   - [x] Reconnection: `Client` never reconnects by itself; `Session` does (backoff with jitter, signing in
+         again, restoring subscriptions, token renewal, prompt stop), and the engine (step 6) can use it.
    - [x] Two rate limiters: 50 per second, and 5 per second for historical calls (queue, do not fail).
    - [x] Typed errors: `REQUEST_FREQUENCY_EXCEEDED` (retry later), maintenance (`retryAfter`,
          `maintenanceEndTimestamp`), an invalid token, an unauthorized account. Never retry a
@@ -261,6 +261,22 @@ Run with `tests/live.rs` on a demo account while the market was closed (Sunday).
       market open, then settle: the tick price and time encoding, which end a truncated bar answer
       holds, the range limit per period, the tick count per response, and how far back ticks go.
 - [ ] Run `examples/sign_in.rs` to learn whether the consent page echoes `state`.
+
+#### The crate is complete; what is left to run live
+
+The crate now has account calls, market helpers, a reconnecting `Session`, seven examples, about
+200 tests and full docs (see its README and CHANGELOG). These pieces were only tested against the
+mock server, so run them once on the demo account and note anything that differs:
+
+- [ ] `cargo run -p ctrader-openapi --example account_info`: settles the account messages
+      (`ProtoOATraderRes`, reconcile, deal list), including the unit of money and volume fields.
+- [ ] `cargo run -p ctrader-openapi --example list_symbols -- EUR` and `stream_prices -- EURUSD --depth`:
+      settles the symbol details and whether the broker offers an order book.
+- [ ] `cargo run -p ctrader-openapi --example resilient_stream -- EURUSD`, then cut the network for a
+      minute: settles the `Session` against the real server (reconnection, restored subscription).
+- [ ] `cargo run -p ctrader-openapi --example download_ticks -- EURUSD --from 3h --out t.csv` and
+      `download_bars -- EURUSD M5 --from 2d --out b.csv`: a check of the CSV output on real data.
+- [ ] `cargo run -p ctrader-openapi --example sign_in`: whether the consent page echoes `state`.
 
 #### Second live run and what it changed
 

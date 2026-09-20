@@ -137,6 +137,16 @@ impl Default for Backoff {
 
 impl Backoff {
     /// The wait before attempt number `attempt` (1 for the first retry), without jitter.
+    ///
+    /// ```
+    /// use std::time::Duration;
+    /// use ctrader_openapi::session::Backoff;
+    ///
+    /// let backoff = Backoff { initial: Duration::from_secs(1), max: Duration::from_secs(10), factor: 2 };
+    /// assert_eq!(backoff.delay(1), Duration::from_secs(1));
+    /// assert_eq!(backoff.delay(3), Duration::from_secs(4));
+    /// assert_eq!(backoff.delay(9), Duration::from_secs(10)); // capped
+    /// ```
     #[must_use]
     pub fn delay(&self, attempt: u32) -> Duration {
         let factor = u128::from(self.factor.max(1));

@@ -35,6 +35,15 @@ const TICK_WINDOW_MS: i64 = MAX_TICK_RANGE_MS - 60_000;
 /// without making progress.
 const MAX_PAGES: usize = 5_000;
 
+/// ```
+/// use ctrader_openapi::history::tick_windows;
+///
+/// let day = 86_400_000;
+/// let windows = tick_windows(0, 20 * day);
+/// assert!(windows.len() >= 3);                       // under a week each
+/// assert_eq!(windows[1].0, windows[0].1 + 1);        // no gap, no overlap
+/// ```
+///
 /// Splits `[from_ms, to_ms]` into chronological windows the tick endpoint accepts. Windows do not
 /// overlap: each starts one millisecond after the one before ends. An empty or backwards range
 /// gives no window.

@@ -15,12 +15,20 @@ use crate::model::{WireTick, WireTrendbar};
 pub const PRICE_SCALE: i64 = 100_000;
 
 /// The raw price `raw` as a real price.
+///
+/// ```
+/// assert_eq!(ctrader_openapi::types::to_price(108_501), 1.08501);
+/// ```
 #[must_use]
 pub fn to_price(raw: i64) -> f64 {
     raw as f64 / PRICE_SCALE as f64
 }
 
 /// A real price as the server's integer, rounded to the nearest unit.
+///
+/// ```
+/// assert_eq!(ctrader_openapi::types::from_price(1.08501), 108_501);
+/// ```
 #[must_use]
 pub fn from_price(price: f64) -> i64 {
     (price * PRICE_SCALE as f64).round() as i64
@@ -245,6 +253,20 @@ pub struct Spot {
 /// the price is a difference too was seen on a live demo account (a tick history whose oldest
 /// prices read `1` and `-1` beside a newest price of `114880`). Reading the times as absolute yields
 /// a few seconds of data where an hour was asked for, and the prices as absolute yields nonsense.
+///
+/// ```
+/// use ctrader_openapi::model::WireTick;
+/// use ctrader_openapi::types::decode_ticks;
+///
+/// // Newest first: the first tick is absolute, the others are steps back from it.
+/// let wire = [
+///     WireTick { timestamp: 1_000_000, tick: 108_501 },
+///     WireTick { timestamp: -500, tick: -2 },
+/// ];
+/// let ticks = decode_ticks(&wire);
+/// assert_eq!((ticks[0].time_ms, ticks[0].price), (999_500, 108_499)); // the older tick, first
+/// assert_eq!((ticks[1].time_ms, ticks[1].price), (1_000_000, 108_501));
+/// ```
 ///
 /// The result is in time order. Ticks that share a millisecond keep the order they happened in (it
 /// decides the last price), and identical ticks are kept: two ticks at the same time and price are
