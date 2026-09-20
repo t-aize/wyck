@@ -23,9 +23,8 @@
 
 use std::time::Duration;
 
-use gpui_kit::base::animation::Lerp as _;
 use gpui_kit::base::{Easing, Transition, TransitionId, transition};
-use gpui_kit::{App, ElementId, Entity, Hsla, Window};
+use gpui_kit::{App, ElementId, Entity, Hsla, Rgba, Window};
 
 use crate::flow::Screen;
 
@@ -181,6 +180,31 @@ pub fn slide(direction: Direction, arriving: bool, progress: f32) -> f32 {
     distance * (1.0 - progress)
 }
 
+/// `from` faded toward `to` by `t` (0 to 1), through colors that look like both.
+///
+/// The colors are mixed as RGB weighted by their opacity (premultiplied), not channel by channel
+/// in HSL: fading an opaque dark ground toward "white at 3 percent" channel by channel goes
+/// through a light gray half way, which shows as a flash. Mixed this way it stays dark, and a
+/// fade from transparent only changes the opacity.
+#[must_use]
+pub fn blend(from: Hsla, to: Hsla, t: f32) -> Hsla {
+    let t = t.clamp(0.0, 1.0);
+    let (a, b) = (Rgba::from(from), Rgba::from(to));
+    let alpha = a.a + (b.a - a.a) * t;
+    if alpha <= f32::EPSILON {
+        return Hsla { a: 0.0, ..to };
+    }
+    let (ra, rb) = ((a.r, a.g, a.b), (b.r, b.g, b.b));
+    let premul = |from: f32, to: f32| from * a.a + (to * b.a - from * a.a) * t;
+    Rgba {
+        r: premul(ra.0, rb.0) / alpha,
+        g: premul(ra.1, rb.1) / alpha,
+        b: premul(ra.2, rb.2) / alpha,
+        a: alpha,
+    }
+    .into()
+}
+
 /// A pointer-over state that fades instead of flipping.
 ///
 /// [`Hover::track`] reads whether the element under `id` is hovered and returns how far along the
@@ -224,7 +248,7 @@ impl Hover {
     /// `from` faded toward `to` by the hover amount.
     #[must_use]
     pub fn mix(&self, from: Hsla, to: Hsla) -> Hsla {
-        from.lerp(&to, self.amount)
+        blend(from, to, self.amount)
     }
 }
 
@@ -362,6 +386,62 @@ mod tests {
     fn an_arrival_covers_most_of_its_distance_early_and_a_departure_late() {
         assert!(enter().sample(0.3) > 0.6, "decelerates");
         assert!(exit().sample(0.3) < 0.25, "accelerates");
+    }
+
+    #[test]
+    fn fading_a_dark_ground_toward_faint_white_never_flashes_light() {
+        let ground = Rgba {
+            r: 0.04,
+            g: 0.04,
+            b: 0.04,
+            a: 1.0,
+        };
+        let faint = Rgba::from(crate::ui::theme::over(
+            ground.into(),
+            crate::ui::theme::fg(),
+            0.04,
+        ));
+        for i in 0..=20 {
+            let mixed = Rgba::from(blend(ground.into(), faint.into(), i as f32 / 20.0));
+            assert!(mixed.r < 0.10, "step {i}: {mixed:?} is too light");
+            assert!((mixed.a - 1.0).abs() < 0.05, "stays opaque");
+        }
+    }
+
+    #[test]
+    fn a_fade_from_transparent_only_changes_the_opacity() {
+        let clear = Hsla {
+            a: 0.0,
+            ..theme_gray()
+        };
+        let solid = theme_gray();
+        let half = Rgba::from(blend(clear, solid, 0.5));
+        let want = Rgba::from(solid);
+        assert!((half.r - want.r).abs() < 1e-3 && (half.g - want.g).abs() < 1e-3);
+        assert!((half.a - 0.5).abs() < 1e-3);
+    }
+
+    #[test]
+    fn a_blend_starts_at_its_first_color_and_ends_at_its_second() {
+        let (a, b) = (
+            theme_gray(),
+            Hsla {
+                l: 0.9,
+                ..theme_gray()
+            },
+        );
+        assert_eq!(Rgba::from(blend(a, b, 0.0)), Rgba::from(a));
+        let end = Rgba::from(blend(a, b, 1.0));
+        assert!((end.r - Rgba::from(b).r).abs() < 1e-4);
+    }
+
+    fn theme_gray() -> Hsla {
+        Hsla {
+            h: 0.0,
+            s: 0.0,
+            l: 0.15,
+            a: 1.0,
+        }
     }
 
     #[test]

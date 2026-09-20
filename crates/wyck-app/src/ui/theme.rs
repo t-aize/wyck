@@ -5,7 +5,7 @@
 //! red; amber is added for warnings, which the connection screens do not use but toasts do.
 
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Hsla, px, rgb};
+use gpui_kit::{App, Hsla, Rgba, px, rgb};
 
 use crate::presentation::Tone;
 
@@ -36,6 +36,21 @@ fn hsla(hex: u32) -> Hsla {
 #[must_use]
 pub fn alpha(color: Hsla, alpha: f32) -> Hsla {
     Hsla { a: alpha, ..color }
+}
+
+/// `top` laid over the opaque `base` at `amount` opacity: the opaque color that results. For a
+/// ground that gets slightly lighter, where a translucent color would let what is behind show.
+#[must_use]
+pub fn over(base: Hsla, top: Hsla, amount: f32) -> Hsla {
+    let (b, t) = (Rgba::from(base), Rgba::from(top));
+    let amount = amount.clamp(0.0, 1.0) * t.a;
+    Rgba {
+        r: b.r + (t.r - b.r) * amount,
+        g: b.g + (t.g - b.g) * amount,
+        b: b.b + (t.b - b.b) * amount,
+        a: 1.0,
+    }
+    .into()
 }
 
 /// The window background.
@@ -159,6 +174,14 @@ mod tests {
         let b = border();
         assert!((b.a - 0.10).abs() < f32::EPSILON);
         assert!(b.l > 0.9, "white, not gray");
+    }
+
+    #[test]
+    fn a_color_laid_over_another_is_opaque_and_between_them() {
+        let lifted = Rgba::from(over(bg(), fg(), 0.035));
+        assert!((lifted.a - 1.0).abs() < 1e-6);
+        assert!(lifted.r > Rgba::from(bg()).r && lifted.r < 0.2);
+        assert_eq!(Rgba::from(over(bg(), fg(), 0.0)), Rgba::from(bg()));
     }
 
     #[test]

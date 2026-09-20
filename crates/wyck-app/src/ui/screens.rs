@@ -73,7 +73,7 @@ fn choice(
         .py(px(16.))
         .pl(px(18.))
         .pr(px(16.))
-        .bg(hover.mix(theme::bg(), theme::alpha(theme::fg(), 0.035)))
+        .bg(hover.mix(theme::bg(), theme::over(theme::bg(), theme::fg(), 0.04)))
         .border_1()
         .border_color(hover.mix(theme::border(), theme::alpha(theme::fg(), 0.24)))
         .rounded(px(10.))
@@ -87,7 +87,10 @@ fn choice(
                 .flex_none()
                 .size(px(34.))
                 .rounded(px(8.))
-                .bg(hover.mix(theme::muted(), theme::alpha(theme::fg(), 0.14)))
+                .bg(hover.mix(
+                    theme::muted(),
+                    theme::over(theme::muted(), theme::fg(), 0.12),
+                ))
                 .child(glyph(icon, 16., theme::fg())),
         )
         .child(

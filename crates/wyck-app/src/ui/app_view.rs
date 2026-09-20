@@ -15,7 +15,6 @@
 
 use std::time::Duration;
 
-use gpui_kit::base::animation::Lerp as _;
 use gpui_kit::base::{MotionReveal, Presence, PresencePhase, Transition, TransitionId, transition};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::*;
@@ -620,7 +619,7 @@ impl AppView {
         let border = if failed {
             theme::alpha(theme::red(), 0.45)
         } else {
-            idle.lerp(&theme::ring(), glow)
+            motion::blend(idle, theme::ring(), glow)
         };
         let field: AnyElement = if live {
             Input::new(&self.token)
