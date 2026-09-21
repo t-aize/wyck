@@ -259,6 +259,8 @@ impl CTraderError {
         }
 
         if let Some(text) = raw_text {
+            // Confirmed only for Local order placement. If a live probe of position,
+            // order, or chart mutations uses another prefix, classify it here too.
             if text.trim_start().starts_with("Order error:") {
                 return CTraderError::LocalFault {
                     tool,

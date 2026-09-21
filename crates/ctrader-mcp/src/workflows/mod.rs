@@ -1,10 +1,9 @@
 //! End-to-end trader workflows composed from [`crate::local`], [`crate::remote`],
 //! [`crate::math`], and [`crate::quirks`].
 //!
-//! Mirrors the skill's `references/trader-workflows.md` (W0 bootstrap, W1 entry, W2
-//! modify, W3 close, W4 read, W5 risk sizing, W6 history) and `SKILL.md`'s "Composable
-//! trader workflows" section (position sizing, pre-trade briefing, cost-of-trading
-//! comparison, place+visualize, multi-window backfill, safe flatten).
+//! Implements W0 bootstrap, W5 risk sizing, W6 history, pre-trade briefing,
+//! cost comparison, and safe flatten. Entry and amendment patterns from W1 and W2
+//! are available directly in [`crate::quirks`].
 //!
 //! Every workflow function here is written against [`crate::remote::RemoteClient`],
 //! since Remote's tool surface is the one the skill documents with exact field names

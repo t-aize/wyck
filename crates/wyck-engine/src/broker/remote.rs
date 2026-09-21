@@ -38,7 +38,6 @@ use ctrader_mcp::remote::dto::{
 };
 use ctrader_mcp::workflows::{RemoteSessionContext, bootstrap_remote};
 use ctrader_mcp::{ConnectionConfig, RemoteClient, quirks};
-use secrecy::ExposeSecret;
 
 use super::{Broker, ConnectRequest, MarketOrder, PlacedOrder, ServiceKind};
 use crate::config::AssumedSpecs;
@@ -164,7 +163,7 @@ impl RemoteBroker {
     pub async fn connect(request: &ConnectRequest, assumed: &AssumedSpecs) -> Result<Self> {
         let mut config = ConnectionConfig::new(&request.endpoint);
         if let Some(token) = &request.token {
-            config = config.with_bearer_token(token.expose_secret());
+            config = config.with_bearer_token(token.clone());
         }
         let client = RemoteClient::connect(&config).await?;
         let session = bootstrap_remote(&client).await?;

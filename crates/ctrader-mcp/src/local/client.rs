@@ -563,7 +563,9 @@ impl LocalClient {
     /// Lists saved chart templates. Best-effort inferred tool name: see this section's
     /// module-level note.
     pub async fn list_chart_templates(&self) -> Result<Value, CTraderError> {
-        self.session.call_raw("list_chart_templates", None).await
+        self.session
+            .call_raw_idempotent("list_chart_templates", None)
+            .await
     }
 
     /// Applies a saved template to the FOCUSED chart.
@@ -603,7 +605,9 @@ impl LocalClient {
 
     /// Lists saved workspaces.
     pub async fn list_workspaces(&self) -> Result<Value, CTraderError> {
-        self.session.call_raw("list_workspaces", None).await
+        self.session
+            .call_raw_idempotent("list_workspaces", None)
+            .await
     }
 
     /// Deletes a saved workspace. **Destructive: irreversible.**
@@ -639,7 +643,9 @@ impl LocalClient {
 
     /// Enumerates the user's watchlists.
     pub async fn get_watchlists(&self) -> Result<Value, CTraderError> {
-        self.session.call_raw("get_watchlists", None).await
+        self.session
+            .call_raw_idempotent("get_watchlists", None)
+            .await
     }
 
     /// Creates a new watchlist.
@@ -715,7 +721,9 @@ impl LocalClient {
 
     /// Lists price alerts.
     pub async fn get_price_alerts(&self) -> Result<Value, CTraderError> {
-        self.session.call_raw("get_price_alerts", None).await
+        self.session
+            .call_raw_idempotent("get_price_alerts", None)
+            .await
     }
 
     /// Creates a price alert. `condition` is `"above"` or `"below"`; `price_type` is
@@ -757,7 +765,7 @@ impl LocalClient {
 
     /// Enumerates available cBots/plugins.
     pub async fn list_plugins(&self) -> Result<Value, CTraderError> {
-        self.session.call_raw("listPlugins", None).await
+        self.session.call_raw_idempotent("listPlugins", None).await
     }
 
     /// Starts a cBot/plugin by id.

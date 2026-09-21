@@ -17,6 +17,7 @@ use rmcp::service::RunningService;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::{ClientHandler, Peer, RoleClient, ServiceExt};
+use secrecy::ExposeSecret;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -55,7 +56,8 @@ impl ClientHandler for ClientIdentity {
 pub struct McpSession {
     running: RunningService<RoleClient, ClientIdentity>,
     /// Copied from [`ConnectionConfig::retry_policy`] at connect time, and used by
-    /// [`Self::call_idempotent`]/[`Self::call_no_args_idempotent`]. `connect` itself is
+    /// [`Self::call_idempotent`], [`Self::call_no_args_idempotent`], and
+    /// [`Self::call_raw_idempotent`]. `connect` itself is
     /// also retried against this same policy: see this method's body.
     retry_policy: RetryPolicy,
 }
@@ -76,7 +78,7 @@ impl McpSession {
                 .control_request_timeout(config.control_request_timeout)
                 .session_recovery_timeout(config.session_recovery_timeout);
         if let Some(token) = &config.bearer_token {
-            transport_config = transport_config.auth_header(token.clone());
+            transport_config = transport_config.auth_header(token.expose_secret().to_owned());
         }
 
         let running = retry_with_backoff(&config.retry_policy, || {
@@ -233,6 +235,19 @@ impl McpSession {
         arguments: Option<JsonObject>,
     ) -> Result<Value, CTraderError> {
         self.call_with_arguments(tool, arguments).await
+    }
+
+    /// Retries a read-only raw tool call on transient failures. Mutating tools must use
+    /// [`Self::call_raw`] so a lost response cannot submit the action twice.
+    pub async fn call_raw_idempotent(
+        &self,
+        tool: &'static str,
+        arguments: Option<JsonObject>,
+    ) -> Result<Value, CTraderError> {
+        retry_with_backoff(&self.retry_policy, || {
+            self.call_with_arguments(tool, arguments.clone())
+        })
+        .await
     }
 
     /// Lists every tool the connected server currently advertises. Used by workflow W0

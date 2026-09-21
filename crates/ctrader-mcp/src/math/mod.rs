@@ -13,14 +13,11 @@
 //! `f64` instead, to avoid pulling a big-decimal crate into the workspace for a domain
 //! (FX/CFD/metals/indices position sizing) where `f64`'s ~15-17 significant decimal
 //! digits comfortably exceed any realistic account balance, lot size, or price
-//! precision. Every rounding step (`round_half_up_to_digits`, `round_down_to_step`)
-//! explicitly mirrors the Python originals' `ROUND_HALF_UP` / `ROUND_DOWN` semantics
-//! rather than relying on `f64`'s default rounding, so results match the Python
-//! reference implementation's self-test fixtures (ported below as unit tests) to within
-//! floating-point tolerance. If exact decimal arithmetic becomes a hard requirement
-//! (e.g. for accounting/reconciliation rather than pre-trade sizing), swap the `f64`
-//! scalar type for `rust_decimal::Decimal`: every function signature here was kept
-//! narrow specifically so that swap would be local to this module.
+//! precision. `round_half_up_to_digits` follows `ROUND_HALF_UP` for non-negative inputs.
+//! `round_down_to_step` uses a small quotient tolerance to recover intended whole
+//! steps lost to binary floating-point drift, so it differs slightly from strict
+//! decimal `ROUND_DOWN` at that boundary. If accounting or reconciliation needs
+//! exact decimals, replace `f64` with `rust_decimal::Decimal` inside this module.
 //!
 //! [`decimal.Decimal`]: https://docs.python.org/3/library/decimal.html
 
@@ -38,9 +35,9 @@ pub(crate) fn round_half_up_to_digits(value: f64, digits: u32) -> f64 {
     (value * factor).round() / factor
 }
 
-/// Rounds `value` DOWN to the nearest multiple of `step` (matches Python's
-/// `_round_down_to_step`, used by `Q-L1`-aware volume rounding and the sizing/margin
-/// routines' "round toward smaller risk" invariant).
+/// Rounds `value` down to the nearest multiple of `step`, except when the quotient
+/// is less than 1e-9 below the next integer due to floating-point drift. Used by
+/// `Q-L1`-aware volume rounding and the sizing/margin routines.
 ///
 /// # Panics
 ///
@@ -57,5 +54,7 @@ pub(crate) fn round_down_to_step(value: f64, step: f64) -> f64 {
         value >= 0.0,
         "round_down_to_step: value must be >= 0, got {value}"
     );
-    (value / step).floor() * step
+    // Recover quotients just below an integer due to binary floating-point drift.
+    // A quotient genuinely more than 1e-9 below a step still rounds down.
+    ((value / step) + 1e-9).floor() * step
 }

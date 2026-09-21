@@ -68,7 +68,7 @@ async fn main() {
         }
     };
 
-    match client.session().list_tool_names().await {
+    match client.list_tool_names().await {
         Ok(tools) => println!("advertised tools ({}): {tools:?}", tools.len()),
         Err(source) => println!("tools/list FAILED: {source}"),
     }

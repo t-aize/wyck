@@ -121,7 +121,7 @@ pub async fn bootstrap_remote(client: &RemoteClient) -> Result<RemoteSessionCont
     // catalog is what actually explains why, instead of guessing tool-by-tool against
     // the skill's documented names (which are audited against a specific rest-proxy
     // build and may not match every live deployment).
-    match client.session().list_tool_names().await {
+    match client.list_tool_names().await {
         Ok(tools) => tracing::info!(?tools, "remote server advertised tool catalog"),
         Err(source) => {
             tracing::warn!(error = %source, "failed to list the remote server's tool catalog")

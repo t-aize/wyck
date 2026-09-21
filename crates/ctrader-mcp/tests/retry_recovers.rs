@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use ctrader_mcp::config::ConnectionConfig;
 use ctrader_mcp::error::CTraderError;
+use ctrader_mcp::local::LocalClient;
 use ctrader_mcp::transport::McpSession;
 use rmcp::model::CallToolResult;
 use serde_json::json;
@@ -85,5 +86,29 @@ async fn plain_call_never_retries_even_a_transient_failure() {
         "a mutating-style call must fail on the first attempt, never retry"
     );
 
+    handle.abort();
+}
+
+#[tokio::test]
+async fn local_raw_getter_recovers_from_one_transient_failure() {
+    let attempts = Arc::new(AtomicU32::new(0));
+    let attempts_in_handler = attempts.clone();
+    let server = MockMcpServer::builder()
+        .with_tool("get_watchlists", move |_arguments| {
+            if attempts_in_handler.fetch_add(1, Ordering::SeqCst) == 0 {
+                upstream_broker_error()
+            } else {
+                CallToolResult::structured(json!({ "watchlists": [] }))
+            }
+        })
+        .build();
+    let (url, handle) = support::spawn_mock_mcp_server(server).await;
+    let client = LocalClient::connect(&ConnectionConfig::new(url))
+        .await
+        .expect("connect should succeed");
+
+    let result = client.get_watchlists().await.expect("getter should retry");
+    assert_eq!(result["watchlists"], json!([]));
+    assert_eq!(attempts.load(Ordering::SeqCst), 2);
     handle.abort();
 }

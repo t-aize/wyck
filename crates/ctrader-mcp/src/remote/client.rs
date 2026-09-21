@@ -89,6 +89,12 @@ impl RemoteClient {
         &self.session
     }
 
+    /// Lists advertised tools while respecting the Remote server's request limit.
+    pub async fn list_tool_names(&self) -> Result<Vec<String>, CTraderError> {
+        self.rate_limiter.acquire().await;
+        self.session.list_tool_names().await
+    }
+
     /// Gracefully shuts down the underlying MCP session.
     pub async fn shutdown(self) -> Result<(), CTraderError> {
         self.session.shutdown().await
@@ -99,7 +105,7 @@ impl RemoteClient {
     /// `references/remote-http-server.md` "Profile distinction", surface this to the
     /// user before attempting any workflow that needs to mutate.
     pub async fn has_trading_profile(&self) -> Result<bool, CTraderError> {
-        let tools = self.session.list_tool_names().await?;
+        let tools = self.list_tool_names().await?;
         Ok(tools.iter().any(|name| name == "create_order"))
     }
 

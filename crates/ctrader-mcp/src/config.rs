@@ -1,6 +1,7 @@
 //! Connection configuration shared by [`crate::local::LocalClient`] and
 //! [`crate::remote::RemoteClient`].
 
+use secrecy::SecretString;
 use std::time::Duration;
 
 use crate::retry::RetryPolicy;
@@ -22,14 +23,15 @@ pub struct ConnectionConfig {
     pub uri: String,
 
     /// The bearer token sent as `Authorization: Bearer <token>`, if the endpoint requires
-    /// authentication. Use [`Self::with_bearer_token`] to set this.
+    /// authentication. Kept in a secret wrapper so `Debug` output redacts it. Use
+    /// [`Self::with_bearer_token`] to set this.
     ///
     /// Stored as the bare token, NOT the full header value: [`crate::transport`] hands
     /// this to `rmcp`'s `StreamableHttpClientTransportConfig::auth_header`, which itself
     /// adds the `Bearer ` prefix (via reqwest's `bearer_auth`). Prefixing it here too
     /// would send `Authorization: Bearer Bearer <token>`, which cTrader's remote MCP
     /// endpoint rejects with `AuthRequired(invalid_token)`.
-    pub bearer_token: Option<String>,
+    pub bearer_token: Option<SecretString>,
 
     /// Timeout applied to each individual control request (initialize, `tools/call`,
     /// etc.). Does not bound long-lived SSE streams. Defaults to 30 seconds: generous
@@ -43,7 +45,8 @@ pub struct ConnectionConfig {
     pub session_recovery_timeout: Duration,
 
     /// How [`crate::transport::McpSession::connect`] and
-    /// [`crate::transport::McpSession::call_idempotent`]/`call_no_args_idempotent`
+    /// [`crate::transport::McpSession::call_idempotent`],
+    /// `call_no_args_idempotent`, and `call_raw_idempotent`
     /// retry on transient failures. Defaults to [`RetryPolicy::default`]. Never applied
     /// to a mutating `tools/call`: see [`crate::retry`]'s module doc comment for why.
     pub retry_policy: RetryPolicy,
@@ -64,7 +67,7 @@ impl ConnectionConfig {
 
     /// Sets `Authorization: Bearer <token>` for every request on this session.
     #[must_use]
-    pub fn with_bearer_token(mut self, token: impl Into<String>) -> Self {
+    pub fn with_bearer_token(mut self, token: impl Into<SecretString>) -> Self {
         self.bearer_token = Some(token.into());
         self
     }
@@ -89,5 +92,19 @@ impl ConnectionConfig {
     pub fn with_retry_policy(mut self, policy: RetryPolicy) -> Self {
         self.retry_policy = policy;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_bearer_token() {
+        let config = ConnectionConfig::new("https://example.test/mcp")
+            .with_bearer_token("test-secret-token");
+        let debug = format!("{config:?}");
+        assert!(!debug.contains("test-secret-token"));
+        assert!(debug.contains("bearer_token"));
     }
 }

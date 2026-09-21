@@ -41,19 +41,22 @@
 //! - [`retry`], [`retry::RetryPolicy`] and the backoff loop wrapping session
 //!   establishment and read-only calls (never mutating ones, see that module's doc
 //!   comment for why).
-//! - [`workflows`]: end-to-end trader workflows (session bootstrap, entry orders, modify,
-//!   close, read, risk sizing, history) composed from the two clients plus [`math`] and
-//!   [`quirks`].
+//! - [`workflows`]: `bootstrap_remote` (W0), `size_position_by_risk` (W5),
+//!   `backfill_trendbars` (W6), `pre_trade_briefing`, `compare_trading_costs`, and
+//!   `safe_flatten`. Entry and amendment patterns such as P-REMOTE-MARKET-2STEP,
+//!   P-REMOTE-MARKET-RELATIVE, and P-AMEND-SAFE live in [`quirks`] and are called
+//!   directly by the caller (see `examples/probe_remote.rs`).
 //!
 //! ## Provenance
 //!
 //! The behavioral documentation embedded in this crate's doc comments (quirk IDs like
 //! `Q-R10`, pattern IDs like `P-AMEND-SAFE`, workflow IDs like `W1`) mirrors the
-//! `ctrader-mcp-servers` skill, last audited against `rest-proxy 1.0.18` (Remote) and a
-//! local build observed on 2026-05-14. The MCP JSON-Schema advertised by each live server
-//! is always the source of truth on wire *shape*; this crate is the source of truth on
-//! *how to drive that shape correctly*, including the workarounds the servers currently
-//! require.
+//! `ctrader-mcp-servers` skill, last fully audited against `rest-proxy 1.0.18` (Remote)
+//! and a local build observed on 2026-05-14. Selected Remote behavior was checked
+//! again in 2026-09 (see [`remote::dto`] and [`quirks`]). A 2026-09-21 live check of
+//! MCP session behavior was unavailable: no Remote token or running Local endpoint
+//! was present. See `CHANGELOG.md` for the verification record. The MCP JSON-Schema
+//! advertised by each live server is the source of truth for wire shape.
 
 pub mod common;
 pub mod config;

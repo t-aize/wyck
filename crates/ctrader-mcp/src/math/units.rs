@@ -13,7 +13,7 @@ use crate::math::round_down_to_step;
 /// lot_size)`. Floor, not round, because partial units are not representable on the
 /// wire.
 pub fn lots_to_units(lots: f64, lot_size: f64) -> i64 {
-    (lots * lot_size).floor() as i64
+    round_down_to_step(lots * lot_size, 1.0) as i64
 }
 
 /// Converts Local-server integer units back to display lots.
@@ -26,7 +26,7 @@ pub fn units_to_lots(units: i64, lot_size: f64) -> f64 {
 /// Remote cents are 100x the Local units for the same lot count (`SKILL.md` "Units
 /// conventions across the two servers").
 pub fn lots_to_cents(lots: f64, lot_size: f64) -> i64 {
-    (lots * lot_size * 100.0).floor() as i64
+    round_down_to_step(lots * lot_size * 100.0, 1.0) as i64
 }
 
 /// Converts Remote cents to the equivalent Local units (`cents / 100`, integer
@@ -80,6 +80,13 @@ mod tests {
     #[test]
     fn zero_point_one_lot_forex_to_units() {
         assert_eq!(lots_to_units(0.1, 100_000.0), 10_000);
+    }
+
+    #[test]
+    fn floating_point_drift_does_not_lose_a_unit() {
+        assert_eq!(lots_to_units(0.29, 100_000.0), 29_000);
+        assert_eq!(lots_to_cents(0.29, 100_000.0), 2_900_000);
+        assert_eq!(round_volume_down_to_step(2.9 - 1e-6, 1.0), 2.0);
     }
 
     #[test]
