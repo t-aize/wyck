@@ -21,6 +21,8 @@ pub mod payload {
     /// `ProtoHeartbeatEvent`: sent both ways to show the connection is alive.
     pub const HEARTBEAT_EVENT: u32 = 51;
 
+    // ---- Auth ----
+
     /// `ProtoOAApplicationAuthReq`.
     pub const APPLICATION_AUTH_REQ: u32 = 2100;
     /// `ProtoOAApplicationAuthRes`.
@@ -33,6 +35,26 @@ pub mod payload {
     pub const VERSION_REQ: u32 = 2104;
     /// `ProtoOAVersionRes`.
     pub const VERSION_RES: u32 = 2105;
+
+    // ---- Trading ----
+
+    /// `ProtoOANewOrderReq`.
+    pub const NEW_ORDER_REQ: u32 = 2106;
+    /// `ProtoOATrailingSLChangedEvent`.
+    pub const TRAILING_SL_CHANGED_EVENT: u32 = 2107;
+    /// `ProtoOACancelOrderReq`.
+    pub const CANCEL_ORDER_REQ: u32 = 2108;
+    /// `ProtoOAAmendOrderReq`.
+    pub const AMEND_ORDER_REQ: u32 = 2109;
+    /// `ProtoOAAmendPositionSLTPReq`.
+    pub const AMEND_POSITION_SLTP_REQ: u32 = 2110;
+    /// `ProtoOAClosePositionReq`.
+    pub const CLOSE_POSITION_REQ: u32 = 2111;
+    /// `ProtoOAOrderErrorEvent`.
+    pub const ORDER_ERROR_EVENT: u32 = 2132;
+
+    // ---- Market ----
+
     /// `ProtoOASymbolsListReq`.
     pub const SYMBOLS_LIST_REQ: u32 = 2114;
     /// `ProtoOASymbolsListRes`.
@@ -41,6 +63,12 @@ pub mod payload {
     pub const SYMBOL_BY_ID_REQ: u32 = 2116;
     /// `ProtoOASymbolByIdRes`.
     pub const SYMBOL_BY_ID_RES: u32 = 2117;
+    /// `ProtoOASymbolsForConversionReq`.
+    pub const SYMBOLS_FOR_CONVERSION_REQ: u32 = 2118;
+    /// `ProtoOASymbolsForConversionRes`.
+    pub const SYMBOLS_FOR_CONVERSION_RES: u32 = 2119;
+    /// `ProtoOASymbolChangedEvent`.
+    pub const SYMBOL_CHANGED_EVENT: u32 = 2120;
     /// `ProtoOASubscribeSpotsReq`.
     pub const SUBSCRIBE_SPOTS_REQ: u32 = 2127;
     /// `ProtoOASubscribeSpotsRes`.
@@ -133,6 +161,56 @@ pub mod payload {
     pub const ORDER_LIST_REQ: u32 = 2175;
     /// `ProtoOAOrderListRes`.
     pub const ORDER_LIST_RES: u32 = 2176;
+    /// `ProtoOADealListByPositionIdReq`.
+    pub const DEAL_LIST_BY_POSITION_ID_REQ: u32 = 2179;
+    /// `ProtoOADealListByPositionIdRes`.
+    pub const DEAL_LIST_BY_POSITION_ID_RES: u32 = 2180;
+    /// `ProtoOAOrderDetailsReq`.
+    pub const ORDER_DETAILS_REQ: u32 = 2181;
+    /// `ProtoOAOrderDetailsRes`.
+    pub const ORDER_DETAILS_RES: u32 = 2182;
+    /// `ProtoOAOrderListByPositionIdReq`.
+    pub const ORDER_LIST_BY_POSITION_ID_REQ: u32 = 2183;
+    /// `ProtoOAOrderListByPositionIdRes`.
+    pub const ORDER_LIST_BY_POSITION_ID_RES: u32 = 2184;
+    /// `ProtoOADealOffsetListReq`.
+    pub const DEAL_OFFSET_LIST_REQ: u32 = 2185;
+    /// `ProtoOADealOffsetListRes`.
+    pub const DEAL_OFFSET_LIST_RES: u32 = 2186;
+    /// `ProtoOAGetPositionUnrealizedPnLReq`.
+    pub const GET_POSITION_UNREALIZED_PNL_REQ: u32 = 2187;
+    /// `ProtoOAGetPositionUnrealizedPnLRes`.
+    pub const GET_POSITION_UNREALIZED_PNL_RES: u32 = 2188;
+    /// `ProtoOACashFlowHistoryListReq`.
+    pub const CASH_FLOW_HISTORY_LIST_REQ: u32 = 2143;
+    /// `ProtoOACashFlowHistoryListRes`.
+    pub const CASH_FLOW_HISTORY_LIST_RES: u32 = 2144;
+
+    // ---- Margin ----
+
+    /// `ProtoOAExpectedMarginReq`.
+    pub const EXPECTED_MARGIN_REQ: u32 = 2139;
+    /// `ProtoOAExpectedMarginRes`.
+    pub const EXPECTED_MARGIN_RES: u32 = 2140;
+    /// `ProtoOAMarginChangedEvent`.
+    pub const MARGIN_CHANGED_EVENT: u32 = 2141;
+    /// `ProtoOAMarginCallListReq`.
+    pub const MARGIN_CALL_LIST_REQ: u32 = 2167;
+    /// `ProtoOAMarginCallListRes`.
+    pub const MARGIN_CALL_LIST_RES: u32 = 2168;
+    /// `ProtoOAMarginCallUpdateReq`.
+    pub const MARGIN_CALL_UPDATE_REQ: u32 = 2169;
+    /// `ProtoOAMarginCallUpdateRes`.
+    pub const MARGIN_CALL_UPDATE_RES: u32 = 2170;
+    /// `ProtoOAMarginCallUpdateEvent`.
+    pub const MARGIN_CALL_UPDATE_EVENT: u32 = 2171;
+    /// `ProtoOAMarginCallTriggerEvent`.
+    pub const MARGIN_CALL_TRIGGER_EVENT: u32 = 2172;
+    /// `ProtoOAGetDynamicLeverageByIDReq`. The enum constant itself is named without "ById"
+    /// (`PROTO_OA_GET_DYNAMIC_LEVERAGE_REQ`); the message it carries is `ProtoOAGetDynamicLeverageByIDReq`.
+    pub const GET_DYNAMIC_LEVERAGE_REQ: u32 = 2177;
+    /// `ProtoOAGetDynamicLeverageByIDRes`.
+    pub const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
 }
 
 /// One message on the wire.
@@ -277,5 +355,46 @@ mod tests {
         assert_eq!(payload::GET_TICK_DATA_REQ, 2145);
         assert_eq!(payload::REFRESH_TOKEN_RES, 2174);
         assert_eq!(payload::SUBSCRIBE_LIVE_TRENDBAR_RES, 2165);
+    }
+
+    #[test]
+    fn trading_account_and_margin_payload_numbers_match_the_official_enum() {
+        // Trading.
+        assert_eq!(payload::NEW_ORDER_REQ, 2106);
+        assert_eq!(payload::TRAILING_SL_CHANGED_EVENT, 2107);
+        assert_eq!(payload::CANCEL_ORDER_REQ, 2108);
+        assert_eq!(payload::AMEND_ORDER_REQ, 2109);
+        assert_eq!(payload::AMEND_POSITION_SLTP_REQ, 2110);
+        assert_eq!(payload::CLOSE_POSITION_REQ, 2111);
+        assert_eq!(payload::ORDER_ERROR_EVENT, 2132);
+        // Market.
+        assert_eq!(payload::SYMBOLS_FOR_CONVERSION_REQ, 2118);
+        assert_eq!(payload::SYMBOLS_FOR_CONVERSION_RES, 2119);
+        assert_eq!(payload::SYMBOL_CHANGED_EVENT, 2120);
+        // Account.
+        assert_eq!(payload::DEAL_LIST_BY_POSITION_ID_REQ, 2179);
+        assert_eq!(payload::DEAL_LIST_BY_POSITION_ID_RES, 2180);
+        assert_eq!(payload::ORDER_DETAILS_REQ, 2181);
+        assert_eq!(payload::ORDER_DETAILS_RES, 2182);
+        assert_eq!(payload::ORDER_LIST_BY_POSITION_ID_REQ, 2183);
+        assert_eq!(payload::ORDER_LIST_BY_POSITION_ID_RES, 2184);
+        assert_eq!(payload::DEAL_OFFSET_LIST_REQ, 2185);
+        assert_eq!(payload::DEAL_OFFSET_LIST_RES, 2186);
+        assert_eq!(payload::GET_POSITION_UNREALIZED_PNL_REQ, 2187);
+        assert_eq!(payload::GET_POSITION_UNREALIZED_PNL_RES, 2188);
+        assert_eq!(payload::CASH_FLOW_HISTORY_LIST_REQ, 2143);
+        assert_eq!(payload::CASH_FLOW_HISTORY_LIST_RES, 2144);
+        // Margin.
+        assert_eq!(payload::EXPECTED_MARGIN_REQ, 2139);
+        assert_eq!(payload::EXPECTED_MARGIN_RES, 2140);
+        assert_eq!(payload::MARGIN_CHANGED_EVENT, 2141);
+        assert_eq!(payload::MARGIN_CALL_LIST_REQ, 2167);
+        assert_eq!(payload::MARGIN_CALL_LIST_RES, 2168);
+        assert_eq!(payload::MARGIN_CALL_UPDATE_REQ, 2169);
+        assert_eq!(payload::MARGIN_CALL_UPDATE_RES, 2170);
+        assert_eq!(payload::MARGIN_CALL_UPDATE_EVENT, 2171);
+        assert_eq!(payload::MARGIN_CALL_TRIGGER_EVENT, 2172);
+        assert_eq!(payload::GET_DYNAMIC_LEVERAGE_REQ, 2177);
+        assert_eq!(payload::GET_DYNAMIC_LEVERAGE_RES, 2178);
     }
 }
