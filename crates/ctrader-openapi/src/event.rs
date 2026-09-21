@@ -12,10 +12,12 @@ use serde_json::Value;
 
 use crate::account::TraderUpdatedEvent;
 use crate::error::OpenApiError;
+use crate::margin::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
 use crate::model::{
     AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, DepthEvent,
-    ErrorRes, SpotEvent,
+    ErrorRes, SpotEvent, SymbolChangedEvent,
 };
+use crate::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
 use crate::wire::{Envelope, payload};
 
 /// Why a connection ended.
@@ -47,6 +49,23 @@ pub enum Event {
     AccountDisconnected(AccountDisconnectEvent),
     /// The server says it is ending the connection.
     ServerDisconnecting(ClientDisconnectEvent),
+    /// A trading request was accepted, filled, replaced, cancelled, expired or rejected, or a
+    /// deposit, withdrawal or swap took place. Also the direct answer to every call in
+    /// [`crate::trading`]. Boxed: it is by far the largest variant (it can carry a position, an
+    /// order and a deal at once) and this keeps [`Event`] itself small.
+    Execution(Box<ExecutionEvent>),
+    /// A trading request failed with no execution event to carry the error.
+    OrderError(OrderErrorEvent),
+    /// A trailing stop loss moved with the price.
+    TrailingSlChanged(TrailingSlChangedEvent),
+    /// The margin used by a position changed.
+    MarginChanged(MarginChangedEvent),
+    /// The account's margin level reached a margin call threshold.
+    MarginCallTriggered(MarginCallTriggerEvent),
+    /// A margin call threshold was changed.
+    MarginCallUpdated(MarginCallUpdateEvent),
+    /// The broker changed one or more symbols (trading hours, volume rules, ...).
+    SymbolChanged(SymbolChangedEvent),
     /// An error with no request to attach it to.
     ServerError(OpenApiError),
     /// A message this client does not know. Its type and raw payload are kept.
@@ -90,6 +109,34 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
         payload::CLIENT_DISCONNECT_EVENT => envelope
             .decode()
             .map(Event::ServerDisconnecting)
+            .unwrap_or_else(decode_failed),
+        payload::EXECUTION_EVENT => envelope
+            .decode()
+            .map(|e: ExecutionEvent| Event::Execution(Box::new(e)))
+            .unwrap_or_else(decode_failed),
+        payload::ORDER_ERROR_EVENT => envelope
+            .decode()
+            .map(Event::OrderError)
+            .unwrap_or_else(decode_failed),
+        payload::TRAILING_SL_CHANGED_EVENT => envelope
+            .decode()
+            .map(Event::TrailingSlChanged)
+            .unwrap_or_else(decode_failed),
+        payload::MARGIN_CHANGED_EVENT => envelope
+            .decode()
+            .map(Event::MarginChanged)
+            .unwrap_or_else(decode_failed),
+        payload::MARGIN_CALL_TRIGGER_EVENT => envelope
+            .decode()
+            .map(Event::MarginCallTriggered)
+            .unwrap_or_else(decode_failed),
+        payload::MARGIN_CALL_UPDATE_EVENT => envelope
+            .decode()
+            .map(Event::MarginCallUpdated)
+            .unwrap_or_else(decode_failed),
+        payload::SYMBOL_CHANGED_EVENT => envelope
+            .decode()
+            .map(Event::SymbolChanged)
             .unwrap_or_else(decode_failed),
         payload::ERROR_RES | payload::PROXY_ERROR_RES => Event::ServerError(error_of(envelope)),
         other => Event::Other {
@@ -207,6 +254,58 @@ mod tests {
             event,
             Event::ServerError(OpenApiError::Protocol(_))
         ));
+    }
+
+    #[test]
+    fn trading_and_margin_events_are_decoded() {
+        let execution = event_from(&env(
+            payload::EXECUTION_EVENT,
+            json!({"ctidTraderAccountId": 1, "executionType": 2}),
+        ))
+        .unwrap();
+        assert!(matches!(execution, Event::Execution(e) if e.execution_type == 2));
+
+        let order_error = event_from(&env(
+            payload::ORDER_ERROR_EVENT,
+            json!({"errorCode": "NOT_ENOUGH_MONEY", "orderId": 9}),
+        ))
+        .unwrap();
+        assert!(matches!(order_error, Event::OrderError(e) if e.order_id == Some(9)));
+
+        let trailing = event_from(&env(
+            payload::TRAILING_SL_CHANGED_EVENT,
+            json!({"positionId": 1, "orderId": 2, "stopPrice": 1.1, "utcLastUpdateTimestamp": 5}),
+        ))
+        .unwrap();
+        assert!(matches!(trailing, Event::TrailingSlChanged(e) if e.position_id == 1));
+
+        let margin_changed = event_from(&env(
+            payload::MARGIN_CHANGED_EVENT,
+            json!({"positionId": 1, "usedMargin": 500}),
+        ))
+        .unwrap();
+        assert!(matches!(margin_changed, Event::MarginChanged(e) if e.used_margin == 500));
+
+        let margin_triggered = event_from(&env(
+            payload::MARGIN_CALL_TRIGGER_EVENT,
+            json!({"marginCall": {"marginCallType": 61, "marginLevelThreshold": 50.0}}),
+        ))
+        .unwrap();
+        assert!(matches!(margin_triggered, Event::MarginCallTriggered(_)));
+
+        let margin_updated = event_from(&env(
+            payload::MARGIN_CALL_UPDATE_EVENT,
+            json!({"marginCall": {"marginCallType": 61, "marginLevelThreshold": 60.0}}),
+        ))
+        .unwrap();
+        assert!(matches!(margin_updated, Event::MarginCallUpdated(_)));
+
+        let symbol_changed = event_from(&env(
+            payload::SYMBOL_CHANGED_EVENT,
+            json!({"symbolId": [1, 2]}),
+        ))
+        .unwrap();
+        assert!(matches!(symbol_changed, Event::SymbolChanged(e) if e.symbol_id == vec![1, 2]));
     }
 
     #[test]

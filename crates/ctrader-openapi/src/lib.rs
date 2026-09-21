@@ -9,7 +9,12 @@
 //! babysitting: request matching, heartbeats, the documented rate limits and their retries, the
 //! OAuth 2 sign in, and a [`session::Session`] that reconnects and renews its tokens by itself.
 //!
-//! **Read only.** Nothing here places, changes or cancels an order.
+//! **Reads and trades.** Alongside the read-only account and market data, [`trading`] places,
+//! amends and cancels orders and closes positions, and [`margin`] reads and (for its one threshold
+//! setting) writes margin call configuration. A trading call moves money: simulated on a demo
+//! account, real on a live one, since demo balances are simulated but persistent. See the "Trading
+//! safety" section of the README, and the non-idempotency caveat on [`Client::new_order`], before
+//! sending an order from anything that is not a script you are watching.
 //!
 //! # Module map
 //!
@@ -19,11 +24,13 @@
 //! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions by itself |
 //! | [`history`] | Whole ranges of ticks and bars, fetched page by page |
 //! | [`account`] | Balance, positions, orders, deals, catalogs: the read-only account messages |
+//! | [`trading`] | Placing, amending and cancelling orders, closing positions |
+//! | [`margin`] | Expected margin, margin call thresholds, dynamic leverage tiers |
 //! | [`market`] | Symbol lookup, latest prices, the order book, price formatting |
 //! | [`handle`] | [`AccountClient`]: a client bound to one account |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh |
 //! | [`callback`] | The loopback web server that catches the sign in redirect |
-//! | [`event`] | What the server sends unasked: prices, order book, notices |
+//! | [`event`] | What the server sends unasked: prices, order book, executions, notices |
 //! | [`types`] | Periods, bars, ticks, quotes, price scale, and their decoding |
 //! | [`model`] | The messages as plain data |
 //! | [`wire`] | The envelope and the payload type numbers |
@@ -34,10 +41,9 @@
 //! # Which layer to use
 //!
 //! - **A script or a tool** that runs for a minute: [`Client`] directly. Connect, sign in, ask,
-//!   close. See the `download_ticks` and `account_info` examples.
+//!   close.
 //! - **A program that stays up** (a recorder, a chart feed): [`session::Session`]. It owns the
-//!   connection, and you only read its events and say what to subscribe to. See the
-//!   `resilient_stream` example.
+//!   connection, and you only read its events and say what to subscribe to.
 //! - **Your own supervision**: [`Client`] plus [`Event::Disconnected`]; the client never
 //!   reconnects on its own, so you decide how.
 //!
@@ -128,10 +134,12 @@ pub mod error;
 pub mod event;
 pub mod handle;
 pub mod history;
+pub mod margin;
 pub mod market;
 pub mod model;
 pub mod rate_limit;
 pub mod session;
+pub mod trading;
 pub mod types;
 pub mod wire;
 

@@ -6,9 +6,13 @@
 //! calls that read history; the rest count against the general one.
 
 use crate::account::{
-    AccountReq, Asset, AssetClass, AssetClassListRes, AssetListRes, CtidProfile, CtidProfileReq,
-    CtidProfileRes, Deal, DealListReq, DealListRes, Order, OrderListReq, OrderListRes, Position,
-    ReconcileReq, ReconcileRes, SymbolCategory, SymbolCategoryListRes, Trader, TraderRes,
+    AccountReq, Asset, AssetClass, AssetClassListRes, AssetListRes, CashFlowHistoryListReq,
+    CashFlowHistoryListRes, CtidProfile, CtidProfileReq, CtidProfileRes, Deal,
+    DealListByPositionIdReq, DealListByPositionIdRes, DealListReq, DealListRes, DealOffset,
+    DealOffsetListReq, DealOffsetListRes, DepositWithdraw, Order, OrderDetailsReq, OrderDetailsRes,
+    OrderListByPositionIdReq, OrderListByPositionIdRes, OrderListReq, OrderListRes, Position,
+    PositionUnrealizedPnL, PositionUnrealizedPnLRes, ReconcileReq, ReconcileRes, SymbolCategory,
+    SymbolCategoryListRes, Trader, TraderRes,
 };
 use crate::client::{Client, RateClass};
 use crate::error::Result;
@@ -197,6 +201,164 @@ impl Client {
             )
             .await?;
         Ok(response.profile)
+    }
+
+    /// The deposits and withdrawals of the account in `[from_ms, to_ms]`, at most one week.
+    ///
+    /// # Errors
+    ///
+    /// `INCORRECT_BOUNDARIES` for a range over one week, and the usual account errors.
+    pub async fn cash_flow_history(
+        &self,
+        account_id: i64,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<DepositWithdraw>> {
+        let response: CashFlowHistoryListRes = self
+            .call(
+                payload::CASH_FLOW_HISTORY_LIST_REQ,
+                payload::CASH_FLOW_HISTORY_LIST_RES,
+                &CashFlowHistoryListReq {
+                    ctid_trader_account_id: account_id,
+                    from_timestamp: from_ms,
+                    to_timestamp: to_ms,
+                },
+                RateClass::Historical,
+                "the cash flow history",
+            )
+            .await?;
+        Ok(response.deposit_withdraw)
+    }
+
+    /// The deals of one position in `[from_ms, to_ms]`, and whether more exist in the range.
+    ///
+    /// # Errors
+    ///
+    /// `POSITION_NOT_FOUND`, and the usual account errors.
+    pub async fn deals_by_position(
+        &self,
+        account_id: i64,
+        position_id: i64,
+        from_ms: Option<i64>,
+        to_ms: Option<i64>,
+    ) -> Result<(Vec<Deal>, bool)> {
+        let response: DealListByPositionIdRes = self
+            .call(
+                payload::DEAL_LIST_BY_POSITION_ID_REQ,
+                payload::DEAL_LIST_BY_POSITION_ID_RES,
+                &DealListByPositionIdReq {
+                    ctid_trader_account_id: account_id,
+                    position_id,
+                    from_timestamp: from_ms,
+                    to_timestamp: to_ms,
+                },
+                RateClass::Historical,
+                "the deal list of a position",
+            )
+            .await?;
+        Ok((response.deal, response.has_more))
+    }
+
+    /// The orders of one position in `[from_ms, to_ms]`, newest first, and whether more exist.
+    ///
+    /// # Errors
+    ///
+    /// `POSITION_NOT_FOUND`, and the usual account errors.
+    pub async fn orders_by_position(
+        &self,
+        account_id: i64,
+        position_id: i64,
+        from_ms: Option<i64>,
+        to_ms: Option<i64>,
+    ) -> Result<(Vec<Order>, bool)> {
+        let response: OrderListByPositionIdRes = self
+            .call(
+                payload::ORDER_LIST_BY_POSITION_ID_REQ,
+                payload::ORDER_LIST_BY_POSITION_ID_RES,
+                &OrderListByPositionIdReq {
+                    ctid_trader_account_id: account_id,
+                    position_id,
+                    from_timestamp: from_ms,
+                    to_timestamp: to_ms,
+                },
+                RateClass::Historical,
+                "the order list of a position",
+            )
+            .await?;
+        Ok((response.order, response.has_more))
+    }
+
+    /// One order and every deal that filled it.
+    ///
+    /// # Errors
+    ///
+    /// `ORDER_NOT_FOUND`, and the usual account errors.
+    pub async fn order_details(
+        &self,
+        account_id: i64,
+        order_id: i64,
+    ) -> Result<(Order, Vec<Deal>)> {
+        let response: OrderDetailsRes = self
+            .call(
+                payload::ORDER_DETAILS_REQ,
+                payload::ORDER_DETAILS_RES,
+                &OrderDetailsReq {
+                    ctid_trader_account_id: account_id,
+                    order_id,
+                },
+                RateClass::Historical,
+                "the order details",
+            )
+            .await?;
+        Ok((response.order, response.deal))
+    }
+
+    /// The deals that offset a deal, and the deals it offsets in turn.
+    ///
+    /// # Errors
+    ///
+    /// The usual account errors.
+    pub async fn deal_offsets(
+        &self,
+        account_id: i64,
+        deal_id: i64,
+    ) -> Result<(Vec<DealOffset>, Vec<DealOffset>)> {
+        let response: DealOffsetListRes = self
+            .call(
+                payload::DEAL_OFFSET_LIST_REQ,
+                payload::DEAL_OFFSET_LIST_RES,
+                &DealOffsetListReq {
+                    ctid_trader_account_id: account_id,
+                    deal_id,
+                },
+                RateClass::Historical,
+                "the deal offset list",
+            )
+            .await?;
+        Ok((response.offset_by, response.offsetting))
+    }
+
+    /// The unrealized profit or loss of every open position of the account.
+    ///
+    /// # Errors
+    ///
+    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
+    pub async fn position_unrealized_pnl(
+        &self,
+        account_id: i64,
+    ) -> Result<Vec<PositionUnrealizedPnL>> {
+        let response: PositionUnrealizedPnLRes = self
+            .call(
+                payload::GET_POSITION_UNREALIZED_PNL_REQ,
+                payload::GET_POSITION_UNREALIZED_PNL_RES,
+                &AccountReq {
+                    ctid_trader_account_id: account_id,
+                },
+                RateClass::Standard,
+                "the unrealized profit and loss of every position",
+            )
+            .await?;
+        Ok(response.position_unrealized_pnl)
     }
 
     /// Logs an account out of this connection. Its subscriptions end; authorize it again to use it

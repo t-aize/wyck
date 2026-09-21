@@ -504,6 +504,34 @@ impl Client {
         Ok(response.symbol)
     }
 
+    /// The chain of symbols that converts `first_asset_id` into `last_asset_id` when no symbol
+    /// quotes them directly (for example EUR/USD, USD/JPY to convert EUR into JPY).
+    ///
+    /// # Errors
+    ///
+    /// A server error when no conversion chain exists between the two assets.
+    pub async fn symbols_for_conversion(
+        &self,
+        account_id: i64,
+        first_asset_id: i64,
+        last_asset_id: i64,
+    ) -> Result<Vec<LightSymbol>> {
+        let response: crate::model::SymbolsForConversionRes = self
+            .call(
+                payload::SYMBOLS_FOR_CONVERSION_REQ,
+                payload::SYMBOLS_FOR_CONVERSION_RES,
+                &crate::model::SymbolsForConversionReq {
+                    ctid_trader_account_id: account_id,
+                    first_asset_id,
+                    last_asset_id,
+                },
+                RateClass::Standard,
+                "the conversion chain",
+            )
+            .await?;
+        Ok(response.symbol)
+    }
+
     // ---- live data ----
 
     /// Follows the prices of some symbols. The first [`Event::Spot`] of each carries the latest

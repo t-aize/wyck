@@ -132,6 +132,17 @@ impl OpenApiError {
                 | "CH_CLIENT_NOT_AUTHENTICATED"
                 | "CH_OA_CLIENT_NOT_FOUND"
                 | "CH_CTID_TRADER_ACCOUNT_NOT_FOUND" => ErrorKind::NotAuthorized,
+                // Everything else, including the trading refusals of `ProtoOAErrorCode`
+                // (`TRADING_BAD_VOLUME`, `TRADING_BAD_STOPS`, `TRADING_DISABLED`, `NOT_ENOUGH_MONEY`,
+                // `MAX_EXPOSURE_REACHED`, `SHORT_SELLING_NOT_ALLOWED`, `POSITION_NOT_FOUND`,
+                // `ORDER_NOT_FOUND`, `POSITION_NOT_OPEN`, `POSITION_LOCKED`, `TOO_MANY_POSITIONS`,
+                // `TRADING_BAD_PRICES`, `TRADING_BAD_STAKE`, `PROTECTION_IS_TOO_CLOSE_TO_MARKET`,
+                // `TRADING_BAD_EXPIRATION_DATE`, `PENDING_EXECUTION`, `TRADING_NOT_ALLOWED`,
+                // `UNABLE_TO_CANCEL_ORDER`, `UNABLE_TO_AMEND_ORDER`, `NO_QUOTES`,
+                // `WORSE_GSL_NOT_ALLOWED`, `SYMBOL_HAS_HOLIDAY`), sort as `Rejected`: the server
+                // understood the request and refused it, and fixing the request is the only way
+                // forward. The trading codes are pinned by name in the tests below, so a typo in one
+                // cannot silently change its meaning.
                 _ => ErrorKind::Rejected,
             },
         }
@@ -191,6 +202,38 @@ mod tests {
         );
         assert_eq!(server("SYMBOL_NOT_FOUND").kind(), ErrorKind::Rejected);
         assert_eq!(server("SOMETHING_NEW").kind(), ErrorKind::Rejected);
+    }
+
+    #[test]
+    fn trading_refusals_are_rejected_not_retryable() {
+        for code in [
+            "TRADING_BAD_VOLUME",
+            "TRADING_BAD_STOPS",
+            "TRADING_BAD_PRICES",
+            "TRADING_BAD_STAKE",
+            "TRADING_BAD_EXPIRATION_DATE",
+            "TRADING_DISABLED",
+            "TRADING_NOT_ALLOWED",
+            "NOT_ENOUGH_MONEY",
+            "MAX_EXPOSURE_REACHED",
+            "SHORT_SELLING_NOT_ALLOWED",
+            "POSITION_NOT_FOUND",
+            "ORDER_NOT_FOUND",
+            "POSITION_NOT_OPEN",
+            "POSITION_LOCKED",
+            "TOO_MANY_POSITIONS",
+            "PROTECTION_IS_TOO_CLOSE_TO_MARKET",
+            "PENDING_EXECUTION",
+            "UNABLE_TO_CANCEL_ORDER",
+            "UNABLE_TO_AMEND_ORDER",
+            "NO_QUOTES",
+            "WORSE_GSL_NOT_ALLOWED",
+            "SYMBOL_HAS_HOLIDAY",
+        ] {
+            let error = server(code);
+            assert_eq!(error.kind(), ErrorKind::Rejected, "{code}");
+            assert!(!error.is_retryable(), "{code}");
+        }
     }
 
     #[test]
