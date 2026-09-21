@@ -70,6 +70,7 @@ pub use token_store::{MemoryTokenStore, TokenStore};
 
 use std::collections::BTreeSet;
 use std::future::Future;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -195,6 +196,8 @@ struct Shared {
     registry: Mutex<Registry>,
     tokens: Mutex<TokenSet>,
     stop: watch::Sender<bool>,
+    /// How many live [`Session`] values share this supervisor. See its [`Drop`] impl.
+    handles: AtomicUsize,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -229,10 +232,40 @@ impl Shared {
 }
 
 /// A session that stays up. See the [module docs](self).
-#[derive(Clone)]
+///
+/// Cheap to clone: every clone shares the same background task. Calling [`Session::stop`] is
+/// still the right way to end a session on purpose (it also waits for the background task to
+/// finish), but dropping every clone without it does not leak the task either: the last clone
+/// going away asks the task to stop as a fallback (see the `Drop` impl below), the same signal
+/// `stop()` sends, just without waiting for it to finish.
 pub struct Session {
     shared: Arc<Shared>,
     task: Arc<Mutex<Option<JoinHandle<()>>>>,
+}
+
+impl Clone for Session {
+    fn clone(&self) -> Self {
+        // `Relaxed` is enough: this only counts clones, it establishes no ordering with anything
+        // else the clone goes on to do.
+        self.shared.handles.fetch_add(1, Ordering::Relaxed);
+        Self {
+            shared: Arc::clone(&self.shared),
+            task: Arc::clone(&self.task),
+        }
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        // `AcqRel`: pairs with every other clone's decrement, so the one that observes the count
+        // drop to zero has truly seen every earlier clone finish dropping.
+        if self.shared.handles.fetch_sub(1, Ordering::AcqRel) == 1 {
+            // The last external clone is gone. Ask the supervisor to stop, the same signal
+            // `stop()` sends; the task notices on its own and winds down (closing its connection
+            // in turn), so it does not keep reconnecting forever with nobody left to hear from it.
+            self.shared.stop.send_replace(true);
+        }
+    }
 }
 
 impl std::fmt::Debug for Session {
@@ -272,6 +305,7 @@ impl Session {
             registry: Mutex::new(Registry::default()),
             tokens: Mutex::new(tokens.clone()),
             stop,
+            handles: AtomicUsize::new(1),
         });
         let task = tokio::spawn(supervise(config, Arc::clone(&shared), oauth, store, tokens));
         Ok(Self {

@@ -103,6 +103,10 @@ pub struct RefreshTokenRes {
     pub refresh_token: String,
 }
 
+/// `ProtoOAVersionReq`. Carries nothing.
+#[derive(Serialize)]
+pub struct VersionReq {}
+
 /// `ProtoOAVersionRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]

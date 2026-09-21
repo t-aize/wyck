@@ -38,7 +38,7 @@
 //! a client that does this by itself). Build a new [`Client`] and repeat the steps.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -55,7 +55,8 @@ use crate::error::{ErrorKind, OpenApiError, Result};
 use crate::event::{DisconnectReason, Event, error_of, event_from};
 use crate::transport::messages::{
     AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
-    CtidProfileRes, GetAccountsByAccessTokenReq, RefreshTokenReq, RefreshTokenRes, VersionRes,
+    CtidProfileRes, GetAccountsByAccessTokenReq, RefreshTokenReq, RefreshTokenRes, VersionReq,
+    VersionRes,
 };
 use crate::transport::rate_limit::RateLimiter;
 use crate::transport::wire::{Envelope, payload};
@@ -99,6 +100,10 @@ struct Shared {
     request_timeout: Duration,
     rate_limit_retries: u32,
     max_retry_wait: Duration,
+    /// How many live [`Client`] values point at this connection, `run` itself excluded (it holds
+    /// an `Arc<Shared>` of its own, which would otherwise hide the last external clone going away
+    /// from `outgoing`'s sender count). See the [`Drop`] impl below.
+    handles: AtomicUsize,
 }
 
 impl Shared {
@@ -152,9 +157,39 @@ impl Shared {
 }
 
 /// A connection to the cTrader Open API. See the [module docs](self).
-#[derive(Clone)]
+///
+/// Cheap to clone: every clone (and every sub-client built from one, such as
+/// [`AccountClient`](crate::AccountClient)) shares the same background task and socket. Calling
+/// [`Client::close`] is still the right way to end a connection on purpose, but dropping every
+/// clone without it does not leak the task or the socket either: the last clone going away closes
+/// the connection as a fallback (see the `Drop` impl below), the same as an explicit `close()`.
 pub struct Client {
     shared: Arc<Shared>,
+}
+
+impl Clone for Client {
+    fn clone(&self) -> Self {
+        // `Relaxed` is enough: this only counts clones, it establishes no ordering with anything
+        // else the clone goes on to do.
+        self.shared.handles.fetch_add(1, Ordering::Relaxed);
+        Self {
+            shared: Arc::clone(&self.shared),
+        }
+    }
+}
+
+impl Drop for Client {
+    fn drop(&mut self) {
+        // `AcqRel`: pairs with every other clone's decrement, so the one that observes the count
+        // drop to zero has truly seen every earlier clone finish dropping.
+        if self.shared.handles.fetch_sub(1, Ordering::AcqRel) == 1 {
+            // The last external clone is gone. Ask the background task to close, the same way
+            // `close()` does, so the socket and the task do not outlive every caller reference.
+            // `try_send` never blocks (Drop cannot be async) and a full or closed queue only means
+            // the connection is already ending on its own, which is fine.
+            let _ = self.shared.outgoing.try_send(Outgoing::Close);
+        }
+    }
 }
 
 impl std::fmt::Debug for Client {
@@ -200,6 +235,7 @@ impl Client {
             request_timeout: config.request_timeout,
             rate_limit_retries: config.rate_limit_retries,
             max_retry_wait: config.max_retry_wait,
+            handles: AtomicUsize::new(1),
         });
         tokio::spawn(run(
             socket,
@@ -469,7 +505,7 @@ impl Client {
             .call(
                 payload::VERSION_REQ,
                 payload::VERSION_RES,
-                &serde_json::json!({}),
+                &VersionReq {},
                 RateClass::Standard,
                 "the version",
             )
