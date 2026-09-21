@@ -1,17 +1,23 @@
-//! A check against the real Open API, for a **demo** account. Ignored by default.
+//! Checks against the real Open API, for a **demo** account. Ignored by default.
 //!
-//! It exists to settle what the documentation leaves open (see the crate docs, "What has not been
-//! verified against a live server"). It only reads: no order is placed.
+//! `read_a_demo_account_end_to_end` exists to settle what the documentation leaves open (see the
+//! crate docs, "What has not been verified against a live server"). It only reads: no order is
+//! placed.
+//!
+//! `place_and_close_a_minimal_market_order_on_a_demo_account` does place (and immediately close)
+//! one order, so it needs a second, explicit opt in beyond `#[ignore]`; see its own doc comment and
+//! [Trading safety in the README](../README.md#trading-safety) before running it.
 //!
 //! Set these variables, then run
 //! `cargo test -p ctrader-openapi --test live -- --ignored --nocapture`:
 //!
 //! - `WYCK_OPENAPI_CLIENT_ID` and `WYCK_OPENAPI_CLIENT_SECRET`: the registered application.
-//! - `WYCK_OPENAPI_ACCESS_TOKEN`: an access token with at least the `accounts` scope (get one with
-//!   the `sign_in` example: `cargo run -p ctrader-openapi --example sign_in`).
+//! - `WYCK_OPENAPI_ACCESS_TOKEN`: an access token. `accounts` scope is enough for the read only
+//!   test; the trading test needs one authorized with `trading` scope.
 //! - `WYCK_OPENAPI_SYMBOL` (optional, default `EURUSD`).
+//! - `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1`, for the trading test only.
 //!
-//! Never put the values in a file. The test refuses a live account.
+//! Never put the values in a file. Both tests refuse a live account.
 
 use std::time::Duration;
 
@@ -299,10 +305,10 @@ last bar  {:?}",
 /// Places the smallest market order the symbol allows on a **demo** account and closes it at
 /// once, proving the trading path works end to end. This moves (simulated) money, so it needs a
 /// second, explicit opt in on top of `#[ignore]`: set `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1` as well
-/// as the variables `read_a_demo_account_end_to_end` needs, and a token of the `trading` scope
-/// (get one with `WYCK_OPENAPI_SCOPE=trading` at sign in time). A bare `cargo test`, or a run of
-/// this file without that variable, never places an order: the check at the top of this function
-/// runs before anything else, including the connection.
+/// as the variables `read_a_demo_account_end_to_end` needs, and `WYCK_OPENAPI_ACCESS_TOKEN` must be
+/// a token authorized with `auth::Scope::Trading` (an `accounts` token is refused by the server). A
+/// bare `cargo test`, or a run of this file without that variable, never places an order: the check
+/// at the top of this function runs before anything else, including the connection.
 #[tokio::test]
 #[ignore = "places and closes a real order on a demo account: needs WYCK_OPENAPI_ALLOW_LIVE_TRADING=1"]
 async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
