@@ -133,8 +133,14 @@ the forum threads on tick data timestamps (37490) and missing trendbars (41452),
       separate from the `Broker` port, so a session can trade over MCP and read data over the Open
       API, or read data only. `ServiceKind` gets a third value and `ConnectRequest` an Open API
       variant. Decide whether one session may hold both.
-- [ ] **Scope**: ask for `accounts` (read only) first. Trading over the Open API is a later,
-      separate item, because it would need the whole order pipeline and its safety rules ported.
+- [x] **Scope**: full read and write coverage is implemented (`crates/ctrader-openapi/src/trading.rs`,
+      `margin.rs`): every `ProtoOAPayloadType` value is now covered, including order placement,
+      amend, cancel, position close and SL/TP amend. Placing an order needs an access token
+      authorized with the `trading` scope (`auth::Scope::Trading`) at OAuth consent time; a token
+      signed in with `accounts` only is refused by the server for a trading call. Trading has not
+      been run against a live server yet (see 2A.7); the crate stays a thin typed client with no
+      retry or idempotency machinery of its own on top of trading calls (see its README, "Trading
+      safety").
 
 ### 2A.4 What the user has to do (cannot be done in code)
 
@@ -159,15 +165,23 @@ checked against a mock server, not against the real one.
          again, restoring subscriptions, token renewal, prompt stop), and the engine (step 6) can use it.
    - [x] Two rate limiters: 50 per second, and 5 per second for historical calls (queue, do not fail).
    - [x] Typed errors: `REQUEST_FREQUENCY_EXCEEDED` (retry later), maintenance (`retryAfter`,
-         `maintenanceEndTimestamp`), an invalid token, an unauthorized account. Never retry a
-         mutating call (there are none yet).
+         `maintenanceEndTimestamp`), an invalid token, an unauthorized account. The automatic
+         rate-limit retry only fires on an explicit `REQUEST_FREQUENCY_EXCEEDED`/
+         `BLOCKED_PAYLOAD_TYPE` refusal, meaning the server never accepted the request, so it stays
+         safe now that trading calls exist; the real non-idempotency risk (a timeout or a dropped
+         connection while a trading request is in flight, where the answer, not necessarily the
+         request, was lost) is documented on the `trading` module and the README's "Trading
+         safety", not papered over with a retry.
    - [x] A mock server for tests (in process, same style as `ctrader-mcp`'s `test-support`).
 2. **Sign in** (same crate, plus `wyck-config`)
    - [x] Loopback OAuth: build the grant URL (scope `accounts`), open the browser, listen on the
          redirect port, take the code, exchange it within a minute, verify the `state` value.
-   - [x] `examples/sign_in.rs`: runs that flow from the terminal and lists the accounts, to get a
-         first token and to settle whether the server echoes `state`. Not run yet (no approved
-         application).
+   - [x] That flow (wiring `auth::authorization_url`, `callback::CallbackListener` and
+         `auth::OAuthClient` together, as the crate docs' complete example does) was exercised
+         through an example binary during development, to get a first token and to settle whether
+         the server echoes `state`. The `examples/` directory was later removed; the same flow now
+         lives only as documentation (README, crate docs), not as a runnable binary. Not confirmed
+         against a live server yet (no approved application; see 2A.7).
    - [ ] Store the access and refresh tokens in the secret store, never in the profile file.
    - [ ] Refresh before the 30 day expiry, and on `ProtoOAAccountsTokenInvalidatedEvent`; if the
          refresh fails, send the user back to the sign in screen with the reason. The crate gives
@@ -260,23 +274,40 @@ Run with `tests/live.rs` on a demo account while the market was closed (Sunday).
       now ends the range at the time of the last price seen. Run it again, and once more with the
       market open, then settle: the tick price and time encoding, which end a truncated bar answer
       holds, the range limit per period, the tick count per response, and how far back ticks go.
-- [ ] Run `examples/sign_in.rs` to learn whether the consent page echoes `state`.
+- [ ] Wire `auth::authorization_url`, `callback::CallbackListener` and `auth::OAuthClient` together
+      (the crate docs' complete example does this) to learn whether the consent page echoes
+      `state`. The `sign_in` example this used to point at is gone; write a short throwaway program
+      or run the doctest by hand.
 
 #### The crate is complete; what is left to run live
 
-The crate now has account calls, market helpers, a reconnecting `Session`, seven examples, about
-200 tests and full docs (see its README and CHANGELOG). These pieces were only tested against the
-mock server, so run them once on the demo account and note anything that differs:
+The crate now has account, trading and margin calls, market helpers, a reconnecting `Session`,
+over 250 tests and full docs (see its README and CHANGELOG). The `examples/` directory is gone;
+the live validation path is `tests/live.rs`, run with:
 
-- [ ] `cargo run -p ctrader-openapi --example account_info`: settles the account messages
-      (`ProtoOATraderRes`, reconcile, deal list), including the unit of money and volume fields.
-- [ ] `cargo run -p ctrader-openapi --example list_symbols -- EUR` and `stream_prices -- EURUSD --depth`:
-      settles the symbol details and whether the broker offers an order book.
-- [ ] `cargo run -p ctrader-openapi --example resilient_stream -- EURUSD`, then cut the network for a
-      minute: settles the `Session` against the real server (reconnection, restored subscription).
-- [ ] `cargo run -p ctrader-openapi --example download_ticks -- EURUSD --from 3h --out t.csv` and
-      `download_bars -- EURUSD M5 --from 2d --out b.csv`: a check of the CSV output on real data.
-- [ ] `cargo run -p ctrader-openapi --example sign_in`: whether the consent page echoes `state`.
+```
+cargo test -p ctrader-openapi --test live -- --ignored --nocapture
+```
+
+- [ ] `read_a_demo_account_end_to_end` (read only, needs `WYCK_OPENAPI_CLIENT_ID`,
+      `WYCK_OPENAPI_CLIENT_SECRET`, `WYCK_OPENAPI_ACCESS_TOKEN`, optionally `WYCK_OPENAPI_SYMBOL`):
+      settles the connection, both sign in steps, the symbol list and details, the price
+      subscription, and tick and bar history with paging. Already run once, see above; rerun with
+      the market open and note anything that differs, including the account messages
+      (`ProtoOATraderRes`, reconcile, deal list) and their money and volume units, which this test
+      does not yet touch directly (see 2A.7's "what is verified" gaps).
+- [ ] Cut the network for a minute while a `Session` is running against the real server (there is no
+      dedicated test for this yet; write one, or exercise it by hand with a short program using
+      `session::Session`): settles reconnection and restored subscriptions against the real server.
+- [ ] **Trading, explicitly gated**:
+      `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1 cargo test -p ctrader-openapi --test live -- --ignored --nocapture place_and_close_a_minimal_market_order_on_a_demo_account`
+      (needs the same variables as above, plus an access token authorized with `auth::Scope::Trading`,
+      **not** `accounts`, since the server refuses a trading call on an `accounts` token). Places the
+      smallest market order the symbol allows and closes it at once. Settles: order placement and
+      close against a real server, the shape of a real `ExecutionEvent`, and whether the documented
+      trading error codes (`TRADING_BAD_VOLUME`, `NOT_ENOUGH_MONEY`, and the rest) match what the
+      broker actually sends. Read the crate README's "Trading safety" section first; this moves
+      (simulated) money on the demo account.
 
 #### Second live run and what it changed
 
