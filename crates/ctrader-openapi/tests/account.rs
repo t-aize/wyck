@@ -173,6 +173,77 @@ async fn logging_an_account_out_sends_the_account_and_succeeds() {
 }
 
 #[tokio::test]
+async fn the_account_gaps_are_read() {
+    let server = MockServer::start(answers(vec![
+        (
+            payload::CASH_FLOW_HISTORY_LIST_REQ,
+            payload::CASH_FLOW_HISTORY_LIST_RES,
+            json!({"depositWithdraw": [{
+                "operationType": 0, "balanceHistoryId": 1, "balance": 110_000, "delta": 10_000,
+                "changeBalanceTimestamp": 5, "moneyDigits": 2
+            }]}),
+        ),
+        (
+            payload::DEAL_LIST_BY_POSITION_ID_REQ,
+            payload::DEAL_LIST_BY_POSITION_ID_RES,
+            json!({"deal": [{
+                "dealId": 4, "orderId": 9, "positionId": 77, "volume": 100, "filledVolume": 100,
+                "symbolId": 1, "createTimestamp": 10, "executionTimestamp": 11,
+                "tradeSide": 1, "dealStatus": 2
+            }], "hasMore": false}),
+        ),
+        (
+            payload::ORDER_LIST_BY_POSITION_ID_REQ,
+            payload::ORDER_LIST_BY_POSITION_ID_RES,
+            json!({"order": [], "hasMore": false}),
+        ),
+        (
+            payload::ORDER_DETAILS_REQ,
+            payload::ORDER_DETAILS_RES,
+            json!({"order": {
+                "orderId": 9, "tradeData": {"symbolId": 1, "volume": 100, "tradeSide": 1},
+                "orderType": 1, "orderStatus": 2
+            }, "deal": []}),
+        ),
+        (
+            payload::DEAL_OFFSET_LIST_REQ,
+            payload::DEAL_OFFSET_LIST_RES,
+            json!({"offsetBy": [{"dealId": 4, "volume": 100}], "offsetting": []}),
+        ),
+        (
+            payload::GET_POSITION_UNREALIZED_PNL_REQ,
+            payload::GET_POSITION_UNREALIZED_PNL_RES,
+            json!({"positionUnrealizedPnL": [
+                {"positionId": 77, "grossUnrealizedPnL": 500, "netUnrealizedPnL": 480}
+            ], "moneyDigits": 2}),
+        ),
+    ]))
+    .await;
+    let client = connect(&server).await;
+
+    let cash_flow = client.cash_flow_history(1, 0, 1000).await.unwrap();
+    assert_eq!(cash_flow[0].amount(), 100.0);
+
+    let (deals, more) = client.deals_by_position(1, 77, None, None).await.unwrap();
+    assert_eq!(deals.len(), 1);
+    assert!(!more);
+
+    let (orders, more) = client.orders_by_position(1, 77, None, None).await.unwrap();
+    assert!(orders.is_empty() && !more);
+
+    let (order, deals) = client.order_details(1, 9).await.unwrap();
+    assert_eq!(order.order_id, 9);
+    assert!(deals.is_empty());
+
+    let (offset_by, offsetting) = client.deal_offsets(1, 4).await.unwrap();
+    assert_eq!(offset_by[0].deal_id, 4);
+    assert!(offsetting.is_empty());
+
+    let pnl = client.position_unrealized_pnl(1).await.unwrap();
+    assert_eq!(pnl[0].net_unrealized_pnl, 480);
+}
+
+#[tokio::test]
 async fn an_account_update_arrives_as_an_event() {
     let server = MockServer::start(answers(vec![])).await;
     let client = connect(&server).await;

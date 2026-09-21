@@ -56,6 +56,42 @@ async fn frames_that_make_no_sense_are_ignored_and_the_connection_carries_on() {
 }
 
 #[tokio::test]
+async fn a_malformed_trading_or_margin_event_is_reported_not_a_panic() {
+    let server = MockServer::start(answers(version_answers())).await;
+    let client = connect(&server).await;
+    let mut events = client.events();
+
+    // An execution event whose `executionType` cannot be read as a number at all: a protocol
+    // error event, not a panic and not a dropped connection.
+    server.push(
+        payload::EXECUTION_EVENT,
+        json!({"executionType": "not a number"}),
+    );
+    let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        event,
+        Event::ServerError(OpenApiError::Protocol(_))
+    ));
+
+    // A margin call trigger event missing its required `marginCall` field: same story.
+    server.push(payload::MARGIN_CALL_TRIGGER_EVENT, json!({}));
+    let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        event,
+        Event::ServerError(OpenApiError::Protocol(_))
+    ));
+
+    // The connection is still good afterwards.
+    assert_eq!(client.version().await.unwrap(), "ok");
+}
+
+#[tokio::test]
 async fn a_binary_frame_that_is_valid_text_is_read_like_a_text_frame() {
     let server = MockServer::start(answers(vec![])).await;
     let client = connect(&server).await;

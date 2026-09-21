@@ -220,7 +220,11 @@ proptest! {
         which in prop::sample::select(vec![
             payload::SPOT_EVENT, payload::DEPTH_EVENT, payload::TRADER_UPDATE_EVENT,
             payload::ACCOUNTS_TOKEN_INVALIDATED_EVENT, payload::ACCOUNT_DISCONNECT_EVENT,
-            payload::CLIENT_DISCONNECT_EVENT, payload::ERROR_RES, payload::HEARTBEAT_EVENT, 424242,
+            payload::CLIENT_DISCONNECT_EVENT, payload::ERROR_RES, payload::HEARTBEAT_EVENT,
+            payload::EXECUTION_EVENT, payload::ORDER_ERROR_EVENT,
+            payload::TRAILING_SL_CHANGED_EVENT, payload::MARGIN_CHANGED_EVENT,
+            payload::MARGIN_CALL_TRIGGER_EVENT, payload::MARGIN_CALL_UPDATE_EVENT,
+            payload::SYMBOL_CHANGED_EVENT, 424242,
         ]),
         body in json_value(),
     ) {
