@@ -71,8 +71,11 @@ The `raw_call` example prints raw server answers, which is how those differences
 
 Typed Rust client for the cTrader Open API over its JSON WebSocket, built for what the MCP
 servers cannot give: real ticks, tick history, bars of fourteen periods, live bars and the order
-book. Read only. It shares nothing with `ctrader-mcp` and, like the other crates at the bottom of
-the picture, depends on none of the others. Details in
+book. Reads and trades: alongside the account and market data, `trading` places, amends and
+cancels orders and closes positions, and `margin` reads and updates margin call settings. A
+trading call needs a token of the `trading` OAuth scope and can move money, simulated on demo, real
+on live. It shares nothing with `ctrader-mcp` and, like the other crates at the bottom of the
+picture, depends on none of the others. Details, including a full protocol coverage table, in
 [../crates/ctrader-openapi/README.md](../crates/ctrader-openapi/README.md).
 
 | Module | Role |
@@ -80,7 +83,9 @@ the picture, depends on none of the others. Details in
 | `client` | `Client`: one WebSocket, requests matched by `clientMsgId`, heartbeat, events, state, retries of rate limit refusals |
 | `session` | `Session`: reconnects with backoff, signs in again, restores subscriptions, renews tokens through a `TokenStore` |
 | `history` | `fetch_ticks` and `fetch_bars`: whole ranges, page by page, windows under the server's limits |
-| `account`, `handle` | Read only account data (balance, positions, orders, deals, catalogs) and `AccountClient` |
+| `account`, `handle` | Account data (balance, positions, orders, deals by position, order details, deal offsets, unrealized PnL, catalogs) and `AccountClient` |
+| `trading` | Order placement, amend, cancel, position close and SL/TP amend; not guaranteed idempotent, see the module docs |
+| `margin` | Expected margin, margin call thresholds, dynamic leverage schedules |
 | `market` | Symbol lookup, latest quote per symbol, an order book, price formatting |
 | `auth`, `callback` | OAuth 2: consent URL, loopback redirect listener, code exchange, token refresh |
 | `types`, `model`, `wire` | Periods, bars, ticks, quotes; the messages; the envelope and payload numbers |

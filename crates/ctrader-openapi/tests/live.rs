@@ -1,22 +1,29 @@
-//! A check against the real Open API, for a **demo** account. Ignored by default.
+//! Checks against the real Open API, for a **demo** account. Ignored by default.
 //!
-//! It exists to settle what the documentation leaves open (see the crate docs, "What has not been
-//! verified against a live server"). It only reads: no order is placed.
+//! `read_a_demo_account_end_to_end` exists to settle what the documentation leaves open (see the
+//! crate docs, "What has not been verified against a live server"). It only reads: no order is
+//! placed.
+//!
+//! `place_and_close_a_minimal_market_order_on_a_demo_account` does place (and immediately close)
+//! one order, so it needs a second, explicit opt in beyond `#[ignore]`; see its own doc comment and
+//! [Trading safety in the README](../README.md#trading-safety) before running it.
 //!
 //! Set these variables, then run
 //! `cargo test -p ctrader-openapi --test live -- --ignored --nocapture`:
 //!
 //! - `WYCK_OPENAPI_CLIENT_ID` and `WYCK_OPENAPI_CLIENT_SECRET`: the registered application.
-//! - `WYCK_OPENAPI_ACCESS_TOKEN`: an access token with at least the `accounts` scope (get one with
-//!   the `sign_in` example: `cargo run -p ctrader-openapi --example sign_in`).
+//! - `WYCK_OPENAPI_ACCESS_TOKEN`: an access token. `accounts` scope is enough for the read only
+//!   test; the trading test needs one authorized with `trading` scope.
 //! - `WYCK_OPENAPI_SYMBOL` (optional, default `EURUSD`).
+//! - `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1`, for the trading test only.
 //!
-//! Never put the values in a file. The test refuses a live account.
+//! Never put the values in a file. Both tests refuse a live account.
 
 use std::time::Duration;
 
 use ctrader_openapi::config::{ClientCredentials, ConnectionConfig, Environment};
 use ctrader_openapi::history::{fetch_bars, fetch_ticks};
+use ctrader_openapi::trading::{ExecutionType, NewOrderReq};
 use ctrader_openapi::types::{Period, QuoteType, merge_sides, to_price};
 use ctrader_openapi::{Client, Event};
 
@@ -292,5 +299,99 @@ last bar  {:?}",
             " (DIFFERENT)"
         }
     );
+    client.close().await;
+}
+
+/// Places the smallest market order the symbol allows on a **demo** account and closes it at
+/// once, proving the trading path works end to end. This moves (simulated) money, so it needs a
+/// second, explicit opt in on top of `#[ignore]`: set `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1` as well
+/// as the variables `read_a_demo_account_end_to_end` needs, and `WYCK_OPENAPI_ACCESS_TOKEN` must be
+/// a token authorized with `auth::Scope::Trading` (an `accounts` token is refused by the server). A
+/// bare `cargo test`, or a run of this file without that variable, never places an order: the check
+/// at the top of this function runs before anything else, including the connection.
+#[tokio::test]
+#[ignore = "places and closes a real order on a demo account: needs WYCK_OPENAPI_ALLOW_LIVE_TRADING=1"]
+async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
+    assert_eq!(
+        std::env::var("WYCK_OPENAPI_ALLOW_LIVE_TRADING").as_deref(),
+        Ok("1"),
+        "set WYCK_OPENAPI_ALLOW_LIVE_TRADING=1 to run this test: it places and closes a real \
+         order on a demo account, and refuses to do anything, even connect, without this exact \
+         opt in"
+    );
+
+    let credentials = ClientCredentials::new(
+        var("WYCK_OPENAPI_CLIENT_ID"),
+        var("WYCK_OPENAPI_CLIENT_SECRET"),
+    );
+    let token = var("WYCK_OPENAPI_ACCESS_TOKEN");
+    let wanted = std::env::var("WYCK_OPENAPI_SYMBOL").unwrap_or_else(|_| "EURUSD".into());
+
+    let client = Client::connect(&ConnectionConfig::new(Environment::Demo))
+        .await
+        .expect("connect");
+    client
+        .authenticate_application(&credentials)
+        .await
+        .expect("application sign in");
+    let accounts = client.accounts(&token).await.expect("account list");
+    let account = accounts
+        .ctid_trader_account
+        .iter()
+        .find(|a| a.is_live == Some(false))
+        .expect("the token covers no demo account");
+    let account_id = account.ctid_trader_account_id;
+    client
+        .authorize_account(account_id, &token)
+        .await
+        .expect("account sign in");
+
+    let symbols = client.symbols(account_id, false).await.expect("symbols");
+    let symbol = symbols
+        .iter()
+        .find(|s| s.symbol_name.as_deref() == Some(wanted.as_str()))
+        .unwrap_or_else(|| panic!("{wanted} not offered"));
+    let details = client
+        .symbol_details(account_id, &[symbol.symbol_id])
+        .await
+        .expect("details");
+    let min_volume = details[0].min_volume.unwrap_or(1000);
+    println!("placing a {min_volume} (hundredths of a unit) market buy on {wanted}");
+
+    let request = NewOrderReq::market(
+        account_id,
+        symbol.symbol_id,
+        ctrader_openapi::account::TradeSide::Buy,
+        min_volume,
+    )
+    .with_label("wyck-live-test");
+    let execution = client.new_order(&request).await.expect("new order");
+    println!("execution: {:?}", execution.kind());
+    assert!(
+        matches!(
+            execution.kind(),
+            Some(ExecutionType::OrderFilled | ExecutionType::OrderAccepted)
+        ),
+        "unexpected execution type: {:?}",
+        execution.kind()
+    );
+    let position_id = execution
+        .position
+        .as_ref()
+        .unwrap_or_else(|| panic!("no position on the execution: {execution:?}"))
+        .position_id;
+    println!("opened position {position_id}, closing it now");
+
+    let close = client
+        .close_position(account_id, position_id, min_volume)
+        .await
+        .expect("close position");
+    println!("close execution: {:?}", close.kind());
+    assert!(
+        matches!(close.kind(), Some(ExecutionType::OrderFilled)),
+        "the closing order did not fill: {:?}",
+        close.kind()
+    );
+
     client.close().await;
 }

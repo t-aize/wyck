@@ -296,6 +296,35 @@ async fn subscribing_sends_the_symbols_and_spots_arrive_as_events() {
 }
 
 #[tokio::test]
+async fn a_conversion_chain_is_asked_for_and_a_symbol_change_arrives_as_an_event() {
+    let server = MockServer::start(answers(vec![(
+        payload::SYMBOLS_FOR_CONVERSION_REQ,
+        payload::SYMBOLS_FOR_CONVERSION_RES,
+        json!({"symbol": [
+            {"symbolId": 1, "symbolName": "EURUSD"},
+            {"symbolId": 2, "symbolName": "USDJPY"}
+        ]}),
+    )]))
+    .await;
+    let client = connect(&server).await;
+    let chain = client.symbols_for_conversion(1, 3, 4).await.unwrap();
+    assert_eq!(chain.len(), 2);
+    assert_eq!(chain[1].symbol_name.as_deref(), Some("USDJPY"));
+    assert_eq!(
+        server.received_of(payload::SYMBOLS_FOR_CONVERSION_REQ)[0].payload,
+        json!({"ctidTraderAccountId": 1, "firstAssetId": 3, "lastAssetId": 4})
+    );
+
+    let mut events = client.events();
+    server.push(payload::SYMBOL_CHANGED_EVENT, json!({"symbolId": [1, 2]}));
+    let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(event, Event::SymbolChanged(e) if e.symbol_id == vec![1, 2]));
+}
+
+#[tokio::test]
 async fn every_reader_of_the_events_sees_them() {
     let server = MockServer::start(answers(vec![])).await;
     let client = connect(&server).await;

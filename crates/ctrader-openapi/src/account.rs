@@ -23,7 +23,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::flex;
 
-/// Defines an enumeration that maps to server numbers and back.
+/// Defines an enumeration that maps to server numbers and back. Exported at the crate root (as
+/// `crate::number_enum`) so [`crate::trading`] and [`crate::margin`] can build their own
+/// enumerations with it; it is not meant to be used outside this crate.
+#[doc(hidden)]
+#[macro_export]
 macro_rules! number_enum {
     (
         $(#[$meta:meta])*
@@ -151,6 +155,36 @@ number_enum! {
 }
 
 number_enum! {
+    /// How long an order stays working (`ProtoOATimeInForce`).
+    TimeInForce {
+        /// Cancelled at `expiration_timestamp` if not filled.
+        GoodTillDate = 1 => "good till date",
+        /// Stays until it is filled or cancelled.
+        GoodTillCancel = 2 => "good till cancel",
+        /// Filled at once, in full or in part; the rest is cancelled.
+        ImmediateOrCancel = 3 => "immediate or cancel",
+        /// Filled in full at once, or not at all.
+        FillOrKill = 4 => "fill or kill",
+        /// Held until the market next opens.
+        MarketOnOpen = 5 => "market on open",
+    }
+}
+
+number_enum! {
+    /// What triggers a stop order or a stop loss (`ProtoOAOrderTriggerMethod`).
+    OrderTriggerMethod {
+        /// A buy triggers on the ask, a sell on the bid (a stop loss the other way round).
+        Trade = 1 => "trade",
+        /// The opposite side of [`Self::Trade`].
+        Opposite = 2 => "opposite",
+        /// Like [`Self::Trade`], but only after a second consecutive tick confirms it.
+        DoubleTrade = 3 => "double trade",
+        /// Like [`Self::Opposite`], but only after a second consecutive tick confirms it.
+        DoubleOpposite = 4 => "double opposite",
+    }
+}
+
+number_enum! {
     /// What the account may do.
     AccessRights {
         /// Everything.
@@ -243,6 +277,70 @@ pub struct OrderListReq {
 pub struct CtidProfileReq {
     /// The access token.
     pub access_token: String,
+}
+
+/// `ProtoOACashFlowHistoryListReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashFlowHistoryListReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// Start of the range, in Unix milliseconds. The range may span at most one week.
+    pub from_timestamp: i64,
+    /// End of the range, in Unix milliseconds.
+    pub to_timestamp: i64,
+}
+
+/// `ProtoOADealListByPositionIdReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DealListByPositionIdReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// The position.
+    pub position_id: i64,
+    /// Start of the range, in Unix milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_timestamp: Option<i64>,
+    /// End of the range, in Unix milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_timestamp: Option<i64>,
+}
+
+/// `ProtoOAOrderListByPositionIdReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderListByPositionIdReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// The position.
+    pub position_id: i64,
+    /// Start of the range, in Unix milliseconds. Filters by the order's last update.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_timestamp: Option<i64>,
+    /// End of the range, in Unix milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_timestamp: Option<i64>,
+}
+
+/// `ProtoOAOrderDetailsReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderDetailsReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// The order.
+    pub order_id: i64,
+}
+
+/// `ProtoOADealOffsetListReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DealOffsetListReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// The deal.
+    pub deal_id: i64,
 }
 
 // ---- data ----
@@ -592,6 +690,85 @@ pub struct CtidProfile {
     pub user_id: i64,
 }
 
+/// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`). `operation_type`
+/// is kept as the server's raw number: `ProtoOAChangeBalanceType` has about thirty values (swaps,
+/// commissions, rebates, transfers, ...) and this crate does not give each one a name.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DepositWithdraw {
+    /// The kind of operation, as `ProtoOAChangeBalanceType`'s number (0 deposit, 1 withdrawal, and
+    /// about thirty more for swaps, commissions, rebates, transfers and the rest).
+    #[serde(deserialize_with = "flex::int")]
+    pub operation_type: i64,
+    /// The unique id of the operation.
+    #[serde(deserialize_with = "flex::int")]
+    pub balance_history_id: i64,
+    /// The balance after the operation, scaled by `10^moneyDigits`.
+    #[serde(deserialize_with = "flex::int")]
+    pub balance: i64,
+    /// The amount of the operation, scaled by `10^moneyDigits`.
+    #[serde(deserialize_with = "flex::int")]
+    pub delta: i64,
+    /// When it happened, in Unix milliseconds.
+    #[serde(deserialize_with = "flex::int")]
+    pub change_balance_timestamp: i64,
+    /// A note visible to the trader.
+    #[serde(default)]
+    pub external_note: Option<String>,
+    /// Decimals of the money amounts of this operation.
+    #[serde(default, deserialize_with = "flex::opt")]
+    pub money_digits: Option<i64>,
+}
+
+impl DepositWithdraw {
+    /// The amount of the operation as a real number.
+    #[must_use]
+    pub fn amount(&self) -> f64 {
+        money(self.delta, self.digits())
+    }
+
+    /// The decimals of money amounts (2 when unknown).
+    #[must_use]
+    pub fn digits(&self) -> Option<u32> {
+        self.money_digits.and_then(|d| u32::try_from(d).ok())
+    }
+}
+
+/// A deal that offset, or was offset by, another deal (`ProtoOADealOffset`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DealOffset {
+    /// The deal id.
+    #[serde(deserialize_with = "flex::int")]
+    pub deal_id: i64,
+    /// The matched volume, in hundredths of a unit.
+    #[serde(deserialize_with = "flex::int")]
+    pub volume: i64,
+    /// When it executed, in Unix milliseconds.
+    #[serde(default, deserialize_with = "flex::opt")]
+    pub execution_timestamp: Option<i64>,
+    /// The execution price.
+    #[serde(default)]
+    pub execution_price: Option<f64>,
+}
+
+/// The unrealized profit or loss of one position (`ProtoOAPositionUnrealizedPnL`).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PositionUnrealizedPnL {
+    /// The position.
+    #[serde(deserialize_with = "flex::int")]
+    pub position_id: i64,
+    /// Gross unrealized profit or loss, scaled by `10^moneyDigits`. Renamed explicitly: the
+    /// server's field is `grossUnrealizedPnL` (capital `L`).
+    #[serde(deserialize_with = "flex::int", rename = "grossUnrealizedPnL")]
+    pub gross_unrealized_pnl: i64,
+    /// Net unrealized profit or loss (closing commission not included), scaled by `10^moneyDigits`.
+    /// Renamed explicitly: the server's field is `netUnrealizedPnL` (capital `L`).
+    #[serde(deserialize_with = "flex::int", rename = "netUnrealizedPnL")]
+    pub net_unrealized_pnl: i64,
+}
+
 // ---- responses ----
 
 /// `ProtoOATraderRes`.
@@ -681,6 +858,76 @@ pub struct TraderUpdatedEvent {
     pub trader: Trader,
 }
 
+/// `ProtoOACashFlowHistoryListRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashFlowHistoryListRes {
+    /// The deposits and withdrawals of the range.
+    #[serde(default)]
+    pub deposit_withdraw: Vec<DepositWithdraw>,
+}
+
+/// `ProtoOADealListByPositionIdRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DealListByPositionIdRes {
+    /// The deals of the position.
+    #[serde(default)]
+    pub deal: Vec<Deal>,
+    /// Whether more deals exist in the range than were returned.
+    #[serde(default)]
+    pub has_more: bool,
+}
+
+/// `ProtoOAOrderListByPositionIdRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderListByPositionIdRes {
+    /// The orders of the position, newest first.
+    #[serde(default)]
+    pub order: Vec<Order>,
+    /// Whether more orders exist in the range than were returned.
+    #[serde(default)]
+    pub has_more: bool,
+}
+
+/// `ProtoOAOrderDetailsRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderDetailsRes {
+    /// The order.
+    pub order: Order,
+    /// Every deal that filled it.
+    #[serde(default)]
+    pub deal: Vec<Deal>,
+}
+
+/// `ProtoOADealOffsetListRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DealOffsetListRes {
+    /// Deals that closed the one asked about.
+    #[serde(default)]
+    pub offset_by: Vec<DealOffset>,
+    /// Deals that the one asked about closed.
+    #[serde(default)]
+    pub offsetting: Vec<DealOffset>,
+}
+
+/// `ProtoOAGetPositionUnrealizedPnLRes`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PositionUnrealizedPnLRes {
+    /// The unrealized profit or loss of every open position. Renamed explicitly: the server's
+    /// field is `positionUnrealizedPnL` (capital `L`), which plain camelCase would not reproduce
+    /// from this name.
+    #[serde(default, rename = "positionUnrealizedPnL")]
+    pub position_unrealized_pnl: Vec<PositionUnrealizedPnL>,
+    /// Decimals of the money amounts.
+    #[serde(default, deserialize_with = "flex::opt")]
+    pub money_digits: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,6 +947,12 @@ mod tests {
         assert_eq!(AccountType::from_number(0), Some(AccountType::Hedged));
         assert_eq!(AccessRights::from_number(3), Some(AccessRights::NoLogin));
         assert_eq!(AccessRights::CloseOnly.label(), "close only");
+        assert_eq!(TimeInForce::from_number(4), Some(TimeInForce::FillOrKill));
+        assert_eq!(
+            OrderTriggerMethod::from_number(3),
+            Some(OrderTriggerMethod::DoubleTrade)
+        );
+        assert_eq!(OrderTriggerMethod::from_number(0), None);
     }
 
     #[test]
@@ -857,6 +1110,67 @@ mod tests {
             })
             .unwrap(),
             json!({"ctidTraderAccountId": 1, "returnProtectionOrders": true})
+        );
+    }
+
+    #[test]
+    fn a_deposit_withdraw_converts_its_amount() {
+        let entry: DepositWithdraw = serde_json::from_value(json!({
+            "operationType": 0, "balanceHistoryId": 1, "balance": 110_000, "delta": 10_000,
+            "changeBalanceTimestamp": 5, "moneyDigits": 2
+        }))
+        .unwrap();
+        assert_eq!(entry.amount(), 100.0);
+        assert_eq!(entry.operation_type, 0);
+    }
+
+    #[test]
+    fn deal_offsets_and_unrealized_pnl_are_read() {
+        let offsets: DealOffsetListRes = serde_json::from_value(json!({
+            "offsetBy": [{"dealId": 1, "volume": 100, "executionPrice": 1.1}],
+            "offsetting": []
+        }))
+        .unwrap();
+        assert_eq!(offsets.offset_by[0].deal_id, 1);
+        assert!(offsets.offsetting.is_empty());
+
+        let pnl: PositionUnrealizedPnLRes = serde_json::from_value(json!({
+            "positionUnrealizedPnL": [
+                {"positionId": 1, "grossUnrealizedPnL": 500, "netUnrealizedPnL": 450}
+            ],
+            "moneyDigits": 2
+        }))
+        .unwrap();
+        assert_eq!(pnl.position_unrealized_pnl[0].net_unrealized_pnl, 450);
+    }
+
+    #[test]
+    fn the_order_and_deal_by_position_and_offset_requests_use_the_official_names() {
+        assert_eq!(
+            serde_json::to_value(DealListByPositionIdReq {
+                ctid_trader_account_id: 1,
+                position_id: 77,
+                from_timestamp: Some(1),
+                to_timestamp: None,
+            })
+            .unwrap(),
+            json!({"ctidTraderAccountId": 1, "positionId": 77, "fromTimestamp": 1})
+        );
+        assert_eq!(
+            serde_json::to_value(OrderDetailsReq {
+                ctid_trader_account_id: 1,
+                order_id: 9,
+            })
+            .unwrap(),
+            json!({"ctidTraderAccountId": 1, "orderId": 9})
+        );
+        assert_eq!(
+            serde_json::to_value(DealOffsetListReq {
+                ctid_trader_account_id: 1,
+                deal_id: 4,
+            })
+            .unwrap(),
+            json!({"ctidTraderAccountId": 1, "dealId": 4})
         );
     }
 }

@@ -207,6 +207,18 @@ pub struct GetTickDataReq {
     pub to_timestamp: Option<i64>,
 }
 
+/// `ProtoOASymbolsForConversionReq`.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SymbolsForConversionReq {
+    /// The trading account id.
+    pub ctid_trader_account_id: i64,
+    /// The asset converted from.
+    pub first_asset_id: i64,
+    /// The asset converted to.
+    pub last_asset_id: i64,
+}
+
 // ---- responses ----
 
 /// `ProtoOAAccountAuthRes`.
@@ -524,6 +536,29 @@ pub struct AccountDisconnectEvent {
     pub ctid_trader_account_id: i64,
 }
 
+/// `ProtoOASymbolsForConversionRes`: a chain of symbols to convert one asset into another when no
+/// direct quote exists (for example EUR/USD, USD/JPY for a EUR/JPY conversion).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SymbolsForConversionRes {
+    /// The chain, in order.
+    #[serde(default)]
+    pub symbol: Vec<LightSymbol>,
+}
+
+/// `ProtoOASymbolChangedEvent`: the broker changed one or more symbols (trading hours, volume
+/// rules, ...). Ask [`crate::Client::symbol_details`] again for the ones named here.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SymbolChangedEvent {
+    /// The account the changed symbols belong to.
+    #[serde(default, deserialize_with = "flex::opt")]
+    pub ctid_trader_account_id: Option<i64>,
+    /// The symbols that changed.
+    #[serde(default, deserialize_with = "flex::list")]
+    pub symbol_id: Vec<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -608,6 +643,20 @@ mod tests {
         .unwrap();
         assert_eq!(e.new_quotes[0].bid, Some(108_490));
         assert_eq!(e.deleted_quotes, vec![1, 2]);
+    }
+
+    #[test]
+    fn a_conversion_chain_and_a_symbol_changed_event_are_read() {
+        let chain: SymbolsForConversionRes = serde_json::from_value(json!({"symbol": [
+            {"symbolId": 1, "symbolName": "EURUSD"},
+            {"symbolId": 2, "symbolName": "USDJPY"}
+        ]}))
+        .unwrap();
+        assert_eq!(chain.symbol.len(), 2);
+        let changed: SymbolChangedEvent =
+            serde_json::from_value(json!({"ctidTraderAccountId": 1, "symbolId": ["2", 3]}))
+                .unwrap();
+        assert_eq!(changed.symbol_id, vec![2, 3]);
     }
 
     #[test]
