@@ -358,7 +358,7 @@ server's own advice.
 ## Tests
 
 ```sh
-cargo test -p ctrader-openapi                       # over 250 tests, no network beyond localhost
+cargo test -p ctrader-openapi                       # about 250 tests, no network beyond localhost
 cargo test -p ctrader-openapi --test live -- --ignored --nocapture   # a real demo account, read only
 ```
 
