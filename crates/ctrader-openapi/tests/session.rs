@@ -11,7 +11,7 @@ use ctrader_openapi::config::{ClientCredentials, ConnectionConfig};
 use ctrader_openapi::session::{
     Backoff, MemoryTokenStore, Session, SessionConfig, SessionEvent, SessionState, TokenStore,
 };
-use ctrader_openapi::wire::payload;
+use ctrader_openapi::transport::wire::payload;
 use ctrader_openapi::{ErrorKind, Event, OpenApiError};
 use secrecy::ExposeSecret;
 use serde_json::{Value, json};
@@ -162,7 +162,7 @@ async fn subscriptions_made_before_the_connection_is_up_are_applied_when_it_is()
     // Recorded at once; the connection is not up yet.
     session.subscribe_spots(&[1, 2]).await.unwrap();
     session
-        .subscribe_live_bars(1, ctrader_openapi::types::Period::M5)
+        .subscribe_live_bars(1, ctrader_openapi::market::Period::M5)
         .await
         .unwrap();
     session.subscribe_depth(&[3]).await.unwrap();

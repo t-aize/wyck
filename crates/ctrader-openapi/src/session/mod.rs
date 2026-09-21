@@ -53,122 +53,37 @@
 //! It does not replay requests that were in flight when the connection dropped (they fail with
 //! [`OpenApiError::Closed`]; the caller may repeat them), and it does not keep data: events that
 //! arrive while a reader is not listening are lost, as with any broadcast channel.
+//!
+//! # Why it stays flat
+//!
+//! [`Session`] keeps its own plain methods (`subscribe_spots`, `subscribe_live_bars`,
+//! `subscribe_depth`) rather than adopting the [`MarketClient`](crate::market::MarketClient)-style
+//! sub-client split the rest of the crate uses: its subscriptions have a different semantics
+//! (recorded in a registry and replayed after every reconnect), and forcing the same split here
+//! would not add anything real.
+
+pub mod backoff;
+pub mod token_store;
+
+pub use backoff::Backoff;
+pub use token_store::{MemoryTokenStore, TokenStore};
 
 use std::collections::BTreeSet;
 use std::future::Future;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use async_trait::async_trait;
 use secrecy::ExposeSecret;
 use tokio::sync::{broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 
 use crate::auth::{OAuthClient, TokenSet};
-use crate::client::Client;
 use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{ErrorKind, OpenApiError, Result};
 use crate::event::Event;
-use crate::types::Period;
-
-/// Where the tokens are kept between runs.
-///
-/// The session calls [`TokenStore::save`] every time it gets a new pair, **before** using it (the
-/// old refresh token stops working the moment the new pair is issued, so a pair lost to a crash is
-/// a lost sign in). Implement it on top of the OS keyring or an encrypted file; never store tokens
-/// in plain text.
-#[async_trait]
-pub trait TokenStore: Send + Sync + 'static {
-    /// The stored tokens, if any.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the storage reports.
-    async fn load(&self) -> Result<Option<TokenSet>>;
-
-    /// Stores the tokens, replacing what was there.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the storage reports. A failure to save ends the session: continuing would risk
-    /// losing the only valid refresh token.
-    async fn save(&self, tokens: &TokenSet) -> Result<()>;
-}
-
-/// A [`TokenStore`] that keeps the tokens in memory only. For tests and short lived programs.
-#[derive(Debug, Default)]
-pub struct MemoryTokenStore {
-    tokens: Mutex<Option<TokenSet>>,
-}
-
-#[async_trait]
-impl TokenStore for MemoryTokenStore {
-    async fn load(&self) -> Result<Option<TokenSet>> {
-        Ok(lock(&self.tokens).clone())
-    }
-
-    async fn save(&self, tokens: &TokenSet) -> Result<()> {
-        *lock(&self.tokens) = Some(tokens.clone());
-        Ok(())
-    }
-}
-
-/// How long to wait between two attempts to connect.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Backoff {
-    /// The wait after the first failure.
-    pub initial: Duration,
-    /// The longest wait.
-    pub max: Duration,
-    /// What each wait is multiplied by (at least 1).
-    pub factor: u32,
-}
-
-impl Default for Backoff {
-    fn default() -> Self {
-        Self {
-            initial: Duration::from_secs(1),
-            max: Duration::from_secs(60),
-            factor: 2,
-        }
-    }
-}
-
-impl Backoff {
-    /// The wait before attempt number `attempt` (1 for the first retry), without jitter.
-    ///
-    /// ```
-    /// use std::time::Duration;
-    /// use ctrader_openapi::session::Backoff;
-    ///
-    /// let backoff = Backoff { initial: Duration::from_secs(1), max: Duration::from_secs(10), factor: 2 };
-    /// assert_eq!(backoff.delay(1), Duration::from_secs(1));
-    /// assert_eq!(backoff.delay(3), Duration::from_secs(4));
-    /// assert_eq!(backoff.delay(9), Duration::from_secs(10)); // capped
-    /// ```
-    #[must_use]
-    pub fn delay(&self, attempt: u32) -> Duration {
-        let factor = u128::from(self.factor.max(1));
-        let mut wait = self.initial.as_millis().max(1);
-        for _ in 1..attempt.max(1) {
-            wait = wait.saturating_mul(factor);
-            if wait >= self.max.as_millis() {
-                break;
-            }
-        }
-        Duration::from_millis(u64::try_from(wait.min(self.max.as_millis())).unwrap_or(u64::MAX))
-    }
-
-    /// [`Backoff::delay`] plus up to a fifth more, taken from `noise` (any number: the low bits
-    /// are used), so that many programs do not retry at the same instant.
-    #[must_use]
-    pub fn jittered(&self, attempt: u32, noise: u32) -> Duration {
-        let base = self.delay(attempt);
-        let extra = base.as_millis() / 5 * u128::from(noise % 1000) / 1000;
-        base + Duration::from_millis(u64::try_from(extra).unwrap_or(0))
-    }
-}
+use crate::market::Period;
+use crate::transport::connection::Client;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]
@@ -462,7 +377,9 @@ impl Session {
             return Ok(());
         };
         let result = client
-            .subscribe_spots(self.shared.account_id, &fresh, true)
+            .account(self.shared.account_id)
+            .market()
+            .subscribe_spots(&fresh)
             .await;
         self.settle(result, |registry| {
             for id in &fresh {
@@ -489,7 +406,9 @@ impl Session {
         match (gone.is_empty(), self.shared.client()) {
             (false, Some(client)) => {
                 client
-                    .unsubscribe_spots(self.shared.account_id, &gone)
+                    .account(self.shared.account_id)
+                    .market()
+                    .unsubscribe_spots(&gone)
                     .await
             }
             _ => Ok(()),
@@ -513,7 +432,9 @@ impl Session {
             return Ok(());
         };
         let result = client
-            .subscribe_live_bars(self.shared.account_id, symbol_id, period)
+            .account(self.shared.account_id)
+            .market()
+            .subscribe_live_bars(symbol_id, period)
             .await;
         self.settle(result, |registry| {
             registry.live_bars.remove(&(symbol_id, period));
@@ -532,7 +453,9 @@ impl Session {
         match (existed, self.shared.client()) {
             (true, Some(client)) => {
                 client
-                    .unsubscribe_live_bars(self.shared.account_id, symbol_id, period)
+                    .account(self.shared.account_id)
+                    .market()
+                    .unsubscribe_live_bars(symbol_id, period)
                     .await
             }
             _ => Ok(()),
@@ -559,7 +482,11 @@ impl Session {
         let Some(client) = self.shared.client() else {
             return Ok(());
         };
-        let result = client.subscribe_depth(self.shared.account_id, &fresh).await;
+        let result = client
+            .account(self.shared.account_id)
+            .market()
+            .subscribe_depth(&fresh)
+            .await;
         self.settle(result, |registry| {
             for id in &fresh {
                 registry.depth.remove(id);
@@ -584,7 +511,9 @@ impl Session {
         match (gone.is_empty(), self.shared.client()) {
             (false, Some(client)) => {
                 client
-                    .unsubscribe_depth(self.shared.account_id, &gone)
+                    .account(self.shared.account_id)
+                    .market()
+                    .unsubscribe_depth(&gone)
                     .await
             }
             _ => Ok(()),
@@ -862,12 +791,13 @@ async fn connect(config: &SessionConfig, tokens: &TokenSet) -> Result<Client> {
     let signed_in = async {
         client.authenticate_application(&config.credentials).await?;
         client
-            .authorize_account(config.account_id, tokens.access_token.expose_secret())
+            .account(config.account_id)
+            .authorize(tokens.access_token.expose_secret())
             .await
     }
     .await;
     match signed_in {
-        Ok(_) => Ok(client),
+        Ok(()) => Ok(client),
         Err(error) => {
             client.close().await;
             Err(error)
@@ -879,7 +809,7 @@ async fn connect(config: &SessionConfig, tokens: &TokenSet) -> Result<Client> {
 /// symbol must not stop the others, or the session.
 async fn restore_subscriptions(client: &Client, shared: &Shared) {
     let registry = lock(&shared.registry).clone();
-    let account = shared.account_id;
+    let market = client.account(shared.account_id).market();
     let report = |what: String, error: OpenApiError| {
         // Already subscribed is what we wanted.
         if error.code() != Some("ALREADY_SUBSCRIBED") {
@@ -888,18 +818,18 @@ async fn restore_subscriptions(client: &Client, shared: &Shared) {
     };
     if !registry.spots.is_empty() {
         let ids: Vec<i64> = registry.spots.iter().copied().collect();
-        if let Err(error) = client.subscribe_spots(account, &ids, true).await {
+        if let Err(error) = market.subscribe_spots(&ids).await {
             report(format!("prices of {ids:?}"), error);
         }
     }
     for (symbol, period) in &registry.live_bars {
-        if let Err(error) = client.subscribe_live_bars(account, *symbol, *period).await {
+        if let Err(error) = market.subscribe_live_bars(*symbol, *period).await {
             report(format!("live {} bars of {symbol}", period.label()), error);
         }
     }
     if !registry.depth.is_empty() {
         let ids: Vec<i64> = registry.depth.iter().copied().collect();
-        if let Err(error) = client.subscribe_depth(account, &ids).await {
+        if let Err(error) = market.subscribe_depth(&ids).await {
             report(format!("the order book of {ids:?}"), error);
         }
     }
@@ -974,55 +904,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_wait_doubles_up_to_the_cap() {
-        let backoff = Backoff {
-            initial: Duration::from_secs(1),
-            max: Duration::from_secs(10),
-            factor: 2,
-        };
-        let waits: Vec<u64> = (1..=6).map(|n| backoff.delay(n).as_secs()).collect();
-        assert_eq!(waits, vec![1, 2, 4, 8, 10, 10]);
-    }
-
-    #[test]
-    fn a_huge_attempt_number_does_not_overflow() {
-        let backoff = Backoff::default();
-        assert_eq!(backoff.delay(u32::MAX), Duration::from_secs(60));
-        assert_eq!(
-            backoff.delay(0),
-            Duration::from_secs(1),
-            "attempt 0 is the first wait"
-        );
-    }
-
-    #[test]
-    fn a_factor_of_one_keeps_the_wait_constant_and_zero_is_treated_as_one() {
-        let constant = Backoff {
-            initial: Duration::from_millis(500),
-            max: Duration::from_secs(60),
-            factor: 1,
-        };
-        assert_eq!(constant.delay(9), Duration::from_millis(500));
-        let zero = Backoff {
-            factor: 0,
-            ..constant
-        };
-        assert_eq!(zero.delay(9), Duration::from_millis(500));
-    }
-
-    #[test]
-    fn jitter_only_adds_and_never_more_than_a_fifth() {
-        let backoff = Backoff::default();
-        let base = backoff.delay(3);
-        for noise in [0, 1, 500, 999, 1000, 123_456_789] {
-            let jittered = backoff.jittered(3, noise);
-            assert!(jittered >= base);
-            assert!(jittered <= base + base / 5, "{jittered:?}");
-        }
-        assert_eq!(backoff.jittered(3, 0), base);
-    }
-
-    #[test]
     fn failures_are_sorted_into_retry_refresh_or_end() {
         let server = |code: &str| OpenApiError::server(code, None, None, None);
         assert_eq!(classify(&OpenApiError::Transport("x".into())), Next::Retry);
@@ -1073,20 +954,6 @@ mod tests {
             None,
             None
         )));
-    }
-
-    #[tokio::test]
-    async fn the_memory_store_keeps_what_it_is_given() {
-        let store = MemoryTokenStore::default();
-        assert!(store.load().await.unwrap().is_none());
-        let tokens = crate::auth::parse_token_response(
-            br#"{"accessToken":"a","refreshToken":"r","expiresIn":10}"#,
-            SystemTime::now(),
-        )
-        .unwrap();
-        store.save(&tokens).await.unwrap();
-        let loaded = store.load().await.unwrap().unwrap();
-        assert_eq!(loaded.access_token.expose_secret(), "a");
     }
 
     #[tokio::test(start_paused = true)]

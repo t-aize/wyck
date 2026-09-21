@@ -1,5 +1,6 @@
-//! The account calls against the scripted server: what is sent, what comes back, and the events an
-//! account produces.
+//! `AccountDataClient` against the scripted server: what is sent, what comes back, and the events
+//! an account produces. The reference catalogs (assets, asset classes, symbol categories) are
+//! `MarketClient` calls and live in `tests/market.rs`.
 
 mod support;
 
@@ -9,7 +10,7 @@ use ctrader_openapi::account::{
     AccessRights, AccountType, DealStatus, OrderStatus, OrderType, PositionStatus, TradeSide,
 };
 use ctrader_openapi::config::ConnectionConfig;
-use ctrader_openapi::wire::payload;
+use ctrader_openapi::transport::wire::payload;
 use ctrader_openapi::{Client, ErrorKind, Event};
 use serde_json::json;
 use support::{MockServer, answers};
@@ -33,7 +34,12 @@ async fn the_account_details_are_read_and_converted() {
     )]))
     .await;
     let client = connect(&server).await;
-    let trader = client.trader(48_332_955).await.unwrap();
+    let trader = client
+        .account(48_332_955)
+        .account_data()
+        .trader()
+        .await
+        .unwrap();
     assert_eq!(trader.balance_amount(), 10_000.0);
     assert_eq!(trader.leverage(), Some(100.0));
     assert_eq!(trader.rights(), Some(AccessRights::FullAccess));
@@ -59,7 +65,8 @@ async fn open_positions_and_working_orders_come_together() {
     )]))
     .await;
     let client = connect(&server).await;
-    let (positions, orders) = client.open_positions_and_orders(1, true).await.unwrap();
+    let data = client.account(1).account_data();
+    let (positions, orders) = data.open_positions_and_orders(true).await.unwrap();
     assert_eq!(positions.len(), 1);
     assert_eq!(positions[0].status(), Some(PositionStatus::Open));
     assert_eq!(positions[0].trade_data.side(), Some(TradeSide::Buy));
@@ -91,7 +98,8 @@ async fn deals_and_orders_carry_their_range_and_tell_when_there_is_more() {
     ]))
     .await;
     let client = connect(&server).await;
-    let (deals, more) = client.deals(1, 100, 200, Some(50)).await.unwrap();
+    let data = client.account(1).account_data();
+    let (deals, more) = data.deals(100, 200, Some(50)).await.unwrap();
     assert!(more);
     assert_eq!(deals[0].status(), Some(DealStatus::Filled));
     let request = &server.received_of(payload::DEAL_LIST_REQ)[0].payload;
@@ -99,47 +107,8 @@ async fn deals_and_orders_carry_their_range_and_tell_when_there_is_more() {
     assert_eq!(request["toTimestamp"], 200);
     assert_eq!(request["maxRows"], 50);
 
-    let (orders, more) = client.orders(1, 100, 200).await.unwrap();
+    let (orders, more) = data.orders(100, 200).await.unwrap();
     assert!(orders.is_empty() && !more);
-}
-
-#[tokio::test]
-async fn the_catalogs_and_the_profile_are_read() {
-    let server = MockServer::start(answers(vec![
-        (
-            payload::ASSET_LIST_REQ,
-            payload::ASSET_LIST_RES,
-            json!({"asset": [{"assetId": 1, "name": "EUR", "digits": 2}]}),
-        ),
-        (
-            payload::ASSET_CLASS_LIST_REQ,
-            payload::ASSET_CLASS_LIST_RES,
-            json!({"assetClass": [{"id": 1, "name": "Forex"}]}),
-        ),
-        (
-            payload::SYMBOL_CATEGORY_REQ,
-            payload::SYMBOL_CATEGORY_RES,
-            json!({"symbolCategory": [{"id": 5, "assetClassId": 1, "name": "Majors"}]}),
-        ),
-        (
-            payload::GET_CTID_PROFILE_BY_TOKEN_REQ,
-            payload::GET_CTID_PROFILE_BY_TOKEN_RES,
-            json!({"profile": {"userId": 12345}}),
-        ),
-    ]))
-    .await;
-    let client = connect(&server).await;
-    assert_eq!(client.assets(1).await.unwrap()[0].name, "EUR");
-    assert_eq!(
-        client.asset_classes(1).await.unwrap()[0].name.as_deref(),
-        Some("Forex")
-    );
-    assert_eq!(client.symbol_categories(1).await.unwrap()[0].name, "Majors");
-    assert_eq!(client.ctid_profile("tok").await.unwrap().user_id, 12_345);
-    assert_eq!(
-        server.received_of(payload::GET_CTID_PROFILE_BY_TOKEN_REQ)[0].payload,
-        json!({"accessToken": "tok"})
-    );
 }
 
 #[tokio::test]
@@ -151,7 +120,7 @@ async fn an_account_that_is_not_authorized_is_told_apart_from_a_bad_symbol() {
     )]))
     .await;
     let client = connect(&server).await;
-    let error = client.trader(1).await.unwrap_err();
+    let error = client.account(1).account_data().trader().await.unwrap_err();
     assert_eq!(error.kind(), ErrorKind::NotAuthorized);
     assert!(!error.is_retryable());
 }
@@ -165,7 +134,7 @@ async fn logging_an_account_out_sends_the_account_and_succeeds() {
     )]))
     .await;
     let client = connect(&server).await;
-    client.logout_account(1).await.unwrap();
+    client.account(1).logout().await.unwrap();
     assert_eq!(
         server.received_of(payload::ACCOUNT_LOGOUT_REQ)[0].payload,
         json!({"ctidTraderAccountId": 1})
@@ -220,26 +189,27 @@ async fn the_account_gaps_are_read() {
     ]))
     .await;
     let client = connect(&server).await;
+    let data = client.account(1).account_data();
 
-    let cash_flow = client.cash_flow_history(1, 0, 1000).await.unwrap();
+    let cash_flow = data.cash_flow_history(0, 1000).await.unwrap();
     assert_eq!(cash_flow[0].amount(), 100.0);
 
-    let (deals, more) = client.deals_by_position(1, 77, None, None).await.unwrap();
+    let (deals, more) = data.deals_by_position(77, None, None).await.unwrap();
     assert_eq!(deals.len(), 1);
     assert!(!more);
 
-    let (orders, more) = client.orders_by_position(1, 77, None, None).await.unwrap();
+    let (orders, more) = data.orders_by_position(77, None, None).await.unwrap();
     assert!(orders.is_empty() && !more);
 
-    let (order, deals) = client.order_details(1, 9).await.unwrap();
+    let (order, deals) = data.order_details(9).await.unwrap();
     assert_eq!(order.order_id, 9);
     assert!(deals.is_empty());
 
-    let (offset_by, offsetting) = client.deal_offsets(1, 4).await.unwrap();
+    let (offset_by, offsetting) = data.deal_offsets(4).await.unwrap();
     assert_eq!(offset_by[0].deal_id, 4);
     assert!(offsetting.is_empty());
 
-    let pnl = client.position_unrealized_pnl(1).await.unwrap();
+    let pnl = data.position_unrealized_pnl().await.unwrap();
     assert_eq!(pnl[0].net_unrealized_pnl, 480);
 }
 

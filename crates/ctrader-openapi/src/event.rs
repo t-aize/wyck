@@ -13,12 +13,12 @@ use serde_json::Value;
 use crate::account::TraderUpdatedEvent;
 use crate::error::OpenApiError;
 use crate::margin::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
-use crate::model::{
-    AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, DepthEvent,
-    ErrorRes, SpotEvent, SymbolChangedEvent,
-};
+use crate::market::{DepthEvent, SpotEvent, SymbolChangedEvent};
 use crate::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
-use crate::wire::{Envelope, payload};
+use crate::transport::messages::{
+    AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, ErrorRes,
+};
+use crate::transport::wire::{Envelope, payload};
 
 /// Why a connection ended.
 #[derive(Debug, Clone, PartialEq, Eq)]

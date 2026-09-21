@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use ctrader_openapi::config::ConnectionConfig;
-use ctrader_openapi::wire::payload;
+use ctrader_openapi::transport::wire::payload;
 use ctrader_openapi::{Client, DisconnectReason, ErrorKind, Event, OpenApiError};
 use futures_util::StreamExt;
 use serde_json::json;
@@ -156,7 +156,7 @@ async fn a_very_large_answer_is_read_whole() {
     )]))
     .await;
     let client = connect(&server).await;
-    let list = client.symbols(1, false).await.unwrap();
+    let list = client.account(1).market().symbols().await.unwrap();
     assert_eq!(list.len(), 20_000);
     assert_eq!(list[19_999].symbol_name.as_deref(), Some("SYMBOL19999"));
 }
@@ -218,7 +218,9 @@ async fn three_hundred_requests_at_once_each_get_their_own_answer() {
     let tasks: Vec<_> = (0..300)
         .map(|id| {
             let client = client.clone();
-            tokio::spawn(async move { (id, client.symbol_details(1, &[id]).await) })
+            tokio::spawn(
+                async move { (id, client.account(1).market().symbol_details(&[id]).await) },
+            )
         })
         .collect();
     for task in tasks {

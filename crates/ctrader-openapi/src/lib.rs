@@ -13,35 +13,34 @@
 //! amends and cancels orders and closes positions, and [`margin`] reads and (for its one threshold
 //! setting) writes margin call configuration. A trading call moves money: simulated on a demo
 //! account, real on a live one, since demo balances are simulated but persistent. See the "Trading
-//! safety" section of the README, and the non-idempotency caveat on [`Client::new_order`], before
-//! sending an order from anything that is not a script you are watching.
+//! safety" section of the README, and the non-idempotency caveat on
+//! [`trading::TradingClient::new_order`], before sending an order from anything that is not a
+//! script you are watching.
 //!
 //! # Module map
 //!
+//! `Client -> AccountClient -> { MarketClient, AccountDataClient, TradingClient, MarginClient }`,
+//! with [`session::Session`] built on the same [`Client`] for programs that stay up.
+//!
 //! | Module | Role |
 //! |---|---|
-//! | [`client`] | The connection: [`Client`], one method per call, events, state |
-//! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions by itself |
-//! | [`history`] | Whole ranges of ticks and bars, fetched page by page |
-//! | [`account`] | Balance, positions, orders, deals, catalogs: the read-only account messages |
-//! | [`trading`] | Placing, amending and cancelling orders, closing positions |
-//! | [`margin`] | Expected margin, margin call thresholds, dynamic leverage tiers |
-//! | [`market`] | Symbol lookup, latest prices, the order book, price formatting |
-//! | [`handle`] | [`AccountClient`]: a client bound to one account |
-//! | [`auth`] | OAuth 2: the consent URL, tokens, refresh |
-//! | [`callback`] | The loopback web server that catches the sign in redirect |
+//! | [`transport`] | The connection: [`Client`], [`ClientBuilder`], the envelope, the rate limiter |
+//! | [`handle`] | [`AccountClient`]: a client bound to one account, routing to the four below |
+//! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
+//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals |
+//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders |
+//! | [`margin`] | [`margin::MarginClient`]: expected margin, margin calls, dynamic leverage |
+//! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions |
+//! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |
 //! | [`event`] | What the server sends unasked: prices, order book, executions, notices |
-//! | [`types`] | Periods, bars, ticks, quotes, price scale, and their decoding |
-//! | [`model`] | The messages as plain data |
-//! | [`wire`] | The envelope and the payload type numbers |
 //! | [`config`] | Demo or live, timeouts, application credentials |
-//! | [`rate_limit`] | The request limiter |
 //! | [`error`] | [`OpenApiError`] and its classification |
+//! | [`prelude`] | A group import of the pieces most programs need |
 //!
 //! # Which layer to use
 //!
-//! - **A script or a tool** that runs for a minute: [`Client`] directly. Connect, sign in, ask,
-//!   close.
+//! - **A script or a tool** that runs for a minute: [`Client`] directly (or [`ClientBuilder`] to
+//!   connect and identify the application in one step). Connect, sign in, ask, close.
 //! - **A program that stays up** (a recorder, a chart feed): [`session::Session`]. It owns the
 //!   connection, and you only read its events and say what to subscribe to.
 //! - **Your own supervision**: [`Client`] plus [`Event::Disconnected`]; the client never
@@ -50,10 +49,8 @@
 //! # A complete run
 //!
 //! ```no_run
-//! use ctrader_openapi::auth::{authorization_url, new_state, OAuthClient, Scope};
-//! use ctrader_openapi::callback::CallbackListener;
-//! use ctrader_openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-//! use ctrader_openapi::{Client, Event};
+//! use ctrader_openapi::auth::{authorization_url, new_state, CallbackListener, OAuthClient, Scope};
+//! use ctrader_openapi::{ClientBuilder, ClientCredentials, Environment, Event};
 //! use secrecy::ExposeSecret;
 //! use std::time::Duration;
 //!
@@ -69,18 +66,21 @@
 //! let tokens = oauth.exchange_code(code.code(), &redirect).await?;
 //!
 //! // 2. Connect, identify the application, authorize an account.
-//! let client = Client::connect(&ConnectionConfig::new(Environment::Demo)).await?;
-//! client.authenticate_application(&credentials).await?;
+//! let client = ClientBuilder::new(Environment::Demo)
+//!     .credentials(credentials)
+//!     .connect()
+//!     .await?;
 //! let access = tokens.access_token.expose_secret();
 //! let accounts = client.accounts(access).await?;
 //! let account = client.account(accounts.ctid_trader_account[0].ctid_trader_account_id);
 //! account.authorize(access).await?;
 //!
-//! // 3. Follow a symbol's prices.
-//! let symbols = account.symbols().await?;
+//! // 3. Follow a symbol's prices, through the market sub-client.
+//! let market = account.market();
+//! let symbols = market.symbols().await?;
 //! let eurusd = symbols.iter().find(|s| s.symbol_name.as_deref() == Some("EURUSD")).unwrap();
 //! let mut events = client.events();
-//! account.subscribe_spots(&[eurusd.symbol_id]).await?;
+//! market.subscribe_spots(&[eurusd.symbol_id]).await?;
 //! while let Ok(event) = events.recv().await {
 //!     match event {
 //!         Event::Spot(spot) => println!("{:?} {:?}", spot.bid, spot.ask),
@@ -103,9 +103,9 @@
 //!   (`retryAfter` is in **seconds**), when it is refused for its rate (`REQUEST_FREQUENCY_EXCEEDED`,
 //!   or `BLOCKED_PAYLOAD_TYPE`, which a live run produced). Silence for more than 10 seconds drops
 //!   the connection, hence the heartbeat.
-//! - **Prices** are integers scaled by 100 000 ([`types::PRICE_SCALE`]).
+//! - **Prices** are integers scaled by 100 000 ([`market::PRICE_SCALE`]).
 //! - **Ticks** come newest first with their times **and prices** as differences from the tick before
-//!   ([`types::decode_ticks`], confirmed on a live demo account), at most one week per request, bid
+//!   ([`market::decode_ticks`], confirmed on a live demo account), at most one week per request, bid
 //!   and ask requested separately. There is **no volume per tick**: a bar's volume counts ticks
 //!   (both bid and ask changes), and only the order book has sizes.
 //! - **Bars** are a low price plus offsets, and match the bid ticks of their minute in about 96
@@ -125,26 +125,20 @@
 #![warn(missing_docs)]
 
 pub mod account;
-mod account_api;
 pub mod auth;
-pub mod callback;
-pub mod client;
 pub mod config;
 pub mod error;
 pub mod event;
 pub mod handle;
-pub mod history;
 pub mod margin;
 pub mod market;
-pub mod model;
-pub mod rate_limit;
+pub mod prelude;
 pub mod session;
 pub mod trading;
-pub mod types;
-pub mod wire;
+pub mod transport;
 
-pub use client::{Client, ConnectionState};
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{ErrorKind, OpenApiError, Result};
 pub use event::{DisconnectReason, Event};
 pub use handle::AccountClient;
+pub use transport::connection::{Client, ClientBuilder, ConnectionState};

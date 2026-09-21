@@ -22,9 +22,8 @@
 use std::time::Duration;
 
 use ctrader_openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-use ctrader_openapi::history::{fetch_bars, fetch_ticks};
+use ctrader_openapi::market::{Period, QuoteType, merge_sides, to_price};
 use ctrader_openapi::trading::{ExecutionType, NewOrderReq};
-use ctrader_openapi::types::{Period, QuoteType, merge_sides, to_price};
 use ctrader_openapi::{Client, Event};
 
 fn var(name: &str) -> String {
@@ -52,37 +51,36 @@ async fn read_a_demo_account_end_to_end() {
 
     let accounts = client.accounts(&token).await.expect("account list");
     println!("permission scope: {:?}", accounts.permission_scope);
-    let account = accounts
+    let account_info = accounts
         .ctid_trader_account
         .iter()
         .find(|a| a.is_live == Some(false))
         .expect("the token covers no demo account");
-    let account_id = account.ctid_trader_account_id;
+    let account_id = account_info.ctid_trader_account_id;
     println!(
         "using demo account {account_id} ({:?})",
-        account.broker_title_short
+        account_info.broker_title_short
     );
-    client
-        .authorize_account(account_id, &token)
-        .await
-        .expect("account sign in");
+    let account = client.account(account_id);
+    account.authorize(&token).await.expect("account sign in");
+    let market = account.market();
 
-    let symbols = client.symbols(account_id, false).await.expect("symbols");
+    let symbols = market.symbols().await.expect("symbols");
     println!("{} symbols", symbols.len());
     let symbol = symbols
         .iter()
         .find(|s| s.symbol_name.as_deref() == Some(wanted.as_str()))
         .unwrap_or_else(|| panic!("{wanted} not offered"));
-    let details = client
-        .symbol_details(account_id, &[symbol.symbol_id])
+    let details = market
+        .symbol_details(&[symbol.symbol_id])
         .await
         .expect("details");
     println!("details: {details:?}");
 
     // Live prices for a few seconds.
     let mut events = client.events();
-    client
-        .subscribe_spots(account_id, &[symbol.symbol_id], true)
+    market
+        .subscribe_spots(&[symbol.symbol_id])
         .await
         .expect("spot subscription");
     let mut seen = 0;
@@ -118,16 +116,10 @@ async fn read_a_demo_account_end_to_end() {
     );
     let hour = 3_600_000;
     for side in [QuoteType::Bid, QuoteType::Ask] {
-        let ticks = fetch_ticks(
-            &client,
-            account_id,
-            symbol.symbol_id,
-            side,
-            now - 6 * hour,
-            now,
-        )
-        .await
-        .expect("tick history");
+        let ticks = market
+            .ticks(symbol.symbol_id, side, now - 6 * hour, now)
+            .await
+            .expect("tick history");
         println!(
             "{side:?}: {} ticks, first {:?}, last {:?}",
             ticks.len(),
@@ -153,41 +145,23 @@ async fn read_a_demo_account_end_to_end() {
             );
         }
     }
-    let bids = fetch_ticks(
-        &client,
-        account_id,
-        symbol.symbol_id,
-        QuoteType::Bid,
-        now - hour,
-        now,
-    )
-    .await
-    .unwrap();
-    let asks = fetch_ticks(
-        &client,
-        account_id,
-        symbol.symbol_id,
-        QuoteType::Ask,
-        now - hour,
-        now,
-    )
-    .await
-    .unwrap();
+    let bids = market
+        .ticks(symbol.symbol_id, QuoteType::Bid, now - hour, now)
+        .await
+        .unwrap();
+    let asks = market
+        .ticks(symbol.symbol_id, QuoteType::Ask, now - hour, now)
+        .await
+        .unwrap();
     println!(
         "{} quotes in the last hour",
         merge_sides(&bids, &asks).len()
     );
 
-    let bars = fetch_bars(
-        &client,
-        account_id,
-        symbol.symbol_id,
-        Period::M1,
-        now - 24 * hour,
-        now,
-    )
-    .await
-    .expect("bar history");
+    let bars = market
+        .bars(symbol.symbol_id, Period::M1, now - 24 * hour, now)
+        .await
+        .expect("bar history");
     println!("{} M1 bars in a day", bars.len());
     if let (Some(first), Some(last)) = (bars.first(), bars.last()) {
         println!(
@@ -214,16 +188,10 @@ last bar  {:?}",
     // Cross check: the bars and the ticks are two views of the same prices, so the high and the
     // low of a bar should be the highest and lowest bid tick of its minute (bars are built on the
     // bid). A few differences at the edges are normal; a systematic one means a decoding mistake.
-    let ticks = fetch_ticks(
-        &client,
-        account_id,
-        symbol.symbol_id,
-        QuoteType::Bid,
-        now - 6 * hour,
-        now,
-    )
-    .await
-    .unwrap();
+    let ticks = market
+        .ticks(symbol.symbol_id, QuoteType::Bid, now - 6 * hour, now)
+        .await
+        .unwrap();
     let (mut compared, mut matching) = (0, 0);
     let (mut volume_sum, mut tick_sum) = (0i64, 0usize);
     for bar in bars
@@ -262,31 +230,19 @@ last bar  {:?}",
     // Seam check: six hours fetched in one call and in twelve pieces of half an hour must hold the
     // same ticks. The whole range needs several pages and each piece one, so a difference means
     // ticks are lost where two pages meet.
-    let whole = fetch_ticks(
-        &client,
-        account_id,
-        symbol.symbol_id,
-        QuoteType::Bid,
-        now - 6 * hour,
-        now,
-    )
-    .await
-    .unwrap();
+    let whole = market
+        .ticks(symbol.symbol_id, QuoteType::Bid, now - 6 * hour, now)
+        .await
+        .unwrap();
     let mut pieces = Vec::new();
     for i in 0..12 {
         let start = now - 6 * hour + i * 1_800_000;
         let end = if i == 11 { now } else { start + 1_799_999 };
         pieces.extend(
-            fetch_ticks(
-                &client,
-                account_id,
-                symbol.symbol_id,
-                QuoteType::Bid,
-                start,
-                end,
-            )
-            .await
-            .unwrap(),
+            market
+                .ticks(symbol.symbol_id, QuoteType::Bid, start, end)
+                .await
+                .unwrap(),
         );
     }
     println!(
@@ -335,37 +291,36 @@ async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
         .await
         .expect("application sign in");
     let accounts = client.accounts(&token).await.expect("account list");
-    let account = accounts
+    let account_info = accounts
         .ctid_trader_account
         .iter()
         .find(|a| a.is_live == Some(false))
         .expect("the token covers no demo account");
-    let account_id = account.ctid_trader_account_id;
-    client
-        .authorize_account(account_id, &token)
-        .await
-        .expect("account sign in");
+    let account_id = account_info.ctid_trader_account_id;
+    let account = client.account(account_id);
+    account.authorize(&token).await.expect("account sign in");
+    let market = account.market();
 
-    let symbols = client.symbols(account_id, false).await.expect("symbols");
+    let symbols = market.symbols().await.expect("symbols");
     let symbol = symbols
         .iter()
         .find(|s| s.symbol_name.as_deref() == Some(wanted.as_str()))
         .unwrap_or_else(|| panic!("{wanted} not offered"));
-    let details = client
-        .symbol_details(account_id, &[symbol.symbol_id])
+    let details = market
+        .symbol_details(&[symbol.symbol_id])
         .await
         .expect("details");
     let min_volume = details[0].min_volume.unwrap_or(1000);
     println!("placing a {min_volume} (hundredths of a unit) market buy on {wanted}");
 
+    let trading = account.trading();
     let request = NewOrderReq::market(
-        account_id,
         symbol.symbol_id,
         ctrader_openapi::account::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
-    let execution = client.new_order(&request).await.expect("new order");
+    let execution = trading.new_order(request).await.expect("new order");
     println!("execution: {:?}", execution.kind());
     assert!(
         matches!(
@@ -382,8 +337,8 @@ async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
         .position_id;
     println!("opened position {position_id}, closing it now");
 
-    let close = client
-        .close_position(account_id, position_id, min_volume)
+    let close = trading
+        .close_position(position_id, min_volume)
         .await
         .expect("close position");
     println!("close execution: {:?}", close.kind());

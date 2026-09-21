@@ -7,13 +7,13 @@
 //!    **client secret** and lets it register **redirect URIs** (see [`crate::config::ClientCredentials`]).
 //! 2. [`authorization_url`] builds the address of the consent page. The user opens it, picks the
 //!    accounts and the [`Scope`], and is sent back to the redirect URI with a `code` in the query.
-//!    [`crate::callback::CallbackListener`] catches that on `localhost`.
+//!    [`crate::auth::CallbackListener`] catches that on `localhost`.
 //! 3. [`OAuthClient::exchange_code`] trades the code (valid **one minute**) for a [`TokenSet`]: an
 //!    access token (about 30 days) and a refresh token.
 //! 4. Before the access token expires, [`OAuthClient::refresh`] trades the refresh token for a new
 //!    pair. **The old refresh token stops working**: store the new pair before using it.
 //! 5. The access token goes to the connection: [`crate::Client::accounts`], then
-//!    [`crate::Client::authorize_account`].
+//!    [`crate::AccountClient::authorize`].
 //!
 //! Errors are told apart on purpose: a refusal by the server (a bad code, a revoked refresh token) is
 //! [`OpenApiError::Auth`] and will not get better by trying again, while a failure to reach the endpoint
@@ -31,7 +31,7 @@ use serde::Deserialize;
 
 use crate::config::ClientCredentials;
 use crate::error::{OpenApiError, Result};
-use crate::model::flex;
+use crate::transport::wire::flex;
 
 /// The consent page, where the user grants access.
 pub const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use ctrader_openapi::config::ConnectionConfig;
 use ctrader_openapi::margin::{MarginCall, MarginCallType};
-use ctrader_openapi::wire::payload;
+use ctrader_openapi::transport::wire::payload;
 use ctrader_openapi::{Client, ErrorKind, Event};
 use serde_json::json;
 use support::{MockServer, answers};
@@ -31,7 +31,9 @@ async fn expected_margin_is_read_for_every_volume_asked() {
     .await;
     let client = connect(&server).await;
     let margins = client
-        .expected_margin(1, 1, &[100_000, 200_000])
+        .account(1)
+        .margin()
+        .expected_margin(1, &[100_000, 200_000])
         .await
         .unwrap();
     assert_eq!(margins.len(), 2);
@@ -62,19 +64,17 @@ async fn margin_calls_are_listed_and_one_threshold_can_be_updated() {
     ]))
     .await;
     let client = connect(&server).await;
-    let calls = client.margin_calls(1).await.unwrap();
+    let margin = client.account(1).margin();
+    let calls = margin.margin_calls().await.unwrap();
     assert_eq!(calls.len(), 3);
     assert_eq!(calls[0].kind(), Some(MarginCallType::First));
 
-    client
-        .update_margin_call(
-            1,
-            MarginCall {
-                margin_call_type: 61,
-                margin_level_threshold: 120.0,
-                utc_last_update_timestamp: None,
-            },
-        )
+    margin
+        .update_margin_call(MarginCall {
+            margin_call_type: 61,
+            margin_level_threshold: 120.0,
+            utc_last_update_timestamp: None,
+        })
         .await
         .unwrap();
     let sent = &server.received_of(payload::MARGIN_CALL_UPDATE_REQ)[0].payload;
@@ -93,7 +93,12 @@ async fn a_dynamic_leverage_schedule_is_read_with_its_tiers() {
     )]))
     .await;
     let client = connect(&server).await;
-    let leverage = client.dynamic_leverage(1, 9).await.unwrap();
+    let leverage = client
+        .account(1)
+        .margin()
+        .dynamic_leverage(9)
+        .await
+        .unwrap();
     assert_eq!(leverage.leverage_id, 9);
     assert_eq!(leverage.tiers.len(), 2);
     assert_eq!(leverage.tiers[0].leverage, 100);
@@ -138,6 +143,11 @@ async fn an_unknown_leverage_id_is_a_rejection() {
     )]))
     .await;
     let client = connect(&server).await;
-    let error = client.dynamic_leverage(1, 404).await.unwrap_err();
+    let error = client
+        .account(1)
+        .margin()
+        .dynamic_leverage(404)
+        .await
+        .unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Rejected);
 }

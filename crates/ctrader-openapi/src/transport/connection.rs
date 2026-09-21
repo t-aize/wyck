@@ -1,32 +1,41 @@
-//! The connection to the Open API, and one method per call.
+//! The connection to the Open API: one WebSocket, kept alive, with request matching.
 //!
 //! A [`Client`] owns one WebSocket to `demo` or `live`. A background task reads it, keeps it alive
 //! with heartbeats, matches answers to requests, and broadcasts everything else as [`Event`]s.
 //! The client itself is cheap to clone: every clone talks to the same connection.
 //!
+//! [`Client`] only covers the connection itself: opening it, identifying the application, listing
+//! and authorizing accounts, refreshing tokens, the proxy version and the cTrader ID profile.
+//! Everything that needs an authorized account is reached through [`Client::account`], which
+//! returns an [`crate::AccountClient`] with a named sub-client per domain (market data, account
+//! data, trading, margin).
+//!
 //! # A session, step by step
 //!
-//! 1. [`Client::connect`] opens the socket.
+//! 1. [`Client::connect`] opens the socket (or [`ClientBuilder`] for connecting and identifying the
+//!    application in one step).
 //! 2. [`Client::authenticate_application`] identifies the application (client id and secret).
 //! 3. [`Client::accounts`] lists the trading accounts an access token covers, and
-//!    [`Client::authorize_account`] authorizes one on this connection.
-//! 4. Then the data calls: [`Client::symbols`], [`Client::subscribe_spots`], [`Client::bars_page`],
-//!    [`Client::tick_page`] (see [`crate::history`] for whole ranges), and so on.
+//!    [`Client::account`] plus [`crate::AccountClient::authorize`] authorizes one on this
+//!    connection.
+//! 4. Then the sub-clients: [`crate::AccountClient::market`], [`crate::AccountClient::account_data`],
+//!    [`crate::AccountClient::trading`], [`crate::AccountClient::margin`].
 //!
 //! # How requests work
 //!
 //! Every request gets a unique `clientMsgId`; the answer carries it back, so many requests can be
 //! in flight at once and answers may come in any order. A request waits for its turn at the
-//! [rate limiter](crate::rate_limit::RateLimiter) (50 per second, 5 for history), then for its
-//! answer up to the configured timeout. A server error becomes an [`OpenApiError::Server`].
+//! [rate limiter](crate::transport::rate_limit::RateLimiter) (50 per second, 5 for history), then
+//! for its answer up to the configured timeout. A server error becomes an
+//! [`OpenApiError::Server`].
 //!
 //! # When the connection ends
 //!
 //! Every waiting request fails with [`OpenApiError::Closed`], an [`Event::Disconnected`] is
 //! broadcast, and [`Client::state`] turns to [`ConnectionState::Closed`]. **The client does not
 //! reconnect by itself**: after a reconnect the application and the accounts must be authorized
-//! again and the subscriptions renewed, which is the caller's business (the engine already has a
-//! supervisor for that with the MCP sessions). Build a new [`Client`] and repeat the steps.
+//! again and the subscriptions renewed, which is the caller's business (see [`crate::session`] for
+//! a client that does this by itself). Build a new [`Client`] and repeat the steps.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,18 +50,15 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, trace, warn};
 
-use crate::config::{ClientCredentials, ConnectionConfig};
+use crate::config::{ClientCredentials, ConnectionConfig, Environment};
 use crate::error::{ErrorKind, OpenApiError, Result};
 use crate::event::{DisconnectReason, Event, error_of, event_from};
-use crate::model::{
-    AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, GetAccountsByAccessTokenReq,
-    GetTickDataReq, GetTickDataRes, GetTrendbarsReq, GetTrendbarsRes, LightSymbol, LiveTrendbarReq,
-    RefreshTokenReq, RefreshTokenRes, SubscribeSpotsReq, Symbol, SymbolByIdReq, SymbolByIdRes,
-    SymbolsListReq, SymbolsListRes, SymbolsReq, VersionRes,
+use crate::transport::messages::{
+    AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
+    CtidProfileRes, GetAccountsByAccessTokenReq, RefreshTokenReq, RefreshTokenRes, VersionRes,
 };
-use crate::rate_limit::RateLimiter;
-use crate::types::{Bar, Period, QuoteType, Tick, decode_bars, decode_ticks};
-use crate::wire::{Envelope, payload};
+use crate::transport::rate_limit::RateLimiter;
+use crate::transport::wire::{Envelope, payload};
 
 /// How many outgoing messages may queue before a sender waits.
 const OUTGOING_QUEUE: usize = 256;
@@ -160,7 +166,8 @@ impl std::fmt::Debug for Client {
 }
 
 impl Client {
-    /// Opens the connection. No message is sent yet: authenticate the application next.
+    /// Opens the connection. No message is sent yet: authenticate the application next (or use
+    /// [`ClientBuilder`] to do both in one call).
     ///
     /// # Errors
     ///
@@ -203,6 +210,13 @@ impl Client {
         Ok(Self { shared })
     }
 
+    /// Starts a [`ClientBuilder`] for `environment`, the friendliest way to connect and (with
+    /// [`ClientBuilder::credentials`]) identify the application in one step.
+    #[must_use]
+    pub fn builder(environment: Environment) -> ClientBuilder {
+        ClientBuilder::new(environment)
+    }
+
     /// The events the server sends: prices, order book changes, account and token notices, and
     /// finally [`Event::Disconnected`]. Each call gives an independent reader that sees the events
     /// from now on. A reader that falls more than `event_capacity` events behind loses the oldest
@@ -234,7 +248,8 @@ impl Client {
         let _ = self.shared.outgoing.send(Outgoing::Close).await;
     }
 
-    // ---- the request machinery ----
+    // ---- the request machinery, shared with the sub-clients in crate::market, crate::account,
+    // crate::trading and crate::margin ----
 
     /// One request with its answer, sent again when the server refuses it for its rate.
     pub(crate) async fn call<Req, Res>(
@@ -396,13 +411,19 @@ impl Client {
         .await
     }
 
-    /// Authorizes a trading account on this connection. Data calls for the account need it.
+    /// Authorizes a trading account on this connection. Reached only through
+    /// [`crate::AccountClient::authorize`], which is how every other call ends up bound to the
+    /// right account.
     ///
     /// # Errors
     ///
     /// `ACCOUNT_NOT_AUTHORIZED`, or a token error. A demo account cannot be authorized on a live
     /// connection, and the other way round.
-    pub async fn authorize_account(&self, account_id: i64, access_token: &str) -> Result<i64> {
+    pub(crate) async fn authorize_account(
+        &self,
+        account_id: i64,
+        access_token: &str,
+    ) -> Result<i64> {
         let response: AccountAuthRes = self
             .call(
                 payload::ACCOUNT_AUTH_REQ,
@@ -456,302 +477,86 @@ impl Client {
         Ok(response.version)
     }
 
-    // ---- symbols ----
-
-    /// Every symbol of the account, in short form. Archived symbols are left out unless asked for.
+    /// The profile of the cTrader ID an access token belongs to. Needs only an access token, no
+    /// authorized account.
     ///
     /// # Errors
     ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
-    pub async fn symbols(
-        &self,
-        account_id: i64,
-        include_archived: bool,
-    ) -> Result<Vec<LightSymbol>> {
-        let response: SymbolsListRes = self
+    /// A token error for a bad or expired token.
+    pub async fn ctid_profile(&self, access_token: &str) -> Result<CtidProfile> {
+        let response: CtidProfileRes = self
             .call(
-                payload::SYMBOLS_LIST_REQ,
-                payload::SYMBOLS_LIST_RES,
-                &SymbolsListReq {
-                    ctid_trader_account_id: account_id,
-                    include_archived_symbols: include_archived.then_some(true),
+                payload::GET_CTID_PROFILE_BY_TOKEN_REQ,
+                payload::GET_CTID_PROFILE_BY_TOKEN_RES,
+                &CtidProfileReq {
+                    access_token: access_token.to_owned(),
                 },
                 RateClass::Standard,
-                "the symbol list",
+                "the cTrader ID profile",
             )
             .await?;
-        Ok(response.symbol)
+        Ok(response.profile)
+    }
+}
+
+/// Builds a [`Client`]: the friendliest entry point for a newcomer, connecting and (optionally)
+/// identifying the application in one call. Skip it and call [`Client::connect`] directly when the
+/// two steps are better kept apart (for example to report progress between them).
+///
+/// ```no_run
+/// use ctrader_openapi::{ClientBuilder, ClientCredentials, Environment};
+///
+/// # async fn demo() -> ctrader_openapi::Result<()> {
+/// let client = ClientBuilder::new(Environment::Demo)
+///     .credentials(ClientCredentials::new("my-client-id", "my-client-secret"))
+///     .connect()
+///     .await?;
+/// # let _ = client; Ok(()) }
+/// ```
+#[derive(Debug, Clone)]
+pub struct ClientBuilder {
+    config: ConnectionConfig,
+    credentials: Option<ClientCredentials>,
+}
+
+impl ClientBuilder {
+    /// A builder with the default settings for `environment`.
+    #[must_use]
+    pub fn new(environment: Environment) -> Self {
+        Self {
+            config: ConnectionConfig::new(environment),
+            credentials: None,
+        }
     }
 
-    /// The details of some symbols: decimals, pip position, volume rules.
+    /// A builder with explicit connection settings (a test server, different timeouts, ...).
+    #[must_use]
+    pub fn with_config(config: ConnectionConfig) -> Self {
+        Self {
+            config,
+            credentials: None,
+        }
+    }
+
+    /// Identifies the application once connected. Without this, [`ClientBuilder::connect`] only
+    /// opens the socket, same as [`Client::connect`].
+    #[must_use]
+    pub fn credentials(mut self, credentials: ClientCredentials) -> Self {
+        self.credentials = Some(credentials);
+        self
+    }
+
+    /// Connects, and identifies the application when [`ClientBuilder::credentials`] were given.
     ///
     /// # Errors
     ///
-    /// `SYMBOL_NOT_FOUND` for an unknown id.
-    pub async fn symbol_details(&self, account_id: i64, symbol_ids: &[i64]) -> Result<Vec<Symbol>> {
-        let response: SymbolByIdRes = self
-            .call(
-                payload::SYMBOL_BY_ID_REQ,
-                payload::SYMBOL_BY_ID_RES,
-                &SymbolByIdReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                },
-                RateClass::Standard,
-                "the symbol details",
-            )
-            .await?;
-        Ok(response.symbol)
-    }
-
-    /// The chain of symbols that converts `first_asset_id` into `last_asset_id` when no symbol
-    /// quotes them directly (for example EUR/USD, USD/JPY to convert EUR into JPY).
-    ///
-    /// # Errors
-    ///
-    /// A server error when no conversion chain exists between the two assets.
-    pub async fn symbols_for_conversion(
-        &self,
-        account_id: i64,
-        first_asset_id: i64,
-        last_asset_id: i64,
-    ) -> Result<Vec<LightSymbol>> {
-        let response: crate::model::SymbolsForConversionRes = self
-            .call(
-                payload::SYMBOLS_FOR_CONVERSION_REQ,
-                payload::SYMBOLS_FOR_CONVERSION_RES,
-                &crate::model::SymbolsForConversionReq {
-                    ctid_trader_account_id: account_id,
-                    first_asset_id,
-                    last_asset_id,
-                },
-                RateClass::Standard,
-                "the conversion chain",
-            )
-            .await?;
-        Ok(response.symbol)
-    }
-
-    // ---- live data ----
-
-    /// Follows the prices of some symbols. The first [`Event::Spot`] of each carries the latest
-    /// price even when the market is closed; then one arrives at every change of bid or ask.
-    /// `with_timestamp` asks the server to stamp each event with its time.
-    ///
-    /// # Errors
-    ///
-    /// `ALREADY_SUBSCRIBED` or `SYMBOL_NOT_FOUND` for a bad id.
-    pub async fn subscribe_spots(
-        &self,
-        account_id: i64,
-        symbol_ids: &[i64],
-        with_timestamp: bool,
-    ) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::SUBSCRIBE_SPOTS_REQ,
-                payload::SUBSCRIBE_SPOTS_RES,
-                &SubscribeSpotsReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                    subscribe_to_spot_timestamp: with_timestamp.then_some(true),
-                },
-                RateClass::Standard,
-                "the price subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Stops following the prices of some symbols.
-    ///
-    /// # Errors
-    ///
-    /// `NOT_SUBSCRIBED_TO_SPOTS` when there was no subscription.
-    pub async fn unsubscribe_spots(&self, account_id: i64, symbol_ids: &[i64]) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::UNSUBSCRIBE_SPOTS_REQ,
-                payload::UNSUBSCRIBE_SPOTS_RES,
-                &SymbolsReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                },
-                RateClass::Standard,
-                "ending the price subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Follows the live bar of a symbol at a period: the bar in progress arrives inside the
-    /// [`Event::Spot`] events. Needs a price subscription on the same symbol first.
-    ///
-    /// # Errors
-    ///
-    /// `NOT_SUBSCRIBED_TO_SPOTS` without the price subscription.
-    pub async fn subscribe_live_bars(
-        &self,
-        account_id: i64,
-        symbol_id: i64,
-        period: Period,
-    ) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::SUBSCRIBE_LIVE_TRENDBAR_REQ,
-                payload::SUBSCRIBE_LIVE_TRENDBAR_RES,
-                &LiveTrendbarReq {
-                    ctid_trader_account_id: account_id,
-                    period: period.number(),
-                    symbol_id,
-                },
-                RateClass::Standard,
-                "the live bar subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Stops following the live bar of a symbol at a period.
-    ///
-    /// # Errors
-    ///
-    /// A server error when there was no such subscription.
-    pub async fn unsubscribe_live_bars(
-        &self,
-        account_id: i64,
-        symbol_id: i64,
-        period: Period,
-    ) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::UNSUBSCRIBE_LIVE_TRENDBAR_REQ,
-                payload::UNSUBSCRIBE_LIVE_TRENDBAR_RES,
-                &LiveTrendbarReq {
-                    ctid_trader_account_id: account_id,
-                    period: period.number(),
-                    symbol_id,
-                },
-                RateClass::Standard,
-                "ending the live bar subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Follows the order book of some symbols ([`Event::Depth`]). Not every broker offers it.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the broker has no depth for the symbol.
-    pub async fn subscribe_depth(&self, account_id: i64, symbol_ids: &[i64]) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::SUBSCRIBE_DEPTH_QUOTES_REQ,
-                payload::SUBSCRIBE_DEPTH_QUOTES_RES,
-                &SymbolsReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                },
-                RateClass::Standard,
-                "the depth subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Stops following the order book of some symbols.
-    ///
-    /// # Errors
-    ///
-    /// A server error when there was no such subscription.
-    pub async fn unsubscribe_depth(&self, account_id: i64, symbol_ids: &[i64]) -> Result<()> {
-        let _: serde_json::Value = self
-            .call(
-                payload::UNSUBSCRIBE_DEPTH_QUOTES_REQ,
-                payload::UNSUBSCRIBE_DEPTH_QUOTES_RES,
-                &SymbolsReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                },
-                RateClass::Standard,
-                "ending the depth subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
-    // ---- history, one page ----
-
-    /// One request for bars in `[from_ms, to_ms]`. Returns the bars, oldest first, and whether more
-    /// exist in the range than were returned. The range is limited per period by the server (see
-    /// [`crate::history::fetch_bars`] for a whole range in pages).
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range the server refuses, and the usual account errors.
-    pub async fn bars_page(
-        &self,
-        account_id: i64,
-        symbol_id: i64,
-        period: Period,
-        from_ms: i64,
-        to_ms: i64,
-    ) -> Result<(Vec<Bar>, bool)> {
-        let response: GetTrendbarsRes = self
-            .call(
-                payload::GET_TRENDBARS_REQ,
-                payload::GET_TRENDBARS_RES,
-                &GetTrendbarsReq {
-                    ctid_trader_account_id: account_id,
-                    from_timestamp: Some(from_ms),
-                    to_timestamp: Some(to_ms),
-                    period: period.number(),
-                    symbol_id,
-                    count: None,
-                },
-                RateClass::Historical,
-                "the bar history",
-            )
-            .await?;
-        Ok((
-            decode_bars(&response.trendbar),
-            response.has_more.unwrap_or(false),
-        ))
-    }
-
-    /// One request for the ticks of one side in `[from_ms, to_ms]`, which may span at most one
-    /// week. Returns the ticks with absolute times, oldest first, and whether more exist in the
-    /// range than were returned (the ones returned are the **newest**; see
-    /// [`crate::history::fetch_ticks`] for a whole range).
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range over a week, and the usual account errors.
-    pub async fn tick_page(
-        &self,
-        account_id: i64,
-        symbol_id: i64,
-        side: QuoteType,
-        from_ms: i64,
-        to_ms: i64,
-    ) -> Result<(Vec<Tick>, bool)> {
-        let response: GetTickDataRes = self
-            .call(
-                payload::GET_TICK_DATA_REQ,
-                payload::GET_TICK_DATA_RES,
-                &GetTickDataReq {
-                    ctid_trader_account_id: account_id,
-                    symbol_id,
-                    r#type: side.number(),
-                    from_timestamp: Some(from_ms),
-                    to_timestamp: Some(to_ms),
-                },
-                RateClass::Historical,
-                "the tick history",
-            )
-            .await?;
-        Ok((decode_ticks(&response.tick_data), response.has_more))
+    /// Whatever [`Client::connect`] and [`Client::authenticate_application`] return.
+    pub async fn connect(self) -> Result<Client> {
+        let client = Client::connect(&self.config).await?;
+        if let Some(credentials) = &self.credentials {
+            client.authenticate_application(credentials).await?;
+        }
+        Ok(client)
     }
 }
 
