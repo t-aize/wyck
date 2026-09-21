@@ -5,6 +5,33 @@ workspace, so entries are grouped by what was added rather than by release.
 
 ## Unreleased
 
+### Changed
+
+- **Architecture**: the crate is reorganized by domain instead of by file size.
+  `transport/` holds the connection itself (`Client`, the envelope, the rate limiter, the
+  connection messages); `market/`, `account/`, `trading/` and `margin/` each hold their domain's
+  types and a named sub-client (`MarketClient`, `AccountDataClient`, `TradingClient`,
+  `MarginClient`); `session/` and `auth/` are split into their own directories along the same
+  lines. `AccountClient` used to expose about twenty methods flat (`symbols`, `subscribe_spots`,
+  `new_order`, `expected_margin`, ...); it now routes to the four sub-clients above through
+  `.market()`, `.account_data()`, `.trading()` and `.margin()`, each a small `Clone` value that
+  still carries the connection and the account id. A new `ClientBuilder` connects and identifies
+  the application in one call, and a new `prelude` module group-imports the pieces most programs
+  need. The old `client.rs`, `wire.rs`, `rate_limit.rs`, `model.rs`, `account.rs`,
+  `account_api.rs`, `market.rs`, `types.rs`, `history.rs`, `trading.rs`, `margin.rs`, `auth.rs`,
+  `callback.rs` and `session.rs` are gone; their content moved into the directories above.
+  The trading request builders (`NewOrderReq::market`, `::limit`, `::stop`, `::stop_limit`,
+  `AmendOrderReq::new`, `AmendPositionSlTpReq::new`) drop their `account_id` parameter, which the
+  owning sub-client always overwrote before sending anyway.
+
+  **Nothing about the protocol changed**: the wire format (the envelope shape, camelCase field
+  names, every `payloadType` number), the `OpenApiError`/`ErrorKind` variants and their meaning,
+  the `Event`/`DisconnectReason` variants and when each fires, the `RateLimiter`'s behavior, and
+  the OAuth flow (`authorization_url`, `TokenSet`, the refresh order, the `Auth`/`Transport`
+  error split) are exactly as before. This is a reorganization of where things live and how the
+  public surface is grouped, not a behavior change; no test needed to change its assertions, only
+  its imports and, where a call moved to a sub-client, how it is reached.
+
 ### Added
 
 - **Trading**: `trading` module. `NewOrderReq` (market, limit, stop, stop limit, with optional stop
