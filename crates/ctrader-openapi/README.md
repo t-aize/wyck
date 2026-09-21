@@ -28,7 +28,7 @@ Contents: [What it does](#what-it-does) | [Quick start](#quick-start) | [Guides]
 | Limits | 50 requests per second, 5 for history (the client keeps a little under: 40 and 4), enforced by spacing; a request refused for its rate is sent again after the wait the server asks for (in seconds) |
 | Keep alive | A heartbeat every few seconds (the server drops a connection silent for 10) |
 | Sign in | The consent URL, a loopback web server for the redirect, code exchange, token refresh |
-| Session | Reconnects with a growing delay, signs in again, restores subscriptions, renews tokens before they expire, stops promptly |
+| Session | Reconnects with a growing delay, signs in again, restores subscriptions, renews tokens before they expire, and stops after an in-progress token refresh is saved |
 | Live data | Prices, live bars, the order book, account and token notices, as events |
 | History | Ticks (bid and ask, in windows under a week) and bars (14 periods), paged into whole ranges |
 | Account | Balance, positions, working orders, deals (also by position, with offsets), order details, assets, symbol categories, cash flow history, unrealized PnL, the cTrader ID profile |
@@ -225,7 +225,8 @@ runnable version is `examples/session.rs`.
 What it does on your behalf: connects and signs the application and the account in; restores
 subscriptions after every reconnect; waits a doubling, jittered delay between attempts; refreshes
 the access token when it expires within a day (and saves the new pair first); reconnects at once
-after a "tokens invalidated" notice; stops promptly even in the middle of an attempt. Failures that
+after a "tokens invalidated" notice; stops promptly during connection attempts, but finishes an
+in-progress token refresh and save before stopping. Failures that
 will pass (a drop, a timeout, maintenance, a rate limit) are retried; a refused refresh token, an
 unauthorized account or a bad setting end the session with `SessionEvent::Failed`. It does not
 replay requests that were in flight when the link dropped: they fail with `Closed` and may be

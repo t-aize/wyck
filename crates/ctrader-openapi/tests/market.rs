@@ -246,6 +246,22 @@ async fn a_long_tick_range_is_fetched_backwards_page_by_page() {
 }
 
 #[tokio::test]
+async fn a_tick_page_claiming_more_without_progress_is_an_error() {
+    let server = MockServer::start(answers(vec![(
+        payload::GET_TICK_DATA_REQ,
+        payload::GET_TICK_DATA_RES,
+        json!({"tickData": [], "hasMore": true}),
+    )]))
+    .await;
+    let market = market(&server).await;
+    let error = market
+        .ticks(1, QuoteType::Bid, 1000, 6000)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, ctrader_openapi::OpenApiError::Protocol(_)));
+}
+
+#[tokio::test]
 async fn bars_are_rebuilt_from_their_low_and_offsets() {
     let server = MockServer::start(answers(vec![(
         payload::GET_TRENDBARS_REQ,
@@ -300,6 +316,19 @@ async fn a_truncated_bar_answer_is_continued_from_the_missing_side() {
     assert!(bars.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
     let second = &server.received_of(payload::GET_TRENDBARS_REQ)[1].payload;
     assert_eq!(second["toTimestamp"], 50 * m - 1);
+}
+
+#[tokio::test]
+async fn an_empty_bar_page_claiming_more_is_an_error() {
+    let server = MockServer::start(answers(vec![(
+        payload::GET_TRENDBARS_REQ,
+        payload::GET_TRENDBARS_RES,
+        json!({"trendbar": [], "hasMore": true}),
+    )]))
+    .await;
+    let market = market(&server).await;
+    let error = market.bars(1, Period::M1, 0, 60_000).await.unwrap_err();
+    assert!(matches!(error, ctrader_openapi::OpenApiError::Protocol(_)));
 }
 
 #[tokio::test]

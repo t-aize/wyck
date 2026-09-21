@@ -107,6 +107,12 @@ impl ConnectionConfig {
         if self.standard_rate == 0 || self.historical_rate == 0 {
             return bad("a request rate must be at least 1 per second");
         }
+        if self.connect_timeout.is_zero() || self.request_timeout.is_zero() {
+            return bad("connection and request timeouts must be positive");
+        }
+        if self.max_retry_wait < Duration::from_millis(250) {
+            return bad("the maximum rate-limit retry wait must be at least 250 ms");
+        }
         if self.heartbeat_interval.is_zero() || self.heartbeat_interval >= Duration::from_secs(10) {
             return bad("the heartbeat interval must be under 10 seconds");
         }
@@ -171,6 +177,12 @@ mod tests {
         config.heartbeat_interval = Duration::from_secs(10);
         assert!(config.validate().is_err(), "too slow for the server");
         config.heartbeat_interval = Duration::ZERO;
+        assert!(config.validate().is_err());
+        config = ConnectionConfig::with_url("ws://127.0.0.1:1");
+        config.max_retry_wait = Duration::ZERO;
+        assert!(config.validate().is_err());
+        config = ConnectionConfig::with_url("ws://127.0.0.1:1");
+        config.request_timeout = Duration::ZERO;
         assert!(config.validate().is_err());
     }
 

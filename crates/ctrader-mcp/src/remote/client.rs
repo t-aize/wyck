@@ -276,6 +276,19 @@ impl RemoteClient {
         &self,
         params: AmendOrderParams,
     ) -> Result<serde_json::Value, CTraderError> {
+        for price in [
+            params.limit_price,
+            params.stop_price,
+            params.stop_loss,
+            params.take_profit,
+        ] {
+            if price.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+                return Err(CTraderError::PreFlightRejected {
+                    tool: "amend_order".into(),
+                    message: "prices must be finite and positive".into(),
+                });
+            }
+        }
         self.call("amend_order", params).await
     }
 
@@ -295,6 +308,16 @@ impl RemoteClient {
         &self,
         params: AmendPositionParams,
     ) -> Result<AmendPositionResponse, CTraderError> {
+        if !params.stop_loss.is_finite()
+            || params.stop_loss <= 0.0
+            || !params.take_profit.is_finite()
+            || params.take_profit <= 0.0
+        {
+            return Err(CTraderError::PreFlightRejected {
+                tool: "amend_position".into(),
+                message: "stop loss and take profit must be finite and positive".into(),
+            });
+        }
         self.call("amend_position", params).await
     }
 
@@ -307,6 +330,12 @@ impl RemoteClient {
         &self,
         params: ClosePositionParams,
     ) -> Result<ClosePositionResponse, CTraderError> {
+        if params.position_id <= 0 || params.volume <= 0 {
+            return Err(CTraderError::PreFlightRejected {
+                tool: "close_position".into(),
+                message: "position id and volume must be positive".into(),
+            });
+        }
         self.call("close_position", params).await
     }
 }

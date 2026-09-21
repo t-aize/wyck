@@ -145,14 +145,22 @@ pub fn market_with_relative_sl_tp(
     sl_pips: i64,
     tp_pips: i64,
     pip_digits: u32,
-) -> CreateOrderParams {
-    CreateOrderParams::market_with_relative_sl_tp(
+) -> Result<CreateOrderParams, CTraderError> {
+    let points = |pips| {
+        crate::math::pip::pips_to_points(pips, pip_digits).map_err(|error| {
+            CTraderError::PreFlightRejected {
+                tool: "create_order".into(),
+                message: error.to_string(),
+            }
+        })
+    };
+    Ok(CreateOrderParams::market_with_relative_sl_tp(
         symbol_id,
         trade_side,
         volume_cents,
-        crate::math::pip::pips_to_points(sl_pips, pip_digits),
-        crate::math::pip::pips_to_points(tp_pips, pip_digits),
-    )
+        points(sl_pips)?,
+        points(tp_pips)?,
+    ))
 }
 
 // ---------------------------------------------------------------------------------

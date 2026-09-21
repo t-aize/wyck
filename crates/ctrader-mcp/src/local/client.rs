@@ -26,6 +26,39 @@ fn as_object(value: Value) -> Option<JsonObject> {
     }
 }
 
+fn check_price_or_volume(
+    tool: &'static str,
+    field: &'static str,
+    value: f64,
+) -> Result<(), CTraderError> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(CTraderError::PreFlightRejected {
+            tool: tool.into(),
+            message: format!("{field} must be finite and positive"),
+        });
+    }
+    Ok(())
+}
+
+fn check_optional_prices(tool: &'static str, prices: &[Option<f64>]) -> Result<(), CTraderError> {
+    for price in prices.iter().flatten() {
+        check_price_or_volume(tool, "price", *price)?;
+    }
+    Ok(())
+}
+
+fn require_price(
+    tool: &'static str,
+    field: &'static str,
+    price: Option<f64>,
+) -> Result<(), CTraderError> {
+    let price = price.ok_or_else(|| CTraderError::PreFlightRejected {
+        tool: tool.into(),
+        message: format!("{field} is required"),
+    })?;
+    check_price_or_volume(tool, field, price)
+}
+
 impl LocalClient {
     /// Wraps an already-connected [`McpSession`].
     pub fn new(session: McpSession) -> Self {
@@ -192,6 +225,7 @@ impl LocalClient {
         &self,
         params: PlaceMarketOrderParams,
     ) -> Result<PlaceOrderResponse, CTraderError> {
+        check_price_or_volume("place_market_order", "volume", params.volume)?;
         self.session.call("place_market_order", params).await
     }
 
@@ -203,6 +237,7 @@ impl LocalClient {
         &self,
         params: AmendPositionParams,
     ) -> Result<Acknowledgement, CTraderError> {
+        check_optional_prices("amend_position", &[params.stop_loss, params.take_profit])?;
         self.session.call("amend_position", params).await
     }
 
@@ -222,6 +257,7 @@ impl LocalClient {
         position_id: i64,
         volume: f64,
     ) -> Result<Acknowledgement, CTraderError> {
+        check_price_or_volume("close_position_partial", "volume", volume)?;
         self.session
             .call(
                 "close_position_partial",
@@ -272,6 +308,12 @@ impl LocalClient {
         &self,
         params: PlacePendingOrderParams,
     ) -> Result<PlaceOrderResponse, CTraderError> {
+        check_price_or_volume("place_limit_order", "volume", params.volume)?;
+        check_optional_prices(
+            "place_limit_order",
+            &[params.limit_price, params.stop_price],
+        )?;
+        require_price("place_limit_order", "limitPrice", params.limit_price)?;
         self.session.call("place_limit_order", params).await
     }
 
@@ -282,6 +324,9 @@ impl LocalClient {
         &self,
         params: PlacePendingOrderParams,
     ) -> Result<PlaceOrderResponse, CTraderError> {
+        check_price_or_volume("place_stop_order", "volume", params.volume)?;
+        check_optional_prices("place_stop_order", &[params.limit_price, params.stop_price])?;
+        require_price("place_stop_order", "stopPrice", params.stop_price)?;
         self.session.call("place_stop_order", params).await
     }
 
@@ -291,6 +336,13 @@ impl LocalClient {
         &self,
         params: PlacePendingOrderParams,
     ) -> Result<PlaceOrderResponse, CTraderError> {
+        check_price_or_volume("place_stop_limit_order", "volume", params.volume)?;
+        check_optional_prices(
+            "place_stop_limit_order",
+            &[params.limit_price, params.stop_price],
+        )?;
+        require_price("place_stop_limit_order", "limitPrice", params.limit_price)?;
+        require_price("place_stop_limit_order", "stopPrice", params.stop_price)?;
         self.session.call("place_stop_limit_order", params).await
     }
 
@@ -300,6 +352,7 @@ impl LocalClient {
         &self,
         params: AmendOrderParams,
     ) -> Result<Acknowledgement, CTraderError> {
+        check_optional_prices("amend_order", &[params.limit_price, params.stop_price])?;
         self.session.call("amend_order", params).await
     }
 

@@ -7,13 +7,44 @@
 //! for `EURUSD` (`Q-L1`). Always read the live `lotSize` from `get_symbol_details`
 //! (Local) or the symbol's static metadata (Remote) before calling these functions.
 
+use crate::math::NumericError;
 use crate::math::round_down_to_step;
+
+fn checked_volume(lots: f64, lot_size: f64, scale: f64) -> Result<i64, NumericError> {
+    if !lots.is_finite() || lots < 0.0 {
+        return Err(NumericError {
+            field: "lots",
+            reason: "must be finite and non-negative",
+        });
+    }
+    if !lot_size.is_finite() || lot_size <= 0.0 {
+        return Err(NumericError {
+            field: "lot_size",
+            reason: "must be finite and positive",
+        });
+    }
+    let value = lots * lot_size * scale;
+    if !value.is_finite() || value >= i64::MAX as f64 {
+        return Err(NumericError {
+            field: "lots",
+            reason: "volume exceeds the wire integer range",
+        });
+    }
+    let rounded = round_down_to_step(value, 1.0);
+    if rounded >= i64::MAX as f64 {
+        return Err(NumericError {
+            field: "lots",
+            reason: "volume exceeds the wire integer range",
+        });
+    }
+    Ok(rounded as i64)
+}
 
 /// Converts display lots to Local-server integer base-asset units: `floor(lots *
 /// lot_size)`. Floor, not round, because partial units are not representable on the
 /// wire.
-pub fn lots_to_units(lots: f64, lot_size: f64) -> i64 {
-    round_down_to_step(lots * lot_size, 1.0) as i64
+pub fn lots_to_units(lots: f64, lot_size: f64) -> Result<i64, NumericError> {
+    checked_volume(lots, lot_size, 1.0)
 }
 
 /// Converts Local-server integer units back to display lots.
@@ -25,8 +56,8 @@ pub fn units_to_lots(units: i64, lot_size: f64) -> f64 {
 /// Converts display lots to Remote-server integer cents: `floor(lots * lot_size * 100)`.
 /// Remote cents are 100x the Local units for the same lot count (`SKILL.md` "Units
 /// conventions across the two servers").
-pub fn lots_to_cents(lots: f64, lot_size: f64) -> i64 {
-    round_down_to_step(lots * lot_size * 100.0, 1.0) as i64
+pub fn lots_to_cents(lots: f64, lot_size: f64) -> Result<i64, NumericError> {
+    checked_volume(lots, lot_size, 100.0)
 }
 
 /// Converts Remote cents to the equivalent Local units (`cents / 100`, integer
@@ -36,8 +67,17 @@ pub fn cents_to_units(cents: i64) -> i64 {
 }
 
 /// Converts Local units to the equivalent Remote cents (`units * 100`).
-pub fn units_to_cents(units: i64) -> i64 {
-    units * 100
+pub fn units_to_cents(units: i64) -> Result<i64, NumericError> {
+    if units < 0 {
+        return Err(NumericError {
+            field: "units",
+            reason: "must be non-negative",
+        });
+    }
+    units.checked_mul(100).ok_or(NumericError {
+        field: "units",
+        reason: "volume exceeds the wire integer range",
+    })
 }
 
 /// Decodes a Remote money integer to its display value (`raw / 10^money_digits`). Thin
@@ -79,29 +119,37 @@ mod tests {
 
     #[test]
     fn zero_point_one_lot_forex_to_units() {
-        assert_eq!(lots_to_units(0.1, 100_000.0), 10_000);
+        assert_eq!(lots_to_units(0.1, 100_000.0).unwrap(), 10_000);
     }
 
     #[test]
     fn floating_point_drift_does_not_lose_a_unit() {
-        assert_eq!(lots_to_units(0.29, 100_000.0), 29_000);
-        assert_eq!(lots_to_cents(0.29, 100_000.0), 2_900_000);
+        assert_eq!(lots_to_units(0.29, 100_000.0).unwrap(), 29_000);
+        assert_eq!(lots_to_cents(0.29, 100_000.0).unwrap(), 2_900_000);
         assert_eq!(round_volume_down_to_step(2.9 - 1e-6, 1.0), 2.0);
     }
 
     #[test]
+    fn invalid_or_overflowing_volumes_are_rejected() {
+        assert!(lots_to_units(f64::NAN, 100_000.0).is_err());
+        assert!(lots_to_cents(1.0, f64::INFINITY).is_err());
+        assert!(lots_to_cents(1e100, 100_000.0).is_err());
+        assert!(units_to_cents(i64::MAX).is_err());
+    }
+
+    #[test]
     fn zero_point_one_lot_forex_to_cents() {
-        assert_eq!(lots_to_cents(0.1, 100_000.0), 1_000_000);
+        assert_eq!(lots_to_cents(0.1, 100_000.0).unwrap(), 1_000_000);
     }
 
     #[test]
     fn xauusd_half_lot_lot_size_100_to_units() {
-        assert_eq!(lots_to_units(0.5, 100.0), 50);
+        assert_eq!(lots_to_units(0.5, 100.0).unwrap(), 50);
     }
 
     #[test]
     fn us500_tenth_lot_lot_size_1_to_cents() {
-        assert_eq!(lots_to_cents(0.1, 1.0), 10);
+        assert_eq!(lots_to_cents(0.1, 1.0).unwrap(), 10);
     }
 
     #[test]
@@ -112,7 +160,7 @@ mod tests {
     #[test]
     fn cents_units_round_trip() {
         assert_eq!(cents_to_units(10_000_000), 100_000);
-        assert_eq!(units_to_cents(100_000), 10_000_000);
+        assert_eq!(units_to_cents(100_000).unwrap(), 10_000_000);
     }
 
     #[test]

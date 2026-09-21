@@ -101,6 +101,74 @@ pub struct NewOrderReq {
 }
 
 impl NewOrderReq {
+    /// Checks values that would otherwise encode incorrectly or produce a known refusal.
+    /// The server still decides whether the symbol, account and price are tradable.
+    pub fn validate(&self) -> crate::Result<()> {
+        let bad = |message: &str| Err(crate::OpenApiError::Config(message.to_owned()));
+        if self.symbol_id <= 0 || self.volume <= 0 {
+            return bad("an order needs a positive symbol id and volume");
+        }
+        for price in [
+            self.limit_price,
+            self.stop_price,
+            self.stop_loss,
+            self.take_profit,
+            self.base_slippage_price,
+        ] {
+            if price.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+                return bad("order prices must be finite and positive");
+            }
+        }
+        if self.relative_stop_loss.is_some_and(|value| value <= 0)
+            || self.relative_take_profit.is_some_and(|value| value <= 0)
+        {
+            return bad("relative protection distances must be positive");
+        }
+        if self.slippage_in_points.is_some_and(|value| value < 0) {
+            return bad("slippage must not be negative");
+        }
+        if (self.stop_loss.is_some() && self.relative_stop_loss.is_some())
+            || (self.take_profit.is_some() && self.relative_take_profit.is_some())
+        {
+            return bad("absolute and relative protection cannot be combined for one leg");
+        }
+        if self.order_type == NewOrderType::Market.number()
+            && (self.stop_loss.is_some() || self.take_profit.is_some())
+        {
+            return bad("market orders need relative rather than absolute protection");
+        }
+        if self.order_type == NewOrderType::Limit.number() && self.limit_price.is_none() {
+            return bad("limit orders need a limit price");
+        }
+        if self.order_type == NewOrderType::Stop.number() && self.stop_price.is_none() {
+            return bad("stop orders need a stop price");
+        }
+        if self.order_type == NewOrderType::StopLimit.number()
+            && (self.stop_price.is_none() || self.limit_price.is_none())
+        {
+            return bad("stop limit orders need a stop and a limit price");
+        }
+        if self.time_in_force == Some(1) && self.expiration_timestamp.is_none() {
+            return bad("good till date orders need an expiration timestamp");
+        }
+        if self
+            .label
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 100)
+            || self
+                .comment
+                .as_ref()
+                .is_some_and(|value| value.chars().count() > 512)
+            || self
+                .client_order_id
+                .as_ref()
+                .is_some_and(|value| value.chars().count() > 50)
+        {
+            return bad("an order label, comment or client order id is too long");
+        }
+        Ok(())
+    }
+
     fn base(symbol_id: i64, order_type: NewOrderType, side: TradeSide, volume: i64) -> Self {
         Self {
             ctid_trader_account_id: 0,
@@ -346,5 +414,18 @@ mod tests {
             serde_json::to_value(&sltp).unwrap(),
             json!({"ctidTraderAccountId": 1, "positionId": 77})
         );
+    }
+
+    #[test]
+    fn unsafe_order_values_are_rejected_before_serialization() {
+        let mut request = NewOrderReq::market(2, TradeSide::Buy, 100);
+        request.stop_loss = Some(f64::NAN);
+        assert!(request.validate().is_err());
+        request.stop_loss = None;
+        request.volume = 0;
+        assert!(request.validate().is_err());
+        request.volume = 100;
+        request.relative_stop_loss = Some(100);
+        assert!(request.validate().is_ok());
     }
 }

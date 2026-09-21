@@ -24,7 +24,7 @@
 use super::bars::{Bar, Period};
 use super::client::MarketClient;
 use super::ticks::{QuoteType, Tick};
-use crate::error::Result;
+use crate::error::{OpenApiError, Result};
 
 /// The longest range of one tick request: one week.
 pub const MAX_TICK_RANGE_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
@@ -74,7 +74,8 @@ pub fn tick_windows(from_ms: i64, to_ms: i64) -> Vec<(i64, i64)> {
 ///
 /// # Errors
 ///
-/// Any error of [`MarketClient::tick_page`]; ticks already fetched are dropped with it.
+/// Any error of [`MarketClient::tick_page`], or a protocol error if paging stops before
+/// the requested range is complete. Ticks already fetched are dropped with it.
 pub async fn fetch_ticks(
     market: &MarketClient,
     symbol_id: i64,
@@ -93,11 +94,19 @@ pub async fn fetch_ticks(
                 .await?;
             let oldest = page.first().map(|t| t.time_ms);
             all.extend(page);
+            if !has_more {
+                break;
+            }
             match oldest {
-                Some(oldest) if has_more && oldest > window_start && requests < MAX_PAGES => {
+                Some(oldest) if oldest > window_start && requests < MAX_PAGES => {
                     upper = oldest - 1;
                 }
-                _ => break,
+                _ => {
+                    return Err(OpenApiError::Protocol(format!(
+                        "tick history for {symbol_id} is incomplete in [{window_start}, {upper}]: \
+                         the server reported more ticks but paging could not continue"
+                    )));
+                }
             }
         }
     }
@@ -109,7 +118,8 @@ pub async fn fetch_ticks(
 ///
 /// # Errors
 ///
-/// Any error of [`MarketClient::bars_page`]; bars already fetched are dropped with it.
+/// Any error of [`MarketClient::bars_page`], or a protocol error if paging stops before
+/// the requested range is complete. Bars already fetched are dropped with it.
 pub async fn fetch_bars(
     market: &MarketClient,
     symbol_id: i64,
@@ -119,7 +129,7 @@ pub async fn fetch_bars(
 ) -> Result<Vec<Bar>> {
     let mut all: Vec<Bar> = Vec::new();
     let (mut low, mut high) = (from_ms, to_ms);
-    for _ in 0..MAX_PAGES {
+    for page_number in 0..MAX_PAGES {
         if high < low {
             break;
         }
@@ -128,17 +138,33 @@ pub async fn fetch_bars(
             page.first().map(|b| b.time_ms),
             page.last().map(|b| b.time_ms),
         ) else {
+            if has_more {
+                return Err(OpenApiError::Protocol(format!(
+                    "bar history for {symbol_id} is incomplete in [{low}, {high}]: \
+                     the server reported more bars but returned an empty page"
+                )));
+            }
             break;
         };
         all.extend(page);
         if !has_more {
             break;
         }
+        if page_number + 1 == MAX_PAGES {
+            return Err(OpenApiError::Protocol(format!(
+                "bar history for {symbol_id} is incomplete: reached the {MAX_PAGES}-page limit"
+            )));
+        }
         // Which end of the range does this page hold? The one that reaches the top does, and the
         // rest is below it; otherwise the page starts at the bottom and the rest is above.
         match continuation(low, high, first, last, period) {
             Some((next_low, next_high)) => (low, high) = (next_low, next_high),
-            None => break,
+            None => {
+                return Err(OpenApiError::Protocol(format!(
+                    "bar history for {symbol_id} is incomplete in [{low}, {high}]: \
+                     the server reported more bars without advancing"
+                )));
+            }
         }
     }
     all.retain(|b| b.time_ms >= from_ms && b.time_ms <= to_ms);

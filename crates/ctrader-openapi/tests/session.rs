@@ -17,6 +17,7 @@ use secrecy::ExposeSecret;
 use serde_json::{Value, json};
 use support::http::{TokenServer, token_server_sequence, tokens_body};
 use support::{Handler, MockServer, Reply, answers};
+use tokio::sync::Notify;
 use tokio::sync::broadcast::Receiver;
 
 const ACCOUNT: i64 = 48_332_955;
@@ -83,6 +84,25 @@ fn start(config: SessionConfig, tokens: TokenSet) -> (Session, Arc<MemoryTokenSt
     let store = Arc::new(MemoryTokenStore::default());
     let session = Session::start(config, tokens, store.clone()).unwrap();
     (session, store)
+}
+
+struct DelayedTokenStore {
+    inner: MemoryTokenStore,
+    saving: Notify,
+    release: Notify,
+}
+
+#[async_trait::async_trait]
+impl TokenStore for DelayedTokenStore {
+    async fn load(&self) -> ctrader_openapi::Result<Option<TokenSet>> {
+        self.inner.load().await
+    }
+
+    async fn save(&self, tokens: &TokenSet) -> ctrader_openapi::Result<()> {
+        self.saving.notify_one();
+        self.release.notified().await;
+        self.inner.save(tokens).await
+    }
 }
 
 /// Waits for the first event the predicate accepts, skipping the others.
@@ -487,6 +507,47 @@ async fn a_tokens_invalidated_notice_forces_a_refresh_and_a_reconnect() {
     assert_eq!(signed_in.len(), 2);
     assert_eq!(signed_in[1].payload["accessToken"], "AT-2");
     session.stop().await;
+}
+
+#[tokio::test]
+async fn stopping_during_token_save_keeps_the_rotated_pair() {
+    let server = MockServer::start(answers(healthy())).await;
+    let token_server =
+        token_server_sequence(vec![("200 OK", tokens_body("AT-2", "RT-2", 2_592_000))]).await;
+    let mut settings = config(&server.url);
+    settings.token_url = Some(token_server.url);
+    let store = Arc::new(DelayedTokenStore {
+        inner: MemoryTokenStore::default(),
+        saving: Notify::new(),
+        release: Notify::new(),
+    });
+    let session = Session::start(settings, tokens("AT-1", "RT-1", 100), store.clone()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), store.saving.notified())
+        .await
+        .unwrap();
+    let stopper = session.clone();
+    let stopping = tokio::spawn(async move { stopper.stop().await });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(
+        !stopping.is_finished(),
+        "stop must wait for token persistence"
+    );
+    store.release.notify_one();
+    tokio::time::timeout(Duration::from_secs(5), stopping)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.tokens().refresh_token.expose_secret(), "RT-2");
+    assert_eq!(
+        store
+            .load()
+            .await
+            .unwrap()
+            .unwrap()
+            .refresh_token
+            .expose_secret(),
+        "RT-2"
+    );
 }
 
 #[tokio::test]

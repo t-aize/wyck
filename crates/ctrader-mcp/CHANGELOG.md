@@ -7,6 +7,11 @@ server behavior, which can change without a crate release.
 
 ### Fixed
 
+- Reject non-finite or overflowing risk sizes, lot conversions, pip distances,
+  and Remote new-order values before they reach the wire. The checked conversion
+  helpers and `quirks::market_with_relative_sl_tp` now return `Result`.
+- Report Remote trendbar backfill as incomplete when a full page makes no
+  progress instead of returning the partial range.
 - Redact the bearer token in `ConnectionConfig` debug output.
 - Recover whole units and cents lost to floating-point drift when converting lots.
 - Retry read-only Local raw getters after transient failures, and apply the Remote

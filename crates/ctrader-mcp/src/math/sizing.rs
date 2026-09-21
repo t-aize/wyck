@@ -67,20 +67,25 @@ fn validate_params(params: &SizingParams) -> Result<(), SizingError> {
     if params.sl_pips <= 0 {
         return Err(invalid("sl_pips", "must be > 0"));
     }
-    if params.pip_value_per_lot <= 0.0 {
-        return Err(invalid("pip_value_per_lot", "must be > 0"));
+    if !params.pip_value_per_lot.is_finite() || params.pip_value_per_lot <= 0.0 {
+        return Err(invalid("pip_value_per_lot", "must be finite and > 0"));
     }
-    if params.conversion_rate <= 0.0 {
-        return Err(invalid("conversion_rate", "must be > 0"));
+    if !params.conversion_rate.is_finite() || params.conversion_rate <= 0.0 {
+        return Err(invalid("conversion_rate", "must be finite and > 0"));
     }
-    if params.lot_size <= 0.0 {
-        return Err(invalid("lot_size", "must be > 0"));
+    if !params.lot_size.is_finite() || params.lot_size <= 0.0 {
+        return Err(invalid("lot_size", "must be finite and > 0"));
     }
-    if params.min_volume_step <= 0.0 {
-        return Err(invalid("min_volume_step", "must be > 0"));
+    if !params.min_volume_step.is_finite() || params.min_volume_step <= 0.0 {
+        return Err(invalid("min_volume_step", "must be finite and > 0"));
     }
-    if params.min_volume < 0.0 {
-        return Err(invalid("min_volume", "must be >= 0"));
+    if !params.min_volume.is_finite() || params.min_volume < 0.0 {
+        return Err(invalid("min_volume", "must be finite and >= 0"));
+    }
+    if let Some(max) = params.max_volume
+        && (!max.is_finite() || max < params.min_volume)
+    {
+        return Err(invalid("max_volume", "must be finite and >= min_volume"));
     }
     Ok(())
 }
@@ -96,6 +101,9 @@ fn size_from_risk_amount(
     let pip_value_per_lot_account = params.pip_value_per_lot * params.conversion_rate;
     let target_lots = risk_amount / (params.sl_pips as f64 * pip_value_per_lot_account);
     let target_units_raw = target_lots * params.lot_size;
+    if !target_units_raw.is_finite() || target_units_raw < 0.0 {
+        return Err(invalid("risk_amount", "produces an unrepresentable volume"));
+    }
 
     let mut target_units_rounded = round_down_to_step(target_units_raw, params.min_volume_step);
     let rounding_loss = target_units_raw - target_units_rounded;
@@ -134,8 +142,6 @@ fn size_from_risk_amount(
 
     let final_lots = target_units_rounded / params.lot_size;
     let actual_risk_amount = final_lots * params.sl_pips as f64 * pip_value_per_lot_account;
-    let units_int = target_units_rounded as i64;
-
     let cent_lot_size = params.lot_size * 100.0;
     let target_cents_raw = target_lots * cent_lot_size;
     let mut target_cents_rounded = round_down_to_step(target_cents_raw, 1.0);
@@ -147,6 +153,15 @@ fn size_from_risk_amount(
     {
         target_cents_rounded = max_volume * 100.0;
     }
+    if !target_units_rounded.is_finite()
+        || !target_cents_rounded.is_finite()
+        || target_units_rounded >= i64::MAX as f64
+        || target_cents_rounded >= i64::MAX as f64
+        || !actual_risk_amount.is_finite()
+    {
+        return Err(invalid("risk_amount", "produces an unrepresentable result"));
+    }
+    let units_int = target_units_rounded as i64;
     let cents_int = target_cents_rounded as i64;
 
     Ok(SizingResult {
@@ -170,11 +185,11 @@ pub fn from_risk_percent(
     risk_pct: f64,
     params: &SizingParams,
 ) -> Result<SizingResult, SizingError> {
-    if balance <= 0.0 {
-        return Err(invalid("balance", "must be > 0"));
+    if !balance.is_finite() || balance <= 0.0 {
+        return Err(invalid("balance", "must be finite and > 0"));
     }
-    if risk_pct <= 0.0 || risk_pct >= 100.0 {
-        return Err(invalid("risk_pct", "must be > 0 and < 100"));
+    if !risk_pct.is_finite() || risk_pct <= 0.0 || risk_pct >= 100.0 {
+        return Err(invalid("risk_pct", "must be finite, > 0 and < 100"));
     }
     let risk_amount = balance * (risk_pct / 100.0);
     size_from_risk_amount(risk_amount, params)
@@ -189,8 +204,8 @@ pub fn from_risk_amount(
     risk_amount: f64,
     params: &SizingParams,
 ) -> Result<SizingResult, SizingError> {
-    if risk_amount <= 0.0 {
-        return Err(invalid("risk_amount", "must be > 0"));
+    if !risk_amount.is_finite() || risk_amount <= 0.0 {
+        return Err(invalid("risk_amount", "must be finite and > 0"));
     }
     size_from_risk_amount(risk_amount, params)
 }
@@ -294,5 +309,34 @@ mod tests {
                 .any(|w| w.contains("clipped to minimum"))
         );
         assert!(result.warnings.iter().any(|w| w.contains("increases risk")));
+    }
+
+    #[test]
+    fn non_finite_inputs_and_unrepresentable_volumes_are_rejected() {
+        let params = default_params(30, 10.0, 1.0);
+        assert_eq!(
+            from_risk_percent(f64::NAN, 1.0, &params).unwrap_err().field,
+            "balance"
+        );
+        assert_eq!(
+            from_risk_percent(10_000.0, f64::NAN, &params)
+                .unwrap_err()
+                .field,
+            "risk_pct"
+        );
+        assert_eq!(
+            from_risk_amount(f64::INFINITY, &params).unwrap_err().field,
+            "risk_amount"
+        );
+        let mut invalid = params;
+        invalid.conversion_rate = f64::NAN;
+        assert_eq!(
+            from_risk_amount(100.0, &invalid).unwrap_err().field,
+            "conversion_rate"
+        );
+        assert_eq!(
+            from_risk_amount(1e100, &params).unwrap_err().field,
+            "risk_amount"
+        );
     }
 }

@@ -666,11 +666,13 @@ async fn supervise(
 
         // 1. Tokens: refresh when they are about to expire, or when the server said they are bad.
         if force_refresh || tokens.expires_within(SystemTime::now(), config.refresh_margin) {
-            let Some(refreshed) =
-                or_stop(&mut stop, refresh(&oauth, &store, &shared, &tokens)).await
-            else {
+            // Token refresh is not cancellation safe: the endpoint may rotate the refresh
+            // token before returning its answer. Finish the request and persistence attempt
+            // before honoring a stop, so a stop cannot discard a pair already received.
+            let refreshed = refresh(&oauth, &store, &shared, &tokens).await;
+            if *stop.borrow() {
                 break None;
-            };
+            }
             match refreshed {
                 Ok(fresh) => {
                     tokens = fresh;
@@ -877,11 +879,15 @@ async fn refresh(
     tokens: &TokenSet,
 ) -> Result<TokenSet> {
     let fresh = oauth.refresh(tokens.refresh_token.expose_secret()).await?;
-    // The old refresh token is dead now: the new pair must be safe before anything else.
-    store.save(&fresh).await.map_err(|error| {
-        OpenApiError::Auth(format!("the new tokens could not be saved: {error}"))
-    })?;
+    // Keep the only valid pair accessible even if the durable store fails. The caller
+    // must still fix that failure before starting a new session.
     *lock(&shared.tokens) = fresh.clone();
+    tokio::time::timeout(Duration::from_secs(30), store.save(&fresh))
+        .await
+        .map_err(|_| OpenApiError::Auth("saving the new tokens timed out".into()))?
+        .map_err(|error| {
+            OpenApiError::Auth(format!("the new tokens could not be saved: {error}"))
+        })?;
     shared.emit(SessionEvent::TokensRefreshed);
     debug!("the Open API tokens were refreshed");
     Ok(fresh)

@@ -69,10 +69,12 @@ pub async fn backfill_trendbars(
             if !remote_trendbars_may_continue(response.has_more, page_len) {
                 break;
             }
-            // Guard against an answer that produced no new bars (would otherwise loop forever
-            // re-requesting the same range), and stop once the window start is reached.
+            // A full page with no new timestamp cannot prove that the range is complete.
             let Some(oldest) = oldest_new_timestamp else {
-                break;
+                return Err(CTraderError::Invariant(format!(
+                    "trendbar history for symbol {symbol_id} is incomplete in \
+                     [{window_from}, {upper}]: a full page made no progress"
+                )));
             };
             if oldest <= window_from {
                 break;

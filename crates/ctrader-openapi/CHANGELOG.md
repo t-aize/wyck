@@ -5,6 +5,19 @@ workspace, so entries are grouped by what was added rather than by release.
 
 ## Unreleased
 
+### Audit fixes
+
+- Remove pending request entries when a caller cancels, and signal connection
+  shutdown separately from the outgoing queue. Bound queued sends and socket
+  writes so a stalled peer cannot hold them indefinitely.
+- Return a protocol error when tick or bar pagination cannot complete. Validate
+  new-order values before send and reject zero timeouts or an invalid retry wait.
+- Finish an in-progress token refresh and save before honoring session stop.
+  Keep the new pair accessible in memory if durable storage fails. Stop can now
+  wait for that critical section instead of returning promptly in this case.
+- Add cancellation, pagination, numeric-input, and token-save regression tests.
+  See `docs/audits/ctrader-clients.md` for remaining live validation gates.
+
 ### Changed
 
 - **Architecture**: the crate is reorganized by domain instead of by file size.
@@ -66,7 +79,7 @@ workspace, so entries are grouped by what was added rather than by release.
   `TokenSet`), a loopback `CallbackListener`, and the `sign_in` example.
 - **Session**: `Session` reconnects with a jittered growing delay, signs in again, restores
   subscriptions, renews tokens before they expire (saving the new pair first through a
-  `TokenStore`), and stops promptly.
+  `TokenStore`), and stops promptly outside a token refresh.
 - **Market data**: symbols, prices, live bars, the order book, tick history and bar history,
   `history::fetch_ticks` and `fetch_bars` paging whole ranges, and the helpers in `market`
   (`SymbolTable`, `SpotTracker`, `DepthBook`, `format_price`).

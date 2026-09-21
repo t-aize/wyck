@@ -85,7 +85,6 @@ pub enum ConnectionState {
 /// A message on its way to the socket.
 enum Outgoing {
     Text(String),
-    Close,
 }
 
 /// What every clone of a client shares.
@@ -94,6 +93,7 @@ struct Shared {
     pending: Mutex<HashMap<String, oneshot::Sender<Result<Envelope>>>>,
     events: broadcast::Sender<Event>,
     state: watch::Sender<ConnectionState>,
+    shutdown: watch::Sender<bool>,
     closed: AtomicBool,
     standard: RateLimiter,
     historical: RateLimiter,
@@ -104,6 +104,18 @@ struct Shared {
     /// an `Arc<Shared>` of its own, which would otherwise hide the last external clone going away
     /// from `outgoing`'s sender count). See the [`Drop`] impl below.
     handles: AtomicUsize,
+}
+
+/// Removes a waiter even when its request future is cancelled while sending or waiting.
+struct PendingRequest<'a> {
+    shared: &'a Shared,
+    id: String,
+}
+
+impl Drop for PendingRequest<'_> {
+    fn drop(&mut self) {
+        self.shared.pending().remove(&self.id);
+    }
 }
 
 impl Shared {
@@ -185,9 +197,7 @@ impl Drop for Client {
         if self.shared.handles.fetch_sub(1, Ordering::AcqRel) == 1 {
             // The last external clone is gone. Ask the background task to close, the same way
             // `close()` does, so the socket and the task do not outlive every caller reference.
-            // `try_send` never blocks (Drop cannot be async) and a full or closed queue only means
-            // the connection is already ending on its own, which is fine.
-            let _ = self.shared.outgoing.try_send(Outgoing::Close);
+            self.shared.shutdown.send_replace(true);
         }
     }
 }
@@ -224,11 +234,13 @@ impl Client {
         let (outgoing_tx, outgoing_rx) = mpsc::channel(OUTGOING_QUEUE);
         let (events, _) = broadcast::channel(config.event_capacity);
         let (state, _) = watch::channel(ConnectionState::Connected);
+        let (shutdown, _) = watch::channel(false);
         let shared = Arc::new(Shared {
             outgoing: outgoing_tx,
             pending: Mutex::new(HashMap::new()),
             events,
             state,
+            shutdown,
             closed: AtomicBool::new(false),
             standard: RateLimiter::new(config.standard_rate),
             historical: RateLimiter::new(config.historical_rate),
@@ -280,8 +292,7 @@ impl Client {
         if self.is_closed() {
             return;
         }
-        // If the queue is full or gone the connection is ending anyway.
-        let _ = self.shared.outgoing.send(Outgoing::Close).await;
+        self.shared.shutdown.send_replace(true);
     }
 
     // ---- the request machinery, shared with the sub-clients in crate::market, crate::account,
@@ -376,31 +387,31 @@ impl Client {
 
         let (tx, rx) = oneshot::channel();
         self.shared.pending().insert(id.clone(), tx);
+        let _pending = PendingRequest {
+            shared: &self.shared,
+            id,
+        };
         // A connection that ended between the check above and now would leave this waiter alone
         // forever, so look again after registering.
         if self.is_closed() {
-            self.shared.pending().remove(&id);
             return Err(OpenApiError::Closed);
         }
-        if self
-            .shared
-            .outgoing
-            .send(Outgoing::Text(text))
-            .await
-            .is_err()
+        match tokio::time::timeout(
+            self.shared.request_timeout,
+            self.shared.outgoing.send(Outgoing::Text(text)),
+        )
+        .await
         {
-            self.shared.pending().remove(&id);
-            return Err(OpenApiError::Closed);
+            Ok(Ok(())) => {}
+            Ok(Err(_)) => return Err(OpenApiError::Closed),
+            Err(_) => return Err(OpenApiError::Timeout { operation }),
         }
 
         match tokio::time::timeout(self.shared.request_timeout, rx).await {
             Ok(Ok(answer)) => answer,
             // The sender was dropped without an answer: the connection is gone.
             Ok(Err(_)) => Err(OpenApiError::Closed),
-            Err(_) => {
-                self.shared.pending().remove(&id);
-                Err(OpenApiError::Timeout { operation })
-            }
+            Err(_) => Err(OpenApiError::Timeout { operation }),
         }
     }
 
@@ -610,19 +621,31 @@ async fn run<S>(
     beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     // The first tick of an interval is immediate; the connection is fresh, skip it.
     beat.tick().await;
+    let mut shutdown = shared.shutdown.subscribe();
 
     let reason = loop {
+        if *shutdown.borrow() {
+            break DisconnectReason::ClosedByClient;
+        }
         tokio::select! {
+            biased;
+            _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
             message = outgoing.recv() => match message {
                 Some(Outgoing::Text(text)) => {
-                    if let Err(error) = sink.send(Message::text(text)).await {
-                        break DisconnectReason::Failed(error.to_string());
+                    let sent = tokio::select! {
+                        _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
+                        sent = tokio::time::timeout(
+                            shared.request_timeout,
+                            sink.send(Message::text(text)),
+                        ) => sent,
+                    };
+                    match sent {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => break DisconnectReason::Failed(error.to_string()),
+                        Err(_) => break DisconnectReason::Failed("WebSocket write timed out".into()),
                     }
                 }
-                Some(Outgoing::Close) | None => {
-                    let _ = sink.send(Message::Close(None)).await;
-                    break DisconnectReason::ClosedByClient;
-                }
+                None => break DisconnectReason::ClosedByClient,
             },
             frame = stream.next() => match frame {
                 Some(Ok(Message::Text(text))) => {
@@ -648,12 +671,24 @@ async fn run<S>(
                     Ok(text) => text,
                     Err(_) => continue,
                 };
-                if let Err(error) = sink.send(Message::text(text)).await {
-                    break DisconnectReason::Failed(error.to_string());
+                let sent = tokio::select! {
+                    _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
+                    sent = tokio::time::timeout(
+                        shared.request_timeout,
+                        sink.send(Message::text(text)),
+                    ) => sent,
+                };
+                match sent {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => break DisconnectReason::Failed(error.to_string()),
+                    Err(_) => break DisconnectReason::Failed("WebSocket heartbeat timed out".into()),
                 }
             }
         }
     };
+    if matches!(reason, DisconnectReason::ClosedByClient) {
+        let _ = tokio::time::timeout(Duration::from_secs(1), sink.send(Message::Close(None))).await;
+    }
     debug!(?reason, "the Open API connection ended");
     shared.finish(reason);
 }
@@ -679,4 +714,47 @@ fn handle_text(shared: &Shared, text: &str) -> Option<DisconnectReason> {
     });
     shared.route(envelope);
     announced
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::accept_async;
+
+    #[tokio::test]
+    async fn cancelled_requests_leave_no_pending_waiters() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}", listener.local_addr().unwrap());
+        let (seen, mut received) = mpsc::unbounded_channel();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut socket = accept_async(socket).await.unwrap();
+            while let Some(Ok(Message::Text(text))) = socket.next().await {
+                let envelope = Envelope::from_text(&text).unwrap();
+                if envelope.payload_type == payload::VERSION_REQ {
+                    seen.send(()).unwrap();
+                }
+            }
+        });
+        let mut config = ConnectionConfig::with_url(url);
+        config.heartbeat_interval = Duration::from_secs(5);
+        let client = Client::connect(&config).await.unwrap();
+        for _ in 0..20 {
+            let call = tokio::spawn({
+                let client = client.clone();
+                async move { client.version().await }
+            });
+            tokio::time::timeout(Duration::from_secs(2), received.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(client.shared.pending().len(), 1);
+            call.abort();
+            let _ = call.await;
+            assert!(client.shared.pending().is_empty());
+        }
+        client.close().await;
+        server.abort();
+    }
 }

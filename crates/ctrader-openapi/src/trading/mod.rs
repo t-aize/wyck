@@ -34,7 +34,7 @@ pub use requests::{
     NewOrderType,
 };
 
-use crate::error::Result;
+use crate::error::{OpenApiError, Result};
 use crate::transport::connection::{Client, RateClass};
 use crate::transport::wire::payload;
 
@@ -82,6 +82,7 @@ impl TradingClient {
     /// `trading` [`crate::auth::Scope`].
     pub async fn new_order(&self, mut request: NewOrderReq) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
+        request.validate()?;
         self.client
             .call(
                 payload::NEW_ORDER_REQ,
@@ -99,6 +100,9 @@ impl TradingClient {
     ///
     /// `ORDER_NOT_FOUND`, `UNABLE_TO_CANCEL_ORDER`, and the usual account errors.
     pub async fn cancel_order(&self, order_id: i64) -> Result<ExecutionEvent> {
+        if order_id <= 0 {
+            return Err(OpenApiError::Config("order id must be positive".into()));
+        }
         self.client
             .call(
                 payload::CANCEL_ORDER_REQ,
@@ -122,6 +126,15 @@ impl TradingClient {
     /// order is already being filled), and the usual account errors.
     pub async fn amend_order(&self, mut request: AmendOrderReq) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
+        if request.order_id <= 0 {
+            return Err(OpenApiError::Config("order id must be positive".into()));
+        }
+        check_prices(&[
+            request.limit_price,
+            request.stop_price,
+            request.stop_loss,
+            request.take_profit,
+        ])?;
         self.client
             .call(
                 payload::AMEND_ORDER_REQ,
@@ -141,6 +154,11 @@ impl TradingClient {
     /// `POSITION_NOT_FOUND`, `POSITION_NOT_OPEN`, `POSITION_LOCKED`, `TRADING_BAD_VOLUME` for a
     /// close volume larger than the position, and the usual account errors.
     pub async fn close_position(&self, position_id: i64, volume: i64) -> Result<ExecutionEvent> {
+        if position_id <= 0 || volume <= 0 {
+            return Err(OpenApiError::Config(
+                "position id and close volume must be positive".into(),
+            ));
+        }
         self.client
             .call(
                 payload::CLOSE_POSITION_REQ,
@@ -168,6 +186,10 @@ impl TradingClient {
         mut request: AmendPositionSlTpReq,
     ) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
+        if request.position_id <= 0 {
+            return Err(OpenApiError::Config("position id must be positive".into()));
+        }
+        check_prices(&[request.stop_loss, request.take_profit])?;
         self.client
             .call(
                 payload::AMEND_POSITION_SLTP_REQ,
@@ -178,4 +200,17 @@ impl TradingClient {
             )
             .await
     }
+}
+
+fn check_prices(prices: &[Option<f64>]) -> Result<()> {
+    if prices
+        .iter()
+        .flatten()
+        .any(|price| !price.is_finite() || *price <= 0.0)
+    {
+        return Err(OpenApiError::Config(
+            "trading prices must be finite and positive".into(),
+        ));
+    }
+    Ok(())
 }

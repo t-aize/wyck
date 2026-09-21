@@ -5,6 +5,7 @@
 //! before calling anything here, and re-encode the result afterward.
 
 use crate::common::TradeSide;
+use crate::math::NumericError;
 use crate::math::round_half_up_to_digits;
 
 /// SL or TP context for [`pips_to_price`] / polarity resolution.
@@ -58,16 +59,33 @@ pub fn pips_to_price(
 /// with the known `side`/`leg` context if the caller also needs to reconstruct
 /// direction).
 ///
-/// # Panics
-///
-/// Panics if `pip_size` is not strictly positive.
-pub fn price_to_pips(reference_price: f64, target_price: f64, pip_size: f64) -> (i64, f64) {
-    assert!(
-        pip_size > 0.0,
-        "price_to_pips: pip_size must be > 0, got {pip_size}"
-    );
+/// Returns an error for non-finite prices, an invalid pip size, or an
+/// unrepresentable integer distance.
+pub fn price_to_pips(
+    reference_price: f64,
+    target_price: f64,
+    pip_size: f64,
+) -> Result<(i64, f64), NumericError> {
+    if !reference_price.is_finite() || !target_price.is_finite() {
+        return Err(NumericError {
+            field: "price",
+            reason: "must be finite",
+        });
+    }
+    if !pip_size.is_finite() || pip_size <= 0.0 {
+        return Err(NumericError {
+            field: "pip_size",
+            reason: "must be finite and positive",
+        });
+    }
     let raw = (target_price - reference_price).abs() / pip_size;
-    (raw.round() as i64, raw)
+    if !raw.is_finite() || raw >= i64::MAX as f64 {
+        return Err(NumericError {
+            field: "price",
+            reason: "pip distance exceeds the wire integer range",
+        });
+    }
+    Ok((raw.round() as i64, raw))
 }
 
 /// Given an entry price plus a risk (SL) and reward (TP) distance in pips, returns
@@ -99,10 +117,10 @@ pub fn sl_tp_to_pip_distances(
     sl_absolute: f64,
     tp_absolute: f64,
     pip_size: f64,
-) -> (i64, i64) {
-    let (sl_pips, _) = price_to_pips(entry, sl_absolute, pip_size);
-    let (tp_pips, _) = price_to_pips(entry, tp_absolute, pip_size);
-    (sl_pips, tp_pips)
+) -> Result<(i64, i64), NumericError> {
+    let (sl_pips, _) = price_to_pips(entry, sl_absolute, pip_size)?;
+    let (tp_pips, _) = price_to_pips(entry, tp_absolute, pip_size)?;
+    Ok((sl_pips, tp_pips))
 }
 
 /// Converts a pip distance to Remote's integer POINTS encoding for
@@ -111,12 +129,21 @@ pub fn sl_tp_to_pip_distances(
 /// 5-digit FX pair this is `points = pips * 10`, and it is the identity for a 4-digit
 /// pair. `pip_digits` here is the symbol's *pipette* precision (from `get_symbols`), not
 /// the pip-size itself.
-pub fn pips_to_points(pips: i64, pip_digits: u32) -> i64 {
+pub fn pips_to_points(pips: i64, pip_digits: u32) -> Result<i64, NumericError> {
     // A "pip" is conventionally the second-to-last digit of the quoted price for FX
     // (i.e. one order of magnitude coarser than a pipette/point on 5- and 3-digit
     // pairs), so points-per-pip is 10 on those pairs and 1 on 2- and 4-digit pairs.
     let points_per_pip = if pip_digits >= 3 { 10 } else { 1 };
-    pips * points_per_pip
+    if pips < 0 {
+        return Err(NumericError {
+            field: "pips",
+            reason: "must be non-negative",
+        });
+    }
+    pips.checked_mul(points_per_pip).ok_or(NumericError {
+        field: "pips",
+        reason: "point distance exceeds the wire integer range",
+    })
 }
 
 #[cfg(test)]
@@ -161,7 +188,7 @@ mod tests {
 
     #[test]
     fn price_to_pips_eurusd_entry_1_0850_sl_1_0820() {
-        let (pips, _raw) = price_to_pips(1.0850, 1.0820, 0.0001);
+        let (pips, _raw) = price_to_pips(1.0850, 1.0820, 0.0001).unwrap();
         assert_eq!(pips, 30);
     }
 
@@ -175,7 +202,15 @@ mod tests {
     fn points_conversion_matches_q_r4_worked_example() {
         // EURUSD 5-digit pair: 30 pips SL / 60 pips TP -> 300 / 600 points, per
         // self-healing-playbook.md's live-confirmed example.
-        assert_eq!(pips_to_points(30, 5), 300);
-        assert_eq!(pips_to_points(60, 5), 600);
+        assert_eq!(pips_to_points(30, 5).unwrap(), 300);
+        assert_eq!(pips_to_points(60, 5).unwrap(), 600);
+    }
+
+    #[test]
+    fn invalid_pip_inputs_are_rejected() {
+        assert!(price_to_pips(1.0, f64::NAN, 0.0001).is_err());
+        assert!(price_to_pips(1.0, 2.0, 0.0).is_err());
+        assert!(pips_to_points(-1, 5).is_err());
+        assert!(pips_to_points(i64::MAX, 5).is_err());
     }
 }

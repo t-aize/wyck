@@ -680,6 +680,32 @@ impl CreateOrderParams {
             })
         };
 
+        if self.symbol_id <= 0 || self.volume <= 0 {
+            return reject("symbolId and volume must be positive".to_owned());
+        }
+        for (name, price) in [
+            ("limitPrice", self.limit_price),
+            ("stopPrice", self.stop_price),
+            ("stopLoss", self.stop_loss),
+            ("takeProfit", self.take_profit),
+            ("baseSlippagePrice", self.base_slippage_price),
+        ] {
+            if price.is_some_and(|price| !price.is_finite() || price <= 0.0) {
+                return reject(format!("{name} must be finite and positive"));
+            }
+        }
+        for (name, distance) in [
+            ("relativeStopLoss", self.relative_stop_loss),
+            ("relativeTakeProfit", self.relative_take_profit),
+        ] {
+            if distance.is_some_and(|distance| distance <= 0) {
+                return reject(format!("{name} must be positive"));
+            }
+        }
+        if self.slippage_in_points.is_some_and(|points| points < 0) {
+            return reject("slippageInPoints must not be negative".to_owned());
+        }
+
         if self.order_type == RemoteOrderType::Market
             && (self.stop_loss.is_some() || self.take_profit.is_some())
         {

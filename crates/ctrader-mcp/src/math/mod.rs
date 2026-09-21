@@ -27,6 +27,16 @@ pub mod pip;
 pub mod sizing;
 pub mod units;
 
+/// Invalid or unrepresentable input to a volume or pip conversion.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("invalid numeric input `{field}`: {reason}")]
+pub struct NumericError {
+    /// The input that failed validation.
+    pub field: &'static str,
+    /// Why the conversion cannot be made safely.
+    pub reason: &'static str,
+}
+
 /// Rounds `value` to `digits` decimal places, half-away-from-zero (matches Python's
 /// `Decimal.quantize(..., rounding=ROUND_HALF_UP)` for the non-negative values every
 /// caller in this crate passes).
