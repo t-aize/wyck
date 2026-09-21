@@ -7,14 +7,13 @@
 use std::time::Duration;
 
 use ctrader_openapi::event::event_from;
-use ctrader_openapi::history::{MAX_TICK_RANGE_MS, continuation, tick_windows};
-use ctrader_openapi::market::{DepthBook, SpotTracker, format_price};
-use ctrader_openapi::model::{DepthEvent, DepthQuote, SpotEvent, WireTick, WireTrendbar, flex};
-use ctrader_openapi::session::Backoff;
-use ctrader_openapi::types::{
-    Period, Tick, decode_bars, decode_ticks, from_price, merge_sides, to_price,
+use ctrader_openapi::market::{
+    DepthBook, DepthEvent, DepthQuote, MAX_TICK_RANGE_MS, Period, SpotEvent, SpotTracker, Tick,
+    WireTick, WireTrendbar, continuation, decode_bars, decode_ticks, format_price, from_price,
+    merge_sides, tick_windows, to_price,
 };
-use ctrader_openapi::wire::{Envelope, payload};
+use ctrader_openapi::session::Backoff;
+use ctrader_openapi::transport::wire::{Envelope, flex, payload};
 use proptest::prelude::*;
 use serde_json::{Value, json};
 

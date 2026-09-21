@@ -5,7 +5,7 @@
 //! authorized on it, and an app that needs both opens two connections.
 //!
 //! This crate speaks **JSON over a WebSocket** (port `5036`). It needs no code generation and no
-//! `.proto` files, and the messages are the same ones as in Protobuf (see [`crate::wire`]).
+//! `.proto` files, and the messages are the same ones as in Protobuf (see [`crate::transport::wire`]).
 
 use std::time::Duration;
 

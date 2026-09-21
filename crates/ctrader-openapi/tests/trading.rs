@@ -8,7 +8,7 @@ use std::time::Duration;
 use ctrader_openapi::account::TradeSide;
 use ctrader_openapi::config::ConnectionConfig;
 use ctrader_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use ctrader_openapi::wire::payload;
+use ctrader_openapi::transport::wire::payload;
 use ctrader_openapi::{Client, ErrorKind};
 use serde_json::json;
 use support::{MockServer, answers};
@@ -31,13 +31,14 @@ async fn a_market_order_is_sent_and_its_execution_is_read() {
         }}),
     )]))
     .await;
-    let client = connect(&server).await;
-    let request = NewOrderReq::market(1, 1, TradeSide::Buy, 10_000).with_label("wyck-test");
-    let execution = client.new_order(&request).await.unwrap();
+    let trading = connect(&server).await.account(1).trading();
+    let request = NewOrderReq::market(1, TradeSide::Buy, 10_000).with_label("wyck-test");
+    let execution = trading.new_order(request).await.unwrap();
     assert_eq!(execution.kind(), Some(ExecutionType::OrderFilled));
     assert_eq!(execution.deal.as_ref().unwrap().deal_id, 1);
 
     let sent = &server.received_of(payload::NEW_ORDER_REQ)[0].payload;
+    assert_eq!(sent["ctidTraderAccountId"], 1);
     assert_eq!(sent["orderType"], 1);
     assert_eq!(sent["tradeSide"], 1);
     assert_eq!(sent["volume"], 10000);
@@ -52,10 +53,10 @@ async fn a_limit_order_carries_its_price_and_protection() {
         json!({"ctidTraderAccountId": 1, "executionType": 2}),
     )]))
     .await;
-    let client = connect(&server).await;
-    let request = NewOrderReq::limit(1, 1, TradeSide::Sell, 5_000, 1.2345)
+    let trading = connect(&server).await.account(1).trading();
+    let request = NewOrderReq::limit(1, TradeSide::Sell, 5_000, 1.2345)
         .with_protection(Some(1.30), Some(1.10));
-    let execution = client.new_order(&request).await.unwrap();
+    let execution = trading.new_order(request).await.unwrap();
     assert_eq!(execution.kind(), Some(ExecutionType::OrderAccepted));
 
     let sent = &server.received_of(payload::NEW_ORDER_REQ)[0].payload;
@@ -90,34 +91,34 @@ async fn cancel_amend_and_close_send_the_right_ids() {
         ),
     ]))
     .await;
-    let client = connect(&server).await;
+    let trading = connect(&server).await.account(1).trading();
 
-    let cancelled = client.cancel_order(1, 9).await.unwrap();
+    let cancelled = trading.cancel_order(9).await.unwrap();
     assert_eq!(cancelled.kind(), Some(ExecutionType::OrderCancelled));
     assert_eq!(
         server.received_of(payload::CANCEL_ORDER_REQ)[0].payload,
         json!({"ctidTraderAccountId": 1, "orderId": 9})
     );
 
-    let mut amend = AmendOrderReq::new(1, 9);
+    let mut amend = AmendOrderReq::new(9);
     amend.stop_loss = Some(1.15);
-    let amended = client.amend_order(&amend).await.unwrap();
+    let amended = trading.amend_order(amend).await.unwrap();
     assert_eq!(amended.kind(), Some(ExecutionType::OrderReplaced));
     assert_eq!(
         server.received_of(payload::AMEND_ORDER_REQ)[0].payload,
         json!({"ctidTraderAccountId": 1, "orderId": 9, "stopLoss": 1.15})
     );
 
-    let closed = client.close_position(1, 77, 5_000).await.unwrap();
+    let closed = trading.close_position(77, 5_000).await.unwrap();
     assert_eq!(closed.kind(), Some(ExecutionType::OrderFilled));
     assert_eq!(
         server.received_of(payload::CLOSE_POSITION_REQ)[0].payload,
         json!({"ctidTraderAccountId": 1, "positionId": 77, "volume": 5000})
     );
 
-    let mut sltp = AmendPositionSlTpReq::new(1, 77);
+    let mut sltp = AmendPositionSlTpReq::new(77);
     sltp.take_profit = Some(1.5);
-    let amended_sltp = client.amend_position_sl_tp(&sltp).await.unwrap();
+    let amended_sltp = trading.amend_position_sl_tp(sltp).await.unwrap();
     assert_eq!(amended_sltp.kind(), Some(ExecutionType::OrderReplaced));
     assert_eq!(
         server.received_of(payload::AMEND_POSITION_SLTP_REQ)[0].payload,
@@ -133,9 +134,9 @@ async fn a_bad_volume_is_told_apart_from_insufficient_margin() {
         json!({"errorCode": "TRADING_BAD_VOLUME", "description": "volume must be a multiple of the step"}),
     )]))
     .await;
-    let client = connect(&server).await;
-    let request = NewOrderReq::market(1, 1, TradeSide::Buy, 1);
-    let error = client.new_order(&request).await.unwrap_err();
+    let trading = connect(&server).await.account(1).trading();
+    let request = NewOrderReq::market(1, TradeSide::Buy, 1);
+    let error = trading.new_order(request).await.unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Rejected);
     assert_eq!(error.code(), Some("TRADING_BAD_VOLUME"));
     assert!(!error.is_retryable());
@@ -149,9 +150,9 @@ async fn not_enough_money_is_a_rejection_not_a_protocol_error() {
         json!({"errorCode": "NOT_ENOUGH_MONEY"}),
     )]))
     .await;
-    let client = connect(&server).await;
-    let request = NewOrderReq::market(1, 1, TradeSide::Buy, 100_000_000);
-    let error = client.new_order(&request).await.unwrap_err();
+    let trading = connect(&server).await.account(1).trading();
+    let request = NewOrderReq::market(1, TradeSide::Buy, 100_000_000);
+    let error = trading.new_order(request).await.unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Rejected);
     assert_eq!(error.code(), Some("NOT_ENOUGH_MONEY"));
 }
@@ -164,8 +165,8 @@ async fn cancelling_an_unknown_order_is_reported() {
         json!({"errorCode": "ORDER_NOT_FOUND"}),
     )]))
     .await;
-    let client = connect(&server).await;
-    let error = client.cancel_order(1, 404).await.unwrap_err();
+    let trading = connect(&server).await.account(1).trading();
+    let error = trading.cancel_order(404).await.unwrap_err();
     assert_eq!(error.code(), Some("ORDER_NOT_FOUND"));
 }
 

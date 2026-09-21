@@ -11,7 +11,7 @@
 //! A tick request may span at most one week, so a longer range is cut into windows of just under a
 //! week ([`tick_windows`]). Inside a window the server returns the **newest** ticks first, so when
 //! `hasMore` is set the next request asks for the part before the oldest tick received. Bid and ask
-//! ticks are separate requests; [`crate::types::merge_sides`] joins them into quotes.
+//! ticks are separate requests; [`crate::market::merge_sides`] joins them into quotes.
 //!
 //! # Bars
 //!
@@ -21,9 +21,10 @@
 //! full size bar requests are chained, so a caller filling a long history should ask in modest
 //! ranges and check the seams.
 
-use crate::client::Client;
+use super::bars::{Bar, Period};
+use super::client::MarketClient;
+use super::ticks::{QuoteType, Tick};
 use crate::error::Result;
-use crate::types::{Bar, Period, QuoteType, Tick};
 
 /// The longest range of one tick request: one week.
 pub const MAX_TICK_RANGE_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
@@ -36,7 +37,7 @@ const TICK_WINDOW_MS: i64 = MAX_TICK_RANGE_MS - 60_000;
 const MAX_PAGES: usize = 5_000;
 
 /// ```
-/// use ctrader_openapi::history::tick_windows;
+/// use ctrader_openapi::market::tick_windows;
 ///
 /// let day = 86_400_000;
 /// let windows = tick_windows(0, 20 * day);
@@ -73,10 +74,9 @@ pub fn tick_windows(from_ms: i64, to_ms: i64) -> Vec<(i64, i64)> {
 ///
 /// # Errors
 ///
-/// Any error of [`Client::tick_page`]; ticks already fetched are dropped with it.
+/// Any error of [`MarketClient::tick_page`]; ticks already fetched are dropped with it.
 pub async fn fetch_ticks(
-    client: &Client,
-    account_id: i64,
+    market: &MarketClient,
     symbol_id: i64,
     side: QuoteType,
     from_ms: i64,
@@ -88,8 +88,8 @@ pub async fn fetch_ticks(
         let mut upper = window_end;
         loop {
             requests += 1;
-            let (page, has_more) = client
-                .tick_page(account_id, symbol_id, side, window_start, upper)
+            let (page, has_more) = market
+                .tick_page(symbol_id, side, window_start, upper)
                 .await?;
             let oldest = page.first().map(|t| t.time_ms);
             all.extend(page);
@@ -109,10 +109,9 @@ pub async fn fetch_ticks(
 ///
 /// # Errors
 ///
-/// Any error of [`Client::bars_page`]; bars already fetched are dropped with it.
+/// Any error of [`MarketClient::bars_page`]; bars already fetched are dropped with it.
 pub async fn fetch_bars(
-    client: &Client,
-    account_id: i64,
+    market: &MarketClient,
     symbol_id: i64,
     period: Period,
     from_ms: i64,
@@ -124,9 +123,7 @@ pub async fn fetch_bars(
         if high < low {
             break;
         }
-        let (page, has_more) = client
-            .bars_page(account_id, symbol_id, period, low, high)
-            .await?;
+        let (page, has_more) = market.bars_page(symbol_id, period, low, high).await?;
         let (Some(first), Some(last)) = (
             page.first().map(|b| b.time_ms),
             page.last().map(|b| b.time_ms),

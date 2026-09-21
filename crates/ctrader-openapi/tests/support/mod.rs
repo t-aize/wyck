@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ctrader_openapi::wire::{Envelope, payload};
+use ctrader_openapi::transport::wire::{Envelope, payload};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use tokio::net::{TcpListener, TcpStream};
