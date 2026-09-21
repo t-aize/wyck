@@ -83,13 +83,19 @@ workspace, so entries are grouped by what was added rather than by release.
   also cross checks bars against ticks, and one, gated by `WYCK_OPENAPI_ALLOW_LIVE_TRADING=1` on top
   of `#[ignore]`, that places and closes a minimal market order.
 
-### Removed
+### Removed then re-added
 
-- **The `examples/` directory** (`sign_in`, `account_info`, `list_symbols`, `stream_prices`,
-  `download_ticks`, `download_bars`, `resilient_stream`, and their shared `examples/common`). Seven
-  small programs were more upkeep than value to keep in sync with every new call; the README and
-  the crate's doc comments cover the same ground with runnable doctests and inline snippets, and
-  `tests/live.rs` is the live validation path now.
+- **The `examples/` directory** was removed (`sign_in`, `account_info`, `list_symbols`,
+  `stream_prices`, `download_ticks`, `download_bars`, `resilient_stream`, and their shared
+  `examples/common`): seven small programs were more upkeep than value to keep in sync with every
+  new call, and the README and the crate's doc comments covered the same ground with runnable
+  doctests and inline snippets, with `tests/live.rs` as the live validation path.
+
+  It came back smaller: `examples/sign_in.rs` (the complete OAuth loopback flow),
+  `examples/stream_prices.rs` (connecting and following a symbol's prices through the market
+  sub-client), and `examples/session.rs` (the `Session` pattern for a program that stays up) - one
+  runnable program per usage rather than one per group of calls, which is what made the original
+  seven too much to keep in sync.
 
 ### Fixed (found by the live runs and the property tests)
 
@@ -104,6 +110,11 @@ workspace, so entries are grouped by what was added rather than by release.
   attempt's timeout.
 - A failure to reach the token endpoint is a transport error (retried), not a refusal (fatal).
 - `ALREADY_SUBSCRIBED` counts as success, so a reconnect racing a subscription does not drop it.
+- Dropping every clone of a `Client`, or of a `Session`, without calling `close()`/`stop()` used to
+  leak the background task and the socket: the task holds its own `Arc` over the state it shares
+  with every clone, which on its own kept the request channel from ever seeing every sender gone.
+  Both now notice the last clone going away and close down on their own, the same way an explicit
+  `close()`/`stop()` does, just without anyone left to wait on it.
 
 ### Known limits
 

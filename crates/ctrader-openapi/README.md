@@ -346,8 +346,16 @@ server's own advice.
   price per symbol arrives.
 - **The client never reconnects by itself**; a `Session` does. After a disconnect, waiting requests
   fail with `Closed` and a last `Event::Disconnected` is sent.
+- **Calling `close()`/`stop()` is still the right way to end a connection or a session on
+  purpose**, but forgetting it does not leak the background task or the socket either: the last
+  clone of a `Client` (or of a `Session`, and every sub-client counts as a clone, since it carries
+  one inside) going out of scope closes the connection down as a fallback.
 - **Tokens are secrets.** `Debug` never shows them, errors never repeat them, and the HTTP layer's
   errors are stripped of their URL, which holds the client secret and the code.
+- **The token exchange is a `GET` with the client secret and the code in the query string** (that
+  is how cTrader's endpoint is documented; this crate does not choose it). This library never logs
+  that URL, but an HTTP proxy or a load balancer placed in front of it might: keep that in mind
+  before adding one between this process and `https://openapi.ctrader.com`.
 - **`retryAfter` is in seconds**, and with `BLOCKED_PAYLOAD_TYPE` it is the time until that type of
   request is unblocked.
 - **A trading call needs the `trading` scope.** A token signed in with `Scope::Accounts` is

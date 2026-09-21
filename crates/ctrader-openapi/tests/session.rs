@@ -662,6 +662,25 @@ async fn stopping_closes_the_connection_and_announces_it_once() {
 }
 
 #[tokio::test]
+async fn dropping_every_clone_without_stopping_still_ends_the_session() {
+    let server = MockServer::start(answers(healthy())).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut state = session.state();
+    let client = session.wait_ready(Duration::from_secs(5)).await.unwrap();
+    let other = session.clone();
+    drop(other);
+    drop(session);
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        state.wait_for(|s| matches!(s, SessionState::Stopped)),
+    )
+    .await
+    .expect("the session did not stop on its own once every clone was gone")
+    .unwrap();
+    assert!(client.is_closed());
+}
+
+#[tokio::test]
 async fn stopping_while_waiting_to_reconnect_is_prompt() {
     let server = MockServer::start(answers(healthy())).await;
     let mut config = config(&server.url);

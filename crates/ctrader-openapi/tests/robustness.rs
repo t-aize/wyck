@@ -286,6 +286,23 @@ async fn every_clone_shares_one_connection() {
     assert_eq!(server.connections(), 1);
 }
 
+#[tokio::test]
+async fn dropping_every_clone_without_closing_still_ends_the_connection() {
+    let server = MockServer::start(answers(vec![])).await;
+    let client = connect(&server).await;
+    let mut state = client.state();
+    let other = client.clone();
+    drop(other);
+    drop(client);
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        state.wait_for(|s| matches!(s, ctrader_openapi::ConnectionState::Closed(_))),
+    )
+    .await
+    .expect("the connection did not close on its own once every clone was gone")
+    .unwrap();
+}
+
 // ---- the network ----
 
 #[tokio::test]
