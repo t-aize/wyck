@@ -15,6 +15,8 @@
 
 use secrecy::{ExposeSecret, SecretString};
 use std::sync::Mutex;
+use tokio::runtime::Runtime;
+use wyck_calendar::{CalendarHandle, CalendarService};
 
 use wyck_engine::broker::{ConnectRequest, ServiceKind};
 use wyck_engine::domain::Side;
@@ -30,6 +32,8 @@ use crate::settings::{AppSettings, OrderDefaults};
 /// Owns the engine and turns UI intents into engine calls.
 pub struct AppController {
     engine: Engine,
+    calendar_runtime: Option<Runtime>,
+    calendar: Option<CalendarHandle>,
     /// The symbol the application is on: the traded one, the one of the chart. Changes when the
     /// user picks another.
     symbol: Mutex<String>,
@@ -49,18 +53,44 @@ impl AppController {
         Self::start_with(settings, EngineOptions::default())
     }
 
-    /// Starts the engine with custom options (a test connector, a fixed calendar).
+    /// Starts the engine with custom options.
     ///
     /// # Errors
     ///
     /// [`EngineError::Config`] or [`EngineError::Internal`] when the engine cannot start.
     pub fn start_with(settings: &AppSettings, options: EngineOptions) -> Result<Self, EngineError> {
-        let config = EngineConfig {
-            calendar_enabled: settings.news_enabled,
-            ..EngineConfig::default()
+        let config = EngineConfig::default();
+        let (calendar_runtime, calendar) = if settings.news_enabled {
+            match tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => {
+                    let calendar = {
+                        let _guard = runtime.enter();
+                        CalendarService::spawn_default()
+                    };
+                    match calendar {
+                        Ok(calendar) => (Some(runtime), Some(calendar)),
+                        Err(error) => {
+                            tracing::warn!(%error, "could not start the economic calendar");
+                            (None, None)
+                        }
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "could not start the calendar runtime");
+                    (None, None)
+                }
+            }
+        } else {
+            (None, None)
         };
         Ok(Self {
             engine: Engine::start_with(config, options)?,
+            calendar_runtime,
+            calendar,
             symbol: Mutex::new(settings.symbol.clone()),
             extra_watch: settings.watch.clone(),
             local_endpoint: settings.local_endpoint.clone(),
@@ -72,6 +102,12 @@ impl AppController {
     #[must_use]
     pub fn handle(&self) -> EngineHandle {
         self.engine.handle()
+    }
+
+    /// The app's economic calendar, when enabled.
+    #[must_use]
+    pub fn calendar(&self) -> Option<CalendarHandle> {
+        self.calendar.clone()
     }
 
     /// The endpoint the local session is looked for at.
@@ -256,7 +292,11 @@ impl AppController {
 
     /// Stops the engine and waits for its tasks. Dropping the controller stops it too, without
     /// waiting.
-    pub async fn shutdown(self) {
+    pub async fn shutdown(mut self) {
+        self.calendar.take();
+        if let Some(runtime) = self.calendar_runtime.take() {
+            runtime.shutdown_background();
+        }
         self.engine.shutdown().await;
     }
 }
@@ -268,7 +308,7 @@ mod tests {
     use async_trait::async_trait;
     use wyck_engine::broker::{Broker, BrokerCall, Connector, MockBroker, ServiceKind};
     use wyck_engine::domain::AccountKind;
-    use wyck_engine::{ArmRequest, CalendarSource, SessionState};
+    use wyck_engine::{ArmRequest, SessionState};
 
     use super::*;
 
@@ -293,7 +333,6 @@ mod tests {
         let broker = Arc::new(MockBroker::new());
         let options = EngineOptions {
             connector: Some(Arc::new(FixedConnector(Arc::clone(&broker)))),
-            calendar: CalendarSource::Disabled,
         };
         (
             AppController::start_with(&settings(), options).unwrap(),
@@ -383,7 +422,6 @@ mod tests {
         let broker = Arc::new(MockBroker::new());
         let options = EngineOptions {
             connector: Some(Arc::new(FixedConnector(broker))),
-            calendar: CalendarSource::Disabled,
         };
         let other = AppController::start_with(&s, options).unwrap();
         other.connect(request(), vec![]).await.unwrap();
@@ -407,7 +445,6 @@ mod tests {
     fn failing(error: EngineError) -> AppController {
         let options = EngineOptions {
             connector: Some(Arc::new(FailingConnector(error))),
-            calendar: CalendarSource::Disabled,
         };
         AppController::start_with(&settings(), options).unwrap()
     }
@@ -494,7 +531,6 @@ mod tests {
         s.watch = vec!["USDJPY".to_owned(), "GBPUSD".to_owned()];
         let options = EngineOptions {
             connector: Some(Arc::new(FixedConnector(Arc::new(MockBroker::new())))),
-            calendar: CalendarSource::Disabled,
         };
         let app = AppController::start_with(&s, options).unwrap();
         assert_eq!(app.watched_now(), ["EURUSD", "USDJPY", "GBPUSD"]);

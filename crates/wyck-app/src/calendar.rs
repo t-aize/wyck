@@ -1,28 +1,78 @@
-//! Hosting the economic calendar: turns `wyck-calendar` data into the engine's
-//! [`NewsView`] and into non-blocking [`Warning`](crate::state::Warning)s.
+//! Turns calendar data into the application's news view and warnings.
 //!
-//! Every few seconds (and whenever the calendar service publishes) the engine works out
+//! When the calendar or watched symbols change, the app works out
 //! which currencies matter (the base and quote currencies of the symbols with open positions
 //! or on the watch list), filters the calendar to high-impact events for those currencies,
-//! and warns about the ones that are close. Timing uses the broker's clock, estimated when
-//! the session was established, not this computer's.
+//! and warns about the ones that are close.
 
-use std::collections::HashSet;
-use std::sync::Arc;
 use std::time::Duration;
 
 use time::OffsetDateTime;
 use wyck_calendar::{
-    AlertPolicy, CalendarEvent, CalendarHandle, CalendarState, EventFilter, Freshness, Impact,
-    Scope, Timing, currencies_from_symbols, imminent_events, upcoming,
+    AlertPolicy, CalendarEvent, CalendarState, EventFilter, Freshness, Impact, Scope, Timing,
+    currencies_from_symbols, imminent_events, upcoming,
 };
 
-use crate::core::Inner;
-use crate::domain::UnixMillis;
-use crate::state::{NewsFreshness, NewsItem, NewsView, WarningKind};
+use serde::{Deserialize, Serialize};
+use wyck_engine::domain::UnixMillis;
 
-/// How often the news view and warnings are recomputed when nothing else prompts it.
-const TICK: Duration = Duration::from_secs(15);
+/// How current the calendar data is. Mirrors `wyck_calendar::Freshness`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum NewsFreshness {
+    /// The application does not host a calendar.
+    Disabled,
+    /// The first fetch has not finished.
+    Loading,
+    /// No fetch has ever succeeded.
+    Unavailable,
+    /// The latest fetch succeeded.
+    Fresh,
+    /// The latest fetch failed; the events shown are from an earlier success.
+    Stale,
+}
+
+/// One economic event in the application's view.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewsItem {
+    /// The event title, e.g. `"CPI m/m"`.
+    pub title: String,
+    /// The currency it applies to, or `None` for non-currency events.
+    pub currency: Option<String>,
+    /// `"High"`, `"Medium"`, `"Low"`, `"Holiday"` or `"Unknown"`.
+    pub impact: String,
+    /// When it happens, in Unix milliseconds.
+    pub at: UnixMillis,
+    /// The published forecast, if any.
+    pub forecast: Option<String>,
+    /// The previous value, if any.
+    pub previous: Option<String>,
+}
+
+/// The calendar as a front end sees it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewsView {
+    /// How current it is.
+    pub freshness: NewsFreshness,
+    /// When the data was last confirmed current.
+    pub fetched_at: Option<UnixMillis>,
+    /// The most recent fetch error, if the data is stale or unavailable.
+    pub last_error: Option<String>,
+    /// The next relevant events, soonest first, already filtered to what the user trades.
+    pub upcoming: Vec<NewsItem>,
+}
+
+impl Default for NewsView {
+    fn default() -> Self {
+        Self {
+            freshness: NewsFreshness::Disabled,
+            fetched_at: None,
+            last_error: None,
+            upcoming: Vec::new(),
+        }
+    }
+}
+
 /// How many upcoming events the view carries.
 const VIEW_LEN: usize = 20;
 
@@ -59,7 +109,7 @@ fn item(event: &CalendarEvent) -> NewsItem {
 
 /// The filter for "what this person trades": high impact, for the currencies of the symbols
 /// with positions or on the watch list. With no symbols at all, every currency.
-pub(crate) fn news_filter(symbols: &[String]) -> EventFilter {
+pub fn news_filter(symbols: &[String]) -> EventFilter {
     EventFilter::new()
         .with_min_impact(Impact::High)
         .with_currencies(currencies_from_symbols(symbols))
@@ -67,13 +117,16 @@ pub(crate) fn news_filter(symbols: &[String]) -> EventFilter {
 
 /// The pure part: given calendar data and the current time, what should the view and the
 /// active news warnings be.
-pub(crate) struct NewsComputation {
-    pub(crate) view: NewsView,
+pub struct NewsComputation {
+    /// The filtered, user-facing calendar.
+    pub view: NewsView,
     /// `(warning id, message)` for every event that is imminent or just released.
-    pub(crate) warnings: Vec<(String, String)>,
+    pub warnings: Vec<(String, String)>,
 }
 
-pub(crate) fn compute(
+/// Filters the calendar and finds events within the warning window.
+#[must_use]
+pub fn compute(
     calendar: &CalendarState,
     symbols: &[String],
     now_ms: UnixMillis,
@@ -127,49 +180,6 @@ pub(crate) fn compute(
         .collect();
     NewsComputation { view, warnings }
 }
-
-/// Starts the bridge task. It ends with the engine.
-pub(crate) fn spawn(inner: &Arc<Inner>, calendar: CalendarHandle) {
-    let me = Arc::clone(inner);
-    let mut updates = calendar.subscribe();
-    inner.tracker.spawn(async move {
-        let mut tick = tokio::time::interval(TICK);
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        let mut active: HashSet<String> = HashSet::new();
-        loop {
-            tokio::select! {
-                () = me.shutdown.cancelled() => break,
-                _ = tick.tick() => {}
-                changed = updates.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                }
-            }
-            let state = calendar.state();
-            let symbols = me.quote_symbols();
-            let computed = compute(
-                &state,
-                &symbols,
-                me.server_now_ms(),
-                me.config.guardrails.news_lead_time,
-                me.config.guardrails.news_grace,
-            );
-            me.update(|s| s.news = computed.view.clone());
-
-            let desired: HashSet<String> =
-                computed.warnings.iter().map(|(id, _)| id.clone()).collect();
-            for (id, message) in &computed.warnings {
-                me.raise_warning(id.clone(), WarningKind::News, message.clone());
-            }
-            for stale in active.difference(&desired) {
-                me.clear_warning(stale);
-            }
-            active = desired;
-        }
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;

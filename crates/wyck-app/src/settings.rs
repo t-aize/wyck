@@ -125,7 +125,7 @@ pub struct AppSettings {
     pub local_endpoint: String,
     /// The `tracing` filter directive.
     pub log_filter: String,
-    /// Whether the engine hosts the economic calendar (one request to a public feed).
+    /// Whether the application hosts the economic calendar.
     pub news_enabled: bool,
     /// Whether to turn animations off (`Some(true)`) or on (`Some(false)`) whatever the system
     /// says, or follow the system (`None`).

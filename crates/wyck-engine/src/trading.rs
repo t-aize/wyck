@@ -393,25 +393,11 @@ impl Inner {
             },
             account.currency.as_deref(),
         );
-        let currencies: Vec<String> = [&instrument.base_currency, &instrument.quote_currency]
-            .into_iter()
-            .flatten()
-            .map(|c| c.to_ascii_uppercase())
-            .collect();
-        let news: Vec<&crate::state::Warning> = state
-            .warnings
-            .iter()
-            .filter(|w| guardrails::is_news(w))
-            .filter(|w| {
-                currencies.is_empty() || currencies.iter().any(|c| w.message.contains(c.as_str()))
-            })
-            .collect();
         plan.warnings.extend(guardrails::plan_warnings(
             &plan,
             &self.config.guardrails,
             Some(&account),
             open_risk,
-            &news,
             now_millis(),
         ));
 

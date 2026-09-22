@@ -108,12 +108,6 @@ pub struct GuardrailConfig {
     /// Warn when account data is older than this. Default 30 s.
     #[serde(with = "duration_ms")]
     pub stale_account_after: Duration,
-    /// Warn about high-impact news this long before it happens. Default 30 minutes.
-    #[serde(with = "duration_ms")]
-    pub news_lead_time: Duration,
-    /// Keep warning this long after a release. Default 15 minutes.
-    #[serde(with = "duration_ms")]
-    pub news_grace: Duration,
 }
 
 impl Default for GuardrailConfig {
@@ -122,8 +116,6 @@ impl Default for GuardrailConfig {
             max_risk_percent_per_trade: 2.0,
             max_total_risk_percent: 5.0,
             stale_account_after: Duration::from_secs(30),
-            news_lead_time: Duration::from_secs(30 * 60),
-            news_grace: Duration::from_secs(15 * 60),
         }
     }
 }
@@ -215,8 +207,6 @@ pub struct EngineConfig {
     pub event_buffer: usize,
     /// How many recent events the activity log keeps. Default 200.
     pub activity_log_len: usize,
-    /// Whether the engine hosts the economic calendar. Default `true`.
-    pub calendar_enabled: bool,
 }
 
 impl Default for EngineConfig {
@@ -228,7 +218,6 @@ impl Default for EngineConfig {
             assumed_specs: AssumedSpecs::default(),
             event_buffer: 256,
             activity_log_len: 200,
-            calendar_enabled: true,
         }
     }
 }

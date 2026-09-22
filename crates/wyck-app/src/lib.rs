@@ -16,6 +16,7 @@
 //! | [`settings`] | What the application is configured with |
 //! | [`startup`] | From settings to a connection request (profile or environment) |
 //! | [`controller`] | The use cases: start the engine, connect, send a hotkey order |
+//! | [`calendar`] | Filter the app-owned economic calendar and calculate news warnings |
 //! | [`presentation`] | Engine state to formatted rows, badges and tones |
 //! | [`model`] | The data a front end's windows share (state, activity, notices, banners) |
 //! | [`messages`] | Errors and outcomes to user-facing notices, in one place |
@@ -47,6 +48,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod calendar;
 pub mod chart;
 pub mod controller;
 pub mod dashboard;

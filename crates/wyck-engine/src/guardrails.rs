@@ -2,7 +2,7 @@
 //!
 //! The rule is the one the README states for prop-firm limits: **warn, never block**. Nothing
 //! here can refuse an order. A guardrail turns a fact ("this trade risks 3.4% of your
-//! balance", "FOMC is in 12 minutes") into a sentence the front end shows next to the
+//! balance") into a sentence the front end shows next to the
 //! order, and the person decides. The only things that stop an order are structural: the
 //! engine is not armed, the request is invalid, the session cannot trade.
 //!
@@ -11,7 +11,6 @@
 use crate::config::GuardrailConfig;
 use crate::domain::{AccountSnapshot, Instrument, Position, UnixMillis};
 use crate::risk::OrderPlan;
-use crate::state::{Warning, WarningKind};
 
 /// Risk carried by open positions, computed only where it can be computed honestly.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -53,15 +52,13 @@ pub fn estimate_open_risk<'a>(
     risk
 }
 
-/// Warnings for a plan, as sentences. `news` are the active news warnings that concern the
-/// plan's currencies.
+/// Warnings for a plan, as sentences.
 #[must_use]
 pub fn plan_warnings(
     plan: &OrderPlan,
     config: &GuardrailConfig,
     account: Option<&AccountSnapshot>,
     open_risk: OpenRisk,
-    news: &[&Warning],
     now: UnixMillis,
 ) -> Vec<String> {
     let mut out = Vec::new();
@@ -103,17 +100,7 @@ pub fn plan_warnings(
         }
     }
 
-    for w in news {
-        out.push(w.message.clone());
-    }
     out
-}
-
-/// Whether a warning kind concerns market timing rather than the order itself. Used to
-/// decide which warnings to attach to a plan.
-#[must_use]
-pub fn is_news(warning: &Warning) -> bool {
-    warning.kind == WarningKind::News
 }
 
 #[cfg(test)]
@@ -172,7 +159,6 @@ mod tests {
             &cfg(),
             Some(&acct),
             OpenRisk::default(),
-            &[],
             2_000,
         );
         assert!(w.is_empty(), "{w:?}");
@@ -189,7 +175,6 @@ mod tests {
                 amount: 300.0,
                 unknown_positions: 0,
             },
-            &[],
             2_000,
         );
         assert!(w.iter().any(|m| m.contains("per trade")));
@@ -207,7 +192,6 @@ mod tests {
                 amount: 0.0,
                 unknown_positions: 2,
             },
-            &[],
             2_000,
         );
         assert!(w.iter().any(|m| m.contains("understated")));
@@ -221,33 +205,11 @@ mod tests {
             &cfg(),
             Some(&old),
             OpenRisk::default(),
-            &[],
             60_000,
         );
         assert!(w.iter().any(|m| m.contains("60 s old")));
-        let w = plan_warnings(&plan(None, None), &cfg(), None, OpenRisk::default(), &[], 0);
+        let w = plan_warnings(&plan(None, None), &cfg(), None, OpenRisk::default(), 0);
         assert!(w.iter().any(|m| m.contains("no account data")));
-    }
-
-    #[test]
-    fn news_warnings_are_passed_through_verbatim() {
-        let acct = account(10_000.0, 1_000);
-        let news = Warning {
-            id: "news:1".into(),
-            kind: WarningKind::News,
-            message: "FOMC Statement (USD) in 12 min".into(),
-            raised_at: 0,
-        };
-        let w = plan_warnings(
-            &plan(Some(100.0), Some(1.0)),
-            &cfg(),
-            Some(&acct),
-            OpenRisk::default(),
-            &[&news],
-            2_000,
-        );
-        assert_eq!(w, ["FOMC Statement (USD) in 12 min"]);
-        assert!(is_news(&news));
     }
 
     #[test]

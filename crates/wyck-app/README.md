@@ -1,5 +1,9 @@
 # wyck-app
 
+The app owns the economic calendar. It starts `wyck-calendar` when `WYCK_NEWS` is on,
+filters releases for watched symbols and open positions, and shows imminent high-impact
+events in the dashboard. The trading engine has no calendar dependency.
+
 The application: the layer between `wyck-engine` and the screen, and a GPUI window with the
 connection screens. `cargo run -p wyck-app` opens it.
 

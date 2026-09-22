@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 publish.workspace = true
-description = "Headless trading core for wyck: broker sessions (cTrader Remote and Local), an immutable state snapshot with change events, risk-based order planning, a dry-run-first order pipeline, and non-blocking guardrails including economic-calendar warnings."
+description = "Headless trading core for wyck: broker sessions, state snapshots, risk-based order planning, and a dry-run-first order pipeline."
 
 [features]
 # Exposes `broker::MockBroker`, a scriptable in-memory broker, for tests of code built on
@@ -15,7 +15,7 @@ testing = []
 
 [dependencies]
 ctrader-mcp = { workspace = true }
-wyck-calendar = { workspace = true }
+ctrader-openapi = { workspace = true }
 wyck-config = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-util = { workspace = true }
@@ -35,6 +35,7 @@ wyck-engine = { path = ".", features = ["testing"] }
 ctrader-mcp = { workspace = true, features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }
 proptest = { workspace = true }
+tempfile = { workspace = true }
 rmcp = { workspace = true }
 
 [[example]]

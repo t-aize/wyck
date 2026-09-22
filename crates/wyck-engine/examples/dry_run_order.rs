@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use wyck_engine::broker::{Broker, ConnectRequest, Connector, MockBroker, ServiceKind};
 use wyck_engine::domain::{AccountKind, Side};
 use wyck_engine::{
-    ArmRequest, CalendarSource, Engine, EngineConfig, EngineOptions, EntryIntent, OrderOutcome,
-    RiskSpec, SizeSpec, StopSpec, TakeProfitSpec,
+    ArmRequest, Engine, EngineConfig, EngineOptions, EntryIntent, OrderOutcome, RiskSpec, SizeSpec,
+    StopSpec, TakeProfitSpec,
 };
 
 struct Fixed(Arc<MockBroker>);
@@ -32,7 +32,6 @@ async fn main() -> wyck_engine::Result<()> {
         EngineConfig::default(),
         EngineOptions {
             connector: Some(Arc::new(Fixed(Arc::clone(&broker)))),
-            calendar: CalendarSource::Disabled,
         },
     )?;
     let handle = engine.handle();

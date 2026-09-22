@@ -2,17 +2,17 @@
 
 The headless trading core of wyck. It owns the cTrader connection, keeps an immutable
 snapshot of the account, sizes orders from risk, sends them through a safety pipeline, and
-warns about risk and economic news. No user interface code: a GUI, a terminal tool or a
+warns about trading risk. No user interface code: a GUI, a terminal tool or a
 service drives the same `EngineHandle`.
 
 ```text
 front end  <--- state snapshots, events ---  Engine  --->  Broker (Remote | Local | mock)
-           --- async commands --------->             --->  wyck-calendar
+           --- async commands --------->
 ```
 
 ## What it gives a front end
 
-- **`EngineState`**: one snapshot with session, account, positions, quotes, warnings and news.
+- **`EngineState`**: one snapshot with session, account, positions, quotes and warnings.
   Read it, or await `watch_state()` for changes.
 - **`Event`**: what changed and why, on a bounded broadcast channel. Lagging subscribers
   resynchronize from the state.
@@ -22,8 +22,8 @@ front end  <--- state snapshots, events ---  Engine  --->  Broker (Remote | Loca
 - **`submit`**: dry-run by default. Real orders need `arm`, single-use plans, one order in
   flight per symbol, and are never replayed: a lost reply is settled by reading positions
   back.
-- **Guardrails**: warnings for per-trade and total risk, stale data, wide spreads and
-  high-impact news for the currencies you trade. They warn; they never block.
+- **Guardrails**: warnings for per-trade and total risk, stale data and wide spreads.
+  They warn; they never block. The application handles economic news.
 
 ## Use
 
@@ -39,6 +39,19 @@ let outcome = handle.submit(plan.id).await?;               // DryRun until you a
 Every method can be awaited from any executor, including UI frameworks that are not built on
 Tokio. See the crate documentation (`cargo doc -p wyck-engine --open`) for the safety model,
 the Remote and Local differences, and the known limitations.
+
+The Open API OAuth helper starts a localhost callback listener and returns the consent URL:
+
+```rust,ignore
+let authorization = handle
+    .begin_openapi_authorization(client_id, client_secret, 8765)
+    .await?;
+open_browser(&authorization.url)?;
+let grant = authorization.finish().await?;
+// Let the user select one of grant.accounts before saving the profile.
+```
+
+The Open API broker adapter is not connected to `EngineHandle::connect` yet.
 
 ## Examples
 

@@ -5,10 +5,11 @@
 //! front end only maps a tone to a color. That keeps the rules that matter, such as "an
 //! account of unknown kind is never shown as a demo account", testable without a window.
 
+use crate::calendar::{NewsFreshness, NewsItem, NewsView};
 use time::OffsetDateTime;
 use time::macros::format_description;
 use wyck_engine::domain::{AccountKind, Instrument, Position, Quote, UnixMillis};
-use wyck_engine::state::{NewsFreshness, NewsItem, Warning, WarningKind};
+use wyck_engine::state::{Warning, WarningKind};
 use wyck_engine::{EngineState, Event, EventKind, OrderOutcome, SessionState, TradingMode};
 
 /// How much attention something deserves. The UI maps it to a color.
@@ -357,10 +358,9 @@ pub fn news_rows(items: &[NewsItem], now: UnixMillis) -> Vec<NewsRow> {
         .collect()
 }
 
-/// A sentence about the calendar's freshness, or `None` when the engine hosts no calendar.
+/// A sentence about the calendar's freshness, or `None` when the app hosts no calendar.
 #[must_use]
-pub fn news_status(state: &EngineState) -> Option<(String, Tone)> {
-    let news = &state.news;
+pub fn news_status(news: &NewsView) -> Option<(String, Tone)> {
     match news.freshness {
         NewsFreshness::Disabled => None,
         NewsFreshness::Loading => Some(("News: loading".to_owned(), Tone::Neutral)),
@@ -547,7 +547,6 @@ mod tests {
     fn blank_state() -> EngineState {
         // A state as the engine publishes it before anything is connected.
         let config = EngineConfig {
-            calendar_enabled: false,
             ..EngineConfig::default()
         };
         let engine = wyck_engine::Engine::start(config).unwrap();

@@ -722,7 +722,6 @@ mod tests {
     #[test]
     fn a_session_needs_an_account() {
         let engine = Engine::start(EngineConfig {
-            calendar_enabled: false,
             ..EngineConfig::default()
         })
         .unwrap();

@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::sync::{broadcast, watch};
-use wyck_calendar::{CalendarHandle, CalendarService};
 
 use crate::broker::{ConnectRequest, Connector, CtraderConnector};
 use crate::config::EngineConfig;
@@ -14,34 +13,18 @@ use crate::domain::{Candle, Instrument, Period, Quote, SymbolInfo, UnixMillis};
 use crate::error::{EngineError, Result};
 use crate::event::Event;
 use crate::ids::{CommandId, OrderId, PositionId};
-use crate::news;
+use crate::openapi_auth::OpenApiAuthorization;
 use crate::risk::{EntryIntent, OrderPlan, PlanId};
 use crate::state::EngineState;
 use crate::trading::{
     ArmRequest, CloseSize, FlattenPreview, FlattenReport, FlattenScope, OrderOutcome,
 };
 
-/// Where the engine gets its economic calendar.
-#[derive(Clone, Default)]
-#[non_exhaustive]
-pub enum CalendarSource {
-    /// Start a `wyck_calendar` service against the real feed. The default, and the choice
-    /// that follows [`EngineConfig::calendar_enabled`].
-    #[default]
-    Default,
-    /// No calendar: the news view stays `Disabled` and no news warnings are raised.
-    Disabled,
-    /// Use an already running calendar service (tests, or an app sharing one).
-    Custom(CalendarHandle),
-}
-
 /// Optional pieces of an [`Engine`], for tests and embedding.
 #[derive(Clone, Default)]
 pub struct EngineOptions {
     /// How brokers are reached. `None` uses real cTrader connections.
     pub connector: Option<Arc<dyn Connector>>,
-    /// Where news comes from.
-    pub calendar: CalendarSource,
 }
 
 /// The running engine. Owns its Tokio runtime (unless started on an existing one) and stops
@@ -57,7 +40,7 @@ pub struct Engine {
 
 impl Engine {
     /// Starts an engine with its own runtime, real cTrader connections and the real
-    /// calendar feed. Callable from any thread, no async context required.
+    /// Callable from any thread, no async context required.
     ///
     /// # Errors
     ///
@@ -67,7 +50,7 @@ impl Engine {
         Self::start_with(config, EngineOptions::default())
     }
 
-    /// Like [`Engine::start`], with a custom connector and calendar source.
+    /// Like [`Engine::start`], with a custom connector.
     ///
     /// # Errors
     ///
@@ -106,28 +89,7 @@ impl Engine {
         let connector = options
             .connector
             .unwrap_or_else(|| Arc::new(CtraderConnector::new(config.assumed_specs.clone())));
-        let calendar_enabled = config.calendar_enabled;
         let inner = Inner::new(config, connector);
-
-        // Everything that spawns must run inside the runtime.
-        let _guard = handle.enter();
-        let calendar = match options.calendar {
-            CalendarSource::Disabled => None,
-            CalendarSource::Custom(c) => Some(c),
-            CalendarSource::Default if calendar_enabled => match CalendarService::spawn_default() {
-                Ok(c) => Some(c),
-                Err(error) => {
-                    tracing::warn!(%error, "could not start the economic calendar");
-                    None
-                }
-            },
-            CalendarSource::Default => None,
-        };
-        if let Some(calendar) = calendar {
-            *crate::core::lock(&inner.calendar) = Some(calendar.clone());
-            news::spawn(&inner, calendar);
-        }
-        drop(_guard);
 
         Ok(Self {
             inner,
@@ -178,6 +140,21 @@ pub struct EngineHandle {
 }
 
 impl EngineHandle {
+    /// Starts a cTrader Open API browser authorization with a localhost callback.
+    /// The application opens the returned URL and awaits the account list.
+    pub async fn begin_openapi_authorization(
+        &self,
+        client_id: String,
+        client_secret: secrecy::SecretString,
+        callback_port: u16,
+    ) -> Result<OpenApiAuthorization> {
+        let runtime = self.runtime.clone();
+        self.run(async move {
+            crate::openapi_auth::begin(runtime, client_id, client_secret, callback_port).await
+        })
+        .await
+    }
+
     /// Runs `work` on the engine's runtime and awaits its result.
     async fn run<T, F>(&self, work: F) -> Result<T>
     where

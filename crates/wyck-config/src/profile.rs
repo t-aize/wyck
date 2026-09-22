@@ -1,5 +1,5 @@
 //! A configured connection profile: the non-secret half of an account (display name,
-//! which service it's for, its endpoint). The secret half (the token itself) never
+//! service, endpoint and optional Open API settings). Secret credentials never
 //! lives here; see [`crate::secret`].
 
 use serde::{Deserialize, Serialize};
@@ -36,7 +36,7 @@ impl std::fmt::Display for ProfileId {
     }
 }
 
-/// A configured connection profile: everything about an account EXCEPT its token.
+/// A configured connection profile: public connection settings, never secrets.
 ///
 /// `service` is deliberately a free-form string rather than an enum owned by this
 /// crate: `wyck-config` has no knowledge of cTrader, or of any other specific
@@ -58,6 +58,15 @@ pub struct ProfileConfig {
     /// endpoint). `None` for services that resolve their endpoint another way.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
+    /// Public Open API application ID, if this profile uses Open API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    /// OAuth callback port on localhost, if this profile uses Open API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub callback_port: Option<u16>,
+    /// Selected cTrader account ID, if this profile uses Open API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<i64>,
 }
 
 impl ProfileConfig {
@@ -72,6 +81,9 @@ impl ProfileConfig {
             display_name: display_name.into(),
             service: service.into(),
             endpoint,
+            client_id: None,
+            callback_port: None,
+            account_id: None,
         }
     }
 }

@@ -245,7 +245,6 @@ mod tests {
 
     fn blank_state() -> EngineState {
         let config = EngineConfig {
-            calendar_enabled: false,
             ..EngineConfig::default()
         };
         let engine = wyck_engine::Engine::start(config).unwrap();

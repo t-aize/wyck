@@ -65,7 +65,6 @@ pub fn live_config() -> EngineConfig {
         config.assumed_specs.symbols.insert(name.to_owned(), rules);
     }
     // No spending a calendar request per test run.
-    config.calendar_enabled = false;
     config
 }
 

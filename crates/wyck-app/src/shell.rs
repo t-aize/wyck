@@ -178,9 +178,46 @@ fn start<V: Render + 'static>(
     .detach();
 
     follow_engine(&shell, session_marker, cx);
+    follow_calendar(&shell, cx);
     if let Some(hotkeys) = hotkeys {
         route_hotkeys(shell, hooks, hotkeys, cx);
     }
+}
+
+/// Mirrors the app-owned calendar into the shared model.
+fn follow_calendar(shell: &Shell, cx: &mut App) {
+    let Some(calendar) = shell.controller.calendar() else {
+        return;
+    };
+    let mut updates = calendar.subscribe();
+    let model = shell.model.clone();
+    cx.spawn(async move |cx| {
+        loop {
+            let state = updates.borrow_and_update().clone();
+            model.update(cx, |model, cx| {
+                model.apply_calendar(state);
+                cx.notify();
+            });
+            if updates.changed().await.is_err() {
+                break;
+            }
+        }
+    })
+    .detach();
+
+    let model = shell.model.clone();
+    cx.spawn(async move |cx| {
+        loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(15))
+                .await;
+            model.update(cx, |model, cx| {
+                model.refresh_news();
+                cx.notify();
+            });
+        }
+    })
+    .detach();
 }
 
 /// Registers the shortcuts. Failures are appended to `banners` and logged; the app carries on.

@@ -153,7 +153,6 @@ mod tests {
 
     fn state() -> EngineState {
         let config = EngineConfig {
-            calendar_enabled: false,
             ..EngineConfig::default()
         };
         let engine = Engine::start(config).unwrap();

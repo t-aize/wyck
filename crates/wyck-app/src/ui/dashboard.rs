@@ -48,9 +48,24 @@ pub(super) fn dashboard(
         .map(|e| e.info.clone());
     let symbol = symbol_header(&state, &active, listed.as_ref());
     let info = presentation::header(&state);
+    let news_warning = view
+        .shell
+        .model
+        .read(cx)
+        .news_warnings
+        .first()
+        .map(|warning| warning.message.clone());
     let ready = matches!(state.session, SessionState::Ready);
 
-    let bar = header(view, &symbol, &info, ready, window, cx);
+    let bar = header(
+        view,
+        &symbol,
+        &info,
+        news_warning.as_deref(),
+        ready,
+        window,
+        cx,
+    );
     let namespace = match state.service {
         Some(ServiceKind::CtraderLocal) => "local",
         _ => "remote",
@@ -82,6 +97,7 @@ fn header(
     view: &mut AppView,
     symbol: &SymbolHeader,
     info: &Header,
+    news_warning: Option<&str>,
     ready: bool,
     window: &mut Window,
     cx: &mut Context<AppView>,
@@ -96,6 +112,14 @@ fn header(
         .gap(sz(8.))
         .child(badge(&info.kind))
         .child(badge(&info.mode))
+        .children(news_warning.map(|warning| {
+            div()
+                .max_w(sz(260.))
+                .truncate()
+                .text_size(sz(10.))
+                .text_color(theme::red())
+                .child(warning.to_owned())
+        }))
         .when(!ready, |el| el.child(badge(&info.session)));
 
     div()

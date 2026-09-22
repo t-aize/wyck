@@ -2,8 +2,7 @@
 //!
 //! The headless trading core of wyck: it owns the broker connection, keeps a live picture
 //! of the account, turns "buy EURUSD, 30 pip stop, risk 1%" into an exact order, sends it
-//! safely, and warns about what could hurt (a wide spread, too much risk, FOMC in ten
-//! minutes). It contains **no user interface code**; a GUI, a terminal tool or a headless
+//! safely, and warns about trading risk. It contains **no user interface code**; a GUI, a terminal tool or a headless
 //! service all drive the same [`EngineHandle`].
 //!
 //! ```text
@@ -12,11 +11,11 @@
 //!        v                            |
 //!   +--------------------- Engine ---------------------+
 //!   |  session   risk planning   order pipeline        |
-//!   |  guardrails   news         state + events        |
-//!   +--------+----------------------+------------------+
-//!            |                      |
-//!        Broker trait          wyck-calendar
-//!     (Remote, Local, mock)    (economic calendar)
+//!   |  guardrails              state + events        |
+//!   +--------+---------------------------------------+
+//!            |
+//!        Broker trait
+//!     (Remote, Local, mock)
 //! ```
 //!
 //! # Quick start
@@ -26,7 +25,7 @@
 //! use wyck_engine::broker::{ConnectRequest, MockBroker, ServiceKind};
 //! use wyck_engine::domain::Side;
 //! use wyck_engine::{
-//!     CalendarSource, Engine, EngineConfig, EngineOptions, EntryIntent, OrderOutcome, RiskSpec,
+//!     Engine, EngineConfig, EngineOptions, EntryIntent, OrderOutcome, RiskSpec,
 //!     SizeSpec, StopSpec,
 //! };
 //!
@@ -44,7 +43,6 @@
 //!     EngineConfig::default(),
 //!     EngineOptions {
 //!         connector: Some(Arc::new(One(Arc::new(MockBroker::new())))),
-//!         calendar: CalendarSource::Disabled,
 //!     },
 //! )
 //! .unwrap();
@@ -81,7 +79,7 @@
 //! # Reading state: snapshots and events
 //!
 //! [`EngineState`] is one immutable snapshot of everything a screen needs: session,
-//! account, positions, quotes, warnings, news. Read it with [`EngineHandle::state`], or
+//! account, positions, quotes and warnings. Read it with [`EngineHandle::state`], or
 //! await [`EngineHandle::watch_state`] to be woken on every change. [`Event`]s say *what
 //! changed and why* (`OrderResult`, `PositionsChanged`, `Reconciled`) and arrive on a bounded
 //! broadcast channel from [`EngineHandle::subscribe`].
@@ -188,13 +186,13 @@ mod error;
 pub mod event;
 pub mod guardrails;
 mod ids;
-mod news;
+pub mod openapi_auth;
 pub mod risk;
 pub mod state;
 pub mod trading;
 
 pub use config::EngineConfig;
-pub use engine::{CalendarSource, Engine, EngineHandle, EngineOptions};
+pub use engine::{Engine, EngineHandle, EngineOptions};
 pub use error::{BrokerErrorKind, EngineError, ErrorKind, Result};
 pub use event::{Event, EventKind};
 pub use ids::{AccountId, CommandId, OrderId, PositionId, Revision};

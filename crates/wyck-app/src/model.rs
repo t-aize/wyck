@@ -8,7 +8,10 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use wyck_engine::domain::UnixMillis;
+use crate::calendar::NewsView;
+use wyck_calendar::CalendarState;
+use wyck_engine::domain::{UnixMillis, now_millis};
+use wyck_engine::state::{Warning, WarningKind};
 use wyck_engine::{EngineState, Event};
 
 use crate::messages::{Level, Notice};
@@ -62,6 +65,12 @@ pub struct Toast {
 pub struct AppModel {
     /// The latest engine state.
     pub state: Arc<EngineState>,
+    /// Economic calendar maintained by the application.
+    pub calendar: Option<CalendarState>,
+    /// Filtered events relevant to the watched symbols and positions.
+    pub news: NewsView,
+    /// Economic warnings computed by the application.
+    pub news_warnings: Vec<Warning>,
     /// What happened, most recent first, without the routine refreshes.
     pub activity: Vec<ActivityRow>,
     /// Notices, most recent first.
@@ -80,6 +89,9 @@ impl AppModel {
     pub fn new(state: Arc<EngineState>, banners: Vec<Notice>) -> Self {
         Self {
             state,
+            calendar: None,
+            news: NewsView::default(),
+            news_warnings: Vec::new(),
             activity: Vec::new(),
             notices: VecDeque::new(),
             banners,
@@ -91,11 +103,62 @@ impl AppModel {
     /// Takes a new engine state and the engine's recent events (oldest first).
     pub fn apply(&mut self, state: Arc<EngineState>, events: &[Event]) {
         self.state = state;
+        self.refresh_news();
         self.activity = events
             .iter()
             .rev()
             .filter_map(activity_row)
             .take(MAX_ACTIVITY)
+            .collect();
+    }
+
+    /// Applies a new calendar snapshot and recomputes the app's news view.
+    pub fn apply_calendar(&mut self, calendar: CalendarState) {
+        self.calendar = Some(calendar);
+        self.refresh_news();
+    }
+
+    /// Engine and calendar warnings in one list for the front end.
+    #[must_use]
+    pub fn warnings(&self) -> Vec<Warning> {
+        self.state
+            .warnings
+            .iter()
+            .cloned()
+            .chain(self.news_warnings.iter().cloned())
+            .collect()
+    }
+
+    /// Recomputes the warning window against the current clock.
+    pub fn refresh_news(&mut self) {
+        let Some(calendar) = &self.calendar else {
+            return;
+        };
+        let mut symbols = self.state.watched.clone();
+        symbols.extend(
+            self.state
+                .positions
+                .iter()
+                .map(|position| position.symbol.clone()),
+        );
+        let now = now_millis();
+        let computed = crate::calendar::compute(
+            calendar,
+            &symbols,
+            now,
+            std::time::Duration::from_secs(30 * 60),
+            std::time::Duration::from_secs(15 * 60),
+        );
+        self.news = computed.view;
+        self.news_warnings = computed
+            .warnings
+            .into_iter()
+            .map(|(id, message)| Warning {
+                id,
+                kind: WarningKind::News,
+                message,
+                raised_at: now,
+            })
             .collect();
     }
 
@@ -170,6 +233,7 @@ impl AppModel {
 
 #[cfg(test)]
 mod tests {
+    use wyck_calendar::{CalendarEvent, Currency, Impact, Scope};
     use wyck_engine::{Engine, EngineConfig, EventKind};
 
     use super::*;
@@ -177,7 +241,6 @@ mod tests {
 
     fn state() -> Arc<EngineState> {
         let config = EngineConfig {
-            calendar_enabled: false,
             ..EngineConfig::default()
         };
         let engine = Engine::start(config).unwrap();
@@ -191,6 +254,29 @@ mod tests {
             command: None,
             kind,
         }
+    }
+
+    #[test]
+    fn app_calendar_warns_for_the_watched_currency() {
+        let mut engine_state = EngineState::default();
+        engine_state.watched.push("EURUSD".into());
+        let mut model = AppModel::new(Arc::new(engine_state), Vec::new());
+        let now = time::OffsetDateTime::now_utc();
+        model.apply_calendar(CalendarState {
+            events: Arc::from(vec![CalendarEvent {
+                title: "Rate decision".into(),
+                scope: Scope::Currency(Currency::USD),
+                time: now + time::Duration::minutes(10),
+                impact: Impact::High,
+                forecast: None,
+                previous: None,
+            }]),
+            fetched_at: Some(now),
+            ..CalendarState::default()
+        });
+        assert_eq!(model.news.upcoming.len(), 1);
+        assert_eq!(model.news_warnings.len(), 1);
+        assert_eq!(model.warnings().len(), 1);
     }
 
     #[test]

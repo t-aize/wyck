@@ -7,7 +7,6 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::future::Future;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
@@ -15,7 +14,6 @@ use tokio::sync::{broadcast, watch};
 use tokio::time::{Instant, MissedTickBehavior};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-use wyck_calendar::CalendarHandle;
 
 use crate::broker::{Broker, ConnectRequest, Connector};
 use crate::config::EngineConfig;
@@ -65,10 +63,8 @@ pub(crate) struct Inner {
     /// The symbol list of the current session, with the connection generation it was read for.
     catalog: Mutex<Option<(u64, Arc<Vec<SymbolInfo>>)>>,
     watched: Mutex<BTreeSet<String>>,
-    clock_offset_ms: AtomicI64,
     pub(crate) shutdown: CancellationToken,
     pub(crate) tracker: TaskTracker,
-    pub(crate) calendar: Mutex<Option<CalendarHandle>>,
 }
 
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -92,10 +88,8 @@ impl Inner {
             instruments: Mutex::new(HashMap::new()),
             catalog: Mutex::new(None),
             watched: Mutex::new(BTreeSet::new()),
-            clock_offset_ms: AtomicI64::new(0),
             shutdown: CancellationToken::new(),
             tracker: TaskTracker::new(),
-            calendar: Mutex::new(None),
         })
     }
 
@@ -142,11 +136,6 @@ impl Inner {
         }
         // No receiver is fine: events are for whoever is listening.
         let _ = self.events.send(event);
-    }
-
-    /// The broker's clock, estimated from the offset measured at connect time.
-    pub(crate) fn server_now_ms(&self) -> UnixMillis {
-        now_millis() + self.clock_offset_ms.load(Ordering::Relaxed)
     }
 
     pub(crate) fn raise_warning(&self, id: String, kind: WarningKind, message: String) {
@@ -483,11 +472,10 @@ impl Inner {
             s.service = Some(broker.service());
             s.account_id = Some(broker.account_id().clone());
         });
-        // The broker's clock, for news timing. Best effort: fall back to the local clock.
+        // Check the computer clock against the broker's clock when available.
         match self.io("the server time", broker.server_time()).await {
             Ok(server) => {
                 let offset = server - now_millis();
-                self.clock_offset_ms.store(offset, Ordering::Relaxed);
                 if offset.abs() > 5_000 {
                     self.raise_warning(
                         "clock-skew".to_owned(),
@@ -500,7 +488,6 @@ impl Inner {
                 }
             }
             Err(error) => {
-                self.clock_offset_ms.store(0, Ordering::Relaxed);
                 tracing::warn!(%error, "no server time; using the local clock");
             }
         }

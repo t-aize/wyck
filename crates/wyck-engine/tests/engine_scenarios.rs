@@ -12,9 +12,9 @@ use tokio::runtime::Handle;
 use wyck_engine::broker::{BrokerCall, MockBroker};
 use wyck_engine::domain::{AccountKind, Side, Volume};
 use wyck_engine::{
-    ArmRequest, CalendarSource, CloseSize, Engine, EngineConfig, EngineError, EngineHandle,
-    EngineOptions, EntryIntent, ErrorKind, EventKind, FlattenScope, OrderOutcome, RiskSpec,
-    SessionState, SizeSpec, StopSpec, TakeProfitSpec, TradingMode,
+    ArmRequest, CloseSize, Engine, EngineConfig, EngineError, EngineHandle, EngineOptions,
+    EntryIntent, ErrorKind, EventKind, FlattenScope, OrderOutcome, RiskSpec, SessionState,
+    SizeSpec, StopSpec, TakeProfitSpec, TradingMode,
 };
 
 struct Fixture {
@@ -42,7 +42,6 @@ async fn fixture_with(broker: MockBroker, config: EngineConfig) -> Fixture {
         config,
         EngineOptions {
             connector: Some(connector.clone()),
-            calendar: CalendarSource::Disabled,
         },
     )
     .unwrap();
@@ -761,7 +760,6 @@ fn the_handle_works_from_an_executor_that_is_not_the_engines() {
         EngineConfig::default(),
         EngineOptions {
             connector: Some(connector),
-            calendar: CalendarSource::Disabled,
         },
     )
     .unwrap();

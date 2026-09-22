@@ -62,7 +62,24 @@ pub use paths::AppPaths;
 pub use profile::{ProfileConfig, ProfileId};
 pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, SecretStore};
 
+use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// One OAuth token pair kept under a single credential-store key.
+#[derive(Debug, Clone)]
+pub struct OpenApiTokens {
+    pub access_token: SecretString,
+    pub refresh_token: SecretString,
+    pub expires_at: Option<SystemTime>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct StoredOpenApiTokens {
+    access_token: String,
+    refresh_token: String,
+    expires_at: Option<u64>,
+}
 
 /// The top-level entry point: [`AppPaths`] plus a loaded [`AppConfig`] plus a chosen
 /// [`SecretStore`] backend, combined into the single type a front end actually imports
@@ -168,6 +185,9 @@ impl WyckConfig {
         }
 
         self.secrets.delete(&SecretKey::for_profile(id))?;
+        for name in ["client-secret", "oauth-token-set"] {
+            self.secrets.delete(&Self::profile_secret_key(id, name))?;
+        }
         if self.app_config.active_profile.as_ref() == Some(id) {
             self.app_config.active_profile = None;
         }
@@ -179,6 +199,93 @@ impl WyckConfig {
     /// directly).
     pub fn token_for(&self, id: &ProfileId) -> Result<Option<SecretString>> {
         self.secrets.retrieve(&SecretKey::for_profile(id))
+    }
+
+    /// Stores a named credential for a profile, separate from its MCP bearer token.
+    /// This is used for Open API client secrets and OAuth tokens.
+    pub fn set_profile_secret(
+        &self,
+        id: &ProfileId,
+        name: &str,
+        secret: &SecretString,
+    ) -> Result<()> {
+        if self.profile(id).is_none() {
+            return Err(ConfigError::UnknownProfile(id.to_string()));
+        }
+        self.secrets
+            .store(&Self::profile_secret_key(id, name), secret)
+    }
+
+    /// Reads a named credential for a profile.
+    pub fn profile_secret(&self, id: &ProfileId, name: &str) -> Result<Option<SecretString>> {
+        if self.profile(id).is_none() {
+            return Err(ConfigError::UnknownProfile(id.to_string()));
+        }
+        self.secrets.retrieve(&Self::profile_secret_key(id, name))
+    }
+
+    /// Saves an OAuth token pair with one credential-store write. A rotated refresh
+    /// token must never be persisted separately from its matching access token.
+    pub fn save_openapi_tokens(&self, id: &ProfileId, tokens: &OpenApiTokens) -> Result<()> {
+        let record = StoredOpenApiTokens {
+            access_token: tokens.access_token.expose_secret().to_owned(),
+            refresh_token: tokens.refresh_token.expose_secret().to_owned(),
+            expires_at: tokens.expires_at.and_then(|time| {
+                time.duration_since(UNIX_EPOCH)
+                    .ok()
+                    .map(|span| span.as_secs())
+            }),
+        };
+        let encoded = serde_json::to_string(&record).map_err(|_| ConfigError::SecretStore {
+            key: Self::profile_secret_key(id, "oauth-token-set").to_string(),
+            message: "could not encode the OAuth token pair".into(),
+        })?;
+        self.set_profile_secret(id, "oauth-token-set", &SecretString::from(encoded))
+    }
+
+    /// Loads the OAuth token pair of a profile, if it has one.
+    pub fn openapi_tokens(&self, id: &ProfileId) -> Result<Option<OpenApiTokens>> {
+        let Some(secret) = self.profile_secret(id, "oauth-token-set")? else {
+            return Ok(None);
+        };
+        let record: StoredOpenApiTokens =
+            serde_json::from_str(secret.expose_secret()).map_err(|_| {
+                ConfigError::MalformedEnvelope {
+                    key: Self::profile_secret_key(id, "oauth-token-set").to_string(),
+                    reason: "invalid OAuth token record".into(),
+                }
+            })?;
+        Ok(Some(OpenApiTokens {
+            access_token: SecretString::from(record.access_token),
+            refresh_token: SecretString::from(record.refresh_token),
+            expires_at: record
+                .expires_at
+                .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds)),
+        }))
+    }
+
+    fn profile_secret_key(id: &ProfileId, name: &str) -> SecretKey {
+        SecretKey::new("profile-field", &format!("{}:{name}", id.as_str()))
+    }
+
+    /// Records public Open API settings for a profile after OAuth account selection.
+    pub fn set_openapi_profile(
+        &mut self,
+        id: &ProfileId,
+        client_id: String,
+        callback_port: u16,
+        account_id: i64,
+    ) -> Result<()> {
+        let profile = self
+            .app_config
+            .profiles
+            .iter_mut()
+            .find(|profile| &profile.id == id)
+            .ok_or_else(|| ConfigError::UnknownProfile(id.to_string()))?;
+        profile.client_id = Some(client_id);
+        profile.callback_port = Some(callback_port);
+        profile.account_id = Some(account_id);
+        self.app_config.save(&self.paths)
     }
 
     /// Sets (or, with `None`, clears) the active profile, and persists the change.
@@ -302,12 +409,85 @@ mod tests {
             )
             .unwrap();
         config.set_active_profile(Some(id.clone())).unwrap();
+        config
+            .set_profile_secret(&id, "client-secret", &SecretString::from("app-secret"))
+            .unwrap();
+        config
+            .set_profile_secret(&id, "oauth-token-set", &SecretString::from("refresh"))
+            .unwrap();
 
         config.remove_profile(&id).unwrap();
 
         assert!(config.profiles().is_empty());
         assert!(config.active_profile().is_none());
         assert!(config.token_for(&id).unwrap().is_none());
+        assert!(
+            config
+                .secrets
+                .retrieve(&WyckConfig::profile_secret_key(&id, "client-secret"))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            config
+                .secrets
+                .retrieve(&WyckConfig::profile_secret_key(&id, "oauth-token-set"))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn openapi_profile_settings_and_secrets_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = config_in(dir.path());
+        let id = config
+            .add_profile("Demo", "ctrader-openapi", None, None)
+            .unwrap();
+        config
+            .set_openapi_profile(&id, "client-id".into(), 8765, 42)
+            .unwrap();
+        config
+            .set_profile_secret(&id, "client-secret", &SecretString::from("secret"))
+            .unwrap();
+        config
+            .save_openapi_tokens(
+                &id,
+                &OpenApiTokens {
+                    access_token: SecretString::from("access"),
+                    refresh_token: SecretString::from("refresh"),
+                    expires_at: Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000)),
+                },
+            )
+            .unwrap();
+        drop(config);
+
+        let config = config_in(dir.path());
+        let profile = config.profile(&id).unwrap();
+        assert_eq!(profile.client_id.as_deref(), Some("client-id"));
+        assert_eq!(profile.callback_port, Some(8765));
+        assert_eq!(profile.account_id, Some(42));
+        use secrecy::ExposeSecret;
+        assert_eq!(
+            config
+                .profile_secret(&id, "client-secret")
+                .unwrap()
+                .unwrap()
+                .expose_secret(),
+            "secret"
+        );
+        let tokens = config.openapi_tokens(&id).unwrap().unwrap();
+        assert_eq!(tokens.access_token.expose_secret(), "access");
+        assert_eq!(tokens.refresh_token.expose_secret(), "refresh");
+        assert_eq!(
+            tokens.expires_at,
+            Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000))
+        );
+        assert!(
+            !std::fs::read_to_string(config.paths().config_file())
+                .unwrap()
+                .contains("secret")
+        );
     }
 
     #[test]

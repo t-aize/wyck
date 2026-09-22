@@ -114,63 +114,6 @@ pub struct Warning {
     pub raised_at: UnixMillis,
 }
 
-/// How current the calendar data is. Mirrors `wyck_calendar::Freshness`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum NewsFreshness {
-    /// The engine does not host a calendar.
-    Disabled,
-    /// The first fetch has not finished.
-    Loading,
-    /// No fetch has ever succeeded.
-    Unavailable,
-    /// The latest fetch succeeded.
-    Fresh,
-    /// The latest fetch failed; the events shown are from an earlier success.
-    Stale,
-}
-
-/// One economic event, in the engine's terms.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NewsItem {
-    /// The event title, e.g. `"CPI m/m"`.
-    pub title: String,
-    /// The currency it applies to, or `None` for non-currency events.
-    pub currency: Option<String>,
-    /// `"High"`, `"Medium"`, `"Low"`, `"Holiday"` or `"Unknown"`.
-    pub impact: String,
-    /// When it happens, in Unix milliseconds.
-    pub at: UnixMillis,
-    /// The published forecast, if any.
-    pub forecast: Option<String>,
-    /// The previous value, if any.
-    pub previous: Option<String>,
-}
-
-/// The calendar as a front end sees it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NewsView {
-    /// How current it is.
-    pub freshness: NewsFreshness,
-    /// When the data was last confirmed current.
-    pub fetched_at: Option<UnixMillis>,
-    /// The most recent fetch error, if the data is stale or unavailable.
-    pub last_error: Option<String>,
-    /// The next relevant events, soonest first, already filtered to what the user trades.
-    pub upcoming: Vec<NewsItem>,
-}
-
-impl Default for NewsView {
-    fn default() -> Self {
-        Self {
-            freshness: NewsFreshness::Disabled,
-            fetched_at: None,
-            last_error: None,
-            upcoming: Vec::new(),
-        }
-    }
-}
-
 /// The engine's whole visible state at one instant.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EngineState {
@@ -200,8 +143,6 @@ pub struct EngineState {
     pub orders_in_flight: Vec<String>,
     /// Active warnings.
     pub warnings: Vec<Warning>,
-    /// The economic calendar.
-    pub news: NewsView,
     /// The most recent refresh error, cleared by the next success.
     pub last_error: Option<String>,
     /// When the account and positions were last refreshed successfully.
@@ -224,7 +165,6 @@ impl Default for EngineState {
             watched: Vec::new(),
             orders_in_flight: Vec::new(),
             warnings: Vec::new(),
-            news: NewsView::default(),
             last_error: None,
             last_refresh: None,
         }
