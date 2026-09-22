@@ -107,6 +107,7 @@ impl CalendarClient {
         let http = reqwest::Client::builder()
             .timeout(config.timeout)
             .user_agent(&config.user_agent)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| CalendarError::Config(format!("cannot build HTTP client: {e}")))?;
         Ok(Self {
@@ -145,6 +146,9 @@ impl CalendarClient {
         let status = response.status();
 
         if status == StatusCode::NOT_MODIFIED {
+            if validators.is_none_or(Validators::is_empty) {
+                return Err(CalendarError::Status { status: 304 });
+            }
             return Ok(FetchOutcome::NotModified);
         }
         if status == StatusCode::TOO_MANY_REQUESTS {

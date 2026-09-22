@@ -78,6 +78,14 @@ fn router() -> Router {
         .route("/drift", get(|| async { r#"[{"foo":1},{"bar":2}]"# }))
         .route("/huge", get(|| async { "[".repeat(200 * 1024) }))
         .route("/empty", get(|| async { "[]" }))
+        .route(
+            "/unexpected-304",
+            get(|| async { StatusCode::NOT_MODIFIED }),
+        )
+        .route(
+            "/redirect",
+            get(|| async { (StatusCode::FOUND, [(header::LOCATION, "/ok")]) }),
+        )
 }
 
 #[tokio::test]
@@ -113,6 +121,23 @@ async fn an_empty_week_is_a_valid_empty_calendar() {
         panic!("expected download");
     };
     assert!(feed.events.is_empty());
+}
+
+#[tokio::test]
+async fn a_304_without_a_cached_response_is_an_error() {
+    let base = serve(router()).await;
+    let err = client(&base, "/unexpected-304")
+        .fetch(None)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, CalendarError::Status { status: 304 }));
+}
+
+#[tokio::test]
+async fn redirects_are_not_followed() {
+    let base = serve(router()).await;
+    let err = client(&base, "/redirect").fetch(None).await.unwrap_err();
+    assert!(matches!(err, CalendarError::Status { status: 302 }));
 }
 
 #[tokio::test]

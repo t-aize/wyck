@@ -218,9 +218,8 @@ async fn run<F: Fetch>(
                 failures = failures.saturating_add(1);
                 tracing::warn!(%error, failures, "calendar refresh failed; keeping last good data");
                 let delay = backoff(&config, failures, &error);
-                if let Some(hold) = required_hold(&error) {
-                    min_gap = min_gap.max(hold);
-                }
+                // A manual refresh must obey the same backoff as the scheduled retry.
+                min_gap = min_gap.max(delay);
                 state.send_modify(|s| {
                     s.last_error = Some(error.to_string());
                     s.consecutive_failures = failures;
@@ -505,6 +504,19 @@ mod tests {
         assert!(handle.refresh());
         next_change(&mut rx).await;
         assert_eq!(script.gaps(), [Duration::from_secs(300)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn manual_refresh_cannot_bypass_exponential_backoff() {
+        let script = Script::new([server_error(), server_error(), ok(1)]);
+        let handle = CalendarService::spawn(script.clone(), config());
+        let mut rx = handle.subscribe();
+
+        next_change(&mut rx).await;
+        next_change(&mut rx).await;
+        assert!(handle.refresh());
+        next_change(&mut rx).await;
+        assert_eq!(script.gaps(), [60, 120].map(Duration::from_secs));
     }
 
     #[tokio::test(start_paused = true)]
