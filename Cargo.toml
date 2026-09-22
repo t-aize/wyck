@@ -79,6 +79,21 @@ argon2 = "0.6.0"
 chacha20poly1305 = "0.11.0"
 getrandom = "0.4.3"
 
+# --- scripts/: operational tooling (sign in, token refresh, account discovery) ---
+#
+# These are `[[bin]]` targets, which only ever link `[dependencies]` (Cargo has no
+# per-binary dependency scoping without a workspace), so the two crates below end up
+# reachable from the library too. Neither is used by `src/`.
+
+# Loads `.env` into the process environment before a script or `tests/live.rs` reads it.
+# Real credentials still never enter the crate through anything but the environment.
+dotenvy = "0.15.7"
+
+# Typed CLI parsing (flags, subcommands, auto `--help`) for the scripts, with each flag
+# also readable from the environment (the `env` feature), so a value can come from either
+# `.env`/`dotenvy` or an explicit flag, the flag taking precedence.
+clap = { version = "4.6.7", features = ["derive", "env"] }
+
 [dev-dependencies]
 # Isolated temp directories for the config/secret-store tests
 tempfile = "3.27.0"
@@ -88,6 +103,20 @@ proptest = "1.11.0"
 
 # In-process mock WebSocket server for the Open API integration tests
 tokio = { version = "1.53.1", features = ["rt", "macros", "test-util", "net", "io-util", "signal"] }
+
+# --- scripts/: see scripts/README.md ---
+
+[[bin]]
+name = "sign-in"
+path = "scripts/sign_in.rs"
+
+[[bin]]
+name = "refresh-tokens"
+path = "scripts/refresh_tokens.rs"
+
+[[bin]]
+name = "check-connection"
+path = "scripts/check_connection.rs"
 
 [profile.release]
 lto = true

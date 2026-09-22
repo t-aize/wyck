@@ -14,4 +14,12 @@ cargo build
 cargo test
 ```
 
+`cargo test` never touches the network: it is entirely mock servers and unit tests. Testing
+`openapi` against a real cTrader demo account, end to end, is a separate opt-in step; see
+`scripts/README.md` and `.env.example` to set it up, then:
+
+```sh
+cargo test --test live -- --ignored --nocapture
+```
+
 Licensed under the [Apache License 2.0](LICENSE).
