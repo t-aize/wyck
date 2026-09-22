@@ -43,6 +43,12 @@
 //!   it is refreshed first; the new pair goes to the [`TokenStore`] before it is used, because the
 //!   old refresh token stops working. A server notice that the tokens were invalidated forces a
 //!   refresh and a reconnect.
+//! - **Reacts to the server's own disconnect notices**, not just a dropped socket: a
+//!   `ProtoOAAccountDisconnectEvent` for this account re-sends the account auth on the same
+//!   connection (the documented recovery: the account's session was torn down server-side, but
+//!   the connection itself is still good), and a `ProtoOAClientDisconnectEvent` (the server ending
+//!   every session on the connection) triggers a full reconnect, both without waiting for the
+//!   socket to actually close.
 //! - **Tells failures that will pass from those that will not.** A dropped connection, a timeout,
 //!   maintenance or a rate limit are retried. A refused refresh token, an account that is not
 //!   authorized, or a bad configuration end the session with [`SessionEvent::Failed`]: only the
@@ -806,6 +812,29 @@ async fn serve(
                         return Served::TokensInvalid;
                     }
                 }
+                // The server tore down just this account's session on an otherwise live
+                // connection (the account was deleted, its cTID was deleted, or its token was
+                // refreshed or revoked elsewhere). The documented recovery is to send a fresh
+                // account auth, not to reconnect: the connection itself is still good.
+                Ok(Event::AccountDisconnected(notice)) => {
+                    let ours = notice.ctid_trader_account_id == shared.account_id;
+                    shared.emit(SessionEvent::Data(Event::AccountDisconnected(notice)));
+                    if ours && !reauthorize_account(client, shared).await {
+                        return Served::Disconnected(
+                            "the account session was ended by the server and could not be \
+                             re-authorized"
+                                .to_owned(),
+                        );
+                    }
+                }
+                // The server is ending every session on this connection. The documented recovery
+                // is to reconnect and sign everything in again from scratch.
+                Ok(Event::ServerDisconnecting(notice)) => {
+                    shared.emit(SessionEvent::Data(Event::ServerDisconnecting(notice)));
+                    return Served::Disconnected(
+                        "the server is ending the connection".to_owned(),
+                    );
+                }
                 Ok(event) => shared.emit(SessionEvent::Data(event)),
                 Err(broadcast::error::RecvError::Lagged(missed)) => {
                     warn!(missed, "the session fell behind and lost events");
@@ -817,6 +846,35 @@ async fn serve(
         }
         if client.is_closed() && events.is_empty() {
             return Served::Disconnected("the connection is closed".to_owned());
+        }
+    }
+}
+
+/// Re-sends the account auth after the server ends just this account's session
+/// (`Event::AccountDisconnected`), and restores its subscriptions on success. `false` means the
+/// current tokens no longer open the account either, and the connection should be replaced.
+async fn reauthorize_account(client: &Client, shared: &Shared) -> bool {
+    let access_token = lock(&shared.tokens).access_token.clone();
+    match client
+        .account(shared.account_id)
+        .authorize(access_token.expose_secret())
+        .await
+    {
+        Ok(()) => {
+            info!(
+                account = shared.account_id,
+                "re-authorized the account after the server ended its session"
+            );
+            restore_subscriptions(client, shared).await;
+            true
+        }
+        Err(error) => {
+            warn!(
+                %error,
+                account = shared.account_id,
+                "could not re-authorize the account after the server ended its session"
+            );
+            false
         }
     }
 }

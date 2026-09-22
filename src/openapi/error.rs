@@ -15,7 +15,8 @@ pub type Result<T> = std::result::Result<T, OpenApiError>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ErrorKind {
-    /// The request rate was exceeded. Wait and try again.
+    /// The request rate was exceeded, or the server is otherwise asking for less load right now
+    /// (`CONNECTIONS_LIMIT_EXCEEDED`, `CHANNEL_IS_BLOCKED`). Wait and try again.
     RateLimited,
     /// The server is under maintenance. Try again after the announced end.
     Maintenance,
@@ -25,7 +26,8 @@ pub enum ErrorKind {
     NotAuthorized,
     /// The server understood the request and refused it (a bad symbol, a bad range, ...).
     Rejected,
-    /// The connection could not be made or dropped.
+    /// The connection could not be made or dropped, or the server reported its own
+    /// infrastructure unreachable (`CH_SERVER_NOT_REACHABLE`).
     Transport,
     /// No answer came in time.
     Timeout,
@@ -123,8 +125,13 @@ impl OpenApiError {
             Self::Protocol(_) | Self::Auth(_) => ErrorKind::Protocol,
             Self::Server { code, .. } => match code.as_str() {
                 // `BLOCKED_PAYLOAD_TYPE` is the server blocking one type of request for a while after
-                // too many, with `retryAfter` seconds until it is unblocked.
-                "REQUEST_FREQUENCY_EXCEEDED" | "BLOCKED_PAYLOAD_TYPE" => ErrorKind::RateLimited,
+                // too many, with `retryAfter` seconds until it is unblocked. `CONNECTIONS_LIMIT_EXCEEDED`
+                // and `CHANNEL_IS_BLOCKED` are the same shape of problem (too much load, not a bad
+                // request): waiting and trying again is the documented way through all three.
+                "REQUEST_FREQUENCY_EXCEEDED"
+                | "BLOCKED_PAYLOAD_TYPE"
+                | "CONNECTIONS_LIMIT_EXCEEDED"
+                | "CHANNEL_IS_BLOCKED" => ErrorKind::RateLimited,
                 "SERVER_IS_UNDER_MAINTENANCE" => ErrorKind::Maintenance,
                 "OA_AUTH_TOKEN_EXPIRED" | "CH_ACCESS_TOKEN_INVALID" => ErrorKind::TokenInvalid,
                 "ACCOUNT_NOT_AUTHORIZED"
@@ -132,6 +139,9 @@ impl OpenApiError {
                 | "CH_CLIENT_NOT_AUTHENTICATED"
                 | "CH_OA_CLIENT_NOT_FOUND"
                 | "CH_CTID_TRADER_ACCOUNT_NOT_FOUND" => ErrorKind::NotAuthorized,
+                // The server's own bridge to the trading backend could not be reached: an
+                // infrastructure hiccup on cTrader's side, not a bad request.
+                "CH_SERVER_NOT_REACHABLE" => ErrorKind::Transport,
                 // Everything else, including the trading refusals of `ProtoOAErrorCode`
                 // (`TRADING_BAD_VOLUME`, `TRADING_BAD_STOPS`, `TRADING_DISABLED`, `NOT_ENOUGH_MONEY`,
                 // `MAX_EXPOSURE_REACHED`, `SHORT_SELLING_NOT_ALLOWED`, `POSITION_NOT_FOUND`,
@@ -202,6 +212,29 @@ mod tests {
         );
         assert_eq!(server("SYMBOL_NOT_FOUND").kind(), ErrorKind::Rejected);
         assert_eq!(server("SOMETHING_NEW").kind(), ErrorKind::Rejected);
+    }
+
+    #[test]
+    fn infrastructure_refusals_are_retryable_not_request_faults() {
+        // These read as load or connectivity on the server's side, not a bad request: retrying
+        // later, unchanged, is the documented way through them, same as a rate limit.
+        for code in [
+            "CONNECTIONS_LIMIT_EXCEEDED",
+            "CHANNEL_IS_BLOCKED",
+            "CH_SERVER_NOT_REACHABLE",
+        ] {
+            let error = server(code);
+            assert!(error.is_retryable(), "{code}");
+        }
+        assert_eq!(
+            server("CONNECTIONS_LIMIT_EXCEEDED").kind(),
+            ErrorKind::RateLimited
+        );
+        assert_eq!(server("CHANNEL_IS_BLOCKED").kind(), ErrorKind::RateLimited);
+        assert_eq!(
+            server("CH_SERVER_NOT_REACHABLE").kind(),
+            ErrorKind::Transport
+        );
     }
 
     #[test]

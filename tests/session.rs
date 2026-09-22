@@ -570,6 +570,134 @@ async fn a_notice_about_other_accounts_is_forwarded_but_changes_nothing() {
     session.stop().await;
 }
 
+// ---- account and server disconnect notices ----
+
+#[tokio::test]
+async fn an_account_disconnected_notice_is_re_authorized_without_a_full_reconnect() {
+    let server = MockServer::start(answers(healthy())).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+
+    server.push(
+        payload::ACCOUNT_DISCONNECT_EVENT,
+        json!({"ctidTraderAccountId": ACCOUNT}),
+    );
+    let notice = next_event(&mut events, |e| matches!(e, SessionEvent::Data(_))).await;
+    assert!(matches!(
+        notice,
+        SessionEvent::Data(Event::AccountDisconnected(_))
+    ));
+
+    // A fresh account auth went out, and the session never dropped the connection to do it.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while server.received_of(payload::ACCOUNT_AUTH_REQ).len() < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("no second account auth was sent");
+    assert_eq!(server.connections(), 1, "the connection was kept");
+    assert!(matches!(*session.state().borrow(), SessionState::Ready));
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn an_account_disconnected_notice_for_another_account_is_forwarded_but_changes_nothing() {
+    let server = MockServer::start(answers(healthy())).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+
+    server.push(
+        payload::ACCOUNT_DISCONNECT_EVENT,
+        json!({"ctidTraderAccountId": 1234}),
+    );
+    let notice = next_event(&mut events, |e| matches!(e, SessionEvent::Data(_))).await;
+    assert!(matches!(
+        notice,
+        SessionEvent::Data(Event::AccountDisconnected(_))
+    ));
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        server.received_of(payload::ACCOUNT_AUTH_REQ).len(),
+        1,
+        "no re-authorization for an account that is not ours"
+    );
+    assert_eq!(server.connections(), 1);
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn a_failed_re_authorization_falls_back_to_a_full_reconnect() {
+    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let handler: Handler = {
+        let attempts = attempts.clone();
+        Arc::new(move |request| match request.payload_type {
+            payload::APPLICATION_AUTH_REQ => {
+                vec![Reply::Answer(payload::APPLICATION_AUTH_RES, json!({}))]
+            }
+            payload::ACCOUNT_AUTH_REQ => {
+                let n = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if n == 0 {
+                    vec![Reply::Answer(
+                        payload::ACCOUNT_AUTH_RES,
+                        json!({"ctidTraderAccountId": ACCOUNT}),
+                    )]
+                } else {
+                    // The re-authorization after the disconnect notice is refused; a fresh
+                    // connection's account auth (n == 2) succeeds again.
+                    if n == 1 {
+                        vec![Reply::Answer(
+                            payload::ERROR_RES,
+                            json!({"errorCode": "ACCOUNT_NOT_AUTHORIZED"}),
+                        )]
+                    } else {
+                        vec![Reply::Answer(
+                            payload::ACCOUNT_AUTH_RES,
+                            json!({"ctidTraderAccountId": ACCOUNT}),
+                        )]
+                    }
+                }
+            }
+            _ => vec![],
+        })
+    };
+    let server = MockServer::start(handler).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+
+    server.push(
+        payload::ACCOUNT_DISCONNECT_EVENT,
+        json!({"ctidTraderAccountId": ACCOUNT}),
+    );
+    reconnected(&mut events).await;
+    assert_eq!(server.connections(), 2, "a whole new connection was made");
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn a_server_disconnecting_notice_triggers_a_full_reconnect() {
+    let server = MockServer::start(answers(healthy())).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+
+    server.push(
+        payload::CLIENT_DISCONNECT_EVENT,
+        json!({"reason": "server maintenance"}),
+    );
+    let notice = next_event(&mut events, |e| matches!(e, SessionEvent::Data(_))).await;
+    assert!(matches!(
+        notice,
+        SessionEvent::Data(Event::ServerDisconnecting(_))
+    ));
+    reconnected(&mut events).await;
+    assert_eq!(server.connections(), 2, "a whole new connection was made");
+    session.stop().await;
+}
+
 #[tokio::test]
 async fn a_refused_refresh_ends_the_session_without_ever_connecting() {
     let server = MockServer::start(answers(healthy())).await;
