@@ -1,6 +1,6 @@
 # wyck
 
-Rust libraries for cTrader connectivity, configuration, and economic calendar data.
+A terminal trading panel for cTrader, built for speed, not for staring at it.
 
 ```sh
 cargo build --workspace
