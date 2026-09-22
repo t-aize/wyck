@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "ctrader-mcp-servers": {
+      "source": "spotware/ctrader-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ctrader-mcp-servers/SKILL.md",
+      "computedHash": "f36171f9d31419c797309b32c8282e637e96d6fef9f5c4cce86898b85f18ed64"
+    }
+  }
+}
