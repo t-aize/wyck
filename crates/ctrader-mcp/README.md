@@ -121,8 +121,7 @@ with a demo account. The raw caller prints responses, which can contain account 
 
 The repository's mock tests cover transport, DTOs, retries, paging, and selected
 trading workflows. They do not establish live-server compatibility or prove that
-a long-running process has no resource leak. The current audit and remaining
-gates are in [`docs/audits/ctrader-clients.md`](../../docs/audits/ctrader-clients.md).
+a long-running process has no resource leak.
 
 ## Tests and verification
 

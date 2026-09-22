@@ -5,11 +5,6 @@
 Do not add a `Co-Authored-By` line, a session/agent identifier line, or any other AI
 assistant attribution to commit messages or pull request descriptions.
 
-## Git workflow
-
-Commit and push directly to `main`. Do not create feature branches or pull requests
-unless explicitly asked to.
-
 ## Writing style
 
 Text written for this repository (code comments, doc comments, Markdown files, commit

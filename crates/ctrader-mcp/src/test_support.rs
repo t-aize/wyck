@@ -4,7 +4,7 @@
 //! (`rmcp-*/tests/test_server_discover_http.rs`).
 //!
 //! Exposed as a library module (rather than living only under `tests/`) so that other
-//! workspace crates, notably `wyck-engine`, can drive `RemoteClient`/`LocalClient`
+//! workspace crates can drive `RemoteClient`/`LocalClient`
 //! against scripted server behavior in their own tests. Enable it from a dev-dependency:
 //!
 //! ```toml

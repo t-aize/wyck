@@ -16,7 +16,6 @@ workspace, so entries are grouped by what was added rather than by release.
   Keep the new pair accessible in memory if durable storage fails. Stop can now
   wait for that critical section instead of returning promptly in this case.
 - Add cancellation, pagination, numeric-input, and token-save regression tests.
-  See `docs/audits/ctrader-clients.md` for remaining live validation gates.
 
 ### Changed
 
