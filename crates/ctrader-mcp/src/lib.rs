@@ -55,8 +55,8 @@
 //! and a local build observed on 2026-05-14. Selected Remote behavior was checked
 //! again in 2026-09 (see [`remote::dto`] and [`quirks`]). A 2026-09-21 live check of
 //! MCP session behavior was unavailable: no Remote token or running Local endpoint
-//! was present. See `CHANGELOG.md` for the verification record. The MCP JSON-Schema
-//! advertised by each live server is the source of truth for wire shape.
+//! was present. The MCP JSON-Schema advertised by each live server is the source of
+//! truth for wire shape.
 
 pub mod common;
 pub mod config;
@@ -67,8 +67,6 @@ pub mod quirks;
 mod rate_limit;
 pub mod remote;
 pub mod retry;
-#[cfg(feature = "test-support")]
-pub mod test_support;
 pub mod time;
 pub mod transport;
 pub mod workflows;

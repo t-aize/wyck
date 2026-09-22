@@ -8,11 +8,6 @@ authors.workspace = true
 publish.workspace = true
 description = "Rust client for cTrader's Local and Remote MCP servers (rmcp-based), with typed tool wrappers, encoding-safe DTOs, quirk mitigations, and composable trading workflows."
 
-[features]
-# Exposes `test_support::MockMcpServer` (an in-process mock of the cTrader MCP servers) so
-# other crates can test against scripted server behavior. Tests only; not a stable API.
-test-support = ["dep:axum", "rmcp/server", "rmcp/transport-streamable-http-server", "tokio/net"]
-
 [dependencies]
 rmcp = { workspace = true }
 tokio = { workspace = true }
@@ -23,17 +18,6 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 time = { workspace = true }
-axum = { version = "0.8", default-features = false, features = ["http1", "tokio"], optional = true }
 
 [dev-dependencies]
-# The crate itself, with the mock-server support enabled, for the tests under `tests/`.
-ctrader-mcp = { path = ".", features = ["test-support"] }
-tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
-
-# In-process mock MCP server for the transport/session integration tests under `tests/`:
-# spins up `rmcp`'s own server-side streamable-HTTP implementation on `127.0.0.1:0`,
-# the same pattern `rmcp` uses in its own test suite (see `rmcp-*/tests/
-# test_server_discover_http.rs`). Additive on top of the workspace `rmcp` dependency's
-# client-only feature set; only affects test builds.
-rmcp = { workspace = true, features = ["server", "transport-streamable-http-server"] }
-axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+tokio = { workspace = true, features = ["test-util"] }

@@ -11,12 +11,12 @@
 
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ClientCapabilities, ClientConfig, ClientRequest,
-    Implementation, JsonObject, PingRequest,
+    Implementation, JsonObject, PingRequest, ProtocolVersion,
 };
 use rmcp::service::RunningService;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
-use rmcp::{ClientHandler, Peer, RoleClient, ServiceExt};
+use rmcp::{ClientHandler, ClientLifecycleMode, ClientServiceExt, Peer, RoleClient};
 use secrecy::ExposeSecret;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -55,6 +55,7 @@ impl ClientHandler for ClientIdentity {
 /// server-family-aware layers built on top of it).
 pub struct McpSession {
     running: RunningService<RoleClient, ClientIdentity>,
+    diagnostics: McpSessionDiagnostics,
     /// Copied from [`ConnectionConfig::retry_policy`] at connect time, and used by
     /// [`Self::call_idempotent`], [`Self::call_no_args_idempotent`], and
     /// [`Self::call_raw_idempotent`]. `connect` itself is
@@ -62,15 +63,35 @@ pub struct McpSession {
     retry_policy: RetryPolicy,
 }
 
+/// The lifecycle selected while opening an MCP session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpLifecycle {
+    /// Stateless discovery and per-request metadata from MCP 2026-07-28.
+    Modern,
+    /// The `initialize` and `notifications/initialized` handshake.
+    Legacy,
+}
+
+/// Protocol details negotiated with the connected server.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpSessionDiagnostics {
+    /// Lifecycle selected by automatic discovery.
+    pub lifecycle: McpLifecycle,
+    /// MCP protocol version reported by the server.
+    pub protocol_version: String,
+}
+
 impl McpSession {
-    /// Opens a streamable-HTTP + SSE MCP session against `config.uri`, performing the
-    /// MCP `initialize` handshake before returning. Retried per `config.retry_policy`:
-    /// always safe to retry, since nothing has been sent to any tool yet at this point.
+    /// Opens a streamable-HTTP + SSE MCP session against `config.uri`. The client first
+    /// tries MCP 2026-07-28 discovery, then falls back to the MCP 2025-11-25 legacy
+    /// initialization handshake when the server does not implement discovery. Retried
+    /// per `config.retry_policy`: always safe to retry, since nothing has been sent to
+    /// any tool yet at this point.
     ///
     /// # Errors
     ///
     /// Returns [`CTraderError::Connect`] if the transport cannot be established or the
-    /// `initialize` handshake fails (unreachable host, TLS failure, auth rejection,
+    /// lifecycle negotiation fails (unreachable host, TLS failure, auth rejection,
     /// protocol-version mismatch) and every retry attempt is exhausted.
     pub async fn connect(config: &ConnectionConfig) -> Result<Self, CTraderError> {
         let mut transport_config =
@@ -86,7 +107,13 @@ impl McpSession {
             async {
                 let transport = StreamableHttpClientTransport::from_config(transport_config);
                 ClientIdentity
-                    .serve(transport)
+                    .serve_with_lifecycle(
+                        transport,
+                        ClientLifecycleMode::Auto {
+                            preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+                            legacy_version: Some(ProtocolVersion::V_2025_11_25),
+                        },
+                    )
                     .await
                     .map_err(|source| CTraderError::Connect {
                         uri: config.uri.clone(),
@@ -107,10 +134,33 @@ impl McpSession {
         })
         .await?;
 
+        let peer_info = running
+            .peer()
+            .peer_info()
+            .ok_or_else(|| CTraderError::Connect {
+                uri: config.uri.clone(),
+                message: "lifecycle negotiation completed without server information".into(),
+            })?;
+        let protocol_version = peer_info.protocol_version.clone();
+        let diagnostics = McpSessionDiagnostics {
+            lifecycle: if protocol_version >= ProtocolVersion::V_2026_07_28 {
+                McpLifecycle::Modern
+            } else {
+                McpLifecycle::Legacy
+            },
+            protocol_version: protocol_version.to_string(),
+        };
+
         Ok(Self {
             running,
+            diagnostics,
             retry_policy: config.retry_policy.clone(),
         })
+    }
+
+    /// Returns the lifecycle and protocol version selected at connection time.
+    pub fn diagnostics(&self) -> &McpSessionDiagnostics {
+        &self.diagnostics
     }
 
     /// The MCP peer handle for this session, used for direct protocol operations
