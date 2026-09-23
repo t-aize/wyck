@@ -10,6 +10,7 @@ mod runtime;
 mod text_input;
 mod theme;
 mod token_store;
+mod workspace;
 
 use std::borrow::Cow;
 

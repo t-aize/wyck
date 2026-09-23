@@ -118,6 +118,17 @@ impl TextInput {
         &self.content
     }
 
+    /// Replaces the text, with the cursor at its end.
+    pub fn set_text(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
+        let text = text.into();
+        self.selected_range = text.len()..text.len();
+        self.selection_reversed = false;
+        self.marked_range = None;
+        self.scroll_offset = px(0.);
+        self.content = text;
+        cx.notify();
+    }
+
     fn left(&mut self, _: &TextInputLeft, _: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
             self.move_to(self.previous_boundary(self.cursor_offset()), cx);

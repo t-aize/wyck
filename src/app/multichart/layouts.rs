@@ -36,13 +36,6 @@ pub struct LayoutKey {
     pub variant: usize,
 }
 
-impl LayoutKey {
-    pub const SINGLE: Self = Self {
-        count: 1,
-        variant: 0,
-    };
-}
-
 /// Where the big chart goes in a layout with one big chart and a stack beside it.
 #[derive(Clone, Copy)]
 enum Side {
@@ -226,6 +219,14 @@ pub fn catalog() -> &'static [(usize, Vec<Layout>)] {
             (16, vec![grid(4, 4), grid(8, 2)]),
         ]
     })
+}
+
+/// Whether the key names a layout that is on offer.
+pub fn exists(key: LayoutKey) -> bool {
+    catalog()
+        .iter()
+        .find(|(count, _)| *count == key.count)
+        .is_some_and(|(_, variants)| key.variant < variants.len())
 }
 
 /// The layout for a key, or the single chart if the key names nothing.

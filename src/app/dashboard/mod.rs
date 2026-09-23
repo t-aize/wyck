@@ -12,6 +12,7 @@ mod catalog;
 mod details;
 mod header;
 mod layout_menu;
+mod lists;
 mod marks;
 mod picker;
 
@@ -31,9 +32,11 @@ use wyck::openapi::{Event, OpenApiError};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
+use super::chart::drawing::Drawings;
 use super::chart::{self, Chart};
 use super::connection::ui;
 use super::multichart::MultiChart;
+use super::workspace::{Documents, Workspace};
 use super::{runtime, theme};
 
 gpui::actions!(
@@ -148,6 +151,7 @@ pub struct Dashboard {
     picker_opens: u64,
     menu_open: bool,
     multi: Entity<MultiChart>,
+    workspace: Entity<Workspace>,
     /// Whether the list of all timeframes is open.
     tf_menu_open: bool,
     /// Whether the layout picker is open.
@@ -159,9 +163,15 @@ impl Dashboard {
         session: Session,
         account: AccountInfo,
         initial_symbol: Option<String>,
+        documents: Documents,
         cx: &mut Context<Self>,
     ) -> Self {
-        let multi = cx.new(|cx| MultiChart::new(session.clone(), cx));
+        let workspace = cx.new(|cx| Workspace::new(&documents, cx));
+        // The header shows the favorite timeframes, so it follows the workspace.
+        cx.observe(&workspace, |_this, _workspace, cx| cx.notify())
+            .detach();
+        let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
+        let multi = cx.new(|cx| MultiChart::new(session.clone(), workspace.clone(), drawings, cx));
         let mut dashboard = Self {
             session,
             account,
@@ -180,6 +190,7 @@ impl Dashboard {
             picker_opens: 0,
             menu_open: false,
             multi,
+            workspace,
             tf_menu_open: false,
             layout_menu_open: false,
         };
@@ -510,8 +521,34 @@ impl Render for Dashboard {
                 this.open_picker(window, cx);
             }))
             .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
+                // Escape gives up a drawing in progress before it closes anything else.
+                let nothing_open = this.picker.is_none()
+                    && !this.menu_open
+                    && !this.tf_menu_open
+                    && !this.layout_menu_open;
+                if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
+                    // The field that had the keyboard may be gone with the selection.
+                    window.focus(&this.focus_handle, cx);
+                    return;
+                }
                 this.close_overlays(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
+                this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
+                window.focus(&this.focus_handle, cx);
+            }))
+            .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
+                this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::RedoDrawing, _window, cx| {
+                this.multi.update(cx, |multi, cx| multi.redo_drawing(cx));
+            }))
+            .on_action(
+                cx.listener(|this, _: &chart::DuplicateDrawing, _window, cx| {
+                    this.multi
+                        .update(cx, |multi, cx| multi.duplicate_drawing(cx));
+                }),
+            )
             .on_action(cx.listener(|this, _: &chart::ChartPanBack, _window, cx| {
                 this.on_active_chart(cx, |chart, cx| chart.pan_keys(false, cx));
             }))

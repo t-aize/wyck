@@ -193,6 +193,8 @@ pub(super) struct Sheet<'a> {
     pub is_current: bool,
     /// The button that chooses the symbol, pinned at the bottom.
     pub action: Option<AnyElement>,
+    /// The panel that puts the symbol in favorites and watchlists.
+    pub lists: Option<AnyElement>,
     pub epoch: u64,
 }
 
@@ -380,6 +382,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
             .child(badges)
             .children(live)
             .children(no_price)
+            .children(sheet.lists)
             .child(table)
             .children(status),
     )

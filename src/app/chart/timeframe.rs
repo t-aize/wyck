@@ -83,6 +83,24 @@ impl Timeframe {
         }
     }
 
+    /// The short, stable name written in saved files: `T`, `S15`, `M5`, `H4`, `D1`. It never
+    /// changes, so a file saved by one version is read by the next.
+    pub fn code(self) -> String {
+        match self {
+            Self::Ticks => "T".to_owned(),
+            Self::Seconds(n) => format!("S{n}"),
+            Self::Bars(period) => period.label().to_owned(),
+        }
+    }
+
+    /// The timeframe a saved code stands for, if it is one this version offers.
+    pub fn from_code(code: &str) -> Option<Self> {
+        GROUPS
+            .iter()
+            .flat_map(|(_, items)| items.iter().copied())
+            .find(|timeframe| timeframe.code() == code)
+    }
+
     /// The name written out, for tooltips.
     pub fn name(self) -> String {
         match self {
@@ -158,6 +176,27 @@ mod tests {
         labels.sort();
         labels.dedup();
         assert_eq!(labels.len(), total);
+    }
+
+    #[test]
+    fn every_timeframe_survives_being_saved_and_read_back() {
+        for (_, items) in GROUPS {
+            for timeframe in items.iter().copied() {
+                assert_eq!(Timeframe::from_code(&timeframe.code()), Some(timeframe));
+            }
+        }
+        assert_eq!(Timeframe::from_code("M7"), None);
+        assert_eq!(Timeframe::from_code(""), None);
+        assert_eq!(Timeframe::from_code("S3"), None, "only the offered seconds");
+    }
+
+    #[test]
+    fn the_saved_codes_are_the_ones_written_in_files_today() {
+        // These are a file format: changing one would orphan every saved layout.
+        assert_eq!(Timeframe::Ticks.code(), "T");
+        assert_eq!(Timeframe::Seconds(15).code(), "S15");
+        assert_eq!(Timeframe::Bars(Period::M5).code(), "M5");
+        assert_eq!(Timeframe::Bars(Period::MN1).code(), "MN1");
     }
 
     #[test]

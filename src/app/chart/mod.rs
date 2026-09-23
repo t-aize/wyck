@@ -1,5 +1,5 @@
-//! The price chart: candles, bars, a line or an area, on any timeframe from tick by tick to a
-//! month, live to the tick.
+//! The price chart: candles (solid, hollow, Heikin Ashi), bars, a line, a step line or an area, on
+//! any timeframe from tick by tick to a month, live to the tick, with drawing tools on top.
 //!
 //! # How it stays fast and small
 //!
@@ -10,7 +10,11 @@
 //!   fetched when the user scrolls near the oldest point held.
 //! - Live prices append to the last point in constant time. Many updates in a burst make one
 //!   frame, because a redraw is only requested, never forced.
-//! - Only one live bar subscription exists at a time, and it is dropped with the chart.
+//! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
+//!   it keeps one subscription per symbol and period however many charts show it.
+//! - Times are shown in UTC or in the computer's zone ([`Zone`]), a choice made per app.
+//! - Drawings ([`drawing`]) are anchored to times and prices, so they follow the chart when it
+//!   moves and show on every timeframe of their symbol.
 //!
 //! # Where the data comes from
 //!
@@ -20,11 +24,14 @@
 
 mod axis;
 mod data;
+pub mod drawing;
 mod live;
 mod load;
+mod projection;
 mod scene;
 mod timeframe;
 mod view;
+mod zone;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -43,11 +50,16 @@ use wyck::openapi::session::Session;
 use wyck::openapi::{OpenApiError, Result as ApiResult};
 
 use self::data::{MAX_BARS, MAX_TICKS, Series};
+use self::drawing::Drawings;
+use self::drawing::book::Press;
 pub use self::live::LiveHub;
 use self::load::Loaded;
-use self::scene::{AXIS_H, AXIS_W, Align, ChartKind, Cmd, Frame, Layout, Palette};
+use self::projection::ChartProjection;
+pub use self::scene::ChartKind;
+use self::scene::{AXIS_H, AXIS_W, Align, Cmd, DrawingView, Frame, Layout, Palette};
 pub use self::timeframe::{GROUPS, QUICK, Timeframe};
 use self::view::{PriceScale, View, zoom_range};
+pub use self::zone::Zone;
 use super::connection::ui;
 use super::{anim, runtime, theme};
 
@@ -59,6 +71,10 @@ gpui::actions!(
         ChartZoomIn,
         ChartZoomOut,
         ChartLatest,
+        DeleteDrawing,
+        UndoDrawing,
+        RedoDrawing,
+        DuplicateDrawing,
     ]
 );
 
@@ -71,6 +87,12 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-+", ChartZoomIn, Some("Dashboard")),
         KeyBinding::new("secondary--", ChartZoomOut, Some("Dashboard")),
         KeyBinding::new("end", ChartLatest, Some("Dashboard")),
+        KeyBinding::new("delete", DeleteDrawing, Some("Dashboard")),
+        KeyBinding::new("backspace", DeleteDrawing, Some("Dashboard")),
+        KeyBinding::new("secondary-z", UndoDrawing, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-z", RedoDrawing, Some("Dashboard")),
+        KeyBinding::new("secondary-y", RedoDrawing, Some("Dashboard")),
+        KeyBinding::new("secondary-d", DuplicateDrawing, Some("Dashboard")),
     ]);
 }
 
@@ -132,6 +154,10 @@ pub enum ChartEvent {
     Hover(Option<Hover>),
     /// The user moved or zoomed the view.
     ViewChanged(Span),
+    /// The user clicked the time zone in the corner of the chart.
+    ZoneClicked,
+    /// The timeframe or the chart type changed, so a saved layout is out of date.
+    SettingsChanged,
 }
 
 /// A point of the chart the pointer is on: its time and the price under the pointer.
@@ -158,6 +184,9 @@ pub struct Chart {
     symbol: Option<Symbol>,
     timeframe: Timeframe,
     kind: ChartKind,
+    zone: Zone,
+    /// Whether the list of chart types under the toolbar is open.
+    kind_menu_open: bool,
     series: Series,
     view: View,
     load: Load,
@@ -171,6 +200,14 @@ pub struct Chart {
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
     drag: Option<Drag>,
+    /// The drawings shared by the charts, and the subscription that redraws this chart when
+    /// they change.
+    drawings: Option<Entity<Drawings>>,
+    _drawings_observe: Option<gpui::Subscription>,
+    /// Whether a press taken by a drawing is still down.
+    drawing_drag: bool,
+    /// Whether the pointer is over a drawing, for the mouse cursor.
+    over_drawing: bool,
     /// The drawing area of the last frame, for turning mouse positions into chart positions.
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
@@ -184,6 +221,8 @@ impl Chart {
             symbol: None,
             timeframe,
             kind: ChartKind::Candles,
+            zone: Zone::default(),
+            kind_menu_open: false,
             series: match timeframe {
                 Timeframe::Ticks => Series::Ticks(Vec::new()),
                 _ => Series::Bars(Vec::new()),
@@ -197,6 +236,10 @@ impl Chart {
             hover: None,
             remote: None,
             drag: None,
+            drawings: None,
+            _drawings_observe: None,
+            drawing_drag: false,
+            over_drawing: false,
             bounds: Rc::new(Cell::new(None)),
         }
     }
@@ -229,11 +272,27 @@ impl Chart {
         }
         self.timeframe = timeframe;
         self.reload(cx);
+        cx.emit(ChartEvent::SettingsChanged);
     }
 
-    fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
-        self.kind = kind;
-        cx.notify();
+    pub fn kind(&self) -> ChartKind {
+        self.kind
+    }
+
+    pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
+        if self.kind != kind {
+            self.kind = kind;
+            cx.emit(ChartEvent::SettingsChanged);
+            cx.notify();
+        }
+    }
+
+    /// The time zone times are written in. Does not tell anyone.
+    pub fn set_zone(&mut self, zone: Zone, cx: &mut Context<Self>) {
+        if self.zone != zone {
+            self.zone = zone;
+            cx.notify();
+        }
     }
 
     fn digits(&self) -> u32 {
@@ -611,6 +670,15 @@ impl Chart {
     fn on_mouse_down(&mut self, x: f32, y: f32, clicks: usize, cx: &mut Context<Self>) {
         cx.emit(ChartEvent::Activated);
         let region = self.region(x, y);
+        if region == Region::Corner {
+            cx.emit(ChartEvent::ZoneClicked);
+            return;
+        }
+        if region == Region::Plot && self.drawing_press(x, y, cx) {
+            self.drawing_drag = true;
+            cx.notify();
+            return;
+        }
         if clicks >= 2 {
             match region {
                 Region::Plot | Region::TimeAxis => self.jump_to_latest(cx),
@@ -640,6 +708,15 @@ impl Chart {
         shift: bool,
         cx: &mut Context<Self>,
     ) {
+        if self.drawing_drag {
+            if left_down {
+                self.set_hover(x, y, cx);
+                self.drawing_moved(x, y, cx);
+            } else {
+                self.drawing_released(x, y, cx);
+            }
+            return;
+        }
         if let Some(drag) = self.drag {
             if !left_down {
                 self.drag = None;
@@ -668,6 +745,7 @@ impl Chart {
             return;
         }
         self.set_hover(x, y, cx);
+        self.drawing_moved(x, y, cx);
         cx.notify();
     }
 
@@ -677,7 +755,10 @@ impl Chart {
         cx.emit(ChartEvent::Hover(info));
     }
 
-    fn on_mouse_up(&mut self, cx: &mut Context<Self>) {
+    fn on_mouse_up(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        if self.drawing_drag {
+            self.drawing_released(x, y, cx);
+        }
         if self.drag.take().is_some() {
             cx.notify();
         }
@@ -709,6 +790,105 @@ impl Chart {
                 }
             }
         }
+    }
+
+    // ---- drawings ----
+
+    /// Shows and edits the drawings of this entity, redrawing when they change.
+    pub fn attach_drawings(&mut self, drawings: Entity<Drawings>, cx: &mut Context<Self>) {
+        self._drawings_observe = Some(cx.observe(&drawings, |_this, _drawings, cx| cx.notify()));
+        self.drawings = Some(drawings);
+    }
+
+    /// Runs `f` with the projection of the chart as it is now, when it has data to project.
+    fn with_projection<R>(&self, f: impl FnOnce(&ChartProjection<'_>) -> R) -> Option<R> {
+        let layout = self.layout();
+        let map = scene::price_map(&self.series, &self.view, layout, self.kind, self.digits())?;
+        let projection = ChartProjection {
+            series: &self.series,
+            view: &self.view,
+            map,
+            plot_w: layout.plot_w(),
+            plot_h: layout.plot_h(),
+            step_ms: self.series.step_ms(self.timeframe.bar_ms()),
+            digits: self.digits(),
+        };
+        Some(f(&projection))
+    }
+
+    fn symbol_name(&self) -> Option<String> {
+        self.symbol.as_ref().map(|s| s.name.to_string())
+    }
+
+    /// A press on the plot. Returns whether a drawing took it, in which case the chart does not
+    /// scroll.
+    fn drawing_press(&mut self, x: f32, y: f32, cx: &mut Context<Self>) -> bool {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return false;
+        };
+        let taken = self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.press(&symbol, projection, x, y))
+            })
+        });
+        taken == Some(Press::Taken)
+    }
+
+    /// The pointer moved: a drawing being made or moved follows it.
+    fn drawing_moved(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return;
+        };
+        if !drawings.read(cx).book().is_busy() {
+            let over = self
+                .with_projection(|projection| {
+                    drawings
+                        .read(cx)
+                        .book()
+                        .hover_part(&symbol, projection, x, y)
+                        .is_some()
+                })
+                .unwrap_or(false);
+            if over != self.over_drawing {
+                self.over_drawing = over;
+                cx.notify();
+            }
+            return;
+        }
+        self.over_drawing = false;
+        let changed = self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.pointer_moved(&symbol, projection, x, y))
+            })
+        });
+        if changed == Some(true) {
+            cx.notify();
+        }
+    }
+
+    /// Duplicates the selected drawing, a little to the side.
+    pub fn duplicate_selected(&mut self, cx: &mut Context<Self>) {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return;
+        };
+        self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.duplicate(&symbol, projection))
+            })
+        });
+    }
+
+    fn drawing_released(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        self.drawing_drag = false;
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return;
+        };
+        self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.release(&symbol, projection, x, y))
+            })
+        });
+        cx.notify();
     }
 
     // ---- following other charts ----
@@ -824,12 +1004,27 @@ impl Chart {
         Some(index.clamp(0.0, last as f64) as usize)
     }
 
-    fn scene(&self, bounds: Bounds<Pixels>, scale: f32) -> Vec<Cmd> {
+    fn scene(&self, cx: &App, bounds: Bounds<Pixels>, scale: f32) -> Vec<Cmd> {
+        let drawings =
+            self.drawings
+                .as_ref()
+                .zip(self.symbol.as_ref())
+                .and_then(|(drawings, symbol)| {
+                    let book = drawings.read(cx).book();
+                    let name = symbol.name.as_ref();
+                    let (list, creating) = (book.drawings(name), book.creating(name));
+                    (!list.is_empty() || creating.is_some()).then(|| DrawingView {
+                        list,
+                        creating,
+                        selected: book.selected(),
+                    })
+                });
         scene::build(&Frame {
             series: &self.series,
             view: &self.view,
             kind: self.kind,
             timeframe: self.timeframe,
+            zone: self.zone,
             digits: self.digits(),
             origin: bounds.origin,
             layout: Layout {
@@ -841,10 +1036,27 @@ impl Chart {
             remote: self.remote.map(|r| (r.time_ms, r.price)),
             ask: self.ask,
             palette: Palette::new(),
+            drawings,
         })
     }
 
-    fn cursor(&self) -> CursorStyle {
+    fn cursor(&self, cx: &App) -> CursorStyle {
+        if self.drawing_drag {
+            return CursorStyle::ClosedHand;
+        }
+        if self.over_drawing {
+            return CursorStyle::PointingHand;
+        }
+        if self
+            .drawings
+            .as_ref()
+            .is_some_and(|drawings| drawings.read(cx).book().tool().is_some())
+            && self
+                .hover
+                .is_some_and(|(x, y)| self.region(x, y) == Region::Plot)
+        {
+            return CursorStyle::Crosshair;
+        }
         if let Some(drag) = self.drag {
             return match drag.kind {
                 DragKind::Pan => CursorStyle::ClosedHand,
@@ -859,7 +1071,7 @@ impl Chart {
             Region::Plot => CursorStyle::Crosshair,
             Region::PriceAxis => CursorStyle::ResizeUpDown,
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
-            Region::Corner => CursorStyle::Arrow,
+            Region::Corner => CursorStyle::PointingHand,
         }
     }
 }
@@ -867,6 +1079,17 @@ impl Chart {
 impl Drop for Chart {
     fn drop(&mut self) {
         self.hub.set(self.id, None);
+    }
+}
+
+fn kind_icon(kind: ChartKind) -> IconName {
+    match kind {
+        ChartKind::Candles | ChartKind::Hollow => IconName::ChartCandlestick,
+        ChartKind::HeikinAshi => IconName::ChartNoAxesCombined,
+        ChartKind::Bars => IconName::ChartNoAxesColumn,
+        ChartKind::Line => IconName::ChartLine,
+        ChartKind::Step => IconName::Activity,
+        ChartKind::Area => IconName::ChartArea,
     }
 }
 
@@ -923,13 +1146,10 @@ fn execute(cmds: Vec<Cmd>, chart: Bounds<Pixels>, window: &mut Window, cx: &mut 
                 bg,
                 fg,
                 align,
+                fixed_width,
             } => {
                 let line = shape(window, &text, scene_font(), fg);
-                let width = if align == Align::Left {
-                    AXIS_W - 2.0
-                } else {
-                    f32::from(line.width) + pad * 2.0
-                };
+                let width = fixed_width.unwrap_or_else(|| f32::from(line.width) + pad * 2.0);
                 let (left, right) = (
                     f32::from(chart.origin.x),
                     f32::from(chart.origin.x) + f32::from(chart.size.width),
@@ -963,6 +1183,7 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
     match align {
         Align::Left => x,
         Align::Center => x - width / 2.0,
+        Align::Right => x - width,
     }
 }
 
@@ -997,9 +1218,9 @@ fn surface(
         },
         move |bounds, hitbox: Hitbox, window, cx| {
             let scale = window.scale_factor();
-            let cmds = entity.read(cx).scene(bounds, scale);
+            let cmds = entity.read(cx).scene(cx, bounds, scale);
             execute(cmds, bounds, window, cx);
-            let cursor = entity.read(cx).cursor();
+            let cursor = entity.read(cx).cursor(cx);
             window.set_cursor_style(cursor, &hitbox);
             listen(&entity, bounds, hitbox, window);
         },
@@ -1041,7 +1262,7 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
         let left_down = event.pressed_button == Some(MouseButton::Left);
         let shift = event.modifiers.shift;
         e.update(cx, |chart, cx| {
-            if chart.drag.is_some() || hovered {
+            if chart.drag.is_some() || chart.drawing_drag || hovered {
                 chart.on_mouse_move(x, y, left_down, shift, cx);
             } else {
                 chart.on_pointer_left(cx);
@@ -1052,7 +1273,8 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
     let e = entity.clone();
     window.on_mouse_event(move |event: &MouseUpEvent, phase, _window, cx| {
         if phase == gpui::DispatchPhase::Bubble && event.button == MouseButton::Left {
-            e.update(cx, |chart, cx| chart.on_mouse_up(cx));
+            let (x, y) = relative(event.position);
+            e.update(cx, |chart, cx| chart.on_mouse_up(x, y, cx));
         }
     });
 
@@ -1204,22 +1426,17 @@ impl Chart {
 
     /// Chart type, and the buttons that bring the chart back to the newest prices.
     fn toolbar(&self, latest: bool, cx: &mut Context<Self>) -> impl IntoElement {
-        let kinds = ChartKind::ALL.into_iter().map(|kind| {
-            let icon = match kind {
-                ChartKind::Candles => IconName::ChartCandlestick,
-                ChartKind::Bars => IconName::ChartNoAxesColumn,
-                ChartKind::Line => IconName::ChartLine,
-                ChartKind::Area => IconName::ChartArea,
-            };
-            Button::new(SharedString::from(format!("chart-kind-{}", kind.label())))
-                .ghost()
-                .compact()
-                .icon(icon)
-                .tooltip(kind.label())
-                .toggled(self.kind == kind)
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, _event, _window, cx| this.set_kind(kind, cx)))
-        });
+        let kind_button = Button::new("chart-kind")
+            .ghost()
+            .compact()
+            .icon(kind_icon(self.kind))
+            .tooltip(self.kind.label())
+            .toggled(self.kind_menu_open)
+            .cursor_pointer()
+            .on_click(cx.listener(|this, _event, _window, cx| {
+                this.kind_menu_open = !this.kind_menu_open;
+                cx.notify();
+            }));
         let auto = matches!(self.view.price, PriceScale::Auto);
         div()
             .absolute()
@@ -1232,7 +1449,9 @@ impl Chart {
             .p_1()
             .rounded_lg()
             .bg(gpui::rgba(0x0a0a0acc))
-            .children(kinds)
+            .occlude()
+            .child(kind_button)
+            .children(self.kind_menu_open.then(|| self.kind_menu(cx)))
             .when(!auto, |el| {
                 el.child(
                     Button::new("chart-auto-scale")
@@ -1260,6 +1479,65 @@ impl Chart {
                         })),
                 )
             })
+    }
+
+    /// The list of chart types under the toolbar's type button.
+    fn kind_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let mut card = div()
+            .id("chart-kind-menu")
+            .w(px(190.))
+            .p_1()
+            .flex()
+            .flex_col()
+            .rounded_lg()
+            .bg(theme::surface())
+            .border_1()
+            .border_color(theme::border_subtle())
+            .occlude();
+        for kind in ChartKind::ALL {
+            let selected = self.kind == kind;
+            card = card.child(
+                div()
+                    .id(SharedString::from(format!("chart-kind-{}", kind.code())))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .h(px(30.))
+                    .px_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_size(px(12.))
+                    .text_color(if selected {
+                        theme::fg()
+                    } else {
+                        theme::muted_fg()
+                    })
+                    .when(selected, |el| el.bg(theme::accent_selected()))
+                    .hover(|style| style.bg(theme::surface_hover()))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.kind_menu_open = false;
+                        this.set_kind(kind, cx);
+                    }))
+                    .child(ui::icon_colored(
+                        kind_icon(kind),
+                        15.,
+                        if selected {
+                            theme::fg()
+                        } else {
+                            theme::muted_fg()
+                        },
+                    ))
+                    .child(kind.label()),
+            );
+        }
+        gpui::deferred(
+            gpui::anchored()
+                .anchor(gpui::Anchor::TopRight)
+                .snap_to_window_with_margin(px(8.))
+                .child(div().pt(px(36.)).child(card)),
+        )
+        .with_priority(2)
     }
 
     /// Loading, failed and empty states, and the small note while older history comes in.

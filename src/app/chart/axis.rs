@@ -7,6 +7,8 @@
 
 use time::OffsetDateTime;
 
+use super::zone::Zone;
+
 const SECOND: i64 = 1_000;
 const MINUTE: i64 = 60 * SECOND;
 const HOUR: i64 = 60 * MINUTE;
@@ -163,7 +165,12 @@ pub fn time_labels(
     x_of: impl Fn(usize) -> f64,
     plot_w: f64,
     min_gap: f64,
+    zone: Zone,
 ) -> Vec<TimeLabel> {
+    // Everything below works on times shifted into the zone, so its days and hours are the
+    // zone's, not UTC's.
+    let raw_time_at = time_at;
+    let time_at = move |index: usize| raw_time_at(index).map(|time| zone.shift(time));
     let (Some(t0), Some(t1)) = (time_at(first), last.checked_sub(1).and_then(&time_at)) else {
         return Vec::new();
     };
@@ -193,11 +200,25 @@ pub fn time_labels(
             continue;
         }
         let x = x_of(index);
-        if x - last_x < min_gap || x < 0.0 || x > plot_w {
+        if x < 0.0 || x > plot_w {
             continue;
         }
-        last_x = x;
         let (text, major) = label_text(unit, time, before);
+        // Too close to the label before it: skip it, unless it names a new day and the one
+        // before does not, which it replaces. Otherwise a step that lands a hair under the gap
+        // could drop every date and leave only hours. The small tolerance is for rounding.
+        if x - last_x < min_gap - 0.5 {
+            let replaces = major && labels.last().is_some_and(|last| !last.major);
+            if !replaces {
+                continue;
+            }
+            labels.pop();
+            let before_that = labels.last().map_or(f64::NEG_INFINITY, |l| x_of(l.index));
+            if x - before_that < min_gap - 0.5 {
+                continue;
+            }
+        }
+        last_x = x;
         labels.push(TimeLabel { index, text, major });
     }
     labels
@@ -249,8 +270,9 @@ fn label_text(unit: Unit, time: i64, before: Option<i64>) -> (String, bool) {
     }
 }
 
-/// The full date and time of a point, for the crosshair. UTC.
-pub fn full_time(time_ms: i64, with_seconds: bool, with_millis: bool) -> String {
+/// The full date and time of a point, for the crosshair, in `zone`.
+pub fn full_time(time_ms: i64, zone: Zone, with_seconds: bool, with_millis: bool) -> String {
+    let time_ms = zone.shift(time_ms);
     let Some(c) = civil(time_ms) else {
         return String::new();
     };
@@ -330,6 +352,7 @@ mod tests {
             |i| i as f64 * 2.0,
             1_200.0,
             80.0,
+            Zone::Utc,
         );
         assert!(labels.len() >= 3, "{labels:?}");
         for pair in labels.windows(2) {
@@ -352,6 +375,7 @@ mod tests {
             |i| i as f64 * 0.5,
             1_500.0,
             90.0,
+            Zone::Utc,
         );
         let majors: Vec<_> = labels.iter().filter(|l| l.major).collect();
         assert!(majors.len() >= 2, "{labels:?}");
@@ -359,22 +383,48 @@ mod tests {
     }
 
     #[test]
+    fn a_new_day_is_never_lost_to_the_hours_around_it() {
+        // Hourly bars a hair under 8 px wide: twelve hours are just under the gap between labels,
+        // which used to keep the noon labels and drop every midnight.
+        let start = 1_767_571_200_000 + 12 * 3_600_000;
+        let times: Vec<i64> = (0..48).map(|i| start + i * 3_600_000).collect();
+        let labels = time_labels(
+            0,
+            times.len(),
+            |i| times.get(i).copied(),
+            |i| i as f64 * 7.99,
+            560.0,
+            96.0,
+            Zone::Utc,
+        );
+        assert!(
+            labels
+                .iter()
+                .any(|l| l.major && l.index == 12 && l.text == "6 Jan"),
+            "{labels:?}"
+        );
+        for pair in labels.windows(2) {
+            assert!(pair[1].index > pair[0].index);
+        }
+    }
+
+    #[test]
     fn no_points_no_labels() {
-        assert!(time_labels(0, 0, |_| None, |_| 0.0, 500.0, 80.0).is_empty());
+        assert!(time_labels(0, 0, |_| None, |_| 0.0, 500.0, 80.0, Zone::Utc).is_empty());
     }
 
     #[test]
     fn the_crosshair_time_is_readable() {
-        let text = full_time(1_767_571_200_000 + 61_500, true, true);
+        let text = full_time(1_767_571_200_000 + 61_500, Zone::Utc, true, true);
         assert_eq!(text, "Mon 5 Jan 2026  00:01:01.500");
         assert_eq!(
-            full_time(1_767_571_200_000, false, false),
+            full_time(1_767_571_200_000, Zone::Utc, false, false),
             "Mon 5 Jan 2026  00:00"
         );
     }
 
     #[test]
     fn times_before_the_epoch_do_not_panic() {
-        assert!(!full_time(-86_400_000, false, false).is_empty());
+        assert!(!full_time(-86_400_000, Zone::Utc, false, false).is_empty());
     }
 }

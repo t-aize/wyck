@@ -22,6 +22,7 @@ use gpui_kit::assets::IconName;
 
 use super::catalog::{Class, Entry};
 use super::details::{self, Detail};
+use super::lists::{self, ListEditor, Scope};
 use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::app::connection::ui;
@@ -34,15 +35,19 @@ const ROW_HEIGHT: f32 = 52.;
 const PAGE: isize = 8;
 
 pub(super) struct Picker {
-    input: Entity<TextInput>,
+    pub(super) input: Entity<TextInput>,
     /// Re-renders the dashboard when the search text changes.
     _observe: Subscription,
     class: Option<Class>,
+    /// Favorites or one watchlist, on top of the class and the search.
+    pub(super) scope: Option<Scope>,
+    /// The field that names a list, while it is open.
+    pub(super) list_editor: Option<ListEditor>,
     highlighted: usize,
     /// The catalog indices matching the current search, best first.
     results: Vec<usize>,
     /// The search the results were computed for.
-    computed_for: Option<(String, Option<Class>)>,
+    pub(super) computed_for: Option<(String, Option<Class>, Option<Scope>)>,
     scroll: UniformListScrollHandle,
     /// The symbol whose details were last asked for, so a re-render does not ask again.
     requested: Option<i64>,
@@ -70,6 +75,8 @@ impl Dashboard {
             input,
             _observe: observe,
             class: None,
+            scope: None,
+            list_editor: None,
             highlighted: 0,
             results: Vec::new(),
             computed_for: None,
@@ -81,6 +88,15 @@ impl Dashboard {
 
     /// Escape: closes the picker, or else the account menu.
     pub(super) fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Escape in the list field only closes that field.
+        if self
+            .picker
+            .as_ref()
+            .is_some_and(|picker| picker.list_editor.is_some())
+        {
+            self.close_list_editor(window, cx);
+            return;
+        }
         self.drop_peek();
         self.picker = None;
         self.menu_open = false;
@@ -132,9 +148,18 @@ impl Dashboard {
         let picker = self.picker.as_mut()?;
 
         let text = picker.input.read(cx).text().to_owned();
-        let search = (text.clone(), picker.class);
+        let search = (text.clone(), picker.class, picker.scope);
+        let lists = self.workspace.read(cx).watchlists().clone();
         if picker.computed_for.as_ref() != Some(&search) {
-            picker.results = catalog.query(&text, picker.class);
+            let mut results = catalog.query(&text, picker.class);
+            if let Some(scope) = picker.scope {
+                results.retain(|index| {
+                    catalog
+                        .entry(*index)
+                        .is_some_and(|entry| scope.contains(&lists, &entry.name))
+                });
+            }
+            picker.results = results;
             picker.highlighted = 0;
             picker.computed_for = Some(search);
             picker.scroll.scroll_to_item(0, ScrollStrategy::Top);
@@ -142,6 +167,7 @@ impl Dashboard {
         let input = picker.input.clone();
         let scroll = picker.scroll.clone();
         let selected_class = picker.class;
+        let scope = picker.scope;
         let count = picker.results.len();
         let highlighted_row = picker.highlighted;
         let highlighted: Option<Entry> = picker
@@ -180,6 +206,9 @@ impl Dashboard {
             live,
             is_current,
             action,
+            lists: highlighted
+                .as_ref()
+                .map(|entry| lists::membership_panel(&entry.name, &lists, cx)),
             epoch: self.picker_opens,
         });
         let total = catalog.total();
@@ -189,15 +218,33 @@ impl Dashboard {
             .map(|class| class_chip(class, class == selected_class, cx))
             .collect::<Vec<_>>();
 
+        let list_chips = lists::list_chips(
+            &lists,
+            scope,
+            self.picker.as_ref().and_then(|p| p.list_editor.as_ref()),
+            cx,
+        );
+        let empty_message = match scope {
+            Some(Scope::Favorites) if lists.favorites.is_empty() => {
+                "No favorites yet. Click the star of a symbol to add it."
+            }
+            Some(Scope::List(_)) if count == 0 && text.trim().is_empty() => {
+                "This list is empty. Highlight a symbol and save it to the list."
+            }
+            _ => "No symbol matches your search",
+        };
+
         let list = if count == 0 {
             div()
                 .flex_1()
                 .flex()
                 .items_center()
                 .justify_center()
+                .px_6()
+                .text_center()
                 .text_size(px(13.))
                 .text_color(theme::muted_fg())
-                .child("No symbol matches your search")
+                .child(empty_message)
                 .into_any_element()
         } else {
             uniform_list(
@@ -211,6 +258,7 @@ impl Dashboard {
                         return Vec::new();
                     };
                     let active = this.active.as_ref().map(|a| a.entry.id);
+                    let watchlists = this.workspace.read(cx).watchlists().clone();
                     range
                         .filter_map(|row| {
                             let entry = catalog.entry(*picker.results.get(row)?)?;
@@ -219,6 +267,7 @@ impl Dashboard {
                                 entry,
                                 row == picker.highlighted,
                                 active == Some(entry.id),
+                                watchlists.is_favorite(&entry.name),
                                 cx,
                             ))
                         })
@@ -241,6 +290,15 @@ impl Dashboard {
                 cx.listener(|this, _: &PickerPageDown, _window, cx| this.move_highlight(PAGE, cx)),
             )
             .on_action(cx.listener(|this, _: &PickerConfirm, window, cx| {
+                // Enter in the list field saves the list, not the symbol.
+                if this
+                    .picker
+                    .as_ref()
+                    .is_some_and(|picker| picker.list_editor.is_some())
+                {
+                    this.commit_list_editor(window, cx);
+                    return;
+                }
                 let row = this.picker.as_ref().map(|p| p.highlighted).unwrap_or(0);
                 this.choose(row, window, cx);
             }))
@@ -279,8 +337,20 @@ impl Dashboard {
                     .flex_wrap()
                     .gap_2()
                     .px_4()
-                    .pb_3()
+                    .pb_2()
                     .children(chips),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_row()
+                    .flex_wrap()
+                    .items_center()
+                    .gap_2()
+                    .px_4()
+                    .pb_3()
+                    .children(list_chips),
             )
             .child(div().flex_none().h(px(1.)).bg(theme::border_hairline()))
             .child(
@@ -362,19 +432,20 @@ fn symbol_row(
     entry: &super::catalog::Entry,
     highlighted: bool,
     active: bool,
+    favorite: bool,
     cx: &mut Context<Dashboard>,
 ) -> Stateful<gpui::Div> {
-    div()
+    let star = lists::star(row, favorite, cx, entry.name.clone().into());
+    let main = div()
         .id(("symbol-row", row as u64))
-        .w_full()
-        .h(px(ROW_HEIGHT))
-        .px_4()
+        .flex_1()
+        .min_w_0()
+        .h_full()
         .flex()
         .flex_row()
         .items_center()
         .gap_3()
         .cursor_pointer()
-        .when(highlighted, |el| el.bg(theme::surface_hover()))
         .active(|style| style.bg(theme::surface_pressed()))
         .on_mouse_move(
             cx.listener(move |this, _event: &MouseMoveEvent, _window, cx| {
@@ -432,7 +503,20 @@ fn symbol_row(
                 .w(px(16.))
                 .flex_none()
                 .children(active.then(|| ui::icon_colored(IconName::Check, 16., theme::accent()))),
-        )
+        );
+    div()
+        .id(("symbol-line", row as u64))
+        .w_full()
+        .h(px(ROW_HEIGHT))
+        .pl_4()
+        .pr_2()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap_1()
+        .when(highlighted, |el| el.bg(theme::surface_hover()))
+        .child(main)
+        .child(star)
 }
 
 impl Dashboard {

@@ -4,7 +4,7 @@
 //! and secret handling shared by every part of `wyck` that needs to persist settings
 //! or hold a broker/API token.
 //!
-//! ## Two kinds of state, kept apart on purpose
+//! ## Kinds of state, kept apart on purpose
 //!
 //! - **[`AppConfig`]**: plaintext, human-editable, versioned TOML at
 //!   [`AppPaths::config_file`]. Holds [`ProfileConfig`]s: a display name, a free-form
@@ -18,8 +18,13 @@
 //!   no OS keyring). **A token never appears in [`AppConfig`]'s TOML file**: only a
 //!   [`secret::SecretKey`] derived from the profile's id does, and that key identifies
 //!   *where* to look the token up, not the token itself.
+//! - **[`DocumentStore`]**: typed TOML documents for anything else a front end wants to remember
+//!   between runs (layouts, favorites, drawings). This crate only provides the storage (where the
+//!   files go, atomic writes, a file that can no longer be read is set aside instead of failing
+//!   the app); the shape of each document belongs to the code that owns the data. There is a
+//!   global store and one per scope, such as an account number.
 //!
-//! [`WyckConfig`] is the facade that ties the two together: load it once at startup,
+//! [`WyckConfig`] is the facade that ties the first two together: load it once at startup,
 //! then use it to list/add/remove profiles and fetch a profile's token when a client
 //! (e.g. [`crate::openapi`]) needs one to connect.
 //!
@@ -49,6 +54,7 @@
 //! ```
 
 mod app_config;
+mod documents;
 mod error;
 mod fs_util;
 mod paths;
@@ -56,6 +62,7 @@ mod profile;
 pub mod secret;
 
 pub use app_config::AppConfig;
+pub use documents::DocumentStore;
 pub use error::{ConfigError, Result};
 pub use paths::AppPaths;
 pub use profile::{ProfileConfig, ProfileId};
@@ -354,6 +361,16 @@ impl WyckConfig {
         self.app_config.save(&self.paths)?;
         info!(active = ?id, "changed the active profile");
         Ok(())
+    }
+
+    /// The documents shared by every profile (how the user likes to work).
+    pub fn global_documents(&self) -> DocumentStore {
+        DocumentStore::global(&self.paths)
+    }
+
+    /// The documents of one scope, such as an account (what depends on the broker behind it).
+    pub fn scoped_documents(&self, scope: &str) -> DocumentStore {
+        DocumentStore::scoped(&self.paths, scope)
     }
 
     /// The symbol the user was last on, if one was remembered.

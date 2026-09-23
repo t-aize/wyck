@@ -169,17 +169,18 @@ impl Dashboard {
             .children(spread.map(|pips| chip("Spread", format!("{pips} pips"))))
     }
 
-    /// The main timeframes as buttons, and a button that opens all of them: ticks, seconds,
+    /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,
     /// minutes, hours and days.
     fn timeframe_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let current = self.multi.read(cx).active_timeframe(cx);
+        let favorites = self.workspace.read(cx).preferences().favorites();
         let mut quick = Vec::new();
-        for timeframe in chart::QUICK {
+        for timeframe in favorites.iter().copied() {
             quick.push(timeframe_chip("tf", timeframe, current == timeframe, cx));
         }
 
         // When the chart is on a timeframe that has no button of its own, the menu button says which.
-        let in_quick = chart::QUICK.contains(&current);
+        let in_quick = favorites.contains(&current);
         let more = div()
             .id("tf-more")
             .flex()
@@ -231,14 +232,21 @@ impl Dashboard {
         cx.notify();
     }
 
-    /// Every timeframe, in sections, under the strip.
+    fn toggle_favorite_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.toggle_favorite_timeframe(timeframe));
+        });
+    }
+
+    /// Every timeframe, in sections, under the strip. A star keeps one in the header.
     fn timeframe_menu(
         &self,
         current: chart::Timeframe,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let prefs = self.workspace.read(cx).preferences().clone();
         let mut card = div()
-            .w(px(300.))
+            .w(px(320.))
             .p_3()
             .flex()
             .flex_col()
@@ -251,12 +259,42 @@ impl Dashboard {
         for (title, items) in chart::GROUPS {
             let mut chips = Vec::new();
             for timeframe in items.iter().copied() {
-                chips.push(timeframe_chip(
-                    "tf-menu",
-                    timeframe,
-                    current == timeframe,
-                    cx,
-                ));
+                let favorite = prefs.is_favorite_timeframe(timeframe);
+                chips.push(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .child(timeframe_chip(
+                            "tf-menu",
+                            timeframe,
+                            current == timeframe,
+                            cx,
+                        ))
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("tf-star-{}", timeframe.code())))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .size(px(22.))
+                                .rounded_md()
+                                .cursor_pointer()
+                                .hover(|style| style.bg(theme::surface_hover()))
+                                .on_click(cx.listener(move |this, _event, _window, cx| {
+                                    this.toggle_favorite_timeframe(timeframe, cx);
+                                }))
+                                .child(ui::icon_colored(
+                                    IconName::Star,
+                                    13.,
+                                    if favorite {
+                                        theme::amber()
+                                    } else {
+                                        theme::muted_fg()
+                                    },
+                                )),
+                        ),
+                );
             }
             card = card.child(
                 div()
@@ -272,9 +310,15 @@ impl Dashboard {
                     .child(div().flex().flex_row().flex_wrap().gap_1().children(chips)),
             );
         }
+        card = card.child(
+            div()
+                .text_size(px(11.))
+                .text_color(theme::muted_fg())
+                .child("Star a timeframe to keep it in the header."),
+        );
         deferred(
             anchored()
-                .anchor(gpui::Anchor::TopRight)
+                .anchor(gpui::Anchor::TopLeft)
                 .offset(gpui::point(px(0.), px(0.)))
                 .snap_to_window_with_margin(px(8.))
                 .child(

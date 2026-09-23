@@ -11,12 +11,16 @@
 use gpui::{
     Bounds, Hsla, PaintQuad, Path, PathBuilder, Pixels, Point, Rgba, fill, point, px, size,
 };
-use wyck::openapi::market::format_price;
+use wyck::openapi::market::{Bar, format_price};
 
 use super::axis;
 use super::data::Series;
+use super::drawing::geometry::{self, Anchor, Prim};
+use super::drawing::model::{Dash, Drawing};
+use super::projection::ChartProjection;
 use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
+use super::zone::Zone;
 use crate::app::theme;
 
 /// Width of the price axis on the right.
@@ -34,21 +38,64 @@ const FONT: f32 = 11.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChartKind {
     Candles,
+    /// Candles whose body is empty when the price closed above its open, colored by the change
+    /// from the previous close.
+    Hollow,
+    /// Candles of averaged prices, which smooth out the noise of the trend.
+    HeikinAshi,
     Bars,
     Line,
+    /// A line that holds each price until the next one, like the price itself does.
+    Step,
     Area,
 }
 
 impl ChartKind {
-    pub const ALL: [Self; 4] = [Self::Candles, Self::Bars, Self::Line, Self::Area];
+    pub const ALL: [Self; 7] = [
+        Self::Candles,
+        Self::Hollow,
+        Self::HeikinAshi,
+        Self::Bars,
+        Self::Line,
+        Self::Step,
+        Self::Area,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Candles => "Candles",
+            Self::Hollow => "Hollow candles",
+            Self::HeikinAshi => "Heikin Ashi",
             Self::Bars => "Bars",
             Self::Line => "Line",
+            Self::Step => "Step line",
             Self::Area => "Area",
         }
+    }
+
+    /// The name written in saved files. It never changes.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Candles => "candles",
+            Self::Hollow => "hollow",
+            Self::HeikinAshi => "heikin_ashi",
+            Self::Bars => "bars",
+            Self::Line => "line",
+            Self::Step => "step",
+            Self::Area => "area",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.code() == code)
+    }
+
+    /// Whether the kind is drawn from open, high, low and close (and so needs bars).
+    pub fn uses_ohlc(self) -> bool {
+        matches!(
+            self,
+            Self::Candles | Self::Hollow | Self::HeikinAshi | Self::Bars
+        )
     }
 }
 
@@ -91,7 +138,7 @@ impl PriceMap {
 /// What the series is drawn as: ticks have no body, so they are always a line.
 pub fn effective_kind(series: &Series, kind: ChartKind) -> ChartKind {
     match (series, kind) {
-        (Series::Ticks(_), ChartKind::Candles | ChartKind::Bars) => ChartKind::Line,
+        (Series::Ticks(_), kind) if kind.uses_ohlc() => ChartKind::Line,
         _ => kind,
     }
 }
@@ -115,7 +162,7 @@ pub fn price_map(
     let (lo, hi) = match view.price {
         PriceScale::Manual { lo, hi } if hi > lo => (lo, hi),
         _ => {
-            let wicks = matches!(kind, ChartKind::Candles | ChartKind::Bars);
+            let wicks = kind.uses_ohlc();
             let (lo, hi) = series.price_range(first, last, wicks)?;
             padded_range(lo as f64, hi as f64, quote_unit(digits) * 10.0)
         }
@@ -182,6 +229,7 @@ fn with_alpha(c: Rgba, alpha: f32) -> Hsla {
 pub enum Align {
     Left,
     Center,
+    Right,
 }
 
 /// A drawing command, in window coordinates.
@@ -205,6 +253,8 @@ pub enum Cmd {
         bg: Hsla,
         fg: Hsla,
         align: Align,
+        /// A width to use whatever the text measures, for the tags on the price axis.
+        fixed_width: Option<f32>,
     },
     /// Commands drawn only inside these bounds.
     Clip(Bounds<Pixels>, Vec<Cmd>),
@@ -215,6 +265,7 @@ pub struct Frame<'a> {
     pub view: &'a View,
     pub kind: ChartKind,
     pub timeframe: Timeframe,
+    pub zone: Zone,
     pub digits: u32,
     pub origin: Point<Pixels>,
     pub layout: Layout,
@@ -226,6 +277,16 @@ pub struct Frame<'a> {
     pub remote: Option<(i64, f64)>,
     pub ask: Option<i64>,
     pub palette: Palette,
+    /// The drawings of the symbol, when there are any to show.
+    pub drawings: Option<DrawingView<'a>>,
+}
+
+/// The drawings to show on a chart.
+pub struct DrawingView<'a> {
+    pub list: &'a [Drawing],
+    /// The drawing being made, which follows the pointer.
+    pub creating: Option<&'a Drawing>,
+    pub selected: Option<u64>,
 }
 
 struct Ctx<'a> {
@@ -346,6 +407,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         |i| frame.view.x_of(i as f64, len, plot_w),
         plot_w,
         96.0,
+        frame.zone,
     );
 
     // The plot, clipped to itself.
@@ -361,12 +423,37 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     }
     match (frame.series, kind) {
         (Series::Bars(bars), ChartKind::Candles) => {
-            draw_candles(&cx, bars, first, last, false, &mut plot)
+            draw_candles(&cx, bars, 0, first, last, CandleStyle::Solid, &mut plot)
+        }
+        (Series::Bars(bars), ChartKind::Hollow) => {
+            draw_candles(&cx, bars, 0, first, last, CandleStyle::Hollow, &mut plot)
         }
         (Series::Bars(bars), ChartKind::Bars) => {
-            draw_candles(&cx, bars, first, last, true, &mut plot)
+            draw_candles(&cx, bars, 0, first, last, CandleStyle::Ohlc, &mut plot)
         }
-        _ => draw_line(&cx, first, last, kind == ChartKind::Area, &mut plot),
+        (Series::Bars(bars), ChartKind::HeikinAshi) => {
+            let (base, averaged) = heikin_ashi(bars, first, last);
+            draw_candles(
+                &cx,
+                &averaged,
+                base,
+                first,
+                last,
+                CandleStyle::Solid,
+                &mut plot,
+            );
+        }
+        _ => draw_line(
+            &cx,
+            first,
+            last,
+            matches!(kind, ChartKind::Area),
+            matches!(kind, ChartKind::Step),
+            &mut plot,
+        ),
+    }
+    if let Some(view) = &frame.drawings {
+        draw_drawings(&cx, view, &mut plot);
     }
     draw_price_lines(&cx, &mut plot);
     if let Some((hx, hy)) = cx.pointer {
@@ -403,6 +490,15 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             align: Align::Center,
         });
     }
+    // The zone the times are in, in the corner between the axes.
+    let corner_time = frame.series.last_time().unwrap_or(0);
+    cmds.push(Cmd::Text {
+        text: frame.zone.label(corner_time),
+        x: ox + plot_w as f32 + AXIS_W / 2.0,
+        y: oy + plot_h as f32 + 8.0,
+        color: color(p.text),
+        align: Align::Center,
+    });
     draw_axis_tags(&cx, &mut cmds);
     cmds
 }
@@ -498,22 +594,57 @@ fn columns(
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CandleStyle {
+    Solid,
+    Hollow,
+    Ohlc,
+}
+
+/// Bars of averaged prices for the points `first..last`, starting a little before `first` so
+/// that the average has settled by the first one drawn (each bar is half made of the one
+/// before, so the start is forgotten within a few dozen bars). Returns the index the first
+/// returned bar stands for, and the bars.
+fn heikin_ashi(bars: &[Bar], first: usize, last: usize) -> (usize, Vec<Bar>) {
+    const WARM_UP: usize = 48;
+    let last = last.min(bars.len());
+    let base = first.saturating_sub(WARM_UP).min(last);
+    let mut out: Vec<Bar> = Vec::with_capacity(last - base);
+    for bar in &bars[base..last] {
+        let close = ((bar.open + bar.high + bar.low + bar.close) as f64 / 4.0).round() as i64;
+        let open = out
+            .last()
+            .map_or((bar.open + bar.close) / 2, |p| (p.open + p.close) / 2);
+        out.push(Bar {
+            open,
+            close,
+            high: bar.high.max(open).max(close),
+            low: bar.low.min(open).min(close),
+            ..*bar
+        });
+    }
+    (base, out)
+}
+
+/// Draws `bars`, where `bars[0]` stands for point `base` of the series.
 fn draw_candles(
     cx: &Ctx<'_>,
-    bars: &[wyck::openapi::market::Bar],
+    bars: &[Bar],
+    base: usize,
     first: usize,
     last: usize,
-    ohlc: bool,
+    style: CandleStyle,
     out: &mut Vec<Cmd>,
 ) {
     let bar_px = cx.f.view.bar_px;
-    let last = last.min(bars.len());
+    let last = last.min(base + bars.len());
+    let first = first.max(base);
     let wide = bar_px >= CANDLE_MIN_PX;
     let wick = 1.0 / cx.f.scale;
     if !wide {
         // One line per pixel column, from the lowest low to the highest high.
         columns(cx, first, last, |x, range| {
-            let group = &bars[range.clone()];
+            let group = &bars[range.start - base..range.end - base];
             let high = group.iter().map(|b| b.high).max().unwrap_or(0) as f64;
             let low = group.iter().map(|b| b.low).min().unwrap_or(0) as f64;
             let up = group[group.len() - 1].close >= group[0].open;
@@ -523,24 +654,42 @@ fn draw_candles(
         return;
     }
     let body_w = (bar_px * 0.72).max(3.0) as f32;
-    for (i, bar) in bars.iter().enumerate().take(last).skip(first) {
+    for i in first..last {
+        let bar = &bars[i - base];
         let x = cx.x(i);
-        let up = bar.close >= bar.open;
+        // Hollow candles are colored by the change from the previous close, the others by the
+        // change over the bar itself.
+        let up = match style {
+            CandleStyle::Hollow => {
+                let previous = (i > base).then(|| bars[i - base - 1].close);
+                bar.close >= previous.unwrap_or(bar.open)
+            }
+            _ => bar.close >= bar.open,
+        };
         let c = color(up_color(cx, up));
         let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
         let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
-        if ohlc {
-            out.push(cx.vline(x, y_high, y_low.max(y_high + wick), c));
+        out.push(cx.vline(x, y_high, y_low.max(y_high + wick), c));
+        if style == CandleStyle::Ohlc {
             let tick = (bar_px as f32 * 0.38).max(2.0);
             out.push(cx.hline(y_open, x - tick, x, c));
             out.push(cx.hline(y_close, x, x + tick, c));
+            continue;
+        }
+        let (top, bottom) = (y_open.min(y_close), y_open.max(y_close));
+        let x0 = cx.snap(x - body_w / 2.0);
+        let x1 = cx.snap(x + body_w / 2.0).max(x0 + 1.0 / cx.f.scale);
+        let top = cx.snap(top);
+        let height = (cx.snap(bottom) - top).max(1.0 / cx.f.scale);
+        if style == CandleStyle::Hollow && bar.close > bar.open {
+            let mut quad = fill(
+                Bounds::new(point(px(x0), px(top)), size(px(x1 - x0), px(height))),
+                gpui::transparent_black(),
+            );
+            quad.border_widths = (1.0 / cx.f.scale).max(1.0).into();
+            quad.border_color = c;
+            out.push(Cmd::Quad(quad));
         } else {
-            out.push(cx.vline(x, y_high, y_low.max(y_high + wick), c));
-            let (top, bottom) = (y_open.min(y_close), y_open.max(y_close));
-            let x0 = cx.snap(x - body_w / 2.0);
-            let x1 = cx.snap(x + body_w / 2.0).max(x0 + 1.0 / cx.f.scale);
-            let top = cx.snap(top);
-            let height = (cx.snap(bottom) - top).max(1.0 / cx.f.scale);
             out.push(cx.quad(x0, top, x1 - x0, height, c));
         }
     }
@@ -554,7 +703,7 @@ fn value_at(series: &Series, index: usize) -> Option<i64> {
     }
 }
 
-fn draw_line(cx: &Ctx<'_>, first: usize, last: usize, area: bool, out: &mut Vec<Cmd>) {
+fn draw_line(cx: &Ctx<'_>, first: usize, last: usize, area: bool, step: bool, out: &mut Vec<Cmd>) {
     let mut points: Vec<(f32, f32)> = Vec::new();
     if cx.f.view.bar_px >= 1.0 {
         for i in first..last {
@@ -593,6 +742,17 @@ fn draw_line(cx: &Ctx<'_>, first: usize, last: usize, area: bool, out: &mut Vec<
     if points.len() < 2 {
         return;
     }
+    if step {
+        // Hold each price until the next point, then jump.
+        let mut stepped = Vec::with_capacity(points.len() * 2);
+        for (i, &(x, y)) in points.iter().enumerate() {
+            if i > 0 {
+                stepped.push((x, points[i - 1].1));
+            }
+            stepped.push((x, y));
+        }
+        points = stepped;
+    }
     let p = cx.f.palette;
     if area {
         let base = cx.oy + cx.plot_h as f32;
@@ -623,10 +783,24 @@ fn draw_line(cx: &Ctx<'_>, first: usize, last: usize, area: bool, out: &mut Vec<
 /// Strokes a polyline in pieces the GPU path can hold, each piece sharing its end point with the
 /// next so the line has no break.
 fn stroke(points: &[(f32, f32)], width: f32, c: Hsla, out: &mut Vec<Cmd>) {
+    stroke_dashed(points, width, c, None, out);
+}
+
+/// Like [`stroke`], with a dash pattern (the lengths of a dash and of the gap after it).
+fn stroke_dashed(
+    points: &[(f32, f32)],
+    width: f32,
+    c: Hsla,
+    dash: Option<[f32; 2]>,
+    out: &mut Vec<Cmd>,
+) {
     let mut start = 0;
     while start + 1 < points.len() {
         let end = (start + PATH_CHUNK).min(points.len());
         let mut builder = PathBuilder::stroke(px(width));
+        if let Some([on, off]) = dash {
+            builder = builder.dash_array(&[px(on), px(off)]);
+        }
         builder.move_to(point(px(points[start].0), px(points[start].1)));
         for (x, y) in &points[start + 1..end] {
             builder.line_to(point(px(*x), px(*y)));
@@ -694,6 +868,7 @@ fn draw_axis_tags(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
             bg: color(up_color(cx, last_is_up(cx.f.series))),
             fg: color(p.bg),
             align: Align::Left,
+            fixed_width: Some(AXIS_W - 2.0),
         });
     }
     let Some((hx, hy)) = cx.pointer else { return };
@@ -707,6 +882,7 @@ fn draw_axis_tags(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
         bg: color(p.tag),
         fg: color(p.text_strong),
         align: Align::Left,
+        fixed_width: Some(AXIS_W - 2.0),
     });
     if cx.len > 0 {
         let index =
@@ -717,6 +893,7 @@ fn draw_axis_tags(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
         if let Some(time) = cx.f.series.time_at(index) {
             let text = axis::full_time(
                 time,
+                cx.f.zone,
                 matches!(cx.f.timeframe, Timeframe::Seconds(_) | Timeframe::Ticks),
                 matches!(cx.f.timeframe, Timeframe::Ticks),
             );
@@ -729,8 +906,189 @@ fn draw_axis_tags(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
                 bg: color(p.tag),
                 fg: color(p.text_strong),
                 align: Align::Center,
+                fixed_width: None,
             });
         }
+    }
+}
+
+fn rgb_alpha(color: u32, alpha: f32) -> Hsla {
+    let mut hsla: Hsla = gpui::rgb(color).into();
+    hsla.a = alpha;
+    hsla
+}
+
+/// Draws the drawings of the symbol, and the grips of the selected one.
+fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
+    let projection = ChartProjection {
+        series: cx.f.series,
+        view: cx.f.view,
+        map: cx.map,
+        plot_w: cx.plot_w,
+        plot_h: cx.plot_h,
+        step_ms: cx.f.series.step_ms(cx.f.timeframe.bar_ms()),
+        digits: cx.f.digits,
+    };
+    for drawing in view.list.iter().chain(view.creating) {
+        for prim in geometry::prims(drawing, &projection) {
+            push_prim(cx, prim, out);
+        }
+        if view.selected == Some(drawing.id) && !drawing.locked {
+            for at in geometry::handles(drawing, &projection) {
+                push_prim(cx, Prim::Handle { at }, out);
+            }
+        }
+    }
+}
+
+/// Turns one shape of a drawing (in plot coordinates) into drawing commands.
+fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
+    let (ox, oy) = (cx.ox, cx.oy);
+    let at = |p: (f32, f32)| (ox + p.0, oy + p.1);
+    let thin = 1.0 / cx.f.scale;
+    match prim {
+        Prim::Segment {
+            a,
+            b,
+            color,
+            alpha,
+            width,
+            dash,
+        } => {
+            let (a, b) = (at(a), at(b));
+            let paint = rgb_alpha(color, alpha);
+            let solid = dash == Dash::Solid;
+            if solid && width <= 1.0 && (a.1 - b.1).abs() < 0.01 {
+                out.push(cx.hline(a.1, a.0.min(b.0), a.0.max(b.0), paint));
+            } else if solid && width <= 1.0 && (a.0 - b.0).abs() < 0.01 {
+                out.push(cx.vline(a.0, a.1, b.1, paint));
+            } else {
+                let pattern = match dash {
+                    Dash::Solid => None,
+                    Dash::Dashed => Some([6.0 + width * 1.5, 4.0 + width]),
+                    Dash::Dotted => Some([width.max(1.0), 3.0 + width]),
+                };
+                stroke_dashed(&[a, b], width, paint, pattern, out);
+            }
+        }
+        Prim::Rect {
+            a,
+            b,
+            fill: inside,
+            stroke: edge,
+        } => {
+            let (a, b) = (at(a), at(b));
+            let (left, right) = (a.0.min(b.0), a.0.max(b.0));
+            let (top, bottom) = (a.1.min(b.1), a.1.max(b.1));
+            let background =
+                inside.map_or_else(gpui::transparent_black, |(c, al)| rgb_alpha(c, al));
+            let mut quad = fill(
+                Bounds::new(
+                    point(px(left), px(top)),
+                    size(px(right - left), px(bottom - top)),
+                ),
+                background,
+            );
+            if let Some((c, width)) = edge {
+                quad.border_widths = px(width.max(thin)).into();
+                quad.border_color = rgb_alpha(c, 1.0);
+            }
+            out.push(Cmd::Quad(quad));
+        }
+        Prim::Ellipse {
+            center,
+            rx,
+            ry,
+            fill: inside,
+            stroke: edge,
+        } => {
+            let center = at(center);
+            let ring: Vec<(f32, f32)> = (0..=48)
+                .map(|i| {
+                    let angle = i as f32 / 48.0 * std::f32::consts::TAU;
+                    (center.0 + rx * angle.cos(), center.1 + ry * angle.sin())
+                })
+                .collect();
+            if let Some((c, al)) = inside {
+                fill_polygon(&ring, rgb_alpha(c, al), out);
+            }
+            if let Some((c, width)) = edge {
+                stroke(&ring, width, rgb_alpha(c, 1.0), out);
+            }
+        }
+        Prim::Polygon {
+            points,
+            fill: (c, al),
+        } => {
+            let points: Vec<(f32, f32)> = points.into_iter().map(at).collect();
+            fill_polygon(&points, rgb_alpha(c, al), out);
+        }
+        Prim::Polyline {
+            points,
+            color,
+            width,
+        } => {
+            let points: Vec<(f32, f32)> = points.into_iter().map(at).collect();
+            stroke(&points, width, rgb_alpha(color, 1.0), out);
+        }
+        Prim::Label {
+            at: position,
+            text,
+            color,
+            background,
+            anchor,
+        } => {
+            let (x, y) = at(position);
+            let align = match anchor {
+                Anchor::Left => Align::Left,
+                Anchor::Right => Align::Right,
+                Anchor::Center => Align::Center,
+            };
+            out.push(match background {
+                Some((bg, al)) => Cmd::Tag {
+                    text,
+                    x,
+                    y: y - 9.0,
+                    height: 18.0,
+                    pad: 6.0,
+                    bg: rgb_alpha(bg, al),
+                    fg: rgb_alpha(color, 1.0),
+                    align,
+                    fixed_width: None,
+                },
+                None => Cmd::Text {
+                    text,
+                    x,
+                    y: y - FONT * 0.65,
+                    color: rgb_alpha(color, 1.0),
+                    align,
+                },
+            });
+        }
+        Prim::Handle { at: position } => {
+            let (x, y) = at(position);
+            let r = 4.5;
+            out.push(Cmd::Quad(PaintQuad {
+                bounds: Bounds::new(point(px(x - r), px(y - r)), size(px(r * 2.0), px(r * 2.0))),
+                corner_radii: px(r).into(),
+                background: color(cx.f.palette.text_strong).into(),
+                border_widths: px(1.5).into(),
+                border_color: color(cx.f.palette.bg),
+                border_style: gpui::BorderStyle::default(),
+            }));
+        }
+    }
+}
+
+fn fill_polygon(points: &[(f32, f32)], paint: Hsla, out: &mut Vec<Cmd>) {
+    if points.len() < 3 {
+        return;
+    }
+    let polygon: Vec<Point<Pixels>> = points.iter().map(|(x, y)| point(px(*x), px(*y))).collect();
+    let mut builder = PathBuilder::fill();
+    builder.add_polygon(&polygon, true);
+    if let Ok(path) = builder.build() {
+        out.push(Cmd::Path(path, paint));
     }
 }
 
@@ -761,6 +1119,7 @@ mod tests {
             view,
             kind,
             timeframe: Timeframe::DEFAULT,
+            zone: Zone::Utc,
             digits: 5,
             origin: point(px(0.0), px(0.0)),
             layout: Layout {
@@ -772,6 +1131,7 @@ mod tests {
             remote: None,
             ask: Some(100_020),
             palette: Palette::new(),
+            drawings: None,
         }
     }
 

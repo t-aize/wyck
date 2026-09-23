@@ -33,6 +33,7 @@ use wyck::openapi::{ConnectionConfig, Environment};
 
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
+use super::workspace::Documents;
 use super::{anim, runtime, theme};
 
 enum Screen {
@@ -178,7 +179,22 @@ impl ConnectionFlow {
             is_live: environment == Environment::Live,
         };
         let initial_symbol = self.config.last_symbol().map(str::to_owned);
-        let dashboard = cx.new(|cx| Dashboard::new(session, account, initial_symbol, cx));
+        // What the user arranges is kept per account number, so signing out and in again finds
+        // the watchlists where they were.
+        let scope = format!(
+            "{}-{account_id}",
+            if environment == Environment::Live {
+                "live"
+            } else {
+                "demo"
+            }
+        );
+        let documents = Documents {
+            global: self.config.global_documents(),
+            account: self.config.scoped_documents(&scope),
+        };
+        let dashboard =
+            cx.new(|cx| Dashboard::new(session, account, initial_symbol, documents, cx));
         let subscription = cx.subscribe(&dashboard, move |this, dashboard, event, cx| {
             this.on_dashboard_event(&profile_id, &dashboard, event, cx);
         });
