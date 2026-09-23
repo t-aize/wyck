@@ -205,13 +205,6 @@ impl ConnectionFlow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .when(!failed, |el| {
-                                el.child(div().absolute().child(anim::ping(
-                                    div().rounded_full().bg(theme::accent()),
-                                    ("handoff-ping", epoch),
-                                    88.,
-                                )))
-                            })
                             .child(
                                 div()
                                     .size(px(72.))
@@ -269,7 +262,7 @@ impl ConnectionFlow {
                             ),
                     )
                     .when(!failed, |el| {
-                        el.child(anim::breathe(
+                        el.child(
                             div()
                                 .flex()
                                 .items_center()
@@ -278,8 +271,7 @@ impl ConnectionFlow {
                                 .text_color(theme::accent())
                                 .child(ui::icon_colored(IconName::Radio, 14., theme::accent()))
                                 .child("Waiting for cTrader..."),
-                            ("handoff-waiting", epoch),
-                        ))
+                        )
                     })
                     .child(
                         div()

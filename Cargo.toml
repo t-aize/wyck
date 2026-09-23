@@ -35,6 +35,7 @@ uuid = { version = "1.18.1", features = ["v4"] }
 time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
 
 gpui-kit = "0.6.6"
+rust-embed = { version = "8", features = ["debug-embed"] }
 gpui = { package = "gpui-pre", version = "0.3.5" }
 unicode-segmentation = "1.13.3"
 

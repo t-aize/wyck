@@ -63,6 +63,7 @@ pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, Secret
 
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
 
@@ -84,6 +85,56 @@ struct StoredOpenApiTokens {
     expires_at: Option<u64>,
 }
 
+/// Where one profile's OAuth token pair lives in the credential store: a cheap, cloneable handle
+/// from [`WyckConfig::openapi_token_storage`]. Both halves of the pair are written in one store
+/// entry, so a rotated refresh token is never saved apart from its access token.
+#[derive(Clone)]
+pub struct OpenApiTokenStorage {
+    secrets: Arc<dyn SecretStore>,
+    key: SecretKey,
+}
+
+impl OpenApiTokenStorage {
+    /// Saves the pair, replacing what was there.
+    pub fn save(&self, tokens: &OpenApiTokens) -> Result<()> {
+        let record = StoredOpenApiTokens {
+            access_token: tokens.access_token.expose_secret().to_owned(),
+            refresh_token: tokens.refresh_token.expose_secret().to_owned(),
+            expires_at: tokens.expires_at.and_then(|time| {
+                time.duration_since(UNIX_EPOCH)
+                    .ok()
+                    .map(|span| span.as_secs())
+            }),
+        };
+        let encoded = serde_json::to_string(&record).map_err(|_| ConfigError::SecretStore {
+            key: self.key.to_string(),
+            message: "could not encode the OAuth token pair".into(),
+        })?;
+        self.secrets.store(&self.key, &SecretString::from(encoded))
+    }
+
+    /// The stored pair, if there is one.
+    pub fn load(&self) -> Result<Option<OpenApiTokens>> {
+        let Some(secret) = self.secrets.retrieve(&self.key)? else {
+            return Ok(None);
+        };
+        let record: StoredOpenApiTokens =
+            serde_json::from_str(secret.expose_secret()).map_err(|_| {
+                ConfigError::MalformedEnvelope {
+                    key: self.key.to_string(),
+                    reason: "invalid OAuth token record".into(),
+                }
+            })?;
+        Ok(Some(OpenApiTokens {
+            access_token: SecretString::from(record.access_token),
+            refresh_token: SecretString::from(record.refresh_token),
+            expires_at: record
+                .expires_at
+                .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds)),
+        }))
+    }
+}
+
 /// The top-level entry point: [`AppPaths`] plus a loaded [`AppConfig`] plus a chosen
 /// [`SecretStore`] backend, combined into the single type a front end actually imports
 /// and holds for the lifetime of the app.
@@ -95,7 +146,7 @@ struct StoredOpenApiTokens {
 pub struct WyckConfig {
     paths: AppPaths,
     app_config: AppConfig,
-    secrets: Box<dyn SecretStore>,
+    secrets: Arc<dyn SecretStore>,
 }
 
 impl WyckConfig {
@@ -116,7 +167,7 @@ impl WyckConfig {
         Ok(Self {
             paths,
             app_config,
-            secrets,
+            secrets: Arc::from(secrets),
         })
     }
 
@@ -237,41 +288,28 @@ impl WyckConfig {
     /// Saves an OAuth token pair with one credential-store write. A rotated refresh
     /// token must never be persisted separately from its matching access token.
     pub fn save_openapi_tokens(&self, id: &ProfileId, tokens: &OpenApiTokens) -> Result<()> {
-        let record = StoredOpenApiTokens {
-            access_token: tokens.access_token.expose_secret().to_owned(),
-            refresh_token: tokens.refresh_token.expose_secret().to_owned(),
-            expires_at: tokens.expires_at.and_then(|time| {
-                time.duration_since(UNIX_EPOCH)
-                    .ok()
-                    .map(|span| span.as_secs())
-            }),
-        };
-        let encoded = serde_json::to_string(&record).map_err(|_| ConfigError::SecretStore {
-            key: Self::profile_secret_key(id, "oauth-token-set").to_string(),
-            message: "could not encode the OAuth token pair".into(),
-        })?;
-        self.set_profile_secret(id, "oauth-token-set", &SecretString::from(encoded))
+        if self.profile(id).is_none() {
+            return Err(ConfigError::UnknownProfile(id.to_string()));
+        }
+        self.openapi_token_storage(id).save(tokens)
     }
 
     /// Loads the OAuth token pair of a profile, if it has one.
     pub fn openapi_tokens(&self, id: &ProfileId) -> Result<Option<OpenApiTokens>> {
-        let Some(secret) = self.profile_secret(id, "oauth-token-set")? else {
-            return Ok(None);
-        };
-        let record: StoredOpenApiTokens =
-            serde_json::from_str(secret.expose_secret()).map_err(|_| {
-                ConfigError::MalformedEnvelope {
-                    key: Self::profile_secret_key(id, "oauth-token-set").to_string(),
-                    reason: "invalid OAuth token record".into(),
-                }
-            })?;
-        Ok(Some(OpenApiTokens {
-            access_token: SecretString::from(record.access_token),
-            refresh_token: SecretString::from(record.refresh_token),
-            expires_at: record
-                .expires_at
-                .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds)),
-        }))
+        if self.profile(id).is_none() {
+            return Err(ConfigError::UnknownProfile(id.to_string()));
+        }
+        self.openapi_token_storage(id).load()
+    }
+
+    /// A handle on where a profile's OAuth tokens are kept, that can outlive this borrow of the
+    /// config and move to another thread. A long-running session uses it to save the tokens it
+    /// renews on its own, without going through the `WyckConfig` the UI owns.
+    pub fn openapi_token_storage(&self, id: &ProfileId) -> OpenApiTokenStorage {
+        OpenApiTokenStorage {
+            secrets: Arc::clone(&self.secrets),
+            key: Self::profile_secret_key(id, "oauth-token-set"),
+        }
     }
 
     fn profile_secret_key(id: &ProfileId, name: &str) -> SecretKey {

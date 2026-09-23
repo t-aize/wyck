@@ -3,9 +3,11 @@
 mod anim;
 mod assets;
 mod connection;
+mod dashboard;
 mod runtime;
 mod text_input;
 mod theme;
+mod token_store;
 
 use std::borrow::Cow;
 
@@ -23,6 +25,7 @@ pub fn run() {
             gpui_kit::init(cx);
             theme::apply(cx);
             text_input::init(cx);
+            dashboard::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

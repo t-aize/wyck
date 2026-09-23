@@ -77,11 +77,6 @@ pub fn emerald() -> Rgba {
     rgb(0x00d492)
 }
 
-/// Background tint for an emerald badge or icon well.
-pub fn emerald_bg() -> Rgba {
-    rgba(0x00d49226)
-}
-
 /// Points gpui-component's theme at this palette, so its buttons, spinners and tooltips match
 /// the hand-styled parts of the UI. Call once at startup, after `gpui_kit::init`.
 pub fn apply(cx: &mut gpui::App) {

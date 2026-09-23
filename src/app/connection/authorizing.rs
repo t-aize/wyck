@@ -5,17 +5,16 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
-use wyck::config::OpenApiTokens;
+use wyck::config::{OpenApiTokens, ProfileId};
 use wyck::openapi::Environment;
 use wyck::openapi::auth::TokenSet;
 use wyck::openapi::config::ClientCredentials;
 use wyck::openapi::transport::connection::Client;
 use wyck::openapi::transport::messages::TraderAccount;
 
-use super::connected::ConnectedState;
 use super::credentials::CALLBACK_PORT;
 use super::ui;
-use super::{ConnectionFlow, Screen, anim, theme};
+use super::{ConnectionFlow, SavedConnection, Screen, anim, service_tag, theme};
 use crate::app::runtime;
 
 pub(super) struct AuthorizingState {
@@ -76,9 +75,17 @@ impl ConnectionFlow {
                     return;
                 }
                 match this.save_connected_profile(&credentials, environment, &account, &tokens) {
-                    Ok(profile_id) => {
-                        this.screen =
-                            Screen::Connected(ConnectedState::new(profile_id, account, client));
+                    Ok((profile_id, label)) => {
+                        let saved = SavedConnection {
+                            profile_id,
+                            label: label.into(),
+                            environment,
+                            credentials,
+                            account_id: account.ctid_trader_account_id,
+                            tokens,
+                        };
+                        this.start_dashboard(saved, cx);
+                        return;
                     }
                     Err(error) => {
                         if let Screen::Authorizing(state) = &mut this.screen {
@@ -95,21 +102,26 @@ impl ConnectionFlow {
         .detach();
     }
 
+    /// Saves the connection so the next start can pick it up, replacing any earlier one (the app
+    /// keeps a single Open API connection). Returns the new profile and the name to show for it.
     fn save_connected_profile(
         &mut self,
         credentials: &ClientCredentials,
         environment: Environment,
         account: &TraderAccount,
         tokens: &TokenSet,
-    ) -> wyck::config::Result<wyck::config::ProfileId> {
-        let service = format!(
-            "ctrader-openapi-{}",
-            if environment == Environment::Live {
-                "live"
-            } else {
-                "demo"
-            }
-        );
+    ) -> wyck::config::Result<(ProfileId, String)> {
+        let stale: Vec<ProfileId> = self
+            .config
+            .profiles()
+            .iter()
+            .filter(|profile| profile.service.starts_with("ctrader-openapi-"))
+            .map(|profile| profile.id.clone())
+            .collect();
+        for id in stale {
+            self.config.remove_profile(&id)?;
+        }
+
         let broker = account.broker_title_short.as_deref().unwrap_or("cTrader");
         let login = account
             .trader_login
@@ -124,7 +136,9 @@ impl ConnectionFlow {
             }
         );
 
-        let id = self.config.add_profile(display_name, service, None, None)?;
+        let id =
+            self.config
+                .add_profile(display_name.clone(), service_tag(environment), None, None)?;
         self.config.set_openapi_profile(
             &id,
             credentials.client_id.clone(),
@@ -142,7 +156,7 @@ impl ConnectionFlow {
             },
         )?;
         self.config.set_active_profile(Some(id.clone()))?;
-        Ok(id)
+        Ok((id, display_name))
     }
 
     pub(super) fn render_authorizing(
@@ -177,13 +191,6 @@ impl ConnectionFlow {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .when(!failed, |el| {
-                                el.child(div().absolute().child(anim::ping(
-                                    div().rounded_full().bg(theme::accent()),
-                                    ("authorizing-ping", epoch),
-                                    88.,
-                                )))
-                            })
                             .child(
                                 div()
                                     .size(px(72.))

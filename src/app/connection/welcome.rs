@@ -43,11 +43,6 @@ impl ConnectionFlow {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(div().absolute().child(anim::ping(
-                            div().rounded_full().bg(theme::accent()),
-                            ("welcome-ping", epoch),
-                            72.,
-                        )))
                         .child(ui::icon_tile(
                             IconName::ChartCandlestick,
                             72.,

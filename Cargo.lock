@@ -9148,6 +9148,7 @@ dependencies = [
  "keyring",
  "proptest",
  "reqwest",
+ "rust-embed",
  "secrecy",
  "serde",
  "serde_json",

@@ -230,18 +230,7 @@ pub fn environment_badge(is_live: bool) -> impl IntoElement {
     }
 }
 
-/// A dot with a radar ring pulsing around it: "this is live / working".
-pub fn status_dot(id: &'static str, color: Rgba) -> impl IntoElement {
-    div()
-        .relative()
-        .size(px(10.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(
-            div()
-                .absolute()
-                .child(anim::ping(div().rounded_full().bg(color), id, 10.)),
-        )
-        .child(div().size(px(6.)).rounded_full().bg(color))
+/// A small solid dot, for a status ("connected", "reconnecting").
+pub fn status_dot(color: Rgba) -> impl IntoElement {
+    div().size(px(7.)).flex_shrink_0().rounded_full().bg(color)
 }

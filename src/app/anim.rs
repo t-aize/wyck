@@ -93,29 +93,6 @@ pub fn pop(el: Div, id: impl Into<ElementId>, size: f32) -> impl IntoElement {
     )
 }
 
-/// An expanding, fading ring behind an element: a radar-style "ping" that repeats forever.
-pub fn ping(el: Div, id: impl Into<ElementId>, size: f32) -> impl IntoElement {
-    el.with_animation(
-        id,
-        Animation::new(Duration::from_millis(1800)).repeat(),
-        move |el, delta| {
-            let t = ease_out_cubic(delta);
-            el.size(px(size * (1.0 + 0.6 * t))).opacity((1.0 - t) * 0.5)
-        },
-    )
-}
-
-/// Slow breathing opacity, for a status dot or a "waiting" hint.
-pub fn breathe(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
-    el.with_animation(
-        id,
-        Animation::new(Duration::from_millis(1600))
-            .repeat()
-            .with_easing(gpui::pulsating_between(0.35, 1.0)),
-        |el, delta| el.opacity(delta),
-    )
-}
-
 /// A gentle up-and-down float, for the hero icon on the welcome screen.
 pub fn float(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
     el.relative().with_animation(

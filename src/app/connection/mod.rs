@@ -1,26 +1,39 @@
 //! The cTrader connection flow: welcome, application credentials, the browser hand-off, account
-//! selection, authorizing and connected, plus managing an existing connection.
+//! selection and authorizing, ending on the dashboard.
 //!
 //! [`ConnectionFlow`] is the root view: one [`Screen`] is active at a time, and each screen that
 //! needs its own state (text inputs, an in-progress error) carries it inline. A screen transition
 //! is just `self.screen = Screen::Whatever(state); cx.notify();`, from a plain callback or from
 //! the tail of a `cx.spawn` future once real work (an HTTP call, the OAuth round trip) settles.
+//!
+//! The sign-in is kept: on the next start the app finds the saved connection and goes straight to
+//! the dashboard (see [`ConnectionFlow::restore`]).
 
 mod authorizing;
 mod browser_handoff;
-mod connected;
 mod credentials;
-mod manage;
 mod select_account;
 mod stepper;
-mod ui;
+pub(crate) mod ui;
 mod welcome;
 
-use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, FocusHandle, Focusable, Window, div};
-use wyck::config::{AppPaths, KeyringSecretStore, WyckConfig};
+use std::sync::Arc;
 
-use super::{anim, theme};
+use gpui::prelude::*;
+use gpui::{
+    AnyElement, App, Context, Entity, FocusHandle, Focusable, SharedString, Subscription, Window,
+    div,
+};
+use secrecy::ExposeSecret;
+use wyck::config::{AppPaths, KeyringSecretStore, ProfileId, WyckConfig};
+use wyck::openapi::auth::TokenSet;
+use wyck::openapi::config::ClientCredentials;
+use wyck::openapi::session::{Session, SessionConfig};
+use wyck::openapi::{ConnectionConfig, Environment};
+
+use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
+use super::token_store::{ConfigTokenStore, to_token_set};
+use super::{anim, runtime, theme};
 
 enum Screen {
     Welcome,
@@ -28,8 +41,26 @@ enum Screen {
     BrowserHandoff(browser_handoff::BrowserHandoffState),
     SelectAccount(select_account::SelectAccountState),
     Authorizing(authorizing::AuthorizingState),
-    Connected(connected::ConnectedState),
-    Manage(manage::ManageState),
+    /// The connected dashboard, and the subscription to what it reports.
+    Dashboard(Entity<Dashboard>, #[allow(dead_code)] Subscription),
+}
+
+/// The service tag of a profile made by this flow: the environment is part of it.
+fn service_tag(environment: Environment) -> &'static str {
+    match environment {
+        Environment::Live => "ctrader-openapi-live",
+        Environment::Demo => "ctrader-openapi-demo",
+    }
+}
+
+/// Everything needed to open a session again, read back from the saved profile.
+struct SavedConnection {
+    profile_id: ProfileId,
+    label: SharedString,
+    environment: Environment,
+    credentials: ClientCredentials,
+    account_id: i64,
+    tokens: TokenSet,
 }
 
 /// The root view: whichever screen is active.
@@ -46,12 +77,139 @@ pub struct ConnectionFlow {
 
 impl ConnectionFlow {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
+        let mut flow = Self {
             config: load_config(),
             screen: Screen::Welcome,
             focus_handle: cx.focus_handle(),
             epoch: 0,
             last_screen: None,
+        };
+        flow.restore(cx);
+        flow
+    }
+
+    /// If a connection was saved by an earlier run, opens the dashboard on it, so the user does
+    /// not sign in again. Anything missing or unreadable (the secret was deleted from the OS
+    /// keyring, the profile predates Open API) just leaves the welcome screen.
+    fn restore(&mut self, cx: &mut Context<Self>) {
+        let Some(saved) = self.saved_connection() else {
+            return;
+        };
+        tracing::info!(profile = %saved.profile_id, "restoring the saved connection");
+        self.start_dashboard(saved, cx);
+    }
+
+    fn saved_connection(&self) -> Option<SavedConnection> {
+        let profile = self.config.active_profile().or_else(|| {
+            self.config
+                .profiles()
+                .iter()
+                .find(|p| p.service.starts_with("ctrader-openapi-"))
+        })?;
+        if !profile.service.starts_with("ctrader-openapi-") {
+            return None;
+        }
+        let client_id = profile.client_id.clone()?;
+        let account_id = profile.account_id?;
+        let environment = if profile.service.ends_with("live") {
+            Environment::Live
+        } else {
+            Environment::Demo
+        };
+
+        let secret = match self.config.profile_secret(&profile.id, "client-secret") {
+            Ok(Some(secret)) => secret,
+            Ok(None) => return None,
+            Err(error) => {
+                tracing::warn!(%error, "could not read the saved client secret");
+                return None;
+            }
+        };
+        let tokens = match self.config.openapi_tokens(&profile.id) {
+            Ok(Some(tokens)) => tokens,
+            Ok(None) => return None,
+            Err(error) => {
+                tracing::warn!(%error, "could not read the saved tokens");
+                return None;
+            }
+        };
+        Some(SavedConnection {
+            profile_id: profile.id.clone(),
+            label: profile.display_name.clone().into(),
+            environment,
+            credentials: ClientCredentials::new(client_id, secret.expose_secret()),
+            account_id,
+            tokens: to_token_set(tokens),
+        })
+    }
+
+    /// Opens a session for the connection and shows the dashboard on it.
+    fn start_dashboard(&mut self, saved: SavedConnection, cx: &mut Context<Self>) {
+        let SavedConnection {
+            profile_id,
+            label,
+            environment,
+            credentials,
+            account_id,
+            tokens,
+        } = saved;
+
+        let config =
+            SessionConfig::new(ConnectionConfig::new(environment), credentials, account_id);
+        let store = Arc::new(ConfigTokenStore::new(
+            self.config.openapi_token_storage(&profile_id),
+        ));
+        // The session's supervisor is a tokio task, so it has to be started inside the runtime.
+        let session = {
+            let _guard = runtime::handle().enter();
+            Session::start(config, tokens, store)
+        };
+        let session = match session {
+            Ok(session) => session,
+            Err(error) => {
+                tracing::error!(%error, "could not start the session");
+                self.go_to_welcome(cx);
+                return;
+            }
+        };
+
+        let account = AccountInfo {
+            label,
+            is_live: environment == Environment::Live,
+        };
+        let initial_symbol = self.config.last_symbol().map(str::to_owned);
+        let dashboard = cx.new(|cx| Dashboard::new(session, account, initial_symbol, cx));
+        let subscription = cx.subscribe(&dashboard, move |this, dashboard, event, cx| {
+            this.on_dashboard_event(&profile_id, &dashboard, event, cx);
+        });
+        self.screen = Screen::Dashboard(dashboard, subscription);
+        cx.notify();
+    }
+
+    fn on_dashboard_event(
+        &mut self,
+        profile_id: &ProfileId,
+        dashboard: &Entity<Dashboard>,
+        event: &DashboardEvent,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            DashboardEvent::SymbolChosen(name) => {
+                if let Err(error) = self.config.set_last_symbol(Some(name.clone())) {
+                    tracing::warn!(%error, "could not remember the symbol");
+                }
+            }
+            DashboardEvent::Disconnect => {
+                dashboard.read(cx).stop();
+                if let Err(error) = self.config.remove_profile(profile_id) {
+                    tracing::warn!(%error, "failed to remove the profile on disconnect");
+                }
+                self.go_to_welcome(cx);
+            }
+            DashboardEvent::SignInAgain => {
+                dashboard.read(cx).stop();
+                self.go_to_credentials(cx);
+            }
         }
     }
 
@@ -63,8 +221,7 @@ impl ConnectionFlow {
             Screen::BrowserHandoff(_) => Some(1),
             Screen::SelectAccount(_) => Some(2),
             Screen::Authorizing(_) => Some(3),
-            Screen::Connected(_) => Some(4),
-            Screen::Welcome | Screen::Manage(_) => None,
+            Screen::Welcome | Screen::Dashboard(..) => None,
         }
     }
 
@@ -93,8 +250,7 @@ impl ConnectionFlow {
             Screen::Authorizing(state) => self
                 .render_authorizing(state, window, cx)
                 .into_any_element(),
-            Screen::Connected(state) => self.render_connected(state, window, cx).into_any_element(),
-            Screen::Manage(state) => self.render_manage(state, window, cx).into_any_element(),
+            Screen::Dashboard(dashboard, _) => dashboard.clone().into_any_element(),
         }
     }
 }
@@ -146,7 +302,3 @@ fn load_config() -> WyckConfig {
     WyckConfig::load(paths, Box::new(KeyringSecretStore::default()))
         .expect("could not load or initialize the app config")
 }
-
-// TODO: if `config.active_profile()` already has a saved access/refresh token, skip straight to
-// a "reconnecting" screen instead of Welcome, so relaunching the app doesn't ask to sign in
-// again every time. Needs a token-refresh path in `openapi::auth` wired up first.

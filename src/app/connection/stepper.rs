@@ -21,7 +21,7 @@ pub fn stepper(current: usize, epoch: u64) -> impl IntoElement {
         if index > 0 {
             row = row.child(connector(index, current, epoch));
         }
-        row = row.child(stop(index, label, current, epoch));
+        row = row.child(stop(index, label, current));
     }
     div()
         .absolute()
@@ -32,7 +32,7 @@ pub fn stepper(current: usize, epoch: u64) -> impl IntoElement {
         .child(anim::enter(row, ("stepper-enter", epoch), 0))
 }
 
-fn stop(index: usize, label: &'static str, current: usize, epoch: u64) -> impl IntoElement {
+fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
     let done = index < current;
     let active = index == current;
 
@@ -68,13 +68,6 @@ fn stop(index: usize, label: &'static str, current: usize, epoch: u64) -> impl I
         .flex()
         .items_center()
         .justify_center()
-        .when(active, |el| {
-            el.child(div().absolute().child(anim::ping(
-                div().rounded_full().bg(theme::accent()),
-                ("stepper-ping", epoch),
-                26.,
-            )))
-        })
         .child(circle);
 
     div()
