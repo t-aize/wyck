@@ -1,48 +1,59 @@
 //! Small building blocks shared by every screen in the connection flow, styled from
-//! [`super::theme`] so a screen never spells out a color or radius itself.
+//! [`super::theme`] so a screen never spells out a color or radius itself. Buttons are
+//! gpui-component's, restyled through [`theme::apply`]; everything else is plain divs.
 
 use gpui::prelude::*;
-use gpui::{App, ClickEvent, Div, SharedString, Svg, Window, div, px, svg};
+use gpui::{App, ClickEvent, Div, Rgba, SharedString, Svg, Window, div, px, svg};
+use gpui_kit::assets::IconName;
+use gpui_kit::component::Sizable;
+use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::theme;
+use crate::app::anim;
 
-/// A Lucide icon (see `assets/icons/`), tinted with whatever text color is ambient where it's
-/// placed unless the caller chains its own `.text_color(...)`.
-pub fn icon(path: &'static str, size_px: f32) -> Svg {
-    svg().path(path).size(px(size_px)).flex_shrink_0()
+/// A Lucide icon in the primary text color. An `svg` doesn't inherit color from its parent in
+/// this GPUI version, so a different tint is chained on with `.text_color(...)` (or use
+/// [`icon_colored`]).
+pub fn icon(name: IconName, size_px: f32) -> Svg {
+    icon_colored(name, size_px, theme::fg())
+}
+
+pub fn icon_colored(name: IconName, size_px: f32, color: Rgba) -> Svg {
+    svg()
+        .path(name.path())
+        .size(px(size_px))
+        .flex_shrink_0()
+        .text_color(color)
 }
 
 /// The page shell every screen renders into: content centered in the remaining space, with room
 /// for a [`back_button`] to sit absolutely positioned in the top-left corner.
 pub fn screen() -> Div {
+    // The top padding keeps content clear of the progress indicator and the Back button.
     div()
         .relative()
         .flex()
         .flex_1()
         .items_center()
         .justify_center()
+        .pt(px(76.))
+        .pb(px(24.))
 }
 
-/// A round icon-only button in the top-left corner of a [`screen`], for going back a step.
+/// The "Back" button in the top-left corner of a [`screen`].
 pub fn back_button(
     id: impl Into<gpui::ElementId>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> impl IntoElement {
-    div()
-        .absolute()
-        .top_6()
-        .left_6()
-        .id(id)
-        .size(px(36.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded_lg()
-        .cursor_pointer()
-        .text_color(theme::muted_fg())
-        .hover(|style| style.bg(theme::surface()).text_color(theme::fg()))
-        .on_click(on_click)
-        .child(icon("icons/arrow-left.svg", 18.))
+    div().absolute().top_5().left_5().child(
+        Button::new(id)
+            .ghost()
+            .icon(IconName::ArrowLeft)
+            .label("Back")
+            .cursor_pointer()
+            .tooltip("Go back")
+            .on_click(on_click),
+    )
 }
 
 /// The filled, accent-colored call-to-action button.
@@ -50,93 +61,42 @@ pub fn primary_button(
     id: impl Into<gpui::ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div()
-        .id(id)
+) -> Button {
+    Button::new(id)
+        .primary()
+        .large()
         .w_full()
-        .h(px(44.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded_lg()
-        .bg(theme::accent())
-        .text_size(px(14.))
-        .text_color(theme::accent_fg())
+        .label(label)
         .cursor_pointer()
-        .hover(|style| style.opacity(0.9))
         .on_click(on_click)
-        .child(label.into())
 }
 
-/// A borderless, muted text link/button (e.g. "Cancel", "Use a different cTrader ID").
+/// A borderless, muted text button (e.g. "Cancel", "Use a different cTrader ID").
 pub fn ghost_button(
     id: impl Into<gpui::ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div()
-        .id(id)
-        .px_2()
-        .py_1()
-        .rounded_md()
-        .text_size(px(13.))
-        .text_color(theme::muted_fg())
+) -> Button {
+    Button::new(id)
+        .ghost()
+        .label(label)
         .cursor_pointer()
-        .hover(|style| style.text_color(theme::fg()).bg(theme::surface()))
         .on_click(on_click)
-        .child(label.into())
 }
 
-/// An outlined, secondary button (e.g. "Retry").
+/// An outlined, secondary button (e.g. "Disconnect").
 pub fn secondary_button(
     id: impl Into<gpui::ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div()
-        .id(id)
+) -> Button {
+    Button::new(id)
+        .outline()
+        .large()
         .w_full()
-        .h(px(44.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .gap_2()
-        .rounded_lg()
-        .border_1()
-        .border_color(theme::border_subtle())
-        .text_size(px(13.))
-        .text_color(theme::fg())
+        .label(label)
         .cursor_pointer()
-        .hover(|style| style.bg(theme::surface()))
         .on_click(on_click)
-        .child(label.into())
-}
-
-/// [`secondary_button`] with a leading icon, e.g. "Open browser again".
-pub fn secondary_button_icon(
-    id: impl Into<gpui::ElementId>,
-    icon_path: &'static str,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div()
-        .id(id)
-        .w_full()
-        .h(px(44.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .gap_2()
-        .rounded_lg()
-        .border_1()
-        .border_color(theme::border_subtle())
-        .text_size(px(13.))
-        .text_color(theme::fg())
-        .cursor_pointer()
-        .hover(|style| style.bg(theme::surface()))
-        .on_click(on_click)
-        .child(icon(icon_path, 15.))
-        .child(label.into())
 }
 
 /// The raised panel most screens center their content in.
@@ -153,53 +113,67 @@ pub fn card() -> Div {
         .border_color(theme::border_subtle())
 }
 
-/// A small circular index badge, used in the "what happens next" list and progress steps.
-pub fn step_badge(label: impl Into<SharedString>) -> impl IntoElement {
+/// A rounded tile with an icon inside, used as the hero mark of a screen.
+pub fn icon_tile(name: IconName, tile: f32, glyph: f32, bg: Rgba, fg: Rgba) -> Div {
     div()
-        .size(px(24.))
+        .size(px(tile))
         .flex_shrink_0()
-        .rounded_full()
-        .bg(theme::surface())
-        .border_1()
-        .border_color(theme::border_subtle())
+        .rounded_xl()
+        .bg(bg)
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(12.))
-        .text_color(theme::muted_fg())
-        .child(label.into())
+        .text_color(fg)
+        .child(icon_colored(name, glyph, fg))
 }
 
-/// A labeled field wrapper: a small caption above whatever's given as the field itself.
-pub fn field(label: impl Into<SharedString>, content: impl IntoElement) -> impl IntoElement {
+/// A circular icon badge for the "what happens next" list.
+pub fn step_badge(name: IconName) -> impl IntoElement {
+    div()
+        .size(px(32.))
+        .flex_shrink_0()
+        .rounded_full()
+        .bg(theme::accent_selected())
+        .flex()
+        .items_center()
+        .justify_center()
+        .text_color(theme::fg())
+        .child(icon(name, 15.))
+}
+
+/// A labeled field wrapper: an icon and a small caption above whatever's given as the field.
+pub fn field(
+    icon_name: IconName,
+    label: impl Into<SharedString>,
+    content: impl IntoElement,
+) -> impl IntoElement {
     div()
         .flex()
         .flex_col()
         .gap_2()
         .child(
             div()
+                .flex()
+                .items_center()
+                .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::fg())
+                .child(icon(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
         )
         .child(content)
 }
 
-/// An inline error message under a field.
-pub fn field_error(message: impl Into<SharedString>) -> impl IntoElement {
-    div()
-        .text_size(px(12.))
-        .text_color(theme::destructive())
-        .child(message.into())
-}
-
 /// A full-width error banner, for a mistake that blocks the whole screen (bad credentials, no
-/// network, ...).
+/// network, ...). Drops in from above and shakes once. `epoch` keeps the motion replaying each
+/// time a new error arrives.
 pub fn error_banner(
+    id: &'static str,
+    epoch: u64,
     title: impl Into<SharedString>,
     detail: impl Into<SharedString>,
 ) -> impl IntoElement {
-    div()
+    let body = div()
         .flex()
         .flex_col()
         .gap_1()
@@ -216,7 +190,11 @@ pub fn error_banner(
                 .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::destructive())
-                .child(icon("icons/triangle-alert.svg", 15.))
+                .child(icon_colored(
+                    IconName::TriangleAlert,
+                    15.,
+                    theme::destructive(),
+                ))
                 .child(div().flex_1().child(title.into())),
         )
         .child(
@@ -224,15 +202,15 @@ pub fn error_banner(
                 .text_size(px(12.))
                 .text_color(theme::muted_fg())
                 .child(detail.into()),
-        )
+        );
+    anim::drop_in(
+        div().w_full().child(anim::shake(body, (id, epoch))),
+        (id, epoch),
+    )
 }
 
 /// A pill-shaped tag, e.g. `LIVE` or `DEMO` next to an account name.
-pub fn badge(
-    label: impl Into<SharedString>,
-    color: gpui::Rgba,
-    tint: gpui::Rgba,
-) -> impl IntoElement {
+pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl IntoElement {
     div()
         .px_2()
         .py(px(2.))
@@ -241,4 +219,29 @@ pub fn badge(
         .text_size(px(10.))
         .text_color(color)
         .child(label.into())
+}
+
+/// The `LIVE` or `DEMO` badge for an account.
+pub fn environment_badge(is_live: bool) -> impl IntoElement {
+    if is_live {
+        badge("LIVE", theme::amber(), theme::amber_bg())
+    } else {
+        badge("DEMO", theme::muted_fg(), theme::bg())
+    }
+}
+
+/// A dot with a radar ring pulsing around it: "this is live / working".
+pub fn status_dot(id: &'static str, color: Rgba) -> impl IntoElement {
+    div()
+        .relative()
+        .size(px(10.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+            div()
+                .absolute()
+                .child(anim::ping(div().rounded_full().bg(color), id, 10.)),
+        )
+        .child(div().size(px(6.)).rounded_full().bg(color))
 }

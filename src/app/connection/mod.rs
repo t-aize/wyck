@@ -12,6 +12,7 @@ mod connected;
 mod credentials;
 mod manage;
 mod select_account;
+mod stepper;
 mod ui;
 mod welcome;
 
@@ -19,7 +20,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FocusHandle, Focusable, Window, div};
 use wyck::config::{AppPaths, KeyringSecretStore, WyckConfig};
 
-use super::theme;
+use super::{anim, theme};
 
 enum Screen {
     Welcome,
@@ -36,6 +37,11 @@ pub struct ConnectionFlow {
     config: WyckConfig,
     screen: Screen,
     focus_handle: FocusHandle,
+    /// Bumped every time a different screen becomes active. Animation ids include it, so a
+    /// screen's entrance (and anything staggered inside it) replays on each visit instead of
+    /// only the first.
+    epoch: u64,
+    last_screen: Option<std::mem::Discriminant<Screen>>,
 }
 
 impl ConnectionFlow {
@@ -44,6 +50,21 @@ impl ConnectionFlow {
             config: load_config(),
             screen: Screen::Welcome,
             focus_handle: cx.focus_handle(),
+            epoch: 0,
+            last_screen: None,
+        }
+    }
+
+    /// The index of the sign-in step the active screen belongs to, for the progress indicator;
+    /// `None` on screens outside the sign-in sequence.
+    fn step_index(&self) -> Option<usize> {
+        match self.screen {
+            Screen::Credentials(_) => Some(0),
+            Screen::BrowserHandoff(_) => Some(1),
+            Screen::SelectAccount(_) => Some(2),
+            Screen::Authorizing(_) => Some(3),
+            Screen::Connected(_) => Some(4),
+            Screen::Welcome | Screen::Manage(_) => None,
         }
     }
 
@@ -86,15 +107,34 @@ impl Focusable for ConnectionFlow {
 
 impl Render for ConnectionFlow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let kind = std::mem::discriminant(&self.screen);
+        if self.last_screen != Some(kind) {
+            self.last_screen = Some(kind);
+            self.epoch += 1;
+        }
+        let epoch = self.epoch;
+
         div()
             .track_focus(&self.focus_handle)
+            .relative()
             .flex()
             .flex_col()
             .size_full()
             .bg(theme::bg())
             .text_color(theme::fg())
             .font_family("Inter")
-            .child(self.render_active_screen(window, cx))
+            .child(anim::enter(
+                div()
+                    .flex()
+                    .flex_1()
+                    .child(self.render_active_screen(window, cx)),
+                ("screen", epoch),
+                0,
+            ))
+            .children(
+                self.step_index()
+                    .map(|current| stepper::stepper(current, epoch)),
+            )
     }
 }
 

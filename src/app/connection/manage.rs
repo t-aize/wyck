@@ -2,12 +2,14 @@
 
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use gpui_kit::assets::IconName;
+use gpui_kit::component::button::ButtonVariants;
 use wyck::config::ProfileId;
 use wyck::openapi::transport::connection::Client;
 use wyck::openapi::transport::messages::TraderAccount;
 
 use super::ui;
-use super::{ConnectionFlow, Screen, theme};
+use super::{ConnectionFlow, Screen, anim, theme};
 
 pub(super) struct ManageState {
     profile_id: ProfileId,
@@ -35,6 +37,7 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let epoch = self.epoch;
         let is_live = state.account.is_live.unwrap_or(false);
 
         ui::screen()
@@ -43,26 +46,42 @@ impl ConnectionFlow {
                     .flex()
                     .flex_col()
                     .gap_6()
-                    .w(px(480.))
-                    .child(
+                    .w(px(500.))
+                    .child(anim::enter(
                         div()
                             .flex()
-                            .flex_col()
-                            .gap_1()
+                            .flex_row()
+                            .items_center()
+                            .gap_4()
+                            .child(ui::icon_tile(
+                                IconName::Settings,
+                                48.,
+                                22.,
+                                theme::accent_selected(),
+                                theme::fg(),
+                            ))
                             .child(
                                 div()
-                                    .text_size(px(11.))
-                                    .text_color(theme::muted_fg())
-                                    .child("SETTINGS"),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(19.))
-                                    .text_color(theme::fg())
-                                    .child("cTrader connection"),
+                                    .flex()
+                                    .flex_col()
+                                    .gap_1()
+                                    .child(
+                                        div()
+                                            .text_size(px(11.))
+                                            .text_color(theme::muted_fg())
+                                            .child("SETTINGS"),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(20.))
+                                            .text_color(theme::fg())
+                                            .child("cTrader connection"),
+                                    ),
                             ),
-                    )
-                    .child(
+                        ("manage-title", epoch),
+                        0,
+                    ))
+                    .child(anim::enter(
                         ui::card()
                             .child(
                                 div()
@@ -85,44 +104,42 @@ impl ConnectionFlow {
                                                     .clone()
                                                     .unwrap_or_else(|| "cTrader".into()),
                                             )
-                                            .child(if is_live {
-                                                ui::badge("LIVE", theme::amber(), theme::amber_bg())
-                                            } else {
-                                                ui::badge(
-                                                    "DEMO",
-                                                    theme::muted_fg(),
-                                                    theme::surface(),
-                                                )
-                                            }),
+                                            .child(ui::environment_badge(is_live)),
                                     )
                                     .child(
                                         div()
                                             .flex()
                                             .flex_row()
                                             .items_center()
-                                            .gap_1p5()
+                                            .gap_2()
                                             .text_size(px(12.))
                                             .text_color(theme::emerald())
-                                            .child(
-                                                div()
-                                                    .size(px(6.))
-                                                    .rounded_full()
-                                                    .bg(theme::emerald()),
-                                            )
+                                            .child(ui::status_dot(
+                                                "manage-status",
+                                                theme::emerald(),
+                                            ))
                                             .child("Connected"),
                                     ),
                             )
-                            .child(detail_row("Access", "Trading (view and place orders)"))
                             .child(detail_row(
+                                IconName::ShieldCheck,
+                                "Access",
+                                "Trading (view and place orders)",
+                            ))
+                            .child(detail_row(
+                                IconName::UserRound,
                                 "cTrader ID",
                                 &state.account.ctid_trader_account_id.to_string(),
                             ))
                             .child(if state.confirming_disconnect {
-                                confirm_disconnect(cx).into_any_element()
+                                anim::enter(confirm_disconnect(cx), ("confirm", epoch), 0)
+                                    .into_any_element()
                             } else {
                                 disconnect_prompt(cx).into_any_element()
                             }),
-                    ),
+                        ("manage-card", epoch),
+                        1,
+                    )),
             )
             .child(ui::back_button(
                 "manage-back",
@@ -154,7 +171,7 @@ impl ConnectionFlow {
     }
 }
 
-fn detail_row(label: &'static str, value: &str) -> impl IntoElement {
+fn detail_row(icon: IconName, label: &'static str, value: &str) -> impl IntoElement {
     div()
         .flex()
         .flex_row()
@@ -164,44 +181,61 @@ fn detail_row(label: &'static str, value: &str) -> impl IntoElement {
         .border_t_1()
         .border_color(theme::border_hairline())
         .text_size(px(13.))
-        .child(div().text_color(theme::muted_fg()).child(label))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .text_color(theme::muted_fg())
+                .child(ui::icon_colored(icon, 14., theme::muted_fg()))
+                .child(label),
+        )
         .child(div().text_color(theme::fg()).child(value.to_string()))
 }
 
 fn disconnect_prompt(cx: &mut Context<ConnectionFlow>) -> impl IntoElement {
-    div().pt_3().child(ui::secondary_button(
-        "start-disconnect",
-        "Disconnect",
-        cx.listener(|this, _event, _window, cx| {
-            if let Screen::Manage(state) = &mut this.screen {
-                state.confirming_disconnect = true;
-                cx.notify();
-            }
-        }),
-    ))
+    div().pt_3().child(
+        ui::secondary_button(
+            "start-disconnect",
+            "Disconnect",
+            cx.listener(|this, _event, _window, cx| {
+                if let Screen::Manage(state) = &mut this.screen {
+                    state.confirming_disconnect = true;
+                    cx.notify();
+                }
+            }),
+        )
+        .icon(IconName::Unplug),
+    )
 }
 
-fn confirm_disconnect(cx: &mut Context<ConnectionFlow>) -> impl IntoElement {
+fn confirm_disconnect(cx: &mut Context<ConnectionFlow>) -> gpui::Div {
     div()
+        .w_full()
         .pt_3()
         .flex()
         .flex_col()
-        .gap_2()
+        .gap_3()
         .child(
             div()
+                .flex()
+                .items_start()
+                .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::muted_fg())
-                .child(
+                .child(ui::icon(IconName::TriangleAlert, 15.).text_color(theme::amber()))
+                .child(div().flex_1().min_w_0().child(
                     "Wyck will stop trading on this account and remove the stored access token \
                      from this device. You can reconnect anytime.",
-                ),
+                )),
         )
         .child(
             div()
                 .flex()
                 .flex_row()
                 .gap_2()
-                .child(ui::secondary_button(
+                // Each button is full width, so each sits in its own equal share of the row.
+                .child(div().flex_1().min_w_0().child(ui::secondary_button(
                     "cancel-disconnect",
                     "Cancel",
                     cx.listener(|this, _event, _window, cx| {
@@ -210,11 +244,17 @@ fn confirm_disconnect(cx: &mut Context<ConnectionFlow>) -> impl IntoElement {
                             cx.notify();
                         }
                     }),
-                ))
-                .child(ui::primary_button(
-                    "confirm-disconnect",
-                    "Disconnect",
-                    cx.listener(|this, _event, _window, cx| this.disconnect(cx)),
-                )),
+                )))
+                .child(
+                    div().flex_1().min_w_0().child(
+                        ui::primary_button(
+                            "confirm-disconnect",
+                            "Disconnect",
+                            cx.listener(|this, _event, _window, cx| this.disconnect(cx)),
+                        )
+                        .danger()
+                        .icon(IconName::Unplug),
+                    ),
+                ),
         )
 }

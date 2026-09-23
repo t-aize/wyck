@@ -11,18 +11,19 @@
 //! stays ASCII, true for every value this app puts in a masked field (an OAuth client secret).
 
 use std::ops::Range;
+use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
-    EntityInputHandler, FocusHandle, Focusable, GlobalElementId, KeyBinding, LayoutId, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine,
-    SharedString, Style, TextRun, UTF16Selection, UnderlineStyle, Window, div, fill, hsla, point,
-    px, relative, rgba, size,
+    Animation, AnimationExt, App, Bounds, ClipboardItem, Context, CursorStyle, ElementId,
+    ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, GlobalElementId,
+    KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad,
+    Pixels, Point, ShapedLine, SharedString, Style, TextRun, UTF16Selection, UnderlineStyle,
+    Window, div, fill, hsla, point, px, relative, rgba, size,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::theme;
+use super::{anim, theme};
 
 gpui::actions!(
     wyck_text_input,
@@ -80,6 +81,10 @@ pub struct TextInput {
     /// content is wider than the field. Kept on the model (not derived each frame) because it
     /// only changes when the cursor moves outside the current viewport, not on every repaint.
     scroll_offset: Pixels,
+    /// Whether the field had focus at the last render, and how many times that has flipped: the
+    /// count keys the border-color animation so it replays on every focus change.
+    was_focused: bool,
+    focus_changes: u64,
 }
 
 impl TextInput {
@@ -97,6 +102,8 @@ impl TextInput {
             last_bounds: None,
             is_selecting: false,
             scroll_offset: px(0.),
+            was_focused: false,
+            focus_changes: 0,
         }
     }
 
@@ -624,8 +631,15 @@ impl gpui::Element for TextElement {
         }
         let line = prepaint.line.take().unwrap();
         let line_origin = point(bounds.origin.x - prepaint.scroll_offset, bounds.origin.y);
-        line.paint(line_origin, window.line_height(), window, cx)
-            .unwrap();
+        line.paint(
+            line_origin,
+            window.line_height(),
+            gpui::TextAlign::Left,
+            None,
+            window,
+            cx,
+        )
+        .unwrap();
 
         if focus_handle.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()
@@ -644,7 +658,18 @@ impl gpui::Element for TextElement {
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let focused = self.focus_handle.is_focused(window);
-        div()
+        if focused != self.was_focused {
+            self.was_focused = focused;
+            self.focus_changes += 1;
+        }
+        let changes = self.focus_changes;
+        let (from, to) = if focused {
+            (theme::border_subtle(), theme::accent())
+        } else {
+            (theme::accent(), theme::border_subtle())
+        };
+
+        let field = div()
             .flex()
             .key_context("TextInput")
             .track_focus(&self.focus_handle(cx))
@@ -680,7 +705,19 @@ impl Render for TextInput {
             })
             .text_size(px(14.))
             .text_color(theme::fg())
-            .child(TextElement { input: cx.entity() })
+            .child(TextElement { input: cx.entity() });
+
+        // The border eases between its resting and focused colors instead of snapping.
+        if changes == 0 {
+            return field.into_any_element();
+        }
+        field
+            .with_animation(
+                ("text-input-focus", cx.entity_id().as_u64() * 1000 + changes),
+                Animation::new(Duration::from_millis(160)),
+                move |el, delta| el.border_color(anim::lerp_color(from, to, delta)),
+            )
+            .into_any_element()
     }
 }
 

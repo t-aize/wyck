@@ -34,7 +34,8 @@ thiserror = "2.0.20"
 uuid = { version = "1.18.1", features = ["v4"] }
 time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
 
-gpui = "=0.2.2"
+gpui-kit = "0.6.6"
+gpui = { package = "gpui-pre", version = "0.3.5" }
 unicode-segmentation = "1.13.3"
 
 toml = "1.1.6"

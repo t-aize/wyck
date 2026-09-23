@@ -1,5 +1,6 @@
 //! The `wyck` desktop application: window and the connection flow.
 
+mod anim;
 mod assets;
 mod connection;
 mod runtime;
@@ -9,45 +10,53 @@ mod theme;
 use std::borrow::Cow;
 
 use gpui::prelude::*;
-use gpui::{App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use gpui_kit::component::Root;
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
     init_tracing();
 
-    Application::new().with_assets(assets::Assets).run(|cx: &mut App| {
-        text_input::init(cx);
+    gpui_kit::application()
+        .with_assets(assets::Assets)
+        .run(|cx: &mut App| {
+            gpui_kit::init(cx);
+            theme::apply(cx);
+            text_input::init(cx);
 
-        cx.text_system()
-            .add_fonts(vec![Cow::Borrowed(assets::FONT)])
-            .expect("the bundled Inter font failed to load");
+            cx.text_system()
+                .add_fonts(vec![Cow::Borrowed(assets::FONT)])
+                .expect("the bundled Inter font failed to load");
 
-        cx.on_window_closed(|cx| {
-            if cx.windows().is_empty() {
-                cx.quit();
-            }
-        })
-        .detach();
+            cx.on_window_closed(|cx, _window_id| {
+                if cx.windows().is_empty() {
+                    cx.quit();
+                }
+            })
+            .detach();
 
-        let bounds = Bounds::centered(None, size(px(1180.0), px(800.0)), cx);
-        cx.open_window(
-            WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
-                // The OS's own titlebar: real Windows caption buttons and Snap Layouts, real
-                // macOS traffic lights, whatever the Linux compositor draws for everyone else.
-                titlebar: Some(TitlebarOptions {
-                    title: Some("Wyck".into()),
-                    appears_transparent: false,
-                    traffic_light_position: None,
-                }),
-                ..Default::default()
-            },
-            |_window, cx| cx.new(connection::ConnectionFlow::new),
-        )
-        .expect("failed to open the main window");
+            let bounds = Bounds::centered(None, size(px(1180.0), px(800.0)), cx);
+            cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    // The OS's own titlebar: real Windows caption buttons and Snap Layouts, real
+                    // macOS traffic lights, whatever the Linux compositor draws for everyone else.
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("Wyck".into()),
+                        appears_transparent: false,
+                        traffic_light_position: None,
+                    }),
+                    ..Default::default()
+                },
+                |window, cx| {
+                    let flow = cx.new(connection::ConnectionFlow::new);
+                    cx.new(|cx| Root::new(flow, window, cx))
+                },
+            )
+            .expect("failed to open the main window");
 
-        cx.activate(true);
-    });
+            cx.activate(true);
+        });
 }
 
 /// Installs a `tracing` subscriber so the events `wyck::config` and `wyck::openapi` emit (and

@@ -2,6 +2,7 @@
 
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use gpui_kit::assets::IconName;
 use wyck::openapi::Environment;
 use wyck::openapi::auth::TokenSet;
 use wyck::openapi::config::ClientCredentials;
@@ -9,7 +10,7 @@ use wyck::openapi::transport::connection::Client;
 use wyck::openapi::transport::messages::TraderAccount;
 
 use super::ui;
-use super::{ConnectionFlow, Screen, theme};
+use super::{ConnectionFlow, Screen, anim, theme};
 
 pub(super) struct SelectAccountState {
     credentials: ClientCredentials,
@@ -46,46 +47,72 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let epoch = self.epoch;
+
         ui::screen()
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .gap_6()
-                    .w(px(500.))
+                    .w(px(520.))
                     .child(
                         div()
                             .flex()
-                            .flex_col()
-                            .gap_1()
+                            .flex_row()
+                            .items_center()
+                            .gap_4()
+                            .child(ui::icon_tile(
+                                IconName::Wallet,
+                                48.,
+                                22.,
+                                theme::accent_selected(),
+                                theme::fg(),
+                            ))
                             .child(
                                 div()
-                                    .text_size(px(19.))
-                                    .text_color(theme::fg())
-                                    .child("Choose a trading account"),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(13.))
-                                    .text_color(theme::muted_fg())
+                                    .flex()
+                                    .flex_col()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .gap_1()
                                     .child(
-                                        "Your cTrader ID authorized Wyck for these accounts. \
-                                         Pick the one to trade on: you can add more later.",
+                                        div()
+                                            .text_size(px(20.))
+                                            .text_color(theme::fg())
+                                            .child("Choose a trading account"),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(13.))
+                                            .text_color(theme::muted_fg())
+                                            .child(
+                                                "Your cTrader ID authorized Wyck for these \
+                                                 accounts. Pick the one to trade on: you can \
+                                                 add more later.",
+                                            ),
                                     ),
                             ),
                     )
                     .child(div().flex().flex_col().gap_2().children(
                         state.accounts.iter().enumerate().map(|(index, account)| {
-                            account_row(index, account, index == state.selected, &mut *cx)
+                            anim::enter(
+                                account_row(index, account, index == state.selected, &mut *cx),
+                                ("account-enter", epoch * 1000 + index as u64),
+                                index,
+                            )
                         }),
                     ))
-                    .child(ui::primary_button(
-                        "connect-selected-account",
-                        "Connect this account",
-                        cx.listener(|this, _event, _window, cx| {
-                            this.authorize_selected_account(cx)
-                        }),
-                    ))
+                    .child(
+                        ui::primary_button(
+                            "connect-selected-account",
+                            "Connect this account",
+                            cx.listener(|this, _event, _window, cx| {
+                                this.authorize_selected_account(cx)
+                            }),
+                        )
+                        .icon(IconName::PlugZap),
+                    )
                     .child(div().flex().justify_center().child(ui::ghost_button(
                         "use-different-account",
                         "Use a different cTrader ID",
@@ -121,12 +148,40 @@ fn account_row(
     account: &TraderAccount,
     selected: bool,
     cx: &mut Context<ConnectionFlow>,
-) -> impl IntoElement + use<> {
+) -> gpui::Stateful<gpui::Div> {
     let is_live = account.is_live.unwrap_or(false);
     let login = account
         .trader_login
         .map(|login| login.to_string())
         .unwrap_or_else(|| "-".into());
+
+    // The check inside the radio pops in each time this row becomes the selected one; the id
+    // includes `selected` so unselecting and reselecting replays it.
+    let radio = div()
+        .size(px(20.))
+        .flex_shrink_0()
+        .rounded_full()
+        .border_1()
+        .flex()
+        .items_center()
+        .justify_center()
+        .border_color(if selected {
+            theme::accent()
+        } else {
+            theme::border_subtle()
+        })
+        .when(selected, |el| {
+            el.bg(theme::accent()).child(anim::pop(
+                div().rounded_full().bg(theme::accent_fg()),
+                ("account-radio", index as u64),
+                8.,
+            ))
+        });
+    let radio = if selected {
+        radio
+    } else {
+        radio.bg(theme::bg())
+    };
 
     div()
         .id(("account-row", index as u64))
@@ -144,24 +199,36 @@ fn account_row(
             theme::border_subtle()
         })
         .cursor_pointer()
+        .hover(|style| {
+            style.bg(theme::surface_hover()).border_color(if selected {
+                theme::accent()
+            } else {
+                theme::border_strong()
+            })
+        })
+        .active(|style| style.bg(theme::surface_pressed()))
         .on_click(cx.listener(move |this, _event, _window, cx| {
             if let Screen::SelectAccount(state) = &mut this.screen {
                 state.selected = index;
                 cx.notify();
             }
         }))
+        .child(radio)
         .child(
             div()
-                .size(px(18.))
+                .size(px(36.))
                 .flex_shrink_0()
-                .rounded_full()
-                .border_1()
-                .border_color(if selected {
-                    theme::accent()
-                } else {
-                    theme::border_subtle()
-                })
-                .when(selected, |el| el.bg(theme::accent())),
+                .rounded_lg()
+                .bg(theme::bg())
+                .flex()
+                .items_center()
+                .justify_center()
+                .text_color(theme::muted_fg())
+                .child(ui::icon_colored(
+                    IconName::Building2,
+                    17.,
+                    theme::muted_fg(),
+                )),
         )
         .child(
             div()
@@ -183,11 +250,7 @@ fn account_row(
                                 .clone()
                                 .unwrap_or_else(|| "cTrader".into()),
                         )
-                        .child(if is_live {
-                            ui::badge("LIVE", theme::amber(), theme::amber_bg())
-                        } else {
-                            ui::badge("DEMO", theme::muted_fg(), theme::surface())
-                        }),
+                        .child(ui::environment_badge(is_live)),
                 )
                 .child(
                     div()

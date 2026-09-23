@@ -3,6 +3,7 @@
 
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
+use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 use wyck::config::OpenApiTokens;
 use wyck::openapi::Environment;
@@ -14,12 +15,13 @@ use wyck::openapi::transport::messages::TraderAccount;
 use super::connected::ConnectedState;
 use super::credentials::CALLBACK_PORT;
 use super::ui;
-use super::{ConnectionFlow, Screen, theme};
+use super::{ConnectionFlow, Screen, anim, theme};
 use crate::app::runtime;
 
 pub(super) struct AuthorizingState {
     account: TraderAccount,
     error: Option<SharedString>,
+    error_count: u64,
 }
 
 impl ConnectionFlow {
@@ -35,6 +37,7 @@ impl ConnectionFlow {
         self.screen = Screen::Authorizing(AuthorizingState {
             account: account.clone(),
             error: None,
+            error_count: 0,
         });
         cx.notify();
 
@@ -60,6 +63,7 @@ impl ConnectionFlow {
                 let _ = this.update(cx, |this, cx| {
                     if let Screen::Authorizing(state) = &mut this.screen {
                         state.error = Some(message.into());
+                        state.error_count += 1;
                     }
                     cx.notify();
                 });
@@ -67,6 +71,10 @@ impl ConnectionFlow {
             }
 
             let _ = this.update(cx, |this, cx| {
+                // The user may have gone back while this was in flight.
+                if !matches!(this.screen, Screen::Authorizing(_)) {
+                    return;
+                }
                 match this.save_connected_profile(&credentials, environment, &account, &tokens) {
                     Ok(profile_id) => {
                         this.screen =
@@ -74,6 +82,7 @@ impl ConnectionFlow {
                     }
                     Err(error) => {
                         if let Screen::Authorizing(state) = &mut this.screen {
+                            state.error_count += 1;
                             state.error = Some(
                                 format!("connected, but couldn't save the profile: {error}").into(),
                             );
@@ -140,41 +149,94 @@ impl ConnectionFlow {
         &self,
         state: &AuthorizingState,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        ui::screen().child(
-            div()
-                .flex()
-                .flex_col()
-                .items_center()
-                .gap_5()
-                .w(px(400.))
-                .children(
-                    state
-                        .error
-                        .clone()
-                        .map(|message| ui::error_banner("Couldn't finish connecting", message)),
-                )
-                .child(
-                    div()
-                        .text_size(px(18.))
-                        .text_color(theme::fg())
-                        .child("Connecting your account"),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.))
-                        .text_color(theme::muted_fg())
-                        .child(format!(
-                            "Authorizing {} - {}",
-                            state
-                                .account
-                                .broker_title_short
-                                .as_deref()
-                                .unwrap_or("cTrader"),
-                            state.account.ctid_trader_account_id
-                        )),
-                ),
-        )
+        let epoch = self.epoch;
+        let failed = state.error.is_some();
+
+        ui::screen()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_5()
+                    .w(px(420.))
+                    .children(state.error.clone().map(|message| {
+                        ui::error_banner(
+                            "authorizing-error",
+                            state.error_count,
+                            "Couldn't finish connecting",
+                            message,
+                        )
+                    }))
+                    .child(
+                        div()
+                            .relative()
+                            .size(px(88.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .when(!failed, |el| {
+                                el.child(div().absolute().child(anim::ping(
+                                    div().rounded_full().bg(theme::accent()),
+                                    ("authorizing-ping", epoch),
+                                    88.,
+                                )))
+                            })
+                            .child(
+                                div()
+                                    .size(px(72.))
+                                    .rounded_full()
+                                    .bg(theme::accent_selected())
+                                    .border_1()
+                                    .border_color(theme::accent())
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .text_color(theme::fg())
+                                    .child(if failed {
+                                        ui::icon(IconName::ShieldAlert, 30.).into_any_element()
+                                    } else {
+                                        anim::spin(
+                                            ui::icon(IconName::LoaderCircle, 30.),
+                                            ("authorizing-spin", epoch),
+                                        )
+                                        .into_any_element()
+                                    }),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(20.))
+                            .text_color(theme::fg())
+                            .child("Connecting your account"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .text_color(theme::muted_fg())
+                            .child(format!(
+                                "Authorizing {} - {}",
+                                state
+                                    .account
+                                    .broker_title_short
+                                    .as_deref()
+                                    .unwrap_or("cTrader"),
+                                state.account.ctid_trader_account_id
+                            )),
+                    )
+                    .when(failed, |el| {
+                        el.child(div().w_full().pt_2().child(ui::secondary_button(
+                            "authorizing-start-over",
+                            "Start over",
+                            cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
+                        )))
+                    }),
+            )
+            .child(ui::back_button(
+                "authorizing-back",
+                cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
+            ))
     }
 }

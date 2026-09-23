@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
+use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 use wyck::openapi::Environment;
 use wyck::openapi::auth::{CallbackListener, OAuthClient, Scope, authorization_url, new_state};
@@ -15,7 +16,7 @@ use wyck::openapi::transport::connection::Client;
 
 use super::select_account::SelectAccountState;
 use super::ui;
-use super::{ConnectionFlow, Screen, theme};
+use super::{ConnectionFlow, Screen, anim, theme};
 use crate::app::runtime;
 
 /// How long to wait for the user to finish signing in on cTrader's page before giving up.
@@ -24,6 +25,7 @@ const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(300);
 pub(super) struct BrowserHandoffState {
     url: String,
     error: Option<SharedString>,
+    error_count: u64,
 }
 
 /// The application and connection an OAuth sign-in is in progress for.
@@ -58,6 +60,7 @@ impl ConnectionFlow {
         self.screen = Screen::BrowserHandoff(BrowserHandoffState {
             url: url.clone(),
             error: None,
+            error_count: 0,
         });
         cx.notify();
 
@@ -153,6 +156,10 @@ impl ConnectionFlow {
             };
 
             let _ = this.update(cx, |this, cx| {
+                // The user may have gone back or cancelled while this was waiting.
+                if !matches!(this.screen, Screen::BrowserHandoff(_)) {
+                    return;
+                }
                 this.screen = Screen::SelectAccount(SelectAccountState::new(
                     credentials,
                     environment,
@@ -172,6 +179,9 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let epoch = self.epoch;
+        let failed = state.error.is_some();
+
         ui::screen()
             .child(
                 div()
@@ -179,16 +189,72 @@ impl ConnectionFlow {
                     .flex_col()
                     .items_center()
                     .gap_5()
-                    .w(px(400.))
-                    .children(
-                        state
-                            .error
-                            .clone()
-                            .map(|message| ui::error_banner("Couldn't finish signing in", message)),
+                    .w(px(420.))
+                    .children(state.error.clone().map(|message| {
+                        ui::error_banner(
+                            "handoff-error",
+                            state.error_count,
+                            "Couldn't finish signing in",
+                            message,
+                        )
+                    }))
+                    .child(
+                        div()
+                            .relative()
+                            .size(px(88.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .when(!failed, |el| {
+                                el.child(div().absolute().child(anim::ping(
+                                    div().rounded_full().bg(theme::accent()),
+                                    ("handoff-ping", epoch),
+                                    88.,
+                                )))
+                            })
+                            .child(
+                                div()
+                                    .size(px(72.))
+                                    .rounded_full()
+                                    .bg(theme::accent_selected())
+                                    .border_1()
+                                    .border_color(theme::accent())
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .text_color(theme::fg())
+                                    .child(ui::icon(IconName::Globe, 30.)),
+                            )
+                            .when(!failed, |el| {
+                                // A small spinner badge on the corner of the globe.
+                                el.child(
+                                    div()
+                                        .absolute()
+                                        .right_0()
+                                        .bottom_0()
+                                        .size(px(28.))
+                                        .rounded_full()
+                                        .bg(theme::bg())
+                                        .border_1()
+                                        .border_color(theme::border_subtle())
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .text_color(theme::accent())
+                                        .child(anim::spin(
+                                            ui::icon_colored(
+                                                IconName::LoaderCircle,
+                                                15.,
+                                                theme::accent(),
+                                            ),
+                                            ("handoff-spin", epoch),
+                                        )),
+                                )
+                            }),
                     )
                     .child(
                         div()
-                            .text_size(px(18.))
+                            .text_size(px(20.))
                             .text_color(theme::fg())
                             .child("Finish this in your browser"),
                     )
@@ -202,6 +268,19 @@ impl ConnectionFlow {
                                  allowed access, and Wyck picks it up automatically.",
                             ),
                     )
+                    .when(!failed, |el| {
+                        el.child(anim::breathe(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .text_size(px(13.))
+                                .text_color(theme::accent())
+                                .child(ui::icon_colored(IconName::Radio, 14., theme::accent()))
+                                .child("Waiting for cTrader..."),
+                            ("handoff-waiting", epoch),
+                        ))
+                    })
                     .child(
                         div()
                             .w_full()
@@ -209,25 +288,23 @@ impl ConnectionFlow {
                             .flex()
                             .flex_col()
                             .gap_2()
-                            .child(ui::secondary_button_icon(
-                                "reopen-browser",
-                                "icons/external-link.svg",
-                                "Open browser again",
-                                {
+                            .child(
+                                ui::secondary_button("reopen-browser", "Open browser again", {
                                     let url = state.url.clone();
                                     move |_event, _window, cx| cx.open_url(&url)
-                                },
-                            ))
+                                })
+                                .icon(IconName::ExternalLink),
+                            )
                             .child(ui::ghost_button(
                                 "cancel-browser-handoff",
                                 "Cancel",
-                                cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
+                                cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
                             )),
                     ),
             )
             .child(ui::back_button(
                 "browser-handoff-back",
-                cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
+                cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
             ))
     }
 }
@@ -236,6 +313,7 @@ fn fail(weak: &gpui::WeakEntity<ConnectionFlow>, cx: &mut gpui::AsyncApp, messag
     let _ = weak.update(cx, |this, cx| {
         if let Screen::BrowserHandoff(state) = &mut this.screen {
             state.error = Some(message.into());
+            state.error_count += 1;
         }
         cx.notify();
     });
