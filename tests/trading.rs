@@ -136,6 +136,19 @@ async fn a_bad_volume_is_told_apart_from_insufficient_margin() {
 }
 
 #[tokio::test]
+async fn an_order_error_event_answering_a_request_is_a_rejection_not_a_protocol_error() {
+    let server = MockServer::start(answers(vec![(
+        payload::CLOSE_POSITION_REQ,
+        payload::ORDER_ERROR_EVENT,
+        json!({"errorCode": "POSITION_NOT_FOUND", "positionId": 77}),
+    )]))
+    .await;
+    let trading = connect(&server).await.account(1).trading();
+    let error = trading.close_position(77, 5000).await.unwrap_err();
+    assert_eq!(error.code(), Some("POSITION_NOT_FOUND"));
+}
+
+#[tokio::test]
 async fn not_enough_money_is_a_rejection_not_a_protocol_error() {
     let server = MockServer::start(answers(vec![(
         payload::NEW_ORDER_REQ,

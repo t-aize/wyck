@@ -161,6 +161,17 @@ pub fn error_of(envelope: &Envelope) -> OpenApiError {
     }
 }
 
+/// The error a `ProtoOAOrderErrorEvent` describes, for a trading request the server refused this
+/// way instead of with a `ProtoOAErrorRes`: an [`OpenApiError::Server`] with its code and advice,
+/// or an [`OpenApiError::Protocol`] when the message cannot be read.
+#[must_use]
+pub fn order_error_of(envelope: &Envelope) -> OpenApiError {
+    match envelope.decode::<OrderErrorEvent>() {
+        Ok(event) => OpenApiError::server(event.error_code, event.description, None, None),
+        Err(error) => error,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -93,7 +93,7 @@
 //! # Facts that shape the design
 //!
 //! Checked against the official documentation and `.proto` files, and against a live demo account
-//! (see `TODO.md`, section 2A, in the repository):
+//! (see the section below):
 //!
 //! - **Endpoints**: `demo.ctraderapi.com` and `live.ctraderapi.com`, JSON on port `5036`. Demo and
 //!   live are separate: one connection each, and accounts of one cannot be used on the other.
@@ -116,9 +116,15 @@
 //! Everything above the wire is covered by tests with a local mock server. Live runs on a demo
 //! account (`tests/live.rs`) confirmed the connection, both sign in steps, the symbol list, the
 //! price subscription, the tick encoding, tick and bar history with paging and no lost tick at page
-//! seams, and the rate limit behavior described above. Still open: the account calls, the session
-//! against the real server, whether the consent page echoes `state`, the range limit of bar
-//! requests per period, and how long a broker keeps ticks. `TODO.md` 2A.7 keeps the list.
+//! seams, the rate limit behavior described above, the account and margin calls, [`session::Session`]
+//! end to end (including reconnecting after a real, not simulated, connection drop), and the whole
+//! trading path: placing, amending and cancelling a pending order, amending a position's stop loss
+//! and take profit, and placing and closing a market order. Still open: whether the OAuth consent
+//! page echoes `state` back (checked every time `scripts/sign_in.rs` runs, by
+//! [`auth::AuthorizationCode::state_echoed`], but not by an automated test: it needs a real sign in
+//! through a browser, which nothing here drives) and exactly how long a broker keeps ticks (a demo
+//! account's retention is not documented; `tests/live.rs`'s `tick_history_retention_is_reported`
+//! narrows it by probing rather than asserting a fixed answer).
 
 pub mod account;
 pub mod auth;

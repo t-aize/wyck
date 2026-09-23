@@ -52,7 +52,7 @@ use tracing::{debug, trace, warn};
 
 use crate::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
 use crate::openapi::error::{ErrorKind, OpenApiError, Result};
-use crate::openapi::event::{DisconnectReason, Event, error_of, event_from};
+use crate::openapi::event::{DisconnectReason, Event, error_of, event_from, order_error_of};
 use crate::openapi::transport::messages::{
     AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
     CtidProfileRes, GetAccountsByAccessTokenReq, RefreshTokenReq, RefreshTokenRes, VersionReq,
@@ -360,6 +360,12 @@ impl Client {
             .await?;
         match answer.payload_type {
             payload::ERROR_RES | payload::PROXY_ERROR_RES => Err(error_of(&answer)),
+            // A trading request the server refuses without a matching answer of its own type
+            // (see `ProtoOAOrderErrorEvent`'s doc on `payload::ORDER_ERROR_EVENT`) comes back
+            // this way instead, still carrying the request's `clientMsgId`.
+            payload::ORDER_ERROR_EVENT if response_type != payload::ORDER_ERROR_EVENT => {
+                Err(order_error_of(&answer))
+            }
             t if t == response_type => answer.decode(),
             other => Err(OpenApiError::Protocol(format!(
                 "expected message {response_type} for {operation}, got {other}"
