@@ -166,16 +166,6 @@ pub struct PnfColumn {
     pub size: i64,
 }
 
-/// What a construction made: bars to lay out, and what the drawing needs beyond them.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Derived {
-    pub bars: Vec<Bar>,
-    pub kagi: Vec<KagiLine>,
-    pub pnf: Vec<PnfColumn>,
-    /// The box, reversal or range in raw units, for the legend.
-    pub size: i64,
-}
-
 fn brick(time_ms: i64, open: i64, close: i64, volume: i64) -> Bar {
     Bar {
         time_ms,

@@ -85,6 +85,14 @@ fn rounded_rect(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Pat
     pb.finish()
 }
 
+/// How a text is drawn: its size, color and weight.
+#[derive(Clone, Copy)]
+struct Ink {
+    size: f32,
+    fill: Hsla,
+    bold: bool,
+}
+
 impl Canvas<'_> {
     fn transform(&self) -> Transform {
         Transform::from_scale(self.scale, self.scale)
@@ -119,7 +127,8 @@ impl Canvas<'_> {
     }
 
     /// Draws `text` with its top-left at `(x, y)` (logical pixels).
-    fn text(&mut self, text: &str, x: f32, y: f32, size: f32, fill: Hsla, clip: Clip, bold: bool) {
+    fn text(&mut self, text: &str, x: f32, y: f32, ink: Ink, clip: Clip) {
+        let Ink { size, fill, bold } = ink;
         let px_size = size * self.scale;
         let font = self.font.as_scaled(PxScale::from(px_size));
         let c = color(fill);
@@ -184,7 +193,7 @@ impl Canvas<'_> {
                     pixels[index] = pixel;
                 }
             };
-            outlined.draw(|gx, gy, coverage| plot(gx, gy, coverage));
+            outlined.draw(&mut plot);
         }
     }
 
@@ -302,7 +311,17 @@ impl Canvas<'_> {
                 } => {
                     let width = self.measure(text, *size);
                     let x = aligned(*x, width, *align);
-                    self.text(text, x, *y, *size, *text_color, clip, *bold);
+                    self.text(
+                        text,
+                        x,
+                        *y,
+                        Ink {
+                            size: *size,
+                            fill: *text_color,
+                            bold: *bold,
+                        },
+                        clip,
+                    );
                 }
                 Cmd::Tag {
                     text,
@@ -335,10 +354,12 @@ impl Canvas<'_> {
                         text,
                         left + pad,
                         y + (height - LINE) / 2.0,
-                        super::scene::FONT,
-                        *fg,
+                        Ink {
+                            size: super::scene::FONT,
+                            fill: *fg,
+                            bold: false,
+                        },
                         clip,
-                        false,
                     );
                 }
                 Cmd::Clip { x, y, w, h, inner } => {
@@ -404,10 +425,12 @@ pub fn render_png(
             &caption.text,
             12.0,
             y,
-            caption.size,
-            caption.color,
+            Ink {
+                size: caption.size,
+                fill: caption.color,
+                bold: caption.bold,
+            },
             everything,
-            caption.bold,
         );
         y += caption.size * 1.45;
     }

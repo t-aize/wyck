@@ -327,8 +327,8 @@ fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd
         });
         return;
     }
-    for i in first.saturating_sub(1)..last {
-        let bar = &bars[i];
+    let start = first.saturating_sub(1);
+    for (i, bar) in bars.iter().enumerate().take(last).skip(start) {
         let x = cx.x(i);
         let Some(line) = meta.get(i) else { continue };
         let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));

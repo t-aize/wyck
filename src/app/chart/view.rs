@@ -131,15 +131,6 @@ pub fn padded_range(lo: f64, hi: f64, min_range: f64) -> (f64, f64) {
     (lo - pad, hi + pad)
 }
 
-/// Zooms a price range by `factor` (above 1 magnifies) about the value `anchor`.
-pub fn zoom_range(lo: f64, hi: f64, anchor: f64, factor: f64) -> (f64, f64) {
-    let factor = factor.clamp(0.05, 20.0);
-    (
-        anchor - (anchor - lo) / factor,
-        anchor + (hi - anchor) / factor,
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,12 +220,5 @@ mod tests {
         assert!(lo < 100.0 && hi > 100.0);
         let (lo, hi) = padded_range(0.0, 100.0, 1.0);
         assert!((lo + 7.0).abs() < 1e-9 && (hi - 107.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn a_price_zoom_holds_its_anchor() {
-        let (lo, hi) = zoom_range(0.0, 100.0, 25.0, 2.0);
-        assert_eq!((lo, hi), (12.5, 62.5));
-        assert!(zoom_range(0.0, 100.0, 50.0, 0.0).1.is_finite());
     }
 }

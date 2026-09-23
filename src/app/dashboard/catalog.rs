@@ -238,6 +238,10 @@ impl Catalog {
         self.entries.get(index)
     }
 
+    pub fn by_id(&self, id: i64) -> Option<&Entry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
     pub fn by_name(&self, name: &str) -> Option<&Entry> {
         self.entries
             .iter()

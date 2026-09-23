@@ -3,12 +3,13 @@
 use gpui::prelude::*;
 use gpui::{Context, FontWeight, MouseButton, SharedString, Window, anchored, deferred, div, px};
 use gpui_kit::assets::IconName;
+use gpui_kit::component::Selectable;
 use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::app::connection::ui;
-use crate::app::{anim, chart, theme};
+use crate::app::{anim, chart, theme, trading};
 
 impl Dashboard {
     pub(super) fn render_header(
@@ -32,6 +33,7 @@ impl Dashboard {
             .child(div().flex_1())
             .child(self.layout_button(window, cx))
             .child(self.timeframe_strip(cx))
+            .child(self.account_block(cx))
             .child(self.status_block())
             .child(self.controls(window, cx))
     }
@@ -328,6 +330,106 @@ impl Dashboard {
                 ),
         )
         .with_priority(1)
+    }
+
+    /// The equity and the open profit of the account, and the switches of the account panel
+    /// and the order ticket.
+    fn account_block(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let account = self.trading.read(cx);
+        let ready = account.status == trading::account::Status::Ready;
+        let summary = account.summary();
+        let currency = account.book.currency.clone();
+        let profit_color = if summary.unrealized > 0.0 {
+            theme::chart_up()
+        } else if summary.unrealized < 0.0 {
+            theme::chart_down()
+        } else {
+            theme::muted_fg()
+        };
+        let figure = |label: &'static str, value: String, color: gpui::Rgba| {
+            div()
+                .flex()
+                .flex_col()
+                .child(
+                    div()
+                        .text_size(px(10.))
+                        .text_color(theme::muted_fg())
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(color)
+                        .child(value),
+                )
+        };
+        let chip = div()
+            .id("header-account")
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_3()
+            .px_2()
+            .py_0p5()
+            .rounded_md()
+            .cursor_pointer()
+            .hover(|s| s.bg(theme::surface_hover()))
+            .on_click(cx.listener(|this, _, _, cx| {
+                let open = !this.panel_open;
+                this.set_panel_open(open, cx);
+            }))
+            .when(ready, |el| {
+                el.child(figure(
+                    "Equity",
+                    trading::math::format_money(summary.equity, &currency),
+                    theme::fg(),
+                ))
+                .child(figure(
+                    "Open P&L",
+                    trading::math::format_money(summary.unrealized, &currency),
+                    profit_color,
+                ))
+            })
+            .when(!ready, |el| {
+                el.child(
+                    div()
+                        .text_size(px(12.))
+                        .text_color(theme::muted_fg())
+                        .child("Account..."),
+                )
+            });
+        div()
+            .flex_none()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1()
+            .child(chip)
+            .child(
+                Button::new("toggle-panel")
+                    .ghost()
+                    .selected(self.panel_open)
+                    .icon(IconName::PanelBottom)
+                    .tooltip("Positions, orders and alerts")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        let open = !this.panel_open;
+                        this.set_panel_open(open, cx);
+                    })),
+            )
+            .child(
+                Button::new("toggle-ticket")
+                    .ghost()
+                    .selected(self.ticket_open)
+                    .icon(IconName::PanelRight)
+                    .tooltip("Order ticket")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        let open = !this.ticket_open;
+                        this.set_ticket_open(open, cx);
+                    })),
+            )
     }
 
     /// The account kind and the state of the connection (the account name is in its menu).

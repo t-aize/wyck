@@ -69,7 +69,6 @@ use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
-use wyck::openapi::market::Bar;
 use wyck::openapi::session::Session;
 use wyck::openapi::{OpenApiError, Result as ApiResult};
 
@@ -209,6 +208,10 @@ pub enum ChartAction {
         stop_loss: Option<f64>,
         take_profit: Option<f64>,
     },
+    /// Buy or sell now, at market, with the ticket's size.
+    Market {
+        buy: bool,
+    },
     AddAlert(f64),
 }
 
@@ -327,10 +330,6 @@ impl Chart {
         self.symbol.as_ref()
     }
 
-    pub fn kind(&self) -> ChartKind {
-        self.settings.kind
-    }
-
     /// The last bid and ask seen for the chart's symbol.
     pub fn quote(&self) -> (Option<i64>, Option<i64>) {
         (self.bid, self.ask)
@@ -416,10 +415,6 @@ impl Chart {
         });
     }
 
-    pub fn settings_revision(&self) -> u64 {
-        self.settings_revision
-    }
-
     /// The orders, positions and alerts to show.
     pub fn set_lines(&mut self, lines: Vec<ChartLine>, cx: &mut Context<Self>) {
         if self.lines != lines {
@@ -467,24 +462,6 @@ impl Chart {
             self.timeframe.bar_ms()
         };
         self.shown().step_ms(nominal)
-    }
-
-    /// The bars on screen, as bars (a tick is a bar of one price).
-    pub fn bars(&self) -> Vec<Bar> {
-        match self.shown() {
-            Series::Bars(bars) => bars.clone(),
-            Series::Ticks(ticks) => ticks
-                .iter()
-                .map(|t| Bar {
-                    time_ms: t.time_ms,
-                    open: t.price,
-                    high: t.price,
-                    low: t.price,
-                    close: t.price,
-                    volume: 1,
-                })
-                .collect(),
-        }
     }
 
     /// The size of the chart as it was last drawn.

@@ -54,7 +54,7 @@ impl PriceMap {
         }
     }
 
-    fn from_t(&self, t: f64) -> f64 {
+    fn untransform(&self, t: f64) -> f64 {
         if self.is_log() { t.exp() } else { t }
     }
 
@@ -82,7 +82,7 @@ impl PriceMap {
             (self.bottom - y) / span
         };
         let (a, b) = (self.t(self.lo), self.t(self.hi));
-        self.from_t(a + f * (b - a))
+        self.untransform(a + f * (b - a))
     }
 
     /// The range after zooming by `factor` (above 1 magnifies) about the value at `anchor_y`, or
@@ -92,8 +92,8 @@ impl PriceMap {
         let (a, b) = (self.t(self.lo), self.t(self.hi));
         let anchor = anchor_y.map_or((a + b) / 2.0, |y| self.t(self.price(y)));
         (
-            self.from_t(anchor - (anchor - a) / factor),
-            self.from_t(anchor + (b - anchor) / factor),
+            self.untransform(anchor - (anchor - a) / factor),
+            self.untransform(anchor + (b - anchor) / factor),
         )
     }
 
@@ -104,7 +104,7 @@ impl PriceMap {
         if self.invert {
             shift = -shift;
         }
-        (self.from_t(a + shift), self.from_t(b + shift))
+        (self.untransform(a + shift), self.untransform(b + shift))
     }
 
     /// The values to label, about `target` of them. `min_step` is the smallest step that still

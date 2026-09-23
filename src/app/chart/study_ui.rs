@@ -787,6 +787,12 @@ impl Render for ChartSettingsEditor {
                 "Volume at the bottom of the prices",
                 switch("settings-volume", settings.volume, |s, on| s.volume = on),
             ))
+            .child(widgets::row(
+                "Sell and buy buttons",
+                switch("settings-trade", settings.trade_buttons, |s, on| {
+                    s.trade_buttons = on;
+                }),
+            ))
             .child(widgets::section("Price scale"))
             .child(widgets::row(
                 "Scale",

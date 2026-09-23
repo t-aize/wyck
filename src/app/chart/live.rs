@@ -95,7 +95,6 @@ pub fn plan(current: &Wanted, want: &Wanted) -> Plan {
 }
 
 /// Owners that are not charts.
-pub const HEADER_OWNER: u64 = u64::MAX;
 pub const PEEK_OWNER: u64 = u64::MAX - 1;
 pub const ACCOUNT_OWNER: u64 = u64::MAX - 2;
 
@@ -217,7 +216,7 @@ mod tests {
     #[test]
     fn a_price_stays_while_anyone_wants_it() {
         let mut wishes = Wishes::default();
-        wishes.set(HEADER_OWNER, Some(Wish::spots([7])));
+        wishes.set(u64::MAX, Some(Wish::spots([7])));
         wishes.set(1, Some(Wish::symbol(7, Some(Period::M1))));
         let after = wishes.set(1, Some(Wish::symbol(9, None)));
         assert_eq!(

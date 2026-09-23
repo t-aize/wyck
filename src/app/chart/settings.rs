@@ -10,8 +10,9 @@ use super::transform::TransformSettings;
 use super::zone::Zone;
 
 /// The chart types. The codes are written in saved files and never change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ChartKind {
+    #[default]
     Candles,
     /// Candles whose body is empty when the price closed above its open, colored by the change
     /// from the previous close.
@@ -143,12 +144,6 @@ impl<'de> Deserialize<'de> for ChartKind {
     }
 }
 
-impl Default for ChartKind {
-    fn default() -> Self {
-        Self::Candles
-    }
-}
-
 /// How prices map to heights.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -188,7 +183,6 @@ impl ScaleMode {
 
 /// The heights of the panes: the prices, then one weight per indicator pane.
 pub const MAIN_WEIGHT: f32 = 3.0;
-pub const PANE_WEIGHT: f32 = 1.0;
 /// The most indicators on one chart.
 pub const MAX_STUDIES: usize = 16;
 
@@ -211,6 +205,9 @@ pub struct ChartSettings {
     /// Whether the grid shows.
     #[serde(default = "yes")]
     pub grid: bool,
+    /// Whether the sell and buy buttons show under the legend.
+    #[serde(default = "yes")]
+    pub trade_buttons: bool,
     #[serde(default)]
     pub studies: Vec<StudyConfig>,
     /// How much height the prices take relative to the panes.
@@ -236,6 +233,7 @@ impl Default for ChartSettings {
             zone: Zone::default(),
             volume: true,
             grid: true,
+            trade_buttons: true,
             studies: Vec::new(),
             main_weight: MAIN_WEIGHT,
         }

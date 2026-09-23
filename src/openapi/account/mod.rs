@@ -297,8 +297,17 @@ impl AccountDataClient {
     ///
     /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn position_unrealized_pnl(&self) -> Result<Vec<PositionUnrealizedPnL>> {
-        let response: PositionUnrealizedPnLRes = self
-            .client
+        Ok(self.unrealized_pnl().await?.position_unrealized_pnl)
+    }
+
+    /// The whole answer about the unrealized profit or loss of the open positions, with the
+    /// number of decimals of its amounts (see [`money`]).
+    ///
+    /// # Errors
+    ///
+    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
+    pub async fn unrealized_pnl(&self) -> Result<PositionUnrealizedPnLRes> {
+        self.client
             .call(
                 payload::GET_POSITION_UNREALIZED_PNL_REQ,
                 payload::GET_POSITION_UNREALIZED_PNL_RES,
@@ -308,7 +317,6 @@ impl AccountDataClient {
                 RateClass::Standard,
                 "the unrealized profit and loss of every position",
             )
-            .await?;
-        Ok(response.position_unrealized_pnl)
+            .await
     }
 }

@@ -386,6 +386,7 @@ fn volume_profile(
     };
     let max_w = cx.plot_w as f32 * (config.input("width") as f32 / 100.0);
     let right_side = config.input("side") == 0.0;
+    let highlight = config.input("highlight") != 0.0;
     let (up_style, down_style, poc_style) = (
         config.plot_style("up"),
         config.plot_style("down"),
@@ -402,7 +403,13 @@ fn volume_profile(
             continue;
         }
         let in_area = (profile.value_area.0..=profile.value_area.1).contains(&index);
-        let alpha = if in_area { 0.45 } else { 0.2 };
+        let alpha = if in_area && highlight {
+            0.45
+        } else if highlight {
+            0.2
+        } else {
+            0.35
+        };
         let (y_top, y_bottom) = (cx.y(row.hi), cx.y(row.lo));
         let height = (y_bottom - y_top).abs() - 1.0;
         if height <= 0.0 {

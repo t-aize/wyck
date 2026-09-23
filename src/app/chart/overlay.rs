@@ -366,6 +366,9 @@ impl Chart {
             .flex_col()
             .gap_0p5()
             .child(self.headline(compact, cx));
+        if !compact && self.settings.trade_buttons {
+            main = main.children(self.trade_buttons(cx));
+        }
         if !compact {
             for (study, config) in self.settings.studies.iter().enumerate() {
                 if config.spec().placement == Placement::Overlay {
@@ -388,6 +391,65 @@ impl Chart {
             );
         }
         out
+    }
+
+    /// Sell at the bid and buy at the ask, at market, with the spread between them.
+    fn trade_buttons(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (bid, ask) = (self.bid?, self.ask?);
+        let digits = self.digits();
+        let pip = 10f64.powi(i32::try_from(digits).unwrap_or(5).saturating_sub(1).max(0));
+        let spread = (ask - bid) as f64 / wyck::openapi::market::PRICE_SCALE as f64 * pip;
+        let button = |id: &'static str, label: &'static str, price: i64, color: u32, buy: bool| {
+            div()
+                .id(id)
+                .flex()
+                .flex_col()
+                .min_w(px(84.))
+                .px_2()
+                .py_0p5()
+                .rounded_md()
+                .border_1()
+                .border_color(rgb(color))
+                .bg(theme::bg())
+                .cursor_pointer()
+                .hover(move |s| s.bg(gpui::rgba(color << 8 | 0x33)))
+                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |_this, _, _, cx| {
+                    cx.emit(ChartEvent::Action(ChartAction::Market { buy }));
+                }))
+                .child(
+                    div()
+                        .text_size(px(10.))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(rgb(color))
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme::fg())
+                        .child(format_price(price, digits)),
+                )
+        };
+        Some(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_1()
+                .pt_0p5()
+                .child(button("chart-sell", "SELL", bid, 0xef5350, false))
+                .child(
+                    div()
+                        .min_w(px(28.))
+                        .text_center()
+                        .text_size(px(10.))
+                        .text_color(theme::muted_fg())
+                        .child(format!("{spread:.1}")),
+                )
+                .child(button("chart-buy", "BUY", ask, 0x26a69a, true))
+                .into_any_element(),
+        )
     }
 
     /// The first line of the legend: the symbol (a button that changes it), the timeframe and

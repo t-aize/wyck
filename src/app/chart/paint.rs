@@ -61,7 +61,6 @@ impl Chart {
                 .remote
                 .filter(|_| with_pointer)
                 .map(|r| (r.time_ms, r.price)),
-            bid: self.bid,
             ask: self.ask,
             now_ms: super::now_ms(),
             palette: Palette::new(),

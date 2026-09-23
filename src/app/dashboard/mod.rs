@@ -15,6 +15,7 @@ mod layout_menu;
 mod lists;
 mod marks;
 mod picker;
+mod trade;
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -33,11 +34,15 @@ use wyck::openapi::{Event, OpenApiError};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
+use super::alerts::Alerts;
 use super::chart::drawing::Drawings;
 use super::chart::live::{PEEK_OWNER, Wish};
 use super::chart::{self, Chart, LiveHub};
 use super::connection::ui;
 use super::multichart::{MultiChart, MultiChartEvent, SymbolRef};
+use super::trading::account::Account;
+use super::trading::panel::AccountPanel;
+use super::trading::ticket::OrderTicket;
 use super::workspace::{Documents, Workspace};
 use super::{runtime, theme, toast};
 
@@ -166,6 +171,19 @@ pub struct Dashboard {
     layout_menu_open: bool,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
+    /// The trading account: positions, orders, balance.
+    trading: Entity<Account>,
+    alerts: Entity<Alerts>,
+    /// The order ticket, made at the first render (its fields need the window).
+    ticket: Option<Entity<OrderTicket>>,
+    panel: Option<Entity<AccountPanel>>,
+    ticket_open: bool,
+    panel_open: bool,
+    panel_height: f32,
+    /// Where the pointer was while the panel's top edge is dragged.
+    panel_drag: Option<f32>,
+    /// What waits for the window.
+    pending: Vec<trade::Pending>,
 }
 
 impl Dashboard {
@@ -182,6 +200,19 @@ impl Dashboard {
             .detach();
         let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
         let hub = Rc::new(LiveHub::new(session.clone()));
+        let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
+        let alerts = cx.new(|cx| Alerts::new(documents.account.clone(), hub.clone(), cx));
+        let panel = cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), cx));
+        cx.subscribe(&panel, |this, _panel, event, cx| {
+            this.on_panel_event(event, cx)
+        })
+        .detach();
+        // The lines on the charts follow the account and the alerts.
+        cx.observe(&trading, |this, _trading, cx| this.push_lines(cx))
+            .detach();
+        cx.observe(&alerts, |this, _alerts, cx| this.push_lines(cx))
+            .detach();
+        let prefs = workspace.read(cx).preferences().clone();
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),
@@ -220,6 +251,15 @@ impl Dashboard {
             tf_menu_open: false,
             layout_menu_open: false,
             pending_picker: false,
+            trading,
+            alerts,
+            ticket: None,
+            panel: Some(panel),
+            ticket_open: prefs.ticket_open,
+            panel_open: prefs.panel_open,
+            panel_height: prefs.panel_height,
+            panel_drag: None,
+            pending: Vec::new(),
         };
         dashboard.follow_session(cx);
         dashboard
@@ -271,7 +311,17 @@ impl Dashboard {
             SessionEvent::Ready => self.on_ready(cx),
             SessionEvent::Data(Event::Spot(spot)) => {
                 self.multi.update(cx, |multi, cx| multi.on_spot(&spot, cx));
+                self.alerts.update(cx, |alerts, cx| {
+                    alerts.on_spot(spot.symbol_id, spot.bid, cx)
+                });
+                self.trading.update(cx, |account, cx| {
+                    account.on_event(&Event::Spot(spot.clone()), cx)
+                });
                 self.apply_spot(Spot::from(&spot), cx);
+            }
+            SessionEvent::Data(event) => {
+                self.trading
+                    .update(cx, |account, cx| account.on_event(&event, cx));
             }
             SessionEvent::Reconnecting { attempt, .. } => {
                 tracing::debug!(attempt, "the session is reconnecting");
@@ -290,6 +340,7 @@ impl Dashboard {
     fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.conn = Conn::Ready;
         self.multi.update(cx, |multi, cx| multi.on_ready(cx));
+        self.trading.update(cx, |account, cx| account.on_ready(cx));
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -340,6 +391,12 @@ impl Dashboard {
             .or_else(|| catalog.by_name("EURUSD").cloned())
             .or_else(|| catalog.entry(0).cloned());
         self.catalog = Load::Ready(catalog.clone());
+        let names = (0..catalog.total())
+            .filter_map(|i| catalog.entry(i))
+            .map(|e| (e.id, e.name.clone()))
+            .collect();
+        self.trading
+            .update(cx, |account, cx| account.set_names(names, cx));
         // Each chart gets the symbol it was saved with, or the one to start on.
         let wanted = self.multi.read(cx).wanted_symbols(cx);
         let linked = self.multi.read(cx).sync().symbol;
@@ -464,12 +521,6 @@ impl Dashboard {
         cx.notify();
     }
 
-    /// Opens the picker for chart `index`.
-    pub(super) fn pick_for(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        self.picker_target = Some(index);
-        self.open_picker(window, cx);
-    }
-
     fn on_multi_event(&mut self, event: &MultiChartEvent, cx: &mut Context<Self>) {
         match event {
             MultiChartEvent::PickSymbol(index) => {
@@ -487,9 +538,9 @@ impl Dashboard {
                     error.clone(),
                 );
             }
-            MultiChartEvent::Action(..)
-            | MultiChartEvent::LineMoved(..)
-            | MultiChartEvent::LineClosed(..) => {}
+            MultiChartEvent::Action(symbol, action) => self.on_chart_action(symbol, action, cx),
+            MultiChartEvent::LineMoved(id, price) => self.on_line_moved(*id, *price, cx),
+            MultiChartEvent::LineClosed(id) => self.on_line_closed(*id, cx),
         }
     }
 
@@ -590,7 +641,9 @@ impl Dashboard {
                     }),
                 )))
                 .into_any_element(),
-            _ => self.multi.clone().into_any_element(),
+            _ => self
+                .trading_layout(self.multi.clone().into_any_element(), cx)
+                .into_any_element(),
         }
     }
 }
@@ -625,7 +678,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
                 Ok::<_, std::io::Error>(path)
             })
             .await;
-        let _ = cx.update(|cx| match written {
+        cx.update(|cx| match written {
             Ok(path) => toast::show(
                 cx,
                 toast::Kind::Success,
@@ -663,6 +716,7 @@ impl Render for Dashboard {
         if std::mem::take(&mut self.pending_picker) {
             self.open_picker(window, cx);
         }
+        self.trading_frame(window, cx);
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
@@ -744,6 +798,9 @@ impl Render for Dashboard {
                     this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
                 }),
             )
+            .on_action(cx.listener(|this, _: &chart::ChartAddAlert, _window, cx| {
+                this.add_alert_here(cx);
+            }))
             .on_action(
                 cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
                     this.multi.update(cx, |multi, cx| multi.picture(cx));

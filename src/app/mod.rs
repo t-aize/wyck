@@ -1,5 +1,6 @@
 //! The `wyck` desktop application: window and the connection flow.
 
+mod alerts;
 mod anim;
 mod assets;
 mod chart;
@@ -11,6 +12,7 @@ mod text_input;
 mod theme;
 mod toast;
 mod token_store;
+mod trading;
 mod widgets;
 mod workspace;
 

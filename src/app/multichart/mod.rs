@@ -207,17 +207,9 @@ impl MultiChart {
         self.active
     }
 
-    pub fn count(&self) -> usize {
-        self.slots.len()
-    }
-
     /// The chart the header's timeframe buttons and the keys act on.
     pub fn active_chart(&self) -> &Entity<Chart> {
         &self.slots[self.active].chart
-    }
-
-    pub fn charts(&self) -> impl Iterator<Item = &Entity<Chart>> {
-        self.slots.iter().map(|slot| &slot.chart)
     }
 
     pub fn active_timeframe(&self, cx: &gpui::App) -> Timeframe {

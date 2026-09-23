@@ -52,7 +52,6 @@ impl Fixture {
             scale: 1.0,
             hover: Some((300.0, 200.0)),
             remote: None,
-            bid: None,
             ask: Some(100_020),
             now_ms: 1_767_571_200_000,
             palette: Palette::new(),

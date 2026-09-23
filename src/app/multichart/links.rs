@@ -23,6 +23,7 @@ pub enum Link {
 }
 
 impl Link {
+    #[cfg(test)]
     pub const ALL: [Self; 5] = [
         Self::Symbol,
         Self::Interval,

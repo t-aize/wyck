@@ -76,6 +76,7 @@ impl Geometry {
     }
 
     /// A chart with the prices alone.
+    #[cfg(test)]
     pub fn single(w: f64, h: f64) -> Self {
         Self::new(w, h, &[1.0])
     }

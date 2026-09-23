@@ -420,6 +420,15 @@ impl StudyKind {
                                 max: 1.0,
                                 step: 1.0,
                             },
+                            InputSpec {
+                                key: "highlight",
+                                label: "Highlight the value area",
+                                kind: InputKind::Toggle,
+                                default: 1.0,
+                                min: 0.0,
+                                max: 1.0,
+                                step: 1.0,
+                            },
                         ],
                         plots: &[
                             line("up", "Up volume", UP, 1.0),

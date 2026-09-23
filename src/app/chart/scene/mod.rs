@@ -16,8 +16,6 @@ pub mod price;
 mod series;
 mod studies;
 
-use wyck::openapi::market::format_price;
-
 pub use self::cmd::{Align, Cmd, FONT, LINE, P, hsla, rgb_alpha, with_alpha};
 pub use self::geometry::{AXIS_H, AXIS_W, Band, Geometry};
 pub use self::price::PriceMap;
@@ -28,7 +26,7 @@ use super::drawing::geometry::{self as shapes, Anchor, Prim};
 use super::drawing::model::{Dash, Drawing};
 use super::projection::ChartProjection;
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
-use super::study::{Placement, StudyKind, ValueFormat};
+use super::study::{Placement, ValueFormat};
 use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
 use crate::app::theme;
@@ -114,7 +112,6 @@ pub struct Frame<'a> {
     pub hover: Option<P>,
     /// The pointer of another chart (time and raw price), when the crosshairs are linked.
     pub remote: Option<(i64, f64)>,
-    pub bid: Option<i64>,
     pub ask: Option<i64>,
     pub now_ms: i64,
     pub palette: Palette,
@@ -1029,16 +1026,6 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             });
         }
     }
-}
-
-/// A value of the chart's own price, as the axis writes it (for the legend and the tags).
-pub fn price_text(price: i64, digits: u32) -> String {
-    format_price(price, digits)
-}
-
-/// Whether an indicator kind is drawn as a profile rather than per bar.
-pub fn is_profile(kind: StudyKind) -> bool {
-    kind == StudyKind::VolumeProfile
 }
 
 #[cfg(test)]
