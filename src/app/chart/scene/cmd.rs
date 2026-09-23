@@ -59,6 +59,8 @@ pub enum Cmd {
         fixed_width: Option<f32>,
         /// Kept inside `left..right` once its width is known.
         within: Option<(f32, f32)>,
+        size: f32,
+        bold: bool,
     },
     /// Commands drawn only inside a rectangle.
     Clip {

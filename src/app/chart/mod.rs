@@ -44,6 +44,7 @@ mod axis;
 mod data;
 mod display;
 pub mod drawing;
+pub mod drawing_props;
 mod follow;
 mod glue;
 mod history;
@@ -51,6 +52,7 @@ mod input;
 pub mod lines;
 pub mod live;
 mod load;
+pub mod object_tree;
 mod overlay;
 mod paint;
 mod projection;
@@ -75,6 +77,7 @@ use wyck::openapi::{OpenApiError, Result as ApiResult};
 use self::data::Series;
 use self::display::Display;
 use self::drawing::Drawings;
+pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 pub use self::live::{LiveHub, LiveUpdate};
 use self::scene::Geometry;
@@ -252,6 +255,8 @@ pub struct Chart {
     drawing_drag: bool,
     /// Whether the pointer is over a drawing, for the mouse cursor.
     over_drawing: bool,
+    /// A drawing was double-clicked: its settings open at the next render, which has the window.
+    settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.
     lines: Vec<ChartLine>,
     menu: Option<Menu>,
@@ -310,6 +315,7 @@ impl Chart {
             _drawings_observe: None,
             drawing_drag: false,
             over_drawing: false,
+            settings_for: None,
             lines: Vec::new(),
             menu: None,
             context_at: None,

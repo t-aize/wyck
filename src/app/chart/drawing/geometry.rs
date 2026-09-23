@@ -6,7 +6,8 @@
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).
 
-use super::model::{Dash, Drawing, Point, Tool};
+use super::figures;
+use super::model::{Dash, Drawing, Level, Point, Style, Tool};
 
 pub type P = (f32, f32);
 
@@ -89,6 +90,9 @@ pub enum Prim {
         /// A filled background behind the text, with its color and alpha.
         background: Option<(u32, f32)>,
         anchor: Anchor,
+        /// The size of the text, in points.
+        size: f32,
+        bold: bool,
     },
     /// A grip at a point of a selected drawing.
     Handle {
@@ -116,29 +120,12 @@ pub enum Part {
     Body,
 }
 
+/// The size of the words a drawing writes by itself (prices, ratios).
+pub const LABEL_SIZE: f32 = 11.0;
+
 /// How close the pointer must be to a line to be on it, and to a grip.
 pub const LINE_REACH: f32 = 6.0;
 pub const HANDLE_REACH: f32 = 9.0;
-
-/// The levels of a Fibonacci retracement, with the color of each.
-pub const FIB_LEVELS: [(f64, u32); 7] = [
-    (0.0, 0x9ca3af),
-    (0.236, 0xff6467),
-    (0.382, 0xffb900),
-    (0.5, 0x00d492),
-    (0.618, 0x00d3f2),
-    (0.786, 0x4f8dff),
-    (1.0, 0x9ca3af),
-];
-
-/// The levels of a trend-based Fibonacci extension.
-pub const FIB_EXTENSION_LEVELS: [(f64, u32); 5] = [
-    (0.0, 0x9ca3af),
-    (0.618, 0x00d3f2),
-    (1.0, 0x9ca3af),
-    (1.618, 0xffb900),
-    (2.618, 0xff6467),
-];
 
 /// The distance from `p` to the segment `a` to `b`.
 pub fn distance_to_segment(p: P, a: P, b: P) -> f32 {
@@ -196,7 +183,7 @@ pub fn extended(a: P, b: P, before: bool, after: bool, rect: Rect) -> Option<(P,
     Some((at(start), at(end)))
 }
 
-fn seg(a: P, b: P, color: u32, alpha: f32, width: f32, dash: Dash) -> Prim {
+pub(super) fn seg(a: P, b: P, color: u32, alpha: f32, width: f32, dash: Dash) -> Prim {
     Prim::Segment {
         a,
         b,
@@ -241,14 +228,21 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
         return Vec::new();
     };
     let rect = proj.plot();
-    let (color, width, dash) = (drawing.style.color, drawing.style.width, drawing.style.dash);
-    let fill = drawing.style.fill;
+    let style = &drawing.style;
+    let (color, width, dash) = (style.color, style.width, style.dash);
+    let fill = fill_of(style);
     let mut out = Vec::new();
 
     match drawing.tool {
-        Tool::TrendLine => out.push(seg(pts[0], pts[1], color, 1.0, width, dash)),
+        Tool::TrendLine => {
+            if let Some((a, b)) =
+                extended(pts[0], pts[1], style.extend_left, style.extend_right, rect)
+            {
+                out.push(seg(a, b, color, 1.0, width, dash));
+            }
+        }
         Tool::Ray => {
-            if let Some((a, b)) = extended(pts[0], pts[1], false, true, rect) {
+            if let Some((a, b)) = extended(pts[0], pts[1], style.extend_left, true, rect) {
                 out.push(seg(a, b, color, 1.0, width, dash));
             }
         }
@@ -260,13 +254,17 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
         Tool::HorizontalLine => {
             let y = pts[0].1;
             out.push(seg((rect.l, y), (rect.r, y), color, 1.0, width, dash));
-            out.push(Prim::Label {
-                at: (rect.r - 6.0, y),
-                text: proj.format_price(drawing.points[0].p),
-                color: 0x0a0a0a,
-                background: Some((color, 1.0)),
-                anchor: Anchor::Right,
-            });
+            if style.labels {
+                out.push(Prim::Label {
+                    at: (rect.r - 6.0, y),
+                    text: proj.format_price(drawing.points[0].p),
+                    color: 0x0a0a0a,
+                    background: Some((color, 1.0)),
+                    anchor: Anchor::Right,
+                    size: LABEL_SIZE,
+                    bold: false,
+                });
+            }
         }
         Tool::HorizontalRay => {
             let y = pts[0].1;
@@ -283,7 +281,8 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
         }
         Tool::Arrow => {
             let (a, b) = (pts[0], pts[1]);
-            out.push(seg(a, b, color, 1.0, width, dash));
+            let start = extended(a, b, style.extend_left, false, rect).map_or(a, |(s, _)| s);
+            out.push(seg(start, b, color, 1.0, width, dash));
             let (dx, dy) = (b.0 - a.0, b.1 - a.1);
             let length = (dx * dx + dy * dy).sqrt();
             if length > 1.0 {
@@ -307,23 +306,25 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
                 a.1 + (b.1 - a.1) * (c.0 - a.0) / dx
             };
             let offset = c.1 - line_y_at_c;
+            let (a, b) = stretch(a, b, style, rect);
             let (a2, b2) = ((a.0, a.1 + offset), (b.0, b.1 + offset));
-            if fill {
+            if let Some(fill) = fill {
                 out.push(Prim::Polygon {
                     points: vec![a, b, b2, a2],
-                    fill: (color, 0.10),
+                    fill,
                 });
             }
             out.push(seg(a, b, color, 1.0, width, dash));
             out.push(seg(a2, b2, color, 1.0, width, dash));
-            let (m1, m2) = (
-                ((a.0 + a2.0) / 2.0, (a.1 + a2.1) / 2.0),
-                ((b.0 + b2.0) / 2.0, (b.1 + b2.1) / 2.0),
-            );
-            out.push(seg(m1, m2, color, 0.5, 1.0, Dash::Dashed));
+            if style.middle {
+                let (m1, m2) = (
+                    ((a.0 + a2.0) / 2.0, (a.1 + a2.1) / 2.0),
+                    ((b.0 + b2.0) / 2.0, (b.1 + b2.1) / 2.0),
+                );
+                out.push(seg(m1, m2, color, 0.6, 1.0, Dash::Dashed));
+            }
         }
         Tool::FibRetracement => fib_prims(
-            &FIB_LEVELS,
             drawing,
             &pts,
             proj,
@@ -334,7 +335,6 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             &mut out,
         ),
         Tool::FibExtension => fib_prims(
-            &FIB_EXTENSION_LEVELS,
             drawing,
             &pts,
             proj,
@@ -344,19 +344,59 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             },
             &mut out,
         ),
-        Tool::Rectangle => out.push(Prim::Rect {
-            a: pts[0],
-            b: pts[1],
-            fill: fill.then_some((color, 0.15)),
-            stroke: Some((color, width)),
-        }),
+        Tool::Rectangle => {
+            let (mut l, mut r) = (pts[0].0.min(pts[1].0), pts[0].0.max(pts[1].0));
+            if style.extend_left {
+                l = l.min(rect.l);
+            }
+            if style.extend_right {
+                r = r.max(rect.r);
+            }
+            let (t, b) = (pts[0].1.min(pts[1].1), pts[0].1.max(pts[1].1));
+            if dash == Dash::Solid {
+                out.push(Prim::Rect {
+                    a: (l, t),
+                    b: (r, b),
+                    fill,
+                    stroke: Some((color, width)),
+                });
+            } else {
+                if fill.is_some() {
+                    out.push(Prim::Rect {
+                        a: (l, t),
+                        b: (r, b),
+                        fill,
+                        stroke: None,
+                    });
+                }
+                for (p, q) in [
+                    ((l, t), (r, t)),
+                    ((r, t), (r, b)),
+                    ((r, b), (l, b)),
+                    ((l, b), (l, t)),
+                ] {
+                    out.push(seg(p, q, color, 1.0, width, dash));
+                }
+            }
+        }
         Tool::Ellipse => out.push(Prim::Ellipse {
             center: ((pts[0].0 + pts[1].0) / 2.0, (pts[0].1 + pts[1].1) / 2.0),
             rx: (pts[1].0 - pts[0].0).abs() / 2.0,
             ry: (pts[1].1 - pts[0].1).abs() / 2.0,
-            fill: fill.then_some((color, 0.15)),
+            fill,
             stroke: Some((color, width)),
         }),
+        Tool::Triangle => {
+            if let Some(fill) = fill {
+                out.push(Prim::Polygon {
+                    points: pts.clone(),
+                    fill,
+                });
+            }
+            for i in 0..3 {
+                out.push(seg(pts[i], pts[(i + 1) % 3], color, 1.0, width, dash));
+            }
+        }
         Tool::Brush => out.push(Prim::Polyline {
             points: pts,
             color,
@@ -364,46 +404,71 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
         }),
         Tool::Measure => measure_prims(drawing, &pts, proj, &mut out),
         Tool::LongPosition | Tool::ShortPosition => position_prims(drawing, &pts, proj, &mut out),
-        Tool::Text => out.push(Prim::Label {
-            at: pts[0],
-            text: if drawing.text.is_empty() {
-                "Text".to_owned()
+        Tool::Text => {
+            let text = if drawing.text.is_empty() {
+                "Text"
             } else {
-                drawing.text.clone()
-            },
-            color,
-            background: None,
-            anchor: Anchor::Left,
-        }),
+                drawing.text.as_str()
+            };
+            // Each line of the words is its own label, one under the other.
+            for (row, line) in text.lines().enumerate() {
+                out.push(Prim::Label {
+                    at: (
+                        pts[0].0 + 6.0,
+                        pts[0].1 + row as f32 * style.text_size * 1.4,
+                    ),
+                    text: line.to_owned(),
+                    color: style.text_color(),
+                    background: None,
+                    anchor: Anchor::Left,
+                    size: style.text_size,
+                    bold: style.bold,
+                });
+            }
+        }
         Tool::PriceLabel => out.push(Prim::Label {
             at: pts[0],
             text: proj.format_price(drawing.points[0].p),
-            color: 0x0a0a0a,
+            color: style.text_color.unwrap_or(0x0a0a0a),
             background: Some((color, 1.0)),
             anchor: Anchor::Left,
+            size: style.text_size,
+            bold: style.bold,
         }),
         Tool::Unknown => {}
+        _ => figures::prims(drawing, &pts, proj, &mut out),
     }
     out
 }
 
 fn fib_prims(
-    levels: &[(f64, u32)],
     drawing: &Drawing,
     pts: &[P],
     proj: &dyn Projection,
     price_at: impl Fn(f64) -> f64,
     out: &mut Vec<Prim>,
 ) {
-    let (left, right) = pts
+    let style = &drawing.style;
+    let rect = proj.plot();
+    let (mut left, mut right) = pts
         .iter()
         .fold((f32::INFINITY, f32::NEG_INFINITY), |(l, r), p| {
             (l.min(p.0), r.max(p.0))
         });
-    let dash = drawing.style.dash;
+    if style.extend_left {
+        left = rect.l;
+    }
+    if style.extend_right {
+        right = rect.r;
+    }
     let mut previous: Option<(f32, u32)> = None;
-    for (ratio, level_color) in levels {
-        let price = price_at(*ratio);
+    for level in visible_levels(drawing) {
+        let ratio = if drawing.reverse {
+            1.0 - level.value
+        } else {
+            level.value
+        };
+        let price = price_at(ratio);
         let Some(at) = proj.to_screen(Point {
             t: drawing.points[0].t,
             p: price,
@@ -411,53 +476,95 @@ fn fib_prims(
             continue;
         };
         let y = at.1;
-        if drawing.style.fill
-            && let Some((previous_y, previous_color)) = previous
+        if style.fill
+            && let Some((previous_y, _)) = previous
         {
             out.push(Prim::Rect {
                 a: (left, previous_y),
                 b: (right, y),
-                fill: Some((previous_color, 0.07)),
+                fill: Some((level.color, style.fill_opacity)),
                 stroke: None,
             });
         }
         out.push(seg(
             (left, y),
             (right, y),
-            *level_color,
+            level.color,
             0.9,
-            drawing.style.width.min(1.5),
-            dash,
+            style.width,
+            style.dash,
         ));
-        out.push(Prim::Label {
-            at: (left - 4.0, y),
-            text: format!("{ratio} ({})", proj.format_price(price)),
-            color: *level_color,
-            background: None,
-            anchor: Anchor::Right,
-        });
-        previous = Some((y, *level_color));
+        if style.labels {
+            let text = format!("{} ({})", level_text(level.value), proj.format_price(price));
+            out.push(if style.extend_left {
+                label(
+                    (left + 4.0, y - 8.0),
+                    text,
+                    level.color,
+                    Anchor::Left,
+                    style,
+                )
+            } else {
+                label((left - 4.0, y), text, level.color, Anchor::Right, style)
+            });
+        }
+        previous = Some((y, level.color));
     }
     // The line that joins the points the levels come from.
-    if pts.len() >= 2 {
-        out.push(seg(
-            pts[0],
-            pts[1],
-            drawing.style.color,
-            0.6,
-            1.0,
-            Dash::Dashed,
-        ));
+    for pair in pts.windows(2) {
+        out.push(seg(pair[0], pair[1], style.color, 0.6, 1.0, Dash::Dashed));
     }
-    if pts.len() >= 3 {
-        out.push(seg(
-            pts[1],
-            pts[2],
-            drawing.style.color,
-            0.6,
-            1.0,
-            Dash::Dashed,
-        ));
+}
+
+/// The fill of a drawing, when it has one: its color and opacity.
+pub(super) fn fill_of(style: &Style) -> Option<(u32, f32)> {
+    (style.fill && style.fill_opacity > 0.0).then(|| (style.fill_color(), style.fill_opacity))
+}
+
+/// The segment `a` to `b` stretched to the plot's edges on the sides the style extends.
+pub(super) fn stretch(a: P, b: P, style: &Style, rect: Rect) -> (P, P) {
+    if !(style.extend_left || style.extend_right) {
+        return (a, b);
+    }
+    // Extend towards the left and right of the screen, whichever point is on which side.
+    let (first, second, swapped) = if a.0 <= b.0 {
+        (a, b, false)
+    } else {
+        (b, a, true)
+    };
+    let (p, q) = extended(first, second, style.extend_left, style.extend_right, rect)
+        .unwrap_or((first, second));
+    if swapped { (q, p) } else { (p, q) }
+}
+
+/// The levels of a drawing that show, in increasing order.
+pub(super) fn visible_levels(drawing: &Drawing) -> Vec<Level> {
+    let mut levels: Vec<Level> = drawing.levels().into_iter().filter(|l| l.visible).collect();
+    levels.sort_by(|a, b| a.value.total_cmp(&b.value));
+    levels
+}
+
+/// A level's value as the chart writes it: up to three decimals, no trailing zeros.
+pub fn level_text(value: f64) -> String {
+    let text = format!("{value:.3}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    if text == "-0" {
+        "0".to_owned()
+    } else {
+        text.to_owned()
+    }
+}
+
+/// Words a drawing writes, in the size and weight its style asks for.
+pub(super) fn label(at: P, text: String, color: u32, anchor: Anchor, style: &Style) -> Prim {
+    Prim::Label {
+        at,
+        text,
+        color,
+        background: None,
+        anchor,
+        size: style.text_size,
+        bold: style.bold,
     }
 }
 
@@ -513,6 +620,8 @@ fn measure_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
         color: 0xffffff,
         background: Some((color, 0.9)),
         anchor: Anchor::Center,
+        size: LABEL_SIZE,
+        bold: false,
     });
 }
 
@@ -591,6 +700,8 @@ fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut
         color: 0x0a0a0a,
         background: Some((0x00d492, 0.95)),
         anchor: Anchor::Center,
+        size: LABEL_SIZE,
+        bold: false,
     });
     out.push(Prim::Label {
         at: (
@@ -601,6 +712,8 @@ fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut
         color: 0x0a0a0a,
         background: Some((0xff6467, 0.95)),
         anchor: Anchor::Center,
+        size: LABEL_SIZE,
+        bold: false,
     });
     out.push(Prim::Label {
         at: ((left + right) / 2.0, y_entry),
@@ -615,6 +728,8 @@ fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut
         color: 0xffffff,
         background: Some((0x2a2a2a, 0.95)),
         anchor: Anchor::Center,
+        size: LABEL_SIZE,
+        bold: false,
     });
 }
 
@@ -627,14 +742,15 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
     }
 }
 
-fn label_box(at: P, text: &str, anchor: Anchor) -> (P, P) {
-    let width = text.chars().count() as f32 * 6.6 + 14.0;
+fn label_box(at: P, text: &str, anchor: Anchor, size: f32) -> (P, P) {
+    let width = text.chars().count() as f32 * size * 0.6 + 14.0;
+    let half = size * 0.8;
     let (l, r) = match anchor {
         Anchor::Left => (at.0, at.0 + width),
         Anchor::Right => (at.0 - width, at.0),
         Anchor::Center => (at.0 - width / 2.0, at.0 + width / 2.0),
     };
-    ((l, at.1 - 9.0), (r, at.1 + 9.0))
+    ((l, at.1 - half), (r, at.1 + half))
 }
 
 fn inside_rect(p: P, a: P, b: P) -> bool {
@@ -698,9 +814,10 @@ pub fn hit(drawing: &Drawing, proj: &dyn Projection, at: P, with_handles: bool) 
                 at: position,
                 text,
                 anchor,
+                size,
                 ..
             } => {
-                let (a, b) = label_box(*position, text, *anchor);
+                let (a, b) = label_box(*position, text, *anchor, *size);
                 inside_rect(at, a, b)
             }
             Prim::Handle { .. } => false,
@@ -766,21 +883,19 @@ pub(super) mod tests {
     }
 
     pub fn drawing(tool: Tool, points: &[(i64, f64)]) -> Drawing {
-        Drawing {
-            id: 1,
+        let mut drawing = Drawing::new(
+            1,
             tool,
-            points: points
+            points
                 .iter()
                 .map(|&(t, p)| Point { t: t * 1_000, p })
                 .collect(),
-            style: Style {
-                width: 1.0,
-                ..tool.default_style()
-            },
-            text: String::new(),
-            locked: false,
-            hidden: false,
-        }
+        );
+        drawing.style = Style {
+            width: 1.0,
+            ..tool.default_style()
+        };
+        drawing
     }
 
     #[test]

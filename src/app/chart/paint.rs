@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use super::Chart;
-use super::scene::{self, Align, Cmd, DrawingView, Frame, LINE, P, Palette};
+use super::scene::{self, Align, Cmd, DrawingView, Frame, P, Palette};
 
 /// Most points in one stroked path: a GPU path may only hold so many vertices.
 const PATH_CHUNK: usize = 1_500;
@@ -204,8 +204,10 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 align,
                 fixed_width,
                 within,
+                size: font_size,
+                bold,
             } => {
-                let line = shape(window, &text, scene::FONT, fg, false);
+                let line = shape(window, &text, font_size, fg, bold);
                 let width = fixed_width.unwrap_or_else(|| f32::from(line.width) + pad * 2.0);
                 let mut x = aligned(x, width, align);
                 if let Some((left, right)) = within {
@@ -218,8 +220,8 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 quad.corner_radii = px(3.0).into();
                 window.paint_quad(quad);
                 let _ = line.paint(
-                    point(px(x + pad), px(y + (height - LINE) / 2.0)),
-                    px(LINE),
+                    point(px(x + pad), px(y + (height - font_size * 1.3) / 2.0)),
+                    px(font_size * 1.3),
                     TextAlign::Left,
                     None,
                     window,

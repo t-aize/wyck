@@ -14,7 +14,9 @@
 use std::collections::BTreeMap;
 
 use super::geometry::{self, P, Part, Projection};
-use super::model::{Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, Point, Tool};
+use super::model::{
+    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, Point, Template, Tool,
+};
 
 /// How far a press must move before it counts as a drag, in pixels.
 const DRAG_START: f32 = 6.0;
@@ -33,6 +35,15 @@ pub enum Press {
     Ignored,
     /// A drawing took the press.
     Taken,
+}
+
+/// Where a drawing goes in the stack of its symbol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Order {
+    Front,
+    Forward,
+    Backward,
+    Back,
 }
 
 #[derive(Clone)]
@@ -68,6 +79,8 @@ struct Editing {
 #[derive(Default)]
 pub struct Book {
     symbols: BTreeMap<String, Vec<Drawing>>,
+    /// What each tool starts with, by the tool's code.
+    templates: BTreeMap<String, Template>,
     next_id: u64,
     tool: Option<Tool>,
     magnet: bool,
@@ -87,6 +100,7 @@ impl Book {
         let doc = doc.normalized();
         Self {
             symbols: doc.symbols,
+            templates: doc.templates,
             next_id: doc.next_id,
             ..Self::default()
         }
@@ -96,6 +110,7 @@ impl Book {
         DrawingsDoc {
             next_id: self.next_id.max(1),
             symbols: self.symbols.clone(),
+            templates: self.templates.clone(),
             ..DrawingsDoc::default()
         }
     }
@@ -254,15 +269,12 @@ impl Book {
     }
 
     fn blank(&mut self, tool: Tool, points: Vec<Point>) -> Drawing {
-        Drawing {
-            id: self.new_id(),
-            tool,
-            points,
-            style: tool.default_style(),
-            text: String::new(),
-            locked: false,
-            hidden: false,
+        let mut drawing = Drawing::new(self.new_id(), tool, points);
+        if let Some(template) = self.templates.get(&tool.code()) {
+            drawing.style = template.style.clone();
+            drawing.levels = template.levels.clone();
         }
+        drawing
     }
 
     /// Puts a finished drawing in its symbol, selects it and goes back to the pointer.
@@ -567,6 +579,18 @@ impl Book {
             })
     }
 
+    /// The id of the topmost drawing shown on `timeframe` under `(x, y)`.
+    pub fn drawing_at(
+        &self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+    ) -> Option<u64> {
+        self.hit(symbol, timeframe, proj, (x, y)).map(|(id, _)| id)
+    }
+
     /// What is under the pointer, for choosing the mouse cursor.
     pub fn hover_part(
         &self,
@@ -707,6 +731,179 @@ impl Book {
         }
         self.selected = None;
         true
+    }
+
+    // ---- changes from the settings dialog and the list of drawings ----
+
+    /// Selects a drawing (or nothing), as a click on it would.
+    pub fn select(&mut self, id: Option<u64>) {
+        self.selected = id;
+    }
+
+    fn edit_one(&mut self, symbol: &str, id: u64, change: impl FnOnce(&mut Drawing)) -> bool {
+        let before = self.snapshot(symbol);
+        let Some(drawing) = self
+            .symbols
+            .get_mut(symbol)
+            .and_then(|list| list.iter_mut().find(|d| d.id == id))
+        else {
+            return false;
+        };
+        let original = drawing.clone();
+        change(drawing);
+        if *drawing == original {
+            return false;
+        }
+        self.remember(before);
+        true
+    }
+
+    /// Shows the drawing as `drawing` says, without an undo step: the settings dialog shows its
+    /// changes as they are made, and [`Book::settle`] or [`Book::revert`] ends them.
+    pub fn preview(&mut self, symbol: &str, drawing: Drawing) -> bool {
+        let drawing = drawing.normalized();
+        let Some(slot) = self
+            .symbols
+            .get_mut(symbol)
+            .and_then(|list| list.iter_mut().find(|d| d.id == drawing.id))
+        else {
+            return false;
+        };
+        if *slot == drawing {
+            return false;
+        }
+        *slot = drawing;
+        self.revision += 1;
+        true
+    }
+
+    /// Keeps what was previewed, as one undo step back to `before` (the drawings of the symbol
+    /// when the dialog opened).
+    pub fn settle(&mut self, symbol: &str, before: Vec<Drawing>) -> bool {
+        if self.drawings(symbol) == before.as_slice() {
+            return false;
+        }
+        self.remember(Snapshot {
+            symbol: symbol.to_owned(),
+            drawings: before,
+        });
+        true
+    }
+
+    /// Puts back the drawings of the symbol as they were when the dialog opened.
+    pub fn revert(&mut self, symbol: &str, before: Vec<Drawing>) -> bool {
+        if self.drawings(symbol) == before.as_slice() {
+            return false;
+        }
+        self.restore(Snapshot {
+            symbol: symbol.to_owned(),
+            drawings: before,
+        });
+        true
+    }
+
+    pub fn set_hidden(&mut self, symbol: &str, id: u64, hidden: bool) -> bool {
+        self.edit_one(symbol, id, |d| d.hidden = hidden)
+    }
+
+    pub fn set_locked(&mut self, symbol: &str, id: u64, locked: bool) -> bool {
+        self.edit_one(symbol, id, |d| d.locked = locked)
+    }
+
+    /// Shows or hides every drawing of the symbol at once.
+    pub fn set_all_hidden(&mut self, symbol: &str, hidden: bool) -> bool {
+        let before = self.snapshot(symbol);
+        let Some(list) = self.symbols.get_mut(symbol) else {
+            return false;
+        };
+        let mut changed = false;
+        for drawing in list.iter_mut().filter(|d| d.hidden != hidden) {
+            drawing.hidden = hidden;
+            changed = true;
+        }
+        if changed {
+            self.remember(before);
+        }
+        changed
+    }
+
+    /// Deletes one drawing, unless it is locked.
+    pub fn delete(&mut self, symbol: &str, id: u64) -> bool {
+        if self.get(symbol, id).is_none_or(|d| d.locked) {
+            return false;
+        }
+        let before = self.snapshot(symbol);
+        self.remember(before);
+        if let Some(list) = self.symbols.get_mut(symbol) {
+            list.retain(|d| d.id != id);
+            if list.is_empty() {
+                self.symbols.remove(symbol);
+            }
+        }
+        if self.selected == Some(id) {
+            self.selected = None;
+        }
+        true
+    }
+
+    /// Moves a drawing up or down the stack: the last one is drawn on top and picked first.
+    pub fn reorder(&mut self, symbol: &str, id: u64, order: Order) -> bool {
+        let before = self.snapshot(symbol);
+        let Some(list) = self.symbols.get_mut(symbol) else {
+            return false;
+        };
+        let Some(index) = list.iter().position(|d| d.id == id) else {
+            return false;
+        };
+        let last = list.len() - 1;
+        let target = match order {
+            Order::Front => last,
+            Order::Forward => (index + 1).min(last),
+            Order::Backward => index.saturating_sub(1),
+            Order::Back => 0,
+        };
+        if target == index {
+            return false;
+        }
+        let drawing = list.remove(index);
+        list.insert(target, drawing);
+        self.remember(before);
+        true
+    }
+
+    /// Makes the look and levels of this drawing what new drawings of its tool start with.
+    pub fn save_template(&mut self, symbol: &str, id: u64) -> bool {
+        let Some(drawing) = self.get(symbol, id) else {
+            return false;
+        };
+        let template = Template {
+            style: drawing.style.clone(),
+            levels: drawing.levels.clone(),
+        };
+        self.templates.insert(drawing.tool.code(), template);
+        self.revision += 1;
+        true
+    }
+
+    /// Forgets the saved look of a tool, so new drawings start with the built-in one.
+    pub fn forget_template(&mut self, tool: Tool) -> bool {
+        let removed = self.templates.remove(&tool.code()).is_some();
+        if removed {
+            self.revision += 1;
+        }
+        removed
+    }
+
+    pub fn has_template(&self, tool: Tool) -> bool {
+        self.templates.contains_key(&tool.code())
+    }
+
+    /// The look a new drawing of `tool` starts with: the saved one, or the built-in one.
+    pub fn starting_style(&self, tool: Tool) -> (super::model::Style, Vec<super::model::Level>) {
+        match self.templates.get(&tool.code()) {
+            Some(template) => (template.style.clone(), template.levels.clone()),
+            None => (tool.default_style(), Vec::new()),
+        }
     }
 }
 
@@ -1151,5 +1348,118 @@ mod tests {
             click(&mut book, 60.0, 150.0);
         }
         assert_eq!(book.count(SYMBOL), MAX_DRAWINGS_PER_SYMBOL);
+    }
+
+    fn two_lines() -> (Book, u64, u64) {
+        let mut book = book();
+        for (a, b) in [(100.0, 200.0), (150.0, 250.0)] {
+            book.set_tool(Some(Tool::TrendLine));
+            click(&mut book, 60.0, a);
+            click(&mut book, 300.0, b);
+        }
+        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
+        (book, ids[0], ids[1])
+    }
+
+    #[test]
+    fn a_settings_dialog_previews_then_keeps_as_one_step_or_puts_back() {
+        let (mut book, first, _) = two_lines();
+        let before = book.drawings(SYMBOL).to_vec();
+        let steps = book.undo.len();
+        let mut changed = book.get(SYMBOL, first).unwrap().clone();
+        changed.style.width = 4.0;
+        assert!(book.preview(SYMBOL, changed.clone()));
+        changed.style.color = 0x123456;
+        assert!(book.preview(SYMBOL, changed));
+        assert_eq!(book.undo.len(), steps, "previews are not undo steps");
+        assert!(book.settle(SYMBOL, before.clone()));
+        assert_eq!(book.undo.len(), steps + 1, "keeping is one step");
+        assert!(book.undo());
+        assert_eq!(book.drawings(SYMBOL), before.as_slice());
+
+        let mut changed = book.get(SYMBOL, first).unwrap().clone();
+        changed.style.width = 4.0;
+        book.preview(SYMBOL, changed);
+        assert!(book.revert(SYMBOL, before.clone()));
+        assert_eq!(book.drawings(SYMBOL), before.as_slice());
+    }
+
+    #[test]
+    fn a_drawing_moves_up_and_down_the_stack() {
+        let (mut book, first, second) = two_lines();
+        assert!(
+            !book.reorder(SYMBOL, second, Order::Front),
+            "already on top"
+        );
+        assert!(book.reorder(SYMBOL, first, Order::Front));
+        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
+        assert_eq!(ids, vec![second, first]);
+        assert!(book.reorder(SYMBOL, first, Order::Backward));
+        assert_eq!(book.drawings(SYMBOL)[0].id, first);
+        assert!(book.undo());
+        assert_eq!(book.drawings(SYMBOL)[1].id, first);
+    }
+
+    #[test]
+    fn hiding_locking_and_deleting_by_id() {
+        let (mut book, first, second) = two_lines();
+        assert!(book.set_all_hidden(SYMBOL, true));
+        assert!(book.drawings(SYMBOL).iter().all(|d| d.hidden));
+        assert!(!book.drawings(SYMBOL)[0].shows_on(TF));
+        assert!(book.set_hidden(SYMBOL, first, false));
+        assert!(book.set_locked(SYMBOL, first, true));
+        assert!(!book.delete(SYMBOL, first), "a locked drawing stays");
+        assert!(book.delete(SYMBOL, second));
+        assert_eq!(book.count(SYMBOL), 1);
+    }
+
+    #[test]
+    fn a_saved_look_is_what_new_drawings_of_the_tool_start_with() {
+        let (mut book, first, _) = two_lines();
+        let mut changed = book.get(SYMBOL, first).unwrap().clone();
+        changed.style.color = 0xabcdef;
+        changed.style.extend_right = true;
+        book.preview(SYMBOL, changed);
+        assert!(book.save_template(SYMBOL, first));
+        assert!(book.has_template(Tool::TrendLine));
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 300.0);
+        click(&mut book, 300.0, 350.0);
+        let made = book.drawings(SYMBOL).last().unwrap();
+        assert_eq!(made.style.color, 0xabcdef);
+        assert!(made.style.extend_right);
+
+        // The saved look survives a save and a load.
+        let reloaded = Book::from_doc(book.to_doc());
+        assert!(reloaded.has_template(Tool::TrendLine));
+        assert!(book.forget_template(Tool::TrendLine));
+        assert_eq!(
+            book.starting_style(Tool::TrendLine).0,
+            Tool::TrendLine.default_style()
+        );
+    }
+
+    #[test]
+    fn a_right_click_finds_the_drawing_under_the_pointer() {
+        let (book, _, second) = two_lines();
+        // The second line runs from (60 s, 150) to (300 s, 250); its middle is (180, 200).
+        let (x, y) = at(180.0, 200.0);
+        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), Some(second));
+        let (x, y) = at(180.0, 50.0);
+        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), None);
+    }
+
+    #[test]
+    fn a_five_point_pattern_takes_five_clicks() {
+        let mut book = book();
+        book.set_tool(Some(Tool::Xabcd));
+        for (i, price) in [100.0, 200.0, 150.0, 180.0, 120.0].iter().enumerate() {
+            assert_eq!(book.count(SYMBOL), 0);
+            click(&mut book, 60.0 * (i as f32 + 1.0), *price);
+        }
+        assert_eq!(book.count(SYMBOL), 1);
+        let pattern = &book.drawings(SYMBOL)[0];
+        assert_eq!(pattern.points.len(), 5);
+        assert!(pattern.is_valid());
     }
 }

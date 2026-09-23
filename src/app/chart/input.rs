@@ -182,6 +182,13 @@ impl Chart {
             }
             if self.drawing_press(x, y, cx) {
                 self.drawing_drag = true;
+                // A double click on a drawing opens its settings.
+                if clicks >= 2
+                    && let Some(drawings) = &self.drawings
+                    && drawings.read(cx).book().tool().is_none()
+                {
+                    self.settings_for = drawings.read(cx).book().selected();
+                }
                 cx.notify();
                 return;
             }

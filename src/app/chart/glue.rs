@@ -2,12 +2,24 @@
 //! with this chart's projection, so a drawing made here shows at once on every chart of the
 //! symbol.
 
-use gpui::{Context, Entity};
+use gpui::{App, Context, Entity, Window};
+use wyck::openapi::market::PRICE_SCALE;
 
-use super::Chart;
 use super::drawing::Drawings;
-use super::drawing::book::Press;
+use super::drawing::book::{Book, Order, Press};
+use super::drawing::model::Tool;
 use super::projection::ChartProjection;
+use super::{Chart, ChartAction, ChartEvent, drawing_props, object_tree};
+
+/// Something done to one drawing from its menu or the bar over it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawingCommand {
+    Duplicate,
+    Order(Order),
+    Hide,
+    Lock(bool),
+    Delete,
+}
 
 impl Chart {
     /// Shows and edits the drawings of this entity, redrawing when they change.
@@ -35,7 +47,7 @@ impl Chart {
         Some(f(&projection))
     }
 
-    fn symbol_name(&self) -> Option<String> {
+    pub(super) fn symbol_name(&self) -> Option<String> {
         self.symbol.as_ref().map(|s| s.name.to_string())
     }
 
@@ -110,5 +122,114 @@ impl Chart {
             })
         });
         cx.notify();
+    }
+
+    /// The drawing under `(x, y)` on the prices, if any.
+    pub fn drawing_under(&self, x: f32, y: f32, cx: &App) -> Option<u64> {
+        let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
+        let timeframe = self.timeframe.code();
+        self.with_projection(|projection| {
+            drawings
+                .read(cx)
+                .book()
+                .drawing_at(&symbol, &timeframe, projection, x, y)
+        })
+        .flatten()
+    }
+
+    fn edit_drawings(&self, cx: &mut Context<Self>, change: impl FnOnce(&mut Book, &str) -> bool) {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return;
+        };
+        drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| change(book, &symbol))
+        });
+    }
+
+    /// Selects a drawing, as a click on it would.
+    pub fn select_drawing(&self, id: u64, cx: &mut Context<Self>) {
+        self.edit_drawings(cx, |book, _| {
+            book.select(Some(id));
+            true
+        });
+    }
+
+    pub fn drawing_command(&mut self, id: u64, command: DrawingCommand, cx: &mut Context<Self>) {
+        match command {
+            DrawingCommand::Duplicate => {
+                self.select_drawing(id, cx);
+                self.duplicate_selected(cx);
+            }
+            DrawingCommand::Order(order) => {
+                self.edit_drawings(cx, |book, symbol| book.reorder(symbol, id, order));
+            }
+            DrawingCommand::Hide => {
+                self.edit_drawings(cx, |book, symbol| book.set_hidden(symbol, id, true));
+            }
+            DrawingCommand::Lock(locked) => {
+                self.edit_drawings(cx, |book, symbol| book.set_locked(symbol, id, locked));
+            }
+            DrawingCommand::Delete => {
+                self.edit_drawings(cx, |book, symbol| book.delete(symbol, id));
+            }
+        }
+        cx.notify();
+    }
+
+    /// What the drawing dialogs need: the drawings, the symbol, the zone and the decimals.
+    fn drawing_context(&self) -> Option<(Entity<Drawings>, String, super::zone::Zone, u32)> {
+        Some((
+            self.drawings.clone()?,
+            self.symbol_name()?,
+            self.settings.zone,
+            self.digits(),
+        ))
+    }
+    /// A settings dialog asked for by a double click opens now that the window is at hand.
+    pub(super) fn open_pending_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(id) = self.settings_for.take() {
+            let entity = cx.entity();
+            // Opened after this render, so the dialog is not made while the chart is borrowed.
+            window.defer(cx, move |window, cx| {
+                open_drawing_settings(&entity, id, window, cx);
+            });
+        }
+    }
+
+    /// The order a long or short position drawing stands for, for the ticket.
+    pub fn position_order(&self, id: u64, cx: &App) -> Option<ChartAction> {
+        let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
+        let drawing = drawings.read(cx).book().get(&symbol, id)?.clone();
+        if !drawing.tool.is_position() || drawing.points.len() < 3 {
+            return None;
+        }
+        let real = |raw: f64| raw / PRICE_SCALE as f64;
+        Some(ChartAction::Ticket {
+            buy: drawing.tool == Tool::LongPosition,
+            entry: Some(real(drawing.points[0].p)),
+            stop_loss: Some(real(drawing.points[1].p)),
+            take_profit: Some(real(drawing.points[2].p)),
+        })
+    }
+
+    /// Opens the order ticket filled from a position drawing.
+    pub fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
+        if let Some(action) = self.position_order(id, cx) {
+            cx.emit(ChartEvent::Action(action));
+        }
+    }
+}
+
+/// Opens the settings of drawing `id` of the symbol of `chart`.
+pub fn open_drawing_settings(chart: &Entity<Chart>, id: u64, window: &mut Window, cx: &mut App) {
+    if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
+        drawing_props::open(drawings, symbol, id, zone, digits, window, cx);
+    }
+}
+
+/// Opens the list of the drawings of the symbol of `chart`.
+pub fn open_object_tree(chart: &Entity<Chart>, window: &mut Window, cx: &mut App) {
+    if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
+        object_tree::open(drawings, symbol, zone, digits, window, cx);
     }
 }

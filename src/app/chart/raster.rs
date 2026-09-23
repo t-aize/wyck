@@ -12,7 +12,7 @@ use tiny_skia::{
     Transform,
 };
 
-use super::scene::{Align, Cmd, LINE};
+use super::scene::{Align, Cmd};
 use crate::app::assets;
 
 /// A clip rectangle, in logical pixels.
@@ -132,7 +132,7 @@ impl Canvas<'_> {
         let px_size = size * self.scale;
         let font = self.font.as_scaled(PxScale::from(px_size));
         let c = color(fill);
-        let line_top = y * self.scale + (LINE * self.scale - px_size * 1.2) / 2.0;
+        let line_top = y * self.scale + (size * 1.3 * self.scale - px_size * 1.2) / 2.0;
         let baseline = line_top + font.ascent();
         let mut pen = x * self.scale;
         let mut previous = None;
@@ -334,8 +334,10 @@ impl Canvas<'_> {
                     align,
                     fixed_width,
                     within,
+                    size,
+                    bold,
                 } => {
-                    let text_w = self.measure(text, super::scene::FONT);
+                    let text_w = self.measure(text, *size);
                     let width = fixed_width.unwrap_or(text_w + pad * 2.0);
                     let mut left = aligned(*x, width, *align);
                     if let Some((l, r)) = within {
@@ -353,11 +355,11 @@ impl Canvas<'_> {
                     self.text(
                         text,
                         left + pad,
-                        y + (height - LINE) / 2.0,
+                        y + (height - size * 1.3) / 2.0,
                         Ink {
-                            size: super::scene::FONT,
+                            size: *size,
                             fill: *fg,
-                            bold: false,
+                            bold: *bold,
                         },
                         clip,
                     );
@@ -490,6 +492,8 @@ mod tests {
                 align: Align::Left,
                 fixed_width: None,
                 within: Some((0.0, 200.0)),
+                size: FONT,
+                bold: false,
             },
         ];
         let png = render_png(

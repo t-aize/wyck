@@ -498,7 +498,23 @@ impl MultiChart {
             .update(cx, |drawings, cx| drawings.edit(cx, |book| book.cancel()))
     }
 
-    fn edit_book(
+    /// Opens the order ticket filled from a position drawing of the active chart.
+    pub(crate) fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.trade_drawing(id, cx));
+    }
+
+    pub(crate) fn drawing_command(
+        &mut self,
+        id: u64,
+        command: super::chart::DrawingCommand,
+        cx: &mut Context<Self>,
+    ) {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
+    }
+
+    pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
         change: impl FnOnce(&mut super::chart::drawing::book::Book, &str) -> bool,

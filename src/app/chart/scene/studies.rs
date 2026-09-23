@@ -7,7 +7,7 @@ use super::super::study::{
     DOWN_COLOR, FillOut, PlotKind, PlotOut, StudyConfig, StudyKind, StudyOutput, UP_COLOR,
     ValueFormat,
 };
-use super::cmd::{Align, Cmd, P, rgb_alpha};
+use super::cmd::{Align, Cmd, FONT, P, rgb_alpha};
 use super::geometry::{AXIS_W, Band};
 use super::price::{self, PriceMap};
 use super::{Ctx, Placement};
@@ -479,6 +479,8 @@ pub(super) fn value_tags(
             align: Align::Left,
             fixed_width: Some(AXIS_W - 2.0),
             within: None,
+            size: FONT,
+            bold: false,
         });
     };
     let last_value = |plot: &PlotOut| plot.values.iter().rev().find(|v| v.is_finite()).copied();

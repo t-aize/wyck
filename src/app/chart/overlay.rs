@@ -12,13 +12,14 @@ use gpui_kit::component::menu::{ContextMenuExt, PopupMenu, PopupMenuItem};
 use wyck::openapi::market::format_price;
 
 use super::data::Series;
+use super::drawing::book::Order;
 use super::lines::to_real;
 use super::scene::{AXIS_H, AXIS_W, Geometry, price};
 use super::settings::{ChartKind, ScaleMode};
 use super::study::{Placement, PlotKind, ValueFormat};
 use super::view::PriceScale;
 use super::zone::Zone;
-use super::{Chart, ChartAction, ChartEvent, Load, Menu, Older, paint, study_ui};
+use super::{Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, paint, study_ui};
 use crate::app::connection::ui;
 use crate::app::{anim, theme};
 
@@ -76,7 +77,8 @@ fn rgb(color: u32) -> gpui::Rgba {
 }
 
 impl Render for Chart {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.open_pending_settings(window, cx);
         let entity = cx.entity();
         let compact = self.is_compact();
         let latest = !self.view.is_following() && !self.shown().is_empty();
@@ -101,6 +103,85 @@ impl Render for Chart {
     }
 }
 
+/// The items for the drawing under the pointer, at the top of the right-click menu.
+fn drawing_menu(
+    chart: &Entity<Chart>,
+    id: u64,
+    mut menu: PopupMenu,
+    cx: &mut Context<PopupMenu>,
+) -> PopupMenu {
+    let Some(drawing) = chart.read(cx).drawings.as_ref().and_then(|drawings| {
+        let symbol = chart.read(cx).symbol_name()?;
+        drawings.read(cx).book().get(&symbol, id).cloned()
+    }) else {
+        return menu;
+    };
+    let command = |command: DrawingCommand| {
+        let chart = chart.clone();
+        move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut gpui::App| {
+            chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
+        }
+    };
+    let settings = chart.clone();
+    menu = menu.label(drawing.title()).item(
+        PopupMenuItem::new("Settings...")
+            .icon(IconName::Settings2)
+            .on_click(move |_, window, cx| {
+                super::glue::open_drawing_settings(&settings, id, window, cx);
+            }),
+    );
+    if drawing.tool.is_position() {
+        let trade = chart.clone();
+        menu = menu.item(
+            PopupMenuItem::new(
+                if drawing.tool == super::drawing::model::Tool::LongPosition {
+                    "Buy with these levels..."
+                } else {
+                    "Sell with these levels..."
+                },
+            )
+            .icon(IconName::ArrowLeftRight)
+            .on_click(move |_, _, cx| trade.update(cx, |chart, cx| chart.trade_drawing(id, cx))),
+        );
+    }
+    menu.item(
+        PopupMenuItem::new("Duplicate")
+            .icon(IconName::Copy)
+            .on_click(command(DrawingCommand::Duplicate)),
+    )
+    .item(
+        PopupMenuItem::new("Bring to front")
+            .icon(IconName::BringToFront)
+            .on_click(command(DrawingCommand::Order(Order::Front))),
+    )
+    .item(
+        PopupMenuItem::new("Send to back")
+            .icon(IconName::SendToBack)
+            .on_click(command(DrawingCommand::Order(Order::Back))),
+    )
+    .item(
+        PopupMenuItem::new("Hide")
+            .icon(IconName::EyeOff)
+            .on_click(command(DrawingCommand::Hide)),
+    )
+    .item(
+        PopupMenuItem::new(if drawing.locked { "Unlock" } else { "Lock" })
+            .icon(if drawing.locked {
+                IconName::LockOpen
+            } else {
+                IconName::Lock
+            })
+            .on_click(command(DrawingCommand::Lock(!drawing.locked))),
+    )
+    .item(
+        PopupMenuItem::new("Delete")
+            .icon(IconName::Trash)
+            .disabled(drawing.locked)
+            .on_click(command(DrawingCommand::Delete)),
+    )
+    .separator()
+}
+
 /// The right-click menu, for the price under the pointer.
 fn context_menu(
     chart: &Entity<Chart>,
@@ -108,12 +189,15 @@ fn context_menu(
     window: &mut Window,
     cx: &mut Context<PopupMenu>,
 ) -> PopupMenu {
-    let (price_raw, bid, ask, digits, has_symbol) = {
+    let (price_raw, bid, ask, digits, has_symbol, under) = {
         let this = chart.read(cx);
         let origin = this.bounds.get().map(|b| b.origin);
-        let y = match origin {
-            Some(origin) => f32::from(window.mouse_position().y - origin.y),
-            None => this.context_at.map_or(0.0, |(_, y)| y),
+        let (x, y) = match origin {
+            Some(origin) => {
+                let at = window.mouse_position() - origin;
+                (f32::from(at.x), f32::from(at.y))
+            }
+            None => this.context_at.unwrap_or((0.0, 0.0)),
         };
         (
             this.price_at(y),
@@ -121,9 +205,13 @@ fn context_menu(
             this.ask,
             this.digits(),
             this.symbol.is_some(),
+            this.drawing_under(x, y, cx),
         )
     };
     let mut menu = menu.min_w(px(230.));
+    if let Some(id) = under {
+        menu = drawing_menu(chart, id, menu, cx);
+    }
     if let (Some(raw), true) = (price_raw, has_symbol) {
         let text = format_price(raw.round() as i64, digits);
         let real = to_real(raw);

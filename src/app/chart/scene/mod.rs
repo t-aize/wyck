@@ -752,6 +752,8 @@ fn draw_axis_tags(
         align: Align::Left,
         fixed_width: Some(AXIS_W - 2.0),
         within: None,
+        size: FONT,
+        bold: false,
     };
     for mark in cx.f.marks.iter().filter(|m| m.axis_tag) {
         let y = cx.y(mark.price);
@@ -791,6 +793,8 @@ fn draw_axis_tags(
                     align: Align::Left,
                     fixed_width: Some(AXIS_W - 2.0),
                     within: None,
+                    size: FONT,
+                    bold: false,
                 });
             }
         }
@@ -839,6 +843,8 @@ fn draw_axis_tags(
                 align: Align::Center,
                 fixed_width: None,
                 within: Some((cx.ox, cx.ox + cx.plot_w as f32)),
+                size: FONT,
+                bold: false,
             });
         }
     }
@@ -981,6 +987,8 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             color,
             background,
             anchor,
+            size,
+            bold,
         } => {
             let (x, y) = at(position);
             let align = match anchor {
@@ -992,23 +1000,25 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                 Some((bg, al)) => Cmd::Tag {
                     text,
                     x,
-                    y: y - 9.0,
-                    height: 18.0,
+                    y: y - size * 0.8,
+                    height: size * 1.6,
                     pad: 6.0,
                     bg: rgb_alpha(bg, al),
                     fg: rgb_alpha(color, 1.0),
                     align,
                     fixed_width: None,
                     within: None,
+                    size,
+                    bold,
                 },
                 None => Cmd::Text {
                     text,
                     x,
-                    y: y - LINE / 2.0,
-                    size: FONT,
+                    y: y - size * 1.3 / 2.0,
+                    size,
                     color: rgb_alpha(color, 1.0),
                     align,
-                    bold: false,
+                    bold,
                 },
             });
         }
