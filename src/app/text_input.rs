@@ -52,10 +52,13 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("right", TextInputRight, None),
         KeyBinding::new("shift-left", TextInputSelectLeft, None),
         KeyBinding::new("shift-right", TextInputSelectRight, None),
-        KeyBinding::new("cmd-a", TextInputSelectAll, None),
-        KeyBinding::new("cmd-v", TextInputPaste, None),
-        KeyBinding::new("cmd-c", TextInputCopy, None),
-        KeyBinding::new("cmd-x", TextInputCut, None),
+        // "secondary" is GPUI's cross-platform primary modifier: cmd on macOS, ctrl everywhere
+        // else. Binding these to "cmd-*" instead would only fire on the literal Super/Windows
+        // key, so Ctrl+C/V/X/A silently did nothing on Windows and Linux.
+        KeyBinding::new("secondary-a", TextInputSelectAll, None),
+        KeyBinding::new("secondary-v", TextInputPaste, None),
+        KeyBinding::new("secondary-c", TextInputCopy, None),
+        KeyBinding::new("secondary-x", TextInputCut, None),
         KeyBinding::new("home", TextInputHome, None),
         KeyBinding::new("end", TextInputEnd, None),
     ]);
