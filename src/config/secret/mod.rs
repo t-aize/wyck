@@ -11,11 +11,10 @@
 //! - [`KeyringSecretStore`] (default, recommended): delegates to the OS-native
 //!   credential store (Windows Credential Manager, macOS Keychain, Linux Secret
 //!   Service). No key management burden on this crate at all; the OS owns it.
-//! - [`EncryptedFileSecretStore`] (fallback): for environments without an OS keyring
-//!   (headless Linux boxes, some CI/container environments, `wyck`'s own planned
-//!   "always-on box" headless mode per the project README). Encrypts each secret with
-//!   ChaCha20-Poly1305 under a key derived from a caller-supplied passphrase via
-//!   Argon2id, one envelope file per [`SecretKey`].
+//! - [`EncryptedFileSecretStore`] (fallback): for environments without an OS keyring (headless
+//!   Linux boxes, some CI/container environments). Encrypts each secret with ChaCha20-Poly1305
+//!   under a key derived from a caller-supplied passphrase via Argon2id, one envelope file per
+//!   [`SecretKey`].
 
 mod file_store;
 mod keyring_store;

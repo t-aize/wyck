@@ -21,10 +21,8 @@ const NONCE_LEN: usize = 12;
 
 /// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
 /// use where no OS credential store is available: headless Linux boxes, some
-/// containers/CI environments, or `wyck`'s own planned "always-on box" headless mode
-/// (see the project README's roadmap). Prefer [`crate::config::secret::KeyringSecretStore`]
-/// whenever an OS keyring is actually available; this backend exists specifically for
-/// when it isn't.
+/// containers/CI environments. Prefer [`crate::config::secret::KeyringSecretStore`] whenever an
+/// OS keyring is actually available; this backend exists specifically for when it isn't.
 ///
 /// # Design
 ///
