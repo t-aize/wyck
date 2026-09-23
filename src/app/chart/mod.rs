@@ -32,8 +32,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, ContentMask, Context, CursorStyle, Entity, Hitbox, HitboxBehavior, KeyBinding,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels,
+    App, Bounds, ContentMask, Context, CursorStyle, Entity, EventEmitter, Hitbox, HitboxBehavior,
+    KeyBinding, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels,
     ScrollWheelEvent, SharedString, TextAlign, TextRun, Window, canvas, div, fill, point, px, size,
 };
 use gpui_kit::assets::IconName;
@@ -43,7 +43,7 @@ use wyck::openapi::session::Session;
 use wyck::openapi::{OpenApiError, Result as ApiResult};
 
 use self::data::{MAX_BARS, MAX_TICKS, Series};
-use self::live::LiveBars;
+pub use self::live::LiveHub;
 use self::load::Loaded;
 use self::scene::{AXIS_H, AXIS_W, Align, ChartKind, Cmd, Frame, Layout, Palette};
 pub use self::timeframe::{GROUPS, QUICK, Timeframe};
@@ -73,6 +73,10 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("end", ChartLatest, Some("Dashboard")),
     ]);
 }
+
+/// A chart smaller than this shows fewer numbers and no toolbar.
+const COMPACT_WIDTH: f32 = 640.0;
+const COMPACT_HEIGHT: f32 = 300.0;
 
 /// The symbol on the chart.
 struct Symbol {
@@ -119,9 +123,38 @@ struct Drag {
     last: (f32, f32),
 }
 
+/// What a chart tells the layout around it, so that charts can follow one another.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChartEvent {
+    /// The user clicked in this chart.
+    Activated,
+    /// The pointer is over a point of this chart (or left it).
+    Hover(Option<Hover>),
+    /// The user moved or zoomed the view.
+    ViewChanged(Span),
+}
+
+/// A point of the chart the pointer is on: its time and the price under the pointer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Hover {
+    pub time_ms: i64,
+    pub price: f64,
+}
+
+/// The times at the left and right edges of the plot.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Span {
+    pub left_ms: i64,
+    pub right_ms: i64,
+}
+
+impl EventEmitter<ChartEvent> for Chart {}
+
 pub struct Chart {
     session: Session,
-    live: LiveBars,
+    hub: Rc<LiveHub>,
+    /// Tells this chart from the others in the hub.
+    id: u64,
     symbol: Option<Symbol>,
     timeframe: Timeframe,
     kind: ChartKind,
@@ -135,27 +168,34 @@ pub struct Chart {
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     hover: Option<(f32, f32)>,
+    /// The pointer of another chart, when the crosshairs are linked.
+    remote: Option<Hover>,
     drag: Option<Drag>,
     /// The drawing area of the last frame, for turning mouse positions into chart positions.
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 impl Chart {
-    pub fn new(session: Session) -> Self {
+    pub fn new(session: Session, hub: Rc<LiveHub>, id: u64, timeframe: Timeframe) -> Self {
         Self {
-            live: LiveBars::new(session.clone()),
+            hub,
+            id,
             session,
             symbol: None,
-            timeframe: Timeframe::DEFAULT,
+            timeframe,
             kind: ChartKind::Candles,
-            series: Series::Bars(Vec::new()),
-            view: View::new(Timeframe::DEFAULT.default_bar_px()),
+            series: match timeframe {
+                Timeframe::Ticks => Series::Ticks(Vec::new()),
+                _ => Series::Bars(Vec::new()),
+            },
+            view: View::new(timeframe.default_bar_px()),
             load: Load::Idle,
             older: Older::Idle,
             epoch: 0,
             ask: None,
             last_time_ms: 0,
             hover: None,
+            remote: None,
             drag: None,
             bounds: Rc::new(Cell::new(None)),
         }
@@ -216,13 +256,15 @@ impl Chart {
         self.last_time_ms = 0;
         let Some(symbol) = &self.symbol else {
             self.load = Load::Idle;
-            self.live.set(None);
+            self.hub.set(self.id, None);
             cx.notify();
             return;
         };
         self.load = Load::Loading;
-        self.live
-            .set(self.timeframe.period().map(|period| (symbol.id, period)));
+        self.hub.set(
+            self.id,
+            self.timeframe.period().map(|period| (symbol.id, period)),
+        );
         cx.notify();
 
         let (session, id, timeframe) = (self.session.clone(), symbol.id, self.timeframe);
@@ -495,6 +537,7 @@ impl Chart {
 
     fn moved(&mut self, cx: &mut Context<Self>) {
         cx.notify();
+        self.emit_span(cx);
         self.load_older_if_needed(cx);
     }
 
@@ -562,9 +605,11 @@ impl Chart {
         self.view.jump_to_latest();
         self.view.price = PriceScale::Auto;
         cx.notify();
+        self.emit_span(cx);
     }
 
     fn on_mouse_down(&mut self, x: f32, y: f32, clicks: usize, cx: &mut Context<Self>) {
+        cx.emit(ChartEvent::Activated);
         let region = self.region(x, y);
         if clicks >= 2 {
             match region {
@@ -608,7 +653,7 @@ impl Chart {
             });
             match drag.kind {
                 DragKind::Pan => {
-                    self.hover = Some((x, y));
+                    self.set_hover(x, y, cx);
                     if shift {
                         self.pan_price_by(dy, cx);
                     }
@@ -622,8 +667,14 @@ impl Chart {
             }
             return;
         }
-        self.hover = Some((x, y));
+        self.set_hover(x, y, cx);
         cx.notify();
+    }
+
+    fn set_hover(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        self.hover = Some((x, y));
+        let info = self.hover_info(x, y);
+        cx.emit(ChartEvent::Hover(info));
     }
 
     fn on_mouse_up(&mut self, cx: &mut Context<Self>) {
@@ -634,6 +685,7 @@ impl Chart {
 
     fn on_pointer_left(&mut self, cx: &mut Context<Self>) {
         if self.hover.take().is_some() {
+            cx.emit(ChartEvent::Hover(None));
             cx.notify();
         }
     }
@@ -659,6 +711,95 @@ impl Chart {
         }
     }
 
+    // ---- following other charts ----
+
+    fn emit_span(&self, cx: &mut Context<Self>) {
+        if let Some(span) = self.span() {
+            cx.emit(ChartEvent::ViewChanged(span));
+        }
+    }
+
+    /// The times at the edges of the plot, once there is data to tell them from.
+    fn span(&self) -> Option<Span> {
+        let plot_w = self.layout().plot_w();
+        let len = self.series.len();
+        let step = self.series.step_ms(self.timeframe.bar_ms());
+        let left = self.view.index_at(0.0, len, plot_w);
+        let right = self.view.index_at(plot_w, len, plot_w);
+        Some(Span {
+            left_ms: self.series.time_of_index(left, step)?,
+            right_ms: self.series.time_of_index(right, step)?,
+        })
+    }
+
+    /// The time and price under a pointer position, when it is over a point of the plot.
+    fn hover_info(&self, x: f32, y: f32) -> Option<Hover> {
+        if self.region(x, y) != Region::Plot {
+            return None;
+        }
+        let len = self.series.len();
+        let plot_w = self.layout().plot_w();
+        let index = self
+            .view
+            .index_at(f64::from(x), len, plot_w)
+            .round()
+            .clamp(0.0, len.checked_sub(1)? as f64) as usize;
+        let map = scene::price_map(
+            &self.series,
+            &self.view,
+            self.layout(),
+            self.kind,
+            self.digits(),
+        )?;
+        Some(Hover {
+            time_ms: self.series.time_at(index)?,
+            price: map.price(f64::from(y)),
+        })
+    }
+
+    /// Another chart was scrolled: show the same time at the right edge. Does not tell anyone.
+    pub fn follow_right_edge(&mut self, right_ms: i64, cx: &mut Context<Self>) {
+        let len = self.series.len();
+        let step = self.series.step_ms(self.timeframe.bar_ms());
+        let Some(index) = self.series.index_of_time(right_ms, step) else {
+            return;
+        };
+        self.view.offset = index + 0.5 - len as f64;
+        self.view.clamp(len, self.layout().plot_w());
+        cx.notify();
+        self.load_older_if_needed(cx);
+    }
+
+    /// Another chart was scrolled or zoomed: show the same span of time. Does not tell anyone.
+    pub fn follow_span(&mut self, span: Span, cx: &mut Context<Self>) {
+        let len = self.series.len();
+        let step = self.series.step_ms(self.timeframe.bar_ms());
+        let (Some(left), Some(right)) = (
+            self.series.index_of_time(span.left_ms, step),
+            self.series.index_of_time(span.right_ms, step),
+        ) else {
+            return;
+        };
+        let points = right - left;
+        if !(points.is_finite() && points >= 1.0) {
+            return;
+        }
+        let plot_w = self.layout().plot_w();
+        self.view.bar_px = plot_w / points;
+        self.view.offset = right + 0.5 - len as f64;
+        self.view.clamp(len, plot_w);
+        cx.notify();
+        self.load_older_if_needed(cx);
+    }
+
+    /// The pointer of another chart, drawn here as a crosshair.
+    pub fn show_remote_pointer(&mut self, pointer: Option<Hover>, cx: &mut Context<Self>) {
+        if self.remote != pointer {
+            self.remote = pointer;
+            cx.notify();
+        }
+    }
+
     // ---- what the legend says ----
 
     /// The point under the pointer, or the newest.
@@ -669,6 +810,11 @@ impl Chart {
             .hover
             .filter(|(x, y)| self.region(*x, *y) == Region::Plot)
         else {
+            if let Some(remote) = self.remote {
+                let step = self.series.step_ms(self.timeframe.bar_ms());
+                let index = self.series.index_of_time(remote.time_ms, step)?.round();
+                return Some(index.clamp(0.0, last as f64) as usize);
+            }
             return Some(last);
         };
         let index = self
@@ -692,6 +838,7 @@ impl Chart {
             },
             scale,
             hover: self.hover,
+            remote: self.remote.map(|r| (r.time_ms, r.price)),
             ask: self.ask,
             palette: Palette::new(),
         })
@@ -714,6 +861,12 @@ impl Chart {
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
             Region::Corner => CursorStyle::Arrow,
         }
+    }
+}
+
+impl Drop for Chart {
+    fn drop(&mut self) {
+        self.hub.set(self.id, None);
     }
 }
 
@@ -930,6 +1083,10 @@ impl Render for Chart {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entity = cx.entity();
         let latest = !self.view.is_following() && !self.series.is_empty();
+        // Small charts (many on the screen) keep only what still fits.
+        let compact = self.bounds.get().is_some_and(|b| {
+            f32::from(b.size.width) < COMPACT_WIDTH || f32::from(b.size.height) < COMPACT_HEIGHT
+        });
 
         div()
             .relative()
@@ -939,15 +1096,15 @@ impl Render for Chart {
             .overflow_hidden()
             .bg(theme::bg())
             .child(surface(&entity, self.bounds.clone()))
-            .child(self.legend())
-            .child(self.toolbar(latest, cx))
+            .child(self.legend(compact))
+            .children((!compact).then(|| self.toolbar(latest, cx)))
             .children(self.status(cx))
     }
 }
 
 impl Chart {
     /// The symbol, the timeframe and the numbers of the point under the pointer.
-    fn legend(&self) -> impl IntoElement {
+    fn legend(&self, compact: bool) -> impl IntoElement {
         let digits = self.digits();
         let name = self
             .symbol
@@ -1001,22 +1158,30 @@ impl Chart {
                         } else {
                             0.0
                         };
-                        numbers = numbers
-                            .child(value("O", bar.open, tone))
-                            .child(value("H", bar.high, tone))
-                            .child(value("L", bar.low, tone))
-                            .child(value("C", bar.close, tone))
-                            .child(div().text_color(tone).child(format!("{change:+.2}%")))
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .gap_1()
-                                    .child(div().text_color(theme::muted_fg()).child("Ticks"))
-                                    .child(
-                                        div().text_color(theme::fg()).child(bar.volume.to_string()),
-                                    ),
-                            );
+                        if compact {
+                            numbers = numbers
+                                .child(value("C", bar.close, tone))
+                                .child(div().text_color(tone).child(format!("{change:+.2}%")));
+                        } else {
+                            numbers = numbers
+                                .child(value("O", bar.open, tone))
+                                .child(value("H", bar.high, tone))
+                                .child(value("L", bar.low, tone))
+                                .child(value("C", bar.close, tone))
+                                .child(div().text_color(tone).child(format!("{change:+.2}%")))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .gap_1()
+                                        .child(div().text_color(theme::muted_fg()).child("Ticks"))
+                                        .child(
+                                            div()
+                                                .text_color(theme::fg())
+                                                .child(bar.volume.to_string()),
+                                        ),
+                                );
+                        }
                     }
                 }
                 Series::Ticks(ticks) => {

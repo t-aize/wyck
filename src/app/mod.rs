@@ -5,6 +5,7 @@ mod assets;
 mod chart;
 mod connection;
 mod dashboard;
+mod multichart;
 mod runtime;
 mod text_input;
 mod theme;

@@ -64,6 +64,65 @@ impl Series {
         }
     }
 
+    /// How many points have a time at or before `time_ms`.
+    fn count_up_to(&self, time_ms: i64) -> usize {
+        let (mut lo, mut hi) = (0, self.len());
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if self.time_at(mid).is_some_and(|t| t <= time_ms) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        lo
+    }
+
+    /// The time between two points: the timeframe's own length for bars, the average for ticks.
+    pub fn step_ms(&self, nominal: Option<i64>) -> f64 {
+        if let Some(nominal) = nominal {
+            return nominal.max(1) as f64;
+        }
+        match (self.first_time(), self.last_time(), self.len()) {
+            (Some(a), Some(b), n) if n > 1 => ((b - a) as f64 / (n - 1) as f64).max(1.0),
+            _ => 1_000.0,
+        }
+    }
+
+    /// Where a time falls among the points, as a fractional index: between two points it is
+    /// interpolated, before the first and after the last it continues at `step_ms` a point.
+    pub fn index_of_time(&self, time_ms: i64, step_ms: f64) -> Option<f64> {
+        let n = self.len();
+        let (first, last) = (self.first_time()?, self.last_time()?);
+        let up_to = self.count_up_to(time_ms);
+        Some(if up_to == 0 {
+            -((first - time_ms) as f64) / step_ms
+        } else if up_to == n {
+            (n - 1) as f64 + (time_ms - last) as f64 / step_ms
+        } else {
+            let (a, b) = (self.time_at(up_to - 1)?, self.time_at(up_to)?);
+            (up_to - 1) as f64 + (time_ms - a) as f64 / ((b - a).max(1)) as f64
+        })
+    }
+
+    /// The time of a fractional index; the inverse of [`Series::index_of_time`].
+    pub fn time_of_index(&self, index: f64, step_ms: f64) -> Option<i64> {
+        let n = self.len();
+        let (first, last) = (self.first_time()?, self.last_time()?);
+        if !index.is_finite() {
+            return None;
+        }
+        Some(if index <= 0.0 {
+            first + (index * step_ms).round() as i64
+        } else if index >= (n - 1) as f64 {
+            last + ((index - (n - 1) as f64) * step_ms).round() as i64
+        } else {
+            let i = index.floor() as usize;
+            let (a, b) = (self.time_at(i)?, self.time_at(i + 1)?);
+            a + ((index - i as f64) * (b - a) as f64).round() as i64
+        })
+    }
+
     /// The lowest and highest price in `[first, last)`. With `wicks` a bar counts by its low and
     /// high, otherwise by its close.
     pub fn price_range(&self, first: usize, last: usize, wicks: bool) -> Option<(i64, i64)> {
@@ -416,6 +475,38 @@ mod tests {
         assert_eq!(trim_front(&mut items, 3), 2);
         assert_eq!(items, vec![3, 4, 5]);
         assert_eq!(trim_front(&mut items, 10), 0);
+    }
+
+    #[test]
+    fn a_time_maps_to_an_index_and_back() {
+        let series = Series::Bars(vec![
+            bar(1_000, 1, 1, 1, 1, 1),
+            bar(2_000, 1, 1, 1, 1, 1),
+            bar(4_000, 1, 1, 1, 1, 1),
+        ]);
+        let step = 1_000.0;
+        assert_eq!(series.index_of_time(1_500, step), Some(0.5));
+        assert_eq!(
+            series.index_of_time(3_000, step),
+            Some(1.5),
+            "a gap is spread over its points"
+        );
+        for time in [-3_000, 1_000, 1_250, 2_000, 3_999, 4_000, 9_000] {
+            let index = series.index_of_time(time, step).unwrap();
+            let back = series.time_of_index(index, step).unwrap();
+            assert!((back - time).abs() <= 1, "{time} -> {index} -> {back}");
+        }
+        assert_eq!(series.index_of_time(0, step), Some(-1.0));
+        assert_eq!(series.index_of_time(6_000, step), Some(4.0));
+        assert_eq!(Series::Bars(Vec::new()).index_of_time(1, step), None);
+    }
+
+    #[test]
+    fn the_step_of_ticks_is_their_average_spacing() {
+        let ticks = Series::Ticks(vec![tick(0, 1), tick(100, 1), tick(300, 1)]);
+        assert_eq!(ticks.step_ms(None), 150.0);
+        assert_eq!(ticks.step_ms(Some(60_000)), 60_000.0);
+        assert_eq!(Series::Ticks(Vec::new()).step_ms(None), 1_000.0);
     }
 
     #[test]

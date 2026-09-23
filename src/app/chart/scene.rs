@@ -222,6 +222,8 @@ pub struct Frame<'a> {
     pub scale: f32,
     /// The pointer, from the top left of the chart.
     pub hover: Option<(f32, f32)>,
+    /// The pointer of another chart (time and raw price), when the crosshairs are linked.
+    pub remote: Option<(i64, f64)>,
     pub ask: Option<i64>,
     pub palette: Palette,
 }
@@ -234,6 +236,8 @@ struct Ctx<'a> {
     plot_h: f64,
     ox: f32,
     oy: f32,
+    /// Where the crosshair is, from the top left of the plot.
+    pointer: Option<(f32, f32)>,
 }
 
 impl Ctx<'_> {
@@ -283,6 +287,23 @@ impl Ctx<'_> {
     }
 }
 
+/// Where the crosshair goes: under the pointer when it is over this chart, else where another
+/// chart's pointer is in time and price (when that time is on screen).
+fn pointer_of(frame: &Frame<'_>, map: &PriceMap, plot_w: f64, plot_h: f64) -> Option<(f32, f32)> {
+    let inside = |x: f64, y: f64| (0.0..=plot_w).contains(&x) && (0.0..=plot_h).contains(&y);
+    if let Some((x, y)) = frame.hover
+        && inside(f64::from(x), f64::from(y))
+    {
+        return Some((x, y));
+    }
+    let (time_ms, price) = frame.remote?;
+    let step = frame.series.step_ms(frame.timeframe.bar_ms());
+    let index = frame.series.index_of_time(time_ms, step)?;
+    let x = frame.view.x_of(index, frame.series.len(), plot_w);
+    let y = map.y(price);
+    inside(x, y).then_some((x as f32, y as f32))
+}
+
 /// Builds every command for one frame.
 pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let len = frame.series.len();
@@ -303,6 +324,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         cmds.push(axes_background(frame));
         return cmds;
     };
+    let pointer = pointer_of(frame, &map, plot_w, plot_h);
     let cx = Ctx {
         f: frame,
         map,
@@ -311,6 +333,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         plot_h,
         ox,
         oy,
+        pointer,
     };
     let (first, last) = frame.view.visible(len, plot_w);
     let kind = effective_kind(frame.series, frame.kind);
@@ -346,12 +369,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         _ => draw_line(&cx, first, last, kind == ChartKind::Area, &mut plot),
     }
     draw_price_lines(&cx, &mut plot);
-    if let Some((hx, hy)) = frame.hover
-        && f64::from(hx) <= plot_w
-        && f64::from(hy) <= plot_h
-        && hx >= 0.0
-        && hy >= 0.0
-    {
+    if let Some((hx, hy)) = cx.pointer {
         draw_crosshair(&cx, hx, hy, &mut plot);
     }
     cmds.push(Cmd::Clip(plot_bounds, plot));
@@ -678,10 +696,7 @@ fn draw_axis_tags(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
             align: Align::Left,
         });
     }
-    let Some((hx, hy)) = cx.f.hover else { return };
-    if hx < 0.0 || hy < 0.0 || f64::from(hx) > cx.plot_w || f64::from(hy) > cx.plot_h {
-        return;
-    }
+    let Some((hx, hy)) = cx.pointer else { return };
     let price = cx.map.price(f64::from(hy));
     out.push(Cmd::Tag {
         text: format_price(price.round() as i64, cx.f.digits),
@@ -754,6 +769,7 @@ mod tests {
             },
             scale: 1.0,
             hover: Some((300.0, 200.0)),
+            remote: None,
             ask: Some(100_020),
             palette: Palette::new(),
         }
@@ -854,6 +870,33 @@ mod tests {
         };
         let map = price_map(&series, &view, layout, ChartKind::Candles, 5).unwrap();
         assert_eq!((map.lo, map.hi), (0.0, 1_000_000.0));
+    }
+
+    #[test]
+    fn another_charts_pointer_draws_a_crosshair_when_its_time_is_on_screen() {
+        let series = Series::Bars(bars(200));
+        let view = View::new(8.0);
+        let mut f = frame(&series, &view, ChartKind::Candles);
+        f.hover = None;
+        let bare = count(&build(&f));
+        // The time of a bar near the right edge, and a price inside the range.
+        let time = series.time_at(190).unwrap();
+        f.remote = Some((time, 100_030.0));
+        let with_pointer = count(&build(&f));
+        assert!(with_pointer > bare, "{with_pointer} against {bare}");
+        // A time far in the past is off screen: nothing to draw.
+        f.remote = Some((series.time_at(0).unwrap() - 86_400_000, 100_030.0));
+        assert_eq!(count(&build(&f)), bare);
+    }
+
+    #[test]
+    fn the_local_pointer_wins_over_a_remote_one() {
+        let series = Series::Bars(bars(200));
+        let view = View::new(8.0);
+        let mut f = frame(&series, &view, ChartKind::Candles);
+        let local_only = count(&build(&f));
+        f.remote = Some((series.time_at(150).unwrap(), 100_030.0));
+        assert_eq!(count(&build(&f)), local_only);
     }
 
     #[test]

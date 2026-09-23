@@ -30,6 +30,7 @@ impl Dashboard {
             .child(self.symbol_button(cx))
             .child(self.price_block())
             .child(div().flex_1())
+            .child(self.layout_button(window, cx))
             .child(self.timeframe_strip(cx))
             .child(self.status_block())
             .child(self.controls(window, cx))
@@ -171,7 +172,7 @@ impl Dashboard {
     /// The main timeframes as buttons, and a button that opens all of them: ticks, seconds,
     /// minutes, hours and days.
     fn timeframe_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let current = self.chart.read(cx).timeframe();
+        let current = self.multi.read(cx).active_timeframe(cx);
         let mut quick = Vec::new();
         for timeframe in chart::QUICK {
             quick.push(timeframe_chip("tf", timeframe, current == timeframe, cx));
@@ -201,6 +202,7 @@ impl Dashboard {
             .hover(|style| style.bg(theme::surface_hover()))
             .on_click(cx.listener(|this, _event, _window, cx| {
                 this.tf_menu_open = !this.tf_menu_open;
+                this.layout_menu_open = false;
                 cx.notify();
             }))
             .when(!in_quick, |el| el.child(current.label()))
@@ -224,8 +226,8 @@ impl Dashboard {
 
     fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
         self.tf_menu_open = false;
-        self.chart
-            .update(cx, |chart, cx| chart.set_timeframe(timeframe, cx));
+        self.multi
+            .update(cx, |multi, cx| multi.set_timeframe(timeframe, cx));
         cx.notify();
     }
 

@@ -85,6 +85,7 @@ impl Dashboard {
         self.picker = None;
         self.menu_open = false;
         self.tf_menu_open = false;
+        self.layout_menu_open = false;
         window.focus(&self.focus_handle, cx);
         cx.notify();
     }

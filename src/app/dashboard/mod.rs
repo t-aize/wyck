@@ -11,6 +11,7 @@
 mod catalog;
 mod details;
 mod header;
+mod layout_menu;
 mod marks;
 mod picker;
 
@@ -32,6 +33,7 @@ use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
 use super::chart::{self, Chart};
 use super::connection::ui;
+use super::multichart::MultiChart;
 use super::{runtime, theme};
 
 gpui::actions!(
@@ -145,9 +147,11 @@ pub struct Dashboard {
     /// How many times the picker has been opened, so its entrance animation replays.
     picker_opens: u64,
     menu_open: bool,
-    chart: Entity<Chart>,
+    multi: Entity<MultiChart>,
     /// Whether the list of all timeframes is open.
     tf_menu_open: bool,
+    /// Whether the layout picker is open.
+    layout_menu_open: bool,
 }
 
 impl Dashboard {
@@ -157,7 +161,7 @@ impl Dashboard {
         initial_symbol: Option<String>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let chart = cx.new(|_| Chart::new(session.clone()));
+        let multi = cx.new(|cx| MultiChart::new(session.clone(), cx));
         let mut dashboard = Self {
             session,
             account,
@@ -175,11 +179,22 @@ impl Dashboard {
             peek: None,
             picker_opens: 0,
             menu_open: false,
-            chart,
+            multi,
             tf_menu_open: false,
+            layout_menu_open: false,
         };
         dashboard.follow_session(cx);
         dashboard
+    }
+
+    /// Runs `f` on the chart the user is working on.
+    fn on_active_chart(
+        &self,
+        cx: &mut Context<Self>,
+        f: impl FnOnce(&mut Chart, &mut Context<Chart>),
+    ) {
+        let chart = self.multi.read(cx).active_chart().clone();
+        chart.update(cx, f);
     }
 
     /// Stops the session: no more reconnects, and the connection closes.
@@ -217,7 +232,7 @@ impl Dashboard {
         match event {
             SessionEvent::Ready => self.on_ready(cx),
             SessionEvent::Data(Event::Spot(spot)) => {
-                self.chart.update(cx, |chart, cx| chart.on_spot(&spot, cx));
+                self.multi.update(cx, |multi, cx| multi.on_spot(&spot, cx));
                 self.apply_spot(Spot::from(&spot), cx);
             }
             SessionEvent::Reconnecting { attempt, .. } => {
@@ -236,7 +251,7 @@ impl Dashboard {
 
     fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.conn = Conn::Ready;
-        self.chart.update(cx, |chart, cx| chart.on_ready(cx));
+        self.multi.update(cx, |multi, cx| multi.on_ready(cx));
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -304,8 +319,8 @@ impl Dashboard {
             cx.emit(DashboardEvent::SymbolChosen(entry.name.clone()));
         }
         let name = SharedString::from(entry.name.clone());
-        self.chart
-            .update(cx, |chart, cx| chart.set_symbol(id, name, 5, cx));
+        self.multi
+            .update(cx, |multi, cx| multi.set_symbol(id, name, 5, cx));
         self.active = Some(Active {
             entry,
             digits: 5,
@@ -338,8 +353,8 @@ impl Dashboard {
                     active.digits = u32::try_from(details.digits).unwrap_or(5);
                     active.pip_position = details.pip_position;
                     let digits = active.digits;
-                    this.chart
-                        .update(cx, |chart, cx| chart.set_digits(id, digits, cx));
+                    this.multi
+                        .update(cx, |multi, cx| multi.set_digits(id, digits, cx));
                     cx.notify();
                 }
             });
@@ -442,7 +457,7 @@ impl Dashboard {
                     }),
                 )))
                 .into_any_element(),
-            _ => self.chart.clone().into_any_element(),
+            _ => self.multi.clone().into_any_element(),
         }
     }
 }
@@ -468,7 +483,7 @@ impl Render for Dashboard {
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
         let menu = self.render_menu(cx);
-        let timeframe_backdrop = self.tf_menu_open.then(|| {
+        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
             deferred(
                 div()
                     .absolute()
@@ -480,6 +495,7 @@ impl Render for Dashboard {
                         gpui::MouseButton::Left,
                         cx.listener(|this, _event, _window, cx| {
                             this.tf_menu_open = false;
+                            this.layout_menu_open = false;
                             cx.notify();
                         }),
                     ),
@@ -497,22 +513,21 @@ impl Render for Dashboard {
                 this.close_overlays(window, cx);
             }))
             .on_action(cx.listener(|this, _: &chart::ChartPanBack, _window, cx| {
-                this.chart.update(cx, |chart, cx| chart.pan_keys(false, cx));
+                this.on_active_chart(cx, |chart, cx| chart.pan_keys(false, cx));
             }))
             .on_action(
                 cx.listener(|this, _: &chart::ChartPanForward, _window, cx| {
-                    this.chart.update(cx, |chart, cx| chart.pan_keys(true, cx));
+                    this.on_active_chart(cx, |chart, cx| chart.pan_keys(true, cx));
                 }),
             )
             .on_action(cx.listener(|this, _: &chart::ChartZoomIn, _window, cx| {
-                this.chart.update(cx, |chart, cx| chart.zoom_keys(true, cx));
+                this.on_active_chart(cx, |chart, cx| chart.zoom_keys(true, cx));
             }))
             .on_action(cx.listener(|this, _: &chart::ChartZoomOut, _window, cx| {
-                this.chart
-                    .update(cx, |chart, cx| chart.zoom_keys(false, cx));
+                this.on_active_chart(cx, |chart, cx| chart.zoom_keys(false, cx));
             }))
             .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
-                this.chart.update(cx, |chart, cx| chart.jump_to_latest(cx));
+                this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
             }))
             .relative()
             .flex()
@@ -525,7 +540,7 @@ impl Render for Dashboard {
             .child(body)
             .children(menu)
             .children(picker)
-            .children(timeframe_backdrop)
+            .children(menu_backdrop)
     }
 }
 
