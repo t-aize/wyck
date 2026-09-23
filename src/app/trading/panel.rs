@@ -606,9 +606,10 @@ impl AccountPanel {
             let time = crate::app::chart::zone::Zone::Local.shift(deal.execution_timestamp);
             let when = time::OffsetDateTime::from_unix_timestamp(time.div_euclid(1_000))
                 .map(|t| {
+                    let month = t.month().to_string();
                     format!(
-                        "{:02}-{:02} {:02}:{:02}:{:02}",
-                        t.month() as u8,
+                        "{} {} {:02}:{:02}:{:02}",
+                        &month[..3.min(month.len())],
                         t.day(),
                         t.hour(),
                         t.minute(),
