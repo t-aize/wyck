@@ -71,13 +71,19 @@ use wyck::openapi::trading::{ExecutionType, NewOrderReq};
 use wyck::openapi::transport::messages::TraderAccount;
 use wyck::openapi::{Client, Event};
 
-/// Loads `.env` into the process environment the first time any test asks for a variable.
-/// `Once` (not a bare call) because several `#[tokio::test]` functions may run concurrently in
-/// this binary, and mutating the environment from more than one thread at a time is unsound.
+#[path = "../scripts/tracing_init.rs"]
+mod tracing_init;
+
+/// Loads `.env` into the process environment, and installs the `tracing` subscriber every script
+/// here uses, the first time any test asks for a variable. Both need `Once` (not a bare call)
+/// because several `#[tokio::test]` functions may run concurrently in this binary: mutating the
+/// environment from more than one thread at a time is unsound, and installing a global subscriber
+/// twice would panic.
 fn load_dot_env() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         let _ = dotenvy::dotenv();
+        tracing_init::init();
     });
 }
 

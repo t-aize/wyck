@@ -20,6 +20,7 @@ use wyck::openapi::auth::{CallbackListener, OAuthClient, Scope, authorization_ur
 use wyck::openapi::config::{ClientCredentials, Environment};
 
 mod env_file;
+mod tracing_init;
 
 /// Signs in through the browser and lists the accounts the token covers.
 #[derive(Parser)]
@@ -107,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `.env` is optional here: every value can also come from real flags or the environment
     // (clap's `env` feature reads both the same way), so a missing file is not an error.
     let _ = dotenvy::dotenv();
+    tracing_init::init();
     let args = Args::parse();
 
     let credentials = ClientCredentials::new(args.client_id.clone(), args.client_secret.clone());

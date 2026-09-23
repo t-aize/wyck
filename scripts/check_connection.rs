@@ -11,6 +11,8 @@ use clap::Parser;
 use wyck::openapi::ClientBuilder;
 use wyck::openapi::config::{ClientCredentials, Environment};
 
+mod tracing_init;
+
 /// Checks that the credentials in `.env` (or given as flags) actually work.
 #[derive(Parser)]
 #[command(
@@ -58,6 +60,7 @@ impl From<EnvironmentArg> for Environment {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::dotenv();
+    tracing_init::init();
     let args = Args::parse();
     let environment: Environment = args.environment.into();
     let is_live = matches!(environment, Environment::Live);

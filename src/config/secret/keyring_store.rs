@@ -2,6 +2,7 @@
 
 use keyring::Entry;
 use secrecy::{ExposeSecret, SecretString};
+use tracing::{debug, trace, warn};
 
 use crate::config::error::{ConfigError, Result};
 use crate::config::secret::{SecretKey, SecretStore};
@@ -59,24 +60,43 @@ impl SecretStore for KeyringSecretStore {
         let entry = entry_for(&self.service, key)?;
         entry
             .set_password(secret.expose_secret())
-            .map_err(|source| to_config_error(key, source))
+            .inspect(|_| debug!(service = %self.service, %key, "stored a secret in the OS keyring"))
+            .map_err(|source| {
+                warn!(service = %self.service, %key, error = %source, "could not store a secret in the OS keyring");
+                to_config_error(key, source)
+            })
     }
 
     fn retrieve(&self, key: &SecretKey) -> Result<Option<SecretString>> {
         let entry = entry_for(&self.service, key)?;
         match entry.get_password() {
-            Ok(password) => Ok(Some(SecretString::from(password))),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(source) => Err(to_config_error(key, source)),
+            Ok(password) => {
+                trace!(service = %self.service, %key, "retrieved a secret from the OS keyring");
+                Ok(Some(SecretString::from(password)))
+            }
+            Err(keyring::Error::NoEntry) => {
+                trace!(service = %self.service, %key, "no secret in the OS keyring for this key");
+                Ok(None)
+            }
+            Err(source) => {
+                warn!(service = %self.service, %key, error = %source, "could not retrieve a secret from the OS keyring");
+                Err(to_config_error(key, source))
+            }
         }
     }
 
     fn delete(&self, key: &SecretKey) -> Result<()> {
         let entry = entry_for(&self.service, key)?;
         match entry.delete_credential() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                debug!(service = %self.service, %key, "deleted a secret from the OS keyring");
+                Ok(())
+            }
             Err(keyring::Error::NoEntry) => Ok(()),
-            Err(source) => Err(to_config_error(key, source)),
+            Err(source) => {
+                warn!(service = %self.service, %key, error = %source, "could not delete a secret from the OS keyring");
+                Err(to_config_error(key, source))
+            }
         }
     }
 }

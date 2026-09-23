@@ -64,6 +64,7 @@ pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, Secret
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tracing::{debug, info, warn};
 
 /// One OAuth token pair kept under a single credential-store key.
 #[derive(Debug, Clone)]
@@ -107,6 +108,11 @@ impl WyckConfig {
     /// but corrupt or unreadable, config file).
     pub fn load(paths: AppPaths, secrets: Box<dyn SecretStore>) -> Result<Self> {
         let app_config = AppConfig::load(&paths)?;
+        info!(
+            profiles = app_config.profiles.len(),
+            active = app_config.active_profile.is_some(),
+            "wyck config loaded"
+        );
         Ok(Self {
             paths,
             app_config,
@@ -166,6 +172,7 @@ impl WyckConfig {
         }
         self.app_config.profiles.push(profile);
         self.app_config.save(&self.paths)?;
+        info!(%id, has_token = token.is_some(), "added a profile");
 
         Ok(id)
     }
@@ -181,6 +188,7 @@ impl WyckConfig {
         let before = self.app_config.profiles.len();
         self.app_config.profiles.retain(|profile| &profile.id != id);
         if self.app_config.profiles.len() == before {
+            warn!(%id, "cannot remove an unknown profile");
             return Err(ConfigError::UnknownProfile(id.to_string()));
         }
 
@@ -191,7 +199,9 @@ impl WyckConfig {
         if self.app_config.active_profile.as_ref() == Some(id) {
             self.app_config.active_profile = None;
         }
-        self.app_config.save(&self.paths)
+        self.app_config.save(&self.paths)?;
+        info!(%id, "removed a profile");
+        Ok(())
     }
 
     /// Retrieves the token for `id`, or `Ok(None)` if none is stored (e.g. the profile
@@ -285,7 +295,9 @@ impl WyckConfig {
         profile.client_id = Some(client_id);
         profile.callback_port = Some(callback_port);
         profile.account_id = Some(account_id);
-        self.app_config.save(&self.paths)
+        self.app_config.save(&self.paths)?;
+        debug!(%id, callback_port, account_id, "recorded the Open API profile settings");
+        Ok(())
     }
 
     /// Sets (or, with `None`, clears) the active profile, and persists the change.
@@ -297,10 +309,13 @@ impl WyckConfig {
         if let Some(id) = &id
             && self.app_config.profile(id).is_none()
         {
+            warn!(%id, "cannot activate an unknown profile");
             return Err(ConfigError::UnknownProfile(id.to_string()));
         }
-        self.app_config.active_profile = id;
-        self.app_config.save(&self.paths)
+        self.app_config.active_profile = id.clone();
+        self.app_config.save(&self.paths)?;
+        info!(active = ?id, "changed the active profile");
+        Ok(())
     }
 
     /// The symbol the user was last on, if one was remembered.
@@ -314,7 +329,9 @@ impl WyckConfig {
         self.app_config.last_symbol = symbol
             .map(|s| s.trim().to_owned())
             .filter(|s| !s.is_empty());
-        self.app_config.save(&self.paths)
+        self.app_config.save(&self.paths)?;
+        debug!(symbol = ?self.app_config.last_symbol, "remembered the last symbol");
+        Ok(())
     }
 }
 

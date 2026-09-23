@@ -9,6 +9,7 @@
 //! events learns about it without polling the client.
 
 use serde_json::Value;
+use tracing::{debug, warn};
 
 use crate::openapi::account::TraderUpdatedEvent;
 use crate::openapi::error::OpenApiError;
@@ -83,7 +84,14 @@ pub enum Event {
 /// connection's own upkeep.
 #[must_use]
 pub fn event_from(envelope: &Envelope) -> Option<Event> {
-    let decode_failed = |e: OpenApiError| Event::ServerError(e);
+    let decode_failed = |e: OpenApiError| {
+        warn!(
+            payload_type = envelope.payload_type,
+            %e,
+            "could not decode a message of a known type"
+        );
+        Event::ServerError(e)
+    };
     Some(match envelope.payload_type {
         payload::HEARTBEAT_EVENT => return None,
         payload::SPOT_EVENT => envelope
@@ -139,10 +147,16 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
             .map(Event::SymbolChanged)
             .unwrap_or_else(decode_failed),
         payload::ERROR_RES | payload::PROXY_ERROR_RES => Event::ServerError(error_of(envelope)),
-        other => Event::Other {
-            payload_type: other,
-            payload: envelope.payload.clone(),
-        },
+        other => {
+            debug!(
+                payload_type = other,
+                "an unrecognized message was kept as Event::Other"
+            );
+            Event::Other {
+                payload_type: other,
+                payload: envelope.payload.clone(),
+            }
+        }
     })
 }
 

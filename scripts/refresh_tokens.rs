@@ -17,6 +17,7 @@ use wyck::openapi::auth::OAuthClient;
 use wyck::openapi::config::ClientCredentials;
 
 mod env_file;
+mod tracing_init;
 
 /// Refreshes the Open API access/refresh token pair.
 #[derive(Parser)]
@@ -47,6 +48,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::dotenv();
+    tracing_init::init();
     let args = Args::parse();
 
     let credentials = ClientCredentials::new(args.client_id, args.client_secret);

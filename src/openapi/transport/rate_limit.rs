@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use tokio::sync::Mutex;
 use tokio::time::Instant;
+use tracing::trace;
 
 /// An even-spacing rate limiter. Share one per class of request.
 #[derive(Debug)]
@@ -61,7 +62,10 @@ impl RateLimiter {
             slot
         };
         // Sleep outside the lock, so later callers can queue up behind this one.
-        if wait_until > Instant::now() {
+        let now = Instant::now();
+        if wait_until > now {
+            let wait = wait_until - now;
+            trace!(?wait, "throttled to stay under the rate limit");
             tokio::time::sleep_until(wait_until).await;
         }
     }

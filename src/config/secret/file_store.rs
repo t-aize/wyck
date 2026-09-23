@@ -8,6 +8,7 @@ use chacha20poly1305::aead::Aead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
+use tracing::{debug, trace, warn};
 
 use crate::config::error::{ConfigError, Result};
 use crate::config::fs_util::atomic_write;
@@ -110,22 +111,35 @@ impl SecretStore for EncryptedFileSecretStore {
             ciphertext: hex_encode(&ciphertext),
         };
         let toml_text = toml::to_string(&envelope).map_err(ConfigError::Serialize)?;
-        atomic_write(&self.envelope_path(key), toml_text.as_bytes())
+        let path = self.envelope_path(key);
+        atomic_write(&path, toml_text.as_bytes())?;
+        debug!(%key, path = %path.display(), "encrypted and stored a secret");
+        Ok(())
     }
 
     fn retrieve(&self, key: &SecretKey) -> Result<Option<SecretString>> {
         let path = self.envelope_path(key);
         let text = match fs::read_to_string(&path) {
             Ok(text) => text,
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(source) => return Err(ConfigError::Read { path, source }),
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                trace!(%key, path = %path.display(), "no envelope on disk for this key");
+                return Ok(None);
+            }
+            Err(source) => {
+                warn!(%key, path = %path.display(), error = %source, "could not read the envelope");
+                return Err(ConfigError::Read { path, source });
+            }
         };
 
-        let envelope: Envelope = toml::from_str(&text).map_err(|source| ConfigError::Parse {
-            path: path.clone(),
-            source: Box::new(source),
+        let envelope: Envelope = toml::from_str(&text).map_err(|source| {
+            warn!(%key, path = %path.display(), error = %source, "the envelope could not be parsed");
+            ConfigError::Parse {
+                path: path.clone(),
+                source: Box::new(source),
+            }
         })?;
         if envelope.version != ENVELOPE_VERSION {
+            warn!(%key, found = envelope.version, expected = ENVELOPE_VERSION, "unsupported envelope version");
             return Err(ConfigError::MalformedEnvelope {
                 key: key.to_string(),
                 reason: format!(
@@ -147,22 +161,32 @@ impl SecretStore for EncryptedFileSecretStore {
         let cipher = ChaCha20Poly1305::new(&Key::from(key_bytes));
         let nonce = Nonce::try_from(nonce_bytes.as_slice())
             .map_err(|_| malformed("nonce is not exactly 12 bytes".to_owned()))?;
-        let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref()).map_err(|_source| ConfigError::Crypto {
-            key: key.to_string(),
-            message: "decryption failed: this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
+        let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref()).map_err(|_source| {
+            warn!(%key, "decryption failed: wrong passphrase, or the file was tampered with");
+            ConfigError::Crypto {
+                key: key.to_string(),
+                message: "decryption failed: this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
+            }
         })?;
 
         let plaintext = String::from_utf8(plaintext)
             .map_err(|_| malformed("decrypted payload was not valid UTF-8".to_owned()))?;
+        trace!(%key, path = %path.display(), "decrypted and retrieved a secret");
         Ok(Some(SecretString::from(plaintext)))
     }
 
     fn delete(&self, key: &SecretKey) -> Result<()> {
         let path = self.envelope_path(key);
         match fs::remove_file(&path) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                debug!(%key, path = %path.display(), "deleted a secret envelope");
+                Ok(())
+            }
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(source) => Err(ConfigError::Write { path, source }),
+            Err(source) => {
+                warn!(%key, path = %path.display(), error = %source, "could not delete the secret envelope");
+                Err(ConfigError::Write { path, source })
+            }
         }
     }
 }

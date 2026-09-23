@@ -1,6 +1,7 @@
 //! The non-secret application config: which profiles exist and which one is active.
 
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 use crate::config::error::{ConfigError, Result};
 use crate::config::fs_util::atomic_write;
@@ -64,21 +65,37 @@ impl AppConfig {
         let text = match std::fs::read_to_string(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                debug!(path = %path.display(), "no config file yet, starting from defaults");
                 return Ok(Self::default());
             }
-            Err(source) => return Err(ConfigError::Read { path, source }),
+            Err(source) => {
+                warn!(path = %path.display(), error = %source, "could not read the config file");
+                return Err(ConfigError::Read { path, source });
+            }
         };
-        toml::from_str(&text).map_err(|source| ConfigError::Parse {
-            path,
-            source: Box::new(source),
-        })
+        let config = toml::from_str(&text).map_err(|source| {
+            warn!(path = %path.display(), error = %source, "the config file could not be parsed");
+            ConfigError::Parse {
+                path: path.clone(),
+                source: Box::new(source),
+            }
+        })?;
+        debug!(path = %path.display(), "loaded the config file");
+        Ok(config)
     }
 
     /// Serializes and writes the config to `paths.config_file()`, atomically (see
     /// `atomic_write`).
     pub fn save(&self, paths: &AppPaths) -> Result<()> {
         let toml_text = toml::to_string_pretty(self).map_err(ConfigError::Serialize)?;
-        atomic_write(&paths.config_file(), toml_text.as_bytes())
+        let path = paths.config_file();
+        atomic_write(&path, toml_text.as_bytes())?;
+        debug!(
+            path = %path.display(),
+            profiles = self.profiles.len(),
+            "saved the config file"
+        );
+        Ok(())
     }
 
     /// Looks up a profile by id.

@@ -4,6 +4,8 @@
 use std::fs;
 use std::path::Path;
 
+use tracing::trace;
+
 use crate::config::error::{ConfigError, Result};
 
 /// Writes `contents` to `path` atomically: write to a uniquely-named temp file in the
@@ -46,7 +48,9 @@ pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
     fs::rename(&tmp_path, path).map_err(|source| ConfigError::Write {
         path: path.to_path_buf(),
         source,
-    })
+    })?;
+    trace!(path = %path.display(), bytes = contents.len(), "wrote a file atomically");
+    Ok(())
 }
 
 #[cfg(unix)]

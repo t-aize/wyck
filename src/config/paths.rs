@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use directories::ProjectDirs;
+use tracing::debug;
 
 use crate::config::error::{ConfigError, Result};
 
@@ -39,10 +40,16 @@ impl AppPaths {
     pub fn discover() -> Result<Self> {
         let dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
             .ok_or(ConfigError::NoProjectDirs)?;
-        Ok(Self {
+        let paths = Self {
             config_dir: dirs.config_dir().to_path_buf(),
             data_dir: dirs.data_dir().to_path_buf(),
-        })
+        };
+        debug!(
+            config_dir = %paths.config_dir.display(),
+            data_dir = %paths.data_dir.display(),
+            "resolved the OS-standard config/data directories"
+        );
+        Ok(paths)
     }
 
     /// Points both the config and data directories at `dir`. Intended for tests and for

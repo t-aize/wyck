@@ -32,6 +32,7 @@ use std::time::Duration;
 use secrecy::{ExposeSecret, SecretString};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tracing::{debug, info, warn};
 
 use crate::openapi::error::{OpenApiError, Result};
 
@@ -90,6 +91,7 @@ impl CallbackListener {
     /// holds it: the text says so, since the user can act on it.
     pub async fn bind(port: u16) -> Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| {
+            warn!(port, error = %e, "cannot listen for the sign in redirect");
             OpenApiError::Transport(format!(
                 "cannot listen on port {port} for the sign in redirect ({e}); is it in use?"
             ))
@@ -98,6 +100,7 @@ impl CallbackListener {
             .local_addr()
             .map_err(|e| OpenApiError::Transport(e.to_string()))?
             .port();
+        debug!(port, "listening for the OAuth sign in redirect");
         Ok(Self { listener, port })
     }
 
@@ -142,14 +145,25 @@ impl CallbackListener {
             };
             match parse_redirect(&head, expected_state) {
                 Redirect::Code(code) => {
+                    if !code.state_echoed() {
+                        warn!("the redirect carried no state to check; accepted the code anyway");
+                    }
+                    info!(
+                        state_echoed = code.state_echoed(),
+                        "the sign in redirect carried a code"
+                    );
                     respond(&mut stream, "200 OK", SUCCESS_PAGE).await;
                     return Ok(code);
                 }
                 Redirect::Denied(reason) => {
+                    warn!(%reason, "the sign in redirect denied access");
                     respond(&mut stream, "200 OK", FAILURE_PAGE).await;
                     return Err(OpenApiError::Auth(reason));
                 }
                 Redirect::Ignore => {
+                    debug!(
+                        "ignored a request to the callback listener that carried no usable redirect"
+                    );
                     respond(&mut stream, "404 Not Found", FAILURE_PAGE).await;
                 }
             }

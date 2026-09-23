@@ -28,6 +28,7 @@ use std::time::{Duration, SystemTime};
 use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
+use tracing::{debug, warn};
 
 use crate::openapi::config::ClientCredentials;
 use crate::openapi::error::{OpenApiError, Result};
@@ -242,6 +243,9 @@ impl OAuthClient {
     }
 
     async fn request_tokens(&self, params: &[(&str, &str)]) -> Result<TokenSet> {
+        // Safe to log: the grant type only, never a param value (the code or the refresh token)
+        // and never the URL built below (it carries the client secret in its query string).
+        let grant_type = params.first().map_or("?", |(_, value)| *value);
         let mut url = Url::parse(&self.token_url)
             .map_err(|_| OpenApiError::Config("the token endpoint is not a valid URL".into()))?;
         {
@@ -256,21 +260,20 @@ impl OAuthClient {
                     self.credentials.client_secret.expose_secret(),
                 );
         }
+        debug!(grant_type, "requesting tokens from the token endpoint");
         // `without_url` matters: the URL holds the secret and the code.
         let response = self.http.get(url).send().await.map_err(|e| {
-            OpenApiError::Transport(format!(
-                "the token endpoint could not be reached: {}",
-                e.without_url()
-            ))
+            let error = e.without_url();
+            warn!(grant_type, %error, "the token endpoint could not be reached");
+            OpenApiError::Transport(format!("the token endpoint could not be reached: {error}"))
         })?;
         let status = response.status();
         let body = response.bytes().await.map_err(|e| {
-            OpenApiError::Transport(format!(
-                "the token answer could not be read: {}",
-                e.without_url()
-            ))
+            let error = e.without_url();
+            warn!(grant_type, %status, %error, "the token answer could not be read");
+            OpenApiError::Transport(format!("the token answer could not be read: {error}"))
         })?;
-        match parse_token_response(&body, SystemTime::now()) {
+        let result = match parse_token_response(&body, SystemTime::now()) {
             Ok(tokens) if status.is_success() => Ok(tokens),
             Ok(_) => Err(OpenApiError::Auth(format!(
                 "the token endpoint answered {status}"
@@ -283,7 +286,18 @@ impl OAuthClient {
             Err(_) => Err(OpenApiError::Auth(format!(
                 "the token endpoint answered {status}"
             ))),
+        };
+        match &result {
+            Ok(tokens) => debug!(
+                grant_type,
+                expires_in = ?tokens.expires_in,
+                "the token endpoint answered with a fresh token pair"
+            ),
+            Err(error) => {
+                warn!(grant_type, %status, %error, "the token endpoint refused the request")
+            }
         }
+        result
     }
 }
 

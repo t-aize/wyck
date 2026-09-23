@@ -40,7 +40,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
 use secrecy::ExposeSecret;
@@ -48,7 +48,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tokio_tungstenite::tungstenite::Message;
-use tracing::{debug, trace, warn};
+use tracing::{debug, info, trace, warn};
 
 use crate::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
 use crate::openapi::error::{ErrorKind, OpenApiError, Result};
@@ -221,15 +221,22 @@ impl Client {
     /// handshake).
     pub async fn connect(config: &ConnectionConfig) -> Result<Self> {
         config.validate()?;
+        debug!(url = %config.url, "opening the Open API connection");
         let (socket, _response) = tokio::time::timeout(
             config.connect_timeout,
             tokio_tungstenite::connect_async(config.url.as_str()),
         )
         .await
-        .map_err(|_| OpenApiError::Timeout {
-            operation: "the connection",
+        .map_err(|_| {
+            warn!(url = %config.url, timeout = ?config.connect_timeout, "the connection timed out");
+            OpenApiError::Timeout {
+                operation: "the connection",
+            }
         })?
-        .map_err(|e| OpenApiError::Transport(e.to_string()))?;
+        .map_err(|e| {
+            warn!(url = %config.url, error = %e, "the connection failed");
+            OpenApiError::Transport(e.to_string())
+        })?;
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel(OUTGOING_QUEUE);
         let (events, _) = broadcast::channel(config.event_capacity);
@@ -255,6 +262,7 @@ impl Client {
             Arc::clone(&shared),
             config.heartbeat_interval,
         ));
+        info!(url = %config.url, "the Open API connection is open");
         Ok(Self { shared })
     }
 
@@ -355,21 +363,42 @@ impl Client {
         Req: Serialize,
         Res: DeserializeOwned,
     {
+        let started = Instant::now();
         let answer = self
             .exchange(request_type, request, class, operation)
             .await?;
+        let elapsed = started.elapsed();
         match answer.payload_type {
-            payload::ERROR_RES | payload::PROXY_ERROR_RES => Err(error_of(&answer)),
+            payload::ERROR_RES | payload::PROXY_ERROR_RES => {
+                let error = error_of(&answer);
+                debug!(operation, request_type, ?elapsed, %error, "the server refused the request");
+                Err(error)
+            }
             // A trading request the server refuses without a matching answer of its own type
             // (see `ProtoOAOrderErrorEvent`'s doc on `payload::ORDER_ERROR_EVENT`) comes back
             // this way instead, still carrying the request's `clientMsgId`.
             payload::ORDER_ERROR_EVENT if response_type != payload::ORDER_ERROR_EVENT => {
-                Err(order_error_of(&answer))
+                let error = order_error_of(&answer);
+                debug!(operation, request_type, ?elapsed, %error, "the server refused the trading request");
+                Err(error)
             }
-            t if t == response_type => answer.decode(),
-            other => Err(OpenApiError::Protocol(format!(
-                "expected message {response_type} for {operation}, got {other}"
-            ))),
+            t if t == response_type => {
+                trace!(operation, request_type, ?elapsed, "request answered");
+                answer.decode()
+            }
+            other => {
+                warn!(
+                    operation,
+                    request_type,
+                    expected = response_type,
+                    got = other,
+                    ?elapsed,
+                    "unexpected message type answering a request"
+                );
+                Err(OpenApiError::Protocol(format!(
+                    "expected message {response_type} for {operation}, got {other}"
+                )))
+            }
         }
     }
 
@@ -395,13 +424,14 @@ impl Client {
         self.shared.pending().insert(id.clone(), tx);
         let _pending = PendingRequest {
             shared: &self.shared,
-            id,
+            id: id.clone(),
         };
         // A connection that ended between the check above and now would leave this waiter alone
         // forever, so look again after registering.
         if self.is_closed() {
             return Err(OpenApiError::Closed);
         }
+        trace!(operation, request_type, id = %id, "sending request");
         match tokio::time::timeout(
             self.shared.request_timeout,
             self.shared.outgoing.send(Outgoing::Text(text)),
@@ -410,14 +440,20 @@ impl Client {
         {
             Ok(Ok(())) => {}
             Ok(Err(_)) => return Err(OpenApiError::Closed),
-            Err(_) => return Err(OpenApiError::Timeout { operation }),
+            Err(_) => {
+                warn!(operation, request_type, id = %id, "timed out sending the request");
+                return Err(OpenApiError::Timeout { operation });
+            }
         }
 
         match tokio::time::timeout(self.shared.request_timeout, rx).await {
             Ok(Ok(answer)) => answer,
             // The sender was dropped without an answer: the connection is gone.
             Ok(Err(_)) => Err(OpenApiError::Closed),
-            Err(_) => Err(OpenApiError::Timeout { operation }),
+            Err(_) => {
+                warn!(operation, request_type, id = %id, "timed out waiting for the answer");
+                Err(OpenApiError::Timeout { operation })
+            }
         }
     }
 

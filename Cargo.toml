@@ -94,6 +94,12 @@ dotenvy = "0.15.7"
 # `.env`/`dotenvy` or an explicit flag, the flag taking precedence.
 clap = { version = "4.6.7", features = ["derive", "env"] }
 
+# The subscriber that prints `tracing` events for the scripts (and for `tests/live.rs` with
+# `--nocapture`): the library only emits events (see src/openapi/mod.rs and src/config/mod.rs),
+# it never installs a subscriber itself, so nothing prints without one somewhere. `env-filter`
+# reads `RUST_LOG` (e.g. `RUST_LOG=wyck=trace`) to pick the level per module.
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+
 [dev-dependencies]
 # Isolated temp directories for the config/secret-store tests
 tempfile = "3.27.0"

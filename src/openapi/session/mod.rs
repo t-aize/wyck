@@ -414,6 +414,7 @@ impl Session {
             return Ok(());
         }
         let Some(client) = self.shared.client() else {
+            debug!(symbols = ?fresh, "spot subscription recorded, queued for when the connection is up");
             return Ok(());
         };
         let result = client
@@ -469,6 +470,11 @@ impl Session {
             return Ok(());
         }
         let Some(client) = self.shared.client() else {
+            debug!(
+                symbol_id,
+                ?period,
+                "live bar subscription recorded, queued for when the connection is up"
+            );
             return Ok(());
         };
         let result = client
@@ -520,6 +526,7 @@ impl Session {
             return Ok(());
         }
         let Some(client) = self.shared.client() else {
+            debug!(symbols = ?fresh, "depth subscription recorded, queued for when the connection is up");
             return Ok(());
         };
         let result = client
