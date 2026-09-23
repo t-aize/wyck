@@ -5,8 +5,8 @@
 //! them in comes later, once there's a view worth feeding data to.
 
 use gpui::{
-    App, Application, Bounds, Context, KeyBinding, Render, SharedString, TitlebarOptions,
-    Window, WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
+    App, Application, Bounds, Context, KeyBinding, Render, SharedString, TitlebarOptions, Window,
+    WindowBounds, WindowOptions, actions, div, prelude::*, px, rgb, size,
 };
 
 actions!(wyck, [Quit]);
