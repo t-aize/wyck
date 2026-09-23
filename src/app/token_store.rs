@@ -58,3 +58,39 @@ impl TokenStore for ConfigTokenStore {
             .map_err(|error| OpenApiError::Config(format!("could not save the tokens: {error}")))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use secrecy::{ExposeSecret, SecretString};
+
+    #[test]
+    fn a_token_pair_goes_to_the_store_and_back() {
+        let now = SystemTime::now();
+        let tokens = TokenSet {
+            access_token: SecretString::from("access"),
+            refresh_token: SecretString::from("refresh"),
+            token_type: None,
+            expires_in: Some(Duration::from_secs(3_600)),
+            obtained_at: now,
+        };
+        let stored = to_stored(&tokens);
+        assert_eq!(stored.access_token.expose_secret(), "access");
+        let back = to_token_set(stored);
+        assert_eq!(back.access_token.expose_secret(), "access");
+        assert_eq!(back.refresh_token.expose_secret(), "refresh");
+        // About an hour left, counted from now.
+        let left = back.expires_in.unwrap().as_secs();
+        assert!((3_590..=3_600).contains(&left), "{left}");
+    }
+
+    #[test]
+    fn an_expired_token_has_no_time_left() {
+        let stored = OpenApiTokens {
+            access_token: SecretString::from("a"),
+            refresh_token: SecretString::from("r"),
+            expires_at: Some(SystemTime::now() - Duration::from_secs(60)),
+        };
+        assert_eq!(to_token_set(stored).expires_in, Some(Duration::ZERO));
+    }
+}

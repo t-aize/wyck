@@ -66,7 +66,7 @@ impl ConnectionFlow {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let epoch = self.epoch;
-        let redirect_uri = format!("http://localhost:{CALLBACK_PORT}");
+        let redirect_uri = super::rules::redirect_uri(CALLBACK_PORT);
         let can_submit = !state.connecting;
         let copied = state.copied;
 

@@ -12,6 +12,7 @@
 mod authorizing;
 mod browser_handoff;
 mod credentials;
+mod rules;
 mod select_account;
 mod stepper;
 pub(crate) mod ui;
@@ -48,13 +49,7 @@ enum Screen {
     Dashboard(Entity<Dashboard>, #[allow(dead_code)] Subscription),
 }
 
-/// The service tag of a profile made by this flow: the environment is part of it.
-fn service_tag(environment: Environment) -> &'static str {
-    match environment {
-        Environment::Live => "ctrader-openapi-live",
-        Environment::Demo => "ctrader-openapi-demo",
-    }
-}
+use self::rules::service_tag;
 
 /// Everything needed to open a session again, read back from the saved profile.
 struct SavedConnection {
@@ -103,22 +98,10 @@ impl ConnectionFlow {
     }
 
     fn saved_connection(&self) -> Option<SavedConnection> {
-        let profile = self.config.active_profile().or_else(|| {
-            self.config
-                .profiles()
-                .iter()
-                .find(|p| p.service.starts_with("ctrader-openapi-"))
-        })?;
-        if !profile.service.starts_with("ctrader-openapi-") {
-            return None;
-        }
+        let profile = rules::saved_profile(self.config.active_profile(), self.config.profiles())?;
+        let environment = rules::environment_of(&profile.service)?;
         let client_id = profile.client_id.clone()?;
         let account_id = profile.account_id?;
-        let environment = if profile.service.ends_with("live") {
-            Environment::Live
-        } else {
-            Environment::Demo
-        };
 
         let secret = match self.config.profile_secret(&profile.id, "client-secret") {
             Ok(Some(secret)) => secret,
@@ -183,14 +166,7 @@ impl ConnectionFlow {
         let initial_symbol = self.config.last_symbol().map(str::to_owned);
         // What the user arranges is kept per account number, so signing out and in again finds
         // the watchlists where they were.
-        let scope = format!(
-            "{}-{account_id}",
-            if environment == Environment::Live {
-                "live"
-            } else {
-                "demo"
-            }
-        );
+        let scope = rules::document_scope(environment, account_id);
         let documents = Documents {
             global: self.config.global_documents(),
             account: self.config.scoped_documents(&scope),

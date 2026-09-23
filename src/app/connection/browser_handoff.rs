@@ -10,7 +10,7 @@ use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 use wyck::openapi::Environment;
-use wyck::openapi::auth::{CallbackListener, OAuthClient, Scope, authorization_url, new_state};
+use wyck::openapi::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
 use wyck::openapi::config::ClientCredentials;
 use wyck::openapi::transport::connection::Client;
 
@@ -52,7 +52,7 @@ impl ConnectionFlow {
         let url = authorization_url(
             &credentials.client_id,
             &redirect_uri,
-            Scope::Accounts,
+            super::rules::SIGN_IN_SCOPE,
             &oauth_state,
         );
 
