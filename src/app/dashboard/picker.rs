@@ -561,39 +561,21 @@ impl Dashboard {
                 return;
             }
 
-            // Follow the highlighted symbol's price while the picker shows it (the followed symbol
-            // already has its own), and let go of the one it showed before.
-            let (unsubscribe, subscribe) = this
-                .update(cx, |this, _cx| {
-                    let active = this.active.as_ref().map(|a| a.entry.id);
-                    let previous = this
-                        .peek
-                        .take()
-                        .map(|peek| peek.id)
-                        .filter(|previous| Some(*previous) != active && *previous != id);
-                    let subscribe = (Some(id) != active).then_some(id);
-                    if subscribe.is_some() {
-                        this.peek = Some(super::Peek {
-                            id,
-                            quote: super::Quote::default(),
-                        });
-                    }
-                    (previous, subscribe)
-                })
-                .unwrap_or((None, None));
+            // Follow the highlighted symbol's price while the picker shows it (the charts
+            // follow their own).
+            let _ = this.update(cx, |this, cx| {
+                let shown = this.multi.read(cx).symbol_ids(cx);
+                if shown.contains(&id) {
+                    this.drop_peek();
+                } else {
+                    this.peek_at(id);
+                }
+            });
 
             let fetched = runtime::spawn(async move {
                 let client = session.client().ok_or(OpenApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let market = account.market();
-                if let Some(previous) = unsubscribe {
-                    let _ = market.unsubscribe_spots(&[previous]).await;
-                }
-                if let Some(subscribe) = subscribe
-                    && let Err(error) = market.subscribe_spots(&[subscribe]).await
-                {
-                    tracing::warn!(%error, symbol_id = subscribe, "could not follow the price");
-                }
                 let details = market.symbol_details(&[id]).await?;
                 details
                     .into_iter()

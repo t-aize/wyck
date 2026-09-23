@@ -1,18 +1,36 @@
-//! The price chart: candles (solid, hollow, Heikin Ashi), bars, a line, a step line or an area, on
-//! any timeframe from tick by tick to a month, live to the tick, with drawing tools on top.
+//! The price chart: candles, bars, lines, areas, Renko, Kagi, point and figure and more, on any
+//! timeframe from tick by tick to a month, live to the tick, with indicators, drawing tools and
+//! lines for orders, positions and alerts on top.
+//!
+//! # How it is organised
+//!
+//! [`Chart`] is the gpui entity; its code is split by concern:
+//!
+//! | Module | Role |
+//! |---|---|
+//! | this file | the entity, what it shows, and what it tells the layout around it |
+//! | [`history`] | loading the history, older pages, refilling after a reconnect, live prices |
+//! | [`input`] | the pointer and the keys: scrolling, zooming, dragging scales, panes and lines |
+//! | [`follow`] | following other charts: shared crosshair, time and range |
+//! | [`glue`] | the drawings: handing presses and moves to the drawing book |
+//! | [`paint`] | the canvas: turning a frame's commands into gpui quads, paths and text |
+//! | [`overlay`] | what sits over the canvas: legend, toolbar, menus, line labels, status |
+//! | [`scene`] | the frame itself, as plain drawing commands, tested without a window |
+//! | [`display`] | what is drawn: the series of the chart type, and the indicators' values |
+//!
+//! The data, view, axis, study and transform modules are plain data in and out.
 //!
 //! # How it stays fast and small
 //!
 //! - The chart is drawn by one custom element that turns the visible part of the data into
 //!   drawing commands ([`scene`]). The cost of a frame follows the size of the screen, not the
 //!   amount of data: points narrower than a pixel are folded into pixel columns.
+//! - What is derived from the prices (a Renko construction, the indicators) is computed once per
+//!   change of the prices or settings ([`display`]), never per frame.
 //! - The data is bounded ([`data::MAX_BARS`], [`data::MAX_TICKS`]), and older history is only
 //!   fetched when the user scrolls near the oldest point held.
-//! - Live prices append to the last point in constant time. Many updates in a burst make one
-//!   frame, because a redraw is only requested, never forced.
 //! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
 //!   it keeps one subscription per symbol and period however many charts show it.
-//! - Times are shown in UTC or in the computer's zone ([`Zone`]), a choice made per app.
 //! - Drawings ([`drawing`]) are anchored to times and prices, so they follow the chart when it
 //!   moves and show on every timeframe of their symbol.
 //!
@@ -24,46 +42,48 @@
 
 mod axis;
 mod data;
+mod display;
 pub mod drawing;
-mod live;
+mod follow;
+mod glue;
+mod history;
+mod input;
+pub mod lines;
+pub mod live;
 mod load;
+mod overlay;
+mod paint;
 mod projection;
-mod scene;
+pub mod raster;
+pub mod scene;
+pub mod settings;
 pub mod study;
+mod study_ui;
 mod timeframe;
 pub mod transform;
 mod view;
-mod zone;
+pub mod zone;
 
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use gpui::prelude::*;
-use gpui::{
-    App, Bounds, ContentMask, Context, CursorStyle, Entity, EventEmitter, Hitbox, HitboxBehavior,
-    KeyBinding, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Pixels,
-    ScrollWheelEvent, SharedString, TextAlign, TextRun, Window, canvas, div, fill, point, px, size,
-};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use wyck::openapi::market::{SpotEvent, Tick, format_price};
+use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
+use wyck::openapi::market::Bar;
 use wyck::openapi::session::Session;
 use wyck::openapi::{OpenApiError, Result as ApiResult};
 
-use self::data::{MAX_BARS, MAX_TICKS, Series};
+use self::data::Series;
+use self::display::Display;
 use self::drawing::Drawings;
-use self::drawing::book::Press;
-pub use self::live::LiveHub;
-use self::load::Loaded;
-use self::projection::ChartProjection;
-pub use self::scene::ChartKind;
-use self::scene::{AXIS_H, AXIS_W, Align, Cmd, DrawingView, Frame, Layout, Palette};
+pub use self::lines::{ChartLine, LineId};
+pub use self::live::{LiveHub, LiveUpdate};
+use self::scene::Geometry;
+pub use self::settings::{ChartKind, ChartSettings};
+use self::study::StudyConfig;
 pub use self::timeframe::{GROUPS, QUICK, Timeframe};
-use self::view::{PriceScale, View, zoom_range};
+use self::view::View;
 pub use self::zone::Zone;
-use super::connection::ui;
-use super::{anim, runtime, theme};
 
 gpui::actions!(
     wyck_chart,
@@ -73,10 +93,13 @@ gpui::actions!(
         ChartZoomIn,
         ChartZoomOut,
         ChartLatest,
+        ChartResetScale,
         DeleteDrawing,
         UndoDrawing,
         RedoDrawing,
         DuplicateDrawing,
+        ChartScreenshot,
+        ChartAddAlert,
     ]
 );
 
@@ -89,24 +112,28 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-+", ChartZoomIn, Some("Dashboard")),
         KeyBinding::new("secondary--", ChartZoomOut, Some("Dashboard")),
         KeyBinding::new("end", ChartLatest, Some("Dashboard")),
+        KeyBinding::new("alt-r", ChartResetScale, Some("Dashboard")),
         KeyBinding::new("delete", DeleteDrawing, Some("Dashboard")),
         KeyBinding::new("backspace", DeleteDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-z", UndoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-shift-z", RedoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-y", RedoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-d", DuplicateDrawing, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-s", ChartScreenshot, Some("Dashboard")),
+        KeyBinding::new("alt-a", ChartAddAlert, Some("Dashboard")),
     ]);
 }
 
-/// A chart smaller than this shows fewer numbers and no toolbar.
+/// A chart smaller than this shows fewer numbers and a smaller toolbar.
 const COMPACT_WIDTH: f32 = 640.0;
 const COMPACT_HEIGHT: f32 = 300.0;
 
 /// The symbol on the chart.
-struct Symbol {
-    id: i64,
-    name: SharedString,
-    digits: u32,
+#[derive(Debug, Clone)]
+pub struct Symbol {
+    pub id: i64,
+    pub name: SharedString,
+    pub digits: u32,
 }
 
 enum Load {
@@ -126,43 +153,15 @@ enum Older {
     Retry(Instant),
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum Region {
-    Plot,
-    PriceAxis,
-    TimeAxis,
-    Corner,
+/// The menus that open from the chart's own toolbar and legend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Menu {
+    Kind,
+    Scale,
+    Zone,
 }
 
-#[derive(Clone, Copy)]
-enum DragKind {
-    Pan,
-    Price,
-    Time,
-}
-
-#[derive(Clone, Copy)]
-struct Drag {
-    kind: DragKind,
-    last: (f32, f32),
-}
-
-/// What a chart tells the layout around it, so that charts can follow one another.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ChartEvent {
-    /// The user clicked in this chart.
-    Activated,
-    /// The pointer is over a point of this chart (or left it).
-    Hover(Option<Hover>),
-    /// The user moved or zoomed the view.
-    ViewChanged(Span),
-    /// The user clicked the time zone in the corner of the chart.
-    ZoneClicked,
-    /// The timeframe or the chart type changed, so a saved layout is out of date.
-    SettingsChanged,
-}
-
-/// A point of the chart the pointer is on: its time and the price under the pointer.
+/// A time and price under the pointer.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hover {
     pub time_ms: i64,
@@ -176,6 +175,43 @@ pub struct Span {
     pub right_ms: i64,
 }
 
+/// What a chart tells the layout around it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChartEvent {
+    /// The user clicked in this chart.
+    Activated,
+    /// The pointer is over a point of this chart (or left it).
+    Hover(Option<Hover>),
+    /// The user moved or zoomed the view.
+    ViewChanged(Span),
+    /// Something that is saved changed: the timeframe, the type, the indicators, the scale.
+    SettingsChanged,
+    /// The user asked to change the symbol of this chart.
+    PickSymbol,
+    /// The user asked for something at a price: an order, an alert.
+    Action(ChartAction),
+    /// A line was dragged to a new price (real units).
+    LineMoved(LineId, f64),
+    /// The close button of a line was clicked.
+    LineClosed(LineId),
+    /// A picture of the chart was asked for.
+    Screenshot,
+}
+
+/// Something asked from the chart's context menu or a drawing, at a price in real units.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChartAction {
+    /// Open the order ticket with these values.
+    Ticket {
+        buy: bool,
+        /// A limit or stop price; `None` for a market order.
+        entry: Option<f64>,
+        stop_loss: Option<f64>,
+        take_profit: Option<f64>,
+    },
+    AddAlert(f64),
+}
+
 impl EventEmitter<ChartEvent> for Chart {}
 
 pub struct Chart {
@@ -185,23 +221,26 @@ pub struct Chart {
     id: u64,
     symbol: Option<Symbol>,
     timeframe: Timeframe,
-    kind: ChartKind,
-    zone: Zone,
-    /// Whether the list of chart types under the toolbar is open.
-    kind_menu_open: bool,
+    settings: ChartSettings,
+    /// Bumped whenever the settings change, so a menu or dialog showing them redraws.
+    settings_revision: u64,
+    /// The prices, as held.
     series: Series,
+    /// What is drawn from them.
+    display: Display,
     view: View,
     load: Load,
     older: Older,
     /// Bumped whenever the data is thrown away, so an answer to an old request is recognised.
     epoch: u64,
+    bid: Option<i64>,
     ask: Option<i64>,
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
-    drag: Option<Drag>,
+    drag: Option<input::Drag>,
     /// The drawings shared by the charts, and the subscription that redraws this chart when
     /// they change.
     drawings: Option<Entity<Drawings>>,
@@ -210,29 +249,55 @@ pub struct Chart {
     drawing_drag: bool,
     /// Whether the pointer is over a drawing, for the mouse cursor.
     over_drawing: bool,
+    /// Orders, positions and alerts shown on the prices.
+    lines: Vec<ChartLine>,
+    menu: Option<Menu>,
+    /// Where the pointer was at the last right click, for the context menu.
+    context_at: Option<(f32, f32)>,
     /// The drawing area of the last frame, for turning mouse positions into chart positions.
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// Keeps the bar countdown ticking while the chart lives.
+    _clock: gpui::Task<()>,
 }
 
 impl Chart {
-    pub fn new(session: Session, hub: Rc<LiveHub>, id: u64, timeframe: Timeframe) -> Self {
+    pub fn new(
+        session: Session,
+        hub: Rc<LiveHub>,
+        id: u64,
+        timeframe: Timeframe,
+        settings: ChartSettings,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        // Redraw once a second, so the time left in the current bar counts down.
+        let clock = cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                let alive = this.update(cx, |this, cx| {
+                    if this.timeframe.bar_ms().is_some() && matches!(this.load, Load::Ready) {
+                        cx.notify();
+                    }
+                });
+                if alive.is_err() {
+                    break;
+                }
+            }
+        });
         Self {
             hub,
             id,
             session,
             symbol: None,
             timeframe,
-            kind: ChartKind::Candles,
-            zone: Zone::default(),
-            kind_menu_open: false,
-            series: match timeframe {
-                Timeframe::Ticks => Series::Ticks(Vec::new()),
-                _ => Series::Bars(Vec::new()),
-            },
+            settings: settings.normalized(),
+            settings_revision: 0,
+            series: empty_series(timeframe),
+            display: Display::default(),
             view: View::new(timeframe.default_bar_px()),
             load: Load::Idle,
             older: Older::Idle,
             epoch: 0,
+            bid: None,
             ask: None,
             last_time_ms: 0,
             hover: None,
@@ -242,12 +307,33 @@ impl Chart {
             _drawings_observe: None,
             drawing_drag: false,
             over_drawing: false,
+            lines: Vec::new(),
+            menu: None,
+            context_at: None,
             bounds: Rc::new(Cell::new(None)),
+            _clock: clock,
         }
     }
 
     pub fn timeframe(&self) -> Timeframe {
         self.timeframe
+    }
+
+    pub fn settings(&self) -> &ChartSettings {
+        &self.settings
+    }
+
+    pub fn symbol(&self) -> Option<&Symbol> {
+        self.symbol.as_ref()
+    }
+
+    pub fn kind(&self) -> ChartKind {
+        self.settings.kind
+    }
+
+    /// The last bid and ask seen for the chart's symbol.
+    pub fn quote(&self) -> (Option<i64>, Option<i64>) {
+        (self.bid, self.ask)
     }
 
     // ---- what to show ----
@@ -257,14 +343,17 @@ impl Chart {
             return;
         }
         self.symbol = Some(Symbol { id, name, digits });
+        self.lines.clear();
         self.reload(cx);
     }
 
     /// The broker said how the symbol is quoted.
     pub fn set_digits(&mut self, id: i64, digits: u32, cx: &mut Context<Self>) {
-        if let Some(symbol) = self.symbol.as_mut().filter(|s| s.id == id) {
+        if let Some(symbol) = self.symbol.as_mut().filter(|s| s.id == id)
+            && symbol.digits != digits
+        {
             symbol.digits = digits;
-            cx.notify();
+            self.data_changed(cx);
         }
     }
 
@@ -277,804 +366,160 @@ impl Chart {
         cx.emit(ChartEvent::SettingsChanged);
     }
 
-    pub fn kind(&self) -> ChartKind {
-        self.kind
+    /// Changes the settings with `change`; recomputes what depends on them, redraws, and tells the
+    /// layout (which saves them) when they really changed.
+    pub fn edit_settings(
+        &mut self,
+        cx: &mut Context<Self>,
+        change: impl FnOnce(&mut ChartSettings),
+    ) {
+        let before = self.settings.clone();
+        change(&mut self.settings);
+        self.settings = std::mem::take(&mut self.settings).normalized();
+        if self.settings == before {
+            return;
+        }
+        self.settings_revision += 1;
+        let layout_changed = before.kind != self.settings.kind
+            || (self.settings.kind.is_derived() && before.transform != self.settings.transform);
+        let data_changed = layout_changed
+            || before.studies != self.settings.studies
+            || before.zone != self.settings.zone;
+        if data_changed {
+            self.rebuild_display();
+        }
+        if layout_changed {
+            // A different construction has a different number of points: start from the end.
+            self.view = View::new(self.view.bar_px);
+        }
+        if before.scale != self.settings.scale || before.invert != self.settings.invert {
+            self.view.price = view::PriceScale::Auto;
+        }
+        cx.emit(ChartEvent::SettingsChanged);
+        cx.notify();
     }
 
     pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
-        if self.kind != kind {
-            self.kind = kind;
-            cx.emit(ChartEvent::SettingsChanged);
+        self.edit_settings(cx, |s| s.kind = kind);
+    }
+
+    /// Adds an indicator, with its defaults.
+    pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| s.studies.push(config));
+    }
+
+    pub fn remove_study(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| {
+            if index < s.studies.len() {
+                s.studies.remove(index);
+            }
+        });
+    }
+
+    pub fn settings_revision(&self) -> u64 {
+        self.settings_revision
+    }
+
+    /// The orders, positions and alerts to show.
+    pub fn set_lines(&mut self, lines: Vec<ChartLine>, cx: &mut Context<Self>) {
+        if self.lines != lines {
+            self.lines = lines;
             cx.notify();
         }
     }
 
-    /// The time zone times are written in. Does not tell anyone.
-    pub fn set_zone(&mut self, zone: Zone, cx: &mut Context<Self>) {
-        if self.zone != zone {
-            self.zone = zone;
-            cx.notify();
-        }
-    }
-
-    fn digits(&self) -> u32 {
+    pub fn digits(&self) -> u32 {
         self.symbol.as_ref().map_or(5, |s| s.digits)
     }
 
-    /// Throws the data away and loads the current symbol and timeframe from scratch.
-    fn reload(&mut self, cx: &mut Context<Self>) {
-        self.epoch += 1;
-        let epoch = self.epoch;
-        self.series = match self.timeframe {
-            Timeframe::Ticks => Series::Ticks(Vec::new()),
-            _ => Series::Bars(Vec::new()),
-        };
-        self.view = View::new(self.timeframe.default_bar_px());
-        self.older = Older::Idle;
-        self.hover = None;
-        self.drag = None;
-        self.ask = None;
-        self.last_time_ms = 0;
-        let Some(symbol) = &self.symbol else {
-            self.load = Load::Idle;
-            self.hub.set(self.id, None);
-            cx.notify();
-            return;
-        };
-        self.load = Load::Loading;
-        self.hub.set(
-            self.id,
-            self.timeframe.period().map(|period| (symbol.id, period)),
-        );
-        cx.notify();
-
-        let (session, id, timeframe) = (self.session.clone(), symbol.id, self.timeframe);
-        cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(
-                    async move { load::initial(&session, id, timeframe, now_ms()).await },
-                )
-                .await;
-            let _ = this.update(cx, |this, cx| {
-                this.initial_loaded(epoch, flatten(result), cx)
-            });
-        })
-        .detach();
+    /// One quote unit in raw price units.
+    fn unit(&self) -> i64 {
+        scene::quote_unit(self.digits()).max(1.0) as i64
     }
 
-    fn initial_loaded(&mut self, epoch: u64, result: ApiResult<Loaded>, cx: &mut Context<Self>) {
-        if epoch != self.epoch {
-            return;
-        }
-        match result {
-            Ok(loaded) => {
-                match (loaded, &mut self.series) {
-                    (Loaded::Bars(bars), Series::Bars(held)) => *held = bars,
-                    (Loaded::Ticks(ticks), Series::Ticks(held)) => *held = ticks,
-                    _ => {}
-                }
-                self.last_time_ms = self.series.last_time().unwrap_or(0);
-                self.load = Load::Ready;
-                let plot_w = self.layout().plot_w();
-                self.view.clamp(self.series.len(), plot_w);
-                cx.notify();
-                // Prices that arrived while the history was on its way are not in it: fetch the
-                // few seconds in between. The server's own bars fix themselves on the next tick.
-                if self.timeframe.is_tick_built() {
-                    self.refill(cx);
-                }
-                self.load_older_if_needed(cx);
-            }
-            Err(error) => {
-                tracing::warn!(%error, "could not load the chart history");
-                self.load = Load::Failed(error.to_string().into());
-                cx.notify();
-            }
+    /// Recomputes what is drawn from the prices. Keeps what the user looks at in place when the
+    /// number of points of a construction grows, unless they are following the newest.
+    fn rebuild_display(&mut self) {
+        let before = self.display.shown(&self.series).len();
+        self.display = Display::build(&self.series, &self.settings, self.unit());
+        let after = self.display.shown(&self.series).len();
+        if after > before && self.display.is_derived() {
+            self.view.on_appended(after - before);
         }
     }
 
-    // ---- the connection ----
-
-    /// The session is connected (again): fetch what was missed, or start over if the first
-    /// load never made it.
-    pub fn on_ready(&mut self, cx: &mut Context<Self>) {
-        match self.load {
-            Load::Failed(_) => self.reload(cx),
-            Load::Ready => self.refill(cx),
-            Load::Idle | Load::Loading => {}
-        }
-    }
-
-    /// Fetches the prices between the newest point held and now, and joins them in.
-    fn refill(&mut self, cx: &mut Context<Self>) {
-        let (Some(symbol), Some(from)) = (&self.symbol, self.series.last_time()) else {
-            if self.symbol.is_some() && self.series.is_empty() {
-                self.reload(cx);
-            }
-            return;
-        };
-        let to = now_ms();
-        // A very long absence is cheaper to reload than to patch.
-        if let Some(bar_ms) = self.timeframe.bar_ms()
-            && self.timeframe.is_tick_built()
-            && to - from > 6 * self.timeframe.tick_span_ms().max(bar_ms)
-        {
-            self.reload(cx);
-            return;
-        }
-        if self.timeframe == Timeframe::Ticks && to - from > 6 * self.timeframe.tick_span_ms() {
-            self.reload(cx);
-            return;
-        }
-        let (session, id, timeframe, epoch) =
-            (self.session.clone(), symbol.id, self.timeframe, self.epoch);
-        cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(async move { load::gap(&session, id, timeframe, from, to).await })
-                    .await;
-            let _ = this.update(cx, |this, cx| {
-                if epoch != this.epoch {
-                    return;
-                }
-                match flatten(result) {
-                    Ok(loaded) => this.gap_loaded(loaded, from, to, cx),
-                    Err(error) => tracing::warn!(%error, "could not fill the gap in the chart"),
-                }
-            });
-        })
-        .detach();
-    }
-
-    fn gap_loaded(&mut self, loaded: Loaded, from: i64, to: i64, cx: &mut Context<Self>) {
-        let before = self.series.len();
-        match (loaded, &mut self.series) {
-            (Loaded::Bars(bars), Series::Bars(held)) => data::merge_bars(held, bars),
-            (Loaded::Ticks(ticks), Series::Ticks(held)) => {
-                data::splice_ticks(held, ticks, from, to);
-            }
-            _ => return,
-        }
-        let added = self.series.len().saturating_sub(before);
-        self.view.on_appended(added);
-        self.last_time_ms = self.series.last_time().unwrap_or(self.last_time_ms);
+    /// The prices changed: recompute what depends on them and redraw.
+    fn data_changed(&mut self, cx: &mut Context<Self>) {
+        self.rebuild_display();
         cx.notify();
     }
 
-    // ---- older history ----
+    /// The series on screen.
+    fn shown(&self) -> &Series {
+        self.display.shown(&self.series)
+    }
 
-    /// Asks for older history when the view is near the oldest point held.
-    fn load_older_if_needed(&mut self, cx: &mut Context<Self>) {
-        if !matches!(self.load, Load::Ready) {
-            return;
-        }
-        match self.older {
-            Older::Idle => {}
-            Older::Retry(at) if Instant::now() >= at => {}
-            _ => return,
-        }
-        let len = self.series.len();
-        if len >= self.series.capacity_limit() {
-            self.older = Older::Exhausted;
-            return;
-        }
-        let plot_w = self.layout().plot_w();
-        let (first, _) = self.view.visible(len, plot_w);
-        if (first as f64) > self.view.span(plot_w) * 0.5 {
-            return;
-        }
-        let (Some(symbol), Some(oldest)) = (&self.symbol, self.series.first_time()) else {
-            return;
+    /// The time between two points on screen, for placing times past the data.
+    fn step_ms(&self) -> f64 {
+        let nominal = if self.display.is_derived() && self.settings.kind != ChartKind::HeikinAshi {
+            None
+        } else {
+            self.timeframe.bar_ms()
         };
-        self.older = Older::Loading;
-        cx.notify();
-        let (session, id, timeframe, epoch) =
-            (self.session.clone(), symbol.id, self.timeframe, self.epoch);
-        cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(async move { load::older(&session, id, timeframe, oldest).await })
-                    .await;
-            let _ = this.update(cx, |this, cx| this.older_loaded(epoch, flatten(result), cx));
-        })
-        .detach();
+        self.shown().step_ms(nominal)
     }
 
-    fn older_loaded(&mut self, epoch: u64, result: ApiResult<Loaded>, cx: &mut Context<Self>) {
-        if epoch != self.epoch {
-            return;
-        }
-        match result {
-            Ok(loaded) if loaded.is_empty() => self.older = Older::Exhausted,
-            Ok(loaded) => {
-                let added = match (loaded, &mut self.series) {
-                    (Loaded::Bars(bars), Series::Bars(held)) => data::prepend_bars(held, bars),
-                    (Loaded::Ticks(ticks), Series::Ticks(held)) => data::prepend_ticks(held, ticks),
-                    _ => 0,
-                };
-                // Nothing new means the server has nothing older (or only what is held).
-                self.older = if added == 0 {
-                    Older::Exhausted
-                } else {
-                    Older::Idle
-                };
-            }
-            Err(error) => {
-                tracing::warn!(%error, "could not load older history");
-                self.older = Older::Retry(Instant::now() + Duration::from_secs(5));
-            }
-        }
-        cx.notify();
-        if matches!(self.older, Older::Idle) {
-            // Still near the edge after the step? Keep going until the screen is full.
-            self.load_older_if_needed(cx);
-        }
-    }
-
-    // ---- live prices ----
-
-    /// A price event from the session.
-    pub fn on_spot(&mut self, spot: &SpotEvent, cx: &mut Context<Self>) {
-        let Some(id) = self.symbol.as_ref().map(|s| s.id) else {
-            return;
-        };
-        if spot.symbol_id != id {
-            return;
-        }
-        if let Some(ask) = spot.ask {
-            self.ask = Some(ask);
-        }
-        if !matches!(self.load, Load::Ready) {
-            cx.notify();
-            return;
-        }
-        let mut appended = 0;
-        if let Some(bid) = spot.bid {
-            let time_ms = spot.timestamp.unwrap_or_else(now_ms).max(self.last_time_ms);
-            self.last_time_ms = time_ms;
-            let tick = Tick {
-                time_ms,
-                price: bid,
-            };
-            match (&mut self.series, self.timeframe) {
-                (Series::Ticks(ticks), _) => {
-                    ticks.push(tick);
-                    appended += 1;
-                    data::trim_front(ticks, MAX_TICKS);
-                }
-                (Series::Bars(bars), Timeframe::Seconds(seconds)) => {
-                    if data::fold_tick(bars, i64::from(seconds) * 1_000, tick) {
-                        appended += 1;
-                    }
-                    data::trim_front(bars, MAX_BARS);
-                }
-                (Series::Bars(bars), Timeframe::Bars(period)) => {
-                    data::touch_last_bar(bars, period.millis(), tick);
-                }
-                _ => {}
-            }
-        }
-        if let (Series::Bars(bars), Timeframe::Bars(period)) = (&mut self.series, self.timeframe) {
-            for (live_period, bar) in spot.live_bars() {
-                let bar = data::with_true_close(bar, bars.last(), spot.bid);
-                if live_period == period && data::apply_live_bar(bars, bar) {
-                    appended += 1;
-                    self.last_time_ms = self.last_time_ms.max(bar.time_ms);
-                }
-            }
-            data::trim_front(bars, MAX_BARS);
-        }
-        if appended > 0 {
-            self.view.on_appended(appended);
-        }
-        cx.notify();
-    }
-
-    // ---- moving around ----
-
-    fn layout(&self) -> Layout {
-        match self.bounds.get() {
-            Some(bounds) => Layout {
-                w: f64::from(f32::from(bounds.size.width)),
-                h: f64::from(f32::from(bounds.size.height)),
-            },
-            None => Layout {
-                w: 1_000.0,
-                h: 600.0,
-            },
-        }
-    }
-
-    fn region(&self, x: f32, y: f32) -> Region {
-        let layout = self.layout();
-        match (
-            f64::from(x) < layout.plot_w(),
-            f64::from(y) < layout.plot_h(),
-        ) {
-            (true, true) => Region::Plot,
-            (false, true) => Region::PriceAxis,
-            (true, false) => Region::TimeAxis,
-            (false, false) => Region::Corner,
-        }
-    }
-
-    fn moved(&mut self, cx: &mut Context<Self>) {
-        cx.notify();
-        self.emit_span(cx);
-        self.load_older_if_needed(cx);
-    }
-
-    fn pan_by(&mut self, dx: f32, cx: &mut Context<Self>) {
-        let plot_w = self.layout().plot_w();
-        self.view.pan(f64::from(dx), self.series.len(), plot_w);
-        self.moved(cx);
-    }
-
-    fn zoom_by(&mut self, factor: f64, anchor_x: f32, cx: &mut Context<Self>) {
-        let plot_w = self.layout().plot_w();
-        self.view
-            .zoom(factor, f64::from(anchor_x), self.series.len(), plot_w);
-        self.moved(cx);
-    }
-
-    fn zoom_price_by(&mut self, factor: f64, anchor_y: Option<f32>, cx: &mut Context<Self>) {
-        let Some(map) = scene::price_map(
-            &self.series,
-            &self.view,
-            self.layout(),
-            self.kind,
-            self.digits(),
-        ) else {
-            return;
-        };
-        let anchor = match anchor_y {
-            Some(y) => map.price(f64::from(y)),
-            None => (map.lo + map.hi) / 2.0,
-        };
-        let (lo, hi) = zoom_range(map.lo, map.hi, anchor, factor);
-        self.view.price = PriceScale::Manual { lo, hi };
-        cx.notify();
-    }
-
-    fn pan_price_by(&mut self, dy: f32, cx: &mut Context<Self>) {
-        let Some(map) = scene::price_map(
-            &self.series,
-            &self.view,
-            self.layout(),
-            self.kind,
-            self.digits(),
-        ) else {
-            return;
-        };
-        let shift = f64::from(dy) / (map.bottom - map.top) * (map.hi - map.lo);
-        self.view.price = PriceScale::Manual {
-            lo: map.lo + shift,
-            hi: map.hi + shift,
-        };
-        cx.notify();
-    }
-
-    pub fn pan_keys(&mut self, forward: bool, cx: &mut Context<Self>) {
-        let step = (self.view.bar_px * 6.0) as f32;
-        self.pan_by(if forward { -step } else { step }, cx);
-    }
-
-    pub fn zoom_keys(&mut self, magnify: bool, cx: &mut Context<Self>) {
-        let anchor = self.layout().plot_w() as f32;
-        self.zoom_by(if magnify { 1.25 } else { 0.8 }, anchor, cx);
-    }
-
-    pub fn jump_to_latest(&mut self, cx: &mut Context<Self>) {
-        self.view.jump_to_latest();
-        self.view.price = PriceScale::Auto;
-        cx.notify();
-        self.emit_span(cx);
-    }
-
-    fn on_mouse_down(&mut self, x: f32, y: f32, clicks: usize, cx: &mut Context<Self>) {
-        cx.emit(ChartEvent::Activated);
-        let region = self.region(x, y);
-        if region == Region::Corner {
-            cx.emit(ChartEvent::ZoneClicked);
-            return;
-        }
-        if region == Region::Plot && self.drawing_press(x, y, cx) {
-            self.drawing_drag = true;
-            cx.notify();
-            return;
-        }
-        if clicks >= 2 {
-            match region {
-                Region::Plot | Region::TimeAxis => self.jump_to_latest(cx),
-                Region::PriceAxis => {
-                    self.view.price = PriceScale::Auto;
-                    cx.notify();
-                }
-                Region::Corner => {}
-            }
-            return;
-        }
-        let kind = match region {
-            Region::Plot => DragKind::Pan,
-            Region::PriceAxis => DragKind::Price,
-            Region::TimeAxis => DragKind::Time,
-            Region::Corner => return,
-        };
-        self.drag = Some(Drag { kind, last: (x, y) });
-        cx.notify();
-    }
-
-    fn on_mouse_move(
-        &mut self,
-        x: f32,
-        y: f32,
-        left_down: bool,
-        shift: bool,
-        cx: &mut Context<Self>,
-    ) {
-        if self.drawing_drag {
-            if left_down {
-                self.set_hover(x, y, cx);
-                self.drawing_moved(x, y, cx);
-            } else {
-                self.drawing_released(x, y, cx);
-            }
-            return;
-        }
-        if let Some(drag) = self.drag {
-            if !left_down {
-                self.drag = None;
-                cx.notify();
-                return;
-            }
-            let (dx, dy) = (x - drag.last.0, y - drag.last.1);
-            self.drag = Some(Drag {
-                last: (x, y),
-                ..drag
-            });
-            match drag.kind {
-                DragKind::Pan => {
-                    self.set_hover(x, y, cx);
-                    if shift {
-                        self.pan_price_by(dy, cx);
-                    }
-                    self.pan_by(dx, cx);
-                }
-                DragKind::Price => self.zoom_price_by((-f64::from(dy) * 0.006).exp(), None, cx),
-                DragKind::Time => {
-                    let anchor = self.layout().plot_w() as f32;
-                    self.zoom_by((f64::from(dx) * 0.006).exp(), anchor, cx);
-                }
-            }
-            return;
-        }
-        self.set_hover(x, y, cx);
-        self.drawing_moved(x, y, cx);
-        cx.notify();
-    }
-
-    fn set_hover(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        self.hover = Some((x, y));
-        let info = self.hover_info(x, y);
-        cx.emit(ChartEvent::Hover(info));
-    }
-
-    fn on_mouse_up(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        if self.drawing_drag {
-            self.drawing_released(x, y, cx);
-        }
-        if self.drag.take().is_some() {
-            cx.notify();
-        }
-    }
-
-    fn on_pointer_left(&mut self, cx: &mut Context<Self>) {
-        if self.hover.take().is_some() {
-            cx.emit(ChartEvent::Hover(None));
-            cx.notify();
-        }
-    }
-
-    fn on_wheel(&mut self, x: f32, y: f32, dx: f32, dy: f32, shift: bool, cx: &mut Context<Self>) {
-        match self.region(x, y) {
-            Region::PriceAxis => {
-                self.zoom_price_by((f64::from(dy) * 0.002).exp(), Some(y), cx);
-            }
-            Region::Corner => {}
-            Region::Plot | Region::TimeAxis => {
-                if shift || dx.abs() > dy.abs() {
-                    self.pan_by(if shift { dy } else { dx }, cx);
-                } else {
-                    let anchor = if matches!(self.region(x, y), Region::TimeAxis) {
-                        self.layout().plot_w() as f32
-                    } else {
-                        x
-                    };
-                    self.zoom_by((f64::from(dy) * 0.002).exp(), anchor, cx);
-                }
-            }
-        }
-    }
-
-    // ---- drawings ----
-
-    /// Shows and edits the drawings of this entity, redrawing when they change.
-    pub fn attach_drawings(&mut self, drawings: Entity<Drawings>, cx: &mut Context<Self>) {
-        self._drawings_observe = Some(cx.observe(&drawings, |_this, _drawings, cx| cx.notify()));
-        self.drawings = Some(drawings);
-    }
-
-    /// Runs `f` with the projection of the chart as it is now, when it has data to project.
-    fn with_projection<R>(&self, f: impl FnOnce(&ChartProjection<'_>) -> R) -> Option<R> {
-        let layout = self.layout();
-        let map = scene::price_map(&self.series, &self.view, layout, self.kind, self.digits())?;
-        let projection = ChartProjection {
-            series: &self.series,
-            view: &self.view,
-            map,
-            plot_w: layout.plot_w(),
-            plot_h: layout.plot_h(),
-            step_ms: self.series.step_ms(self.timeframe.bar_ms()),
-            digits: self.digits(),
-        };
-        Some(f(&projection))
-    }
-
-    fn symbol_name(&self) -> Option<String> {
-        self.symbol.as_ref().map(|s| s.name.to_string())
-    }
-
-    /// A press on the plot. Returns whether a drawing took it, in which case the chart does not
-    /// scroll.
-    fn drawing_press(&mut self, x: f32, y: f32, cx: &mut Context<Self>) -> bool {
-        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
-            return false;
-        };
-        let taken = self.with_projection(|projection| {
-            drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.press(&symbol, projection, x, y))
-            })
-        });
-        taken == Some(Press::Taken)
-    }
-
-    /// The pointer moved: a drawing being made or moved follows it.
-    fn drawing_moved(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
-            return;
-        };
-        if !drawings.read(cx).book().is_busy() {
-            let over = self
-                .with_projection(|projection| {
-                    drawings
-                        .read(cx)
-                        .book()
-                        .hover_part(&symbol, projection, x, y)
-                        .is_some()
+    /// The bars on screen, as bars (a tick is a bar of one price).
+    pub fn bars(&self) -> Vec<Bar> {
+        match self.shown() {
+            Series::Bars(bars) => bars.clone(),
+            Series::Ticks(ticks) => ticks
+                .iter()
+                .map(|t| Bar {
+                    time_ms: t.time_ms,
+                    open: t.price,
+                    high: t.price,
+                    low: t.price,
+                    close: t.price,
+                    volume: 1,
                 })
-                .unwrap_or(false);
-            if over != self.over_drawing {
-                self.over_drawing = over;
-                cx.notify();
-            }
-            return;
-        }
-        self.over_drawing = false;
-        let changed = self.with_projection(|projection| {
-            drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.pointer_moved(&symbol, projection, x, y))
-            })
-        });
-        if changed == Some(true) {
-            cx.notify();
+                .collect(),
         }
     }
 
-    /// Duplicates the selected drawing, a little to the side.
-    pub fn duplicate_selected(&mut self, cx: &mut Context<Self>) {
-        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
-            return;
-        };
-        self.with_projection(|projection| {
-            drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.duplicate(&symbol, projection))
-            })
-        });
-    }
-
-    fn drawing_released(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
-        self.drawing_drag = false;
-        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
-            return;
-        };
-        self.with_projection(|projection| {
-            drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.release(&symbol, projection, x, y))
-            })
-        });
-        cx.notify();
-    }
-
-    // ---- following other charts ----
-
-    fn emit_span(&self, cx: &mut Context<Self>) {
-        if let Some(span) = self.span() {
-            cx.emit(ChartEvent::ViewChanged(span));
+    /// The size of the chart as it was last drawn.
+    fn size(&self) -> (f64, f64) {
+        match self.bounds.get() {
+            Some(bounds) => (
+                f64::from(f32::from(bounds.size.width)),
+                f64::from(f32::from(bounds.size.height)),
+            ),
+            None => (1_000.0, 600.0),
         }
     }
 
-    /// The times at the edges of the plot, once there is data to tell them from.
-    fn span(&self) -> Option<Span> {
-        let plot_w = self.layout().plot_w();
-        let len = self.series.len();
-        let step = self.series.step_ms(self.timeframe.bar_ms());
-        let left = self.view.index_at(0.0, len, plot_w);
-        let right = self.view.index_at(plot_w, len, plot_w);
-        Some(Span {
-            left_ms: self.series.time_of_index(left, step)?,
-            right_ms: self.series.time_of_index(right, step)?,
-        })
+    /// The bands of the chart as it was last drawn.
+    fn geometry(&self) -> Geometry {
+        let (w, h) = self.size();
+        scene::geometry(&self.settings, w, h)
     }
 
-    /// The time and price under a pointer position, when it is over a point of the plot.
-    fn hover_info(&self, x: f32, y: f32) -> Option<Hover> {
-        if self.region(x, y) != Region::Plot {
-            return None;
-        }
-        let len = self.series.len();
-        let plot_w = self.layout().plot_w();
-        let index = self
-            .view
-            .index_at(f64::from(x), len, plot_w)
-            .round()
-            .clamp(0.0, len.checked_sub(1)? as f64) as usize;
-        let map = scene::price_map(
+    /// The price scale of the prices band as it is now.
+    fn main_map(&self) -> Option<scene::PriceMap> {
+        scene::main_map(
             &self.series,
+            &self.display,
+            &self.settings,
             &self.view,
-            self.layout(),
-            self.kind,
+            &self.geometry(),
             self.digits(),
-        )?;
-        Some(Hover {
-            time_ms: self.series.time_at(index)?,
-            price: map.price(f64::from(y)),
+        )
+    }
+
+    fn is_compact(&self) -> bool {
+        self.bounds.get().is_some_and(|b| {
+            f32::from(b.size.width) < COMPACT_WIDTH || f32::from(b.size.height) < COMPACT_HEIGHT
         })
-    }
-
-    /// Another chart was scrolled: show the same time at the right edge. Does not tell anyone.
-    pub fn follow_right_edge(&mut self, right_ms: i64, cx: &mut Context<Self>) {
-        let len = self.series.len();
-        let step = self.series.step_ms(self.timeframe.bar_ms());
-        let Some(index) = self.series.index_of_time(right_ms, step) else {
-            return;
-        };
-        self.view.offset = index + 0.5 - len as f64;
-        self.view.clamp(len, self.layout().plot_w());
-        cx.notify();
-        self.load_older_if_needed(cx);
-    }
-
-    /// Another chart was scrolled or zoomed: show the same span of time. Does not tell anyone.
-    pub fn follow_span(&mut self, span: Span, cx: &mut Context<Self>) {
-        let len = self.series.len();
-        let step = self.series.step_ms(self.timeframe.bar_ms());
-        let (Some(left), Some(right)) = (
-            self.series.index_of_time(span.left_ms, step),
-            self.series.index_of_time(span.right_ms, step),
-        ) else {
-            return;
-        };
-        let points = right - left;
-        if !(points.is_finite() && points >= 1.0) {
-            return;
-        }
-        let plot_w = self.layout().plot_w();
-        self.view.bar_px = plot_w / points;
-        self.view.offset = right + 0.5 - len as f64;
-        self.view.clamp(len, plot_w);
-        cx.notify();
-        self.load_older_if_needed(cx);
-    }
-
-    /// The pointer of another chart, drawn here as a crosshair.
-    pub fn show_remote_pointer(&mut self, pointer: Option<Hover>, cx: &mut Context<Self>) {
-        if self.remote != pointer {
-            self.remote = pointer;
-            cx.notify();
-        }
-    }
-
-    // ---- what the legend says ----
-
-    /// The point under the pointer, or the newest.
-    fn shown_index(&self) -> Option<usize> {
-        let len = self.series.len();
-        let last = len.checked_sub(1)?;
-        let Some((x, _)) = self
-            .hover
-            .filter(|(x, y)| self.region(*x, *y) == Region::Plot)
-        else {
-            if let Some(remote) = self.remote {
-                let step = self.series.step_ms(self.timeframe.bar_ms());
-                let index = self.series.index_of_time(remote.time_ms, step)?.round();
-                return Some(index.clamp(0.0, last as f64) as usize);
-            }
-            return Some(last);
-        };
-        let index = self
-            .view
-            .index_at(f64::from(x), len, self.layout().plot_w())
-            .round();
-        Some(index.clamp(0.0, last as f64) as usize)
-    }
-
-    fn scene(&self, cx: &App, bounds: Bounds<Pixels>, scale: f32) -> Vec<Cmd> {
-        let drawings =
-            self.drawings
-                .as_ref()
-                .zip(self.symbol.as_ref())
-                .and_then(|(drawings, symbol)| {
-                    let book = drawings.read(cx).book();
-                    let name = symbol.name.as_ref();
-                    let (list, creating) = (book.drawings(name), book.creating(name));
-                    (!list.is_empty() || creating.is_some()).then(|| DrawingView {
-                        list,
-                        creating,
-                        selected: book.selected(),
-                    })
-                });
-        scene::build(&Frame {
-            series: &self.series,
-            view: &self.view,
-            kind: self.kind,
-            timeframe: self.timeframe,
-            zone: self.zone,
-            digits: self.digits(),
-            origin: bounds.origin,
-            layout: Layout {
-                w: f64::from(f32::from(bounds.size.width)),
-                h: f64::from(f32::from(bounds.size.height)),
-            },
-            scale,
-            hover: self.hover,
-            remote: self.remote.map(|r| (r.time_ms, r.price)),
-            ask: self.ask,
-            palette: Palette::new(),
-            drawings,
-        })
-    }
-
-    fn cursor(&self, cx: &App) -> CursorStyle {
-        if self.drawing_drag {
-            return CursorStyle::ClosedHand;
-        }
-        if self.over_drawing {
-            return CursorStyle::PointingHand;
-        }
-        if self
-            .drawings
-            .as_ref()
-            .is_some_and(|drawings| drawings.read(cx).book().tool().is_some())
-            && self
-                .hover
-                .is_some_and(|(x, y)| self.region(x, y) == Region::Plot)
-        {
-            return CursorStyle::Crosshair;
-        }
-        if let Some(drag) = self.drag {
-            return match drag.kind {
-                DragKind::Pan => CursorStyle::ClosedHand,
-                DragKind::Price => CursorStyle::ResizeUpDown,
-                DragKind::Time => CursorStyle::ResizeLeftRight,
-            };
-        }
-        match self
-            .hover
-            .map_or(Region::Corner, |(x, y)| self.region(x, y))
-        {
-            Region::Plot => CursorStyle::Crosshair,
-            Region::PriceAxis => CursorStyle::ResizeUpDown,
-            Region::TimeAxis => CursorStyle::ResizeLeftRight,
-            Region::Corner => CursorStyle::PointingHand,
-        }
     }
 }
 
@@ -1084,14 +529,10 @@ impl Drop for Chart {
     }
 }
 
-fn kind_icon(kind: ChartKind) -> IconName {
-    match kind {
-        ChartKind::Candles | ChartKind::Hollow => IconName::ChartCandlestick,
-        ChartKind::HeikinAshi => IconName::ChartNoAxesCombined,
-        ChartKind::Bars => IconName::ChartNoAxesColumn,
-        ChartKind::Line => IconName::ChartLine,
-        ChartKind::Step => IconName::Activity,
-        ChartKind::Area => IconName::ChartArea,
+fn empty_series(timeframe: Timeframe) -> Series {
+    match timeframe {
+        Timeframe::Ticks => Series::Ticks(Vec::new()),
+        _ => Series::Bars(Vec::new()),
     }
 }
 
@@ -1102,547 +543,9 @@ fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult
     }
 }
 
-fn now_ms() -> i64 {
+/// The current time in Unix milliseconds.
+pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
-}
-
-// ---- drawing ----
-
-/// Draws the commands of a frame.
-fn execute(cmds: Vec<Cmd>, chart: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
-    for cmd in cmds {
-        match cmd {
-            Cmd::Quad(quad) => window.paint_quad(quad),
-            Cmd::Path(path, color) => window.paint_path(path, color),
-            Cmd::Clip(bounds, inner) => {
-                window.with_content_mask(Some(ContentMask { bounds }), |window| {
-                    execute(inner, chart, window, cx);
-                });
-            }
-            Cmd::Text {
-                text,
-                x,
-                y,
-                color,
-                align,
-            } => {
-                let line = shape(window, &text, scene_font(), color);
-                let x = aligned(x, f32::from(line.width), align);
-                let _ = line.paint(
-                    point(px(x), px(y)),
-                    px(scene_font() * 1.3),
-                    TextAlign::Left,
-                    None,
-                    window,
-                    cx,
-                );
-            }
-            Cmd::Tag {
-                text,
-                x,
-                y,
-                height,
-                pad,
-                bg,
-                fg,
-                align,
-                fixed_width,
-            } => {
-                let line = shape(window, &text, scene_font(), fg);
-                let width = fixed_width.unwrap_or_else(|| f32::from(line.width) + pad * 2.0);
-                let (left, right) = (
-                    f32::from(chart.origin.x),
-                    f32::from(chart.origin.x) + f32::from(chart.size.width),
-                );
-                let x = aligned(x, width, align).clamp(left, (right - width).max(left));
-                let mut quad = fill(
-                    Bounds::new(point(px(x), px(y)), size(px(width), px(height))),
-                    bg,
-                );
-                quad.corner_radii = px(4.0).into();
-                window.paint_quad(quad);
-                let text_x = x + pad;
-                let _ = line.paint(
-                    point(px(text_x), px(y + (height - scene_font() * 1.3) / 2.0)),
-                    px(scene_font() * 1.3),
-                    TextAlign::Left,
-                    None,
-                    window,
-                    cx,
-                );
-            }
-        }
-    }
-}
-
-fn scene_font() -> f32 {
-    11.0
-}
-
-fn aligned(x: f32, width: f32, align: Align) -> f32 {
-    match align {
-        Align::Left => x,
-        Align::Center => x - width / 2.0,
-        Align::Right => x - width,
-    }
-}
-
-fn shape(window: &Window, text: &str, size_px: f32, color: gpui::Hsla) -> gpui::ShapedLine {
-    let style = window.text_style();
-    let run = TextRun {
-        len: text.len(),
-        font: style.font(),
-        color,
-        background_color: None,
-        underline: None,
-        strikethrough: None,
-    };
-    window.text_system().shape_line(
-        SharedString::from(text.to_owned()),
-        px(size_px),
-        &[run],
-        None,
-    )
-}
-
-/// The canvas: measures itself, draws a frame from the chart's data, and listens to the pointer.
-fn surface(
-    chart: &Entity<Chart>,
-    bounds_cell: Rc<Cell<Option<Bounds<Pixels>>>>,
-) -> impl IntoElement {
-    let entity = chart.clone();
-    canvas(
-        move |bounds, window, _cx| {
-            bounds_cell.set(Some(bounds));
-            window.insert_hitbox(bounds, HitboxBehavior::Normal)
-        },
-        move |bounds, hitbox: Hitbox, window, cx| {
-            let scale = window.scale_factor();
-            let cmds = entity.read(cx).scene(cx, bounds, scale);
-            execute(cmds, bounds, window, cx);
-            let cursor = entity.read(cx).cursor(cx);
-            window.set_cursor_style(cursor, &hitbox);
-            listen(&entity, bounds, hitbox, window);
-        },
-    )
-    .absolute()
-    .size_full()
-}
-
-/// Registers the pointer handlers for this frame. They are window wide, so a drag that leaves the
-/// chart keeps working, and each one checks the hitbox so an overlay above the chart wins.
-fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window: &mut Window) {
-    let relative = move |position: gpui::Point<Pixels>| {
-        (
-            f32::from(position.x - bounds.origin.x),
-            f32::from(position.y - bounds.origin.y),
-        )
-    };
-
-    let (e, h) = (entity.clone(), hitbox.clone());
-    window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
-        if phase != gpui::DispatchPhase::Bubble
-            || event.button != MouseButton::Left
-            || !h.is_hovered(window)
-        {
-            return;
-        }
-        let (x, y) = relative(event.position);
-        let clicks = event.click_count;
-        e.update(cx, |chart, cx| chart.on_mouse_down(x, y, clicks, cx));
-    });
-
-    let (e, h) = (entity.clone(), hitbox.clone());
-    window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
-        if phase != gpui::DispatchPhase::Bubble {
-            return;
-        }
-        let (x, y) = relative(event.position);
-        let hovered = h.is_hovered(window);
-        let left_down = event.pressed_button == Some(MouseButton::Left);
-        let shift = event.modifiers.shift;
-        e.update(cx, |chart, cx| {
-            if chart.drag.is_some() || chart.drawing_drag || hovered {
-                chart.on_mouse_move(x, y, left_down, shift, cx);
-            } else {
-                chart.on_pointer_left(cx);
-            }
-        });
-    });
-
-    let e = entity.clone();
-    window.on_mouse_event(move |event: &MouseUpEvent, phase, _window, cx| {
-        if phase == gpui::DispatchPhase::Bubble && event.button == MouseButton::Left {
-            let (x, y) = relative(event.position);
-            e.update(cx, |chart, cx| chart.on_mouse_up(x, y, cx));
-        }
-    });
-
-    let (e, h) = (entity.clone(), hitbox.clone());
-    window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
-        if phase != gpui::DispatchPhase::Bubble || !h.is_hovered(window) {
-            return;
-        }
-        let (x, y) = relative(event.position);
-        let delta = event.delta.pixel_delta(px(20.0));
-        let (dx, dy) = (f32::from(delta.x), f32::from(delta.y));
-        let shift = event.modifiers.shift;
-        e.update(cx, |chart, cx| chart.on_wheel(x, y, dx, dy, shift, cx));
-    });
-
-    let (e, h) = (entity.clone(), hitbox);
-    window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
-        if phase != gpui::DispatchPhase::Bubble || !h.is_hovered(window) {
-            return;
-        }
-        let (x, _) = relative(event.position);
-        let factor = f64::from(1.0 + event.delta).max(0.1);
-        e.update(cx, |chart, cx| chart.zoom_by(factor, x, cx));
-    });
-}
-
-impl Render for Chart {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let entity = cx.entity();
-        let latest = !self.view.is_following() && !self.series.is_empty();
-        // Small charts (many on the screen) keep only what still fits.
-        let compact = self.bounds.get().is_some_and(|b| {
-            f32::from(b.size.width) < COMPACT_WIDTH || f32::from(b.size.height) < COMPACT_HEIGHT
-        });
-
-        div()
-            .relative()
-            .flex_1()
-            .w_full()
-            .min_h_0()
-            .overflow_hidden()
-            .bg(theme::bg())
-            .child(surface(&entity, self.bounds.clone()))
-            .child(self.legend(compact))
-            .children((!compact).then(|| self.toolbar(latest, cx)))
-            .children(self.status(cx))
-    }
-}
-
-impl Chart {
-    /// The symbol, the timeframe and the numbers of the point under the pointer.
-    fn legend(&self, compact: bool) -> impl IntoElement {
-        let digits = self.digits();
-        let name = self
-            .symbol
-            .as_ref()
-            .map(|s| s.name.clone())
-            .unwrap_or_default();
-        let head = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .text_size(px(13.))
-            .child(
-                div()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_color(theme::fg())
-                    .child(name),
-            )
-            .child(
-                div()
-                    .text_color(theme::muted_fg())
-                    .child(self.timeframe.name()),
-            );
-
-        let mut numbers = div()
-            .flex()
-            .flex_row()
-            .flex_wrap()
-            .items_center()
-            .gap_x_3()
-            .text_size(px(12.));
-        if let Some(index) = self.shown_index() {
-            let value = |label: &'static str, price: i64, tone: gpui::Rgba| {
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap_1()
-                    .child(div().text_color(theme::muted_fg()).child(label))
-                    .child(div().text_color(tone).child(format_price(price, digits)))
-            };
-            match &self.series {
-                Series::Bars(bars) => {
-                    if let Some(bar) = bars.get(index) {
-                        let tone = if bar.close >= bar.open {
-                            theme::emerald()
-                        } else {
-                            theme::destructive()
-                        };
-                        let change = if bar.open != 0 {
-                            (bar.close - bar.open) as f64 / bar.open as f64 * 100.0
-                        } else {
-                            0.0
-                        };
-                        if compact {
-                            numbers = numbers
-                                .child(value("C", bar.close, tone))
-                                .child(div().text_color(tone).child(format!("{change:+.2}%")));
-                        } else {
-                            numbers = numbers
-                                .child(value("O", bar.open, tone))
-                                .child(value("H", bar.high, tone))
-                                .child(value("L", bar.low, tone))
-                                .child(value("C", bar.close, tone))
-                                .child(div().text_color(tone).child(format!("{change:+.2}%")))
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .gap_1()
-                                        .child(div().text_color(theme::muted_fg()).child("Ticks"))
-                                        .child(
-                                            div()
-                                                .text_color(theme::fg())
-                                                .child(bar.volume.to_string()),
-                                        ),
-                                );
-                        }
-                    }
-                }
-                Series::Ticks(ticks) => {
-                    if let Some(tick) = ticks.get(index) {
-                        numbers = numbers.child(value("Bid", tick.price, theme::fg()));
-                    }
-                }
-            }
-        }
-        div()
-            .absolute()
-            .top(px(8.))
-            .left(px(12.))
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(head)
-            .child(numbers)
-    }
-
-    /// Chart type, and the buttons that bring the chart back to the newest prices.
-    fn toolbar(&self, latest: bool, cx: &mut Context<Self>) -> impl IntoElement {
-        let kind_button = Button::new("chart-kind")
-            .ghost()
-            .compact()
-            .icon(kind_icon(self.kind))
-            .tooltip(self.kind.label())
-            .toggled(self.kind_menu_open)
-            .cursor_pointer()
-            .on_click(cx.listener(|this, _event, _window, cx| {
-                this.kind_menu_open = !this.kind_menu_open;
-                cx.notify();
-            }));
-        let auto = matches!(self.view.price, PriceScale::Auto);
-        div()
-            .absolute()
-            .top(px(6.))
-            .right(px(AXIS_W + 10.0))
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_1()
-            .p_1()
-            .rounded_lg()
-            .bg(gpui::rgba(0x0a0a0acc))
-            .occlude()
-            .child(kind_button)
-            .children(self.kind_menu_open.then(|| self.kind_menu(cx)))
-            .when(!auto, |el| {
-                el.child(
-                    Button::new("chart-auto-scale")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::Scaling)
-                        .tooltip("Fit the price scale (double click the price axis)")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.view.price = PriceScale::Auto;
-                            cx.notify();
-                        })),
-                )
-            })
-            .when(latest, |el| {
-                el.child(
-                    Button::new("chart-latest")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::ChevronsRight)
-                        .tooltip("Back to the latest price (End)")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.jump_to_latest(cx);
-                        })),
-                )
-            })
-    }
-
-    /// The list of chart types under the toolbar's type button.
-    fn kind_menu(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut card = div()
-            .id("chart-kind-menu")
-            .w(px(190.))
-            .p_1()
-            .flex()
-            .flex_col()
-            .rounded_lg()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .occlude();
-        for kind in ChartKind::ALL {
-            let selected = self.kind == kind;
-            card = card.child(
-                div()
-                    .id(SharedString::from(format!("chart-kind-{}", kind.code())))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .h(px(30.))
-                    .px_2()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .text_size(px(12.))
-                    .text_color(if selected {
-                        theme::fg()
-                    } else {
-                        theme::muted_fg()
-                    })
-                    .when(selected, |el| el.bg(theme::accent_selected()))
-                    .hover(|style| style.bg(theme::surface_hover()))
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.kind_menu_open = false;
-                        this.set_kind(kind, cx);
-                    }))
-                    .child(ui::icon_colored(
-                        kind_icon(kind),
-                        15.,
-                        if selected {
-                            theme::fg()
-                        } else {
-                            theme::muted_fg()
-                        },
-                    ))
-                    .child(kind.label()),
-            );
-        }
-        gpui::deferred(
-            gpui::anchored()
-                .anchor(gpui::Anchor::TopRight)
-                .snap_to_window_with_margin(px(8.))
-                .child(div().pt(px(36.)).child(card)),
-        )
-        .with_priority(2)
-    }
-
-    /// Loading, failed and empty states, and the small note while older history comes in.
-    fn status(&self, cx: &mut Context<Self>) -> Vec<gpui::AnyElement> {
-        let centered = || {
-            div()
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .flex()
-                .flex_col()
-                .items_center()
-                .justify_center()
-                .gap_3()
-                .px_6()
-        };
-        let mut out: Vec<gpui::AnyElement> = Vec::new();
-        match &self.load {
-            Load::Idle => out.push(
-                centered()
-                    .child(
-                        div()
-                            .text_size(px(14.))
-                            .text_color(theme::muted_fg())
-                            .child("Pick a symbol to see its chart."),
-                    )
-                    .into_any_element(),
-            ),
-            Load::Loading => out.push(
-                centered()
-                    .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 22., theme::muted_fg()),
-                        "chart-loading",
-                    ))
-                    .child(
-                        div()
-                            .text_size(px(13.))
-                            .text_color(theme::muted_fg())
-                            .child("Loading the chart..."),
-                    )
-                    .into_any_element(),
-            ),
-            Load::Failed(message) => out.push(
-                centered()
-                    .child(ui::icon_colored(
-                        IconName::CircleAlert,
-                        26.,
-                        theme::destructive(),
-                    ))
-                    .child(
-                        div()
-                            .text_size(px(14.))
-                            .text_color(theme::fg())
-                            .child("Could not load the chart"),
-                    )
-                    .child(
-                        div()
-                            .max_w(px(440.))
-                            .text_center()
-                            .text_size(px(12.))
-                            .text_color(theme::muted_fg())
-                            .child(message.clone()),
-                    )
-                    .child(div().pt_1().w(px(200.)).child(ui::primary_button(
-                        "chart-retry",
-                        "Try again",
-                        cx.listener(|this, _event, _window, cx| this.reload(cx)),
-                    )))
-                    .into_any_element(),
-            ),
-            Load::Ready if self.series.is_empty() => out.push(
-                centered()
-                    .child(
-                        div()
-                            .text_size(px(14.))
-                            .text_color(theme::muted_fg())
-                            .child("No prices yet for this timeframe. New ones will show up here."),
-                    )
-                    .into_any_element(),
-            ),
-            Load::Ready => {}
-        }
-        if matches!(self.older, Older::Loading) {
-            out.push(
-                div()
-                    .absolute()
-                    .left(px(12.))
-                    .bottom(px(AXIS_H + 8.0))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 12., theme::muted_fg()),
-                        "chart-older",
-                    ))
-                    .child("Loading older history")
-                    .into_any_element(),
-            );
-        }
-        out
-    }
 }

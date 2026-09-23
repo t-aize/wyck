@@ -64,6 +64,14 @@ impl Series {
         }
     }
 
+    /// The value a point is plotted at in a line: a bar's close, or a tick's price.
+    pub fn value_at(&self, index: usize) -> Option<i64> {
+        match self {
+            Self::Bars(bars) => bars.get(index).map(|b| b.close),
+            Self::Ticks(ticks) => ticks.get(index).map(|t| t.price),
+        }
+    }
+
     /// How many points have a time at or before `time_ms`.
     fn count_up_to(&self, time_ms: i64) -> usize {
         let (mut lo, mut hi) = (0, self.len());
@@ -224,23 +232,6 @@ pub fn apply_live_bar(bars: &mut Vec<Bar>, live: Bar) -> bool {
     }
 }
 
-/// The server's live bar carries a wrong close: it always equals the low (seen on a live demo
-/// account, where the close stayed at the low while the bid moved). Its open, high, low and tick
-/// count are right, so keep those and take the close from the price of the event, or from the bar
-/// already held when the event carries no bid. Without either, the bar has just opened at its open.
-pub fn with_true_close(mut live: Bar, held_last: Option<&Bar>, bid: Option<i64>) -> Bar {
-    live.close = bid
-        .or_else(|| {
-            held_last
-                .filter(|b| b.time_ms == live.time_ms)
-                .map(|b| b.close)
-        })
-        .unwrap_or(live.open);
-    live.high = live.high.max(live.close);
-    live.low = live.low.min(live.close);
-    live
-}
-
 /// Joins bars fetched for a range that overlaps what is held (a refill after a reconnect). Where a
 /// bar exists on both sides the one with more ticks wins: a bar only ever gains ticks, so that is
 /// the fresher one, whichever arrived last.
@@ -390,19 +381,6 @@ mod tests {
         );
         touch_last_bar(&mut bars, 60_000, tick(59_999, 1));
         assert_eq!(bars[0].low, 9, "a tick before the bar is not its own");
-    }
-
-    #[test]
-    fn a_live_bar_gets_its_close_from_the_bid_not_from_the_low() {
-        // As the server sent it: close equal to the low.
-        let live = bar(0, 100, 130, 90, 90, 5);
-        assert_eq!(with_true_close(live, None, Some(120)).close, 120);
-        let held = bar(0, 100, 130, 90, 115, 4);
-        assert_eq!(with_true_close(live, Some(&held), None).close, 115);
-        let other = bar(-60, 1, 1, 1, 1, 1);
-        assert_eq!(with_true_close(live, Some(&other), None).close, 100);
-        let stretched = with_true_close(live, None, Some(140));
-        assert_eq!((stretched.high, stretched.low), (140, 90));
     }
 
     #[test]

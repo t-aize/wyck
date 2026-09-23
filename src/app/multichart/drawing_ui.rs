@@ -65,13 +65,11 @@ impl MultiChart {
 
     /// The vertical strip of tools.
     pub(super) fn render_rail(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let symbol = self.symbol_name(cx);
         let book = self.drawings.read(cx).book();
         let (tool, magnet, can_undo, can_redo) =
             (book.tool(), book.magnet(), book.can_undo(), book.can_redo());
-        let has_any = self
-            .symbol
-            .as_ref()
-            .is_some_and(|symbol| book.count(&symbol.name) > 0);
+        let has_any = symbol.is_some_and(|symbol| book.count(&symbol) > 0);
 
         let mut rail = div()
             .flex_none()
@@ -249,7 +247,7 @@ impl MultiChart {
 
     /// The bar over a selected drawing: color, width, line style, fill, words, lock, copy, delete.
     pub(super) fn render_style_bar(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let symbol = self.symbol.as_ref()?.name.clone();
+        let symbol = self.symbol_name(cx)?;
         let book = self.drawings.read(cx).book();
         if book.tool().is_some() {
             return None;

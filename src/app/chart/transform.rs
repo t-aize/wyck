@@ -60,11 +60,9 @@ impl BoxSize {
                     .filter(|v| v.is_finite() && *v > 0.0)
                     .unwrap_or_else(|| {
                         // Too few bars for the average: a share of the whole range instead.
-                        let (lo, hi) = bars
-                            .iter()
-                            .fold((f64::MAX, f64::MIN), |(l, h), b| {
-                                (l.min(b.low as f64), h.max(b.high as f64))
-                            });
+                        let (lo, hi) = bars.iter().fold((f64::MAX, f64::MIN), |(l, h), b| {
+                            (l.min(b.low as f64), h.max(b.high as f64))
+                        });
                         ((hi - lo) / 20.0).max(unit as f64)
                     })
             }
@@ -549,7 +547,14 @@ mod tests {
         // 89 adds two more down... from 110 to 100, then 100 to 90.
         assert_eq!(
             pairs(&bricks),
-            vec![(100, 110), (110, 120), (120, 130), (120, 110), (110, 100), (100, 90)]
+            vec![
+                (100, 110),
+                (110, 120),
+                (120, 130),
+                (120, 110),
+                (110, 100),
+                (100, 90)
+            ]
         );
         for brick in &bricks {
             assert_eq!((brick.close - brick.open).abs(), 10);
@@ -579,10 +584,17 @@ mod tests {
     fn kagi_turns_on_the_reversal_and_thickens_past_the_shoulder() {
         let (lines, meta) = kagi(&closes(&[100, 110, 120, 112, 105, 118, 130, 90]), 10);
         // Up to 120, down to 105, up to 130 (past the 120 shoulder: yang), down to 90.
-        assert_eq!(pairs(&lines), vec![(100, 120), (120, 105), (105, 130), (130, 90)]);
+        assert_eq!(
+            pairs(&lines),
+            vec![(100, 120), (120, 105), (105, 130), (130, 90)]
+        );
         assert!(meta[0].yang);
         // The 105 waist was never set before the second line, so it stays yang.
-        assert_eq!(meta[3].switch_at, Some(105), "breaking the waist turns it thin");
+        assert_eq!(
+            meta[3].switch_at,
+            Some(105),
+            "breaking the waist turns it thin"
+        );
     }
 
     #[test]
@@ -637,7 +649,10 @@ mod tests {
         assert_eq!(settings.pnf_reversal, 10);
         assert_eq!(settings.renko_box, BoxSize::default());
         let text = toml::to_string(&settings).unwrap();
-        assert_eq!(toml::from_str::<TransformSettings>(&text).unwrap(), settings);
+        assert_eq!(
+            toml::from_str::<TransformSettings>(&text).unwrap(),
+            settings
+        );
     }
 
     #[test]

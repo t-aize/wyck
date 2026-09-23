@@ -155,3 +155,33 @@ pub fn surface_pressed() -> Rgba {
 pub fn border_strong() -> Rgba {
     rgba(0xffffff40)
 }
+
+/// A rising candle, volume column or price tag.
+pub fn chart_up() -> Rgba {
+    rgb(0x26a69a)
+}
+
+/// A falling candle, volume column or price tag.
+pub fn chart_down() -> Rgba {
+    rgb(0xef5350)
+}
+
+/// The line of a line, area or step chart.
+pub fn chart_line() -> Rgba {
+    rgb(0x5b8def)
+}
+
+/// The grid behind the prices.
+pub fn chart_grid() -> Rgba {
+    rgba(0xffffff0b)
+}
+
+/// The background of the crosshair's tags on the axes.
+pub fn chart_tag() -> Rgba {
+    rgb(0x363a45)
+}
+
+/// The crosshair's dashed lines.
+pub fn chart_crosshair() -> Rgba {
+    rgba(0x9598a1b0)
+}

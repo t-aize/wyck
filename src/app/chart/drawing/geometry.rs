@@ -779,6 +779,7 @@ pub(super) mod tests {
             },
             text: String::new(),
             locked: false,
+            hidden: false,
         }
     }
 

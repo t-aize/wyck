@@ -290,9 +290,17 @@ pub struct Drawing {
     /// A locked drawing can be selected but not moved, edited or deleted by mistake.
     #[serde(default)]
     pub locked: bool,
+    /// A hidden drawing is kept but not shown.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 impl Drawing {
+    /// Whether the drawing shows on a chart of this timeframe (by its saved code).
+    pub fn shows_on(&self, _timeframe: &str) -> bool {
+        !self.hidden
+    }
+
     /// Whether the drawing is well formed for its tool: the right number of finite points.
     pub fn is_valid(&self) -> bool {
         let count_ok = match self.tool {
@@ -384,6 +392,7 @@ mod tests {
             style: tool.default_style(),
             text: String::new(),
             locked: false,
+            hidden: false,
         }
     }
 

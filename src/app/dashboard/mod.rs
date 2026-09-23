@@ -1,8 +1,8 @@
 //! The dashboard: the screen the app lands on once an account is connected.
 //!
-//! That is the header bar (the symbol, its live price, the timeframes, the connection state, the
-//! account and the window controls), the symbol picker that opens from it, and the chart. The
-//! trading panels are not built yet.
+//! That is the header bar (the symbol of the active chart, its live price, the timeframes, the
+//! connection state, the account and the window controls), the symbol picker that opens from it,
+//! and the charts.
 //!
 //! A [`Dashboard`] owns the [`Session`] for its account: the session reconnects, renews the
 //! tokens and restores the price subscription by itself, and the dashboard only follows its events.
@@ -17,6 +17,7 @@ mod marks;
 mod picker;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::prelude::*;
@@ -33,11 +34,12 @@ use wyck::openapi::{Event, OpenApiError};
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
 use super::chart::drawing::Drawings;
-use super::chart::{self, Chart};
+use super::chart::live::{PEEK_OWNER, Wish};
+use super::chart::{self, Chart, LiveHub};
 use super::connection::ui;
-use super::multichart::MultiChart;
+use super::multichart::{MultiChart, MultiChartEvent, SymbolRef};
 use super::workspace::{Documents, Workspace};
-use super::{runtime, theme};
+use super::{runtime, theme, toast};
 
 gpui::actions!(
     wyck_dashboard,
@@ -132,6 +134,12 @@ struct Peek {
 
 pub struct Dashboard {
     session: Session,
+    /// Every price and live bar subscription goes through it.
+    hub: Rc<LiveHub>,
+    /// The chart the picker chooses a symbol for.
+    picker_target: Option<usize>,
+    /// The last bid and ask of every symbol seen.
+    quotes: HashMap<i64, Quote>,
     account: AccountInfo,
     focus_handle: FocusHandle,
     focused: bool,
@@ -156,6 +164,8 @@ pub struct Dashboard {
     tf_menu_open: bool,
     /// Whether the layout picker is open.
     layout_menu_open: bool,
+    /// A chart asked for the picker: it opens at the next render, which has the window.
+    pending_picker: bool,
 }
 
 impl Dashboard {
@@ -171,9 +181,25 @@ impl Dashboard {
         cx.observe(&workspace, |_this, _workspace, cx| cx.notify())
             .detach();
         let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
-        let multi = cx.new(|cx| MultiChart::new(session.clone(), workspace.clone(), drawings, cx));
+        let hub = Rc::new(LiveHub::new(session.clone()));
+        let multi = cx.new(|cx| {
+            MultiChart::new(
+                session.clone(),
+                hub.clone(),
+                workspace.clone(),
+                drawings,
+                cx,
+            )
+        });
+        cx.subscribe(&multi, |this, _multi, event: &MultiChartEvent, cx| {
+            this.on_multi_event(event, cx);
+        })
+        .detach();
         let mut dashboard = Self {
             session,
+            hub,
+            picker_target: None,
+            quotes: HashMap::new(),
             account,
             focus_handle: cx.focus_handle(),
             focused: false,
@@ -193,6 +219,7 @@ impl Dashboard {
             workspace,
             tf_menu_open: false,
             layout_menu_open: false,
+            pending_picker: false,
         };
         dashboard.follow_session(cx);
         dashboard
@@ -312,68 +339,164 @@ impl Dashboard {
         let start = remembered
             .or_else(|| catalog.by_name("EURUSD").cloned())
             .or_else(|| catalog.entry(0).cloned());
-        self.catalog = Load::Ready(catalog);
-        if let Some(entry) = start {
-            self.select(entry, false, cx);
+        self.catalog = Load::Ready(catalog.clone());
+        // Each chart gets the symbol it was saved with, or the one to start on.
+        let wanted = self.multi.read(cx).wanted_symbols(cx);
+        let linked = self.multi.read(cx).sync().symbol;
+        for (index, name) in wanted {
+            let entry = name
+                .as_deref()
+                .filter(|_| !linked)
+                .and_then(|name| catalog.by_name(name).cloned())
+                .or_else(|| start.clone());
+            if let Some(entry) = entry {
+                let symbol = self.symbol_ref(&entry);
+                self.ensure_details(entry.id, cx);
+                self.multi
+                    .update(cx, |multi, cx| multi.restore_symbol(index, symbol, cx));
+            }
         }
+        self.refresh_active(cx);
     }
 
-    /// Makes `entry` the symbol the dashboard is on: follows its price, reads how it is quoted,
-    /// and (when the user picked it) tells the app to remember it.
+    /// Shows `entry` on the chart the picker was opened for (every chart when the symbol is
+    /// linked), and (when the user picked it) tells the app to remember it.
     fn select(&mut self, entry: Entry, remember: bool, cx: &mut Context<Self>) {
-        let previous = self.active.as_ref().map(|active| active.entry.id);
-        if previous == Some(entry.id) {
-            return;
-        }
-        let id = entry.id;
+        let target = self
+            .picker_target
+            .take()
+            .unwrap_or_else(|| self.multi.read(cx).active_index());
         if remember {
             cx.emit(DashboardEvent::SymbolChosen(entry.name.clone()));
         }
-        let name = SharedString::from(entry.name.clone());
+        let symbol = self.symbol_ref(&entry);
         self.multi
-            .update(cx, |multi, cx| multi.set_symbol(id, name, 5, cx));
-        self.active = Some(Active {
-            entry,
-            digits: 5,
-            pip_position: 4,
-        });
-        self.quote = Quote::default();
-        self.tick = None;
-        cx.notify();
+            .update(cx, |multi, cx| multi.set_symbol(target, symbol, cx));
+        self.ensure_details(entry.id, cx);
+        self.refresh_active(cx);
+    }
 
+    /// A symbol of the list, with the decimals the broker gave for it (5 until it says).
+    fn symbol_ref(&self, entry: &Entry) -> SymbolRef {
+        let digits = match self.details.get(&entry.id) {
+            Some(details::Detail::Ready(symbol)) => u32::try_from(symbol.digits).unwrap_or(5),
+            _ => 5,
+        };
+        SymbolRef {
+            id: entry.id,
+            name: SharedString::from(entry.name.clone()),
+            digits,
+        }
+    }
+
+    /// Asks the broker how a symbol is quoted, once, and tells the charts.
+    fn ensure_details(&mut self, id: i64, cx: &mut Context<Self>) {
+        if matches!(
+            self.details.get(&id),
+            Some(details::Detail::Ready(_) | details::Detail::Loading)
+        ) {
+            return;
+        }
+        self.details.insert(id, details::Detail::Loading);
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
-            let details = runtime::spawn(async move {
-                if let Some(previous) = previous {
-                    let _ = session.unsubscribe_spots(&[previous]).await;
-                }
-                if let Err(error) = session.subscribe_spots(&[id]).await {
-                    tracing::warn!(%error, symbol_id = id, "could not follow the symbol's price");
-                }
-                let client = session.client()?;
+            let fetched = runtime::spawn(async move {
+                let client = session.client().ok_or(OpenApiError::Closed)?;
                 let account = client.account(session.account_id());
-                account.market().symbol_details(&[id]).await.ok()
+                let details = account.market().symbol_details(&[id]).await?;
+                details
+                    .into_iter()
+                    .find(|d| d.symbol_id == id)
+                    .ok_or_else(|| OpenApiError::Protocol("the broker sent no details".into()))
             })
             .await;
-            let Ok(Some(details)) = details else { return };
-            let Some(details) = details.into_iter().find(|d| d.symbol_id == id) else {
-                return;
-            };
-            let _ = this.update(cx, |this, cx| {
-                if let Some(active) = this.active.as_mut().filter(|a| a.entry.id == id) {
-                    active.digits = u32::try_from(details.digits).unwrap_or(5);
-                    active.pip_position = details.pip_position;
-                    let digits = active.digits;
+            let _ = this.update(cx, |this, cx| match fetched {
+                Ok(Ok(symbol)) => {
+                    let digits = u32::try_from(symbol.digits).unwrap_or(5);
+                    this.details.insert(id, details::Detail::Ready(symbol));
                     this.multi
                         .update(cx, |multi, cx| multi.set_digits(id, digits, cx));
-                    cx.notify();
+                    this.refresh_active(cx);
+                }
+                Ok(Err(error)) => {
+                    tracing::warn!(%error, symbol_id = id, "could not load a symbol's details");
+                    this.details
+                        .insert(id, details::Detail::Failed(error.to_string().into()));
+                }
+                Err(_) => {
+                    this.details.remove(&id);
                 }
             });
         })
         .detach();
     }
 
+    /// The header follows the active chart: its symbol, how it is quoted, its last price.
+    fn refresh_active(&mut self, cx: &mut Context<Self>) {
+        let Some(symbol) = self.multi.read(cx).active_symbol(cx) else {
+            self.active = None;
+            cx.notify();
+            return;
+        };
+        let entry = match &self.catalog {
+            Load::Ready(catalog) => catalog.by_name(&symbol.name).cloned(),
+            _ => None,
+        };
+        let Some(entry) = entry else {
+            return;
+        };
+        let (digits, pip_position) = match self.details.get(&symbol.id) {
+            Some(details::Detail::Ready(details)) => (
+                u32::try_from(details.digits).unwrap_or(5),
+                details.pip_position,
+            ),
+            _ => (5, 4),
+        };
+        if self.active.as_ref().map(|a| a.entry.id) != Some(symbol.id) {
+            self.tick = None;
+        }
+        self.quote = self.quotes.get(&symbol.id).copied().unwrap_or_default();
+        self.active = Some(Active {
+            entry,
+            digits,
+            pip_position,
+        });
+        cx.notify();
+    }
+
+    /// Opens the picker for chart `index`.
+    pub(super) fn pick_for(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.picker_target = Some(index);
+        self.open_picker(window, cx);
+    }
+
+    fn on_multi_event(&mut self, event: &MultiChartEvent, cx: &mut Context<Self>) {
+        match event {
+            MultiChartEvent::PickSymbol(index) => {
+                self.picker_target = Some(*index);
+                self.pending_picker = true;
+                cx.notify();
+            }
+            MultiChartEvent::ActiveChanged => self.refresh_active(cx),
+            MultiChartEvent::Picture(png, name) => save_picture(png.clone(), name.clone(), cx),
+            MultiChartEvent::PictureFailed(error) => {
+                toast::show(
+                    cx,
+                    toast::Kind::Error,
+                    "Could not take the picture",
+                    error.clone(),
+                );
+            }
+            MultiChartEvent::Action(..)
+            | MultiChartEvent::LineMoved(..)
+            | MultiChartEvent::LineClosed(..) => {}
+        }
+    }
+
     fn apply_spot(&mut self, spot: Spot, cx: &mut Context<Self>) {
+        let quote = self.quotes.entry(spot.symbol_id).or_default();
+        quote.bid = spot.bid.or(quote.bid);
+        quote.ask = spot.ask.or(quote.ask);
         // A symbol the picker is showing (not the one being followed) has its own quote.
         if let Some(peek) = self.peek.as_mut().filter(|peek| peek.id == spot.symbol_id) {
             peek.quote.bid = spot.bid.or(peek.quote.bid);
@@ -415,19 +538,18 @@ impl Dashboard {
 
     /// Stops following the price of the symbol the picker was showing.
     fn drop_peek(&mut self) {
-        let Some(peek) = self.peek.take() else {
-            return;
-        };
-        if self.active.as_ref().map(|a| a.entry.id) == Some(peek.id) {
-            return;
+        if self.peek.take().is_some() {
+            self.hub.set(PEEK_OWNER, None);
         }
-        let session = self.session.clone();
-        runtime::spawn(async move {
-            if let Some(client) = session.client() {
-                let account = client.account(session.account_id());
-                let _ = account.market().unsubscribe_spots(&[peek.id]).await;
-            }
+    }
+
+    /// Follows the price of the symbol the picker shows.
+    pub(super) fn peek_at(&mut self, id: i64) {
+        self.peek = Some(Peek {
+            id,
+            quote: self.quotes.get(&id).copied().unwrap_or_default(),
         });
+        self.hub.set(PEEK_OWNER, Some(Wish::spots([id])));
     }
 
     fn body(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -473,6 +595,54 @@ impl Dashboard {
     }
 }
 
+/// Saves a picture of a chart in the pictures folder (under `Wyck`) and puts it on the
+/// clipboard, then says where it went.
+fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
+    cx.write_to_clipboard(gpui::ClipboardItem::new_image(&gpui::Image::from_bytes(
+        gpui::ImageFormat::Png,
+        png.clone(),
+    )));
+    let folder = directories::UserDirs::new()
+        .and_then(|dirs| dirs.picture_dir().map(|p| p.to_path_buf()))
+        .or_else(|| directories::UserDirs::new().map(|dirs| dirs.home_dir().to_path_buf()))
+        .map(|dir| dir.join("Wyck"));
+    let Some(folder) = folder else {
+        toast::show(
+            cx,
+            toast::Kind::Success,
+            "Picture copied",
+            "The chart is on the clipboard.",
+        );
+        return;
+    };
+    cx.spawn(async move |_this, cx| {
+        let path = folder.join(&name);
+        let written = cx
+            .background_executor()
+            .spawn(async move {
+                std::fs::create_dir_all(&folder)?;
+                std::fs::write(&path, png)?;
+                Ok::<_, std::io::Error>(path)
+            })
+            .await;
+        let _ = cx.update(|cx| match written {
+            Ok(path) => toast::show(
+                cx,
+                toast::Kind::Success,
+                "Picture saved and copied",
+                path.display().to_string(),
+            ),
+            Err(error) => toast::show(
+                cx,
+                toast::Kind::Warning,
+                "Picture copied, not saved",
+                error.to_string(),
+            ),
+        });
+    })
+    .detach();
+}
+
 /// What to tell the user about a session that ended for good.
 fn failure_message(error: &OpenApiError) -> String {
     format!("{error}. Sign in again to keep going.")
@@ -489,6 +659,9 @@ impl Render for Dashboard {
         if !self.focused {
             self.focused = true;
             window.focus(&self.focus_handle, cx);
+        }
+        if std::mem::take(&mut self.pending_picker) {
+            self.open_picker(window, cx);
         }
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
@@ -566,6 +739,16 @@ impl Render for Dashboard {
             .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
                 this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
             }))
+            .on_action(
+                cx.listener(|this, _: &chart::ChartResetScale, _window, cx| {
+                    this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
+                    this.multi.update(cx, |multi, cx| multi.picture(cx));
+                }),
+            )
             .relative()
             .flex()
             .flex_col()

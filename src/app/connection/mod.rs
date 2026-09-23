@@ -31,6 +31,8 @@ use wyck::openapi::config::ClientCredentials;
 use wyck::openapi::session::{Session, SessionConfig};
 use wyck::openapi::{ConnectionConfig, Environment};
 
+use gpui_kit::component::Root;
+
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
 use super::workspace::Documents;
@@ -307,6 +309,10 @@ impl Render for ConnectionFlow {
                 self.step_index()
                     .map(|current| stepper::stepper(current, epoch)),
             )
+            // Dialogs and notices of gpui-component draw in these layers, over everything.
+            .children(Root::render_sheet_layer(window, cx))
+            .children(Root::render_dialog_layer(window, cx))
+            .children(Root::render_notification_layer(window, cx))
     }
 }
 

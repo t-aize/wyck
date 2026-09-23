@@ -9,7 +9,9 @@ mod multichart;
 mod runtime;
 mod text_input;
 mod theme;
+mod toast;
 mod token_store;
+mod widgets;
 mod workspace;
 
 use std::borrow::Cow;

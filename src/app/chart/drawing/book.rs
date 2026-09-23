@@ -261,6 +261,7 @@ impl Book {
             style: tool.default_style(),
             text: String::new(),
             locked: false,
+            hidden: false,
         }
     }
 
@@ -300,14 +301,21 @@ impl Book {
     }
 
     /// A press of the left button at `(x, y)` on the plot.
-    pub fn press(&mut self, symbol: &str, proj: &dyn Projection, x: f32, y: f32) -> Press {
+    pub fn press(
+        &mut self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+    ) -> Press {
         if let Some(tool) = self.tool {
             let Some(point) = proj.point_at(x, y, self.magnet) else {
                 return Press::Taken;
             };
             return self.press_with_tool(symbol, tool, point, (x, y), proj);
         }
-        self.press_to_edit(symbol, proj, x, y)
+        self.press_to_edit(symbol, timeframe, proj, x, y)
     }
 
     fn press_with_tool(
@@ -359,22 +367,25 @@ impl Book {
         Press::Taken
     }
 
-    fn press_to_edit(&mut self, symbol: &str, proj: &dyn Projection, x: f32, y: f32) -> Press {
+    fn press_to_edit(
+        &mut self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+    ) -> Press {
         let at = (x, y);
         // The selected drawing's grips come first, wherever it is in the stack.
         let mut found: Option<(u64, Part)> = None;
         if let Some(id) = self.selected
-            && let Some(drawing) = self.get(symbol, id)
+            && let Some(drawing) = self.get(symbol, id).filter(|d| d.shows_on(timeframe))
             && let Some(part @ Part::Handle(_)) = geometry::hit(drawing, proj, at, true)
         {
             found = Some((id, part));
         }
         if found.is_none() {
-            let selected = self.selected;
-            found = self.drawings(symbol).iter().rev().find_map(|drawing| {
-                geometry::hit(drawing, proj, at, selected == Some(drawing.id))
-                    .map(|part| (drawing.id, part))
-            });
+            found = self.hit(symbol, timeframe, proj, at);
         }
         let Some((id, part)) = found else {
             self.selected = None;
@@ -537,16 +548,39 @@ impl Book {
         false
     }
 
-    /// What is under the pointer, for choosing the mouse cursor.
-    pub fn hover_part(&self, symbol: &str, proj: &dyn Projection, x: f32, y: f32) -> Option<Part> {
-        if self.tool.is_some() {
-            return None;
-        }
+    /// The topmost drawing shown on `timeframe` under `at`, and the part of it.
+    fn hit(
+        &self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        at: P,
+    ) -> Option<(u64, Part)> {
         let selected = self.selected;
         self.drawings(symbol)
             .iter()
             .rev()
-            .find_map(|drawing| geometry::hit(drawing, proj, (x, y), selected == Some(drawing.id)))
+            .filter(|drawing| drawing.shows_on(timeframe))
+            .find_map(|drawing| {
+                geometry::hit(drawing, proj, at, selected == Some(drawing.id))
+                    .map(|part| (drawing.id, part))
+            })
+    }
+
+    /// What is under the pointer, for choosing the mouse cursor.
+    pub fn hover_part(
+        &self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+    ) -> Option<Part> {
+        if self.tool.is_some() {
+            return None;
+        }
+        self.hit(symbol, timeframe, proj, (x, y))
+            .map(|(_, part)| part)
     }
 
     // ---- changing what exists ----
@@ -710,6 +744,7 @@ mod tests {
     use super::*;
 
     const SYMBOL: &str = "US100.cash";
+    const TF: &str = "M5";
 
     fn book() -> Book {
         Book::from_doc(DrawingsDoc::default())
@@ -722,7 +757,7 @@ mod tests {
 
     fn click(book: &mut Book, seconds: f32, price: f32) {
         let (x, y) = at(seconds, price);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         book.release(SYMBOL, &Linear, x, y);
     }
 
@@ -765,7 +800,7 @@ mod tests {
         let mut book = book();
         book.set_tool(Some(Tool::Rectangle));
         let (x0, y0) = at(60.0, 100.0);
-        book.press(SYMBOL, &Linear, x0, y0);
+        book.press(SYMBOL, TF, &Linear, x0, y0);
         let (x1, y1) = at(300.0, 250.0);
         book.pointer_moved(SYMBOL, &Linear, x1, y1);
         book.release(SYMBOL, &Linear, x1, y1);
@@ -784,7 +819,7 @@ mod tests {
         let mut book = book();
         book.set_tool(Some(Tool::TrendLine));
         let (x, y) = at(60.0, 100.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         book.pointer_moved(SYMBOL, &Linear, x + 2.0, y + 1.0);
         book.release(SYMBOL, &Linear, x + 2.0, y + 1.0);
         assert_eq!(book.count(SYMBOL), 0, "still waiting for the second click");
@@ -833,7 +868,7 @@ mod tests {
         let mut book = book();
         book.set_tool(Some(Tool::Brush));
         let (x, y) = at(60.0, 100.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=10 {
             let (mx, my) = at(60.0 + step as f32 * 20.0, 100.0 + step as f32 * 5.0);
             book.pointer_moved(SYMBOL, &Linear, mx, my);
@@ -852,7 +887,7 @@ mod tests {
         let mut book = book();
         book.set_tool(Some(Tool::Brush));
         let (x, y) = at(60.0, 100.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         book.release(SYMBOL, &Linear, x, y);
         assert_eq!(book.count(SYMBOL), 0);
     }
@@ -884,7 +919,7 @@ mod tests {
         book.selected = None;
         // The middle of the line is at time 300 s and price 200.
         let (x, y) = at(300.0, 200.0);
-        assert_eq!(book.press(SYMBOL, &Linear, x, y), Press::Taken);
+        assert_eq!(book.press(SYMBOL, TF, &Linear, x, y), Press::Taken);
         assert_eq!(book.selected(), Some(book.drawings(SYMBOL)[0].id));
         let (nx, ny) = at(420.0, 260.0);
         assert!(book.pointer_moved(SYMBOL, &Linear, nx, ny));
@@ -911,7 +946,7 @@ mod tests {
     fn dragging_a_grip_reshapes_without_moving_the_other_end() {
         let mut book = with_a_line();
         let (gx, gy) = at(480.0, 300.0);
-        book.press(SYMBOL, &Linear, gx, gy);
+        book.press(SYMBOL, TF, &Linear, gx, gy);
         let (nx, ny) = at(660.0, 340.0);
         book.pointer_moved(SYMBOL, &Linear, nx, ny);
         book.release(SYMBOL, &Linear, nx, ny);
@@ -938,7 +973,7 @@ mod tests {
         let mut book = with_a_line();
         assert!(book.selected().is_some());
         let (x, y) = at(900.0, 20.0);
-        assert_eq!(book.press(SYMBOL, &Linear, x, y), Press::Ignored);
+        assert_eq!(book.press(SYMBOL, TF, &Linear, x, y), Press::Ignored);
         assert_eq!(book.selected(), None);
     }
 
@@ -947,7 +982,7 @@ mod tests {
         let mut book = with_a_line();
         assert!(book.toggle_lock(SYMBOL));
         let (x, y) = at(300.0, 200.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         let (nx, ny) = at(400.0, 300.0);
         assert!(!book.pointer_moved(SYMBOL, &Linear, nx, ny));
         book.release(SYMBOL, &Linear, nx, ny);
@@ -971,7 +1006,7 @@ mod tests {
         let before = book.drawings(SYMBOL)[0].clone();
         // Drag the stop grip sideways and down: only the price changes.
         let (sx, sy) = at(120.0, before.points[1].p as f32);
-        book.press(SYMBOL, &Linear, sx, sy);
+        book.press(SYMBOL, TF, &Linear, sx, sy);
         let (nx, ny) = at(300.0, 60.0);
         book.pointer_moved(SYMBOL, &Linear, nx, ny);
         book.release(SYMBOL, &Linear, nx, ny);
@@ -1019,7 +1054,7 @@ mod tests {
         let mut book = with_a_line();
         let steps_before = book.undo.len();
         let (x, y) = at(300.0, 200.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=5 {
             let (nx, ny) = at(300.0 + step as f32 * 60.0, 200.0);
             book.pointer_moved(SYMBOL, &Linear, nx, ny);
@@ -1043,7 +1078,7 @@ mod tests {
         let steps_before = book.undo.len();
         let revision = book.revision();
         let (x, y) = at(300.0, 200.0);
-        book.press(SYMBOL, &Linear, x, y);
+        book.press(SYMBOL, TF, &Linear, x, y);
         assert!(!book.release(SYMBOL, &Linear, x, y));
         assert_eq!(book.undo.len(), steps_before);
         assert_eq!(book.revision(), revision, "nothing to save");
@@ -1071,8 +1106,8 @@ mod tests {
         assert_eq!(book.count("EURUSD"), 0);
         assert!(book.creating("EURUSD").is_none());
         let (x, y) = at(300.0, 200.0);
-        assert_eq!(book.hover_part("EURUSD", &Linear, x, y), None);
-        assert!(book.hover_part(SYMBOL, &Linear, x, y).is_some());
+        assert_eq!(book.hover_part("EURUSD", TF, &Linear, x, y), None);
+        assert!(book.hover_part(SYMBOL, TF, &Linear, x, y).is_some());
     }
 
     #[test]

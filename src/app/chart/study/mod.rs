@@ -650,6 +650,13 @@ pub struct StudyConfig {
     pub plots: BTreeMap<String, PlotStyle>,
     #[serde(default = "yes")]
     pub visible: bool,
+    /// How tall its pane is, relative to the prices (only for an indicator with a pane).
+    #[serde(default = "pane_weight")]
+    pub weight: f32,
+}
+
+fn pane_weight() -> f32 {
+    1.0
 }
 
 impl StudyConfig {
@@ -660,6 +667,7 @@ impl StudyConfig {
             inputs: BTreeMap::new(),
             plots: BTreeMap::new(),
             visible: true,
+            weight: pane_weight(),
         }
         .normalized()
     }
@@ -703,7 +711,16 @@ impl StudyConfig {
             plots.insert(plot.key.to_owned(), style);
         }
         self.plots = plots;
+        if !(self.weight.is_finite() && self.weight > 0.0) {
+            self.weight = pane_weight();
+        }
+        self.weight = self.weight.clamp(0.1, 20.0);
         self
+    }
+
+    /// How tall its pane is, relative to the prices.
+    pub fn pane_weight(&self) -> f32 {
+        self.weight
     }
 
     /// An input's value (its default if it is somehow missing).
