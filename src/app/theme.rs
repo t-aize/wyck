@@ -27,7 +27,7 @@ pub fn muted_fg() -> Rgba {
     rgb(0xa1a1a1)
 }
 
-/// The hairline separating the titlebar from the content below it.
+/// A subtle divider between stacked sections.
 pub fn border_hairline() -> Rgba {
     rgba(0xffffff1a)
 }
@@ -81,6 +81,3 @@ pub fn emerald() -> Rgba {
 pub fn emerald_bg() -> Rgba {
     rgba(0x00d49226)
 }
-
-/// The height of the custom titlebar, in logical pixels.
-pub const TITLEBAR_HEIGHT: f32 = 44.0;

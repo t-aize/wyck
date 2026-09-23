@@ -1,15 +1,12 @@
-//! The `wyck` desktop application: window, titlebar and the connection flow.
+//! The `wyck` desktop application: window and the connection flow.
 
 mod connection;
 mod runtime;
 mod text_input;
 mod theme;
-mod titlebar;
 
 use gpui::prelude::*;
-use gpui::{
-    App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
-};
+use gpui::{App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
@@ -29,17 +26,16 @@ pub fn run() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                // The OS's own titlebar: real Windows caption buttons and Snap Layouts, real
+                // macOS traffic lights, whatever the Linux compositor draws for everyone else.
                 titlebar: Some(TitlebarOptions {
                     title: Some("Wyck".into()),
-                    appears_transparent: true,
-                    traffic_light_position: Some(point(px(12.), px(12.))),
+                    appears_transparent: false,
+                    traffic_light_position: None,
                 }),
                 ..Default::default()
             },
-            |window, cx| {
-                titlebar::request_client_decorations(window);
-                cx.new(connection::ConnectionFlow::new)
-            },
+            |_window, cx| cx.new(connection::ConnectionFlow::new),
         )
         .expect("failed to open the main window");
 
