@@ -448,10 +448,14 @@ impl Chart {
     ) -> Vec<AnyElement> {
         let mut out = Vec::new();
         let index = self.shown_index();
+        // The legend wraps before the toolbar at the top right (or the price axis, when the
+        // toolbar is hidden).
+        let right = AXIS_W + if compact { 8.0 } else { 196.0 };
         let mut main = div()
             .absolute()
             .top(px(6.))
             .left(px(8.))
+            .right(px(right))
             .flex()
             .flex_col()
             .gap_0p5()

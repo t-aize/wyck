@@ -11,12 +11,30 @@ use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::app::connection::ui;
 use crate::app::{anim, chart, theme, trading};
 
+/// Which parts of the bar the window is wide enough for.
+#[derive(Clone, Copy)]
+struct Fit {
+    status_text: bool,
+    spread: bool,
+    equity: bool,
+    ask: bool,
+}
+
 impl Dashboard {
     pub(super) fn render_header(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        // What the bar leaves out as the window narrows, least needed first, so what stays
+        // never runs off its right end.
+        let width = f32::from(window.viewport_size().width);
+        let fit = Fit {
+            status_text: width >= 1_460.0,
+            spread: width >= 1_360.0,
+            equity: width >= 1_260.0,
+            ask: width >= 1_150.0,
+        };
         div()
             .flex_none()
             .w_full()
@@ -29,12 +47,12 @@ impl Dashboard {
             .border_b_1()
             .border_color(theme::border_hairline())
             .child(self.symbol_button(cx))
-            .child(self.price_block())
-            .child(div().flex_1())
+            .child(self.price_block(fit))
+            .child(div().flex_1().min_w_0())
             .child(self.layout_button(window, cx))
             .child(self.timeframe_strip(cx))
-            .child(self.account_block(cx))
-            .child(self.status_block())
+            .child(self.account_block(fit, cx))
+            .child(self.status_block(fit))
             .child(self.controls(window, cx))
     }
 
@@ -114,7 +132,7 @@ impl Dashboard {
     }
 
     /// The bid, the direction of its last move, the ask and the spread.
-    fn price_block(&self) -> impl IntoElement {
+    fn price_block(&self, fit: Fit) -> impl IntoElement {
         let block = div().flex_none().flex().flex_row().items_center().gap_3();
         let Some((bid, ask, spread)) = self.price_text() else {
             return block.child(
@@ -167,8 +185,12 @@ impl Dashboard {
                     tone,
                 )
             }))
-            .children(ask.map(|ask| chip("Ask", ask)))
-            .children(spread.map(|pips| chip("Spread", format!("{pips} pips"))))
+            .children(ask.filter(|_| fit.ask).map(|ask| chip("Ask", ask)))
+            .children(
+                spread
+                    .filter(|_| fit.spread)
+                    .map(|pips| chip("Spread", format!("{pips} pips"))),
+            )
     }
 
     /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,
@@ -334,7 +356,7 @@ impl Dashboard {
 
     /// The equity and the open profit of the account, and the switches of the account panel
     /// and the order ticket.
-    fn account_block(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn account_block(&self, fit: Fit, cx: &mut Context<Self>) -> impl IntoElement {
         let account = self.trading.read(cx);
         let ready = account.status == trading::account::Status::Ready;
         let summary = account.summary();
@@ -380,11 +402,13 @@ impl Dashboard {
                 this.set_panel_open(open, cx);
             }))
             .when(ready, |el| {
-                el.child(figure(
-                    "Equity",
-                    trading::math::format_money(summary.equity, &currency),
-                    theme::fg(),
-                ))
+                el.when(fit.equity, |el| {
+                    el.child(figure(
+                        "Equity",
+                        trading::math::format_money(summary.equity, &currency),
+                        theme::fg(),
+                    ))
+                })
                 .child(figure(
                     "Open P&L",
                     trading::math::format_money(summary.unrealized, &currency),
@@ -433,7 +457,7 @@ impl Dashboard {
     }
 
     /// The account kind and the state of the connection (the account name is in its menu).
-    fn status_block(&self) -> impl IntoElement {
+    fn status_block(&self, fit: Fit) -> impl IntoElement {
         let (dot, text): (gpui::AnyElement, &str) = match &self.conn {
             Conn::Ready => (
                 ui::status_dot(theme::emerald()).into_any_element(),
@@ -472,7 +496,7 @@ impl Dashboard {
                     .text_size(px(12.))
                     .text_color(theme::fg())
                     .child(dot)
-                    .child(text),
+                    .when(fit.status_text, |el| el.child(text)),
             )
     }
 

@@ -26,7 +26,7 @@ const BRUSH_STEP: f32 = 3.0;
 const UNDO_DEPTH: usize = 200;
 /// How wide a new position is, in bars, and how far its stop is, as a share of the price span.
 const POSITION_BARS: f64 = 20.0;
-const POSITION_RISK: f64 = 0.05;
+const POSITION_RISK: f64 = 0.12;
 
 /// What a press did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
