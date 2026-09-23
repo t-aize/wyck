@@ -109,7 +109,7 @@ impl ConnectionFlow {
                                         ));
                                     }
                                 })
-                                .child("\u{29c9}"),
+                                .child("Copy"),
                         ),
                 ))
                 .child(
@@ -118,7 +118,7 @@ impl ConnectionFlow {
                         .text_color(theme::muted_fg())
                         .child(
                             "Add this exact URI to your application's redirect list on cTrader \
-                             Connect \u{2014} Wyck listens on it locally to catch the callback.",
+                             Connect: Wyck listens on it locally to catch the callback.",
                         ),
                 )
                 .child(ui::field(
@@ -128,7 +128,7 @@ impl ConnectionFlow {
                 .child(ui::primary_button(
                     "credentials-continue",
                     if state.connecting {
-                        "Verifying\u{2026}"
+                        "Verifying..."
                     } else {
                         "Continue"
                     },

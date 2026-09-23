@@ -44,14 +44,14 @@ impl ConnectionFlow {
                         .text_center()
                         .child(
                             "Wyck trades through cTrader's Open API. You'll sign in with your \
-                             own cTrader ID in your browser \u{2014} Wyck never sees your \
+                             own cTrader ID in your browser, and Wyck never sees your \
                              password.",
                         ),
                 )
                 .child(
                     div().w_full().pt_2().child(ui::primary_button(
                         "connect-ctrader",
-                        "Connect cTrader account  \u{2192}",
+                        "Connect cTrader account",
                         cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
                     )),
                 )

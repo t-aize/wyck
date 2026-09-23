@@ -147,7 +147,7 @@ pub fn error_banner(
                 .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::destructive())
-                .child("\u{26a0}")
+                .child("!")
                 .child(div().flex_1().child(title.into())),
         )
         .child(

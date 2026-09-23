@@ -69,7 +69,7 @@ impl ConnectionFlow {
                                 .text_color(theme::muted_fg())
                                 .child(
                                     "Your cTrader ID authorized Wyck for these accounts. Pick \
-                                     the one to trade on \u{2014} you can add more later.",
+                                     the one to trade on: you can add more later.",
                                 ),
                         ),
                 )
@@ -119,7 +119,7 @@ fn account_row(
     let login = account
         .trader_login
         .map(|login| login.to_string())
-        .unwrap_or_else(|| "\u{2014}".into());
+        .unwrap_or_else(|| "-".into());
 
     div()
         .id(("account-row", index as u64))
@@ -186,7 +186,7 @@ fn account_row(
                         .text_size(px(12.))
                         .text_color(theme::muted_fg())
                         .child(format!(
-                            "cTrader ID {} \u{00b7} login {login}",
+                            "cTrader ID {} - login {login}",
                             account.ctid_trader_account_id
                         )),
                 ),

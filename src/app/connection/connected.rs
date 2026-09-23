@@ -38,7 +38,7 @@ impl ConnectionFlow {
             .account
             .trader_login
             .map(|login| login.to_string())
-            .unwrap_or_else(|| "\u{2014}".into());
+            .unwrap_or_else(|| "-".into());
 
         div().flex().flex_1().items_center().justify_center().child(
             div()
@@ -57,7 +57,7 @@ impl ConnectionFlow {
                         .justify_center()
                         .text_size(px(20.))
                         .text_color(theme::emerald())
-                        .child("\u{2713}"),
+                        .child("OK"),
                 )
                 .child(
                     div()
@@ -72,7 +72,7 @@ impl ConnectionFlow {
                         .text_center()
                         .child(
                             "Wyck is authorized on this account. It'll refresh access \
-                             automatically \u{2014} you won't need to sign in again unless you \
+                             automatically, so you won't need to sign in again unless you \
                              revoke it.",
                         ),
                 )

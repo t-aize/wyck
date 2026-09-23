@@ -107,7 +107,7 @@ impl ConnectionFlow {
             .map(|login| login.to_string())
             .unwrap_or_else(|| account.ctid_trader_account_id.to_string());
         let display_name = format!(
-            "{broker} {} \u{00b7} {login}",
+            "{broker} {} - {login}",
             if account.is_live.unwrap_or(false) {
                 "Live"
             } else {
@@ -166,7 +166,7 @@ impl ConnectionFlow {
                         .text_size(px(12.))
                         .text_color(theme::muted_fg())
                         .child(format!(
-                            "Authorizing {} \u{00b7} {}",
+                            "Authorizing {} - {}",
                             state
                                 .account
                                 .broker_title_short

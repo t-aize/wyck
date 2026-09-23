@@ -1,7 +1,7 @@
 //! Screens 4 through 8: everything that happens automatically once the browser has been opened
-//! to cTrader's consent page \u{2014} waiting for the redirect, exchanging the code for tokens,
-//! and fetching the list of accounts the token covers. All of it is one background task; the
-//! screen itself just shows progress and lets the user cancel or reopen the browser.
+//! to cTrader's consent page: waiting for the redirect, exchanging the code for tokens, and
+//! fetching the list of accounts the token covers. All of it is one background task; the screen
+//! itself just shows progress and lets the user cancel or reopen the browser.
 
 use std::time::Duration;
 
@@ -198,7 +198,7 @@ impl ConnectionFlow {
                         .text_center()
                         .child(
                             "We opened cTrader's sign-in page. Come back here once you've \
-                             allowed access \u{2014} Wyck picks it up automatically.",
+                             allowed access, and Wyck picks it up automatically.",
                         ),
                 )
                 .child(
