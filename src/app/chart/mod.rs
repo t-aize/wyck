@@ -29,7 +29,9 @@ mod live;
 mod load;
 mod projection;
 mod scene;
+pub mod study;
 mod timeframe;
+pub mod transform;
 mod view;
 mod zone;
 
