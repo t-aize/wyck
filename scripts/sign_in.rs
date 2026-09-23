@@ -257,9 +257,13 @@ fn try_open_in_browser(url: &str) {
     let command = std::process::Command::new("open").arg(url).status();
     #[cfg(target_os = "linux")]
     let command = std::process::Command::new("xdg-open").arg(url).status();
+    // Not `cmd /C start "" <url>`: cmd.exe treats `&` as a command separator, and the
+    // authorization URL's query string is full of them, so it would get split into several
+    // "commands" (see the redirect_uri/scope/state errors that produced). rundll32 runs
+    // directly with no shell in between, so the URL reaches it as one untouched argument.
     #[cfg(target_os = "windows")]
-    let command = std::process::Command::new("cmd")
-        .args(["/C", "start", "", url])
+    let command = std::process::Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", url])
         .status();
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     let command: std::io::Result<std::process::ExitStatus> = Err(std::io::Error::other(
