@@ -497,6 +497,19 @@ impl Render for OrderTicket {
         let (bid, ask) = self.quote(cx);
         let busy = self.account.read(cx).is_busy(Busy::Placing);
         let currency = self.account.read(cx).book.currency.clone();
+        // What a pip is worth is in the currency the symbol is quoted in.
+        let quote_currency = self
+            .symbol
+            .as_ref()
+            .and_then(|s| {
+                self.account
+                    .read(cx)
+                    .book
+                    .quote_currency
+                    .get(&s.id)
+                    .cloned()
+            })
+            .unwrap_or_default();
         let name = self
             .symbol
             .as_ref()
@@ -808,7 +821,10 @@ impl Render for OrderTicket {
                     .child(summary_row("Margin", margin.unwrap_or_else(|| "-".into())))
                     .child(summary_row(
                         "Pip value",
-                        format!("{} per pip", trim(contract.pip() * units)),
+                        format!(
+                            "{} per pip",
+                            math::format_money(contract.pip() * units, &quote_currency)
+                        ),
                     )),
             )
             .children(problem.clone().map(|message| {
@@ -874,8 +890,4 @@ fn format_units(units: f64) -> String {
         .trim_end_matches("00")
         .trim_end_matches('.')
         .to_owned()
-}
-
-fn trim(value: f64) -> String {
-    widgets::format_number(value, 2)
 }

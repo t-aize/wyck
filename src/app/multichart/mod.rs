@@ -729,6 +729,8 @@ impl Render for MultiChart {
         }
         let several = self.slots.len() > 1;
         let (rects, dividers) = self.tree.place(self.slots.len());
+        // The bar of the selected drawing floats over the chart it is being edited on.
+        let mut style_bar = self.render_style_bar(cx);
         let gap = if several { 1.0 } else { 0.0 };
 
         let cells = self
@@ -774,6 +776,11 @@ impl Render for MultiChart {
                             })
                             .child(slot.chart.clone()),
                     )
+                    .children(if index == self.active {
+                        style_bar.take()
+                    } else {
+                        None
+                    })
             })
             .collect::<Vec<_>>();
 
@@ -843,7 +850,6 @@ impl Render for MultiChart {
 
         let rail = self.render_rail(cx);
         let flyout = self.render_flyout(cx);
-        let style_bar = self.render_style_bar(cx);
         let area_cell = self.area.clone();
 
         div()
@@ -883,8 +889,7 @@ impl Render for MultiChart {
                         .size_full(),
                     )
                     .children(cells)
-                    .children(divider_elements)
-                    .children(style_bar),
+                    .children(divider_elements),
             )
             .children(flyout)
     }

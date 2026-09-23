@@ -138,9 +138,11 @@ impl Dashboard {
 
     pub(super) fn render_picker(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
+        // As tall as the window allows, with a margin above and below.
+        let height = (f32::from(window.viewport_size().height) - 48.0).clamp(320.0, 820.0);
         let Load::Ready(catalog) = &self.catalog else {
             return None;
         };
@@ -307,8 +309,7 @@ impl Dashboard {
             })
             .w(px(1160.))
             .max_w(relative(0.96))
-            .h_full()
-            .max_h(px(820.))
+            .h(px(height))
             .flex()
             .flex_col()
             .overflow_hidden()

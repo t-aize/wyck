@@ -27,12 +27,15 @@ use crate::app::{theme, widgets};
 
 /// Opens the list of indicators to add to `chart`.
 pub fn open_picker(chart: Entity<Chart>, _this: &mut Chart, window: &mut Window, cx: &mut App) {
-    let picker = cx.new(|cx| StudyPicker::new(chart, window, cx));
-    let focus = picker.read(cx).search.clone();
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        dialog.title("Indicators").w(px(560.)).child(picker.clone())
+    // Opened once the chart that asked is no longer being updated, since the dialog reads it.
+    window.defer(cx, move |window, cx| {
+        let picker = cx.new(|cx| StudyPicker::new(chart, window, cx));
+        let focus = picker.read(cx).search.clone();
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog.title("Indicators").w(px(560.)).child(picker.clone())
+        });
+        focus.update(cx, |state, cx| state.focus(window, cx));
     });
-    focus.update(cx, |state, cx| state.focus(window, cx));
 }
 
 struct StudyPicker {
@@ -175,13 +178,16 @@ impl Render for StudyPicker {
 
 /// Opens the settings of indicator `index` of `chart`.
 pub fn open_study_settings(chart: Entity<Chart>, index: usize, window: &mut Window, cx: &mut App) {
-    let Some(config) = chart.read(cx).settings.studies.get(index).cloned() else {
-        return;
-    };
-    let editor = cx.new(|cx| StudyEditor::new(chart, index, &config, window, cx));
-    let title = config.kind.spec().label;
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        dialog.title(title).w(px(480.)).child(editor.clone())
+    // Opened once the chart that asked is no longer being updated, since the dialog reads it.
+    window.defer(cx, move |window, cx| {
+        let Some(config) = chart.read(cx).settings.studies.get(index).cloned() else {
+            return;
+        };
+        let editor = cx.new(|cx| StudyEditor::new(chart, index, &config, window, cx));
+        let title = config.kind.spec().label;
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog.title(title).w(px(480.)).child(editor.clone())
+        });
     });
 }
 
@@ -487,12 +493,15 @@ impl Render for StudyEditor {
 
 /// Opens the settings of `chart`.
 pub fn open_chart_settings(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
-    let editor = cx.new(|cx| ChartSettingsEditor::new(chart, window, cx));
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        dialog
-            .title("Chart settings")
-            .w(px(520.))
-            .child(editor.clone())
+    // Opened once the chart that asked is no longer being updated, since the dialog reads it.
+    window.defer(cx, move |window, cx| {
+        let editor = cx.new(|cx| ChartSettingsEditor::new(chart, window, cx));
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog
+                .title("Chart settings")
+                .w(px(520.))
+                .child(editor.clone())
+        });
     });
 }
 

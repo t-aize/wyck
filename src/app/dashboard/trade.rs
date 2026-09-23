@@ -364,7 +364,7 @@ impl Dashboard {
         cx.notify();
     }
 
-    /// The charts, with the ticket beside them and the account panel under them.
+    /// The charts with the ticket beside them, and the account panel under both.
     pub(super) fn trading_layout(
         &self,
         charts: gpui::AnyElement,
@@ -378,7 +378,7 @@ impl Dashboard {
             .flex_1()
             .min_h_0()
             .flex()
-            .flex_row()
+            .flex_col()
             .when(dragging, |el| {
                 el.cursor_row_resize()
                     .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
@@ -396,51 +396,52 @@ impl Dashboard {
             .child(
                 div()
                     .flex_1()
-                    .min_w_0()
-                    .h_full()
+                    .min_h_0()
                     .flex()
-                    .flex_col()
-                    .child(div().flex_1().min_h_0().flex().child(charts))
-                    .children(panel.map(|panel| {
+                    .flex_row()
+                    .child(div().flex_1().min_w_0().h_full().flex().child(charts))
+                    .children(ticket.map(|ticket| {
                         div()
+                            .id("ticket-column")
                             .flex_none()
-                            .h(px(self.panel_height))
-                            .flex()
-                            .flex_col()
-                            .child(
-                                div()
-                                    .id("panel-resize")
-                                    .flex_none()
-                                    .h(px(5.))
-                                    .w_full()
-                                    .cursor_row_resize()
-                                    .border_t_1()
-                                    .border_color(if dragging {
-                                        theme::accent()
-                                    } else {
-                                        theme::border_hairline()
-                                    })
-                                    .hover(|s| s.border_color(theme::accent()))
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                                            this.panel_drag = Some(f32::from(event.position.y));
-                                            cx.notify();
-                                        }),
-                                    ),
-                            )
-                            .child(div().flex_1().min_h_0().child(panel))
+                            .w(px(TICKET_WIDTH))
+                            .h_full()
+                            .overflow_y_scroll()
+                            .border_l_1()
+                            .border_color(theme::border_hairline())
+                            .bg(theme::bg())
+                            .child(ticket)
                     })),
             )
-            .children(ticket.map(|ticket| {
+            .children(panel.map(|panel| {
                 div()
                     .flex_none()
-                    .w(px(TICKET_WIDTH))
-                    .h_full()
-                    .border_l_1()
-                    .border_color(theme::border_hairline())
-                    .bg(theme::bg())
-                    .child(ticket)
+                    .h(px(self.panel_height))
+                    .flex()
+                    .flex_col()
+                    .child(
+                        div()
+                            .id("panel-resize")
+                            .flex_none()
+                            .h(px(5.))
+                            .w_full()
+                            .cursor_row_resize()
+                            .border_t_1()
+                            .border_color(if dragging {
+                                theme::accent()
+                            } else {
+                                theme::border_hairline()
+                            })
+                            .hover(|s| s.border_color(theme::accent()))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                                    this.panel_drag = Some(f32::from(event.position.y));
+                                    cx.notify();
+                                }),
+                            ),
+                    )
+                    .child(div().flex_1().min_h_0().child(panel))
             }))
     }
 

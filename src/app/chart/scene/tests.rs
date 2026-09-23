@@ -245,6 +245,38 @@ fn marks_draw_a_line_and_a_tag() {
     let before = texts(&build(&frame)).len();
     frame.marks = &marks;
     let after = texts(&build(&frame));
-    assert_eq!(after.len(), before + 1);
+    // The tag is added; a label of the scale under it gives way.
+    assert!(after.len() >= before, "{before} then {after:?}");
     assert!(after.contains(&"1.00200".to_owned()), "{after:?}");
+}
+
+#[test]
+fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
+    let tag = |y: f32| Cmd::Tag {
+        text: String::new(),
+        x: 0.0,
+        y,
+        height: 18.0,
+        pad: 0.0,
+        bg: hsla(gpui::rgb(0)),
+        fg: hsla(gpui::rgb(0)),
+        align: Align::Left,
+        fixed_width: Some(10.0),
+        within: None,
+        size: FONT,
+        bold: false,
+    };
+    let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
+    spread_tags(&mut tags, 0.0, 500.0);
+    let ys: Vec<f32> = tags
+        .iter()
+        .map(|t| match t {
+            Cmd::Tag { y, .. } => *y,
+            _ => 0.0,
+        })
+        .collect();
+    assert_eq!(ys[2], 104.0, "the last one stays");
+    let mut sorted = ys.clone();
+    sorted.sort_by(f32::total_cmp);
+    assert!(sorted.windows(2).all(|w| w[1] - w[0] >= 18.0), "{ys:?}");
 }

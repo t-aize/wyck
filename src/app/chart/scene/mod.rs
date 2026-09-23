@@ -558,16 +558,48 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let in_band = |band: &Band, y: f32| {
         y >= oy + band.top as f32 + 6.0 && y <= oy + band.bottom() as f32 - 6.0
     };
+    // The tags of the price axes are made first, spread so none hides another, and the scales'
+    // labels then keep clear of them. The pointer's tags go over everything and move nothing.
+    let mut tags = Vec::new();
+    studies::value_tags(&cx, &pane_maps_for_tags(&panes, &pane_maps), &mut tags);
+    let mut pointer_tags = Vec::new();
+    draw_axis_tags(
+        &cx,
+        pointer,
+        &geometry,
+        &pane_maps,
+        &mut tags,
+        &mut pointer_tags,
+    );
+    spread_tags(&mut tags, oy, oy + plot_h as f32);
+    let taken: Vec<(f32, f32)> = tags
+        .iter()
+        .chain(&pointer_tags)
+        .filter_map(|cmd| match cmd {
+            Cmd::Tag {
+                y,
+                height,
+                fixed_width: Some(_),
+                ..
+            } => Some((*y, y + height)),
+            _ => None,
+        })
+        .collect();
+    let free = |y: f32| {
+        taken
+            .iter()
+            .all(|(top, bottom)| y + 6.0 < *top || y - 6.0 > *bottom)
+    };
     for value in &main_ticks {
         let y = cx.y(*value);
-        if in_band(&main, y) {
+        if in_band(&main, y) && free(y) {
             cmds.push(text(map.label(*value, ValueFormat::Price, frame.digits), y));
         }
     }
     for (band, pmap, format, ticks) in &pane_maps {
         for value in ticks {
             let y = cx.y_on(pmap, *value);
-            if in_band(band, y) {
+            if in_band(band, y) && free(y) {
                 cmds.push(text(price::format_value(*value, *format, frame.digits), y));
             }
         }
@@ -602,8 +634,8 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         align: Align::Center,
         bold: false,
     });
-    studies::value_tags(&cx, &pane_maps_for_tags(&panes, &pane_maps), &mut cmds);
-    draw_axis_tags(&cx, pointer, &geometry, &pane_maps, &mut cmds);
+    cmds.extend(tags);
+    cmds.extend(pointer_tags);
     cmds
 }
 
@@ -725,12 +757,15 @@ pub fn countdown(ms: i64) -> String {
 
 /// The tags on the axes: the newest price with the time left in its bar, the marks, and the
 /// crosshair's value and time.
+/// Draws the tags on the price axis (the order and position lines, the last price and the time
+/// left in its bar) into `out`, and the pointer's price and time into `pointer_out`.
 fn draw_axis_tags(
     cx: &Ctx<'_>,
     pointer: Option<(P, usize)>,
     geometry: &Geometry,
     panes: &[(Band, PriceMap, ValueFormat, Vec<f64>)],
     out: &mut Vec<Cmd>,
+    pointer_out: &mut Vec<Cmd>,
 ) {
     let p = cx.f.palette;
     let axis_x = cx.ox + cx.plot_w as f32 + 1.0;
@@ -788,7 +823,7 @@ fn draw_axis_tags(
                     y: y + 9.0,
                     height: 16.0,
                     pad: 7.0,
-                    bg: with_alpha(cx.up_color(last_is_up(cx.f.raw)), 0.75),
+                    bg: shade(cx.up_color(last_is_up(cx.f.raw)), 0.72),
                     fg: hsla(p.bg),
                     align: Align::Left,
                     fixed_width: Some(AXIS_W - 2.0),
@@ -817,7 +852,7 @@ fn draw_axis_tags(
         })
     };
     if let Some(text) = text {
-        out.push(tag(text, y, hsla(p.tag), hsla(p.text_strong)));
+        pointer_out.push(tag(text, y, hsla(p.tag), hsla(p.text_strong)));
     }
     if cx.len > 0 {
         let index =
@@ -832,7 +867,7 @@ fn draw_axis_tags(
                 matches!(cx.f.timeframe, Timeframe::Seconds(_) | Timeframe::Ticks),
                 matches!(cx.f.timeframe, Timeframe::Ticks),
             );
-            out.push(Cmd::Tag {
+            pointer_out.push(Cmd::Tag {
                 text,
                 x: cx.x(index),
                 y: cx.oy + geometry.plot_h() as f32 + 4.0,
@@ -848,6 +883,56 @@ fn draw_axis_tags(
             });
         }
     }
+}
+
+/// Moves the tags of the price axes apart so none covers another. The later a tag comes, the
+/// more it matters: it keeps its place, and the earlier ones make room around it, each moved as
+/// little as it can be within `top..bottom`.
+fn spread_tags(tags: &mut [Cmd], top: f32, bottom: f32) {
+    let mut placed: Vec<(f32, f32)> = Vec::new();
+    for cmd in tags.iter_mut().rev() {
+        let Cmd::Tag {
+            y,
+            height,
+            fixed_width: Some(_),
+            ..
+        } = cmd
+        else {
+            continue;
+        };
+        let h = *height;
+        let fits = |at: f32| {
+            at >= top && at + h <= bottom && placed.iter().all(|(t, b)| at + h <= *t || at >= *b)
+        };
+        let wanted = *y;
+        let mut chosen = wanted;
+        if !fits(wanted) {
+            // The nearest free place, looking up and down a pixel at a time.
+            for step in 1..400 {
+                let d = step as f32;
+                if fits(wanted - d) {
+                    chosen = wanted - d;
+                    break;
+                }
+                if fits(wanted + d) {
+                    chosen = wanted + d;
+                    break;
+                }
+            }
+        }
+        *y = chosen;
+        placed.push((chosen, chosen + h));
+    }
+}
+
+/// A color darkened towards black by `amount` of its brightness kept, opaque.
+fn shade(color: gpui::Rgba, keep: f32) -> gpui::Hsla {
+    hsla(gpui::Rgba {
+        r: color.r * keep,
+        g: color.g * keep,
+        b: color.b * keep,
+        a: 1.0,
+    })
 }
 
 /// Draws the drawings of the symbol, and the grips of the selected one.

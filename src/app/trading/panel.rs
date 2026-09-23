@@ -55,6 +55,8 @@ const W_SIDE: f32 = 56.;
 const W_NUM: f32 = 92.;
 const W_WIDE: f32 = 150.;
 const W_ACTIONS: f32 = 96.;
+/// The width under which the lists scroll sideways instead of squeezing their columns.
+const TABLE_MIN: f32 = 1_080.;
 
 impl AccountPanel {
     pub fn new(account: Entity<Account>, alerts: Entity<Alerts>, cx: &mut Context<Self>) -> Self {
@@ -143,6 +145,7 @@ impl AccountPanel {
             .margin_level
             .map_or_else(|| "-".to_owned(), |l| format!("{l:.0}%"));
         div()
+            .flex_none()
             .flex()
             .flex_row()
             .items_center()
@@ -150,6 +153,25 @@ impl AccountPanel {
             .child(item(
                 "Balance",
                 format_money(summary.balance, &currency),
+                theme::fg(),
+            ))
+            .child(item(
+                "Margin",
+                format_money(summary.margin, &currency),
+                theme::fg(),
+            ))
+            .child(item(
+                "Level",
+                level,
+                match summary.margin_level {
+                    Some(l) if l < 100.0 => theme::chart_down(),
+                    Some(l) if l < 300.0 => theme::amber(),
+                    _ => theme::fg(),
+                },
+            ))
+            .child(item(
+                "Free",
+                format_money(summary.free_margin, &currency),
                 theme::fg(),
             ))
             .child(item(
@@ -161,25 +183,6 @@ impl AccountPanel {
                 "Profit",
                 format_money(summary.unrealized, &currency),
                 tone(summary.unrealized),
-            ))
-            .child(item(
-                "Margin",
-                format_money(summary.margin, &currency),
-                theme::fg(),
-            ))
-            .child(item(
-                "Free",
-                format_money(summary.free_margin, &currency),
-                theme::fg(),
-            ))
-            .child(item(
-                "Level",
-                level,
-                match summary.margin_level {
-                    Some(l) if l < 100.0 => theme::chart_down(),
-                    Some(l) if l < 300.0 => theme::amber(),
-                    _ => theme::fg(),
-                },
             ))
     }
 
@@ -506,7 +509,7 @@ impl AccountPanel {
                         },
                     ))
                     .child(Self::cell(
-                        order.kind().map_or("order", OrderType::label),
+                        capitalized(order.kind().map_or("order", OrderType::label)),
                         W_NUM,
                         false,
                         theme::muted_fg(),
@@ -879,6 +882,7 @@ impl Render for AccountPanel {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
+                            .flex_none()
                             .h_full()
                             .flex()
                             .flex_row()
@@ -889,11 +893,25 @@ impl Render for AccountPanel {
                     )
                     .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .flex()
                             .flex_row()
                             .items_center()
+                            .justify_end()
                             .gap_3()
-                            .child(self.totals(cx))
+                            // When the panel is narrow the totals give way from the left, where
+                            // the least needed are.
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .overflow_hidden()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_end()
+                                    .child(self.totals(cx)),
+                            )
                             .when(self.tab == Tab::Positions && positions > 0, |el| {
                                 el.child(
                                     Button::new("close-all-positions")
@@ -927,8 +945,8 @@ impl Render for AccountPanel {
                     .id("panel-body")
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .child(body),
+                    .overflow_scroll()
+                    .child(div().w_full().min_w(px(TABLE_MIN)).child(body)),
             )
     }
 }
@@ -1229,4 +1247,12 @@ impl Render for AlertEditor {
                     .child("The line of an alert can also be dragged on the chart."),
             )
     }
+}
+
+/// A word with its first letter capital.
+fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
 }

@@ -69,18 +69,21 @@ pub fn open(
     window: &mut Window,
     cx: &mut App,
 ) {
-    let tree = cx.new(|cx| ObjectTree {
-        _observe: cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
-        drawings,
-        symbol: symbol.clone(),
-        zone,
-        digits,
-    });
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        dialog
-            .title(format!("Drawings on {symbol}"))
-            .w(px(520.))
-            .child(tree.clone())
+    // Opened once whatever asked is done updating, since the dialog reads the drawings.
+    window.defer(cx, move |window, cx| {
+        let tree = cx.new(|cx| ObjectTree {
+            _observe: cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
+            drawings,
+            symbol: symbol.clone(),
+            zone,
+            digits,
+        });
+        window.open_dialog(cx, move |dialog, _window, _cx| {
+            dialog
+                .title(format!("Drawings on {symbol}"))
+                .w(px(520.))
+                .child(tree.clone())
+        });
     });
 }
 

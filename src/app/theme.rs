@@ -117,6 +117,8 @@ pub fn apply(cx: &mut gpui::App) {
     colors.success = hsla(emerald());
     colors.warning = hsla(amber());
     colors.link = hsla(accent());
+    // The veil behind a dialog, so what is open stands out from the screen under it.
+    colors.overlay = hsla(gpui::rgba(0x0000_0099));
 
     // Buttons read their own set of colors, which default to unrelated values.
     colors.button = colors.secondary;

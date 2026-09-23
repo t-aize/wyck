@@ -187,9 +187,11 @@ impl MultiChart {
     pub(super) fn render_flyout(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let group = self.flyout?;
         let current = self.drawings.read(cx).book().tool();
+        // Beside the family's button: the pointer's comes first, then one per family.
+        let index = Group::ALL.iter().position(|g| *g == group).unwrap_or(0);
         let mut list = div()
             .absolute()
-            .top(px(8.))
+            .top(px(4.0 + 36.0 * (index as f32 + 1.0)))
             .left(px(RAIL_WIDTH + 6.0))
             .w(px(230.))
             .p_1()
@@ -490,10 +492,11 @@ impl MultiChart {
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );
 
+        let top = self.active_chart().read(cx).legend_bottom();
         Some(
             div()
                 .absolute()
-                .top(px(8.))
+                .top(px(top))
                 .left_0()
                 .right_0()
                 .flex()

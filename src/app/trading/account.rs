@@ -123,8 +123,16 @@ impl Account {
     }
 
     /// The broker's names of the symbols, for the lists.
-    pub fn set_names(&mut self, names: HashMap<i64, String>, cx: &mut Context<Self>) {
+    /// The broker's names of the symbols (for the lists) and the currency each is quoted in
+    /// (for the profit between the server's answers).
+    pub fn set_symbols(
+        &mut self,
+        names: HashMap<i64, String>,
+        quote_currency: HashMap<i64, String>,
+        cx: &mut Context<Self>,
+    ) {
         self.book.names = names;
+        self.book.quote_currency = quote_currency;
         cx.notify();
     }
 
@@ -399,8 +407,9 @@ impl Account {
             let _ = this.update(cx, |this, cx| {
                 this.busy.remove(&busy);
                 match flatten(result) {
-                    // The event itself also arrives on the event stream, where it is applied.
-                    Ok(_) => {}
+                    // The first execution event answers the request and goes only to it; the
+                    // ones after it (a fill after the acceptance) come on the event stream.
+                    Ok(event) => this.on_event(&Event::Execution(Box::new(event)), cx),
                     Err(error) => {
                         let message = match error.code() {
                             Some(code) => explain(code),

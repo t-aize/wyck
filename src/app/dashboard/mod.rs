@@ -391,12 +391,16 @@ impl Dashboard {
             .or_else(|| catalog.by_name("EURUSD").cloned())
             .or_else(|| catalog.entry(0).cloned());
         self.catalog = Load::Ready(catalog.clone());
-        let names = (0..catalog.total())
+        let entries: Vec<&Entry> = (0..catalog.total())
             .filter_map(|i| catalog.entry(i))
-            .map(|e| (e.id, e.name.clone()))
+            .collect();
+        let names = entries.iter().map(|e| (e.id, e.name.clone())).collect();
+        let quotes = entries
+            .iter()
+            .filter_map(|e| Some((e.id, e.quote.clone()?)))
             .collect();
         self.trading
-            .update(cx, |account, cx| account.set_names(names, cx));
+            .update(cx, |account, cx| account.set_symbols(names, quotes, cx));
         // Each chart gets the symbol it was saved with, or the one to start on.
         let wanted = self.multi.read(cx).wanted_symbols(cx);
         let linked = self.multi.read(cx).sync().symbol;

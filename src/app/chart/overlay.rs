@@ -361,6 +361,8 @@ impl Chart {
                 .rounded_sm()
                 .cursor_pointer()
                 .hover(|s| s.bg(theme::surface_hover()))
+                // The press is the button's, not the chart's under it.
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(ui::icon_colored(icon, 13., theme::muted_fg()))
                 .tooltip(move |window, cx| {
                     gpui_kit::component::tooltip::Tooltip::new(tooltip).build(window, cx)
@@ -481,6 +483,26 @@ impl Chart {
         out
     }
 
+    /// Where the legend ends, from the top of the chart: what floats over the chart (the bar of a
+    /// selected drawing) goes under it.
+    pub fn legend_bottom(&self) -> f32 {
+        let compact = self.is_compact();
+        let mut bottom = 6.0 + 22.0;
+        if !compact && self.settings.trade_buttons && self.bid.is_some() && self.ask.is_some() {
+            bottom += 50.0;
+        }
+        if !compact {
+            let overlays = self
+                .settings
+                .studies
+                .iter()
+                .filter(|s| s.spec().placement == Placement::Overlay)
+                .count();
+            bottom += overlays as f32 * 22.0;
+        }
+        bottom + 8.0
+    }
+
     /// Sell at the bid and buy at the ask, at market, with the spread between them.
     fn trade_buttons(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let (bid, ask) = (self.bid?, self.ask?);
@@ -501,7 +523,7 @@ impl Chart {
                 .bg(theme::bg())
                 .cursor_pointer()
                 .hover(move |s| s.bg(gpui::rgba(color << 8 | 0x33)))
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(cx.listener(move |_this, _, _, cx| {
                     cx.emit(ChartEvent::Action(ChartAction::Market { buy }));
                 }))
@@ -558,6 +580,7 @@ impl Chart {
             .rounded_sm()
             .cursor_pointer()
             .hover(|s| s.bg(theme::surface_hover()))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(|_this, _, _, cx| cx.emit(ChartEvent::PickSymbol)))
             .child(
                 div()

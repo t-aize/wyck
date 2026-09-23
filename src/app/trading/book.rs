@@ -58,6 +58,8 @@ pub struct AccountBook {
     pub contracts: HashMap<i64, Contract>,
     /// The broker's name of each symbol.
     pub names: HashMap<i64, String>,
+    /// The currency each symbol is quoted in, by name.
+    pub quote_currency: HashMap<i64, String>,
 }
 
 /// The side of a position or order.
@@ -258,16 +260,37 @@ impl AccountBook {
             let Some(position) = self.positions.get(&pnl.position_id) else {
                 continue;
             };
-            let quote = self.quote_profit(position, quotes).unwrap_or(0.0);
+            let symbol = position.trade_data.symbol_id;
+            let gross = money(pnl.gross_unrealized_pnl, money_digits);
+            // Quoted in the deposit currency: the rate is one. Otherwise it is read from the
+            // answer when the move is large enough to tell, and kept from the last answer that
+            // was.
+            let rate = if self.quoted_in_deposit(symbol) {
+                Some(1.0)
+            } else {
+                let pip = self.contract(symbol).pip() * position.trade_data.units();
+                self.quote_profit(position, quotes)
+                    .and_then(|quote| math::implied_rate(gross, quote, pip))
+                    .or_else(|| self.marks.get(&pnl.position_id).and_then(|m| m.rate))
+            };
             self.marks.insert(
                 pnl.position_id,
                 PnlMark {
-                    gross: money(pnl.gross_unrealized_pnl, money_digits),
+                    gross,
                     net: money(pnl.net_unrealized_pnl, money_digits),
-                    quote,
+                    rate,
                 },
             );
         }
+    }
+
+    /// Whether a symbol's prices are in the account's currency.
+    fn quoted_in_deposit(&self, symbol_id: i64) -> bool {
+        !self.currency.is_empty()
+            && self
+                .quote_currency
+                .get(&symbol_id)
+                .is_some_and(|quote| quote.eq_ignore_ascii_case(&self.currency))
     }
 
     /// A position's profit in the quote currency at the current market.
@@ -423,7 +446,7 @@ mod tests {
             PnlMark {
                 gross: 1.0,
                 net: 1.0,
-                quote: 1.0,
+                rate: Some(1.0),
             },
         );
         let applied = book.apply(&event(

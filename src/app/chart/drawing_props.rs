@@ -33,76 +33,79 @@ pub fn open(
     window: &mut Window,
     cx: &mut App,
 ) {
-    let Some(drawing) = drawings.read(cx).book().get(&symbol, id).cloned() else {
-        return;
-    };
-    let editor =
-        cx.new(|cx| DrawingProps::new(drawings, symbol, &drawing, zone, digits, window, cx));
-    let title = drawing.title();
-    let (cancel, ok, closed) = (editor.clone(), editor.clone(), editor.clone());
-    let template = editor.clone();
-    let reset = editor.clone();
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        let has_template = template.read(cx).has_template(cx);
-        let (cancel, ok, closed) = (cancel.clone(), ok.clone(), closed.clone());
-        let (template, reset) = (template.clone(), reset.clone());
-        dialog
-            .title(title.clone())
-            .w(px(500.))
-            .overlay_closable(false)
-            .child(editor.clone())
-            .on_close(move |_, _window, cx| closed.update(cx, |e, cx| e.finish(true, cx)))
-            .footer(
-                div()
-                    .w_full()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        Button::new("drawing-template")
-                            .ghost()
-                            .small()
-                            .icon(IconName::Save)
-                            .label("Save as default")
-                            .tooltip("New drawings of this tool start with this look")
-                            .on_click(move |_, _window, cx| {
-                                template.update(cx, |e, cx| e.save_template(cx));
-                            }),
-                    )
-                    .child(
-                        Button::new("drawing-reset")
-                            .ghost()
-                            .small()
-                            .icon(IconName::RotateCcw)
-                            .label(if has_template { "Reset" } else { "Reset look" })
-                            .tooltip("Back to the look the tool starts with")
-                            .on_click(move |_, window, cx| {
-                                reset.update(cx, |e, cx| e.reset_style(window, cx));
-                            }),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        Button::new("drawing-cancel")
-                            .ghost()
-                            .small()
-                            .label("Cancel")
-                            .on_click(move |_, window, cx| {
-                                cancel.update(cx, |e, cx| e.finish(false, cx));
-                                window.close_dialog(cx);
-                            }),
-                    )
-                    .child(
-                        Button::new("drawing-ok")
-                            .primary()
-                            .small()
-                            .label("OK")
-                            .on_click(move |_, window, cx| {
-                                ok.update(cx, |e, cx| e.finish(true, cx));
-                                window.close_dialog(cx);
-                            }),
-                    ),
-            )
+    // Opened once whatever asked is done updating, since the dialog reads the drawings.
+    window.defer(cx, move |window, cx| {
+        let Some(drawing) = drawings.read(cx).book().get(&symbol, id).cloned() else {
+            return;
+        };
+        let editor =
+            cx.new(|cx| DrawingProps::new(drawings, symbol, &drawing, zone, digits, window, cx));
+        let title = drawing.title();
+        let (cancel, ok, closed) = (editor.clone(), editor.clone(), editor.clone());
+        let template = editor.clone();
+        let reset = editor.clone();
+        window.open_dialog(cx, move |dialog, _window, cx| {
+            let has_template = template.read(cx).has_template(cx);
+            let (cancel, ok, closed) = (cancel.clone(), ok.clone(), closed.clone());
+            let (template, reset) = (template.clone(), reset.clone());
+            dialog
+                .title(title.clone())
+                .w(px(500.))
+                .overlay_closable(false)
+                .child(editor.clone())
+                .on_close(move |_, _window, cx| closed.update(cx, |e, cx| e.finish(true, cx)))
+                .footer(
+                    div()
+                        .w_full()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            Button::new("drawing-template")
+                                .ghost()
+                                .small()
+                                .icon(IconName::Save)
+                                .label("Save as default")
+                                .tooltip("New drawings of this tool start with this look")
+                                .on_click(move |_, _window, cx| {
+                                    template.update(cx, |e, cx| e.save_template(cx));
+                                }),
+                        )
+                        .child(
+                            Button::new("drawing-reset")
+                                .ghost()
+                                .small()
+                                .icon(IconName::RotateCcw)
+                                .label(if has_template { "Reset" } else { "Reset look" })
+                                .tooltip("Back to the look the tool starts with")
+                                .on_click(move |_, window, cx| {
+                                    reset.update(cx, |e, cx| e.reset_style(window, cx));
+                                }),
+                        )
+                        .child(div().flex_1())
+                        .child(
+                            Button::new("drawing-cancel")
+                                .ghost()
+                                .small()
+                                .label("Cancel")
+                                .on_click(move |_, window, cx| {
+                                    cancel.update(cx, |e, cx| e.finish(false, cx));
+                                    window.close_dialog(cx);
+                                }),
+                        )
+                        .child(
+                            Button::new("drawing-ok")
+                                .primary()
+                                .small()
+                                .label("OK")
+                                .on_click(move |_, window, cx| {
+                                    ok.update(cx, |e, cx| e.finish(true, cx));
+                                    window.close_dialog(cx);
+                                }),
+                        ),
+                )
+        });
     });
 }
 
@@ -668,7 +671,7 @@ impl DrawingProps {
                 let remove_this = this.clone();
                 grid = grid.child(
                     div()
-                        .w(px(210.))
+                        .w(px(220.))
                         .h(px(34.))
                         .flex()
                         .flex_row()
@@ -685,7 +688,7 @@ impl DrawingProps {
                                 }
                             },
                         ))
-                        .child(widgets::number_field(field, 96.))
+                        .child(widgets::number_field(field, 106.))
                         .child(self.swatch(
                             Swatch::Level(index),
                             level.color,

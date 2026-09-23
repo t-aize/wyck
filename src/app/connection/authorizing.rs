@@ -77,7 +77,8 @@ impl ConnectionFlow {
                 match this.save_connected_profile(&credentials, environment, &account, &tokens) {
                     Ok((profile_id, label)) => {
                         let saved = SavedConnection {
-                            profile_id,
+                            profile_id: Some(profile_id),
+                            url: None,
                             label: label.into(),
                             environment,
                             credentials,
