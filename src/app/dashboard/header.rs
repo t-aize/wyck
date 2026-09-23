@@ -19,7 +19,7 @@ impl Dashboard {
         div()
             .flex_none()
             .w_full()
-            .h(px(64.))
+            .h(px(54.))
             .px_5()
             .flex()
             .flex_row()
@@ -38,14 +38,14 @@ impl Dashboard {
     fn symbol_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let (tile, title, subtitle) = match &self.active {
             Some(active) => (
-                marks::render(&active.entry.icon, 40., theme::bg()),
+                marks::render(&active.entry.icon, 34., theme::bg()),
                 active.entry.name.clone(),
                 active.entry.description.clone(),
             ),
             None => (
                 ui::icon_tile(
                     IconName::Search,
-                    40.,
+                    34.,
                     18.,
                     theme::surface(),
                     theme::muted_fg(),
@@ -70,7 +70,7 @@ impl Dashboard {
             .flex_row()
             .items_center()
             .gap_3()
-            .py_1p5()
+            .py_1()
             .pl_1p5()
             .pr_3()
             .rounded_lg()
@@ -86,7 +86,7 @@ impl Dashboard {
                     .gap_0p5()
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(px(14.))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::fg())
                             .child(title),
@@ -148,7 +148,7 @@ impl Dashboard {
         block
             .child(
                 div()
-                    .text_size(px(22.))
+                    .text_size(px(19.))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(tone)
                     .child(bid),
@@ -325,7 +325,7 @@ impl Dashboard {
                     cx.notify();
                 }),
             )
-            .child(div().absolute().top(px(68.)).right_5().child(anim::enter(
+            .child(div().absolute().top(px(58.)).right_5().child(anim::enter(
                 card,
                 "account-menu-card",
                 0,

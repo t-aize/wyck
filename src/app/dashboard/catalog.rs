@@ -145,6 +145,8 @@ pub struct Entry {
     pub quote: Option<String>,
     /// Its picture: flags, a logo or a glyph.
     pub icon: Icon,
+    /// The broker's finer grouping inside the class (`Major Pairs`, `US Shares`...).
+    pub category: Option<String>,
     /// Lower-cased name and description, what a search looks through.
     search: String,
 }
@@ -171,6 +173,8 @@ impl Catalog {
             .iter()
             .filter_map(|c| Some((c.id?, c.name.as_deref()?)))
             .collect();
+        let category_names: HashMap<i64, String> =
+            categories.iter().map(|c| (c.id, c.name.clone())).collect();
         let category_class: HashMap<i64, Class> = categories
             .iter()
             .filter_map(|c| {
@@ -200,6 +204,15 @@ impl Catalog {
                     .and_then(|id| asset_names.get(&id))
                     .map(|name| (*name).to_owned());
                 let icon = marks::icon_for(&name, class, base.as_deref(), quote.as_deref());
+                let category = s
+                    .symbol_category_id
+                    .and_then(|id| category_names.get(&id))
+                    .filter(|name| {
+                        let name = name.trim();
+                        // Brokers file everything under a placeholder when they have no finer grouping.
+                        !name.is_empty() && !name.to_ascii_lowercase().starts_with("default")
+                    })
+                    .cloned();
                 Some(Entry {
                     id: s.symbol_id,
                     name,
@@ -208,12 +221,17 @@ impl Catalog {
                     base,
                     quote,
                     icon,
+                    category,
                     search,
                 })
             })
             .collect();
         entries.sort_by(|a, b| (a.class, &a.name).cmp(&(b.class, &b.name)));
         Self { entries }
+    }
+
+    pub fn total(&self) -> usize {
+        self.entries.len()
     }
 
     pub fn entry(&self, index: usize) -> Option<&Entry> {

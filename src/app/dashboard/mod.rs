@@ -116,6 +116,13 @@ enum Tick {
     Down,
 }
 
+/// The symbol the picker is showing, and the prices it has had since: the dashboard follows its
+/// price for as long as the picker highlights it.
+struct Peek {
+    id: i64,
+    quote: Quote,
+}
+
 pub struct Dashboard {
     session: Session,
     account: AccountInfo,
@@ -132,6 +139,7 @@ pub struct Dashboard {
     picker: Option<Picker>,
     /// What the broker said about the symbols the picker highlighted, kept while the app runs.
     details: HashMap<i64, details::Detail>,
+    peek: Option<Peek>,
     /// How many times the picker has been opened, so its entrance animation replays.
     picker_opens: u64,
     menu_open: bool,
@@ -158,6 +166,7 @@ impl Dashboard {
             tick: None,
             picker: None,
             details: HashMap::new(),
+            peek: None,
             picker_opens: 0,
             menu_open: false,
         };
@@ -321,6 +330,12 @@ impl Dashboard {
     }
 
     fn apply_spot(&mut self, spot: Spot, cx: &mut Context<Self>) {
+        // A symbol the picker is showing (not the one being followed) has its own quote.
+        if let Some(peek) = self.peek.as_mut().filter(|peek| peek.id == spot.symbol_id) {
+            peek.quote.bid = spot.bid.or(peek.quote.bid);
+            peek.quote.ask = spot.ask.or(peek.quote.ask);
+            cx.notify();
+        }
         if self.active.as_ref().map(|a| a.entry.id) != Some(spot.symbol_id) {
             return;
         }
@@ -338,21 +353,37 @@ impl Dashboard {
         cx.notify();
     }
 
-    /// The bid, the ask and the spread in pips, as the symbol quotes them.
-    fn price_text(&self) -> Option<(String, Option<String>, Option<String>)> {
+    /// The bid, the ask and the spread in pips, as the followed symbol quotes them.
+    fn price_text(&self) -> Option<details::Live> {
         let active = self.active.as_ref()?;
-        let bid = self.quote.bid?;
-        let ask = self.quote.ask;
-        let spread = ask.map(|ask| {
-            let pips = (ask - bid) as f64 / PRICE_SCALE as f64
-                * 10f64.powi(i32::try_from(active.pip_position).unwrap_or(4));
-            format!("{pips:.1}")
+        quote_text(self.quote, active.digits, active.pip_position)
+    }
+
+    /// The same for the symbol the picker highlights, once its details say how it is quoted.
+    fn peek_text(&self, id: i64) -> Option<details::Live> {
+        let peek = self.peek.as_ref().filter(|peek| peek.id == id)?;
+        let Some(details::Detail::Ready(symbol)) = self.details.get(&id) else {
+            return None;
+        };
+        let digits = u32::try_from(symbol.digits).unwrap_or(5);
+        quote_text(peek.quote, digits, symbol.pip_position)
+    }
+
+    /// Stops following the price of the symbol the picker was showing.
+    fn drop_peek(&mut self) {
+        let Some(peek) = self.peek.take() else {
+            return;
+        };
+        if self.active.as_ref().map(|a| a.entry.id) == Some(peek.id) {
+            return;
+        }
+        let session = self.session.clone();
+        runtime::spawn(async move {
+            if let Some(client) = session.client() {
+                let account = client.account(session.account_id());
+                let _ = account.market().unsubscribe_spots(&[peek.id]).await;
+            }
         });
-        Some((
-            format_price(bid, active.digits),
-            ask.map(|ask| format_price(ask, active.digits)),
-            spread,
-        ))
     }
 
     fn body(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -453,4 +484,20 @@ impl Render for Dashboard {
             .children(menu)
             .children(picker)
     }
+}
+
+/// The bid, the ask and the spread in pips of a quote, formatted for a symbol quoted with `digits`
+/// decimals and a pip at `pip_position`.
+fn quote_text(quote: Quote, digits: u32, pip_position: i64) -> Option<details::Live> {
+    let bid = quote.bid?;
+    let spread = quote.ask.map(|ask| {
+        let pips = (ask - bid) as f64 / PRICE_SCALE as f64
+            * 10f64.powi(i32::try_from(pip_position).unwrap_or(4));
+        format!("{pips:.1}")
+    });
+    Some((
+        format_price(bid, digits),
+        quote.ask.map(|ask| format_price(ask, digits)),
+        spread,
+    ))
 }

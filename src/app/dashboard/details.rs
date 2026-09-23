@@ -3,7 +3,7 @@
 //! details could not be loaded.
 
 use gpui::prelude::*;
-use gpui::{Div, FontWeight, SharedString, Stateful, div, px};
+use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 use gpui_kit::assets::IconName;
 use wyck::openapi::market::Symbol;
 
@@ -91,14 +91,14 @@ fn pip_size(pip_position: i64) -> String {
     }
 }
 
-/// The lines of the sheet for a symbol whose details are known.
+/// The lines of the table for a symbol whose details are known.
 fn spec_rows(symbol: &Symbol) -> Vec<(&'static str, String)> {
     let mut rows = vec![
-        ("Digits", symbol.digits.to_string()),
+        ("Price digits", symbol.digits.to_string()),
         ("Pip size", pip_size(symbol.pip_position)),
     ];
     if let Some(lot) = symbol.lot_size {
-        rows.push(("Contract size", units_label(lot)));
+        rows.push(("Lot size", units_label(lot)));
     }
     if let Some(min) = symbol.min_volume {
         rows.push(("Minimum volume", volume(min, symbol.lot_size)));
@@ -119,16 +119,58 @@ fn spec_rows(symbol: &Symbol) -> Vec<(&'static str, String)> {
     rows
 }
 
-fn row(label: &'static str, value: String) -> Div {
+/// A small rounded tag: the class, the category, "Current".
+fn pill(text: impl Into<SharedString>, color: gpui::Rgba, tint: gpui::Rgba) -> Div {
+    div()
+        .px_2p5()
+        .py_1()
+        .rounded_full()
+        .bg(tint)
+        .text_size(px(11.))
+        .text_color(color)
+        .child(text.into())
+}
+
+/// One live figure: bid, ask or spread.
+fn tile(label: &'static str, value: String) -> Div {
+    div()
+        .flex_1()
+        .min_w_0()
+        .px_2p5()
+        .py_2()
+        .rounded_lg()
+        .bg(theme::surface())
+        .border_1()
+        .border_color(theme::border_hairline())
+        .child(
+            div()
+                .text_size(px(10.5))
+                .text_color(theme::muted_fg())
+                .child(label),
+        )
+        .child(
+            div()
+                .truncate()
+                .text_size(px(14.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(theme::fg())
+                .child(value),
+        )
+}
+
+/// A line of the table: the label on the left, the value on the right.
+fn row(label: &'static str, value: String, divider: bool) -> Div {
     div()
         .flex()
         .flex_row()
         .items_start()
         .justify_between()
         .gap_4()
+        .px_3()
         .py_2()
-        .border_t_1()
-        .border_color(theme::border_hairline())
+        .when(divider, |el| {
+            el.border_t_1().border_color(theme::border_hairline())
+        })
         .text_size(px(12.))
         .child(div().flex_none().text_color(theme::muted_fg()).child(label))
         .child(
@@ -140,42 +182,46 @@ fn row(label: &'static str, value: String) -> Div {
         )
 }
 
-/// The sheet for `entry` (`None` when the search matches nothing).
-pub(super) fn render_details(
-    entry: Option<&Entry>,
-    detail: Option<&Detail>,
-    live: Option<Live>,
-    epoch: u64,
-) -> Stateful<Div> {
-    let sheet = div()
-        .id("symbol-details")
-        .overflow_y_scroll()
-        .min_h_0()
-        .w(px(300.))
+/// What the sheet shows.
+pub(super) struct Sheet<'a> {
+    /// The symbol under the highlight (`None` when the search matches nothing).
+    pub entry: Option<&'a Entry>,
+    pub detail: Option<&'a Detail>,
+    /// Live prices, when there are some for this symbol.
+    pub live: Option<Live>,
+    /// Whether this is the symbol the dashboard is on.
+    pub is_current: bool,
+    /// The button that chooses the symbol, pinned at the bottom.
+    pub action: Option<AnyElement>,
+    pub epoch: u64,
+}
+
+pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
+    let pane = div()
         .flex_none()
+        .w(px(380.))
         .h_full()
         .flex()
         .flex_col()
-        .gap_3()
-        .p_4()
         .border_l_1()
-        .border_color(theme::border_hairline());
+        .border_color(theme::border_hairline())
+        .bg(theme::bg());
 
-    let Some(entry) = entry else {
-        return sheet
+    let Some(entry) = sheet.entry else {
+        return pane
             .items_center()
             .justify_center()
             .text_size(px(12.))
             .text_color(theme::muted_fg())
-            .child("Nothing to show");
+            .child("Highlight a symbol to see its details.");
     };
 
-    let title = div()
+    let header = div()
         .flex()
         .flex_row()
         .items_center()
         .gap_3()
-        .child(marks::render(&entry.icon, 46., theme::surface()))
+        .child(marks::render(&entry.icon, 52., theme::bg()))
         .child(
             div()
                 .flex_1()
@@ -185,70 +231,114 @@ pub(super) fn render_details(
                 .gap_0p5()
                 .child(
                     div()
-                        .text_size(px(16.))
+                        .truncate()
+                        .text_size(px(19.))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(theme::fg())
                         .child(entry.name.clone()),
                 )
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(12.))
                         .text_color(theme::muted_fg())
-                        .child(entry.class.label()),
+                        .child(entry.description.clone()),
                 ),
         );
 
-    let mut rows: Vec<Div> = Vec::new();
-    if !entry.description.is_empty() {
-        rows.push(row("Name", entry.description.clone()));
+    let mut badges = div().flex().flex_row().flex_wrap().gap_1p5().mt_3();
+    badges = badges.child(pill(
+        entry.class.label(),
+        theme::muted_fg(),
+        theme::surface(),
+    ));
+    if let Some(category) = &entry.category {
+        badges = badges.child(pill(category.clone(), theme::muted_fg(), theme::surface()));
+    }
+    if sheet.is_current {
+        badges = badges.child(pill("Current", theme::emerald(), {
+            let mut tint = theme::emerald();
+            tint.a = 0.14;
+            tint
+        }));
+    }
+
+    let has_live = sheet.live.is_some();
+    let live = sheet.live.map(|(bid, ask, spread)| {
+        div()
+            .flex()
+            .flex_row()
+            .gap_2()
+            .mt_4()
+            .child(tile("Bid", bid))
+            .children(ask.map(|ask| tile("Ask", ask)))
+            .children(spread.map(|pips| tile("Spread", format!("{pips} pips"))))
+    });
+
+    let mut lines: Vec<(&'static str, String)> = vec![("Asset class", entry.class.label().into())];
+    if let Some(category) = &entry.category {
+        lines.push(("Category", category.clone()));
     }
     match (entry.class, &entry.base, &entry.quote) {
         (Class::Forex, Some(base), Some(quote)) => {
-            rows.push(row("Pair", format!("{base} / {quote}")));
+            lines.push(("Pair", format!("{base} / {quote}")));
         }
         (Class::Forex, ..) => {}
         // For the rest the broker's base asset is an internal name; what matters is the currency.
-        (_, _, Some(quote)) => rows.push(row("Quoted in", quote.clone())),
+        (_, _, Some(quote)) => lines.push(("Quoted in", quote.clone())),
         _ => {}
     }
-    if let Some((bid, ask, spread)) = live {
-        rows.push(row("Bid", bid));
-        if let Some(ask) = ask {
-            rows.push(row("Ask", ask));
-        }
-        if let Some(spread) = spread {
-            rows.push(row("Spread", format!("{spread} pips")));
-        }
+    if let Some(Detail::Ready(symbol)) = sheet.detail {
+        lines.extend(spec_rows(symbol));
     }
-    match detail {
-        Some(Detail::Ready(symbol)) => {
-            rows.extend(spec_rows(symbol).into_iter().map(|(l, v)| row(l, v)));
-        }
-        Some(Detail::Loading) | None => {}
-        Some(Detail::Failed(_)) => {}
-    }
+    let last = lines.len().saturating_sub(1);
+    let table = div()
+        .mt_4()
+        .flex()
+        .flex_col()
+        .rounded_lg()
+        .overflow_hidden()
+        .border_1()
+        .border_color(theme::border_subtle())
+        .bg(theme::surface())
+        .children(
+            lines
+                .into_iter()
+                .enumerate()
+                .map(|(index, (label, value))| row(label, value, index != 0 && index <= last)),
+        );
 
-    let status = match detail {
+    // Said out loud: silence would read as a bug. The forex market is closed on weekends, and
+    // some symbols have no price outside their session.
+    let no_price = (!has_live && matches!(sheet.detail, Some(Detail::Ready(_)))).then(|| {
+        div()
+            .mt_3()
+            .text_size(px(12.))
+            .text_color(theme::muted_fg())
+            .child("No price yet. The market may be closed for this symbol.")
+    });
+
+    let status = match sheet.detail {
         Some(Detail::Loading) | None => Some(
             div()
                 .flex()
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .pt_2()
+                .mt_3()
                 .text_size(px(12.))
                 .text_color(theme::muted_fg())
                 .child(anim::spin(
                     ui::icon_colored(IconName::LoaderCircle, 13., theme::muted_fg()),
-                    ("details-loading", epoch),
+                    ("details-loading", sheet.epoch),
                 ))
-                .child("Loading details..."),
+                .child("Loading the details..."),
         ),
         Some(Detail::Failed(message)) => Some(
             div()
                 .flex()
                 .flex_col()
                 .gap_1()
+                .mt_3()
                 .p_3()
                 .rounded_lg()
                 .bg(theme::destructive_bg())
@@ -267,7 +357,7 @@ pub(super) fn render_details(
                             14.,
                             theme::destructive(),
                         ))
-                        .child("Couldn't load the details"),
+                        .child("Could not load the details"),
                 )
                 .child(
                     div()
@@ -279,10 +369,25 @@ pub(super) fn render_details(
         Some(Detail::Ready(_)) => None,
     };
 
-    sheet
-        .child(title)
-        .child(div().flex().flex_col().children(rows))
-        .children(status)
+    pane.child(
+        div()
+            .id("symbol-details")
+            .flex_1()
+            .min_h_0()
+            .overflow_y_scroll()
+            .p_5()
+            .child(header)
+            .child(badges)
+            .children(live)
+            .children(no_price)
+            .child(table)
+            .children(status),
+    )
+    .children(
+        sheet
+            .action
+            .map(|button| div().flex_none().px_5().pb_4().child(button)),
+    )
 }
 
 #[cfg(test)]

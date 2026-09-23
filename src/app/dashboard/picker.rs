@@ -16,7 +16,7 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Context, Entity, Focusable, FontWeight, MouseButton, MouseMoveEvent, ScrollStrategy, Stateful,
-    Subscription, UniformListScrollHandle, Window, div, px, rgba, uniform_list,
+    Subscription, UniformListScrollHandle, Window, div, px, relative, rgba, uniform_list,
 };
 use gpui_kit::assets::IconName;
 
@@ -81,6 +81,7 @@ impl Dashboard {
 
     /// Escape: closes the picker, or else the account menu.
     pub(super) fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drop_peek();
         self.picker = None;
         self.menu_open = false;
         window.focus(&self.focus_handle, cx);
@@ -140,6 +141,7 @@ impl Dashboard {
         let scroll = picker.scroll.clone();
         let selected_class = picker.class;
         let count = picker.results.len();
+        let highlighted_row = picker.highlighted;
         let highlighted: Option<Entry> = picker
             .results
             .get(picker.highlighted)
@@ -147,15 +149,38 @@ impl Dashboard {
             .cloned();
         let highlighted_id = highlighted.as_ref().map(|entry| entry.id);
         self.schedule_details(highlighted_id, cx);
-        let live = highlighted_id
-            .filter(|id| self.active.as_ref().map(|a| a.entry.id) == Some(*id))
-            .and_then(|_| self.price_text());
-        let sheet = details::render_details(
-            highlighted.as_ref(),
-            highlighted_id.and_then(|id| self.details.get(&id)),
+        let active_id = self.active.as_ref().map(|a| a.entry.id);
+        let is_current = highlighted_id.is_some() && highlighted_id == active_id;
+        let live = highlighted_id.and_then(|id| {
+            if Some(id) == active_id {
+                self.price_text()
+            } else {
+                self.peek_text(id)
+            }
+        });
+        let action = highlighted.as_ref().map(|entry| {
+            ui::primary_button(
+                "pick-symbol",
+                if is_current {
+                    format!("Stay on {}", entry.name)
+                } else {
+                    format!("Use {}", entry.name)
+                },
+                cx.listener(move |this, _event, window, cx| {
+                    this.choose(highlighted_row, window, cx);
+                }),
+            )
+            .into_any_element()
+        });
+        let sheet = details::render_details(details::Sheet {
+            entry: highlighted.as_ref(),
+            detail: highlighted_id.and_then(|id| self.details.get(&id)),
             live,
-            self.picker_opens,
-        );
+            is_current,
+            action,
+            epoch: self.picker_opens,
+        });
+        let total = catalog.total();
 
         let chips = std::iter::once(None)
             .chain(catalog.classes().into_iter().map(Some))
@@ -220,8 +245,10 @@ impl Dashboard {
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
                 cx.stop_propagation();
             })
-            .w(px(940.))
-            .h(px(560.))
+            .w(px(1160.))
+            .max_w(relative(0.96))
+            .h_full()
+            .max_h(px(820.))
             .flex()
             .flex_col()
             .overflow_hidden()
@@ -240,7 +267,7 @@ impl Dashboard {
                     .py_3()
                     .child(ui::icon_colored(IconName::Search, 18., theme::muted_fg()))
                     .child(div().flex_1().child(input))
-                    .child(key_hint("Esc")),
+                    .child(key_cap("esc")),
             )
             .child(
                 div()
@@ -263,25 +290,7 @@ impl Dashboard {
                     .child(div().flex_1().min_w_0().flex().flex_col().child(list))
                     .child(sheet),
             )
-            .child(
-                div()
-                    .flex_none()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .px_4()
-                    .py_2p5()
-                    .border_t_1()
-                    .border_color(theme::border_hairline())
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(format!(
-                        "{count} symbol{}",
-                        if count == 1 { "" } else { "s" }
-                    ))
-                    .child("Up/Down to move, Enter to choose, Esc to close"),
-            );
+            .child(footer(count, total));
 
         let overlay = div()
             .absolute()
@@ -291,7 +300,8 @@ impl Dashboard {
             .flex()
             .justify_center()
             .items_start()
-            .pt(px(72.))
+            .pt(px(24.))
+            .pb(px(24.))
             .bg(rgba(0x000000a6))
             .on_mouse_down(
                 MouseButton::Left,
@@ -407,7 +417,12 @@ fn symbol_row(
                 .flex_none()
                 .text_size(px(11.))
                 .text_color(theme::muted_fg())
-                .child(entry.class.label()),
+                .child(
+                    entry
+                        .category
+                        .clone()
+                        .unwrap_or_else(|| entry.class.label().to_owned()),
+                ),
         )
         .child(
             div()
@@ -415,19 +430,6 @@ fn symbol_row(
                 .flex_none()
                 .children(active.then(|| ui::icon_colored(IconName::Check, 16., theme::accent()))),
         )
-}
-
-fn key_hint(label: &'static str) -> impl IntoElement {
-    div()
-        .flex_none()
-        .px_2()
-        .py_0p5()
-        .rounded_md()
-        .border_1()
-        .border_color(theme::border_subtle())
-        .text_size(px(11.))
-        .text_color(theme::muted_fg())
-        .child(label)
 }
 
 impl Dashboard {
@@ -472,10 +474,40 @@ impl Dashboard {
                 return;
             }
 
+            // Follow the highlighted symbol's price while the picker shows it (the followed symbol
+            // already has its own), and let go of the one it showed before.
+            let (unsubscribe, subscribe) = this
+                .update(cx, |this, _cx| {
+                    let active = this.active.as_ref().map(|a| a.entry.id);
+                    let previous = this
+                        .peek
+                        .take()
+                        .map(|peek| peek.id)
+                        .filter(|previous| Some(*previous) != active && *previous != id);
+                    let subscribe = (Some(id) != active).then_some(id);
+                    if subscribe.is_some() {
+                        this.peek = Some(super::Peek {
+                            id,
+                            quote: super::Quote::default(),
+                        });
+                    }
+                    (previous, subscribe)
+                })
+                .unwrap_or((None, None));
+
             let fetched = runtime::spawn(async move {
                 let client = session.client().ok_or(OpenApiError::Closed)?;
                 let account = client.account(session.account_id());
-                let details = account.market().symbol_details(&[id]).await?;
+                let market = account.market();
+                if let Some(previous) = unsubscribe {
+                    let _ = market.unsubscribe_spots(&[previous]).await;
+                }
+                if let Some(subscribe) = subscribe
+                    && let Err(error) = market.subscribe_spots(&[subscribe]).await
+                {
+                    tracing::warn!(%error, symbol_id = subscribe, "could not follow the price");
+                }
+                let details = market.symbol_details(&[id]).await?;
                 details
                     .into_iter()
                     .find(|symbol| symbol.symbol_id == id)
@@ -497,4 +529,77 @@ impl Dashboard {
         })
         .detach();
     }
+}
+
+/// A key cap: `Esc`, or an icon for an arrow key.
+fn key_cap(content: impl IntoElement) -> gpui::Div {
+    div()
+        .flex()
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .min_w(px(22.))
+        .h(px(20.))
+        .px_1p5()
+        .rounded_md()
+        .border_1()
+        .border_color(theme::border_subtle())
+        .bg(theme::bg())
+        .text_size(px(10.5))
+        .text_color(theme::muted_fg())
+        .child(content)
+}
+
+fn key_hint(caps: Vec<gpui::AnyElement>, label: &'static str) -> gpui::Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap_1p5()
+        .children(caps)
+        .child(
+            div()
+                .text_size(px(11.5))
+                .text_color(theme::muted_fg())
+                .child(label),
+        )
+}
+
+/// The line of key hints and the count.
+fn footer(shown: usize, total: usize) -> gpui::Div {
+    let arrow = |icon| key_cap(ui::icon_colored(icon, 11., theme::muted_fg())).into_any_element();
+    let count = if shown == total {
+        format!("{total} symbols")
+    } else {
+        format!("{shown} of {total} symbols")
+    };
+    div()
+        .flex_none()
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .h(px(40.))
+        .px_5()
+        .border_t_1()
+        .border_color(theme::border_hairline())
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_4()
+                .child(key_hint(
+                    vec![arrow(IconName::ArrowUp), arrow(IconName::ArrowDown)],
+                    "Navigate",
+                ))
+                .child(key_hint(vec![arrow(IconName::CornerDownLeft)], "Select"))
+                .child(key_hint(vec![key_cap("esc").into_any_element()], "Close")),
+        )
+        .child(
+            div()
+                .text_size(px(11.5))
+                .text_color(theme::muted_fg())
+                .child(count),
+        )
 }
