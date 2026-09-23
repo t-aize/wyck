@@ -46,49 +46,56 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div().flex().flex_1().items_center().justify_center().child(
-            div()
-                .flex()
-                .flex_col()
-                .gap_5()
-                .w(px(460.))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_size(px(18.))
-                                .text_color(theme::fg())
-                                .child("Choose a trading account"),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(13.))
-                                .text_color(theme::muted_fg())
-                                .child(
-                                    "Your cTrader ID authorized Wyck for these accounts. Pick \
-                                     the one to trade on \u{2014} you can add more later.",
-                                ),
-                        ),
-                )
-                .child(div().flex().flex_col().gap_2().children(
-                    state.accounts.iter().enumerate().map(|(index, account)| {
-                        account_row(index, account, index == state.selected, &mut *cx)
-                    }),
-                ))
-                .child(ui::primary_button(
-                    "connect-selected-account",
-                    "Connect this account",
-                    cx.listener(|this, _event, _window, cx| this.authorize_selected_account(cx)),
-                ))
-                .child(div().flex().justify_center().child(ui::ghost_button(
-                    "use-different-account",
-                    "Use a different cTrader ID",
-                    cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
-                ))),
-        )
+        ui::screen()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_6()
+                    .w(px(500.))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_size(px(19.))
+                                    .text_color(theme::fg())
+                                    .child("Choose a trading account"),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(13.))
+                                    .text_color(theme::muted_fg())
+                                    .child(
+                                        "Your cTrader ID authorized Wyck for these accounts. \
+                                         Pick the one to trade on: you can add more later.",
+                                    ),
+                            ),
+                    )
+                    .child(div().flex().flex_col().gap_2().children(
+                        state.accounts.iter().enumerate().map(|(index, account)| {
+                            account_row(index, account, index == state.selected, &mut *cx)
+                        }),
+                    ))
+                    .child(ui::primary_button(
+                        "connect-selected-account",
+                        "Connect this account",
+                        cx.listener(|this, _event, _window, cx| {
+                            this.authorize_selected_account(cx)
+                        }),
+                    ))
+                    .child(div().flex().justify_center().child(ui::ghost_button(
+                        "use-different-account",
+                        "Use a different cTrader ID",
+                        cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
+                    ))),
+            )
+            .child(ui::back_button(
+                "select-account-back",
+                cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
+            ))
     }
 
     fn authorize_selected_account(&mut self, cx: &mut Context<Self>) {
@@ -119,7 +126,7 @@ fn account_row(
     let login = account
         .trader_login
         .map(|login| login.to_string())
-        .unwrap_or_else(|| "\u{2014}".into());
+        .unwrap_or_else(|| "-".into());
 
     div()
         .id(("account-row", index as u64))
@@ -127,7 +134,7 @@ fn account_row(
         .flex_row()
         .items_center()
         .gap_3()
-        .p(px(12.))
+        .p(px(14.))
         .rounded_lg()
         .bg(theme::surface())
         .border_1()
@@ -145,7 +152,8 @@ fn account_row(
         }))
         .child(
             div()
-                .size(px(16.))
+                .size(px(18.))
+                .flex_shrink_0()
                 .rounded_full()
                 .border_1()
                 .border_color(if selected {
@@ -183,10 +191,10 @@ fn account_row(
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(13.))
                         .text_color(theme::muted_fg())
                         .child(format!(
-                            "cTrader ID {} \u{00b7} login {login}",
+                            "cTrader ID {} - login {login}",
                             account.ctid_trader_account_id
                         )),
                 ),

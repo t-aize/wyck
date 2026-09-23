@@ -1,7 +1,7 @@
 //! Screens 4 through 8: everything that happens automatically once the browser has been opened
-//! to cTrader's consent page \u{2014} waiting for the redirect, exchanging the code for tokens,
-//! and fetching the list of accounts the token covers. All of it is one background task; the
-//! screen itself just shows progress and lets the user cancel or reopen the browser.
+//! to cTrader's consent page: waiting for the redirect, exchanging the code for tokens, and
+//! fetching the list of accounts the token covers. All of it is one background task; the screen
+//! itself just shows progress and lets the user cancel or reopen the browser.
 
 use std::time::Duration;
 
@@ -172,57 +172,63 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div().flex().flex_1().items_center().justify_center().child(
-            div()
-                .flex()
-                .flex_col()
-                .items_center()
-                .gap_4()
-                .w(px(340.))
-                .children(
-                    state
-                        .error
-                        .clone()
-                        .map(|message| ui::error_banner("Couldn't finish signing in", message)),
-                )
-                .child(
-                    div()
-                        .text_size(px(17.))
-                        .text_color(theme::fg())
-                        .child("Finish this in your browser"),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.))
-                        .text_color(theme::muted_fg())
-                        .text_center()
-                        .child(
-                            "We opened cTrader's sign-in page. Come back here once you've \
-                             allowed access \u{2014} Wyck picks it up automatically.",
-                        ),
-                )
-                .child(
-                    div()
-                        .w_full()
-                        .pt_2()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .child(ui::secondary_button(
-                            "reopen-browser",
-                            "Open browser again",
-                            {
-                                let url = state.url.clone();
-                                move |_event, _window, cx| cx.open_url(&url)
-                            },
-                        ))
-                        .child(ui::ghost_button(
-                            "cancel-browser-handoff",
-                            "Cancel",
-                            cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
-                        )),
-                ),
-        )
+        ui::screen()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_5()
+                    .w(px(400.))
+                    .children(
+                        state
+                            .error
+                            .clone()
+                            .map(|message| ui::error_banner("Couldn't finish signing in", message)),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(18.))
+                            .text_color(theme::fg())
+                            .child("Finish this in your browser"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(14.))
+                            .text_color(theme::muted_fg())
+                            .text_center()
+                            .child(
+                                "We opened cTrader's sign-in page. Come back here once you've \
+                                 allowed access, and Wyck picks it up automatically.",
+                            ),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .pt_2()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(ui::secondary_button_icon(
+                                "reopen-browser",
+                                "icons/external-link.svg",
+                                "Open browser again",
+                                {
+                                    let url = state.url.clone();
+                                    move |_event, _window, cx| cx.open_url(&url)
+                                },
+                            ))
+                            .child(ui::ghost_button(
+                                "cancel-browser-handoff",
+                                "Cancel",
+                                cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
+                            )),
+                    ),
+            )
+            .child(ui::back_button(
+                "browser-handoff-back",
+                cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
+            ))
     }
 }
 

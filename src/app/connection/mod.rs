@@ -19,7 +19,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FocusHandle, Focusable, Window, div};
 use wyck::config::{AppPaths, KeyringSecretStore, WyckConfig};
 
-use super::{theme, titlebar};
+use super::theme;
 
 enum Screen {
     Welcome,
@@ -31,7 +31,7 @@ enum Screen {
     Manage(manage::ManageState),
 }
 
-/// The root view: a titlebar plus whichever screen is active.
+/// The root view: whichever screen is active.
 pub struct ConnectionFlow {
     config: WyckConfig,
     screen: Screen,
@@ -93,15 +93,8 @@ impl Render for ConnectionFlow {
             .size_full()
             .bg(theme::bg())
             .text_color(theme::fg())
-            .child(titlebar::render(window, cx))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h(gpui::px(0.))
-                    .child(self.render_active_screen(window, cx)),
-            )
+            .font_family("Inter")
+            .child(self.render_active_screen(window, cx))
     }
 }
 

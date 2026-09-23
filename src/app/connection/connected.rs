@@ -38,41 +38,40 @@ impl ConnectionFlow {
             .account
             .trader_login
             .map(|login| login.to_string())
-            .unwrap_or_else(|| "\u{2014}".into());
+            .unwrap_or_else(|| "-".into());
 
-        div().flex().flex_1().items_center().justify_center().child(
+        ui::screen().child(
             div()
                 .flex()
                 .flex_col()
                 .items_center()
-                .gap_4()
-                .w(px(360.))
+                .gap_5()
+                .w(px(420.))
                 .child(
                     div()
-                        .size(px(48.))
+                        .size(px(56.))
                         .rounded_full()
                         .bg(theme::emerald_bg())
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_size(px(20.))
                         .text_color(theme::emerald())
-                        .child("\u{2713}"),
+                        .child(ui::icon("icons/check.svg", 24.)),
                 )
                 .child(
                     div()
-                        .text_size(px(18.))
+                        .text_size(px(19.))
                         .text_color(theme::fg())
                         .child("Connected"),
                 )
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(14.))
                         .text_color(theme::muted_fg())
                         .text_center()
                         .child(
                             "Wyck is authorized on this account. It'll refresh access \
-                             automatically \u{2014} you won't need to sign in again unless you \
+                             automatically, so you won't need to sign in again unless you \
                              revoke it.",
                         ),
                 )
@@ -83,7 +82,7 @@ impl ConnectionFlow {
                         .flex_row()
                         .items_center()
                         .justify_between()
-                        .p(px(12.))
+                        .p(px(14.))
                         .rounded_lg()
                         .bg(theme::surface())
                         .child(
@@ -109,7 +108,7 @@ impl ConnectionFlow {
                         )
                         .child(
                             div()
-                                .text_size(px(12.))
+                                .text_size(px(13.))
                                 .text_color(theme::muted_fg())
                                 .child(format!("login {login}")),
                         ),

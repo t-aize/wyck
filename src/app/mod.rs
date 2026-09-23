@@ -1,22 +1,26 @@
-//! The `wyck` desktop application: window, titlebar and the connection flow.
+//! The `wyck` desktop application: window and the connection flow.
 
+mod assets;
 mod connection;
 mod runtime;
 mod text_input;
 mod theme;
-mod titlebar;
+
+use std::borrow::Cow;
 
 use gpui::prelude::*;
-use gpui::{
-    App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
-};
+use gpui::{App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
     init_tracing();
 
-    Application::new().run(|cx: &mut App| {
+    Application::new().with_assets(assets::Assets).run(|cx: &mut App| {
         text_input::init(cx);
+
+        cx.text_system()
+            .add_fonts(vec![Cow::Borrowed(assets::FONT)])
+            .expect("the bundled Inter font failed to load");
 
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
@@ -25,21 +29,20 @@ pub fn run() {
         })
         .detach();
 
-        let bounds = Bounds::centered(None, size(px(920.0), px(640.0)), cx);
+        let bounds = Bounds::centered(None, size(px(1180.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                // The OS's own titlebar: real Windows caption buttons and Snap Layouts, real
+                // macOS traffic lights, whatever the Linux compositor draws for everyone else.
                 titlebar: Some(TitlebarOptions {
                     title: Some("Wyck".into()),
-                    appears_transparent: true,
-                    traffic_light_position: Some(point(px(12.), px(12.))),
+                    appears_transparent: false,
+                    traffic_light_position: None,
                 }),
                 ..Default::default()
             },
-            |window, cx| {
-                titlebar::request_client_decorations(window);
-                cx.new(connection::ConnectionFlow::new)
-            },
+            |_window, cx| cx.new(connection::ConnectionFlow::new),
         )
         .expect("failed to open the main window");
 
