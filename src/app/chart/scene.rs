@@ -620,27 +620,6 @@ fn stroke(points: &[(f32, f32)], width: f32, c: Hsla, out: &mut Vec<Cmd>) {
     }
 }
 
-/// A dashed horizontal line as small quads.
-fn dashed_h(cx: &Ctx<'_>, y: f32, x0: f32, x1: f32, c: Hsla, out: &mut Vec<Cmd>) {
-    let (dash, gap) = (4.0, 3.0);
-    let mut x = x0;
-    while x < x1 {
-        let end = (x + dash).min(x1);
-        out.push(cx.hline(y, x, end, c));
-        x += dash + gap;
-    }
-}
-
-fn dashed_v(cx: &Ctx<'_>, x: f32, y0: f32, y1: f32, c: Hsla, out: &mut Vec<Cmd>) {
-    let (dash, gap) = (4.0, 3.0);
-    let mut y = y0;
-    while y < y1 {
-        let end = (y + dash).min(y1);
-        out.push(cx.vline(x, y, end, c));
-        y += dash + gap;
-    }
-}
-
 /// Whether the newest price moved up (or is unchanged) from the one before it.
 fn last_is_up(series: &Series) -> bool {
     match series {
@@ -656,17 +635,17 @@ fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     let p = cx.f.palette;
     let (x0, x1) = (cx.ox, cx.ox + cx.plot_w as f32);
     if let Some(ask) = cx.f.ask {
-        dashed_h(cx, cx.y(ask as f64), x0, x1, with_alpha(p.text, 0.35), out);
+        out.push(cx.hline(cx.y(ask as f64), x0, x1, with_alpha(p.text, 0.3)));
     }
     if let Some(price) = cx.f.series.last_price() {
         let c = with_alpha(up_color(cx, last_is_up(cx.f.series)), 0.75);
-        dashed_h(cx, cx.y(price as f64), x0, x1, c, out);
+        out.push(cx.hline(cx.y(price as f64), x0, x1, c));
     }
 }
 
 fn draw_crosshair(cx: &Ctx<'_>, hx: f32, hy: f32, out: &mut Vec<Cmd>) {
     let p = cx.f.palette;
-    let c = with_alpha(p.text, 0.5);
+    let c = with_alpha(p.text, 0.35);
     let x = if cx.len > 0 {
         let index =
             cx.f.view
@@ -677,8 +656,8 @@ fn draw_crosshair(cx: &Ctx<'_>, hx: f32, hy: f32, out: &mut Vec<Cmd>) {
     } else {
         cx.ox + hx
     };
-    dashed_v(cx, x, cx.oy, cx.oy + cx.plot_h as f32, c, out);
-    dashed_h(cx, cx.oy + hy, cx.ox, cx.ox + cx.plot_w as f32, c, out);
+    out.push(cx.vline(x, cx.oy, cx.oy + cx.plot_h as f32, c));
+    out.push(cx.hline(cx.oy + hy, cx.ox, cx.ox + cx.plot_w as f32, c));
 }
 
 /// The tags on the axes: the newest price, and the crosshair's price and time.
