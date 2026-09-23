@@ -1,8 +1,8 @@
 //! The dashboard: the screen the app lands on once an account is connected.
 //!
-//! For now that is the header bar (the symbol, its live price, the connection state, the account
-//! and the window controls) and the symbol picker that opens from it. The chart and the trading
-//! panels are not built yet.
+//! That is the header bar (the symbol, its live price, the timeframes, the connection state, the
+//! account and the window controls), the symbol picker that opens from it, and the chart. The
+//! trading panels are not built yet.
 //!
 //! A [`Dashboard`] owns the [`Session`] for its account: the session reconnects, renews the
 //! tokens and restores the price subscription by itself, and the dashboard only follows its events.
@@ -19,7 +19,8 @@ use std::sync::Arc;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window, div, px,
+    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
+    deferred, div, px,
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
@@ -29,6 +30,7 @@ use wyck::openapi::{Event, OpenApiError};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
+use super::chart::{self, Chart};
 use super::connection::ui;
 use super::{runtime, theme};
 
@@ -143,6 +145,9 @@ pub struct Dashboard {
     /// How many times the picker has been opened, so its entrance animation replays.
     picker_opens: u64,
     menu_open: bool,
+    chart: Entity<Chart>,
+    /// Whether the list of all timeframes is open.
+    tf_menu_open: bool,
 }
 
 impl Dashboard {
@@ -152,6 +157,7 @@ impl Dashboard {
         initial_symbol: Option<String>,
         cx: &mut Context<Self>,
     ) -> Self {
+        let chart = cx.new(|_| Chart::new(session.clone()));
         let mut dashboard = Self {
             session,
             account,
@@ -169,6 +175,8 @@ impl Dashboard {
             peek: None,
             picker_opens: 0,
             menu_open: false,
+            chart,
+            tf_menu_open: false,
         };
         dashboard.follow_session(cx);
         dashboard
@@ -208,7 +216,10 @@ impl Dashboard {
     fn on_event(&mut self, event: SessionEvent, cx: &mut Context<Self>) {
         match event {
             SessionEvent::Ready => self.on_ready(cx),
-            SessionEvent::Data(Event::Spot(spot)) => self.apply_spot(Spot::from(&spot), cx),
+            SessionEvent::Data(Event::Spot(spot)) => {
+                self.chart.update(cx, |chart, cx| chart.on_spot(&spot, cx));
+                self.apply_spot(Spot::from(&spot), cx);
+            }
             SessionEvent::Reconnecting { attempt, .. } => {
                 tracing::debug!(attempt, "the session is reconnecting");
                 self.conn = Conn::Reconnecting;
@@ -225,6 +236,7 @@ impl Dashboard {
 
     fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.conn = Conn::Ready;
+        self.chart.update(cx, |chart, cx| chart.on_ready(cx));
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -291,6 +303,9 @@ impl Dashboard {
         if remember {
             cx.emit(DashboardEvent::SymbolChosen(entry.name.clone()));
         }
+        let name = SharedString::from(entry.name.clone());
+        self.chart
+            .update(cx, |chart, cx| chart.set_symbol(id, name, 5, cx));
         self.active = Some(Active {
             entry,
             digits: 5,
@@ -322,6 +337,9 @@ impl Dashboard {
                 if let Some(active) = this.active.as_mut().filter(|a| a.entry.id == id) {
                     active.digits = u32::try_from(details.digits).unwrap_or(5);
                     active.pip_position = details.pip_position;
+                    let digits = active.digits;
+                    this.chart
+                        .update(cx, |chart, cx| chart.set_digits(id, digits, cx));
                     cx.notify();
                 }
             });
@@ -424,19 +442,7 @@ impl Dashboard {
                     }),
                 )))
                 .into_any_element(),
-            _ => centered
-                .child(ui::icon_colored(
-                    IconName::ChartCandlestick,
-                    28.,
-                    theme::muted_fg(),
-                ))
-                .child(
-                    div()
-                        .text_size(px(14.))
-                        .text_color(theme::muted_fg())
-                        .child("The chart and trading panels will appear here."),
-                )
-                .into_any_element(),
+            _ => self.chart.clone().into_any_element(),
         }
     }
 }
@@ -462,6 +468,24 @@ impl Render for Dashboard {
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
         let menu = self.render_menu(cx);
+        let timeframe_backdrop = self.tf_menu_open.then(|| {
+            deferred(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                    .occlude()
+                    .on_mouse_down(
+                        gpui::MouseButton::Left,
+                        cx.listener(|this, _event, _window, cx| {
+                            this.tf_menu_open = false;
+                            cx.notify();
+                        }),
+                    ),
+            )
+            .with_priority(0)
+        });
 
         div()
             .key_context("Dashboard")
@@ -471,6 +495,24 @@ impl Render for Dashboard {
             }))
             .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
                 this.close_overlays(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &chart::ChartPanBack, _window, cx| {
+                this.chart.update(cx, |chart, cx| chart.pan_keys(false, cx));
+            }))
+            .on_action(
+                cx.listener(|this, _: &chart::ChartPanForward, _window, cx| {
+                    this.chart.update(cx, |chart, cx| chart.pan_keys(true, cx));
+                }),
+            )
+            .on_action(cx.listener(|this, _: &chart::ChartZoomIn, _window, cx| {
+                this.chart.update(cx, |chart, cx| chart.zoom_keys(true, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::ChartZoomOut, _window, cx| {
+                this.chart
+                    .update(cx, |chart, cx| chart.zoom_keys(false, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
+                this.chart.update(cx, |chart, cx| chart.jump_to_latest(cx));
             }))
             .relative()
             .flex()
@@ -483,6 +525,7 @@ impl Render for Dashboard {
             .child(body)
             .children(menu)
             .children(picker)
+            .children(timeframe_backdrop)
     }
 }
 

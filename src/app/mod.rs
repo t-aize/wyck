@@ -2,6 +2,7 @@
 
 mod anim;
 mod assets;
+mod chart;
 mod connection;
 mod dashboard;
 mod runtime;
@@ -26,6 +27,7 @@ pub fn run() {
             theme::apply(cx);
             text_input::init(cx);
             dashboard::init(cx);
+            chart::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

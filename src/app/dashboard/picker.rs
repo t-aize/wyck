@@ -84,6 +84,7 @@ impl Dashboard {
         self.drop_peek();
         self.picker = None;
         self.menu_open = false;
+        self.tf_menu_open = false;
         window.focus(&self.focus_handle, cx);
         cx.notify();
     }
@@ -303,6 +304,7 @@ impl Dashboard {
             .pt(px(24.))
             .pb(px(24.))
             .bg(rgba(0x000000a6))
+            .occlude()
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _event, window, cx| this.close_overlays(window, cx)),

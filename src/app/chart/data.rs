@@ -1,0 +1,429 @@
+//! What the chart holds and how it grows: bars or ticks, kept sorted and bounded.
+//!
+//! Everything here is plain data in, plain data out, so the rules that keep a live chart correct
+//! (which bar a tick belongs to, how a page of older history joins, what a reconnect refill
+//! replaces) are unit tested without a window.
+
+use wyck::openapi::market::{Bar, Tick};
+
+/// The most bars kept. Older ones are dropped as new ones arrive, so a chart left open for days
+/// does not grow without end.
+pub const MAX_BARS: usize = 120_000;
+/// The most ticks kept.
+pub const MAX_TICKS: usize = 250_000;
+
+#[derive(Debug, Clone)]
+pub enum Series {
+    Bars(Vec<Bar>),
+    Ticks(Vec<Tick>),
+}
+
+impl Series {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Bars(bars) => bars.len(),
+            Self::Ticks(ticks) => ticks.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The most a series may hold.
+    pub fn capacity_limit(&self) -> usize {
+        match self {
+            Self::Bars(_) => MAX_BARS,
+            Self::Ticks(_) => MAX_TICKS,
+        }
+    }
+
+    /// The time of point `index`, in Unix milliseconds.
+    pub fn time_at(&self, index: usize) -> Option<i64> {
+        match self {
+            Self::Bars(bars) => bars.get(index).map(|b| b.time_ms),
+            Self::Ticks(ticks) => ticks.get(index).map(|t| t.time_ms),
+        }
+    }
+
+    /// The time of the first point.
+    pub fn first_time(&self) -> Option<i64> {
+        self.time_at(0)
+    }
+
+    /// The time of the last point.
+    pub fn last_time(&self) -> Option<i64> {
+        self.len().checked_sub(1).and_then(|i| self.time_at(i))
+    }
+
+    /// The last price: a bar's close, or the tick's price.
+    pub fn last_price(&self) -> Option<i64> {
+        match self {
+            Self::Bars(bars) => bars.last().map(|b| b.close),
+            Self::Ticks(ticks) => ticks.last().map(|t| t.price),
+        }
+    }
+
+    /// The lowest and highest price in `[first, last)`. With `wicks` a bar counts by its low and
+    /// high, otherwise by its close.
+    pub fn price_range(&self, first: usize, last: usize, wicks: bool) -> Option<(i64, i64)> {
+        let (mut lo, mut hi) = (i64::MAX, i64::MIN);
+        match self {
+            Self::Bars(bars) => {
+                for bar in bars.get(first..last.min(bars.len()))? {
+                    let (l, h) = if wicks {
+                        (bar.low, bar.high)
+                    } else {
+                        (bar.close, bar.close)
+                    };
+                    lo = lo.min(l);
+                    hi = hi.max(h);
+                }
+            }
+            Self::Ticks(ticks) => {
+                for tick in ticks.get(first..last.min(ticks.len()))? {
+                    lo = lo.min(tick.price);
+                    hi = hi.max(tick.price);
+                }
+            }
+        }
+        (lo <= hi).then_some((lo, hi))
+    }
+}
+
+/// The start of the bucket of `bucket_ms` that holds `time_ms`.
+pub fn bucket_start(time_ms: i64, bucket_ms: i64) -> i64 {
+    time_ms - time_ms.rem_euclid(bucket_ms)
+}
+
+/// Groups ticks (oldest first) into bars of `bucket_ms`. A bucket without ticks has no bar.
+pub fn aggregate_ticks(ticks: &[Tick], bucket_ms: i64) -> Vec<Bar> {
+    let mut bars: Vec<Bar> = Vec::new();
+    for tick in ticks {
+        fold_tick(&mut bars, bucket_ms, *tick);
+    }
+    bars
+}
+
+/// Adds a tick to bars built from ticks: into the last bar when it falls in its bucket, or as a
+/// new bar after it. A tick older than the last bar (a clock that stepped back) is folded into the
+/// last bar rather than breaking the order. Returns whether a bar was added.
+pub fn fold_tick(bars: &mut Vec<Bar>, bucket_ms: i64, tick: Tick) -> bool {
+    let bucket = bucket_start(tick.time_ms, bucket_ms);
+    match bars.last_mut() {
+        Some(last) if bucket <= last.time_ms => {
+            last.high = last.high.max(tick.price);
+            last.low = last.low.min(tick.price);
+            last.close = tick.price;
+            last.volume += 1;
+            false
+        }
+        _ => {
+            bars.push(Bar {
+                time_ms: bucket,
+                open: tick.price,
+                high: tick.price,
+                low: tick.price,
+                close: tick.price,
+                volume: 1,
+            });
+            true
+        }
+    }
+}
+
+/// Moves the last bar of a server period with a tick, when the tick belongs to it. The server's
+/// own live bar decides when a new bar starts, so a tick past the bar is left alone.
+pub fn touch_last_bar(bars: &mut [Bar], period_ms: i64, tick: Tick) {
+    if let Some(last) = bars.last_mut()
+        && tick.time_ms >= last.time_ms
+        && tick.time_ms < last.time_ms + period_ms
+    {
+        last.high = last.high.max(tick.price);
+        last.low = last.low.min(tick.price);
+        last.close = tick.price;
+    }
+}
+
+/// Puts a live bar from the server in place: replaces the bar with its time, or adds it after the
+/// last. Returns whether a bar was added at the end. A bar older than the first one kept is dropped.
+pub fn apply_live_bar(bars: &mut Vec<Bar>, live: Bar) -> bool {
+    match bars.binary_search_by_key(&live.time_ms, |b| b.time_ms) {
+        Ok(at) => {
+            bars[at] = live;
+            false
+        }
+        Err(at) if at == bars.len() => {
+            bars.push(live);
+            true
+        }
+        Err(0) => false,
+        Err(at) => {
+            bars.insert(at, live);
+            false
+        }
+    }
+}
+
+/// The server's live bar carries a wrong close: it always equals the low (seen on a live demo
+/// account, where the close stayed at the low while the bid moved). Its open, high, low and tick
+/// count are right, so keep those and take the close from the price of the event, or from the bar
+/// already held when the event carries no bid. Without either, the bar has just opened at its open.
+pub fn with_true_close(mut live: Bar, held_last: Option<&Bar>, bid: Option<i64>) -> Bar {
+    live.close = bid
+        .or_else(|| {
+            held_last
+                .filter(|b| b.time_ms == live.time_ms)
+                .map(|b| b.close)
+        })
+        .unwrap_or(live.open);
+    live.high = live.high.max(live.close);
+    live.low = live.low.min(live.close);
+    live
+}
+
+/// Joins bars fetched for a range that overlaps what is held (a refill after a reconnect). Where a
+/// bar exists on both sides the one with more ticks wins: a bar only ever gains ticks, so that is
+/// the fresher one, whichever arrived last.
+pub fn merge_bars(bars: &mut Vec<Bar>, fetched: Vec<Bar>) {
+    if fetched.is_empty() {
+        return;
+    }
+    let mut merged: Vec<Bar> = Vec::with_capacity(bars.len() + fetched.len());
+    let (mut a, mut b) = (0, 0);
+    while a < bars.len() || b < fetched.len() {
+        match (bars.get(a), fetched.get(b)) {
+            (Some(x), Some(y)) if x.time_ms == y.time_ms => {
+                merged.push(if y.volume > x.volume { *y } else { *x });
+                a += 1;
+                b += 1;
+            }
+            (Some(x), Some(y)) if x.time_ms < y.time_ms => {
+                merged.push(*x);
+                a += 1;
+            }
+            (Some(_), Some(y)) => {
+                merged.push(*y);
+                b += 1;
+            }
+            (Some(x), None) => {
+                merged.push(*x);
+                a += 1;
+            }
+            (None, Some(y)) => {
+                merged.push(*y);
+                b += 1;
+            }
+            (None, None) => break,
+        }
+    }
+    *bars = merged;
+}
+
+/// Puts bars older than everything held in front. Returns how many were added.
+pub fn prepend_bars(bars: &mut Vec<Bar>, mut older: Vec<Bar>) -> usize {
+    let first = bars.first().map_or(i64::MAX, |b| b.time_ms);
+    older.retain(|b| b.time_ms < first);
+    older.sort_by_key(|b| b.time_ms);
+    older.dedup_by_key(|b| b.time_ms);
+    let added = older.len();
+    if added > 0 {
+        older.append(bars);
+        *bars = older;
+    }
+    added
+}
+
+/// Puts ticks older than everything held in front. Returns how many were added.
+pub fn prepend_ticks(ticks: &mut Vec<Tick>, mut older: Vec<Tick>) -> usize {
+    let first = ticks.first().map_or(i64::MAX, |t| t.time_ms);
+    older.retain(|t| t.time_ms < first);
+    let added = older.len();
+    if added > 0 {
+        older.append(ticks);
+        *ticks = older;
+    }
+    added
+}
+
+/// Joins ticks fetched to fill a gap: the fetched ticks stand for everything after `after_ms` up
+/// to and including `until_ms`, and ticks that arrived live past `until_ms` are kept after them.
+pub fn splice_ticks(ticks: &mut Vec<Tick>, fetched: Vec<Tick>, after_ms: i64, until_ms: i64) {
+    let keep_before = ticks.partition_point(|t| t.time_ms <= after_ms);
+    let keep_after = ticks.partition_point(|t| t.time_ms <= until_ms);
+    let tail = ticks.split_off(keep_after);
+    ticks.truncate(keep_before);
+    ticks.extend(
+        fetched
+            .into_iter()
+            .filter(|t| t.time_ms > after_ms && t.time_ms <= until_ms),
+    );
+    ticks.extend(tail);
+}
+
+/// Drops the oldest points beyond `max`. Returns how many went.
+pub fn trim_front<T>(items: &mut Vec<T>, max: usize) -> usize {
+    let excess = items.len().saturating_sub(max);
+    if excess > 0 {
+        items.drain(..excess);
+    }
+    excess
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bar(time_ms: i64, o: i64, h: i64, l: i64, c: i64, volume: i64) -> Bar {
+        Bar {
+            time_ms,
+            open: o,
+            high: h,
+            low: l,
+            close: c,
+            volume,
+        }
+    }
+
+    fn tick(time_ms: i64, price: i64) -> Tick {
+        Tick { time_ms, price }
+    }
+
+    #[test]
+    fn ticks_group_into_buckets() {
+        let ticks = [
+            tick(1_000, 10),
+            tick(1_400, 14),
+            tick(1_900, 8),
+            tick(2_100, 9),
+        ];
+        let bars = aggregate_ticks(&ticks, 1_000);
+        assert_eq!(bars.len(), 2);
+        assert_eq!(bars[0], bar(1_000, 10, 14, 8, 8, 3));
+        assert_eq!(bars[1], bar(2_000, 9, 9, 9, 9, 1));
+    }
+
+    #[test]
+    fn buckets_align_before_the_epoch_too() {
+        assert_eq!(bucket_start(-1, 1_000), -1_000);
+        assert_eq!(bucket_start(1_999, 1_000), 1_000);
+    }
+
+    #[test]
+    fn a_late_tick_never_breaks_the_order() {
+        let mut bars = vec![bar(5_000, 1, 1, 1, 1, 1)];
+        assert!(!fold_tick(&mut bars, 1_000, tick(3_000, 5)));
+        assert_eq!(bars.len(), 1);
+        assert_eq!((bars[0].high, bars[0].close), (5, 5));
+        assert!(fold_tick(&mut bars, 1_000, tick(6_000, 2)));
+        assert_eq!(bars.len(), 2);
+    }
+
+    #[test]
+    fn a_tick_only_touches_the_bar_it_belongs_to() {
+        let mut bars = vec![bar(60_000, 10, 12, 9, 11, 5)];
+        touch_last_bar(&mut bars, 60_000, tick(90_000, 15));
+        assert_eq!((bars[0].high, bars[0].close, bars[0].volume), (15, 15, 5));
+        touch_last_bar(&mut bars, 60_000, tick(120_000, 99));
+        assert_eq!(
+            bars[0].high, 15,
+            "a tick past the bar waits for its live bar"
+        );
+        touch_last_bar(&mut bars, 60_000, tick(59_999, 1));
+        assert_eq!(bars[0].low, 9, "a tick before the bar is not its own");
+    }
+
+    #[test]
+    fn a_live_bar_gets_its_close_from_the_bid_not_from_the_low() {
+        // As the server sent it: close equal to the low.
+        let live = bar(0, 100, 130, 90, 90, 5);
+        assert_eq!(with_true_close(live, None, Some(120)).close, 120);
+        let held = bar(0, 100, 130, 90, 115, 4);
+        assert_eq!(with_true_close(live, Some(&held), None).close, 115);
+        let other = bar(-60, 1, 1, 1, 1, 1);
+        assert_eq!(with_true_close(live, Some(&other), None).close, 100);
+        let stretched = with_true_close(live, None, Some(140));
+        assert_eq!((stretched.high, stretched.low), (140, 90));
+    }
+
+    #[test]
+    fn a_live_bar_replaces_or_appends() {
+        let mut bars = vec![bar(0, 1, 1, 1, 1, 1), bar(60, 1, 1, 1, 1, 1)];
+        assert!(!apply_live_bar(&mut bars, bar(60, 1, 3, 1, 2, 4)));
+        assert_eq!(bars[1].volume, 4);
+        assert!(apply_live_bar(&mut bars, bar(120, 2, 2, 2, 2, 1)));
+        assert_eq!(bars.len(), 3);
+    }
+
+    #[test]
+    fn a_live_bar_before_everything_is_dropped() {
+        let mut bars = vec![bar(60, 1, 1, 1, 1, 1)];
+        assert!(!apply_live_bar(&mut bars, bar(0, 1, 1, 1, 1, 1)));
+        assert_eq!(bars.len(), 1);
+    }
+
+    #[test]
+    fn merging_keeps_the_bar_with_more_ticks() {
+        let mut bars = vec![bar(0, 1, 1, 1, 1, 9), bar(60, 1, 1, 1, 1, 2)];
+        merge_bars(
+            &mut bars,
+            vec![
+                bar(0, 1, 2, 1, 2, 3),
+                bar(60, 1, 5, 1, 5, 7),
+                bar(120, 1, 1, 1, 1, 1),
+            ],
+        );
+        assert_eq!(bars.len(), 3);
+        assert_eq!(bars[0].volume, 9);
+        assert_eq!(bars[1].volume, 7);
+        assert!(bars.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
+    }
+
+    #[test]
+    fn older_bars_go_in_front_without_duplicates() {
+        let mut bars = vec![bar(100, 1, 1, 1, 1, 1)];
+        let added = prepend_bars(
+            &mut bars,
+            vec![
+                bar(100, 9, 9, 9, 9, 9),
+                bar(50, 1, 1, 1, 1, 1),
+                bar(10, 1, 1, 1, 1, 1),
+                bar(10, 1, 1, 1, 1, 1),
+            ],
+        );
+        assert_eq!(added, 2);
+        let times: Vec<i64> = bars.iter().map(|b| b.time_ms).collect();
+        assert_eq!(times, vec![10, 50, 100]);
+        assert_eq!(bars[2].open, 1, "the bar already held is not replaced");
+    }
+
+    #[test]
+    fn a_gap_refill_replaces_the_gap_and_keeps_newer_live_ticks() {
+        let mut ticks = vec![tick(1, 1), tick(2, 2), tick(9, 9), tick(12, 12)];
+        splice_ticks(
+            &mut ticks,
+            vec![tick(3, 3), tick(5, 5), tick(10, 10), tick(11, 11)],
+            2,
+            10,
+        );
+        let times: Vec<i64> = ticks.iter().map(|t| t.time_ms).collect();
+        assert_eq!(times, vec![1, 2, 3, 5, 10, 12]);
+    }
+
+    #[test]
+    fn trimming_drops_the_oldest() {
+        let mut items = vec![1, 2, 3, 4, 5];
+        assert_eq!(trim_front(&mut items, 3), 2);
+        assert_eq!(items, vec![3, 4, 5]);
+        assert_eq!(trim_front(&mut items, 10), 0);
+    }
+
+    #[test]
+    fn the_price_range_follows_the_wicks_or_the_closes() {
+        let series = Series::Bars(vec![bar(0, 5, 9, 1, 6, 1), bar(60, 6, 7, 4, 5, 1)]);
+        assert_eq!(series.price_range(0, 2, true), Some((1, 9)));
+        assert_eq!(series.price_range(0, 2, false), Some((5, 6)));
+        assert_eq!(series.price_range(2, 2, true), None);
+        assert_eq!(series.price_range(0, 99, true), Some((1, 9)));
+    }
+}
