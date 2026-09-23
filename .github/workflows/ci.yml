@@ -19,13 +19,16 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -40,3 +43,11 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
       - run: cargo build --release --locked
+        env:
+          # Verifying the release build compiles is not the same job as producing one to ship:
+          # fat LTO + a single codegen unit (see [profile.release] in Cargo.toml) turns this
+          # into a full relink of every dependency, which dominates CI time on a graph this size.
+          # Overriding it here only affects this CI step; a real `cargo build --release` still
+          # gets the fully optimized profile.
+          CARGO_PROFILE_RELEASE_LTO: "false"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"

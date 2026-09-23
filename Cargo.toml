@@ -9,10 +9,8 @@ publish = false
 description = "A terminal trading panel for cTrader: app config/credentials and a cTrader Open API client."
 
 [dependencies]
-# Object-safe async traits (the token store port is used behind `dyn`)
 async-trait = "0.1.92"
 
-# Async runtime (the Open API client and its OAuth loopback listener)
 tokio = { version = "1.53.1", features = [
   "rt-multi-thread",
   "macros",
@@ -22,95 +20,37 @@ tokio = { version = "1.53.1", features = [
   "io-util",
 ] }
 
-# WebSocket client for the cTrader Open API. Same TLS backend as reqwest below (OS-native), for
-# the same reason: one TLS stack in the build.
 tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
-
-# Stream and sink combinators for splitting the WebSocket
 futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
-
-# Plain HTTPS client for the OAuth token endpoint.
-#
-# `default-features = false` means NO TLS connector is compiled in unless one is requested
-# explicitly -- it builds a working `Client` (no error at construction time), but every request
-# to an `https://` URL then fails at send-time with a generic "error sending request". `native-tls`
-# (OS-native -- SChannel on Windows, Secure Transport on macOS, OpenSSL on Linux) is the backend
-# verified against cTrader's endpoints; do not swap to rustls without re-verifying a real
-# connection first.
 reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
 
-# Serialization (Open API JSON-over-WebSocket payloads, app config TOML round trip)
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 
-# Logging facade (libraries emit events; the application chooses the subscriber)
 tracing = "0.1.44"
-
-# Config/credentials file locations
 directories = "6.0.0"
-
-# Structured error types
 thiserror = "2.0.20"
-
-# Idempotency-key generation (Open API client-side message ids) and secret-store namespacing
 uuid = { version = "1.18.1", features = ["v4"] }
-
-# RFC 3339 timestamp handling (Open API history requests, token expiry)
 time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
 
-# --- config: centralized app config + encrypted credential storage ---
+gpui = "=0.2.2"
+unicode-segmentation = "1.13.3"
 
-# Human-editable config file format (profiles, preferences)
 toml = "1.1.6"
-
-# Secret-in-memory hygiene (zeroize-on-drop, no accidental Debug/log exposure)
 secrecy = { version = "0.10.3", features = ["serde"] }
-
-# Primary credential backend: OS-native store (Windows Credential Manager /
-# macOS Keychain / Linux Secret Service via zbus). NEVER disable default-features
-# on this dependency -- see config::secret::keyring_store's module docs for why
-# (pre-v4 releases of this crate silently fell back to a non-persistent in-memory
-# mock store when the platform feature wasn't compiled in).
 keyring = "4.2.0"
-
-# Fallback credential backend for environments without an OS keyring (headless
-# Linux/CI/always-on boxes) -- KDF (passphrase -> encryption key) and AEAD cipher.
 argon2 = "0.6.0"
 chacha20poly1305 = "0.11.0"
 getrandom = "0.4.3"
 
-# --- scripts/: operational tooling (sign in, token refresh, account discovery) ---
-#
-# These are `[[bin]]` targets, which only ever link `[dependencies]` (Cargo has no
-# per-binary dependency scoping without a workspace), so the two crates below end up
-# reachable from the library too. Neither is used by `src/`.
-
-# Loads `.env` into the process environment before a script or `tests/live.rs` reads it.
-# Real credentials still never enter the crate through anything but the environment.
 dotenvy = "0.15.7"
-
-# Typed CLI parsing (flags, subcommands, auto `--help`) for the scripts, with each flag
-# also readable from the environment (the `env` feature), so a value can come from either
-# `.env`/`dotenvy` or an explicit flag, the flag taking precedence.
 clap = { version = "4.6.7", features = ["derive", "env"] }
-
-# The subscriber that prints `tracing` events for the scripts (and for `tests/live.rs` with
-# `--nocapture`): the library only emits events (see src/openapi/mod.rs and src/config/mod.rs),
-# it never installs a subscriber itself, so nothing prints without one somewhere. `env-filter`
-# reads `RUST_LOG` (e.g. `RUST_LOG=wyck=trace`) to pick the level per module.
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 [dev-dependencies]
-# Isolated temp directories for the config/secret-store tests
 tempfile = "3.27.0"
-
-# Property-based testing (Open API wire encoding, unit conversions)
 proptest = "1.11.0"
-
-# In-process mock WebSocket server for the Open API integration tests
 tokio = { version = "1.53.1", features = ["rt", "macros", "test-util", "net", "io-util", "signal"] }
-
-# --- scripts/: see scripts/README.md ---
 
 [[bin]]
 name = "sign-in"
