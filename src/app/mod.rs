@@ -1,9 +1,12 @@
 //! The `wyck` desktop application: window and the connection flow.
 
+mod assets;
 mod connection;
 mod runtime;
 mod text_input;
 mod theme;
+
+use std::borrow::Cow;
 
 use gpui::prelude::*;
 use gpui::{App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
@@ -12,8 +15,12 @@ use gpui::{App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOption
 pub fn run() {
     init_tracing();
 
-    Application::new().run(|cx: &mut App| {
+    Application::new().with_assets(assets::Assets).run(|cx: &mut App| {
         text_input::init(cx);
+
+        cx.text_system()
+            .add_fonts(vec![Cow::Borrowed(assets::FONT)])
+            .expect("the bundled Inter font failed to load");
 
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
@@ -22,7 +29,7 @@ pub fn run() {
         })
         .detach();
 
-        let bounds = Bounds::centered(None, size(px(920.0), px(640.0)), cx);
+        let bounds = Bounds::centered(None, size(px(1180.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),

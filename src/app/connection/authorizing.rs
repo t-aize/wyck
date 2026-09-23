@@ -142,13 +142,13 @@ impl ConnectionFlow {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div().flex().flex_1().items_center().justify_center().child(
+        ui::screen().child(
             div()
                 .flex()
                 .flex_col()
                 .items_center()
-                .gap_4()
-                .w(px(340.))
+                .gap_5()
+                .w(px(400.))
                 .children(
                     state
                         .error
@@ -157,13 +157,13 @@ impl ConnectionFlow {
                 )
                 .child(
                     div()
-                        .text_size(px(17.))
+                        .text_size(px(18.))
                         .text_color(theme::fg())
                         .child("Connecting your account"),
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(13.))
                         .text_color(theme::muted_fg())
                         .child(format!(
                             "Authorizing {} - {}",

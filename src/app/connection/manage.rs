@@ -37,90 +37,97 @@ impl ConnectionFlow {
     ) -> impl IntoElement {
         let is_live = state.account.is_live.unwrap_or(false);
 
-        div().flex().flex_1().items_center().justify_center().child(
-            div()
-                .flex()
-                .flex_col()
-                .gap_5()
-                .w(px(420.))
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(theme::muted_fg())
-                                .child("SETTINGS"),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(18.))
-                                .text_color(theme::fg())
-                                .child("cTrader connection"),
-                        ),
-                )
-                .child(
-                    ui::card()
-                        .child(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .justify_between()
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_2()
-                                        .text_size(px(14.))
-                                        .text_color(theme::fg())
-                                        .child(
-                                            state
-                                                .account
-                                                .broker_title_short
-                                                .clone()
-                                                .unwrap_or_else(|| "cTrader".into()),
-                                        )
-                                        .child(if is_live {
-                                            ui::badge("LIVE", theme::amber(), theme::amber_bg())
-                                        } else {
-                                            ui::badge("DEMO", theme::muted_fg(), theme::surface())
-                                        }),
-                                )
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_1p5()
-                                        .text_size(px(12.))
-                                        .text_color(theme::emerald())
-                                        .child(
-                                            div().size(px(6.)).rounded_full().bg(theme::emerald()),
-                                        )
-                                        .child("Connected"),
-                                ),
-                        )
-                        .child(detail_row("Access", "Trading (view and place orders)"))
-                        .child(detail_row(
-                            "cTrader ID",
-                            &state.account.ctid_trader_account_id.to_string(),
-                        ))
-                        .child(if state.confirming_disconnect {
-                            confirm_disconnect(cx).into_any_element()
-                        } else {
-                            disconnect_prompt(cx).into_any_element()
-                        }),
-                )
-                .child(div().flex().justify_center().child(ui::ghost_button(
-                    "back-to-connected",
-                    "Back",
-                    cx.listener(|this, _event, _window, cx| this.go_to_connected_from_manage(cx)),
-                ))),
-        )
+        ui::screen()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_6()
+                    .w(px(480.))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_size(px(11.))
+                                    .text_color(theme::muted_fg())
+                                    .child("SETTINGS"),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(19.))
+                                    .text_color(theme::fg())
+                                    .child("cTrader connection"),
+                            ),
+                    )
+                    .child(
+                        ui::card()
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_row()
+                                            .items_center()
+                                            .gap_2()
+                                            .text_size(px(14.))
+                                            .text_color(theme::fg())
+                                            .child(
+                                                state
+                                                    .account
+                                                    .broker_title_short
+                                                    .clone()
+                                                    .unwrap_or_else(|| "cTrader".into()),
+                                            )
+                                            .child(if is_live {
+                                                ui::badge("LIVE", theme::amber(), theme::amber_bg())
+                                            } else {
+                                                ui::badge(
+                                                    "DEMO",
+                                                    theme::muted_fg(),
+                                                    theme::surface(),
+                                                )
+                                            }),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_row()
+                                            .items_center()
+                                            .gap_1p5()
+                                            .text_size(px(12.))
+                                            .text_color(theme::emerald())
+                                            .child(
+                                                div()
+                                                    .size(px(6.))
+                                                    .rounded_full()
+                                                    .bg(theme::emerald()),
+                                            )
+                                            .child("Connected"),
+                                    ),
+                            )
+                            .child(detail_row("Access", "Trading (view and place orders)"))
+                            .child(detail_row(
+                                "cTrader ID",
+                                &state.account.ctid_trader_account_id.to_string(),
+                            ))
+                            .child(if state.confirming_disconnect {
+                                confirm_disconnect(cx).into_any_element()
+                            } else {
+                                disconnect_prompt(cx).into_any_element()
+                            }),
+                    ),
+            )
+            .child(ui::back_button(
+                "manage-back",
+                cx.listener(|this, _event, _window, cx| this.go_to_connected_from_manage(cx)),
+            ))
     }
 
     fn go_to_connected_from_manage(&mut self, cx: &mut Context<Self>) {
@@ -153,10 +160,10 @@ fn detail_row(label: &'static str, value: &str) -> impl IntoElement {
         .flex_row()
         .items_center()
         .justify_between()
-        .py_2()
+        .py_2p5()
         .border_t_1()
         .border_color(theme::border_hairline())
-        .text_size(px(12.))
+        .text_size(px(13.))
         .child(div().text_color(theme::muted_fg()).child(label))
         .child(div().text_color(theme::fg()).child(value.to_string()))
 }
@@ -182,7 +189,7 @@ fn confirm_disconnect(cx: &mut Context<ConnectionFlow>) -> impl IntoElement {
         .gap_2()
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(px(13.))
                 .text_color(theme::muted_fg())
                 .child(
                     "Wyck will stop trading on this account and remove the stored access token \

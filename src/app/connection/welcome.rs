@@ -12,34 +12,34 @@ impl ConnectionFlow {
         _window: &mut Window,
         cx: &mut gpui::Context<Self>,
     ) -> impl IntoElement {
-        div().flex().flex_1().items_center().justify_center().child(
+        ui::screen().child(
             div()
                 .flex()
                 .flex_col()
                 .items_center()
-                .gap_4()
-                .w(px(360.))
+                .gap_5()
+                .w(px(420.))
                 .child(
                     div()
-                        .size(px(56.))
+                        .size(px(64.))
                         .rounded_xl()
                         .bg(theme::accent())
                         .flex()
                         .items_center()
                         .justify_center()
-                        .text_size(px(22.))
+                        .text_size(px(26.))
                         .text_color(theme::accent_fg())
                         .child("W"),
                 )
                 .child(
                     div()
-                        .text_size(px(20.))
+                        .text_size(px(23.))
                         .text_color(theme::fg())
                         .child("Connect your cTrader account"),
                 )
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(14.))
                         .text_color(theme::muted_fg())
                         .text_center()
                         .child(
@@ -58,13 +58,13 @@ impl ConnectionFlow {
                 .child(
                     div()
                         .w_full()
-                        .pt_4()
+                        .pt_5()
                         .mt_2()
                         .border_t_1()
                         .border_color(theme::border_hairline())
                         .flex()
                         .flex_col()
-                        .gap_3()
+                        .gap_4()
                         .child(
                             div()
                                 .text_size(px(11.))
@@ -95,7 +95,7 @@ fn next_step(index: &'static str, text: &'static str) -> impl IntoElement {
         .child(
             div()
                 .flex_1()
-                .text_size(px(13.))
+                .text_size(px(14.))
                 .text_color(theme::muted_fg())
                 .child(text),
         )

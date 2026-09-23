@@ -93,6 +93,7 @@ impl Render for ConnectionFlow {
             .size_full()
             .bg(theme::bg())
             .text_color(theme::fg())
+            .font_family("Inter")
             .child(self.render_active_screen(window, cx))
     }
 }

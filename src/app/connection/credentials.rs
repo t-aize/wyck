@@ -48,97 +48,109 @@ impl ConnectionFlow {
         let can_submit = !state.connecting;
         let has_error = state.error.is_some();
 
-        div().flex().flex_1().items_center().justify_center().child(
-            ui::card()
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_size(px(17.))
-                                .text_color(theme::fg())
-                                .child("Application credentials"),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(theme::muted_fg())
-                                .child(
-                                    "From your own application on cTrader Connect. Wyck stores \
-                                     these on this device only.",
-                                ),
-                        ),
-                )
-                .children(state.error.clone().map(|message| {
-                    ui::error_banner("Wyck couldn't verify this application", message)
-                }))
-                .child(ui::field("Client ID", state.client_id.clone()))
-                .child(ui::field("Client secret", state.client_secret.clone()))
-                .when(has_error, |el| {
-                    el.child(ui::field_error("Client ID or secret is invalid"))
-                })
-                .child(ui::field(
-                    "Redirect URI",
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .justify_between()
-                        .h(px(36.))
-                        .px_3()
-                        .rounded_lg()
-                        .bg(theme::bg())
-                        .border_1()
-                        .border_color(theme::border_subtle())
-                        .text_size(px(13.))
-                        .text_color(theme::muted_fg())
-                        .child(redirect_uri.clone())
-                        .child(
-                            div()
-                                .id("copy-redirect-uri")
-                                .text_color(theme::muted_fg())
-                                .cursor_pointer()
-                                .hover(|style| style.text_color(theme::fg()))
-                                .on_click({
-                                    let redirect_uri = redirect_uri.clone();
-                                    move |_event: &ClickEvent, _window, cx: &mut gpui::App| {
-                                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(
-                                            redirect_uri.clone(),
-                                        ));
-                                    }
-                                })
-                                .child("Copy"),
-                        ),
-                ))
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme::muted_fg())
-                        .child(
-                            "Add this exact URI to your application's redirect list on cTrader \
-                             Connect: Wyck listens on it locally to catch the callback.",
-                        ),
-                )
-                .child(ui::field(
-                    "Environment",
-                    environment_switch(state.environment, cx),
-                ))
-                .child(ui::primary_button(
-                    "credentials-continue",
-                    if state.connecting {
-                        "Verifying..."
-                    } else {
-                        "Continue"
-                    },
-                    cx.listener(move |this, _event, window, cx| {
-                        if can_submit {
-                            this.submit_credentials(window, cx);
-                        }
-                    }),
-                )),
-        )
+        ui::screen()
+            .child(
+                ui::card()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_size(px(18.))
+                                    .text_color(theme::fg())
+                                    .child("Application credentials"),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(13.))
+                                    .text_color(theme::muted_fg())
+                                    .child(
+                                        "From your own application on cTrader Connect. Wyck \
+                                         stores these on this device only.",
+                                    ),
+                            ),
+                    )
+                    .children(state.error.clone().map(|message| {
+                        ui::error_banner("Wyck couldn't verify this application", message)
+                    }))
+                    .child(ui::field("Client ID", state.client_id.clone()))
+                    .child(ui::field("Client secret", state.client_secret.clone()))
+                    .when(has_error, |el| {
+                        el.child(ui::field_error("Client ID or secret is invalid"))
+                    })
+                    .child(ui::field(
+                        "Redirect URI",
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .gap_3()
+                            .h(px(44.))
+                            .px_3p5()
+                            .rounded_lg()
+                            .bg(theme::bg())
+                            .border_1()
+                            .border_color(theme::border_subtle())
+                            .text_size(px(13.))
+                            .text_color(theme::muted_fg())
+                            .child(div().flex_1().truncate().child(redirect_uri.clone()))
+                            .child(
+                                div()
+                                    .id("copy-redirect-uri")
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .gap_1p5()
+                                    .text_color(theme::muted_fg())
+                                    .cursor_pointer()
+                                    .hover(|style| style.text_color(theme::fg()))
+                                    .on_click({
+                                        let redirect_uri = redirect_uri.clone();
+                                        move |_event: &ClickEvent, _window, cx: &mut gpui::App| {
+                                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                                                redirect_uri.clone(),
+                                            ));
+                                        }
+                                    })
+                                    .child(ui::icon("icons/copy.svg", 14.))
+                                    .child("Copy"),
+                            ),
+                    ))
+                    .child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(theme::muted_fg())
+                            .child(
+                                "Add this exact URI to your application's redirect list on \
+                                 cTrader Connect: Wyck listens on it locally to catch the \
+                                 callback.",
+                            ),
+                    )
+                    .child(ui::field(
+                        "Environment",
+                        environment_switch(state.environment, cx),
+                    ))
+                    .child(ui::primary_button(
+                        "credentials-continue",
+                        if state.connecting {
+                            "Verifying..."
+                        } else {
+                            "Continue"
+                        },
+                        cx.listener(move |this, _event, window, cx| {
+                            if can_submit {
+                                this.submit_credentials(window, cx);
+                            }
+                        }),
+                    )),
+            )
+            .child(ui::back_button(
+                "credentials-back",
+                cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
+            ))
     }
 
     fn submit_credentials(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -264,7 +276,7 @@ fn environment_option(
         .flex()
         .items_center()
         .justify_center()
-        .h(px(28.))
+        .h(px(32.))
         .rounded_md()
         .when(selected, |el| el.bg(theme::accent_selected()))
         .text_size(px(13.))

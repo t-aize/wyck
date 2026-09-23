@@ -76,6 +76,10 @@ pub struct TextInput {
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
     is_selecting: bool,
+    /// How far the text has scrolled left, in pixels, so the cursor stays visible once the
+    /// content is wider than the field. Kept on the model (not derived each frame) because it
+    /// only changes when the cursor moves outside the current viewport, not on every repaint.
+    scroll_offset: Pixels,
 }
 
 impl TextInput {
@@ -92,6 +96,7 @@ impl TextInput {
             last_layout: None,
             last_bounds: None,
             is_selecting: false,
+            scroll_offset: px(0.),
         }
     }
 
@@ -233,7 +238,7 @@ impl TextInput {
         if position.y > bounds.bottom() {
             return self.content.len();
         }
-        line.closest_index_for_x(position.x - bounds.left())
+        line.closest_index_for_x(position.x - bounds.left() + self.scroll_offset)
     }
 
     fn select_to(&mut self, offset: usize, cx: &mut Context<Self>) {
@@ -448,6 +453,7 @@ struct PrepaintState {
     line: Option<ShapedLine>,
     cursor: Option<PaintQuad>,
     selection: Option<PaintQuad>,
+    scroll_offset: Pixels,
 }
 
 impl IntoElement for TextElement {
@@ -544,7 +550,22 @@ impl gpui::Element for TextElement {
             .text_system()
             .shape_line(display_text, font_size, &runs, None);
 
+        // Keep the cursor inside the visible width by scrolling just enough to follow it,
+        // never more: this is a viewport offset applied only at paint time, not a change to
+        // `line`'s own (unscrolled) coordinate space, which `x_for_index`/`index_for_x` still
+        // use throughout.
+        let viewport_width = bounds.size.width;
+        let max_scroll = (line.width - viewport_width).max(px(0.));
         let cursor_pos = line.x_for_index(cursor);
+        let mut scroll_offset = input.scroll_offset.clamp(px(0.), max_scroll);
+        if cursor_pos < scroll_offset {
+            scroll_offset = cursor_pos;
+        } else if cursor_pos - scroll_offset > viewport_width {
+            scroll_offset = cursor_pos - viewport_width;
+        }
+        scroll_offset = scroll_offset.clamp(px(0.), max_scroll);
+
+        let cursor_pos = cursor_pos - scroll_offset;
         let (selection, cursor) = if selected_range.is_empty() {
             (
                 None,
@@ -561,11 +582,11 @@ impl gpui::Element for TextElement {
                 Some(fill(
                     Bounds::from_corners(
                         point(
-                            bounds.left() + line.x_for_index(selected_range.start),
+                            bounds.left() + line.x_for_index(selected_range.start) - scroll_offset,
                             bounds.top(),
                         ),
                         point(
-                            bounds.left() + line.x_for_index(selected_range.end),
+                            bounds.left() + line.x_for_index(selected_range.end) - scroll_offset,
                             bounds.bottom(),
                         ),
                     ),
@@ -578,6 +599,7 @@ impl gpui::Element for TextElement {
             line: Some(line),
             cursor,
             selection,
+            scroll_offset,
         }
     }
 
@@ -601,7 +623,8 @@ impl gpui::Element for TextElement {
             window.paint_quad(selection)
         }
         let line = prepaint.line.take().unwrap();
-        line.paint(bounds.origin, window.line_height(), window, cx)
+        let line_origin = point(bounds.origin.x - prepaint.scroll_offset, bounds.origin.y);
+        line.paint(line_origin, window.line_height(), window, cx)
             .unwrap();
 
         if focus_handle.is_focused(window)
@@ -613,6 +636,7 @@ impl gpui::Element for TextElement {
         self.input.update(cx, |input, _cx| {
             input.last_layout = Some(line);
             input.last_bounds = Some(bounds);
+            input.scroll_offset = prepaint.scroll_offset;
         });
     }
 }
@@ -642,9 +666,10 @@ impl Render for TextInput {
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_move(cx.listener(Self::on_mouse_move))
             .w_full()
-            .h(px(36.))
-            .px_3()
+            .h(px(44.))
+            .px_3p5()
             .items_center()
+            .overflow_hidden()
             .rounded_lg()
             .bg(theme::bg())
             .border_1()

@@ -2,9 +2,48 @@
 //! [`super::theme`] so a screen never spells out a color or radius itself.
 
 use gpui::prelude::*;
-use gpui::{App, ClickEvent, Div, SharedString, Window, div, px};
+use gpui::{App, ClickEvent, Div, SharedString, Svg, Window, div, px, svg};
 
 use super::theme;
+
+/// A Lucide icon (see `assets/icons/`), tinted with whatever text color is ambient where it's
+/// placed unless the caller chains its own `.text_color(...)`.
+pub fn icon(path: &'static str, size_px: f32) -> Svg {
+    svg().path(path).size(px(size_px)).flex_shrink_0()
+}
+
+/// The page shell every screen renders into: content centered in the remaining space, with room
+/// for a [`back_button`] to sit absolutely positioned in the top-left corner.
+pub fn screen() -> Div {
+    div()
+        .relative()
+        .flex()
+        .flex_1()
+        .items_center()
+        .justify_center()
+}
+
+/// A round icon-only button in the top-left corner of a [`screen`], for going back a step.
+pub fn back_button(
+    id: impl Into<gpui::ElementId>,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> impl IntoElement {
+    div()
+        .absolute()
+        .top_6()
+        .left_6()
+        .id(id)
+        .size(px(36.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded_lg()
+        .cursor_pointer()
+        .text_color(theme::muted_fg())
+        .hover(|style| style.bg(theme::surface()).text_color(theme::fg()))
+        .on_click(on_click)
+        .child(icon("icons/arrow-left.svg", 18.))
+}
 
 /// The filled, accent-colored call-to-action button.
 pub fn primary_button(
@@ -15,7 +54,7 @@ pub fn primary_button(
     div()
         .id(id)
         .w_full()
-        .h(px(40.))
+        .h(px(44.))
         .flex()
         .items_center()
         .justify_center()
@@ -37,15 +76,18 @@ pub fn ghost_button(
 ) -> impl IntoElement {
     div()
         .id(id)
+        .px_2()
+        .py_1()
+        .rounded_md()
         .text_size(px(13.))
         .text_color(theme::muted_fg())
         .cursor_pointer()
-        .hover(|style| style.text_color(theme::fg()))
+        .hover(|style| style.text_color(theme::fg()).bg(theme::surface()))
         .on_click(on_click)
         .child(label.into())
 }
 
-/// An outlined, secondary button (e.g. "Open browser again", "Retry").
+/// An outlined, secondary button (e.g. "Retry").
 pub fn secondary_button(
     id: impl Into<gpui::ElementId>,
     label: impl Into<SharedString>,
@@ -54,7 +96,7 @@ pub fn secondary_button(
     div()
         .id(id)
         .w_full()
-        .h(px(36.))
+        .h(px(44.))
         .flex()
         .items_center()
         .justify_center()
@@ -70,14 +112,41 @@ pub fn secondary_button(
         .child(label.into())
 }
 
+/// [`secondary_button`] with a leading icon, e.g. "Open browser again".
+pub fn secondary_button_icon(
+    id: impl Into<gpui::ElementId>,
+    icon_path: &'static str,
+    label: impl Into<SharedString>,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> impl IntoElement {
+    div()
+        .id(id)
+        .w_full()
+        .h(px(44.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap_2()
+        .rounded_lg()
+        .border_1()
+        .border_color(theme::border_subtle())
+        .text_size(px(13.))
+        .text_color(theme::fg())
+        .cursor_pointer()
+        .hover(|style| style.bg(theme::surface()))
+        .on_click(on_click)
+        .child(icon(icon_path, 15.))
+        .child(label.into())
+}
+
 /// The raised panel most screens center their content in.
 pub fn card() -> Div {
     div()
         .flex()
         .flex_col()
-        .w(px(420.))
-        .p(px(28.))
-        .gap_5()
+        .w(px(480.))
+        .p(px(32.))
+        .gap_6()
         .rounded_xl()
         .bg(theme::surface())
         .border_1()
@@ -87,7 +156,7 @@ pub fn card() -> Div {
 /// A small circular index badge, used in the "what happens next" list and progress steps.
 pub fn step_badge(label: impl Into<SharedString>) -> impl IntoElement {
     div()
-        .size(px(22.))
+        .size(px(24.))
         .flex_shrink_0()
         .rounded_full()
         .bg(theme::surface())
@@ -96,7 +165,7 @@ pub fn step_badge(label: impl Into<SharedString>) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(11.))
+        .text_size(px(12.))
         .text_color(theme::muted_fg())
         .child(label.into())
 }
@@ -106,7 +175,7 @@ pub fn field(label: impl Into<SharedString>, content: impl IntoElement) -> impl 
     div()
         .flex()
         .flex_col()
-        .gap_1p5()
+        .gap_2()
         .child(
             div()
                 .text_size(px(13.))
@@ -134,7 +203,7 @@ pub fn error_banner(
         .flex()
         .flex_col()
         .gap_1()
-        .p(px(12.))
+        .p(px(14.))
         .rounded_lg()
         .bg(theme::destructive_bg())
         .border_1()
@@ -147,7 +216,7 @@ pub fn error_banner(
                 .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::destructive())
-                .child("!")
+                .child(icon("icons/triangle-alert.svg", 15.))
                 .child(div().flex_1().child(title.into())),
         )
         .child(
@@ -165,8 +234,8 @@ pub fn badge(
     tint: gpui::Rgba,
 ) -> impl IntoElement {
     div()
-        .px_1p5()
-        .py(px(1.))
+        .px_2()
+        .py(px(2.))
         .rounded_sm()
         .bg(tint)
         .text_size(px(10.))
