@@ -319,6 +319,15 @@ impl Tool {
         matches!(self, Self::LongPosition | Self::ShortPosition)
     }
 
+    /// Whether the drawing is laid out in the box between its two points, with a grip at every
+    /// corner and side.
+    pub fn is_box(self) -> bool {
+        matches!(
+            self,
+            Self::Rectangle | Self::Ellipse | Self::GannBox | Self::GannSquare | Self::Measure
+        )
+    }
+
     pub fn is_pitchfork(self) -> bool {
         matches!(
             self,

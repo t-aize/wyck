@@ -87,6 +87,8 @@ pub struct MultiChart {
     hub: Rc<LiveHub>,
     /// Corrects the live bars of the price events before the charts see them.
     tracker: LiveBarTracker,
+    /// The trading hours of every symbol whose details came, for the charts showing them.
+    hours: HashMap<i64, std::sync::Arc<wyck::openapi::market::TradingHours>>,
     next_id: u64,
     key: LayoutKey,
     tree: Node,
@@ -129,7 +131,10 @@ impl MultiChart {
         let prefs = workspace.read(cx).preferences().clone();
         let key = prefs.layout_key();
         drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_magnet(prefs.magnet));
+            drawings.edit(cx, |book| {
+                book.set_magnet(prefs.magnet);
+                book.set_keep_tool(prefs.keep_drawing);
+            });
         });
         let text_input = cx.new(|cx| TextInput::new(cx, "Text"));
         let _text_observe = cx.observe(&text_input, |this, _input, cx| this.on_text_edited(cx));
@@ -146,6 +151,7 @@ impl MultiChart {
             last_tool: HashMap::new(),
             hub,
             tracker: LiveBarTracker::new(),
+            hours: HashMap::new(),
             session,
             workspace,
             next_id: 0,
@@ -320,6 +326,29 @@ impl MultiChart {
     }
 
     /// The broker said how a symbol is quoted.
+    /// A symbol's trading hours arrived.
+    pub fn set_hours(
+        &mut self,
+        id: i64,
+        hours: wyck::openapi::market::TradingHours,
+        cx: &mut Context<Self>,
+    ) {
+        self.hours.insert(id, std::sync::Arc::new(hours));
+        self.give_hours(cx);
+    }
+
+    /// Hands each chart the hours of the symbol it shows.
+    fn give_hours(&self, cx: &mut Context<Self>) {
+        for slot in &self.slots {
+            let id = slot.chart.read(cx).symbol().map(|s| s.id);
+            if let Some(id) = id {
+                let hours = self.hours.get(&id).cloned();
+                slot.chart
+                    .update(cx, |chart, cx| chart.set_hours(id, hours, cx));
+            }
+        }
+    }
+
     pub fn set_digits(&mut self, id: i64, digits: u32, cx: &mut Context<Self>) {
         for slot in &self.slots {
             slot.chart
@@ -485,6 +514,16 @@ impl MultiChart {
         });
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.magnet = magnet);
+        });
+    }
+
+    pub(crate) fn toggle_keep_drawing(&mut self, cx: &mut Context<Self>) {
+        let keep = !self.drawings.read(cx).book().keep_tool();
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.set_keep_tool(keep))
+        });
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.keep_drawing = keep);
         });
     }
 
@@ -727,7 +766,14 @@ impl Render for MultiChart {
             });
             window.focus(&gpui::Focusable::focus_handle(&self.text_input, cx), cx);
         }
+        // A chart that changed symbol gets that symbol's hours (a no-op when it has them).
+        self.give_hours(cx);
         let several = self.slots.len() > 1;
+        for (index, slot) in self.slots.iter().enumerate() {
+            let selected = !several || index == self.active;
+            slot.chart
+                .update(cx, |chart, cx| chart.set_selected(selected, cx));
+        }
         let (rects, dividers) = self.tree.place(self.slots.len());
         // The bar of the selected drawing floats over the chart it is being edited on.
         let mut style_bar = self.render_style_bar(cx);

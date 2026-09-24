@@ -199,15 +199,9 @@ pub struct ChartSettings {
     pub invert: bool,
     #[serde(default)]
     pub zone: Zone,
-    /// Whether the tick volume shows at the bottom of the prices.
-    #[serde(default = "yes")]
-    pub volume: bool,
     /// Whether the grid shows.
     #[serde(default = "yes")]
     pub grid: bool,
-    /// Whether the sell and buy buttons show under the legend.
-    #[serde(default = "yes")]
-    pub trade_buttons: bool,
     #[serde(default)]
     pub studies: Vec<StudyConfig>,
     /// How much height the prices take relative to the panes.
@@ -231,9 +225,7 @@ impl Default for ChartSettings {
             scale: ScaleMode::Linear,
             invert: false,
             zone: Zone::default(),
-            volume: true,
             grid: true,
-            trade_buttons: true,
             studies: Vec::new(),
             main_weight: MAIN_WEIGHT,
         }

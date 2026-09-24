@@ -47,6 +47,7 @@ impl MultiChart {
         let book = self.drawings.read(cx).book();
         let (tool, magnet, can_undo, can_redo) =
             (book.tool(), book.magnet(), book.can_undo(), book.can_redo());
+        let keep = book.keep_tool();
         let has_any = symbol.as_ref().is_some_and(|symbol| book.count(symbol) > 0);
         let all_hidden = has_any
             && symbol
@@ -140,6 +141,20 @@ impl MultiChart {
                 .on_click(cx.listener(move |this, _event, _window, cx| {
                     this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !all_hidden));
                 })),
+        )
+        .child(
+            Button::new("draw-keep")
+                .ghost()
+                .compact()
+                .icon(IconName::PencilLine)
+                .tooltip(if keep {
+                    "Stay in drawing mode: on (draw several in a row, Esc to stop)"
+                } else {
+                    "Stay in drawing mode: off (back to the pointer after each drawing)"
+                })
+                .toggled(keep)
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_keep_drawing(cx))),
         )
         .child(
             Button::new("draw-magnet")

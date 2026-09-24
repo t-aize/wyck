@@ -211,10 +211,6 @@ pub enum ChartAction {
         stop_loss: Option<f64>,
         take_profit: Option<f64>,
     },
-    /// Buy or sell now, at market, with the ticket's size.
-    Market {
-        buy: bool,
-    },
     AddAlert(f64),
 }
 
@@ -226,6 +222,11 @@ pub struct Chart {
     /// Tells this chart from the others in the hub.
     id: u64,
     symbol: Option<Symbol>,
+    /// When the symbol trades, once its details are known.
+    hours: Option<std::sync::Arc<wyck::openapi::market::TradingHours>>,
+    /// Whether this is the chart the user works on; only that one shows its toolbar when there
+    /// are several.
+    selected: bool,
     timeframe: Timeframe,
     settings: ChartSettings,
     /// Bumped whenever the settings change, so a menu or dialog showing them redraws.
@@ -296,6 +297,8 @@ impl Chart {
             id,
             session,
             symbol: None,
+            hours: None,
+            selected: true,
             timeframe,
             settings: settings.normalized(),
             settings_revision: 0,
@@ -342,6 +345,41 @@ impl Chart {
     }
 
     // ---- what to show ----
+
+    /// The trading hours of the chart's symbol (ignored for another symbol).
+    pub fn set_hours(
+        &mut self,
+        id: i64,
+        hours: Option<std::sync::Arc<wyck::openapi::market::TradingHours>>,
+        cx: &mut Context<Self>,
+    ) {
+        let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
+        let same = match (&self.hours, &hours) {
+            (Some(a), Some(b)) => std::sync::Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        };
+        if !same {
+            self.hours = hours;
+            cx.notify();
+        }
+    }
+
+    /// Whether this is the chart the user works on.
+    pub fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
+        if self.selected != selected {
+            self.selected = selected;
+            if !selected {
+                self.menu = None;
+            }
+            cx.notify();
+        }
+    }
+
+    /// Where the market of the chart's symbol stands now, when its hours are known.
+    pub fn market_status(&self) -> Option<wyck::openapi::market::MarketStatus> {
+        Some(self.hours.as_ref()?.status_at(now_ms()))
+    }
 
     pub fn set_symbol(&mut self, id: i64, name: SharedString, digits: u32, cx: &mut Context<Self>) {
         if self.symbol.as_ref().is_some_and(|s| s.id == id) {

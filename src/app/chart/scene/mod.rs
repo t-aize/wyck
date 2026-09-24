@@ -31,9 +31,6 @@ use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
 use crate::app::theme;
 
-/// Share of the price band the volume columns may use.
-pub const VOLUME_SHARE: f64 = 0.15;
-
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
     10f64.powi(5 - i32::try_from(digits.min(5)).unwrap_or(5))
@@ -146,13 +143,6 @@ pub fn geometry(settings: &ChartSettings, w: f64, h: f64) -> Geometry {
     Geometry::new(w, h, &weights)
 }
 
-/// Whether the prices band keeps room at its bottom for the volume.
-fn shows_volume(series: &Series, settings: &ChartSettings) -> bool {
-    settings.volume
-        && matches!(series, Series::Bars(_))
-        && !matches!(settings.kind, ChartKind::PointFigure | ChartKind::Kagi)
-}
-
 /// The price scale of the prices band, or `None` without data.
 pub fn main_map(
     raw: &Series,
@@ -195,11 +185,7 @@ pub fn main_map(
         (lo, hi)
     };
     let band = geometry.main();
-    let reserved = if shows_volume(series, settings) {
-        band.h * VOLUME_SHARE + 6.0
-    } else {
-        12.0
-    };
+    let reserved = 12.0;
     let base = series
         .value_at(first.min(series.len().saturating_sub(1)))
         .map_or(0.0, |v| v as f64);
@@ -422,11 +408,6 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
                 hsla(p.grid),
             ));
         }
-    }
-    if let Series::Bars(bars) = series
-        && shows_volume(series, frame.settings)
-    {
-        series::volume(&cx, bars, first, last, &mut plot);
     }
     studies::overlays_under(&cx, first, last, &mut plot);
     series::draw(&cx, kind, first, last, &mut plot);

@@ -84,6 +84,8 @@ pub struct Book {
     next_id: u64,
     tool: Option<Tool>,
     magnet: bool,
+    /// Whether a tool stays picked once a drawing is finished, to draw several in a row.
+    keep_tool: bool,
     selected: Option<u64>,
     creating: Option<Creating>,
     editing: Option<Editing>,
@@ -182,6 +184,27 @@ impl Book {
         if tool.is_some() {
             self.selected = None;
         }
+    }
+
+    pub fn keep_tool(&self) -> bool {
+        self.keep_tool
+    }
+
+    pub fn set_keep_tool(&mut self, keep: bool) {
+        self.keep_tool = keep;
+    }
+
+    /// The tool of the drawing being made on `symbol`, how many of its points are placed, and
+    /// how many it needs (none for a brush, which ends when the button is let go).
+    pub fn progress(&self, symbol: &str) -> Option<(Tool, usize, usize)> {
+        let creating = self.creating.as_ref().filter(|c| c.symbol == symbol)?;
+        let tool = creating.drawing.tool;
+        let needed = if tool == Tool::Brush {
+            0
+        } else {
+            tool.anchors()
+        };
+        Some((tool, creating.placed, needed))
     }
 
     pub fn set_magnet(&mut self, magnet: bool) {
@@ -291,7 +314,10 @@ impl Book {
             .or_default()
             .push(drawing);
         self.creating = None;
-        self.tool = None;
+        // A text is typed at once, so its tool always gives way; the others stay when asked.
+        if !self.keep_tool || drawing_has_text(&self.symbols, symbol) {
+            self.tool = None;
+        }
     }
 
     /// The four points of a new position: entry, stop and target at the same time, and the right
@@ -427,15 +453,55 @@ impl Book {
         Press::Taken
     }
 
-    /// The pointer moved to `(x, y)`. Returns whether something on screen changed.
-    pub fn pointer_moved(&mut self, symbol: &str, proj: &dyn Projection, x: f32, y: f32) -> bool {
+    /// The pointer moved to `(x, y)`. With `constrain` (Shift held) a line being drawn keeps to
+    /// a multiple of 45 degrees. Returns whether something on screen changed.
+    pub fn pointer_moved(
+        &mut self,
+        symbol: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+        constrain: bool,
+    ) -> bool {
         if self.creating.as_ref().is_some_and(|c| c.symbol == symbol) {
+            let (x, y) = if constrain {
+                self.constrained(proj, x, y)
+            } else {
+                (x, y)
+            };
             return self.move_creating(proj, x, y);
         }
         if self.editing.as_ref().is_some_and(|e| e.symbol == symbol) {
             return self.move_editing(proj, x, y);
         }
         false
+    }
+
+    /// Where the pointer is taken to be when Shift keeps the line from the last point placed to
+    /// a multiple of 45 degrees: along that direction, as far as the pointer is.
+    fn constrained(&self, proj: &dyn Projection, x: f32, y: f32) -> (f32, f32) {
+        let Some(creating) = self.creating.as_ref() else {
+            return (x, y);
+        };
+        if creating.drawing.tool == Tool::Brush || creating.placed == 0 {
+            return (x, y);
+        }
+        let Some(from) = creating
+            .drawing
+            .points
+            .get(creating.placed - 1)
+            .and_then(|p| proj.to_screen(*p))
+        else {
+            return (x, y);
+        };
+        let (dx, dy) = (x - from.0, y - from.1);
+        let length = (dx * dx + dy * dy).sqrt();
+        if length < 1.0 {
+            return (x, y);
+        }
+        let step = std::f32::consts::FRAC_PI_4;
+        let angle = (dy.atan2(dx) / step).round() * step;
+        (from.0 + length * angle.cos(), from.1 + length * angle.sin())
     }
 
     fn move_creating(&mut self, proj: &dyn Projection, x: f32, y: f32) -> bool {
@@ -907,6 +973,14 @@ impl Book {
     }
 }
 
+/// Whether the drawing just added to `symbol` (the last one) has words to type.
+fn drawing_has_text(symbols: &BTreeMap<String, Vec<Drawing>>, symbol: &str) -> bool {
+    symbols
+        .get(symbol)
+        .and_then(|list| list.last())
+        .is_some_and(|d| d.tool.has_text())
+}
+
 /// Moves one point of a drawing, keeping the shape the tool needs: a position's stop and target
 /// move only up and down, its right edge only sideways.
 fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
@@ -927,6 +1001,25 @@ fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
                     p: drawing.points[0].p,
                 };
             }
+        }
+        return;
+    }
+    if drawing.tool.is_box() && drawing.points.len() == 2 {
+        let points = &mut drawing.points;
+        match index {
+            0 | 1 => points[index] = to,
+            2 => {
+                points[0].t = to.t;
+                points[1].p = to.p;
+            }
+            3 => {
+                points[1].t = to.t;
+                points[0].p = to.p;
+            }
+            4 => points[0].p = to.p,
+            5 => points[1].p = to.p,
+            6 => points[0].t = to.t,
+            _ => points[1].t = to.t,
         }
         return;
     }
@@ -967,7 +1060,7 @@ mod tests {
         assert!(book.creating(SYMBOL).is_some());
         // The second point follows the pointer until it is clicked.
         let (x, y) = at(360.0, 200.0);
-        assert!(book.pointer_moved(SYMBOL, &Linear, x, y));
+        assert!(book.pointer_moved(SYMBOL, &Linear, x, y, false));
         assert_eq!(book.creating(SYMBOL).unwrap().points[1].p, 200.0);
         click(&mut book, 360.0, 200.0);
 
@@ -999,7 +1092,7 @@ mod tests {
         let (x0, y0) = at(60.0, 100.0);
         book.press(SYMBOL, TF, &Linear, x0, y0);
         let (x1, y1) = at(300.0, 250.0);
-        book.pointer_moved(SYMBOL, &Linear, x1, y1);
+        book.pointer_moved(SYMBOL, &Linear, x1, y1, false);
         book.release(SYMBOL, &Linear, x1, y1);
         assert_eq!(book.count(SYMBOL), 1);
         assert_eq!(
@@ -1017,7 +1110,7 @@ mod tests {
         book.set_tool(Some(Tool::TrendLine));
         let (x, y) = at(60.0, 100.0);
         book.press(SYMBOL, TF, &Linear, x, y);
-        book.pointer_moved(SYMBOL, &Linear, x + 2.0, y + 1.0);
+        book.pointer_moved(SYMBOL, &Linear, x + 2.0, y + 1.0, false);
         book.release(SYMBOL, &Linear, x + 2.0, y + 1.0);
         assert_eq!(book.count(SYMBOL), 0, "still waiting for the second click");
         assert!(book.creating(SYMBOL).is_some());
@@ -1068,11 +1161,11 @@ mod tests {
         book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=10 {
             let (mx, my) = at(60.0 + step as f32 * 20.0, 100.0 + step as f32 * 5.0);
-            book.pointer_moved(SYMBOL, &Linear, mx, my);
+            book.pointer_moved(SYMBOL, &Linear, mx, my, false);
         }
         // A tiny move adds no point.
         let (tx, ty) = at(260.0, 150.0);
-        let moved = book.pointer_moved(SYMBOL, &Linear, tx + 1.0, ty);
+        let moved = book.pointer_moved(SYMBOL, &Linear, tx + 1.0, ty, false);
         assert!(!moved);
         book.release(SYMBOL, &Linear, tx, ty);
         assert_eq!(book.count(SYMBOL), 1);
@@ -1119,7 +1212,7 @@ mod tests {
         assert_eq!(book.press(SYMBOL, TF, &Linear, x, y), Press::Taken);
         assert_eq!(book.selected(), Some(book.drawings(SYMBOL)[0].id));
         let (nx, ny) = at(420.0, 260.0);
-        assert!(book.pointer_moved(SYMBOL, &Linear, nx, ny));
+        assert!(book.pointer_moved(SYMBOL, &Linear, nx, ny, false));
         book.release(SYMBOL, &Linear, nx, ny);
         let line = &book.drawings(SYMBOL)[0];
         // Moved by 120 s (two bars) and +60 in price.
@@ -1145,7 +1238,7 @@ mod tests {
         let (gx, gy) = at(480.0, 300.0);
         book.press(SYMBOL, TF, &Linear, gx, gy);
         let (nx, ny) = at(660.0, 340.0);
-        book.pointer_moved(SYMBOL, &Linear, nx, ny);
+        book.pointer_moved(SYMBOL, &Linear, nx, ny, false);
         book.release(SYMBOL, &Linear, nx, ny);
         let line = &book.drawings(SYMBOL)[0];
         assert_eq!(
@@ -1181,7 +1274,7 @@ mod tests {
         let (x, y) = at(300.0, 200.0);
         book.press(SYMBOL, TF, &Linear, x, y);
         let (nx, ny) = at(400.0, 300.0);
-        assert!(!book.pointer_moved(SYMBOL, &Linear, nx, ny));
+        assert!(!book.pointer_moved(SYMBOL, &Linear, nx, ny, false));
         book.release(SYMBOL, &Linear, nx, ny);
         assert_eq!(
             book.drawings(SYMBOL)[0].points[0],
@@ -1205,7 +1298,7 @@ mod tests {
         let (sx, sy) = at(120.0, before.points[1].p as f32);
         book.press(SYMBOL, TF, &Linear, sx, sy);
         let (nx, ny) = at(300.0, 60.0);
-        book.pointer_moved(SYMBOL, &Linear, nx, ny);
+        book.pointer_moved(SYMBOL, &Linear, nx, ny, false);
         book.release(SYMBOL, &Linear, nx, ny);
         let after = &book.drawings(SYMBOL)[0];
         assert_eq!(
@@ -1254,7 +1347,7 @@ mod tests {
         book.press(SYMBOL, TF, &Linear, x, y);
         for step in 1..=5 {
             let (nx, ny) = at(300.0 + step as f32 * 60.0, 200.0);
-            book.pointer_moved(SYMBOL, &Linear, nx, ny);
+            book.pointer_moved(SYMBOL, &Linear, nx, ny, false);
         }
         let (nx, ny) = at(600.0, 200.0);
         book.release(SYMBOL, &Linear, nx, ny);
@@ -1461,5 +1554,80 @@ mod tests {
         let pattern = &book.drawings(SYMBOL)[0];
         assert_eq!(pattern.points.len(), 5);
         assert!(pattern.is_valid());
+    }
+
+    #[test]
+    fn a_box_is_reshaped_from_any_corner_or_side() {
+        let mut d = Drawing::new(
+            1,
+            Tool::Rectangle,
+            vec![
+                Point { t: 0, p: 100.0 },
+                Point {
+                    t: 600_000,
+                    p: 200.0,
+                },
+            ],
+        );
+        apply_handle(
+            &mut d,
+            2,
+            Point {
+                t: 60_000,
+                p: 250.0,
+            },
+        );
+        assert_eq!(
+            d.points[0],
+            Point {
+                t: 60_000,
+                p: 100.0
+            }
+        );
+        assert_eq!(
+            d.points[1],
+            Point {
+                t: 600_000,
+                p: 250.0
+            }
+        );
+        apply_handle(&mut d, 7, Point { t: 900_000, p: 1.0 });
+        assert_eq!(d.points[1].t, 900_000);
+        assert_eq!(d.points[1].p, 250.0, "a side moves one way only");
+        assert_eq!(super::super::geometry::handles(&d, &Linear).len(), 8);
+    }
+
+    #[test]
+    fn with_the_tool_kept_several_lines_are_drawn_in_a_row() {
+        let mut book = book();
+        book.set_keep_tool(true);
+        book.set_tool(Some(Tool::TrendLine));
+        for n in 0..3 {
+            click(&mut book, 60.0, 100.0 + n as f32 * 20.0);
+            assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(1));
+            click(&mut book, 300.0, 150.0 + n as f32 * 20.0);
+        }
+        assert_eq!(book.count(SYMBOL), 3);
+        assert_eq!(
+            book.tool(),
+            Some(Tool::TrendLine),
+            "the tool is still picked"
+        );
+        // A text gives way at once, so its words can be typed.
+        book.set_tool(Some(Tool::Text));
+        click(&mut book, 100.0, 100.0);
+        assert_eq!(book.tool(), None);
+    }
+
+    #[test]
+    fn shift_keeps_a_line_to_45_degrees() {
+        let mut book = book();
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 100.0);
+        // Nearly flat: it lies flat.
+        let (x, y) = at(300.0, 104.0);
+        book.pointer_moved(SYMBOL, &Linear, x, y, true);
+        let line = book.creating(SYMBOL).unwrap();
+        assert!((line.points[1].p - 100.0).abs() < 1.0, "{:?}", line.points);
     }
 }

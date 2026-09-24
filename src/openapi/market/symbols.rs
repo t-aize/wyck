@@ -63,6 +63,16 @@ pub struct Symbol {
     /// Time zone of the trading schedule.
     #[serde(default)]
     pub schedule_time_zone: Option<String>,
+    /// When the symbol trades each week (`schedule`).
+    #[serde(default)]
+    pub schedule: Vec<super::hours::Interval>,
+    /// Days the symbol does not trade (`holiday`).
+    #[serde(default)]
+    pub holiday: Vec<super::hours::Holiday>,
+    /// Whether trading is allowed (`ProtoOATradingMode`: 0 enabled, 1 and 2 disabled, 3 close
+    /// only).
+    #[serde(default, deserialize_with = "flex::opt")]
+    pub trading_mode: Option<i64>,
 }
 
 /// An asset: a currency or other unit an account or symbol is denominated in (`ProtoOAAsset`).

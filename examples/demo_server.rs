@@ -229,6 +229,20 @@ const fn fx(
     }
 }
 
+/// When a symbol trades, as seconds from Sunday 00:00 UTC: forex and metals from Sunday 22:00
+/// to Friday 22:00, the indices on weekdays with a break each evening, crypto all week.
+fn schedule(symbol: &Instrument) -> Vec<Value> {
+    const DAY: i64 = 86_400;
+    let span = |a: i64, b: i64| json!({ "startSecond": a, "endSecond": b });
+    match symbol.category {
+        1 | 2 => vec![span(22 * 3_600, 5 * DAY + 22 * 3_600)],
+        3 => (1..=5)
+            .map(|d| span(d * DAY + 7 * 3_600, d * DAY + 21 * 3_600))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn instrument(id: i64) -> Option<&'static Instrument> {
     INSTRUMENTS.iter().find(|i| i.id == id)
 }
@@ -786,6 +800,8 @@ fn handle(
                         "maxVolume": lot * 1_000,
                         "stepVolume": (lot / 100).max(1),
                         "scheduleTimeZone": "UTC",
+                        "schedule": schedule(s),
+                        "tradingMode": if s.id == 8 { 3 } else { 0 },
                     })
                 })
                 .collect();

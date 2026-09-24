@@ -870,10 +870,6 @@ impl OrderTicket {
     pub fn one_click(&self) -> bool {
         self.one_click
     }
-
-    pub fn default_lots(&self, cx: &App) -> f64 {
-        self.lots(cx)
-    }
 }
 
 fn summary_row(label: &'static str, value: String) -> impl IntoElement {

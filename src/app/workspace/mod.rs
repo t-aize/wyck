@@ -164,6 +164,9 @@ pub struct Preferences {
     /// Whether drawings snap to the open, high, low and close of the nearest bar.
     #[serde(default)]
     pub magnet: bool,
+    /// Whether a drawing tool stays picked once a drawing is finished.
+    #[serde(default = "yes")]
+    pub keep_drawing: bool,
     /// How the lines between the charts were dragged, per layout (`"count-variant"`): one list
     /// of weights per split of the layout.
     #[serde(default)]
@@ -208,6 +211,7 @@ impl Default for Preferences {
             charts: default_charts(),
             active_chart: 0,
             magnet: false,
+            keep_drawing: true,
             splits: std::collections::BTreeMap::new(),
             panel_open: true,
             panel_height: default_panel_height(),

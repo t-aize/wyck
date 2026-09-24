@@ -738,8 +738,28 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
     match drawing.tool {
         // A brush has too many points for grips: it is moved as a whole.
         Tool::Brush => Vec::new(),
+        tool if tool.is_box() => anchors(drawing, proj)
+            .map(|pts| box_handles(pts[0], pts[1]))
+            .unwrap_or_default(),
         _ => anchors(drawing, proj).unwrap_or_default(),
     }
+}
+
+/// The grips of a shape drawn in the box between two opposite corners: those two, the other two
+/// corners, then the middle of each side (the side through the first corner's height, the second
+/// corner's height, the first corner's time, the second's).
+pub fn box_handles(a: P, b: P) -> Vec<P> {
+    let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+    vec![
+        a,
+        b,
+        (a.0, b.1),
+        (b.0, a.1),
+        (mx, a.1),
+        (mx, b.1),
+        (a.0, my),
+        (b.0, my),
+    ]
 }
 
 fn label_box(at: P, text: &str, anchor: Anchor, size: f32) -> (P, P) {

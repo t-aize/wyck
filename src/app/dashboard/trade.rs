@@ -33,8 +33,6 @@ pub(super) enum Pending {
     TicketLine(u8, f64),
     /// Ask before closing a position from its line.
     ClosePosition(i64),
-    /// A market order from the chart's buttons.
-    Market { symbol: SymbolRef, buy: bool },
     /// Open the editor of a new alert.
     EditAlert(u64),
 }
@@ -128,35 +126,6 @@ impl Dashboard {
                     account.update(cx, |a, cx| a.close_position(id, None, cx));
                 });
             }
-            Pending::Market { symbol, buy } => {
-                let lots = self
-                    .ticket
-                    .as_ref()
-                    .map_or(0.1, |t| t.read(cx).default_lots(cx));
-                let one_click = self.workspace.read(cx).preferences().one_click;
-                let account = self.trading.clone();
-                account.update(cx, |a, cx| a.ensure_contract(symbol.id, cx));
-                let volume = self
-                    .trading
-                    .read(cx)
-                    .book
-                    .contract(symbol.id)
-                    .volume_of_lots(lots);
-                let send = move |cx: &mut gpui::App| {
-                    account.update(cx, |a, cx| a.market(symbol.id, buy, volume, cx));
-                };
-                if one_click {
-                    send(cx);
-                } else {
-                    let text = format!(
-                        "{} {} {} at market",
-                        if buy { "Buy" } else { "Sell" },
-                        math::format_lots(lots),
-                        symbol.name
-                    );
-                    confirm(window, cx, "Send this order?", text, move |_, cx| send(cx));
-                }
-            }
             Pending::EditAlert(id) => {
                 crate::app::trading::panel::open_alert(self.alerts.clone(), id, window, cx);
             }
@@ -241,10 +210,6 @@ impl Dashboard {
                     take_profit: *take_profit,
                 });
             }
-            ChartAction::Market { buy } => self.pending.push(Pending::Market {
-                symbol: symbol.clone(),
-                buy: *buy,
-            }),
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
         }
         cx.notify();

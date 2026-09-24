@@ -1,5 +1,5 @@
 //! The dialogs of a chart: the list of indicators to add, the settings of one indicator (its
-//! inputs and the look of each of its lines), and the settings of the chart itself (grid, volume,
+//! inputs and the look of each of its lines), and the settings of the chart itself (grid,
 //! price scale, time zone, and the sizes of the price based chart types).
 //!
 //! Every change applies at once, as the user makes it, so the chart behind the dialog shows the
@@ -791,16 +791,6 @@ impl Render for ChartSettingsEditor {
             .child(widgets::row(
                 "Grid",
                 switch("settings-grid", settings.grid, |s, on| s.grid = on),
-            ))
-            .child(widgets::row(
-                "Volume at the bottom of the prices",
-                switch("settings-volume", settings.volume, |s, on| s.volume = on),
-            ))
-            .child(widgets::row(
-                "Sell and buy buttons",
-                switch("settings-trade", settings.trade_buttons, |s, on| {
-                    s.trade_buttons = on;
-                }),
             ))
             .child(widgets::section("Price scale"))
             .child(widgets::row(

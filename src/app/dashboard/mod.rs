@@ -474,6 +474,9 @@ impl Dashboard {
             let _ = this.update(cx, |this, cx| match fetched {
                 Ok(Ok(symbol)) => {
                     let digits = u32::try_from(symbol.digits).unwrap_or(5);
+                    let hours = wyck::openapi::market::TradingHours::from_symbol(&symbol);
+                    this.multi
+                        .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                     this.details.insert(id, details::Detail::Ready(symbol));
                     this.multi
                         .update(cx, |multi, cx| multi.set_digits(id, digits, cx));

@@ -6,7 +6,7 @@ use wyck::openapi::market::Bar;
 use super::super::data::Series;
 use super::super::settings::ChartKind;
 use super::cmd::{Cmd, P, hsla, with_alpha};
-use super::{Ctx, VOLUME_SHARE, columns, ellipse_points};
+use super::{Ctx, columns, ellipse_points};
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
 const CANDLE_MIN_PX: f64 = 4.0;
@@ -52,33 +52,6 @@ pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out
             out,
         ),
     }
-}
-
-pub(super) fn volume(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
-    let slice = &bars[first.min(bars.len())..last.min(bars.len())];
-    let max = slice.iter().map(|b| b.volume).max().unwrap_or(0);
-    if max <= 0 {
-        return;
-    }
-    let height = (cx.band.h * VOLUME_SHARE) as f32;
-    let base = cx.oy + cx.band.bottom() as f32;
-    let bar_px = cx.f.view.bar_px as f32;
-    columns(cx, first, last, |x, range| {
-        let volume = bars[range.clone()]
-            .iter()
-            .map(|b| b.volume)
-            .max()
-            .unwrap_or(0);
-        let up = bars[range.end - 1].close >= bars[range.start].open;
-        let h = (volume as f32 / max as f32 * height).max(1.0 / cx.f.scale);
-        let width = if bar_px >= 2.0 {
-            (bar_px * 0.7).max(1.0)
-        } else {
-            1.0
-        };
-        let c = with_alpha(cx.up_color(up), 0.28);
-        out.push(cx.rect(cx.snap(x - width / 2.0), base - h, width, h, c));
-    });
 }
 
 fn candles(

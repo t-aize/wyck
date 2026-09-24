@@ -25,6 +25,7 @@ pub mod bars;
 pub mod client;
 pub mod depth;
 pub mod history;
+pub mod hours;
 pub mod live;
 pub mod price;
 pub mod quotes;
@@ -38,6 +39,7 @@ pub use bars::{
 pub use client::MarketClient;
 pub use depth::{DepthBook, DepthEvent, DepthLevel, DepthQuote};
 pub use history::{MAX_TICK_RANGE_MS, continuation, fetch_bars, fetch_ticks, tick_windows};
+pub use hours::{Holiday, Interval, MarketStatus, TradingHours};
 pub use live::{LiveBarTracker, with_true_close};
 pub use price::{PRICE_SCALE, UNITS_PER_PRICE, format_price, from_price, to_price};
 pub use quotes::{Spot, SpotEvent, SpotTracker, SubscribeSpotsReq};

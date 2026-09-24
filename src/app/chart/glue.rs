@@ -67,7 +67,13 @@ impl Chart {
     }
 
     /// The pointer moved: a drawing being made or moved follows it.
-    pub(super) fn drawing_moved(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+    pub(super) fn drawing_moved(
+        &mut self,
+        x: f32,
+        y: f32,
+        constrain: bool,
+        cx: &mut Context<Self>,
+    ) {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return;
         };
@@ -91,7 +97,9 @@ impl Chart {
         self.over_drawing = false;
         let changed = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.pointer_moved(&symbol, projection, x, y))
+                drawings.edit(cx, |book| {
+                    book.pointer_moved(&symbol, projection, x, y, constrain)
+                })
             })
         });
         if changed == Some(true) {

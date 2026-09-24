@@ -147,6 +147,11 @@ impl Chart {
 
     pub(super) fn on_mouse_down(&mut self, x: f32, y: f32, clicks: usize, cx: &mut Context<Self>) {
         cx.emit(ChartEvent::Activated);
+        // A release that never came (the button let go outside the window) ends the last press
+        // before this one starts.
+        if self.drawing_drag {
+            self.drawing_released(x, y, cx);
+        }
         if self.menu.take().is_some() {
             cx.notify();
         }
@@ -224,13 +229,12 @@ impl Chart {
         shift: bool,
         cx: &mut Context<Self>,
     ) {
+        // While a press on a drawing is held, the drawing follows the pointer. The release is
+        // the button's own event, not a move that happens to come without the button: some
+        // pointers (a touchpad's tap and drag) send those in the middle of a drag.
         if self.drawing_drag {
-            if left_down {
-                self.set_hover(x, y, cx);
-                self.drawing_moved(x, y, cx);
-            } else {
-                self.drawing_released(x, y, cx);
-            }
+            self.set_hover(x, y, cx);
+            self.drawing_moved(x, y, shift, cx);
             return;
         }
         if let Some(drag) = self.drag {
@@ -270,7 +274,7 @@ impl Chart {
             return;
         }
         self.set_hover(x, y, cx);
-        self.drawing_moved(x, y, cx);
+        self.drawing_moved(x, y, shift, cx);
         cx.notify();
     }
 

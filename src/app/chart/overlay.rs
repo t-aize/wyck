@@ -96,8 +96,13 @@ impl Render for Chart {
             .child(paint::surface(&entity, self.bounds.clone()))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
-            .children((!compact || self.menu.is_some()).then(|| self.toolbar(latest, compact, cx)))
+            // The toolbar belongs to the chart being worked on, as long as it has the room.
+            .children(
+                self.shows_toolbar()
+                    .then(|| self.toolbar(latest, compact, cx)),
+            )
             .children(self.menu_popup(&geometry, cx))
+            .children(self.drawing_hint(&geometry, cx))
             .children(self.status(cx))
             .context_menu(move |menu, window, cx| context_menu(&menu_entity, menu, window, cx))
     }
@@ -450,7 +455,7 @@ impl Chart {
         let index = self.shown_index();
         // The legend wraps before the toolbar at the top right (or the price axis, when the
         // toolbar is hidden).
-        let right = AXIS_W + if compact { 8.0 } else { 196.0 };
+        let right = AXIS_W + if self.shows_toolbar() { 196.0 } else { 8.0 };
         let mut main = div()
             .absolute()
             .top(px(6.))
@@ -460,9 +465,6 @@ impl Chart {
             .flex_col()
             .gap_0p5()
             .child(self.headline(compact, cx));
-        if !compact && self.settings.trade_buttons {
-            main = main.children(self.trade_buttons(cx));
-        }
         if !compact {
             for (study, config) in self.settings.studies.iter().enumerate() {
                 if config.spec().placement == Placement::Overlay {
@@ -487,14 +489,146 @@ impl Chart {
         out
     }
 
+    /// What to do next with the drawing tool that is picked, at the bottom of the prices.
+    fn drawing_hint(&self, geometry: &Geometry, cx: &mut Context<Self>) -> Option<AnyElement> {
+        if !self.selected {
+            return None;
+        }
+        let drawings = self.drawings.as_ref()?;
+        let symbol = self.symbol_name()?;
+        let book = drawings.read(cx).book();
+        let tool = book.tool()?;
+        let text = match book.progress(&symbol) {
+            Some((super::drawing::model::Tool::Brush, _, _)) => {
+                "Keep the button down and draw; let go to finish".to_owned()
+            }
+            Some((_, placed, needed)) => format!(
+                "Click to place point {} of {needed}. Shift keeps the line to 45 degrees. Esc cancels",
+                placed + 1
+            ),
+            None if tool == super::drawing::model::Tool::Brush => {
+                "Press and draw on the chart".to_owned()
+            }
+            None if tool.anchors() == 1 || tool.is_position() => {
+                "Click on the chart to place it. Esc goes back to the pointer".to_owned()
+            }
+            None => {
+                "Click where it starts, or press and drag. Esc goes back to the pointer".to_owned()
+            }
+        };
+        let bottom = (geometry.h - geometry.main().bottom()) as f32 + 10.0;
+        Some(
+            div()
+                .absolute()
+                .left_0()
+                .right(px(AXIS_W))
+                .bottom(px(bottom))
+                .flex()
+                .justify_center()
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .py_1()
+                        .rounded_full()
+                        .bg(gpui::rgba(0x1b1d24e6))
+                        .border_1()
+                        .border_color(theme::border_subtle())
+                        .text_size(px(11.))
+                        .text_color(theme::muted_fg())
+                        .child(
+                            div()
+                                .text_color(theme::fg())
+                                .font_weight(FontWeight::MEDIUM)
+                                .child(tool.label()),
+                        )
+                        .child(text),
+                )
+                .into_any_element(),
+        )
+    }
+
+    /// Whether the toolbar shows: on the chart being worked on, when it has the room, and while
+    /// one of its menus is open.
+    fn shows_toolbar(&self) -> bool {
+        let wide = self
+            .bounds
+            .get()
+            .is_some_and(|b| f32::from(b.size.width) >= 360.0);
+        (self.selected && wide) || self.menu.is_some()
+    }
+
+    /// A dot that says whether the symbol's market is open, with when it opens or closes.
+    fn market_dot(&self) -> Option<AnyElement> {
+        use wyck::openapi::market::MarketStatus;
+        let status = self.market_status()?;
+        let now = super::now_ms();
+        let within = |at: Option<i64>| at.map(|t| super::drawing::geometry::duration_text(t - now));
+        let (color, text) = match &status {
+            MarketStatus::Open { closes_at } => (
+                theme::emerald(),
+                match within(*closes_at) {
+                    Some(left) => format!("Market open, closes in {left}"),
+                    None => "Market open around the clock".to_owned(),
+                },
+            ),
+            MarketStatus::Closed { opens_at, holiday } => {
+                let why = holiday
+                    .as_ref()
+                    .map(|name| format!(" for {name}"))
+                    .unwrap_or_default();
+                (
+                    theme::muted_fg(),
+                    match within(*opens_at) {
+                        Some(left) => format!("Market closed{why}, opens in {left}"),
+                        None => format!("Market closed{why}"),
+                    },
+                )
+            }
+            MarketStatus::CloseOnly => (
+                theme::amber(),
+                "Close only: positions can be closed, not opened".to_owned(),
+            ),
+            MarketStatus::Disabled => (
+                theme::destructive(),
+                "Trading on this symbol is disabled by the broker".to_owned(),
+            ),
+        };
+        let text = SharedString::from(text);
+        Some(
+            div()
+                .id(("market-status", self.id))
+                .size(px(14.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded_full()
+                .cursor_default()
+                .hover(|s| s.bg(theme::surface_hover()))
+                .tooltip(move |window, cx| {
+                    gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
+                })
+                .child(
+                    div()
+                        .size(px(7.))
+                        .rounded_full()
+                        .bg(color)
+                        .when(!status.is_open(), |el| {
+                            el.bg(gpui::rgba(0x00000000)).border_1().border_color(color)
+                        }),
+                )
+                .into_any_element(),
+        )
+    }
+
     /// Where the legend ends, from the top of the chart: what floats over the chart (the bar of a
     /// selected drawing) goes under it.
     pub fn legend_bottom(&self) -> f32 {
         let compact = self.is_compact();
         let mut bottom = 6.0 + 22.0;
-        if !compact && self.settings.trade_buttons && self.bid.is_some() && self.ask.is_some() {
-            bottom += 50.0;
-        }
         if !compact {
             let overlays = self
                 .settings
@@ -505,65 +639,6 @@ impl Chart {
             bottom += overlays as f32 * 22.0;
         }
         bottom + 8.0
-    }
-
-    /// Sell at the bid and buy at the ask, at market, with the spread between them.
-    fn trade_buttons(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let (bid, ask) = (self.bid?, self.ask?);
-        let digits = self.digits();
-        let pip = 10f64.powi(i32::try_from(digits).unwrap_or(5).saturating_sub(1).max(0));
-        let spread = (ask - bid) as f64 / wyck::openapi::market::PRICE_SCALE as f64 * pip;
-        let button = |id: &'static str, label: &'static str, price: i64, color: u32, buy: bool| {
-            div()
-                .id(id)
-                .flex()
-                .flex_col()
-                .min_w(px(84.))
-                .px_2()
-                .py_0p5()
-                .rounded_md()
-                .border_1()
-                .border_color(rgb(color))
-                .bg(theme::bg())
-                .cursor_pointer()
-                .hover(move |s| s.bg(gpui::rgba(color << 8 | 0x33)))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |_this, _, _, cx| {
-                    cx.emit(ChartEvent::Action(ChartAction::Market { buy }));
-                }))
-                .child(
-                    div()
-                        .text_size(px(10.))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgb(color))
-                        .child(label),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.))
-                        .text_color(theme::fg())
-                        .child(format_price(price, digits)),
-                )
-        };
-        Some(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_1()
-                .pt_0p5()
-                .child(button("chart-sell", "SELL", bid, 0xef5350, false))
-                .child(
-                    div()
-                        .min_w(px(28.))
-                        .text_center()
-                        .text_size(px(10.))
-                        .text_color(theme::muted_fg())
-                        .child(format!("{spread:.1}")),
-                )
-                .child(button("chart-buy", "BUY", ask, 0x26a69a, true))
-                .into_any_element(),
-        )
     }
 
     /// The first line of the legend: the symbol (a button that changes it), the timeframe and
@@ -613,7 +688,8 @@ impl Chart {
             .gap_x_2()
             .text_size(px(12.))
             .child(symbol)
-            .child(div().text_color(theme::muted_fg()).child(kind_text));
+            .child(div().text_color(theme::muted_fg()).child(kind_text))
+            .children(self.market_dot());
         let Some(index) = self.shown_index() else {
             return row;
         };
@@ -656,19 +732,7 @@ impl Chart {
                             .child(value("H", bar.high, tone))
                             .child(value("L", bar.low, tone))
                             .child(value("C", bar.close, tone))
-                            .child(div().text_color(tone).child(change_text))
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .gap_0p5()
-                                    .child(div().text_color(theme::muted_fg()).child("Vol"))
-                                    .child(
-                                        div()
-                                            .text_color(theme::fg())
-                                            .child(price::count(bar.volume as f64)),
-                                    ),
-                            );
+                            .child(div().text_color(tone).child(change_text));
                     }
                 }
             }
