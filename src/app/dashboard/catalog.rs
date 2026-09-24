@@ -143,6 +143,8 @@ pub struct Entry {
     /// The asset the symbol is bought in, and the one it is priced in, when the broker says.
     pub base: Option<String>,
     pub quote: Option<String>,
+    /// The id of the asset it is priced in.
+    pub quote_asset: Option<i64>,
     /// Its picture: flags, a logo or a glyph.
     pub icon: Icon,
     /// The broker's finer grouping inside the class (`Major Pairs`, `US Shares`...).
@@ -214,6 +216,7 @@ impl Catalog {
                     })
                     .cloned();
                 Some(Entry {
+                    quote_asset: s.quote_asset_id,
                     id: s.symbol_id,
                     name,
                     description,

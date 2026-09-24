@@ -182,6 +182,9 @@ pub struct Preferences {
     /// Whether orders are sent without asking for a confirmation first.
     #[serde(default)]
     pub one_click: bool,
+    /// How the order ticket sizes orders.
+    #[serde(default)]
+    pub ticket: crate::app::trading::ticket::TicketPrefs,
 }
 
 fn default_panel_height() -> f32 {
@@ -217,6 +220,7 @@ impl Default for Preferences {
             panel_height: default_panel_height(),
             ticket_open: false,
             one_click: false,
+            ticket: crate::app::trading::ticket::TicketPrefs::default(),
         }
     }
 }

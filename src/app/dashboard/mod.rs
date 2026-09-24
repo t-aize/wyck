@@ -399,8 +399,13 @@ impl Dashboard {
             .iter()
             .filter_map(|e| Some((e.id, e.quote.clone()?)))
             .collect();
-        self.trading
-            .update(cx, |account, cx| account.set_symbols(names, quotes, cx));
+        let quote_assets = entries
+            .iter()
+            .filter_map(|e| Some((e.id, e.quote_asset?)))
+            .collect();
+        self.trading.update(cx, |account, cx| {
+            account.set_symbols(names, quotes, quote_assets, cx)
+        });
         // Each chart gets the symbol it was saved with, or the one to start on.
         let wanted = self.multi.read(cx).wanted_symbols(cx);
         let linked = self.multi.read(cx).sync().symbol;

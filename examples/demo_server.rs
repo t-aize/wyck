@@ -849,10 +849,34 @@ fn handle(
                 { "id": 4, "assetClassId": 4, "name": "Coins" },
             ]}),
         )],
-        payload::SYMBOLS_FOR_CONVERSION_REQ => vec![answer(
-            payload::SYMBOLS_FOR_CONVERSION_RES,
-            json!({ "symbol": [] }),
-        )],
+        payload::SYMBOLS_FOR_CONVERSION_REQ => {
+            // One symbol trading the two assets, the one way or the other.
+            let (first, last) = (int(body, "firstAssetId"), int(body, "lastAssetId"));
+            let chain: Vec<Value> = INSTRUMENTS
+                .iter()
+                .filter(|s| {
+                    (Some(s.base), Some(s.quote)) == (first, last)
+                        || (Some(s.quote), Some(s.base)) == (first, last)
+                })
+                .take(1)
+                .map(|s| {
+                    json!({
+                        "symbolId": s.id,
+                        "symbolName": s.name,
+                        "baseAssetId": s.base,
+                        "quoteAssetId": s.quote,
+                    })
+                })
+                .collect();
+            if chain.is_empty() {
+                vec![error("SYMBOL_NOT_FOUND", "No conversion chain.")]
+            } else {
+                vec![answer(
+                    payload::SYMBOLS_FOR_CONVERSION_RES,
+                    json!({ "symbol": chain }),
+                )]
+            }
+        }
         payload::GET_TRENDBARS_REQ => {
             let (Some(symbol), Some(period)) = (
                 int(body, "symbolId").and_then(instrument),

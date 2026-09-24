@@ -48,7 +48,8 @@ impl Dashboard {
         if self.ticket.is_none() {
             let prefs = self.workspace.read(cx).preferences().clone();
             let account = self.trading.clone();
-            let ticket = cx.new(|cx| OrderTicket::new(account, 0.1, prefs.one_click, window, cx));
+            let ticket =
+                cx.new(|cx| OrderTicket::new(account, prefs.ticket, prefs.one_click, window, cx));
             cx.subscribe(
                 &ticket,
                 |this, ticket, event: &TicketEvent, cx| match event {
@@ -58,6 +59,12 @@ impl Dashboard {
                             workspace.edit_preferences(cx, |prefs| prefs.one_click = one_click);
                         });
                         this.push_lines(cx);
+                    }
+                    TicketEvent::Settings(settings) => {
+                        let settings = *settings;
+                        this.workspace.update(cx, |workspace, cx| {
+                            workspace.edit_preferences(cx, |prefs| prefs.ticket = settings);
+                        });
                     }
                     TicketEvent::Close => this.set_ticket_open(false, cx),
                 },

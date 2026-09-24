@@ -200,6 +200,220 @@ pub fn live_net(mark: &PnlMark, quote_now: f64) -> f64 {
     }
 }
 
+/// How the volume of an order is chosen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SizeMode {
+    /// Lots, as typed.
+    #[default]
+    Lots,
+    /// Units of the base asset, as typed.
+    Units,
+    /// A share of the balance lost if the stop loss is hit.
+    RiskBalance,
+    /// A share of the equity lost if the stop loss is hit.
+    RiskEquity,
+    /// An amount of the deposit currency lost if the stop loss is hit.
+    RiskMoney,
+    /// A share of the free margin the order may use.
+    FreeMargin,
+}
+
+impl SizeMode {
+    pub const ALL: [Self; 6] = [
+        Self::Lots,
+        Self::Units,
+        Self::RiskBalance,
+        Self::RiskEquity,
+        Self::RiskMoney,
+        Self::FreeMargin,
+    ];
+
+    /// Whether the volume comes from the distance to the stop loss.
+    pub fn is_risk(self) -> bool {
+        matches!(self, Self::RiskBalance | Self::RiskEquity | Self::RiskMoney)
+    }
+}
+
+/// How a stop loss or take profit is given: as a price, or as a distance from the entry in
+/// pips, in money, in percent of the balance, or in multiples of the risk (a take profit only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Offset {
+    #[default]
+    Price,
+    Pips,
+    Money,
+    Percent,
+    Ratio,
+}
+
+impl Offset {
+    /// Whether the distance it stands for depends on the volume.
+    pub fn needs_volume(self) -> bool {
+        matches!(self, Self::Money | Self::Percent)
+    }
+}
+
+/// What turns an offset into a price distance and back.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Scale {
+    /// The size of a pip in price.
+    pub pip: f64,
+    /// What a move of 1.0 in price is worth in the deposit currency, for the volume of the
+    /// order: its units times the rate of the quote currency. `None` until the rate is known.
+    pub money_per_price: Option<f64>,
+    pub balance: f64,
+    /// The distance from the entry to the stop loss, for a take profit given in multiples of
+    /// the risk.
+    pub stop_distance: Option<f64>,
+}
+
+impl Scale {
+    /// The price distance a value of `offset` stands for (positive away from the entry, on the
+    /// side the protection belongs).
+    pub fn distance(&self, offset: Offset, value: f64) -> Option<f64> {
+        let per_price = || self.money_per_price.filter(|m| *m > 0.0);
+        match offset {
+            Offset::Price => None,
+            Offset::Pips => Some(value * self.pip),
+            Offset::Money => per_price().map(|m| value / m),
+            Offset::Percent => per_price().map(|m| self.balance * value / 100.0 / m),
+            Offset::Ratio => self.stop_distance.map(|d| value * d),
+        }
+    }
+
+    /// The value of `offset` a price distance stands for.
+    pub fn value(&self, offset: Offset, distance: f64) -> Option<f64> {
+        let per_price = || self.money_per_price.filter(|m| *m > 0.0);
+        match offset {
+            Offset::Price => None,
+            Offset::Pips => (self.pip > 0.0).then(|| distance / self.pip),
+            Offset::Money => per_price().map(|m| distance * m),
+            Offset::Percent => per_price()
+                .filter(|_| self.balance > 0.0)
+                .map(|m| distance * m / self.balance * 100.0),
+            Offset::Ratio => self
+                .stop_distance
+                .filter(|d| *d > 0.0)
+                .map(|d| distance / d),
+        }
+    }
+}
+
+/// Which way a protection sits from the entry: `-1.0` under it, `1.0` over it.
+pub fn protection_side(buy: bool, stop: bool) -> f64 {
+    if buy == stop { -1.0 } else { 1.0 }
+}
+
+/// The lots whose loss over `stop_distance` is `risk` in the deposit currency, before they are
+/// stepped. `rate` is the deposit currency per unit of quote currency.
+pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contract) -> Option<f64> {
+    let units_per_lot = contract.lot_size as f64 / 100.0;
+    let loss_per_lot = stop_distance * rate * units_per_lot;
+    (risk > 0.0 && loss_per_lot > 0.0 && loss_per_lot.is_finite()).then(|| risk / loss_per_lot)
+}
+
+/// A volume chosen by the ticket, and whether the broker's limits changed it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stepped {
+    pub volume: i64,
+    pub limit: Option<Limit>,
+}
+
+/// A limit of the broker the wanted volume ran into.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Limit {
+    /// Raised to the least volume the broker takes.
+    Min,
+    /// Lowered to the most it takes.
+    Max,
+}
+
+impl Contract {
+    /// The volume of `lots` rounded to the nearest step and kept inside the broker's limits.
+    pub fn volume_near(&self, lots: f64) -> Stepped {
+        let volume = self.volume_of_lots(lots);
+        let raw = lots * self.lot_size as f64;
+        let limit = if raw < self.min_volume as f64 - 0.5 {
+            Some(Limit::Min)
+        } else if raw > self.max_volume.max(self.min_volume) as f64 + 0.5 {
+            Some(Limit::Max)
+        } else {
+            None
+        };
+        Stepped { volume, limit }
+    }
+
+    /// The volume of `lots` stepped down, so a volume sized from a risk never risks more, and
+    /// kept inside the broker's limits.
+    pub fn volume_at_most(&self, lots: f64) -> Stepped {
+        let raw = if lots.is_finite() { lots.max(0.0) } else { 0.0 } * self.lot_size as f64;
+        let step = self.step_volume.max(1) as f64;
+        // A hair of tolerance, so 0.3 lots is not stepped down to 0.29 by the float error.
+        let stepped = ((raw / step + 1e-9).floor() * step) as i64;
+        let max = self.max_volume.max(self.min_volume);
+        if stepped < self.min_volume {
+            Stepped {
+                volume: self.min_volume,
+                limit: Some(Limit::Min),
+            }
+        } else if stepped > max {
+            Stepped {
+                volume: max,
+                limit: Some(Limit::Max),
+            }
+        } else {
+            Stepped {
+                volume: stepped,
+                limit: None,
+            }
+        }
+    }
+}
+
+/// A symbol of a conversion chain, with the assets it trades.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Link {
+    pub symbol_id: i64,
+    pub base: i64,
+    pub quote: i64,
+}
+
+/// How much of asset `to` one unit of asset `from` is worth, walking the chain the server gave
+/// at the middle prices of its symbols. `None` while a price is missing or the chain does not
+/// lead from one to the other.
+pub fn chain_rate(
+    from: i64,
+    to: i64,
+    chain: &[Link],
+    mid: &dyn Fn(i64) -> Option<f64>,
+) -> Option<f64> {
+    let mut asset = from;
+    let mut rate = 1.0;
+    for link in chain {
+        let price = mid(link.symbol_id).filter(|p| *p > 0.0)?;
+        if link.base == asset {
+            rate *= price;
+            asset = link.quote;
+        } else if link.quote == asset {
+            rate /= price;
+            asset = link.base;
+        } else {
+            return None;
+        }
+    }
+    (asset == to).then_some(rate)
+}
+
+/// The middle of a bid and an ask, or whichever is known.
+pub fn mid(bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
+    match (bid, ask) {
+        (Some(b), Some(a)) => Some((b + a) / 2.0),
+        (b, a) => b.or(a),
+    }
+}
+
 /// The totals of an account.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Summary {
@@ -361,5 +575,106 @@ mod tests {
         assert_eq!(format_money(1_000_000.0, ""), "1,000,000.00");
         assert_eq!(format_lots(0.10), "0.1");
         assert_eq!(format_lots(2.0), "2");
+    }
+
+    #[test]
+    fn a_risk_makes_the_volume_that_loses_it_at_the_stop() {
+        let c = Contract::default();
+        // 100 USD over 20 pips of EURUSD: 10 USD a pip, so 0.5 lots.
+        let lots = lots_for_risk(100.0, 0.0020, 1.0, &c).unwrap();
+        assert!((lots - 0.5).abs() < 1e-9);
+        assert_eq!(c.volume_at_most(lots).volume, 5_000_000);
+        // Stepped down, never up: 0.567 lots is 0.56.
+        assert_eq!(c.volume_at_most(0.567).volume, 5_600_000);
+        assert_eq!(c.volume_at_most(0.3).volume, 3_000_000);
+        assert_eq!(c.volume_at_most(0.001).limit, Some(Limit::Min));
+        assert_eq!(c.volume_at_most(1e9).limit, Some(Limit::Max));
+        assert_eq!(c.volume_near(0.567).volume, 5_700_000);
+        assert_eq!(c.volume_near(0.567).limit, None);
+        assert_eq!(c.volume_near(0.001).limit, Some(Limit::Min));
+        assert_eq!(lots_for_risk(100.0, 0.0, 1.0, &c), None);
+        assert_eq!(lots_for_risk(0.0, 0.002, 1.0, &c), None);
+        // A quote currency worth half the deposit one needs twice the lots.
+        let half = lots_for_risk(100.0, 0.0020, 0.5, &c).unwrap();
+        assert!((half - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn offsets_turn_into_distances_and_back() {
+        let scale = Scale {
+            pip: 0.0001,
+            // 1 lot of EURUSD: 100 000 USD per 1.0 of price.
+            money_per_price: Some(100_000.0),
+            balance: 10_000.0,
+            stop_distance: Some(0.0020),
+        };
+        let cases = [
+            (Offset::Pips, 20.0, 0.0020),
+            (Offset::Money, 200.0, 0.0020),
+            (Offset::Percent, 2.0, 0.0020),
+            (Offset::Ratio, 2.0, 0.0040),
+        ];
+        for (offset, value, distance) in cases {
+            let d = scale.distance(offset, value).unwrap();
+            assert!((d - distance).abs() < 1e-12, "{offset:?}");
+            let back = scale.value(offset, distance).unwrap();
+            assert!((back - value).abs() < 1e-9, "{offset:?}");
+        }
+        assert_eq!(scale.distance(Offset::Price, 1.1), None);
+        let unknown = Scale {
+            money_per_price: None,
+            stop_distance: None,
+            ..scale
+        };
+        assert_eq!(unknown.distance(Offset::Money, 100.0), None);
+        assert_eq!(unknown.distance(Offset::Ratio, 2.0), None);
+        assert_eq!(protection_side(true, true), -1.0);
+        assert_eq!(protection_side(true, false), 1.0);
+        assert_eq!(protection_side(false, true), 1.0);
+    }
+
+    #[test]
+    fn a_conversion_chain_is_walked_either_way() {
+        // Assets: 1 EUR, 2 USD, 3 JPY, 4 GBP. Symbols: 10 EURUSD, 11 USDJPY, 12 GBPUSD.
+        let prices = |id: i64| match id {
+            10 => Some(1.10),
+            11 => Some(150.0),
+            12 => Some(1.25),
+            _ => None,
+        };
+        let eurusd = Link {
+            symbol_id: 10,
+            base: 1,
+            quote: 2,
+        };
+        let usdjpy = Link {
+            symbol_id: 11,
+            base: 2,
+            quote: 3,
+        };
+        let gbpusd = Link {
+            symbol_id: 12,
+            base: 4,
+            quote: 2,
+        };
+        assert_eq!(chain_rate(2, 2, &[], &prices), Some(1.0));
+        assert!((chain_rate(1, 2, &[eurusd], &prices).unwrap() - 1.10).abs() < 1e-12);
+        // One JPY in USD, then in EUR.
+        let jpy_usd = chain_rate(3, 2, &[usdjpy], &prices).unwrap();
+        assert!((jpy_usd - 1.0 / 150.0).abs() < 1e-12);
+        let jpy_eur = chain_rate(3, 1, &[usdjpy, eurusd], &prices).unwrap();
+        assert!((jpy_eur - 1.0 / 150.0 / 1.10).abs() < 1e-12);
+        let gbp_eur = chain_rate(4, 1, &[gbpusd, eurusd], &prices).unwrap();
+        assert!((gbp_eur - 1.25 / 1.10).abs() < 1e-12);
+        // A missing price, or a chain that leads elsewhere, gives no rate.
+        let unpriced = Link {
+            symbol_id: 99,
+            base: 3,
+            quote: 2,
+        };
+        assert_eq!(chain_rate(3, 2, &[unpriced], &prices), None);
+        assert_eq!(chain_rate(3, 1, &[usdjpy], &prices), None);
+        assert_eq!(mid(Some(1.0), Some(1.2)), Some(1.1));
+        assert_eq!(mid(None, Some(1.2)), Some(1.2));
     }
 }
