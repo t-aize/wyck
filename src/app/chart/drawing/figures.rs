@@ -5,8 +5,8 @@
 //! with the linear projection of the geometry tests.
 
 use super::geometry::{
-    Anchor, P, Prim, Projection, Rect, extended, fill_of, label, level_text, seg, stretch,
-    visible_levels,
+    Anchor, P, Prim, Projection, Rect, extended, fill_of, label, level_label, level_text, seg,
+    stretch, visible_levels,
 };
 use super::model::{Dash, Drawing, Point, Tool, wave_label};
 
@@ -242,12 +242,19 @@ fn fib_channel(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
                 fill: (level.color, opacity),
             });
         }
-        out.push(seg(p, q, level.color, 0.9, style.width, style.dash));
+        out.push(seg(
+            p,
+            q,
+            level.color,
+            0.9,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
+        ));
         if style.labels {
             let left = if p.0 <= q.0 { p } else { q };
             out.push(label(
                 (left.0 + 4.0, left.1 - 8.0),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Left,
                 style,
@@ -282,13 +289,13 @@ fn fib_time_zone(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
             (x, rect.b),
             level.color,
             0.9,
-            style.width,
-            style.dash,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
         ));
         if style.labels {
             out.push(label(
                 (x + 4.0, rect.b - 12.0),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Left,
                 style,
@@ -415,28 +422,28 @@ fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
             (right, y),
             level.color,
             0.9,
-            style.width,
-            style.dash,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
         ));
         out.push(seg(
             (x, top),
             (x, bottom),
             level.color,
             0.9,
-            style.width,
-            style.dash,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
         ));
         if style.labels {
             out.push(label(
                 (left - 4.0, y),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Right,
                 style,
             ));
             out.push(label(
                 (x, bottom + 10.0),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Center,
                 style,
@@ -481,8 +488,22 @@ pub(super) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     for level in &levels {
         let k = level.value as f32;
         let (x, y) = (a.0 + d.0 * k, a.1 + d.1 * k);
-        out.push(seg((a.0, y), (b.0, y), level.color, 0.7, 1.0, style.dash));
-        out.push(seg((x, a.1), (x, b.1), level.color, 0.7, 1.0, style.dash));
+        out.push(seg(
+            (a.0, y),
+            (b.0, y),
+            level.color,
+            0.7,
+            level.line_width(1.0),
+            level.line_dash(style.dash),
+        ));
+        out.push(seg(
+            (x, a.1),
+            (x, b.1),
+            level.color,
+            0.7,
+            level.line_width(1.0),
+            level.line_dash(style.dash),
+        ));
     }
     // The arcs about the first point, each a quarter towards the second.
     let (sx, sy) = (d.0.signum(), d.1.signum());
@@ -518,16 +539,16 @@ pub(super) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             (b.0, a.1 + d.1 * k),
             level.color,
             0.8,
-            1.0,
-            Dash::Solid,
+            level.line_width(1.0),
+            level.line_dash(Dash::Solid),
         ));
         out.push(seg(
             a,
             (a.0 + d.0 * k, b.1),
             level.color,
             0.8,
-            1.0,
-            Dash::Solid,
+            level.line_width(1.0),
+            level.line_dash(Dash::Solid),
         ));
     }
     if style.middle {

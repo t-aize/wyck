@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 
 use super::geometry::{self, P, Part, Projection};
 use super::model::{
-    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, MAX_PATH_POINTS, Point,
-    Template, Tool,
+    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, MAX_NAMED_TEMPLATES,
+    MAX_PATH_POINTS, MAX_TEMPLATE_NAME, NamedTemplate, Point, Template, Tool,
 };
 
 /// How far a press must move before it counts as a drag, in pixels.
@@ -113,6 +113,8 @@ pub struct Book {
     symbols: BTreeMap<String, Vec<Drawing>>,
     /// What each tool starts with, by the tool's code.
     templates: BTreeMap<String, Template>,
+    /// Looks saved under a name, each for one tool.
+    named_templates: Vec<NamedTemplate>,
     next_id: u64,
     tool: Option<Tool>,
     magnet: bool,
@@ -135,6 +137,7 @@ impl Book {
         Self {
             symbols: doc.symbols,
             templates: doc.templates,
+            named_templates: doc.named_templates,
             next_id: doc.next_id,
             ..Self::default()
         }
@@ -145,6 +148,7 @@ impl Book {
             next_id: self.next_id.max(1),
             symbols: self.symbols.clone(),
             templates: self.templates.clone(),
+            named_templates: self.named_templates.clone(),
             ..DrawingsDoc::default()
         }
     }
@@ -1173,6 +1177,57 @@ impl Book {
         self.templates.contains_key(&tool.code())
     }
 
+    /// The looks saved under a name for `tool`, in the order they were saved.
+    pub fn named_templates(&self, tool: Tool) -> Vec<&NamedTemplate> {
+        let code = tool.code();
+        self.named_templates
+            .iter()
+            .filter(|t| t.tool == code)
+            .collect()
+    }
+
+    /// Saves the look of a drawing under `name`, replacing the look of the same name for the same
+    /// tool. Returns whether it was saved: a name that says nothing is refused, and so is one more
+    /// than the book holds.
+    pub fn save_named_template(&mut self, symbol: &str, id: u64, name: &str) -> bool {
+        let name: String = name.trim().chars().take(MAX_TEMPLATE_NAME).collect();
+        let Some(drawing) = self.get(symbol, id) else {
+            return false;
+        };
+        if name.is_empty() {
+            return false;
+        }
+        let template = NamedTemplate {
+            name,
+            tool: drawing.tool.code(),
+            style: drawing.style.clone(),
+            levels: drawing.levels.clone(),
+        };
+        let same = |t: &NamedTemplate| t.tool == template.tool && t.name == template.name;
+        if let Some(slot) = self.named_templates.iter_mut().find(|t| same(t)) {
+            *slot = template;
+        } else if self.named_templates.len() < MAX_NAMED_TEMPLATES {
+            self.named_templates.push(template);
+        } else {
+            return false;
+        }
+        self.revision += 1;
+        true
+    }
+
+    /// Forgets the look saved under `name` for `tool`.
+    pub fn delete_named_template(&mut self, tool: Tool, name: &str) -> bool {
+        let code = tool.code();
+        let before = self.named_templates.len();
+        self.named_templates
+            .retain(|t| !(t.tool == code && t.name == name));
+        let removed = self.named_templates.len() != before;
+        if removed {
+            self.revision += 1;
+        }
+        removed
+    }
+
     /// The look a new drawing of `tool` starts with: the saved one, or the built-in one.
     pub fn starting_style(&self, tool: Tool) -> (super::model::Style, Vec<super::model::Level>) {
         match self.templates.get(&tool.code()) {
@@ -2002,6 +2057,80 @@ mod tests {
         assert_eq!(
             book.starting_style(Tool::TrendLine).0,
             Tool::TrendLine.default_style()
+        );
+    }
+
+    #[test]
+    fn a_look_can_be_saved_under_a_name_replaced_deleted_and_kept_in_the_file() {
+        let (mut book, first, second) = two_lines();
+        let mut red = book.get(SYMBOL, first).unwrap().clone();
+        red.style.color = 0xff0000;
+        red.style.text_layout.background = true;
+        book.preview(SYMBOL, red);
+        let before = book.revision();
+        assert!(book.save_named_template(SYMBOL, first, "  Resistance  "));
+        assert!(book.revision() > before, "worth saving");
+        assert!(
+            !book.save_named_template(SYMBOL, first, "   "),
+            "no name, no look"
+        );
+        assert!(
+            !book.save_named_template(SYMBOL, 9_999, "Ghost"),
+            "no such drawing"
+        );
+
+        let listed = book.named_templates(Tool::TrendLine);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "Resistance", "trimmed");
+        assert_eq!(listed[0].style.color, 0xff0000);
+        assert!(
+            book.named_templates(Tool::Rectangle).is_empty(),
+            "each tool has its own"
+        );
+
+        // The same name replaces the look, another name adds one.
+        let mut blue = book.get(SYMBOL, second).unwrap().clone();
+        blue.style.color = 0x0000ff;
+        book.preview(SYMBOL, blue);
+        assert!(book.save_named_template(SYMBOL, second, "Resistance"));
+        assert!(book.save_named_template(SYMBOL, second, "Support"));
+        let names: Vec<&str> = book
+            .named_templates(Tool::TrendLine)
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect();
+        assert_eq!(names, vec!["Resistance", "Support"]);
+        assert_eq!(
+            book.named_templates(Tool::TrendLine)[0].style.color,
+            0x0000ff
+        );
+
+        // They survive a save and a load, and a name is forgotten on demand.
+        let reloaded = Book::from_doc(book.to_doc());
+        assert_eq!(reloaded.named_templates(Tool::TrendLine).len(), 2);
+        assert!(book.delete_named_template(Tool::TrendLine, "Support"));
+        assert!(!book.delete_named_template(Tool::TrendLine, "Support"));
+        assert_eq!(book.named_templates(Tool::TrendLine).len(), 1);
+    }
+
+    #[test]
+    fn a_book_holds_a_limited_number_of_named_looks() {
+        let (mut book, first, _) = two_lines();
+        for n in 0..MAX_NAMED_TEMPLATES {
+            assert!(book.save_named_template(SYMBOL, first, &format!("look {n}")));
+        }
+        assert!(!book.save_named_template(SYMBOL, first, "one too many"));
+        assert!(
+            book.save_named_template(SYMBOL, first, "look 0"),
+            "a name that exists is replaced, not added"
+        );
+        let long = "x".repeat(200);
+        assert!(book.delete_named_template(Tool::TrendLine, "look 1"));
+        assert!(book.save_named_template(SYMBOL, first, &long));
+        assert!(
+            book.named_templates(Tool::TrendLine)
+                .iter()
+                .any(|t| t.name.chars().count() == MAX_TEMPLATE_NAME)
         );
     }
 

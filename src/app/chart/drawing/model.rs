@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::look::{Caps, LabelSide, LevelText, MeasureLook, ProfileLook, TextLayout, is_default};
 use super::position::PositionSettings;
 
 const SCHEMA_VERSION: u32 = 1;
@@ -365,6 +366,13 @@ impl Tool {
             Ok(serde_json::Value::String(code)) => code,
             _ => "unknown".to_owned(),
         }
+    }
+
+    /// The tool saved under `code`, or `None` when no tool has that name.
+    pub fn from_code(code: &str) -> Option<Self> {
+        serde_json::from_value::<Self>(serde_json::Value::String(code.to_owned()))
+            .ok()
+            .filter(|tool| *tool != Self::Unknown)
     }
 
     pub fn group(self) -> Group {
@@ -764,6 +772,78 @@ impl Tool {
         )
     }
 
+    /// Whether the tool can carry words of its own, as a label on a line or a shape. The tools
+    /// that are made of words (a note, a callout) have their own, and the ones that draw a
+    /// stroke, a position, a profile or a copy of the bars have nowhere to put any.
+    pub fn takes_label(self) -> bool {
+        !self.has_text()
+            && !self.is_freehand()
+            && !self.is_position()
+            && !matches!(
+                self,
+                Self::Icon
+                    | Self::Unknown
+                    | Self::FixedRangeVolumeProfile
+                    | Self::AnchoredVolumeProfile
+                    | Self::BarsPattern
+                    | Self::GhostFeed
+            )
+    }
+
+    /// Whether the start of the line can end in an arrow or a dot.
+    pub fn has_start_cap(self) -> bool {
+        matches!(
+            self,
+            Self::TrendLine
+                | Self::Ray
+                | Self::InfoLine
+                | Self::TrendAngle
+                | Self::Arrow
+                | Self::ArrowPath
+        )
+    }
+
+    /// Whether the far end of the line can end in an arrow or a dot (the others already end in a
+    /// head, or go on for ever).
+    pub fn has_end_cap(self) -> bool {
+        matches!(self, Self::TrendLine | Self::InfoLine | Self::TrendAngle)
+    }
+
+    /// Whether the drawing is a marker whose size can be set.
+    pub fn has_size(self) -> bool {
+        matches!(
+            self,
+            Self::ArrowMarkUp | Self::ArrowMarkDown | Self::FlagMark | Self::Icon
+        )
+    }
+
+    /// Whether the tool writes the numbers of a measure (price, percent, bars, time, angle).
+    pub fn has_measure_look(self) -> bool {
+        matches!(
+            self,
+            Self::Measure
+                | Self::PriceRange
+                | Self::DateRange
+                | Self::DatePriceRange
+                | Self::InfoLine
+                | Self::TrendAngle
+                | Self::Forecast
+        )
+    }
+
+    /// Whether the labels of the levels can stand on either side.
+    pub fn has_label_side(self) -> bool {
+        matches!(self, Self::FibRetracement | Self::FibExtension)
+    }
+
+    /// Whether the tool is a volume profile, cut into rows.
+    pub fn has_profile(self) -> bool {
+        matches!(
+            self,
+            Self::FixedRangeVolumeProfile | Self::AnchoredVolumeProfile
+        )
+    }
+
     /// Whether the drawing labels its points with a wave degree.
     pub fn is_elliott(self) -> bool {
         self.group() == Group::Elliott
@@ -824,6 +904,27 @@ pub struct Style {
     /// the saved form when it is the default, so the other tools carry nothing of it.
     #[serde(default, skip_serializing_if = "PositionSettings::is_default")]
     pub position: PositionSettings,
+    /// Where the label of a line or a shape sits, and what it sits on.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub text_layout: TextLayout,
+    /// What ends the two sides of a line.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub caps: Caps,
+    /// What the measuring tools write.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub measure: MeasureLook,
+    /// How a volume profile is cut.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub profile: ProfileLook,
+    /// What a level is called.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub level_text: LevelText,
+    /// The side the labels of the levels stand on.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub label_side: LabelSide,
+    /// How big a marker is against its usual size.
+    #[serde(default = "default_scale", skip_serializing_if = "is_unit_scale")]
+    pub scale: f32,
 }
 
 fn default_color() -> u32 {
@@ -840,6 +941,14 @@ fn default_opacity() -> f32 {
 
 fn default_line_opacity() -> f32 {
     1.0
+}
+
+fn default_scale() -> f32 {
+    1.0
+}
+
+fn is_unit_scale(scale: &f32) -> bool {
+    (*scale - 1.0).abs() < 1e-6
 }
 
 fn default_text_size() -> f32 {
@@ -868,6 +977,13 @@ impl Default for Style {
             labels: true,
             middle: true,
             position: PositionSettings::default(),
+            text_layout: TextLayout::default(),
+            caps: Caps::default(),
+            measure: MeasureLook::default(),
+            profile: ProfileLook::default(),
+            level_text: LevelText::default(),
+            label_side: LabelSide::default(),
+            scale: default_scale(),
         }
     }
 }
@@ -904,6 +1020,12 @@ impl Style {
         }
         self.text_size = self.text_size.min(48.0);
         self.position = std::mem::take(&mut self.position).normalized();
+        self.profile = self.profile.normalized();
+        self.scale = if self.scale.is_finite() {
+            self.scale.clamp(0.3, 5.0)
+        } else {
+            default_scale()
+        };
         self
     }
 }
@@ -923,6 +1045,30 @@ pub struct Level {
     pub color: u32,
     #[serde(default = "yes")]
     pub visible: bool,
+    /// The width of its line; 0 is the width of the drawing.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub width: f32,
+    /// The style of its line; `None` is the style of the drawing.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub dash: Option<Dash>,
+}
+
+impl Default for Level {
+    fn default() -> Self {
+        level(0.0, 0x9ca3af, true)
+    }
+}
+
+impl Level {
+    /// The width of the line of this level, given the width of the drawing.
+    pub fn line_width(&self, base: f32) -> f32 {
+        if self.width > 0.0 { self.width } else { base }
+    }
+
+    /// The style of the line of this level, given the style of the drawing.
+    pub fn line_dash(&self, base: Dash) -> Dash {
+        self.dash.unwrap_or(base)
+    }
 }
 
 const fn level(value: f64, color: u32, visible: bool) -> Level {
@@ -930,6 +1076,8 @@ const fn level(value: f64, color: u32, visible: bool) -> Level {
         value,
         color,
         visible,
+        width: 0.0,
+        dash: None,
     }
 }
 
@@ -1215,6 +1363,22 @@ pub struct Template {
     pub levels: Vec<Level>,
 }
 
+/// The most looks a user can save under a name, and the longest a name can be.
+pub const MAX_NAMED_TEMPLATES: usize = 100;
+pub const MAX_TEMPLATE_NAME: usize = 40;
+
+/// A look (and levels) saved under a name, to apply to any drawing of the same tool.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NamedTemplate {
+    pub name: String,
+    /// The tool it is for, by code.
+    pub tool: String,
+    #[serde(default)]
+    pub style: Style,
+    #[serde(default)]
+    pub levels: Vec<Level>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Drawing {
     pub id: u64,
@@ -1349,6 +1513,9 @@ pub struct DrawingsDoc {
     /// What each tool starts with, by the tool's code, when the user saved a look as default.
     #[serde(default)]
     pub templates: BTreeMap<String, Template>,
+    /// Looks saved under a name, each for one tool.
+    #[serde(default)]
+    pub named_templates: Vec<NamedTemplate>,
 }
 
 fn schema_version() -> u32 {
@@ -1362,6 +1529,7 @@ impl Default for DrawingsDoc {
             next_id: 1,
             symbols: BTreeMap::new(),
             templates: BTreeMap::new(),
+            named_templates: Vec::new(),
         }
     }
 }
@@ -1407,6 +1575,26 @@ impl DrawingsDoc {
             template.levels.retain(|l| l.value.is_finite());
             template.levels.truncate(MAX_LEVELS);
         }
+        // The named looks: a known tool, a name that says something, each name once per tool.
+        let mut kept: Vec<NamedTemplate> = Vec::new();
+        for mut template in std::mem::take(&mut self.named_templates) {
+            template.name = template
+                .name
+                .trim()
+                .chars()
+                .take(MAX_TEMPLATE_NAME)
+                .collect();
+            if template.name.is_empty() || !known.contains(&template.tool) {
+                continue;
+            }
+            template.style = template.style.normalized();
+            template.levels.retain(|l| l.value.is_finite());
+            template.levels.truncate(MAX_LEVELS);
+            kept.retain(|t| !(t.tool == template.tool && t.name == template.name));
+            kept.push(template);
+        }
+        kept.truncate(MAX_NAMED_TEMPLATES);
+        self.named_templates = kept;
         self
     }
 }
@@ -1566,6 +1754,7 @@ mod tests {
             value: f64::NAN,
             color: 0xff00_0000,
             visible: true,
+            ..Level::default()
         }];
         let d = d.normalized();
         assert!(d.levels.is_empty(), "the broken level is dropped");
@@ -1574,8 +1763,68 @@ mod tests {
             value: 1.0,
             color: 0,
             visible: true,
+            ..Level::default()
         }];
         assert!(line.normalized().levels.is_empty(), "a line has no levels");
+    }
+
+    #[test]
+    fn every_new_part_of_a_look_survives_the_saved_file() {
+        use super::super::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+
+        let mut d = drawing(1, Tool::FibRetracement, 2);
+        d.text = "the label".to_owned();
+        d.style.text_layout.align = HAlign::End;
+        d.style.text_layout.valign = VAlign::Bottom;
+        d.style.text_layout.background = true;
+        d.style.text_layout.background_color = Some(0x123456);
+        d.style.caps.start = Cap::Circle;
+        d.style.caps.end = Cap::Arrow;
+        d.style.measure.percent = false;
+        d.style.measure.down_color = 0xabcdef;
+        d.style.profile.rows = 60;
+        d.style.profile.value_area = 0.5;
+        d.style.level_text = LevelText::Percent;
+        d.style.label_side = LabelSide::Right;
+        d.style.scale = 2.5;
+        d.style.position.risk = 3.0;
+        let mut levels = d.levels();
+        levels[0].width = 3.0;
+        levels[1].dash = Some(Dash::Dotted);
+        d.levels = levels;
+
+        let mut doc = DrawingsDoc::default();
+        doc.symbols.insert("EURUSD".to_owned(), vec![d.clone()]);
+        doc.named_templates.push(NamedTemplate {
+            name: "Mine".to_owned(),
+            tool: Tool::FibRetracement.code(),
+            style: d.style.clone(),
+            levels: d.levels.clone(),
+        });
+        let text = toml::to_string_pretty(&doc).unwrap();
+        let back: DrawingsDoc = toml::from_str(&text).unwrap();
+        let back = back.normalized();
+        assert_eq!(back.symbols["EURUSD"][0], d.clone().normalized());
+        assert_eq!(back.named_templates.len(), 1);
+        assert_eq!(back.named_templates[0].style, d.style.clone().normalized());
+        assert_eq!(back.named_templates[0].levels[0].width, 3.0);
+
+        // A drawing left at the defaults writes none of it.
+        let plain = drawing(2, Tool::TrendLine, 2);
+        let mut doc = DrawingsDoc::default();
+        doc.symbols.insert("EURUSD".to_owned(), vec![plain]);
+        let text = toml::to_string_pretty(&doc).unwrap();
+        for key in [
+            "text_layout",
+            "caps",
+            "measure",
+            "profile",
+            "level_text",
+            "scale",
+            "position",
+        ] {
+            assert!(!text.contains(key), "{key} is written for nothing:\n{text}");
+        }
     }
 
     #[test]

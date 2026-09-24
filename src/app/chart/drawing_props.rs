@@ -16,6 +16,7 @@ use wyck::openapi::market::PRICE_SCALE;
 use super::drawing::Drawings;
 use super::drawing::extras::{ICONS, icon_key};
 use super::drawing::figures::wave_names;
+use super::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 use super::drawing::model::{DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label};
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
@@ -86,6 +87,8 @@ enum Swatch {
     Target,
     Stop,
     Entry,
+    TextBackground,
+    MeasureDown,
     Level(usize),
 }
 
@@ -105,6 +108,15 @@ struct DrawingProps {
     opacity: Entity<InputState>,
     /// The opacity of the lines, in percent.
     line_opacity: Entity<InputState>,
+    /// The width of the lines, in pixels, typed for any value the presets do not have.
+    width: Entity<InputState>,
+    /// The size of a marker, in percent of its usual size.
+    scale: Entity<InputState>,
+    /// The rows of a volume profile (0 lets the height decide), and its value area in percent.
+    profile_rows: Entity<InputState>,
+    profile_area: Entity<InputState>,
+    /// The name a look is about to be saved under.
+    template_name: Entity<InputState>,
     text_size: Entity<InputState>,
     text: Entity<TextareaState>,
     /// The number fields of a long or short position, when the drawing is one.
@@ -113,6 +125,8 @@ struct DrawingProps {
     prices: Vec<Entity<InputState>>,
     times: Vec<Entity<InputState>>,
     levels: Vec<Entity<InputState>>,
+    /// The width of the line of each level (0 is the width of the drawing).
+    level_widths: Vec<Entity<InputState>>,
     /// Set when levels were added or removed: their fields are made again at the next render.
     levels_changed: bool,
     _subscriptions: Vec<Subscription>,
@@ -129,6 +143,15 @@ struct PositionFields {
     qty_precision: Entity<InputState>,
     currency: Entity<InputState>,
 }
+
+/// A switch of the measure tool: whether it applies, its id, its name, its state, and what it sets.
+type MeasureFlag = (
+    bool,
+    &'static str,
+    &'static str,
+    bool,
+    fn(&mut Drawing, bool),
+);
 
 /// A field that calls `on_value` with its number whenever it holds a valid one.
 fn watch_number(
@@ -182,6 +205,42 @@ impl DrawingProps {
         let text_size = cx.new(|cx| {
             widgets::number_state(f64::from(style.text_size), 6.0, 48.0, 1.0, 0, window, cx)
         });
+        let width = cx
+            .new(|cx| widgets::number_state(f64::from(style.width), 0.5, 40.0, 0.5, 1, window, cx));
+        let scale = cx.new(|cx| {
+            widgets::number_state(
+                f64::from(style.scale) * 100.0,
+                30.0,
+                500.0,
+                10.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let profile_rows = cx.new(|cx| {
+            widgets::number_state(
+                f64::from(style.profile.rows),
+                0.0,
+                240.0,
+                1.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let profile_area = cx.new(|cx| {
+            widgets::number_state(
+                f64::from(style.profile.value_area) * 100.0,
+                10.0,
+                100.0,
+                5.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let template_name = cx.new(|cx| InputState::new(window, cx).placeholder("Name this look"));
         let text = cx.new(|cx| TextareaState::new(window, cx).default_value(drawing.text.clone()));
         let name = cx.new(|cx| {
             InputState::new(window, cx)
@@ -327,6 +386,11 @@ impl DrawingProps {
             swatch: None,
             opacity,
             line_opacity,
+            width,
+            scale,
+            profile_rows,
+            profile_area,
+            template_name,
             text_size,
             text,
             pos,
@@ -334,6 +398,7 @@ impl DrawingProps {
             prices,
             times,
             levels: Vec::new(),
+            level_widths: Vec::new(),
             levels_changed: false,
             _subscriptions: subscriptions,
             _level_subscriptions: Vec::new(),
@@ -350,6 +415,7 @@ impl DrawingProps {
     ) {
         self.levels.clear();
         self._level_subscriptions.clear();
+        self.level_widths.clear();
         for (index, level) in drawing.levels().iter().enumerate() {
             let state =
                 cx.new(|cx| widgets::number_state(level.value, -100.0, 100.0, 0.1, 4, window, cx));
@@ -363,6 +429,19 @@ impl DrawingProps {
                     });
                 }));
             self.levels.push(state);
+            let width = cx.new(|cx| {
+                widgets::number_state(f64::from(level.width), 0.0, 40.0, 0.5, 1, window, cx)
+            });
+            self._level_subscriptions
+                .push(watch_number(&width, cx, move |this, value, cx| {
+                    this.change(cx, |d| {
+                        d.levels = d.levels();
+                        if let Some(level) = d.levels.get_mut(index) {
+                            level.width = value.clamp(0.0, 40.0) as f32;
+                        }
+                    });
+                }));
+            self.level_widths.push(width);
         }
         self.levels_changed = false;
     }
@@ -460,6 +539,27 @@ impl DrawingProps {
             .update(cx, |s, cx| s.set_value(opacity, window, cx));
         self.line_opacity
             .update(cx, |s, cx| s.set_value(line, window, cx));
+        let numbers = [
+            (
+                &self.width,
+                widgets::format_number(f64::from(drawing.style.width), 1),
+            ),
+            (
+                &self.scale,
+                widgets::format_number(f64::from(drawing.style.scale) * 100.0, 0),
+            ),
+            (
+                &self.profile_rows,
+                widgets::format_number(f64::from(drawing.style.profile.rows), 0),
+            ),
+            (
+                &self.profile_area,
+                widgets::format_number(f64::from(drawing.style.profile.value_area) * 100.0, 0),
+            ),
+        ];
+        for (state, text) in numbers {
+            state.update(cx, |s, cx| s.set_value(text, window, cx));
+        }
         self.text_size
             .update(cx, |s, cx| s.set_value(size, window, cx));
         if let Some(pos) = &self.pos {
@@ -556,6 +656,10 @@ impl DrawingProps {
                         Swatch::Target => d.style.position.target_color = color,
                         Swatch::Stop => d.style.position.stop_color = color,
                         Swatch::Entry => d.style.position.entry_color = color,
+                        Swatch::TextBackground => {
+                            d.style.text_layout.background_color = Some(color);
+                        }
+                        Swatch::MeasureDown => d.style.measure.down_color = color,
                         Swatch::Level(index) => {
                             d.levels = d.levels();
                             if let Some(level) = d.levels.get_mut(index) {
@@ -596,12 +700,322 @@ impl DrawingProps {
         if self.tool.has_levels() {
             tabs.push(Tab::Levels);
         }
-        if self.tool.has_words() || self.tool.has_text() {
+        if self.tool.has_words() || self.tool.has_text() || self.tool.takes_label() {
             tabs.push(Tab::Text);
         }
         tabs.push(Tab::Coordinates);
         tabs.push(Tab::Visibility);
         tabs
+    }
+
+    // ---- the parts every tool can have ----
+
+    /// A choice of what ends a line, for `set` to apply.
+    fn cap_picker(
+        &self,
+        id: &'static str,
+        current: Cap,
+        cx: &mut Context<Self>,
+        set: fn(&mut Drawing, Cap),
+    ) -> impl IntoElement + use<> {
+        let caps = [Cap::None, Cap::Arrow, Cap::Circle];
+        let this = cx.entity();
+        widgets::segmented(
+            id,
+            &["None", "Arrow", "Dot"],
+            caps.iter().position(|c| *c == current).unwrap_or(0),
+            move |choice, _window, cx| {
+                this.update(cx, |e, cx| e.change(cx, |d| set(d, caps[choice])));
+            },
+        )
+    }
+
+    /// The width of the lines: the presets of the tool, and a field for any other.
+    fn width_row(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
+        let tool = drawing.tool;
+        let widths = tool.widths();
+        let index = widths
+            .iter()
+            .position(|w| (w - drawing.style.width).abs() < 0.01);
+        let this = cx.entity();
+        ui::field(
+            "Width",
+            Some("Pick one, or type any width in pixels"),
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(ui::width_picker(
+                    "props-width",
+                    &widths,
+                    index,
+                    move |choice, window, cx| {
+                        this.update(cx, |e, cx| {
+                            e.change(cx, |d| d.style.width = tool.widths()[choice]);
+                            e.set_fields(window, cx);
+                        });
+                    },
+                ))
+                .child(widgets::number_field(&self.width, 84.)),
+        )
+    }
+
+    /// The caps of a line, for the tools that have some.
+    fn caps_rows(&self, drawing: &Drawing, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let (tool, caps) = (drawing.tool, drawing.style.caps);
+        let mut rows = Vec::new();
+        if tool.has_start_cap() {
+            rows.push(ui::field(
+                "Start of the line",
+                None,
+                self.cap_picker("props-cap-start", caps.start, cx, |d, cap| {
+                    d.style.caps.start = cap;
+                }),
+            ));
+        }
+        if tool.has_end_cap() {
+            rows.push(ui::field(
+                "End of the line",
+                None,
+                self.cap_picker("props-cap-end", caps.end, cx, |d, cap| {
+                    d.style.caps.end = cap
+                }),
+            ));
+        }
+        rows
+    }
+
+    /// What a measuring tool writes, and the color of a move down.
+    fn measure_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+        let tool = drawing.tool;
+        let look = drawing.style.measure;
+        // Which numbers each tool has to write.
+        let (price, percent, bars, time, angle) = match tool {
+            Tool::PriceRange => (true, true, false, false, false),
+            Tool::DateRange => (false, false, true, true, false),
+            Tool::TrendAngle => (false, false, false, false, true),
+            Tool::InfoLine => (true, true, true, true, true),
+            _ => (true, true, true, true, false),
+        };
+        let flags: [MeasureFlag; 5] = [
+            (
+                price,
+                "measure-price",
+                "Price change",
+                look.price,
+                |d, on| {
+                    d.style.measure.price = on;
+                },
+            ),
+            (
+                percent,
+                "measure-percent",
+                "Percent change",
+                look.percent,
+                |d, on| d.style.measure.percent = on,
+            ),
+            (
+                bars,
+                "measure-bars",
+                "Number of bars",
+                look.bars,
+                |d, on| {
+                    d.style.measure.bars = on;
+                },
+            ),
+            (time, "measure-time", "Time span", look.time, |d, on| {
+                d.style.measure.time = on;
+            }),
+            (angle, "measure-angle", "Angle", look.angle, |d, on| {
+                d.style.measure.angle = on;
+            }),
+        ];
+        let mut rows: Vec<AnyElement> = Vec::new();
+        for (show, id, label, on, set) in flags {
+            if show {
+                rows.push(ui::field(label, None, self.switch(id, on, cx, set)));
+            }
+        }
+        if tool == Tool::Measure {
+            rows.push(ui::field(
+                "Color of a move down",
+                Some("The color of the drawing is for a move up"),
+                self.swatch(Swatch::MeasureDown, look.down_color, "props-down-color", cx),
+            ));
+        }
+        ui::group(IconName::Ruler, "Numbers written", rows)
+    }
+
+    /// The size of a marker.
+    fn marker_group(&self) -> gpui::Div {
+        ui::group(
+            IconName::Ruler,
+            "Marker",
+            [ui::field(
+                "Size",
+                Some("In percent of its usual size"),
+                widgets::number_field(&self.scale, 96.),
+            )],
+        )
+    }
+
+    /// How a volume profile is cut.
+    fn profile_group(&self) -> gpui::Div {
+        ui::group(
+            IconName::ChartBarBig,
+            "Profile",
+            [
+                ui::field(
+                    "Rows",
+                    Some("0 lets the height on the screen decide"),
+                    widgets::number_field(&self.profile_rows, 96.),
+                ),
+                ui::field(
+                    "Value area",
+                    Some("The share of the volume it holds, in percent"),
+                    widgets::number_field(&self.profile_area, 96.),
+                ),
+            ],
+        )
+    }
+
+    /// Looks saved under a name: apply one, delete one, or keep the look of this drawing.
+    fn templates_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+        let names: Vec<String> = self
+            .drawings
+            .read(cx)
+            .book()
+            .named_templates(drawing.tool)
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        let this = cx.entity();
+        let mut rows: Vec<AnyElement> = Vec::new();
+        if names.is_empty() {
+            rows.push(ui::block(ui::note(
+                "No saved look for this tool yet. Name the current one below to keep it.",
+            )));
+        }
+        for (index, name) in names.iter().enumerate() {
+            let (apply, delete) = (this.clone(), this.clone());
+            let (apply_name, delete_name) = (name.clone(), name.clone());
+            rows.push(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .min_h(px(40.))
+                    .child(
+                        Button::new(("props-template", index))
+                            .cursor_pointer()
+                            .ghost()
+                            .small()
+                            .icon(IconName::Bookmark)
+                            .label(name.clone())
+                            .tooltip("Apply this look to the drawing")
+                            .on_click(move |_, window, cx| {
+                                apply.update(cx, |e, cx| e.apply_named(&apply_name, window, cx));
+                            }),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        Button::new(("props-template-delete", index))
+                            .cursor_pointer()
+                            .ghost()
+                            .xsmall()
+                            .icon(IconName::X)
+                            .tooltip("Forget this look")
+                            .on_click(move |_, _window, cx| {
+                                delete.update(cx, |e, cx| e.delete_named(&delete_name, cx));
+                            }),
+                    )
+                    .into_any_element(),
+            );
+        }
+        let save = this.clone();
+        rows.push(ui::field(
+            "Save this look",
+            Some("Under a name, for this tool. The same name replaces it"),
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .w(px(170.))
+                        .child(Input::new(&self.template_name).small()),
+                )
+                .child(
+                    Button::new("props-template-save")
+                        .cursor_pointer()
+                        .primary()
+                        .small()
+                        .icon(IconName::BookmarkPlus)
+                        .label("Save")
+                        .on_click(move |_, window, cx| {
+                            save.update(cx, |e, cx| e.save_named(window, cx));
+                        }),
+                ),
+        ));
+        ui::group(IconName::Bookmark, "Saved looks", rows)
+    }
+
+    /// Puts the look saved under `name` on the drawing.
+    fn apply_named(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let found = self
+            .drawings
+            .read(cx)
+            .book()
+            .named_templates(self.tool)
+            .into_iter()
+            .find(|t| t.name == name)
+            .map(|t| (t.style.clone(), t.levels.clone()));
+        let Some((style, levels)) = found else {
+            return;
+        };
+        self.change(cx, |d| {
+            d.style = style;
+            d.levels = levels;
+        });
+        self.set_fields(window, cx);
+    }
+
+    /// Keeps the look of the drawing under the name that was typed.
+    fn save_named(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let name = self.template_name.read(cx).value().to_string();
+        let (symbol, id) = (self.symbol.clone(), self.id);
+        let saved = self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.save_named_template(&symbol, id, &name))
+        });
+        if saved {
+            self.template_name
+                .update(cx, |state, cx| state.set_value("", window, cx));
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Success,
+                "Look saved",
+                format!("{} is in the saved looks of this tool.", name.trim()),
+            );
+        } else {
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Warning,
+                "Give the look a name",
+                "Type a name first, then save.",
+            );
+        }
+        cx.notify();
+    }
+
+    fn delete_named(&mut self, name: &str, cx: &mut Context<Self>) {
+        let tool = self.tool;
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.delete_named_template(tool, name))
+        });
+        cx.notify();
     }
 
     /// The color and opacity of the lines, with the widths and line styles the tool takes.
@@ -621,18 +1035,7 @@ impl DrawingProps {
                 .child(widgets::number_field(&self.line_opacity, 96.)),
         )];
         if tool.has_width() {
-            let widths = tool.widths();
-            let index = widths.iter().position(|w| (w - style.width).abs() < 0.01);
-            let width_this = this.clone();
-            rows.push(ui::field(
-                "Width",
-                None,
-                ui::width_picker("props-width", &widths, index, move |choice, _window, cx| {
-                    width_this.update(cx, |e, cx| {
-                        e.change(cx, |d| d.style.width = tool.widths()[choice]);
-                    });
-                }),
-            ));
+            rows.push(self.width_row(drawing, cx));
         }
         if tool.has_dash() {
             let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
@@ -646,6 +1049,7 @@ impl DrawingProps {
                 }),
             ));
         }
+        rows.extend(self.caps_rows(drawing, cx));
         if tool.has_extend() {
             rows.push(ui::field(
                 "Extend left",
@@ -695,6 +1099,15 @@ impl DrawingProps {
         let style = &drawing.style;
         let this = cx.entity();
         let mut page = ui::page().child(self.line_group(drawing, cx));
+        if tool.has_measure_look() {
+            page = page.child(self.measure_group(drawing, cx));
+        }
+        if tool.has_size() {
+            page = page.child(self.marker_group());
+        }
+        if tool.has_profile() {
+            page = page.child(self.profile_group());
+        }
 
         if tool == Tool::Icon {
             let keys: Vec<&str> = ICONS.iter().map(|(key, _)| *key).collect();
@@ -766,7 +1179,8 @@ impl DrawingProps {
             ));
             page = page.child(ui::group(IconName::PaintBucket, "Background", rows));
         }
-        page.into_any_element()
+        page.child(self.templates_group(drawing, cx))
+            .into_any_element()
     }
 
     /// The inputs of a long or short position: the account, the risk, what the chart writes, and
@@ -949,14 +1363,10 @@ impl DrawingProps {
 
     /// The look of a long or short position: its three lines, its two zones, its tags.
     fn position_style_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
-        let tool = drawing.tool;
         let style = &drawing.style;
         let p = &style.position;
         let this = cx.entity();
 
-        let widths = tool.widths();
-        let width_index = widths.iter().position(|w| (w - style.width).abs() < 0.01);
-        let width_this = this.clone();
         let dash_this = this.clone();
         let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
         let dash_index = dashes.iter().position(|d| *d == style.dash).unwrap_or(0);
@@ -964,20 +1374,7 @@ impl DrawingProps {
             IconName::PenLine,
             "Lines",
             [
-                ui::field(
-                    "Width",
-                    None,
-                    ui::width_picker(
-                        "props-width",
-                        &widths,
-                        width_index,
-                        move |choice, _w, cx| {
-                            width_this.update(cx, |e, cx| {
-                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
-                            });
-                        },
-                    ),
-                ),
+                self.width_row(drawing, cx),
                 ui::field(
                     "Entry line",
                     None,
@@ -1064,7 +1461,113 @@ impl DrawingProps {
             .child(lines)
             .child(background)
             .child(tags)
+            .child(self.templates_group(drawing, cx))
             .into_any_element()
+    }
+
+    /// What the levels are called on the chart, and the side their labels stand on.
+    fn captions_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+        let style = &drawing.style;
+        let this = cx.entity();
+        let labels: Vec<&str> = LevelText::ALL.iter().map(|t| t.label()).collect();
+        let index = LevelText::ALL
+            .iter()
+            .position(|t| *t == style.level_text)
+            .unwrap_or(0);
+        let mut rows = vec![ui::field(
+            "Caption",
+            Some("What is written beside each level"),
+            widgets::segmented(
+                "props-level-text",
+                &labels,
+                index,
+                move |choice, _window, cx| {
+                    this.update(cx, |e, cx| {
+                        e.change(cx, |d| d.style.level_text = LevelText::ALL[choice]);
+                    });
+                },
+            ),
+        )];
+        if drawing.tool.has_label_side() {
+            let side_this = cx.entity();
+            rows.push(ui::field(
+                "Side",
+                Some("Where the captions stand: left or right of the levels"),
+                widgets::segmented(
+                    "props-level-side",
+                    &["Left", "Right"],
+                    usize::from(style.label_side == LabelSide::Right),
+                    move |choice, _window, cx| {
+                        side_this.update(cx, |e, cx| {
+                            e.change(cx, |d| {
+                                d.style.label_side = if choice == 0 {
+                                    LabelSide::Left
+                                } else {
+                                    LabelSide::Right
+                                };
+                            });
+                        });
+                    },
+                ),
+            ));
+        }
+        ui::group(IconName::Tag, "Captions", rows)
+    }
+
+    /// The button of a level that picks its line style: the drawing's own, then solid, dashed and
+    /// dotted, one click at a time.
+    fn level_dash_button(
+        &self,
+        index: usize,
+        current: Option<Dash>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let this = cx.entity();
+        let next = match current {
+            None => Some(Dash::Solid),
+            Some(Dash::Solid) => Some(Dash::Dashed),
+            Some(Dash::Dashed) => Some(Dash::Dotted),
+            Some(Dash::Dotted) => None,
+        };
+        let glyph: AnyElement = match current {
+            None => div()
+                .text_size(px(11.))
+                .text_color(theme::muted_fg())
+                .child("Auto")
+                .into_any_element(),
+            Some(Dash::Solid) => ui::dash_glyph(0, theme::fg()).into_any_element(),
+            Some(Dash::Dashed) => ui::dash_glyph(1, theme::fg()).into_any_element(),
+            Some(Dash::Dotted) => ui::dash_glyph(2, theme::fg()).into_any_element(),
+        };
+        div()
+            .id(("props-level-dash", index))
+            .flex()
+            .items_center()
+            .justify_center()
+            .w(px(44.))
+            .h(px(28.))
+            .rounded_md()
+            .border_1()
+            .border_color(theme::border_subtle())
+            .cursor_pointer()
+            .hover(|s| s.bg(theme::surface_hover()))
+            .tooltip(move |window, cx| {
+                gpui_kit::component::tooltip::Tooltip::new(
+                    "Line style of this level: the drawing's, solid, dashed, dotted",
+                )
+                .build(window, cx)
+            })
+            .on_click(move |_, _window, cx| {
+                this.update(cx, |e, cx| {
+                    e.change(cx, |d| {
+                        d.levels = d.levels();
+                        if let Some(level) = d.levels.get_mut(index) {
+                            level.dash = next;
+                        }
+                    });
+                });
+            })
+            .child(glyph)
     }
 
     fn levels_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
@@ -1133,13 +1636,19 @@ impl DrawingProps {
                             }
                         },
                     ))
-                    .child(widgets::number_field(field, 120.))
+                    .child(widgets::number_field(field, 100.))
                     .child(self.swatch(
                         Swatch::Level(index),
                         level.color,
                         &format!("props-level-color-{index}"),
                         cx,
                     ))
+                    .children(
+                        self.level_widths
+                            .get(index)
+                            .map(|width| widgets::number_field(width, 84.)),
+                    )
+                    .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
                     .child(
                         Button::new(SharedString::from(format!("props-level-remove-{index}")))
@@ -1157,6 +1666,7 @@ impl DrawingProps {
             );
         }
         ui::page()
+            .child(self.captions_group(drawing, cx))
             .child(ui::group_with(
                 IconName::SlidersHorizontal,
                 format!("Levels ({}/{MAX_LEVELS})", levels.len()),
@@ -1164,7 +1674,7 @@ impl DrawingProps {
                 rows,
             ))
             .child(ui::note(
-                "Each level is a ratio of the move between the points. Use the switch to hide one without losing it.",
+                "Each level is a ratio of the move between the points. The switch hides one without losing it. A width of 0 follows the drawing, and the line button cycles through the drawing's style, solid, dashed and dotted.",
             ))
             .into_any_element()
     }
@@ -1178,6 +1688,7 @@ impl DrawingProps {
                 value: next,
                 color,
                 visible: true,
+                ..Level::default()
             });
             d.levels = levels;
         });
@@ -1195,6 +1706,96 @@ impl DrawingProps {
         self.set_fields(window, cx);
     }
 
+    /// A choice of how the label sits, for `set` to apply. `names` are the words for each choice.
+    fn align_picker<const N: usize>(
+        &self,
+        id: &'static str,
+        names: [&'static str; N],
+        current: usize,
+        cx: &mut Context<Self>,
+        set: fn(&mut Drawing, usize),
+    ) -> AnyElement {
+        let this = cx.entity();
+        widgets::segmented(id, &names, current, move |choice, _window, cx| {
+            this.update(cx, |e, cx| e.change(cx, |d| set(d, choice)));
+        })
+        .into_any_element()
+    }
+
+    /// The words a line or a shape carries, and where they stand.
+    fn label_groups(&self, drawing: &Drawing, cx: &mut Context<Self>) -> Vec<gpui::Div> {
+        let tool = drawing.tool;
+        let layout = drawing.style.text_layout;
+        // On a line the words go above it, on it or below it; in a shape, at the top, the middle
+        // or the bottom.
+        let on_a_line = matches!(
+            tool,
+            Tool::HorizontalLine | Tool::CrossLine | Tool::HorizontalRay | Tool::VerticalLine
+        ) || (tool.anchors() == 2 && !tool.is_box());
+        let vertical = if on_a_line {
+            ["Above", "On it", "Below"]
+        } else {
+            ["Top", "Middle", "Bottom"]
+        };
+        let horizontal = self.align_picker(
+            "label-align",
+            ["Start", "Center", "End"],
+            match layout.align {
+                HAlign::Start => 0,
+                HAlign::Center => 1,
+                HAlign::End => 2,
+            },
+            cx,
+            |d, choice| {
+                d.style.text_layout.align = [HAlign::Start, HAlign::Center, HAlign::End][choice];
+            },
+        );
+        let across = self.align_picker(
+            "label-valign",
+            vertical,
+            match layout.valign {
+                VAlign::Top => 0,
+                VAlign::Middle => 1,
+                VAlign::Bottom => 2,
+            },
+            cx,
+            |d, choice| {
+                d.style.text_layout.valign = [VAlign::Top, VAlign::Middle, VAlign::Bottom][choice];
+            },
+        );
+        let mut placement = vec![
+            ui::field("Along the drawing", None, horizontal),
+            ui::field("Across the drawing", None, across),
+            ui::field(
+                "Background",
+                Some("Puts the words on a filled tag"),
+                self.switch("label-background", layout.background, cx, |d, on| {
+                    d.style.text_layout.background = on
+                }),
+            ),
+        ];
+        if layout.background {
+            placement.push(ui::field(
+                "Tag color",
+                None,
+                self.swatch(
+                    Swatch::TextBackground,
+                    layout.background_color.unwrap_or(0x1b1d24),
+                    "label-background-color",
+                    cx,
+                ),
+            ));
+        }
+        vec![
+            ui::group(
+                IconName::TextCursorInput,
+                "Label",
+                [ui::block(Textarea::new(&self.text).h(px(72.)))],
+            ),
+            ui::group(IconName::Move, "Placement", placement),
+        ]
+    }
+
     fn text_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let style = &drawing.style;
         let mut page = ui::page();
@@ -1204,6 +1805,11 @@ impl DrawingProps {
                 "Words",
                 [ui::block(Textarea::new(&self.text).h(px(96.)))],
             ));
+        }
+        if drawing.tool.takes_label() {
+            for group in self.label_groups(drawing, cx) {
+                page = page.child(group);
+            }
         }
         page.child(ui::group(
             IconName::Type,

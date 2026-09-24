@@ -119,6 +119,8 @@ struct StudyEditor {
     fields: Vec<(&'static str, Entity<InputState>)>,
     /// The opacity field of each plot, in percent.
     opacity: Vec<(&'static str, Entity<InputState>)>,
+    /// The width field of each plot, in pixels: any width, beside the presets.
+    widths: Vec<(&'static str, Entity<InputState>)>,
     color_open: Option<&'static str>,
     _subscriptions: Vec<Subscription>,
 }
@@ -194,6 +196,34 @@ impl StudyEditor {
             );
             opacity.push((key, state));
         }
+        let mut widths = Vec::new();
+        for plot in config.kind.spec().plots {
+            let state = cx.new(|cx| {
+                widgets::number_state(
+                    f64::from(config.plot_style(plot.key).width),
+                    0.5,
+                    20.0,
+                    0.5,
+                    1,
+                    window,
+                    cx,
+                )
+            });
+            let key = plot.key;
+            subscriptions.push(
+                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::Change | InputEvent::Blur)
+                        && let Some(value) = widgets::parse_number(&state.read(cx).value())
+                    {
+                        let value = value.clamp(0.5, 20.0) as f32;
+                        this.target
+                            .clone()
+                            .plot(key, cx, |style| style.width = value);
+                    }
+                }),
+            );
+            widths.push((key, state));
+        }
         Self {
             target,
             chart,
@@ -203,6 +233,7 @@ impl StudyEditor {
             page: Page::Inputs,
             fields,
             opacity,
+            widths,
             color_open: None,
             _subscriptions: subscriptions,
         }
@@ -226,6 +257,10 @@ impl StudyEditor {
         }
         for (key, state) in &self.opacity {
             let text = widgets::format_number(f64::from(config.plot_style(key).opacity) * 100.0, 0);
+            state.update(cx, |state, cx| state.set_value(text, window, cx));
+        }
+        for (key, state) in &self.widths {
+            let text = widgets::format_number(f64::from(config.plot_style(key).width), 1);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
     }
@@ -345,7 +380,7 @@ impl StudyEditor {
 
             let width_index = WIDTHS.iter().position(|w| (w - style.width).abs() < 0.01);
             let width_target = self.target.clone();
-            let width = ui::width_picker(
+            let picker = ui::width_picker(
                 // One id per plot: the pickers of several plots must not share state.
                 SharedString::from(format!("plot-width-{key}")),
                 &WIDTHS,
@@ -354,6 +389,19 @@ impl StudyEditor {
                     width_target.plot(key, cx, |s| s.width = WIDTHS[choice]);
                 },
             );
+            // The presets, and a field for any other width.
+            let width = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(picker)
+                .children(
+                    self.widths
+                        .iter()
+                        .find(|(k, _)| *k == key)
+                        .map(|(_, state)| widgets::number_field(state, 84.)),
+                );
             match plot.kind {
                 PlotKind::Line => {
                     let dash_target = self.target.clone();

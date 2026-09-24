@@ -10,9 +10,10 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use super::figures;
 use super::geometry::{
     Anchor, LABEL_SIZE, P, Prim, Projection, arrow_head, board_size, duration_text, extended,
-    fill_of, label, level_text, seg, stretch, visible_levels,
+    fill_of, label, level_label, level_text, seg, stretch, visible_levels,
 };
-use super::model::{Dash, Drawing, Point, Tool};
+use super::look::MeasureLook;
+use super::model::{Dash, Drawing, Point, Style, Tool};
 
 /// The colors of a bar that closed above and below its open, as the position tools have them.
 const UP: u32 = 0x00d492;
@@ -25,8 +26,6 @@ const MAX_GHOST_BARS: usize = 400;
 const ROW_PX: f32 = 6.0;
 const MIN_ROWS: usize = 8;
 const MAX_ROWS: usize = 120;
-/// The share of the volume the value area of a profile holds.
-const VALUE_AREA: f64 = 0.7;
 /// Most cycle lines drawn at once.
 const MAX_CYCLES: i64 = 600;
 
@@ -145,23 +144,31 @@ fn left_to_right(a: P, b: P) -> (P, P) {
 }
 
 /// A tag with a stat on it, in the color of the drawing.
-fn stat(at: P, text: String, color: u32, anchor: Anchor) -> Prim {
+fn stat(style: &Style, at: P, text: String, color: u32, anchor: Anchor) -> Prim {
     Prim::Label {
         at,
         text,
-        color: 0xffffff,
+        color: style.text_color.unwrap_or(0xffffff),
         background: Some((color, 0.9)),
         anchor,
-        size: LABEL_SIZE,
-        bold: false,
+        size: style.text_size,
+        bold: style.bold,
     }
 }
 
 /// Tags one under the other, the first at `at`.
-fn stat_rows(at: P, rows: Vec<String>, color: u32, anchor: Anchor, out: &mut Vec<Prim>) {
-    for (i, text) in rows.into_iter().enumerate() {
+fn stat_rows(
+    style: &Style,
+    at: P,
+    rows: Vec<String>,
+    color: u32,
+    anchor: Anchor,
+    out: &mut Vec<Prim>,
+) {
+    for (i, text) in rows.into_iter().filter(|r| !r.is_empty()).enumerate() {
         out.push(stat(
-            (at.0, at.1 + i as f32 * LABEL_SIZE * 1.8),
+            style,
+            (at.0, at.1 + i as f32 * style.text_size * 1.8),
             text,
             color,
             anchor,
@@ -169,8 +176,9 @@ fn stat_rows(at: P, rows: Vec<String>, color: u32, anchor: Anchor, out: &mut Vec
     }
 }
 
-/// The change from `a` to `b`: `+0.0012 (+0.12%)`.
-fn move_text(proj: &dyn Projection, a: Point, b: Point) -> String {
+/// The change from `a` to `b`: `+0.0012 (+0.12%)`, or the part of it the look asks for. Empty when
+/// it asks for none.
+pub(super) fn move_text(proj: &dyn Projection, a: Point, b: Point, look: &MeasureLook) -> String {
     let change = b.p - a.p;
     let percent = if a.p != 0.0 {
         change / a.p * 100.0
@@ -178,16 +186,30 @@ fn move_text(proj: &dyn Projection, a: Point, b: Point) -> String {
         0.0
     };
     let sign = if change >= 0.0 { "+" } else { "" };
-    format!("{sign}{} ({sign}{percent:.2}%)", proj.format_price(change))
+    let price = format!("{sign}{}", proj.format_price(change));
+    let percent = format!("{sign}{percent:.2}%");
+    match (look.price, look.percent) {
+        (true, true) => format!("{price} ({percent})"),
+        (true, false) => price,
+        (false, true) => percent,
+        (false, false) => String::new(),
+    }
 }
 
-/// The time from `a` to `b`: `12 bars, 1h 0m`.
-fn span_text(proj: &dyn Projection, a: Point, b: Point) -> String {
+/// The time from `a` to `b`: `12 bars, 1h 0m`, or the part of it the look asks for. Empty when it
+/// asks for none.
+pub(super) fn span_text(proj: &dyn Projection, a: Point, b: Point, look: &MeasureLook) -> String {
     let bars = match (proj.index_of(a.t), proj.index_of(b.t)) {
         (Some(i), Some(j)) => (j - i).abs().round() as i64,
         _ => 0,
     };
-    format!("{bars} bars, {}", duration_text(b.t - a.t))
+    let time = duration_text(b.t - a.t);
+    match (look.bars, look.time) {
+        (true, true) => format!("{bars} bars, {time}"),
+        (true, false) => format!("{bars} bars"),
+        (false, true) => time,
+        (false, false) => String::new(),
+    }
 }
 
 /// A line of points `at(t)` for `t` from 0 to 1, in `steps` steps.
@@ -224,12 +246,12 @@ fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
     if style.labels {
         let (p, q) = (drawing.points[0], drawing.points[1]);
         let rows = vec![
-            move_text(proj, p, q),
-            span_text(proj, p, q),
+            move_text(proj, p, q, &style.measure),
+            span_text(proj, p, q, &style.measure),
             format!("Angle {:.1}\u{b0}", slope_degrees(a, b)),
         ];
         let at = (b.0 + 10.0, b.1 - LABEL_SIZE * 1.8);
-        stat_rows(at, rows, style.color, Anchor::Left, out);
+        stat_rows(style, at, rows, style.color, Anchor::Left, out);
     }
 }
 
@@ -252,7 +274,7 @@ fn trend_angle(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Ve
         1.0,
         Dash::Dashed,
     ));
-    if !style.labels {
+    if !style.labels || !style.measure.angle {
         return;
     }
     let phi = slope_degrees(a, b).to_radians();
@@ -271,6 +293,7 @@ fn trend_angle(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Ve
         a.1 - (radius + 16.0) * half.sin(),
     );
     out.push(stat(
+        style,
         at,
         format!("{:.1}\u{b0}", slope_degrees(a, b)),
         style.color,
@@ -343,11 +366,18 @@ fn regression(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec
     for level in &levels {
         for sign in [1.0, -1.0] {
             if let Some((from, to)) = line_at(sign * level.value * deviation) {
-                out.push(seg(from, to, level.color, 0.9, style.width, style.dash));
+                out.push(seg(
+                    from,
+                    to,
+                    level.color,
+                    0.9,
+                    level.line_width(style.width),
+                    level.line_dash(style.dash),
+                ));
                 if style.labels && sign > 0.0 {
                     out.push(label(
                         (to.0 + 4.0, to.1),
-                        level_text(level.value),
+                        level_label(style, level.value, None),
                         level.color,
                         Anchor::Left,
                         style,
@@ -459,13 +489,13 @@ fn fib_time_extension(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: 
             (x, rect.b),
             level.color,
             0.9,
-            style.width,
-            style.dash,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
         ));
         if style.labels {
             out.push(label(
                 (x + 4.0, rect.b - 12.0),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Left,
                 style,
@@ -495,12 +525,12 @@ fn fib_circles(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             rx: radius,
             ry: radius,
             fill: None,
-            stroke: Some((level.color, style.width)),
+            stroke: Some((level.color, level.line_width(style.width))),
         });
         if style.labels {
             out.push(label(
                 (center.0, center.1 - radius - 8.0),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Center,
                 style,
@@ -528,14 +558,19 @@ fn fib_arcs(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             let angle = toward - FRAC_PI_2 + PI * t;
             (b.0 + radius * angle.cos(), b.1 + radius * angle.sin())
         });
-        out.push(polyline(arc, level.color, style.width, 0.9));
+        out.push(polyline(
+            arc,
+            level.color,
+            level.line_width(style.width),
+            0.9,
+        ));
         if style.labels {
             out.push(label(
                 (
                     b.0 + radius * toward.cos() + 4.0,
                     b.1 + radius * toward.sin(),
                 ),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Left,
                 style,
@@ -605,14 +640,19 @@ fn fib_wedge(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     }
     for level in &levels {
         let radius = base * level.value as f32;
-        out.push(polyline(arc_at(radius), level.color, style.width, 0.9));
+        out.push(polyline(
+            arc_at(radius),
+            level.color,
+            level.line_width(style.width),
+            0.9,
+        ));
         if style.labels {
             out.push(label(
                 (
                     center.0 + radius * from.cos() + 4.0,
                     center.1 + radius * from.sin(),
                 ),
-                level_text(level.value),
+                level_label(style, level.value, None),
                 level.color,
                 Anchor::Left,
                 style,
@@ -760,8 +800,9 @@ fn price_range(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Ve
     let x = (left + right) / 2.0;
     arrow((x, a.1), (x, b.1), style.color, 1.0, out);
     if style.labels {
-        let text = move_text(proj, drawing.points[0], drawing.points[1]);
+        let text = move_text(proj, drawing.points[0], drawing.points[1], &style.measure);
         out.push(stat(
+            style,
             (x, a.1.min(b.1) - 14.0),
             text,
             style.color,
@@ -796,8 +837,9 @@ fn date_range(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec
     arrow((a.0, a.1), (b.0, a.1), style.color, 1.0, out);
     if style.labels {
         out.push(stat(
+            style,
             ((a.0 + b.0) / 2.0, a.1 - 14.0),
-            span_text(proj, drawing.points[0], drawing.points[1]),
+            span_text(proj, drawing.points[0], drawing.points[1], &style.measure),
             style.color,
             Anchor::Center,
         ));
@@ -819,14 +861,16 @@ fn date_price_range(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &m
     if style.labels {
         let (p, q) = (drawing.points[0], drawing.points[1]);
         out.push(stat(
+            style,
             (mx, a.1.min(b.1) - 14.0),
-            move_text(proj, p, q),
+            move_text(proj, p, q, &style.measure),
             style.color,
             Anchor::Center,
         ));
         out.push(stat(
+            style,
             (mx, a.1.max(b.1) + 14.0),
-            span_text(proj, p, q),
+            span_text(proj, p, q, &style.measure),
             style.color,
             Anchor::Center,
         ));
@@ -854,10 +898,18 @@ fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
             Anchor::Right
         };
         let rows = vec![
-            format!("{} ({})", proj.format_price(q.p), move_text(proj, p, q)),
-            span_text(proj, p, q),
+            {
+                let moved = move_text(proj, p, q, &style.measure);
+                if moved.is_empty() {
+                    proj.format_price(q.p)
+                } else {
+                    format!("{} ({moved})", proj.format_price(q.p))
+                }
+            },
+            span_text(proj, p, q, &style.measure),
         ];
         stat_rows(
+            style,
             (b.0 + side, b.1 - LABEL_SIZE * 0.9),
             rows,
             style.color,
@@ -1021,6 +1073,7 @@ fn anchored_vwap(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
         && let Some(end) = line.last()
     {
         out.push(stat(
+            style,
             (end.0 + 6.0, end.1),
             "VWAP".to_owned(),
             style.color,
@@ -1063,7 +1116,11 @@ fn volume_profile(
         return;
     }
     let pixels = (proj.y_of(low) - proj.y_of(high)).abs();
-    let rows = ((pixels / ROW_PX).round() as usize).clamp(MIN_ROWS, MAX_ROWS);
+    // The rows the style asks for, or as many as the height on the screen has room for.
+    let rows = match style.profile.rows {
+        0 => ((pixels / ROW_PX).round() as usize).clamp(MIN_ROWS, MAX_ROWS),
+        asked => usize::from(asked),
+    };
     let step = (high - low) / rows as f64;
     let row_of = |price: f64| (((price - low) / step) as usize).min(rows - 1);
 
@@ -1089,7 +1146,7 @@ fn volume_profile(
     // The value area grows from the point of control, taking the busier neighbour each time,
     // until it holds its share of the volume.
     let (mut lower, mut upper, mut held) = (poc, poc, volume[poc]);
-    while held < total * VALUE_AREA && (lower > 0 || upper + 1 < rows) {
+    while held < total * f64::from(style.profile.value_area) && (lower > 0 || upper + 1 < rows) {
         let below = if lower > 0 { volume[lower - 1] } else { -1.0 };
         let above = if upper + 1 < rows {
             volume[upper + 1]
@@ -1331,7 +1388,8 @@ fn arrow_marker(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 fn arrow_mark(drawing: &Drawing, at: P, up: bool, out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let k = if up { 1.0 } else { -1.0 };
-    let (head, body, wing, shaft) = (12.0, 26.0, 10.0, 4.5);
+    let scale = style.scale;
+    let (head, body, wing, shaft) = (12.0 * scale, 26.0 * scale, 10.0 * scale, 4.5 * scale);
     out.push(Prim::Polygon {
         points: vec![
             at,
@@ -1487,11 +1545,23 @@ fn signpost(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 fn flag_mark(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let at = pts[0];
-    let top = (at.0, at.1 - 34.0);
-    out.push(seg(at, top, style.color, 1.0, 1.5, Dash::Solid));
-    out.push(dot(at, 2.5, style.color));
+    let k = style.scale;
+    let top = (at.0, at.1 - 34.0 * k);
+    out.push(seg(
+        at,
+        top,
+        style.color,
+        1.0,
+        1.5 * k.max(0.7),
+        Dash::Solid,
+    ));
+    out.push(dot(at, 2.5 * k, style.color));
     out.push(Prim::Polygon {
-        points: vec![top, (at.0 + 20.0, at.1 - 27.0), (at.0, at.1 - 20.0)],
+        points: vec![
+            top,
+            (at.0 + 20.0 * k, at.1 - 27.0 * k),
+            (at.0, at.1 - 20.0 * k),
+        ],
         fill: (style.color, 1.0),
     });
 }
@@ -1604,7 +1674,7 @@ pub fn icon_key(text: &str) -> &'static str {
 fn icon(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let at = pts[0];
-    let half = (style.text_size * 0.9).max(8.0);
+    let half = (style.text_size * 0.9 * style.scale).max(8.0);
     let point = |x: f32, y: f32| (at.0 + x * half, at.1 + y * half);
     let filled = |points: Vec<P>| Prim::Polygon {
         points,
@@ -1845,6 +1915,74 @@ mod tests {
                 .iter()
                 .any(|s| matches!(s, Prim::Segment { color, .. } if *color == POC))
         );
+    }
+
+    #[test]
+    fn a_volume_profile_is_cut_into_the_rows_asked_for_and_the_value_area_follows_its_share() {
+        let mut d = drawing(
+            Tool::FixedRangeVolumeProfile,
+            &[(600, 100.0), (1_200, 100.0)],
+        );
+        let rects = |d: &Drawing| -> Vec<Option<(u32, f32)>> {
+            shapes_of(d, &Linear)
+                .into_iter()
+                .filter_map(|s| match s {
+                    Prim::Rect { fill, .. } => Some(fill),
+                    _ => None,
+                })
+                .collect()
+        };
+        d.style.profile.rows = 10;
+        let few = rects(&d).len();
+        assert!((1..=10).contains(&few), "{few} rows of 10");
+        d.style.profile.rows = 120;
+        assert!(rects(&d).len() > few, "more rows when asked for more");
+
+        // The rows inside the value area are the brighter ones.
+        d.style.profile.rows = 40;
+        let bright = |d: &Drawing| {
+            rects(d)
+                .into_iter()
+                .flatten()
+                .filter(|(_, alpha)| *alpha > d.style.fill_opacity * 0.75)
+                .count()
+        };
+        d.style.profile.value_area = 1.0;
+        let all = bright(&d);
+        d.style.profile.value_area = 0.1;
+        let few = bright(&d);
+        assert!(few < all, "{few} inside a tenth, {all} inside all of it");
+    }
+
+    #[test]
+    fn the_opacity_fades_the_fills_of_a_copy_of_bars_too() {
+        let mut d = drawing(
+            Tool::GhostFeed,
+            &[(600, 100.0), (900, 100.0), (1_200, 150.0)],
+        );
+        let alphas = |d: &Drawing| -> Vec<f32> {
+            shapes_of(d, &Linear)
+                .into_iter()
+                .filter_map(|s| match s {
+                    Prim::Rect {
+                        fill: Some((_, alpha)),
+                        ..
+                    } => Some(alpha),
+                    Prim::Polygon {
+                        fill: (_, alpha), ..
+                    } => Some(alpha),
+                    _ => None,
+                })
+                .collect()
+        };
+        let solid = alphas(&d);
+        assert!(!solid.is_empty());
+        d.style.opacity = 0.5;
+        let faded = alphas(&d);
+        assert_eq!(solid.len(), faded.len());
+        for (a, b) in solid.iter().zip(&faded) {
+            assert!((b - a * 0.5).abs() < 1e-5, "{a} -> {b}");
+        }
     }
 
     #[test]

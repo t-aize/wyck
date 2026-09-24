@@ -6,8 +6,10 @@
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).
 
+use super::decor;
 use super::extras;
 use super::figures;
+use super::look::{LabelSide, LevelText};
 use super::model::{Dash, Drawing, Level, Point, Style, Tool};
 
 pub type P = (f32, f32);
@@ -486,16 +488,21 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
                 out.push(seg(pts[i], pts[(i + 1) % 3], color, 1.0, width, dash));
             }
         }
-        Tool::Brush | Tool::Highlighter => out.push(Prim::Polyline {
-            points: pts,
-            color,
-            width,
-            alpha: if drawing.tool == Tool::Highlighter {
-                HIGHLIGHT_ALPHA
-            } else {
-                1.0
-            },
-        }),
+        // A stroke has no ends to cap and nowhere for words: its points are handed over whole.
+        Tool::Brush | Tool::Highlighter => {
+            out.push(Prim::Polyline {
+                points: pts,
+                color,
+                width,
+                alpha: if drawing.tool == Tool::Highlighter {
+                    HIGHLIGHT_ALPHA
+                } else {
+                    1.0
+                },
+            });
+            fade_lines(&mut out, style.opacity);
+            return out;
+        }
         Tool::Measure => measure_prims(drawing, &pts, proj, &mut out),
         Tool::LongPosition | Tool::ShortPosition => {
             position_prims(drawing, &pts, proj, selected, &mut out);
@@ -537,7 +544,25 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
             extras::prims(drawing, &pts, proj, &mut out);
         }
     }
+    decor::decorate(drawing, &pts, rect, &mut out);
+    // A tag with nothing to say (every part of a measure switched off) is not drawn.
+    out.retain(|prim| !matches!(prim, Prim::Label { text, .. } if text.is_empty()));
     fade_lines(&mut out, style.opacity);
+    // A copy of bars is all fills: the opacity fades those too.
+    if matches!(drawing.tool, Tool::BarsPattern | Tool::GhostFeed) && style.opacity < 1.0 {
+        for prim in &mut out {
+            if let Prim::Rect {
+                fill: Some((_, alpha)),
+                ..
+            }
+            | Prim::Polygon {
+                fill: (_, alpha), ..
+            } = prim
+            {
+                *alpha *= style.opacity;
+            }
+        }
+    }
     out
 }
 
@@ -612,22 +637,28 @@ fn fib_prims(
             (right, y),
             level.color,
             0.9,
-            style.width,
-            style.dash,
+            level.line_width(style.width),
+            level.line_dash(style.dash),
         ));
         if style.labels {
-            let text = format!("{} ({})", level_text(level.value), proj.format_price(price));
-            out.push(if style.extend_left {
-                label(
-                    (left + 4.0, y - 8.0),
-                    text,
-                    level.color,
-                    Anchor::Left,
-                    style,
-                )
+            let text = level_label(style, level.value, Some(&proj.format_price(price)));
+            // At the left of the levels, or at the right. Lines that run to the edge of the chart
+            // leave no room outside, so the words go inside, just above the line.
+            let on_left = style.label_side == LabelSide::Left;
+            let edge = if on_left { left } else { right };
+            let run_out = if on_left {
+                style.extend_left
             } else {
-                label((left - 4.0, y), text, level.color, Anchor::Right, style)
-            });
+                style.extend_right
+            };
+            let (x, anchor) = match (on_left, run_out) {
+                (true, true) => (edge + 4.0, Anchor::Left),
+                (true, false) => (edge - 4.0, Anchor::Right),
+                (false, true) => (edge - 4.0, Anchor::Right),
+                (false, false) => (edge + 4.0, Anchor::Left),
+            };
+            let y = if run_out { y - 8.0 } else { y };
+            out.push(label((x, y), text, level.color, anchor, style));
         }
         previous = Some((y, level.color));
     }
@@ -676,6 +707,17 @@ pub fn level_text(value: f64) -> String {
     }
 }
 
+/// The caption of a level as the style asks for it: `price` is the price of the level, for a tool
+/// that knows one.
+pub(super) fn level_label(style: &Style, value: f64, price: Option<&str>) -> String {
+    match (style.level_text, price) {
+        (LevelText::Auto, Some(price)) => format!("{} ({price})", level_text(value)),
+        (LevelText::Percent, _) => format!("{}%", level_text(value * 100.0)),
+        (LevelText::Price, Some(price)) => price.to_owned(),
+        _ => level_text(value),
+    }
+}
+
 /// Words a drawing writes, in the size and weight its style asks for.
 pub(super) fn label(at: P, text: String, color: u32, anchor: Anchor, style: &Style) -> Prim {
     Prim::Label {
@@ -690,59 +732,62 @@ pub(super) fn label(at: P, text: String, color: u32, anchor: Anchor, style: &Sty
 }
 
 fn measure_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
+    let style = &drawing.style;
     let (a, b) = (drawing.points[0], drawing.points[1]);
-    let change = b.p - a.p;
-    let up = change >= 0.0;
-    let color = if up { 0x4f8dff } else { 0xff6467 };
+    let up = b.p - a.p >= 0.0;
+    // The color of the drawing is for a move up, the one of the look for a move down.
+    let color = if up {
+        style.color
+    } else {
+        style.measure.down_color
+    };
+    let width = style.width;
     out.push(Prim::Rect {
         a: pts[0],
         b: pts[1],
-        fill: Some((color, 0.12)),
-        stroke: Some((color, 1.0)),
+        fill: (style.fill && style.fill_opacity > 0.0)
+            .then(|| (style.fill_color.unwrap_or(color), style.fill_opacity)),
+        stroke: Some((color, width)),
     });
-    // A cross through the middle, ending in an arrow tip on the side of the move.
+    // A cross through the middle.
     let (mx, my) = ((pts[0].0 + pts[1].0) / 2.0, (pts[0].1 + pts[1].1) / 2.0);
     out.push(seg(
         (mx, pts[0].1),
         (mx, pts[1].1),
         color,
         0.9,
-        1.0,
-        Dash::Solid,
+        width,
+        style.dash,
     ));
     out.push(seg(
         (pts[0].0, my),
         (pts[1].0, my),
         color,
         0.9,
-        1.0,
-        Dash::Solid,
+        width,
+        style.dash,
     ));
 
-    let percent = if a.p != 0.0 {
-        change / a.p * 100.0
-    } else {
-        0.0
-    };
-    let bars = match (proj.index_of(a.t), proj.index_of(b.t)) {
-        (Some(i), Some(j)) => (j - i).abs().round() as i64,
-        _ => 0,
-    };
-    let sign = if up { "+" } else { "" };
-    let text = format!(
-        "{sign}{} ({sign}{percent:.2}%)   {bars} bars, {}",
-        proj.format_price(change),
-        duration_text(b.t - a.t),
-    );
+    if !style.labels {
+        return;
+    }
+    let text = [
+        extras::move_text(proj, a, b, &style.measure),
+        extras::span_text(proj, a, b, &style.measure),
+    ]
+    .into_iter()
+    .filter(|part| !part.is_empty())
+    .collect::<Vec<_>>()
+    .join("   ");
     let top = pts[0].1.min(pts[1].1);
     out.push(Prim::Label {
         at: (mx, top - 14.0),
         text,
-        color: 0xffffff,
+        color: style.text_color.unwrap_or(0xffffff),
         background: Some((color, 0.9)),
         anchor: Anchor::Center,
-        size: LABEL_SIZE,
-        bold: false,
+        size: style.text_size,
+        bold: style.bold,
     });
 }
 
@@ -1474,6 +1519,131 @@ pub(super) mod tests {
                 .any(|s| matches!(s, Prim::Rect { .. } | Prim::Label { .. }))
         );
         assert_eq!(bare.len(), 3, "the three lines are left");
+    }
+
+    #[test]
+    fn a_level_can_have_its_own_line_and_its_caption_follows_the_style() {
+        use crate::app::chart::drawing::look::{LabelSide, LevelText};
+
+        let mut d = drawing(Tool::FibRetracement, &[(100, 100.0), (400, 200.0)]);
+        let mut levels = d.levels();
+        levels[1].width = 4.0;
+        levels[1].dash = Some(Dash::Dotted);
+        let color = levels[1].color;
+        d.levels = levels;
+        let shapes = prims(&d, &Linear);
+        assert!(shapes.iter().any(|s| matches!(
+            s,
+            Prim::Segment { color: c, width, dash: Dash::Dotted, .. } if *c == color && *width == 4.0
+        )));
+        // The others keep the line of the drawing.
+        assert!(shapes.iter().any(|s| matches!(
+            s, Prim::Segment { width, dash: Dash::Solid, .. } if *width == d.style.width
+        )));
+
+        let captions = |d: &Drawing| -> Vec<(String, P, Anchor)> {
+            prims(d, &Linear)
+                .into_iter()
+                .filter_map(|s| match s {
+                    Prim::Label {
+                        text, at, anchor, ..
+                    } => Some((text, at, anchor)),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert!(
+            captions(&d)
+                .iter()
+                .any(|(t, _, _)| t.starts_with("0.236 (")),
+            "the ratio and the price, as before"
+        );
+        d.style.level_text = LevelText::Percent;
+        assert!(captions(&d).iter().any(|(t, _, _)| t == "23.6%"));
+        d.style.level_text = LevelText::Price;
+        assert!(
+            captions(&d)
+                .iter()
+                .all(|(t, _, _)| !t.contains('(') && !t.contains('%'))
+        );
+        d.style.level_text = LevelText::Ratio;
+        assert!(captions(&d).iter().any(|(t, _, _)| t == "0.236"));
+
+        // At the left of the levels by default, at the right when asked.
+        assert!(
+            captions(&d)
+                .iter()
+                .all(|(_, at, a)| at.0 < 100.0 && *a == Anchor::Right)
+        );
+        d.style.label_side = LabelSide::Right;
+        assert!(
+            captions(&d)
+                .iter()
+                .all(|(_, at, a)| at.0 > 400.0 && *a == Anchor::Left)
+        );
+    }
+
+    #[test]
+    fn a_measure_follows_its_look() {
+        let mut d = drawing(Tool::Measure, &[(0, 100.0), (600, 150.0)]);
+        d.style.color = 0x123456;
+        d.style.measure.percent = false;
+        d.style.measure.bars = false;
+        let shapes = prims(&d, &Linear);
+        let text = shapes.iter().find_map(|s| match s {
+            Prim::Label { text, .. } => Some(text.clone()),
+            _ => None,
+        });
+        assert_eq!(text.as_deref(), Some("+50.0   10m"));
+        assert!(shapes.iter().any(|s| matches!(
+            s,
+            Prim::Rect {
+                stroke: Some((0x123456, _)),
+                ..
+            }
+        )));
+
+        // A move down takes the other color; with nothing to say there is no tag.
+        let mut down = drawing(Tool::Measure, &[(0, 200.0), (120, 150.0)]);
+        down.style.measure.down_color = 0xabcdef;
+        down.style.measure.price = false;
+        down.style.measure.percent = false;
+        down.style.measure.bars = false;
+        down.style.measure.time = false;
+        let shapes = prims(&down, &Linear);
+        assert!(shapes.iter().any(|s| matches!(
+            s,
+            Prim::Rect {
+                stroke: Some((0xabcdef, _)),
+                ..
+            }
+        )));
+        assert!(!shapes.iter().any(|s| matches!(s, Prim::Label { .. })));
+
+        // The tag takes the text of the style.
+        let mut styled = drawing(Tool::Measure, &[(0, 100.0), (600, 150.0)]);
+        styled.style.text_size = 20.0;
+        styled.style.bold = true;
+        styled.style.text_color = Some(0x00ff00);
+        assert!(prims(&styled, &Linear).iter().any(|s| matches!(
+            s,
+            Prim::Label { size, bold: true, color: 0x00ff00, .. } if *size == 20.0
+        )));
+    }
+
+    #[test]
+    fn a_marker_grows_with_its_scale() {
+        let height = |scale: f32| {
+            let mut d = drawing(Tool::ArrowMarkUp, &[(100, 100.0)]);
+            d.style.scale = scale;
+            let Some(Prim::Polygon { points, .. }) = prims(&d, &Linear).into_iter().next() else {
+                panic!("a polygon");
+            };
+            let ys = points.iter().map(|p| p.1);
+            ys.clone().fold(f32::MIN, f32::max) - ys.fold(f32::MAX, f32::min)
+        };
+        assert!((height(2.0) - 2.0 * height(1.0)).abs() < 1e-3);
+        assert!(height(0.5) < height(1.0));
     }
 
     #[test]
