@@ -1,7 +1,12 @@
 //! The bar across the top of the dashboard, and the account menu that hangs from it.
 
+use std::sync::Arc;
+
 use gpui::prelude::*;
-use gpui::{Context, FontWeight, MouseButton, SharedString, Window, anchored, deferred, div, px};
+use gpui::{
+    Context, FontFeatures, FontWeight, MouseButton, SharedString, Window, anchored, deferred, div,
+    px,
+};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -170,6 +175,17 @@ impl Dashboard {
             Some(Tick::Down) => theme::destructive(),
             None => theme::fg(),
         };
+        // The block keeps its width while the price moves, so what follows it in the bar stays
+        // put: the width comes from how many characters the prices have (which changes only
+        // with a new symbol, or a price that gains a digit), the digits are all as wide, and the
+        // arrow has its place whether it shows or not.
+        let digits = || FontFeatures(Arc::new(vec![("tnum".into(), 1)]));
+        let chars = |text: &str| text.chars().count() as f32;
+        let bid_w = chars(&bid) * 10.5;
+        let side_chars = ask
+            .as_deref()
+            .map_or(0.0, |a| chars(a) + 4.0)
+            .max(spread.as_deref().map_or(0.0, |p| chars(p) + 7.0));
         let line = |label: &'static str, value: String| {
             div()
                 .flex()
@@ -187,12 +203,14 @@ impl Dashboard {
                     .gap_0p5()
                     .child(
                         div()
+                            .w(px(bid_w))
                             .text_size(px(17.))
                             .font_weight(FontWeight::SEMIBOLD)
+                            .font_features(digits())
                             .text_color(tone)
                             .child(bid),
                     )
-                    .children(self.tick.map(|tick| {
+                    .child(div().flex_none().w(px(14.)).children(self.tick.map(|tick| {
                         ui::icon_colored(
                             match tick {
                                 Tick::Up => IconName::ArrowUp,
@@ -201,14 +219,16 @@ impl Dashboard {
                             13.,
                             tone,
                         )
-                    })),
+                    }))),
             )
             .when(fit.ask, |el| {
                 el.child(
                     div()
+                        .w(px(side_chars * 6.6))
                         .flex()
                         .flex_col()
                         .text_size(px(10.5))
+                        .font_features(digits())
                         .children(ask.map(|ask| line("Ask", ask)))
                         .children(spread.map(|pips| line("Spread", pips))),
                 )
