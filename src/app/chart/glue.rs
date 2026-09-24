@@ -16,7 +16,7 @@ use super::{Chart, ChartAction, ChartEvent, drawing_props, object_tree};
 pub enum DrawingCommand {
     Duplicate,
     Order(Order),
-    Hide,
+    Hidden(bool),
     Lock(bool),
     Delete,
     Flip,
@@ -162,6 +162,22 @@ impl Chart {
         });
     }
 
+    /// A right click: drops the drawing being made here, if there is one. Returns whether it did,
+    /// in which case the click has done its work and opens no menu.
+    pub(super) fn abort_drawing(&mut self, cx: &mut Context<Self>) -> bool {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return false;
+        };
+        let aborted = drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.abort(&symbol))
+        });
+        if aborted {
+            self.drawing_drag = false;
+            cx.notify();
+        }
+        aborted
+    }
+
     pub fn drawing_command(&mut self, id: u64, command: DrawingCommand, cx: &mut Context<Self>) {
         match command {
             DrawingCommand::Duplicate => {
@@ -171,8 +187,8 @@ impl Chart {
             DrawingCommand::Order(order) => {
                 self.edit_drawings(cx, |book, symbol| book.reorder(symbol, id, order));
             }
-            DrawingCommand::Hide => {
-                self.edit_drawings(cx, |book, symbol| book.set_hidden(symbol, id, true));
+            DrawingCommand::Hidden(hidden) => {
+                self.edit_drawings(cx, |book, symbol| book.set_hidden(symbol, id, hidden));
             }
             DrawingCommand::Lock(locked) => {
                 self.edit_drawings(cx, |book, symbol| book.set_locked(symbol, id, locked));

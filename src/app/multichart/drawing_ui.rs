@@ -32,6 +32,21 @@ fn swatch_color(color: u32) -> gpui::Rgba {
     gpui::rgb(color)
 }
 
+/// A short sample of a line style, drawn as shapes so every style sits on the same middle line
+/// and has the same width (text dots sit on the baseline and drift off center).
+fn dash_preview(dash: Dash, ink: gpui::Rgba) -> impl IntoElement {
+    let row = div().flex().flex_row().items_center().justify_center();
+    match dash {
+        Dash::Solid => row.child(div().w(px(22.)).h(px(2.)).rounded_full().bg(ink)),
+        Dash::Dashed => row
+            .gap(px(3.))
+            .children((0..3).map(|_| div().w(px(6.)).h(px(2.)).rounded_full().bg(ink))),
+        Dash::Dotted => row
+            .gap(px(4.))
+            .children((0..4).map(|_| div().size(px(2.)).rounded_full().bg(ink))),
+    }
+}
+
 impl MultiChart {
     /// The tool a family shows on its button: the last one used, or its first.
     fn group_tool(&self, group: Group) -> Tool {
@@ -295,7 +310,7 @@ impl MultiChart {
         }
         let drawing = book.selected().and_then(|id| book.get(&symbol, id))?;
         let style = drawing.style.clone();
-        let (tool, locked, id) = (drawing.tool, drawing.locked, drawing.id);
+        let (tool, locked, hidden, id) = (drawing.tool, drawing.locked, drawing.hidden, drawing.id);
         let has_fill = tool.has_fill();
         let has_dash = tool.has_dash();
 
@@ -402,32 +417,27 @@ impl MultiChart {
                     (Dash::Dotted, "Dotted"),
                 ] {
                     let selected = style.dash == dash;
+                    let ink = if selected {
+                        theme::fg()
+                    } else {
+                        theme::muted_fg()
+                    };
                     bar = bar.child(
                         div()
                             .id(SharedString::from(format!("draw-dash-{label}")))
                             .flex()
                             .items_center()
                             .justify_center()
+                            .w(px(38.))
                             .h(px(24.))
-                            .px_2()
                             .rounded_md()
                             .cursor_pointer()
-                            .text_size(px(11.))
-                            .text_color(if selected {
-                                theme::fg()
-                            } else {
-                                theme::muted_fg()
-                            })
                             .when(selected, |el| el.bg(theme::accent_selected()))
                             .hover(|style| style.bg(theme::surface_hover()))
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.set_drawing_dash(dash, cx);
                             }))
-                            .child(match dash {
-                                Dash::Solid => "----",
-                                Dash::Dashed => "- - -",
-                                Dash::Dotted => ". . .",
-                            }),
+                            .child(dash_preview(dash, ink)),
                     );
                 }
                 bar = bar.child(divider());
@@ -507,11 +517,16 @@ impl MultiChart {
                 Button::new("draw-hide")
                     .ghost()
                     .compact()
-                    .icon(IconName::EyeOff)
-                    .tooltip("Hide")
+                    .icon(if hidden {
+                        IconName::Eye
+                    } else {
+                        IconName::EyeOff
+                    })
+                    .tooltip(if hidden { "Show" } else { "Hide" })
+                    .toggled(hidden)
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.drawing_command(id, DrawingCommand::Hide, cx);
+                        this.drawing_command(id, DrawingCommand::Hidden(!hidden), cx);
                     })),
             )
             .child(

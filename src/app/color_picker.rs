@@ -471,7 +471,11 @@ fn surface(
 ) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
+        // Anchored to the corner: an absolute box with no offset stays where it would have been
+        // in the flow, which under the hue bar's own strip is a full bar height too low.
         .absolute()
+        .top_0()
+        .left_0()
         .size_full()
         .child(
             canvas(
@@ -479,6 +483,8 @@ fn surface(
                 |_bounds, _state, _window, _cx| {},
             )
             .absolute()
+            .top_0()
+            .left_0()
             .size_full(),
         )
         .on_mouse_down(

@@ -17,6 +17,7 @@ pub mod extras;
 pub mod figures;
 pub mod geometry;
 pub mod model;
+pub mod position;
 mod state;
 
 pub use state::Drawings;

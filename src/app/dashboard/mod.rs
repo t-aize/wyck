@@ -773,8 +773,14 @@ impl Render for Dashboard {
             .with_priority(0)
         });
 
+        // A second context name while a drawing is being made turns on the keys for that.
+        let context = if self.multi.read(cx).drawing_in_progress(cx) {
+            "Dashboard DrawingInProgress"
+        } else {
+            "Dashboard"
+        };
         div()
-            .key_context("Dashboard")
+            .key_context(context)
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
                 this.open_picker(window, cx);
@@ -795,6 +801,12 @@ impl Render for Dashboard {
             .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
                 this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
                 window.focus(&this.focus_handle, cx);
+            }))
+            .on_action(cx.listener(|this, _: &chart::FinishDrawing, _window, cx| {
+                // Only an arrow path ends on Enter: for anything else the key goes on.
+                if !this.multi.update(cx, |multi, cx| multi.finish_drawing(cx)) {
+                    cx.propagate();
+                }
             }))
             .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
                 this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));

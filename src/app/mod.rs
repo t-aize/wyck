@@ -7,8 +7,10 @@ mod chart;
 mod color_picker;
 mod connection;
 mod dashboard;
+mod modal;
 mod multichart;
 mod runtime;
+mod settings_ui;
 mod text_input;
 mod theme;
 mod toast;
@@ -35,6 +37,7 @@ pub fn run() {
             text_input::init(cx);
             dashboard::init(cx);
             chart::init(cx);
+            modal::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

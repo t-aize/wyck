@@ -933,10 +933,11 @@ fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
         .filter(|d| (view.visible)(d))
         .chain(view.creating)
     {
-        for prim in shapes::prims(drawing, &projection) {
+        let selected = view.selected == Some(drawing.id);
+        for prim in shapes::prims_with(drawing, &projection, selected) {
             push_prim(cx, prim, out);
         }
-        if view.selected == Some(drawing.id) && !drawing.locked {
+        if selected && !drawing.locked {
             for at in shapes::handles(drawing, &projection) {
                 push_prim(cx, Prim::Handle { at }, out);
             }

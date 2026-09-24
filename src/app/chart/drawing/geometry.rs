@@ -71,6 +71,15 @@ pub trait Projection {
     fn y_of(&self, _price: f64) -> f32 {
         0.0
     }
+    /// A price as the drawings hold it, as a real one (what a trader reads: 1.2345), for the
+    /// tools that work out money.
+    fn real_price(&self, raw: f64) -> f64 {
+        raw
+    }
+    /// The smallest step of a real price, or 0 when it is not known.
+    fn tick(&self) -> f64 {
+        0.0
+    }
 }
 
 /// A shape to draw. Colors are `0xRRGGBB` with an alpha.
@@ -292,8 +301,14 @@ pub(super) fn arrow_head(a: P, b: P, color: u32, width: f32) -> Option<Prim> {
     })
 }
 
-/// The shapes of a drawing (without grips).
+/// The shapes of a drawing (without grips), as they show when it is selected.
 pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
+    prims_with(drawing, proj, true)
+}
+
+/// The shapes of a drawing (without grips). `selected` says whether it is the one selected: a
+/// position can keep its stats for then.
+pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
     let Some(pts) = anchors(drawing, proj) else {
         return Vec::new();
     };
@@ -482,7 +497,9 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             },
         }),
         Tool::Measure => measure_prims(drawing, &pts, proj, &mut out),
-        Tool::LongPosition | Tool::ShortPosition => position_prims(drawing, &pts, proj, &mut out),
+        Tool::LongPosition | Tool::ShortPosition => {
+            position_prims(drawing, &pts, proj, selected, &mut out);
+        }
         Tool::Text => {
             let text = if drawing.text.is_empty() {
                 "Text"
@@ -520,7 +537,26 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             extras::prims(drawing, &pts, proj, &mut out);
         }
     }
+    fade_lines(&mut out, style.opacity);
     out
+}
+
+/// Fades the lines of a drawing to the opacity of its style. Fills and words keep their own.
+fn fade_lines(out: &mut [Prim], opacity: f32) {
+    if opacity >= 1.0 {
+        return;
+    }
+    for prim in out {
+        match prim {
+            Prim::Segment { alpha, .. } | Prim::Polyline { alpha, .. } => *alpha *= opacity,
+            Prim::Rect { stroke, .. } | Prim::Ellipse { stroke, .. } => {
+                if let Some((_, alpha)) = stroke {
+                    *alpha *= opacity;
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// How opaque the stroke of a highlighter is.
@@ -710,49 +746,63 @@ fn measure_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
     });
 }
 
-fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
+fn position_prims(
+    drawing: &Drawing,
+    pts: &[P],
+    proj: &dyn Projection,
+    selected: bool,
+    out: &mut Vec<Prim>,
+) {
     let long = drawing.tool == Tool::LongPosition;
+    let style = &drawing.style;
+    let cfg = &style.position;
     let entry = drawing.points[0].p;
     let (stop, target) = (drawing.points[1].p, drawing.points[2].p);
     let (left, right) = (pts[0].0, pts[3].0.max(pts[0].0 + 1.0));
     let (y_entry, y_stop, y_target) = (pts[0].1, pts[1].1, pts[2].1);
+    let width = style.width;
 
-    out.push(Prim::Rect {
-        a: (left, y_entry),
-        b: (right, y_target),
-        fill: Some((0x00d492, 0.16)),
-        stroke: None,
-    });
-    out.push(Prim::Rect {
-        a: (left, y_entry),
-        b: (right, y_stop),
-        fill: Some((0xff6467, 0.16)),
-        stroke: None,
-    });
+    if style.fill && style.fill_opacity > 0.0 {
+        out.push(Prim::Rect {
+            a: (left, y_entry),
+            b: (right, y_target),
+            fill: Some((cfg.target_color, style.fill_opacity)),
+            stroke: None,
+        });
+        out.push(Prim::Rect {
+            a: (left, y_entry),
+            b: (right, y_stop),
+            fill: Some((cfg.stop_color, style.fill_opacity)),
+            stroke: None,
+        });
+    }
     out.push(seg(
         (left, y_entry),
         (right, y_entry),
-        0xffffff,
-        0.8,
-        1.0,
-        Dash::Solid,
+        cfg.entry_color,
+        0.9,
+        width,
+        style.dash,
     ));
     out.push(seg(
         (left, y_target),
         (right, y_target),
-        0x00d492,
+        cfg.target_color,
         1.0,
-        1.0,
+        width,
         Dash::Solid,
     ));
     out.push(seg(
         (left, y_stop),
         (right, y_stop),
-        0xff6467,
+        cfg.stop_color,
         1.0,
-        1.0,
+        width,
         Dash::Solid,
     ));
+    if !style.labels {
+        return;
+    }
 
     let pct = |price: f64| {
         if entry != 0.0 {
@@ -771,50 +821,121 @@ fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut
     } else {
         target < entry && stop > entry
     };
+    let tick = proj.tick();
+    let stats = sensible
+        .then(|| {
+            cfg.stats(
+                proj.real_price(entry),
+                proj.real_price(stop),
+                proj.real_price(target),
+                tick,
+            )
+        })
+        .flatten();
+    // The stats are the amounts and the size: shown all the time, or only while it is selected.
+    let details = selected || cfg.always_stats;
+    let ticks_of = |price: f64| {
+        if tick > 0.0 {
+            (proj.real_price(price) - proj.real_price(entry)).abs() / tick
+        } else {
+            0.0
+        }
+    };
+
+    // The words of a level tag: what the switches ask for, or one short figure when compact.
+    let level_text = |name: &str, price: f64, amount: Option<f64>| -> String {
+        let amount = amount
+            .filter(|_| cfg.show_amounts && details)
+            .map(|a| cfg.format_amount(a));
+        if cfg.compact {
+            return amount
+                .or_else(|| cfg.show_percent.then(|| format!("{:+.2}%", pct(price))))
+                .unwrap_or_else(|| proj.format_price(price));
+        }
+        let mut parts = vec![name.to_owned()];
+        if cfg.show_price {
+            parts.push(proj.format_price(price));
+        }
+        if cfg.show_percent {
+            parts.push(format!("({:+.2}%)", pct(price)));
+        }
+        if cfg.show_ticks && tick > 0.0 {
+            parts.push(format!("{} ticks", ticks_of(price).round()));
+        }
+        parts.extend(amount);
+        parts.join(" ")
+    };
+    let ink = style.text_color;
+    let (size, bold) = (style.text_size, style.bold);
+    let middle = (left + right) / 2.0;
 
     out.push(Prim::Label {
         at: (
-            (left + right) / 2.0,
+            middle,
             y_target + if y_target < y_entry { -12.0 } else { 12.0 },
         ),
-        text: format!(
-            "Target {} ({:+.2}%)",
-            proj.format_price(target),
-            pct(target)
-        ),
-        color: 0x0a0a0a,
-        background: Some((0x00d492, 0.95)),
+        text: level_text("Target", target, stats.map(|s| s.profit)),
+        color: ink.unwrap_or(0x0a0a0a),
+        background: Some((cfg.target_color, 0.95)),
         anchor: Anchor::Center,
-        size: LABEL_SIZE,
-        bold: false,
+        size,
+        bold,
     });
     out.push(Prim::Label {
-        at: (
-            (left + right) / 2.0,
-            y_stop + if y_stop < y_entry { -12.0 } else { 12.0 },
-        ),
-        text: format!("Stop {} ({:+.2}%)", proj.format_price(stop), pct(stop)),
-        color: 0x0a0a0a,
-        background: Some((0xff6467, 0.95)),
+        at: (middle, y_stop + if y_stop < y_entry { -12.0 } else { 12.0 }),
+        text: level_text("Stop", stop, stats.map(|s| -s.loss)),
+        color: ink.unwrap_or(0x0a0a0a),
+        background: Some((cfg.stop_color, 0.95)),
         anchor: Anchor::Center,
-        size: LABEL_SIZE,
-        bold: false,
+        size,
+        bold,
     });
+
+    let name = if long { "Long" } else { "Short" };
+    let entry_text = if !sensible {
+        "Stop and target are on the wrong sides".to_owned()
+    } else {
+        let mut parts = vec![name.to_owned()];
+        if let Some(stats) = stats.filter(|_| details) {
+            if cfg.show_qty {
+                let capped = if stats.capped && !cfg.compact {
+                    " (leverage)"
+                } else {
+                    ""
+                };
+                parts.push(if cfg.compact {
+                    cfg.format_qty(stats.qty)
+                } else {
+                    format!("Qty {}{capped}", cfg.format_qty(stats.qty))
+                });
+            }
+            if cfg.show_ratio {
+                parts.push(if cfg.compact {
+                    format!("{ratio:.1}R")
+                } else {
+                    format!("R/R {ratio:.2}")
+                });
+            }
+            if cfg.show_risk && !cfg.compact {
+                parts.push(format!("Risk {}", cfg.format_plain(stats.risk_amount)));
+            }
+        } else if cfg.show_ratio {
+            parts.push(if cfg.compact {
+                format!("{ratio:.1}R")
+            } else {
+                format!("R/R {ratio:.2}")
+            });
+        }
+        parts.join(" | ")
+    };
     out.push(Prim::Label {
-        at: ((left + right) / 2.0, y_entry),
-        text: if sensible {
-            format!(
-                "{}  Risk/Reward {ratio:.2}",
-                if long { "Long" } else { "Short" }
-            )
-        } else {
-            "Stop and target are on the wrong sides".to_owned()
-        },
-        color: 0xffffff,
+        at: (middle, y_entry),
+        text: entry_text,
+        color: ink.unwrap_or(0xffffff),
         background: Some((0x2a2a2a, 0.95)),
         anchor: Anchor::Center,
-        size: LABEL_SIZE,
-        bold: false,
+        size,
+        bold,
     });
 }
 
@@ -1084,6 +1205,24 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn the_opacity_fades_the_lines_and_leaves_the_rest() {
+        let mut d = drawing(Tool::TrendLine, &[(100, 100.0), (400, 300.0)]);
+        d.style.opacity = 0.5;
+        let Prim::Segment { alpha, .. } = prims(&d, &Linear)[0] else {
+            panic!("a segment");
+        };
+        assert!((alpha - 0.5).abs() < 1e-6);
+
+        // The outline of a box fades too, its fill has an opacity of its own.
+        let mut rect = drawing(Tool::Rectangle, &[(100, 100.0), (400, 300.0)]);
+        rect.style.opacity = 0.4;
+        let faded = prims(&rect, &Linear).into_iter().any(|prim| {
+            matches!(prim, Prim::Rect { stroke: Some((_, alpha)), .. } if alpha <= 0.4 + 1e-6)
+        });
+        assert!(faded);
+    }
+
+    #[test]
     fn a_horizontal_line_spans_the_plot_and_says_its_price() {
         let d = drawing(Tool::HorizontalLine, &[(300, 250.0)]);
         let shapes = prims(&d, &Linear);
@@ -1196,10 +1335,7 @@ pub(super) mod tests {
                 _ => None,
             })
             .collect();
-        assert!(
-            labels.iter().any(|t| t.contains("Risk/Reward 3.00")),
-            "{labels:?}"
-        );
+        assert!(labels.iter().any(|t| t.contains("R/R 3.00")), "{labels:?}");
         assert!(
             labels
                 .iter()
@@ -1225,8 +1361,119 @@ pub(super) mod tests {
             &[(100, 100.0), (100, 110.0), (100, 80.0), (400, 100.0)],
         );
         assert!(prims(&short, &Linear).iter().any(|s| matches!(
-            s, Prim::Label { text, .. } if text.contains("Short  Risk/Reward 2.00")
+            s, Prim::Label { text, .. } if text.starts_with("Short | Qty") && text.contains("R/R 2.00")
         )));
+    }
+
+    /// The words of the labels of a position, from top to bottom of the list.
+    fn position_labels(d: &Drawing, selected: bool) -> Vec<String> {
+        prims_with(d, &Linear, selected)
+            .into_iter()
+            .filter_map(|s| match s {
+                Prim::Label { text, .. } => Some(text),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn long_position() -> Drawing {
+        // Entry 100, stop 90, target 130: with the defaults, 1% of 10 000 risked over 10 is 10
+        // units, so the stop loses 100 and the target gains 300.
+        drawing(
+            Tool::LongPosition,
+            &[(100, 100.0), (100, 90.0), (100, 130.0), (400, 100.0)],
+        )
+    }
+
+    #[test]
+    fn a_position_writes_its_size_and_its_money() {
+        let labels = position_labels(&long_position(), true);
+        assert!(
+            labels
+                .iter()
+                .any(|t| t == "Long | Qty 10 | R/R 3.00 | Risk 100.00"),
+            "{labels:?}"
+        );
+        assert!(labels.iter().any(|t| t.ends_with("+300.00")), "{labels:?}");
+        assert!(labels.iter().any(|t| t.ends_with("-100.00")), "{labels:?}");
+    }
+
+    #[test]
+    fn the_switches_choose_what_a_position_writes() {
+        let mut d = long_position();
+        d.style.position.show_qty = false;
+        d.style.position.show_risk = false;
+        d.style.position.show_amounts = false;
+        d.style.position.show_price = false;
+        let labels = position_labels(&d, true);
+        assert!(labels.iter().any(|t| t == "Long | R/R 3.00"), "{labels:?}");
+        assert!(labels.iter().any(|t| t == "Target (+30.00%)"), "{labels:?}");
+
+        // Compact: one short figure per tag.
+        let mut d = long_position();
+        d.style.position.compact = true;
+        let labels = position_labels(&d, true);
+        assert!(labels.iter().any(|t| t == "Long | 10 | 3.0R"), "{labels:?}");
+        assert!(labels.iter().any(|t| t == "+300.00"), "{labels:?}");
+        assert!(labels.iter().any(|t| t == "-100.00"), "{labels:?}");
+
+        // A currency follows the amounts.
+        let mut d = long_position();
+        d.style.position.currency = "USD".to_owned();
+        assert!(
+            position_labels(&d, true)
+                .iter()
+                .any(|t| t.ends_with("+300.00 USD"))
+        );
+    }
+
+    #[test]
+    fn stats_can_wait_for_the_position_to_be_selected() {
+        let mut d = long_position();
+        d.style.position.always_stats = false;
+        let idle = position_labels(&d, false);
+        assert!(idle.iter().any(|t| t == "Long | R/R 3.00"), "{idle:?}");
+        assert!(
+            !idle
+                .iter()
+                .any(|t| t.contains("Qty") || t.ends_with("+300.00"))
+        );
+        let picked = position_labels(&d, true);
+        assert!(picked.iter().any(|t| t.contains("Qty 10")), "{picked:?}");
+    }
+
+    #[test]
+    fn a_position_takes_its_colors_and_lines_from_its_settings() {
+        let mut d = long_position();
+        d.style.position.target_color = 0x123456;
+        d.style.position.stop_color = 0x654321;
+        d.style.width = 3.0;
+        d.style.fill_opacity = 0.5;
+        let shapes = prims(&d, &Linear);
+        let fills: Vec<(u32, f32)> = shapes
+            .iter()
+            .filter_map(|s| match s {
+                Prim::Rect {
+                    fill: Some(fill), ..
+                } => Some(*fill),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fills, vec![(0x123456, 0.5), (0x654321, 0.5)]);
+        assert!(shapes.iter().any(|s| matches!(
+            s, Prim::Segment { color: 0x123456, width, .. } if *width == 3.0
+        )));
+
+        // No background, no tags.
+        d.style.fill = false;
+        d.style.labels = false;
+        let bare = prims(&d, &Linear);
+        assert!(
+            !bare
+                .iter()
+                .any(|s| matches!(s, Prim::Rect { .. } | Prim::Label { .. }))
+        );
+        assert_eq!(bare.len(), 3, "the three lines are left");
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //! pane of their own, the volume profile of the bars on screen, and their values on the axis.
 
 use super::super::data::Series;
+use super::super::drawing::model::Dash;
 use super::super::study::profile::{self, Slice};
 use super::super::study::{
     DOWN_COLOR, FillOut, PlotKind, PlotOut, StudyConfig, StudyKind, StudyOutput, UP_COLOR,
@@ -133,8 +134,8 @@ fn draw_plot(
                 out.push(Cmd::Stroke {
                     points,
                     width: style.width,
-                    color: rgb_alpha(style.color, 1.0),
-                    dash: None,
+                    color: rgb_alpha(style.color, style.opacity),
+                    dash: dash_pattern(style.dash),
                 });
             }
         }
@@ -150,7 +151,7 @@ fn draw_plot(
                         y: y - r,
                         w: r * 2.0,
                         h: r * 2.0,
-                        fill: rgb_alpha(style.color, 1.0),
+                        fill: rgb_alpha(style.color, style.opacity),
                         border: None,
                         radius: r,
                     });
@@ -190,12 +191,21 @@ fn draw_plot(
                     y: y.min(zero),
                     w: width,
                     h: (y - zero).abs().max(1.0 / cx.f.scale),
-                    fill: rgb_alpha(color, 0.6),
+                    fill: rgb_alpha(color, 0.6 * style.opacity),
                     border: None,
                     radius: 0.0,
                 });
             }
         }
+    }
+}
+
+/// The dash and gap lengths of a line style, in pixels; none for a solid line.
+fn dash_pattern(dash: Dash) -> Option<[f32; 2]> {
+    match dash {
+        Dash::Solid => None,
+        Dash::Dashed => Some([6.0, 4.0]),
+        Dash::Dotted => Some([2.0, 3.0]),
     }
 }
 

@@ -345,6 +345,22 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
         }
     });
 
+    // A right click gives up a drawing being made and opens no menu. The menu listens on the way
+    // back up and would get the click first, so this one takes it on the way down and stops it
+    // there. With no drawing to give up it lets the click through, and the menu opens as usual.
+    let (e, h) = (entity.clone(), hitbox.clone());
+    window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+        if phase != gpui::DispatchPhase::Capture
+            || event.button != MouseButton::Right
+            || !h.is_hovered(window)
+        {
+            return;
+        }
+        if e.update(cx, |chart, cx| chart.abort_drawing(cx)) {
+            cx.stop_propagation();
+        }
+    });
+
     let (e, h) = (entity.clone(), hitbox.clone());
     window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
         if phase != gpui::DispatchPhase::Bubble {

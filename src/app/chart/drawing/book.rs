@@ -4,9 +4,14 @@
 //! [`Projection`], and drawings come out. That keeps the fiddly parts (which click places which
 //! point, what a drag moves, what undo restores) testable without a screen.
 //!
-//! Making a drawing takes one click for a single-point tool, and for the others either a click
-//! per point or a press-drag-release for the first two. A brush is drawn by dragging. When a
-//! drawing is finished it is selected and the tool goes back to the plain pointer.
+//! One rule makes a drawing, for every tool: a point lands where the pointer is when the button is
+//! let go. A click places it there, and a press that is dragged and released places it at the end
+//! of the drag, so each point of a many-point drawing can be either. The first point is the
+//! exception in timing only: it lands where the button goes down, and a drag from it places the
+//! second at the release. A single-point tool places on the press. A brush is drawn by holding the
+//! button, since a stroke has no points to place. An arrow path takes as many points as it is
+//! given and ends on a double click, Enter or Escape. Backspace takes back the last point. When
+//! a drawing is finished it is selected and the tool goes back to the plain pointer.
 //!
 //! With no tool, a press picks up whatever drawing is under the pointer (a grip to reshape it,
 //! anywhere else to move it whole). A press on nothing is left to the chart, which scrolls.
@@ -75,8 +80,17 @@ struct Creating {
     drawing: Drawing,
     /// How many points are fixed. The others follow the pointer.
     placed: usize,
-    /// Where the press that began the drawing was, until it is released.
+    /// Where the button went down, while it is held. A brush keeps here the last position that
+    /// added a point.
     press: Option<P>,
+    /// Where the last point was placed on the screen, to tell a double click on an arrow path.
+    last: Option<P>,
+    /// Whether the button is down. The next point lands where it is let go, so a click and a
+    /// press-drag-release place a point the same way.
+    holding: bool,
+    /// Whether the held press is the one that began the drawing. Its point is placed at once, so
+    /// letting go only places a second one if the press turned into a drag.
+    origin: bool,
     dragged: bool,
 }
 
@@ -214,7 +228,8 @@ impl Book {
 
     /// The tool of the drawing being made on `symbol`, how many of its points are placed, and
     /// how many it needs (none for a brush, which ends when the button is let go, or for an arrow
-    /// path, which ends on a double click, Enter or Escape).
+    /// path, which ends on a double click, Enter or Escape). While the button is down the next
+    /// point is not placed yet: it lands where the button is let go.
     pub fn progress(&self, symbol: &str) -> Option<(Tool, usize, usize)> {
         let creating = self.creating.as_ref().filter(|c| c.symbol == symbol)?;
         let tool = creating.drawing.tool;
@@ -395,38 +410,13 @@ impl Book {
         at: P,
         proj: &dyn Projection,
     ) -> Press {
-        // A drawing already begun takes this click as its next point.
+        // A drawing already begun: this press is for its next point, which lands where the button
+        // is let go (see `release`), so the pointer can still be moved to it while it is down.
         if let Some(creating) = self.creating.as_mut().filter(|c| c.symbol == symbol) {
-            if creating.drawing.tool == Tool::ArrowPath {
-                // A second click on the last point (a double click) ends the path.
-                let close = creating.press.is_some_and(|last| {
-                    ((at.0 - last.0).powi(2) + (at.1 - last.1).powi(2)).sqrt() < 4.0
-                });
-                if close || creating.placed >= MAX_PATH_POINTS {
-                    if let Some(done) = self.creating.take() {
-                        self.finish_path(done);
-                    }
-                    return Press::Taken;
-                }
-                creating.drawing.points[creating.placed] = point;
-                creating.placed += 1;
-                creating.drawing.points.push(point);
-                creating.press = Some(at);
-                creating.dragged = false;
-                return Press::Taken;
-            }
-            creating.drawing.points[creating.placed] = point;
-            creating.placed += 1;
-            for later in creating.placed..creating.drawing.points.len() {
-                creating.drawing.points[later] = point;
-            }
             creating.press = Some(at);
+            creating.holding = true;
+            creating.origin = false;
             creating.dragged = false;
-            if creating.placed >= tool.anchors()
-                && let Some(done) = self.creating.take()
-            {
-                self.commit(symbol, done.drawing);
-            }
             return Press::Taken;
         }
         if tool.is_position() {
@@ -448,10 +438,99 @@ impl Book {
                 drawing,
                 placed: 1,
                 press: Some(at),
+                last: Some(at),
+                holding: true,
+                origin: true,
                 dragged: false,
             });
         }
         Press::Taken
+    }
+
+    /// Fixes the next point of the drawing being made at `point`, and finishes the drawing when
+    /// that was its last one. `at` is where it is on the screen.
+    fn place_point(&mut self, symbol: &str, point: Point, at: P) {
+        let Some(creating) = self.creating.as_mut().filter(|c| c.symbol == symbol) else {
+            return;
+        };
+        creating.drawing.points[creating.placed] = point;
+        creating.placed += 1;
+        creating.last = Some(at);
+        if creating.drawing.tool == Tool::ArrowPath {
+            // One more point to follow the pointer, until the path is ended.
+            creating.drawing.points.push(point);
+            if creating.placed >= MAX_PATH_POINTS
+                && let Some(done) = self.creating.take()
+            {
+                self.finish_path(done);
+            }
+            return;
+        }
+        for later in creating.placed..creating.drawing.points.len() {
+            creating.drawing.points[later] = point;
+        }
+        if creating.placed >= creating.drawing.tool.anchors()
+            && let Some(done) = self.creating.take()
+        {
+            self.commit(symbol, done.drawing);
+        }
+    }
+
+    /// Enter: ends an arrow path with the points it has. The other tools have a number of points
+    /// to place, so they go on waiting. Returns whether it did anything.
+    pub fn finish(&mut self) -> bool {
+        if self
+            .creating
+            .as_ref()
+            .is_some_and(|c| c.drawing.tool == Tool::ArrowPath)
+            && let Some(done) = self.creating.take()
+        {
+            self.finish_path(done);
+            return true;
+        }
+        false
+    }
+
+    /// Backspace while a drawing is being made: takes back the last point placed, or gives the
+    /// drawing up when only its first is. Returns whether a drawing was being made.
+    pub fn remove_last_point(&mut self) -> bool {
+        let Some(creating) = self.creating.as_mut() else {
+            return false;
+        };
+        if creating.placed <= 1 || creating.drawing.tool.is_freehand() {
+            self.creating = None;
+            return true;
+        }
+        creating.placed -= 1;
+        creating.last = None;
+        creating.holding = false;
+        creating.origin = false;
+        if creating.drawing.tool == Tool::ArrowPath {
+            creating.drawing.points.pop();
+        } else {
+            // The point taken back follows the pointer again, like the ones after it.
+            let follower = creating.drawing.points[creating.placed];
+            for later in creating.placed..creating.drawing.points.len() {
+                creating.drawing.points[later] = follower;
+            }
+        }
+        true
+    }
+
+    /// Whether a drawing is being made, point by point or by a stroke.
+    pub fn is_creating(&self) -> bool {
+        self.creating.is_some()
+    }
+
+    /// A right click while a drawing is being made on `symbol`: drops it, whatever it has, and
+    /// keeps the tool. Returns whether there was one. With nothing to drop it does nothing, so the
+    /// right click is left for its usual menu.
+    pub fn abort(&mut self, symbol: &str) -> bool {
+        if self.creating.as_ref().is_some_and(|c| c.symbol == symbol) {
+            self.creating = None;
+            return true;
+        }
+        false
     }
 
     fn press_to_edit(
@@ -641,29 +720,45 @@ impl Book {
                 }
                 return true;
             }
-            // A drag from the first point finishes the second, as a click on it would.
-            let dragged = self
-                .creating
-                .as_ref()
-                .is_some_and(|c| c.dragged && c.placed == 1);
-            if dragged {
-                self.move_creating(proj, x, y);
-                if let Some(tool) = self.tool
-                    && let Some(point) = proj.point_at(x, y, self.magnet)
-                {
-                    self.press_with_tool(symbol, tool, point, (x, y), proj);
+            // A point lands where the button is let go, whether the press was a click or a drag:
+            // that is the one rule for every tool.
+            let magnet = self.magnet;
+            let Some(creating) = self.creating.as_mut() else {
+                return false;
+            };
+            if !std::mem::take(&mut creating.holding) {
+                return false;
+            }
+            let (origin, dragged) = (creating.origin, creating.dragged);
+            creating.origin = false;
+            creating.dragged = false;
+            creating.press = None;
+            // The press that began the drawing already placed its point. Unless it was dragged,
+            // it was a click, and the next point waits for the next one.
+            if origin && !dragged {
+                return false;
+            }
+            // A click on the last point of an arrow path (a double click) ends it. Deciding it
+            // here, and not on the press, leaves a drag that starts on the last point free to go
+            // on to the next.
+            let on_last = creating
+                .last
+                .is_some_and(|last| ((x - last.0).powi(2) + (y - last.1).powi(2)).sqrt() < 4.0);
+            if creating.drawing.tool == Tool::ArrowPath && !dragged && on_last {
+                if let Some(done) = self.creating.take() {
+                    self.finish_path(done);
                 }
                 return true;
             }
-            // An arrow path keeps where its last point is, to tell a double click.
-            if let Some(creating) = self
-                .creating
-                .as_mut()
-                .filter(|c| c.drawing.tool != Tool::ArrowPath)
-            {
-                creating.press = None;
+            // Off the plot there is no point under the pointer: the drawing keeps the last one it
+            // followed.
+            let point = proj
+                .point_at(x, y, magnet)
+                .or_else(|| creating.drawing.points.get(creating.placed).copied());
+            if let Some(point) = point {
+                self.place_point(symbol, point, (x, y));
             }
-            return false;
+            return true;
         }
         if let Some(editing) = self.editing.take() {
             let changed = self
@@ -1338,6 +1433,160 @@ mod tests {
         book.release(SYMBOL, &Linear, x + 2.0, y + 1.0);
         assert_eq!(book.count(SYMBOL), 0, "still waiting for the second click");
         assert!(book.creating(SYMBOL).is_some());
+    }
+
+    /// Presses at `from`, moves to `to` in steps, and lets go there.
+    fn drag(book: &mut Book, from: (f32, f32), to: (f32, f32)) {
+        let (x0, y0) = at(from.0, from.1);
+        book.press(SYMBOL, TF, &Linear, x0, y0);
+        for step in 1..=4 {
+            let k = step as f32 / 4.0;
+            let (x, y) = at(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k);
+            book.pointer_moved(SYMBOL, &Linear, x, y, false);
+        }
+        let (x1, y1) = at(to.0, to.1);
+        book.release(SYMBOL, &Linear, x1, y1);
+    }
+
+    #[test]
+    fn every_point_of_a_many_point_drawing_can_be_a_drag_or_a_click() {
+        // Two drags: the first places two points, the second one more.
+        let mut book = book();
+        book.set_tool(Some(Tool::ParallelChannel));
+        drag(&mut book, (60.0, 100.0), (360.0, 200.0));
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(2));
+        // The point is where the pointer is let go, not where it went down.
+        drag(&mut book, (360.0, 200.0), (300.0, 40.0));
+        assert_eq!(book.count(SYMBOL), 1);
+        let channel = &book.drawings(SYMBOL)[0];
+        assert_eq!(channel.points[1].t, 360_000);
+        assert_eq!(
+            channel.points[2],
+            Point {
+                t: 300_000,
+                p: 40.0
+            }
+        );
+
+        // A drag, then a click for the last point.
+        let mut book = self::book();
+        book.set_tool(Some(Tool::ParallelChannel));
+        drag(&mut book, (60.0, 100.0), (360.0, 200.0));
+        click(&mut book, 240.0, 30.0);
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points[2].p, 30.0);
+    }
+
+    #[test]
+    fn a_middle_point_is_not_placed_until_the_button_is_let_go() {
+        let mut book = book();
+        book.set_tool(Some(Tool::Abcd));
+        click(&mut book, 60.0, 100.0);
+        drag(&mut book, (150.0, 150.0), (200.0, 220.0));
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(2));
+        assert_eq!(book.creating(SYMBOL).unwrap().points[1].p, 220.0);
+
+        // Held down, the point has not landed yet.
+        let (x, y) = at(300.0, 120.0);
+        book.press(SYMBOL, TF, &Linear, x, y);
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(2));
+        book.release(SYMBOL, &Linear, x, y);
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(3));
+    }
+
+    #[test]
+    fn dragging_places_the_points_of_an_arrow_path_too() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ArrowPath));
+        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
+        drag(&mut book, (200.0, 180.0), (320.0, 120.0));
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(3));
+        assert!(book.finish());
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
+    }
+
+    #[test]
+    fn enter_ends_an_arrow_path_and_leaves_the_other_tools_waiting() {
+        let mut book = book();
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 100.0);
+        assert!(!book.finish(), "a line still needs its second point");
+        assert!(book.creating(SYMBOL).is_some());
+
+        book.set_tool(Some(Tool::ArrowPath));
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 200.0, 180.0);
+        assert!(book.finish());
+        assert_eq!(book.count(SYMBOL), 1);
+        assert!(!book.is_creating());
+        assert!(!book.finish(), "nothing left to end");
+    }
+
+    #[test]
+    fn backspace_takes_back_the_last_point_then_gives_up_the_drawing() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ParallelChannel));
+        assert!(!book.remove_last_point(), "nothing is being made");
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 360.0, 200.0);
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(2));
+        assert!(book.remove_last_point());
+        assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(1));
+        // The drawing goes on from the first point.
+        click(&mut book, 240.0, 150.0);
+        click(&mut book, 300.0, 40.0);
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points[1].t, 240_000);
+
+        book.set_tool(Some(Tool::ArrowPath));
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 200.0, 180.0);
+        click(&mut book, 320.0, 120.0);
+        assert!(book.remove_last_point());
+        assert!(book.finish());
+        assert_eq!(book.drawings(SYMBOL)[1].points.len(), 2);
+
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 100.0);
+        assert!(book.remove_last_point(), "only the first point: gives up");
+        assert!(!book.is_creating());
+    }
+
+    #[test]
+    fn a_right_click_drops_the_drawing_being_made_and_only_that() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ArrowPath));
+        assert!(
+            !book.abort(SYMBOL),
+            "nothing is being made: the menu is free"
+        );
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 200.0, 180.0);
+        assert!(
+            !book.abort("EURUSD"),
+            "another symbol's drawing is not this one"
+        );
+        assert!(book.abort(SYMBOL));
+        assert!(!book.is_creating());
+        assert_eq!(
+            book.count(SYMBOL),
+            0,
+            "dropped, not finished like Escape does"
+        );
+        assert_eq!(book.tool(), Some(Tool::ArrowPath), "the tool stays");
+        assert!(!book.abort(SYMBOL), "the next right click is free again");
+    }
+
+    #[test]
+    fn a_double_click_still_ends_an_arrow_path_made_by_dragging() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ArrowPath));
+        drag(&mut book, (60.0, 100.0), (200.0, 180.0));
+        click(&mut book, 320.0, 120.0);
+        click(&mut book, 320.0, 120.0);
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 3);
     }
 
     #[test]

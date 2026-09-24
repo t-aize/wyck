@@ -334,6 +334,8 @@ impl Render for ConnectionFlow {
             // Dialogs and notices of gpui-component draw in these layers, over everything.
             .children(Root::render_sheet_layer(window, cx))
             .children(Root::render_dialog_layer(window, cx))
+            // The settings panels, over the dialogs and under the notices.
+            .child(super::modal::host(cx))
             .children(Root::render_notification_layer(window, cx))
     }
 }

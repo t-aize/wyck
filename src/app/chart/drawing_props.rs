@@ -1,25 +1,27 @@
 //! The settings of one drawing: its look (lines, fill, levels, extension), its words, the exact
-//! place of its points, and the timeframes it shows on.
+//! place of its points, and where it shows.
 //!
-//! Every change shows on the charts at once. Closing the dialog keeps the changes as one undo
-//! step; Cancel puts the drawing back as it was.
+//! Every change shows on the charts at once. OK keeps the changes as one undo step, Cancel puts
+//! the drawing back as it was, and Escape or the close button keep them.
 
 use gpui::prelude::*;
-use gpui::{App, Context, Entity, SharedString, Subscription, Window, div, px};
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::switch::Switch;
-use gpui_kit::component::{Disableable, Sizable, WindowExt};
+use gpui_kit::component::{Disableable, Sizable};
 use wyck::openapi::market::PRICE_SCALE;
 
 use super::drawing::Drawings;
 use super::drawing::extras::{ICONS, icon_key};
 use super::drawing::figures::wave_names;
 use super::drawing::model::{DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label};
+use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
-use crate::app::{theme, widgets};
+use crate::app::settings_ui::{self as ui, Head};
+use crate::app::{modal, theme, widgets};
 
 /// Opens the settings of drawing `id` of `symbol`. Prices are shown with `digits` decimals and
 /// times in `zone`.
@@ -32,102 +34,46 @@ pub fn open(
     window: &mut Window,
     cx: &mut App,
 ) {
-    // Opened once whatever asked is done updating, since the dialog reads the drawings.
+    // Opened once whatever asked is done updating, since the panel reads the drawings.
     window.defer(cx, move |window, cx| {
         let Some(drawing) = drawings.read(cx).book().get(&symbol, id).cloned() else {
             return;
         };
         let editor =
             cx.new(|cx| DrawingProps::new(drawings, symbol, &drawing, zone, digits, window, cx));
-        let title = drawing.title();
-        let (cancel, ok, closed) = (editor.clone(), editor.clone(), editor.clone());
-        let template = editor.clone();
-        let reset = editor.clone();
-        window.open_dialog(cx, move |dialog, _window, cx| {
-            let has_template = template.read(cx).has_template(cx);
-            let (cancel, ok, closed) = (cancel.clone(), ok.clone(), closed.clone());
-            let (template, reset) = (template.clone(), reset.clone());
-            dialog
-                .title(title.clone())
-                .w(px(500.))
-                .overlay_closable(false)
-                .child(editor.clone())
-                .on_close(move |_, _window, cx| closed.update(cx, |e, cx| e.finish(true, cx)))
-                .footer(
-                    div()
-                        .w_full()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            Button::new("drawing-template")
-                                .cursor_pointer()
-                                .ghost()
-                                .small()
-                                .icon(IconName::Save)
-                                .label("Save as default")
-                                .tooltip("New drawings of this tool start with this look")
-                                .on_click(move |_, _window, cx| {
-                                    template.update(cx, |e, cx| e.save_template(cx));
-                                }),
-                        )
-                        .child(
-                            Button::new("drawing-reset")
-                                .cursor_pointer()
-                                .ghost()
-                                .small()
-                                .icon(IconName::RotateCcw)
-                                .label(if has_template { "Reset" } else { "Reset look" })
-                                .tooltip("Back to the look the tool starts with")
-                                .on_click(move |_, window, cx| {
-                                    reset.update(cx, |e, cx| e.reset_style(window, cx));
-                                }),
-                        )
-                        .child(div().flex_1())
-                        .child(
-                            Button::new("drawing-cancel")
-                                .cursor_pointer()
-                                .ghost()
-                                .small()
-                                .label("Cancel")
-                                .on_click(move |_, window, cx| {
-                                    cancel.update(cx, |e, cx| e.finish(false, cx));
-                                    window.close_dialog(cx);
-                                }),
-                        )
-                        .child(
-                            Button::new("drawing-ok")
-                                .cursor_pointer()
-                                .primary()
-                                .small()
-                                .label("OK")
-                                .on_click(move |_, window, cx| {
-                                    ok.update(cx, |e, cx| e.finish(true, cx));
-                                    window.close_dialog(cx);
-                                }),
-                        ),
-                )
-        });
+        // Escape and the close button keep the changes, like OK.
+        let keep = editor.clone();
+        modal::open(
+            editor,
+            modal::Options::new(820.0, 640.0)
+                .on_dismiss(move |_window, cx| keep.update(cx, |e, cx| e.finish(true, cx))),
+            window,
+            cx,
+        );
     });
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tab {
+    Position,
     Style,
+    Levels,
     Text,
     Coordinates,
     Visibility,
 }
 
 impl Tab {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Style => "Style",
-            Self::Text => "Text",
-            Self::Coordinates => "Coordinates",
-            Self::Visibility => "Visibility",
-        }
+    fn spec(self) -> ui::Tab {
+        let (label, icon) = match self {
+            Self::Position => ("Position", IconName::Calculator),
+            Self::Style => ("Style", IconName::Palette),
+            Self::Levels => ("Levels", IconName::SlidersHorizontal),
+            Self::Text => ("Text", IconName::Type),
+            Self::Coordinates => ("Coordinates", IconName::Crosshair),
+            Self::Visibility => ("Visibility", IconName::Eye),
+        };
+        ui::Tab { label, icon }
     }
 }
 
@@ -137,6 +83,9 @@ enum Swatch {
     Line,
     Fill,
     Text,
+    Target,
+    Stop,
+    Entry,
     Level(usize),
 }
 
@@ -152,9 +101,14 @@ struct DrawingProps {
     zone: Zone,
     digits: u32,
     swatch: Option<Swatch>,
+    /// The opacity of the fill, in percent.
     opacity: Entity<InputState>,
+    /// The opacity of the lines, in percent.
+    line_opacity: Entity<InputState>,
     text_size: Entity<InputState>,
     text: Entity<TextareaState>,
+    /// The number fields of a long or short position, when the drawing is one.
+    pos: Option<PositionFields>,
     name: Entity<InputState>,
     prices: Vec<Entity<InputState>>,
     times: Vec<Entity<InputState>>,
@@ -163,6 +117,17 @@ struct DrawingProps {
     levels_changed: bool,
     _subscriptions: Vec<Subscription>,
     _level_subscriptions: Vec<Subscription>,
+}
+
+/// The fields of what a position is sized with.
+struct PositionFields {
+    account: Entity<InputState>,
+    risk: Entity<InputState>,
+    lot_size: Entity<InputState>,
+    leverage: Entity<InputState>,
+    point_value: Entity<InputState>,
+    qty_precision: Entity<InputState>,
+    currency: Entity<InputState>,
 }
 
 /// A field that calls `on_value` with its number whenever it holds a valid one.
@@ -203,6 +168,17 @@ impl DrawingProps {
                 cx,
             )
         });
+        let line_opacity = cx.new(|cx| {
+            widgets::number_state(
+                f64::from(style.opacity) * 100.0,
+                5.0,
+                100.0,
+                5.0,
+                0,
+                window,
+                cx,
+            )
+        });
         let text_size = cx.new(|cx| {
             widgets::number_state(f64::from(style.text_size), 6.0, 48.0, 1.0, 0, window, cx)
         });
@@ -216,6 +192,11 @@ impl DrawingProps {
             cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
             watch_number(&opacity, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.fill_opacity = (value / 100.0) as f32);
+            }),
+            watch_number(&line_opacity, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    d.style.opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                });
             }),
             watch_number(&text_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.text_size = value as f32);
@@ -263,6 +244,72 @@ impl DrawingProps {
                 times.push(time);
             }
         }
+        let pos = drawing.tool.is_position().then(|| {
+            let p = &drawing.style.position;
+            let account =
+                cx.new(|cx| widgets::number_state(p.account, 1.0, 1e12, 100.0, 2, window, cx));
+            let risk = cx.new(|cx| widgets::number_state(p.risk, 0.01, 1e12, 0.25, 2, window, cx));
+            let lot_size =
+                cx.new(|cx| widgets::number_state(p.lot_size, 1e-8, 1e9, 1.0, 4, window, cx));
+            let leverage =
+                cx.new(|cx| widgets::number_state(p.leverage, 1.0, 10_000.0, 1.0, 0, window, cx));
+            let point_value =
+                cx.new(|cx| widgets::number_state(p.point_value, 1e-9, 1e9, 1.0, 4, window, cx));
+            let qty_precision = cx.new(|cx| {
+                widgets::number_state(f64::from(p.qty_precision), 0.0, 8.0, 1.0, 0, window, cx)
+            });
+            let currency = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .default_value(p.currency.clone())
+                    .placeholder("USD")
+            });
+            subscriptions.push(watch_number(&account, cx, |this, value, cx| {
+                this.change(cx, |d| d.style.position.account = value.max(1.0));
+            }));
+            subscriptions.push(watch_number(&risk, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    let cap = if d.style.position.risk_percent {
+                        100.0
+                    } else {
+                        1e12
+                    };
+                    d.style.position.risk = value.clamp(0.01, cap);
+                });
+            }));
+            subscriptions.push(watch_number(&lot_size, cx, |this, value, cx| {
+                this.change(cx, |d| d.style.position.lot_size = value.max(1e-8));
+            }));
+            subscriptions.push(watch_number(&leverage, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    d.style.position.leverage = value.clamp(1.0, 10_000.0)
+                });
+            }));
+            subscriptions.push(watch_number(&point_value, cx, |this, value, cx| {
+                this.change(cx, |d| d.style.position.point_value = value.max(1e-9));
+            }));
+            subscriptions.push(watch_number(&qty_precision, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
+                });
+            }));
+            subscriptions.push(
+                cx.subscribe(&currency, |this, state, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        let value: String = state.read(cx).value().trim().chars().take(8).collect();
+                        this.change(cx, |d| d.style.position.currency = value);
+                    }
+                }),
+            );
+            PositionFields {
+                account,
+                risk,
+                lot_size,
+                leverage,
+                point_value,
+                qty_precision,
+                currency,
+            }
+        });
         let mut this = Self {
             drawings,
             symbol,
@@ -270,13 +317,19 @@ impl DrawingProps {
             tool: drawing.tool,
             before,
             finished: false,
-            tab: Tab::Style,
+            tab: if drawing.tool.is_position() {
+                Tab::Position
+            } else {
+                Tab::Style
+            },
             zone,
             digits,
             swatch: None,
             opacity,
+            line_opacity,
             text_size,
             text,
+            pos,
             name,
             prices,
             times,
@@ -402,11 +455,73 @@ impl DrawingProps {
         };
         let opacity = widgets::format_number(f64::from(drawing.style.fill_opacity) * 100.0, 0);
         let size = widgets::format_number(f64::from(drawing.style.text_size), 0);
+        let line = widgets::format_number(f64::from(drawing.style.opacity) * 100.0, 0);
         self.opacity
             .update(cx, |s, cx| s.set_value(opacity, window, cx));
+        self.line_opacity
+            .update(cx, |s, cx| s.set_value(line, window, cx));
         self.text_size
             .update(cx, |s, cx| s.set_value(size, window, cx));
+        if let Some(pos) = &self.pos {
+            let p = &drawing.style.position;
+            let texts = [
+                (&pos.account, widgets::format_number(p.account, 2)),
+                (&pos.risk, widgets::format_number(p.risk, 2)),
+                (&pos.lot_size, widgets::format_number(p.lot_size, 4)),
+                (&pos.leverage, widgets::format_number(p.leverage, 0)),
+                (&pos.point_value, widgets::format_number(p.point_value, 4)),
+                (
+                    &pos.qty_precision,
+                    widgets::format_number(f64::from(p.qty_precision), 0),
+                ),
+                (&pos.currency, p.currency.clone()),
+            ];
+            for (state, text) in texts {
+                state.update(cx, |s, cx| s.set_value(text, window, cx));
+            }
+        }
         self.make_level_fields(&drawing, window, cx);
+    }
+
+    /// What the position comes to with these settings, as rows of a card: the plan in figures.
+    fn position_result(&self, drawing: &Drawing) -> Vec<AnyElement> {
+        let p = &drawing.style.position;
+        let real = |raw: f64| raw / PRICE_SCALE as f64;
+        let tick = 10f64.powi(-(self.digits as i32));
+        let stats = drawing.points.get(2).and_then(|_| {
+            p.stats(
+                real(drawing.points[0].p),
+                real(drawing.points[1].p),
+                real(drawing.points[2].p),
+                tick,
+            )
+        });
+        let Some(stats) = stats else {
+            return vec![ui::block(ui::note(
+                "Nothing to size: the stop sits on the entry.",
+            ))];
+        };
+        let value = |text: String| div().text_size(px(13.)).text_color(theme::fg()).child(text);
+        let mut rows = vec![
+            ui::field("Quantity", None, value(p.format_qty(stats.qty))),
+            ui::field(
+                "Risk",
+                Some(if stats.capped {
+                    "Capped by the leverage: less than the risk asked for"
+                } else {
+                    "What the stop loses"
+                }),
+                value(p.format_plain(stats.loss)),
+            ),
+            ui::field("Reward", None, value(p.format_plain(stats.profit))),
+            ui::field("Risk/reward", None, value(format!("{:.2}", stats.ratio))),
+        ];
+        if stats.qty <= 0.0 {
+            rows.push(ui::block(ui::note(
+                "The quantity rounds down to nothing: lower the lot size or raise the risk.",
+            )));
+        }
+        rows
     }
 
     fn toggle_swatch(&mut self, swatch: Swatch, cx: &mut Context<Self>) {
@@ -438,6 +553,9 @@ impl DrawingProps {
                         Swatch::Line => d.style.color = color,
                         Swatch::Fill => d.style.fill_color = Some(color),
                         Swatch::Text => d.style.text_color = Some(color),
+                        Swatch::Target => d.style.position.target_color = color,
+                        Swatch::Stop => d.style.position.stop_color = color,
+                        Swatch::Entry => d.style.position.entry_color = color,
                         Swatch::Level(index) => {
                             d.levels = d.levels();
                             if let Some(level) = d.levels.get_mut(index) {
@@ -470,7 +588,14 @@ impl DrawingProps {
     }
 
     fn tabs(&self) -> Vec<Tab> {
-        let mut tabs = vec![Tab::Style];
+        let mut tabs = if self.tool.is_position() {
+            vec![Tab::Position, Tab::Style]
+        } else {
+            vec![Tab::Style]
+        };
+        if self.tool.has_levels() {
+            tabs.push(Tab::Levels);
+        }
         if self.tool.has_words() || self.tool.has_text() {
             tabs.push(Tab::Text);
         }
@@ -479,83 +604,98 @@ impl DrawingProps {
         tabs
     }
 
-    fn style_tab(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+    /// The color and opacity of the lines, with the widths and line styles the tool takes.
+    fn line_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
         let tool = drawing.tool;
         let style = &drawing.style;
         let this = cx.entity();
-        let mut body = div().flex().flex_col();
-
-        // Lines.
-        body = body.child(widgets::section("Line"));
-        let widths: Vec<String> = tool.widths().iter().map(|w| format!("{w}")).collect();
-        let width_labels: Vec<&str> = widths.iter().map(String::as_str).collect();
-        let width_index = tool
-            .widths()
-            .iter()
-            .position(|w| (w - style.width).abs() < 0.01)
-            .unwrap_or(usize::MAX);
-        let width_this = this.clone();
-        body = body.child(widgets::row(
-            "Color and width",
+        let mut rows: Vec<AnyElement> = vec![ui::field(
+            "Color",
+            Some("Opacity in percent"),
             div()
                 .flex()
                 .flex_row()
                 .items_center()
                 .gap_2()
                 .child(self.swatch(Swatch::Line, style.color, "props-line-color", cx))
-                .when(tool.has_width(), |el| {
-                    el.child(widgets::segmented(
-                        "props-width",
-                        &width_labels,
-                        width_index,
-                        move |choice, _window, cx| {
-                            width_this.update(cx, |e, cx| {
-                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
-                            });
-                        },
-                    ))
+                .child(widgets::number_field(&self.line_opacity, 96.)),
+        )];
+        if tool.has_width() {
+            let widths = tool.widths();
+            let index = widths.iter().position(|w| (w - style.width).abs() < 0.01);
+            let width_this = this.clone();
+            rows.push(ui::field(
+                "Width",
+                None,
+                ui::width_picker("props-width", &widths, index, move |choice, _window, cx| {
+                    width_this.update(cx, |e, cx| {
+                        e.change(cx, |d| d.style.width = tool.widths()[choice]);
+                    });
                 }),
-        ));
+            ));
+        }
         if tool.has_dash() {
             let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
             let index = dashes.iter().position(|d| *d == style.dash).unwrap_or(0);
             let dash_this = this.clone();
-            body = body.child(widgets::row(
-                "Style",
-                widgets::segmented(
-                    "props-dash",
-                    &["Solid", "Dashed", "Dotted"],
-                    index,
-                    move |choice, _window, cx| {
-                        dash_this
-                            .update(cx, |e, cx| e.change(cx, |d| d.style.dash = dashes[choice]));
-                    },
-                ),
+            rows.push(ui::field(
+                "Line style",
+                None,
+                ui::dash_picker("props-dash", index, move |choice, _window, cx| {
+                    dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = dashes[choice]));
+                }),
             ));
         }
         if tool.has_extend() {
-            body = body
-                .child(widgets::row(
-                    "Extend left",
-                    self.switch("props-extend-left", style.extend_left, cx, |d, on| {
-                        d.style.extend_left = on;
-                    }),
-                ))
-                .child(widgets::row(
-                    "Extend right",
-                    self.switch("props-extend-right", style.extend_right, cx, |d, on| {
-                        d.style.extend_right = on;
-                    }),
-                ));
+            rows.push(ui::field(
+                "Extend left",
+                Some("Past the first point, to the edge of the chart"),
+                self.switch("props-extend-left", style.extend_left, cx, |d, on| {
+                    d.style.extend_left = on;
+                }),
+            ));
+            rows.push(ui::field(
+                "Extend right",
+                Some("Past the last point, to the edge of the chart"),
+                self.switch("props-extend-right", style.extend_right, cx, |d, on| {
+                    d.style.extend_right = on;
+                }),
+            ));
         }
         if let Some(label) = tool.middle_label() {
-            body = body.child(widgets::row(
+            rows.push(ui::field(
                 label,
+                None,
                 self.switch("props-middle", style.middle, cx, |d, on| {
                     d.style.middle = on
                 }),
             ));
         }
+        if let Some(label) = tool.labels_switch() {
+            rows.push(ui::field(
+                label,
+                None,
+                self.switch("props-labels", style.labels, cx, |d, on| {
+                    d.style.labels = on
+                }),
+            ));
+        }
+        if tool.has_reverse() {
+            rows.push(ui::field(
+                "Reverse",
+                Some("Flips the drawing upside down"),
+                self.switch("props-reverse", drawing.reverse, cx, |d, on| d.reverse = on),
+            ));
+        }
+        ui::group(IconName::PenLine, "Line", rows)
+    }
+
+    fn style_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
+        let tool = drawing.tool;
+        let style = &drawing.style;
+        let this = cx.entity();
+        let mut page = ui::page().child(self.line_group(drawing, cx));
+
         if tool == Tool::Icon {
             let keys: Vec<&str> = ICONS.iter().map(|(key, _)| *key).collect();
             let labels: Vec<&str> = ICONS.iter().map(|(_, label)| *label).collect();
@@ -564,30 +704,21 @@ impl DrawingProps {
                 .position(|key| *key == icon_key(&drawing.text))
                 .unwrap_or(0);
             let icon_this = this.clone();
-            body = body.child(widgets::section("Icon")).child(chips(
-                "props-icon",
-                &labels,
-                &[chosen],
-                move |index, _window, cx| {
-                    let key = keys[index].to_owned();
-                    icon_this.update(cx, |e, cx| e.change(cx, |d| d.text = key));
-                },
+            page = page.child(ui::group(
+                IconName::Sparkles,
+                "Icon",
+                [ui::block(chips(
+                    "props-icon",
+                    &labels,
+                    &[chosen],
+                    move |index, _window, cx| {
+                        let key = keys[index].to_owned();
+                        icon_this.update(cx, |e, cx| e.change(cx, |d| d.text = key));
+                    },
+                ))],
             ));
         }
-        if let Some(label) = tool.labels_switch() {
-            body = body.child(widgets::row(
-                label,
-                self.switch("props-labels", style.labels, cx, |d, on| {
-                    d.style.labels = on
-                }),
-            ));
-        }
-        if tool.has_reverse() {
-            body = body.child(widgets::row(
-                "Reverse",
-                self.switch("props-reverse", drawing.reverse, cx, |d, on| d.reverse = on),
-            ));
-        }
+
         if tool.is_elliott() {
             let degree_this = this.clone();
             let names = wave_names(tool);
@@ -597,144 +728,445 @@ impl DrawingProps {
                 .take(3)
                 .map(|n| wave_label(n, drawing.degree))
                 .collect();
-            body = body
-                .child(widgets::section("Wave degree"))
-                .child(chips(
-                    "props-degree",
-                    &DEGREES,
-                    &[usize::from(drawing.degree)],
-                    move |index, _window, cx| {
-                        degree_this.update(cx, |e, cx| e.change(cx, |d| d.degree = index as u8));
-                    },
-                ))
-                .child(
-                    div()
-                        .pt_1()
-                        .text_size(px(12.))
-                        .text_color(theme::muted_fg())
-                        .child(format!("Points read {}", example.join(" "))),
-                );
+            page = page.child(ui::group(
+                IconName::Waypoints,
+                "Wave degree",
+                [
+                    ui::block(chips(
+                        "props-degree",
+                        &DEGREES,
+                        &[usize::from(drawing.degree)],
+                        move |index, _window, cx| {
+                            degree_this
+                                .update(cx, |e, cx| e.change(cx, |d| d.degree = index as u8));
+                        },
+                    )),
+                    ui::block(ui::note(format!("Points read {}", example.join(" ")))),
+                ],
+            ));
         }
 
-        // Fill.
         if tool.has_fill() {
-            body = body
-                .child(widgets::section("Background"))
-                .child(widgets::row(
-                    "Fill",
+            let mut rows = vec![ui::field(
+                "Fill",
+                Some("Colors the area inside the shape"),
+                self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
+            )];
+            if !tool.has_levels() {
+                rows.push(ui::field(
+                    "Fill color",
+                    None,
+                    self.swatch(Swatch::Fill, style.fill_color(), "props-fill-color", cx),
+                ));
+            }
+            rows.push(ui::field(
+                "Fill opacity",
+                Some("In percent"),
+                widgets::number_field(&self.opacity, 96.),
+            ));
+            page = page.child(ui::group(IconName::PaintBucket, "Background", rows));
+        }
+        page.into_any_element()
+    }
+
+    /// The inputs of a long or short position: the account, the risk, what the chart writes, and
+    /// what it all comes to.
+    fn position_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
+        let Some(pos) = &self.pos else {
+            return ui::page().into_any_element();
+        };
+        let p = &drawing.style.position;
+        let this = cx.entity();
+
+        let account = ui::group(
+            IconName::Wallet,
+            "Account",
+            [
+                ui::field(
+                    "Account size",
+                    Some("The balance the position is sized for"),
+                    widgets::number_field(&pos.account, 130.),
+                ),
+                ui::field(
+                    "Currency",
+                    Some("Written after the amounts. Empty writes none"),
+                    div().w(px(130.)).child(Input::new(&pos.currency).small()),
+                ),
+                ui::field(
+                    "Leverage",
+                    Some("Caps the quantity at account x leverage / entry price"),
+                    widgets::number_field(&pos.leverage, 130.),
+                ),
+            ],
+        );
+
+        let mode_this = this.clone();
+        let risk = ui::group(
+            IconName::ShieldAlert,
+            "Risk and size",
+            [
+                ui::field(
+                    "Risk",
+                    Some("Lost if the stop is hit"),
                     div()
                         .flex()
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .when(!tool.has_levels(), |el| {
-                            el.child(self.swatch(
-                                Swatch::Fill,
-                                style.fill_color(),
-                                "props-fill-color",
-                                cx,
-                            ))
-                        })
-                        .child(
-                            self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
-                        ),
-                ))
-                .child(widgets::row(
-                    "Opacity (%)",
-                    widgets::number_field(&self.opacity, 110.),
-                ));
-        }
+                        .child(widgets::number_field(&pos.risk, 100.))
+                        .child(widgets::segmented(
+                            "props-risk-mode",
+                            &["%", "Amount"],
+                            usize::from(!p.risk_percent),
+                            move |choice, window, cx| {
+                                mode_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| {
+                                        d.style.position.risk_percent = choice == 0;
+                                        d.style.position =
+                                            std::mem::take(&mut d.style.position).normalized();
+                                    });
+                                    e.set_fields(window, cx);
+                                });
+                            },
+                        )),
+                ),
+                ui::field(
+                    "Lot size",
+                    Some("The step the quantity is rounded down to"),
+                    widgets::number_field(&pos.lot_size, 130.),
+                ),
+                ui::field(
+                    "Quantity decimals",
+                    None,
+                    widgets::number_field(&pos.qty_precision, 130.),
+                ),
+                ui::field(
+                    "Point value",
+                    Some(
+                        "What one unit gains per 1.0 of price, in the account currency. 1 when the symbol is quoted in it",
+                    ),
+                    widgets::number_field(&pos.point_value, 130.),
+                ),
+            ],
+        );
 
-        // Levels.
-        if tool.has_levels() {
-            let levels = drawing.levels();
-            let add_this = this.clone();
-            let reset_this = this.clone();
-            body = body.child(
+        let result = ui::group(
+            IconName::Calculator,
+            "Result",
+            self.position_result(drawing),
+        );
+
+        let stat = |id: &str,
+                    label: &'static str,
+                    hint: Option<&'static str>,
+                    on: bool,
+                    cx: &mut Context<Self>,
+                    set: fn(&mut Drawing, bool)| {
+            ui::field(label, hint, self.switch(id, on, cx, set))
+        };
+        let stats = ui::group(
+            IconName::ListChecks,
+            "Written on the chart",
+            [
+                stat("pos-qty", "Quantity", None, p.show_qty, cx, |d, on| {
+                    d.style.position.show_qty = on;
+                }),
+                stat("pos-risk", "Risk", None, p.show_risk, cx, |d, on| {
+                    d.style.position.show_risk = on;
+                }),
+                stat(
+                    "pos-amounts",
+                    "Profit and loss",
+                    Some("The amounts at the target and at the stop"),
+                    p.show_amounts,
+                    cx,
+                    |d, on| d.style.position.show_amounts = on,
+                ),
+                stat(
+                    "pos-ratio",
+                    "Risk/reward ratio",
+                    None,
+                    p.show_ratio,
+                    cx,
+                    |d, on| {
+                        d.style.position.show_ratio = on;
+                    },
+                ),
+                stat(
+                    "pos-price",
+                    "Price of the levels",
+                    None,
+                    p.show_price,
+                    cx,
+                    |d, on| {
+                        d.style.position.show_price = on;
+                    },
+                ),
+                stat(
+                    "pos-percent",
+                    "Percent",
+                    Some("Distance from the entry, in percent"),
+                    p.show_percent,
+                    cx,
+                    |d, on| d.style.position.show_percent = on,
+                ),
+                stat(
+                    "pos-ticks",
+                    "Ticks",
+                    Some("Distance from the entry, in the smallest price step"),
+                    p.show_ticks,
+                    cx,
+                    |d, on| d.style.position.show_ticks = on,
+                ),
+                stat(
+                    "pos-compact",
+                    "Compact tags",
+                    Some("One short figure per tag"),
+                    p.compact,
+                    cx,
+                    |d, on| d.style.position.compact = on,
+                ),
+                stat(
+                    "pos-always",
+                    "Always show the stats",
+                    Some("Off: the quantity and the amounts show only while it is selected"),
+                    p.always_stats,
+                    cx,
+                    |d, on| d.style.position.always_stats = on,
+                ),
+            ],
+        );
+        ui::page()
+            .child(account)
+            .child(risk)
+            .child(result)
+            .child(stats)
+            .child(ui::note(
+                "The figures are a plan, not a quote: there is no exchange rate in them.",
+            ))
+            .into_any_element()
+    }
+
+    /// The look of a long or short position: its three lines, its two zones, its tags.
+    fn position_style_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
+        let tool = drawing.tool;
+        let style = &drawing.style;
+        let p = &style.position;
+        let this = cx.entity();
+
+        let widths = tool.widths();
+        let width_index = widths.iter().position(|w| (w - style.width).abs() < 0.01);
+        let width_this = this.clone();
+        let dash_this = this.clone();
+        let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
+        let dash_index = dashes.iter().position(|d| *d == style.dash).unwrap_or(0);
+        let lines = ui::group(
+            IconName::PenLine,
+            "Lines",
+            [
+                ui::field(
+                    "Width",
+                    None,
+                    ui::width_picker(
+                        "props-width",
+                        &widths,
+                        width_index,
+                        move |choice, _w, cx| {
+                            width_this.update(cx, |e, cx| {
+                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
+                            });
+                        },
+                    ),
+                ),
+                ui::field(
+                    "Entry line",
+                    None,
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(ui::dash_picker(
+                            "props-dash",
+                            dash_index,
+                            move |choice, _w, cx| {
+                                dash_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| d.style.dash = dashes[choice])
+                                });
+                            },
+                        ))
+                        .child(self.swatch(Swatch::Entry, p.entry_color, "props-entry-color", cx)),
+                ),
+                ui::field(
+                    "Target",
+                    Some("The profit line and its zone"),
+                    self.swatch(Swatch::Target, p.target_color, "props-target-color", cx),
+                ),
+                ui::field(
+                    "Stop",
+                    Some("The loss line and its zone"),
+                    self.swatch(Swatch::Stop, p.stop_color, "props-stop-color", cx),
+                ),
+            ],
+        );
+
+        let background = ui::group(
+            IconName::PaintBucket,
+            "Background",
+            [
+                ui::field(
+                    "Zones",
+                    Some("Colors the profit and the loss zones"),
+                    self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
+                ),
+                ui::field(
+                    "Zone opacity",
+                    Some("In percent"),
+                    widgets::number_field(&self.opacity, 96.),
+                ),
+            ],
+        );
+
+        let tags = ui::group(
+            IconName::Type,
+            "Tags",
+            [
+                ui::field(
+                    "Show the tags",
+                    Some("The words on the levels"),
+                    self.switch("props-labels", style.labels, cx, |d, on| {
+                        d.style.labels = on
+                    }),
+                ),
+                ui::field(
+                    "Text color",
+                    Some("Dark on the colored tags unless you pick one"),
+                    self.swatch(
+                        Swatch::Text,
+                        style.text_color.unwrap_or(0x0a0a0a),
+                        "props-text-color",
+                        cx,
+                    ),
+                ),
+                ui::field(
+                    "Text size",
+                    None,
+                    widgets::number_field(&self.text_size, 96.),
+                ),
+                ui::field(
+                    "Bold",
+                    None,
+                    self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
+                ),
+            ],
+        );
+        ui::page()
+            .child(lines)
+            .child(background)
+            .child(tags)
+            .into_any_element()
+    }
+
+    fn levels_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
+        let this = cx.entity();
+        let levels = drawing.levels();
+        let full = levels.len() >= MAX_LEVELS;
+        let (add_this, reset_this) = (this.clone(), this.clone());
+        let controls = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1()
+            .child(
+                Button::new("props-level-add")
+                    .cursor_pointer()
+                    .when(full, |button| button.cursor_not_allowed())
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::Plus)
+                    .label("Add")
+                    .disabled(full)
+                    .on_click(move |_, window, cx| {
+                        add_this.update(cx, |e, cx| e.add_level(window, cx));
+                    }),
+            )
+            .child(
+                Button::new("props-level-reset")
+                    .cursor_pointer()
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::RotateCcw)
+                    .label("Default")
+                    .on_click(move |_, window, cx| {
+                        reset_this.update(cx, |e, cx| {
+                            e.change(cx, |d| d.levels = Vec::new());
+                            e.levels_changed = true;
+                            e.set_fields(window, cx);
+                        });
+                    }),
+            )
+            .into_any_element();
+
+        let mut rows: Vec<AnyElement> = Vec::new();
+        for (index, level) in levels.iter().enumerate() {
+            let Some(field) = self.levels.get(index) else {
+                continue;
+            };
+            let remove_this = this.clone();
+            let removable = levels.len() > 1;
+            rows.push(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
-                    .child(div().flex_1().child(widgets::section("Levels")))
+                    .gap_3()
+                    .min_h(px(42.))
+                    .py_1p5()
+                    .child(self.switch(
+                        &format!("props-level-on-{index}"),
+                        level.visible,
+                        cx,
+                        move |d, on| {
+                            d.levels = d.levels();
+                            if let Some(level) = d.levels.get_mut(index) {
+                                level.visible = on;
+                            }
+                        },
+                    ))
+                    .child(widgets::number_field(field, 120.))
+                    .child(self.swatch(
+                        Swatch::Level(index),
+                        level.color,
+                        &format!("props-level-color-{index}"),
+                        cx,
+                    ))
+                    .child(div().flex_1())
                     .child(
-                        Button::new("props-level-add")
+                        Button::new(SharedString::from(format!("props-level-remove-{index}")))
                             .cursor_pointer()
-                            .when(levels.len() >= MAX_LEVELS, |button| {
-                                button.cursor_not_allowed()
-                            })
                             .ghost()
                             .xsmall()
-                            .icon(IconName::Plus)
-                            .label("Add")
-                            .disabled(levels.len() >= MAX_LEVELS)
+                            .icon(IconName::X)
+                            .tooltip("Remove this level")
+                            .disabled(!removable)
                             .on_click(move |_, window, cx| {
-                                add_this.update(cx, |e, cx| e.add_level(window, cx));
+                                remove_this.update(cx, |e, cx| e.remove_level(index, window, cx));
                             }),
                     )
-                    .child(
-                        Button::new("props-level-reset")
-                            .cursor_pointer()
-                            .ghost()
-                            .xsmall()
-                            .icon(IconName::RotateCcw)
-                            .label("Default")
-                            .on_click(move |_, window, cx| {
-                                reset_this.update(cx, |e, cx| {
-                                    e.change(cx, |d| d.levels = Vec::new());
-                                    e.levels_changed = true;
-                                    e.set_fields(window, cx);
-                                });
-                            }),
-                    ),
+                    .into_any_element(),
             );
-            let mut grid = div().flex().flex_row().flex_wrap().gap_x_4();
-            for (index, level) in levels.iter().enumerate() {
-                let Some(field) = self.levels.get(index) else {
-                    continue;
-                };
-                let remove_this = this.clone();
-                grid = grid.child(
-                    div()
-                        .w(px(220.))
-                        .h(px(34.))
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap_1p5()
-                        .child(self.switch(
-                            &format!("props-level-on-{index}"),
-                            level.visible,
-                            cx,
-                            move |d, on| {
-                                d.levels = d.levels();
-                                if let Some(level) = d.levels.get_mut(index) {
-                                    level.visible = on;
-                                }
-                            },
-                        ))
-                        .child(widgets::number_field(field, 106.))
-                        .child(self.swatch(
-                            Swatch::Level(index),
-                            level.color,
-                            &format!("props-level-color-{index}"),
-                            cx,
-                        ))
-                        .child(
-                            Button::new(SharedString::from(format!("props-level-remove-{index}")))
-                                .cursor_pointer()
-                                .ghost()
-                                .xsmall()
-                                .icon(IconName::X)
-                                .on_click(move |_, window, cx| {
-                                    remove_this
-                                        .update(cx, |e, cx| e.remove_level(index, window, cx));
-                                }),
-                        ),
-                );
-            }
-            body = body.child(grid);
         }
-        body
+        ui::page()
+            .child(ui::group_with(
+                IconName::SlidersHorizontal,
+                format!("Levels ({}/{MAX_LEVELS})", levels.len()),
+                Some(controls),
+                rows,
+            ))
+            .child(ui::note(
+                "Each level is a ratio of the move between the points. Use the switch to hide one without losing it.",
+            ))
+            .into_any_element()
     }
 
     fn add_level(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -763,66 +1195,75 @@ impl DrawingProps {
         self.set_fields(window, cx);
     }
 
-    fn text_tab(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+    fn text_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let style = &drawing.style;
-        let mut body = div().flex().flex_col();
+        let mut page = ui::page();
         if drawing.tool.has_text() {
-            body = body
-                .child(widgets::section("Words"))
-                .child(Textarea::new(&self.text).h(px(90.)));
+            page = page.child(ui::group(
+                IconName::TextCursorInput,
+                "Words",
+                [ui::block(Textarea::new(&self.text).h(px(96.)))],
+            ));
         }
-        body.child(widgets::section("Look"))
-            .child(widgets::row(
-                "Color",
-                self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
-            ))
-            .child(widgets::row(
-                "Size",
-                widgets::number_field(&self.text_size, 110.),
-            ))
-            .child(widgets::row(
-                "Bold",
-                self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
-            ))
+        page.child(ui::group(
+            IconName::Type,
+            "Font",
+            [
+                ui::field(
+                    "Color",
+                    None,
+                    self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
+                ),
+                ui::field("Size", None, widgets::number_field(&self.text_size, 96.)),
+                ui::field(
+                    "Bold",
+                    None,
+                    self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
+                ),
+            ],
+        ))
+        .into_any_element()
     }
 
-    fn coordinates_tab(&self, drawing: &Drawing) -> gpui::Div {
-        let mut body = div().flex().flex_col();
+    fn coordinates_page(&self, drawing: &Drawing) -> AnyElement {
         if drawing.tool.is_freehand() {
-            return body.child(
-                div()
-                    .py_4()
-                    .text_size(px(13.))
-                    .text_color(theme::muted_fg())
-                    .child("A freehand stroke is moved as a whole, by dragging it on the chart."),
-            );
+            return ui::empty(
+                IconName::Brush,
+                "A freehand stroke is moved as a whole, by dragging it on the chart.",
+            )
+            .into_any_element();
         }
-        body = body.child(
+        let head = |text: SharedString, width: Option<f32>| {
+            let cell = div().text_size(px(11.)).text_color(theme::muted_fg());
+            match width {
+                Some(width) => cell.w(px(width)).child(text),
+                None => cell.flex_1().child(text),
+            }
+        };
+        let mut rows: Vec<AnyElement> = vec![
             div()
                 .flex()
                 .flex_row()
                 .gap_2()
                 .pt_2()
                 .pb_1()
-                .text_size(px(11.))
-                .text_color(theme::muted_fg())
-                .child(div().w(px(110.)).child("POINT"))
-                .child(div().w(px(130.)).child("PRICE"))
-                .child(
-                    div()
-                        .flex_1()
-                        .child(format!("TIME ({})", self.zone.label(drawing.points[0].t))),
-                ),
-        );
+                .child(head("POINT".into(), Some(110.)))
+                .child(head("PRICE".into(), Some(130.)))
+                .child(head(
+                    format!("TIME ({})", self.zone.label(drawing.points[0].t)).into(),
+                    None,
+                ))
+                .into_any_element(),
+        ];
         for (index, (price, time)) in self.prices.iter().zip(&self.times).enumerate() {
             let (price_on, time_on) = point_fields(drawing.tool, index);
-            body = body.child(
+            rows.push(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(36.))
+                    .h(px(40.))
                     .child(
                         div()
                             .w(px(110.))
@@ -839,42 +1280,51 @@ impl DrawingProps {
                         div()
                             .flex_1()
                             .when(time_on, |el| el.child(Input::new(time).small())),
-                    ),
+                    )
+                    .into_any_element(),
             );
         }
-        body.child(
-            div()
-                .pt_2()
-                .text_size(px(11.))
-                .text_color(theme::muted_fg())
-                .child(format!(
-                    "Prices have {} decimals. Times are snapped to the bars when the drawing is moved.",
-                    self.digits
-                )),
-        )
+        ui::page()
+            .child(ui::group(IconName::Crosshair, "Points", rows))
+            .child(ui::note(format!(
+                "Prices have {} decimals. Times snap to the bars when the drawing is moved.",
+                self.digits
+            )))
+            .into_any_element()
     }
 
-    fn visibility_tab(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+    fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let this = cx.entity();
         let all = drawing.timeframes.is_none();
-        let mut body = div()
-            .flex()
-            .flex_col()
-            .child(widgets::section("Show"))
-            .child(widgets::row(
-                "Hidden",
-                self.switch("props-hidden", drawing.hidden, cx, |d, on| d.hidden = on),
-            ))
-            .child(widgets::row(
-                "On every timeframe",
-                self.switch("props-all-tf", all, cx, |d, on| {
-                    d.timeframes = if on { None } else { Some(every_timeframe()) };
-                }),
-            ))
-            .child(widgets::row(
-                "Name in the list of drawings",
-                div().w(px(200.)).child(Input::new(&self.name).small()),
-            ));
+        let mut page = ui::page().child(ui::group(
+            IconName::Eye,
+            "Display",
+            [
+                ui::field(
+                    "Hidden",
+                    Some("Keeps the drawing but does not show it"),
+                    self.switch("props-hidden", drawing.hidden, cx, |d, on| d.hidden = on),
+                ),
+                ui::field(
+                    "Locked",
+                    Some("Stops it from being moved, changed or deleted"),
+                    self.switch("props-locked", drawing.locked, cx, |d, on| d.locked = on),
+                ),
+                ui::field(
+                    "Name",
+                    Some("As shown in the list of drawings"),
+                    div().w(px(220.)).child(Input::new(&self.name).small()),
+                ),
+            ],
+        ));
+
+        let mut rows: Vec<AnyElement> = vec![ui::field(
+            "On every timeframe",
+            None,
+            self.switch("props-all-tf", all, cx, |d, on| {
+                d.timeframes = if on { None } else { Some(every_timeframe()) };
+            }),
+        )];
         if !all {
             let shown: Vec<String> = drawing.timeframes.clone().unwrap_or_default();
             for (group, frames) in GROUPS {
@@ -889,28 +1339,82 @@ impl DrawingProps {
                     .collect();
                 let chip_this = this.clone();
                 let codes_for_click = codes.clone();
-                body = body.child(widgets::section(group)).child(chips(
-                    &format!("props-tf-{group}"),
-                    &label_refs,
-                    &selected,
-                    move |index, _window, cx| {
-                        let code = codes_for_click[index].clone();
-                        chip_this.update(cx, |e, cx| {
-                            e.change(cx, |d| {
-                                let mut list = d.timeframes.clone().unwrap_or_default();
-                                if let Some(at) = list.iter().position(|c| *c == code) {
-                                    list.remove(at);
-                                } else {
-                                    list.push(code);
-                                }
-                                d.timeframes = Some(list);
-                            });
-                        });
-                    },
+                rows.push(ui::block(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_1p5()
+                        .child(ui::note(group))
+                        .child(chips(
+                            &format!("props-tf-{group}"),
+                            &label_refs,
+                            &selected,
+                            move |index, _window, cx| {
+                                let code = codes_for_click[index].clone();
+                                chip_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| {
+                                        let mut list = d.timeframes.clone().unwrap_or_default();
+                                        if let Some(at) = list.iter().position(|c| *c == code) {
+                                            list.remove(at);
+                                        } else {
+                                            list.push(code);
+                                        }
+                                        d.timeframes = Some(list);
+                                    });
+                                });
+                            },
+                        )),
                 ));
             }
         }
-        body
+        page = page.child(ui::group(IconName::Clock, "Timeframes", rows));
+        page.into_any_element()
+    }
+
+    /// The footer: the defaults of the tool at the left, Cancel and OK at the right.
+    fn footer(&self, cx: &mut Context<Self>) -> gpui::Div {
+        let has_template = self.has_template(cx);
+        let (template, reset, cancel, ok) = (cx.entity(), cx.entity(), cx.entity(), cx.entity());
+        ui::footer(
+            vec![
+                ui::action(
+                    "drawing-template",
+                    "Save as default",
+                    Some(IconName::Save),
+                    false,
+                    move |_window, cx| template.update(cx, |e, cx| e.save_template(cx)),
+                )
+                .tooltip("New drawings of this tool start with this look")
+                .into_any_element(),
+                ui::action(
+                    "drawing-reset",
+                    if has_template { "Reset" } else { "Reset look" },
+                    Some(IconName::RotateCcw),
+                    false,
+                    move |window, cx| reset.update(cx, |e, cx| e.reset_style(window, cx)),
+                )
+                .tooltip("Back to the look the tool starts with")
+                .into_any_element(),
+            ],
+            vec![
+                ui::action(
+                    "drawing-cancel",
+                    "Cancel",
+                    None,
+                    false,
+                    move |window, cx| {
+                        cancel.update(cx, |e, cx| e.finish(false, cx));
+                        modal::close(window, cx);
+                    },
+                )
+                .into_any_element(),
+                ui::action("drawing-ok", "OK", None, true, move |window, cx| {
+                    ok.update(cx, |e, cx| e.finish(true, cx));
+                    modal::close(window, cx);
+                })
+                .into_any_element(),
+            ],
+        )
     }
 }
 
@@ -918,9 +1422,15 @@ impl Render for DrawingProps {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(drawing) = self.current(cx) else {
             return div()
-                .py_4()
-                .text_color(theme::muted_fg())
-                .child("This drawing was removed.")
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded_xl()
+                .border_1()
+                .border_color(theme::border_subtle())
+                .bg(theme::bg())
+                .child(ui::empty(IconName::Info, "This drawing was removed."))
                 .into_any_element();
         };
         if self.levels_changed || self.levels.len() != drawing.levels().len() {
@@ -928,43 +1438,48 @@ impl Render for DrawingProps {
         }
         let tabs = self.tabs();
         if !tabs.contains(&self.tab) {
-            self.tab = Tab::Style;
+            self.tab = tabs[0];
         }
-        let labels: Vec<&str> = tabs.iter().map(|t| t.label()).collect();
-        let index = tabs.iter().position(|t| *t == self.tab).unwrap_or(0);
+        let specs: Vec<ui::Tab> = tabs.iter().map(|t| t.spec()).collect();
+        let active = tabs.iter().position(|t| *t == self.tab).unwrap_or(0);
         let this = cx.entity();
-        let content = match self.tab {
-            Tab::Style => self.style_tab(&drawing, cx),
-            Tab::Text => self.text_tab(&drawing, cx),
-            Tab::Coordinates => self.coordinates_tab(&drawing),
-            Tab::Visibility => self.visibility_tab(&drawing, cx),
+        let body = match self.tab {
+            Tab::Position => self.position_page(&drawing, cx),
+            Tab::Style if drawing.tool.is_position() => self.position_style_page(&drawing, cx),
+            Tab::Style => self.style_page(&drawing, cx),
+            Tab::Levels => self.levels_page(&drawing, cx),
+            Tab::Text => self.text_page(&drawing, cx),
+            Tab::Coordinates => self.coordinates_page(&drawing),
+            Tab::Visibility => self.visibility_page(&drawing, cx),
         };
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(widgets::segmented(
-                "props-tabs",
-                &labels,
-                index,
-                move |choice, _window, cx| {
-                    let tab = tabs[choice];
-                    this.update(cx, |e, cx| {
-                        e.tab = tab;
-                        e.swatch = None;
-                        cx.notify();
-                    });
-                },
-            ))
-            .child(
-                div()
-                    .id("props-body")
-                    .max_h(px(460.))
-                    .overflow_y_scroll()
-                    .pr_1()
-                    .child(content),
+        let head = Head {
+            icon: tool_icon(drawing.tool),
+            title: drawing.title().into(),
+            subtitle: format!(
+                "{}{}",
+                self.symbol,
+                if drawing.locked { " - locked" } else { "" }
             )
-            .into_any_element()
+            .into(),
+        };
+        let footer = self.footer(cx);
+        ui::frame(
+            head,
+            &specs,
+            active,
+            move |index, _window, cx| {
+                let tab = tabs[index];
+                this.update(cx, |e, cx| {
+                    e.tab = tab;
+                    e.swatch = None;
+                    cx.notify();
+                });
+            },
+            modal::dismiss,
+            body,
+            footer,
+        )
+        .into_any_element()
     }
 }
 

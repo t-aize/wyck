@@ -530,6 +530,17 @@ impl MultiChart {
         });
     }
 
+    /// Whether a drawing is being made on any chart, for the keys that only mean something then.
+    pub fn drawing_in_progress(&self, cx: &gpui::App) -> bool {
+        self.drawings.read(cx).book().is_creating()
+    }
+
+    /// Enter: ends an arrow path with the points it has. Returns whether it did.
+    pub fn finish_drawing(&mut self, cx: &mut Context<Self>) -> bool {
+        self.drawings
+            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.finish()))
+    }
+
     /// Escape: gives up what the drawing tools have in progress. Returns whether there was any.
     pub fn cancel_drawing(&mut self, cx: &mut Context<Self>) -> bool {
         if self.flyout.take().is_some() {
@@ -569,8 +580,12 @@ impl MultiChart {
         });
     }
 
+    /// Delete and Backspace: take back the last point of a drawing being made, or else delete the
+    /// selected drawing.
     pub fn delete_drawing(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.delete_selected(symbol));
+        self.edit_book(cx, |book, symbol| {
+            book.remove_last_point() || book.delete_selected(symbol)
+        });
     }
 
     pub fn undo_drawing(&mut self, cx: &mut Context<Self>) {

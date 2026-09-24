@@ -17,6 +17,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::drawing::model::Dash;
+
 /// The indicators on offer. The names are written in saved files and never change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -643,10 +645,20 @@ pub struct PlotStyle {
     pub width: f32,
     #[serde(default = "yes")]
     pub visible: bool,
+    /// How opaque the plot is, from 0 to 1.
+    #[serde(default = "opaque")]
+    pub opacity: f32,
+    /// The line style of a line plot.
+    #[serde(default)]
+    pub dash: Dash,
 }
 
 fn yes() -> bool {
     true
+}
+
+fn opaque() -> f32 {
+    1.0
 }
 
 /// One indicator on a chart, as the user set it. Also its saved form.
@@ -716,7 +728,17 @@ impl StudyConfig {
                     color: plot.color,
                     width: plot.width,
                     visible: true,
+                    opacity: opaque(),
+                    dash: Dash::Solid,
                 });
+            let style = PlotStyle {
+                opacity: if style.opacity.is_finite() {
+                    style.opacity.clamp(0.05, 1.0)
+                } else {
+                    opaque()
+                },
+                ..style
+            };
             plots.insert(plot.key.to_owned(), style);
         }
         self.plots = plots;
@@ -756,6 +778,8 @@ impl StudyConfig {
                 color: plot.map_or(GRAY, |p| p.color),
                 width: plot.map_or(1.0, |p| p.width),
                 visible: true,
+                opacity: opaque(),
+                dash: Dash::Solid,
             }
         })
     }
@@ -1262,5 +1286,29 @@ mod tests {
         let out = compute(&StudyConfig::new(StudyKind::Ichimoku), &input(200));
         let offsets: Vec<i64> = out.plots.iter().map(|p| p.offset).collect();
         assert_eq!(offsets, vec![0, 0, -25, 25, 25]);
+    }
+
+    #[test]
+    fn a_plot_saved_before_opacity_and_line_style_loads_opaque_and_solid() {
+        let old: PlotStyle = toml::from_str(
+            "color = 255
+width = 2.0
+",
+        )
+        .unwrap();
+        assert_eq!(old.opacity, 1.0);
+        assert_eq!(old.dash, Dash::Solid);
+        assert!(old.visible);
+
+        let mut config = StudyConfig::new(StudyKind::Sma);
+        let key = config.spec().plots[0].key;
+        config.plots.insert(
+            key.to_owned(),
+            PlotStyle {
+                opacity: 9.0,
+                ..old
+            },
+        );
+        assert_eq!(config.normalized().plot_style(key).opacity, 1.0);
     }
 }

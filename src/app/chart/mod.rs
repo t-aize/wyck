@@ -60,6 +60,7 @@ pub mod raster;
 pub mod scene;
 pub mod settings;
 pub mod study;
+mod study_settings;
 mod study_ui;
 mod timeframe;
 pub mod transform;
@@ -97,6 +98,7 @@ gpui::actions!(
         ChartLatest,
         ChartResetScale,
         DeleteDrawing,
+        FinishDrawing,
         UndoDrawing,
         RedoDrawing,
         DuplicateDrawing,
@@ -117,6 +119,8 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-r", ChartResetScale, Some("Dashboard")),
         KeyBinding::new("delete", DeleteDrawing, Some("Dashboard")),
         KeyBinding::new("backspace", DeleteDrawing, Some("Dashboard")),
+        // Only while a drawing is being made, so Enter is left alone the rest of the time.
+        KeyBinding::new("enter", FinishDrawing, Some("DrawingInProgress")),
         KeyBinding::new("secondary-z", UndoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-shift-z", RedoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-y", RedoDrawing, Some("Dashboard")),

@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::position::PositionSettings;
+
 const SCHEMA_VERSION: u32 = 1;
 
 /// The most drawings kept for one symbol, and the most points in one brush stroke. A guard
@@ -786,6 +788,9 @@ pub struct Style {
     pub width: f32,
     #[serde(default)]
     pub dash: Dash,
+    /// How opaque the lines are, from 0 to 1. The fill and the words have their own.
+    #[serde(default = "default_line_opacity")]
+    pub opacity: f32,
     /// Whether closed shapes are filled.
     #[serde(default = "yes")]
     pub fill: bool,
@@ -815,6 +820,10 @@ pub struct Style {
     /// Whether the extra line of the tool shows (see [`Tool::middle_label`]).
     #[serde(default = "yes")]
     pub middle: bool,
+    /// What a long or short position is sized and told with. Kept in one piece, and left out of
+    /// the saved form when it is the default, so the other tools carry nothing of it.
+    #[serde(default, skip_serializing_if = "PositionSettings::is_default")]
+    pub position: PositionSettings,
 }
 
 fn default_color() -> u32 {
@@ -827,6 +836,10 @@ fn default_width() -> f32 {
 
 fn default_opacity() -> f32 {
     0.15
+}
+
+fn default_line_opacity() -> f32 {
+    1.0
 }
 
 fn default_text_size() -> f32 {
@@ -843,6 +856,7 @@ impl Default for Style {
             color: default_color(),
             width: default_width(),
             dash: Dash::Solid,
+            opacity: default_line_opacity(),
             fill: true,
             fill_color: None,
             fill_opacity: default_opacity(),
@@ -853,6 +867,7 @@ impl Default for Style {
             bold: false,
             labels: true,
             middle: true,
+            position: PositionSettings::default(),
         }
     }
 }
@@ -876,6 +891,10 @@ impl Style {
             self.width = default_width();
         }
         self.width = self.width.min(40.0);
+        if !self.opacity.is_finite() {
+            self.opacity = default_line_opacity();
+        }
+        self.opacity = self.opacity.clamp(0.05, 1.0);
         if !self.fill_opacity.is_finite() {
             self.fill_opacity = default_opacity();
         }
@@ -884,6 +903,7 @@ impl Style {
             self.text_size = default_text_size();
         }
         self.text_size = self.text_size.min(48.0);
+        self.position = std::mem::take(&mut self.position).normalized();
         self
     }
 }
@@ -1394,6 +1414,28 @@ impl DrawingsDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_style_saved_before_opacity_is_fully_opaque_and_the_opacity_is_kept_in_range() {
+        let old: Style = toml::from_str(
+            "color = 255
+",
+        )
+        .unwrap();
+        assert_eq!(old.opacity, 1.0);
+        let wild = Style {
+            opacity: 7.0,
+            ..Style::default()
+        }
+        .normalized();
+        assert_eq!(wild.opacity, 1.0);
+        let faint = Style {
+            opacity: 0.0,
+            ..Style::default()
+        }
+        .normalized();
+        assert!(faint.opacity >= 0.05);
+    }
 
     fn drawing(id: u64, tool: Tool, count: usize) -> Drawing {
         Drawing::new(

@@ -1,6 +1,6 @@
 //! How a chart maps times and prices to screen positions, for the drawings.
 
-use wyck::openapi::market::format_price;
+use wyck::openapi::market::{PRICE_SCALE, format_price};
 
 use super::data::Series;
 use super::drawing::geometry::{BarView, P, Projection, Rect};
@@ -119,6 +119,14 @@ impl Projection for ChartProjection<'_> {
 
     fn y_of(&self, price: f64) -> f32 {
         self.map.y(price) as f32
+    }
+
+    fn real_price(&self, raw: f64) -> f64 {
+        raw / PRICE_SCALE as f64
+    }
+
+    fn tick(&self) -> f64 {
+        super::scene::quote_unit(self.digits) / PRICE_SCALE as f64
     }
 }
 

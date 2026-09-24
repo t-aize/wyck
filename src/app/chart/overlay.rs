@@ -19,7 +19,10 @@ use super::settings::{ChartKind, ScaleMode};
 use super::study::{Placement, PlotKind, ValueFormat};
 use super::view::PriceScale;
 use super::zone::Zone;
-use super::{Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, paint, study_ui};
+use super::{
+    Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, paint, study_settings,
+    study_ui,
+};
 use crate::app::connection::ui;
 use crate::app::{anim, theme};
 
@@ -177,9 +180,13 @@ fn drawing_menu(
             .on_click(command(DrawingCommand::Order(Order::Back))),
     )
     .item(
-        PopupMenuItem::new("Hide")
-            .icon(IconName::EyeOff)
-            .on_click(command(DrawingCommand::Hide)),
+        PopupMenuItem::new(if drawing.hidden { "Show" } else { "Hide" })
+            .icon(if drawing.hidden {
+                IconName::Eye
+            } else {
+                IconName::EyeOff
+            })
+            .on_click(command(DrawingCommand::Hidden(!drawing.hidden))),
     )
     .item(
         PopupMenuItem::new(if drawing.locked { "Unlock" } else { "Lock" })
@@ -443,7 +450,7 @@ impl Chart {
                     .child(
                         button("study-settings", IconName::Settings2, "Settings").on_click(
                             cx.listener(move |_this, _, window, cx| {
-                                study_ui::open_study_settings(cx.entity(), study, window, cx);
+                                study_settings::open(cx.entity(), study, window, cx);
                             }),
                         ),
                     )
@@ -515,11 +522,11 @@ impl Chart {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
             Some((super::drawing::model::Tool::ArrowPath, placed, _)) => format!(
-                "Click to place point {}. Double click or Esc finishes. Shift keeps the line to 45 degrees",
+                "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),
             Some((_, placed, needed)) => format!(
-                "Click to place point {} of {needed}. Shift keeps the line to 45 degrees. Esc cancels",
+                "Click or drag to place point {} of {needed}. Backspace takes back the last point. Esc or right click cancels",
                 placed + 1
             ),
             None if tool.is_freehand() => "Press and draw on the chart".to_owned(),
@@ -527,7 +534,7 @@ impl Chart {
                 "Click on the chart to place it. Esc goes back to the pointer".to_owned()
             }
             None => {
-                "Click where it starts, or press and drag. Esc goes back to the pointer".to_owned()
+                "Click or press where it starts, then click or drag to each next point. Esc goes back to the pointer".to_owned()
             }
         };
         let bottom = (geometry.h - geometry.main().bottom()) as f32 + 10.0;

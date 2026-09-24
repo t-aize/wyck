@@ -14,7 +14,7 @@ use gpui_kit::component::{Sizable, StyledExt as _};
 use super::{color_picker, theme};
 
 /// The id of child `n` of an element.
-fn child_id(id: &ElementId, n: usize) -> ElementId {
+pub fn child_id(id: &ElementId, n: usize) -> ElementId {
     ElementId::NamedChild(std::sync::Arc::new(id.clone()), n.to_string().into())
 }
 
@@ -47,11 +47,6 @@ pub fn row(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
                 .child(label.into()),
         )
         .child(div().flex_none().child(control))
-}
-
-/// A thin line between groups.
-pub fn divider() -> Div {
-    div().my_2().h(px(1.)).w_full().bg(theme::border_hairline())
 }
 
 /// Buttons side by side, one of them chosen.
