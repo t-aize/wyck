@@ -3,7 +3,17 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".github/FUNDING.yml"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".github/FUNDING.yml"
+      - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
 
 permissions: {}
@@ -12,42 +22,124 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # Incremental builds only add bookkeeping when every run starts from a restored cache.
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  RUST_BACKTRACE: 1
+  # Nothing in CI is run under a debugger. Debug info is the biggest part of a dev target
+  # directory: dropping it makes builds faster, the cache smaller, and avoids running out of
+  # disk on the Windows runner.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+# Actions are pinned to a full commit SHA (tags can be moved), with the release in a comment.
+# Dependabot keeps both up to date, see .github/dependabot.yml.
 jobs:
-  ci:
+  fmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - run: cargo fmt --check
+
+  # One job per OS so clippy and the tests share a single restored cache and one dependency
+  # build. fmt runs apart because it needs no build at all and fails in seconds.
+  check:
+    needs: fmt
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
-          components: clippy, rustfmt
+          toolchain: stable
+          components: clippy
 
-      - uses: Swatinem/rust-cache@v2.9.2
+      # Only main writes the cache. Pull requests and branches restore it read-only, which
+      # keeps the 10 GB repository cache quota from filling up with one entry per branch.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo test --all-features
-      - run: cargo doc --no-deps
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --all-features
+
+      # Docs are platform independent: build them once.
+      - if: runner.os == 'Linux'
+        run: cargo doc --locked --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
+
+  # Confirms the release profile still compiles. Not needed on every pull request, so it only
+  # runs on main. Fat LTO and one codegen unit (see [profile.release] in Cargo.toml) turn this
+  # into a full relink of every dependency, so both are relaxed here; a real
+  # `cargo build --release` still gets the fully optimized profile.
+  release-build:
+    if: github.event_name != 'pull_request'
+    needs: fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - run: cargo build --release --locked
         env:
-          # Verifying the release build compiles is not the same job as producing one to ship:
-          # fat LTO + a single codegen unit (see [profile.release] in Cargo.toml) turns this
-          # into a full relink of every dependency, which dominates CI time on a graph this size.
-          # Overriding it here only affects this CI step; a real `cargo build --release` still
-          # gets the fully optimized profile.
           CARGO_PROFILE_RELEASE_LTO: "false"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+
+  # A single job to mark as required in branch protection, so the matrix can change without
+  # editing the rules. Skipped jobs (release-build on pull requests) count as fine.
+  ci-ok:
+    if: always()
+    needs: [ fmt, check, release-build ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A required job failed or was cancelled."
+            exit 1
+          fi

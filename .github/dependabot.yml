@@ -1,0 +1,58 @@
+version: 2
+
+# Updates are batched (one pull request per ecosystem and kind of change) and a release must be
+# a few days old before it is proposed, which gives yanks and quick fix-up releases time to
+# land. Security updates ignore the cooldown and are never held back.
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    commit-message:
+      prefix: "deps"
+    labels:
+      - dependencies
+      - rust
+    groups:
+      # Patch and minor releases are batched: one pull request, one CI run.
+      cargo-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # Grouped separately from version updates so a security fix never waits on the batch.
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    # Major releases stay one pull request per crate: they are the ones that break things.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions:
+        patterns:
+          - "*"
