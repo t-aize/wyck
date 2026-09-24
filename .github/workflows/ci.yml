@@ -75,7 +75,9 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
 
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
@@ -115,7 +117,9 @@ jobs:
 
       - run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
 
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:

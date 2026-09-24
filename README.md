@@ -41,8 +41,8 @@ A single crate:
 ## Requirements
 
 - A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`).
-- Linux only: the X11 and xkbcommon development packages, for example on Debian and Ubuntu
-  `libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev`.
+- Linux only: the development packages of fontconfig, Wayland, OpenSSL, X11 and xkbcommon, for example on Debian and Ubuntu
+  `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev`.
 
 ## Build and test
 
