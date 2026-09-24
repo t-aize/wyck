@@ -8,6 +8,23 @@ A terminal trading panel for cTrader, built for speed, not for staring at it.
 
 > **Status:** early development. Everything can change, including the layout of this file.
 
+## Disclaimer
+
+**This is not financial advice.** Trading leveraged products such as forex, CFDs and crypto
+carries a high risk of losing money, possibly more than you deposited. This software is
+experimental and may contain bugs that place, modify or close orders you did not intend.
+Test with a demo account first. You are solely responsible for your trades and for any loss.
+
+The software is provided "as is", without warranty of any kind, as stated in the
+[Apache License 2.0](LICENSE). The authors are not liable for any loss or damage arising from
+its use.
+
+wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
+cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
+marks bundled in `assets/marks` are trademarks of their owners, shown only to identify the
+instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
+next to it).
+
 ## Layout
 
 A single crate:
