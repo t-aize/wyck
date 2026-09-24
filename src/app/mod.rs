@@ -1,5 +1,6 @@
 //! The `wyck` desktop application: window and the connection flow.
 
+mod alerts;
 mod anim;
 mod assets;
 mod chart;
@@ -9,7 +10,10 @@ mod multichart;
 mod runtime;
 mod text_input;
 mod theme;
+mod toast;
 mod token_store;
+mod trading;
+mod widgets;
 mod workspace;
 
 use std::borrow::Cow;
@@ -42,7 +46,19 @@ pub fn run() {
             })
             .detach();
 
-            let bounds = Bounds::centered(None, size(px(1180.0), px(800.0)), cx);
+            // Most of the screen: a trading terminal wants the room. Never smaller than what
+            // the dashboard is laid out for.
+            let screen = cx
+                .primary_display()
+                .map(|display| display.bounds().size)
+                .map_or((1180.0, 800.0), |size| {
+                    (f32::from(size.width), f32::from(size.height))
+                });
+            let (width, height) = (
+                (screen.0 * 0.9).clamp(1180.0, 2400.0),
+                (screen.1 * 0.9).clamp(800.0, 1500.0),
+            );
+            let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
             cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),

@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use wyck::config::DocumentStore;
 
 pub use self::saver::Saver;
-use super::chart::{ChartKind, GROUPS, QUICK, Timeframe, Zone};
+use super::chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
 use super::multichart::layouts::{self, LayoutKey};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -59,15 +59,27 @@ impl Default for LayoutPref {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinksPref {
+    /// Every chart shows the same symbol.
+    #[serde(default = "yes")]
+    pub symbol: bool,
+    #[serde(default)]
     pub interval: bool,
+    #[serde(default = "yes")]
     pub crosshair: bool,
+    #[serde(default = "yes")]
     pub time: bool,
+    #[serde(default)]
     pub range: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for LinksPref {
     fn default() -> Self {
         Self {
+            symbol: true,
             interval: false,
             crosshair: true,
             time: true,
@@ -77,12 +89,19 @@ impl Default for LinksPref {
 }
 
 /// One chart of the layout, by the stable codes written in the file.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChartPref {
     #[serde(default = "default_timeframe_code")]
     pub timeframe: String,
+    /// The chart type, as older files wrote it. [`ChartPref::settings`] wins when present.
     #[serde(default = "default_kind_code")]
     pub kind: String,
+    /// The symbol the chart shows when the symbol is not linked, by the broker's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// Everything else about the chart: type, scale, zone, indicators.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<ChartSettings>,
 }
 
 fn default_timeframe_code() -> String {
@@ -98,8 +117,31 @@ impl Default for ChartPref {
         Self {
             timeframe: default_timeframe_code(),
             kind: default_kind_code(),
+            symbol: None,
+            settings: None,
         }
     }
+}
+
+impl ChartPref {
+    /// The settings of the chart: the saved ones, or the defaults with the saved type.
+    pub fn chart_settings(&self) -> ChartSettings {
+        match &self.settings {
+            Some(settings) => settings.clone().normalized(),
+            None => ChartSettings {
+                kind: ChartKind::from_code(&self.kind).unwrap_or(ChartKind::Candles),
+                ..ChartSettings::default()
+            },
+        }
+    }
+}
+
+/// What one chart of a layout keeps: its timeframe, its settings and its own symbol.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChartState {
+    pub timeframe: Timeframe,
+    pub settings: ChartSettings,
+    pub symbol: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -111,6 +153,9 @@ pub struct Preferences {
     /// The timeframes shown as buttons in the header (all of them stay in the menu).
     #[serde(default = "default_favorite_timeframes")]
     pub favorite_timeframes: Vec<String>,
+    /// Timeframes the user added to the menu (`M7`, `H2`...), by code.
+    #[serde(default)]
+    pub custom_timeframes: Vec<String>,
     #[serde(default)]
     pub layout: LayoutPref,
     #[serde(default)]
@@ -122,6 +167,31 @@ pub struct Preferences {
     /// Whether drawings snap to the open, high, low and close of the nearest bar.
     #[serde(default)]
     pub magnet: bool,
+    /// Whether a drawing tool stays picked once a drawing is finished.
+    #[serde(default = "yes")]
+    pub keep_drawing: bool,
+    /// How the lines between the charts were dragged, per layout (`"count-variant"`): one list
+    /// of weights per split of the layout.
+    #[serde(default)]
+    pub splits: std::collections::BTreeMap<String, Vec<Vec<f32>>>,
+    /// Whether the account panel under the charts is open, and its height.
+    #[serde(default = "yes")]
+    pub panel_open: bool,
+    #[serde(default = "default_panel_height")]
+    pub panel_height: f32,
+    /// Whether the order ticket is shown beside the charts.
+    #[serde(default)]
+    pub ticket_open: bool,
+    /// Whether orders are sent without asking for a confirmation first.
+    #[serde(default)]
+    pub one_click: bool,
+    /// How the order ticket sizes orders.
+    #[serde(default)]
+    pub ticket: crate::app::trading::ticket::TicketPrefs,
+}
+
+fn default_panel_height() -> f32 {
+    240.0
 }
 
 fn schema_version() -> u32 {
@@ -142,11 +212,19 @@ impl Default for Preferences {
             schema_version: SCHEMA_VERSION,
             zone: Zone::default(),
             favorite_timeframes: default_favorite_timeframes(),
+            custom_timeframes: Vec::new(),
             layout: LayoutPref::default(),
             links: LinksPref::default(),
             charts: default_charts(),
             active_chart: 0,
             magnet: false,
+            keep_drawing: true,
+            splits: std::collections::BTreeMap::new(),
+            panel_open: true,
+            panel_height: default_panel_height(),
+            ticket_open: false,
+            one_click: false,
+            ticket: crate::app::trading::ticket::TicketPrefs::default(),
         }
     }
 }
@@ -162,21 +240,29 @@ impl Preferences {
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
 
-        // The favorites, in the order of the menu, without repeats or unknown codes.
-        let wanted: Vec<Timeframe> = self
+        // The custom timeframes, each once under its own code, shortest first. A favorite
+        // that is neither offered nor added becomes an added one, so its star has a home.
+        let mut favorites: Vec<Timeframe> = self
             .favorite_timeframes
             .iter()
             .filter_map(|code| Timeframe::from_code(code))
             .collect();
-        let mut favorites: Vec<Timeframe> = GROUPS
+        let mut customs: Vec<Timeframe> = self
+            .custom_timeframes
             .iter()
-            .flat_map(|(_, items)| items.iter().copied())
-            .filter(|timeframe| wanted.contains(timeframe))
+            .filter_map(|code| Timeframe::from_code(code))
+            .chain(favorites.iter().copied())
+            .filter(|timeframe| !timeframe.is_builtin())
             .collect();
+        for list in [&mut favorites, &mut customs] {
+            list.sort_by_key(|timeframe| timeframe.sort_key());
+            list.dedup();
+        }
         if favorites.is_empty() {
             favorites = QUICK.to_vec();
         }
         self.favorite_timeframes = favorites.iter().map(|t| t.code()).collect();
+        self.custom_timeframes = customs.iter().map(|t| t.code()).collect();
 
         // A layout that does not exist becomes the single chart.
         let key = LayoutKey {
@@ -203,10 +289,20 @@ impl Preferences {
             let timeframe = NEW_CHART_TIMEFRAMES[self.charts.len() % NEW_CHART_TIMEFRAMES.len()];
             self.charts.push(ChartPref {
                 timeframe: timeframe.to_owned(),
-                kind: default_kind_code(),
+                ..ChartPref::default()
             });
         }
+        for chart in &mut self.charts {
+            if let Some(settings) = chart.settings.take() {
+                chart.kind = settings.kind.code().to_owned();
+                chart.settings = Some(settings.normalized());
+            }
+        }
         self.active_chart = self.active_chart.min(count - 1);
+        if !(self.panel_height.is_finite() && self.panel_height >= 80.0) {
+            self.panel_height = default_panel_height();
+        }
+        self.panel_height = self.panel_height.min(2_000.0);
         self
     }
 
@@ -243,35 +339,73 @@ impl Preferences {
         }
     }
 
-    /// The timeframe and type of chart `index`, as the file says (repaired on load).
-    pub fn chart(&self, index: usize) -> (Timeframe, ChartKind) {
-        let pref = self.charts.get(index).cloned().unwrap_or_default();
-        (
-            Timeframe::from_code(&pref.timeframe).unwrap_or(Timeframe::DEFAULT),
-            ChartKind::from_code(&pref.kind).unwrap_or(ChartKind::Candles),
-        )
+    /// The timeframes the user added, shortest first.
+    pub fn customs(&self) -> Vec<Timeframe> {
+        self.custom_timeframes
+            .iter()
+            .filter_map(|code| Timeframe::from_code(code))
+            .collect()
     }
 
-    /// Records the layout and one `(timeframe, type)` per chart, and which chart is active.
-    pub fn set_arrangement(
-        &mut self,
-        key: LayoutKey,
-        charts: &[(Timeframe, ChartKind)],
-        active: usize,
-    ) {
+    /// Adds a timeframe to the menu, unless it is there already.
+    pub fn add_custom_timeframe(&mut self, timeframe: Timeframe) {
+        if timeframe.is_builtin() || self.customs().contains(&timeframe) {
+            return;
+        }
+        self.custom_timeframes.push(timeframe.code());
+        *self = std::mem::take(self).normalized();
+    }
+
+    /// Takes an added timeframe out of the menu, and off the header. The last favorite stays,
+    /// as with [`Self::toggle_favorite_timeframe`].
+    pub fn remove_custom_timeframe(&mut self, timeframe: Timeframe) {
+        let code = timeframe.code();
+        if self.is_favorite_timeframe(timeframe) {
+            if self.favorite_timeframes.len() == 1 {
+                return;
+            }
+            self.favorite_timeframes.retain(|c| *c != code);
+        }
+        self.custom_timeframes.retain(|c| *c != code);
+    }
+
+    /// What chart `index` keeps, as the file says (repaired on load).
+    pub fn chart(&self, index: usize) -> ChartState {
+        let pref = self.charts.get(index).cloned().unwrap_or_default();
+        let mut settings = pref.chart_settings();
+        if pref.settings.is_none() {
+            // Files from before per-chart zones had one zone for every chart.
+            settings.zone = self.zone;
+        }
+        ChartState {
+            timeframe: Timeframe::from_code(&pref.timeframe).unwrap_or(Timeframe::DEFAULT),
+            settings,
+            symbol: pref.symbol.clone(),
+        }
+    }
+
+    /// Records the layout and what each chart keeps, and which chart is active.
+    pub fn set_arrangement(&mut self, key: LayoutKey, charts: &[ChartState], active: usize) {
         self.layout = LayoutPref {
             count: key.count,
             variant: key.variant,
         };
         self.charts = charts
             .iter()
-            .map(|(timeframe, kind)| ChartPref {
-                timeframe: timeframe.code(),
-                kind: kind.code().to_owned(),
+            .map(|chart| ChartPref {
+                timeframe: chart.timeframe.code(),
+                kind: chart.settings.kind.code().to_owned(),
+                symbol: chart.symbol.clone(),
+                settings: Some(chart.settings.clone()),
             })
             .collect();
         self.active_chart = active;
         *self = std::mem::take(self).normalized();
+    }
+
+    /// The key a layout's split weights are saved under.
+    pub fn split_key(key: LayoutKey) -> String {
+        format!("{}-{}", key.count, key.variant)
     }
 }
 
@@ -517,27 +651,39 @@ mod tests {
             ..Preferences::default()
         };
         prefs.links.interval = true;
+        let state = |timeframe, kind, symbol: Option<&str>| ChartState {
+            timeframe,
+            settings: ChartSettings {
+                kind,
+                ..ChartSettings::default()
+            },
+            symbol: symbol.map(str::to_owned),
+        };
         prefs.set_arrangement(
             LayoutKey {
                 count: 4,
                 variant: 0,
             },
             &[
-                (Timeframe::Bars(Period::M5), ChartKind::Candles),
-                (Timeframe::Seconds(15), ChartKind::HeikinAshi),
-                (Timeframe::Ticks, ChartKind::Line),
-                (Timeframe::Bars(Period::D1), ChartKind::Hollow),
+                state(Timeframe::Bars(Period::M5), ChartKind::Candles, None),
+                state(
+                    Timeframe::Seconds(15),
+                    ChartKind::HeikinAshi,
+                    Some("XAUUSD"),
+                ),
+                state(Timeframe::Ticks, ChartKind::Line, None),
+                state(Timeframe::Bars(Period::D1), ChartKind::Renko, None),
             ],
             2,
         );
         let text = toml::to_string_pretty(&prefs).unwrap();
         let back: Preferences = toml::from_str(&text).unwrap();
         assert_eq!(back.clone().normalized(), prefs);
-        assert_eq!(
-            back.chart(1),
-            (Timeframe::Seconds(15), ChartKind::HeikinAshi)
-        );
-        assert_eq!(back.chart(2), (Timeframe::Ticks, ChartKind::Line));
+        let second = back.chart(1);
+        assert_eq!(second.timeframe, Timeframe::Seconds(15));
+        assert_eq!(second.settings.kind, ChartKind::HeikinAshi);
+        assert_eq!(second.symbol.as_deref(), Some("XAUUSD"));
+        assert_eq!(back.chart(3).settings.kind, ChartKind::Renko);
         assert_eq!(back.active_chart, 2);
     }
 
@@ -550,16 +696,37 @@ mod tests {
             count = 3
             variant = 99
             [[charts]]
-            timeframe = "M99"
-            kind = "renko"
+            timeframe = "M9999"
+            kind = "spiral"
         "#;
         let prefs: Preferences = toml::from_str(text).unwrap();
         let prefs = prefs.normalized();
         assert_eq!(prefs.favorite_timeframes, vec!["M5", "H1"]);
         assert_eq!(prefs.layout, LayoutPref::default(), "a layout that is gone");
         assert_eq!(prefs.charts.len(), 1);
-        assert_eq!(prefs.chart(0), (Timeframe::DEFAULT, ChartKind::Candles));
+        assert_eq!(prefs.chart(0).timeframe, Timeframe::DEFAULT);
+        assert_eq!(prefs.chart(0).settings.kind, ChartKind::Candles);
         assert_eq!(prefs.active_chart, 0);
+    }
+
+    #[test]
+    fn a_file_from_before_chart_settings_keeps_its_types_and_links() {
+        let text = r#"
+            [links]
+            interval = true
+            crosshair = false
+            time = false
+            range = true
+            [[charts]]
+            timeframe = "H1"
+            kind = "hollow"
+        "#;
+        let prefs: Preferences = toml::from_str(text).unwrap();
+        let prefs = prefs.normalized();
+        assert!(prefs.links.symbol, "the symbol link is new and on");
+        assert!(prefs.links.interval && prefs.links.range && !prefs.links.time);
+        assert_eq!(prefs.chart(0).settings.kind, ChartKind::Hollow);
+        assert!(prefs.panel_open);
     }
 
     #[test]
@@ -608,6 +775,42 @@ mod tests {
             "the last one stays, so the header keeps a button"
         );
         assert!(prefs.is_favorite_timeframe(Timeframe::Bars(Period::D1)));
+    }
+
+    #[test]
+    fn custom_timeframes_are_kept_once_and_can_be_starred() {
+        let mut prefs = Preferences::default().normalized();
+        let h2 = Timeframe::from_code("H2").unwrap();
+        let m7 = Timeframe::from_code("M7").unwrap();
+        prefs.add_custom_timeframe(m7);
+        prefs.add_custom_timeframe(Timeframe::from_code("120m").unwrap());
+        prefs.add_custom_timeframe(h2);
+        // H2 is offered by the menu already; M7 is the one added.
+        assert_eq!(prefs.custom_timeframes, vec!["M7"]);
+        prefs.add_custom_timeframe(Timeframe::from_code("M9").unwrap());
+        assert_eq!(prefs.custom_timeframes, vec!["M7", "M9"]);
+        prefs.toggle_favorite_timeframe(m7);
+        assert!(prefs.favorite_timeframes.contains(&"M7".to_owned()));
+        // Saved and read back, it keeps its place in the header and the menu.
+        let text = toml::to_string(&prefs).unwrap();
+        let back: Preferences = toml::from_str(&text).unwrap();
+        let back = back.normalized();
+        assert_eq!(
+            back.customs(),
+            vec![m7, Timeframe::from_code("M9").unwrap()]
+        );
+        assert!(back.favorites().contains(&m7));
+        // Taking it out of the menu takes it off the header too.
+        prefs.remove_custom_timeframe(m7);
+        assert_eq!(prefs.custom_timeframes, vec!["M9"]);
+        assert!(!prefs.is_favorite_timeframe(m7));
+        // A favorite from nowhere (a file written by hand) is added to the menu.
+        let prefs = Preferences {
+            favorite_timeframes: vec!["M1".into(), "M13".into()],
+            ..Preferences::default()
+        }
+        .normalized();
+        assert_eq!(prefs.custom_timeframes, vec!["M13"]);
     }
 
     #[test]

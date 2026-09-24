@@ -1,73 +1,100 @@
-//! Several charts on one screen, arranged by a layout, and linked the way the user chooses.
+//! Several charts on one screen, arranged by a layout, sized by dragging the lines between them,
+//! and linked the way the user chooses.
 //!
-//! For now every chart shows the same symbol, but each has its own timeframe and chart type. The
-//! links are the ones a trading platform offers:
-//!
-//! - **Interval**: one timeframe for every chart.
-//! - **Crosshair**: the pointer over one chart shows as a crosshair on the others, at the same
-//!   time and price.
-//! - **Time**: scrolling one chart moves the others to the same time at the right edge.
-//! - **Date range**: zooming and scrolling one chart gives the others the same span of time.
+//! Each chart has its own timeframe, type, indicators and time zone, and (when the symbol link is
+//! off) its own symbol. The links are the ones a trading platform offers; their rules live in
+//! [`links`], as plain data, and this view only applies what they say.
 //!
 //! The charts do not know about each other. Each one reports what the user did as a
 //! [`ChartEvent`], and this view applies the links, which keeps a chart free of loops: a chart
-//! that is made to follow another never reports it.
+//! that is made to follow another never reports it. What the rest of the app acts on (a symbol to
+//! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
 mod drawing_ui;
 pub mod icon;
 pub mod layouts;
+pub mod links;
+pub mod split;
 
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{Context, Entity, MouseButton, SharedString, Subscription, Window, div, px, relative};
-use wyck::openapi::market::SpotEvent;
+use gpui::{
+    Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
+    Subscription, Window, canvas, div, px, relative,
+};
+use wyck::openapi::market::{LiveBarTracker, SpotEvent};
 use wyck::openapi::session::Session;
 
 use self::layouts::{LayoutKey, layout};
+use self::links::{Follow, Link, Links};
+use self::split::{Divider, Node};
 use super::chart::drawing::Drawings;
 use super::chart::drawing::model::{Dash, Group, Tool};
-use super::chart::{Chart, ChartEvent, ChartKind, LiveHub, Timeframe, Zone};
+use super::chart::{
+    Chart, ChartAction, ChartEvent, ChartLine, LineId, LiveHub, LiveUpdate, Timeframe,
+};
 use super::text_input::TextInput;
 use super::theme;
-use super::workspace::{NEW_CHART_TIMEFRAMES, Workspace};
+use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, Workspace};
 
-/// What is linked between the charts (saved with the layout).
-pub use super::workspace::LinksPref as Links;
+/// The symbol of a chart: its id, name and number of decimals.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SymbolRef {
+    pub id: i64,
+    pub name: SharedString,
+    pub digits: u32,
+}
 
-/// One of the links, for switching it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Link {
-    Interval,
-    Crosshair,
-    Time,
-    Range,
+/// What the rest of the app acts on.
+#[derive(Debug, Clone)]
+pub enum MultiChartEvent {
+    /// The user asked to change the symbol of chart `n`.
+    PickSymbol(usize),
+    /// The active chart changed (so did the symbol and timeframe the header shows).
+    ActiveChanged,
+    /// Something asked from a chart, for its symbol.
+    Action(SymbolRef, ChartAction),
+    /// A line was dragged to a new price.
+    LineMoved(LineId, f64),
+    /// A line's close button was clicked.
+    LineClosed(LineId),
+    /// A picture of a chart, ready to save: the PNG and a file name.
+    Picture(Vec<u8>, String),
+    /// A chart could not be turned into a picture.
+    PictureFailed(String),
 }
 
 struct Slot {
     chart: Entity<Chart>,
+    /// The symbol the chart was saved with, until the symbol list can resolve it.
+    wanted_symbol: Option<String>,
     _events: Subscription,
 }
 
-/// The symbol every chart shows: its id, name and number of decimals.
-struct Symbol {
-    id: i64,
-    name: SharedString,
-    digits: u32,
+/// A line between charts being dragged.
+#[derive(Debug, Clone, Copy)]
+struct SplitDrag {
+    divider: Divider,
+    last: (f32, f32),
 }
 
 pub struct MultiChart {
     session: Session,
     workspace: Entity<Workspace>,
     hub: Rc<LiveHub>,
+    /// Corrects the live bars of the price events before the charts see them.
+    tracker: LiveBarTracker,
+    /// The trading hours of every symbol whose details came, for the charts showing them.
+    hours: HashMap<i64, std::sync::Arc<wyck::openapi::market::TradingHours>>,
     next_id: u64,
     key: LayoutKey,
+    tree: Node,
     slots: Vec<Slot>,
     active: usize,
     sync: Links,
-    zone: Zone,
-    symbol: Option<Symbol>,
     /// The drawings, shared by every chart.
     drawings: Entity<Drawings>,
     _drawings_observe: Subscription,
@@ -81,12 +108,22 @@ pub struct MultiChart {
     focus: gpui::FocusHandle,
     /// The tool each family shows on its button.
     last_tool: HashMap<Group, Tool>,
+    /// The area of the charts as last drawn, for turning drags into shares of it.
+    area: Rc<Cell<Option<Bounds<Pixels>>>>,
+    split_drag: Option<SplitDrag>,
+    /// The divider under the pointer.
+    hover_divider: Option<(usize, usize)>,
+    /// The lines (orders, positions, alerts) of each symbol, handed to its charts.
+    lines: HashMap<i64, Vec<ChartLine>>,
 }
 
+impl EventEmitter<MultiChartEvent> for MultiChart {}
+
 impl MultiChart {
-    /// Starts with the layout, timeframes and links the workspace remembers.
+    /// Starts with the layout, charts and links the workspace remembers.
     pub fn new(
         session: Session,
+        hub: Rc<LiveHub>,
         workspace: Entity<Workspace>,
         drawings: Entity<Drawings>,
         cx: &mut Context<Self>,
@@ -94,7 +131,10 @@ impl MultiChart {
         let prefs = workspace.read(cx).preferences().clone();
         let key = prefs.layout_key();
         drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_magnet(prefs.magnet));
+            drawings.edit(cx, |book| {
+                book.set_magnet(prefs.magnet);
+                book.set_keep_tool(prefs.keep_drawing);
+            });
         });
         let text_input = cx.new(|cx| TextInput::new(cx, "Text"));
         let _text_observe = cx.observe(&text_input, |this, _input, cx| this.on_text_edited(cx));
@@ -109,42 +149,54 @@ impl MultiChart {
             flyout: None,
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
-            hub: Rc::new(LiveHub::new(session.clone())),
+            hub,
+            tracker: LiveBarTracker::new(),
+            hours: HashMap::new(),
             session,
             workspace,
             next_id: 0,
             key,
+            tree: tree_for(key, &prefs),
             slots: Vec::new(),
             active: prefs.active_chart,
             sync: prefs.links,
-            zone: prefs.zone,
-            symbol: None,
+            area: Rc::new(Cell::new(None)),
+            split_drag: None,
+            hover_divider: None,
+            lines: HashMap::new(),
         };
         for index in 0..layout(key).count() {
-            let (timeframe, kind) = prefs.chart(index);
-            multi.add_chart(timeframe, Some(kind), cx);
+            multi.add_chart(prefs.chart(index), cx);
         }
         multi.active = multi.active.min(multi.slots.len() - 1);
         multi
     }
 
-    /// Writes the layout, the timeframes and types, the links and the zone to the workspace,
-    /// which saves them.
+    /// Writes the layout, what each chart keeps, the links and the line positions to the
+    /// workspace, which saves them.
     fn persist(&self, cx: &mut Context<Self>) {
-        let charts: Vec<(Timeframe, ChartKind)> = self
+        let charts: Vec<ChartState> = self
             .slots
             .iter()
             .map(|slot| {
                 let chart = slot.chart.read(cx);
-                (chart.timeframe(), chart.kind())
+                ChartState {
+                    timeframe: chart.timeframe(),
+                    settings: chart.settings().clone(),
+                    symbol: chart
+                        .symbol()
+                        .map(|s| s.name.to_string())
+                        .or_else(|| slot.wanted_symbol.clone()),
+                }
             })
             .collect();
-        let (key, active, links, zone) = (self.key, self.active, self.sync, self.zone);
+        let (key, active, links) = (self.key, self.active, self.sync);
+        let weights = self.tree.weights();
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| {
                 prefs.set_arrangement(key, &charts, active);
                 prefs.links = links;
-                prefs.zone = zone;
+                prefs.splits.insert(Preferences::split_key(key), weights);
             });
         });
     }
@@ -157,6 +209,10 @@ impl MultiChart {
         self.sync
     }
 
+    pub fn active_index(&self) -> usize {
+        self.active
+    }
+
     /// The chart the header's timeframe buttons and the keys act on.
     pub fn active_chart(&self) -> &Entity<Chart> {
         &self.slots[self.active].chart
@@ -166,51 +222,134 @@ impl MultiChart {
         self.active_chart().read(cx).timeframe()
     }
 
-    fn add_chart(&mut self, timeframe: Timeframe, kind: Option<ChartKind>, cx: &mut Context<Self>) {
+    /// The symbol of the active chart.
+    pub fn active_symbol(&self, cx: &gpui::App) -> Option<SymbolRef> {
+        self.active_chart().read(cx).symbol().map(|s| SymbolRef {
+            id: s.id,
+            name: s.name.clone(),
+            digits: s.digits,
+        })
+    }
+
+    /// The saved symbol names of the charts that have none yet, with the chart index.
+    pub fn wanted_symbols(&self, cx: &gpui::App) -> Vec<(usize, Option<String>)> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter(|(_, slot)| slot.chart.read(cx).symbol().is_none())
+            .map(|(i, slot)| (i, slot.wanted_symbol.clone()))
+            .collect()
+    }
+
+    /// Every symbol a chart shows.
+    pub fn symbol_ids(&self, cx: &gpui::App) -> Vec<i64> {
+        let mut ids: Vec<i64> = self
+            .slots
+            .iter()
+            .filter_map(|slot| slot.chart.read(cx).symbol().map(|s| s.id))
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    }
+
+    fn add_chart(&mut self, state: ChartState, cx: &mut Context<Self>) {
         self.next_id += 1;
         let (session, hub, id) = (self.session.clone(), self.hub.clone(), self.next_id);
-        let chart = cx.new(|_| Chart::new(session, hub, id, timeframe));
-        let (zone, drawings) = (self.zone, self.drawings.clone());
-        chart.update(cx, |chart, cx| {
-            chart.attach_drawings(drawings, cx);
-            chart.set_zone(zone, cx);
-            if let Some(kind) = kind {
-                chart.set_kind(kind, cx);
-            }
-        });
-        if let Some(symbol) = &self.symbol {
-            let (sid, name, digits) = (symbol.id, symbol.name.clone(), symbol.digits);
-            chart.update(cx, |chart, cx| chart.set_symbol(sid, name, digits, cx));
+        let ChartState {
+            timeframe,
+            settings,
+            symbol,
+        } = state;
+        let chart = cx.new(|cx| Chart::new(session, hub, id, timeframe, settings, cx));
+        let drawings = self.drawings.clone();
+        chart.update(cx, |chart, cx| chart.attach_drawings(drawings, cx));
+        // A linked symbol comes from the charts already open.
+        let shared = self
+            .sync
+            .symbol
+            .then(|| {
+                self.slots
+                    .first()
+                    .and_then(|s| s.chart.read(cx).symbol().cloned())
+            })
+            .flatten();
+        if let Some(symbol) = &shared {
+            let symbol = symbol.clone();
+            chart.update(cx, |chart, cx| {
+                chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+            });
         }
         let events = cx.subscribe(&chart, |this, source, event: &ChartEvent, cx| {
-            this.on_chart_event(&source, *event, cx);
+            this.on_chart_event(&source, event, cx);
         });
         self.slots.push(Slot {
             chart,
+            wanted_symbol: if shared.is_some() { None } else { symbol },
             _events: events,
         });
     }
 
     // ---- what the charts show ----
 
-    /// Every chart shows this symbol (the symbol link is always on for now).
-    pub fn set_symbol(&mut self, id: i64, name: SharedString, digits: u32, cx: &mut Context<Self>) {
-        self.symbol = Some(Symbol {
-            id,
-            name: name.clone(),
-            digits,
+    /// Shows a symbol on chart `target`, or on every chart when the symbol is linked.
+    pub fn set_symbol(&mut self, target: usize, symbol: SymbolRef, cx: &mut Context<Self>) {
+        for index in links::symbol_targets(&self.sync, target, self.slots.len()) {
+            let slot = &mut self.slots[index];
+            slot.wanted_symbol = None;
+            let symbol = symbol.clone();
+            slot.chart.update(cx, |chart, cx| {
+                chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+            });
+            if let Some(lines) = self.lines.get(&symbol.id).cloned() {
+                self.slots[index]
+                    .chart
+                    .update(cx, |chart, cx| chart.set_lines(lines, cx));
+            }
+        }
+        self.persist(cx);
+        cx.emit(MultiChartEvent::ActiveChanged);
+        cx.notify();
+    }
+
+    /// Shows a symbol on one chart only, whatever the links (a saved symbol being restored).
+    pub fn restore_symbol(&mut self, index: usize, symbol: SymbolRef, cx: &mut Context<Self>) {
+        let Some(slot) = self.slots.get_mut(index) else {
+            return;
+        };
+        slot.wanted_symbol = None;
+        slot.chart.update(cx, |chart, cx| {
+            chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
         });
+        cx.emit(MultiChartEvent::ActiveChanged);
+        cx.notify();
+    }
+
+    /// The broker said how a symbol is quoted.
+    /// A symbol's trading hours arrived.
+    pub fn set_hours(
+        &mut self,
+        id: i64,
+        hours: wyck::openapi::market::TradingHours,
+        cx: &mut Context<Self>,
+    ) {
+        self.hours.insert(id, std::sync::Arc::new(hours));
+        self.give_hours(cx);
+    }
+
+    /// Hands each chart the hours of the symbol it shows.
+    fn give_hours(&self, cx: &mut Context<Self>) {
         for slot in &self.slots {
-            let name = name.clone();
-            slot.chart
-                .update(cx, |chart, cx| chart.set_symbol(id, name, digits, cx));
+            let id = slot.chart.read(cx).symbol().map(|s| s.id);
+            if let Some(id) = id {
+                let hours = self.hours.get(&id).cloned();
+                slot.chart
+                    .update(cx, |chart, cx| chart.set_hours(id, hours, cx));
+            }
         }
     }
 
     pub fn set_digits(&mut self, id: i64, digits: u32, cx: &mut Context<Self>) {
-        if let Some(symbol) = self.symbol.as_mut().filter(|s| s.id == id) {
-            symbol.digits = digits;
-        }
         for slot in &self.slots {
             slot.chart
                 .update(cx, |chart, cx| chart.set_digits(id, digits, cx));
@@ -219,14 +358,9 @@ impl MultiChart {
 
     /// Sets the timeframe of the active chart, or of every chart when the interval is linked.
     pub fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
-        if self.sync.interval {
-            for slot in &self.slots {
-                slot.chart
-                    .update(cx, |chart, cx| chart.set_timeframe(timeframe, cx));
-            }
-        } else {
-            self.active_chart()
-                .clone()
+        for index in links::timeframe_targets(&self.sync, self.active, self.slots.len()) {
+            self.slots[index]
+                .chart
                 .update(cx, |chart, cx| chart.set_timeframe(timeframe, cx));
         }
         self.persist(cx);
@@ -234,15 +368,31 @@ impl MultiChart {
     }
 
     pub fn on_spot(&mut self, spot: &SpotEvent, cx: &mut Context<Self>) {
+        let update = LiveUpdate::new(spot, self.tracker.apply(spot));
         for slot in &self.slots {
-            slot.chart.update(cx, |chart, cx| chart.on_spot(spot, cx));
+            slot.chart
+                .update(cx, |chart, cx| chart.on_live(&update, cx));
         }
     }
 
     pub fn on_ready(&mut self, cx: &mut Context<Self>) {
+        self.tracker.clear();
         for slot in &self.slots {
             slot.chart.update(cx, |chart, cx| chart.on_ready(cx));
         }
+    }
+
+    /// The orders, positions and alerts of each symbol, shown on its charts.
+    pub fn set_lines(&mut self, lines: HashMap<i64, Vec<ChartLine>>, cx: &mut Context<Self>) {
+        for slot in &self.slots {
+            let symbol = slot.chart.read(cx).symbol().map(|s| s.id);
+            let wanted = symbol
+                .and_then(|id| lines.get(&id).cloned())
+                .unwrap_or_default();
+            slot.chart
+                .update(cx, |chart, cx| chart.set_lines(wanted, cx));
+        }
+        self.lines = lines;
     }
 
     // ---- the layout ----
@@ -261,26 +411,59 @@ impl MultiChart {
                 )
                 .unwrap_or(Timeframe::DEFAULT)
             };
-            self.add_chart(timeframe, None, cx);
+            let settings = super::chart::ChartSettings {
+                zone: self.active_chart().read(cx).settings().zone,
+                ..Default::default()
+            };
+            // A new chart shows the active chart's symbol even when symbols are not linked.
+            let symbol = self.active_chart().read(cx).symbol().cloned();
+            self.add_chart(
+                ChartState {
+                    timeframe,
+                    settings,
+                    symbol: None,
+                },
+                cx,
+            );
+            if let Some(symbol) = symbol
+                && let Some(slot) = self.slots.last()
+                && slot.chart.read(cx).symbol().is_none()
+            {
+                slot.chart.update(cx, |chart, cx| {
+                    chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+                });
+            }
         }
         self.active = self.active.min(self.slots.len() - 1);
         self.key = key;
+        let prefs = self.workspace.read(cx).preferences().clone();
+        self.tree = tree_for(key, &prefs);
+        self.persist(cx);
+        cx.emit(MultiChartEvent::ActiveChanged);
+        cx.notify();
+    }
+
+    /// Puts every line between the charts back where the grid has it.
+    pub fn reset_splits(&mut self, cx: &mut Context<Self>) {
+        self.tree.reset(layout(self.key));
         self.persist(cx);
         cx.notify();
     }
 
     pub fn toggle_link(&mut self, link: Link, cx: &mut Context<Self>) {
-        match link {
-            Link::Interval => self.sync.interval = !self.sync.interval,
-            Link::Crosshair => self.sync.crosshair = !self.sync.crosshair,
-            Link::Time => self.sync.time = !self.sync.time,
-            Link::Range => self.sync.range = !self.sync.range,
-        }
+        link.toggle(&mut self.sync);
         match link {
             // Linking the interval brings every chart to the timeframe of the active one.
             Link::Interval if self.sync.interval => {
                 let timeframe = self.active_timeframe(cx);
                 self.set_timeframe(timeframe, cx);
+            }
+            // Linking the symbol brings every chart to the symbol of the active one.
+            Link::Symbol if self.sync.symbol => {
+                if let Some(symbol) = self.active_symbol(cx) {
+                    let active = self.active;
+                    self.set_symbol(active, symbol, cx);
+                }
             }
             // Unlinking the crosshair clears the ones drawn from other charts.
             Link::Crosshair if !self.sync.crosshair => {
@@ -295,29 +478,22 @@ impl MultiChart {
         cx.notify();
     }
 
-    /// Switches every chart between UTC and the zone of the computer.
-    fn toggle_zone(&mut self, cx: &mut Context<Self>) {
-        self.zone = self.zone.toggled();
-        for slot in &self.slots {
-            let zone = self.zone;
-            slot.chart.update(cx, |chart, cx| chart.set_zone(zone, cx));
-        }
-        self.persist(cx);
-        cx.notify();
-    }
-
     fn activate(&mut self, index: usize, cx: &mut Context<Self>) {
         if index < self.slots.len() && self.active != index {
             self.active = index;
             self.persist(cx);
+            cx.emit(MultiChartEvent::ActiveChanged);
             cx.notify();
         }
     }
 
     // ---- drawing ----
 
-    fn symbol_name(&self) -> Option<String> {
-        self.symbol.as_ref().map(|s| s.name.to_string())
+    fn symbol_name(&self, cx: &gpui::App) -> Option<String> {
+        self.active_chart()
+            .read(cx)
+            .symbol()
+            .map(|s| s.name.to_string())
     }
 
     pub(crate) fn pick_tool(&mut self, tool: Option<Tool>, cx: &mut Context<Self>) {
@@ -341,6 +517,16 @@ impl MultiChart {
         });
     }
 
+    pub(crate) fn toggle_keep_drawing(&mut self, cx: &mut Context<Self>) {
+        let keep = !self.drawings.read(cx).book().keep_tool();
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.set_keep_tool(keep))
+        });
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.keep_drawing = keep);
+        });
+    }
+
     /// Escape: gives up what the drawing tools have in progress. Returns whether there was any.
     pub fn cancel_drawing(&mut self, cx: &mut Context<Self>) -> bool {
         if self.flyout.take().is_some() {
@@ -351,12 +537,28 @@ impl MultiChart {
             .update(cx, |drawings, cx| drawings.edit(cx, |book| book.cancel()))
     }
 
-    fn edit_book(
+    /// Opens the order ticket filled from a position drawing of the active chart.
+    pub(crate) fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.trade_drawing(id, cx));
+    }
+
+    pub(crate) fn drawing_command(
+        &mut self,
+        id: u64,
+        command: super::chart::DrawingCommand,
+        cx: &mut Context<Self>,
+    ) {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
+    }
+
+    pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
         change: impl FnOnce(&mut super::chart::drawing::book::Book, &str) -> bool,
     ) {
-        let Some(symbol) = self.symbol_name() else {
+        let Some(symbol) = self.symbol_name(cx) else {
             return;
         };
         self.drawings.update(cx, |drawings, cx| {
@@ -415,7 +617,7 @@ impl MultiChart {
 
     /// The drawings changed: keep the words field in step with the selected text drawing.
     fn on_drawings_changed(&mut self, cx: &mut Context<Self>) {
-        if let Some(symbol) = self.symbol_name() {
+        if let Some(symbol) = self.symbol_name(cx) {
             let book = self.drawings.read(cx).book();
             let words = book
                 .selected()
@@ -432,12 +634,21 @@ impl MultiChart {
         cx.notify();
     }
 
+    /// Takes a picture of the active chart.
+    pub fn picture(&mut self, cx: &mut Context<Self>) {
+        let chart = self.active_chart().clone();
+        match chart.read(cx).picture(cx) {
+            Ok((png, name)) => cx.emit(MultiChartEvent::Picture(png, name)),
+            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error)),
+        }
+    }
+
     // ---- the links ----
 
     fn on_chart_event(
         &mut self,
         source: &Entity<Chart>,
-        event: ChartEvent,
+        event: &ChartEvent,
         cx: &mut Context<Self>,
     ) {
         let Some(from) = self.slots.iter().position(|s| &s.chart == source) else {
@@ -445,34 +656,106 @@ impl MultiChart {
         };
         match event {
             ChartEvent::Activated => self.activate(from, cx),
-            ChartEvent::Hover(pointer) if self.sync.crosshair => {
-                for (i, slot) in self.slots.iter().enumerate() {
-                    if i != from {
-                        slot.chart
-                            .update(cx, |chart, cx| chart.show_remote_pointer(pointer, cx));
-                    }
+            ChartEvent::Hover(_) | ChartEvent::ViewChanged(_) => {
+                let symbols: Vec<Option<i64>> = self
+                    .slots
+                    .iter()
+                    .map(|slot| slot.chart.read(cx).symbol().map(|s| s.id))
+                    .collect();
+                for (index, follow) in links::route(&self.sync, from, &symbols, event) {
+                    self.slots[index]
+                        .chart
+                        .update(cx, |chart, cx| match follow {
+                            Follow::Pointer(pointer) => chart.show_remote_pointer(pointer, cx),
+                            Follow::Span(span) => chart.follow_span(span, cx),
+                            Follow::RightEdge(right) => chart.follow_right_edge(right, cx),
+                        });
                 }
             }
-            ChartEvent::ViewChanged(span) if self.sync.range || self.sync.time => {
-                for (i, slot) in self.slots.iter().enumerate() {
-                    if i == from {
-                        continue;
-                    }
-                    slot.chart.update(cx, |chart, cx| {
-                        if self.sync.range {
-                            chart.follow_span(span, cx);
-                        } else {
-                            chart.follow_right_edge(span.right_ms, cx);
-                        }
-                    });
+            ChartEvent::SettingsChanged => {
+                self.persist(cx);
+                if from == self.active {
+                    cx.emit(MultiChartEvent::ActiveChanged);
                 }
             }
-            ChartEvent::ZoneClicked => self.toggle_zone(cx),
-            ChartEvent::SettingsChanged => self.persist(cx),
-            ChartEvent::Hover(_) | ChartEvent::ViewChanged(_) => {}
+            ChartEvent::PickSymbol => {
+                self.activate(from, cx);
+                cx.emit(MultiChartEvent::PickSymbol(from));
+            }
+            ChartEvent::Action(action) => {
+                if let Some(symbol) = source.read(cx).symbol() {
+                    let symbol = SymbolRef {
+                        id: symbol.id,
+                        name: symbol.name.clone(),
+                        digits: symbol.digits,
+                    };
+                    cx.emit(MultiChartEvent::Action(symbol, action.clone()));
+                }
+            }
+            ChartEvent::LineMoved(id, price) => cx.emit(MultiChartEvent::LineMoved(*id, *price)),
+            ChartEvent::LineClosed(id) => cx.emit(MultiChartEvent::LineClosed(*id)),
+            ChartEvent::Screenshot => {
+                self.activate(from, cx);
+                self.picture(cx);
+            }
+        }
+    }
+
+    // ---- the lines between charts ----
+
+    fn on_area_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let Some(mut drag) = self.split_drag else {
+            return;
+        };
+        if event.pressed_button != Some(MouseButton::Left) {
+            self.split_drag = None;
+            self.persist(cx);
+            cx.notify();
+            return;
+        }
+        let Some(area) = self.area.get() else {
+            return;
+        };
+        let (x, y) = (f32::from(event.position.x), f32::from(event.position.y));
+        let (w, h) = (
+            f32::from(area.size.width).max(1.0),
+            f32::from(area.size.height).max(1.0),
+        );
+        let delta = if drag.divider.vertical {
+            (y - drag.last.1) / h
+        } else {
+            (x - drag.last.0) / w
+        };
+        drag.last = (x, y);
+        self.split_drag = Some(drag);
+        self.tree.drag(
+            drag.divider.split,
+            drag.divider.index,
+            delta,
+            drag.divider.span,
+        );
+        cx.notify();
+    }
+
+    fn end_split_drag(&mut self, cx: &mut Context<Self>) {
+        if self.split_drag.take().is_some() {
+            self.persist(cx);
+            cx.notify();
         }
     }
 }
+
+/// The split tree of a layout, with the weights saved for it.
+fn tree_for(key: LayoutKey, prefs: &Preferences) -> Node {
+    let mut tree = split::tree(layout(key));
+    if let Some(saved) = prefs.splits.get(&Preferences::split_key(key)) {
+        tree.apply_weights(saved);
+    }
+    tree
+}
+
+/// How wide the hit zone of a line between charts is.
+const DIVIDER_HIT: f32 = 7.0;
 
 impl Render for MultiChart {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -483,25 +766,34 @@ impl Render for MultiChart {
             });
             window.focus(&gpui::Focusable::focus_handle(&self.text_input, cx), cx);
         }
-        let arrangement = layout(self.key);
-        let several = arrangement.count() > 1;
-        let (cols, rows) = (arrangement.cols as f32, arrangement.rows as f32);
+        // A chart that changed symbol gets that symbol's hours (a no-op when it has them).
+        self.give_hours(cx);
+        let several = self.slots.len() > 1;
+        for (index, slot) in self.slots.iter().enumerate() {
+            let selected = !several || index == self.active;
+            slot.chart
+                .update(cx, |chart, cx| chart.set_selected(selected, cx));
+        }
+        let (rects, dividers) = self.tree.place(self.slots.len());
+        // The bar of the selected drawing floats over the chart it is being edited on.
+        let mut style_bar = self.render_style_bar(cx);
+        let gap = if several { 1.0 } else { 0.0 };
 
         let cells = self
             .slots
             .iter()
-            .zip(&arrangement.cells)
+            .zip(&rects)
             .enumerate()
-            .map(|(index, (slot, cell))| {
+            .map(|(index, (slot, r))| {
                 let active = several && index == self.active;
                 div()
                     .id(("chart-cell", index))
                     .absolute()
-                    .left(relative(cell.x as f32 / cols))
-                    .top(relative(cell.y as f32 / rows))
-                    .w(relative(cell.w as f32 / cols))
-                    .h(relative(cell.h as f32 / rows))
-                    .p(px(if several { 1.0 } else { 0.0 }))
+                    .left(relative(r.x))
+                    .top(relative(r.y))
+                    .w(relative(r.w))
+                    .h(relative(r.h))
+                    .p(px(gap))
                     .on_mouse_down(
                         MouseButton::Left,
                         cx.listener(move |this, _event, window, cx| {
@@ -509,11 +801,17 @@ impl Render for MultiChart {
                             this.activate(index, cx);
                         }),
                     )
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, _event, _window, cx| this.activate(index, cx)),
+                    )
                     .child(
                         div()
                             .size_full()
                             .flex()
                             .flex_col()
+                            .rounded(px(if several { 3.0 } else { 0.0 }))
+                            .overflow_hidden()
                             .border_1()
                             .border_color(if active {
                                 theme::accent()
@@ -524,12 +822,81 @@ impl Render for MultiChart {
                             })
                             .child(slot.chart.clone()),
                     )
+                    .children(if index == self.active {
+                        style_bar.take()
+                    } else {
+                        None
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        let dragging = self.split_drag.map(|d| (d.divider.split, d.divider.index));
+        let divider_elements = dividers
+            .iter()
+            .copied()
+            .map(|divider| {
+                let key = (divider.split, divider.index);
+                let lit = dragging == Some(key) || self.hover_divider == Some(key);
+                let base = div()
+                    .id(SharedString::from(format!(
+                        "chart-divider-{}-{}",
+                        divider.split, divider.index
+                    )))
+                    .absolute()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .occlude()
+                    .on_hover(cx.listener(move |this, hovered: &bool, _window, cx| {
+                        let next = if *hovered { Some(key) } else { None };
+                        if this.hover_divider != next && this.split_drag.is_none() {
+                            this.hover_divider = next;
+                            cx.notify();
+                        }
+                    }))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, event: &gpui::MouseDownEvent, _window, cx| {
+                            cx.stop_propagation();
+                            if event.click_count >= 2 {
+                                this.reset_splits(cx);
+                                return;
+                            }
+                            this.split_drag = Some(SplitDrag {
+                                divider,
+                                last: (f32::from(event.position.x), f32::from(event.position.y)),
+                            });
+                            cx.notify();
+                        }),
+                    );
+                let line = div().bg(if lit {
+                    theme::accent()
+                } else {
+                    gpui::rgba(0x00000000)
+                });
+                if divider.vertical {
+                    base.left(relative(divider.from))
+                        .w(relative(divider.to - divider.from))
+                        .top(relative(divider.at))
+                        .mt(px(-DIVIDER_HIT / 2.0))
+                        .h(px(DIVIDER_HIT))
+                        .cursor_row_resize()
+                        .child(line.w_full().h(px(if lit { 3.0 } else { 1.0 })))
+                } else {
+                    base.top(relative(divider.from))
+                        .h(relative(divider.to - divider.from))
+                        .left(relative(divider.at))
+                        .ml(px(-DIVIDER_HIT / 2.0))
+                        .w(px(DIVIDER_HIT))
+                        .cursor_col_resize()
+                        .child(line.h_full().w(px(if lit { 3.0 } else { 1.0 })))
+                }
             })
             .collect::<Vec<_>>();
 
         let rail = self.render_rail(cx);
         let flyout = self.render_flyout(cx);
-        let style_bar = self.render_style_bar(cx);
+        let area_cell = self.area.clone();
 
         div()
             .relative()
@@ -543,12 +910,32 @@ impl Render for MultiChart {
             .child(rail)
             .child(
                 div()
+                    .id("chart-area")
                     .relative()
                     .flex_1()
                     .h_full()
                     .min_w_0()
+                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                        this.on_area_move(event, cx);
+                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                    )
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                    )
+                    .child(
+                        canvas(
+                            move |bounds, _window, _cx| area_cell.set(Some(bounds)),
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .size_full(),
+                    )
                     .children(cells)
-                    .children(style_bar),
+                    .children(divider_elements),
             )
             .children(flyout)
     }

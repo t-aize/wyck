@@ -8,10 +8,15 @@
 //!
 //! The sign-in is kept: on the next start the app finds the saved connection and goes straight to
 //! the dashboard (see [`ConnectionFlow::restore`]).
+//!
+//! With `WYCK_DEMO_SERVER` set to the address of the demo server (`cargo run --example
+//! demo_server`), the app skips the sign-in and opens the dashboard on that server's made-up
+//! market and account, for trying the app and working on it without a cTrader account.
 
 mod authorizing;
 mod browser_handoff;
 mod credentials;
+mod rules;
 mod select_account;
 mod stepper;
 pub(crate) mod ui;
@@ -28,8 +33,10 @@ use secrecy::ExposeSecret;
 use wyck::config::{AppPaths, KeyringSecretStore, ProfileId, WyckConfig};
 use wyck::openapi::auth::TokenSet;
 use wyck::openapi::config::ClientCredentials;
-use wyck::openapi::session::{Session, SessionConfig};
+use wyck::openapi::session::{MemoryTokenStore, Session, SessionConfig, TokenStore};
 use wyck::openapi::{ConnectionConfig, Environment};
+
+use gpui_kit::component::Root;
 
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
@@ -46,17 +53,38 @@ enum Screen {
     Dashboard(Entity<Dashboard>, #[allow(dead_code)] Subscription),
 }
 
-/// The service tag of a profile made by this flow: the environment is part of it.
-fn service_tag(environment: Environment) -> &'static str {
-    match environment {
-        Environment::Live => "ctrader-openapi-live",
-        Environment::Demo => "ctrader-openapi-demo",
+use self::rules::service_tag;
+
+/// The connection to the demo server, when `WYCK_DEMO_SERVER` names one.
+fn demo_connection() -> Option<SavedConnection> {
+    let url = std::env::var("WYCK_DEMO_SERVER").ok()?;
+    let url = url.trim();
+    if url.is_empty() {
+        return None;
     }
+    Some(SavedConnection {
+        profile_id: None,
+        url: Some(url.to_owned()),
+        label: "Demo server".into(),
+        environment: Environment::Demo,
+        credentials: ClientCredentials::new("demo", "demo"),
+        account_id: 1,
+        tokens: TokenSet {
+            access_token: "demo".to_owned().into(),
+            refresh_token: "demo".to_owned().into(),
+            token_type: Some("bearer".into()),
+            expires_in: Some(std::time::Duration::from_secs(30 * 86_400)),
+            obtained_at: std::time::SystemTime::now(),
+        },
+    })
 }
 
 /// Everything needed to open a session again, read back from the saved profile.
 struct SavedConnection {
-    profile_id: ProfileId,
+    /// The saved profile; `None` for the demo server, which has none.
+    profile_id: Option<ProfileId>,
+    /// Another server than cTrader's, for the demo.
+    url: Option<String>,
     label: SharedString,
     environment: Environment,
     credentials: ClientCredentials,
@@ -93,30 +121,23 @@ impl ConnectionFlow {
     /// not sign in again. Anything missing or unreadable (the secret was deleted from the OS
     /// keyring, the profile predates Open API) just leaves the welcome screen.
     fn restore(&mut self, cx: &mut Context<Self>) {
+        if let Some(demo) = demo_connection() {
+            tracing::info!(url = ?demo.url, "opening the demo server");
+            self.start_dashboard(demo, cx);
+            return;
+        }
         let Some(saved) = self.saved_connection() else {
             return;
         };
-        tracing::info!(profile = %saved.profile_id, "restoring the saved connection");
+        tracing::info!(profile = ?saved.profile_id, "restoring the saved connection");
         self.start_dashboard(saved, cx);
     }
 
     fn saved_connection(&self) -> Option<SavedConnection> {
-        let profile = self.config.active_profile().or_else(|| {
-            self.config
-                .profiles()
-                .iter()
-                .find(|p| p.service.starts_with("ctrader-openapi-"))
-        })?;
-        if !profile.service.starts_with("ctrader-openapi-") {
-            return None;
-        }
+        let profile = rules::saved_profile(self.config.active_profile(), self.config.profiles())?;
+        let environment = rules::environment_of(&profile.service)?;
         let client_id = profile.client_id.clone()?;
         let account_id = profile.account_id?;
-        let environment = if profile.service.ends_with("live") {
-            Environment::Live
-        } else {
-            Environment::Demo
-        };
 
         let secret = match self.config.profile_secret(&profile.id, "client-secret") {
             Ok(Some(secret)) => secret,
@@ -135,7 +156,8 @@ impl ConnectionFlow {
             }
         };
         Some(SavedConnection {
-            profile_id: profile.id.clone(),
+            profile_id: Some(profile.id.clone()),
+            url: None,
             label: profile.display_name.clone().into(),
             environment,
             credentials: ClientCredentials::new(client_id, secret.expose_secret()),
@@ -148,6 +170,7 @@ impl ConnectionFlow {
     fn start_dashboard(&mut self, saved: SavedConnection, cx: &mut Context<Self>) {
         let SavedConnection {
             profile_id,
+            url,
             label,
             environment,
             credentials,
@@ -155,11 +178,17 @@ impl ConnectionFlow {
             tokens,
         } = saved;
 
-        let config =
-            SessionConfig::new(ConnectionConfig::new(environment), credentials, account_id);
-        let store = Arc::new(ConfigTokenStore::new(
-            self.config.openapi_token_storage(&profile_id),
-        ));
+        let connection = match url {
+            Some(url) => ConnectionConfig::with_url(url),
+            None => ConnectionConfig::new(environment),
+        };
+        let config = SessionConfig::new(connection, credentials, account_id);
+        let store: Arc<dyn TokenStore> = match &profile_id {
+            Some(profile_id) => Arc::new(ConfigTokenStore::new(
+                self.config.openapi_token_storage(profile_id),
+            )),
+            None => Arc::new(MemoryTokenStore::default()),
+        };
         // The session's supervisor is a tokio task, so it has to be started inside the runtime.
         let session = {
             let _guard = runtime::handle().enter();
@@ -181,14 +210,7 @@ impl ConnectionFlow {
         let initial_symbol = self.config.last_symbol().map(str::to_owned);
         // What the user arranges is kept per account number, so signing out and in again finds
         // the watchlists where they were.
-        let scope = format!(
-            "{}-{account_id}",
-            if environment == Environment::Live {
-                "live"
-            } else {
-                "demo"
-            }
-        );
+        let scope = rules::document_scope(environment, account_id);
         let documents = Documents {
             global: self.config.global_documents(),
             account: self.config.scoped_documents(&scope),
@@ -204,7 +226,7 @@ impl ConnectionFlow {
 
     fn on_dashboard_event(
         &mut self,
-        profile_id: &ProfileId,
+        profile_id: &Option<ProfileId>,
         dashboard: &Entity<Dashboard>,
         event: &DashboardEvent,
         cx: &mut Context<Self>,
@@ -217,7 +239,9 @@ impl ConnectionFlow {
             }
             DashboardEvent::Disconnect => {
                 dashboard.read(cx).stop();
-                if let Err(error) = self.config.remove_profile(profile_id) {
+                if let Some(profile_id) = profile_id
+                    && let Err(error) = self.config.remove_profile(profile_id)
+                {
                     tracing::warn!(%error, "failed to remove the profile on disconnect");
                 }
                 self.go_to_welcome(cx);
@@ -307,6 +331,10 @@ impl Render for ConnectionFlow {
                 self.step_index()
                     .map(|current| stepper::stepper(current, epoch)),
             )
+            // Dialogs and notices of gpui-component draw in these layers, over everything.
+            .children(Root::render_sheet_layer(window, cx))
+            .children(Root::render_dialog_layer(window, cx))
+            .children(Root::render_notification_layer(window, cx))
     }
 }
 

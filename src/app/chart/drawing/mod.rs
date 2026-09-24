@@ -2,6 +2,7 @@
 //! positions, text.
 //!
 //! - [`model`]: what a drawing is, and the saved form of it.
+//! - [`figures`]: the shapes of the tools made of many lines (pitchforks, Gann, patterns, waves).
 //! - [`geometry`]: turning a drawing into shapes on the screen, and finding what is under the
 //!   pointer. It sees the chart only through the [`geometry::Projection`] trait.
 //! - [`book`]: the drawings of every symbol and the rules for making and changing them with the
@@ -11,6 +12,7 @@
 //! when it is scrolled or zoomed, and shows on every timeframe of its symbol.
 
 pub mod book;
+pub mod figures;
 pub mod geometry;
 pub mod model;
 mod state;

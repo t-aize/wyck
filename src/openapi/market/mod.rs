@@ -18,12 +18,15 @@
 //! | [`bars`] | [`Period`], [`Bar`], decoding the low-plus-offsets wire form |
 //! | [`ticks`] | [`Tick`], [`QuoteType`], decoding the delta-encoded wire form |
 //! | [`price`] | [`PRICE_SCALE`], [`to_price`], [`from_price`], [`format_price`] |
+//! | [`live`] | [`LiveBarTracker`]: live bars with their real close (the server's is wrong) |
 //! | [`history`] | [`history::fetch_bars`], [`history::fetch_ticks`]: whole ranges, paged |
 
 pub mod bars;
 pub mod client;
 pub mod depth;
 pub mod history;
+pub mod hours;
+pub mod live;
 pub mod price;
 pub mod quotes;
 pub mod symbols;
@@ -36,6 +39,8 @@ pub use bars::{
 pub use client::MarketClient;
 pub use depth::{DepthBook, DepthEvent, DepthLevel, DepthQuote};
 pub use history::{MAX_TICK_RANGE_MS, continuation, fetch_bars, fetch_ticks, tick_windows};
+pub use hours::{Holiday, Interval, MarketStatus, TradingHours};
+pub use live::{LiveBarTracker, with_true_close};
 pub use price::{PRICE_SCALE, UNITS_PER_PRICE, format_price, from_price, to_price};
 pub use quotes::{Spot, SpotEvent, SpotTracker, SubscribeSpotsReq};
 pub use symbols::{

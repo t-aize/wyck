@@ -11,36 +11,14 @@ use gpui_kit::component::Disableable;
 use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
+use crate::app::chart::DrawingCommand;
 use crate::app::chart::drawing::model::{Dash, Group, PALETTE, Tool, WIDTHS};
+use crate::app::chart::object_tree::tool_icon;
 use crate::app::connection::ui;
 use crate::app::theme;
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
-
-pub fn tool_icon(tool: Tool) -> IconName {
-    match tool {
-        Tool::TrendLine => IconName::TrendingUp,
-        Tool::Ray => IconName::MoveUpRight,
-        Tool::ExtendedLine => IconName::MoveDiagonal,
-        Tool::HorizontalLine => IconName::Minus,
-        Tool::HorizontalRay => IconName::MoveRight,
-        Tool::VerticalLine => IconName::SeparatorVertical,
-        Tool::CrossLine => IconName::Plus,
-        Tool::Arrow => IconName::ArrowUpRight,
-        Tool::ParallelChannel => IconName::Rows2,
-        Tool::FibRetracement | Tool::FibExtension => IconName::ChartNoAxesGantt,
-        Tool::Rectangle => IconName::Square,
-        Tool::Ellipse => IconName::Ellipse,
-        Tool::Brush => IconName::Brush,
-        Tool::Measure => IconName::Ruler,
-        Tool::LongPosition => IconName::ArrowBigUp,
-        Tool::ShortPosition => IconName::ArrowBigDown,
-        Tool::Text => IconName::Type,
-        Tool::PriceLabel => IconName::Tag,
-        Tool::Unknown => IconName::Pen,
-    }
-}
 
 fn group_tools(group: Group) -> Vec<Tool> {
     Tool::ALL
@@ -65,15 +43,20 @@ impl MultiChart {
 
     /// The vertical strip of tools.
     pub(super) fn render_rail(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let symbol = self.symbol_name(cx);
         let book = self.drawings.read(cx).book();
         let (tool, magnet, can_undo, can_redo) =
             (book.tool(), book.magnet(), book.can_undo(), book.can_redo());
-        let has_any = self
-            .symbol
-            .as_ref()
-            .is_some_and(|symbol| book.count(&symbol.name) > 0);
+        let keep = book.keep_tool();
+        let has_any = symbol.as_ref().is_some_and(|symbol| book.count(symbol) > 0);
+        let all_hidden = has_any
+            && symbol
+                .as_ref()
+                .is_some_and(|symbol| book.drawings(symbol).iter().all(|d| d.hidden));
 
         let mut rail = div()
+            .id("draw-rail")
+            .overflow_y_scroll()
             .flex_none()
             .w(px(RAIL_WIDTH))
             .h_full()
@@ -127,6 +110,53 @@ impl MultiChart {
                 .bg(theme::border_hairline()),
         )
         .child(
+            Button::new("draw-tree")
+                .ghost()
+                .compact()
+                .icon(IconName::ListTree)
+                .tooltip("Drawings on this symbol")
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _event, window, cx| {
+                    let chart = this.active_chart().clone();
+                    crate::app::chart::open_object_tree(&chart, window, cx);
+                })),
+        )
+        .child(
+            Button::new("draw-hide-all")
+                .ghost()
+                .compact()
+                .icon(if all_hidden {
+                    IconName::EyeOff
+                } else {
+                    IconName::Eye
+                })
+                .tooltip(if all_hidden {
+                    "Show the drawings"
+                } else {
+                    "Hide the drawings"
+                })
+                .toggled(all_hidden)
+                .disabled(!has_any)
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _event, _window, cx| {
+                    this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !all_hidden));
+                })),
+        )
+        .child(
+            Button::new("draw-keep")
+                .ghost()
+                .compact()
+                .icon(IconName::PencilLine)
+                .tooltip(if keep {
+                    "Stay in drawing mode: on (draw several in a row, Esc to stop)"
+                } else {
+                    "Stay in drawing mode: off (back to the pointer after each drawing)"
+                })
+                .toggled(keep)
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_keep_drawing(cx))),
+        )
+        .child(
             Button::new("draw-magnet")
                 .ghost()
                 .compact()
@@ -172,9 +202,11 @@ impl MultiChart {
     pub(super) fn render_flyout(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let group = self.flyout?;
         let current = self.drawings.read(cx).book().tool();
+        // Beside the family's button: the pointer's comes first, then one per family.
+        let index = Group::ALL.iter().position(|g| *g == group).unwrap_or(0);
         let mut list = div()
             .absolute()
-            .top(px(8.))
+            .top(px(4.0 + 36.0 * (index as f32 + 1.0)))
             .left(px(RAIL_WIDTH + 6.0))
             .w(px(230.))
             .p_1()
@@ -249,23 +281,16 @@ impl MultiChart {
 
     /// The bar over a selected drawing: color, width, line style, fill, words, lock, copy, delete.
     pub(super) fn render_style_bar(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let symbol = self.symbol.as_ref()?.name.clone();
+        let symbol = self.symbol_name(cx)?;
         let book = self.drawings.read(cx).book();
         if book.tool().is_some() {
             return None;
         }
         let drawing = book.selected().and_then(|id| book.get(&symbol, id))?;
         let style = drawing.style.clone();
-        let (tool, locked) = (drawing.tool, drawing.locked);
-        let has_fill = matches!(
-            tool,
-            Tool::Rectangle
-                | Tool::Ellipse
-                | Tool::ParallelChannel
-                | Tool::FibRetracement
-                | Tool::FibExtension
-        );
-        let has_dash = !matches!(tool, Tool::Text | Tool::PriceLabel | Tool::Brush);
+        let (tool, locked, id) = (drawing.tool, drawing.locked, drawing.id);
+        let has_fill = tool.has_fill();
+        let has_dash = tool.has_dash();
 
         let divider = || {
             div()
@@ -402,7 +427,50 @@ impl MultiChart {
             }
         }
 
+        if tool.is_position() {
+            bar = bar
+                .child(
+                    Button::new("draw-trade")
+                        .primary()
+                        .compact()
+                        .icon(IconName::ArrowLeftRight)
+                        .label(if tool == Tool::LongPosition {
+                            "Buy"
+                        } else {
+                            "Sell"
+                        })
+                        .tooltip("Open the order ticket with this entry, stop and target")
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.trade_drawing(id, cx);
+                        })),
+                )
+                .child(divider());
+        }
         bar = bar
+            .child(
+                Button::new("draw-settings")
+                    .ghost()
+                    .compact()
+                    .icon(IconName::Settings2)
+                    .tooltip("Settings (double click)")
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _event, window, cx| {
+                        let chart = this.active_chart().clone();
+                        crate::app::chart::open_drawing_settings(&chart, id, window, cx);
+                    })),
+            )
+            .child(
+                Button::new("draw-hide")
+                    .ghost()
+                    .compact()
+                    .icon(IconName::EyeOff)
+                    .tooltip("Hide")
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.drawing_command(id, DrawingCommand::Hide, cx);
+                    })),
+            )
             .child(
                 Button::new("draw-lock")
                     .ghost()
@@ -439,10 +507,11 @@ impl MultiChart {
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );
 
+        let top = self.active_chart().read(cx).legend_bottom();
         Some(
             div()
                 .absolute()
-                .top(px(8.))
+                .top(px(top))
                 .left_0()
                 .right_0()
                 .flex()

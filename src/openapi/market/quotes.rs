@@ -66,6 +66,9 @@ impl SpotEvent {
     /// The live bars the event carries, decoded, with their periods. A bar without a known period
     /// or with damaged numbers is left out. Live bars only arrive after
     /// [`crate::openapi::market::MarketClient::subscribe_live_bars`].
+    ///
+    /// These are the bars exactly as sent, and the server's close of a live bar is wrong (it
+    /// equals the low). Use [`crate::openapi::market::LiveBarTracker`] to get the real close.
     #[must_use]
     pub fn live_bars(&self) -> Vec<(Period, Bar)> {
         self.trendbar.iter().filter_map(live_bar).collect()

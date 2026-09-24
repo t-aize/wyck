@@ -143,6 +143,8 @@ pub struct Entry {
     /// The asset the symbol is bought in, and the one it is priced in, when the broker says.
     pub base: Option<String>,
     pub quote: Option<String>,
+    /// The id of the asset it is priced in.
+    pub quote_asset: Option<i64>,
     /// Its picture: flags, a logo or a glyph.
     pub icon: Icon,
     /// The broker's finer grouping inside the class (`Major Pairs`, `US Shares`...).
@@ -214,6 +216,7 @@ impl Catalog {
                     })
                     .cloned();
                 Some(Entry {
+                    quote_asset: s.quote_asset_id,
                     id: s.symbol_id,
                     name,
                     description,
@@ -236,6 +239,10 @@ impl Catalog {
 
     pub fn entry(&self, index: usize) -> Option<&Entry> {
         self.entries.get(index)
+    }
+
+    pub fn by_id(&self, id: i64) -> Option<&Entry> {
+        self.entries.iter().find(|e| e.id == id)
     }
 
     pub fn by_name(&self, name: &str) -> Option<&Entry> {

@@ -7,15 +7,15 @@ use gpui::{Context, SharedString, Window, anchored, deferred, div, px, rgb};
 use super::Dashboard;
 use crate::app::multichart::icon::layout_icon;
 use crate::app::multichart::layouts::{self, LayoutKey};
-use crate::app::multichart::{Link, Links};
+use crate::app::multichart::links::{Link, Links};
 use crate::app::theme;
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 5] = [
     (
-        None,
+        Some(Link::Symbol),
         "Symbol",
-        "Every chart shows the same symbol (always on for now)",
+        "Every chart shows the same symbol",
     ),
     (
         Some(Link::Interval),
@@ -86,7 +86,7 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         // As tall as the window allows, so the links at the bottom are never cut off.
-        let max_height = (f32::from(window.viewport_size().height) - 72.0).max(240.0);
+        let max_height = (f32::from(window.viewport_size().height) - 112.0).max(240.0);
         let links = self.multi.read(cx).sync();
 
         let mut arrangements = div().flex().flex_col();
@@ -130,6 +130,20 @@ impl Dashboard {
             );
         }
 
+        let reset = div()
+            .id("layout-reset-splits")
+            .mt_2()
+            .px_1()
+            .py_1()
+            .rounded_md()
+            .cursor_pointer()
+            .text_size(px(12.))
+            .text_color(theme::muted_fg())
+            .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
+            .on_click(cx.listener(|this, _event, _window, cx| {
+                this.multi.update(cx, |multi, cx| multi.reset_splits(cx));
+            }))
+            .child("Make the charts equal again (or double click a line between them)");
         let mut links_section = div().flex().flex_col().gap_1().pt_3().child(
             div()
                 .pb_1()
@@ -155,6 +169,7 @@ impl Dashboard {
             .border_color(theme::border_subtle())
             .occlude()
             .child(arrangements)
+            .child(reset)
             .child(links_section);
 
         deferred(
@@ -180,13 +195,7 @@ fn link_row(
     links: Links,
     cx: &mut Context<Dashboard>,
 ) -> impl IntoElement + use<> {
-    let on = match link {
-        None => true,
-        Some(Link::Interval) => links.interval,
-        Some(Link::Crosshair) => links.crosshair,
-        Some(Link::Time) => links.time,
-        Some(Link::Range) => links.range,
-    };
+    let on = link.is_none_or(|link| link.is_on(&links));
     div()
         .id(SharedString::from(format!("layout-link-{index}")))
         .flex()

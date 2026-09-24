@@ -95,7 +95,9 @@ impl Projection for ChartProjection<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::chart::scene::{ChartKind, Layout, price_map};
+    use crate::app::chart::display::Display;
+    use crate::app::chart::scene::{Geometry, main_map};
+    use crate::app::chart::settings::ChartSettings;
     use wyck::openapi::market::Bar;
 
     fn bars() -> Series {
@@ -116,17 +118,16 @@ mod tests {
     fn with<R>(f: impl FnOnce(&ChartProjection<'_>) -> R) -> R {
         let series = bars();
         let view = View::new(8.0);
-        let layout = Layout {
-            w: 1_000.0,
-            h: 600.0,
-        };
-        let map = price_map(&series, &view, layout, ChartKind::Candles, 5).unwrap();
+        let settings = ChartSettings::default();
+        let display = Display::build(&series, &settings, 1);
+        let geometry = Geometry::single(1_000.0, 600.0);
+        let map = main_map(&series, &display, &settings, &view, &geometry, 5).unwrap();
         let projection = ChartProjection {
             series: &series,
             view: &view,
             map,
-            plot_w: layout.plot_w(),
-            plot_h: layout.plot_h(),
+            plot_w: geometry.plot_w(),
+            plot_h: geometry.plot_h(),
             step_ms: 300_000.0,
             digits: 5,
         };
@@ -232,12 +233,7 @@ mod tests {
         let projection = ChartProjection {
             series: &series,
             view: &view,
-            map: PriceMap {
-                lo: 0.0,
-                hi: 1.0,
-                top: 0.0,
-                bottom: 100.0,
-            },
+            map: PriceMap::linear(0.0, 1.0, 0.0, 100.0),
             plot_w: 500.0,
             plot_h: 300.0,
             step_ms: 1_000.0,

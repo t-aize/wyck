@@ -117,6 +117,8 @@ pub fn apply(cx: &mut gpui::App) {
     colors.success = hsla(emerald());
     colors.warning = hsla(amber());
     colors.link = hsla(accent());
+    // The veil behind a dialog, so what is open stands out from the screen under it.
+    colors.overlay = hsla(gpui::rgba(0x0000_0099));
 
     // Buttons read their own set of colors, which default to unrelated values.
     colors.button = colors.secondary;
@@ -154,4 +156,34 @@ pub fn surface_pressed() -> Rgba {
 /// A card or row edge while the pointer is over it.
 pub fn border_strong() -> Rgba {
     rgba(0xffffff40)
+}
+
+/// A rising candle, volume column or price tag.
+pub fn chart_up() -> Rgba {
+    rgb(0x26a69a)
+}
+
+/// A falling candle, volume column or price tag.
+pub fn chart_down() -> Rgba {
+    rgb(0xef5350)
+}
+
+/// The line of a line, area or step chart.
+pub fn chart_line() -> Rgba {
+    rgb(0x5b8def)
+}
+
+/// The grid behind the prices.
+pub fn chart_grid() -> Rgba {
+    rgba(0xffffff0b)
+}
+
+/// The background of the crosshair's tags on the axes.
+pub fn chart_tag() -> Rgba {
+    rgb(0x363a45)
+}
+
+/// The crosshair's dashed lines.
+pub fn chart_crosshair() -> Rgba {
+    rgba(0x9598a1b0)
 }

@@ -77,7 +77,8 @@ impl ConnectionFlow {
                 match this.save_connected_profile(&credentials, environment, &account, &tokens) {
                     Ok((profile_id, label)) => {
                         let saved = SavedConnection {
-                            profile_id,
+                            profile_id: Some(profile_id),
+                            url: None,
                             label: label.into(),
                             environment,
                             credentials,
@@ -122,19 +123,7 @@ impl ConnectionFlow {
             self.config.remove_profile(&id)?;
         }
 
-        let broker = account.broker_title_short.as_deref().unwrap_or("cTrader");
-        let login = account
-            .trader_login
-            .map(|login| login.to_string())
-            .unwrap_or_else(|| account.ctid_trader_account_id.to_string());
-        let display_name = format!(
-            "{broker} {} - {login}",
-            if account.is_live.unwrap_or(false) {
-                "Live"
-            } else {
-                "Demo"
-            }
-        );
+        let display_name = super::rules::account_label(account);
 
         let id =
             self.config

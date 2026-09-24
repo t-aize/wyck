@@ -47,21 +47,21 @@ gpui::actions!(
 /// startup.
 pub fn init(cx: &mut App) {
     cx.bind_keys([
-        KeyBinding::new("backspace", TextInputBackspace, None),
-        KeyBinding::new("delete", TextInputDelete, None),
-        KeyBinding::new("left", TextInputLeft, None),
-        KeyBinding::new("right", TextInputRight, None),
-        KeyBinding::new("shift-left", TextInputSelectLeft, None),
-        KeyBinding::new("shift-right", TextInputSelectRight, None),
+        KeyBinding::new("backspace", TextInputBackspace, Some("TextInput")),
+        KeyBinding::new("delete", TextInputDelete, Some("TextInput")),
+        KeyBinding::new("left", TextInputLeft, Some("TextInput")),
+        KeyBinding::new("right", TextInputRight, Some("TextInput")),
+        KeyBinding::new("shift-left", TextInputSelectLeft, Some("TextInput")),
+        KeyBinding::new("shift-right", TextInputSelectRight, Some("TextInput")),
         // "secondary" is GPUI's cross-platform primary modifier: cmd on macOS, ctrl everywhere
         // else. Binding these to "cmd-*" instead would only fire on the literal Super/Windows
         // key, so Ctrl+C/V/X/A silently did nothing on Windows and Linux.
-        KeyBinding::new("secondary-a", TextInputSelectAll, None),
-        KeyBinding::new("secondary-v", TextInputPaste, None),
-        KeyBinding::new("secondary-c", TextInputCopy, None),
-        KeyBinding::new("secondary-x", TextInputCut, None),
-        KeyBinding::new("home", TextInputHome, None),
-        KeyBinding::new("end", TextInputEnd, None),
+        KeyBinding::new("secondary-a", TextInputSelectAll, Some("TextInput")),
+        KeyBinding::new("secondary-v", TextInputPaste, Some("TextInput")),
+        KeyBinding::new("secondary-c", TextInputCopy, Some("TextInput")),
+        KeyBinding::new("secondary-x", TextInputCut, Some("TextInput")),
+        KeyBinding::new("home", TextInputHome, Some("TextInput")),
+        KeyBinding::new("end", TextInputEnd, Some("TextInput")),
     ]);
 }
 

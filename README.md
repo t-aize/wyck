@@ -22,4 +22,12 @@ cargo test
 cargo test --test live -- --ignored --nocapture
 ```
 
+To try the app, or work on it, without a cTrader account, run the demo server (a local
+stand-in for the Open API with made-up prices and one demo account) and point the app at it:
+
+```sh
+cargo run --example demo_server
+WYCK_DEMO_SERVER=ws://127.0.0.1:5035 cargo run
+```
+
 Licensed under the [Apache License 2.0](LICENSE).
