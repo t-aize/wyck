@@ -25,6 +25,49 @@ pub fn tool_icon(tool: Tool) -> IconName {
         Tool::VerticalLine => IconName::SeparatorVertical,
         Tool::CrossLine => IconName::Plus,
         Tool::Arrow => IconName::ArrowUpRight,
+        Tool::ArrowPath => IconName::Spline,
+        Tool::InfoLine => IconName::Info,
+        Tool::TrendAngle => IconName::Angle,
+        Tool::RegressionTrend => IconName::ChartLine,
+        Tool::FlatTopBottom => IconName::StretchHorizontal,
+        Tool::DisjointChannel => IconName::Layers2,
+        Tool::Pitchfan => IconName::Fan,
+        Tool::FibTimeExtension => IconName::Timer,
+        Tool::FibCircles => IconName::CircleDot,
+        Tool::FibSpiral => IconName::RotateCw,
+        Tool::FibArcs => IconName::Orbit,
+        Tool::FibWedge => IconName::TriangleRight,
+        Tool::GannSquareFixed => IconName::Blocks,
+        Tool::CyclicLines => IconName::Repeat,
+        Tool::TimeCycles => IconName::AudioWaveform,
+        Tool::SineLine => IconName::ChartSpline,
+        Tool::RotatedRectangle => IconName::VectorSquare,
+        Tool::Circle => IconName::Circle,
+        Tool::Arc => IconName::Radius,
+        Tool::Curve => IconName::SplinePointer,
+        Tool::DoubleCurve => IconName::Spline,
+        Tool::Highlighter => IconName::Highlighter,
+        Tool::ArrowMarker => IconName::ArrowUpFromLine,
+        Tool::ArrowMarkUp => IconName::ArrowBigUp,
+        Tool::ArrowMarkDown => IconName::ArrowBigDown,
+        Tool::PriceRange => IconName::MoveVertical,
+        Tool::DateRange => IconName::MoveHorizontal,
+        Tool::DatePriceRange => IconName::Scan,
+        Tool::Forecast => IconName::ChartArea,
+        Tool::BarsPattern => IconName::ChartCandlestick,
+        Tool::GhostFeed => IconName::Ghost,
+        Tool::AnchoredVwap => IconName::Sigma,
+        Tool::FixedRangeVolumeProfile => IconName::ChartBarBig,
+        Tool::AnchoredVolumeProfile => IconName::ChartColumn,
+        Tool::Note => IconName::StickyNote,
+        Tool::PriceNote => IconName::NotebookPen,
+        Tool::Callout => IconName::MessageSquareText,
+        Tool::Comment => IconName::MessageCircle,
+        Tool::Pin => IconName::Pin,
+        Tool::Signpost => IconName::Signpost,
+        Tool::FlagMark => IconName::Flag,
+        Tool::Table => IconName::Table,
+        Tool::Icon => IconName::Star,
         Tool::ParallelChannel => IconName::Rows2,
         Tool::Pitchfork => IconName::GitFork,
         Tool::SchiffPitchfork => IconName::GitBranch,
@@ -127,7 +170,8 @@ impl Render for ObjectTree {
                 .child("No drawings on this symbol yet. Pick a tool on the left of the chart.")
                 .into_any_element();
         }
-        let all_hidden = list.iter().all(|d| d.hidden);
+        // Some hidden is enough to offer showing them again.
+        let some_hidden = list.iter().any(|d| d.hidden);
         let count = list.len();
         let (show_this, lock_this) = (this.clone(), this.clone());
         let header = div()
@@ -148,22 +192,24 @@ impl Render for ObjectTree {
             )
             .child(
                 Button::new("tree-show-all")
+                    .cursor_pointer()
                     .ghost()
                     .xsmall()
-                    .icon(if all_hidden {
+                    .icon(if some_hidden {
                         IconName::Eye
                     } else {
                         IconName::EyeOff
                     })
-                    .label(if all_hidden { "Show all" } else { "Hide all" })
+                    .label(if some_hidden { "Show all" } else { "Hide all" })
                     .on_click(move |_, _window, cx| {
                         show_this.update(cx, |tree, cx| {
-                            tree.edit(cx, |book, symbol| book.set_all_hidden(symbol, !all_hidden));
+                            tree.edit(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
                         });
                     }),
             )
             .child(
                 Button::new("tree-clear")
+                    .cursor_pointer()
                     .ghost()
                     .xsmall()
                     .icon(IconName::Trash)
@@ -198,6 +244,7 @@ impl Render for ObjectTree {
             let (hidden, locked) = (drawing.hidden, drawing.locked);
             let small = |name: String, icon: IconName, tip: &'static str| {
                 Button::new(SharedString::from(name))
+                    .cursor_pointer()
                     .ghost()
                     .xsmall()
                     .icon(icon)
@@ -288,9 +335,9 @@ impl Render for ObjectTree {
                         small(
                             format!("tree-eye-{id}"),
                             if hidden {
-                                IconName::EyeOff
-                            } else {
                                 IconName::Eye
+                            } else {
+                                IconName::EyeOff
                             },
                             if hidden { "Show" } else { "Hide" },
                         )

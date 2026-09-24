@@ -314,6 +314,7 @@ impl Dashboard {
             .flex_col()
             .overflow_hidden()
             .rounded_xl()
+            .shadow_lg()
             .bg(theme::surface())
             .border_1()
             .border_color(theme::border_subtle())
@@ -372,10 +373,9 @@ impl Dashboard {
             .size_full()
             .flex()
             .justify_center()
-            .items_start()
-            .pt(px(24.))
-            .pb(px(24.))
-            .bg(rgba(0x000000a6))
+            .items_center()
+            .py(px(24.))
+            .bg(rgba(0x0000008c))
             .occlude()
             .on_mouse_down(
                 MouseButton::Left,

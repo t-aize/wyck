@@ -199,6 +199,20 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> Self {
         let workspace = cx.new(|cx| Workspace::new(&documents, cx));
+        // The colors saved in the color panel live with the preferences.
+        crate::app::color_picker::connect(
+            workspace.read(cx).preferences().saved_colors.clone(),
+            {
+                let workspace = workspace.clone();
+                move |colors, cx| {
+                    workspace.update(cx, |workspace, cx| {
+                        workspace
+                            .edit_preferences(cx, |prefs| prefs.saved_colors = colors.to_vec());
+                    });
+                }
+            },
+            cx,
+        );
         // The header shows the favorite timeframes, so it follows the workspace.
         cx.observe(&workspace, |_this, _workspace, cx| cx.notify())
             .detach();

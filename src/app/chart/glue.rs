@@ -19,6 +19,7 @@ pub enum DrawingCommand {
     Hide,
     Lock(bool),
     Delete,
+    Flip,
 }
 
 impl Chart {
@@ -84,17 +85,16 @@ impl Chart {
                     drawings
                         .read(cx)
                         .book()
-                        .hover_part(&symbol, &timeframe, projection, x, y)
-                        .is_some()
+                        .hover(&symbol, &timeframe, projection, x, y)
                 })
-                .unwrap_or(false);
+                .flatten();
             if over != self.over_drawing {
                 self.over_drawing = over;
                 cx.notify();
             }
             return;
         }
-        self.over_drawing = false;
+        self.over_drawing = None;
         let changed = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
                 drawings.edit(cx, |book| {
@@ -179,6 +179,9 @@ impl Chart {
             }
             DrawingCommand::Delete => {
                 self.edit_drawings(cx, |book, symbol| book.delete(symbol, id));
+            }
+            DrawingCommand::Flip => {
+                self.edit_drawings(cx, |book, symbol| book.flip_position(symbol, id));
             }
         }
         cx.notify();

@@ -10,6 +10,7 @@
 
 use gpui::{Context, CursorStyle};
 
+use super::drawing::book::Grab;
 use super::lines::{LineId, to_real};
 use super::view::PriceScale;
 use super::{Chart, ChartEvent};
@@ -405,11 +406,11 @@ impl Chart {
 
     pub(super) fn cursor(&self, cx: &gpui::App) -> CursorStyle {
         if self.drawing_drag {
-            return CursorStyle::ClosedHand;
+            return grabbing();
         }
         if let Some(drag) = self.drag {
             return match drag.kind {
-                DragKind::Pan { .. } => CursorStyle::ClosedHand,
+                DragKind::Pan { .. } => grabbing(),
                 DragKind::Price | DragKind::Separator(_) | DragKind::Line(..) => {
                     CursorStyle::ResizeUpDown
                 }
@@ -435,8 +436,15 @@ impl Chart {
             if self.line_at(y).is_some() {
                 return CursorStyle::ResizeUpDown;
             }
-            if self.over_drawing {
-                return CursorStyle::PointingHand;
+            if let Some(over) = self.over_drawing {
+                return match over {
+                    Grab::Body => CursorStyle::PointingHand,
+                    Grab::Grip => CursorStyle::PointingHand,
+                    Grab::GripVertical => CursorStyle::ResizeUpDown,
+                    Grab::GripHorizontal => CursorStyle::ResizeLeftRight,
+                    Grab::GripDiagonalDown => CursorStyle::ResizeUpLeftDownRight,
+                    Grab::GripDiagonalUp => CursorStyle::ResizeUpRightDownLeft,
+                };
             }
         }
         match region {
@@ -446,5 +454,15 @@ impl Chart {
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
             Region::Corner => CursorStyle::PointingHand,
         }
+    }
+}
+
+/// The cursor of something being dragged: a closed hand, which Windows does not have (it would
+/// show the plain arrow), so the pointing hand there.
+fn grabbing() -> CursorStyle {
+    if cfg!(windows) {
+        CursorStyle::PointingHand
+    } else {
+        CursorStyle::ClosedHand
     }
 }

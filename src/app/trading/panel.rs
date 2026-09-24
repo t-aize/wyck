@@ -258,6 +258,8 @@ impl AccountPanel {
         on_click: impl Fn(&mut Window, &mut App) + 'static,
     ) -> impl IntoElement {
         Button::new(id)
+            .cursor_pointer()
+            .when(busy, |button| button.cursor_not_allowed())
             .ghost()
             .xsmall()
             .icon(icon)
@@ -916,6 +918,7 @@ impl Render for AccountPanel {
                             .when(self.tab == Tab::Positions && positions > 0, |el| {
                                 el.child(
                                     Button::new("close-all-positions")
+                                        .cursor_pointer()
                                         .ghost()
                                         .xsmall()
                                         .label("Close all")
@@ -933,6 +936,7 @@ impl Render for AccountPanel {
                             })
                             .child(
                                 Button::new("panel-hide")
+                                    .cursor_pointer()
                                     .ghost()
                                     .xsmall()
                                     .icon(IconName::ChevronDown)
@@ -1023,12 +1027,14 @@ fn open_protection(account: Entity<Account>, target: Target, window: &mut Window
                 .gap_2()
                 .child(
                     Button::new("protection-cancel")
+                        .cursor_pointer()
                         .ghost()
                         .label("Cancel")
                         .on_click(|_, window, cx| window.close_dialog(cx)),
                 )
                 .child(
                     Button::new("protection-save")
+                        .cursor_pointer()
                         .primary()
                         .label("Save")
                         .on_click(move |_, window, cx| {
@@ -1160,6 +1166,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
                     .gap_2()
                     .child(
                         Button::new("alert-cancel")
+                            .cursor_pointer()
                             .ghost()
                             .label("Cancel")
                             .on_click(|_, window, cx| window.close_dialog(cx)),
@@ -1230,6 +1237,7 @@ impl Render for AlertEditor {
             .child(widgets::row(
                 "Keep watching after it fires",
                 Switch::new("alert-repeat")
+                    .cursor_pointer()
                     .checked(self.repeat)
                     .on_click(cx.listener(|this, checked: &bool, _, cx| {
                         this.repeat = *checked;

@@ -14,10 +14,9 @@ use gpui_kit::component::{Disableable, Sizable, WindowExt};
 use wyck::openapi::market::PRICE_SCALE;
 
 use super::drawing::Drawings;
+use super::drawing::extras::{ICONS, icon_key};
 use super::drawing::figures::wave_names;
-use super::drawing::model::{
-    DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, WIDTHS, wave_label,
-};
+use super::drawing::model::{DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label};
 use super::timeframe::GROUPS;
 use super::zone::Zone;
 use crate::app::{theme, widgets};
@@ -63,6 +62,7 @@ pub fn open(
                         .gap_2()
                         .child(
                             Button::new("drawing-template")
+                                .cursor_pointer()
                                 .ghost()
                                 .small()
                                 .icon(IconName::Save)
@@ -74,6 +74,7 @@ pub fn open(
                         )
                         .child(
                             Button::new("drawing-reset")
+                                .cursor_pointer()
                                 .ghost()
                                 .small()
                                 .icon(IconName::RotateCcw)
@@ -86,6 +87,7 @@ pub fn open(
                         .child(div().flex_1())
                         .child(
                             Button::new("drawing-cancel")
+                                .cursor_pointer()
                                 .ghost()
                                 .small()
                                 .label("Cancel")
@@ -96,6 +98,7 @@ pub fn open(
                         )
                         .child(
                             Button::new("drawing-ok")
+                                .cursor_pointer()
                                 .primary()
                                 .small()
                                 .label("OK")
@@ -232,7 +235,7 @@ impl DrawingProps {
         ];
         let mut prices = Vec::new();
         let mut times = Vec::new();
-        if drawing.tool != Tool::Brush {
+        if !drawing.tool.is_freehand() {
             for (index, point) in drawing.points.iter().enumerate() {
                 let price = cx.new(|cx| {
                     InputState::new(window, cx).default_value(format_real(point.p, digits))
@@ -427,10 +430,10 @@ impl DrawingProps {
             SharedString::from(id.to_owned()),
             color,
             self.swatch == Some(swatch),
+            cx,
             move |_window, cx| toggle.update(cx, |e, cx| e.toggle_swatch(swatch, cx)),
             move |color, _window, cx| {
                 pick.update(cx, |e, cx| {
-                    e.swatch = None;
                     e.change(cx, |d| match swatch {
                         Swatch::Line => d.style.color = color,
                         Swatch::Fill => d.style.fill_color = Some(color),
@@ -457,6 +460,7 @@ impl DrawingProps {
     ) -> Switch {
         let this = cx.entity();
         Switch::new(SharedString::from(id.to_owned()))
+            .cursor_pointer()
             .small()
             .checked(on)
             .on_click(move |checked, _window, cx| {
@@ -483,9 +487,10 @@ impl DrawingProps {
 
         // Lines.
         body = body.child(widgets::section("Line"));
-        let widths: Vec<String> = WIDTHS.iter().map(|w| format!("{w}")).collect();
+        let widths: Vec<String> = tool.widths().iter().map(|w| format!("{w}")).collect();
         let width_labels: Vec<&str> = widths.iter().map(String::as_str).collect();
-        let width_index = WIDTHS
+        let width_index = tool
+            .widths()
             .iter()
             .position(|w| (w - style.width).abs() < 0.01)
             .unwrap_or(usize::MAX);
@@ -498,15 +503,18 @@ impl DrawingProps {
                 .items_center()
                 .gap_2()
                 .child(self.swatch(Swatch::Line, style.color, "props-line-color", cx))
-                .child(widgets::segmented(
-                    "props-width",
-                    &width_labels,
-                    width_index,
-                    move |choice, _window, cx| {
-                        width_this
-                            .update(cx, |e, cx| e.change(cx, |d| d.style.width = WIDTHS[choice]));
-                    },
-                )),
+                .when(tool.has_width(), |el| {
+                    el.child(widgets::segmented(
+                        "props-width",
+                        &width_labels,
+                        width_index,
+                        move |choice, _window, cx| {
+                            width_this.update(cx, |e, cx| {
+                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
+                            });
+                        },
+                    ))
+                }),
         ));
         if tool.has_dash() {
             let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
@@ -548,14 +556,25 @@ impl DrawingProps {
                 }),
             ));
         }
-        if tool.has_levels() || matches!(tool, Tool::HorizontalLine) || tool.has_words() {
-            let label = if tool.has_levels() {
-                "Write the levels"
-            } else if tool.has_words() {
-                "Write the names"
-            } else {
-                "Write the price"
-            };
+        if tool == Tool::Icon {
+            let keys: Vec<&str> = ICONS.iter().map(|(key, _)| *key).collect();
+            let labels: Vec<&str> = ICONS.iter().map(|(_, label)| *label).collect();
+            let chosen = keys
+                .iter()
+                .position(|key| *key == icon_key(&drawing.text))
+                .unwrap_or(0);
+            let icon_this = this.clone();
+            body = body.child(widgets::section("Icon")).child(chips(
+                "props-icon",
+                &labels,
+                &[chosen],
+                move |index, _window, cx| {
+                    let key = keys[index].to_owned();
+                    icon_this.update(cx, |e, cx| e.change(cx, |d| d.text = key));
+                },
+            ));
+        }
+        if let Some(label) = tool.labels_switch() {
             body = body.child(widgets::row(
                 label,
                 self.switch("props-labels", style.labels, cx, |d, on| {
@@ -639,6 +658,10 @@ impl DrawingProps {
                     .child(div().flex_1().child(widgets::section("Levels")))
                     .child(
                         Button::new("props-level-add")
+                            .cursor_pointer()
+                            .when(levels.len() >= MAX_LEVELS, |button| {
+                                button.cursor_not_allowed()
+                            })
                             .ghost()
                             .xsmall()
                             .icon(IconName::Plus)
@@ -650,6 +673,7 @@ impl DrawingProps {
                     )
                     .child(
                         Button::new("props-level-reset")
+                            .cursor_pointer()
                             .ghost()
                             .xsmall()
                             .icon(IconName::RotateCcw)
@@ -697,6 +721,7 @@ impl DrawingProps {
                         ))
                         .child(
                             Button::new(SharedString::from(format!("props-level-remove-{index}")))
+                                .cursor_pointer()
                                 .ghost()
                                 .xsmall()
                                 .icon(IconName::X)
@@ -763,13 +788,13 @@ impl DrawingProps {
 
     fn coordinates_tab(&self, drawing: &Drawing) -> gpui::Div {
         let mut body = div().flex().flex_col();
-        if drawing.tool == Tool::Brush {
+        if drawing.tool.is_freehand() {
             return body.child(
                 div()
                     .py_4()
                     .text_size(px(13.))
                     .text_color(theme::muted_fg())
-                    .child("A brush stroke is moved as a whole, by dragging it on the chart."),
+                    .child("A freehand stroke is moved as a whole, by dragging it on the chart."),
             );
         }
         body = body.child(

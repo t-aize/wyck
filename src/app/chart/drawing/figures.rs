@@ -60,7 +60,7 @@ fn mid(a: P, b: P) -> P {
 
 /// How many times `d` fits between `from` and the farthest corner of the plot, forwards: the
 /// parameter that takes a line from `from` along `d` past the plot's edge.
-fn reach(from: P, d: P, rect: Rect) -> f32 {
+pub(super) fn reach(from: P, d: P, rect: Rect) -> f32 {
     let length_sq = d.0 * d.0 + d.1 * d.1;
     if length_sq < 1e-6 {
         return 1.0;
@@ -299,7 +299,7 @@ fn fib_time_zone(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
 }
 
 /// Lines from `origin` through each of `through`, with the zones between them filled.
-fn fan(
+pub(super) fn fan(
     drawing: &Drawing,
     origin: P,
     through: &[(P, u32, String)],
@@ -472,7 +472,7 @@ fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
     }
 }
 
-fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
+pub(super) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (a, b) = (pts[0], pts[1]);
     let d = sub(b, a);
@@ -507,6 +507,7 @@ fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
             points,
             color: level.color,
             width: style.width,
+            alpha: 1.0,
         });
     }
     // The fan from the first point to each level on the far sides.

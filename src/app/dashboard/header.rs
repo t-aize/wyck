@@ -523,6 +523,7 @@ impl Dashboard {
             .child(units)
             .child(
                 Button::new("tf-add")
+                    .cursor_pointer()
                     .small()
                     .primary()
                     .label("Add")

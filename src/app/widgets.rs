@@ -11,16 +11,7 @@ use gpui::{AnyElement, App, Div, ElementId, Entity, SharedString, Window, div, p
 use gpui_kit::component::input::{InputState, NumberInput};
 use gpui_kit::component::{Sizable, StyledExt as _};
 
-use super::theme;
-
-/// The colors a swatch popover offers: a row of grays, then eight hues in four shades.
-pub const SWATCHES: [u32; 40] = [
-    0xffffff, 0xd1d4dc, 0x9598a1, 0x787b86, 0x5d606b, 0x434651, 0x2a2e39, 0x000000, 0xf23645,
-    0xff9800, 0xffeb3b, 0x4caf50, 0x089981, 0x00bcd4, 0x2962ff, 0x9c27b0, 0xfccbcd, 0xffe0b2,
-    0xfff9c4, 0xc8e6c9, 0xace5dc, 0xb2ebf2, 0xbbd9fb, 0xe1bee7, 0xf7525f, 0xffb74d, 0xfff176,
-    0x81c784, 0x22ab94, 0x4dd0e1, 0x5b9cf6, 0xba68c8, 0xb22833, 0xf57c00, 0xfbc02d, 0x388e3c,
-    0x056656, 0x0097a7, 0x1848cc, 0x7b1fa2,
-];
+use super::{color_picker, theme};
 
 /// The id of child `n` of an element.
 fn child_id(id: &ElementId, n: usize) -> ElementId {
@@ -109,17 +100,22 @@ pub fn segmented(
     strip
 }
 
-/// A swatch showing `color`; clicking it calls `on_toggle`. With `open`, the palette shows under
-/// it, and picking a color calls `on_pick`.
+/// A swatch showing `color`; clicking it calls `on_toggle`. With `open`, the color panel shows
+/// under it (see [`super::color_picker`]), and every change of the color calls `on_pick` while the
+/// panel stays open: a click outside it, or on the swatch, calls `on_toggle` to close it.
 pub fn color_swatch(
     id: impl Into<ElementId>,
     color: u32,
     open: bool,
+    cx: &mut App,
     on_toggle: impl Fn(&mut Window, &mut App) + 'static,
     on_pick: impl Fn(u32, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
     let id: ElementId = id.into();
-    let on_pick = Rc::new(on_pick);
+    let on_toggle = Rc::new(on_toggle);
+    let close = on_toggle.clone();
+    let panel = color_picker::panel(&id, color, open, cx, Rc::new(on_pick), close);
+    let hover = panel.clone();
     let swatch = div()
         .id(id.clone())
         .size(px(26.))
@@ -133,43 +129,13 @@ pub fn color_swatch(
         })
         .cursor_pointer()
         .hover(|s| s.border_color(theme::border_strong()))
+        .on_hover(move |hovered, _window, cx| {
+            color_picker::set_swatch_hovered(&hover, *hovered, cx);
+        })
         .on_click(move |_, window, cx| on_toggle(window, cx))
         .child(div().size_full().rounded_sm().bg(gpui::rgb(color)));
     if !open {
         return swatch.into_any_element();
-    }
-    let mut grid = div()
-        .w(px(8.0 * 24.0 + 7.0 * 4.0 + 16.0))
-        .p_2()
-        .flex()
-        .flex_row()
-        .flex_wrap()
-        .gap_1()
-        .rounded_lg()
-        .bg(theme::surface())
-        .border_1()
-        .border_color(theme::border_subtle())
-        .shadow_lg()
-        .occlude();
-    for (index, swatch_color) in SWATCHES.iter().copied().enumerate() {
-        let on_pick = on_pick.clone();
-        let chosen = swatch_color == color;
-        grid = grid.child(
-            div()
-                .id(child_id(&id, index + 1))
-                .size(px(24.))
-                .rounded_sm()
-                .bg(gpui::rgb(swatch_color))
-                .border_2()
-                .border_color(if chosen {
-                    theme::fg()
-                } else {
-                    gpui::rgba(0x00000000)
-                })
-                .cursor_pointer()
-                .hover(|s| s.border_color(theme::border_strong()))
-                .on_click(move |_, window, cx| on_pick(swatch_color, window, cx)),
-        );
     }
     div()
         .relative()
@@ -178,9 +144,10 @@ pub fn color_swatch(
             gpui::deferred(
                 gpui::anchored()
                     .snap_to_window_with_margin(px(8.))
-                    .child(div().pt(px(30.)).child(grid)),
+                    .child(div().pt(px(30.)).child(panel)),
             )
-            .with_priority(3),
+            // Above the dialogs of gpui-component, which hold the color fields of the settings.
+            .with_priority(100),
         )
         .into_any_element()
 }
@@ -234,13 +201,5 @@ mod tests {
         assert_eq!(parse_number(" 1,5 "), Some(1.5));
         assert_eq!(parse_number("abc"), None);
         assert_eq!(parse_number("inf"), None);
-    }
-
-    #[test]
-    fn the_palette_has_no_repeats() {
-        let mut colors = SWATCHES.to_vec();
-        colors.sort_unstable();
-        colors.dedup();
-        assert_eq!(colors.len(), SWATCHES.len());
     }
 }

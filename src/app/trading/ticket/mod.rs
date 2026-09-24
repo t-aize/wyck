@@ -979,12 +979,14 @@ pub fn confirm(
                     .gap_2()
                     .child(
                         Button::new("confirm-cancel")
+                            .cursor_pointer()
                             .ghost()
                             .label("Cancel")
                             .on_click(|_, window, cx| window.close_dialog(cx)),
                     )
                     .child(
                         Button::new("confirm-ok")
+                            .cursor_pointer()
                             .primary()
                             .label("Confirm")
                             .on_click(move |_, window, cx| {

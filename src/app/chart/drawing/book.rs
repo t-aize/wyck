@@ -15,7 +15,8 @@ use std::collections::BTreeMap;
 
 use super::geometry::{self, P, Part, Projection};
 use super::model::{
-    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, Point, Template, Tool,
+    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, MAX_PATH_POINTS, Point,
+    Template, Tool,
 };
 
 /// How far a press must move before it counts as a drag, in pixels.
@@ -27,6 +28,23 @@ const UNDO_DEPTH: usize = 200;
 /// How wide a new position is, in bars, and how far its stop is, as a share of the price span.
 const POSITION_BARS: f64 = 20.0;
 const POSITION_RISK: f64 = 0.12;
+
+/// What the pointer is over on a drawing, for choosing the mouse cursor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Grab {
+    /// The drawing itself: it can be picked and moved.
+    Body,
+    /// A grip that moves freely.
+    Grip,
+    /// A grip that slides up and down only.
+    GripVertical,
+    /// A grip that slides sideways only.
+    GripHorizontal,
+    /// A corner on the diagonal from top left to bottom right.
+    GripDiagonalDown,
+    /// A corner on the diagonal from bottom left to top right.
+    GripDiagonalUp,
+}
 
 /// What a press did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,11 +213,12 @@ impl Book {
     }
 
     /// The tool of the drawing being made on `symbol`, how many of its points are placed, and
-    /// how many it needs (none for a brush, which ends when the button is let go).
+    /// how many it needs (none for a brush, which ends when the button is let go, or for an arrow
+    /// path, which ends on a double click, Enter or Escape).
     pub fn progress(&self, symbol: &str) -> Option<(Tool, usize, usize)> {
         let creating = self.creating.as_ref().filter(|c| c.symbol == symbol)?;
         let tool = creating.drawing.tool;
-        let needed = if tool == Tool::Brush {
+        let needed = if matches!(tool, Tool::Brush | Tool::Highlighter | Tool::ArrowPath) {
             0
         } else {
             tool.anchors()
@@ -212,9 +231,11 @@ impl Book {
     }
 
     /// Escape: gives up what is in progress, one level at a time (a half made drawing, then the
-    /// tool, then the selection). Returns whether there was anything to give up.
+    /// tool, then the selection). Returns whether there was anything to give up. An arrow path
+    /// with two points placed is finished instead: it has no last point to wait for.
     pub fn cancel(&mut self) -> bool {
-        if self.creating.take().is_some() {
+        if let Some(creating) = self.creating.take() {
+            self.finish_path(creating);
             return true;
         }
         if self.editing.take().is_some() {
@@ -320,6 +341,16 @@ impl Book {
         }
     }
 
+    /// Commits an arrow path that has at least two points placed, dropping the point that
+    /// followed the pointer. Anything else is given up.
+    fn finish_path(&mut self, mut creating: Creating) {
+        if creating.drawing.tool != Tool::ArrowPath || creating.placed < 2 {
+            return;
+        }
+        creating.drawing.points.truncate(creating.placed);
+        self.commit(&creating.symbol, creating.drawing);
+    }
+
     /// The four points of a new position: entry, stop and target at the same time, and the right
     /// edge. The stop is a share of the price span away and the target twice as far.
     fn position_points(tool: Tool, at: Point, proj: &dyn Projection) -> Vec<Point> {
@@ -366,6 +397,24 @@ impl Book {
     ) -> Press {
         // A drawing already begun takes this click as its next point.
         if let Some(creating) = self.creating.as_mut().filter(|c| c.symbol == symbol) {
+            if creating.drawing.tool == Tool::ArrowPath {
+                // A second click on the last point (a double click) ends the path.
+                let close = creating.press.is_some_and(|last| {
+                    ((at.0 - last.0).powi(2) + (at.1 - last.1).powi(2)).sqrt() < 4.0
+                });
+                if close || creating.placed >= MAX_PATH_POINTS {
+                    if let Some(done) = self.creating.take() {
+                        self.finish_path(done);
+                    }
+                    return Press::Taken;
+                }
+                creating.drawing.points[creating.placed] = point;
+                creating.placed += 1;
+                creating.drawing.points.push(point);
+                creating.press = Some(at);
+                creating.dragged = false;
+                return Press::Taken;
+            }
             creating.drawing.points[creating.placed] = point;
             creating.placed += 1;
             for later in creating.placed..creating.drawing.points.len() {
@@ -388,7 +437,7 @@ impl Book {
             let drawing = self.blank(tool, vec![point; tool.anchors()]);
             self.commit(symbol, drawing);
         } else {
-            let points = if tool == Tool::Brush {
+            let points = if tool.is_freehand() {
                 vec![point]
             } else {
                 vec![point; tool.anchors()]
@@ -483,7 +532,7 @@ impl Book {
         let Some(creating) = self.creating.as_ref() else {
             return (x, y);
         };
-        if creating.drawing.tool == Tool::Brush || creating.placed == 0 {
+        if creating.drawing.tool.is_freehand() || creating.placed == 0 {
             return (x, y);
         }
         let Some(from) = creating
@@ -512,7 +561,7 @@ impl Book {
         let Some(creating) = self.creating.as_mut() else {
             return false;
         };
-        if creating.drawing.tool == Tool::Brush {
+        if creating.drawing.tool.is_freehand() {
             // The stroke grows by pointer distance, whatever the bars are: `press` holds the
             // last position that added a point.
             let far_enough = creating.press.is_none_or(|last| {
@@ -583,7 +632,7 @@ impl Book {
             let brush = self
                 .creating
                 .as_ref()
-                .is_some_and(|c| c.drawing.tool == Tool::Brush);
+                .is_some_and(|c| c.drawing.tool.is_freehand());
             if brush {
                 if let Some(done) = self.creating.take()
                     && done.drawing.points.len() >= 2
@@ -606,7 +655,12 @@ impl Book {
                 }
                 return true;
             }
-            if let Some(creating) = self.creating.as_mut() {
+            // An arrow path keeps where its last point is, to tell a double click.
+            if let Some(creating) = self
+                .creating
+                .as_mut()
+                .filter(|c| c.drawing.tool != Tool::ArrowPath)
+            {
                 creating.press = None;
             }
             return false;
@@ -657,20 +711,56 @@ impl Book {
         self.hit(symbol, timeframe, proj, (x, y)).map(|(id, _)| id)
     }
 
-    /// What is under the pointer, for choosing the mouse cursor.
-    pub fn hover_part(
+    /// What is under the pointer, told finely enough to pick a cursor: the drawing itself, a grip
+    /// that moves freely, or a grip that only slides one way or along a diagonal.
+    pub fn hover(
         &self,
         symbol: &str,
         timeframe: &str,
         proj: &dyn Projection,
         x: f32,
         y: f32,
-    ) -> Option<Part> {
+    ) -> Option<Grab> {
         if self.tool.is_some() {
             return None;
         }
-        self.hit(symbol, timeframe, proj, (x, y))
-            .map(|(_, part)| part)
+        let (id, part) = self.hit(symbol, timeframe, proj, (x, y))?;
+        let Part::Handle(index) = part else {
+            return Some(Grab::Body);
+        };
+        let Some(drawing) = self.get(symbol, id) else {
+            return Some(Grab::Body);
+        };
+        if drawing.tool.is_position() && drawing.points.len() == 4 {
+            return Some(match index {
+                1 | 2 => Grab::GripVertical,
+                3 => Grab::GripHorizontal,
+                _ => Grab::Grip,
+            });
+        }
+        if drawing.tool.is_box() && drawing.points.len() == 2 {
+            let grips = geometry::handles(drawing, proj);
+            if index >= 4 {
+                return Some(if index < 6 {
+                    Grab::GripVertical
+                } else {
+                    Grab::GripHorizontal
+                });
+            }
+            // A corner: the diagonal it lies on, seen from the middle of the box.
+            if let (Some(corner), Some(a), Some(b)) =
+                (grips.get(index), grips.first(), grips.get(1))
+            {
+                let centre = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+                let same_side = (corner.0 - centre.0) * (corner.1 - centre.1) >= 0.0;
+                return Some(if same_side {
+                    Grab::GripDiagonalDown
+                } else {
+                    Grab::GripDiagonalUp
+                });
+            }
+        }
+        Some(Grab::Grip)
     }
 
     // ---- changing what exists ----
@@ -872,6 +962,30 @@ impl Book {
         self.edit_one(symbol, id, |d| d.hidden = hidden)
     }
 
+    /// Turns a long position into a short one, or the other way: the same entry, with the stop and
+    /// the target on the other side of it.
+    pub fn flip_position(&mut self, symbol: &str, id: u64) -> bool {
+        self.edit_one(symbol, id, |d| {
+            if !d.tool.is_position() || d.points.len() != 4 {
+                return;
+            }
+            let was = d.tool;
+            let now = if was == Tool::LongPosition {
+                Tool::ShortPosition
+            } else {
+                Tool::LongPosition
+            };
+            let entry = d.points[0].p;
+            d.points[1].p = 2.0 * entry - d.points[1].p;
+            d.points[2].p = 2.0 * entry - d.points[2].p;
+            // A drawing still in its tool's own color takes the color of the other one.
+            if d.style.color == was.default_style().color {
+                d.style.color = now.default_style().color;
+            }
+            d.tool = now;
+        })
+    }
+
     pub fn set_locked(&mut self, symbol: &str, id: u64, locked: bool) -> bool {
         self.edit_one(symbol, id, |d| d.locked = locked)
     }
@@ -1049,6 +1163,116 @@ mod tests {
         let (x, y) = at(seconds, price);
         book.press(SYMBOL, TF, &Linear, x, y);
         book.release(SYMBOL, &Linear, x, y);
+    }
+
+    #[test]
+    fn an_arrow_path_takes_a_point_per_click_and_ends_on_a_double_click() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ArrowPath));
+        for (seconds, price) in [(60.0, 100.0), (180.0, 200.0), (300.0, 150.0)] {
+            click(&mut book, seconds, price);
+            let (x, y) = at(seconds + 40.0, price + 20.0);
+            book.pointer_moved(SYMBOL, &Linear, x, y, false);
+        }
+        assert_eq!(book.count(SYMBOL), 0, "still being made");
+        click(&mut book, 420.0, 250.0);
+        click(&mut book, 420.0, 250.0);
+
+        assert_eq!(book.count(SYMBOL), 1);
+        let path = &book.drawings(SYMBOL)[0];
+        assert_eq!(path.tool, Tool::ArrowPath);
+        assert_eq!(path.points.len(), 4);
+        assert!(path.is_valid());
+    }
+
+    #[test]
+    fn every_tool_can_be_made_with_the_pointer() {
+        for tool in Tool::ALL {
+            let mut book = book();
+            book.set_tool(Some(tool));
+            if tool.is_freehand() {
+                let (x, y) = at(60.0, 100.0);
+                book.press(SYMBOL, TF, &Linear, x, y);
+                for i in 1..8 {
+                    let (x, y) = at(60.0 + 12.0 * i as f32, 100.0 + 6.0 * i as f32);
+                    book.pointer_moved(SYMBOL, &Linear, x, y, false);
+                }
+                book.release(SYMBOL, &Linear, x, y);
+            } else if tool == Tool::ArrowPath {
+                click(&mut book, 60.0, 100.0);
+                click(&mut book, 240.0, 200.0);
+                assert!(book.cancel());
+            } else {
+                for i in 0..tool.anchors().max(1) {
+                    click(
+                        &mut book,
+                        60.0 + 180.0 * i as f32,
+                        100.0 + 40.0 * (i % 3) as f32,
+                    );
+                }
+            }
+            assert_eq!(book.count(SYMBOL), 1, "{tool:?} is not made");
+            assert!(book.drawings(SYMBOL)[0].is_valid(), "{tool:?} is not valid");
+        }
+    }
+
+    #[test]
+    fn a_position_can_be_flipped_to_the_other_side() {
+        let mut book = book();
+        book.set_tool(Some(Tool::LongPosition));
+        click(&mut book, 300.0, 200.0);
+        let id = book.selected().unwrap();
+        let before = book.get(SYMBOL, id).unwrap().clone();
+        assert!(book.flip_position(SYMBOL, id));
+        let flipped = book.get(SYMBOL, id).unwrap();
+        assert_eq!(flipped.tool, Tool::ShortPosition);
+        assert_eq!(flipped.points[0], before.points[0], "the entry stays");
+        let entry = before.points[0].p;
+        assert!((flipped.points[1].p - (2.0 * entry - before.points[1].p)).abs() < 1e-9);
+        assert!((flipped.points[2].p - (2.0 * entry - before.points[2].p)).abs() < 1e-9);
+        assert!(book.flip_position(SYMBOL, id));
+        assert_eq!(book.get(SYMBOL, id).unwrap().points, before.points);
+        assert!(book.undo() && book.undo());
+        assert_eq!(book.get(SYMBOL, id).unwrap().tool, Tool::LongPosition);
+        let line = {
+            book.set_tool(Some(Tool::TrendLine));
+            click(&mut book, 60.0, 100.0);
+            click(&mut book, 180.0, 160.0);
+            book.selected().unwrap()
+        };
+        assert!(!book.flip_position(SYMBOL, line), "only positions flip");
+    }
+
+    #[test]
+    fn a_note_is_typed_at_once_and_a_marker_is_not() {
+        let mut book = book();
+        book.set_keep_tool(true);
+        book.set_tool(Some(Tool::ArrowMarkUp));
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 180.0, 120.0);
+        assert_eq!(book.count(SYMBOL), 2);
+        assert_eq!(book.tool(), Some(Tool::ArrowMarkUp), "the tool stays");
+        assert!(!book.wants_text_focus());
+
+        book.set_tool(Some(Tool::Note));
+        click(&mut book, 300.0, 150.0);
+        assert!(book.wants_text_focus(), "a note asks for its words");
+        assert_eq!(book.tool(), None, "and gives way to the pointer");
+    }
+
+    #[test]
+    fn escape_finishes_an_arrow_path_with_two_points() {
+        let mut book = book();
+        book.set_tool(Some(Tool::ArrowPath));
+        click(&mut book, 60.0, 100.0);
+        assert!(book.cancel());
+        assert_eq!(book.count(SYMBOL), 0, "one point is not a path");
+
+        click(&mut book, 60.0, 100.0);
+        click(&mut book, 200.0, 180.0);
+        assert!(book.cancel());
+        assert_eq!(book.count(SYMBOL), 1);
+        assert_eq!(book.drawings(SYMBOL)[0].points.len(), 2);
     }
 
     #[test]
@@ -1396,8 +1620,8 @@ mod tests {
         assert_eq!(book.count("EURUSD"), 0);
         assert!(book.creating("EURUSD").is_none());
         let (x, y) = at(300.0, 200.0);
-        assert_eq!(book.hover_part("EURUSD", TF, &Linear, x, y), None);
-        assert!(book.hover_part(SYMBOL, TF, &Linear, x, y).is_some());
+        assert_eq!(book.hover("EURUSD", TF, &Linear, x, y), None);
+        assert!(book.hover(SYMBOL, TF, &Linear, x, y).is_some());
     }
 
     #[test]

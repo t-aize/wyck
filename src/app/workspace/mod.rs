@@ -188,6 +188,9 @@ pub struct Preferences {
     /// How the order ticket sizes orders.
     #[serde(default)]
     pub ticket: crate::app::trading::ticket::TicketPrefs,
+    /// The colors the user saved in the color panel, as `0xRRGGBB`.
+    #[serde(default)]
+    pub saved_colors: Vec<u32>,
 }
 
 fn default_panel_height() -> f32 {
@@ -225,6 +228,7 @@ impl Default for Preferences {
             ticket_open: false,
             one_click: false,
             ticket: crate::app::trading::ticket::TicketPrefs::default(),
+            saved_colors: Vec::new(),
         }
     }
 }

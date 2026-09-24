@@ -6,10 +6,24 @@
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).
 
+use super::extras;
 use super::figures;
 use super::model::{Dash, Drawing, Level, Point, Style, Tool};
 
 pub type P = (f32, f32);
+
+/// One bar of the chart, for the tools that read the data: where it is on the screen, and its
+/// prices as the chart holds them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BarView {
+    pub time: i64,
+    pub x: f32,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
 
 /// The plot area.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -48,6 +62,15 @@ pub trait Projection {
     fn format_price(&self, price: f64) -> String;
     /// How much price the plot spans, for sizing things that have no size of their own.
     fn price_span(&self) -> f64;
+    /// The bars opening from `from_ms` to `to_ms` (both included), oldest first. A chart that
+    /// holds ticks, or no data, has none.
+    fn bars_between(&self, _from_ms: i64, _to_ms: i64) -> Vec<BarView> {
+        Vec::new()
+    }
+    /// The height of a price on the screen.
+    fn y_of(&self, _price: f64) -> f32 {
+        0.0
+    }
 }
 
 /// A shape to draw. Colors are `0xRRGGBB` with an alpha.
@@ -82,6 +105,17 @@ pub enum Prim {
         points: Vec<P>,
         color: u32,
         width: f32,
+        alpha: f32,
+    },
+    /// Words on a rounded box, from its top left corner. The box is as wide as the longest row
+    /// is estimated to be (see [`board_size`]).
+    Board {
+        tl: P,
+        rows: Vec<String>,
+        fg: u32,
+        bg: (u32, f32),
+        size: f32,
+        bold: bool,
     },
     Label {
         at: P,
@@ -122,6 +156,25 @@ pub enum Part {
 
 /// The size of the words a drawing writes by itself (prices, ratios).
 pub const LABEL_SIZE: f32 = 11.0;
+
+/// How far the words of a board are from its edge.
+const BOARD_PAD_X: f32 = 8.0;
+const BOARD_PAD_Y: f32 = 5.0;
+
+/// The size of a board of `rows` in text of `size`: wide enough for the longest row (the width of
+/// a letter is estimated, since the drawing code does not measure text), one line per row.
+pub fn board_size(rows: &[String], size: f32) -> (f32, f32) {
+    let chars = rows.iter().map(|r| r.chars().count()).max().unwrap_or(0) as f32;
+    (
+        chars * size * 0.58 + BOARD_PAD_X * 2.0,
+        rows.len() as f32 * size * 1.45 + BOARD_PAD_Y * 2.0,
+    )
+}
+
+/// The row height and paddings of a board, for the code that paints it.
+pub const fn board_metrics() -> (f32, f32, f32) {
+    (1.45, BOARD_PAD_X, BOARD_PAD_Y)
+}
 
 /// How close the pointer must be to a line to be on it, and to a grip.
 pub const LINE_REACH: f32 = 6.0;
@@ -222,6 +275,23 @@ pub fn anchors(drawing: &Drawing, proj: &dyn Projection) -> Option<Vec<P>> {
         .collect()
 }
 
+/// The head of an arrow that runs from `a` to `b`, if the two are apart.
+pub(super) fn arrow_head(a: P, b: P, color: u32, width: f32) -> Option<Prim> {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let length = (dx * dx + dy * dy).sqrt();
+    if length <= 1.0 {
+        return None;
+    }
+    let (ux, uy) = (dx / length, dy / length);
+    let size = 8.0 + width * 2.0;
+    let base = (b.0 - ux * size, b.1 - uy * size);
+    let (nx, ny) = (-uy * size * 0.45, ux * size * 0.45);
+    Some(Prim::Polygon {
+        points: vec![b, (base.0 + nx, base.1 + ny), (base.0 - nx, base.1 - ny)],
+        fill: (color, 1.0),
+    })
+}
+
 /// The shapes of a drawing (without grips).
 pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
     let Some(pts) = anchors(drawing, proj) else {
@@ -283,17 +353,21 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             let (a, b) = (pts[0], pts[1]);
             let start = extended(a, b, style.extend_left, false, rect).map_or(a, |(s, _)| s);
             out.push(seg(start, b, color, 1.0, width, dash));
-            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-            let length = (dx * dx + dy * dy).sqrt();
-            if length > 1.0 {
-                let (ux, uy) = (dx / length, dy / length);
-                let size = 8.0 + width * 2.0;
-                let base = (b.0 - ux * size, b.1 - uy * size);
-                let (nx, ny) = (-uy * size * 0.45, ux * size * 0.45);
-                out.push(Prim::Polygon {
-                    points: vec![b, (base.0 + nx, base.1 + ny), (base.0 - nx, base.1 - ny)],
-                    fill: (color, 1.0),
-                });
+            out.extend(arrow_head(a, b, color, width));
+        }
+        Tool::ArrowPath => {
+            for pair in pts.windows(2) {
+                out.push(seg(pair[0], pair[1], color, 1.0, width, dash));
+            }
+            // The head follows the last segment that has a length, so it stays put while the
+            // pointer sits on the last point placed.
+            let last = pts[pts.len() - 1];
+            let from = pts.iter().rev().find(|p| {
+                let (dx, dy) = (last.0 - p.0, last.1 - p.1);
+                dx * dx + dy * dy > 1.0
+            });
+            if let Some(from) = from {
+                out.extend(arrow_head(*from, last, color, width));
             }
         }
         Tool::ParallelChannel => {
@@ -397,10 +471,15 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
                 out.push(seg(pts[i], pts[(i + 1) % 3], color, 1.0, width, dash));
             }
         }
-        Tool::Brush => out.push(Prim::Polyline {
+        Tool::Brush | Tool::Highlighter => out.push(Prim::Polyline {
             points: pts,
             color,
             width,
+            alpha: if drawing.tool == Tool::Highlighter {
+                HIGHLIGHT_ALPHA
+            } else {
+                1.0
+            },
         }),
         Tool::Measure => measure_prims(drawing, &pts, proj, &mut out),
         Tool::LongPosition | Tool::ShortPosition => position_prims(drawing, &pts, proj, &mut out),
@@ -436,10 +515,16 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
             bold: style.bold,
         }),
         Tool::Unknown => {}
-        _ => figures::prims(drawing, &pts, proj, &mut out),
+        _ => {
+            figures::prims(drawing, &pts, proj, &mut out);
+            extras::prims(drawing, &pts, proj, &mut out);
+        }
     }
     out
 }
+
+/// How opaque the stroke of a highlighter is.
+const HIGHLIGHT_ALPHA: f32 = 0.35;
 
 fn fib_prims(
     drawing: &Drawing,
@@ -737,7 +822,11 @@ fn position_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut
 pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
     match drawing.tool {
         // A brush has too many points for grips: it is moved as a whole.
-        Tool::Brush => Vec::new(),
+        tool if tool.is_freehand() => Vec::new(),
+        // The far corner of the square is where the pointer would put it on the grid.
+        Tool::GannSquareFixed => anchors(drawing, proj)
+            .map(|pts| vec![pts[0], extras::fixed_square_corner(pts[0], pts[1])])
+            .unwrap_or_default(),
         tool if tool.is_box() => anchors(drawing, proj)
             .map(|pts| box_handles(pts[0], pts[1]))
             .unwrap_or_default(),
@@ -840,6 +929,10 @@ pub fn hit(drawing: &Drawing, proj: &dyn Projection, at: P, with_handles: bool) 
                 let (a, b) = label_box(*position, text, *anchor, *size);
                 inside_rect(at, a, b)
             }
+            Prim::Board { tl, rows, size, .. } => {
+                let (w, h) = board_size(rows, *size);
+                inside_rect(at, *tl, (tl.0 + w, tl.1 + h))
+            }
             Prim::Handle { .. } => false,
         };
         // The dashed guide lines of a fib or a channel are not part of what is clickable, but
@@ -899,6 +992,25 @@ pub(super) mod tests {
         }
         fn price_span(&self) -> f64 {
             500.0
+        }
+        fn bars_between(&self, from_ms: i64, to_ms: i64) -> Vec<BarView> {
+            // A bar a minute, opening at that minute at a price of 100 plus its number.
+            let first = (from_ms.max(0) + 59_999) / 60_000;
+            let last = (to_ms / 60_000).min(first + 1_999);
+            (first..=last)
+                .map(|i| BarView {
+                    time: i * 60_000,
+                    x: (i * 60) as f32,
+                    open: 100.0 + i as f64,
+                    high: 103.0 + i as f64,
+                    low: 98.0 + i as f64,
+                    close: 101.0 + i as f64,
+                    volume: 10.0,
+                })
+                .collect()
+        }
+        fn y_of(&self, price: f64) -> f32 {
+            500.0 - price as f32
         }
     }
 

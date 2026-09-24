@@ -43,6 +43,7 @@ impl OrderTicket {
         let current = self.size_mode;
         let currency = currency.to_owned();
         Button::new("ticket-size-mode")
+            .cursor_pointer()
             .ghost()
             .xsmall()
             .label(Self::size_label(current, &currency))
@@ -349,6 +350,7 @@ impl Render for OrderTicket {
                         .gap_1()
                         .child(
                             Switch::new(SharedString::from(format!("ticket-{label}")))
+                                .cursor_pointer()
                                 .small()
                                 .checked(on)
                                 .label(label)
@@ -453,6 +455,7 @@ impl Render for OrderTicket {
                     )
                     .child(
                         Button::new("ticket-close")
+                            .cursor_pointer()
                             .ghost()
                             .small()
                             .icon(IconName::X)
@@ -641,6 +644,10 @@ impl Render for OrderTicket {
             }))
             .child(
                 Button::new("ticket-send")
+                    .cursor_pointer()
+                    .when(problem.is_some() || busy, |button| {
+                        button.cursor_not_allowed()
+                    })
                     .label(self.describe(&plan, cx))
                     .with_size(gpui_kit::component::Size::Large)
                     .disabled(problem.is_some() || busy)
@@ -651,6 +658,7 @@ impl Render for OrderTicket {
             )
             .child(
                 Switch::new("ticket-one-click")
+                    .cursor_pointer()
                     .small()
                     .checked(self.one_click)
                     .label("One-click trading (no confirmation)")

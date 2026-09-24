@@ -103,6 +103,8 @@ pub struct MultiChart {
     _text_observe: Subscription,
     /// The family of drawing tools that is open, if any.
     flyout: Option<Group>,
+    /// The drawing whose color panel is open in the style bar.
+    color_open: Option<u64>,
     /// Taken when a chart is clicked, so the keys (arrows, Delete, Ctrl+Z) reach the charts and
     /// not a text field that had the keyboard before.
     focus: gpui::FocusHandle,
@@ -147,6 +149,7 @@ impl MultiChart {
             text_input,
             _text_observe,
             flyout: None,
+            color_open: None,
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
             hub,

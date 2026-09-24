@@ -4,6 +4,7 @@ mod alerts;
 mod anim;
 mod assets;
 mod chart;
+mod color_picker;
 mod connection;
 mod dashboard;
 mod multichart;

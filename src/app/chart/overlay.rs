@@ -148,6 +148,18 @@ fn drawing_menu(
             .icon(IconName::ArrowLeftRight)
             .on_click(move |_, _, cx| trade.update(cx, |chart, cx| chart.trade_drawing(id, cx))),
         );
+        menu = menu.item(
+            PopupMenuItem::new(
+                if drawing.tool == super::drawing::model::Tool::LongPosition {
+                    "Flip to a short position"
+                } else {
+                    "Flip to a long position"
+                },
+            )
+            .icon(IconName::ArrowUpDown)
+            .disabled(drawing.locked)
+            .on_click(command(DrawingCommand::Flip)),
+        );
     }
     menu.item(
         PopupMenuItem::new("Duplicate")
@@ -408,17 +420,17 @@ impl Chart {
                     .flex_row()
                     .items_center()
                     .gap_0p5()
-                    .opacity(0.0)
+                    .opacity(if visible { 0.0 } else { 1.0 })
                     .group_hover(group, |s| s.opacity(1.0))
                     .child(
                         button(
                             "study-eye",
                             if visible {
-                                IconName::Eye
-                            } else {
                                 IconName::EyeOff
+                            } else {
+                                IconName::Eye
                             },
-                            "Show or hide",
+                            if visible { "Hide" } else { "Show" },
                         )
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.edit_settings(cx, |s| {
@@ -499,16 +511,18 @@ impl Chart {
         let book = drawings.read(cx).book();
         let tool = book.tool()?;
         let text = match book.progress(&symbol) {
-            Some((super::drawing::model::Tool::Brush, _, _)) => {
+            Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
+            Some((super::drawing::model::Tool::ArrowPath, placed, _)) => format!(
+                "Click to place point {}. Double click or Esc finishes. Shift keeps the line to 45 degrees",
+                placed + 1
+            ),
             Some((_, placed, needed)) => format!(
                 "Click to place point {} of {needed}. Shift keeps the line to 45 degrees. Esc cancels",
                 placed + 1
             ),
-            None if tool == super::drawing::model::Tool::Brush => {
-                "Press and draw on the chart".to_owned()
-            }
+            None if tool.is_freehand() => "Press and draw on the chart".to_owned(),
             None if tool.anchors() == 1 || tool.is_position() => {
                 "Click on the chart to place it. Esc goes back to the pointer".to_owned()
             }
@@ -876,13 +890,12 @@ impl Chart {
                         })),
                 )
                 .child(
-                    div()
-                        .id("chart-scale")
-                        .h(px(26.))
-                        .px_2()
-                        .flex()
-                        .items_center()
-                        .rounded_md()
+                    Button::new("chart-scale")
+                        .ghost()
+                        .compact()
+                        .label(scale_label)
+                        .tooltip("Price scale")
+                        .toggled(open == Some(Menu::Scale))
                         .cursor_pointer()
                         .text_size(px(11.))
                         .font_weight(FontWeight::MEDIUM)
@@ -891,10 +904,6 @@ impl Chart {
                         } else {
                             theme::accent()
                         })
-                        .when(open == Some(Menu::Scale), |el| {
-                            el.bg(theme::accent_selected())
-                        })
-                        .hover(|s| s.bg(theme::surface_hover()))
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.menu = if this.menu == Some(Menu::Scale) {
                                 None
@@ -902,8 +911,7 @@ impl Chart {
                                 Some(Menu::Scale)
                             };
                             cx.notify();
-                        }))
-                        .child(scale_label),
+                        })),
                 )
                 .child(
                     Button::new("chart-settings")

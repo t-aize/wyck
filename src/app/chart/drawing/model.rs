@@ -15,6 +15,8 @@ const SCHEMA_VERSION: u32 = 1;
 /// against a runaway file more than a limit anyone meets.
 pub const MAX_DRAWINGS_PER_SYMBOL: usize = 2_000;
 pub const MAX_BRUSH_POINTS: usize = 2_000;
+/// The most points an arrow path can have.
+pub const MAX_PATH_POINTS: usize = 64;
 /// The most levels a drawing can have.
 pub const MAX_LEVELS: usize = 24;
 
@@ -37,38 +39,94 @@ pub enum Tool {
     VerticalLine,
     CrossLine,
     Arrow,
+    /// A broken line of as many points as the user places, with an arrow head at the end.
+    ArrowPath,
+    /// A line with the change, the bars, the time and the angle written beside it.
+    InfoLine,
+    /// A line with its angle to the horizontal.
+    TrendAngle,
     ParallelChannel,
+    /// The linear regression of the closes between two times, with its deviation bands.
+    RegressionTrend,
+    /// A trend line with a flat line under or over it.
+    FlatTopBottom,
+    /// Two lines that need not be parallel, with the zone between them.
+    DisjointChannel,
     Pitchfork,
     SchiffPitchfork,
     ModifiedSchiffPitchfork,
     InsidePitchfork,
+    /// Rays from a point through the levels of the segment between two others.
+    Pitchfan,
     FibRetracement,
     FibExtension,
     FibChannel,
     FibTimeZone,
     FibFan,
+    /// The time zones of a move, repeated from a third point.
+    FibTimeExtension,
+    FibCircles,
+    FibSpiral,
+    FibArcs,
+    FibWedge,
     GannFan,
     GannBox,
     GannSquare,
+    /// A Gann square that is square on the screen, whatever the scale.
+    GannSquareFixed,
     Xabcd,
     Cypher,
     Abcd,
     HeadAndShoulders,
     TrianglePattern,
     ThreeDrives,
+    CyclicLines,
+    TimeCycles,
+    SineLine,
     ElliottImpulse,
     ElliottCorrection,
     ElliottTriangle,
     ElliottDoubleCombo,
     ElliottTripleCombo,
     Rectangle,
+    RotatedRectangle,
+    Circle,
     Ellipse,
     Triangle,
+    Arc,
+    Curve,
+    DoubleCurve,
     Brush,
+    Highlighter,
+    /// A block arrow between two points.
+    ArrowMarker,
+    ArrowMarkUp,
+    ArrowMarkDown,
     Measure,
+    PriceRange,
+    DateRange,
+    DatePriceRange,
     LongPosition,
     ShortPosition,
+    /// An arrow to a target, with the move it means written at its end.
+    Forecast,
+    /// The bars between two times, copied to start at a third point.
+    BarsPattern,
+    /// Bars made up from the moves of the bars between two times, from a third point.
+    GhostFeed,
+    AnchoredVwap,
+    FixedRangeVolumeProfile,
+    AnchoredVolumeProfile,
     Text,
+    Note,
+    PriceNote,
+    Callout,
+    Comment,
+    Pin,
+    Signpost,
+    FlagMark,
+    Table,
+    Icon,
     PriceLabel,
     /// A tool a newer version wrote. Such drawings are dropped on load.
     #[serde(other)]
@@ -86,11 +144,12 @@ pub enum Group {
     Elliott,
     Shapes,
     Measure,
+    Forecast,
     Annotations,
 }
 
 impl Group {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Lines,
         Self::Channels,
         Self::Fibonacci,
@@ -99,6 +158,7 @@ impl Group {
         Self::Elliott,
         Self::Shapes,
         Self::Measure,
+        Self::Forecast,
         Self::Annotations,
     ];
 
@@ -112,6 +172,7 @@ impl Group {
             Self::Elliott => "Elliott waves",
             Self::Shapes => "Shapes",
             Self::Measure => "Measure and position",
+            Self::Forecast => "Forecast and volume",
             Self::Annotations => "Annotations",
         }
     }
@@ -119,7 +180,7 @@ impl Group {
 
 impl Tool {
     /// Every tool a user can pick, in toolbar order.
-    pub const ALL: [Self; 41] = [
+    pub const ALL: [Self; 84] = [
         Self::TrendLine,
         Self::Ray,
         Self::ExtendedLine,
@@ -128,38 +189,81 @@ impl Tool {
         Self::VerticalLine,
         Self::CrossLine,
         Self::Arrow,
+        Self::ArrowPath,
+        Self::InfoLine,
+        Self::TrendAngle,
         Self::ParallelChannel,
+        Self::RegressionTrend,
+        Self::FlatTopBottom,
+        Self::DisjointChannel,
         Self::Pitchfork,
         Self::SchiffPitchfork,
         Self::ModifiedSchiffPitchfork,
         Self::InsidePitchfork,
+        Self::Pitchfan,
         Self::FibRetracement,
         Self::FibExtension,
         Self::FibChannel,
         Self::FibTimeZone,
         Self::FibFan,
+        Self::FibTimeExtension,
+        Self::FibCircles,
+        Self::FibSpiral,
+        Self::FibArcs,
+        Self::FibWedge,
         Self::GannFan,
         Self::GannBox,
         Self::GannSquare,
+        Self::GannSquareFixed,
         Self::Xabcd,
         Self::Cypher,
         Self::Abcd,
         Self::HeadAndShoulders,
         Self::TrianglePattern,
         Self::ThreeDrives,
+        Self::CyclicLines,
+        Self::TimeCycles,
+        Self::SineLine,
         Self::ElliottImpulse,
         Self::ElliottCorrection,
         Self::ElliottTriangle,
         Self::ElliottDoubleCombo,
         Self::ElliottTripleCombo,
         Self::Rectangle,
+        Self::RotatedRectangle,
+        Self::Circle,
         Self::Ellipse,
         Self::Triangle,
+        Self::Arc,
+        Self::Curve,
+        Self::DoubleCurve,
         Self::Brush,
+        Self::Highlighter,
+        Self::ArrowMarker,
+        Self::ArrowMarkUp,
+        Self::ArrowMarkDown,
         Self::Measure,
+        Self::PriceRange,
+        Self::DateRange,
+        Self::DatePriceRange,
         Self::LongPosition,
         Self::ShortPosition,
+        Self::Forecast,
+        Self::BarsPattern,
+        Self::GhostFeed,
+        Self::AnchoredVwap,
+        Self::FixedRangeVolumeProfile,
+        Self::AnchoredVolumeProfile,
         Self::Text,
+        Self::Note,
+        Self::PriceNote,
+        Self::Callout,
+        Self::Comment,
+        Self::Pin,
+        Self::Signpost,
+        Self::FlagMark,
+        Self::Table,
+        Self::Icon,
         Self::PriceLabel,
     ];
 
@@ -173,38 +277,81 @@ impl Tool {
             Self::VerticalLine => "Vertical line",
             Self::CrossLine => "Cross line",
             Self::Arrow => "Arrow",
+            Self::ArrowPath => "Arrow path",
+            Self::InfoLine => "Info line",
+            Self::TrendAngle => "Trend angle",
             Self::ParallelChannel => "Parallel channel",
+            Self::RegressionTrend => "Regression trend",
+            Self::FlatTopBottom => "Flat top/bottom",
+            Self::DisjointChannel => "Disjoint channel",
             Self::Pitchfork => "Pitchfork",
             Self::SchiffPitchfork => "Schiff pitchfork",
             Self::ModifiedSchiffPitchfork => "Modified Schiff pitchfork",
             Self::InsidePitchfork => "Inside pitchfork",
+            Self::Pitchfan => "Pitchfan",
             Self::FibRetracement => "Fib retracement",
             Self::FibExtension => "Trend-based fib extension",
             Self::FibChannel => "Fib channel",
             Self::FibTimeZone => "Fib time zone",
             Self::FibFan => "Fib speed fan",
+            Self::FibTimeExtension => "Trend-based fib time",
+            Self::FibCircles => "Fib circles",
+            Self::FibSpiral => "Fib spiral",
+            Self::FibArcs => "Fib speed arcs",
+            Self::FibWedge => "Fib wedge",
             Self::GannFan => "Gann fan",
             Self::GannBox => "Gann box",
             Self::GannSquare => "Gann square",
+            Self::GannSquareFixed => "Gann square fixed",
             Self::Xabcd => "XABCD pattern",
             Self::Cypher => "Cypher pattern",
             Self::Abcd => "ABCD pattern",
             Self::HeadAndShoulders => "Head and shoulders",
             Self::TrianglePattern => "Triangle pattern",
             Self::ThreeDrives => "Three drives pattern",
+            Self::CyclicLines => "Cyclic lines",
+            Self::TimeCycles => "Time cycles",
+            Self::SineLine => "Sine line",
             Self::ElliottImpulse => "Elliott impulse wave (12345)",
             Self::ElliottCorrection => "Elliott correction wave (ABC)",
             Self::ElliottTriangle => "Elliott triangle wave (ABCDE)",
             Self::ElliottDoubleCombo => "Elliott double combo (WXY)",
             Self::ElliottTripleCombo => "Elliott triple combo (WXYXZ)",
             Self::Rectangle => "Rectangle",
+            Self::RotatedRectangle => "Rotated rectangle",
+            Self::Circle => "Circle",
             Self::Ellipse => "Ellipse",
             Self::Triangle => "Triangle",
+            Self::Arc => "Arc",
+            Self::Curve => "Curve",
+            Self::DoubleCurve => "Double curve",
             Self::Brush => "Brush",
+            Self::Highlighter => "Highlighter",
+            Self::ArrowMarker => "Arrow marker",
+            Self::ArrowMarkUp => "Arrow mark up",
+            Self::ArrowMarkDown => "Arrow mark down",
             Self::Measure => "Measure",
+            Self::PriceRange => "Price range",
+            Self::DateRange => "Date range",
+            Self::DatePriceRange => "Date and price range",
             Self::LongPosition => "Long position",
             Self::ShortPosition => "Short position",
+            Self::Forecast => "Forecast",
+            Self::BarsPattern => "Bars pattern",
+            Self::GhostFeed => "Ghost feed",
+            Self::AnchoredVwap => "Anchored VWAP",
+            Self::FixedRangeVolumeProfile => "Fixed range volume profile",
+            Self::AnchoredVolumeProfile => "Anchored volume profile",
             Self::Text => "Text",
+            Self::Note => "Note",
+            Self::PriceNote => "Price note",
+            Self::Callout => "Callout",
+            Self::Comment => "Comment",
+            Self::Pin => "Pin",
+            Self::Signpost => "Signpost",
+            Self::FlagMark => "Flag mark",
+            Self::Table => "Table",
+            Self::Icon => "Icon",
             Self::PriceLabel => "Price label",
             Self::Unknown => "Unknown",
         }
@@ -227,36 +374,86 @@ impl Tool {
             | Self::HorizontalRay
             | Self::VerticalLine
             | Self::CrossLine
-            | Self::Arrow => Group::Lines,
+            | Self::Arrow
+            | Self::ArrowPath
+            | Self::InfoLine
+            | Self::TrendAngle => Group::Lines,
             Self::ParallelChannel
+            | Self::RegressionTrend
+            | Self::FlatTopBottom
+            | Self::DisjointChannel
             | Self::Pitchfork
             | Self::SchiffPitchfork
             | Self::ModifiedSchiffPitchfork
-            | Self::InsidePitchfork => Group::Channels,
+            | Self::InsidePitchfork
+            | Self::Pitchfan => Group::Channels,
             Self::FibRetracement
             | Self::FibExtension
             | Self::FibChannel
             | Self::FibTimeZone
-            | Self::FibFan => Group::Fibonacci,
-            Self::GannFan | Self::GannBox | Self::GannSquare => Group::Gann,
+            | Self::FibFan
+            | Self::FibTimeExtension
+            | Self::FibCircles
+            | Self::FibSpiral
+            | Self::FibArcs
+            | Self::FibWedge => Group::Fibonacci,
+            Self::GannFan | Self::GannBox | Self::GannSquare | Self::GannSquareFixed => Group::Gann,
             Self::Xabcd
             | Self::Cypher
             | Self::Abcd
             | Self::HeadAndShoulders
             | Self::TrianglePattern
-            | Self::ThreeDrives => Group::Patterns,
+            | Self::ThreeDrives
+            | Self::CyclicLines
+            | Self::TimeCycles
+            | Self::SineLine => Group::Patterns,
             Self::ElliottImpulse
             | Self::ElliottCorrection
             | Self::ElliottTriangle
             | Self::ElliottDoubleCombo
             | Self::ElliottTripleCombo => Group::Elliott,
-            Self::Rectangle | Self::Ellipse | Self::Triangle | Self::Brush => Group::Shapes,
-            Self::Measure | Self::LongPosition | Self::ShortPosition => Group::Measure,
-            Self::Text | Self::PriceLabel | Self::Unknown => Group::Annotations,
+            Self::Rectangle
+            | Self::RotatedRectangle
+            | Self::Circle
+            | Self::Ellipse
+            | Self::Triangle
+            | Self::Arc
+            | Self::Curve
+            | Self::DoubleCurve
+            | Self::Brush
+            | Self::Highlighter
+            | Self::ArrowMarker
+            | Self::ArrowMarkUp
+            | Self::ArrowMarkDown => Group::Shapes,
+            Self::Measure
+            | Self::PriceRange
+            | Self::DateRange
+            | Self::DatePriceRange
+            | Self::LongPosition
+            | Self::ShortPosition => Group::Measure,
+            Self::Forecast
+            | Self::BarsPattern
+            | Self::GhostFeed
+            | Self::AnchoredVwap
+            | Self::FixedRangeVolumeProfile
+            | Self::AnchoredVolumeProfile => Group::Forecast,
+            Self::Text
+            | Self::Note
+            | Self::PriceNote
+            | Self::Callout
+            | Self::Comment
+            | Self::Pin
+            | Self::Signpost
+            | Self::FlagMark
+            | Self::Table
+            | Self::Icon
+            | Self::PriceLabel
+            | Self::Unknown => Group::Annotations,
         }
     }
 
-    /// How many points the tool needs. A brush takes as many as the stroke has, at least two.
+    /// How many points the tool needs. A brush, a highlighter or an arrow path takes as many as
+    /// the user places, at least two.
     pub fn anchors(self) -> usize {
         match self {
             Self::HorizontalLine
@@ -264,30 +461,73 @@ impl Tool {
             | Self::VerticalLine
             | Self::CrossLine
             | Self::Text
-            | Self::PriceLabel => 1,
+            | Self::PriceLabel
+            | Self::ArrowMarkUp
+            | Self::ArrowMarkDown
+            | Self::AnchoredVwap
+            | Self::AnchoredVolumeProfile
+            | Self::Note
+            | Self::Comment
+            | Self::Pin
+            | Self::Signpost
+            | Self::FlagMark
+            | Self::Table
+            | Self::Icon => 1,
             Self::TrendLine
             | Self::Ray
             | Self::ExtendedLine
             | Self::Arrow
+            | Self::ArrowPath
+            | Self::InfoLine
+            | Self::TrendAngle
+            | Self::RegressionTrend
             | Self::FibRetracement
             | Self::FibTimeZone
             | Self::FibFan
+            | Self::FibCircles
+            | Self::FibSpiral
+            | Self::FibArcs
             | Self::GannFan
             | Self::GannBox
             | Self::GannSquare
+            | Self::GannSquareFixed
+            | Self::CyclicLines
+            | Self::TimeCycles
+            | Self::SineLine
             | Self::Rectangle
+            | Self::Circle
             | Self::Ellipse
+            | Self::DoubleCurve
+            | Self::Brush
+            | Self::Highlighter
+            | Self::ArrowMarker
             | Self::Measure
-            | Self::Brush => 2,
+            | Self::PriceRange
+            | Self::DateRange
+            | Self::DatePriceRange
+            | Self::Forecast
+            | Self::FixedRangeVolumeProfile
+            | Self::PriceNote
+            | Self::Callout => 2,
             Self::ParallelChannel
+            | Self::FlatTopBottom
             | Self::Pitchfork
             | Self::SchiffPitchfork
             | Self::ModifiedSchiffPitchfork
             | Self::InsidePitchfork
+            | Self::Pitchfan
             | Self::FibExtension
             | Self::FibChannel
-            | Self::Triangle => 3,
-            Self::Abcd
+            | Self::FibTimeExtension
+            | Self::FibWedge
+            | Self::Triangle
+            | Self::RotatedRectangle
+            | Self::Arc
+            | Self::Curve
+            | Self::BarsPattern
+            | Self::GhostFeed => 3,
+            Self::DisjointChannel
+            | Self::Abcd
             | Self::TrianglePattern
             | Self::ElliottCorrection
             | Self::ElliottDoubleCombo
@@ -302,21 +542,16 @@ impl Tool {
 
     /// Whether a click places the last point and finishes, without a second click.
     pub fn is_single_click(self) -> bool {
-        matches!(
-            self,
-            Self::HorizontalLine
-                | Self::HorizontalRay
-                | Self::VerticalLine
-                | Self::CrossLine
-                | Self::Text
-                | Self::PriceLabel
-                | Self::LongPosition
-                | Self::ShortPosition
-        )
+        self.anchors() == 1 || self.is_position()
     }
 
     pub fn is_position(self) -> bool {
         matches!(self, Self::LongPosition | Self::ShortPosition)
+    }
+
+    /// Whether the drawing is a stroke that follows the pointer while the button is down.
+    pub fn is_freehand(self) -> bool {
+        matches!(self, Self::Brush | Self::Highlighter)
     }
 
     /// Whether the drawing is laid out in the box between its two points, with a grip at every
@@ -324,7 +559,12 @@ impl Tool {
     pub fn is_box(self) -> bool {
         matches!(
             self,
-            Self::Rectangle | Self::Ellipse | Self::GannBox | Self::GannSquare | Self::Measure
+            Self::Rectangle
+                | Self::Ellipse
+                | Self::GannBox
+                | Self::GannSquare
+                | Self::Measure
+                | Self::DatePriceRange
         )
     }
 
@@ -340,13 +580,46 @@ impl Tool {
 
     /// Whether the drawing has text the user can edit.
     pub fn has_text(self) -> bool {
-        matches!(self, Self::Text)
+        matches!(
+            self,
+            Self::Text
+                | Self::Note
+                | Self::PriceNote
+                | Self::Callout
+                | Self::Comment
+                | Self::Pin
+                | Self::Signpost
+                | Self::Table
+        )
     }
 
     /// Whether the drawing writes words on the chart (whose size and color can be set).
     pub fn has_words(self) -> bool {
         matches!(self.group(), Group::Patterns | Group::Elliott)
-            || matches!(self, Self::Text | Self::PriceLabel)
+            && !matches!(self, Self::CyclicLines | Self::TimeCycles | Self::SineLine)
+            || matches!(self, Self::PriceLabel)
+            || self.has_text()
+    }
+
+    /// The name of the switch that turns the tool's own writing (levels, names, values) on and
+    /// off, for a tool that has some.
+    pub fn labels_switch(self) -> Option<&'static str> {
+        if self.has_levels() {
+            return Some("Write the levels");
+        }
+        match self {
+            Self::HorizontalLine => Some("Write the price"),
+            Self::InfoLine
+            | Self::TrendAngle
+            | Self::PriceRange
+            | Self::DateRange
+            | Self::DatePriceRange
+            | Self::Forecast => Some("Write the values"),
+            tool if tool.has_words() && !tool.has_text() && tool != Self::PriceLabel => {
+                Some("Write the names")
+            }
+            _ => None,
+        }
     }
 
     /// Whether the drawing has levels (Fibonacci ratios, pitchfork lines, Gann angles).
@@ -360,7 +633,13 @@ impl Tool {
             self,
             Self::TrendLine
                 | Self::Arrow
+                | Self::InfoLine
+                | Self::TrendAngle
                 | Self::ParallelChannel
+                | Self::RegressionTrend
+                | Self::FlatTopBottom
+                | Self::DisjointChannel
+                | Self::SineLine
                 | Self::FibRetracement
                 | Self::FibExtension
                 | Self::FibChannel
@@ -374,35 +653,102 @@ impl Tool {
         matches!(
             self,
             Self::ParallelChannel
+                | Self::RegressionTrend
+                | Self::FlatTopBottom
+                | Self::DisjointChannel
+                | Self::Pitchfan
                 | Self::FibRetracement
                 | Self::FibExtension
                 | Self::FibChannel
                 | Self::FibFan
+                | Self::FibTimeExtension
+                | Self::FibWedge
                 | Self::GannFan
                 | Self::GannBox
                 | Self::GannSquare
+                | Self::GannSquareFixed
+                | Self::TimeCycles
                 | Self::Xabcd
                 | Self::Cypher
                 | Self::Abcd
                 | Self::HeadAndShoulders
                 | Self::TrianglePattern
                 | Self::Rectangle
+                | Self::RotatedRectangle
+                | Self::Circle
                 | Self::Ellipse
                 | Self::Triangle
+                | Self::Arc
+                | Self::PriceRange
+                | Self::DateRange
+                | Self::DatePriceRange
+                | Self::FixedRangeVolumeProfile
+                | Self::AnchoredVolumeProfile
         ) || self.is_pitchfork()
     }
 
     /// Whether the line style (solid, dashed, dotted) applies.
     pub fn has_dash(self) -> bool {
-        !matches!(self, Self::Text | Self::PriceLabel | Self::Brush)
+        !matches!(
+            self,
+            Self::Text
+                | Self::PriceLabel
+                | Self::Brush
+                | Self::Highlighter
+                | Self::Note
+                | Self::Comment
+                | Self::Pin
+                | Self::Signpost
+                | Self::FlagMark
+                | Self::Table
+                | Self::Icon
+                | Self::ArrowMarker
+                | Self::ArrowMarkUp
+                | Self::ArrowMarkDown
+                | Self::BarsPattern
+                | Self::GhostFeed
+                | Self::FixedRangeVolumeProfile
+                | Self::AnchoredVolumeProfile
+        )
+    }
+
+    /// Whether the width of the line applies.
+    pub fn has_width(self) -> bool {
+        !matches!(
+            self,
+            Self::Text
+                | Self::PriceLabel
+                | Self::Note
+                | Self::Comment
+                | Self::Pin
+                | Self::Signpost
+                | Self::FlagMark
+                | Self::Table
+                | Self::Icon
+                | Self::ArrowMarkUp
+                | Self::ArrowMarkDown
+                | Self::BarsPattern
+                | Self::GhostFeed
+                | Self::FixedRangeVolumeProfile
+                | Self::AnchoredVolumeProfile
+        )
+    }
+
+    /// The widths the style bar offers for the tool.
+    pub fn widths(self) -> [f32; 4] {
+        if self == Self::Highlighter {
+            [8.0, 12.0, 20.0, 32.0]
+        } else {
+            WIDTHS
+        }
     }
 
     /// The name of the drawing's optional extra line, if it has one: the middle of a channel,
     /// the diagonals of a Gann box.
     pub fn middle_label(self) -> Option<&'static str> {
         match self {
-            Self::ParallelChannel => Some("Middle line"),
-            Self::GannBox | Self::GannSquare => Some("Angles"),
+            Self::ParallelChannel | Self::DisjointChannel => Some("Middle line"),
+            Self::GannBox | Self::GannSquare | Self::GannSquareFixed => Some("Angles"),
             Self::Xabcd | Self::Cypher | Self::Abcd | Self::ThreeDrives => Some("Ratios"),
             _ => None,
         }
@@ -412,7 +758,7 @@ impl Tool {
     pub fn has_reverse(self) -> bool {
         matches!(
             self,
-            Self::FibRetracement | Self::FibChannel | Self::GannBox
+            Self::FibRetracement | Self::FibChannel | Self::GannBox | Self::FibSpiral
         )
     }
 
@@ -529,7 +875,7 @@ impl Style {
         if !(self.width.is_finite() && self.width > 0.0) {
             self.width = default_width();
         }
-        self.width = self.width.min(10.0);
+        self.width = self.width.min(40.0);
         if !self.fill_opacity.is_finite() {
             self.fill_opacity = default_opacity();
         }
@@ -584,15 +930,31 @@ impl Tool {
             | Self::FibExtension
             | Self::FibChannel
             | Self::FibTimeZone
-            | Self::FibFan => (ORANGE, 1.0),
-            Self::Measure => (BLUE, 1.0),
-            Self::LongPosition => (GREEN, 1.5),
-            Self::ShortPosition => (RED, 1.5),
+            | Self::FibFan
+            | Self::FibTimeExtension
+            | Self::FibCircles
+            | Self::FibSpiral
+            | Self::FibArcs
+            | Self::FibWedge => (ORANGE, 1.0),
+            Self::Measure | Self::PriceRange | Self::DateRange | Self::DatePriceRange => {
+                (BLUE, 1.0)
+            }
+            Self::LongPosition | Self::ArrowMarkUp => (GREEN, 1.5),
+            Self::ShortPosition | Self::ArrowMarkDown | Self::Pin => (RED, 1.5),
             Self::Text | Self::PriceLabel => (0xffffff, 1.0),
+            Self::Forecast | Self::BarsPattern => (CYAN, 1.5),
+            Self::GhostFeed => (PURPLE, 1.5),
+            Self::AnchoredVwap | Self::Note | Self::FlagMark | Self::Icon => (ORANGE, 1.5),
+            Self::PriceNote => (PURPLE, 1.5),
+            Self::Highlighter => (ORANGE, 12.0),
+            Self::CyclicLines | Self::TimeCycles | Self::SineLine => (CYAN, 1.5),
+            Self::Pitchfan => (BLUE, 1.0),
             Self::HorizontalLine | Self::HorizontalRay | Self::VerticalLine | Self::CrossLine => {
                 (ORANGE, 1.0)
             }
-            Self::GannFan | Self::GannBox | Self::GannSquare => (ORANGE, 1.0),
+            Self::GannFan | Self::GannBox | Self::GannSquare | Self::GannSquareFixed => {
+                (ORANGE, 1.0)
+            }
             Self::Xabcd | Self::Cypher | Self::Abcd | Self::ThreeDrives => (PURPLE, 1.5),
             Self::HeadAndShoulders | Self::TrianglePattern => (CYAN, 1.5),
             Self::ElliottImpulse
@@ -606,14 +968,40 @@ impl Tool {
         let fill_opacity = match self.group() {
             Group::Fibonacci | Group::Gann => 0.08,
             Group::Patterns => 0.18,
-            _ if self.is_pitchfork() => 0.08,
+            _ if self.is_pitchfork() || self == Self::Pitchfan => 0.08,
+            _ if matches!(
+                self,
+                Self::FixedRangeVolumeProfile | Self::AnchoredVolumeProfile
+            ) =>
+            {
+                0.4
+            }
             _ => default_opacity(),
+        };
+        // The boxes of the notes are filled with the color, so their words are their own.
+        let text_color = match self {
+            Self::Note => Some(0x0a0a0a),
+            Self::PriceNote
+            | Self::Callout
+            | Self::Comment
+            | Self::Signpost
+            | Self::Table
+            | Self::Pin => Some(0xffffff),
+            _ => None,
+        };
+        let (color, dash) = match self {
+            Self::Callout | Self::Comment | Self::Signpost | Self::Table => (BLUE, Dash::Solid),
+            Self::Forecast => (color, Dash::Dashed),
+            _ => (color, Dash::Solid),
         };
         Style {
             color,
             width,
-            extend_right,
+            dash,
+            extend_left: self == Self::SineLine,
+            extend_right: extend_right || self == Self::SineLine,
             fill_opacity,
+            text_color,
             ..Style::default()
         }
     }
@@ -686,7 +1074,62 @@ impl Tool {
                 level(0.25, RED, true),
                 level(0.125, PURPLE, true),
             ],
-            Self::GannBox | Self::GannSquare => vec![
+            Self::FibTimeExtension => vec![
+                level(0.0, GRAY, true),
+                level(0.382, ORANGE, true),
+                level(0.5, GREEN, false),
+                level(0.618, CYAN, true),
+                level(0.786, BLUE, false),
+                level(1.0, GRAY, true),
+                level(1.382, ORANGE, true),
+                level(1.618, CYAN, true),
+                level(2.0, GREEN, false),
+                level(2.618, RED, true),
+                level(4.236, PINK, false),
+            ],
+            Self::FibCircles => vec![
+                level(0.236, RED, false),
+                level(0.382, ORANGE, true),
+                level(0.5, GREEN, true),
+                level(0.618, CYAN, true),
+                level(0.786, BLUE, false),
+                level(1.0, GRAY, true),
+                level(1.272, PURPLE, false),
+                level(1.618, ORANGE, true),
+                level(2.618, RED, false),
+            ],
+            Self::FibArcs => vec![
+                level(0.236, RED, false),
+                level(0.382, ORANGE, true),
+                level(0.5, GREEN, true),
+                level(0.618, CYAN, true),
+                level(0.786, BLUE, false),
+                level(1.0, GRAY, true),
+            ],
+            Self::FibWedge => vec![
+                level(0.236, RED, false),
+                level(0.382, ORANGE, true),
+                level(0.5, GREEN, true),
+                level(0.618, CYAN, true),
+                level(0.786, BLUE, false),
+                level(1.0, GRAY, true),
+            ],
+            Self::Pitchfan => vec![
+                level(0.0, GRAY, true),
+                level(0.25, ORANGE, false),
+                level(0.382, RED, true),
+                level(0.5, GREEN, true),
+                level(0.618, CYAN, true),
+                level(0.75, BLUE, false),
+                level(1.0, GRAY, true),
+            ],
+            Self::RegressionTrend => vec![level(1.0, CYAN, false), level(2.0, BLUE, true)],
+            Self::AnchoredVwap => vec![
+                level(1.0, GREEN, true),
+                level(2.0, CYAN, false),
+                level(3.0, PURPLE, false),
+            ],
+            Self::GannBox | Self::GannSquare | Self::GannSquareFixed => vec![
                 level(0.0, GRAY, true),
                 level(0.25, ORANGE, true),
                 level(0.382, GREEN, true),
@@ -842,7 +1285,8 @@ impl Drawing {
     pub fn is_valid(&self) -> bool {
         let count_ok = match self.tool {
             Tool::Unknown => false,
-            Tool::Brush => (2..=MAX_BRUSH_POINTS).contains(&self.points.len()),
+            Tool::Brush | Tool::Highlighter => (2..=MAX_BRUSH_POINTS).contains(&self.points.len()),
+            Tool::ArrowPath => (2..=MAX_PATH_POINTS).contains(&self.points.len()),
             tool => self.points.len() == tool.anchors(),
         };
         count_ok

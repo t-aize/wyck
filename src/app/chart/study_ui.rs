@@ -342,6 +342,7 @@ impl Render for StudyEditor {
                     let target = target.clone();
                     Some(
                         Switch::new(SharedString::from(format!("toggle-{key}")))
+                            .cursor_pointer()
                             .checked(config.input(key) != 0.0)
                             .on_click(move |checked, _window, cx| {
                                 target.set_input(key, if *checked { 1.0 } else { 0.0 }, cx);
@@ -359,7 +360,7 @@ impl Render for StudyEditor {
             let key = plot.key;
             let style = config.plot_style(key);
             let open = self.color_open == Some(key);
-            let (toggle_this, pick_this) = (this.clone(), this.clone());
+            let toggle_this = this.clone();
             let (pick_target, width_target, visible_target) =
                 (target.clone(), target.clone(), target.clone());
             let widths = ["1", "1.5", "2", "3"];
@@ -376,6 +377,7 @@ impl Render for StudyEditor {
                     .min_h(px(36.))
                     .child(
                         Switch::new(SharedString::from(format!("plot-visible-{key}")))
+                            .cursor_pointer()
                             .small()
                             .checked(style.visible)
                             .on_click(move |checked, _window, cx| {
@@ -398,6 +400,7 @@ impl Render for StudyEditor {
                         SharedString::from(format!("plot-color-{key}")),
                         style.color,
                         open,
+                        cx,
                         move |_window, cx| {
                             toggle_this.update(cx, |this, cx| {
                                 this.color_open = if this.color_open == Some(key) {
@@ -409,10 +412,6 @@ impl Render for StudyEditor {
                             });
                         },
                         move |color, _window, cx| {
-                            pick_this.update(cx, |this, cx| {
-                                this.color_open = None;
-                                cx.notify();
-                            });
                             pick_target.edit(cx, |study| {
                                 if let Some(s) = study.plots.get_mut(key) {
                                     s.color = color;
@@ -447,6 +446,7 @@ impl Render for StudyEditor {
                     .justify_between()
                     .child(
                         Button::new("study-defaults")
+                            .cursor_pointer()
                             .ghost()
                             .small()
                             .icon(IconName::RotateCcw)
@@ -475,6 +475,7 @@ impl Render for StudyEditor {
                     )
                     .child(
                         Button::new("study-remove")
+                            .cursor_pointer()
                             .ghost()
                             .small()
                             .icon(IconName::Trash)
@@ -687,12 +688,12 @@ impl Render for ChartSettingsEditor {
         let switch =
             |id: &'static str, on: bool, change: fn(&mut super::settings::ChartSettings, bool)| {
                 let chart = chart.clone();
-                Switch::new(id)
-                    .checked(on)
-                    .on_click(move |checked, _window, cx| {
+                Switch::new(id).cursor_pointer().checked(on).on_click(
+                    move |checked, _window, cx| {
                         let checked = *checked;
                         edit_chart(&chart, cx, |s| change(s, checked));
-                    })
+                    },
+                )
             };
         let scale_labels: Vec<&str> = ScaleMode::ALL.iter().map(|m| m.label()).collect();
         let scale_index = ScaleMode::ALL

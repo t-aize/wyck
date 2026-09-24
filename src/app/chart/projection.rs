@@ -3,7 +3,7 @@
 use wyck::openapi::market::format_price;
 
 use super::data::Series;
-use super::drawing::geometry::{P, Projection, Rect};
+use super::drawing::geometry::{BarView, P, Projection, Rect};
 use super::drawing::model::Point;
 use super::scene::PriceMap;
 use super::view::View;
@@ -11,6 +11,9 @@ use super::view::View;
 /// How close (in pixels) the pointer must be to a bar's open, high, low or close for the magnet
 /// to take it.
 const MAGNET_REACH: f64 = 18.0;
+
+/// Most bars handed to a drawing tool that reads the data (regression, VWAP, volume).
+const MAX_TOOL_BARS: usize = 50_000;
 
 pub struct ChartProjection<'a> {
     pub series: &'a Series,
@@ -89,6 +92,33 @@ impl Projection for ChartProjection<'_> {
 
     fn price_span(&self) -> f64 {
         self.map.hi - self.map.lo
+    }
+
+    fn bars_between(&self, from_ms: i64, to_ms: i64) -> Vec<BarView> {
+        let Series::Bars(bars) = self.series else {
+            return Vec::new();
+        };
+        let start = bars.partition_point(|bar| bar.time_ms < from_ms);
+        let end = bars.partition_point(|bar| bar.time_ms <= to_ms);
+        let len = bars.len();
+        bars[start..end.max(start)]
+            .iter()
+            .take(MAX_TOOL_BARS)
+            .enumerate()
+            .map(|(offset, bar)| BarView {
+                time: bar.time_ms,
+                x: self.view.x_of((start + offset) as f64, len, self.plot_w) as f32,
+                open: bar.open as f64,
+                high: bar.high as f64,
+                low: bar.low as f64,
+                close: bar.close as f64,
+                volume: bar.volume as f64,
+            })
+            .collect()
+    }
+
+    fn y_of(&self, price: f64) -> f32 {
+        self.map.y(price) as f32
     }
 }
 

@@ -1039,13 +1039,46 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             points,
             color,
             width,
+            alpha,
         } => {
             out.push(Cmd::Stroke {
                 points: points.into_iter().map(at).collect(),
                 width,
-                color: rgb_alpha(color, 1.0),
+                color: rgb_alpha(color, alpha),
                 dash: None,
             });
+        }
+        Prim::Board {
+            tl,
+            rows,
+            fg,
+            bg: (bg, bg_alpha),
+            size,
+            bold,
+        } => {
+            let (w, h) = shapes::board_size(&rows, size);
+            let (row, pad_x, pad_y) = shapes::board_metrics();
+            let (x, y) = at(tl);
+            out.push(Cmd::Rect {
+                x,
+                y,
+                w,
+                h,
+                fill: rgb_alpha(bg, bg_alpha),
+                border: None,
+                radius: 4.0,
+            });
+            for (i, text) in rows.into_iter().enumerate() {
+                out.push(Cmd::Text {
+                    text,
+                    x: x + pad_x,
+                    y: y + pad_y + i as f32 * size * row + (size * row - size * 1.3) / 2.0,
+                    size,
+                    color: rgb_alpha(fg, 1.0),
+                    align: Align::Left,
+                    bold,
+                });
+            }
         }
         Prim::Label {
             at: position,

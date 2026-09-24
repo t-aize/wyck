@@ -12,10 +12,10 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
 use crate::app::chart::DrawingCommand;
-use crate::app::chart::drawing::model::{Dash, Group, PALETTE, Tool, WIDTHS};
+use crate::app::chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use crate::app::chart::object_tree::tool_icon;
 use crate::app::connection::ui;
-use crate::app::theme;
+use crate::app::{theme, widgets};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -49,10 +49,10 @@ impl MultiChart {
             (book.tool(), book.magnet(), book.can_undo(), book.can_redo());
         let keep = book.keep_tool();
         let has_any = symbol.as_ref().is_some_and(|symbol| book.count(symbol) > 0);
-        let all_hidden = has_any
-            && symbol
-                .as_ref()
-                .is_some_and(|symbol| book.drawings(symbol).iter().all(|d| d.hidden));
+        // Some hidden is enough for the button to offer showing them again.
+        let some_hidden = symbol
+            .as_ref()
+            .is_some_and(|symbol| book.drawings(symbol).iter().any(|d| d.hidden));
 
         let mut rail = div()
             .id("draw-rail")
@@ -125,21 +125,22 @@ impl MultiChart {
             Button::new("draw-hide-all")
                 .ghost()
                 .compact()
-                .icon(if all_hidden {
-                    IconName::EyeOff
-                } else {
+                .icon(if some_hidden {
                     IconName::Eye
+                } else {
+                    IconName::EyeOff
                 })
-                .tooltip(if all_hidden {
+                .tooltip(if some_hidden {
                     "Show the drawings"
                 } else {
                     "Hide the drawings"
                 })
-                .toggled(all_hidden)
+                .toggled(some_hidden)
                 .disabled(!has_any)
                 .cursor_pointer()
+                .when(!has_any, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(move |this, _event, _window, cx| {
-                    this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !all_hidden));
+                    this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
                 })),
         )
         .child(
@@ -174,6 +175,7 @@ impl MultiChart {
                 .tooltip("Undo (Ctrl+Z)")
                 .disabled(!can_undo)
                 .cursor_pointer()
+                .when(!can_undo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
         )
         .child(
@@ -184,6 +186,7 @@ impl MultiChart {
                 .tooltip("Redo (Ctrl+Shift+Z)")
                 .disabled(!can_redo)
                 .cursor_pointer()
+                .when(!can_redo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
         )
         .child(
@@ -194,6 +197,7 @@ impl MultiChart {
                 .tooltip("Remove all drawings of this symbol")
                 .disabled(!has_any)
                 .cursor_pointer()
+                .when(!has_any, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
         )
     }
@@ -205,10 +209,13 @@ impl MultiChart {
         // Beside the family's button: the pointer's comes first, then one per family.
         let index = Group::ALL.iter().position(|g| *g == group).unwrap_or(0);
         let mut list = div()
+            .id("draw-flyout-list")
             .absolute()
             .top(px(4.0 + 36.0 * (index as f32 + 1.0)))
             .left(px(RAIL_WIDTH + 6.0))
-            .w(px(230.))
+            .w(px(250.))
+            .max_h(px(520.))
+            .overflow_y_scroll()
             .p_1()
             .flex()
             .flex_col()
@@ -338,9 +345,30 @@ impl MultiChart {
                         .child(div().size(px(14.)).rounded_full().bg(swatch_color(color))),
                 );
             }
+            // Any other color: the panel with the square, the hue bar and the typed values.
+            let (open_this, pick_this) = (cx.entity(), cx.entity());
+            bar = bar.child(widgets::color_swatch(
+                "draw-color-custom",
+                style.color,
+                self.color_open == Some(id),
+                cx,
+                move |_window, cx| {
+                    open_this.update(cx, |this, cx| {
+                        this.color_open = if this.color_open == Some(id) {
+                            None
+                        } else {
+                            Some(id)
+                        };
+                        cx.notify();
+                    });
+                },
+                move |color, _window, cx| {
+                    pick_this.update(cx, |this, cx| this.set_drawing_color(color, cx));
+                },
+            ));
             bar = bar.child(divider());
-            if !matches!(tool, Tool::Text | Tool::PriceLabel) {
-                for (index, width) in WIDTHS.into_iter().enumerate() {
+            if tool.has_width() {
+                for (index, width) in tool.widths().into_iter().enumerate() {
                     let selected = (style.width - width).abs() < 0.01;
                     bar = bar.child(
                         div()
@@ -445,6 +473,21 @@ impl MultiChart {
                             this.trade_drawing(id, cx);
                         })),
                 )
+                .child(
+                    Button::new("draw-flip")
+                        .ghost()
+                        .compact()
+                        .icon(IconName::ArrowUpDown)
+                        .tooltip(if tool == Tool::LongPosition {
+                            "Flip to a short position"
+                        } else {
+                            "Flip to a long position"
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.drawing_command(id, DrawingCommand::Flip, cx);
+                        })),
+                )
                 .child(divider());
         }
         bar = bar
@@ -504,6 +547,7 @@ impl MultiChart {
                     .tooltip("Delete (Del)")
                     .disabled(locked)
                     .cursor_pointer()
+                    .when(locked, |button| button.cursor_not_allowed())
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );
 
