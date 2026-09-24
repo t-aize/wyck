@@ -40,6 +40,9 @@ pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out
         (Series::Bars(bars), ChartKind::Range) => {
             candles(cx, bars, first, last, CandleStyle::Solid, out);
         }
+        (Series::Bars(bars), ChartKind::Footprint) => {
+            super::footprint::draw(cx, bars, first, last, out);
+        }
         (Series::Bars(bars), ChartKind::Kagi) => kagi(cx, bars, first, last, out),
         (Series::Bars(bars), ChartKind::PointFigure) => point_figure(cx, bars, first, last, out),
         (_, ChartKind::Baseline) => baseline(cx, first, last, out),
@@ -52,6 +55,17 @@ pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out
             out,
         ),
     }
+}
+
+/// Plain candles, for what a chart type falls back to when it cannot show its details.
+pub(super) fn solid_candles(
+    cx: &Ctx<'_>,
+    bars: &[Bar],
+    first: usize,
+    last: usize,
+    out: &mut Vec<Cmd>,
+) {
+    candles(cx, bars, first, last, CandleStyle::Solid, out);
 }
 
 fn candles(

@@ -21,7 +21,8 @@ impl Chart {
         let epoch = self.epoch;
         self.series = empty_series(self.timeframe);
         self.display = Default::default();
-        self.view = View::new(self.timeframe.default_bar_px());
+        self.view = View::new(super::bar_px_for(&self.settings, self.timeframe));
+        self.reset_flow();
         self.older = Older::Idle;
         self.hover = None;
         self.drag = None;
@@ -112,6 +113,7 @@ impl Chart {
 
     /// Fetches the prices between the newest point held and now, and joins them in.
     fn refill(&mut self, cx: &mut Context<Self>) {
+        self.flow_gap_open();
         let (Some(symbol), Some(from)) = (&self.symbol, self.series.last_time()) else {
             if self.symbol.is_some() && self.series.is_empty() {
                 self.reload(cx);
@@ -176,6 +178,8 @@ impl Chart {
 
     /// Asks for older history when the view is near the oldest point held.
     pub(super) fn load_older_if_needed(&mut self, cx: &mut Context<Self>) {
+        // A footprint needs the flow of the bars it shows too.
+        self.ensure_flow(cx);
         if !matches!(self.load, Load::Ready) {
             return;
         }
@@ -325,6 +329,7 @@ impl Chart {
             }
             _ => {}
         }
+        self.feed_flow(update);
         if appended > 0 && !self.display.is_derived() {
             self.view.on_appended(appended);
         }

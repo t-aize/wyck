@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::footprint::FootprintSettings;
 use super::study::{Placement, StudyConfig, StudyKind};
 use super::transform::TransformSettings;
 use super::zone::Zone;
@@ -36,10 +37,12 @@ pub enum ChartKind {
     PointFigure,
     /// Bars that all span the same range.
     Range,
+    /// Candles that show what traded at each price, split between sellers and buyers.
+    Footprint,
 }
 
 impl ChartKind {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Candles,
         Self::Hollow,
         Self::HeikinAshi,
@@ -53,6 +56,7 @@ impl ChartKind {
         Self::Kagi,
         Self::PointFigure,
         Self::Range,
+        Self::Footprint,
     ];
 
     pub fn label(self) -> &'static str {
@@ -70,6 +74,7 @@ impl ChartKind {
             Self::Kagi => "Kagi",
             Self::PointFigure => "Point and figure",
             Self::Range => "Range",
+            Self::Footprint => "Footprint",
         }
     }
 
@@ -89,6 +94,7 @@ impl ChartKind {
             Self::Kagi => "kagi",
             Self::PointFigure => "point_figure",
             Self::Range => "range",
+            Self::Footprint => "footprint",
         }
     }
 
@@ -108,6 +114,7 @@ impl ChartKind {
                 | Self::LineBreak
                 | Self::PointFigure
                 | Self::Range
+                | Self::Footprint
         )
     }
 
@@ -193,6 +200,8 @@ pub struct ChartSettings {
     #[serde(default)]
     pub transform: TransformSettings,
     #[serde(default)]
+    pub footprint: FootprintSettings,
+    #[serde(default)]
     pub scale: ScaleMode,
     /// Whether higher prices are drawn lower.
     #[serde(default)]
@@ -222,6 +231,7 @@ impl Default for ChartSettings {
         Self {
             kind: ChartKind::Candles,
             transform: TransformSettings::default(),
+            footprint: FootprintSettings::default(),
             scale: ScaleMode::Linear,
             invert: false,
             zone: Zone::default(),
@@ -245,6 +255,7 @@ impl ChartSettings {
     #[must_use]
     pub fn normalized(mut self) -> Self {
         self.transform = self.transform.normalized();
+        self.footprint = self.footprint.normalized();
         self.studies.retain(|s| s.kind != StudyKind::Unknown);
         self.studies.truncate(MAX_STUDIES);
         self.studies = self
@@ -329,6 +340,27 @@ mod tests {
             toml::from_str::<ChartSettings>("").unwrap(),
             ChartSettings::default()
         );
+    }
+
+    #[test]
+    fn the_footprint_settings_are_saved_with_the_chart_and_repaired() {
+        let mut settings = ChartSettings {
+            kind: ChartKind::Footprint,
+            ..ChartSettings::default()
+        };
+        settings.footprint.mode = super::super::footprint::CellMode::Delta;
+        settings.footprint.imbalance_percent = 450;
+        let text = toml::to_string_pretty(&settings).unwrap();
+        let back: ChartSettings = toml::from_str(&text).unwrap();
+        assert_eq!(back.normalized(), settings);
+        // A file from before the footprint existed reads with its defaults.
+        let old: ChartSettings = toml::from_str("kind = \"candles\"\n").unwrap();
+        assert_eq!(old.footprint, FootprintSettings::default());
+        let broken: ChartSettings =
+            toml::from_str("[footprint]\nimbalance_percent = 1\nstack_rows = 500\n").unwrap();
+        let broken = broken.normalized();
+        assert_eq!(broken.footprint.imbalance_percent, 110);
+        assert_eq!(broken.footprint.stack_rows, 12);
     }
 
     #[test]

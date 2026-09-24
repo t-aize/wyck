@@ -103,7 +103,7 @@ impl History for MarketClient {
     }
 }
 
-fn market(session: &Session) -> Result<MarketClient> {
+pub(super) fn market(session: &Session) -> Result<MarketClient> {
     let client = session.client().ok_or(OpenApiError::Closed)?;
     Ok(client.account(session.account_id()).market())
 }

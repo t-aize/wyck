@@ -11,6 +11,7 @@
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
 pub mod cmd;
+mod footprint;
 pub mod geometry;
 pub mod price;
 mod series;
@@ -24,6 +25,7 @@ use super::data::Series;
 use super::display::{Display, effective_kind};
 use super::drawing::geometry::{self as shapes, Anchor, Prim};
 use super::drawing::model::{Dash, Drawing};
+use super::flow::Flow;
 use super::projection::ChartProjection;
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
 use super::study::{Placement, ValueFormat};
@@ -114,6 +116,8 @@ pub struct Frame<'a> {
     pub palette: Palette,
     pub drawings: Option<DrawingView<'a>>,
     pub marks: &'a [PriceMark],
+    /// What traded at each price of each bar, for the footprint chart type.
+    pub flow: Option<&'a Flow>,
 }
 
 impl Frame<'_> {
@@ -185,7 +189,7 @@ pub fn main_map(
         (lo, hi)
     };
     let band = geometry.main();
-    let reserved = 12.0;
+    let reserved = 12.0 + f64::from(footprint::reserved(settings));
     let base = series
         .value_at(first.min(series.len().saturating_sub(1)))
         .map_or(0.0, |v| v as f64);

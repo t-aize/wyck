@@ -40,11 +40,12 @@ pub fn kind_icon(kind: ChartKind) -> IconName {
         ChartKind::Kagi => IconName::Spline,
         ChartKind::PointFigure => IconName::Grid3x3,
         ChartKind::Range => IconName::ChartColumnBig,
+        ChartKind::Footprint => IconName::Rows3,
     }
 }
 
 /// The kinds of the menu, in sections.
-const KIND_SECTIONS: [(&str, &[ChartKind]); 3] = [
+const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
     (
         "Bars",
         &[
@@ -73,6 +74,7 @@ const KIND_SECTIONS: [(&str, &[ChartKind]); 3] = [
             ChartKind::Range,
         ],
     ),
+    ("Order flow", &[ChartKind::Footprint]),
 ];
 
 fn rgb(color: u32) -> gpui::Rgba {
@@ -662,6 +664,44 @@ impl Chart {
         bottom + 8.0
     }
 
+    /// The volume, the delta and what each side traded in the bar that opens at `time_ms`, added to
+    /// the legend of a footprint.
+    fn flow_values(&self, time_ms: i64, row: gpui::Div) -> gpui::Div {
+        let Some((sell, buy)) = self.flow.bar(time_ms).map(|b| b.totals()) else {
+            return row;
+        };
+        let delta = buy as i64 - sell as i64;
+        let tone = if delta >= 0 {
+            theme::chart_up()
+        } else {
+            theme::chart_down()
+        };
+        let pair = |label: &'static str, text: String, tone: gpui::Rgba| {
+            div()
+                .flex()
+                .flex_row()
+                .gap_0p5()
+                .child(div().text_color(theme::chart_muted()).child(label))
+                .child(div().text_color(tone).child(text))
+        };
+        row.child(pair(
+            "Vol",
+            super::footprint::compact(sell + buy),
+            theme::chart_fg(),
+        ))
+        .child(pair("Delta", super::footprint::signed(delta), tone))
+        .child(pair(
+            "Buy",
+            super::footprint::compact(buy),
+            theme::chart_up(),
+        ))
+        .child(pair(
+            "Sell",
+            super::footprint::compact(sell),
+            theme::chart_down(),
+        ))
+    }
+
     /// The first line of the legend: the symbol (a button that changes it), the timeframe and
     /// type, and the prices of the point under the pointer.
     fn headline(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
@@ -701,6 +741,13 @@ impl Chart {
         if self.display.box_size > 0 && self.settings.kind != ChartKind::LineBreak {
             kind_text.push_str(&format!(" {}", format_price(self.display.box_size, digits)));
         }
+        if self.settings.kind == ChartKind::Footprint && self.timeframe.bar_ms().is_some() {
+            kind_text.push_str(if super::footprint::supports(self.timeframe) {
+                " (tick volume)"
+            } else {
+                " (needs bars of a day or less)"
+            });
+        }
         let mut row = div()
             .flex()
             .flex_row()
@@ -711,6 +758,13 @@ impl Chart {
             .child(symbol)
             .child(div().text_color(theme::chart_muted()).child(kind_text))
             .children(self.market_dot());
+        if self.flow_busy() {
+            row = row.child(
+                div()
+                    .text_color(theme::chart_muted())
+                    .child("loading order flow..."),
+            );
+        }
         let Some(index) = self.shown_index() else {
             return row;
         };
@@ -754,6 +808,9 @@ impl Chart {
                             .child(value("L", bar.low, tone))
                             .child(value("C", bar.close, tone))
                             .child(div().text_color(tone).child(change_text));
+                    }
+                    if self.settings.kind == ChartKind::Footprint {
+                        row = self.flow_values(bar.time_ms, row);
                     }
                 }
             }

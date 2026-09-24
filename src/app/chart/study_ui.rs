@@ -14,11 +14,11 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::switch::Switch;
 use wyck::openapi::market::PRICE_SCALE;
 
-use super::Chart;
 use super::settings::{ChartKind, ScaleMode};
 use super::study::{Placement, StudyConfig, StudyKind};
 use super::transform::BoxSize;
 use super::zone::Zone;
+use super::{Chart, footprint_ui};
 use crate::app::connection::ui;
 use crate::app::{theme, widgets};
 
@@ -259,6 +259,7 @@ struct ChartSettingsEditor {
     sizes: Vec<(SizeField, Entity<InputState>)>,
     line_break: Entity<InputState>,
     reversal: Entity<InputState>,
+    footprint: Vec<(footprint_ui::Field, Entity<InputState>)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -339,11 +340,14 @@ impl ChartSettingsEditor {
                 }
             }),
         );
+        let (footprint, footprint_subscriptions) = footprint_ui::inputs(&chart, window, cx);
+        subscriptions.extend(footprint_subscriptions);
         Self {
             chart,
             sizes,
             line_break,
             reversal,
+            footprint,
             _subscriptions: subscriptions,
         }
     }
@@ -504,5 +508,10 @@ impl Render for ChartSettingsEditor {
                 "Point and figure reversal (boxes)",
                 widgets::number_field(&self.reversal, 120.),
             ))
+            .children(
+                (settings.kind == ChartKind::Footprint).then(|| {
+                    footprint_ui::section(&self.chart, &self.footprint, &settings.footprint)
+                }),
+            )
     }
 }

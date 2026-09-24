@@ -33,7 +33,11 @@ pub fn effective_kind(series: &Series, kind: ChartKind) -> ChartKind {
     match (series, kind) {
         (
             Series::Ticks(_),
-            ChartKind::Candles | ChartKind::Hollow | ChartKind::Bars | ChartKind::HeikinAshi,
+            ChartKind::Candles
+            | ChartKind::Hollow
+            | ChartKind::Bars
+            | ChartKind::HeikinAshi
+            | ChartKind::Footprint,
         ) => ChartKind::Line,
         _ => kind,
     }

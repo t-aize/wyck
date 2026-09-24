@@ -5,7 +5,8 @@
 //! `i + 0.5` in "index space", and the right edge of the plot sits at `len + offset`.
 
 pub const MIN_BAR_PX: f64 = 0.2;
-pub const MAX_BAR_PX: f64 = 80.0;
+/// Wide enough for a footprint's numbers.
+pub const MAX_BAR_PX: f64 = 260.0;
 /// Points that must stay on screen when scrolled all the way back.
 const KEEP_VISIBLE: f64 = 3.0;
 

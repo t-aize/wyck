@@ -71,6 +71,7 @@ impl Chart {
                 visible: &visible,
             }),
             marks: &marks,
+            flow: Some(&self.flow),
         })
     }
 }

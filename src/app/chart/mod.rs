@@ -17,6 +17,8 @@
 //! | [`overlay`] | what sits over the canvas: legend, toolbar, menus, line labels, status |
 //! | [`scene`] | the frame itself, as plain drawing commands, tested without a window |
 //! | [`display`] | what is drawn: the series of the chart type, and the indicators' values |
+//! | `flow`, `flow_sync` | the order flow of a footprint: counting quotes into bars, and loading it |
+//! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
 //!
 //! The data, view, axis, study and transform modules are plain data in and out.
 //!
@@ -39,13 +41,21 @@
 //! Timeframes from a minute up are the server's own bars, kept current by its live bar events
 //! and by the tick stream. Tick by tick and the second timeframes are built here from the bid
 //! ticks (the Open API has no bars under a minute).
+//!
+//! The footprint chart type adds the bid and ask ticks of the bars on screen (see [`flow`]): the
+//! Open API has no trade tape, so the side and the volume of each unit are inferred from the
+//! quotes, and the chart says so.
 
 mod axis;
 mod data;
 mod display;
 pub mod drawing;
 pub mod drawing_props;
+mod flow;
+mod flow_sync;
 mod follow;
+mod footprint;
+mod footprint_ui;
 mod glue;
 mod history;
 mod input;
@@ -78,6 +88,8 @@ use wyck::openapi::{OpenApiError, Result as ApiResult};
 use self::data::Series;
 use self::display::Display;
 use self::drawing::Drawings;
+use self::flow::Flow;
+use self::flow_sync::{FlowLoad, HeldQuote};
 pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 pub use self::live::{LiveHub, LiveUpdate};
@@ -258,6 +270,17 @@ pub struct Chart {
     series: Series,
     /// What is drawn from them.
     display: Display,
+    /// What traded at each price of each bar, for the footprint chart type.
+    flow: Flow,
+    flow_load: FlowLoad,
+    /// Live quotes that came before the flow they follow.
+    flow_held: Vec<HeldQuote>,
+    /// Whether a request for the newest flow is in flight.
+    flow_newest_pending: bool,
+    /// Whether the quotes since the last one counted must be fetched (after a lost connection).
+    flow_gap: bool,
+    /// Bumped whenever the flow is thrown away, so an answer to an old request is recognised.
+    flow_epoch: u64,
     view: View,
     load: Load,
     older: Older,
@@ -311,12 +334,15 @@ impl Chart {
                     if this.timeframe.bar_ms().is_some() && matches!(this.load, Load::Ready) {
                         cx.notify();
                     }
+                    // Also the moment to ask again for flow that failed to load.
+                    this.ensure_flow(cx);
                 });
                 if alive.is_err() {
                     break;
                 }
             }
         });
+        let settings = settings.normalized();
         Self {
             hub,
             id,
@@ -325,11 +351,17 @@ impl Chart {
             hours: None,
             selected: true,
             timeframe,
-            settings: settings.normalized(),
+            view: View::new(bar_px_for(&settings, timeframe)),
+            settings,
             settings_revision: 0,
             series: empty_series(timeframe),
             display: Display::default(),
-            view: View::new(timeframe.default_bar_px()),
+            flow: Flow::default(),
+            flow_load: FlowLoad::Idle,
+            flow_held: Vec::new(),
+            flow_newest_pending: false,
+            flow_gap: false,
+            flow_epoch: 0,
             load: Load::Idle,
             older: Older::Idle,
             epoch: 0,
@@ -457,6 +489,16 @@ impl Chart {
         if data_changed {
             self.rebuild_display();
         }
+        if before.kind != self.settings.kind {
+            let footprint = self.settings.kind == ChartKind::Footprint;
+            if footprint {
+                self.view.bar_px = self.view.bar_px.max(footprint::DEFAULT_BAR_PX);
+            } else if before.kind == ChartKind::Footprint {
+                // Bars as wide as a footprint's would be absurd as candles.
+                self.view.bar_px = self.timeframe.default_bar_px();
+                self.reset_flow();
+            }
+        }
         if layout_changed {
             // A different construction has a different number of points: start from the end.
             self.view = View::new(self.view.bar_px);
@@ -466,6 +508,7 @@ impl Chart {
         }
         cx.emit(ChartEvent::SettingsChanged);
         cx.notify();
+        self.ensure_flow(cx);
     }
 
     pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
@@ -573,6 +616,15 @@ impl Chart {
 impl Drop for Chart {
     fn drop(&mut self) {
         self.hub.set(self.id, None);
+    }
+}
+
+/// Pixels per bar when a chart is first shown: a footprint needs room for its numbers.
+fn bar_px_for(settings: &ChartSettings, timeframe: Timeframe) -> f64 {
+    if settings.kind == ChartKind::Footprint && footprint::supports(timeframe) {
+        footprint::DEFAULT_BAR_PX
+    } else {
+        timeframe.default_bar_px()
     }
 }
 
