@@ -28,6 +28,7 @@ impl Chart {
         self.bid = None;
         self.ask = None;
         self.last_time_ms = 0;
+        self.group_tail.clear();
         let Some(symbol) = &self.symbol else {
             self.load = Load::Idle;
             self.hub.set(self.id, None);
@@ -63,6 +64,10 @@ impl Chart {
             Ok(loaded) => {
                 match (loaded, &mut self.series) {
                     (Loaded::Bars(bars), Series::Bars(held)) => *held = bars,
+                    (Loaded::Grouped { bars, tail }, Series::Bars(held)) => {
+                        *held = bars;
+                        self.group_tail = tail;
+                    }
                     (Loaded::Ticks(ticks), Series::Ticks(held)) => *held = ticks,
                     _ => {}
                 }
@@ -148,6 +153,12 @@ impl Chart {
         let before = self.series.len();
         match (loaded, &mut self.series) {
             (Loaded::Bars(bars), Series::Bars(held)) => data::merge_bars(held, bars),
+            (Loaded::Grouped { bars, tail }, Series::Bars(held)) => {
+                data::merge_bars(held, bars);
+                if !tail.is_empty() {
+                    self.group_tail = tail;
+                }
+            }
             (Loaded::Ticks(ticks), Series::Ticks(held)) => {
                 data::splice_ticks(held, ticks, from, to);
             }
@@ -207,7 +218,9 @@ impl Chart {
             Ok(loaded) if loaded.is_empty() => self.older = Older::Exhausted,
             Ok(loaded) => {
                 let added = match (loaded, &mut self.series) {
-                    (Loaded::Bars(bars), Series::Bars(held)) => data::prepend_bars(held, bars),
+                    (Loaded::Bars(bars) | Loaded::Grouped { bars, .. }, Series::Bars(held)) => {
+                        data::prepend_bars(held, bars)
+                    }
                     (Loaded::Ticks(ticks), Series::Ticks(held)) => data::prepend_ticks(held, ticks),
                     _ => 0,
                 };
@@ -281,17 +294,36 @@ impl Chart {
                 (Series::Bars(bars), Timeframe::Bars(period)) => {
                     data::touch_last_bar(bars, period.millis(), tick);
                 }
+                (Series::Bars(bars), timeframe @ Timeframe::Multiple(..)) => {
+                    if let Some(span) = timeframe.bar_ms() {
+                        data::touch_last_bar(bars, span, tick);
+                    }
+                }
                 _ => {}
             }
         }
-        if let (Series::Bars(bars), Timeframe::Bars(period)) = (&mut self.series, self.timeframe) {
-            for (live_period, bar) in &update.bars {
-                if *live_period == period && data::apply_live_bar(bars, *bar) {
-                    appended += 1;
-                    self.last_time_ms = self.last_time_ms.max(bar.time_ms);
+        match (&mut self.series, self.timeframe) {
+            (Series::Bars(bars), Timeframe::Bars(period)) => {
+                for (live_period, bar) in &update.bars {
+                    if *live_period == period && data::apply_live_bar(bars, *bar) {
+                        appended += 1;
+                        self.last_time_ms = self.last_time_ms.max(bar.time_ms);
+                    }
                 }
+                data::trim_front(bars, MAX_BARS);
             }
-            data::trim_front(bars, MAX_BARS);
+            (Series::Bars(bars), timeframe @ Timeframe::Multiple(period, _)) => {
+                for (live_period, bar) in &update.bars {
+                    if *live_period == period
+                        && data::fold_group(bars, &mut self.group_tail, *bar, timeframe)
+                    {
+                        appended += 1;
+                        self.last_time_ms = self.last_time_ms.max(bar.time_ms);
+                    }
+                }
+                data::trim_front(bars, MAX_BARS);
+            }
+            _ => {}
         }
         if appended > 0 && !self.display.is_derived() {
             self.view.on_appended(appended);

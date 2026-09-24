@@ -6,6 +6,8 @@
 
 use wyck::openapi::market::{Bar, Tick};
 
+use super::timeframe::Timeframe;
+
 /// The most bars kept. Older ones are dropped as new ones arrive, so a chart left open for days
 /// does not grow without end.
 pub const MAX_BARS: usize = 120_000;
@@ -228,6 +230,79 @@ pub fn apply_live_bar(bars: &mut Vec<Bar>, live: Bar) -> bool {
         Err(at) => {
             bars.insert(at, live);
             false
+        }
+    }
+}
+
+/// Groups server bars (oldest first) into the bars of a grouped timeframe (see
+/// [`Timeframe::group_key`]). A group opens at its own boundary, or at its first bar for weeks
+/// and months.
+pub fn group_bars(bars: &[Bar], timeframe: Timeframe) -> Vec<Bar> {
+    let mut grouped: Vec<Bar> = Vec::new();
+    let mut last_key = None;
+    for bar in bars {
+        let key = timeframe.group_key(bar.time_ms);
+        match grouped.last_mut() {
+            Some(group) if last_key == Some(key) => {
+                group.high = group.high.max(bar.high);
+                group.low = group.low.min(bar.low);
+                group.close = bar.close;
+                group.volume += bar.volume;
+            }
+            _ => {
+                grouped.push(Bar {
+                    time_ms: timeframe.group_open(bar.time_ms).unwrap_or(bar.time_ms),
+                    ..*bar
+                });
+                last_key = Some(key);
+            }
+        }
+    }
+    grouped
+}
+
+/// The server bars (oldest first) of the newest group.
+pub fn last_group(bars: &[Bar], timeframe: Timeframe) -> Vec<Bar> {
+    let Some(last) = bars.last() else {
+        return Vec::new();
+    };
+    let key = timeframe.group_key(last.time_ms);
+    let start = bars
+        .iter()
+        .rposition(|b| timeframe.group_key(b.time_ms) != key)
+        .map_or(0, |at| at + 1);
+    bars[start..].to_vec()
+}
+
+/// A live server bar for a grouped timeframe: it joins `tail` (the server bars of the newest
+/// group) and the newest grouped bar is built again from them, or starts the next one. Returns
+/// whether a grouped bar was added at the end.
+pub fn fold_group(
+    bars: &mut Vec<Bar>,
+    tail: &mut Vec<Bar>,
+    live: Bar,
+    timeframe: Timeframe,
+) -> bool {
+    let key = timeframe.group_key(live.time_ms);
+    match tail.first().map(|b| timeframe.group_key(b.time_ms)) {
+        Some(held) if key < held => return false,
+        Some(held) if key == held => {
+            apply_live_bar(tail, live);
+        }
+        _ => *tail = vec![live],
+    }
+    let Some(group) = group_bars(tail, timeframe).pop() else {
+        return false;
+    };
+    match bars.last_mut() {
+        Some(last) if last.time_ms == group.time_ms => {
+            *last = group;
+            false
+        }
+        Some(last) if last.time_ms > group.time_ms => false,
+        _ => {
+            bars.push(group);
+            true
         }
     }
 }
@@ -494,5 +569,53 @@ mod tests {
         assert_eq!(series.price_range(0, 2, false), Some((5, 6)));
         assert_eq!(series.price_range(2, 2, true), None);
         assert_eq!(series.price_range(0, 99, true), Some((1, 9)));
+    }
+
+    #[test]
+    fn server_bars_are_grouped_and_the_newest_group_follows_live_bars() {
+        const H: i64 = 3_600_000;
+        let h2 = Timeframe::from_code("H2").unwrap();
+        let bar = |t: i64, price: i64| Bar {
+            time_ms: t * H,
+            open: price,
+            high: price + 2,
+            low: price - 2,
+            close: price + 1,
+            volume: 10,
+        };
+        let hourly = [bar(0, 100), bar(1, 110), bar(2, 90), bar(3, 95), bar(4, 80)];
+        let mut grouped = group_bars(&hourly, h2);
+        assert_eq!(grouped.len(), 3);
+        assert_eq!(grouped[0].time_ms, 0);
+        assert_eq!(
+            (
+                grouped[0].open,
+                grouped[0].high,
+                grouped[0].low,
+                grouped[0].close
+            ),
+            (100, 112, 98, 111)
+        );
+        assert_eq!(grouped[0].volume, 20);
+        assert_eq!(grouped[2].time_ms, 4 * H);
+        let mut tail = last_group(&hourly, h2);
+        assert_eq!(tail.len(), 1);
+        // The 04:00 bar moves: the group follows without counting it twice.
+        assert!(!fold_group(&mut grouped, &mut tail, bar(4, 70), h2));
+        assert_eq!(grouped.len(), 3);
+        assert_eq!(grouped[2].close, 71);
+        assert_eq!(grouped[2].volume, 10);
+        // 05:00 joins the 04:00 group, 06:00 starts the next one.
+        assert!(!fold_group(&mut grouped, &mut tail, bar(5, 60), h2));
+        assert_eq!(
+            (grouped[2].open, grouped[2].low, grouped[2].close),
+            (70, 58, 61)
+        );
+        assert!(fold_group(&mut grouped, &mut tail, bar(6, 65), h2));
+        assert_eq!(grouped.len(), 4);
+        assert_eq!(grouped[3].time_ms, 6 * H);
+        // A bar of an older group is ignored.
+        assert!(!fold_group(&mut grouped, &mut tail, bar(5, 1), h2));
+        assert_eq!(grouped[2].close, 61);
     }
 }

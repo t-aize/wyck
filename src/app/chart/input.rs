@@ -27,7 +27,12 @@ pub enum Region {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DragKind {
-    Pan,
+    /// The plot moved by the pointer: in time, and in price once the pointer went far enough up
+    /// or down (on the prices band only). `free` tells that it did.
+    Pan {
+        prices: bool,
+        free: bool,
+    },
     Price,
     Time,
     /// The line between band `n` and the one under it.
@@ -39,10 +44,16 @@ pub enum DragKind {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Drag {
     pub kind: DragKind,
+    /// Where the press was, and where the pointer was at the last move.
+    pub start: (f32, f32),
     pub last: (f32, f32),
     /// Whether the pointer moved since the press.
     pub moved: bool,
 }
+
+/// How far (in pixels) the pointer must go up or down before a pan also moves the prices, so a
+/// sideways drag does not leave the automatic price scale by a hair.
+const FREE_PAN: f32 = 6.0;
 
 /// How close (in pixels) the pointer must be to a line to grab it.
 const LINE_REACH: f32 = 5.0;
@@ -166,6 +177,7 @@ impl Chart {
         {
             self.drag = Some(Drag {
                 kind: DragKind::Separator(separator),
+                start: (x, y),
                 last: (x, y),
                 moved: false,
             });
@@ -179,6 +191,7 @@ impl Chart {
             if !tool_active && let Some((id, price)) = self.line_at(y) {
                 self.drag = Some(Drag {
                     kind: DragKind::Line(id, price),
+                    start: (x, y),
                     last: (x, y),
                     moved: false,
                 });
@@ -207,7 +220,10 @@ impl Chart {
             return;
         }
         let kind = match region {
-            Region::Plot(_) => DragKind::Pan,
+            Region::Plot(pane) => DragKind::Pan {
+                prices: pane == 0,
+                free: false,
+            },
             Region::PriceAxis(0) => DragKind::Price,
             Region::PriceAxis(_) => return,
             Region::TimeAxis => DragKind::Time,
@@ -215,6 +231,7 @@ impl Chart {
         };
         self.drag = Some(Drag {
             kind,
+            start: (x, y),
             last: (x, y),
             moved: false,
         });
@@ -249,11 +266,24 @@ impl Chart {
                 ..drag
             };
             match drag.kind {
-                DragKind::Pan => {
+                DragKind::Pan { prices, free } => {
                     self.set_hover(x, y, cx);
-                    if shift {
-                        self.pan_price_by(dy, cx);
+                    // Shift keeps the drag in time only.
+                    let free = prices && !shift && (free || (y - drag.start.1).abs() > FREE_PAN);
+                    if free {
+                        // The first step catches up with what the threshold held back.
+                        let step = if drag.kind
+                            == (DragKind::Pan {
+                                prices,
+                                free: false,
+                            }) {
+                            y - drag.start.1
+                        } else {
+                            dy
+                        };
+                        self.pan_price_by(step, cx);
                     }
+                    next.kind = DragKind::Pan { prices, free };
                     self.pan_by(dx, cx);
                 }
                 DragKind::Price => self.zoom_price_by((-f64::from(dy) * 0.006).exp(), None, cx),
@@ -379,7 +409,7 @@ impl Chart {
         }
         if let Some(drag) = self.drag {
             return match drag.kind {
-                DragKind::Pan => CursorStyle::ClosedHand,
+                DragKind::Pan { .. } => CursorStyle::ClosedHand,
                 DragKind::Price | DragKind::Separator(_) | DragKind::Line(..) => {
                     CursorStyle::ResizeUpDown
                 }

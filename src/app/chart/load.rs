@@ -14,7 +14,7 @@ use wyck::openapi::market::{Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteT
 use wyck::openapi::session::Session;
 use wyck::openapi::{OpenApiError, Result};
 
-use super::data::{aggregate_ticks, bucket_start};
+use super::data::{aggregate_ticks, bucket_start, group_bars, last_group};
 use super::timeframe::Timeframe;
 
 /// Bars in one request. Under the range limit the server sets for every period.
@@ -29,14 +29,38 @@ const MAX_EMPTY_RUN: usize = 6;
 pub enum Loaded {
     Bars(Vec<Bar>),
     Ticks(Vec<Tick>),
+    /// Bars of a grouped timeframe, and the server bars of the newest group, which live bars
+    /// join.
+    Grouped {
+        bars: Vec<Bar>,
+        tail: Vec<Bar>,
+    },
 }
 
 impl Loaded {
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::Bars(bars) => bars.is_empty(),
+            Self::Bars(bars) | Self::Grouped { bars, .. } => bars.is_empty(),
             Self::Ticks(ticks) => ticks.is_empty(),
         }
+    }
+}
+
+/// How many server bars a grouped load asks for: enough for [`WANT_BARS`] groups, within reason.
+fn want_base(timeframe: Timeframe) -> usize {
+    (WANT_BARS * timeframe.group_size() as usize).min(12_000)
+}
+
+/// Groups server bars fetched going back. The oldest group may lack its first bars, which the
+/// next step back holds, so it is left for that step.
+fn grouped_back(base: &[Bar], timeframe: Timeframe) -> Loaded {
+    let mut bars = group_bars(base, timeframe);
+    if bars.len() > 1 {
+        bars.remove(0);
+    }
+    Loaded::Grouped {
+        bars,
+        tail: last_group(base, timeframe),
     }
 }
 
@@ -126,7 +150,14 @@ pub async fn initial_from(
         Timeframe::Bars(period) => Ok(Loaded::Bars(
             bars_before(market, symbol_id, period, now_ms + 1, WANT_BARS).await?,
         )),
-        _ => ticks_before(market, symbol_id, timeframe, now_ms).await,
+        Timeframe::Multiple(period, _) => {
+            let want = want_base(timeframe);
+            let base = bars_before(market, symbol_id, period, now_ms + 1, want).await?;
+            Ok(grouped_back(&base, timeframe))
+        }
+        Timeframe::Ticks | Timeframe::Seconds(_) => {
+            ticks_before(market, symbol_id, timeframe, now_ms).await
+        }
     }
 }
 
@@ -141,6 +172,11 @@ pub async fn older_from(
         Timeframe::Bars(period) => Ok(Loaded::Bars(
             bars_before(market, symbol_id, period, oldest_ms, WANT_BARS).await?,
         )),
+        Timeframe::Multiple(period, _) => {
+            let want = want_base(timeframe);
+            let base = bars_before(market, symbol_id, period, oldest_ms, want).await?;
+            Ok(grouped_back(&base, timeframe))
+        }
         Timeframe::Ticks => ticks_before(market, symbol_id, timeframe, oldest_ms).await,
         Timeframe::Seconds(_) => ticks_before(market, symbol_id, timeframe, oldest_ms - 1).await,
     }
@@ -158,6 +194,14 @@ pub async fn gap_from(
         Timeframe::Bars(period) => Ok(Loaded::Bars(
             bars_forward(market, symbol_id, period, from_ms, to_ms).await?,
         )),
+        // `from_ms` is where the newest group held opens, so every group fetched is whole.
+        Timeframe::Multiple(period, _) => {
+            let base = bars_forward(market, symbol_id, period, from_ms, to_ms).await?;
+            Ok(Loaded::Grouped {
+                bars: group_bars(&base, timeframe),
+                tail: last_group(&base, timeframe),
+            })
+        }
         Timeframe::Ticks => Ok(Loaded::Ticks(
             market.ticks(symbol_id, from_ms, to_ms).await?,
         )),
@@ -365,7 +409,7 @@ mod tests {
 
     fn bars(loaded: Loaded) -> Vec<Bar> {
         match loaded {
-            Loaded::Bars(bars) => bars,
+            Loaded::Bars(bars) | Loaded::Grouped { bars, .. } => bars,
             Loaded::Ticks(_) => panic!("ticks where bars were expected"),
         }
     }
@@ -437,6 +481,31 @@ mod tests {
         assert!(!ticks.is_empty());
         assert!(fake.count() > 1, "it looked further back");
         assert!(ticks.last().unwrap().time_ms <= NOW - 2 * 3_600_000);
+    }
+
+    #[test]
+    fn a_grouped_timeframe_loads_whole_groups_of_server_bars() {
+        let fake = Fake::new(NOW - 30 * 86_400_000, NOW);
+        let m7 = Timeframe::from_code("M7").unwrap();
+        let loaded = run(initial_from(&fake, 1, m7, NOW)).unwrap();
+        let Loaded::Grouped {
+            bars: grouped,
+            tail,
+        } = loaded
+        else {
+            panic!("grouped bars expected");
+        };
+        assert!(grouped.len() >= WANT_BARS - 1, "{}", grouped.len());
+        assert!(grouped.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
+        // Every group but the newest holds its seven minutes, or the five that end a day.
+        assert!(grouped[..grouped.len() - 1].iter().all(
+            |b| b.volume == 7 || (b.volume == 5 && (b.time_ms + 5 * MINUTE) % 86_400_000 == 0)
+        ));
+        assert!(!tail.is_empty() && tail.len() <= 7);
+        assert_eq!(tail.last().unwrap().time_ms, NOW);
+        let older = bars(run(older_from(&fake, 1, m7, grouped[0].time_ms)).unwrap());
+        assert!(!older.is_empty());
+        assert!(older.iter().all(|b| b.time_ms < grouped[0].time_ms));
     }
 
     #[test]

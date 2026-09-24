@@ -83,7 +83,7 @@ pub use self::live::{LiveHub, LiveUpdate};
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
 use self::study::StudyConfig;
-pub use self::timeframe::{GROUPS, QUICK, Timeframe};
+pub use self::timeframe::{GROUPS, QUICK, Timeframe, Unit};
 use self::view::View;
 pub use self::zone::Zone;
 
@@ -244,6 +244,8 @@ pub struct Chart {
     ask: Option<i64>,
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
+    /// The server bars of the newest bar of a grouped timeframe, which live bars join.
+    group_tail: Vec<wyck::openapi::market::Bar>,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
@@ -311,6 +313,7 @@ impl Chart {
             bid: None,
             ask: None,
             last_time_ms: 0,
+            group_tail: Vec::new(),
             hover: None,
             remote: None,
             drag: None,

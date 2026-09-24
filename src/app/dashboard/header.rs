@@ -4,6 +4,7 @@ use gpui::prelude::*;
 use gpui::{Context, FontWeight, MouseButton, SharedString, Window, anchored, deferred, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{Selectable, Sizable};
 
 use super::marks;
@@ -59,7 +60,7 @@ impl Dashboard {
             .child(self.symbol_button(fit, cx))
             .child(self.price_block(fit))
             .child(divider())
-            .child(self.timeframe_strip(cx))
+            .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
             .child(div().flex_1().min_w_0())
             .child(self.panel_toggles(cx))
@@ -216,7 +217,21 @@ impl Dashboard {
 
     /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,
     /// minutes, hours and days.
-    fn timeframe_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn timeframe_strip(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.tf_menu_open && self.tf_custom.is_none() {
+            let state = cx.new(|cx| InputState::new(window, cx).placeholder("e.g. 7"));
+            cx.subscribe_in(
+                &state,
+                window,
+                |this, _state, event: &InputEvent, window, cx| {
+                    if matches!(event, InputEvent::PressEnter { .. }) {
+                        this.add_custom_timeframe(window, cx);
+                    }
+                },
+            )
+            .detach();
+            self.tf_custom = Some(state);
+        }
         let current = self.multi.read(cx).active_timeframe(cx);
         let favorites = self.workspace.read(cx).preferences().favorites();
         let mut quick = Vec::new();
@@ -283,6 +298,114 @@ impl Dashboard {
         });
     }
 
+    /// Adds the timeframe typed in the menu and shows it on the chart. The menu stays open, so
+    /// it can be starred right away.
+    fn add_custom_timeframe(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(state) = self.tf_custom.clone() else {
+            return;
+        };
+        let text = state.read(cx).value().trim().to_owned();
+        if text.is_empty() {
+            return;
+        }
+        let timeframe = if text.bytes().all(|b| b.is_ascii_digit()) {
+            text.parse()
+                .ok()
+                .and_then(|count| chart::Timeframe::of(count, self.tf_unit))
+        } else {
+            chart::Timeframe::from_code(&text)
+        };
+        let Some(timeframe) = timeframe else {
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Warning,
+                "Not a timeframe",
+                format!(
+                    "\"{text}\" is not one: up to 300 seconds, a day in minutes or hours, 365 days, \
+                     52 weeks or 24 months."
+                ),
+            );
+            return;
+        };
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.add_custom_timeframe(timeframe));
+        });
+        state.update(cx, |s, cx| s.set_value("", window, cx));
+        self.multi
+            .update(cx, |multi, cx| multi.set_timeframe(timeframe, cx));
+        cx.notify();
+    }
+
+    fn remove_custom_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.remove_custom_timeframe(timeframe));
+        });
+    }
+
+    /// A timeframe of the menu with its star, and a cross for one the user added.
+    fn menu_chip(
+        &self,
+        timeframe: chart::Timeframe,
+        current: chart::Timeframe,
+        favorite: bool,
+        removable: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        let small = |id: String, icon: IconName, color, tip: &'static str| {
+            div()
+                .id(SharedString::from(id))
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(px(22.))
+                .rounded_md()
+                .cursor_pointer()
+                .hover(|style| style.bg(theme::surface_hover()))
+                .tooltip(move |window, cx| {
+                    gpui_kit::component::tooltip::Tooltip::new(tip).build(window, cx)
+                })
+                .child(ui::icon_colored(icon, 13., color))
+        };
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .child(timeframe_chip(
+                "tf-menu",
+                timeframe,
+                current == timeframe,
+                cx,
+            ))
+            .child(
+                small(
+                    format!("tf-star-{}", timeframe.code()),
+                    IconName::Star,
+                    if favorite {
+                        theme::amber()
+                    } else {
+                        theme::muted_fg()
+                    },
+                    "Keep in the header",
+                )
+                .on_click(cx.listener(move |this, _event, _window, cx| {
+                    this.toggle_favorite_timeframe(timeframe, cx);
+                })),
+            )
+            .when(removable, |el| {
+                el.child(
+                    small(
+                        format!("tf-remove-{}", timeframe.code()),
+                        IconName::X,
+                        theme::muted_fg(),
+                        "Remove from the menu",
+                    )
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.remove_custom_timeframe(timeframe, cx);
+                    })),
+                )
+            })
+    }
+
     /// Every timeframe, in sections, under the strip. A star keeps one in the header.
     fn timeframe_menu(
         &self,
@@ -291,7 +414,7 @@ impl Dashboard {
     ) -> impl IntoElement {
         let prefs = self.workspace.read(cx).preferences().clone();
         let mut card = div()
-            .w(px(320.))
+            .w(px(380.))
             .p_3()
             .flex()
             .flex_col()
@@ -301,65 +424,123 @@ impl Dashboard {
             .border_1()
             .border_color(theme::border_subtle())
             .occlude();
-        for (title, items) in chart::GROUPS {
-            let mut chips = Vec::new();
-            for timeframe in items.iter().copied() {
-                let favorite = prefs.is_favorite_timeframe(timeframe);
-                chips.push(
+        let section = |title: &'static str, chips: Vec<gpui::AnyElement>| {
+            div()
+                .flex()
+                .flex_col()
+                .gap_1p5()
+                .child(
                     div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .child(timeframe_chip(
-                            "tf-menu",
-                            timeframe,
-                            current == timeframe,
-                            cx,
-                        ))
-                        .child(
-                            div()
-                                .id(SharedString::from(format!("tf-star-{}", timeframe.code())))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .size(px(22.))
-                                .rounded_md()
-                                .cursor_pointer()
-                                .hover(|style| style.bg(theme::surface_hover()))
-                                .on_click(cx.listener(move |this, _event, _window, cx| {
-                                    this.toggle_favorite_timeframe(timeframe, cx);
-                                }))
-                                .child(ui::icon_colored(
-                                    IconName::Star,
-                                    13.,
-                                    if favorite {
-                                        theme::amber()
-                                    } else {
-                                        theme::muted_fg()
-                                    },
-                                )),
-                        ),
-                );
-            }
-            card = card.child(
+                        .text_size(px(11.))
+                        .text_color(theme::muted_fg())
+                        .child(title),
+                )
+                .child(div().flex().flex_row().flex_wrap().gap_1().children(chips))
+        };
+        for (title, items) in chart::GROUPS {
+            let chips = items
+                .iter()
+                .copied()
+                .map(|timeframe| {
+                    let favorite = prefs.is_favorite_timeframe(timeframe);
+                    self.menu_chip(timeframe, current, favorite, false, cx)
+                        .into_any_element()
+                })
+                .collect();
+            card = card.child(section(title, chips));
+        }
+        // The ones the user added, and the field that adds one.
+        let customs: Vec<gpui::AnyElement> = prefs
+            .customs()
+            .into_iter()
+            .map(|timeframe| {
+                let favorite = prefs.is_favorite_timeframe(timeframe);
+                self.menu_chip(timeframe, current, favorite, true, cx)
+                    .into_any_element()
+            })
+            .collect();
+        let mut units = div().flex().flex_row().gap_0p5();
+        for unit in chart::Unit::ALL {
+            let chosen = unit == self.tf_unit;
+            units = units.child(
                 div()
+                    .id(SharedString::from(format!("tf-unit-{}", unit.label())))
+                    .h(px(26.))
+                    .w(px(24.))
                     .flex()
-                    .flex_col()
-                    .gap_1p5()
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme::muted_fg())
-                            .child(title),
-                    )
-                    .child(div().flex().flex_row().flex_wrap().gap_1().children(chips)),
+                    .items_center()
+                    .justify_center()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_size(px(12.))
+                    .text_color(if chosen {
+                        theme::fg()
+                    } else {
+                        theme::muted_fg()
+                    })
+                    .when(chosen, |el| el.bg(theme::accent_selected()))
+                    .hover(|style| style.bg(theme::surface_hover()))
+                    .tooltip(move |window, cx| {
+                        gpui_kit::component::tooltip::Tooltip::new(unit.label()).build(window, cx)
+                    })
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.tf_unit = unit;
+                        cx.notify();
+                    }))
+                    .child(unit.short()),
             );
         }
+        let add_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1p5()
+            .children(self.tf_custom.as_ref().map(|state| {
+                div()
+                    .w(px(78.))
+                    .child(gpui_kit::component::input::Input::new(state).small())
+            }))
+            .child(units)
+            .child(
+                Button::new("tf-add")
+                    .small()
+                    .primary()
+                    .label("Add")
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.add_custom_timeframe(window, cx);
+                    })),
+            );
+        card = card.child(
+            div()
+                .flex()
+                .flex_col()
+                .gap_1p5()
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(theme::muted_fg())
+                        .child("Custom"),
+                )
+                .when(!customs.is_empty(), |el| {
+                    el.child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .flex_wrap()
+                            .gap_1()
+                            .children(customs),
+                    )
+                })
+                .child(add_row),
+        );
         card = card.child(
             div()
                 .text_size(px(11.))
                 .text_color(theme::muted_fg())
-                .child("Star a timeframe to keep it in the header."),
+                .child(
+                    "Star a timeframe to keep it in the header. A custom one is a number in the \
+                     unit picked, or a code such as 45m, 2h or 3D.",
+                ),
         );
         deferred(
             anchored()

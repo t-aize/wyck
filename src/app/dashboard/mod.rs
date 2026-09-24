@@ -167,6 +167,10 @@ pub struct Dashboard {
     workspace: Entity<Workspace>,
     /// Whether the list of all timeframes is open.
     tf_menu_open: bool,
+    /// The field of the menu where a custom timeframe is typed, made with the window, and the
+    /// unit a bare number is in.
+    tf_custom: Option<Entity<gpui_kit::component::input::InputState>>,
+    tf_unit: chart::Unit,
     /// Whether the layout picker is open.
     layout_menu_open: bool,
     /// A chart asked for the picker: it opens at the next render, which has the window.
@@ -249,6 +253,8 @@ impl Dashboard {
             multi,
             workspace,
             tf_menu_open: false,
+            tf_custom: None,
+            tf_unit: chart::Unit::Minutes,
             layout_menu_open: false,
             pending_picker: false,
             trading,

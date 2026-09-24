@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use wyck::config::DocumentStore;
 
 pub use self::saver::Saver;
-use super::chart::{ChartKind, ChartSettings, GROUPS, QUICK, Timeframe, Zone};
+use super::chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
 use super::multichart::layouts::{self, LayoutKey};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -153,6 +153,9 @@ pub struct Preferences {
     /// The timeframes shown as buttons in the header (all of them stay in the menu).
     #[serde(default = "default_favorite_timeframes")]
     pub favorite_timeframes: Vec<String>,
+    /// Timeframes the user added to the menu (`M7`, `H2`...), by code.
+    #[serde(default)]
+    pub custom_timeframes: Vec<String>,
     #[serde(default)]
     pub layout: LayoutPref,
     #[serde(default)]
@@ -209,6 +212,7 @@ impl Default for Preferences {
             schema_version: SCHEMA_VERSION,
             zone: Zone::default(),
             favorite_timeframes: default_favorite_timeframes(),
+            custom_timeframes: Vec::new(),
             layout: LayoutPref::default(),
             links: LinksPref::default(),
             charts: default_charts(),
@@ -236,21 +240,29 @@ impl Preferences {
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
 
-        // The favorites, in the order of the menu, without repeats or unknown codes.
-        let wanted: Vec<Timeframe> = self
+        // The custom timeframes, each once under its own code, shortest first. A favorite
+        // that is neither offered nor added becomes an added one, so its star has a home.
+        let mut favorites: Vec<Timeframe> = self
             .favorite_timeframes
             .iter()
             .filter_map(|code| Timeframe::from_code(code))
             .collect();
-        let mut favorites: Vec<Timeframe> = GROUPS
+        let mut customs: Vec<Timeframe> = self
+            .custom_timeframes
             .iter()
-            .flat_map(|(_, items)| items.iter().copied())
-            .filter(|timeframe| wanted.contains(timeframe))
+            .filter_map(|code| Timeframe::from_code(code))
+            .chain(favorites.iter().copied())
+            .filter(|timeframe| !timeframe.is_builtin())
             .collect();
+        for list in [&mut favorites, &mut customs] {
+            list.sort_by_key(|timeframe| timeframe.sort_key());
+            list.dedup();
+        }
         if favorites.is_empty() {
             favorites = QUICK.to_vec();
         }
         self.favorite_timeframes = favorites.iter().map(|t| t.code()).collect();
+        self.custom_timeframes = customs.iter().map(|t| t.code()).collect();
 
         // A layout that does not exist becomes the single chart.
         let key = LayoutKey {
@@ -325,6 +337,36 @@ impl Preferences {
             self.favorite_timeframes.push(code);
             *self = std::mem::take(self).normalized();
         }
+    }
+
+    /// The timeframes the user added, shortest first.
+    pub fn customs(&self) -> Vec<Timeframe> {
+        self.custom_timeframes
+            .iter()
+            .filter_map(|code| Timeframe::from_code(code))
+            .collect()
+    }
+
+    /// Adds a timeframe to the menu, unless it is there already.
+    pub fn add_custom_timeframe(&mut self, timeframe: Timeframe) {
+        if timeframe.is_builtin() || self.customs().contains(&timeframe) {
+            return;
+        }
+        self.custom_timeframes.push(timeframe.code());
+        *self = std::mem::take(self).normalized();
+    }
+
+    /// Takes an added timeframe out of the menu, and off the header. The last favorite stays,
+    /// as with [`Self::toggle_favorite_timeframe`].
+    pub fn remove_custom_timeframe(&mut self, timeframe: Timeframe) {
+        let code = timeframe.code();
+        if self.is_favorite_timeframe(timeframe) {
+            if self.favorite_timeframes.len() == 1 {
+                return;
+            }
+            self.favorite_timeframes.retain(|c| *c != code);
+        }
+        self.custom_timeframes.retain(|c| *c != code);
     }
 
     /// What chart `index` keeps, as the file says (repaired on load).
@@ -654,7 +696,7 @@ mod tests {
             count = 3
             variant = 99
             [[charts]]
-            timeframe = "M99"
+            timeframe = "M9999"
             kind = "spiral"
         "#;
         let prefs: Preferences = toml::from_str(text).unwrap();
@@ -733,6 +775,42 @@ mod tests {
             "the last one stays, so the header keeps a button"
         );
         assert!(prefs.is_favorite_timeframe(Timeframe::Bars(Period::D1)));
+    }
+
+    #[test]
+    fn custom_timeframes_are_kept_once_and_can_be_starred() {
+        let mut prefs = Preferences::default().normalized();
+        let h2 = Timeframe::from_code("H2").unwrap();
+        let m7 = Timeframe::from_code("M7").unwrap();
+        prefs.add_custom_timeframe(m7);
+        prefs.add_custom_timeframe(Timeframe::from_code("120m").unwrap());
+        prefs.add_custom_timeframe(h2);
+        // H2 is offered by the menu already; M7 is the one added.
+        assert_eq!(prefs.custom_timeframes, vec!["M7"]);
+        prefs.add_custom_timeframe(Timeframe::from_code("M9").unwrap());
+        assert_eq!(prefs.custom_timeframes, vec!["M7", "M9"]);
+        prefs.toggle_favorite_timeframe(m7);
+        assert!(prefs.favorite_timeframes.contains(&"M7".to_owned()));
+        // Saved and read back, it keeps its place in the header and the menu.
+        let text = toml::to_string(&prefs).unwrap();
+        let back: Preferences = toml::from_str(&text).unwrap();
+        let back = back.normalized();
+        assert_eq!(
+            back.customs(),
+            vec![m7, Timeframe::from_code("M9").unwrap()]
+        );
+        assert!(back.favorites().contains(&m7));
+        // Taking it out of the menu takes it off the header too.
+        prefs.remove_custom_timeframe(m7);
+        assert_eq!(prefs.custom_timeframes, vec!["M9"]);
+        assert!(!prefs.is_favorite_timeframe(m7));
+        // A favorite from nowhere (a file written by hand) is added to the menu.
+        let prefs = Preferences {
+            favorite_timeframes: vec!["M1".into(), "M13".into()],
+            ..Preferences::default()
+        }
+        .normalized();
+        assert_eq!(prefs.custom_timeframes, vec!["M13"]);
     }
 
     #[test]
