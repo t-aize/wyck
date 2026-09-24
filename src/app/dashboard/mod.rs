@@ -808,6 +808,43 @@ impl Render for Dashboard {
                     cx.propagate();
                 }
             }))
+            // Alt and a number picks the favorite tool at that place in the bar.
+            .on_action(cx.listener(|this, _: &chart::Favorite1, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(0, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite2, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(1, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite3, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(2, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite4, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(3, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite5, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(4, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite6, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(5, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite7, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(6, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite8, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(7, cx));
+            }))
+            .on_action(cx.listener(|this, _: &chart::Favorite9, _window, cx| {
+                this.multi
+                    .update(cx, |multi, cx| multi.pick_favorite(8, cx));
+            }))
             .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
                 this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
             }))

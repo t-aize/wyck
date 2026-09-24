@@ -9,6 +9,7 @@ use gpui::{AnyElement, Context, MouseButton, SharedString, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable;
 use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::tooltip::Tooltip;
 
 use super::MultiChart;
 use crate::app::chart::DrawingCommand;
@@ -63,6 +64,7 @@ impl MultiChart {
         let (tool, magnet, can_undo, can_redo) =
             (book.tool(), book.magnet(), book.can_undo(), book.can_redo());
         let keep = book.keep_tool();
+        let favorites_bar = self.favorites_shown(cx);
         let has_any = symbol.as_ref().is_some_and(|symbol| book.count(symbol) > 0);
         // Some hidden is enough for the button to offer showing them again.
         let some_hidden = symbol
@@ -123,6 +125,20 @@ impl MultiChart {
                 .w(px(24.))
                 .h(px(1.))
                 .bg(theme::border_hairline()),
+        )
+        .child(
+            Button::new("draw-favorites")
+                .ghost()
+                .compact()
+                .icon(IconName::Star)
+                .tooltip(if favorites_bar {
+                    "Hide the favorites bar"
+                } else {
+                    "Show the favorites bar"
+                })
+                .toggled(favorites_bar)
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_favorites_bar(cx))),
         )
         .child(
             Button::new("draw-tree")
@@ -247,40 +263,87 @@ impl MultiChart {
                     .text_color(theme::muted_fg())
                     .child(group.label()),
             );
+        let favorites = self.favorite_tools(cx);
         for tool in group_tools(group) {
             let selected = current == Some(tool);
+            let starred = favorites.contains(&tool);
+            // The row is two boxes side by side, not one inside the other: the star must not also
+            // pick the tool.
             list = list.child(
                 div()
-                    .id(SharedString::from(format!("draw-tool-{tool:?}")))
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_2()
-                    .h(px(30.))
-                    .px_2()
                     .rounded_md()
-                    .cursor_pointer()
-                    .text_size(px(12.))
-                    .text_color(if selected {
-                        theme::fg()
-                    } else {
-                        theme::muted_fg()
-                    })
                     .when(selected, |el| el.bg(theme::accent_selected()))
-                    .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.pick_tool(Some(tool), cx);
-                    }))
-                    .child(ui::icon_colored(
-                        tool_icon(tool),
-                        15.,
-                        if selected {
-                            theme::fg()
-                        } else {
-                            theme::muted_fg()
-                        },
-                    ))
-                    .child(tool.label()),
+                    .hover(|style| style.bg(theme::surface_hover()))
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("draw-tool-{tool:?}")))
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .h(px(30.))
+                            .pl_2()
+                            .cursor_pointer()
+                            .text_size(px(12.))
+                            .text_color(if selected {
+                                theme::fg()
+                            } else {
+                                theme::muted_fg()
+                            })
+                            .hover(|style| style.text_color(theme::fg()))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.pick_tool(Some(tool), cx);
+                            }))
+                            .child(ui::icon_colored(
+                                tool_icon(tool),
+                                15.,
+                                if selected {
+                                    theme::fg()
+                                } else {
+                                    theme::muted_fg()
+                                },
+                            ))
+                            .child(tool.label()),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("draw-star-{tool:?}")))
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(30.))
+                            .cursor_pointer()
+                            .tooltip(move |window, cx| {
+                                Tooltip::new(if starred {
+                                    "Unpin from the favorites bar"
+                                } else {
+                                    "Pin to the favorites bar"
+                                })
+                                .build(window, cx)
+                            })
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.toggle_favorite(tool, cx);
+                            }))
+                            .child(ui::icon_colored(
+                                if starred {
+                                    IconName::StarFill
+                                } else {
+                                    IconName::Star
+                                },
+                                14.,
+                                if starred {
+                                    theme::amber()
+                                } else {
+                                    theme::muted_fg()
+                                },
+                            )),
+                    ),
             );
         }
         Some(

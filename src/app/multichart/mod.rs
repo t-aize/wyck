@@ -11,6 +11,7 @@
 //! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
 mod drawing_ui;
+mod favorites;
 pub mod icon;
 pub mod layouts;
 pub mod links;
@@ -913,6 +914,7 @@ impl Render for MultiChart {
             .collect::<Vec<_>>();
 
         let rail = self.render_rail(cx);
+        let favorites = self.render_favorites(cx);
         let flyout = self.render_flyout(cx);
         let area_cell = self.area.clone();
 
@@ -928,32 +930,43 @@ impl Render for MultiChart {
             .child(rail)
             .child(
                 div()
-                    .id("chart-area")
-                    .relative()
                     .flex_1()
                     .h_full()
                     .min_w_0()
-                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
-                        this.on_area_move(event, cx);
-                    }))
-                    .on_mouse_up(
-                        MouseButton::Left,
-                        cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
-                    )
-                    .on_mouse_up_out(
-                        MouseButton::Left,
-                        cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
-                    )
+                    .flex()
+                    .flex_col()
+                    .children(favorites)
                     .child(
-                        canvas(
-                            move |bounds, _window, _cx| area_cell.set(Some(bounds)),
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .size_full(),
-                    )
-                    .children(cells)
-                    .children(divider_elements),
+                        div()
+                            .id("chart-area")
+                            .relative()
+                            .flex_1()
+                            .w_full()
+                            .min_h_0()
+                            .on_mouse_move(cx.listener(
+                                |this, event: &MouseMoveEvent, _window, cx| {
+                                    this.on_area_move(event, cx);
+                                },
+                            ))
+                            .on_mouse_up(
+                                MouseButton::Left,
+                                cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                            )
+                            .on_mouse_up_out(
+                                MouseButton::Left,
+                                cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                            )
+                            .child(
+                                canvas(
+                                    move |bounds, _window, _cx| area_cell.set(Some(bounds)),
+                                    |_, _, _, _| {},
+                                )
+                                .absolute()
+                                .size_full(),
+                            )
+                            .children(cells)
+                            .children(divider_elements),
+                    ),
             )
             .children(flyout)
     }
