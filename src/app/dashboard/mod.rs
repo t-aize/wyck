@@ -50,6 +50,7 @@ gpui::actions!(
     wyck_dashboard,
     [
         OpenPicker,
+        OpenSettings,
         ClosePicker,
         PickerUp,
         PickerDown,
@@ -63,6 +64,7 @@ gpui::actions!(
 pub fn init(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("secondary-k", OpenPicker, Some("Dashboard")),
+        KeyBinding::new("secondary-,", OpenSettings, Some("Dashboard")),
         KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
         KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
         KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
@@ -782,6 +784,14 @@ impl Render for Dashboard {
         div()
             .key_context(context)
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+                crate::app::settings_hub::open(
+                    this.workspace.clone(),
+                    this.multi.clone(),
+                    window,
+                    cx,
+                );
+            }))
             .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
                 this.open_picker(window, cx);
             }))

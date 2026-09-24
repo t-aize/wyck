@@ -19,7 +19,7 @@ use gpui::{
     ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, GlobalElementId,
     KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad,
     Pixels, Point, ShapedLine, SharedString, Style, TextRun, UTF16Selection, UnderlineStyle,
-    Window, div, fill, hsla, point, px, relative, rgba, size,
+    Window, div, fill, hsla, point, px, relative, size,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -608,7 +608,7 @@ impl gpui::Element for TextElement {
                             bounds.bottom(),
                         ),
                     ),
-                    rgba(0x7c86ff40),
+                    theme::accent_alpha(0.25),
                 )),
                 None,
             )

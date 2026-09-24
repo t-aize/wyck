@@ -812,6 +812,24 @@ impl Dashboard {
                     .child(ui::environment_badge(self.account.is_live)),
             )
             .child(self.menu_figures(cx))
+            .child(
+                Button::new("open-settings")
+                    .cursor_pointer()
+                    .outline()
+                    .w_full()
+                    .icon(IconName::Settings)
+                    .label("Settings  (Ctrl+,)")
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.menu_open = false;
+                        cx.notify();
+                        crate::app::settings_hub::open(
+                            this.workspace.clone(),
+                            this.multi.clone(),
+                            window,
+                            cx,
+                        );
+                    })),
+            )
             .child(div().h(px(1.)).bg(theme::border_hairline()))
             .child(
                 div()

@@ -95,7 +95,7 @@ impl Render for Chart {
             .w_full()
             .min_h_0()
             .overflow_hidden()
-            .bg(theme::bg())
+            .bg(theme::chart_bg())
             .child(paint::surface(&entity, self.bounds.clone()))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
@@ -387,7 +387,7 @@ impl Chart {
                 .hover(|s| s.bg(theme::surface_hover()))
                 // The press is the button's, not the chart's under it.
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(ui::icon_colored(icon, 13., theme::muted_fg()))
+                .child(ui::icon_colored(icon, 13., theme::chart_muted()))
                 .tooltip(move |window, cx| {
                     gpui_kit::component::tooltip::Tooltip::new(tooltip).build(window, cx)
                 })
@@ -403,13 +403,13 @@ impl Chart {
             .pl_1()
             .rounded_sm()
             .text_size(px(12.))
-            .hover(|s| s.bg(gpui::rgba(0x0a0a0acc)))
+            .hover(|s| s.bg(theme::bg_alpha(0.8)))
             .child(
                 div()
                     .text_color(if visible {
-                        theme::fg()
+                        theme::chart_fg()
                     } else {
-                        theme::muted_fg()
+                        theme::chart_muted()
                     })
                     .when(!visible, |el| el.opacity(0.6))
                     .child(config.title()),
@@ -555,7 +555,7 @@ impl Chart {
                         .px_3()
                         .py_1()
                         .rounded_full()
-                        .bg(gpui::rgba(0x1b1d24e6))
+                        .bg(theme::surface_alpha(0.92))
                         .border_1()
                         .border_color(theme::border_subtle())
                         .text_size(px(11.))
@@ -602,7 +602,7 @@ impl Chart {
                     .map(|name| format!(" for {name}"))
                     .unwrap_or_default();
                 (
-                    theme::muted_fg(),
+                    theme::chart_muted(),
                     match within(*opens_at) {
                         Some(left) => format!("Market closed{why}, opens in {left}"),
                         None => format!("Market closed{why}"),
@@ -685,13 +685,13 @@ impl Chart {
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme::fg())
+                    .text_color(theme::chart_fg())
                     .child(name),
             )
             .child(ui::icon_colored(
                 IconName::ChevronDown,
                 12.,
-                theme::muted_fg(),
+                theme::chart_muted(),
             ));
         let mut kind_text = self.timeframe.label();
         if self.settings.kind != ChartKind::Candles {
@@ -709,7 +709,7 @@ impl Chart {
             .gap_x_2()
             .text_size(px(12.))
             .child(symbol)
-            .child(div().text_color(theme::muted_fg()).child(kind_text))
+            .child(div().text_color(theme::chart_muted()).child(kind_text))
             .children(self.market_dot());
         let Some(index) = self.shown_index() else {
             return row;
@@ -719,7 +719,7 @@ impl Chart {
                 .flex()
                 .flex_row()
                 .gap_0p5()
-                .child(div().text_color(theme::muted_fg()).child(label))
+                .child(div().text_color(theme::chart_muted()).child(label))
                 .child(div().text_color(tone).child(format_price(price, digits)))
         };
         match self.shown() {
@@ -759,7 +759,7 @@ impl Chart {
             }
             Series::Ticks(ticks) => {
                 if let Some(tick) = ticks.get(index) {
-                    row = row.child(value("Bid", tick.price, theme::fg()));
+                    row = row.child(value("Bid", tick.price, theme::chart_fg()));
                 }
             }
         }
@@ -874,7 +874,7 @@ impl Chart {
             .gap_0p5()
             .p_0p5()
             .rounded_lg()
-            .bg(gpui::rgba(0x0a0a0acc))
+            .bg(theme::bg_alpha(0.8))
             .border_1()
             .border_color(theme::border_hairline())
             .occlude()
@@ -1188,12 +1188,12 @@ impl Chart {
                     .child(ui::icon_colored(
                         IconName::ChartCandlestick,
                         28.,
-                        theme::muted_fg(),
+                        theme::chart_muted(),
                     ))
                     .child(
                         div()
                             .text_size(px(14.))
-                            .text_color(theme::muted_fg())
+                            .text_color(theme::chart_muted())
                             .child("Pick a symbol to see its chart."),
                     )
                     .into_any_element(),
@@ -1201,13 +1201,13 @@ impl Chart {
             Load::Loading => out.push(
                 centered()
                     .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 22., theme::muted_fg()),
+                        ui::icon_colored(IconName::LoaderCircle, 22., theme::chart_muted()),
                         ("chart-loading", self.id),
                     ))
                     .child(
                         div()
                             .text_size(px(13.))
-                            .text_color(theme::muted_fg())
+                            .text_color(theme::chart_muted())
                             .child("Loading the chart..."),
                     )
                     .into_any_element(),
@@ -1222,7 +1222,7 @@ impl Chart {
                     .child(
                         div()
                             .text_size(px(14.))
-                            .text_color(theme::fg())
+                            .text_color(theme::chart_fg())
                             .child("Could not load the chart"),
                     )
                     .child(
@@ -1230,7 +1230,7 @@ impl Chart {
                             .max_w(px(440.))
                             .text_center()
                             .text_size(px(12.))
-                            .text_color(theme::muted_fg())
+                            .text_color(theme::chart_muted())
                             .child(message.clone()),
                     )
                     .child(div().pt_1().w(px(200.)).child(ui::primary_button(
@@ -1245,7 +1245,7 @@ impl Chart {
                     .child(
                         div()
                             .text_size(px(14.))
-                            .text_color(theme::muted_fg())
+                            .text_color(theme::chart_muted())
                             .child("No prices yet for this timeframe. New ones will show up here."),
                     )
                     .into_any_element(),
@@ -1263,9 +1263,9 @@ impl Chart {
                     .items_center()
                     .gap_2()
                     .text_size(px(11.))
-                    .text_color(theme::muted_fg())
+                    .text_color(theme::chart_muted())
                     .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 12., theme::muted_fg()),
+                        ui::icon_colored(IconName::LoaderCircle, 12., theme::chart_muted()),
                         ("chart-older", self.id),
                     ))
                     .child("Loading older history")

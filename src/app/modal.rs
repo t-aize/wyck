@@ -191,7 +191,13 @@ impl Render for ModalHost {
         let dismiss_on_veil = shown.options.dismiss_on_veil;
         // Each phase has its own animation id, so entering and leaving each play from the start.
         let phase = id * 2 + u64::from(leaving);
-        let duration = if leaving { EXIT } else { ENTER };
+        let duration = if !super::appearance::animations() {
+            Duration::from_millis(1)
+        } else if leaving {
+            EXIT
+        } else {
+            ENTER
+        };
         let progress = move |t: f32| {
             let t = ease_out_cubic(t);
             if leaving { 1.0 - t } else { t }

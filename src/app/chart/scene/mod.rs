@@ -58,11 +58,11 @@ impl Palette {
             down: theme::chart_down(),
             line: theme::chart_line(),
             grid: theme::chart_grid(),
-            text: theme::muted_fg(),
-            text_strong: theme::fg(),
-            bg: theme::bg(),
+            text: theme::chart_muted(),
+            text_strong: theme::chart_fg(),
+            bg: theme::chart_bg(),
             tag: theme::chart_tag(),
-            border: theme::border_hairline(),
+            border: theme::chart_border(),
             crosshair: theme::chart_crosshair(),
         }
     }

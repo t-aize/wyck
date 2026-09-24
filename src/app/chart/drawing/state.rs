@@ -18,6 +18,11 @@ pub struct Drawings {
 }
 
 impl Drawings {
+    /// Writes what waits to be saved now, for what is about to read the file (a backup).
+    pub fn flush(&self) {
+        self.saver.flush();
+    }
+
     /// Reads the saved drawings (repairing them) and arranges for the last changes to be written
     /// when the app quits.
     pub fn new(store: DocumentStore, cx: &mut Context<Self>) -> Self {

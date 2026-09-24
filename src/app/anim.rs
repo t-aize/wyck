@@ -17,6 +17,16 @@ use gpui::{
 
 /// Length of a screen or card entrance.
 const ENTER: Duration = Duration::from_millis(380);
+
+/// A length of time, or next to none when the user turned the animations off: the element still
+/// goes through its animation, in one frame, so it ends where it should.
+fn dur(length: Duration) -> Duration {
+    if super::appearance::animations() {
+        length
+    } else {
+        Duration::from_millis(1)
+    }
+}
 /// Extra delay per item in a staggered list.
 const STAGGER: Duration = Duration::from_millis(70);
 
@@ -51,7 +61,7 @@ pub fn enter<E: Styled + IntoElement + 'static>(
     let delay = STAGGER * index as u32;
     let total = ENTER + delay;
     el.relative()
-        .with_animation(id, Animation::new(total), move |el, delta| {
+        .with_animation(id, Animation::new(dur(total)), move |el, delta| {
             let t = ease_out_cubic(staggered(delta, total, delay, ENTER));
             el.opacity(t).top(px((1.0 - t) * 16.0))
         })
@@ -61,7 +71,7 @@ pub fn enter<E: Styled + IntoElement + 'static>(
 pub fn drop_in(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
     el.relative().with_animation(
         id,
-        Animation::new(Duration::from_millis(320)),
+        Animation::new(dur(Duration::from_millis(320))),
         |el, delta| {
             let t = ease_out_back(delta).min(1.2);
             el.opacity(delta.min(1.0)).top(px((t - 1.0) * 14.0))
@@ -85,7 +95,7 @@ pub fn shake(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
 pub fn pop(el: Div, id: impl Into<ElementId>, size: f32) -> impl IntoElement {
     el.with_animation(
         id,
-        Animation::new(Duration::from_millis(520)),
+        Animation::new(dur(Duration::from_millis(520))),
         move |el, delta| {
             let t = ease_out_back(delta);
             el.size(px(size * t.max(0.0))).opacity(delta.min(1.0))

@@ -318,7 +318,7 @@ impl Render for ConnectionFlow {
             .size_full()
             .bg(theme::bg())
             .text_color(theme::fg())
-            .font_family("Inter")
+            .font_family(super::appearance::font(cx))
             .child(anim::enter(
                 div()
                     .flex()

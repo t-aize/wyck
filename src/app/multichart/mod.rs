@@ -531,6 +531,12 @@ impl MultiChart {
         });
     }
 
+    /// Writes what waits to be saved now: the drawings and the workspace, for a backup.
+    pub fn flush_documents(&self, cx: &gpui::App) {
+        self.drawings.read(cx).flush();
+        self.workspace.read(cx).flush();
+    }
+
     /// Whether a drawing is being made on any chart, for the keys that only mean something then.
     pub fn drawing_in_progress(&self, cx: &gpui::App) -> bool {
         self.drawings.read(cx).book().is_creating()

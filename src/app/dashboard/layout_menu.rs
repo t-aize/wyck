@@ -2,7 +2,7 @@
 //! arranged, and what is linked between them.
 
 use gpui::prelude::*;
-use gpui::{Context, SharedString, Window, anchored, deferred, div, px, rgb};
+use gpui::{Context, SharedString, Window, anchored, deferred, div, px};
 
 use super::Dashboard;
 use crate::app::multichart::icon::layout_icon;
@@ -248,7 +248,11 @@ fn switch(on: bool, locked: bool) -> impl IntoElement {
         .rounded_full()
         .flex()
         .flex_row()
-        .bg(if on { theme::accent() } else { rgb(0x2e2e2e) })
+        .bg(if on {
+            theme::accent()
+        } else {
+            theme::surface_pressed()
+        })
         .when(on, |el| el.justify_end())
         .when(locked, |el| el.opacity(0.5))
         .child(div().size(px(16.)).rounded_full().bg(theme::fg()))

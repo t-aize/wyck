@@ -9,7 +9,7 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px, rgba};
+use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::switch::Switch;
@@ -56,7 +56,7 @@ pub fn frame(
         .p_2()
         .border_r_1()
         .border_color(theme::border_hairline())
-        .bg(rgba(0xffff_ff06));
+        .bg(theme::fg_alpha(0.03));
     for (index, tab) in tabs.iter().enumerate() {
         let chosen = index == active;
         let on_tab = on_tab.clone();
@@ -243,7 +243,7 @@ pub fn group_with(
         .rounded_lg()
         .border_1()
         .border_color(theme::border_hairline())
-        .bg(rgba(0xffff_ff05))
+        .bg(theme::fg_alpha(0.025))
         .child(
             div()
                 .flex()
@@ -337,6 +337,11 @@ pub fn toggle(
         .small()
         .checked(on)
         .on_click(move |checked, window, cx| on_change(*checked, window, cx))
+}
+
+/// A small icon, for a mark beside a name.
+pub fn small_icon(icon: IconName, color: Rgba) -> gpui::Svg {
+    icon_colored(icon, 13., color)
 }
 
 /// A line of muted text, for a note under a group or a state with nothing to show.

@@ -680,6 +680,12 @@ impl Workspace {
         }
     }
 
+    /// Writes what waits to be saved now, for what is about to read the files (a backup).
+    pub fn flush(&self) {
+        self.preferences_saver.flush();
+        self.watchlists_saver.flush();
+    }
+
     pub fn preferences(&self) -> &Preferences {
         &self.preferences
     }

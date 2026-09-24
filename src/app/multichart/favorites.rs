@@ -84,7 +84,7 @@ impl MultiChart {
         cx.notify();
     }
 
-    fn toggle_favorite_names(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn toggle_favorite_names(&mut self, cx: &mut Context<Self>) {
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| {
                 prefs.favorites_labels = !prefs.favorites_labels;

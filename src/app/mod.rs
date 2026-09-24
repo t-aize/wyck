@@ -2,7 +2,9 @@
 
 mod alerts;
 mod anim;
+mod appearance;
 mod assets;
+mod backup;
 mod chart;
 mod color_picker;
 mod connection;
@@ -10,6 +12,7 @@ mod dashboard;
 mod modal;
 mod multichart;
 mod runtime;
+mod settings_hub;
 mod settings_ui;
 mod text_input;
 mod theme;
@@ -33,7 +36,21 @@ pub fn run() {
         .with_assets(assets::Assets)
         .run(|cx: &mut App| {
             gpui_kit::init(cx);
-            theme::apply(cx);
+            // The saved look is in force before a window opens, so the first frame is the right one.
+            match wyck::config::AppPaths::discover() {
+                Ok(paths) => {
+                    // An import the user asked for waits for this moment, before anything reads the
+                    // documents it replaces.
+                    let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
+                    match backup::apply_pending(paths.config_dir(), &stamp) {
+                        Ok(Some(applied)) => tracing::info!(?applied, "restored a backup"),
+                        Ok(None) => {}
+                        Err(error) => tracing::warn!(%error, "could not restore the backup"),
+                    }
+                    appearance::init(wyck::config::DocumentStore::global(&paths), cx);
+                }
+                Err(_) => theme::apply(cx),
+            }
             text_input::init(cx);
             dashboard::init(cx);
             chart::init(cx);
@@ -76,6 +93,10 @@ pub fn run() {
                     ..Default::default()
                 },
                 |window, cx| {
+                    // With the mode on System, the theme follows the system as it changes.
+                    window
+                        .observe_window_appearance(|_window, cx| appearance::refresh_system(cx))
+                        .detach();
                     let flow = cx.new(connection::ConnectionFlow::new);
                     cx.new(|cx| Root::new(flow, window, cx))
                 },
