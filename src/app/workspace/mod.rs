@@ -189,6 +189,9 @@ pub struct Preferences {
     /// How the order ticket sizes orders.
     #[serde(default)]
     pub ticket: crate::app::trading::ticket::TicketPrefs,
+    /// How the account panel under the charts is arranged.
+    #[serde(default)]
+    pub account_panel: crate::app::trading::panel::PanelPrefs,
     /// The drawing tools pinned in the bar of favorites, by code, in the order they show.
     #[serde(default = "default_favorite_tools")]
     pub favorite_tools: Vec<String>,
@@ -257,6 +260,7 @@ impl Default for Preferences {
             ticket_open: false,
             one_click: false,
             ticket: crate::app::trading::ticket::TicketPrefs::default(),
+            account_panel: crate::app::trading::panel::PanelPrefs::default(),
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,
@@ -340,6 +344,7 @@ impl Preferences {
         }
         self.panel_height = self.panel_height.min(2_000.0);
         self.ticket = self.ticket.normalized();
+        self.account_panel = self.account_panel.normalized();
 
         // The favorite tools: known ones, each once, in the order saved, no more than the bar
         // holds. An empty list is kept: it is what the user chose, not a reason for the defaults.

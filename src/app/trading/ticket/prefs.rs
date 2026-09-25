@@ -225,7 +225,7 @@ pub fn default_list<T: Slot>() -> Vec<Placed<T>> {
 
 /// A list put back in shape: each slot once, in the order given, and the slots a file did not
 /// know (added by a later version) at the end, as they are by default.
-fn mended<T: Slot>(list: &mut Vec<Placed<T>>) {
+pub fn mend<T: Slot>(list: &mut Vec<Placed<T>>) {
     let mut seen: Vec<T> = Vec::new();
     list.retain(|placed| {
         if seen.contains(&placed.item) {
@@ -437,8 +437,8 @@ impl Layout {
         } else {
             WIDTH_DEFAULT
         };
-        mended(&mut self.sections);
-        mended(&mut self.lines);
+        mend(&mut self.sections);
+        mend(&mut self.lines);
         // An order needs a way to be sent: the button, or the two sides (which send with
         // one-click trading).
         if !self.shows(Section::Send) && !self.shows(Section::Sides) {

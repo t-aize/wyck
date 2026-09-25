@@ -75,10 +75,14 @@ impl Dashboard {
         }
         // The ticket is for the active chart's symbol.
         let symbol = self.multi.read(cx).active_symbol(cx);
+        let symbol_id = symbol.as_ref().map(|s| s.id);
         if let Some(ticket) = &self.ticket
-            && ticket.read(cx).symbol().map(|s| s.id) != symbol.as_ref().map(|s| s.id)
+            && ticket.read(cx).symbol().map(|s| s.id) != symbol_id
         {
             ticket.update(cx, |t, cx| t.set_symbol(symbol, window, cx));
+        }
+        if let Some(panel) = &self.panel {
+            panel.update(cx, |p, cx| p.set_symbol(symbol_id, cx));
         }
         for pending in std::mem::take(&mut self.pending) {
             self.run_pending(pending, window, cx);
@@ -183,6 +187,12 @@ impl Dashboard {
     pub(super) fn on_panel_event(&mut self, event: &PanelEvent, cx: &mut Context<Self>) {
         match event {
             PanelEvent::Hide => self.set_panel_open(false, cx),
+            PanelEvent::Settings(settings) => {
+                let settings = (**settings).clone();
+                self.workspace.update(cx, |workspace, cx| {
+                    workspace.edit_preferences(cx, |prefs| prefs.account_panel = settings);
+                });
+            }
             PanelEvent::ShowSymbol(id) => {
                 let entry = match &self.catalog {
                     super::Load::Ready(catalog) => catalog.by_id(*id).cloned(),

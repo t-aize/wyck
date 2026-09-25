@@ -224,7 +224,9 @@ impl Dashboard {
         let hub = Rc::new(LiveHub::new(session.clone()));
         let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
         let alerts = cx.new(|cx| Alerts::new(documents.account.clone(), hub.clone(), cx));
-        let panel = cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), cx));
+        let panel_prefs = workspace.read(cx).preferences().account_panel.clone();
+        let panel =
+            cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), panel_prefs, cx));
         cx.subscribe(&panel, |this, _panel, event, cx| {
             this.on_panel_event(event, cx)
         })
