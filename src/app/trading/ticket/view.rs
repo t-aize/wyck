@@ -8,13 +8,14 @@ use gpui::{AnyElement, App, Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, NumberInput};
-use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::prefs::{Density, Kind, Line, Section, Slot, Span, Tif};
-use super::{OrderTicket, Plan, TicketEvent, confirm, customize, nice, side_of, stop_limit_price};
+use super::{OrderTicket, Plan, TicketEvent, customize, nice, side_of, stop_limit_price};
+use crate::app::confirm::confirm;
 use crate::app::connection::ui;
 use crate::app::menu::{self as popup, Entry, Item};
+use crate::app::settings_ui;
 use crate::app::trading::account::Busy;
 use crate::app::trading::book::is_buy;
 use crate::app::trading::math::{self, Contract, Limit, Offset, SizeMode};
@@ -684,10 +685,7 @@ impl OrderTicket {
                     .items_center()
                     .gap_1()
                     .child(
-                        Switch::new(SharedString::from(format!("ticket-{label}")))
-                            .cursor_pointer()
-                            .small()
-                            .checked(on)
+                        settings_ui::switch(SharedString::from(format!("ticket-{label}")), on)
                             .label(label)
                             .on_click(move |_, window, cx| {
                                 this.update(cx, |t, cx| t.toggle_protection(stop, window, cx));
@@ -753,10 +751,7 @@ impl OrderTicket {
         let stop_on = self.stop_on;
         let switch = |id: &'static str, text: &'static str, on: bool, enabled: bool| {
             let this = this.clone();
-            Switch::new(id)
-                .cursor_pointer()
-                .small()
-                .checked(on && enabled)
+            settings_ui::switch(id, on && enabled)
                 .disabled(!enabled)
                 .label(text)
                 .on_click(move |checked: &bool, _, cx| {
@@ -1386,10 +1381,7 @@ impl Render for OrderTicket {
             .children(blocks)
             .when(!has_send, |el| el.children(warning_rows(&warnings)))
             .child(
-                Switch::new("ticket-one-click")
-                    .cursor_pointer()
-                    .small()
-                    .checked(self.one_click)
+                settings_ui::switch("ticket-one-click", self.one_click)
                     .label("One-click trading (no confirmation)")
                     .on_click(cx.listener(|this, checked: &bool, _, cx| {
                         this.one_click = *checked;

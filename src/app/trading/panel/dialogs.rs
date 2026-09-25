@@ -2,18 +2,15 @@
 //! that edits an alert.
 
 use gpui::prelude::*;
-use gpui::{App, Entity, Window, div, px};
+use gpui::{App, Context, Entity, Window};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
-use gpui_kit::component::WindowExt;
-use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::switch::Switch;
 
 use crate::app::alerts::{Alerts, Condition};
-use crate::app::connection::ui;
+use crate::app::settings_ui::{self as ui, Head};
 use crate::app::trading::account::Account;
-use crate::app::{theme, widgets};
+use crate::app::{modal, widgets};
 
 // ---- modifying a position or an order ----
 
@@ -76,38 +73,7 @@ pub fn open_protection(
                 .placeholder("None")
         }),
     });
-    let title = match target {
-        Target::Position(_) => "Modify the position",
-        Target::Order(_) => "Modify the order",
-    };
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        let editor = editor.clone();
-        let save = editor.clone();
-        dialog.title(title).w(px(380.)).child(editor).footer(
-            div()
-                .flex()
-                .flex_row()
-                .justify_end()
-                .gap_2()
-                .child(
-                    Button::new("protection-cancel")
-                        .cursor_pointer()
-                        .ghost()
-                        .label("Cancel")
-                        .on_click(|_, window, cx| window.close_dialog(cx)),
-                )
-                .child(
-                    Button::new("protection-save")
-                        .cursor_pointer()
-                        .primary()
-                        .label("Save")
-                        .on_click(move |_, window, cx| {
-                            save.update(cx, |editor, cx| editor.save(cx));
-                            window.close_dialog(cx);
-                        }),
-                ),
-        )
-    });
+    modal::open(editor, modal::Options::new(420.0, 400.0), window, cx);
 }
 
 impl ProtectionEditor {
@@ -137,38 +103,47 @@ impl ProtectionEditor {
 }
 
 impl Render for ProtectionEditor {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .when(matches!(self.target, Target::Order(_)), |el| {
-                el.child(widgets::row(
-                    "Price",
-                    div().w(px(160.)).child(Input::new(&self.price).small()),
-                ))
-            })
-            .child(widgets::row(
-                "Stop loss",
-                div()
-                    .w(px(160.))
-                    .child(Input::new(&self.stop_loss).small().cleanable(true)),
-            ))
-            .child(widgets::row(
-                "Take profit",
-                div()
-                    .w(px(160.))
-                    .child(Input::new(&self.take_profit).small().cleanable(true)),
-            ))
-            .child(
-                div()
-                    .pt_1()
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(
-                        "Leave a field empty to remove it. Lines can also be dragged on the chart.",
-                    ),
-            )
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (title, subtitle) = match self.target {
+            Target::Position(_) => ("Modify the position", "Stop loss and take profit"),
+            Target::Order(_) => ("Modify the order", "Price, stop loss and take profit"),
+        };
+        let head = Head {
+            icon: IconName::ShieldCheck,
+            title: title.into(),
+            subtitle: subtitle.into(),
+        };
+        let mut rows = Vec::new();
+        if matches!(self.target, Target::Order(_)) {
+            rows.push(ui::field("Price", None, ui::text_field(&self.price, 160.)));
+        }
+        rows.push(ui::field(
+            "Stop loss",
+            Some("Leave it empty to remove it"),
+            ui::text_field(&self.stop_loss, 160.),
+        ));
+        rows.push(ui::field(
+            "Take profit",
+            Some("Leave it empty to remove it"),
+            ui::text_field(&self.take_profit, 160.),
+        ));
+        let body = ui::page()
+            .child(ui::group(IconName::Target, "Levels", rows))
+            .child(ui::note("Lines can also be dragged on the chart."));
+        let save = cx.entity();
+        let footer = ui::footer(
+            Vec::new(),
+            vec![
+                ui::action("protection-cancel", "Cancel", None, false, modal::close)
+                    .into_any_element(),
+                ui::action("protection-save", "Save", None, true, move |window, cx| {
+                    save.update(cx, |editor, cx| editor.save(cx));
+                    modal::close(window, cx);
+                })
+                .into_any_element(),
+            ],
+        );
+        ui::dialog(head, modal::dismiss, body, footer)
     }
 }
 
@@ -177,6 +152,7 @@ impl Render for ProtectionEditor {
 struct AlertEditor {
     alerts: Entity<Alerts>,
     id: u64,
+    symbol: String,
     price: Entity<InputState>,
     message: Entity<InputState>,
     condition: Condition,
@@ -203,6 +179,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
     let editor = cx.new(|cx| AlertEditor {
         alerts,
         id,
+        symbol: alert.symbol.clone(),
         price: cx.new(|cx| {
             InputState::new(window, cx)
                 .default_value(format!("{:.*}", digits as usize, alert.price))
@@ -215,34 +192,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
         condition: alert.condition,
         repeat: alert.repeat,
     });
-    let title = format!("Alert on {}", alert.symbol);
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        let save = editor.clone();
-        dialog
-            .title(title.clone())
-            .w(px(420.))
-            .child(editor.clone())
-            .footer(
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_end()
-                    .gap_2()
-                    .child(
-                        Button::new("alert-cancel")
-                            .cursor_pointer()
-                            .ghost()
-                            .label("Cancel")
-                            .on_click(|_, window, cx| window.close_dialog(cx)),
-                    )
-                    .child(Button::new("alert-save").primary().label("Save").on_click(
-                        move |_, window, cx| {
-                            save.update(cx, |editor, cx| editor.save(cx));
-                            window.close_dialog(cx);
-                        },
-                    )),
-            )
-    });
+    modal::open(editor, modal::Options::new(460.0, 480.0), window, cx);
 }
 
 impl AlertEditor {
@@ -274,50 +224,59 @@ impl Render for AlertEditor {
             .iter()
             .position(|c| *c == self.condition)
             .unwrap_or(0);
-        let this = cx.entity();
-        div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(widgets::row(
+        let (condition, repeat, save) = (cx.entity(), cx.entity(), cx.entity());
+        let head = Head {
+            icon: IconName::BellRing,
+            title: format!("Alert on {}", self.symbol).into(),
+            subtitle: "Fires when the price crosses the level".into(),
+        };
+        let level = vec![
+            ui::field(
                 "Condition",
+                None,
                 widgets::segmented(
                     "alert-condition",
                     &labels,
                     index,
                     move |choice, _window, cx| {
-                        this.update(cx, |e, cx| {
+                        condition.update(cx, |e, cx| {
                             e.condition = Condition::ALL[choice];
                             cx.notify();
                         });
                     },
                 ),
-            ))
-            .child(widgets::row(
-                "Price",
-                div().w(px(160.)).child(Input::new(&self.price).small()),
-            ))
-            .child(div().pt_1().child(Input::new(&self.message).small()))
-            .child(widgets::row(
-                "Keep watching after it fires",
-                Switch::new("alert-repeat")
-                    .cursor_pointer()
-                    .checked(self.repeat)
-                    .on_click(cx.listener(|this, checked: &bool, _, cx| {
-                        this.repeat = *checked;
-                        cx.notify();
-                    })),
-            ))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_1()
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(ui::icon_colored(IconName::Info, 12., theme::muted_fg()))
-                    .child("The line of an alert can also be dragged on the chart."),
-            )
+            ),
+            ui::field("Price", None, ui::text_field(&self.price, 160.)),
+        ];
+        let message = vec![ui::block(Input::new(&self.message).small())];
+        let options = vec![ui::field(
+            "Keep watching after it fires",
+            Some("The alert stays on and can fire again"),
+            ui::toggle("alert-repeat", self.repeat, move |on, _window, cx| {
+                repeat.update(cx, |e, cx| {
+                    e.repeat = on;
+                    cx.notify();
+                });
+            }),
+        )];
+        let body = ui::page()
+            .child(ui::group(IconName::Target, "Level", level))
+            .child(ui::group(IconName::MessageSquare, "Message", message))
+            .child(ui::group(IconName::SlidersHorizontal, "Options", options))
+            .child(ui::note(
+                "The line of an alert can also be dragged on the chart.",
+            ));
+        let footer = ui::footer(
+            Vec::new(),
+            vec![
+                ui::action("alert-cancel", "Cancel", None, false, modal::close).into_any_element(),
+                ui::action("alert-save", "Save", None, true, move |window, cx| {
+                    save.update(cx, |editor, cx| editor.save(cx));
+                    modal::close(window, cx);
+                })
+                .into_any_element(),
+            ],
+        );
+        ui::dialog(head, modal::dismiss, body, footer)
     }
 }

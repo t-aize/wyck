@@ -13,10 +13,11 @@ use super::Dashboard;
 use wyck::openapi::market::PRICE_SCALE;
 
 use crate::app::chart::{ChartAction, LineId, now_ms};
+use crate::app::confirm::confirm;
 use crate::app::multichart::SymbolRef;
 use crate::app::trading::panel::{PanelEvent, Tab};
 use crate::app::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
-use crate::app::trading::ticket::{OrderTicket, TicketEvent, confirm};
+use crate::app::trading::ticket::{OrderTicket, TicketEvent};
 use crate::app::trading::{self, math};
 use crate::app::{alerts, theme, toast};
 

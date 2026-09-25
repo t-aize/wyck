@@ -142,7 +142,7 @@ impl Chart {
         let map = self.main_map()?;
         self.lines
             .iter()
-            .filter(|line| line.draggable)
+            .filter(|line| line.draggable && self.settings.trading.shows(line.id))
             .map(|line| (line, (map.y(line.raw_price()) as f32 - y).abs()))
             .filter(|(_, distance)| *distance <= LINE_REACH)
             .min_by(|a, b| a.1.total_cmp(&b.1))

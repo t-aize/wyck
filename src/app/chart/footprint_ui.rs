@@ -1,14 +1,15 @@
-//! The footprint's part of the chart settings dialog: how the cells look, the imbalances, the
+//! The footprint's part of the chart settings panel: how the cells look, the imbalances, the
 //! point of control and the value area. Every change applies at once.
 
 use gpui::prelude::*;
-use gpui::{Context, Div, Entity, Subscription, Window, div};
-use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::switch::Switch;
+use gpui::{AnyElement, Context, Entity, Subscription, Window};
+use gpui_kit::assets::IconName;
+use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::footprint::{CellMode, FootprintSettings, HeatScope};
 use super::settings::ChartSettings;
+use crate::app::settings_ui as ui;
 use crate::app::widgets;
 
 /// The numbers of the footprint that are typed in.
@@ -32,11 +33,21 @@ impl Field {
 
     fn label(self) -> &'static str {
         match self {
-            Self::RowSteps => "Row height (price steps, 0 is automatic)",
+            Self::RowSteps => "Row height",
             Self::ImbalancePercent => "Imbalance ratio (%)",
             Self::ImbalanceMin => "Imbalance smallest volume",
             Self::StackRows => "Rows in a stack",
             Self::ValueAreaPercent => "Value area (% of the volume)",
+        }
+    }
+
+    fn hint(self) -> Option<&'static str> {
+        match self {
+            Self::RowSteps => Some("In price steps. 0 is automatic"),
+            Self::ImbalancePercent => Some("How much one side must outweigh the other"),
+            Self::ImbalanceMin => Some("Smaller volumes are never marked"),
+            Self::StackRows => Some("Imbalances in a row that make a stack"),
+            Self::ValueAreaPercent => None,
         }
     }
 
@@ -86,20 +97,19 @@ pub(super) fn inputs<T: 'static>(
         let value = f64::from(field.get(&settings));
         let state = cx.new(|cx| widgets::number_state(value, low, high, 1.0, 0, window, cx));
         let chart = chart.clone();
-        subscriptions.push(
-            cx.subscribe(&state, move |_this, state, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change | InputEvent::Blur)
-                    && let Some(value) = widgets::parse_number(&state.read(cx).value())
-                    && value >= 0.0
-                {
+        subscriptions.push(widgets::watch_number(
+            &state,
+            cx,
+            move |_this, value, cx| {
+                if value >= 0.0 {
                     chart.update(cx, |chart, cx| {
                         chart.edit_settings(cx, |s| {
                             field.set(&mut s.footprint, value.round() as u32)
                         });
                     });
                 }
-            }),
-        );
+            },
+        ));
         inputs.push((field, state));
     }
     (inputs, subscriptions)
@@ -109,30 +119,27 @@ fn edit(chart: &Entity<Chart>, cx: &mut gpui::App, change: impl FnOnce(&mut Char
     chart.update(cx, |chart, cx| chart.edit_settings(cx, change));
 }
 
-/// The settings of the footprint chart type.
-pub(super) fn section(
+/// The groups of the settings of the footprint chart type.
+pub(super) fn groups(
     chart: &Entity<Chart>,
     inputs: &[(Field, Entity<InputState>)],
     f: &FootprintSettings,
-) -> Div {
+) -> Vec<AnyElement> {
     let switch = |id: &'static str, on: bool, change: fn(&mut FootprintSettings, bool)| {
         let chart = chart.clone();
-        Switch::new(id)
-            .cursor_pointer()
-            .checked(on)
-            .on_click(move |checked, _window, cx| {
-                let checked = *checked;
-                edit(&chart, cx, |s| change(&mut s.footprint, checked));
-            })
+        ui::toggle(id, on, move |on, _window, cx| {
+            edit(&chart, cx, |s| change(&mut s.footprint, on));
+        })
     };
     let number = |field: Field| {
         let state = inputs
             .iter()
             .find(|(candidate, _)| *candidate == field)
             .map(|(_, state)| state);
-        widgets::row(
+        ui::field(
             field.label(),
-            div().children(state.map(|state| widgets::number_field(state, 120.))),
+            field.hint(),
+            gpui::div().children(state.map(|state| widgets::number_field(state, 120.))),
         )
     };
     let mode_labels: Vec<&str> = CellMode::ALL.iter().map(|m| m.label()).collect();
@@ -144,12 +151,11 @@ pub(super) fn section(
         .position(|m| *m == f.heat_scope)
         .unwrap_or(0);
     let scope_chart = chart.clone();
-    div()
-        .flex()
-        .flex_col()
-        .child(widgets::section("Footprint cells"))
-        .child(widgets::row(
+
+    let cells = vec![
+        ui::field(
             "Cells show",
+            None,
             widgets::segmented(
                 "footprint-mode",
                 &mode_labels,
@@ -160,17 +166,20 @@ pub(super) fn section(
                     });
                 },
             ),
-        ))
-        .child(widgets::row(
+        ),
+        ui::field(
             "Numbers",
+            None,
             switch("footprint-numbers", f.numbers, |f, on| f.numbers = on),
-        ))
-        .child(widgets::row(
+        ),
+        ui::field(
             "Heat colors",
+            None,
             switch("footprint-heat", f.heat, |f, on| f.heat = on),
-        ))
-        .child(widgets::row(
+        ),
+        ui::field(
             "Heat compared with",
+            None,
             widgets::segmented(
                 "footprint-scope",
                 &scope_labels,
@@ -181,48 +190,64 @@ pub(super) fn section(
                     });
                 },
             ),
-        ))
-        .child(number(Field::RowSteps))
-        .child(widgets::row(
+        ),
+        number(Field::RowSteps),
+        ui::field(
             "Delta and volume under each bar",
+            None,
             switch("footprint-summary", f.summary, |f, on| f.summary = on),
-        ))
-        .child(widgets::section("Imbalances"))
-        .child(widgets::row(
+        ),
+    ];
+    let imbalances = vec![
+        ui::field(
             "Highlight imbalances",
+            None,
             switch("footprint-imbalance", f.imbalance, |f, on| f.imbalance = on),
-        ))
-        .child(widgets::row(
-            "Ask against the bid below (diagonal)",
+        ),
+        ui::field(
+            "Ask against the bid below",
+            Some("The diagonal comparison"),
             switch("footprint-diagonal", f.diagonal, |f, on| f.diagonal = on),
-        ))
-        .child(number(Field::ImbalancePercent))
-        .child(number(Field::ImbalanceMin))
-        .child(widgets::row(
+        ),
+        number(Field::ImbalancePercent),
+        number(Field::ImbalanceMin),
+        ui::field(
             "Stacked imbalances",
+            None,
             switch("footprint-stacked", f.stacked, |f, on| f.stacked = on),
-        ))
-        .child(number(Field::StackRows))
-        .child(widgets::row(
+        ),
+        number(Field::StackRows),
+        ui::field(
             "Extend stacks until touched",
+            None,
             switch("footprint-project", f.project_stacks, |f, on| {
                 f.project_stacks = on;
             }),
-        ))
-        .child(widgets::section("Point of control and value area"))
-        .child(widgets::row(
+        ),
+    ];
+    let control = vec![
+        ui::field(
             "Point of control",
+            None,
             switch("footprint-poc", f.poc, |f, on| f.poc = on),
-        ))
-        .child(widgets::row(
+        ),
+        ui::field(
             "Extend the point of control until touched",
+            None,
             switch("footprint-extend-poc", f.extend_poc, |f, on| {
                 f.extend_poc = on;
             }),
-        ))
-        .child(widgets::row(
+        ),
+        ui::field(
             "Value area",
+            None,
             switch("footprint-va", f.value_area, |f, on| f.value_area = on),
-        ))
-        .child(number(Field::ValueAreaPercent))
+        ),
+        number(Field::ValueAreaPercent),
+    ];
+    vec![
+        ui::group(IconName::Rows3, "Footprint cells", cells).into_any_element(),
+        ui::group(IconName::Scale, "Imbalances", imbalances).into_any_element(),
+        ui::group(IconName::Target, "Point of control and value area", control).into_any_element(),
+    ]
 }

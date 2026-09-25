@@ -7,26 +7,21 @@
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::component::input::InputState;
 
 use super::Chart;
-use super::drawing::model::Dash;
+use super::drawing::model::{DASHES, WIDTHS};
 use super::study::{InputKind, Placement, PlotKind, SOURCES, StudyConfig, StudyKind};
 use crate::app::settings_ui::{self as ui, Head, Tab};
 use crate::app::{modal, theme, widgets};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
-const PANE_HEIGHTS: [(&str, f32); 4] = [
+const PANE_HEIGHTS: &[(&str, f32)] = &[
     ("Compact", 0.6),
     ("Normal", 1.0),
     ("Tall", 1.6),
     ("Huge", 2.4),
 ];
-
-/// The widths a line can have.
-const WIDTHS: [f32; 4] = [1.0, 1.5, 2.0, 3.0];
-
-const DASHES: [Dash; 3] = [Dash::Solid, Dash::Dashed, Dash::Dotted];
 
 /// Opens the settings of indicator `index` of `chart`.
 pub fn open(chart: Entity<Chart>, index: usize, window: &mut Window, cx: &mut App) {
@@ -157,15 +152,9 @@ impl StudyEditor {
                 )
             });
             let key = input.key;
-            subscriptions.push(
-                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change | InputEvent::Blur)
-                        && let Some(value) = widgets::parse_number(&state.read(cx).value())
-                    {
-                        this.target.clone().set_input(key, value, cx);
-                    }
-                }),
-            );
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                this.target.clone().set_input(key, value, cx);
+            }));
             fields.push((key, state));
         }
         let mut opacity = Vec::new();
@@ -182,18 +171,12 @@ impl StudyEditor {
                 )
             });
             let key = plot.key;
-            subscriptions.push(
-                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change | InputEvent::Blur)
-                        && let Some(value) = widgets::parse_number(&state.read(cx).value())
-                    {
-                        let value = (value / 100.0).clamp(0.05, 1.0) as f32;
-                        this.target
-                            .clone()
-                            .plot(key, cx, |style| style.opacity = value);
-                    }
-                }),
-            );
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                let value = (value / 100.0).clamp(0.05, 1.0) as f32;
+                this.target
+                    .clone()
+                    .plot(key, cx, |style| style.opacity = value);
+            }));
             opacity.push((key, state));
         }
         let mut widths = Vec::new();
@@ -210,18 +193,12 @@ impl StudyEditor {
                 )
             });
             let key = plot.key;
-            subscriptions.push(
-                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change | InputEvent::Blur)
-                        && let Some(value) = widgets::parse_number(&state.read(cx).value())
-                    {
-                        let value = value.clamp(0.5, 20.0) as f32;
-                        this.target
-                            .clone()
-                            .plot(key, cx, |style| style.width = value);
-                    }
-                }),
-            );
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                let value = value.clamp(0.5, 20.0) as f32;
+                this.target
+                    .clone()
+                    .plot(key, cx, |style| style.width = value);
+            }));
             widths.push((key, state));
         }
         Self {
@@ -438,22 +415,15 @@ impl StudyEditor {
             }),
         )];
         if config.spec().placement == Placement::Pane {
-            let names: Vec<&str> = PANE_HEIGHTS.iter().map(|(name, _)| *name).collect();
-            let current = PANE_HEIGHTS
-                .iter()
-                .position(|(_, w)| (w - config.pane_weight()).abs() < 0.05)
-                .unwrap_or(usize::MAX);
             let target = self.target.clone();
             rows.push(ui::field(
                 "Pane height",
                 Some("Next to the price chart. Drag the divider for any other height"),
-                widgets::segmented(
+                ui::height_picker(
                     "study-height",
-                    &names,
-                    current,
-                    move |choice, _window, cx| {
-                        target.edit(cx, |s| s.weight = PANE_HEIGHTS[choice].1);
-                    },
+                    PANE_HEIGHTS,
+                    config.pane_weight(),
+                    move |weight, _window, cx| target.edit(cx, |s| s.weight = weight),
                 ),
             ));
         }

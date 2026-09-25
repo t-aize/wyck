@@ -20,8 +20,8 @@ use super::study::{Placement, PlotKind, ValueFormat};
 use super::view::PriceScale;
 use super::zone::Zone;
 use super::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, paint, study_settings,
-    study_ui,
+    Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, chart_settings_ui, paint,
+    study_settings,
 };
 use crate::app::connection::ui;
 use crate::app::menu::{self as popup, Entry, Item};
@@ -46,7 +46,7 @@ pub fn kind_icon(kind: ChartKind) -> IconName {
 }
 
 /// The kinds of the menu, in sections.
-const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
+pub(super) const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
     (
         "Bars",
         &[
@@ -104,7 +104,7 @@ impl Render for Chart {
             .w_full()
             .min_h_0()
             .overflow_hidden()
-            .bg(theme::chart_bg())
+            .bg(self.palette().bg)
             .child(paint::surface(&entity, self.bounds.clone()))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
@@ -288,14 +288,14 @@ impl Chart {
         items.extend([
             Entry::new("Indicators...")
                 .icon(IconName::ChartSpline)
-                .on_click(on(|this, window, cx| {
-                    study_ui::open_picker(cx.entity(), this, window, cx)
+                .on_click(on(|_, window, cx| {
+                    chart_settings_ui::open_indicators(cx.entity(), window, cx)
                 }))
                 .into(),
             Entry::new("Chart settings...")
                 .icon(IconName::Settings2)
                 .on_click(on(|_, window, cx| {
-                    study_ui::open_chart_settings(cx.entity(), window, cx)
+                    chart_settings_ui::open(cx.entity(), window, cx)
                 }))
                 .into(),
             Item::Separator,
@@ -315,6 +315,16 @@ impl Chart {
 }
 
 impl Chart {
+    /// The background of a button of the legend while the pointer is over it. It is made from the
+    /// text color of the chart, so it shows on a light chart under a dark theme too (the theme's
+    /// own hover color would be a dark patch there).
+    fn hover_color(&self) -> gpui::Rgba {
+        gpui::Rgba {
+            a: 0.12,
+            ..self.palette().text_strong
+        }
+    }
+
     /// The number under the pointer (or the newest) of each plot of an indicator, with its color.
     fn study_values(&self, study: usize, index: usize) -> Vec<(String, u32)> {
         let config = &self.settings.studies[study];
@@ -362,8 +372,10 @@ impl Chart {
         let visible = config.visible;
         let group = SharedString::from(format!("study-row-{study}"));
         let values = index
+            .filter(|_| self.settings.status.indicator_values)
             .map(|i| self.study_values(study, i))
             .unwrap_or_default();
+        let hover = self.hover_color();
         let button = |id: &str, icon: IconName, tooltip: &'static str| {
             div()
                 .id(SharedString::from(format!("{id}-{study}")))
@@ -373,7 +385,7 @@ impl Chart {
                 .size(px(20.))
                 .rounded_sm()
                 .cursor_pointer()
-                .hover(|s| s.bg(theme::surface_hover()))
+                .hover(move |s| s.bg(hover))
                 // The press is the button's, not the chart's under it.
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(ui::icon_colored(icon, 13., theme::chart_muted()))
@@ -392,7 +404,7 @@ impl Chart {
             .pl_1()
             .rounded_sm()
             .text_size(px(12.))
-            .hover(|s| s.bg(theme::bg_alpha(0.8)))
+            .hover(move |s| s.bg(hover))
             .child(
                 div()
                     .text_color(if visible {
@@ -473,7 +485,7 @@ impl Chart {
             .flex_col()
             .gap_0p5()
             .child(self.headline(compact, cx));
-        if !compact {
+        if !compact && self.settings.status.indicators {
             for (study, config) in self.settings.studies.iter().enumerate() {
                 if config.spec().placement == Placement::Overlay {
                     main = main.child(self.study_row(study, index, cx));
@@ -485,6 +497,9 @@ impl Chart {
             let Some(band) = geometry.bands.get(i + 1) else {
                 continue;
             };
+            if !self.settings.status.indicators {
+                continue;
+            }
             out.push(
                 div()
                     .absolute()
@@ -607,17 +622,18 @@ impl Chart {
                 "Trading on this symbol is disabled by the broker".to_owned(),
             ),
         };
+        let hover = self.hover_color();
         let text = SharedString::from(text);
         Some(
             div()
                 .id(("market-status", self.id))
-                .size(px(14.))
+                .size(px(20.))
                 .flex()
                 .items_center()
                 .justify_center()
                 .rounded_full()
                 .cursor_default()
-                .hover(|s| s.bg(theme::surface_hover()))
+                .hover(move |s| s.bg(hover))
                 .tooltip(move |window, cx| {
                     gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
                 })
@@ -639,7 +655,7 @@ impl Chart {
     pub fn legend_bottom(&self) -> f32 {
         let compact = self.is_compact();
         let mut bottom = 6.0 + 22.0;
-        if !compact {
+        if !compact && self.settings.status.indicators {
             let overlays = self
                 .settings
                 .studies
@@ -693,6 +709,8 @@ impl Chart {
     /// type, and the prices of the point under the pointer.
     fn headline(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let digits = self.digits();
+        let palette = self.palette();
+        let hover = self.hover_color();
         let name = self
             .symbol
             .as_ref()
@@ -703,23 +721,20 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_1()
+            .h(px(20.))
             .px_1()
             .rounded_sm()
             .cursor_pointer()
-            .hover(|s| s.bg(theme::surface_hover()))
+            .hover(move |s| s.bg(hover))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(|_this, _, _, cx| cx.emit(ChartEvent::PickSymbol)))
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme::chart_fg())
+                    .text_color(palette.text_strong)
                     .child(name),
             )
-            .child(ui::icon_colored(
-                IconName::ChevronDown,
-                12.,
-                theme::chart_muted(),
-            ));
+            .child(ui::icon_colored(IconName::ChevronDown, 12., palette.text));
         let mut kind_text = self.timeframe.label();
         if self.settings.kind != ChartKind::Candles {
             kind_text.push_str(" \u{b7} ");
@@ -743,16 +758,22 @@ impl Chart {
             .gap_x_2()
             .text_size(px(12.))
             .child(symbol)
-            .child(div().text_color(theme::chart_muted()).child(kind_text))
-            .children(self.market_dot());
+            .child(div().text_color(palette.text).child(kind_text))
+            .children(
+                self.settings
+                    .status
+                    .market
+                    .then(|| self.market_dot())
+                    .flatten(),
+            );
         if self.flow_busy() {
             row = row.child(
                 div()
-                    .text_color(theme::chart_muted())
+                    .text_color(palette.text)
                     .child("loading order flow..."),
             );
         }
-        let Some(index) = self.shown_index() else {
+        let Some(index) = self.shown_index().filter(|_| self.settings.status.prices) else {
             return row;
         };
         let value = |label: &'static str, price: i64, tone: gpui::Rgba| {
@@ -760,16 +781,16 @@ impl Chart {
                 .flex()
                 .flex_row()
                 .gap_0p5()
-                .child(div().text_color(theme::chart_muted()).child(label))
+                .child(div().text_color(palette.text).child(label))
                 .child(div().text_color(tone).child(format_price(price, digits)))
         };
         match self.shown() {
             Series::Bars(bars) => {
                 if let Some(bar) = bars.get(index) {
                     let tone = if bar.close >= bar.open {
-                        theme::chart_up()
+                        palette.up
                     } else {
-                        theme::chart_down()
+                        palette.down
                     };
                     let previous = index
                         .checked_sub(1)
@@ -794,7 +815,12 @@ impl Chart {
                             .child(value("H", bar.high, tone))
                             .child(value("L", bar.low, tone))
                             .child(value("C", bar.close, tone))
-                            .child(div().text_color(tone).child(change_text));
+                            .children(
+                                self.settings
+                                    .status
+                                    .change
+                                    .then(|| div().text_color(tone).child(change_text)),
+                            );
                     }
                     if self.settings.kind == ChartKind::Footprint {
                         row = self.flow_values(bar.time_ms, row);
@@ -803,7 +829,7 @@ impl Chart {
             }
             Series::Ticks(ticks) => {
                 if let Some(tick) = ticks.get(index) {
-                    row = row.child(value("Bid", tick.price, theme::chart_fg()));
+                    row = row.child(value("Bid", tick.price, palette.text_strong));
                 }
             }
         }
@@ -815,9 +841,14 @@ impl Chart {
         let Some(map) = self.main_map() else {
             return Vec::new();
         };
+        let (palette, hover) = (self.palette(), self.hover_color());
         let main = geometry.main();
         let mut out = Vec::new();
-        for line in &self.lines {
+        for line in self
+            .lines
+            .iter()
+            .filter(|line| self.settings.trading.shows(line.id))
+        {
             let raw = self.line_price(line.id, line.raw_price());
             let y = map.y(raw) as f32;
             if !(main.top as f32 + 2.0..=main.bottom() as f32 - 2.0).contains(&y) {
@@ -838,7 +869,7 @@ impl Chart {
                 .overflow_hidden()
                 .border_1()
                 .border_color(color)
-                .bg(theme::bg())
+                .bg(palette.bg)
                 .text_size(px(11.))
                 .occlude()
                 .child(
@@ -848,7 +879,7 @@ impl Chart {
                         .flex()
                         .items_center()
                         .bg(color)
-                        .text_color(theme::bg())
+                        .text_color(palette.bg)
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(line.label.clone()),
                 )
@@ -866,12 +897,12 @@ impl Chart {
                             .border_l_1()
                             .border_color(color)
                             .cursor_pointer()
-                            .hover(|s| s.bg(theme::surface_hover()))
+                            .hover(move |s| s.bg(hover))
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .on_click(cx.listener(move |_this, _, _, cx| {
                                 cx.emit(ChartEvent::LineClosed(id));
                             }))
-                            .child(ui::icon_colored(IconName::X, 11., theme::fg())),
+                            .child(ui::icon_colored(IconName::X, 11., palette.text_strong)),
                     )
                 });
             out.push(pill.into_any_element());
@@ -936,8 +967,8 @@ impl Chart {
                         .icon(IconName::ChartSpline)
                         .tooltip("Indicators")
                         .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, window, cx| {
-                            study_ui::open_picker(cx.entity(), this, window, cx);
+                        .on_click(cx.listener(|_this, _event, window, cx| {
+                            chart_settings_ui::open_indicators(cx.entity(), window, cx);
                         })),
                 )
                 .child(
@@ -972,7 +1003,7 @@ impl Chart {
                         .tooltip("Chart settings")
                         .cursor_pointer()
                         .on_click(cx.listener(|_this, _event, window, cx| {
-                            study_ui::open_chart_settings(cx.entity(), window, cx);
+                            chart_settings_ui::open(cx.entity(), window, cx);
                         })),
                 )
                 .child(

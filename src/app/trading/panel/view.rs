@@ -19,11 +19,11 @@ use super::dialogs::{Target, open_alert, open_protection};
 use super::prefs::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use super::stats::HistoryStats;
 use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
+use crate::app::confirm::confirm;
 use crate::app::connection::ui;
 use crate::app::menu::{self as popup, Entry, Item};
 use crate::app::trading::account::{Account, Status};
 use crate::app::trading::math::format_money;
-use crate::app::trading::ticket::confirm;
 use crate::app::trading::ticket::prefs::Slot;
 use crate::app::{theme, widgets};
 

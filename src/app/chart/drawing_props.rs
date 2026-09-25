@@ -17,7 +17,9 @@ use super::drawing::Drawings;
 use super::drawing::extras::{ICONS, icon_key};
 use super::drawing::figures::wave_names;
 use super::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
-use super::drawing::model::{DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label};
+use super::drawing::model::{
+    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label,
+};
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
@@ -153,21 +155,6 @@ type MeasureFlag = (
     fn(&mut Drawing, bool),
 );
 
-/// A field that calls `on_value` with its number whenever it holds a valid one.
-fn watch_number(
-    state: &Entity<InputState>,
-    cx: &mut Context<DrawingProps>,
-    on_value: impl Fn(&mut DrawingProps, f64, &mut Context<DrawingProps>) + 'static,
-) -> Subscription {
-    cx.subscribe(state, move |this, state, event: &InputEvent, cx| {
-        if matches!(event, InputEvent::Change | InputEvent::Blur)
-            && let Some(value) = widgets::parse_number(&state.read(cx).value())
-        {
-            on_value(this, value, cx);
-        }
-    })
-}
-
 impl DrawingProps {
     fn new(
         drawings: Entity<Drawings>,
@@ -249,15 +236,15 @@ impl DrawingProps {
         });
         let mut subscriptions = vec![
             cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
-            watch_number(&opacity, cx, |this, value, cx| {
+            widgets::watch_number(&opacity, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.fill_opacity = (value / 100.0) as f32);
             }),
-            watch_number(&line_opacity, cx, |this, value, cx| {
+            widgets::watch_number(&line_opacity, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     d.style.opacity = (value / 100.0).clamp(0.05, 1.0) as f32
                 });
             }),
-            watch_number(&text_size, cx, |this, value, cx| {
+            widgets::watch_number(&text_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.text_size = value as f32);
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
@@ -280,7 +267,7 @@ impl DrawingProps {
                 let price = cx.new(|cx| {
                     InputState::new(window, cx).default_value(format_real(point.p, digits))
                 });
-                subscriptions.push(watch_number(&price, cx, move |this, value, cx| {
+                subscriptions.push(widgets::watch_number(&price, cx, move |this, value, cx| {
                     let raw = value * PRICE_SCALE as f64;
                     this.change(cx, |d| set_point(d, index, None, Some(raw)));
                 }));
@@ -289,15 +276,11 @@ impl DrawingProps {
                         .default_value(format_time(zone, point.t))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
-                subscriptions.push(cx.subscribe(
+                subscriptions.push(widgets::watch_parsed(
                     &time,
-                    move |this, state, event: &InputEvent, cx| {
-                        if matches!(event, InputEvent::Change | InputEvent::Blur)
-                            && let Some(t) = parse_time(this.zone, &state.read(cx).value())
-                        {
-                            this.change(cx, |d| set_point(d, index, Some(t), None));
-                        }
-                    },
+                    cx,
+                    |this, text| parse_time(this.zone, text),
+                    move |this, t, cx| this.change(cx, |d| set_point(d, index, Some(t), None)),
                 ));
                 prices.push(price);
                 times.push(time);
@@ -322,10 +305,10 @@ impl DrawingProps {
                     .default_value(p.currency.clone())
                     .placeholder("USD")
             });
-            subscriptions.push(watch_number(&account, cx, |this, value, cx| {
+            subscriptions.push(widgets::watch_number(&account, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.position.account = value.max(1.0));
             }));
-            subscriptions.push(watch_number(&risk, cx, |this, value, cx| {
+            subscriptions.push(widgets::watch_number(&risk, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     let cap = if d.style.position.risk_percent {
                         100.0
@@ -335,22 +318,30 @@ impl DrawingProps {
                     d.style.position.risk = value.clamp(0.01, cap);
                 });
             }));
-            subscriptions.push(watch_number(&lot_size, cx, |this, value, cx| {
+            subscriptions.push(widgets::watch_number(&lot_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.position.lot_size = value.max(1e-8));
             }));
-            subscriptions.push(watch_number(&leverage, cx, |this, value, cx| {
+            subscriptions.push(widgets::watch_number(&leverage, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     d.style.position.leverage = value.clamp(1.0, 10_000.0)
                 });
             }));
-            subscriptions.push(watch_number(&point_value, cx, |this, value, cx| {
-                this.change(cx, |d| d.style.position.point_value = value.max(1e-9));
-            }));
-            subscriptions.push(watch_number(&qty_precision, cx, |this, value, cx| {
-                this.change(cx, |d| {
-                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
-                });
-            }));
+            subscriptions.push(widgets::watch_number(
+                &point_value,
+                cx,
+                |this, value, cx| {
+                    this.change(cx, |d| d.style.position.point_value = value.max(1e-9));
+                },
+            ));
+            subscriptions.push(widgets::watch_number(
+                &qty_precision,
+                cx,
+                |this, value, cx| {
+                    this.change(cx, |d| {
+                        d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
+                    });
+                },
+            ));
             subscriptions.push(
                 cx.subscribe(&currency, |this, state, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change) {
@@ -419,28 +410,34 @@ impl DrawingProps {
         for (index, level) in drawing.levels().iter().enumerate() {
             let state =
                 cx.new(|cx| widgets::number_state(level.value, -100.0, 100.0, 0.1, 4, window, cx));
-            self._level_subscriptions
-                .push(watch_number(&state, cx, move |this, value, cx| {
+            self._level_subscriptions.push(widgets::watch_number(
+                &state,
+                cx,
+                move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
                         if let Some(level) = d.levels.get_mut(index) {
                             level.value = value;
                         }
                     });
-                }));
+                },
+            ));
             self.levels.push(state);
             let width = cx.new(|cx| {
                 widgets::number_state(f64::from(level.width), 0.0, 40.0, 0.5, 1, window, cx)
             });
-            self._level_subscriptions
-                .push(watch_number(&width, cx, move |this, value, cx| {
+            self._level_subscriptions.push(widgets::watch_number(
+                &width,
+                cx,
+                move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
                         if let Some(level) = d.levels.get_mut(index) {
                             level.width = value.clamp(0.0, 40.0) as f32;
                         }
                     });
-                }));
+                },
+            ));
             self.level_widths.push(width);
         }
         self.levels_changed = false;
@@ -681,14 +678,13 @@ impl DrawingProps {
         set: impl Fn(&mut Drawing, bool) + 'static,
     ) -> Switch {
         let this = cx.entity();
-        Switch::new(SharedString::from(id.to_owned()))
-            .cursor_pointer()
-            .small()
-            .checked(on)
-            .on_click(move |checked, _window, cx| {
-                let checked = *checked;
+        ui::toggle(
+            SharedString::from(id.to_owned()),
+            on,
+            move |checked, _window, cx| {
                 this.update(cx, |e, cx| e.change(cx, |d| set(d, checked)));
-            })
+            },
+        )
     }
 
     fn tabs(&self) -> Vec<Tab> {
@@ -1038,14 +1034,13 @@ impl DrawingProps {
             rows.push(self.width_row(drawing, cx));
         }
         if tool.has_dash() {
-            let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
-            let index = dashes.iter().position(|d| *d == style.dash).unwrap_or(0);
+            let index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
             let dash_this = this.clone();
             rows.push(ui::field(
                 "Line style",
                 None,
                 ui::dash_picker("props-dash", index, move |choice, _window, cx| {
-                    dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = dashes[choice]));
+                    dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = DASHES[choice]));
                 }),
             ));
         }
@@ -1368,8 +1363,7 @@ impl DrawingProps {
         let this = cx.entity();
 
         let dash_this = this.clone();
-        let dashes = [Dash::Solid, Dash::Dashed, Dash::Dotted];
-        let dash_index = dashes.iter().position(|d| *d == style.dash).unwrap_or(0);
+        let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
         let lines = ui::group(
             IconName::PenLine,
             "Lines",
@@ -1388,7 +1382,7 @@ impl DrawingProps {
                             dash_index,
                             move |choice, _w, cx| {
                                 dash_this.update(cx, |e, cx| {
-                                    e.change(cx, |d| d.style.dash = dashes[choice])
+                                    e.change(cx, |d| d.style.dash = DASHES[choice])
                                 });
                             },
                         ))

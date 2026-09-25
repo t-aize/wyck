@@ -1035,8 +1035,11 @@ pub const PALETTE: [u32; 8] = [
     0xffffff, 0x4f8dff, 0x00d492, 0xff6467, 0xffb900, 0xc27aff, 0x00d3f2, 0x9ca3af,
 ];
 
-/// The widths the style bar offers.
+/// The widths the style bar and the settings panels offer.
 pub const WIDTHS: [f32; 4] = [1.0, 1.5, 2.5, 4.0];
+
+/// The line styles the pickers offer, in the order of their samples: solid, dashed, dotted.
+pub const DASHES: [Dash; 3] = [Dash::Solid, Dash::Dashed, Dash::Dotted];
 
 /// One level of a drawing: a ratio (or a multiple), its color, and whether it shows.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

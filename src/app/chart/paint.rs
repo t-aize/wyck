@@ -39,6 +39,7 @@ impl Chart {
         let marks: Vec<scene::PriceMark> = self
             .lines
             .iter()
+            .filter(|line| self.settings.trading.shows(line.id))
             .map(|line| {
                 let mut mark = line.mark();
                 mark.price = self.line_price(line.id, mark.price);
@@ -63,7 +64,7 @@ impl Chart {
                 .map(|r| (r.time_ms, r.price)),
             ask: self.ask,
             now_ms: super::now_ms(),
-            palette: Palette::new(),
+            palette: Palette::for_chart(&self.settings.colors),
             drawings: drawings.map(|(list, creating, selected)| DrawingView {
                 list,
                 creating,
@@ -72,6 +73,7 @@ impl Chart {
             }),
             marks: &marks,
             flow: Some(&self.flow),
+            watermark: self.watermark(),
         })
     }
 }

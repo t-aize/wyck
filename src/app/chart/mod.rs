@@ -47,6 +47,7 @@
 //! quotes, and the chart says so.
 
 mod axis;
+mod chart_settings_ui;
 mod data;
 mod display;
 pub mod drawing;
@@ -63,6 +64,7 @@ pub mod lines;
 pub mod live;
 mod load;
 pub mod object_tree;
+pub mod options;
 mod overlay;
 mod paint;
 mod projection;
@@ -71,7 +73,6 @@ pub mod scene;
 pub mod settings;
 pub mod study;
 mod study_settings;
-mod study_ui;
 mod timeframe;
 pub mod transform;
 mod view;
@@ -264,8 +265,6 @@ pub struct Chart {
     selected: bool,
     timeframe: Timeframe,
     settings: ChartSettings,
-    /// Bumped whenever the settings change, so a menu or dialog showing them redraws.
-    settings_revision: u64,
     /// The prices, as held.
     series: Series,
     /// What is drawn from them.
@@ -353,7 +352,6 @@ impl Chart {
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,
-            settings_revision: 0,
             series: empty_series(timeframe),
             display: Display::default(),
             flow: Flow::default(),
@@ -480,7 +478,6 @@ impl Chart {
         if self.settings == before {
             return;
         }
-        self.settings_revision += 1;
         let layout_changed = before.kind != self.settings.kind
             || (self.settings.kind.is_derived() && before.transform != self.settings.transform);
         let data_changed = layout_changed
@@ -538,6 +535,20 @@ impl Chart {
 
     pub fn digits(&self) -> u32 {
         self.symbol.as_ref().map_or(5, |s| s.digits)
+    }
+
+    /// The colors this chart draws with: the theme's, and what the chart overrides.
+    fn palette(&self) -> scene::Palette {
+        scene::Palette::for_chart(&self.settings.colors)
+    }
+
+    /// The text written behind the prices, when the chart has a watermark.
+    fn watermark(&self) -> Option<String> {
+        if !self.settings.watermark {
+            return None;
+        }
+        let symbol = self.symbol.as_ref()?;
+        Some(format!("{}, {}", symbol.name, self.timeframe.label()))
     }
 
     /// One quote unit in raw price units.

@@ -7,6 +7,7 @@ mod assets;
 mod backup;
 mod chart;
 mod color_picker;
+mod confirm;
 mod connection;
 mod dashboard;
 mod menu;

@@ -212,6 +212,14 @@ impl Chart {
             self.digits(),
         ))
     }
+
+    /// How many drawings the symbol has, or `None` when the chart has no drawings or symbol.
+    pub(super) fn drawing_count(&self, cx: &App) -> Option<usize> {
+        let drawings = self.drawings.as_ref()?;
+        let symbol = self.symbol_name()?;
+        Some(drawings.read(cx).book().drawings(&symbol).len())
+    }
+
     /// A settings dialog asked for by a double click opens now that the window is at hand.
     pub(super) fn open_pending_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(id) = self.settings_for.take() {

@@ -12,7 +12,7 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{Disableable, Sizable};
 
-use super::appearance::presets::{self, CANDLE_SETS};
+use super::appearance::presets::CANDLE_SETS;
 use super::appearance::{self, ColorField, Mode};
 use super::multichart::MultiChart;
 use super::settings_ui::{self as ui, Head};
@@ -1355,10 +1355,4 @@ impl Render for SettingsHub {
         )
         .into_any_element()
     }
-}
-
-/// Checks a name of a preset exists, so a saved id that no longer does falls back.
-#[allow(dead_code)]
-fn known(id: &str) -> bool {
-    presets::preset(id).is_some()
 }

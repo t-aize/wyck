@@ -29,9 +29,7 @@
 use std::time::Duration;
 
 use gpui::prelude::*;
-use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window, div, px};
-use gpui_kit::component::WindowExt;
-use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState, NumberStep};
 use wyck::openapi::account::TradeSide;
 use wyck::openapi::trading::{NewOrderReq, NewOrderType};
@@ -40,8 +38,9 @@ use super::account::Account;
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::app::chart::drawing::model::Dash;
 use crate::app::chart::{ChartLine, LineId, now_ms};
+use crate::app::confirm::confirm;
 use crate::app::multichart::SymbolRef;
-use crate::app::{runtime, theme, widgets};
+use crate::app::{runtime, widgets};
 
 pub mod customize;
 pub mod prefs;
@@ -1148,54 +1147,6 @@ fn nice(amount: f64) -> f64 {
     }
     let magnitude = 10f64.powi(amount.log10().floor() as i32 - 1);
     ((amount / magnitude).round() * magnitude).max(1.0)
-}
-
-/// Asks for a confirmation before `then` runs.
-pub fn confirm(
-    window: &mut Window,
-    cx: &mut App,
-    title: impl Into<SharedString>,
-    text: impl Into<SharedString>,
-    then: impl Fn(&mut Window, &mut App) + 'static,
-) {
-    let (title, text) = (title.into(), text.into());
-    let then = std::rc::Rc::new(then);
-    window.open_dialog(cx, move |dialog, _window, _cx| {
-        let then = then.clone();
-        dialog
-            .title(title.clone())
-            .w(px(420.))
-            .child(
-                div()
-                    .text_size(px(14.))
-                    .text_color(theme::fg())
-                    .child(text.clone()),
-            )
-            .footer(
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_end()
-                    .gap_2()
-                    .child(
-                        Button::new("confirm-cancel")
-                            .cursor_pointer()
-                            .ghost()
-                            .label("Cancel")
-                            .on_click(|_, window, cx| window.close_dialog(cx)),
-                    )
-                    .child(
-                        Button::new("confirm-ok")
-                            .cursor_pointer()
-                            .primary()
-                            .label("Confirm")
-                            .on_click(move |_, window, cx| {
-                                window.close_dialog(cx);
-                                then(window, cx);
-                            }),
-                    ),
-            )
-    });
 }
 
 #[cfg(test)]

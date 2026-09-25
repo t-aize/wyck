@@ -1,6 +1,7 @@
-//! What every settings panel is built from, so they all look and behave the same: the frame (a
-//! header, a rail of tabs with icons, a scrolling body, a footer), groups of labelled rows, and
-//! the pickers for line width and line style.
+//! What every settings panel and dialog is built from, so they all look and behave the same:
+//! the frame (a header, a rail of tabs with icons, a scrolling body, a footer) and the dialog (the
+//! same without the rail), groups of labelled rows, and the pickers for line width, line style and
+//! height.
 //!
 //! They are plain functions returning elements, like [`super::widgets`]. A panel owns its state
 //! and passes it in; the callbacks say what the user picked. A panel is shown in
@@ -9,9 +10,10 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px};
+use gpui::{AnyElement, App, Div, ElementId, Entity, Rgba, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Sizable, StyledExt as _};
 
@@ -35,65 +37,9 @@ pub struct Head {
 /// The width of the rail of tabs.
 const RAIL_WIDTH: f32 = 176.0;
 
-/// The frame of a panel. `on_tab` gets the index of the tab clicked and `on_close` the close
-/// button of the header.
-pub fn frame(
-    head: Head,
-    tabs: &[Tab],
-    active: usize,
-    on_tab: impl Fn(usize, &mut Window, &mut App) + 'static,
-    on_close: impl Fn(&mut Window, &mut App) + 'static,
-    body: impl IntoElement,
-    footer: impl IntoElement,
-) -> Div {
-    let on_tab = Rc::new(on_tab);
-    let mut rail = div()
-        .flex_none()
-        .w(px(RAIL_WIDTH))
-        .flex()
-        .flex_col()
-        .gap_0p5()
-        .p_2()
-        .border_r_1()
-        .border_color(theme::border_hairline())
-        .bg(theme::fg_alpha(0.03));
-    for (index, tab) in tabs.iter().enumerate() {
-        let chosen = index == active;
-        let on_tab = on_tab.clone();
-        rail = rail.child(
-            div()
-                .id(("settings-tab", index))
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2p5()
-                .h(px(34.))
-                .px_2p5()
-                .rounded_md()
-                .cursor_pointer()
-                .text_size(px(13.))
-                .text_color(if chosen {
-                    theme::fg()
-                } else {
-                    theme::muted_fg()
-                })
-                .when(chosen, |el| el.bg(theme::accent_selected()))
-                .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
-                .on_click(move |_, window, cx| on_tab(index, window, cx))
-                .child(icon_colored(
-                    tab.icon,
-                    15.,
-                    if chosen {
-                        theme::fg()
-                    } else {
-                        theme::muted_fg()
-                    },
-                ))
-                .child(tab.label),
-        );
-    }
-
-    let header = div()
+/// The header of a panel: its icon, what it is about, and the close button.
+fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div {
+    div()
         .flex_none()
         .flex()
         .flex_row()
@@ -144,8 +90,11 @@ pub fn frame(
                 .icon(IconName::X)
                 .tooltip("Close (Esc)")
                 .on_click(move |_, window, cx| on_close(window, cx)),
-        );
+        )
+}
 
+/// The card everything sits in: it fills the modal, with rounded corners and a border.
+fn shell() -> Div {
     div()
         .size_full()
         .flex()
@@ -157,7 +106,56 @@ pub fn frame(
         .bg(theme::bg())
         .shadow_2xl()
         .text_color(theme::fg())
-        .child(header)
+}
+
+/// The frame of a panel. `on_tab` gets the index of the tab clicked and `on_close` the close
+/// button of the header.
+pub fn frame(
+    head: Head,
+    tabs: &[Tab],
+    active: usize,
+    on_tab: impl Fn(usize, &mut Window, &mut App) + 'static,
+    on_close: impl Fn(&mut Window, &mut App) + 'static,
+    body: impl IntoElement,
+    footer: impl IntoElement,
+) -> Div {
+    let on_tab = Rc::new(on_tab);
+    let mut rail = div()
+        .flex_none()
+        .w(px(RAIL_WIDTH))
+        .flex()
+        .flex_col()
+        .gap_0p5()
+        .p_2()
+        .border_r_1()
+        .border_color(theme::border_hairline())
+        .bg(theme::fg_alpha(0.03));
+    for (index, tab) in tabs.iter().enumerate() {
+        let chosen = index == active;
+        let on_tab = on_tab.clone();
+        rail = rail.child(
+            div()
+                .id(("settings-tab", index))
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2p5()
+                .h(px(34.))
+                .px_2p5()
+                .rounded_md()
+                .cursor_pointer()
+                .text_size(px(13.))
+                .text_color(ink(chosen))
+                .when(chosen, |el| el.bg(theme::accent_selected()))
+                .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
+                .on_click(move |_, window, cx| on_tab(index, window, cx))
+                .child(icon_colored(tab.icon, 15., ink(chosen)))
+                .child(tab.label),
+        );
+    }
+
+    shell()
+        .child(header(head, on_close))
         .child(
             div()
                 .flex_1()
@@ -174,6 +172,28 @@ pub fn frame(
                         .p_4()
                         .child(body),
                 ),
+        )
+        .child(footer)
+}
+
+/// A dialog: the frame without a rail of tabs, for what has one page (a list, a confirmation, a
+/// short form).
+pub fn dialog(
+    head: Head,
+    on_close: impl Fn(&mut Window, &mut App) + 'static,
+    body: impl IntoElement,
+    footer: impl IntoElement,
+) -> Div {
+    shell()
+        .child(header(head, on_close))
+        .child(
+            div()
+                .id("dialog-body")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .p_4()
+                .child(body),
         )
         .child(footer)
 }
@@ -326,17 +346,36 @@ pub fn block(content: impl IntoElement) -> AnyElement {
     div().py_2p5().child(content).into_any_element()
 }
 
-/// A switch for a row.
+/// A small title over a list, for the sections of what is inside a group.
+pub fn caption(title: impl Into<SharedString>) -> Div {
+    div()
+        .px_2()
+        .pt_2()
+        .pb_1()
+        .text_size(px(11.))
+        .font_semibold()
+        .text_color(theme::muted_fg())
+        .child(title.into().to_uppercase())
+}
+
+/// A switch in the look of the panels: small, with the pointer of a button. The caller adds what
+/// it needs (a label, `disabled`, the click).
+pub fn switch(id: impl Into<ElementId>, on: bool) -> Switch {
+    Switch::new(id).cursor_pointer().small().checked(on)
+}
+
+/// A switch for a row: `on_change` gets the new state.
 pub fn toggle(
     id: impl Into<ElementId>,
     on: bool,
     on_change: impl Fn(bool, &mut Window, &mut App) + 'static,
 ) -> Switch {
-    Switch::new(id)
-        .cursor_pointer()
-        .small()
-        .checked(on)
-        .on_click(move |checked, window, cx| on_change(*checked, window, cx))
+    switch(id, on).on_click(move |checked, window, cx| on_change(*checked, window, cx))
+}
+
+/// A text field of a row, `width` pixels wide, for a state made with [`InputState::new`].
+pub fn text_field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
+    div().w(px(width)).child(Input::new(state).small())
 }
 
 /// A small icon, for a mark beside a name.
@@ -464,6 +503,25 @@ pub fn dash_picker(
         );
     }
     row
+}
+
+/// Heights by name (a name and a weight against the rest), one chosen when `current` is the
+/// weight of one of them. `on_pick` gets the weight.
+pub fn height_picker(
+    id: impl Into<ElementId>,
+    presets: &'static [(&'static str, f32)],
+    current: f32,
+    on_pick: impl Fn(f32, &mut Window, &mut App) + 'static,
+) -> AnyElement {
+    let names: Vec<&str> = presets.iter().map(|(name, _)| *name).collect();
+    let selected = presets
+        .iter()
+        .position(|(_, weight)| (weight - current).abs() < 0.05)
+        .unwrap_or(usize::MAX);
+    widgets::segmented(id, &names, selected, move |choice, window, cx| {
+        on_pick(presets[choice].1, window, cx);
+    })
+    .into_any_element()
 }
 
 /// A tooltip with `text`, in the shape the elements of gpui take.

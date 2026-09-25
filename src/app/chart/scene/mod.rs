@@ -26,12 +26,19 @@ use super::display::{Display, effective_kind};
 use super::drawing::geometry::{self as shapes, Anchor, Prim};
 use super::drawing::model::{Dash, Drawing};
 use super::flow::Flow;
+use super::options::{ChartColors, CrosshairStyle};
 use super::projection::ChartProjection;
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
 use super::study::{Placement, ValueFormat};
 use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
 use crate::app::theme;
+
+/// The opacity of a grid color the user chose.
+const GRID_ALPHA: f32 = 0.3;
+
+/// The size of the text of the watermark.
+const WATERMARK_SIZE: f32 = 46.0;
 
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
@@ -67,6 +74,39 @@ impl Palette {
             border: theme::chart_border(),
             crosshair: theme::chart_crosshair(),
         }
+    }
+
+    /// The colors of the theme, with the ones a chart overrides.
+    pub fn for_chart(colors: &ChartColors) -> Self {
+        let mut palette = Self::new();
+        let pick = |color: u32| gpui::rgb(color);
+        if let Some(c) = colors.up {
+            palette.up = pick(c);
+        }
+        if let Some(c) = colors.down {
+            palette.down = pick(c);
+        }
+        if let Some(c) = colors.line {
+            palette.line = pick(c);
+        }
+        if let Some(c) = colors.background {
+            palette.bg = pick(c);
+        }
+        if let Some(c) = colors.grid {
+            // The grid sits behind the prices: a chosen color is drawn faint, like the theme's.
+            palette.grid = gpui::Rgba {
+                a: GRID_ALPHA,
+                ..pick(c)
+            };
+        }
+        if let Some(c) = colors.crosshair {
+            palette.crosshair = pick(c);
+        }
+        if let Some(c) = colors.text {
+            palette.text = pick(c);
+            palette.text_strong = pick(c);
+        }
+        palette
     }
 }
 
@@ -118,6 +158,8 @@ pub struct Frame<'a> {
     pub marks: &'a [PriceMark],
     /// What traded at each price of each bar, for the footprint chart type.
     pub flow: Option<&'a Flow>,
+    /// The text written faint behind the prices, when the chart has a watermark.
+    pub watermark: Option<String>,
 }
 
 impl Frame<'_> {
@@ -180,7 +222,7 @@ pub fn main_map(
                     }
                 }
             }
-            padded_range(lo, hi, quote_unit(digits) * 10.0)
+            padded_range(lo, hi, quote_unit(digits) * 10.0, settings.margin.share())
         }
     };
     let (lo, hi) = if settings.scale == ScaleMode::Log {
@@ -359,7 +401,11 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         cmds.push(axes_background(frame, &geometry));
         return cmds;
     };
-    let pointer = pointer_of(frame, &geometry, &map);
+    let pointer = if frame.settings.crosshair == CrosshairStyle::Off {
+        None
+    } else {
+        pointer_of(frame, &geometry, &map)
+    };
     let main = geometry.main();
     let cx = Ctx {
         f: frame,
@@ -400,16 +446,43 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
 
     // ---- the prices band ----
     let mut plot: Vec<Cmd> = Vec::new();
-    if frame.settings.grid {
+    if let Some(text) = &frame.watermark {
+        plot.push(Cmd::Text {
+            text: text.clone(),
+            x: ox + plot_w as f32 / 2.0,
+            y: oy + (main.top + main.h / 2.0) as f32 - WATERMARK_SIZE * 0.65,
+            size: WATERMARK_SIZE,
+            color: with_alpha(p.text_strong, 0.07),
+            align: Align::Center,
+            bold: true,
+        });
+    }
+    let (grid_h, grid_v) = (
+        frame.settings.grid && frame.settings.grid_horizontal,
+        frame.settings.grid && frame.settings.grid_vertical,
+    );
+    if grid_h {
         for value in &main_ticks {
             plot.push(cx.hline(cx.y(*value), ox, ox + plot_w as f32, hsla(p.grid)));
         }
+    }
+    if grid_v {
         for label in &time_labels {
             plot.push(cx.vline(
                 cx.x(label.index),
                 oy + main.top as f32,
                 oy + main.bottom() as f32,
                 hsla(p.grid),
+            ));
+        }
+    }
+    if frame.settings.price_lines.day_breaks {
+        for index in day_breaks(frame, first, last) {
+            plot.push(cx.vline(
+                cx.x(index),
+                oy,
+                oy + plot_h as f32,
+                with_alpha(p.text, 0.28),
             ));
         }
     }
@@ -462,10 +535,12 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             f64::MIN_POSITIVE,
         );
         let mut inner = Vec::new();
-        if frame.settings.grid {
+        if grid_h {
             for value in &ticks {
                 inner.push(cx.hline(cx.y_on(&pmap, *value), ox, ox + plot_w as f32, hsla(p.grid)));
             }
+        }
+        if grid_v {
             for label in &time_labels {
                 inner.push(cx.vline(
                     cx.x(label.index),
@@ -515,7 +590,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
                 ],
                 width: 1.0,
                 color: hsla(p.crosshair),
-                dash: Some([4.0, 4.0]),
+                dash: frame.settings.crosshair.dash(),
             }],
         });
     }
@@ -641,7 +716,7 @@ fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
         points: vec![(cx.ox, y), (cx.ox + cx.plot_w as f32, y)],
         width: 1.0,
         color: hsla(cx.f.palette.crosshair),
-        dash: Some([4.0, 4.0]),
+        dash: cx.f.settings.crosshair.dash(),
     }
 }
 
@@ -696,10 +771,55 @@ fn last_is_up(series: &Series) -> bool {
     }
 }
 
+/// The close of the last bar of the day before the newest bar's, in raw units, when the prices
+/// are bars.
+fn previous_close(series: &Series, zone: super::zone::Zone) -> Option<i64> {
+    let Series::Bars(bars) = series else {
+        return None;
+    };
+    let day = zone.day(bars.last()?.time_ms);
+    bars.iter()
+        .rev()
+        .find(|bar| zone.day(bar.time_ms) != day)
+        .map(|bar| bar.close)
+}
+
+/// The indexes in `first..last` of the points that start a new day, when the chart's points are
+/// periods shorter than a day.
+fn day_breaks(frame: &Frame<'_>, first: usize, last: usize) -> Vec<usize> {
+    let intraday = frame
+        .timeframe
+        .bar_ms()
+        .is_some_and(|ms| ms < 86_400_000 && frame.settings.kind.keeps_time());
+    if !intraday {
+        return Vec::new();
+    }
+    let series = frame.series();
+    let zone = frame.settings.zone;
+    (first.max(1)..last)
+        .filter(|&i| match (series.time_at(i - 1), series.time_at(i)) {
+            (Some(before), Some(now)) => zone.day(before) != zone.day(now),
+            _ => false,
+        })
+        .collect()
+}
+
 fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
     let p = cx.f.palette;
+    let lines = cx.f.settings.price_lines;
     let (x0, x1) = (cx.ox, cx.ox + cx.plot_w as f32);
-    if let Some(ask) = cx.f.ask {
+    if lines.previous_close
+        && let Some(close) = previous_close(cx.f.raw, cx.f.settings.zone)
+    {
+        let y = cx.snap(cx.y(close as f64)) + 0.5;
+        out.push(Cmd::Stroke {
+            points: vec![(x0, y), (x1, y)],
+            width: 1.0,
+            color: with_alpha(p.text, 0.55),
+            dash: Some([6.0, 4.0]),
+        });
+    }
+    if let Some(ask) = cx.f.ask.filter(|_| lines.ask_line) {
         out.push(Cmd::Stroke {
             points: vec![
                 (x0, cx.snap(cx.y(ask as f64)) + 0.5),
@@ -710,7 +830,7 @@ fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
             dash: Some([2.0, 3.0]),
         });
     }
-    if let Some(price) = cx.f.raw.last_price() {
+    if let Some(price) = cx.f.raw.last_price().filter(|_| lines.last_line) {
         let c = with_alpha(cx.up_color(last_is_up(cx.f.raw)), 0.8);
         let y = cx.snap(cx.y(price as f64)) + 0.5;
         out.push(Cmd::Stroke {
@@ -789,14 +909,18 @@ fn draw_axis_tags(
     if let Some(price) = cx.f.raw.last_price() {
         let y = clamp_y(&main, cx.y(price as f64));
         let bg = hsla(cx.up_color(last_is_up(cx.f.raw)));
-        out.push(tag(
-            cx.map.label(price as f64, ValueFormat::Price, cx.f.digits),
-            y,
-            bg,
-            hsla(p.bg),
-        ));
+        let lines = cx.f.settings.price_lines;
+        if lines.last_tag {
+            out.push(tag(
+                cx.map.label(price as f64, ValueFormat::Price, cx.f.digits),
+                y,
+                bg,
+                hsla(p.bg),
+            ));
+        }
         // The time left in the bar, under the price, for bars that are periods of time.
         if let (Some(bar_ms), Some(last)) = (cx.f.timeframe.bar_ms(), cx.f.raw.last_time())
+            && lines.countdown
             && cx.f.settings.kind.keeps_time()
             && matches!(cx.f.raw, Series::Bars(_))
         {
@@ -805,7 +929,8 @@ fn draw_axis_tags(
                 out.push(Cmd::Tag {
                     text: countdown(left),
                     x: axis_x,
-                    y: y + 9.0,
+                    // Under the tag of the price, or where it would be without one.
+                    y: if lines.last_tag { y + 9.0 } else { y - 8.0 },
                     height: 16.0,
                     pad: 7.0,
                     bg: shade(cx.up_color(last_is_up(cx.f.raw)), 0.72),

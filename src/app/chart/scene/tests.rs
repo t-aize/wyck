@@ -3,7 +3,9 @@ use wyck::openapi::market::{Bar, Period, Quote, Tick};
 use super::cmd::{count, texts};
 use super::*;
 use crate::app::chart::flow::Flow;
+use crate::app::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
 use crate::app::chart::study::{StudyConfig, StudyKind};
+use crate::app::chart::zone::Zone;
 
 fn bars(n: usize) -> Vec<Bar> {
     (0..n)
@@ -61,6 +63,7 @@ impl Fixture {
             drawings: None,
             marks: &[],
             flow: Some(&self.flow),
+            watermark: None,
         }
     }
 }
@@ -404,4 +407,194 @@ fn the_prices_leave_room_for_the_summary_under_them() {
     off.footprint.summary = false;
     let without = main_map(&f.raw, &f.display, &off, &f.view, &g, 5).unwrap();
     assert!(with.bottom < without.bottom - 20.0);
+}
+
+fn drawn(settings: ChartSettings, edit: impl FnOnce(&mut Frame<'_>)) -> usize {
+    let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+    let mut frame = f.frame();
+    edit(&mut frame);
+    count(&build(&frame))
+}
+
+#[test]
+fn the_grid_options_take_lines_out_one_kind_at_a_time() {
+    let with = |grid, horizontal, vertical| {
+        drawn(
+            ChartSettings {
+                grid,
+                grid_horizontal: horizontal,
+                grid_vertical: vertical,
+                ..ChartSettings::default()
+            },
+            |_| {},
+        )
+    };
+    let both = with(true, true, true);
+    let horizontal_only = with(true, true, false);
+    let vertical_only = with(true, false, true);
+    let none = with(false, true, true);
+    assert!(both > horizontal_only && both > vertical_only, "{both}");
+    assert!(horizontal_only > none && vertical_only > none);
+    assert_eq!(with(true, false, false), none);
+}
+
+#[test]
+fn a_crosshair_that_is_off_draws_neither_lines_nor_tags() {
+    let with = |crosshair| {
+        drawn(
+            ChartSettings {
+                crosshair,
+                ..ChartSettings::default()
+            },
+            |_| {},
+        )
+    };
+    let dashed = with(CrosshairStyle::Dashed);
+    assert_eq!(with(CrosshairStyle::Solid), dashed);
+    let off = with(CrosshairStyle::Off);
+    // Two lines and two tags.
+    assert_eq!(dashed - off, 4);
+    assert_eq!(CrosshairStyle::Solid.dash(), None);
+    assert!(CrosshairStyle::Dotted.dash().is_some());
+}
+
+#[test]
+fn the_price_lines_and_tags_can_each_be_hidden() {
+    let f = Fixture::new(
+        Series::Bars(bars(300)),
+        ChartSettings::default(),
+        View::new(8.0),
+    );
+    let mut frame = f.frame();
+    // The bar that is current at the moment of the frame, so the countdown shows.
+    frame.now_ms = f.raw.last_time().unwrap() + 1_000;
+    let all = count(&build(&frame));
+    let hide = |change: fn(&mut crate::app::chart::options::PriceLines)| {
+        let mut settings = ChartSettings::default();
+        change(&mut settings.price_lines);
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let mut frame = f.frame();
+        frame.now_ms = f.raw.last_time().unwrap() + 1_000;
+        count(&build(&frame))
+    };
+    assert_eq!(all - hide(|p| p.last_line = false), 1);
+    assert_eq!(all - hide(|p| p.last_tag = false), 1);
+    assert_eq!(all - hide(|p| p.countdown = false), 1);
+    assert_eq!(all - hide(|p| p.ask_line = false), 1);
+}
+
+#[test]
+fn the_watermark_is_written_behind_the_prices() {
+    let f = Fixture::new(
+        Series::Bars(bars(50)),
+        ChartSettings::default(),
+        View::new(8.0),
+    );
+    let mut frame = f.frame();
+    assert!(!texts(&build(&frame)).iter().any(|t| t == "EURUSD, M5"));
+    frame.watermark = Some("EURUSD, M5".to_owned());
+    assert!(texts(&build(&frame)).iter().any(|t| t == "EURUSD, M5"));
+}
+
+#[test]
+fn day_separators_only_show_when_asked_and_on_intraday_bars() {
+    let hourly: Vec<Bar> = (0..120)
+        .map(|i| Bar {
+            time_ms: 1_767_571_200_000 + i * 3_600_000,
+            open: 100_000,
+            high: 100_030,
+            low: 99_980,
+            close: 100_010,
+            volume: 1,
+        })
+        .collect();
+    let build_with = |day_breaks: bool| {
+        let mut settings = ChartSettings::default();
+        settings.price_lines.day_breaks = day_breaks;
+        let f = Fixture::new(Series::Bars(hourly.clone()), settings, View::new(8.0));
+        let mut frame = f.frame();
+        frame.timeframe = Timeframe::Bars(Period::H1);
+        count(&build(&frame))
+    };
+    // 120 hourly bars are five days: at least four changes of the day are on screen.
+    assert!(build_with(true) >= build_with(false) + 4);
+    let f = Fixture::new(
+        Series::Bars(hourly),
+        ChartSettings::default(),
+        View::new(8.0),
+    );
+    let mut frame = f.frame();
+    frame.timeframe = Timeframe::Bars(Period::D1);
+    assert!(day_breaks(&frame, 0, 120).is_empty());
+}
+
+#[test]
+fn the_previous_close_is_the_last_close_of_the_day_before() {
+    let day = 86_400_000;
+    let bar = |time_ms, close| Bar {
+        time_ms,
+        open: close,
+        high: close,
+        low: close,
+        close,
+        volume: 1,
+    };
+    let series = Series::Bars(vec![
+        bar(day, 10),
+        bar(day + 3_600_000, 11),
+        bar(2 * day, 20),
+        bar(2 * day + 3_600_000, 21),
+    ]);
+    assert_eq!(previous_close(&series, Zone::Utc), Some(11));
+    assert_eq!(
+        previous_close(&Series::Bars(vec![bar(day, 10)]), Zone::Utc),
+        None
+    );
+    assert_eq!(previous_close(&Series::Ticks(Vec::new()), Zone::Utc), None);
+}
+
+#[test]
+fn a_chart_overrides_only_the_colors_it_sets() {
+    let theme = Palette::new();
+    let colors = ChartColors {
+        up: Some(0x00ff00),
+        background: Some(0x101010),
+        ..ChartColors::default()
+    };
+    let own = Palette::for_chart(&colors);
+    assert_eq!(own.up, gpui::rgb(0x00ff00));
+    assert_eq!(own.bg, gpui::rgb(0x101010));
+    assert_eq!(own.down, theme.down);
+    let grid = Palette::for_chart(&ChartColors {
+        grid: Some(0xffffff),
+        ..ChartColors::default()
+    });
+    assert!(grid.grid.a < 0.5, "a chosen grid color is drawn faint");
+    assert_eq!(own.line, theme.line);
+}
+
+#[test]
+fn the_margins_widen_the_automatic_price_scale() {
+    let range = |margin| {
+        let settings = ChartSettings {
+            margin,
+            ..ChartSettings::default()
+        };
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let geometry = geometry(&f.settings, 1_000.0, 600.0);
+        let map = main_map(&f.raw, &f.display, &f.settings, &f.view, &geometry, 5).unwrap();
+        map.hi - map.lo
+    };
+    assert!(range(ScaleMargin::Tight) < range(ScaleMargin::Normal));
+    assert!(range(ScaleMargin::Normal) < range(ScaleMargin::Loose));
+}
+
+#[test]
+fn trading_lines_that_are_hidden_are_not_marks() {
+    let settings = super::super::options::TradingLines {
+        alerts: false,
+        ..super::super::options::TradingLines::default()
+    };
+    assert!(!settings.shows(super::super::lines::LineId::Alert(3)));
+    assert!(settings.shows(super::super::lines::LineId::Order(3)));
 }

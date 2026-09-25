@@ -1,5 +1,5 @@
-//! Small building blocks for settings dialogs and panels, in the app's look: section titles,
-//! labelled rows, segmented choices, color swatches, number fields.
+//! Small building blocks for settings dialogs and panels, in the app's look: segmented choices,
+//! color swatches, number fields, and the subscriptions that read them.
 //!
 //! They are plain functions returning elements, so a dialog owns its state (which choice, which
 //! swatch popover is open) and passes it in; the callbacks say what the user picked.
@@ -7,46 +7,17 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, ElementId, Entity, SharedString, Window, div, px};
-use gpui_kit::component::input::{InputState, NumberInput};
-use gpui_kit::component::{Sizable, StyledExt as _};
+use gpui::{
+    AnyElement, App, Context, ElementId, Entity, SharedString, Subscription, Window, div, px,
+};
+use gpui_kit::component::Sizable;
+use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 
 use super::{color_picker, theme};
 
 /// The id of child `n` of an element.
 pub fn child_id(id: &ElementId, n: usize) -> ElementId {
     ElementId::NamedChild(std::sync::Arc::new(id.clone()), n.to_string().into())
-}
-
-/// A section title in a dialog.
-pub fn section(title: impl Into<SharedString>) -> Div {
-    div()
-        .pt_3()
-        .pb_1()
-        .text_size(px(11.))
-        .font_semibold()
-        .text_color(theme::muted_fg())
-        .child(title.into().to_uppercase())
-}
-
-/// A row with a label on the left and a control on the right.
-pub fn row(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .gap_4()
-        .min_h(px(34.))
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_size(px(13.))
-                .text_color(theme::fg())
-                .child(label.into()),
-        )
-        .child(div().flex_none().child(control))
 }
 
 /// Buttons side by side, one of them chosen.
@@ -167,6 +138,32 @@ pub fn number_state(
         .min(min)
         .max(max)
         .step(step)
+}
+
+/// Subscribes to a field: whenever it changes or loses focus and its text reads as a value by
+/// `parse` (which sees the view that owns the field), `on_value` gets that value.
+pub fn watch_parsed<T: 'static, V: 'static>(
+    state: &Entity<InputState>,
+    cx: &mut Context<T>,
+    parse: impl Fn(&T, &str) -> Option<V> + 'static,
+    on_value: impl Fn(&mut T, V, &mut Context<T>) + 'static,
+) -> Subscription {
+    cx.subscribe(state, move |this, state, event: &InputEvent, cx| {
+        if matches!(event, InputEvent::Change | InputEvent::Blur)
+            && let Some(value) = parse(this, &state.read(cx).value())
+        {
+            on_value(this, value, cx);
+        }
+    })
+}
+
+/// [`watch_parsed`] for a number field (see [`number_state`]).
+pub fn watch_number<T: 'static>(
+    state: &Entity<InputState>,
+    cx: &mut Context<T>,
+    on_value: impl Fn(&mut T, f64, &mut Context<T>) + 'static,
+) -> Subscription {
+    watch_parsed(state, cx, |_, text| parse_number(text), on_value)
 }
 
 /// A number written with at most `decimals` decimals, trailing zeros dropped.

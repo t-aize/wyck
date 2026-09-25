@@ -117,8 +117,9 @@ impl View {
 }
 
 /// Widens a price range so it never collapses to a line and leaves room around the data.
-/// `min_range` is the smallest range worth showing, in raw units.
-pub fn padded_range(lo: f64, hi: f64, min_range: f64) -> (f64, f64) {
+/// `min_range` is the smallest range worth showing, in raw units, and `share` the room left on
+/// each side as a share of the range.
+pub fn padded_range(lo: f64, hi: f64, min_range: f64, share: f64) -> (f64, f64) {
     let mut range = hi - lo;
     let mut lo = lo;
     let mut hi = hi;
@@ -128,7 +129,7 @@ pub fn padded_range(lo: f64, hi: f64, min_range: f64) -> (f64, f64) {
         hi = mid + min_range / 2.0;
         range = min_range;
     }
-    let pad = range * 0.07;
+    let pad = range * share;
     (lo - pad, hi + pad)
 }
 
@@ -216,10 +217,12 @@ mod tests {
 
     #[test]
     fn a_flat_range_is_widened() {
-        let (lo, hi) = padded_range(100.0, 100.0, 10.0);
+        let (lo, hi) = padded_range(100.0, 100.0, 10.0, 0.07);
         assert!(hi - lo > 10.0);
         assert!(lo < 100.0 && hi > 100.0);
-        let (lo, hi) = padded_range(0.0, 100.0, 1.0);
+        let (lo, hi) = padded_range(0.0, 100.0, 1.0, 0.07);
         assert!((lo + 7.0).abs() < 1e-9 && (hi - 107.0).abs() < 1e-9);
+        let (lo, hi) = padded_range(0.0, 100.0, 1.0, 0.16);
+        assert!((lo + 16.0).abs() < 1e-9 && (hi - 116.0).abs() < 1e-9);
     }
 }

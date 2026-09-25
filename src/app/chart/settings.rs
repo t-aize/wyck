@@ -6,6 +6,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::footprint::FootprintSettings;
+use super::options::{
+    ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines,
+};
 use super::study::{Placement, StudyConfig, StudyKind};
 use super::transform::TransformSettings;
 use super::zone::Zone;
@@ -211,6 +214,28 @@ pub struct ChartSettings {
     /// Whether the grid shows.
     #[serde(default = "yes")]
     pub grid: bool,
+    /// Whether the grid has its horizontal lines (at the prices), when it shows.
+    #[serde(default = "yes")]
+    pub grid_horizontal: bool,
+    /// Whether the grid has its vertical lines (at the times), when it shows.
+    #[serde(default = "yes")]
+    pub grid_vertical: bool,
+    #[serde(default)]
+    pub crosshair: CrosshairStyle,
+    /// The room the automatic price scale leaves around the prices.
+    #[serde(default)]
+    pub margin: ScaleMargin,
+    /// The symbol and timeframe, written large and faint behind the prices.
+    #[serde(default)]
+    pub watermark: bool,
+    #[serde(default)]
+    pub colors: ChartColors,
+    #[serde(default)]
+    pub price_lines: PriceLines,
+    #[serde(default)]
+    pub status: StatusLine,
+    #[serde(default)]
+    pub trading: TradingLines,
     #[serde(default)]
     pub studies: Vec<StudyConfig>,
     /// How much height the prices take relative to the panes.
@@ -236,6 +261,15 @@ impl Default for ChartSettings {
             invert: false,
             zone: Zone::default(),
             grid: true,
+            grid_horizontal: true,
+            grid_vertical: true,
+            crosshair: CrosshairStyle::Dashed,
+            margin: ScaleMargin::Normal,
+            watermark: false,
+            colors: ChartColors::default(),
+            price_lines: PriceLines::default(),
+            status: StatusLine::default(),
+            trading: TradingLines::default(),
             studies: Vec::new(),
             main_weight: MAIN_WEIGHT,
         }
@@ -256,6 +290,7 @@ impl ChartSettings {
     pub fn normalized(mut self) -> Self {
         self.transform = self.transform.normalized();
         self.footprint = self.footprint.normalized();
+        self.colors = self.colors.normalized();
         self.studies.retain(|s| s.kind != StudyKind::Unknown);
         self.studies.truncate(MAX_STUDIES);
         self.studies = self
@@ -268,6 +303,20 @@ impl ChartSettings {
         }
         self.main_weight = self.main_weight.clamp(0.2, 50.0);
         self
+    }
+
+    /// The settings with the looks of the chart put back to their defaults: what it shows (the
+    /// type, the indicators and the sizes of the panes) is kept.
+    #[must_use]
+    pub fn with_default_look(self) -> Self {
+        Self {
+            kind: self.kind,
+            transform: self.transform,
+            footprint: self.footprint,
+            studies: self.studies,
+            main_weight: self.main_weight,
+            ..Self::default()
+        }
     }
 
     /// The indicator panes, in the order they are stacked.
@@ -361,6 +410,41 @@ mod tests {
         let broken = broken.normalized();
         assert_eq!(broken.footprint.imbalance_percent, 110);
         assert_eq!(broken.footprint.stack_rows, 12);
+    }
+
+    #[test]
+    fn a_file_from_before_the_look_options_reads_with_their_defaults() {
+        let old: ChartSettings = toml::from_str("kind = \"line\"\ngrid = false\n").unwrap();
+        assert!(!old.grid);
+        assert!(old.grid_horizontal && old.grid_vertical);
+        assert_eq!(old.crosshair, CrosshairStyle::Dashed);
+        assert_eq!(old.price_lines, PriceLines::default());
+        assert_eq!(old.status, StatusLine::default());
+        assert_eq!(old.trading, TradingLines::default());
+        assert!(!old.colors.any());
+        assert!(!old.watermark);
+    }
+
+    #[test]
+    fn the_look_is_saved_and_reset_without_touching_what_the_chart_shows() {
+        let mut settings = ChartSettings {
+            kind: ChartKind::Area,
+            grid_vertical: false,
+            crosshair: CrosshairStyle::Solid,
+            watermark: true,
+            ..ChartSettings::default()
+        };
+        settings.colors.up = Some(0x00ff00);
+        settings.price_lines.previous_close = true;
+        settings.studies.push(StudyConfig::new(StudyKind::Rsi));
+        let text = toml::to_string_pretty(&settings).unwrap();
+        let back: ChartSettings = toml::from_str(&text).unwrap();
+        assert_eq!(back.normalized(), settings);
+        let reset = settings.clone().with_default_look();
+        assert_eq!(reset.kind, ChartKind::Area);
+        assert_eq!(reset.studies.len(), 1);
+        assert!(reset.grid_vertical && !reset.watermark && !reset.colors.any());
+        assert_eq!(reset.crosshair, CrosshairStyle::Dashed);
     }
 
     #[test]
