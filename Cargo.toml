@@ -36,7 +36,7 @@ tracing = "0.1.44"
 directories = "6.0.0"
 thiserror = "2.0.20"
 uuid = { version = "1.18.1", features = ["v4"] }
-time = { version = "0.3.44", features = ["formatting", "parsing", "macros"] }
+time = "0.3.44"
 
 gpui-kit = "0.6.6"
 rust-embed = { version = "8", features = ["debug-embed"] }
@@ -61,7 +61,7 @@ ab_glyph = "0.2.32"
 [dev-dependencies]
 tempfile = "3.27.0"
 proptest = "1.11.0"
-tokio = { version = "1.53.1", features = ["rt", "macros", "test-util", "net", "io-util", "signal"] }
+tokio = { version = "1.53.1", features = ["rt", "macros", "test-util", "net", "io-util"] }
 
 [[bin]]
 name = "sign-in"
