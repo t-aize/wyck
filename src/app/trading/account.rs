@@ -667,6 +667,21 @@ impl Account {
         });
     }
 
+    /// Turns the trailing of a position's stop loss on or off, keeping the levels as they are.
+    pub fn trail_position(&mut self, position_id: i64, on: bool, cx: &mut Context<Self>) {
+        let Some(position) = self.book.positions.get(&position_id) else {
+            return;
+        };
+        let contract = self.book.contract(position.trade_data.symbol_id);
+        let mut request = AmendPositionSlTpReq::new(position_id);
+        request.stop_loss = position.stop_loss.map(|p| contract.round_price(p));
+        request.take_profit = position.take_profit.map(|p| contract.round_price(p));
+        request.trailing_stop_loss = Some(on);
+        self.trade(Busy::Amending(position_id), cx, move |trading| async move {
+            trading.amend_position_sl_tp(request).await
+        });
+    }
+
     /// Sets the stop loss and take profit of a position (both are sent, so neither is lost).
     pub fn protect_position(
         &mut self,

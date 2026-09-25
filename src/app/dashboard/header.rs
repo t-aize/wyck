@@ -579,6 +579,9 @@ impl Dashboard {
 
     /// The switches of the panel under the charts and of the ticket beside them.
     fn panel_toggles(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let ticket_on_left = self.ticket.as_ref().is_some_and(|t| {
+            t.read(cx).layout().dock == crate::app::trading::ticket::prefs::Dock::Left
+        });
         div()
             .flex_none()
             .flex()
@@ -603,7 +606,11 @@ impl Dashboard {
                     .ghost()
                     .small()
                     .selected(self.ticket_open)
-                    .icon(IconName::PanelRight)
+                    .icon(if ticket_on_left {
+                        IconName::PanelLeft
+                    } else {
+                        IconName::PanelRight
+                    })
                     .tooltip("Order ticket")
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {

@@ -4,11 +4,11 @@
 
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, Context, Entity, FontWeight, MouseButton, SharedString, Window, deferred, div, px,
+    AnyElement, App, Context, Entity, FontWeight, MouseButton, SharedString, Window, deferred, div,
+    px,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::menu::{ContextMenuExt, PopupMenu, PopupMenuItem};
 use wyck::openapi::market::format_price;
 
 use super::data::Series;
@@ -24,6 +24,7 @@ use super::{
     study_ui,
 };
 use crate::app::connection::ui;
+use crate::app::menu::{self as popup, Entry, Item};
 use crate::app::{anim, theme};
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
@@ -88,7 +89,13 @@ impl Render for Chart {
         let compact = self.is_compact();
         let latest = !self.view.is_following() && !self.shown().is_empty();
         let geometry = self.geometry();
-        let menu_entity = entity.clone();
+        let menu = popup::Menu::new(("chart-context-menu", self.id), window, cx);
+        let context = if menu.is_open(cx) {
+            self.context_items(&entity, menu.position(cx), cx)
+        } else {
+            Vec::new()
+        };
+        let opener = menu.clone();
 
         div()
             .id(("chart", self.id))
@@ -109,222 +116,202 @@ impl Render for Chart {
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
             .children(self.status(cx))
-            .context_menu(move |menu, window, cx| context_menu(&menu_entity, menu, window, cx))
+            .on_mouse_down(MouseButton::Right, move |event, _window, cx| {
+                opener.open(Some(event.position), cx);
+            })
+            .children(menu.popup(context, popup::Placement::Cursor, window, cx))
     }
 }
 
-/// The items for the drawing under the pointer, at the top of the right-click menu.
-fn drawing_menu(
-    chart: &Entity<Chart>,
-    id: u64,
-    mut menu: PopupMenu,
-    cx: &mut Context<PopupMenu>,
-) -> PopupMenu {
-    let Some(drawing) = chart.read(cx).drawings.as_ref().and_then(|drawings| {
-        let symbol = chart.read(cx).symbol_name()?;
-        drawings.read(cx).book().get(&symbol, id).cloned()
-    }) else {
-        return menu;
-    };
-    let command = |command: DrawingCommand| {
-        let chart = chart.clone();
-        move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut gpui::App| {
-            chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
-        }
-    };
-    let settings = chart.clone();
-    menu = menu.label(drawing.title()).item(
-        PopupMenuItem::new("Settings...")
-            .icon(IconName::Settings2)
-            .on_click(move |_, window, cx| {
-                super::glue::open_drawing_settings(&settings, id, window, cx);
-            }),
-    );
-    if drawing.tool.is_position() {
-        let trade = chart.clone();
-        menu = menu.item(
-            PopupMenuItem::new(
-                if drawing.tool == super::drawing::model::Tool::LongPosition {
+impl Chart {
+    /// The items for the drawing under the pointer, at the top of the right-click menu.
+    fn drawing_items(&self, chart: &Entity<Chart>, id: u64, cx: &App) -> Vec<Item> {
+        let Some(drawing) = self.drawings.as_ref().and_then(|drawings| {
+            let symbol = self.symbol_name()?;
+            drawings.read(cx).book().get(&symbol, id).cloned()
+        }) else {
+            return Vec::new();
+        };
+        let command = |command: DrawingCommand| {
+            let chart = chart.clone();
+            move |_: &mut Window, cx: &mut App| {
+                chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
+            }
+        };
+        let long = drawing.tool == super::drawing::model::Tool::LongPosition;
+        let settings = chart.clone();
+        let mut items = vec![
+            Item::Title(drawing.title().into()),
+            Entry::new("Settings...")
+                .icon(IconName::Settings2)
+                .on_click(move |window, cx| {
+                    super::glue::open_drawing_settings(&settings, id, window, cx);
+                })
+                .into(),
+        ];
+        if drawing.tool.is_position() {
+            let trade = chart.clone();
+            items.push(
+                Entry::new(if long {
                     "Buy with these levels..."
                 } else {
                     "Sell with these levels..."
-                },
-            )
-            .icon(IconName::ArrowLeftRight)
-            .on_click(move |_, _, cx| trade.update(cx, |chart, cx| chart.trade_drawing(id, cx))),
-        );
-        menu = menu.item(
-            PopupMenuItem::new(
-                if drawing.tool == super::drawing::model::Tool::LongPosition {
+                })
+                .icon(IconName::ArrowLeftRight)
+                .on_click(move |_, cx| trade.update(cx, |chart, cx| chart.trade_drawing(id, cx)))
+                .into(),
+            );
+            items.push(
+                Entry::new(if long {
                     "Flip to a short position"
                 } else {
                     "Flip to a long position"
-                },
-            )
-            .icon(IconName::ArrowUpDown)
-            .disabled(drawing.locked)
-            .on_click(command(DrawingCommand::Flip)),
-        );
+                })
+                .icon(IconName::ArrowUpDown)
+                .disabled(drawing.locked)
+                .on_click(command(DrawingCommand::Flip))
+                .into(),
+            );
+        }
+        items.extend([
+            Entry::new("Duplicate")
+                .icon(IconName::Copy)
+                .on_click(command(DrawingCommand::Duplicate))
+                .into(),
+            Entry::new("Bring to front")
+                .icon(IconName::BringToFront)
+                .on_click(command(DrawingCommand::Order(Order::Front)))
+                .into(),
+            Entry::new("Send to back")
+                .icon(IconName::SendToBack)
+                .on_click(command(DrawingCommand::Order(Order::Back)))
+                .into(),
+            Entry::new(if drawing.hidden { "Show" } else { "Hide" })
+                .icon(if drawing.hidden {
+                    IconName::Eye
+                } else {
+                    IconName::EyeOff
+                })
+                .on_click(command(DrawingCommand::Hidden(!drawing.hidden)))
+                .into(),
+            Entry::new(if drawing.locked { "Unlock" } else { "Lock" })
+                .icon(if drawing.locked {
+                    IconName::LockOpen
+                } else {
+                    IconName::Lock
+                })
+                .on_click(command(DrawingCommand::Lock(!drawing.locked)))
+                .into(),
+            Entry::new("Delete")
+                .icon(IconName::Trash)
+                .disabled(drawing.locked)
+                .danger()
+                .on_click(command(DrawingCommand::Delete))
+                .into(),
+            Item::Separator,
+        ]);
+        items
     }
-    menu.item(
-        PopupMenuItem::new("Duplicate")
-            .icon(IconName::Copy)
-            .on_click(command(DrawingCommand::Duplicate)),
-    )
-    .item(
-        PopupMenuItem::new("Bring to front")
-            .icon(IconName::BringToFront)
-            .on_click(command(DrawingCommand::Order(Order::Front))),
-    )
-    .item(
-        PopupMenuItem::new("Send to back")
-            .icon(IconName::SendToBack)
-            .on_click(command(DrawingCommand::Order(Order::Back))),
-    )
-    .item(
-        PopupMenuItem::new(if drawing.hidden { "Show" } else { "Hide" })
-            .icon(if drawing.hidden {
-                IconName::Eye
-            } else {
-                IconName::EyeOff
-            })
-            .on_click(command(DrawingCommand::Hidden(!drawing.hidden))),
-    )
-    .item(
-        PopupMenuItem::new(if drawing.locked { "Unlock" } else { "Lock" })
-            .icon(if drawing.locked {
-                IconName::LockOpen
-            } else {
-                IconName::Lock
-            })
-            .on_click(command(DrawingCommand::Lock(!drawing.locked))),
-    )
-    .item(
-        PopupMenuItem::new("Delete")
-            .icon(IconName::Trash)
-            .disabled(drawing.locked)
-            .on_click(command(DrawingCommand::Delete)),
-    )
-    .separator()
-}
 
-/// The right-click menu, for the price under the pointer.
-fn context_menu(
-    chart: &Entity<Chart>,
-    menu: PopupMenu,
-    window: &mut Window,
-    cx: &mut Context<PopupMenu>,
-) -> PopupMenu {
-    let (price_raw, bid, ask, digits, has_symbol, under) = {
-        let this = chart.read(cx);
-        let origin = this.bounds.get().map(|b| b.origin);
-        let (x, y) = match origin {
-            Some(origin) => {
-                let at = window.mouse_position() - origin;
+    /// The right-click menu, for the price under the pointer. `at` is where the pointer was, in
+    /// window coordinates.
+    fn context_items(
+        &self,
+        chart: &Entity<Chart>,
+        at: Option<gpui::Point<gpui::Pixels>>,
+        cx: &App,
+    ) -> Vec<Item> {
+        let origin = self.bounds.get().map(|b| b.origin);
+        let (x, y) = match (at, origin) {
+            (Some(at), Some(origin)) => {
+                let at = at - origin;
                 (f32::from(at.x), f32::from(at.y))
             }
-            None => this.context_at.unwrap_or((0.0, 0.0)),
+            _ => self.context_at.unwrap_or((0.0, 0.0)),
         };
-        (
-            this.price_at(y),
-            this.bid,
-            this.ask,
-            this.digits(),
-            this.symbol.is_some(),
-            this.drawing_under(x, y, cx),
-        )
-    };
-    let mut menu = menu.min_w(px(230.));
-    if let Some(id) = under {
-        menu = drawing_menu(chart, id, menu, cx);
-    }
-    if let (Some(raw), true) = (price_raw, has_symbol) {
-        let text = format_price(raw.round() as i64, digits);
-        let real = to_real(raw);
-        let buy_limit = ask.is_some_and(|ask| raw < ask as f64);
-        let sell_limit = bid.is_some_and(|bid| raw > bid as f64);
-        let emit = |action: ChartAction| {
-            let chart = chart.clone();
-            move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut gpui::App| {
-                chart.update(cx, |_, cx| cx.emit(ChartEvent::Action(action.clone())));
-            }
-        };
-        menu = menu
-            .item(
-                PopupMenuItem::new(format!(
+        let (price_raw, bid, ask, digits) = (self.price_at(y), self.bid, self.ask, self.digits());
+        let mut items = Vec::new();
+        if let Some(id) = self.drawing_under(x, y, cx) {
+            items = self.drawing_items(chart, id, cx);
+        }
+        if let (Some(raw), true) = (price_raw, self.symbol.is_some()) {
+            let text = format_price(raw.round() as i64, digits);
+            let real = to_real(raw);
+            let buy_limit = ask.is_some_and(|ask| raw < ask as f64);
+            let sell_limit = bid.is_some_and(|bid| raw > bid as f64);
+            let emit = |action: ChartAction| {
+                let chart = chart.clone();
+                move |_: &mut Window, cx: &mut App| {
+                    chart.update(cx, |_, cx| cx.emit(ChartEvent::Action(action.clone())));
+                }
+            };
+            let ticket = |buy: bool, entry: Option<f64>| ChartAction::Ticket {
+                buy,
+                entry,
+                stop_loss: None,
+                take_profit: None,
+            };
+            items.extend([
+                Entry::new(format!(
                     "Buy {} {text}",
                     if buy_limit { "limit" } else { "stop" }
                 ))
                 .icon(IconName::ArrowBigUp)
-                .on_click(emit(ChartAction::Ticket {
-                    buy: true,
-                    entry: Some(real),
-                    stop_loss: None,
-                    take_profit: None,
-                })),
-            )
-            .item(
-                PopupMenuItem::new(format!(
+                .on_click(emit(ticket(true, Some(real))))
+                .into(),
+                Entry::new(format!(
                     "Sell {} {text}",
                     if sell_limit { "limit" } else { "stop" }
                 ))
                 .icon(IconName::ArrowBigDown)
-                .on_click(emit(ChartAction::Ticket {
-                    buy: false,
-                    entry: Some(real),
-                    stop_loss: None,
-                    take_profit: None,
-                })),
-            )
-            .item(
-                PopupMenuItem::new("New order...")
+                .on_click(emit(ticket(false, Some(real))))
+                .into(),
+                Entry::new("New order...")
                     .icon(IconName::Plus)
-                    .on_click(emit(ChartAction::Ticket {
-                        buy: true,
-                        entry: None,
-                        stop_loss: None,
-                        take_profit: None,
-                    })),
-            )
-            .separator()
-            .item(
-                PopupMenuItem::new(format!("Add alert at {text}"))
+                    .on_click(emit(ticket(true, None)))
+                    .into(),
+                Item::Separator,
+                Entry::new(format!("Add alert at {text}"))
                     .icon(IconName::BellPlus)
-                    .on_click(emit(ChartAction::AddAlert(real))),
-            )
-            .separator();
-    }
-    let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
-        let chart = chart.clone();
-        move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut gpui::App| {
-            chart.update(cx, |this, cx| f(this, window, cx));
+                    .hint("Alt+A")
+                    .on_click(emit(ChartAction::AddAlert(real)))
+                    .into(),
+                Item::Separator,
+            ]);
         }
-    };
-    menu.item(
-        PopupMenuItem::new("Indicators...")
-            .icon(IconName::ChartSpline)
-            .on_click(on(|this, window, cx| {
-                study_ui::open_picker(cx.entity(), this, window, cx)
-            })),
-    )
-    .item(
-        PopupMenuItem::new("Chart settings...")
-            .icon(IconName::Settings2)
-            .on_click(on(|_, window, cx| {
-                study_ui::open_chart_settings(cx.entity(), window, cx)
-            })),
-    )
-    .separator()
-    .item(
-        PopupMenuItem::new("Reset chart view")
-            .icon(IconName::RotateCcw)
-            .on_click(on(|this, _, cx| this.jump_to_latest(cx))),
-    )
-    .item(
-        PopupMenuItem::new("Take a picture of the chart")
-            .icon(IconName::Camera)
-            .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot))),
-    )
+        let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
+            let chart = chart.clone();
+            move |window: &mut Window, cx: &mut App| {
+                chart.update(cx, |this, cx| f(this, window, cx));
+            }
+        };
+        items.extend([
+            Entry::new("Indicators...")
+                .icon(IconName::ChartSpline)
+                .on_click(on(|this, window, cx| {
+                    study_ui::open_picker(cx.entity(), this, window, cx)
+                }))
+                .into(),
+            Entry::new("Chart settings...")
+                .icon(IconName::Settings2)
+                .on_click(on(|_, window, cx| {
+                    study_ui::open_chart_settings(cx.entity(), window, cx)
+                }))
+                .into(),
+            Item::Separator,
+            Entry::new("Reset chart view")
+                .icon(IconName::RotateCcw)
+                .hint("End")
+                .on_click(on(|this, _, cx| this.jump_to_latest(cx)))
+                .into(),
+            Entry::new("Take a picture of the chart")
+                .icon(IconName::Camera)
+                .hint("Ctrl+Shift+S")
+                .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
+                .into(),
+        ]);
+        items
+    }
 }
 
 impl Chart {

@@ -188,6 +188,8 @@ pub struct Dashboard {
     panel_height: f32,
     /// Where the pointer was while the panel's top edge is dragged.
     panel_drag: Option<f32>,
+    /// Where the pointer was, and how wide the ticket was, when its edge was grabbed.
+    ticket_drag: Option<(f32, f32)>,
     /// What waits for the window.
     pending: Vec<trade::Pending>,
 }
@@ -281,6 +283,7 @@ impl Dashboard {
             panel_open: prefs.panel_open,
             panel_height: prefs.panel_height,
             panel_drag: None,
+            ticket_drag: None,
             pending: Vec::new(),
         };
         dashboard.follow_session(cx);

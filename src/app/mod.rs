@@ -9,6 +9,7 @@ mod chart;
 mod color_picker;
 mod connection;
 mod dashboard;
+mod menu;
 mod modal;
 mod multichart;
 mod runtime;

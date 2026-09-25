@@ -339,6 +339,7 @@ impl Preferences {
             self.panel_height = default_panel_height();
         }
         self.panel_height = self.panel_height.min(2_000.0);
+        self.ticket = self.ticket.normalized();
 
         // The favorite tools: known ones, each once, in the order saved, no more than the bar
         // holds. An empty list is kept: it is what the user chose, not a reason for the defaults.

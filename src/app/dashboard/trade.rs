@@ -15,6 +15,7 @@ use wyck::openapi::market::PRICE_SCALE;
 use crate::app::chart::{ChartAction, LineId, now_ms};
 use crate::app::multichart::SymbolRef;
 use crate::app::trading::panel::{PanelEvent, Tab};
+use crate::app::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::app::trading::ticket::{OrderTicket, TicketEvent, confirm};
 use crate::app::trading::{self, math};
 use crate::app::{alerts, theme, toast};
@@ -39,8 +40,6 @@ pub(super) enum Pending {
 
 /// The least height of the account panel.
 const PANEL_MIN: f32 = 120.0;
-/// The width of the order ticket.
-const TICKET_WIDTH: f32 = 300.0;
 
 impl Dashboard {
     /// Creates the ticket (which needs the window) and runs what waited for it.
@@ -61,10 +60,12 @@ impl Dashboard {
                         this.push_lines(cx);
                     }
                     TicketEvent::Settings(settings) => {
-                        let settings = *settings;
+                        let settings = (**settings).clone();
                         this.workspace.update(cx, |workspace, cx| {
                             workspace.edit_preferences(cx, |prefs| prefs.ticket = settings);
                         });
+                        // The side and the width of the panel are part of it.
+                        cx.notify();
                     }
                     TicketEvent::Close => this.set_ticket_open(false, cx),
                 },
@@ -345,6 +346,58 @@ impl Dashboard {
         let panel = self.panel.clone().filter(|_| self.panel_open);
         let ticket = self.ticket.clone().filter(|_| self.ticket_open);
         let dragging = self.panel_drag.is_some();
+        let ticket_dragging = self.ticket_drag.is_some();
+        let (dock, width) = ticket.as_ref().map_or((Dock::Right, WIDTH_DEFAULT), |t| {
+            let layout = t.read(cx).layout();
+            (layout.dock, layout.width)
+        });
+        let charts = div().flex_1().min_w_0().h_full().flex().child(charts);
+        let edge = |id: &'static str| {
+            // The edge toward the charts drags to make the panel wider or narrower.
+            div()
+                .id(id)
+                .flex_none()
+                .w(px(5.))
+                .h_full()
+                .flex()
+                .justify_center()
+                .cursor_col_resize()
+                .bg(if ticket_dragging {
+                    theme::accent_alpha(0.4)
+                } else {
+                    gpui::rgba(0x00000000)
+                })
+                .hover(|s| s.bg(theme::accent_alpha(0.4)))
+                .child(div().w(px(1.)).h_full().bg(theme::border_hairline()))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
+                        this.ticket_drag = Some((f32::from(event.position.x), width));
+                        cx.notify();
+                    }),
+                )
+        };
+        let column = ticket.map(|ticket| {
+            let body = div()
+                .id("ticket-column")
+                .flex_1()
+                .min_w_0()
+                .h_full()
+                .overflow_y_scroll()
+                .bg(theme::bg())
+                .child(ticket);
+            let column = div().flex_none().w(px(width)).h_full().flex().flex_row();
+            if dock == Dock::Right {
+                column.child(edge("ticket-resize")).child(body)
+            } else {
+                column.child(body).child(edge("ticket-resize"))
+            }
+        });
+        let (before, after) = if dock == Dock::Left {
+            (column, None)
+        } else {
+            (None, column)
+        };
         div()
             .id("trading-layout")
             .flex_1()
@@ -365,25 +418,29 @@ impl Dashboard {
                         cx.listener(|this, _, _, cx| this.end_panel_drag(cx)),
                     )
             })
+            .when(ticket_dragging, |el| {
+                el.cursor_col_resize()
+                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                        this.drag_ticket(event, cx);
+                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_ticket_drag(cx)),
+                    )
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_ticket_drag(cx)),
+                    )
+            })
             .child(
                 div()
                     .flex_1()
                     .min_h_0()
                     .flex()
                     .flex_row()
-                    .child(div().flex_1().min_w_0().h_full().flex().child(charts))
-                    .children(ticket.map(|ticket| {
-                        div()
-                            .id("ticket-column")
-                            .flex_none()
-                            .w(px(TICKET_WIDTH))
-                            .h_full()
-                            .overflow_y_scroll()
-                            .border_l_1()
-                            .border_color(theme::border_hairline())
-                            .bg(theme::bg())
-                            .child(ticket)
-                    })),
+                    .children(before)
+                    .child(charts)
+                    .children(after),
             )
             .children(panel.map(|panel| {
                 div()
@@ -415,6 +472,37 @@ impl Dashboard {
                     )
                     .child(div().flex_1().min_h_0().child(panel))
             }))
+    }
+
+    /// The edge of the ticket is being dragged: its width follows the pointer, from where the
+    /// edge was grabbed.
+    fn drag_ticket(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let Some((start, width)) = self.ticket_drag else {
+            return;
+        };
+        if event.pressed_button != Some(MouseButton::Left) {
+            self.end_ticket_drag(cx);
+            return;
+        }
+        let Some(ticket) = self.ticket.clone() else {
+            return;
+        };
+        let moved = f32::from(event.position.x) - start;
+        ticket.update(cx, |t, cx| {
+            // The panel grows as its edge goes away from the charts.
+            let width = if t.layout().dock == Dock::Right {
+                width - moved
+            } else {
+                width + moved
+            };
+            t.edit_layout(cx, |layout| layout.width = width);
+        });
+    }
+
+    fn end_ticket_drag(&mut self, cx: &mut Context<Self>) {
+        if self.ticket_drag.take().is_some() {
+            cx.notify();
+        }
     }
 
     fn drag_panel(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {

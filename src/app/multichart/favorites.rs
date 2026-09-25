@@ -7,16 +7,16 @@
 //! favorites are kept with the rest of the workspace.
 
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, SharedString, div, px};
+use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::menu::{ContextMenuExt, PopupMenuItem};
 use gpui_kit::component::tooltip::Tooltip;
 
 use super::MultiChart;
 use crate::app::chart::drawing::model::Tool;
 use crate::app::chart::object_tree::tool_icon;
 use crate::app::connection::ui;
+use crate::app::menu::{self as popup, Entry, Item};
 use crate::app::theme;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
 
@@ -94,7 +94,11 @@ impl MultiChart {
     }
 
     /// The bar over the charts, or nothing when it is turned off.
-    pub(super) fn render_favorites(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_favorites(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         if !self.favorites_shown(cx) {
             return None;
         }
@@ -140,6 +144,37 @@ impl MultiChart {
                 tool.label().into()
             };
             let entity = this.clone();
+            let menu = popup::Menu::new(("favorite-menu", index), window, cx);
+            let opener = menu.clone();
+            let items: Vec<Item> = if menu.is_open(cx) {
+                let (left, right, unpin) = (entity.clone(), entity.clone(), entity.clone());
+                vec![
+                    Item::Title(tool.label().into()),
+                    Entry::new("Move left")
+                        .icon(IconName::ArrowLeft)
+                        .disabled(index == 0)
+                        .on_click(move |_, cx| {
+                            left.update(cx, |m, cx| m.move_favorite(index, -1, cx));
+                        })
+                        .into(),
+                    Entry::new("Move right")
+                        .icon(IconName::ArrowRight)
+                        .disabled(index + 1 >= count)
+                        .on_click(move |_, cx| {
+                            right.update(cx, |m, cx| m.move_favorite(index, 1, cx));
+                        })
+                        .into(),
+                    Item::Separator,
+                    Entry::new("Unpin")
+                        .icon(IconName::StarOff)
+                        .on_click(move |_, cx| {
+                            unpin.update(cx, |m, cx| m.toggle_favorite(tool, cx));
+                        })
+                        .into(),
+                ]
+            } else {
+                Vec::new()
+            };
             bar = bar.child(
                 div()
                     .id(("favorite", index))
@@ -176,34 +211,10 @@ impl MultiChart {
                         },
                     ))
                     .when(names, |el| el.child(tool.label()))
-                    .context_menu(move |menu, _window, _cx| {
-                        let (left, right, unpin) = (entity.clone(), entity.clone(), entity.clone());
-                        menu.label(tool.label())
-                            .item(
-                                PopupMenuItem::new("Move left")
-                                    .icon(IconName::ArrowLeft)
-                                    .disabled(index == 0)
-                                    .on_click(move |_, _, cx| {
-                                        left.update(cx, |m, cx| m.move_favorite(index, -1, cx));
-                                    }),
-                            )
-                            .item(
-                                PopupMenuItem::new("Move right")
-                                    .icon(IconName::ArrowRight)
-                                    .disabled(index + 1 >= count)
-                                    .on_click(move |_, _, cx| {
-                                        right.update(cx, |m, cx| m.move_favorite(index, 1, cx));
-                                    }),
-                            )
-                            .separator()
-                            .item(
-                                PopupMenuItem::new("Unpin")
-                                    .icon(IconName::StarOff)
-                                    .on_click(move |_, _, cx| {
-                                        unpin.update(cx, |m, cx| m.toggle_favorite(tool, cx));
-                                    }),
-                            )
-                    }),
+                    .on_mouse_down(MouseButton::Right, move |event, _, cx| {
+                        opener.open(Some(event.position), cx);
+                    })
+                    .children(menu.popup(items, popup::Placement::Cursor, window, cx)),
             );
         }
 

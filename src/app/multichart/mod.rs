@@ -920,7 +920,7 @@ impl Render for MultiChart {
             .collect::<Vec<_>>();
 
         let rail = self.render_rail(cx);
-        let favorites = self.render_favorites(cx);
+        let favorites = self.render_favorites(window, cx);
         let flyout = self.render_flyout(cx);
         let area_cell = self.area.clone();
 
