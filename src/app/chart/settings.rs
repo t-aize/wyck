@@ -291,7 +291,9 @@ impl ChartSettings {
         self.transform = self.transform.normalized();
         self.footprint = self.footprint.normalized();
         self.colors = self.colors.normalized();
-        self.studies.retain(|s| s.kind != StudyKind::Unknown);
+        self.studies.retain(|s| {
+            s.kind != StudyKind::Unknown && (s.kind != StudyKind::Custom || s.script.is_some())
+        });
         self.studies.truncate(MAX_STUDIES);
         self.studies = self
             .studies

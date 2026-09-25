@@ -346,18 +346,6 @@ pub fn block(content: impl IntoElement) -> AnyElement {
     div().py_2p5().child(content).into_any_element()
 }
 
-/// A small title over a list, for the sections of what is inside a group.
-pub fn caption(title: impl Into<SharedString>) -> Div {
-    div()
-        .px_2()
-        .pt_2()
-        .pb_1()
-        .text_size(px(11.))
-        .font_semibold()
-        .text_color(theme::muted_fg())
-        .child(title.into().to_uppercase())
-}
-
 /// A switch in the look of the panels: small, with the pointer of a button. The caller adds what
 /// it needs (a label, `disabled`, the click).
 pub fn switch(id: impl Into<ElementId>, on: bool) -> Switch {

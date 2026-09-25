@@ -10,15 +10,15 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, Rgba, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::InputState;
 use wyck::openapi::market::PRICE_SCALE;
 
 use super::options::{ChartColors, CrosshairStyle, ScaleMargin};
 use super::settings::{ChartKind, ChartSettings, MAX_STUDIES, ScaleMode};
-use super::study::{Placement, StudyConfig, StudyKind};
+use super::study::StudyConfig;
 use super::transform::{BoxSize, TransformSettings};
 use super::zone::Zone;
-use super::{Chart, footprint_ui, overlay, study_settings};
+use super::{Chart, footprint_ui, indicator_picker, overlay, study_settings};
 use crate::app::connection::ui::icon_colored;
 use crate::app::settings_ui::{self as ui, Head, Tab};
 use crate::app::{modal, theme, widgets};
@@ -36,7 +36,12 @@ pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     open_at(chart, Page::Symbol, window, cx);
 }
 
-/// Opens the indicators of `chart`, with the search for one to add ready to type in.
+/// Opens the price scale, the lines and the grid of `chart`.
+pub fn open_scales(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
+    open_at(chart, Page::Scales, window, cx);
+}
+
+/// Opens the indicators of `chart`.
 pub fn open_indicators(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     open_at(chart, Page::Indicators, window, cx);
 }
@@ -45,23 +50,8 @@ fn open_at(chart: Entity<Chart>, page: Page, window: &mut Window, cx: &mut App) 
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
     window.defer(cx, move |window, cx| {
         let editor = cx.new(|cx| ChartSettingsEditor::new(chart, page, window, cx));
-        let search = editor.read(cx).search.clone();
         modal::open(editor, modal::Options::new(820.0, 640.0), window, cx);
-        if page == Page::Indicators {
-            search.update(cx, |state, cx| state.focus(window, cx));
-        }
     });
-}
-
-/// Whether an indicator answers to a search: every word of it is in the name or the short name.
-fn matches_query(kind: StudyKind, query: &str) -> bool {
-    let query = query.trim().to_lowercase();
-    if query.is_empty() {
-        return true;
-    }
-    let spec = kind.spec();
-    let haystack = format!("{} {}", spec.label, spec.short).to_lowercase();
-    query.split_whitespace().all(|word| haystack.contains(word))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -250,8 +240,6 @@ struct ChartSettingsEditor {
     line_break: Entity<InputState>,
     reversal: Entity<InputState>,
     footprint: Vec<(footprint_ui::Field, Entity<InputState>)>,
-    /// The search of the indicators to add.
-    search: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -315,12 +303,6 @@ impl ChartSettingsEditor {
         }));
         let (footprint, footprint_subscriptions) = footprint_ui::inputs(&chart, window, cx);
         subscriptions.extend(footprint_subscriptions);
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search indicators"));
-        subscriptions.push(
-            cx.subscribe(&search, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify();
-            }),
-        );
         Self {
             chart,
             original,
@@ -330,7 +312,6 @@ impl ChartSettingsEditor {
             line_break,
             reversal,
             footprint,
-            search,
             _subscriptions: subscriptions,
         }
     }
@@ -989,93 +970,7 @@ impl ChartSettingsEditor {
             .into_any_element()
     }
 
-    /// The indicators that can be added and match `query`, in the two sections of where they are
-    /// drawn, each with how many of it the chart holds.
-    fn study_catalog(&self, query: &str, settings: &ChartSettings) -> gpui::Stateful<gpui::Div> {
-        let mut sections: [(&str, Vec<StudyKind>); 2] = [
-            ("On the prices", Vec::new()),
-            ("In a pane of their own", Vec::new()),
-        ];
-        for kind in StudyKind::ALL {
-            if matches_query(kind, query) {
-                let slot = match kind.spec().placement {
-                    Placement::Overlay => 0,
-                    Placement::Pane => 1,
-                };
-                sections[slot].1.push(kind);
-            }
-        }
-        let mut list = div()
-            .id("chart-study-add-list")
-            .flex()
-            .flex_col()
-            .max_h(px(260.))
-            .overflow_y_scroll();
-        if sections.iter().all(|(_, kinds)| kinds.is_empty()) {
-            return list.child(
-                div()
-                    .py_4()
-                    .text_center()
-                    .child(ui::note("No indicator matches this search.")),
-            );
-        }
-        for (title, kinds) in sections {
-            if kinds.is_empty() {
-                continue;
-            }
-            list = list.child(ui::caption(title));
-            for kind in kinds {
-                let chart = self.chart.clone();
-                let spec = kind.spec();
-                let held = settings.studies.iter().filter(|s| s.kind == kind).count();
-                list = list.child(
-                    div()
-                        .id(SharedString::from(format!("chart-study-add-{kind:?}")))
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap_3()
-                        .h(px(32.))
-                        .px_2()
-                        .rounded_md()
-                        .cursor_pointer()
-                        .hover(|s| s.bg(theme::surface_hover()))
-                        .on_click(move |_, _window, cx| {
-                            chart.update(cx, |chart, cx| {
-                                chart.add_study(StudyConfig::new(kind), cx);
-                            });
-                        })
-                        .child(
-                            div()
-                                .w(px(56.))
-                                .text_size(px(11.))
-                                .text_color(theme::accent())
-                                .child(spec.short),
-                        )
-                        .child(
-                            div()
-                                .flex_1()
-                                .text_size(px(13.))
-                                .text_color(theme::fg())
-                                .child(spec.label),
-                        )
-                        .children((held > 0).then(|| {
-                            div()
-                                .px_1p5()
-                                .rounded_sm()
-                                .bg(theme::accent_selected())
-                                .text_size(px(11.))
-                                .text_color(theme::fg())
-                                .child(format!("{held} on chart"))
-                        }))
-                        .child(icon_colored(IconName::Plus, 14., theme::muted_fg())),
-                );
-            }
-        }
-        list
-    }
-
-    fn indicators_page(&self, settings: &ChartSettings, cx: &App) -> AnyElement {
+    fn indicators_page(&self, settings: &ChartSettings) -> AnyElement {
         let on_chart: Vec<AnyElement> = settings
             .studies
             .iter()
@@ -1088,9 +983,8 @@ impl ChartSettingsEditor {
             on_chart
         };
 
-        let query = self.search.read(cx).value().to_string();
         let full = settings.studies.len() >= MAX_STUDIES;
-        let list = self.study_catalog(&query, settings);
+        let (browse, editor, new) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let add = if full {
             ui::block(ui::note(format!(
                 "A chart holds at most {MAX_STUDIES} indicators. Remove one to add another."
@@ -1099,14 +993,46 @@ impl ChartSettingsEditor {
             ui::block(
                 div()
                     .flex()
-                    .flex_col()
+                    .flex_row()
+                    .flex_wrap()
                     .gap_2()
-                    .child(Input::new(&self.search).prefix(icon_colored(
-                        IconName::Search,
-                        14.,
-                        theme::muted_fg(),
-                    )))
-                    .child(list),
+                    .child(ui::action(
+                        "chart-browse-indicators",
+                        "Browse the indicators",
+                        Some(IconName::ChartSpline),
+                        true,
+                        move |window, cx| {
+                            indicator_picker::open(browse.clone(), window, cx);
+                        },
+                    ))
+                    .child(ui::action(
+                        "chart-open-editor",
+                        "Indicator editor",
+                        Some(IconName::CodeXml),
+                        false,
+                        move |window, cx| {
+                            modal::close(window, cx);
+                            editor.update(cx, |_, cx| {
+                                cx.emit(super::ChartEvent::IndicatorEditor(
+                                    super::EditorRequest::Open,
+                                ));
+                            });
+                        },
+                    ))
+                    .child(ui::action(
+                        "chart-new-script",
+                        "New script",
+                        Some(IconName::FilePlus),
+                        false,
+                        move |window, cx| {
+                            modal::close(window, cx);
+                            new.update(cx, |_, cx| {
+                                cx.emit(super::ChartEvent::IndicatorEditor(
+                                    super::EditorRequest::New,
+                                ));
+                            });
+                        },
+                    )),
             )
         };
 
@@ -1163,7 +1089,7 @@ impl Render for ChartSettingsEditor {
             Page::Canvas => self.canvas_page(&settings, cx),
             Page::Time => self.time_page(&settings),
             Page::Trading => self.trading_page(&settings, cx),
-            Page::Indicators => self.indicators_page(&settings, cx),
+            Page::Indicators => self.indicators_page(&settings),
         };
 
         let this = cx.entity();

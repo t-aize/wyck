@@ -411,6 +411,195 @@ pub fn parabolic_sar(high: &[f64], low: &[f64], start: f64, step: f64, max: f64)
     out
 }
 
+/// The volume weighted average of `values`, started over on every new `day`.
+pub fn vwap(values: &[f64], volume: &[f64], day: &[i64]) -> Vec<f64> {
+    let mut out = vec![f64::NAN; values.len()];
+    let (mut weighted, mut total, mut current) = (0.0, 0.0, None);
+    for i in 0..values.len() {
+        if current != Some(day[i]) {
+            current = Some(day[i]);
+            weighted = 0.0;
+            total = 0.0;
+        }
+        let v = volume[i].max(0.0);
+        weighted += values[i] * v;
+        total += v;
+        out[i] = if total > 0.0 {
+            weighted / total
+        } else {
+            values[i]
+        };
+    }
+    out
+}
+
+/// The volume weighted moving average over `period` points.
+pub fn vwma(values: &[f64], volume: &[f64], period: usize) -> Vec<f64> {
+    let weighted: Vec<f64> = values.iter().zip(volume).map(|(v, w)| v * w).collect();
+    let (top, bottom) = (sma(&weighted, period), sma(volume, period));
+    top.iter()
+        .zip(&bottom)
+        .map(|(t, b)| if *b > 0.0 { t / b } else { f64::NAN })
+        .collect()
+}
+
+/// The sum of each window of `period` points.
+pub fn sum(values: &[f64], period: usize) -> Vec<f64> {
+    sma(values, period)
+        .into_iter()
+        .map(|mean| mean * period as f64)
+        .collect()
+}
+
+/// The running total of `values`. A gap adds nothing.
+pub fn cumulative(values: &[f64]) -> Vec<f64> {
+    let mut total = 0.0;
+    values
+        .iter()
+        .map(|v| {
+            if v.is_finite() {
+                total += v;
+            }
+            total
+        })
+        .collect()
+}
+
+/// The rate of change over `period` points, in percent.
+pub fn roc(values: &[f64], period: usize) -> Vec<f64> {
+    (0..values.len())
+        .map(|i| {
+            if i >= period && values[i - period] != 0.0 {
+                (values[i] / values[i - period] - 1.0) * 100.0
+            } else {
+                f64::NAN
+            }
+        })
+        .collect()
+}
+
+/// The least squares line through each window of `period` points: its value at the newest point
+/// and its slope per point.
+pub fn linear_regression(values: &[f64], period: usize) -> (Vec<f64>, Vec<f64>) {
+    let n = values.len();
+    let (mut level, mut slope) = (vec![f64::NAN; n], vec![f64::NAN; n]);
+    if period < 2 {
+        return (level, slope);
+    }
+    let p = period as f64;
+    let mean_x = (p - 1.0) / 2.0;
+    let sxx: f64 = (0..period).map(|k| (k as f64 - mean_x).powi(2)).sum();
+    for i in period - 1..n {
+        let window = &values[i + 1 - period..=i];
+        if !window.iter().all(|v| v.is_finite()) {
+            continue;
+        }
+        let mean_y = window.iter().sum::<f64>() / p;
+        let sxy: f64 = window
+            .iter()
+            .enumerate()
+            .map(|(k, y)| (k as f64 - mean_x) * (y - mean_y))
+            .sum();
+        let b = sxy / sxx;
+        slope[i] = b;
+        level[i] = mean_y + b * (p - 1.0 - mean_x);
+    }
+    (level, slope)
+}
+
+/// The money flow index: a volume weighted RSI of the typical price, from 0 to 100.
+pub fn mfi(typical: &[f64], volume: &[f64], period: usize) -> Vec<f64> {
+    let n = typical.len();
+    let (mut up, mut down) = (vec![f64::NAN; n], vec![f64::NAN; n]);
+    for i in 1..n {
+        let flow = typical[i] * volume[i];
+        if typical[i] > typical[i - 1] {
+            (up[i], down[i]) = (flow, 0.0);
+        } else if typical[i] < typical[i - 1] {
+            (up[i], down[i]) = (0.0, flow);
+        } else {
+            (up[i], down[i]) = (0.0, 0.0);
+        }
+    }
+    let (up, down) = (sum(&up, period), sum(&down, period));
+    up.iter()
+        .zip(&down)
+        .map(|(u, d)| {
+            if !(u.is_finite() && d.is_finite()) {
+                f64::NAN
+            } else if *d == 0.0 {
+                if *u == 0.0 { 50.0 } else { 100.0 }
+            } else {
+                100.0 - 100.0 / (1.0 + u / d)
+            }
+        })
+        .collect()
+}
+
+/// Supertrend: a line that follows the price at `mult` average true ranges and flips when the
+/// close goes through it. Returns the line and the direction (1 for up, -1 for down).
+pub fn supertrend(
+    high: &[f64],
+    low: &[f64],
+    close: &[f64],
+    period: usize,
+    mult: f64,
+) -> (Vec<f64>, Vec<f64>) {
+    let n = close.len();
+    let range = atr(high, low, close, period);
+    let (mut line, mut direction) = (vec![f64::NAN; n], vec![f64::NAN; n]);
+    let (mut upper, mut lower) = (f64::NAN, f64::NAN);
+    let mut trend = 1.0;
+    for i in 0..n {
+        if !range[i].is_finite() {
+            continue;
+        }
+        let mid = (high[i] + low[i]) / 2.0;
+        let (basic_upper, basic_lower) = (mid + mult * range[i], mid - mult * range[i]);
+        let first = !upper.is_finite();
+        let previous_close = if i > 0 { close[i - 1] } else { close[i] };
+        let new_upper = if first || basic_upper < upper || previous_close > upper {
+            basic_upper
+        } else {
+            upper
+        };
+        let new_lower = if first || basic_lower > lower || previous_close < lower {
+            basic_lower
+        } else {
+            lower
+        };
+        if !first {
+            if trend < 0.0 && close[i] > upper {
+                trend = 1.0;
+            } else if trend > 0.0 && close[i] < lower {
+                trend = -1.0;
+            }
+        }
+        upper = new_upper;
+        lower = new_lower;
+        direction[i] = trend;
+        line[i] = if trend > 0.0 { lower } else { upper };
+    }
+    (line, direction)
+}
+
+/// How many bars ago `condition` was last true (0 on the bar it is true). No value before the
+/// first time.
+pub fn bars_since(condition: &[f64]) -> Vec<f64> {
+    let mut since = f64::NAN;
+    condition
+        .iter()
+        .map(|c| {
+            if *c != 0.0 && !c.is_nan() {
+                since = 0.0;
+            } else if since.is_finite() {
+                since += 1.0;
+            }
+            since
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -569,5 +758,77 @@ mod tests {
         let sar = parabolic_sar(&high, &low, 0.02, 0.02, 0.2);
         assert!(sar[29] < low[29]);
         assert!(sar[29] > sar[10]);
+    }
+
+    #[test]
+    fn vwap_weighs_by_volume_and_starts_over_each_day() {
+        let out = vwap(
+            &[10.0, 20.0, 30.0, 40.0],
+            &[1.0, 3.0, 1.0, 1.0],
+            &[0, 0, 1, 1],
+        );
+        assert!(close(out[0], 10.0));
+        assert!(close(out[1], 17.5));
+        assert!(close(out[2], 30.0), "{out:?}");
+        assert!(close(out[3], 35.0));
+    }
+
+    #[test]
+    fn a_regression_through_a_straight_line_is_that_line() {
+        let line: Vec<f64> = (0..10).map(|i| 3.0 + 2.0 * f64::from(i)).collect();
+        let (level, slope) = linear_regression(&line, 5);
+        assert!(level[3].is_nan());
+        for i in 4..10 {
+            assert!(close(level[i], line[i]), "{i}");
+            assert!(close(slope[i], 2.0));
+        }
+    }
+
+    #[test]
+    fn sums_totals_and_changes_are_worked_out_by_hand() {
+        assert_eq!(sum(&[1.0, 2.0, 3.0, 4.0], 2)[1..], [3.0, 5.0, 7.0]);
+        assert_eq!(cumulative(&[1.0, f64::NAN, 2.0, 3.0]), [1.0, 1.0, 3.0, 6.0]);
+        let r = roc(&[100.0, 110.0, 99.0], 1);
+        assert!(r[0].is_nan());
+        assert!(close(r[1], 10.0) && close(r[2], -10.0));
+        assert!(close(vwma(&[1.0, 3.0], &[1.0, 3.0], 2)[1], 2.5));
+    }
+
+    #[test]
+    fn bars_since_counts_from_the_last_time_the_condition_held() {
+        let out = bars_since(&[0.0, 1.0, 0.0, 0.0, 1.0, 0.0]);
+        assert!(out[0].is_nan());
+        assert_eq!(out[1..], [0.0, 1.0, 2.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn the_money_flow_index_stays_between_0_and_100() {
+        let typical: Vec<f64> = (0..40)
+            .map(|i| 100.0 + (f64::from(i) * 0.5).sin() * 4.0)
+            .collect();
+        let out = mfi(&typical, &vec![10.0; 40], 14);
+        assert!(out[..14].iter().all(|v| v.is_nan()));
+        assert!(out[14..].iter().all(|v| (0.0..=100.0).contains(v)));
+        let rising: Vec<f64> = (0..30).map(f64::from).collect();
+        assert!(close(mfi(&rising, &vec![1.0; 30], 5)[29], 100.0));
+    }
+
+    #[test]
+    fn supertrend_flips_when_the_close_goes_through_the_line() {
+        let close: Vec<f64> = (0..60)
+            .map(|i| {
+                if i < 30 {
+                    100.0 + f64::from(i)
+                } else {
+                    130.0 - 2.0 * f64::from(i - 30)
+                }
+            })
+            .collect();
+        let high: Vec<f64> = close.iter().map(|c| c + 1.0).collect();
+        let low: Vec<f64> = close.iter().map(|c| c - 1.0).collect();
+        let (line, direction) = supertrend(&high, &low, &close, 5, 2.0);
+        assert_eq!(direction[25], 1.0);
+        assert_eq!(direction[59], -1.0);
+        assert!(line[25] < close[25] && line[59] > close[59]);
     }
 }

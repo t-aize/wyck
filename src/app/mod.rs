@@ -10,6 +10,7 @@ mod color_picker;
 mod confirm;
 mod connection;
 mod dashboard;
+mod indicators;
 mod menu;
 mod modal;
 mod multichart;
@@ -50,12 +51,17 @@ pub fn run() {
                         Err(error) => tracing::warn!(%error, "could not restore the backup"),
                     }
                     appearance::init(wyck::config::DocumentStore::global(&paths), cx);
+                    indicators::init(Some(&paths), cx);
                 }
-                Err(_) => theme::apply(cx),
+                Err(_) => {
+                    theme::apply(cx);
+                    indicators::init(None, cx);
+                }
             }
             text_input::init(cx);
             dashboard::init(cx);
             chart::init(cx);
+            indicators::editor::init(cx);
             modal::init(cx);
 
             cx.text_system()

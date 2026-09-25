@@ -68,6 +68,7 @@ impl Dashboard {
             .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
             .child(div().flex_1().min_w_0())
+            .child(self.indicators_button(window, cx))
             .child(self.panel_toggles(cx))
             .child(self.account_pill(fit, cx))
             .child(self.fullscreen_button(window))

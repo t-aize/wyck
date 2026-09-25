@@ -19,7 +19,7 @@ use crate::config::error::{ConfigError, Result};
 /// before any content is written, since every caller of this function writes either a
 /// [`crate::config::SecretKey`] reference (in the config file) or ciphertext (in an encrypted
 /// envelope): neither should be world-readable.
-pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
+pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
     let dir = path.parent().ok_or_else(|| ConfigError::Write {
         path: path.to_path_buf(),
         source: std::io::Error::new(

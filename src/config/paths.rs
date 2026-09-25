@@ -84,6 +84,11 @@ impl AppPaths {
     pub fn secrets_dir(&self) -> PathBuf {
         self.data_dir.join("secrets")
     }
+
+    /// The folder the scripted indicators are read from unless the user chose another.
+    pub fn indicators_dir(&self) -> PathBuf {
+        self.config_dir.join("indicators")
+    }
 }
 
 #[cfg(test)]
@@ -97,5 +102,6 @@ mod tests {
         assert_eq!(paths.data_dir(), Path::new("/tmp/example"));
         assert_eq!(paths.config_file(), Path::new("/tmp/example/config.toml"));
         assert_eq!(paths.secrets_dir(), Path::new("/tmp/example/secrets"));
+        assert_eq!(paths.indicators_dir(), Path::new("/tmp/example/indicators"));
     }
 }

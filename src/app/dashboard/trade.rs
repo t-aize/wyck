@@ -37,6 +37,8 @@ pub(super) enum Pending {
     ClosePosition(i64),
     /// Open the editor of a new alert.
     EditAlert(u64),
+    /// Open the editor of the indicator scripts.
+    Editor(crate::app::chart::EditorRequest),
 }
 
 /// The least height of the account panel.
@@ -141,6 +143,14 @@ impl Dashboard {
             }
             Pending::EditAlert(id) => {
                 crate::app::trading::panel::open_alert(self.alerts.clone(), id, window, cx);
+            }
+            Pending::Editor(request) => {
+                use crate::app::chart::EditorRequest;
+                self.with_editor(window, cx, move |editor, window, cx| match request {
+                    EditorRequest::Open => editor.focus_editor(window, cx),
+                    EditorRequest::New => editor.ask_new(0, window, cx),
+                    EditorRequest::Edit(id) => editor.open(&id, window, cx),
+                });
             }
         }
         cx.notify();
@@ -357,6 +367,8 @@ impl Dashboard {
         let panel = self.panel.clone().filter(|_| self.panel_open);
         let ticket = self.ticket.clone().filter(|_| self.ticket_open);
         let dragging = self.panel_drag.is_some();
+        let editor_dragging = self.editor_drag.is_some();
+        let editor_panel = self.editor_dock(cx);
         let ticket_dragging = self.ticket_drag.is_some();
         let (dock, width) = ticket.as_ref().map_or((Dock::Right, WIDTH_DEFAULT), |t| {
             let layout = t.read(cx).layout();
@@ -429,6 +441,20 @@ impl Dashboard {
                         cx.listener(|this, _, _, cx| this.end_panel_drag(cx)),
                     )
             })
+            .when(editor_dragging, |el| {
+                el.cursor_row_resize()
+                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                        this.drag_editor(event, cx);
+                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_editor_drag(cx)),
+                    )
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_editor_drag(cx)),
+                    )
+            })
             .when(ticket_dragging, |el| {
                 el.cursor_col_resize()
                     .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
@@ -453,6 +479,7 @@ impl Dashboard {
                     .child(charts)
                     .children(after),
             )
+            .children(editor_panel)
             .children(panel.map(|panel| {
                 div()
                     .flex_none()

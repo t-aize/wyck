@@ -47,6 +47,16 @@ pub struct Backup {
     pub created: String,
     #[serde(default)]
     pub files: Vec<BackupFile>,
+    /// The indicators written as scripts. A backup made before they existed has none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scripts: Vec<BackupScript>,
+}
+/// One indicator script: its id (its path in the indicators folder, without the extension) and its
+/// text.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BackupScript {
+    pub id: String,
+    pub content: String,
 }
 
 /// One saved document.
@@ -182,7 +192,31 @@ pub fn collect(config_dir: &Path, app_version: &str, created: &str) -> io::Resul
         app_version: app_version.to_owned(),
         created: created.to_owned(),
         files,
+        scripts: Vec::new(),
     })
+}
+
+/// [`collect`], with the indicator scripts of `scripts_dir` too.
+pub fn collect_with_scripts(
+    config_dir: &Path,
+    scripts_dir: &Path,
+    app_version: &str,
+    created: &str,
+) -> io::Result<Backup> {
+    use crate::app::chart::study::custom::library::Library;
+    let mut backup = collect(config_dir, app_version, created)?;
+    let mut library = Library::new(scripts_dir);
+    library.refresh();
+    backup.scripts = library
+        .entries()
+        .iter()
+        .filter(|entry| !entry.source.is_empty())
+        .map(|entry| BackupScript {
+            id: entry.id.clone(),
+            content: entry.source.to_string(),
+        })
+        .collect();
+    Ok(backup)
 }
 
 /// The text of a backup.
@@ -208,6 +242,7 @@ pub fn parse(text: &str) -> Result<Backup, BackupError> {
             "it holds too many documents".to_owned(),
         ));
     }
+    check_scripts(&backup)?;
     let mut total = 0;
     let mut seen: Vec<(&str, &str)> = Vec::new();
     for file in &backup.files {
@@ -242,6 +277,39 @@ pub fn parse(text: &str) -> Result<Backup, BackupError> {
         return Err(BackupError::Damaged("it is far too large".to_owned()));
     }
     Ok(backup)
+}
+
+/// Checks the scripts of a backup: each has a safe id inside the indicators folder, a size that makes
+/// sense, and is there once.
+fn check_scripts(backup: &Backup) -> Result<(), BackupError> {
+    use crate::app::chart::study::custom::library::{MAX_FILE_BYTES, MAX_SCRIPTS, clean_id};
+    if backup.scripts.len() > MAX_SCRIPTS {
+        return Err(BackupError::Damaged(
+            "it holds too many indicator scripts".to_owned(),
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for script in &backup.scripts {
+        if clean_id(&script.id).ok().as_deref() != Some(script.id.as_str()) {
+            return Err(BackupError::Damaged(format!(
+                "the script \"{}\" has no safe place to go",
+                script.id
+            )));
+        }
+        if !seen.insert(script.id.to_lowercase()) {
+            return Err(BackupError::Damaged(format!(
+                "the script \"{}\" is in it twice",
+                script.id
+            )));
+        }
+        if script.content.len() as u64 > MAX_FILE_BYTES {
+            return Err(BackupError::Damaged(format!(
+                "the script \"{}\" is too large",
+                script.id
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// What a backup holds, in words a person reads: which kinds of things, and how many accounts.
@@ -302,6 +370,9 @@ pub fn summary(backup: &Backup) -> Vec<String> {
         .count();
     if others > 0 {
         lines.push(format!("{others} other document(s)"));
+    }
+    if !backup.scripts.is_empty() {
+        lines.push(format!("Indicator scripts ({})", backup.scripts.len()));
     }
     if lines.is_empty() {
         lines.push("Nothing: the backup is empty".to_owned());
@@ -377,9 +448,34 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
         fs::create_dir_all(&dir)?;
         write_file(&target, file.content.as_bytes())?;
     }
+    // The scripts go in the default indicators folder; one that is there already and differs is
+    // copied aside first, like the documents.
+    for script in &backup.scripts {
+        let mut target = config_dir.join("indicators");
+        for part in script.id.split('/') {
+            target.push(part);
+        }
+        target.set_extension("rhai");
+        if target.is_file() {
+            if fs::read_to_string(&target).ok().as_deref() == Some(script.content.as_str()) {
+                continue;
+            }
+            let relative = target.strip_prefix(config_dir).unwrap_or(&target);
+            let copy = keep.join(relative);
+            if let Some(parent) = copy.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&target, &copy)?;
+            kept = true;
+        }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        write_file(&target, script.content.as_bytes())?;
+    }
     fs::remove_file(&path)?;
     Ok(Some(Applied {
-        written: backup.files.len(),
+        written: backup.files.len() + backup.scripts.len(),
         kept_in: kept.then_some(keep),
     }))
 }
@@ -463,6 +559,86 @@ mod tests {
             (backup.app_version.as_str(), backup.created.as_str()),
             ("1.2.3", "today")
         );
+    }
+
+    #[test]
+    fn the_indicator_scripts_travel_in_a_backup_and_come_back() {
+        let dir = setup();
+        let scripts = tempfile::tempdir().unwrap();
+        write(
+            scripts.path(),
+            "Trend/My average.rhai",
+            "plot(\"a\", close);",
+        );
+        write(scripts.path(), "Other.rhai", "plot(\"b\", open);");
+        let backup = collect_with_scripts(dir.path(), scripts.path(), "1", "now").unwrap();
+        assert_eq!(backup.scripts.len(), 2);
+        let text = to_text(&backup).unwrap();
+        let parsed = parse(&text).unwrap();
+        assert_eq!(parsed.scripts, backup.scripts);
+        assert!(
+            summary(&parsed)
+                .iter()
+                .any(|l| l.contains("Indicator scripts (2)"))
+        );
+
+        // Applied on another machine: the scripts land in the default folder.
+        let other = tempfile::tempdir().unwrap();
+        stage(other.path(), &text).unwrap();
+        let applied = apply_pending(other.path(), "s").unwrap().unwrap();
+        assert_eq!(applied.written, backup.files.len() + 2);
+        let restored = other
+            .path()
+            .join("indicators")
+            .join("Trend")
+            .join("My average.rhai");
+        assert_eq!(fs::read_to_string(restored).unwrap(), "plot(\"a\", close);");
+    }
+
+    #[test]
+    fn a_script_that_is_there_and_differs_is_kept_aside_when_a_backup_is_applied() {
+        let scripts = tempfile::tempdir().unwrap();
+        write(scripts.path(), "Mine.rhai", "plot(\"new\", close);");
+        let backup = collect_with_scripts(
+            tempfile::tempdir().unwrap().path(),
+            scripts.path(),
+            "1",
+            "now",
+        )
+        .unwrap();
+        let target = tempfile::tempdir().unwrap();
+        write(
+            target.path(),
+            "indicators/Mine.rhai",
+            "plot(\"old\", close);",
+        );
+        stage(target.path(), &to_text(&backup).unwrap()).unwrap();
+        let applied = apply_pending(target.path(), "s").unwrap().unwrap();
+        assert!(applied.kept_in.is_some());
+        assert_eq!(
+            fs::read_to_string(target.path().join("indicators/Mine.rhai")).unwrap(),
+            "plot(\"new\", close);"
+        );
+        let kept = applied.kept_in.unwrap().join("indicators/Mine.rhai");
+        assert_eq!(fs::read_to_string(kept).unwrap(), "plot(\"old\", close);");
+    }
+
+    #[test]
+    fn a_script_with_an_unsafe_place_makes_the_backup_refused() {
+        for bad in ["../escape", "a/../b", "con", "C:/x", ".hidden"] {
+            let backup = Backup {
+                format: FORMAT.to_owned(),
+                version: VERSION,
+                app_version: String::new(),
+                created: String::new(),
+                files: Vec::new(),
+                scripts: vec![BackupScript {
+                    id: bad.to_owned(),
+                    content: String::new(),
+                }],
+            };
+            assert!(parse(&to_text(&backup).unwrap()).is_err(), "{bad}");
+        }
     }
 
     #[test]

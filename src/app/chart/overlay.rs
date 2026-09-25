@@ -8,20 +8,18 @@ use gpui::{
     px,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
 use wyck::openapi::market::format_price;
 
 use super::data::Series;
 use super::drawing::book::Order;
 use super::lines::to_real;
 use super::scene::{AXIS_H, AXIS_W, Geometry, price};
-use super::settings::{ChartKind, ScaleMode};
+use super::settings::ChartKind;
 use super::study::{Placement, PlotKind, ValueFormat};
-use super::view::PriceScale;
 use super::zone::Zone;
 use super::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, Load, Menu, Older, chart_settings_ui, paint,
-    study_settings,
+    Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
+    chart_settings_ui, indicator_picker, paint, study_settings,
 };
 use crate::app::connection::ui;
 use crate::app::menu::{self as popup, Entry, Item};
@@ -85,6 +83,7 @@ fn rgb(color: u32) -> gpui::Rgba {
 impl Render for Chart {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.open_pending_settings(window, cx);
+        self.schedule_customs(cx);
         let entity = cx.entity();
         let compact = self.is_compact();
         let latest = !self.view.is_following() && !self.shown().is_empty();
@@ -111,7 +110,7 @@ impl Render for Chart {
             // The toolbar belongs to the chart being worked on, as long as it has the room.
             .children(
                 self.shows_toolbar()
-                    .then(|| self.toolbar(latest, compact, cx)),
+                    .then(|| self.toolbar(latest, compact, window, cx)),
             )
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
@@ -289,7 +288,7 @@ impl Chart {
             Entry::new("Indicators...")
                 .icon(IconName::ChartSpline)
                 .on_click(on(|_, window, cx| {
-                    chart_settings_ui::open_indicators(cx.entity(), window, cx)
+                    indicator_picker::open(cx.entity(), window, cx)
                 }))
                 .into(),
             Entry::new("Chart settings...")
@@ -375,6 +374,22 @@ impl Chart {
             .filter(|_| self.settings.status.indicator_values)
             .map(|i| self.study_values(study, i))
             .unwrap_or_default();
+        // An indicator written as a script: which one, and what is wrong with it if anything.
+        let script = config.script.clone().filter(|_| config.is_script());
+        let alert: Option<String> = script.as_ref().and_then(|id| {
+            if !config.is_ready() {
+                Some(
+                    super::study::custom::library::registry::get(id)
+                        .and_then(|e| e.problems.first().map(|p| p.message.clone()))
+                        .unwrap_or_else(|| {
+                            format!("The script \"{id}\" is not in the indicators folder")
+                        }),
+                )
+            } else {
+                self.custom_status(study)
+                    .and_then(|s| s.first_error().map(|p| p.message.clone()))
+            }
+        });
         let hover = self.hover_color();
         let button = |id: &str, icon: IconName, tooltip: &'static str| {
             div()
@@ -407,7 +422,9 @@ impl Chart {
             .hover(move |s| s.bg(hover))
             .child(
                 div()
-                    .text_color(if visible {
+                    .text_color(if alert.is_some() {
+                        theme::destructive()
+                    } else if visible {
                         theme::chart_fg()
                     } else {
                         theme::chart_muted()
@@ -415,6 +432,19 @@ impl Chart {
                     .when(!visible, |el| el.opacity(0.6))
                     .child(config.title()),
             )
+            .children(alert.map(|message| {
+                div()
+                    .id(SharedString::from(format!("study-alert-{study}")))
+                    .child(ui::icon_colored(
+                        IconName::TriangleAlert,
+                        13.,
+                        theme::destructive(),
+                    ))
+                    .tooltip(move |window, cx| {
+                        gpui_kit::component::tooltip::Tooltip::new(message.clone())
+                            .build(window, cx)
+                    })
+            }))
             .children(visible.then(|| {
                 div().flex().flex_row().gap_2().children(
                     values
@@ -448,6 +478,15 @@ impl Chart {
                             });
                         })),
                     )
+                    .children(script.map(|id| {
+                        button("study-code", IconName::CodeXml, "Edit the script").on_click(
+                            cx.listener(move |_this, _, _, cx| {
+                                cx.emit(ChartEvent::IndicatorEditor(EditorRequest::Edit(
+                                    id.clone(),
+                                )));
+                            }),
+                        )
+                    }))
                     .child(
                         button("study-settings", IconName::Settings2, "Settings").on_click(
                             cx.listener(move |_this, _, window, cx| {
@@ -910,140 +949,6 @@ impl Chart {
         out
     }
 
-    /// The buttons at the top right: chart type, indicators, price scale, settings, picture,
-    /// and the ones that bring the view back.
-    fn toolbar(&self, latest: bool, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
-        let auto = matches!(self.view.price, PriceScale::Auto);
-        let open = self.menu;
-        let menu_button = |id: &'static str, icon: IconName, tip: &'static str, menu: Menu| {
-            Button::new(id)
-                .ghost()
-                .compact()
-                .icon(icon)
-                .tooltip(tip)
-                .toggled(open == Some(menu))
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, _event, _window, cx| {
-                    this.menu = if this.menu == Some(menu) {
-                        None
-                    } else {
-                        Some(menu)
-                    };
-                    cx.notify();
-                }))
-        };
-        let scale_label = match (self.settings.scale, auto) {
-            (ScaleMode::Linear, true) => "Auto",
-            (ScaleMode::Linear, false) => "Manual",
-            (ScaleMode::Log, _) => "Log",
-            (ScaleMode::Percent, _) => "%",
-            (ScaleMode::Indexed, _) => "100",
-        };
-        div()
-            .absolute()
-            .top(px(6.))
-            .right(px(AXIS_W + 8.0))
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_0p5()
-            .p_0p5()
-            .rounded_lg()
-            .bg(theme::bg_alpha(0.8))
-            .border_1()
-            .border_color(theme::border_hairline())
-            .occlude()
-            .child(menu_button(
-                "chart-kind",
-                kind_icon(self.settings.kind),
-                "Chart type",
-                Menu::Kind,
-            ))
-            .when(!compact, |el| {
-                el.child(
-                    Button::new("chart-studies")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::ChartSpline)
-                        .tooltip("Indicators")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|_this, _event, window, cx| {
-                            chart_settings_ui::open_indicators(cx.entity(), window, cx);
-                        })),
-                )
-                .child(
-                    Button::new("chart-scale")
-                        .ghost()
-                        .compact()
-                        .label(scale_label)
-                        .tooltip("Price scale")
-                        .toggled(open == Some(Menu::Scale))
-                        .cursor_pointer()
-                        .text_size(px(11.))
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(if auto && self.settings.scale == ScaleMode::Linear {
-                            theme::muted_fg()
-                        } else {
-                            theme::accent()
-                        })
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.menu = if this.menu == Some(Menu::Scale) {
-                                None
-                            } else {
-                                Some(Menu::Scale)
-                            };
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    Button::new("chart-settings")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::Settings2)
-                        .tooltip("Chart settings")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|_this, _event, window, cx| {
-                            chart_settings_ui::open(cx.entity(), window, cx);
-                        })),
-                )
-                .child(
-                    Button::new("chart-picture")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::Camera)
-                        .tooltip("Take a picture (Ctrl+Shift+S)")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|_this, _event, _window, cx| {
-                            cx.emit(ChartEvent::Screenshot);
-                        })),
-                )
-            })
-            .when(!auto, |el| {
-                el.child(
-                    Button::new("chart-auto-scale")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::Scaling)
-                        .tooltip("Fit the prices (double click the price axis)")
-                        .cursor_pointer()
-                        .on_click(
-                            cx.listener(|this, _event, _window, cx| this.reset_price_scale(cx)),
-                        ),
-                )
-            })
-            .when(latest, |el| {
-                el.child(
-                    Button::new("chart-latest")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::ChevronsRight)
-                        .tooltip("Back to the latest price (End)")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, _window, cx| this.jump_to_latest(cx))),
-                )
-            })
-    }
-
     fn menu_card(&self) -> gpui::Div {
         div()
             .p_1()
@@ -1103,79 +1008,6 @@ impl Chart {
     fn menu_popup(&self, geometry: &Geometry, cx: &mut Context<Self>) -> Option<AnyElement> {
         let menu = self.menu?;
         let card = match menu {
-            Menu::Kind => {
-                let mut card = self.menu_card().id("chart-kind-menu").w(px(210.));
-                for (title, kinds) in KIND_SECTIONS {
-                    card = card.child(Self::section_title(title));
-                    for kind in kinds.iter().copied() {
-                        card = card.child(
-                            self.menu_row(
-                                SharedString::from(format!("chart-kind-{}", kind.code())),
-                                self.settings.kind == kind,
-                                Some(kind_icon(kind)),
-                                kind.label(),
-                            )
-                            .on_click(cx.listener(
-                                move |this, _event, _window, cx| {
-                                    this.menu = None;
-                                    this.set_kind(kind, cx);
-                                },
-                            )),
-                        );
-                    }
-                }
-                card.into_any_element()
-            }
-            Menu::Scale => {
-                let mut card = self.menu_card().id("chart-scale-menu").w(px(210.));
-                card = card.child(Self::section_title("Price scale"));
-                for mode in ScaleMode::ALL {
-                    card = card.child(
-                        self.menu_row(
-                            SharedString::from(format!("chart-scale-{mode:?}")),
-                            self.settings.scale == mode,
-                            None,
-                            mode.label(),
-                        )
-                        .on_click(cx.listener(
-                            move |this, _event, _window, cx| {
-                                this.menu = None;
-                                this.edit_settings(cx, |s| s.scale = mode);
-                            },
-                        )),
-                    );
-                }
-                card = card
-                    .child(div().my_1().h(px(1.)).bg(theme::border_hairline()))
-                    .child(
-                        self.menu_row(
-                            "chart-scale-invert".into(),
-                            self.settings.invert,
-                            Some(IconName::ArrowUpDown),
-                            "Invert the scale",
-                        )
-                        .on_click(cx.listener(
-                            |this, _event, _window, cx| {
-                                this.edit_settings(cx, |s| s.invert = !s.invert);
-                            },
-                        )),
-                    )
-                    .child(
-                        self.menu_row(
-                            "chart-scale-auto".into(),
-                            matches!(self.view.price, PriceScale::Auto),
-                            Some(IconName::Scaling),
-                            "Fit the prices (Alt+R)",
-                        )
-                        .on_click(cx.listener(
-                            |this, _event, _window, cx| {
-                                this.menu = None;
-                                this.reset_price_scale(cx);
-                            },
-                        )),
-                    );
-                card.into_any_element()
-            }
             Menu::Zone => {
                 let now = super::now_ms();
                 let mut list = div().flex().flex_col();
@@ -1205,19 +1037,12 @@ impl Chart {
                     .into_any_element()
             }
         };
-        let positioned = match menu {
-            // The zone opens from the corner at the bottom right.
-            Menu::Zone => div()
-                .absolute()
-                .right(px(4.))
-                .bottom(px(AXIS_H + 4.0))
-                .child(card),
-            _ => div()
-                .absolute()
-                .top(px(40.))
-                .right(px(AXIS_W + 8.0))
-                .child(card),
-        };
+        // The zone opens from the corner at the bottom right.
+        let positioned = div()
+            .absolute()
+            .right(px(4.))
+            .bottom(px(AXIS_H + 4.0))
+            .child(card);
         Some(
             deferred(
                 div()

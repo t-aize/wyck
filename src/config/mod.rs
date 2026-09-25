@@ -64,6 +64,7 @@ pub mod secret;
 pub use app_config::AppConfig;
 pub use documents::DocumentStore;
 pub use error::{ConfigError, Result};
+pub use fs_util::atomic_write;
 pub use paths::AppPaths;
 pub use profile::{ProfileConfig, ProfileId};
 pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, SecretStore};

@@ -10,6 +10,9 @@
 //! position, and every one of them has a default. A file written by another version still loads:
 //! an unknown indicator is dropped, a missing input takes its default, an unknown one is ignored.
 
+pub mod catalog;
+pub mod custom;
+pub mod intern;
 pub mod math;
 pub mod profile;
 
@@ -44,6 +47,8 @@ pub enum StudyKind {
     Momentum,
     Obv,
     Dmi,
+    /// An indicator written as a script: which one is in [`StudyConfig::script`].
+    Custom,
     /// An indicator a newer version wrote. Dropped on load.
     #[serde(other)]
     Unknown,
@@ -82,6 +87,8 @@ pub enum InputKind {
     Choice(&'static [&'static str]),
     /// On or off, stored as 1 or 0.
     Toggle,
+    /// A color, stored as its number `0xRRGGBB`.
+    Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -161,6 +168,7 @@ pub struct PlotSpec {
     pub kind: PlotKind,
     pub color: u32,
     pub width: f32,
+    pub dash: Dash,
 }
 
 const fn line(key: &'static str, label: &'static str, color: u32, width: f32) -> PlotSpec {
@@ -170,6 +178,7 @@ const fn line(key: &'static str, label: &'static str, color: u32, width: f32) ->
         kind: PlotKind::Line,
         color,
         width,
+        dash: Dash::Solid,
     }
 }
 
@@ -397,6 +406,7 @@ impl StudyKind {
                             kind: PlotKind::Dots,
                             color: BLUE,
                             width: 2.0,
+                            dash: Dash::Solid,
                         }],
                         range: None,
                     }
@@ -456,6 +466,7 @@ impl StudyKind {
                                 kind: PlotKind::Histogram,
                                 color: GRAY,
                                 width: 1.0,
+                                dash: Dash::Solid,
                             },
                             line("ma", "Average", BLUE, 1.0),
                         ],
@@ -501,6 +512,7 @@ impl StudyKind {
                                 kind: PlotKind::Histogram,
                                 color: GRAY,
                                 width: 1.0,
+                                dash: Dash::Solid,
                             },
                             line("macd", "MACD", BLUE, 1.5),
                             line("signal", "Signal", ORANGE, 1.5),
@@ -621,7 +633,7 @@ impl StudyKind {
                     }
                 }
             }
-            Self::Unknown => {
+            Self::Unknown | Self::Custom => {
                 const {
                     Spec {
                         label: "Unknown",
@@ -665,6 +677,9 @@ fn opaque() -> f32 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StudyConfig {
     pub kind: StudyKind,
+    /// The id of the script, for [`StudyKind::Custom`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<String>,
     #[serde(default)]
     pub inputs: BTreeMap<String, f64>,
     #[serde(default)]
@@ -685,6 +700,7 @@ impl StudyConfig {
     pub fn new(kind: StudyKind) -> Self {
         Self {
             kind,
+            script: None,
             inputs: BTreeMap::new(),
             plots: BTreeMap::new(),
             visible: true,
@@ -693,15 +709,74 @@ impl StudyConfig {
         .normalized()
     }
 
+    /// An indicator written as a script, with every input and plot at its default.
+    pub fn for_script(id: &str) -> Self {
+        Self {
+            kind: StudyKind::Custom,
+            script: Some(id.to_owned()),
+            inputs: BTreeMap::new(),
+            plots: BTreeMap::new(),
+            visible: true,
+            weight: pane_weight(),
+        }
+        .normalized()
+    }
+
+    /// The same indicator with every input and plot at its default.
+    #[must_use]
+    pub fn fresh(&self) -> Self {
+        match (&self.kind, self.script.as_deref()) {
+            (StudyKind::Custom, Some(id)) => Self::for_script(id),
+            (kind, _) => Self::new(*kind),
+        }
+    }
+
+    /// Whether this is an indicator written as a script.
+    pub fn is_script(&self) -> bool {
+        self.kind == StudyKind::Custom
+    }
+
+    /// Everything fixed about the indicator: what the app ships, or what the script declared. A
+    /// script that is gone gives an empty spec.
     pub fn spec(&self) -> Spec {
-        self.kind.spec()
+        match self.kind {
+            StudyKind::Custom => custom::spec_for(self.script.as_deref()),
+            kind => kind.spec(),
+        }
+    }
+
+    /// Whether the script this indicator holds is known and works. True for the indicators the
+    /// app ships.
+    pub fn is_ready(&self) -> bool {
+        self.kind != StudyKind::Custom
+            || self
+                .script
+                .as_deref()
+                .and_then(custom::library::registry::get)
+                .is_some_and(|entry| entry.is_ready())
     }
 
     /// The config repaired: every input of the spec present and inside its range (whole where it
     /// must be), unknown keys dropped, every plot styled.
     #[must_use]
     pub fn normalized(mut self) -> Self {
-        let spec = self.kind.spec();
+        // A script that is not there (yet, or any more), or that does not work at the moment (a
+        // mistake being typed), keeps what was saved for it: the file may come back, and the
+        // settings with it.
+        if self.kind == StudyKind::Custom
+            && !self
+                .script
+                .as_deref()
+                .and_then(custom::library::registry::get)
+                .is_some_and(|entry| entry.is_ready())
+        {
+            if !(self.weight.is_finite() && self.weight > 0.0) {
+                self.weight = pane_weight();
+            }
+            self.weight = self.weight.clamp(0.1, 20.0);
+            return self;
+        }
+        let spec = self.spec();
         let mut inputs = BTreeMap::new();
         for input in spec.inputs {
             let raw = self
@@ -772,7 +847,7 @@ impl StudyConfig {
 
     pub fn plot_style(&self, key: &str) -> PlotStyle {
         self.plots.get(key).copied().unwrap_or_else(|| {
-            let spec = self.kind.spec();
+            let spec = self.spec();
             let plot = spec.plots.iter().find(|p| p.key == key);
             PlotStyle {
                 color: plot.map_or(GRAY, |p| p.color),
@@ -786,7 +861,7 @@ impl StudyConfig {
 
     /// The legend's title: the short name and the main inputs, `SMA 20 close`.
     pub fn title(&self) -> String {
-        let spec = self.kind.spec();
+        let spec = self.spec();
         let mut parts = vec![spec.short.to_owned()];
         for input in spec.inputs {
             let value = self.input(input.key);
@@ -796,7 +871,7 @@ impl StudyConfig {
                 InputKind::Source => {
                     parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
                 }
-                InputKind::Choice(_) | InputKind::Toggle => {}
+                InputKind::Choice(_) | InputKind::Toggle | InputKind::Color => {}
             }
             if input.key == "offset" && value == 0.0 {
                 parts.pop();
@@ -1055,7 +1130,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 ..plot("sar", values)
             });
         }
-        StudyKind::VolumeProfile | StudyKind::Unknown => {}
+        StudyKind::VolumeProfile | StudyKind::Unknown | StudyKind::Custom => {}
         StudyKind::Volume => {
             let up = (0..n).map(|i| input.close[i] >= input.open[i]).collect();
             out.plots.push(PlotOut {

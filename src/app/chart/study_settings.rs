@@ -5,13 +5,16 @@
 //! them.
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::drawing::model::{DASHES, WIDTHS};
+use super::study::custom::library::registry;
+use super::study::custom::{Problem, Severity};
 use super::study::{InputKind, Placement, PlotKind, SOURCES, StudyConfig, StudyKind};
+use crate::app::connection::ui::icon_colored;
 use crate::app::settings_ui::{self as ui, Head, Tab};
 use crate::app::{modal, theme, widgets};
 
@@ -135,7 +138,7 @@ impl StudyEditor {
         };
         let mut subscriptions = vec![cx.observe(&chart, |_this, _chart, cx| cx.notify())];
         let mut fields = Vec::new();
-        for input in config.kind.spec().inputs {
+        for input in config.spec().inputs {
             if !matches!(input.kind, InputKind::Int | InputKind::Float) {
                 continue;
             }
@@ -158,7 +161,7 @@ impl StudyEditor {
             fields.push((key, state));
         }
         let mut opacity = Vec::new();
-        for plot in config.kind.spec().plots {
+        for plot in config.spec().plots {
             let state = cx.new(|cx| {
                 widgets::number_state(
                     f64::from(config.plot_style(plot.key).opacity) * 100.0,
@@ -180,7 +183,7 @@ impl StudyEditor {
             opacity.push((key, state));
         }
         let mut widths = Vec::new();
-        for plot in config.kind.spec().plots {
+        for plot in config.spec().plots {
             let state = cx.new(|cx| {
                 widgets::number_state(
                     f64::from(config.plot_style(plot.key).width),
@@ -216,9 +219,9 @@ impl StudyEditor {
         }
     }
 
-    fn pages(&self) -> Vec<Page> {
+    fn pages(config: &StudyConfig) -> Vec<Page> {
         let mut pages = Vec::new();
-        if !self.kind.spec().inputs.is_empty() {
+        if !config.spec().inputs.is_empty() || config.is_script() {
             pages.push(Page::Inputs);
         }
         pages.push(Page::Style);
@@ -242,7 +245,7 @@ impl StudyEditor {
         }
     }
 
-    fn inputs_page(&self, config: &StudyConfig) -> AnyElement {
+    fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
         let target = &self.target;
         let mut rows = Vec::new();
         for input in config.spec().inputs {
@@ -290,14 +293,160 @@ impl StudyEditor {
                         .into_any_element(),
                     )
                 }
+                InputKind::Color => {
+                    let (this, pick) = (cx.entity(), target.clone());
+                    let open = self.color_open == Some(key);
+                    Some(widgets::color_swatch(
+                        SharedString::from(format!("input-color-{key}")),
+                        config.input(key) as u32,
+                        open,
+                        cx,
+                        move |_window, cx| {
+                            this.update(cx, |e, cx| {
+                                e.color_open = if e.color_open == Some(key) {
+                                    None
+                                } else {
+                                    Some(key)
+                                };
+                                cx.notify();
+                            });
+                        },
+                        move |color, _window, cx| pick.set_input(key, f64::from(color), cx),
+                    ))
+                }
             };
             if let Some(control) = control {
                 rows.push(ui::field(input.label, None, control));
             }
         }
-        ui::page()
-            .child(ui::group(IconName::SlidersHorizontal, "Parameters", rows))
-            .into_any_element()
+        let mut page = ui::page();
+        if let Some(group) = self.script_group(config, cx) {
+            page = page.child(group);
+        }
+        if rows.is_empty() {
+            page = page.child(ui::note("This indicator has no parameters to change."));
+        } else {
+            page = page.child(ui::group(IconName::SlidersHorizontal, "Parameters", rows));
+        }
+        page.into_any_element()
+    }
+
+    /// For an indicator written as a script: which script it is, the way to its editor, and what
+    /// is wrong with it when something is.
+    fn script_group(&self, config: &StudyConfig, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let id = config.script.clone().filter(|_| config.is_script())?;
+        let entry = registry::get(&id);
+        let mut problems: Vec<Problem> = entry
+            .as_ref()
+            .map(|e| e.problems.clone())
+            .unwrap_or_default();
+        if problems.is_empty()
+            && let Some(report) = self.chart.read(cx).script_report(&id)
+        {
+            problems = report.problems;
+        }
+        let (edit_chart, edit_id) = (self.chart.clone(), id.clone());
+        let reveal_path = entry.as_ref().map(|e| e.path.clone());
+        let mut rows = Vec::new();
+        let mut about = id.clone();
+        if let Some(entry) = &entry {
+            let info = &entry.info;
+            let mut parts = Vec::new();
+            if !info.author.is_empty() {
+                parts.push(format!("by {}", info.author));
+            }
+            if !info.version.is_empty() {
+                parts.push(format!("version {}", info.version));
+            }
+            if !parts.is_empty() {
+                about = format!("{id} ({})", parts.join(", "));
+            }
+        }
+        rows.push(ui::field(
+            "Script",
+            entry
+                .as_ref()
+                .map(|_| "Written in the indicators folder. Save it in the editor and the chart follows")
+                .or(Some("The file is not in the indicators folder")),
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_1p5()
+                .child(
+                    div()
+                        .max_w(px(200.))
+                        .truncate()
+                        .text_size(px(12.))
+                        .text_color(theme::muted_fg())
+                        .child(about),
+                )
+                .child(ui::action(
+                    "study-edit-script",
+                    "Edit",
+                    Some(IconName::Pencil),
+                    false,
+                    move |window, cx| {
+                        modal::close(window, cx);
+                        let id = edit_id.clone();
+                        edit_chart.update(cx, |_, cx| {
+                            cx.emit(super::ChartEvent::IndicatorEditor(
+                                super::EditorRequest::Edit(id),
+                            ));
+                        });
+                    },
+                ))
+                .children(reveal_path.map(|path| {
+                    ui::action(
+                        "study-reveal-script",
+                        "Show",
+                        Some(IconName::FolderOpen),
+                        false,
+                        move |_window, cx| crate::app::indicators::reveal(cx, &path),
+                    )
+                })),
+        ));
+        if let Some(entry) = &entry
+            && !entry.info.description.is_empty()
+        {
+            rows.push(ui::block(ui::note(entry.info.description.clone())));
+        }
+        for problem in problems.iter().take(4) {
+            let error = problem.severity == Severity::Error;
+            let place = if problem.line > 0 {
+                format!("line {}: ", problem.line)
+            } else {
+                String::new()
+            };
+            rows.push(ui::block(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_start()
+                    .text_size(px(12.))
+                    .text_color(if error {
+                        theme::destructive()
+                    } else {
+                        theme::amber()
+                    })
+                    .child(icon_colored(
+                        if error {
+                            IconName::CircleAlert
+                        } else {
+                            IconName::TriangleAlert
+                        },
+                        13.,
+                        if error {
+                            theme::destructive()
+                        } else {
+                            theme::amber()
+                        },
+                    ))
+                    .child(format!("{place}{}", problem.message)),
+            ));
+        }
+        Some(ui::group(IconName::CodeXml, "Script", rows).into_any_element())
     }
 
     fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
@@ -455,7 +604,7 @@ impl Render for StudyEditor {
                 .child(ui::empty(IconName::Info, "This indicator was removed."))
                 .into_any_element();
         };
-        let pages = self.pages();
+        let pages = Self::pages(&config);
         if !pages.contains(&self.page) {
             self.page = pages[0];
         }
@@ -481,7 +630,7 @@ impl Render for StudyEditor {
         };
 
         let body = match self.page {
-            Page::Inputs => self.inputs_page(&config),
+            Page::Inputs => self.inputs_page(&config, cx),
             Page::Style => self.style_page(&config, cx),
             Page::Display => self.display_page(&config),
         };
@@ -497,13 +646,22 @@ impl Render for StudyEditor {
                     false,
                     move |window, cx| {
                         defaults.update(cx, |e, cx| {
-                            let kind = e.kind;
+                            let Some(fresh) = e
+                                .chart
+                                .read(cx)
+                                .settings
+                                .studies
+                                .get(e.index)
+                                .map(StudyConfig::fresh)
+                            else {
+                                return;
+                            };
+                            let again = fresh.clone();
                             e.target.edit(cx, |study| {
                                 let visible = study.visible;
-                                *study = StudyConfig::new(kind);
+                                *study = again;
                                 study.visible = visible;
                             });
-                            let fresh = StudyConfig::new(kind);
                             e.set_fields(&fresh, window, cx);
                         });
                     },

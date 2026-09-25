@@ -57,6 +57,11 @@ chrono = "0.4.45"
 chrono-tz = "0.10.4"
 tiny-skia = "0.12.0"
 ab_glyph = "0.2.32"
+# Scripted indicators. No modules (a script cannot load a file) and no clock: a script only reads
+# the bars it is given.
+rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+lsp-types = "0.97"
+anyhow = "1"
 
 [dev-dependencies]
 tempfile = "3.27.0"

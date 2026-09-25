@@ -48,6 +48,7 @@
 
 mod axis;
 mod chart_settings_ui;
+mod custom_runs;
 mod data;
 mod display;
 pub mod drawing;
@@ -59,6 +60,7 @@ mod footprint;
 mod footprint_ui;
 mod glue;
 mod history;
+mod indicator_picker;
 mod input;
 pub mod lines;
 pub mod live;
@@ -74,6 +76,7 @@ pub mod settings;
 pub mod study;
 mod study_settings;
 mod timeframe;
+mod toolbar;
 pub mod transform;
 mod view;
 pub mod zone;
@@ -194,8 +197,6 @@ enum Older {
 /// The menus that open from the chart's own toolbar and legend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Menu {
-    Kind,
-    Scale,
     Zone,
 }
 
@@ -234,6 +235,19 @@ pub enum ChartEvent {
     LineClosed(LineId),
     /// A picture of the chart was asked for.
     Screenshot,
+    /// The user asked for the editor of the indicator scripts.
+    IndicatorEditor(EditorRequest),
+}
+
+/// What a chart asks the dashboard to open in the editor of the indicator scripts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EditorRequest {
+    /// Just the editor.
+    Open,
+    /// The editor, asking for the name of a new script.
+    New,
+    /// The editor, on the script with this id.
+    Edit(String),
 }
 
 /// Something asked from the chart's context menu or a drawing, at a price in real units.
@@ -269,6 +283,9 @@ pub struct Chart {
     series: Series,
     /// What is drawn from them.
     display: Display,
+    /// The indicators written as scripts, run off the interface thread.
+    custom: custom_runs::Custom,
+    _library: gpui::Subscription,
     /// What traded at each price of each bar, for the footprint chart type.
     flow: Flow,
     flow_load: FlowLoad,
@@ -354,6 +371,10 @@ impl Chart {
             settings,
             series: empty_series(timeframe),
             display: Display::default(),
+            custom: custom_runs::Custom::default(),
+            _library: crate::app::indicators::observe(cx, |this: &mut Self, cx| {
+                this.library_changed(cx);
+            }),
             flow: Flow::default(),
             flow_load: FlowLoad::Idle,
             flow_held: Vec::new(),
@@ -561,6 +582,9 @@ impl Chart {
     fn rebuild_display(&mut self) {
         let before = self.display.shown(&self.series).len();
         self.display = Display::build(&self.series, &self.settings, self.unit());
+        // The scripts run apart, and what they last gave is put back for the chart to draw.
+        self.custom.data_changed(self.series.time_at(0));
+        self.custom.apply(&mut self.display.studies);
         let after = self.display.shown(&self.series).len();
         if after > before && self.display.is_derived() {
             self.view.on_appended(after - before);

@@ -10,6 +10,7 @@
 
 mod catalog;
 mod details;
+mod editor_dock;
 mod header;
 mod layout_menu;
 mod lists;
@@ -39,6 +40,7 @@ use super::chart::drawing::Drawings;
 use super::chart::live::{PEEK_OWNER, Wish};
 use super::chart::{self, Chart, LiveHub};
 use super::connection::ui;
+use super::indicators::editor::IndicatorEditor;
 use super::multichart::{MultiChart, MultiChartEvent, SymbolRef};
 use super::trading::account::Account;
 use super::trading::panel::AccountPanel;
@@ -57,6 +59,7 @@ gpui::actions!(
         PickerPageUp,
         PickerPageDown,
         PickerConfirm,
+        ToggleIndicatorEditor,
     ]
 );
 
@@ -65,6 +68,11 @@ pub fn init(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("secondary-k", OpenPicker, Some("Dashboard")),
         KeyBinding::new("secondary-,", OpenSettings, Some("Dashboard")),
+        KeyBinding::new(
+            "secondary-shift-e",
+            ToggleIndicatorEditor,
+            Some("Dashboard"),
+        ),
         KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
         KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
         KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
@@ -188,6 +196,14 @@ pub struct Dashboard {
     panel_height: f32,
     /// Where the pointer was while the panel's top edge is dragged.
     panel_drag: Option<f32>,
+    /// The editor of the indicator scripts, made when it is first opened.
+    editor: Option<Entity<IndicatorEditor>>,
+    editor_open: bool,
+    editor_height: f32,
+    /// Where the pointer was while the top edge of the editor is dragged.
+    editor_drag: Option<f32>,
+    /// The height of the window as last drawn, for the editor that is as tall as it.
+    viewport_height: f32,
     /// Where the pointer was, and how wide the ticket was, when its edge was grabbed.
     ticket_drag: Option<(f32, f32)>,
     /// What waits for the window.
@@ -285,6 +301,11 @@ impl Dashboard {
             panel_open: prefs.panel_open,
             panel_height: prefs.panel_height,
             panel_drag: None,
+            editor: None,
+            editor_open: false,
+            editor_height: editor_dock::DOCK_DEFAULT,
+            editor_drag: None,
+            viewport_height: 800.0,
             ticket_drag: None,
             pending: Vec::new(),
         };
@@ -580,6 +601,10 @@ impl Dashboard {
             MultiChartEvent::Action(symbol, action) => self.on_chart_action(symbol, action, cx),
             MultiChartEvent::LineMoved(id, price) => self.on_line_moved(*id, *price, cx),
             MultiChartEvent::LineClosed(id) => self.on_line_closed(*id, cx),
+            MultiChartEvent::IndicatorEditor(request) => {
+                self.pending.push(trade::Pending::Editor(request.clone()));
+                cx.notify();
+            }
         }
     }
 
@@ -756,6 +781,7 @@ impl Render for Dashboard {
             self.open_picker(window, cx);
         }
         self.trading_frame(window, cx);
+        self.editor_frame(window, cx);
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
@@ -796,6 +822,9 @@ impl Render for Dashboard {
                     window,
                     cx,
                 );
+            }))
+            .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
+                this.toggle_editor(cx);
             }))
             .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
                 this.open_picker(window, cx);

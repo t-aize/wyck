@@ -169,7 +169,7 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
     let wanted = settings
         .studies
         .iter()
-        .any(|s| s.visible && s.kind != StudyKind::VolumeProfile);
+        .any(|s| s.visible && s.kind != StudyKind::VolumeProfile && !s.is_script());
     if !wanted || series.is_empty() {
         return vec![None; settings.studies.len()];
     }
@@ -178,7 +178,7 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
         .studies
         .iter()
         .map(|config| {
-            (config.visible && config.kind != StudyKind::VolumeProfile)
+            (config.visible && config.kind != StudyKind::VolumeProfile && !config.is_script())
                 .then(|| study::compute(config, &input))
         })
         .collect()

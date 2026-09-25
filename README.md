@@ -38,6 +38,12 @@ A single crate:
 - `scripts/`: sign-in and connection tooling for a real demo account, see
   [scripts/README.md](scripts/README.md).
 
+## Your own indicators
+
+Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
+app reads on its own. The header has a button for the folder and for a full editor. See
+[docs/indicators.md](docs/indicators.md).
+
 ## Requirements
 
 - A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`).

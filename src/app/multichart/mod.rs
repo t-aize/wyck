@@ -35,7 +35,8 @@ use self::split::{Divider, Node};
 use super::chart::drawing::Drawings;
 use super::chart::drawing::model::{Dash, Group, Tool};
 use super::chart::{
-    Chart, ChartAction, ChartEvent, ChartLine, LineId, LiveHub, LiveUpdate, Timeframe,
+    Chart, ChartAction, ChartEvent, ChartLine, EditorRequest, LineId, LiveHub, LiveUpdate,
+    Timeframe,
 };
 use super::text_input::TextInput;
 use super::theme;
@@ -66,6 +67,8 @@ pub enum MultiChartEvent {
     Picture(Vec<u8>, String),
     /// A chart could not be turned into a picture.
     PictureFailed(String),
+    /// A chart asked for the editor of the indicator scripts.
+    IndicatorEditor(EditorRequest),
 }
 
 struct Slot {
@@ -718,6 +721,9 @@ impl MultiChart {
                 }
             }
             ChartEvent::LineMoved(id, price) => cx.emit(MultiChartEvent::LineMoved(*id, *price)),
+            ChartEvent::IndicatorEditor(request) => {
+                cx.emit(MultiChartEvent::IndicatorEditor(request.clone()));
+            }
             ChartEvent::LineClosed(id) => cx.emit(MultiChartEvent::LineClosed(*id)),
             ChartEvent::Screenshot => {
                 self.activate(from, cx);

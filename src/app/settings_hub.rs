@@ -14,6 +14,7 @@ use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
 use super::appearance::{self, ColorField, Mode};
+use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
 use super::settings_ui::{self as ui, Head};
 use super::theme::Colors;
@@ -27,26 +28,39 @@ pub fn open(
     window: &mut Window,
     cx: &mut App,
 ) {
+    open_at(workspace, multi, Page::Appearance, window, cx);
+}
+
+/// Opens the settings on a page.
+pub fn open_at(
+    workspace: Entity<Workspace>,
+    multi: Entity<MultiChart>,
+    page: Page,
+    window: &mut Window,
+    cx: &mut App,
+) {
     // Opened once whatever asked is done updating.
     window.defer(cx, move |window, cx| {
-        let hub = cx.new(|cx| SettingsHub::new(workspace, multi, window, cx));
+        let hub = cx.new(|cx| SettingsHub::new(workspace, multi, page, window, cx));
         modal::open(hub, modal::Options::new(920.0, 700.0), window, cx);
     });
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Page {
+pub enum Page {
     Appearance,
     Charts,
+    Indicators,
     Behaviour,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::Appearance,
         Self::Charts,
+        Self::Indicators,
         Self::Behaviour,
         Self::Data,
         Self::About,
@@ -56,6 +70,7 @@ impl Page {
         let (label, icon) = match self {
             Self::Appearance => ("Appearance", IconName::Palette),
             Self::Charts => ("Charts", IconName::ChartCandlestick),
+            Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
@@ -112,6 +127,7 @@ impl SettingsHub {
     fn new(
         workspace: Entity<Workspace>,
         multi: Entity<MultiChart>,
+        page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -121,6 +137,7 @@ impl SettingsHub {
         let font_filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search the fonts"));
         let subscriptions = vec![
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
+            indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
             cx.subscribe(&font_filter, |_this, _input, _event: &InputEvent, cx| {
                 cx.notify();
             }),
@@ -146,7 +163,7 @@ impl SettingsHub {
         Self {
             workspace,
             multi,
-            page: Page::Appearance,
+            page,
             pick: None,
             editing: None,
             new_theme,
@@ -1178,19 +1195,25 @@ impl SettingsHub {
         let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
         let name = format!("wyck-backup-{stamp}.toml");
         let start = directories_start();
+        let scripts_dir = indicators::dir(cx);
         let picked = cx.prompt_for_new_path(&start, Some(&name));
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(path))) = picked.await else {
                 return;
             };
             let created = chrono::Local::now().to_rfc3339();
-            let result = backup::collect(&dir, env!("CARGO_PKG_VERSION"), &created)
-                .map_err(backup::BackupError::from)
-                .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
-                .and_then(|(b, text)| {
-                    std::fs::write(&path, text)?;
-                    Ok(b)
-                });
+            let result = backup::collect_with_scripts(
+                &dir,
+                &scripts_dir,
+                env!("CARGO_PKG_VERSION"),
+                &created,
+            )
+            .map_err(backup::BackupError::from)
+            .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
+            .and_then(|(b, text)| {
+                std::fs::write(&path, text)?;
+                Ok(b)
+            });
             let _ = this.update(cx, |this, cx| match result {
                 Ok(b) => {
                     let count = b.files.len();
@@ -1263,6 +1286,224 @@ impl SettingsHub {
 
     // ---- about ----
 
+    // ---- indicators ----
+
+    fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {
+        let prefs = indicators::prefs(cx);
+        let dir = indicators::dir(cx);
+        let default_dir = indicators::default_dir(cx);
+        let using_default = prefs.folder.is_none();
+        let entries = crate::app::chart::study::custom::library::registry::all();
+        let broken = entries.iter().filter(|e| !e.is_ready()).count();
+
+        let folder = vec![
+            ui::block(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .text_color(theme::fg())
+                            .child("Indicators folder"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(theme::muted_fg())
+                            .child(dir.display().to_string()),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme::muted_fg())
+                            .child(if using_default {
+                                "The default folder, inside the settings folder."
+                            } else {
+                                "A folder you chose."
+                            }),
+                    ),
+            ),
+            ui::field(
+                "Change the folder",
+                Some("Every .rhai file in it (and in the folders inside it) is an indicator"),
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_1p5()
+                    .child(ui::action(
+                        "indicators-choose",
+                        "Choose...",
+                        Some(IconName::FolderOpen),
+                        false,
+                        move |_window, cx| {
+                            let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
+                                files: false,
+                                directories: true,
+                                multiple: false,
+                                prompt: Some("Choose the folder of your indicators".into()),
+                            });
+                            cx.spawn(async move |cx| {
+                                let Ok(Ok(Some(paths))) = picked.await else {
+                                    return;
+                                };
+                                if let Some(path) = paths.into_iter().next() {
+                                    cx.update(|cx| {
+                                        indicators::update_prefs(cx, |p| {
+                                            p.folder = Some(path.display().to_string());
+                                        });
+                                    });
+                                }
+                            })
+                            .detach();
+                        },
+                    ))
+                    .child(
+                        ui::action(
+                            "indicators-default",
+                            "Default",
+                            Some(IconName::RotateCcw),
+                            false,
+                            move |_window, cx| indicators::update_prefs(cx, |p| p.folder = None),
+                        )
+                        .disabled(using_default),
+                    )
+                    .child(ui::action(
+                        "indicators-open",
+                        "Open",
+                        None,
+                        false,
+                        move |_window, cx| indicators::open_folder(cx),
+                    )),
+            ),
+            ui::field(
+                "Its default place",
+                None,
+                div()
+                    .max_w(px(360.))
+                    .truncate()
+                    .text_size(px(11.))
+                    .text_color(theme::muted_fg())
+                    .child(default_dir.display().to_string()),
+            ),
+        ];
+
+        let scripts = vec![
+            ui::field(
+                "Scripts found",
+                Some(if broken == 0 {
+                    "All of them work"
+                } else {
+                    "The ones with problems are marked in the editor and cannot be added"
+                }),
+                div()
+                    .text_size(px(13.))
+                    .text_color(if broken == 0 {
+                        theme::fg()
+                    } else {
+                        theme::destructive()
+                    })
+                    .child(if broken == 0 {
+                        format!("{}", entries.len())
+                    } else {
+                        format!("{} ({broken} with problems)", entries.len())
+                    }),
+            ),
+            ui::field(
+                "Read the folder now",
+                Some("It is also read every moment on its own, when that is turned on"),
+                ui::action(
+                    "indicators-reload",
+                    "Read again",
+                    Some(IconName::RefreshCw),
+                    false,
+                    move |_window, cx| indicators::reload(cx).detach(),
+                ),
+            ),
+            ui::field(
+                "The examples",
+                Some("Puts back the ones you deleted, without touching the others"),
+                ui::action(
+                    "indicators-examples",
+                    "Add the examples",
+                    Some(IconName::FilePlus),
+                    false,
+                    move |_window, cx| {
+                        indicators::on_library(cx, |library| library.install_examples()).detach();
+                    },
+                ),
+            ),
+        ];
+
+        let budgets: Vec<&str> = prefs::Budget::ALL.iter().map(|b| b.label()).collect();
+        let budget_index = prefs::Budget::ALL
+            .iter()
+            .position(|b| *b == prefs.budget)
+            .unwrap_or(1);
+        let behavior = vec![
+            ui::field(
+                "Read the folder on its own",
+                Some(
+                    "A file edited in another program shows up, and the charts that hold it update",
+                ),
+                ui::toggle("indicators-auto", prefs.auto_reload, move |on, _w, cx| {
+                    indicators::update_prefs(cx, |p| p.auto_reload = on);
+                }),
+            ),
+            ui::field(
+                "What a script may do",
+                Some(
+                    "A script over the limit is stopped. Light is for many charts, Heavy for scripts that loop over the bars",
+                ),
+                widgets::segmented(
+                    "indicators-budget",
+                    &budgets,
+                    budget_index,
+                    move |choice, _window, cx| {
+                        indicators::update_prefs(cx, |p| p.budget = prefs::Budget::ALL[choice]);
+                    },
+                ),
+            ),
+        ];
+
+        let favorites = vec![ui::field(
+            "Starred indicators",
+            Some("The stars in the list of indicators"),
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme::fg())
+                        .child(prefs.favorites.len().to_string()),
+                )
+                .child(
+                    ui::action(
+                        "indicators-clear-favorites",
+                        "Clear",
+                        None,
+                        false,
+                        move |_window, cx| indicators::update_prefs(cx, |p| p.favorites.clear()),
+                    )
+                    .disabled(prefs.favorites.is_empty()),
+                ),
+        )];
+
+        ui::page()
+            .child(ui::group(IconName::FolderOpen, "Folder", folder))
+            .child(ui::group(IconName::CodeXml, "Scripts", scripts))
+            .child(ui::group(IconName::SlidersHorizontal, "Behavior", behavior))
+            .child(ui::group(IconName::Star, "Favorites", favorites))
+            .child(ui::note(
+                "Open the editor from the button in the header (Ctrl+Shift+E). Export a script from the editor to share it.",
+            ))
+            .into_any_element()
+    }
+
     fn about_page(&self) -> AnyElement {
         let facts = [
             ("Version", env!("CARGO_PKG_VERSION").to_owned()),
@@ -1319,6 +1560,7 @@ impl Render for SettingsHub {
         let body = match self.page {
             Page::Appearance => self.appearance_page(cx),
             Page::Charts => self.charts_page(cx),
+            Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(),
