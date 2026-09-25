@@ -419,6 +419,7 @@ impl AccountPanel {
                     items.push(
                         Entry::new(label)
                             .checked(shown)
+                            .keep_open()
                             .on_click(move |_, cx| {
                                 this.update(cx, |p, cx| {
                                     p.edit_prefs(cx, |prefs| prefs.toggle_column(tab, slot));
@@ -433,6 +434,7 @@ impl AccountPanel {
                 items.push(
                     Entry::new("Reset the columns")
                         .icon(IconName::RotateCcw)
+                        .keep_open()
                         .on_click(move |_, cx| {
                             reset.update(cx, |p, cx| {
                                 p.edit_prefs(cx, |prefs| prefs.reset_columns(tab))

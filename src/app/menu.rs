@@ -65,6 +65,8 @@ pub struct Entry {
     checked: bool,
     disabled: bool,
     danger: bool,
+    /// Whether the card stays open after the entry is picked.
+    keep_open: bool,
     on_click: Option<Handler>,
 }
 
@@ -77,6 +79,7 @@ impl Entry {
             checked: false,
             disabled: false,
             danger: false,
+            keep_open: false,
             on_click: None,
         }
     }
@@ -110,6 +113,14 @@ impl Entry {
     #[must_use]
     pub fn danger(mut self) -> Self {
         self.danger = true;
+        self
+    }
+
+    /// The card stays open when the entry is picked, so several can be picked in a row (a list of
+    /// switches). A click outside, or Escape, closes it.
+    #[must_use]
+    pub fn keep_open(mut self) -> Self {
+        self.keep_open = true;
         self
     }
 
@@ -300,7 +311,9 @@ impl Menu {
                         _ => None,
                     });
                 if let Some(entry) = chosen {
-                    self.close(cx);
+                    if !entry.keep_open {
+                        self.close(cx);
+                    }
                     if let Some(action) = &entry.on_click {
                         action(window, cx);
                     }
@@ -364,7 +377,7 @@ impl Menu {
         } else {
             theme::fg()
         };
-        let (menu, action) = (self.clone(), entry.on_click.clone());
+        let (menu, action, keep_open) = (self.clone(), entry.on_click.clone(), entry.keep_open);
         div()
             .id(widgets::child_id(&self.id, index))
             .flex()
@@ -384,7 +397,9 @@ impl Menu {
                     // The press belongs to the entry, not to what is under the card.
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(move |_, window, cx| {
-                        menu.close(cx);
+                        if !keep_open {
+                            menu.close(cx);
+                        }
                         if let Some(action) = &action {
                             action(window, cx);
                         }
