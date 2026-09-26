@@ -491,6 +491,16 @@ impl Chart {
     }
 }
 
+/// The cursor of something being dragged: a closed hand, which Windows does not have (it would
+/// show the plain arrow), so the pointing hand there.
+fn grabbing() -> CursorStyle {
+    if cfg!(windows) {
+        CursorStyle::PointingHand
+    } else {
+        CursorStyle::ClosedHand
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,15 +522,5 @@ mod tests {
         assert!(!pan_moves_prices(manual, true, false, false, 4.0));
         assert!(pan_moves_prices(manual, true, false, false, 20.0));
         assert!(!pan_moves_prices(manual, true, true, false, 20.0));
-    }
-}
-
-/// The cursor of something being dragged: a closed hand, which Windows does not have (it would
-/// show the plain arrow), so the pointing hand there.
-fn grabbing() -> CursorStyle {
-    if cfg!(windows) {
-        CursorStyle::PointingHand
-    } else {
-        CursorStyle::ClosedHand
     }
 }

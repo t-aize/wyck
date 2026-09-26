@@ -433,8 +433,10 @@ mod tests {
 
     #[test]
     fn loading_a_chart_keeps_indicators_above_the_default_user_limit() {
-        let mut settings = ChartSettings::default();
-        settings.studies = vec![StudyConfig::new(StudyKind::Sma); 20];
+        let mut settings = ChartSettings {
+            studies: vec![StudyConfig::new(StudyKind::Sma); 20],
+            ..ChartSettings::default()
+        };
         assert_eq!(settings.clone().normalized().studies.len(), 20);
         settings
             .studies

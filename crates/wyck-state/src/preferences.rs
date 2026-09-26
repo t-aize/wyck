@@ -683,11 +683,13 @@ mod tests {
     fn usage_limits_load_from_old_files_and_stay_in_supported_ranges() {
         let old: Preferences = toml::from_str("magnet = true").unwrap();
         assert_eq!(old.normalized().limits, UsageLimits::default());
-        let mut prefs = Preferences::default();
-        prefs.limits = UsageLimits {
-            studies_per_chart: 0,
-            alerts: usize::MAX,
-            drawings_per_symbol: 3_000,
+        let prefs = Preferences {
+            limits: UsageLimits {
+                studies_per_chart: 0,
+                alerts: usize::MAX,
+                drawings_per_symbol: 3_000,
+            },
+            ..Preferences::default()
         };
         let prefs = prefs.normalized();
         assert_eq!(prefs.limits.studies_per_chart, 1);

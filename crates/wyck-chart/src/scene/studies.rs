@@ -78,39 +78,6 @@ pub(super) fn pane_map(
     PriceMap::linear(lo, hi, band.top + 6.0, band.bottom() - 6.0)
 }
 
-#[cfg(test)]
-mod pane_map_tests {
-    use super::*;
-
-    #[test]
-    fn hidden_atr_plots_do_not_change_the_axis() {
-        let mut config = StudyConfig::new(StudyKind::Atr);
-        let output = StudyOutput {
-            plots: vec![
-                plot_for_test("atr", vec![1.0, 2.0]),
-                plot_for_test("tr", vec![100.0, 200.0]),
-            ],
-            ..StudyOutput::default()
-        };
-        let band = Band { top: 0.0, h: 100.0 };
-        let hidden = pane_map(&config, &output, None, band, 0, 2);
-        assert!(hidden.hi < 3.0);
-        config.plots.get_mut("tr").unwrap().visible = true;
-        let shown = pane_map(&config, &output, None, band, 0, 2);
-        assert!(shown.hi >= 200.0);
-    }
-
-    fn plot_for_test(key: &'static str, values: Vec<f64>) -> PlotOut {
-        PlotOut {
-            key,
-            kind: PlotKind::Line,
-            values,
-            offset: 0,
-            up: None,
-        }
-    }
-}
-
 /// The points of a plot on screen, cut where it has no value. Several points per pixel column
 /// keep only the last of each column.
 fn segments(
@@ -581,6 +548,39 @@ pub(super) fn value_tags(
                     color,
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod pane_map_tests {
+    use super::*;
+
+    #[test]
+    fn hidden_atr_plots_do_not_change_the_axis() {
+        let mut config = StudyConfig::new(StudyKind::Atr);
+        let output = StudyOutput {
+            plots: vec![
+                plot_for_test("atr", vec![1.0, 2.0]),
+                plot_for_test("tr", vec![100.0, 200.0]),
+            ],
+            ..StudyOutput::default()
+        };
+        let band = Band { top: 0.0, h: 100.0 };
+        let hidden = pane_map(&config, &output, None, band, 0, 2);
+        assert!(hidden.hi < 3.0);
+        config.plots.get_mut("tr").unwrap().visible = true;
+        let shown = pane_map(&config, &output, None, band, 0, 2);
+        assert!(shown.hi >= 200.0);
+    }
+
+    fn plot_for_test(key: &'static str, values: Vec<f64>) -> PlotOut {
+        PlotOut {
+            key,
+            kind: PlotKind::Line,
+            values,
+            offset: 0,
+            up: None,
         }
     }
 }
