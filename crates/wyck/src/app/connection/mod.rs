@@ -37,7 +37,7 @@ use gpui_kit::component::Root;
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
 use super::workspace::Documents;
-use super::{anim, runtime, theme};
+use super::{anim, runtime, theme, title_bar};
 
 enum Screen {
     Welcome,
@@ -273,6 +273,7 @@ impl Render for ConnectionFlow {
             .bg(theme::bg())
             .text_color(theme::fg())
             .font_family(super::appearance::font(cx))
+            .child(title_bar::render(window))
             .child(anim::enter(
                 div()
                     .flex()

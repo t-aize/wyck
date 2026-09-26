@@ -29,6 +29,7 @@ mod settings_ui;
 #[path = "ui/text_input.rs"]
 mod text_input;
 mod theme;
+mod title_bar;
 #[path = "ui/toast.rs"]
 mod toast;
 #[path = "services/token_store.rs"]
@@ -41,8 +42,8 @@ mod workspace;
 use std::borrow::Cow;
 
 use gpui::prelude::*;
-use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
-use gpui_kit::component::Root;
+use gpui::{App, Bounds, WindowBounds, px, size};
+use gpui_kit::component::{Root, TitleBar};
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
@@ -101,27 +102,23 @@ pub fn run() {
                 (screen.1 * 0.9).clamp(800.0, 1500.0),
             );
             let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
-            cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    // The OS's own titlebar: real Windows caption buttons and Snap Layouts, real
-                    // macOS traffic lights, whatever the Linux compositor draws for everyone else.
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("Wyck".into()),
-                        appears_transparent: false,
-                        traffic_light_position: None,
-                    }),
-                    ..Default::default()
-                },
-                |window, cx| {
-                    // With the mode on System, the theme follows the system as it changes.
-                    window
-                        .observe_window_appearance(|_window, cx| appearance::refresh_system(cx))
-                        .detach();
-                    let flow = cx.new(connection::ConnectionFlow::new);
-                    cx.new(|cx| Root::new(flow, window, cx))
-                },
-            )
+            let mut options = TitleBar::window_options();
+            options.window_bounds = Some(WindowBounds::Windowed(bounds));
+            if let Some(titlebar) = options.titlebar.as_mut() {
+                titlebar.title = Some("Wyck".into());
+            }
+            #[cfg(target_os = "linux")]
+            {
+                options.window_decorations = Some(gpui::WindowDecorations::Client);
+            }
+            cx.open_window(options, |window, cx| {
+                // With the mode on System, the theme follows the system as it changes.
+                window
+                    .observe_window_appearance(|_window, cx| appearance::refresh_system(cx))
+                    .detach();
+                let flow = cx.new(connection::ConnectionFlow::new);
+                cx.new(|cx| Root::new(flow, window, cx))
+            })
             .expect("failed to open the main window");
 
             cx.activate(true);

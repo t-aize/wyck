@@ -343,6 +343,8 @@ pub fn apply(cx: &mut gpui::App) {
     theme_colors.muted_foreground = hsla(muted_fg());
     theme_colors.popover = hsla(surface());
     theme_colors.popover_foreground = hsla(fg());
+    theme_colors.title_bar = hsla(surface());
+    theme_colors.title_bar_border = hsla(border_hairline());
 
     theme_colors.primary = hsla(accent());
     theme_colors.primary_hover = hsla(accent()).opacity(0.88);
