@@ -415,3 +415,45 @@ fn a_script_sees_an_empty_chart_and_a_long_one_alike() {
         assert_eq!(plot(&done, "r").len(), n);
     }
 }
+
+#[test]
+fn tmp_fvg_script() {
+    let source = std::fs::read_to_string(
+        r"C:\Users\minec\AppData\Roaming\wyck\wyck\config\indicators\SMC\SMC Fair Value Gaps.rhai",
+    )
+    .unwrap();
+    for (n, extra) in [(300usize, vec![]), (20000, vec![]), (20000, vec![("ifvg_max", 3.0), ("bpr_max", 2.0), ("show_ce", 1.0)])] {
+        let mut x: u64 = 12345;
+        let mut rnd = move || {
+            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((x >> 33) as f64) / (1u64 << 31) as f64
+        };
+        let mut close = Vec::new();
+        let mut open = Vec::new();
+        let mut high = Vec::new();
+        let mut low = Vec::new();
+        let mut p = 100.0;
+        for _ in 0..n {
+            let o = p;
+            p += (rnd() - 0.5) * 3.0 + if rnd() < 0.1 { (rnd() - 0.5) * 8.0 } else { 0.0 };
+            open.push(o);
+            close.push(p);
+            high.push(o.max(p) + rnd() * 0.5);
+            low.push(o.min(p) - rnd() * 0.5);
+        }
+        let input = StudyInput {
+            time: (0..n as i64).map(|i| 1_700_000_000_000 + i * 60_000).collect(),
+            open, high, low, close,
+            volume: vec![10.0; n],
+            day: (0..n).map(|i| (i / 40) as i64).collect(),
+        };
+        let start = std::time::Instant::now();
+        let done = run_with(&source, &input, &extra);
+        println!("n={n} extra={extra:?} took {:?}", start.elapsed());
+        for p in &done.output.plots {
+            let c = p.values.iter().filter(|v| v.is_finite()).count();
+            println!("  {} finite={}", p.key, c);
+        }
+        println!("  fills={}", done.output.fills.len());
+    }
+}
