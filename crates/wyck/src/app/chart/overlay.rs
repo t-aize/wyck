@@ -305,6 +305,21 @@ impl Chart {
                     chart_settings_ui::open(cx.entity(), window, cx)
                 }))
                 .into(),
+            Entry::new("Copy indicators")
+                .icon(IconName::Copy)
+                .hint("Ctrl/Cmd+C")
+                .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
+                .into(),
+            Entry::new("Copy chart settings")
+                .icon(IconName::Copy)
+                .hint("Ctrl/Cmd+Shift+C")
+                .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
+                .into(),
+            Entry::new("Paste on this chart")
+                .icon(IconName::ClipboardPaste)
+                .hint("Ctrl/Cmd+V")
+                .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
+                .into(),
             Item::Separator,
             Entry::new("Reset chart view")
                 .icon(IconName::RotateCcw)
@@ -417,7 +432,9 @@ impl Chart {
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(ui::icon_colored(icon, 13., theme::chart_muted()))
                 .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(tooltip).build(window, cx)
+                    gpui_kit::component::tooltip::Tooltip::new(tooltip)
+                        .m_1()
+                        .build(window, cx)
                 })
         };
         div()
@@ -453,6 +470,7 @@ impl Chart {
                     ))
                     .tooltip(move |window, cx| {
                         gpui_kit::component::tooltip::Tooltip::new(message.clone())
+                            .m_1()
                             .build(window, cx)
                     })
             }))
@@ -690,7 +708,9 @@ impl Chart {
                 .cursor_default()
                 .hover(move |s| s.bg(hover))
                 .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
+                    gpui_kit::component::tooltip::Tooltip::new(text.clone())
+                        .m_1()
+                        .build(window, cx)
                 })
                 .child(
                     div()

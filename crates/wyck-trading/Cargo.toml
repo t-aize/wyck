@@ -10,6 +10,7 @@ publish.workspace = true
 description = "Trading state, calculations and preferences for Wyck."
 
 [dependencies]
+wyck-chart.workspace = true
 wyck-openapi-model.workspace = true
 serde.workspace = true
 time.workspace = true

@@ -84,6 +84,8 @@ pub struct LinksPref {
     pub time: bool,
     #[serde(default)]
     pub range: bool,
+    #[serde(default)]
+    pub studies: bool,
 }
 
 fn yes() -> bool {
@@ -98,6 +100,7 @@ impl Default for LinksPref {
             crosshair: true,
             time: true,
             range: false,
+            studies: false,
         }
     }
 }

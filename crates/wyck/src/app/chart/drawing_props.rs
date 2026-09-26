@@ -13,6 +13,7 @@ use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Disableable, Sizable};
 use wyck_openapi::market::PRICE_SCALE;
 
+use super::Chart;
 use super::drawing::Drawings;
 use super::drawing::extras::{ICONS, icon_key};
 use super::drawing::figures::wave_names;
@@ -25,15 +26,21 @@ use super::timeframe::GROUPS;
 use super::zone::Zone;
 use crate::app::settings_ui::{self as ui, Head};
 use crate::app::{modal, theme, widgets};
+use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 
-/// Opens the settings of drawing `id` of `symbol`. Prices are shown with `digits` decimals and
-/// times in `zone`.
+pub struct PropsContext {
+    pub zone: Zone,
+    pub digits: u32,
+    pub atr_seed: Option<AtrStop>,
+    pub chart: Option<Entity<Chart>>,
+}
+
+/// Opens the settings of drawing `id` of `symbol`.
 pub fn open(
     drawings: Entity<Drawings>,
     symbol: String,
     id: u64,
-    zone: Zone,
-    digits: u32,
+    context: PropsContext,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -43,7 +50,7 @@ pub fn open(
             return;
         };
         let editor =
-            cx.new(|cx| DrawingProps::new(drawings, symbol, &drawing, zone, digits, window, cx));
+            cx.new(|cx| DrawingProps::new(drawings, symbol, &drawing, context, window, cx));
         // Escape and the close button keep the changes, like OK.
         let keep = editor.clone();
         modal::open(
@@ -123,6 +130,8 @@ struct DrawingProps {
     text: Entity<TextareaState>,
     /// The number fields of a long or short position, when the drawing is one.
     pos: Option<PositionFields>,
+    atr_seed: Option<AtrStop>,
+    chart: Option<Entity<Chart>>,
     name: Entity<InputState>,
     prices: Vec<Entity<InputState>>,
     times: Vec<Entity<InputState>>,
@@ -144,6 +153,10 @@ struct PositionFields {
     point_value: Entity<InputState>,
     qty_precision: Entity<InputState>,
     currency: Entity<InputState>,
+    atr_length: Entity<InputState>,
+    atr_multiplier: Entity<InputState>,
+    rr: Entity<InputState>,
+    atr_timeframe: Entity<InputState>,
 }
 
 /// A switch of the measure tool: whether it applies, its id, its name, its state, and what it sets.
@@ -160,11 +173,16 @@ impl DrawingProps {
         drawings: Entity<Drawings>,
         symbol: String,
         drawing: &Drawing,
-        zone: Zone,
-        digits: u32,
+        context: PropsContext,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let PropsContext {
+            zone,
+            digits,
+            atr_seed,
+            chart,
+        } = context;
         let before = drawings.read(cx).book().drawings(&symbol).to_vec();
         let style = &drawing.style;
         let opacity = cx.new(|cx| {
@@ -260,10 +278,17 @@ impl DrawingProps {
                 }
             }),
         ];
+        if let Some(chart) = &chart {
+            subscriptions.push(cx.observe(chart, |_, _, cx| cx.notify()));
+        }
         let mut prices = Vec::new();
         let mut times = Vec::new();
         if !drawing.tool.is_freehand() {
-            for (index, point) in drawing.points.iter().enumerate() {
+            let current = chart
+                .as_ref()
+                .and_then(|chart| chart.read(cx).resolved_position(drawing));
+            let shown = current.as_ref().unwrap_or(drawing);
+            for (index, point) in shown.points.iter().enumerate() {
                 let price = cx.new(|cx| {
                     InputState::new(window, cx).default_value(format_real(point.p, digits))
                 });
@@ -288,6 +313,32 @@ impl DrawingProps {
         }
         let pos = drawing.tool.is_position().then(|| {
             let p = &drawing.style.position;
+            let atr = p
+                .atr_stop
+                .clone()
+                .or_else(|| atr_seed.clone())
+                .unwrap_or_default();
+            let atr_length = cx.new(|cx| {
+                widgets::number_state(atr.length as f64, 1.0, 1_000.0, 1.0, 0, window, cx)
+            });
+            let atr_multiplier = cx
+                .new(|cx| widgets::number_state(atr.multiplier, 0.01, 1_000.0, 0.1, 2, window, cx));
+            let rr = cx.new(|cx| {
+                widgets::number_state(
+                    p.target_rr.unwrap_or(2.0),
+                    0.01,
+                    1_000.0,
+                    0.1,
+                    2,
+                    window,
+                    cx,
+                )
+            });
+            let atr_timeframe = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .default_value(atr.timeframe.clone().unwrap_or_default())
+                    .placeholder("Chart TF, M15, H1...")
+            });
             let account =
                 cx.new(|cx| widgets::number_state(p.account, 1.0, 1e12, 100.0, 2, window, cx));
             let risk = cx.new(|cx| widgets::number_state(p.risk, 0.01, 1e12, 0.25, 2, window, cx));
@@ -350,6 +401,48 @@ impl DrawingProps {
                     }
                 }),
             );
+            subscriptions.push(widgets::watch_number(&atr_length, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    if let Some(atr) = &mut d.style.position.atr_stop {
+                        atr.length = (value as usize).clamp(1, 1_000);
+                    }
+                });
+            }));
+            subscriptions.push(widgets::watch_number(
+                &atr_multiplier,
+                cx,
+                |this, value, cx| {
+                    this.change(cx, |d| {
+                        if let Some(atr) = &mut d.style.position.atr_stop {
+                            atr.multiplier = value.clamp(0.01, 1_000.0);
+                        }
+                    });
+                },
+            ));
+            subscriptions.push(widgets::watch_number(&rr, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    if d.style.position.target_rr.is_some() {
+                        d.style.position.target_rr = Some(value.clamp(0.01, 1_000.0));
+                    }
+                });
+            }));
+            subscriptions.push(cx.subscribe(
+                &atr_timeframe,
+                |this, state, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        let code = state.read(cx).value().trim().to_ascii_uppercase();
+                        if code.is_empty()
+                            || super::timeframe::Timeframe::from_code(&code).is_some()
+                        {
+                            this.change(cx, |d| {
+                                if let Some(atr) = &mut d.style.position.atr_stop {
+                                    atr.timeframe = (!code.is_empty()).then_some(code);
+                                }
+                            });
+                        }
+                    }
+                },
+            ));
             PositionFields {
                 account,
                 risk,
@@ -358,6 +451,10 @@ impl DrawingProps {
                 point_value,
                 qty_precision,
                 currency,
+                atr_length,
+                atr_multiplier,
+                rr,
+                atr_timeframe,
             }
         });
         let mut this = Self {
@@ -385,6 +482,8 @@ impl DrawingProps {
             text_size,
             text,
             pos,
+            atr_seed,
+            chart,
             name,
             prices,
             times,
@@ -581,7 +680,17 @@ impl DrawingProps {
     }
 
     /// What the position comes to with these settings, as rows of a card: the plan in figures.
-    fn position_result(&self, drawing: &Drawing) -> Vec<AnyElement> {
+    fn position_result(&self, drawing: &Drawing, cx: &App) -> Vec<AnyElement> {
+        let resolved = self
+            .chart
+            .as_ref()
+            .and_then(|chart| chart.read(cx).resolved_position(drawing));
+        if drawing.style.position.atr_stop.is_some() && resolved.is_none() {
+            return vec![ui::block(ui::note(
+                "ATR unavailable for the selected chart and timeframe.",
+            ))];
+        }
+        let drawing = resolved.as_ref().unwrap_or(drawing);
         let p = &drawing.style.position;
         let real = |raw: f64| raw / PRICE_SCALE as f64;
         let tick = 10f64.powi(-(self.digits as i32));
@@ -1259,10 +1368,119 @@ impl DrawingProps {
             ],
         );
 
+        let atr_seed = self.atr_seed.clone().unwrap_or_default();
+        let mode_this = this.clone();
+        let target_this = this.clone();
+        let mut levels = vec![
+            ui::field(
+                "Stop loss",
+                None,
+                widgets::segmented(
+                    "pos-stop-mode",
+                    &["Fixed price", "ATR x"],
+                    usize::from(p.atr_stop.is_some()),
+                    move |choice, _, cx| {
+                        mode_this.update(cx, |editor, cx| {
+                            editor.change(cx, |d| {
+                                d.style.position.atr_stop = (choice == 1).then(|| atr_seed.clone());
+                            })
+                        });
+                    },
+                ),
+            ),
+            ui::field(
+                "Take profit",
+                None,
+                widgets::segmented(
+                    "pos-target-mode",
+                    &["Fixed price", "Risk multiple"],
+                    usize::from(p.target_rr.is_some()),
+                    move |choice, _, cx| {
+                        target_this.update(cx, |editor, cx| {
+                            editor.change(cx, |d| {
+                                d.style.position.target_rr = (choice == 1).then_some(2.0);
+                            })
+                        });
+                    },
+                ),
+            ),
+        ];
+        if let Some(atr) = &p.atr_stop {
+            let smooth_this = this.clone();
+            let bar_this = this.clone();
+            let smooth_index = Smoothing::ALL
+                .iter()
+                .position(|m| *m == atr.smoothing)
+                .unwrap_or(0);
+            levels.push(ui::field(
+                "ATR length",
+                None,
+                widgets::number_field(&pos.atr_length, 100.),
+            ));
+            levels.push(ui::field(
+                "ATR multiplier",
+                None,
+                widgets::number_field(&pos.atr_multiplier, 100.),
+            ));
+            levels.push(ui::field(
+                "ATR smoothing",
+                None,
+                widgets::segmented(
+                    "pos-atr-smoothing",
+                    &["RMA", "SMA", "EMA", "WMA"],
+                    smooth_index,
+                    move |choice, _, cx| {
+                        smooth_this.update(cx, |editor, cx| {
+                            editor.change(cx, |d| {
+                                if let Some(atr) = &mut d.style.position.atr_stop {
+                                    atr.smoothing = Smoothing::ALL[choice];
+                                }
+                            })
+                        });
+                    },
+                ),
+            ));
+            levels.push(ui::field(
+                "ATR timeframe",
+                Some(
+                    "Leave blank to follow this chart, or enter a timeframe code such as M15 or H1",
+                ),
+                div()
+                    .w(px(130.))
+                    .child(Input::new(&pos.atr_timeframe).small()),
+            ));
+            levels.push(ui::field(
+                "ATR bar",
+                None,
+                widgets::segmented(
+                    "pos-atr-bar",
+                    &["Last closed", "Current"],
+                    usize::from(atr.current_bar),
+                    move |choice, _, cx| {
+                        bar_this.update(cx, |editor, cx| {
+                            editor.change(cx, |d| {
+                                if let Some(atr) = &mut d.style.position.atr_stop {
+                                    atr.current_bar = choice == 1;
+                                }
+                            })
+                        });
+                    },
+                ),
+            ));
+        }
+        if p.target_rr.is_some() {
+            levels.push(ui::field(
+                "Risk multiple",
+                None,
+                widgets::number_field(&pos.rr, 100.),
+            ));
+        }
+        let levels = ui::group(IconName::ChartNoAxesCombined, "Protection levels", levels);
+
         let result = ui::group(
             IconName::Calculator,
             "Result",
-            self.position_result(drawing),
+            self.position_result(drawing, cx),
         );
 
         let stat = |id: &str,
@@ -1356,6 +1574,7 @@ impl DrawingProps {
         ui::page()
             .child(account)
             .child(risk)
+            .child(levels)
             .child(result)
             .child(stats)
             .child(ui::note(
@@ -1557,6 +1776,7 @@ impl DrawingProps {
                 gpui_kit::component::tooltip::Tooltip::new(
                     "Line style of this level: the drawing's, solid, dashed, dotted",
                 )
+                .m_1()
                 .build(window, cx)
             })
             .on_click(move |_, _window, cx| {
@@ -1756,7 +1976,7 @@ impl DrawingProps {
             "label-valign",
             vertical,
             match layout.valign {
-                VAlign::Top => 0,
+                VAlign::Auto | VAlign::Top => 0,
                 VAlign::Middle => 1,
                 VAlign::Bottom => 2,
             },
@@ -2189,6 +2409,12 @@ fn set_point(drawing: &mut Drawing, index: usize, time: Option<i64>, price: Opti
     }
     if let Some(p) = price.filter(|p| p.is_finite()) {
         point.p = p;
+        if drawing.tool.is_position() && index == 1 {
+            drawing.style.position.atr_stop = None;
+        }
+        if drawing.tool.is_position() && index == 2 {
+            drawing.style.position.target_rr = None;
+        }
     }
     if drawing.tool.is_position() && drawing.points.len() == 4 {
         let entry = drawing.points[0];

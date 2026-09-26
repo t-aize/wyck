@@ -77,6 +77,40 @@ fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
     }
     let layout = &style.text_layout;
     let size = style.text_size;
+    if (tool.is_box()
+        || matches!(
+            tool,
+            Tool::RotatedRectangle | Tool::Circle | Tool::Triangle | Tool::Forecast
+        ))
+        && pts.len() >= 2
+    {
+        let (mut left, mut right) = (f32::INFINITY, f32::NEG_INFINITY);
+        let (mut top, mut bottom) = (f32::INFINITY, f32::NEG_INFINITY);
+        for &(x, y) in pts {
+            left = left.min(x);
+            right = right.max(x);
+            top = top.min(y);
+            bottom = bottom.max(y);
+        }
+        out.push(Prim::FittedLabel {
+            bounds: Rect {
+                l: left,
+                t: top,
+                r: right,
+                b: bottom,
+            },
+            text: text.to_owned(),
+            color: style.text_color(),
+            background: layout
+                .background
+                .then(|| (layout.background_color.unwrap_or(TAG), 0.9)),
+            align: layout.align,
+            valign: layout.valign,
+            size,
+            bold: style.bold,
+        });
+        return;
+    }
     let (at, anchor) = place(tool, pts, plot, layout, size);
     out.push(Prim::Label {
         at,
@@ -96,7 +130,7 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
     let lift = size * 0.6 + GAP;
     // Above, on or below a line at height `y`.
     let across = |y: f32| match layout.valign {
-        VAlign::Top => y - lift,
+        VAlign::Auto | VAlign::Top => y - lift,
         VAlign::Middle => y,
         VAlign::Bottom => y + lift,
     };
@@ -121,7 +155,7 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
         }
         Tool::VerticalLine => {
             let y = match layout.valign {
-                VAlign::Top => plot.t + size + GAP * 2.0,
+                VAlign::Auto | VAlign::Top => plot.t + size + GAP * 2.0,
                 VAlign::Middle => (plot.t + plot.b) / 2.0,
                 VAlign::Bottom => plot.b - size - GAP * 2.0,
             };
@@ -156,7 +190,7 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
                 // A mark is a point: the words stand clear of it.
                 let (x, anchor) = along(left, right);
                 let y = match layout.valign {
-                    VAlign::Top => top - 30.0,
+                    VAlign::Auto | VAlign::Top => top - 30.0,
                     VAlign::Middle => top,
                     VAlign::Bottom => top + 30.0,
                 };
@@ -165,7 +199,7 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
             let (x, anchor) = along(left, right);
             let inset = size * 0.7 + GAP;
             let y = match layout.valign {
-                VAlign::Top => top + inset,
+                VAlign::Auto | VAlign::Top => top + inset,
                 VAlign::Middle => (top + bottom) / 2.0,
                 VAlign::Bottom => bottom - inset,
             };
@@ -246,9 +280,9 @@ mod tests {
         let pts = [(200.0, 100.0), (600.0, 300.0)];
         let mut out = Vec::new();
         decorate(&rect, &pts, PLOT, &mut out);
-        let at = labels(&out)[0].1;
-        assert_eq!(at.0, 400.0);
-        assert!(at.1 > 100.0 && at.1 < 300.0, "inside the box");
+        assert!(
+            matches!(out.last(), Some(Prim::FittedLabel { bounds, .. }) if bounds.l == 200.0 && bounds.r == 600.0 && bounds.t == 100.0 && bounds.b == 300.0)
+        );
 
         let mut line = drawing(Tool::HorizontalLine, 1);
         line.text = "support".to_owned();

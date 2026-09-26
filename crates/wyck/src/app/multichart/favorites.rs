@@ -197,7 +197,7 @@ impl MultiChart {
                     .when(!selected, |el| {
                         el.hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
                     })
-                    .tooltip(move |window, cx| Tooltip::new(hint.clone()).build(window, cx))
+                    .tooltip(move |window, cx| Tooltip::new(hint.clone()).m_1().build(window, cx))
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.pick_favorite(index, cx);
                     }))

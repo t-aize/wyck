@@ -557,7 +557,6 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
     }
     studies::overlays_under(&cx, first, last, &mut plot);
-    series::draw(&cx, kind, first, last, &mut plot);
     studies::overlays(&cx, first, last, &mut plot);
     draw_script_drawings(&cx, &mut plot);
     for mark in frame.marks {
@@ -577,6 +576,8 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         draw_drawings(&cx, view, &mut plot);
     }
     draw_price_lines(&cx, &mut plot);
+    // Price marks remain readable even when a scripted or manual drawing fills their area.
+    series::draw(&cx, kind, first, last, &mut plot);
     if let Some(((_, hy), 0)) = pointer {
         plot.push(crosshair_line(&cx, hy));
     }
@@ -1365,6 +1366,34 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                     align,
                     bold,
                 },
+            });
+        }
+        Prim::FittedLabel {
+            bounds,
+            text,
+            color,
+            background,
+            align,
+            valign,
+            size,
+            bold,
+        } => {
+            out.push(Cmd::FittedText {
+                text,
+                x: ox + bounds.l,
+                y: oy + bounds.t,
+                w: (bounds.r - bounds.l).max(0.0),
+                h: (bounds.b - bounds.t).max(0.0),
+                size,
+                color: rgb_alpha(color, 1.0),
+                background: background.map(|(color, alpha)| rgb_alpha(color, alpha)),
+                align: match align {
+                    crate::drawing::look::HAlign::Start => Align::Left,
+                    crate::drawing::look::HAlign::Center => Align::Center,
+                    crate::drawing::look::HAlign::End => Align::Right,
+                },
+                valign,
+                bold,
             });
         }
         Prim::Handle { at: position } => {

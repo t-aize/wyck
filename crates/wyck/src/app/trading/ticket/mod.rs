@@ -36,11 +36,13 @@ use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 
 use super::account::Account;
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
+use crate::app::chart::Chart;
 use crate::app::chart::drawing::model::Dash;
 use crate::app::chart::{ChartLine, LineId, now_ms};
 use crate::app::confirm::confirm;
 use crate::app::multichart::SymbolRef;
 use crate::app::{runtime, widgets};
+use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
 pub use wyck_trading::ticket::prefs;
@@ -101,6 +103,13 @@ pub struct OrderTicket {
     stop_loss: Entity<InputState>,
     take_profit: Entity<InputState>,
     stop_unit: Offset,
+    stop_atr: bool,
+    atr: AtrStop,
+    atr_seeded: bool,
+    atr_length: Entity<InputState>,
+    atr_multiplier: Entity<InputState>,
+    chart: Option<Entity<Chart>>,
+    chart_observe: Option<Subscription>,
     target_unit: Offset,
     stop_on: bool,
     target_on: bool,
@@ -150,6 +159,16 @@ impl OrderTicket {
         });
         let price = cx.new(|cx| InputState::new(window, cx));
         let stop_loss = cx.new(|cx| number("", window, cx));
+        let atr_length = cx.new(|cx| {
+            number(&prefs.atr.length.to_string(), window, cx)
+                .max(1_000.0)
+                .step(NumberStep::Fixed(1.0))
+        });
+        let atr_multiplier = cx.new(|cx| {
+            number(&widgets::format_number(prefs.atr.multiplier, 2), window, cx)
+                .max(1_000.0)
+                .step(NumberStep::Fixed(0.1))
+        });
         let take_profit = cx.new(|cx| number("", window, cx));
         let expiry = cx.new(|cx| {
             number(&widgets::format_number(defaults.expiry, 2), window, cx)
@@ -182,6 +201,30 @@ impl OrderTicket {
                 }),
             );
         }
+        subscriptions.push(
+            cx.subscribe(&atr_length, |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    if let Some(value) = Self::read(&this.atr_length, cx) {
+                        this.atr.length = (value as usize).clamp(1, 1_000);
+                    }
+                    this.settings_changed(cx);
+                    cx.emit(TicketEvent::LinesChanged);
+                    cx.notify();
+                }
+            }),
+        );
+        subscriptions.push(
+            cx.subscribe(&atr_multiplier, |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    if let Some(value) = Self::read(&this.atr_multiplier, cx).filter(|v| *v > 0.0) {
+                        this.atr.multiplier = value.min(1_000.0);
+                    }
+                    this.settings_changed(cx);
+                    cx.emit(TicketEvent::LinesChanged);
+                    cx.notify();
+                }
+            }),
+        );
         for state in [&expiry, &comment] {
             subscriptions.push(
                 cx.subscribe(state, |_this, _state, event: &InputEvent, cx| {
@@ -191,6 +234,7 @@ impl OrderTicket {
                 }),
             );
         }
+        let atr_seeded = prefs.stop_atr || prefs.atr != AtrStop::default();
         let mut ticket = Self {
             account,
             symbol: None,
@@ -202,6 +246,13 @@ impl OrderTicket {
             stop_loss,
             take_profit,
             stop_unit: prefs.stop_unit,
+            stop_atr: prefs.stop_atr,
+            atr: prefs.atr,
+            atr_seeded,
+            atr_length,
+            atr_multiplier,
+            chart: None,
+            chart_observe: None,
             target_unit: prefs.target_unit,
             stop_on: defaults.stop_on,
             target_on: defaults.target_on,
@@ -250,6 +301,8 @@ impl OrderTicket {
             size_mode: self.size_mode,
             size: Self::read(&self.size, cx).unwrap_or(0.0),
             stop_unit: self.stop_unit,
+            stop_atr: self.stop_atr,
+            atr: self.atr.clone(),
             target_unit: self.target_unit,
             layout: self.layout.clone(),
         }
@@ -258,6 +311,27 @@ impl OrderTicket {
     fn settings_changed(&self, cx: &mut Context<Self>) {
         let prefs = self.prefs(cx);
         cx.emit(TicketEvent::Settings(Box::new(prefs)));
+    }
+
+    pub fn set_chart(&mut self, chart: Entity<Chart>, cx: &mut Context<Self>) {
+        if self.chart.as_ref().is_some_and(|current| current == &chart) {
+            return;
+        }
+        self.chart_observe = Some(cx.observe(&chart, |_, _, cx| {
+            cx.emit(TicketEvent::LinesChanged);
+            cx.notify();
+        }));
+        self.chart = Some(chart);
+        cx.notify();
+    }
+
+    pub fn request_atr(&self, cx: &mut Context<Self>) {
+        if self.stop_atr
+            && self.stop_on
+            && let Some(chart) = &self.chart
+        {
+            chart.update(cx, |chart, cx| chart.request_atr(&self.atr, cx));
+        }
     }
 
     /// Changes how the panel looks and what it holds, and remembers it.
@@ -387,8 +461,15 @@ impl OrderTicket {
                 let value = self.contract(cx).format_price(price);
                 self.write(&self.price.clone(), value, window, cx);
             }
-            LINE_STOP => self.set_protection(true, price, window, cx),
-            _ => self.set_protection(false, price, window, cx),
+            LINE_STOP => {
+                self.stop_atr = false;
+                self.stop_unit = Offset::Price;
+                self.set_protection(true, price, window, cx);
+            }
+            _ => {
+                self.target_unit = Offset::Price;
+                self.set_protection(false, price, window, cx);
+            }
         }
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();
@@ -413,6 +494,10 @@ impl OrderTicket {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if stop && self.stop_atr {
+            self.stop_atr = false;
+            self.settings_changed(cx);
+        }
         let plan = self.plan(cx);
         let unit = if stop {
             self.stop_unit
@@ -544,6 +629,7 @@ impl OrderTicket {
         let plan = self.plan(cx);
         let price = if stop { plan.stop } else { plan.target };
         if stop {
+            self.stop_atr = false;
             self.stop_unit = unit;
         } else {
             self.target_unit = unit;
@@ -560,6 +646,44 @@ impl OrderTicket {
             }
         }
         self.apply_steps(window, cx);
+        self.settings_changed(cx);
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
+    }
+
+    fn set_atr_stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.atr_seeded
+            && let Some(chart) = &self.chart
+            && let Some(study) = chart
+                .read(cx)
+                .settings()
+                .studies
+                .iter()
+                .find(|study| study.kind == crate::app::chart::study::StudyKind::Atr)
+        {
+            self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
+            self.atr.smoothing = match study.input("smoothing") as usize {
+                1 => wyck_chart::study::atr_stop::Smoothing::Sma,
+                2 => wyck_chart::study::atr_stop::Smoothing::Ema,
+                3 => wyck_chart::study::atr_stop::Smoothing::Wma,
+                _ => wyck_chart::study::atr_stop::Smoothing::Rma,
+            };
+            self.write(
+                &self.atr_length.clone(),
+                self.atr.length.to_string(),
+                window,
+                cx,
+            );
+        }
+        self.atr_seeded = true;
+        self.stop_atr = true;
+        self.stop_on = true;
+        if !self.target_on || Self::read(&self.take_profit, cx).is_none() {
+            self.target_on = true;
+            self.target_unit = Offset::Ratio;
+            self.write(&self.take_profit.clone(), "2".to_owned(), window, cx);
+        }
+        self.request_atr(cx);
         self.settings_changed(cx);
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();
@@ -734,9 +858,19 @@ impl OrderTicket {
             stop_distance: None,
         };
         // A stop loss that does not depend on the volume, which a risk needs.
-        let early_stop = (self.stop_on && !self.stop_unit.needs_volume())
-            .then(|| self.protection_price(true, self.stop_unit, entry, &scale, cx))
-            .flatten();
+        let early_stop = if self.stop_on && self.stop_atr {
+            entry
+                .zip(
+                    self.chart
+                        .as_ref()
+                        .and_then(|chart| chart.read(cx).atr_value(&self.atr)),
+                )
+                .and_then(|(entry, atr)| self.atr.stop(entry, self.buy, atr))
+        } else {
+            (self.stop_on && !self.stop_unit.needs_volume())
+                .then(|| self.protection_price(true, self.stop_unit, entry, &scale, cx))
+                .flatten()
+        };
         let lot_units = contract.lot_size as f64 / 100.0;
         let sized: Result<Stepped, String> = (|| match self.size_mode {
             SizeMode::Lots => Ok(contract.volume_near(size.ok_or("Set the volume")?)),
@@ -790,8 +924,12 @@ impl OrderTicket {
             .map(|(s, r)| s.volume as f64 / 100.0 * r);
         scale.money_per_price = plan.money_per_price;
         if self.stop_on {
-            plan.stop = early_stop
-                .or_else(|| self.protection_price(true, self.stop_unit, entry, &scale, cx));
+            plan.stop = if self.stop_atr {
+                early_stop
+            } else {
+                early_stop
+                    .or_else(|| self.protection_price(true, self.stop_unit, entry, &scale, cx))
+            };
         }
         plan.stop_distance = plan.stop.and_then(|p| side(p, true)).filter(|d| *d > 0.0);
         scale.stop_distance = plan.stop_distance;
@@ -814,7 +952,9 @@ impl OrderTicket {
             problem(&mut plan, math::TicketProblem::NoPrice.to_string());
         }
         if self.stop_on && plan.stop.is_none() {
-            let text = if self.stop_unit.needs_volume() && rate.is_none() {
+            let text = if self.stop_atr {
+                "ATR unavailable for the selected timeframe and bar"
+            } else if self.stop_unit.needs_volume() && rate.is_none() {
                 "Waiting for the conversion rate"
             } else {
                 "Set the stop loss"

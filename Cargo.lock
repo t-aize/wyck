@@ -9273,6 +9273,7 @@ dependencies = [
  "serde_json",
  "time",
  "toml 1.1.6+spec-1.1.0",
+ "wyck-chart",
  "wyck-openapi-model",
 ]
 

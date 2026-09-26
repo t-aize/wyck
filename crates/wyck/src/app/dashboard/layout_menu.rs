@@ -11,7 +11,7 @@ use crate::app::multichart::links::{Link, Links};
 use crate::app::{menu, theme};
 
 /// The links on offer, with what each one does.
-const LINK_ROWS: [(Option<Link>, &str, &str); 5] = [
+const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [
     (
         Some(Link::Symbol),
         "Symbol",
@@ -36,6 +36,11 @@ const LINK_ROWS: [(Option<Link>, &str, &str); 5] = [
         Some(Link::Range),
         "Date range",
         "Zooming and scrolling give every chart the same span",
+    ),
+    (
+        Some(Link::Studies),
+        "Indicators",
+        "Keep the same indicators and settings on every chart",
     ),
 ];
 
@@ -172,11 +177,7 @@ impl Dashboard {
             .child(reset)
             .child(links_section);
 
-        menu::below(
-            crate::app::anim::enter(card, "layout-menu-card", 0),
-            menu::BELOW_BUTTON,
-            1,
-        )
+        menu::below(card, menu::BELOW_BUTTON, 1)
     }
 }
 

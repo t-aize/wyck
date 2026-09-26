@@ -114,9 +114,40 @@ pub struct InputDecl {
     pub step: f64,
     /// The names, for a choice.
     pub options: Vec<String>,
+    /// The settings tab requested by the script, when set.
+    pub section: Option<InputSection>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputSection {
+    Inputs,
+    Style,
 }
 
 impl InputDecl {
+    pub fn in_style(&self) -> bool {
+        match self.section {
+            Some(InputSection::Inputs) => false,
+            Some(InputSection::Style) => true,
+            None => {
+                if self.kind == InputType::Color {
+                    return true;
+                }
+                let name = format!("{} {}", self.key, self.label).to_ascii_lowercase();
+                [
+                    "opacity",
+                    "width",
+                    "thickness",
+                    "text size",
+                    "font size",
+                    "text_size",
+                    "font_size",
+                ]
+                .iter()
+                .any(|word| name.contains(word))
+            }
+        }
+    }
     /// The kind of input the panels know.
     pub fn input_kind(&self) -> InputKind {
         match self.kind {
@@ -646,6 +677,32 @@ pub fn source_index(name: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn style_inputs_follow_kind_name_and_explicit_section() {
+        let mut input = InputDecl {
+            key: "bullish_fvg".to_owned(),
+            label: "Bullish FVG".to_owned(),
+            kind: InputType::Color,
+            default: 0.0,
+            min: 0.0,
+            max: 1.0,
+            step: 1.0,
+            options: Vec::new(),
+            section: None,
+        };
+        assert!(input.in_style());
+        input.section = Some(InputSection::Inputs);
+        assert!(!input.in_style());
+        input.key = "fill_opacity".to_owned();
+        input.kind = InputType::Float;
+        input.section = None;
+        assert!(input.in_style());
+        input.section = Some(InputSection::Inputs);
+        assert!(!input.in_style());
+        input.section = Some(InputSection::Style);
+        assert!(input.in_style());
+    }
 
     fn bars(n: usize) -> StudyInput {
         let close: Vec<f64> = (0..n)

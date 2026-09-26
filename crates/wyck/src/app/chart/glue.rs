@@ -9,7 +9,9 @@ use super::drawing::Drawings;
 use super::drawing::book::{Book, Order, Press};
 use super::drawing::model::Tool;
 use super::projection::ChartProjection;
+use super::study::StudyKind;
 use super::{Chart, ChartAction, ChartEvent, drawing_props, object_tree};
+use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,8 +27,60 @@ pub enum DrawingCommand {
 impl Chart {
     /// Shows and edits the drawings of this entity, redrawing when they change.
     pub fn attach_drawings(&mut self, drawings: Entity<Drawings>, cx: &mut Context<Self>) {
-        self._drawings_observe = Some(cx.observe(&drawings, |_this, _drawings, cx| cx.notify()));
+        self._drawings_observe = Some(cx.observe(&drawings, |this, _drawings, cx| {
+            this.request_drawing_atr(cx);
+            cx.notify();
+        }));
         self.drawings = Some(drawings);
+        self.request_drawing_atr(cx);
+    }
+
+    pub(super) fn request_drawing_atr(&mut self, cx: &mut Context<Self>) {
+        let (Some(drawings), Some(symbol)) = (&self.drawings, self.symbol_name()) else {
+            return;
+        };
+        let configs: Vec<_> = drawings
+            .read(cx)
+            .book()
+            .drawings(&symbol)
+            .iter()
+            .filter_map(|d| {
+                d.tool
+                    .is_position()
+                    .then(|| d.style.position.atr_stop.clone())
+                    .flatten()
+            })
+            .collect();
+        for config in configs {
+            self.request_atr(&config, cx);
+        }
+    }
+
+    pub(super) fn resolved_position(
+        &self,
+        drawing: &super::drawing::model::Drawing,
+    ) -> Option<super::drawing::model::Drawing> {
+        if !drawing.tool.is_position() || drawing.points.len() < 3 {
+            return Some(drawing.clone());
+        }
+        let mut result = drawing.clone();
+        let settings = &drawing.style.position;
+        let entry = drawing.points[0].p / PRICE_SCALE as f64;
+        let buy = drawing.tool == Tool::LongPosition;
+        if let Some(config) = &settings.atr_stop {
+            let atr = self.atr_value(config)?;
+            let stop = config.stop(entry, buy, atr)?;
+            result.points[1].p = stop * PRICE_SCALE as f64;
+        }
+        if let Some(rr) = settings.target_rr {
+            let distance = (entry - result.points[1].p / PRICE_SCALE as f64).abs();
+            if !distance.is_finite() || distance <= 0.0 {
+                return None;
+            }
+            let target = entry + if buy { rr * distance } else { -rr * distance };
+            result.points[2].p = target * PRICE_SCALE as f64;
+        }
+        Some(result)
     }
 
     /// Runs `f` with the projection of the prices band as it is now, when it has data.
@@ -53,6 +107,24 @@ impl Chart {
         self.symbol.as_ref().map(|s| s.name.to_string())
     }
 
+    pub(super) fn atr_seed(&self) -> Option<AtrStop> {
+        let study = self
+            .settings()
+            .studies
+            .iter()
+            .find(|study| study.kind == StudyKind::Atr)?;
+        Some(AtrStop {
+            length: (study.input("length") as usize).clamp(1, 1_000),
+            smoothing: match study.input("smoothing") as usize {
+                1 => Smoothing::Sma,
+                2 => Smoothing::Ema,
+                3 => Smoothing::Wma,
+                _ => Smoothing::Rma,
+            },
+            ..AtrStop::default()
+        })
+    }
+
     /// A press on the prices. Returns whether a drawing took it, in which case the chart does not
     /// scroll.
     pub(super) fn drawing_press(&mut self, x: f32, y: f32, cx: &mut Context<Self>) -> bool {
@@ -76,7 +148,11 @@ impl Chart {
         let timeframe = self.timeframe.code();
         let taken = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.press(&symbol, &timeframe, projection, x, y))
+                drawings.edit(cx, |book| {
+                    book.press_resolved(&symbol, &timeframe, projection, x, y, &|d| {
+                        self.resolved_position(d)
+                    })
+                })
             })
         });
         taken == Some(Press::Taken)
@@ -97,10 +173,14 @@ impl Chart {
         if !drawings.read(cx).book().is_busy() {
             let over = self
                 .with_projection(|projection| {
-                    drawings
-                        .read(cx)
-                        .book()
-                        .hover(&symbol, &timeframe, projection, x, y)
+                    drawings.read(cx).book().hover_resolved(
+                        &symbol,
+                        &timeframe,
+                        projection,
+                        x,
+                        y,
+                        &|d| self.resolved_position(d),
+                    )
                 })
                 .flatten();
             if over != self.over_drawing {
@@ -152,10 +232,14 @@ impl Chart {
         let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
         let timeframe = self.timeframe.code();
         self.with_projection(|projection| {
-            drawings
-                .read(cx)
-                .book()
-                .drawing_at(&symbol, &timeframe, projection, x, y)
+            drawings.read(cx).book().drawing_at_resolved(
+                &symbol,
+                &timeframe,
+                projection,
+                x,
+                y,
+                &|d| self.resolved_position(d),
+            )
         })
         .flatten()
     }
@@ -249,7 +333,7 @@ impl Chart {
     /// The order a long or short position drawing stands for, for the ticket.
     pub fn position_order(&self, id: u64, cx: &App) -> Option<ChartAction> {
         let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
-        let drawing = drawings.read(cx).book().get(&symbol, id)?.clone();
+        let drawing = self.resolved_position(drawings.read(cx).book().get(&symbol, id)?)?;
         if !drawing.tool.is_position() || drawing.points.len() < 3 {
             return None;
         }
@@ -266,6 +350,19 @@ impl Chart {
     pub fn trade_drawing(&mut self, id: u64, cx: &mut Context<Self>) {
         if let Some(action) = self.position_order(id, cx) {
             cx.emit(ChartEvent::Action(action));
+        } else if let (Some(drawings), Some(symbol)) = (&self.drawings, self.symbol_name())
+            && drawings
+                .read(cx)
+                .book()
+                .get(&symbol, id)
+                .is_some_and(|drawing| drawing.style.position.atr_stop.is_some())
+        {
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Warning,
+                "ATR unavailable",
+                "The selected chart has no current ATR value for this drawing.",
+            );
         }
     }
 }
@@ -273,13 +370,34 @@ impl Chart {
 /// Opens the settings of drawing `id` of the symbol of `chart`.
 pub fn open_drawing_settings(chart: &Entity<Chart>, id: u64, window: &mut Window, cx: &mut App) {
     if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
-        drawing_props::open(drawings, symbol, id, zone, digits, window, cx);
+        let atr_seed = chart.read(cx).atr_seed();
+        drawing_props::open(
+            drawings,
+            symbol,
+            id,
+            drawing_props::PropsContext {
+                zone,
+                digits,
+                atr_seed,
+                chart: Some(chart.clone()),
+            },
+            window,
+            cx,
+        );
     }
 }
 
 /// Opens the list of the drawings of the symbol of `chart`.
 pub fn open_object_tree(chart: &Entity<Chart>, window: &mut Window, cx: &mut App) {
     if let Some((drawings, symbol, zone, digits)) = chart.read(cx).drawing_context() {
-        object_tree::open(drawings, symbol, zone, digits, window, cx);
+        object_tree::open(
+            drawings,
+            symbol,
+            zone,
+            digits,
+            Some(chart.clone()),
+            window,
+            cx,
+        );
     }
 }

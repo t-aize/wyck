@@ -937,6 +937,31 @@ impl Render for Dashboard {
                     this.multi.update(cx, |multi, cx| multi.picture(cx));
                 }),
             )
+            .on_action(
+                cx.listener(|this, _: &chart::ChartCopyIndicators, window, cx| {
+                    this.multi.update(cx, |multi, cx| {
+                        if multi.has_chart_focus(window) {
+                            multi.copy_active_indicators(cx);
+                        }
+                    });
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &chart::ChartCopySettings, window, cx| {
+                    this.multi.update(cx, |multi, cx| {
+                        if multi.has_chart_focus(window) {
+                            multi.copy_active_settings(cx);
+                        }
+                    });
+                }),
+            )
+            .on_action(cx.listener(|this, _: &chart::ChartPaste, window, cx| {
+                this.multi.update(cx, |multi, cx| {
+                    if multi.has_chart_focus(window) {
+                        multi.paste_active(cx);
+                    }
+                });
+            }))
             .relative()
             .flex()
             .flex_col()

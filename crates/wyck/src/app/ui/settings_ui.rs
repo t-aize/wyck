@@ -524,5 +524,9 @@ fn gpui_tooltip(
     text: impl Into<SharedString>,
 ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
     let text: SharedString = text.into();
-    move |window, cx| gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
+    move |window, cx| {
+        gpui_kit::component::tooltip::Tooltip::new(text.clone())
+            .m_1()
+            .build(window, cx)
+    }
 }

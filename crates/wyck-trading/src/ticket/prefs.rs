@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::math::{Offset, SizeMode};
+use wyck_chart::study::atr_stop::AtrStop;
 
 /// The kind of order the ticket sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -467,6 +468,8 @@ pub struct TicketPrefs {
     /// The last value typed for the volume, in the unit of `size_mode`.
     pub size: f64,
     pub stop_unit: Offset,
+    pub stop_atr: bool,
+    pub atr: AtrStop,
     pub target_unit: Offset,
     pub layout: Layout,
 }
@@ -477,6 +480,8 @@ impl Default for TicketPrefs {
             size_mode: SizeMode::Lots,
             size: 0.1,
             stop_unit: Offset::Pips,
+            stop_atr: false,
+            atr: AtrStop::default(),
             target_unit: Offset::Pips,
             layout: Layout::default(),
         }
@@ -490,6 +495,7 @@ impl TicketPrefs {
             self.size = Self::default().size;
         }
         self.layout = self.layout.normalized();
+        self.atr = self.atr.normalized();
         self
     }
 }

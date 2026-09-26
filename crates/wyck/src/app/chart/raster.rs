@@ -329,6 +329,70 @@ impl Canvas<'_> {
                         clip,
                     );
                 }
+                Cmd::FittedText {
+                    text,
+                    x,
+                    y,
+                    w,
+                    h,
+                    size,
+                    color: text_color,
+                    background,
+                    align,
+                    valign,
+                    bold,
+                } => {
+                    let Some(font_size) =
+                        super::scene::cmd::fitted_size(text, *size, *w, *h, |s| {
+                            self.measure(text, s)
+                        })
+                    else {
+                        continue;
+                    };
+                    let text_w = self.measure(text, font_size);
+                    let (left, top) = super::scene::cmd::fitted_origin(
+                        (*x, *y, *w, *h),
+                        text_w,
+                        font_size,
+                        *align,
+                        *valign,
+                    );
+                    let label_clip = clip.intersect(Clip {
+                        l: *x,
+                        t: *y,
+                        r: x + w,
+                        b: y + h,
+                    });
+                    if let Some(bg) = background
+                        && let Some(path) = rounded_rect(
+                            left - 3.0,
+                            top - 1.0,
+                            text_w + 6.0,
+                            font_size * 1.3 + 2.0,
+                            3.0,
+                        )
+                    {
+                        let label_mask = self.mask(label_clip);
+                        self.pixmap.fill_path(
+                            &path,
+                            &paint(*bg),
+                            FillRule::Winding,
+                            transform,
+                            label_mask.as_ref(),
+                        );
+                    }
+                    self.text(
+                        text,
+                        left,
+                        top,
+                        Ink {
+                            size: font_size,
+                            fill: *text_color,
+                            bold: *bold,
+                        },
+                        label_clip,
+                    );
+                }
                 Cmd::Tag {
                     text,
                     x,
@@ -535,5 +599,40 @@ mod tests {
         let short = canvas.measure("1.0", FONT);
         let long = canvas.measure("1.08412", FONT);
         assert!(short > 0.0 && long > short * 1.8);
+    }
+
+    #[test]
+    fn fitted_label_in_png_stays_inside_its_box() {
+        let png = render_png(
+            &[Cmd::FittedText {
+                text: "FVG".to_owned(),
+                x: 10.0,
+                y: 10.0,
+                w: 40.0,
+                h: 20.0,
+                size: 14.0,
+                color: rgb_alpha(0xffffff, 1.0),
+                background: Some(rgb_alpha(0x226666, 1.0)),
+                align: Align::Center,
+                valign: wyck_chart::drawing::look::VAlign::Auto,
+                bold: false,
+            }],
+            80.0,
+            50.0,
+            2.0,
+            rgb_alpha(0x000000, 1.0),
+            &[],
+        )
+        .unwrap();
+        let image = Pixmap::decode_png(&png).unwrap();
+        let background = image.pixel(0, 0).unwrap();
+        assert!(image.pixel(60, 40).unwrap() != background);
+        for y in 0..100 {
+            for x in 0..160 {
+                if !(20..100).contains(&x) || !(20..60).contains(&y) {
+                    assert_eq!(image.pixel(x, y).unwrap(), background);
+                }
+            }
+        }
     }
 }

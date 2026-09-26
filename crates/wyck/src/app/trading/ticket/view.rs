@@ -20,6 +20,7 @@ use crate::app::trading::account::Busy;
 use crate::app::trading::book::is_buy;
 use crate::app::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use crate::app::{theme, widgets};
+use wyck_chart::study::atr_stop::Smoothing;
 
 /// What a button of a position row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -211,7 +212,12 @@ impl OrderTicket {
         };
         let risk_sized = self.size_mode.is_risk();
         let currency = currency.to_owned();
-        let text = Self::unit_label(current, &currency);
+        let text = if stop && self.stop_atr {
+            "ATR x".to_owned()
+        } else {
+            Self::unit_label(current, &currency)
+        };
+        let atr_on = self.stop_atr;
         self.select(
             if stop {
                 "ticket-stop-unit"
@@ -231,7 +237,7 @@ impl OrderTicket {
                         Offset::Ratio,
                     ]
                 };
-                units
+                let mut items: Vec<Item> = units
                     .iter()
                     .copied()
                     .map(|unit| {
@@ -244,7 +250,7 @@ impl OrderTicket {
                             Offset::Ratio => "Multiple of the risk (R)".to_owned(),
                         };
                         Entry::new(text)
-                            .checked(unit == current)
+                            .checked(unit == current && !(stop && atr_on))
                             // A stop loss sizing the volume cannot depend on it.
                             .disabled(stop && risk_sized && unit.needs_volume())
                             .on_click(move |window, cx| {
@@ -252,7 +258,19 @@ impl OrderTicket {
                             })
                             .into()
                     })
-                    .collect()
+                    .collect();
+                if stop {
+                    let this = this.clone();
+                    items.push(
+                        Entry::new("ATR x multiplier")
+                            .checked(atr_on)
+                            .on_click(move |window, cx| {
+                                this.update(cx, |t, cx| t.set_atr_stop(window, cx))
+                            })
+                            .into(),
+                    );
+                }
+                items
             },
             window,
             cx,
@@ -697,7 +715,22 @@ impl OrderTicket {
                     }),
             )
             .when(on, |el| {
-                el.child(NumberInput::new(state).small()).child(
+                el.child(if stop && self.stop_atr {
+                    div()
+                        .text_size(px(f.m.small))
+                        .child(
+                            price
+                                .map(|p| format!("ATR stop: {}", f.contract.format_price(p)))
+                                .unwrap_or_else(|| "Waiting for ATR data".to_owned()),
+                        )
+                        .into_any_element()
+                } else {
+                    NumberInput::new(state).small().into_any_element()
+                })
+                .when(stop && self.stop_atr, |el| {
+                    el.child(self.atr_options(f.m.small, window, cx))
+                })
+                .child(
                     div()
                         .flex()
                         .flex_row()
@@ -716,6 +749,153 @@ impl OrderTicket {
                         })),
                 )
             })
+            .into_any_element()
+    }
+
+    fn atr_options(
+        &self,
+        font_size: f32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let smoothing = self.atr.smoothing;
+        let smoothing_this = cx.entity();
+        let smoothing_menu = self.select(
+            "ticket-atr-smoothing",
+            smoothing.label().to_owned(),
+            move || {
+                Smoothing::ALL
+                    .into_iter()
+                    .map(|choice| {
+                        let this = smoothing_this.clone();
+                        Entry::new(choice.label())
+                            .checked(choice == smoothing)
+                            .on_click(move |_, cx| {
+                                this.update(cx, |t, cx| {
+                                    t.atr.smoothing = choice;
+                                    t.settings_changed(cx);
+                                    cx.emit(TicketEvent::LinesChanged);
+                                    cx.notify();
+                                });
+                            })
+                            .into()
+                    })
+                    .collect()
+            },
+            window,
+            cx,
+        );
+        let current = self.atr.timeframe.clone();
+        let timeframe_this = cx.entity();
+        let timeframe_menu = self.select(
+            "ticket-atr-timeframe",
+            current.clone().unwrap_or_else(|| "Chart TF".to_owned()),
+            move || {
+                let mut items: Vec<Item> = Vec::new();
+                let this = timeframe_this.clone();
+                items.push(
+                    Entry::new("Chart TF")
+                        .checked(current.is_none())
+                        .on_click(move |_, cx| {
+                            this.update(cx, |t, cx| {
+                                t.atr.timeframe = None;
+                                t.settings_changed(cx);
+                                cx.emit(TicketEvent::LinesChanged);
+                                cx.notify();
+                            });
+                        })
+                        .into(),
+                );
+                for (_, group) in crate::app::chart::GROUPS {
+                    for &tf in group {
+                        if tf == crate::app::chart::Timeframe::Ticks {
+                            continue;
+                        }
+                        let code = tf.code();
+                        let this = timeframe_this.clone();
+                        items.push(
+                            Entry::new(code.clone())
+                                .checked(current.as_deref() == Some(code.as_str()))
+                                .on_click(move |_, cx| {
+                                    this.update(cx, |t, cx| {
+                                        t.atr.timeframe = Some(code.clone());
+                                        t.request_atr(cx);
+                                        t.settings_changed(cx);
+                                        cx.emit(TicketEvent::LinesChanged);
+                                        cx.notify();
+                                    });
+                                })
+                                .into(),
+                        );
+                    }
+                }
+                items
+            },
+            window,
+            cx,
+        );
+        let bar_this = cx.entity();
+        let bar_label_this = bar_this.clone();
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .text_size(px(font_size))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child("Length")
+                    .child(NumberInput::new(&self.atr_length).xsmall())
+                    .child("x")
+                    .child(NumberInput::new(&self.atr_multiplier).xsmall()),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(smoothing_menu)
+                    .child(timeframe_menu),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(
+                        settings_ui::switch("ticket-atr-current", self.atr.current_bar)
+                            .accessibility_label("Current bar (off: last closed)")
+                            .on_click(move |on: &bool, _, cx| {
+                                let on = *on;
+                                bar_this.update(cx, |t, cx| {
+                                    t.atr.current_bar = on;
+                                    t.settings_changed(cx);
+                                    cx.emit(TicketEvent::LinesChanged);
+                                    cx.notify();
+                                });
+                            }),
+                    )
+                    .child(
+                        div()
+                            .id("ticket-atr-current-label")
+                            .cursor_pointer()
+                            .text_size(px(font_size))
+                            .child("Current bar (off: last closed)")
+                            .on_click(move |_, _, cx| {
+                                bar_label_this.update(cx, |t, cx| {
+                                    t.atr.current_bar = !t.atr.current_bar;
+                                    t.settings_changed(cx);
+                                    cx.emit(TicketEvent::LinesChanged);
+                                    cx.notify();
+                                });
+                            }),
+                    ),
+            )
             .into_any_element()
     }
 
@@ -1287,6 +1467,7 @@ impl OrderTicket {
 
 impl Render for OrderTicket {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.request_atr(cx);
         let contract = self.contract(cx);
         let mut plan = self.plan(cx);
         // The protections the defaults ask for start as soon as there is a price to start from.

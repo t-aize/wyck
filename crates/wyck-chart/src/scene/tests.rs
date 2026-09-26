@@ -108,10 +108,33 @@ fn script_drawings_follow_indicator_visibility_and_reach_the_scene() {
         }],
         ..StudyOutput::default()
     });
+    let cmds = build(&fixture.frame());
     assert!(
-        texts(&build(&fixture.frame()))
+        texts(&cmds)
             .iter()
             .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+    );
+    let main = cmds
+        .iter()
+        .find_map(|cmd| match cmd {
+            Cmd::Clip { inner, .. }
+                if inner.iter().any(
+                    |cmd| matches!(cmd, Cmd::Text { text, .. } if text == "SCRIPT_MARKER_UNIQUE"),
+                ) =>
+            {
+                Some(inner)
+            }
+            _ => None,
+        })
+        .unwrap();
+    let label = main
+        .iter()
+        .position(|cmd| matches!(cmd, Cmd::Text { text, .. } if text == "SCRIPT_MARKER_UNIQUE"))
+        .unwrap();
+    let candle = main.iter().rposition(|cmd| matches!(cmd, Cmd::Rect { fill, .. } if *fill == hsla(fixture.frame().palette.up) || *fill == hsla(fixture.frame().palette.down))).unwrap();
+    assert!(
+        label < candle,
+        "the price series must cover script drawings"
     );
     fixture.settings.studies[0].visible = false;
     assert!(

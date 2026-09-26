@@ -385,7 +385,9 @@ impl Dashboard {
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::surface_hover()))
                 .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(tip).build(window, cx)
+                    gpui_kit::component::tooltip::Tooltip::new(tip)
+                        .m_1()
+                        .build(window, cx)
                 })
                 .child(ui::icon_colored(icon, 13., color))
         };
@@ -504,7 +506,9 @@ impl Dashboard {
                     .when(chosen, |el| el.bg(theme::accent_selected()))
                     .hover(|style| style.bg(theme::surface_hover()))
                     .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(unit.label()).build(window, cx)
+                        gpui_kit::component::tooltip::Tooltip::new(unit.label())
+                            .m_1()
+                            .build(window, cx)
                     })
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.tf_unit = unit;

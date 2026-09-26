@@ -94,6 +94,7 @@ mod volume_ui;
 pub use wyck_chart::zone;
 
 use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -183,6 +184,9 @@ gpui::actions!(
         DuplicateDrawing,
         ChartScreenshot,
         ChartAddAlert,
+        ChartCopyIndicators,
+        ChartCopySettings,
+        ChartPaste,
     ]
 );
 
@@ -216,6 +220,9 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-d", DuplicateDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-shift-s", ChartScreenshot, Some("Dashboard")),
         KeyBinding::new("alt-a", ChartAddAlert, Some("Dashboard")),
+        KeyBinding::new("secondary-c", ChartCopyIndicators, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-c", ChartCopySettings, Some("Dashboard")),
+        KeyBinding::new("secondary-v", ChartPaste, Some("Dashboard")),
     ]);
 }
 
@@ -282,6 +289,9 @@ pub enum ChartEvent {
     ViewChanged(Span),
     /// Something that is saved changed: the timeframe, the type, the indicators, the scale.
     SettingsChanged,
+    CopyIndicators,
+    CopySettings,
+    Paste,
     /// The user asked to change the symbol of this chart.
     PickSymbol,
     /// The user asked for something at a price: an order, an alert.
@@ -339,6 +349,8 @@ pub struct Chart {
     max_studies: usize,
     /// The prices, as held.
     series: Series,
+    atr_history: HashMap<(i64, Timeframe), (Vec<wyck_openapi::market::Bar>, i64)>,
+    atr_loading: HashSet<(i64, Timeframe)>,
     /// What is drawn from them.
     display: Display,
     /// The indicators written as scripts, run off the interface thread.
@@ -413,6 +425,7 @@ impl Chart {
                     }
                     // Also the moment to ask again for flow that failed to load.
                     this.ensure_flow(cx);
+                    this.request_drawing_atr(cx);
                 });
                 if alive.is_err() {
                     break;
@@ -432,6 +445,8 @@ impl Chart {
             settings,
             max_studies: max_studies.clamp(1, settings::MAX_STUDIES),
             series: empty_series(timeframe),
+            atr_history: HashMap::new(),
+            atr_loading: HashSet::new(),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
             _library: crate::app::indicators::observe(cx, |this: &mut Self, cx| {
@@ -548,6 +563,7 @@ impl Chart {
         });
         self.lines.clear();
         self.reload(cx);
+        self.request_drawing_atr(cx);
     }
 
     /// The broker said how the symbol is quoted.
@@ -573,6 +589,7 @@ impl Chart {
         }
         self.timeframe = timeframe;
         self.reload(cx);
+        self.request_drawing_atr(cx);
         cx.emit(ChartEvent::SettingsChanged);
     }
 

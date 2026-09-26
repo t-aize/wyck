@@ -10,6 +10,7 @@
 //! position, and every one of them has a default. A file written by another version still loads:
 //! an unknown indicator is dropped, a missing input takes its default, an unknown one is ignored.
 
+pub mod atr_stop;
 pub mod catalog;
 pub mod custom;
 pub mod intern;

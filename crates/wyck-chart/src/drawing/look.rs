@@ -22,12 +22,12 @@ pub enum HAlign {
     End,
 }
 
-/// Where a label sits across the drawing: above a line and at the top of a shape, on it, or
-/// below and at the bottom.
+/// Where a label sits across the drawing. Auto puts it above a line or at the center of a shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VAlign {
     #[default]
+    Auto,
     Top,
     Middle,
     Bottom,
@@ -196,7 +196,7 @@ mod tests {
         assert!(is_default(&LevelText::default()));
         assert!(is_default(&LabelSide::default()));
         assert_eq!(TextLayout::default().align, HAlign::Center);
-        assert_eq!(TextLayout::default().valign, VAlign::Top);
+        assert_eq!(TextLayout::default().valign, VAlign::Auto);
     }
 
     #[test]

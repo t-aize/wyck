@@ -536,6 +536,7 @@ impl SettingsHub {
                     Some(_) => "Use this accent",
                     None => "The theme's own accent",
                 })
+                .m_1()
                 .build(window, cx)
             })
             .on_click(cx.listener(move |_this, _event, _window, cx| {

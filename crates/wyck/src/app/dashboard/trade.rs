@@ -84,6 +84,13 @@ impl Dashboard {
         {
             ticket.update(cx, |t, cx| t.set_symbol(symbol, window, cx));
         }
+        if let Some(ticket) = &self.ticket {
+            let chart = self.multi.read(cx).active_chart().clone();
+            ticket.update(cx, |t, cx| {
+                t.set_chart(chart, cx);
+                t.request_atr(cx);
+            });
+        }
         if let Some(panel) = &self.panel {
             panel.update(cx, |p, cx| p.set_symbol(symbol_id, cx));
         }

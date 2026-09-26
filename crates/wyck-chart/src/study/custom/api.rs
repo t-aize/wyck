@@ -10,8 +10,8 @@ use rhai::{Array, Dynamic, Engine, Map};
 use super::super::math;
 use super::super::{PlotKind, ValueFormat};
 use super::run::{
-    FillResult, InputDecl, InputType, MAX_INPUTS, MAX_PLOTS, Meta, Mode, PlotDecl, PlotResult,
-    source_index, with_run,
+    FillResult, InputDecl, InputSection, InputType, MAX_INPUTS, MAX_PLOTS, Meta, Mode, PlotDecl,
+    PlotResult, source_index, with_run,
 };
 use super::series::{Fallible, Series, is_true, truth};
 use crate::drawing::model::Dash;
@@ -791,8 +791,17 @@ fn title_of(key: &str) -> String {
     text
 }
 
+fn input_section(options: &Options<'_>) -> Fallible<Option<InputSection>> {
+    match options.text("section")?.as_deref() {
+        None => Ok(None),
+        Some("inputs") => Ok(Some(InputSection::Inputs)),
+        Some("style") => Ok(Some(InputSection::Style)),
+        Some(_) => Err("input section must be \"inputs\" or \"style\"".into()),
+    }
+}
+
 fn input_number(kind: InputType, key: &str, default: f64, opts: Map) -> Fallible<f64> {
-    let options = Options::new("input", opts, &["label", "min", "max", "step"])?;
+    let options = Options::new("input", opts, &["label", "min", "max", "step", "section"])?;
     let (low, high) = match kind {
         InputType::Bool => (0.0, 1.0),
         _ => (
@@ -818,11 +827,12 @@ fn input_number(kind: InputType, key: &str, default: f64, opts: Map) -> Fallible
                 _ => 1.0,
             }),
         options: Vec::new(),
+        section: input_section(&options)?,
     })
 }
 
 fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Series> {
-    let options = Options::new("input_source", opts, &["label"])?;
+    let options = Options::new("input_source", opts, &["label", "section"])?;
     let index = source_index(default).ok_or_else(|| {
         format!(
             "input_source: \"{default}\" is not a price (the prices are {})",
@@ -838,12 +848,13 @@ fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Series> {
         max: (super::super::SOURCES.len() - 1) as f64,
         step: 1.0,
         options: Vec::new(),
+        section: input_section(&options)?,
     })?;
     with_run(|run| run.columns.source(chosen as usize))
 }
 
 fn input_choice(key: &str, default: &str, choices: Array, opts: Map) -> Fallible<String> {
-    let options = Options::new("input_choice", opts, &["label"])?;
+    let options = Options::new("input_choice", opts, &["label", "section"])?;
     let names: Vec<String> = choices
         .into_iter()
         .map(|c| {
@@ -866,12 +877,13 @@ fn input_choice(key: &str, default: &str, choices: Array, opts: Map) -> Fallible
         max: (names.len() - 1) as f64,
         step: 1.0,
         options: names.clone(),
+        section: input_section(&options)?,
     })?;
     Ok(names[chosen as usize].clone())
 }
 
 fn input_color(key: &str, default: &str, opts: Map) -> Fallible<String> {
-    let options = Options::new("input_color", opts, &["label"])?;
+    let options = Options::new("input_color", opts, &["label", "section"])?;
     let color =
         parse_color(default).ok_or_else(|| format!("input_color: \"{default}\" is not a color"))?;
     let chosen = declare_input(InputDecl {
@@ -883,6 +895,7 @@ fn input_color(key: &str, default: &str, opts: Map) -> Fallible<String> {
         max: f64::from(0x00ff_ffff_u32),
         step: 1.0,
         options: Vec::new(),
+        section: input_section(&options)?,
     })?;
     Ok(color_text(chosen as u32))
 }

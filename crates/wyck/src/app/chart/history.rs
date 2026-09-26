@@ -15,6 +15,78 @@ use super::{Chart, Load, Older, Timeframe, empty_series, flatten, now_ms};
 use crate::app::runtime;
 
 impl Chart {
+    /// ATR for this chart's symbol and the selected chart or dedicated timeframe.
+    pub fn atr_value(&self, settings: &wyck_chart::study::atr_stop::AtrStop) -> Option<f64> {
+        let timeframe = settings
+            .timeframe
+            .as_deref()
+            .map(Timeframe::from_code)
+            .unwrap_or(Some(self.timeframe))?;
+        let bars = if timeframe == self.timeframe {
+            match &self.series {
+                Series::Bars(bars) => bars,
+                Series::Ticks(_) => return None,
+            }
+        } else {
+            let id = self.symbol.as_ref()?.id;
+            let (bars, loaded_at) = self.atr_history.get(&(id, timeframe))?;
+            if now_ms().saturating_sub(*loaded_at) > 30_000 {
+                return None;
+            }
+            bars
+        };
+        let last = bars.last()?;
+        let last_is_open = timeframe.group_key(last.time_ms) == timeframe.group_key(now_ms());
+        settings.value(bars, last_is_open)
+    }
+
+    /// Fetches an ATR timeframe that differs from the visible chart.
+    pub fn request_atr(
+        &mut self,
+        settings: &wyck_chart::study::atr_stop::AtrStop,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(timeframe) = settings.timeframe.as_deref().and_then(Timeframe::from_code) else {
+            return;
+        };
+        if timeframe == self.timeframe {
+            return;
+        }
+        let Some(symbol) = self.symbol.as_ref() else {
+            return;
+        };
+        let key = (symbol.id, timeframe);
+        if self.atr_loading.contains(&key)
+            || self
+                .atr_history
+                .get(&key)
+                .is_some_and(|(_, at)| now_ms().saturating_sub(*at) < 30_000)
+        {
+            return;
+        }
+        self.atr_loading.insert(key);
+        let session = self.session.clone();
+        cx.spawn(async move |this, cx| {
+            let result =
+                runtime::spawn(
+                    async move { load::initial(&session, key.0, timeframe, now_ms()).await },
+                )
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.atr_loading.remove(&key);
+                let bars = match flatten(result) {
+                    Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) => Some(bars),
+                    _ => None,
+                };
+                if let Some(bars) = bars {
+                    this.atr_history.insert(key, (bars, now_ms()));
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     /// Throws the data away and loads the current symbol and timeframe from scratch.
     pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
         self.epoch += 1;

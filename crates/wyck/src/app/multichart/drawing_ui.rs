@@ -325,6 +325,7 @@ impl MultiChart {
                                 } else {
                                     "Pin to the favorites bar"
                                 })
+                                .m_1()
                                 .build(window, cx)
                             })
                             .on_click(cx.listener(move |this, _event, _window, cx| {

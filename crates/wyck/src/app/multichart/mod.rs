@@ -34,9 +34,10 @@ use self::links::{Follow, Link, Links};
 use self::split::{Divider, Node};
 use super::chart::drawing::Drawings;
 use super::chart::drawing::model::{Dash, Group, Tool};
+use super::chart::study::StudyConfig;
 use super::chart::{
-    Chart, ChartAction, ChartEvent, ChartLine, EditorRequest, LineId, LiveHub, LiveUpdate,
-    Timeframe,
+    Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId, LiveHub,
+    LiveUpdate, Timeframe,
 };
 use super::text_input::TextInput;
 use super::theme;
@@ -79,6 +80,12 @@ struct Slot {
     _events: Subscription,
 }
 
+#[derive(Clone)]
+enum ChartClipboard {
+    Studies(Vec<StudyConfig>),
+    Settings(Box<ChartSettings>),
+}
+
 /// A line between charts being dragged.
 #[derive(Debug, Clone, Copy)]
 struct SplitDrag {
@@ -100,6 +107,8 @@ pub struct MultiChart {
     slots: Vec<Slot>,
     active: usize,
     sync: Links,
+    clipboard: Option<ChartClipboard>,
+    syncing_studies: bool,
     /// The drawings, shared by every chart.
     drawings: Entity<Drawings>,
     _drawings_observe: Subscription,
@@ -169,6 +178,8 @@ impl MultiChart {
             slots: Vec::new(),
             active: prefs.active_chart,
             sync: prefs.links,
+            clipboard: None,
+            syncing_studies: false,
             area: Rc::new(Cell::new(None)),
             split_drag: None,
             hover_divider: None,
@@ -225,6 +236,94 @@ impl MultiChart {
     /// The chart the header's timeframe buttons and the keys act on.
     pub fn active_chart(&self) -> &Entity<Chart> {
         &self.slots[self.active].chart
+    }
+
+    pub fn has_chart_focus(&self, window: &Window) -> bool {
+        self.focus.is_focused(window)
+    }
+
+    pub fn copy_active_indicators(&mut self, cx: &mut Context<Self>) {
+        self.copy_chart(self.active, false, cx);
+    }
+
+    pub fn copy_active_settings(&mut self, cx: &mut Context<Self>) {
+        self.copy_chart(self.active, true, cx);
+    }
+
+    pub fn paste_active(&mut self, cx: &mut Context<Self>) {
+        self.paste_chart(self.active, cx);
+    }
+
+    fn copy_chart(&mut self, index: usize, settings: bool, cx: &mut Context<Self>) {
+        let Some(slot) = self.slots.get(index) else {
+            return;
+        };
+        let source = slot.chart.read(cx).settings().clone();
+        self.clipboard = Some(if settings {
+            ChartClipboard::Settings(Box::new(source))
+        } else {
+            ChartClipboard::Studies(source.studies)
+        });
+    }
+
+    fn paste_chart(&mut self, index: usize, cx: &mut Context<Self>) {
+        let Some(payload) = self.clipboard.clone() else {
+            return;
+        };
+        let Some(slot) = self.slots.get(index) else {
+            return;
+        };
+        let chart = slot.chart.clone();
+        match payload {
+            ChartClipboard::Studies(studies) => {
+                let limit = chart.read(cx).max_studies();
+                if studies.len() > limit {
+                    crate::app::toast::show(
+                        cx,
+                        crate::app::toast::Kind::Warning,
+                        "Indicator limit reached",
+                        format!(
+                            "The copied chart has {} indicators; this chart allows {limit}.",
+                            studies.len()
+                        ),
+                    );
+                    return;
+                }
+                chart.update(cx, |chart, cx| {
+                    chart.edit_settings(cx, |settings| settings.studies = studies)
+                });
+            }
+            ChartClipboard::Settings(settings) => {
+                chart.update(cx, |chart, cx| {
+                    chart.edit_settings(cx, |target| {
+                        let studies = std::mem::take(&mut target.studies);
+                        *target = *settings;
+                        target.studies = studies;
+                    })
+                });
+            }
+        }
+        self.persist(cx);
+    }
+
+    fn share_studies(&mut self, from: usize, cx: &mut Context<Self>) {
+        if self.syncing_studies {
+            return;
+        }
+        let Some(slot) = self.slots.get(from) else {
+            return;
+        };
+        let studies = slot.chart.read(cx).settings().studies.clone();
+        self.syncing_studies = true;
+        for (index, slot) in self.slots.iter().enumerate() {
+            if index != from {
+                let studies = studies.clone();
+                slot.chart.update(cx, |chart, cx| {
+                    chart.edit_settings(cx, |s| s.studies = studies)
+                });
+            }
+        }
+        self.syncing_studies = false;
     }
 
     pub fn active_timeframe(&self, cx: &gpui::App) -> Timeframe {
@@ -452,8 +551,13 @@ impl MultiChart {
                 )
                 .unwrap_or(Timeframe::DEFAULT)
             };
-            let settings = super::chart::ChartSettings {
+            let settings = ChartSettings {
                 zone: self.active_chart().read(cx).settings().zone,
+                studies: if self.sync.studies {
+                    self.active_chart().read(cx).settings().studies.clone()
+                } else {
+                    Vec::new()
+                },
                 ..Default::default()
             };
             // A new chart shows the active chart's symbol even when symbols are not linked.
@@ -519,6 +623,7 @@ impl MultiChart {
                         .update(cx, |chart, cx| chart.show_remote_pointer(None, cx));
                 }
             }
+            Link::Studies if self.sync.studies => self.share_studies(self.active, cx),
             _ => {}
         }
         self.persist(cx);
@@ -756,11 +861,17 @@ impl MultiChart {
                 }
             }
             ChartEvent::SettingsChanged => {
+                if self.sync.studies && !self.syncing_studies {
+                    self.share_studies(from, cx);
+                }
                 self.persist(cx);
                 if from == self.active {
                     cx.emit(MultiChartEvent::ActiveChanged);
                 }
             }
+            ChartEvent::CopyIndicators => self.copy_chart(from, false, cx),
+            ChartEvent::CopySettings => self.copy_chart(from, true, cx),
+            ChartEvent::Paste => self.paste_chart(from, cx),
             ChartEvent::PickSymbol => {
                 self.activate(from, cx);
                 cx.emit(MultiChartEvent::PickSymbol(from));

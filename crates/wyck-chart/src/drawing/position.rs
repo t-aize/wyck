@@ -11,11 +11,16 @@
 //! EURUSD on a dollar account), something else when it is not. There is no conversion rate here,
 //! so the figures are a plan, not a quote.
 
+use crate::study::atr_stop::AtrStop;
 use serde::{Deserialize, Serialize};
 
 /// Everything a position drawing keeps besides its points and its lines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionSettings {
+    #[serde(default)]
+    pub atr_stop: Option<AtrStop>,
+    #[serde(default)]
+    pub target_rr: Option<f64>,
     /// The balance the position is sized for.
     #[serde(default = "default_account")]
     pub account: f64,
@@ -110,6 +115,8 @@ fn default_entry_color() -> u32 {
 impl Default for PositionSettings {
     fn default() -> Self {
         Self {
+            atr_stop: None,
+            target_rr: None,
             account: default_account(),
             risk: default_risk(),
             risk_percent: true,
@@ -180,6 +187,11 @@ impl PositionSettings {
         self.target_color &= 0xff_ffff;
         self.stop_color &= 0xff_ffff;
         self.entry_color &= 0xff_ffff;
+        self.atr_stop = self.atr_stop.take().map(AtrStop::normalized);
+        self.target_rr = self
+            .target_rr
+            .filter(|r| r.is_finite() && *r > 0.0)
+            .map(|r| r.min(1_000.0));
         self
     }
 

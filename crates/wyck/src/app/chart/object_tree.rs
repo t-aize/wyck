@@ -110,6 +110,7 @@ pub fn open(
     symbol: String,
     zone: Zone,
     digits: u32,
+    chart: Option<Entity<super::Chart>>,
     window: &mut Window,
     cx: &mut App,
 ) {
@@ -121,6 +122,7 @@ pub fn open(
             symbol,
             zone,
             digits,
+            chart,
         });
         modal::open(tree, modal::Options::new(600.0, 560.0), window, cx);
     });
@@ -131,6 +133,7 @@ struct ObjectTree {
     symbol: String,
     zone: Zone,
     digits: u32,
+    chart: Option<Entity<super::Chart>>,
     _observe: Subscription,
 }
 
@@ -274,16 +277,31 @@ impl ObjectTree {
             .child(
                 button("tree-settings", IconName::Settings2, "Settings").on_click(
                     move |_, window, cx| {
-                        let (drawings, symbol, zone, digits) = {
+                        let (drawings, symbol, zone, digits, chart) = {
                             let tree = settings.read(cx);
                             (
                                 tree.drawings.clone(),
                                 tree.symbol.clone(),
                                 tree.zone,
                                 tree.digits,
+                                tree.chart.clone(),
                             )
                         };
-                        drawing_props::open(drawings, symbol, id, zone, digits, window, cx);
+                        drawing_props::open(
+                            drawings,
+                            symbol,
+                            id,
+                            drawing_props::PropsContext {
+                                zone,
+                                digits,
+                                atr_seed: chart
+                                    .as_ref()
+                                    .and_then(|chart| chart.read(cx).atr_seed()),
+                                chart,
+                            },
+                            window,
+                            cx,
+                        );
                     },
                 ),
             )

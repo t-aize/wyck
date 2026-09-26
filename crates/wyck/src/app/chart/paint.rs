@@ -39,6 +39,11 @@ impl Chart {
                     let book = drawings.read(cx).book();
                     let name = symbol.name.as_ref();
                     let (list, creating) = (book.drawings(name), book.creating(name));
+                    let list: Vec<_> = list
+                        .iter()
+                        .filter_map(|d| self.resolved_position(d))
+                        .collect();
+                    let creating = creating.and_then(|d| self.resolved_position(d));
                     (!list.is_empty() || creating.is_some()).then_some((
                         list,
                         creating,
@@ -75,12 +80,14 @@ impl Chart {
             ask: self.ask,
             now_ms: super::now_ms(),
             palette: super::palette_for_chart(&self.settings.colors),
-            drawings: drawings.map(|(list, creating, selected)| DrawingView {
-                list,
-                creating,
-                selected,
-                visible: &visible,
-            }),
+            drawings: drawings
+                .as_ref()
+                .map(|(list, creating, selected)| DrawingView {
+                    list,
+                    creating: creating.as_ref(),
+                    selected: *selected,
+                    visible: &visible,
+                }),
             marks: &marks,
             flow: Some(&self.flow),
             watermark: self.watermark(),
@@ -200,6 +207,50 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 let x = aligned(x, f32::from(line.width), align);
                 let _ = line.paint(
                     point(px(x), px(y)),
+                    px(font_size * 1.3),
+                    TextAlign::Left,
+                    None,
+                    window,
+                    cx,
+                );
+            }
+            Cmd::FittedText {
+                text,
+                x,
+                y,
+                w,
+                h,
+                size: preferred,
+                color,
+                background,
+                align,
+                valign,
+                bold,
+            } => {
+                let Some(font_size) =
+                    scene::cmd::fitted_size(&text, preferred, w, h, |font_size| {
+                        f32::from(shape(window, &text, font_size, color, bold).width)
+                    })
+                else {
+                    continue;
+                };
+                let line = shape(window, &text, font_size, color, bold);
+                let text_w = f32::from(line.width);
+                let (left, top) =
+                    scene::cmd::fitted_origin((x, y, w, h), text_w, font_size, align, valign);
+                if let Some(bg) = background {
+                    let mut quad = gpui::fill(
+                        Bounds::new(
+                            point(px(left - 3.0), px(top - 1.0)),
+                            size(px(text_w + 6.0), px(font_size * 1.3 + 2.0)),
+                        ),
+                        gpui_color(bg),
+                    );
+                    quad.corner_radii = px(3.0).into();
+                    window.paint_quad(quad);
+                }
+                let _ = line.paint(
+                    point(px(left), px(top)),
                     px(font_size * 1.3),
                     TextAlign::Left,
                     None,

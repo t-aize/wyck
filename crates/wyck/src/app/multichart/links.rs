@@ -20,16 +20,18 @@ pub enum Link {
     Crosshair,
     Time,
     Range,
+    Studies,
 }
 
 impl Link {
     #[cfg(test)]
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Symbol,
         Self::Interval,
         Self::Crosshair,
         Self::Time,
         Self::Range,
+        Self::Studies,
     ];
 
     pub fn is_on(self, links: &Links) -> bool {
@@ -39,6 +41,7 @@ impl Link {
             Self::Crosshair => links.crosshair,
             Self::Time => links.time,
             Self::Range => links.range,
+            Self::Studies => links.studies,
         }
     }
 
@@ -49,6 +52,7 @@ impl Link {
             Self::Crosshair => &mut links.crosshair,
             Self::Time => &mut links.time,
             Self::Range => &mut links.range,
+            Self::Studies => &mut links.studies,
         };
         *flag = !*flag;
     }
@@ -132,6 +136,7 @@ mod tests {
             crosshair: true,
             time: true,
             range: false,
+            studies: false,
         }
     }
 
@@ -185,6 +190,7 @@ mod tests {
             crosshair: false,
             time: false,
             range: false,
+            studies: false,
         };
         let symbols = [Some(1), Some(1)];
         let span = Span {

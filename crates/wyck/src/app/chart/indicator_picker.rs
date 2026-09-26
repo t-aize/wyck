@@ -227,6 +227,7 @@ impl Picker {
                     .hover(|s| s.bg(theme::surface_pressed()))
                     .tooltip(move |window, cx| {
                         gpui_kit::component::tooltip::Tooltip::new("Edit the script")
+                            .m_1()
                             .build(window, cx)
                     })
                     .on_click(move |_, window, cx| {
@@ -255,6 +256,7 @@ impl Picker {
                         } else {
                             "Star it: it goes to Favorites"
                         })
+                        .m_1()
                         .build(window, cx)
                     })
                     .on_click(move |_, _window, cx| {

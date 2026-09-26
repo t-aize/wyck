@@ -143,6 +143,16 @@ pub enum Prim {
         size: f32,
         bold: bool,
     },
+    FittedLabel {
+        bounds: Rect,
+        text: String,
+        color: u32,
+        background: Option<(u32, f32)>,
+        align: super::look::HAlign,
+        valign: super::look::VAlign,
+        size: f32,
+        bold: bool,
+    },
     /// A grip at a point of a selected drawing.
     Handle {
         at: P,
@@ -1153,6 +1163,9 @@ pub fn hit(drawing: &Drawing, proj: &dyn Projection, at: P, with_handles: bool) 
             } => {
                 let (a, b) = label_box(*position, text, *anchor, *size);
                 inside_rect(at, a, b)
+            }
+            Prim::FittedLabel { bounds, .. } => {
+                inside_rect(at, (bounds.l, bounds.t), (bounds.r, bounds.b))
             }
             Prim::Board { tl, rows, size, .. } => {
                 let (w, h) = board_size(rows, *size);

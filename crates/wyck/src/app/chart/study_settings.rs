@@ -246,9 +246,48 @@ impl StudyEditor {
     }
 
     fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
+        let rows = self.input_rows(config, false, cx);
+        let mut page = ui::page();
+        if let Some(group) = self.script_group(config, cx) {
+            page = page.child(group);
+        }
+        if rows.is_empty() {
+            page = page.child(ui::note("This indicator has no parameters to change."));
+        } else {
+            page = page.child(ui::group(IconName::SlidersHorizontal, "Parameters", rows));
+        }
+        if config.kind == StudyKind::Atr {
+            page = page.child(ui::note(
+                "ATR measures volatility, not direction. Price uses the symbol's price scale; % of close compares volatility across price levels. Percent decimals only affects % of close. Enable the Signal average or True range on the Style tab. Signal length and smoothing affect only the Signal average.",
+            ));
+        }
+        page.into_any_element()
+    }
+
+    fn input_rows(
+        &self,
+        config: &StudyConfig,
+        style: bool,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
         let target = &self.target;
         let mut rows = Vec::new();
+        let script = config.script.as_deref().and_then(registry::get);
         for input in config.spec().inputs {
+            let in_style = script
+                .as_ref()
+                .and_then(|entry| entry.script.as_ref())
+                .and_then(|script| {
+                    script
+                        .declaration
+                        .inputs
+                        .iter()
+                        .find(|decl| decl.key == input.key)
+                })
+                .is_some_and(|decl| decl.in_style());
+            if in_style != style {
+                continue;
+            }
             let key = input.key;
             let control: Option<AnyElement> = match input.kind {
                 InputKind::Int | InputKind::Float => self
@@ -319,21 +358,7 @@ impl StudyEditor {
                 rows.push(ui::field(input.label, None, control));
             }
         }
-        let mut page = ui::page();
-        if let Some(group) = self.script_group(config, cx) {
-            page = page.child(group);
-        }
-        if rows.is_empty() {
-            page = page.child(ui::note("This indicator has no parameters to change."));
-        } else {
-            page = page.child(ui::group(IconName::SlidersHorizontal, "Parameters", rows));
-        }
-        if config.kind == StudyKind::Atr {
-            page = page.child(ui::note(
-                "ATR measures volatility, not direction. Price uses the symbol's price scale; % of close compares volatility across price levels. Percent decimals only affects % of close. Enable the Signal average or True range on the Style tab. Signal length and smoothing affect only the Signal average.",
-            ));
-        }
-        page.into_any_element()
+        rows
     }
 
     /// For an indicator written as a script: which script it is, the way to its editor, and what
@@ -457,6 +482,12 @@ impl StudyEditor {
     fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
         let this = cx.entity();
         let mut page = ui::page();
+        let style_rows = self.input_rows(config, true, cx);
+        if !style_rows.is_empty() {
+            page = page.child(ui::group(IconName::Palette, "Script style", style_rows));
+        } else if config.is_script() && config.spec().plots.is_empty() {
+            page = page.child(ui::note("This script has no style settings. Declare a color, opacity, width or text size input, or use section: \"style\" on an input."));
+        }
         for plot in config.spec().plots {
             let key = plot.key;
             let style = config.plot_style(key);

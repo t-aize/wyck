@@ -56,7 +56,9 @@ fn tool(
         // The press is the button's, not the chart's under it.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .tooltip(move |window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(tip).build(window, cx)
+            gpui_kit::component::tooltip::Tooltip::new(tip)
+                .m_1()
+                .build(window, cx)
         })
         .child(icon_colored(icon, 15., ink))
         .children(label)
