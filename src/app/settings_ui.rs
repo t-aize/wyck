@@ -10,7 +10,9 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, ElementId, Entity, Rgba, SharedString, Window, div, px};
+use gpui::{
+    AnyElement, App, Div, ElementId, Entity, MouseButton, Rgba, SharedString, Window, div, px,
+};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
@@ -18,7 +20,7 @@ use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Sizable, StyledExt as _};
 
 use super::connection::ui::icon_colored;
-use super::{theme, widgets};
+use super::{modal, theme, widgets};
 
 /// A tab of the rail.
 #[derive(Clone, Copy)]
@@ -37,10 +39,15 @@ pub struct Head {
 /// The width of the rail of tabs.
 const RAIL_WIDTH: f32 = 176.0;
 
-/// The header of a panel: its icon, what it is about, and the close button.
+/// The header of a panel: its icon, what it is about, and the close button. Dragging it moves the
+/// panel (see [`modal::begin_drag`]).
 fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div {
     div()
         .flex_none()
+        .cursor_grab()
+        .on_mouse_down(MouseButton::Left, |event, _, cx| {
+            modal::begin_drag(event.position, cx);
+        })
         .flex()
         .flex_row()
         .items_center()
