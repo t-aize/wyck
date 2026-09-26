@@ -1,0 +1,30 @@
+[package]
+name = "wyck-chart"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Chart models, calculations and studies for Wyck."
+
+[dependencies]
+wyck-openapi-model.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+rhai.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wyck-config.workspace = true
+
+[lints]
+workspace = true

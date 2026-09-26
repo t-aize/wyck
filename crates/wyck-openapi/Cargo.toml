@@ -1,0 +1,32 @@
+[package]
+name = "wyck-openapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "cTrader Open API client for Wyck."
+
+[dependencies]
+wyck-openapi-model.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+reqwest.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+dotenvy.workspace = true
+tracing-subscriber.workspace = true
+proptest.workspace = true
+
+[lints]
+workspace = true

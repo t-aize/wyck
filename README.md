@@ -21,28 +21,34 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `assets/marks` are trademarks of their owners, shown only to identify the
+marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, shown only to identify the
 instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
 next to it).
 
 ## Layout
 
-A single crate:
+The root manifest only configures the workspace. `cargo run` starts the desktop crate `wyck`.
+The workspace crates are:
 
-- `src/app`: the application.
-- `src/config`: app configuration and encrypted credential storage.
-- `src/openapi`: a client for the cTrader Open API, over its JSON WebSocket. See its module
-  docs (`cargo doc --open`, module `wyck::openapi`) for the full guide: quick start, signing
-  in, streaming prices, history, trading, margin, errors, and the protocol coverage table.
-- `examples/demo_server.rs`: a local stand-in for the Open API, see below.
-- `scripts/`: sign-in and connection tooling for a real demo account, see
-  [scripts/README.md](scripts/README.md).
+| Crate | Owns |
+|---|---|
+| `wyck-openapi-model` | cTrader messages, wire types and API errors |
+| `wyck-openapi` | WebSocket client, OAuth and reconnecting session |
+| `wyck-config` | Native settings, documents and credential storage |
+| `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
+| `wyck-trading` | Trading calculations, books and saved panel preferences |
+| `wyck-state` | Saved workspace preferences and layouts |
+| `wyck` | GPUI desktop application and bundled assets |
+
+Each crate's modules sit directly under its `src` directory. `crates/wyck/src/app` owns GPUI
+views and connects the crates to the desktop. Its shared controls are in
+`crates/wyck/src/app/ui` and native app services are in `crates/wyck/src/app/services`.
+The Open API guide is in the `wyck-openapi` crate documentation.
 
 ## Your own indicators
 
 Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
-app reads on its own. The header has a button for the folder and for a full editor. See
-[docs/indicators.md](docs/indicators.md).
+app reads on its own. The header has a button for the folder and for a full editor.
 
 ## Requirements
 
@@ -54,32 +60,22 @@ app reads on its own. The header has a button for the folder and for a full edit
 
 ```sh
 cargo build
-cargo test
+cargo test --workspace
 ```
 
 `cargo test` never touches the network: it is entirely mock servers and unit tests.
 
 The first build is slow because the dependency graph is large and dependencies are compiled
 with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
-Later builds only rebuild this crate.
-
-## Try it without a cTrader account
-
-The demo server is a local stand-in for the Open API with made-up prices and one demo
-account. Start it, then point the app at it:
-
-```sh
-cargo run --example demo_server
-WYCK_DEMO_SERVER=ws://127.0.0.1:5035 cargo run
-```
+Later builds only rebuild the changed crates.
 
 ## Test against a real demo account
 
 Testing `openapi` against a real cTrader demo account, end to end, is a separate opt-in step.
-See `scripts/README.md` and `.env.example` to set it up, then:
+Fill in `.env` from [.env.example](.env.example), then:
 
 ```sh
-cargo test --test live -- --ignored --nocapture
+cargo test -p wyck-openapi --test live -- --ignored --nocapture
 ```
 
 ## Checks
@@ -88,9 +84,9 @@ The same checks run in CI on Linux and Windows:
 
 ```sh
 cargo fmt --check
-cargo clippy --locked --all-targets --all-features -- -D warnings
-cargo test --locked --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 ```
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)

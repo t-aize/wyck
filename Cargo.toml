@@ -1,84 +1,60 @@
-[package]
-name = "wyck"
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/wyck"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 authors = ["t-aize"]
 repository = "https://github.com/t-aize/wyck"
-readme = "README.md"
-keywords = ["ctrader", "trading", "forex", "gpui", "openapi"]
-categories = ["finance", "gui"]
 publish = false
-description = "A terminal trading panel for cTrader: app config/credentials and a cTrader Open API client."
-default-run = "wyck"
 
-[dependencies]
-async-trait = "0.1.92"
-
-tokio = { version = "1.53.1", features = [
-  "rt-multi-thread",
-  "macros",
-  "sync",
-  "time",
-  "net",
-  "io-util",
-] }
-
-tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
-futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
-reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
-
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-
-tracing = "0.1.44"
-directories = "6.0.0"
-thiserror = "2.0.20"
-uuid = { version = "1.18.1", features = ["v4"] }
-time = "0.3.44"
-
-gpui-kit = "0.6.6"
-rust-embed = { version = "8", features = ["debug-embed"] }
-gpui = { package = "gpui-pre", version = "0.3.5" }
-unicode-segmentation = "1.13.3"
-
-toml = "1.1.6"
-secrecy = { version = "0.10.3", features = ["serde"] }
-keyring = "4.2.0"
+[workspace.dependencies]
+wyck-chart = { path = "crates/wyck-chart" }
+wyck-config = { path = "crates/wyck-config" }
+wyck-openapi = { path = "crates/wyck-openapi" }
+wyck-openapi-model = { path = "crates/wyck-openapi-model" }
+wyck-state = { path = "crates/wyck-state" }
+wyck-trading = { path = "crates/wyck-trading" }
+ab_glyph = "0.2.32"
+anyhow = "1"
 argon2 = "0.6.0"
+async-trait = "0.1.92"
 chacha20poly1305 = "0.11.0"
-getrandom = "0.4.3"
-
-dotenvy = "0.15.7"
-clap = { version = "4.6.7", features = ["derive", "env"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
-tiny-skia = "0.12.0"
-ab_glyph = "0.2.32"
-# Scripted indicators. No modules (a script cannot load a file) and no clock: a script only reads
-# the bars it is given.
-rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+directories = "6.0.0"
+dotenvy = "0.15.7"
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+getrandom = "0.4.3"
+gpui = { package = "gpui-pre", version = "0.3.5" }
+gpui-kit = "0.6.6"
+keyring = "4.2.0"
 lsp-types = "0.97"
-anyhow = "1"
-
-[dev-dependencies]
-tempfile = "3.27.0"
 proptest = "1.11.0"
-tokio = { version = "1.53.1", features = ["rt", "macros", "test-util", "net", "io-util"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
+rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+rust-embed = { version = "8", features = ["debug-embed"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tempfile = "3.27.0"
+thiserror = "2.0.20"
+time = "0.3.44"
+tiny-skia = "0.12.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "test-util"] }
+tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+toml = "1.1.6"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+unicode-segmentation = "1.13.3"
+uuid = { version = "1.18.1", features = ["v4"] }
 
-[[bin]]
-name = "sign-in"
-path = "scripts/sign_in.rs"
-
-[[bin]]
-name = "refresh-tokens"
-path = "scripts/refresh_tokens.rs"
-
-[[bin]]
-name = "check-connection"
-path = "scripts/check_connection.rs"
+[workspace.lints.rust]
+unsafe_code = "forbid"
 
 [profile.release]
 lto = true
