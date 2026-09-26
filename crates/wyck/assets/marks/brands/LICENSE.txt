@@ -1,5 +1,7 @@
 The company logos in this directory come from the Simple Icons project
-(https://github.com/simple-icons/simple-icons), which is released under CC0 1.0 Universal,
+(https://github.com/simple-icons/simple-icons). The additions were taken from
+simple-icons 16.32.0 (https://www.npmjs.com/package/simple-icons/v/16.32.0).
+The artwork is released under CC0 1.0 Universal,
 the text of which follows.
 
 The CC0 dedication covers the artwork as drawn by that project. It does not grant any right

@@ -13,12 +13,12 @@ repository = "https://github.com/t-aize/wyck"
 publish = false
 
 [workspace.dependencies]
-wyck-chart = { path = "crates/wyck-chart" }
-wyck-config = { path = "crates/wyck-config" }
-wyck-openapi = { path = "crates/wyck-openapi" }
-wyck-openapi-model = { path = "crates/wyck-openapi-model" }
-wyck-state = { path = "crates/wyck-state" }
-wyck-trading = { path = "crates/wyck-trading" }
+wyck-chart = { path = "crates/wyck-chart", version = "0.1.0" }
+wyck-config = { path = "crates/wyck-config", version = "0.1.0" }
+wyck-openapi = { path = "crates/wyck-openapi", version = "0.1.0" }
+wyck-openapi-model = { path = "crates/wyck-openapi-model", version = "0.1.0" }
+wyck-state = { path = "crates/wyck-state", version = "0.1.0" }
+wyck-trading = { path = "crates/wyck-trading", version = "0.1.0" }
 ab_glyph = "0.2.32"
 anyhow = "1"
 argon2 = "0.6.0"

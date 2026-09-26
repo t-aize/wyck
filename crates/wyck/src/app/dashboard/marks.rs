@@ -1,7 +1,6 @@
-//! The picture of a symbol: two round flags for a forex pair, a metal's chemical symbol or a coin's
-//! logo with the flag of its quote currency, a company's logo, the flag of an index's country, and
-//! a glyph for a commodity. Nothing is invented: a symbol with no known picture falls back to its
-//! letters.
+//! Pictures for broker symbols. Known companies use bundled logos, metals use their chemical
+//! symbols, and physical products use distinct glyphs. Unknown symbols keep a class glyph or
+//! their own letters.
 //!
 //! Flags are from circle-flags (MIT), coin logos from cryptocurrency-icons (CC0) and company
 //! logos from Simple Icons (CC0); the licenses sit next to the files in `assets/marks`. Company
@@ -137,13 +136,35 @@ fn index_flag(ticker: &str) -> Option<&'static str> {
 }
 
 fn metal(ticker: &str) -> Option<Mark> {
-    let (symbol, color) = match ticker.get(..3)?.to_ascii_uppercase().as_str() {
+    let ticker = ticker.trim().to_ascii_uppercase();
+    let root = ticker.split('.').next()?;
+    let code = root.get(..3).unwrap_or(root);
+    let (symbol, color) = match code {
         "XAU" => ("Au", 0xE0B23A),
         "XAG" => ("Ag", 0xC5CBD3),
         "XCU" => ("Cu", 0xC9733D),
         "XPD" => ("Pd", 0x9FB3C8),
         "XPT" => ("Pt", 0xD8DEE6),
-        _ => return None,
+        "XAL" => ("Al", 0xBCC7D1),
+        "XNI" => ("Ni", 0xA7B9A1),
+        "XZN" => ("Zn", 0x9CAFC0),
+        "XPB" => ("Pb", 0x8591A0),
+        "XSN" => ("Sn", 0xBAC6D0),
+        _ => match root {
+            "GOLD" => ("Au", 0xE0B23A),
+            "SILVER" => ("Ag", 0xC5CBD3),
+            "COPPER" | "HGCOPPER" => ("Cu", 0xC9733D),
+            "PLATINUM" => ("Pt", 0xD8DEE6),
+            "PALLADIUM" => ("Pd", 0x9FB3C8),
+            "ALUMINUM" | "ALUMINIUM" => ("Al", 0xBCC7D1),
+            "NICKEL" => ("Ni", 0xA7B9A1),
+            "ZINC" => ("Zn", 0x9CAFC0),
+            "LEAD" => ("Pb", 0x8591A0),
+            "TIN" => ("Sn", 0xBAC6D0),
+            "IRON" | "IRONORE" => ("Fe", 0xA96848),
+            "URANIUM" => ("U", 0x93A849),
+            _ => return None,
+        },
     };
     Some(Mark::Metal { symbol, color })
 }
@@ -216,45 +237,102 @@ fn crypto(ticker: &str) -> Mark {
 /// A company's logo file and brand color, by the ticker the broker lists it under.
 fn company(ticker: &str) -> Option<(&'static str, u32)> {
     Some(match ticker {
+        "MMM" => ("3m", 0xD71920),
         "AAPL" => ("apple", 0x000000),
-        "ADSGn" => ("adidas", 0x000000),
+        "ABNB" => ("airbnb", 0xFF5A5F),
+        "ABT" => ("abbott", 0x008CBA),
+        "ABBV" => ("abbvie", 0x071D49),
+        "ADSGN" => ("adidas", 0x000000),
+        "ADSK" => ("autodesk", 0x000000),
         "AIRF" => ("airfrance", 0x002157),
+        "AIR" => ("airbus", 0x0054A6),
         "AMD" => ("amd", 0xED1C24),
         "AMZN" => ("amazon", 0xFF9900),
         "ARM" => ("arm", 0x0091BD),
         "AVGO" => ("broadcom", 0xE31837),
+        "AXP" => ("americanexpress", 0x2E77BC),
         "BA" => ("boeing", 0x1D439C),
         "BABA" => ("alibabadotcom", 0xFF6A00),
         "BAC" => ("bankofamerica", 0x012169),
+        "BARC" => ("barclays", 0x00AEEF),
+        "BIDU" => ("baidu", 0x2932E1),
+        "BILI" => ("bilibili", 0x00A1D6),
+        "BKNG" => ("bookingdotcom", 0x003580),
         "BMW" => ("bmw", 0x0066B1),
+        "CAT" => ("caterpillar", 0xFFCD11),
         "CSCO" => ("cisco", 0x1BA0D7),
-        "DBKGn" => ("deutschebank", 0x0018A8),
+        "DAL" => ("delta", 0xC8102E),
+        "DDOG" => ("datadog", 0x632CA6),
+        "DE" => ("johndeere", 0x367C2B),
+        "DBKGN" => ("deutschebank", 0x0018A8),
+        "DELL" => ("dell", 0x007DB8),
+        "ERIC" => ("ericsson", 0x0082F0),
         "FDX" => ("fedex", 0x4D148C),
         "GE" => ("generalelectric", 0x0870D8),
         "GM" => ("generalmotors", 0x0170CE),
         "GOOG" => ("google", 0x4285F4),
+        "GOOGL" => ("google", 0x4285F4),
+        "GS" => ("goldmansachs", 0x7399C6),
+        "HMC" => ("honda", 0xCC0000),
+        "HPQ" => ("hp", 0x0096D6),
+        "HSBC" => ("hsbc", 0xDB0011),
         "IBM" => ("ibm", 0x0F62FE),
         "INTC" => ("intel", 0x0071C5),
+        "INTU" => ("intuit", 0x236CFF),
         "KO" => ("cocacola", 0xD00013),
+        "LNVGY" => ("lenovo", 0xE2231A),
+        "LHA" => ("lufthansa", 0x05164D),
+        "MA" => ("mastercard", 0xEB001B),
         "MBG" => ("mercedes", 0x000000),
         "MCD" => ("mcdonalds", 0xFBC817),
-        "META" | "META " => ("meta", 0x0467DF),
+        "MDB" => ("mongodb", 0x47A248),
+        "META" => ("meta", 0x0467DF),
         "MSFT" => ("microsoft", 0x0078D4),
         "MSTR" => ("microstrategy", 0xD9232E),
+        "NET" => ("cloudflare", 0xF38020),
         "NFLX" => ("netflix", 0xE50914),
         "NKE" => ("nike", 0x111111),
+        "NOK" => ("nokia", 0x005AFF),
         "NVDA" => ("nvidia", 0x76B900),
+        "P911" => ("porsche", 0x000000),
+        "PINS" => ("pinterest", 0xBD081C),
         "PLTR" => ("palantir", 0x101113),
+        "PYPL" => ("paypal", 0x003087),
         "QCOM" => ("qualcomm", 0x3253DC),
         "RACE" => ("ferrari", 0xD40000),
+        "RBLX" => ("roblox", 0x111111),
+        "RDDT" => ("reddit", 0xFF4500),
+        "RMS" => ("hermes", 0xF37021),
+        "RNO" => ("renault", 0xFFCC33),
+        "RYA" | "RYAAY" => ("ryanair", 0x073590),
+        "RYCEY" => ("rollsroyce", 0x10069F),
+        "SAP" => ("sap", 0x0FA6D4),
         "SBUX" => ("starbucks", 0x006241),
-        "SIEGn" => ("siemens", 0x009999),
+        "SHEL" => ("shell", 0xFFD500),
+        "SIEGN" => ("siemens", 0x009999),
+        "SSNLF" => ("samsung", 0x1428A0),
+        "SHOP" => ("shopify", 0x7AB55C),
+        "SNAP" => ("snapchat", 0xFFFC00),
         "SNOW" => ("snowflake", 0x29B5E8),
+        "SONY" => ("sony", 0x000000),
         "SPCX" => ("spacex", 0x000000),
+        "SPOT" => ("spotify", 0x1DB954),
+        "TCEHY" => ("tencenthy", 0x0052D9),
+        "TEAM" => ("atlassian", 0x0052CC),
+        "TGT" => ("target", 0xCC0000),
+        "TM" => ("toyota", 0xEB0A1E),
         "TSLA" => ("tesla", 0xCC0000),
+        "UBER" => ("uber", 0x000000),
+        "UBI" => ("ubisoft", 0x000000),
+        "U" => ("unity", 0x000000),
+        "UL" | "UNA" => ("unilever", 0x1F36C7),
+        "UPS" => ("ups", 0x6B4006),
         "V" => ("visa", 0x1A1F71),
-        "VOWG_p" => ("volkswagen", 0x151F5D),
+        "VOWG_P" => ("volkswagen", 0x151F5D),
+        "VOLVB" | "VOLV_B" => ("volvo", 0x003057),
+        "WFC" => ("wellsfargo", 0xD71E28),
         "WMT" => ("walmart", 0x0071CE),
+        "XIACY" => ("xiaomi", 0xFF6900),
         "ZM" => ("zoom", 0x0B5CFF),
         _ => return None,
     })
@@ -262,7 +340,8 @@ fn company(ticker: &str) -> Option<(&'static str, u32)> {
 
 fn share(ticker: &str) -> Mark {
     let ticker = ticker.trim();
-    if let Some((slug, color)) = company(ticker) {
+    let root = ticker.split('.').next().unwrap_or(ticker);
+    if let Some((slug, color)) = company(&root.to_ascii_uppercase()) {
         let path = format!("marks/brands/{slug}.svg");
         if has_mark(&path) {
             return Mark::Brand { path, color };
@@ -278,22 +357,57 @@ fn share(ticker: &str) -> Mark {
     }
 }
 
-/// The glyph and color of an energy or an agricultural commodity, from the start of its ticker.
-fn commodity(ticker: &str) -> Option<Mark> {
-    let (icon, color) = match ticker.split('.').next()?.to_ascii_uppercase().as_str() {
-        "COCOA" => (IconName::Cookie, 0x9A6B4B),
-        "COFFEE" => (IconName::Coffee, 0xB07A56),
-        "CORN" => (IconName::Wheat, 0xF2C94C),
-        "COTTON" => (IconName::Shirt, 0xC7D2FE),
-        "SOYBEAN" => (IconName::Bean, 0x9BC53D),
-        "SUGAR" => (IconName::Candy, 0xF9A8D4),
-        "WHEAT" => (IconName::Wheat, 0xE3B04B),
-        "HEATOIL" => (IconName::Flame, 0xFF8A4C),
-        "NATGAS" => (IconName::Flame, 0x60A5FA),
-        "UKOIL" | "USOIL" => (IconName::Droplet, 0x94A3B8),
+/// Products with common broker aliases. The broker's asset class still takes precedence.
+fn commodity(ticker: &str) -> Option<(Class, Mark)> {
+    let root = ticker.trim().split('.').next()?.to_ascii_uppercase();
+    let (class, icon, color) = match root.as_str() {
+        "USOIL" | "WTI" | "WTICOUSD" | "XTIUSD" | "CL" | "CRUDEOIL" => {
+            (Class::Energies, IconName::Droplet, 0x64748B)
+        }
+        "UKOIL" | "BRENT" | "BRN" | "XBRUSD" | "BRENT_OIL" => {
+            (Class::Energies, IconName::Droplet, 0x94A3B8)
+        }
+        "NATGAS" | "NGAS" | "NATURALGAS" | "NG" | "XNGUSD" => {
+            (Class::Energies, IconName::Flame, 0x60A5FA)
+        }
+        "HEATOIL" | "HEATINGOIL" | "HO" => (Class::Energies, IconName::Flame, 0xFF8A4C),
+        "GASOLINE" | "RBOB" | "RB" => (Class::Energies, IconName::Fuel, 0xF59E0B),
+        "COAL" => (Class::Energies, IconName::Pickaxe, 0x71717A),
+        "ELECTRICITY" | "POWER" => (Class::Energies, IconName::Zap, 0xFACC15),
+        "COCOA" | "CC" => (Class::Commodities, IconName::Cookie, 0x9A6B4B),
+        "COFFEE" | "KC" => (Class::Commodities, IconName::Coffee, 0xB07A56),
+        "CORN" | "MAIZE" | "ZC" => (Class::Commodities, IconName::Wheat, 0xF2C94C),
+        "COTTON" | "CT" => (Class::Commodities, IconName::Shirt, 0xC7D2FE),
+        "SOYBEAN" | "SOYBEANS" | "SOY" | "ZS" => (Class::Commodities, IconName::Bean, 0x9BC53D),
+        "SOYMEAL" | "SOYOIL" => (Class::Commodities, IconName::Bean, 0x88A83B),
+        "SUGAR" | "SB" => (Class::Commodities, IconName::Candy, 0xF9A8D4),
+        "WHEAT" | "ZW" => (Class::Commodities, IconName::Wheat, 0xE3B04B),
+        "RICE" | "ZR" | "OATS" | "ZO" | "BARLEY" => (Class::Commodities, IconName::Wheat, 0xD8B36A),
+        "ORANGE" | "ORANGEJUICE" | "OJ" => (Class::Commodities, IconName::Citrus, 0xF97316),
+        "LUMBER" | "WOOD" | "LB" => (Class::Commodities, IconName::TreePine, 0x9A683F),
+        "CATTLE" | "LIVECATTLE" | "LE" | "FEEDERCATTLE" | "GF" => {
+            (Class::Commodities, IconName::Beef, 0xB76E55)
+        }
+        "LEANHOGS" | "HOGS" | "HE" => (Class::Commodities, IconName::Ham, 0xEAA0A0),
+        "MILK" | "DAIRY" => (Class::Commodities, IconName::Milk, 0xCBD5E1),
+        "PALMOIL" | "CANOLA" | "RAPESEED" => (Class::Commodities, IconName::Leaf, 0x84A642),
+        "RUBBER" => (Class::Commodities, IconName::TreePine, 0xA88964),
         _ => return None,
     };
-    Some(Mark::Glyph { icon, color })
+    Some((class, Mark::Glyph { icon, color }))
+}
+
+pub(super) fn known_physical_class(ticker: &str) -> Option<Class> {
+    if metal(ticker).is_some() {
+        Some(Class::Metals)
+    } else {
+        let upper = ticker.trim().to_ascii_uppercase();
+        let root = upper.split('.').next()?;
+        if root.len() <= 2 && !upper.ends_with(".C") && !upper.ends_with(".CASH") {
+            return None;
+        }
+        commodity(ticker).map(|(class, _)| class)
+    }
 }
 
 /// The picture of a symbol, from what the broker says about it.
@@ -323,9 +437,9 @@ pub fn icon_for(ticker: &str, class: Class, base: Option<&str>, quote: Option<&s
         Class::Indices => index_flag(ticker)
             .map(|code| Icon::single(Mark::Flag(code)))
             .unwrap_or_else(fallback),
-        Class::Energies | Class::Commodities => {
-            commodity(ticker).map(Icon::single).unwrap_or_else(fallback)
-        }
+        Class::Energies | Class::Commodities => commodity(ticker)
+            .map(|(_, mark)| Icon::single(mark))
+            .unwrap_or_else(fallback),
         Class::Bonds | Class::Other => fallback(),
     }
 }
@@ -521,15 +635,45 @@ mod tests {
     }
 
     #[test]
-    fn a_company_without_a_logo_shows_letters() {
+    fn company_logos_accept_broker_suffixes_and_unknowns_keep_letters() {
         assert!(matches!(share("JPM"), Mark::Letters { .. }));
         assert!(matches!(share("AAPL"), Mark::Brand { .. }));
+        assert!(matches!(share("aapl.us"), Mark::Brand { .. }));
+        assert!(matches!(share("ADSGn.DE"), Mark::Brand { .. }));
+        assert!(matches!(share("VOWG_p.DE"), Mark::Brand { .. }));
+        for ticker in [
+            "ABNB", "AXP", "CAT", "DE", "MA", "NET", "P911", "PYPL", "SHOP", "SONY", "TGT", "WFC",
+        ] {
+            assert!(matches!(share(ticker), Mark::Brand { .. }), "{ticker}");
+        }
     }
 
     #[test]
-    fn commodities_get_their_own_glyph() {
-        assert!(commodity("COFFEE.c").is_some());
-        assert!(commodity("USOIL.cash").is_some());
+    fn physical_products_have_a_class_and_a_specific_mark() {
+        for (ticker, class) in [
+            ("GOLD", Class::Metals),
+            ("XCUUSD", Class::Metals),
+            ("ALUMINUM", Class::Metals),
+            ("UKOIL.cash", Class::Energies),
+            ("BRENT", Class::Energies),
+            ("XNGUSD", Class::Energies),
+            ("GASOLINE", Class::Energies),
+            ("COFFEE.c", Class::Commodities),
+            ("SOYBEANS", Class::Commodities),
+            ("LUMBER", Class::Commodities),
+            ("CATTLE", Class::Commodities),
+        ] {
+            assert_eq!(known_physical_class(ticker), Some(class), "{ticker}");
+            assert!(
+                !matches!(
+                    icon_for(ticker, class, None, None).primary,
+                    Mark::Letters { .. }
+                ),
+                "{ticker}"
+            );
+        }
+        assert_eq!(known_physical_class("CL"), None);
+        assert_eq!(known_physical_class("CL.c"), Some(Class::Energies));
         assert!(commodity("UNKNOWN.c").is_none());
     }
 

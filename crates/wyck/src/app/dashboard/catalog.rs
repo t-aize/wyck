@@ -3,9 +3,8 @@
 //!
 //! cTrader files every symbol under a category, and every category under an asset class (Forex,
 //! Indices, Metals...). [`Catalog::build`] follows those links. A symbol the broker leaves
-//! uncategorized is classified only from what its ticker makes certain (a pair of known
-//! currencies, a metal, a crypto), otherwise it is [`Class::Other`]; nothing is guessed beyond
-//! that.
+//! uncategorized is classified from known currency pairs and product names. Unknown tickers
+//! remain [`Class::Other`].
 
 use std::collections::HashMap;
 
@@ -99,7 +98,6 @@ const FIAT: [&str; 26] = [
     "EUR", "USD", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD", "CNH", "CNY", "HKD", "SGD", "SEK",
     "NOK", "DKK", "PLN", "CZK", "HUF", "TRY", "ZAR", "MXN", "ILS", "THB", "INR", "KRW", "BRL",
 ];
-const METALS: [&str; 4] = ["XAU", "XAG", "XPT", "XPD"];
 const CRYPTO: [&str; 12] = [
     "BTC", "ETH", "LTC", "XRP", "BCH", "ADA", "DOT", "SOL", "DOGE", "BNB", "LINK", "XLM",
 ];
@@ -116,8 +114,8 @@ fn class_from_ticker(name: &str) -> Class {
     // The broker's own suffixes: `.cash` for a cash CFD (an index, or oil), `.c` for a
     // commodity future.
     let root = name.split('.').next().unwrap_or(&name);
-    if METALS.contains(&base) {
-        Class::Metals
+    if let Some(class) = marks::known_physical_class(&name) {
+        class
     } else if CRYPTO.contains(&base) {
         Class::Crypto
     } else if is_pair && FIAT.contains(&base) && FIAT.contains(&quote) {
@@ -369,7 +367,13 @@ mod tests {
         assert_eq!(class_from_ticker("UKOIL.cash"), Class::Energies);
         assert_eq!(class_from_ticker("HEATOIL.c"), Class::Energies);
         assert_eq!(class_from_ticker("NATGAS.cash"), Class::Energies);
+        assert_eq!(class_from_ticker("BRENT.cash"), Class::Energies);
+        assert_eq!(class_from_ticker("GASOLINE.c"), Class::Energies);
         assert_eq!(class_from_ticker("COFFEE.c"), Class::Commodities);
+        assert_eq!(class_from_ticker("LUMBER.c"), Class::Commodities);
+        assert_eq!(class_from_ticker("IRONORE.c"), Class::Metals);
+        assert_eq!(class_from_ticker("XCUUSD"), Class::Metals);
+        assert_eq!(class_from_ticker("CL"), Class::Other);
         assert_eq!(class_from_ticker("AAPL"), Class::Other);
     }
 
