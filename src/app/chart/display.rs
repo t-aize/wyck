@@ -10,7 +10,9 @@ use wyck::openapi::market::{Bar, Tick};
 use super::data::Series;
 use super::settings::{ChartKind, ChartSettings};
 use super::study::{self, StudyInput, StudyKind, StudyOutput};
+use super::tpo;
 use super::transform::{self, KagiLine, PnfColumn};
+use super::volume;
 use super::zone::Zone;
 
 /// What is drawn when it is not the prices as they are.
@@ -20,8 +22,12 @@ pub struct Display {
     derived: Option<Series>,
     pub kagi: Vec<KagiLine>,
     pub pnf: Vec<PnfColumn>,
+    /// The sessions of the TPO chart type, one for each element of the series.
+    pub tpo: Vec<tpo::Profile>,
     /// The box, reversal or range of the chart type, in raw price units (0 when it has none).
     pub box_size: i64,
+    /// The volume of a volume bar (0 for the other chart types).
+    pub volume_size: i64,
     /// The values of each indicator of the settings, by position (`None` for one that draws
     /// nothing per bar, like the volume profile, or is hidden).
     pub studies: Vec<Option<StudyOutput>>,
@@ -37,7 +43,8 @@ pub fn effective_kind(series: &Series, kind: ChartKind) -> ChartKind {
             | ChartKind::Hollow
             | ChartKind::Bars
             | ChartKind::HeikinAshi
-            | ChartKind::Footprint,
+            | ChartKind::Footprint
+            | ChartKind::VolumeCandles,
         ) => ChartKind::Line,
         _ => kind,
     }
@@ -95,22 +102,31 @@ impl Display {
                 ChartKind::HeikinAshi => heikin_ashi(&bars),
                 ChartKind::Renko => {
                     display.box_size = t.renko_box.resolve(&bars, unit);
-                    transform::renko(&bars, display.box_size)
+                    transform::renko(
+                        &transform::samples(&bars, t.renko_path),
+                        display.box_size,
+                        i64::from(t.renko_reversal),
+                        t.renko_wicks,
+                    )
                 }
                 ChartKind::LineBreak => {
                     display.box_size = i64::from(t.line_break);
-                    transform::line_break(&bars, t.line_break as usize)
+                    transform::line_break(
+                        &transform::samples(&bars, t.line_break_path),
+                        t.line_break as usize,
+                    )
                 }
                 ChartKind::Kagi => {
                     display.box_size = t.kagi_reversal.resolve(&bars, unit);
-                    let (lines, meta) = transform::kagi(&bars, display.box_size);
+                    let (lines, meta) =
+                        transform::kagi(&transform::samples(&bars, t.kagi_path), display.box_size);
                     display.kagi = meta;
                     lines
                 }
                 ChartKind::PointFigure => {
                     display.box_size = t.pnf_box.resolve(&bars, unit);
                     let (columns, meta) = transform::point_and_figure(
-                        &bars,
+                        &transform::samples(&bars, t.pnf_path),
                         display.box_size,
                         i64::from(t.pnf_reversal),
                     );
@@ -119,7 +135,18 @@ impl Display {
                 }
                 ChartKind::Range => {
                     display.box_size = t.range.resolve(&bars, unit);
-                    transform::range_bars(&bars, display.box_size)
+                    transform::range_bars(&bars, display.box_size, t.range_path)
+                }
+                ChartKind::VolumeBars => {
+                    let v = &settings.volume_bars;
+                    display.volume_size = v.size.resolve(&bars);
+                    volume::volume_bars(&bars, display.volume_size, v.path)
+                }
+                ChartKind::Tpo => {
+                    let profiles = tpo::build(&bars, &settings.tpo, settings.zone, unit);
+                    let elements = profiles.iter().map(tpo::element).collect();
+                    display.tpo = profiles;
+                    elements
                 }
                 _ => Vec::new(),
             };

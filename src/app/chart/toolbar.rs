@@ -14,7 +14,9 @@ use super::overlay::{KIND_SECTIONS, kind_icon};
 use super::settings::ScaleMode;
 use super::study::catalog::{self, Source};
 use super::view::PriceScale;
-use super::{Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, indicator_picker};
+use super::{
+    Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
+};
 use crate::app::connection::ui::icon_colored;
 use crate::app::indicators;
 use crate::app::menu::{Entry, Item, Menu, Placement};
@@ -494,6 +496,12 @@ impl Chart {
                 menu,
                 Entry::new("Take a picture").icon(IconName::Camera),
                 |_, _, cx| cx.emit(ChartEvent::Screenshot),
+                cx,
+            ),
+            self.menu_entry(
+                menu,
+                Entry::new("Export the data...").icon(IconName::Download),
+                |_, window, cx| export_ui::open(cx.entity(), window, cx),
                 cx,
             ),
             Item::Separator,

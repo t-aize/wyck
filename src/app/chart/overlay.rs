@@ -19,7 +19,7 @@ use super::study::{Placement, PlotKind, ValueFormat};
 use super::zone::Zone;
 use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
-    chart_settings_ui, indicator_picker, paint, study_settings,
+    chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
 use crate::app::connection::ui;
 use crate::app::menu::{self as popup, Entry, Item};
@@ -40,6 +40,9 @@ pub fn kind_icon(kind: ChartKind) -> IconName {
         ChartKind::PointFigure => IconName::Grid3x3,
         ChartKind::Range => IconName::ChartColumnBig,
         ChartKind::Footprint => IconName::Rows3,
+        ChartKind::VolumeCandles => IconName::ChartCandlestick,
+        ChartKind::VolumeBars => IconName::ChartBarBig,
+        ChartKind::Tpo => IconName::ChartNoAxesGantt,
     }
 }
 
@@ -50,6 +53,7 @@ pub(super) const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
         &[
             ChartKind::Candles,
             ChartKind::Hollow,
+            ChartKind::VolumeCandles,
             ChartKind::HeikinAshi,
             ChartKind::Bars,
         ],
@@ -71,9 +75,13 @@ pub(super) const KIND_SECTIONS: [(&str, &[ChartKind]); 4] = [
             ChartKind::Kagi,
             ChartKind::PointFigure,
             ChartKind::Range,
+            ChartKind::VolumeBars,
         ],
     ),
-    ("Order flow", &[ChartKind::Footprint]),
+    (
+        "Order flow and profiles",
+        &[ChartKind::Footprint, ChartKind::Tpo],
+    ),
 ];
 
 fn rgb(color: u32) -> gpui::Rgba {
@@ -307,6 +315,10 @@ impl Chart {
                 .icon(IconName::Camera)
                 .hint("Ctrl+Shift+S")
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
+                .into(),
+            Entry::new("Export the data...")
+                .icon(IconName::Download)
+                .on_click(on(|_, window, cx| export_ui::open(cx.entity(), window, cx)))
                 .into(),
         ]);
         items

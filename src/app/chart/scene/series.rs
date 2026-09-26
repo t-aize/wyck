@@ -5,7 +5,7 @@ use wyck::openapi::market::Bar;
 
 use super::super::data::Series;
 use super::super::settings::ChartKind;
-use super::cmd::{Cmd, P, hsla, with_alpha};
+use super::cmd::{Align, Cmd, FONT, LINE, P, hsla, with_alpha};
 use super::{Ctx, columns, ellipse_points};
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
@@ -20,6 +20,15 @@ enum CandleStyle {
     Ohlc,
     /// Bodies without wicks (bricks and lines).
     Body,
+    /// Bricks with the wicks of the extremes the price saw while they formed.
+    BodyWicks,
+}
+
+impl CandleStyle {
+    /// Whether the body is a brick, drawn from the brick settings.
+    fn is_brick(self) -> bool {
+        matches!(self, Self::Body | Self::BodyWicks)
+    }
 }
 
 /// Draws the series as `kind`.
@@ -34,12 +43,24 @@ pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out
         (Series::Bars(bars), ChartKind::Bars) => {
             candles(cx, bars, first, last, CandleStyle::Ohlc, out);
         }
-        (Series::Bars(bars), ChartKind::Renko | ChartKind::LineBreak) => {
+        (Series::Bars(bars), ChartKind::Renko) => {
+            let style = if cx.f.settings.transform.renko_wicks {
+                CandleStyle::BodyWicks
+            } else {
+                CandleStyle::Body
+            };
+            candles(cx, bars, first, last, style, out);
+        }
+        (Series::Bars(bars), ChartKind::LineBreak) => {
             candles(cx, bars, first, last, CandleStyle::Body, out);
         }
-        (Series::Bars(bars), ChartKind::Range) => {
+        (Series::Bars(bars), ChartKind::Range | ChartKind::VolumeBars) => {
             candles(cx, bars, first, last, CandleStyle::Solid, out);
         }
+        (Series::Bars(bars), ChartKind::VolumeCandles) => {
+            volume_candles(cx, bars, first, last, out);
+        }
+        (Series::Bars(bars), ChartKind::Tpo) => super::tpo::draw(cx, bars, first, last, out),
         (Series::Bars(bars), ChartKind::Footprint) => {
             super::footprint::draw(cx, bars, first, last, out);
         }
@@ -92,8 +113,9 @@ fn candles(
         });
         return;
     }
-    let body_w = if style == CandleStyle::Body {
-        (bar_px * 0.9).max(3.0) as f32
+    let look = &cx.f.settings.transform;
+    let body_w = if style.is_brick() {
+        (bar_px * f64::from(look.brick_width)).max(3.0) as f32
     } else {
         (bar_px * 0.72).max(3.0) as f32
     };
@@ -136,19 +158,111 @@ fn candles(
                 border: Some(((1.0 / cx.f.scale).max(1.0), c)),
                 radius: 0.0,
             });
-        } else if style == CandleStyle::Body {
-            // Bricks read better with an edge in the background color between them.
+        } else if style.is_brick() {
             out.push(Cmd::Rect {
                 x: x0,
                 y: top,
                 w: x1 - x0,
                 h: height,
-                fill: with_alpha(cx.up_color(up), 0.85),
-                border: Some((1.0, c)),
+                fill: with_alpha(cx.up_color(up), look.brick_opacity),
+                border: look.brick_border.then_some((1.0, c)),
                 radius: 0.0,
             });
         } else {
             out.push(cx.rect(x0, top, x1 - x0, height, c));
+        }
+    }
+}
+
+/// The volume as short text: `830`, `12.4k`, `3.1M`.
+fn compact(volume: i64) -> String {
+    let v = volume.max(0) as f64;
+    if v >= 1_000_000.0 {
+        format!("{:.1}M", v / 1_000_000.0)
+    } else if v >= 10_000.0 {
+        format!("{:.1}k", v / 1_000.0)
+    } else if v >= 1_000.0 {
+        format!("{:.2}k", v / 1_000.0)
+    } else {
+        format!("{v:.0}")
+    }
+}
+
+/// Candles as wide as the volume of their period: same place on the time axis, but a busy period
+/// is a thick candle. Too narrow to tell the widths apart, they are drawn as plain candles.
+fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
+    let bar_px = cx.f.view.bar_px;
+    let last = last.min(bars.len());
+    if bar_px < CANDLE_MIN_PX || first >= last {
+        candles(cx, bars, first, last, CandleStyle::Solid, out);
+        return;
+    }
+    let settings = &cx.f.settings.volume_candles;
+    let volumes: Vec<i64> = bars[first..last].iter().map(|b| b.volume).collect();
+    let widths = settings.widths(&volumes);
+    let thin = 1.0 / cx.f.scale;
+    let wick_w = settings.wick_width.max(thin);
+    let gap_edge = hsla(cx.f.palette.bg);
+    let (top_edge, label_ink) = (cx.oy + cx.band.top as f32, hsla(cx.f.palette.text));
+    for (n, i) in (first..last).enumerate() {
+        let bar = &bars[i];
+        let x = cx.x(i);
+        let up = match settings.color_by {
+            super::super::volume::ColorBy::Body => bar.close >= bar.open,
+            super::super::volume::ColorBy::PreviousClose => {
+                bar.close >= i.checked_sub(1).map_or(bar.open, |p| bars[p].close)
+            }
+        };
+        let c = hsla(cx.up_color(up));
+        let body_w = (bar_px as f32 * widths[n]).max(2.0);
+        let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
+        let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
+        let (wick_top, wick_bottom) = (y_high.min(y_low), y_low.max(y_high) + thin);
+        out.push(cx.rect(
+            cx.snap(x - wick_w / 2.0),
+            cx.snap(wick_top),
+            wick_w,
+            cx.snap(wick_bottom) - cx.snap(wick_top),
+            c,
+        ));
+        let (top, bottom) = (y_open.min(y_close), y_open.max(y_close));
+        let x0 = cx.snap(x - body_w / 2.0);
+        let x1 = cx.snap(x + body_w / 2.0).max(x0 + thin);
+        let top = cx.snap(top);
+        let height = (cx.snap(bottom) - top).max(thin);
+        if settings.fill.is_hollow(up) {
+            out.push(Cmd::Rect {
+                x: x0,
+                y: top,
+                w: x1 - x0,
+                h: height,
+                fill: gpui::transparent_black(),
+                border: Some((thin.max(1.0), c)),
+                radius: 0.0,
+            });
+        } else if settings.outline {
+            out.push(Cmd::Rect {
+                x: x0,
+                y: top,
+                w: x1 - x0,
+                h: height,
+                fill: c,
+                border: Some((thin.max(1.0), gap_edge)),
+                radius: 0.0,
+            });
+        } else {
+            out.push(cx.rect(x0, top, x1 - x0, height, c));
+        }
+        if settings.labels && body_w >= 26.0 && wick_top - LINE - 2.0 >= top_edge {
+            out.push(Cmd::Text {
+                text: compact(bar.volume),
+                x,
+                y: wick_top - LINE - 2.0,
+                size: FONT - 1.0,
+                color: label_ink,
+                align: Align::Center,
+                bold: false,
+            });
         }
     }
 }
@@ -293,12 +407,13 @@ fn baseline(cx: &Ctx<'_>, first: usize, last: usize, out: &mut Vec<Cmd>) {
 /// it is yang, thin where it is yin.
 fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
     let meta = &cx.f.display.kagi;
-    let (thick, thin) = (2.6_f32, 1.2_f32);
+    let look = &cx.f.settings.transform;
+    let (thick, thin) = (look.kagi_thick, look.kagi_thin);
     let style = |yang: bool| {
         if yang {
-            (thick, hsla(cx.f.palette.up))
+            (thick, hsla(cx.f.palette.kagi_yang))
         } else {
-            (thin, hsla(cx.f.palette.down))
+            (thin, hsla(cx.f.palette.kagi_yin))
         }
     };
     let last = last.min(bars.len());
@@ -363,6 +478,14 @@ fn kagi(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd
 /// Point and figure: a column of X or O boxes per element.
 fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
     let columns_meta = &cx.f.display.pnf;
+    let look = &cx.f.settings.transform;
+    let ink = |up: bool| {
+        if up {
+            cx.f.palette.pnf_up
+        } else {
+            cx.f.palette.pnf_down
+        }
+    };
     let last = last.min(bars.len()).min(columns_meta.len());
     let width = (cx.f.view.bar_px as f32 * 0.8).max(1.0);
     let boxes: i64 = (first..last)
@@ -381,7 +504,7 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
                 y: y0.min(y1),
                 w: width,
                 h: (y1 - y0).abs().max(1.0),
-                fill: with_alpha(cx.up_color(up), 0.5),
+                fill: with_alpha(ink(up), 0.5),
                 border: None,
                 radius: 0.0,
             });
@@ -392,8 +515,11 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
         let column = &columns_meta[i];
         let size = column.size as f64;
         let x = cx.x(i);
-        let color = hsla(cx.up_color(column.up));
-        let box_h = (cx.y(0.0) - cx.y(size)).abs();
+        let color = hsla(ink(column.up));
+        // Measured where the boxes are: the price 0 is far off the screen, where the heights
+        // are cut to a range that can be drawn, and would give a height of nothing.
+        let base = column.bottom as f64 * size;
+        let box_h = (cx.y(base) - cx.y(base + size)).abs();
         if box_h < BOX_MIN_PX {
             let bar = &bars[i];
             let (y0, y1) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
@@ -402,14 +528,18 @@ fn point_figure(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut
                 y: y0.min(y1),
                 w: width,
                 h: (y1 - y0).abs().max(1.0),
-                fill: with_alpha(cx.up_color(column.up), 0.5),
+                fill: with_alpha(ink(column.up), 0.5),
                 border: None,
                 radius: 0.0,
             });
             continue;
         }
-        let (hw, hh) = (width / 2.0 * 0.8, box_h / 2.0 * 0.8);
-        let line_w = (width / 10.0).clamp(1.0, 2.2);
+        let (hw, hh) = (width / 2.0 * look.pnf_glyph, box_h / 2.0 * look.pnf_glyph);
+        let line_w = if look.pnf_line > 0.0 {
+            look.pnf_line
+        } else {
+            (width / 10.0).clamp(1.0, 2.2)
+        };
         for level in column.bottom..=column.top {
             let y = cx.y(level as f64 * size);
             if column.up {

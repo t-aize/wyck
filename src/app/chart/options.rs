@@ -30,6 +30,33 @@ pub struct ChartColors {
     /// The numbers and labels of the axes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<u32>,
+    /// The thick (yang) lines of Kagi. Follows the rising color.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kagi_yang: Option<u32>,
+    /// The thin (yin) lines of Kagi. Follows the falling color.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kagi_yin: Option<u32>,
+    /// The X of point and figure. Follows the rising color.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pnf_up: Option<u32>,
+    /// The O of point and figure. Follows the falling color.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pnf_down: Option<u32>,
+    /// The marks of a TPO profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpo: Option<u32>,
+    /// The point of control of a TPO profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpo_poc: Option<u32>,
+    /// The value area of a TPO profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpo_value_area: Option<u32>,
+    /// The initial balance of a TPO profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpo_ib: Option<u32>,
+    /// The single prints of a TPO profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tpo_single: Option<u32>,
 }
 
 impl ChartColors {
@@ -50,6 +77,15 @@ impl ChartColors {
             grid: cut(self.grid),
             crosshair: cut(self.crosshair),
             text: cut(self.text),
+            kagi_yang: cut(self.kagi_yang),
+            kagi_yin: cut(self.kagi_yin),
+            pnf_up: cut(self.pnf_up),
+            pnf_down: cut(self.pnf_down),
+            tpo: cut(self.tpo),
+            tpo_poc: cut(self.tpo_poc),
+            tpo_value_area: cut(self.tpo_value_area),
+            tpo_ib: cut(self.tpo_ib),
+            tpo_single: cut(self.tpo_single),
         }
     }
 }

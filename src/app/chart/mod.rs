@@ -19,8 +19,12 @@
 //! | [`display`] | what is drawn: the series of the chart type, and the indicators' values |
 //! | `flow`, `flow_sync` | the order flow of a footprint: counting quotes into bars, and loading it |
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
+//! | [`volume`], `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
+//! | [`tpo`], `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
+//! | [`export`], `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
-//! The data, view, axis, study and transform modules are plain data in and out.
+//! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
+//! out.
 //!
 //! # How it stays fast and small
 //!
@@ -48,11 +52,14 @@
 
 mod axis;
 mod chart_settings_ui;
+mod construction_ui;
 mod custom_runs;
 mod data;
 mod display;
 pub mod drawing;
 pub mod drawing_props;
+pub mod export;
+mod export_ui;
 mod flow;
 mod flow_sync;
 mod follow;
@@ -73,12 +80,17 @@ mod projection;
 pub mod raster;
 pub mod scene;
 pub mod settings;
+mod settings_rows;
 pub mod study;
 mod study_settings;
 mod timeframe;
 mod toolbar;
+pub mod tpo;
+mod tpo_ui;
 pub mod transform;
 mod view;
+pub mod volume;
+mod volume_ui;
 pub mod zone;
 
 use std::cell::Cell;

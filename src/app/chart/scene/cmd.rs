@@ -106,6 +106,20 @@ pub fn count(cmds: &[Cmd]) -> usize {
         .sum()
 }
 
+/// The width of every rectangle of the frame, in order, for tests.
+#[cfg(test)]
+pub fn rect_widths(cmds: &[Cmd]) -> Vec<f32> {
+    let mut out = Vec::new();
+    for cmd in cmds {
+        match cmd {
+            Cmd::Rect { w, .. } => out.push(*w),
+            Cmd::Clip { inner, .. } => out.extend(rect_widths(inner)),
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Every text of the frame, in order, for tests.
 #[cfg(test)]
 pub fn texts(cmds: &[Cmd]) -> Vec<String> {

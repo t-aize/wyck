@@ -10,7 +10,9 @@ use super::options::{
     ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines,
 };
 use super::study::{Placement, StudyConfig, StudyKind};
+use super::tpo::TpoSettings;
 use super::transform::TransformSettings;
+use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
 
 /// The chart types. The codes are written in saved files and never change.
@@ -42,10 +44,16 @@ pub enum ChartKind {
     Range,
     /// Candles that show what traded at each price, split between sellers and buyers.
     Footprint,
+    /// Candles as wide as the activity of their period.
+    VolumeCandles,
+    /// Bars that each close once they have seen the same volume.
+    VolumeBars,
+    /// Sessions laid out by the time the price spent at each row: a market profile.
+    Tpo,
 }
 
 impl ChartKind {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 17] = [
         Self::Candles,
         Self::Hollow,
         Self::HeikinAshi,
@@ -60,6 +68,9 @@ impl ChartKind {
         Self::PointFigure,
         Self::Range,
         Self::Footprint,
+        Self::VolumeCandles,
+        Self::VolumeBars,
+        Self::Tpo,
     ];
 
     pub fn label(self) -> &'static str {
@@ -78,6 +89,9 @@ impl ChartKind {
             Self::PointFigure => "Point and figure",
             Self::Range => "Range",
             Self::Footprint => "Footprint",
+            Self::VolumeCandles => "Volume candles",
+            Self::VolumeBars => "Volume bars",
+            Self::Tpo => "TPO",
         }
     }
 
@@ -98,6 +112,9 @@ impl ChartKind {
             Self::PointFigure => "point_figure",
             Self::Range => "range",
             Self::Footprint => "footprint",
+            Self::VolumeCandles => "volume_candles",
+            Self::VolumeBars => "volume_bars",
+            Self::Tpo => "tpo",
         }
     }
 
@@ -118,6 +135,9 @@ impl ChartKind {
                 | Self::PointFigure
                 | Self::Range
                 | Self::Footprint
+                | Self::VolumeCandles
+                | Self::VolumeBars
+                | Self::Tpo
         )
     }
 
@@ -132,6 +152,8 @@ impl ChartKind {
                 | Self::Kagi
                 | Self::PointFigure
                 | Self::Range
+                | Self::VolumeBars
+                | Self::Tpo
         )
     }
 
@@ -205,6 +227,12 @@ pub struct ChartSettings {
     #[serde(default)]
     pub footprint: FootprintSettings,
     #[serde(default)]
+    pub volume_candles: VolumeCandleSettings,
+    #[serde(default)]
+    pub volume_bars: VolumeBarSettings,
+    #[serde(default)]
+    pub tpo: TpoSettings,
+    #[serde(default)]
     pub scale: ScaleMode,
     /// Whether higher prices are drawn lower.
     #[serde(default)]
@@ -257,6 +285,9 @@ impl Default for ChartSettings {
             kind: ChartKind::Candles,
             transform: TransformSettings::default(),
             footprint: FootprintSettings::default(),
+            volume_candles: VolumeCandleSettings::default(),
+            volume_bars: VolumeBarSettings::default(),
+            tpo: TpoSettings::default(),
             scale: ScaleMode::Linear,
             invert: false,
             zone: Zone::default(),
@@ -290,6 +321,9 @@ impl ChartSettings {
     pub fn normalized(mut self) -> Self {
         self.transform = self.transform.normalized();
         self.footprint = self.footprint.normalized();
+        self.volume_candles = self.volume_candles.normalized();
+        self.volume_bars = self.volume_bars.normalized();
+        self.tpo = self.tpo.normalized();
         self.colors = self.colors.normalized();
         self.studies.retain(|s| {
             s.kind != StudyKind::Unknown && (s.kind != StudyKind::Custom || s.script.is_some())
@@ -315,6 +349,9 @@ impl ChartSettings {
             kind: self.kind,
             transform: self.transform,
             footprint: self.footprint,
+            volume_candles: self.volume_candles,
+            volume_bars: self.volume_bars,
+            tpo: self.tpo,
             studies: self.studies,
             main_weight: self.main_weight,
             ..Self::default()

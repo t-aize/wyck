@@ -1,6 +1,6 @@
 use wyck::openapi::market::{Bar, Period, Quote, Tick};
 
-use super::cmd::{count, texts};
+use super::cmd::{count, rect_widths, texts};
 use super::*;
 use crate::app::chart::flow::Flow;
 use crate::app::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
@@ -597,4 +597,287 @@ fn trading_lines_that_are_hidden_are_not_marks() {
     };
     assert!(!settings.shows(super::super::lines::LineId::Alert(3)));
     assert!(settings.shows(super::super::lines::LineId::Order(3)));
+}
+
+#[test]
+fn a_volume_candle_is_as_wide_as_its_volume() {
+    let mut data = bars(40);
+    // Two neighbours, one quiet and one very busy: same room, different widths.
+    data[20].volume = 1;
+    data[21].volume = 100_000;
+    let mut settings = kind(ChartKind::VolumeCandles);
+    settings.volume_candles.min_width = 0.2;
+    settings.volume_candles.max_width = 1.0;
+    settings.volume_candles.reference = crate::app::chart::volume::WidthReference::Max;
+    settings.volume_candles.scale = crate::app::chart::volume::WidthScale::Linear;
+    let f = Fixture::new(Series::Bars(data), settings, View::new(20.0));
+    let widths = rect_widths(&build(&f.frame()));
+    let (mut thin, mut wide) = (f32::MAX, 0.0_f32);
+    for w in widths.iter().copied().filter(|w| *w >= 3.0 && *w <= 20.5) {
+        thin = thin.min(w);
+        wide = wide.max(w);
+    }
+    assert!(wide >= 19.0, "the busiest fills its room: {wide}");
+    assert!(thin <= 6.0, "the quietest is thin: {thin}");
+}
+
+#[test]
+fn volume_candles_can_write_the_volume_over_wide_candles() {
+    let mut settings = kind(ChartKind::VolumeCandles);
+    settings.volume_candles.labels = true;
+    let f = Fixture::new(Series::Bars(bars(30)), settings, View::new(40.0));
+    let text = texts(&build(&f.frame()));
+    assert!(
+        text.iter()
+            .any(|t| t.parse::<i64>().is_ok_and(|v| (1..=7).contains(&v))),
+        "{text:?}"
+    );
+}
+
+#[test]
+fn volume_bars_draw_and_make_a_different_number_of_bars_than_the_source() {
+    let mut settings = kind(ChartKind::VolumeBars);
+    settings.volume_bars.size = crate::app::chart::volume::VolumeSize::Fixed { volume: 20 };
+    let f = Fixture::new(Series::Bars(bars(200)), settings, View::new(8.0));
+    assert!(f.display.is_derived());
+    assert_eq!(f.display.volume_size, 20);
+    assert_ne!(f.display.shown(&f.raw).len(), 200);
+    assert!(count(&build(&f.frame())) > 50);
+}
+
+#[test]
+fn renko_wicks_add_a_line_to_each_brick() {
+    let source = bars(400);
+    let plain = kind(ChartKind::Renko);
+    let mut wicked = kind(ChartKind::Renko);
+    wicked.transform.renko_wicks = true;
+    wicked.transform.renko_box = crate::app::chart::transform::BoxSize::Fixed { price: 0.0002 };
+    let mut plain = plain;
+    plain.transform.renko_box = wicked.transform.renko_box;
+    let a = Fixture::new(Series::Bars(source.clone()), plain, View::new(10.0));
+    let b = Fixture::new(Series::Bars(source), wicked, View::new(10.0));
+    assert!(count(&build(&b.frame())) > count(&build(&a.frame())));
+}
+
+#[test]
+fn bricks_can_drop_their_border_and_change_their_width() {
+    let mut narrow = kind(ChartKind::Renko);
+    narrow.transform.brick_width = 0.4;
+    narrow.transform.brick_border = false;
+    narrow.transform.renko_box = crate::app::chart::transform::BoxSize::Fixed { price: 0.0002 };
+    let mut wide = narrow.clone();
+    wide.transform.brick_width = 1.0;
+    let a = Fixture::new(Series::Bars(bars(300)), narrow, View::new(20.0));
+    let b = Fixture::new(Series::Bars(bars(300)), wide, View::new(20.0));
+    let widest = |f: &Fixture| {
+        rect_widths(&build(&f.frame()))
+            .into_iter()
+            .filter(|w| *w <= 21.0)
+            .fold(0.0_f32, f32::max)
+    };
+    assert!(
+        widest(&a) < widest(&b),
+        "{} against {}",
+        widest(&a),
+        widest(&b)
+    );
+}
+
+#[test]
+fn kagi_and_point_figure_take_their_own_colors_and_follow_the_rising_ones_otherwise() {
+    let plain = Palette::for_chart(&ChartColors::default());
+    assert_eq!(plain.kagi_yang, plain.up);
+    assert_eq!(plain.kagi_yin, plain.down);
+    assert_eq!(plain.pnf_up, plain.up);
+    let colors = ChartColors {
+        up: Some(0x112233),
+        kagi_yin: Some(0x445566),
+        pnf_up: Some(0x778899),
+        ..ChartColors::default()
+    };
+    let p = Palette::for_chart(&colors);
+    assert_eq!(p.kagi_yang, gpui::rgb(0x112233), "follows the rising color");
+    assert_eq!(p.kagi_yin, gpui::rgb(0x445566));
+    assert_eq!(p.pnf_up, gpui::rgb(0x778899));
+    assert_eq!(p.pnf_down, p.down);
+}
+
+#[test]
+fn every_price_based_type_draws_from_the_whole_path_by_default() {
+    for chart_kind in [
+        ChartKind::Renko,
+        ChartKind::LineBreak,
+        ChartKind::Kagi,
+        ChartKind::PointFigure,
+        ChartKind::Range,
+    ] {
+        let f = Fixture::new(Series::Bars(bars(300)), kind(chart_kind), View::new(8.0));
+        assert!(f.display.is_derived(), "{chart_kind:?}");
+        assert!(count(&build(&f.frame())) > 20, "{chart_kind:?}");
+    }
+}
+
+/// Three days of five minute bars, so a session has a dozen letters or so per day.
+fn tpo_bars() -> Vec<Bar> {
+    (0..864)
+        .map(|i| {
+            let wave = ((i as f64 * 0.05).sin() * 300.0) as i64;
+            let base = 100_000 + wave;
+            Bar {
+                time_ms: 1_767_571_200_000 + i as i64 * 300_000,
+                open: base,
+                high: base + 60,
+                low: base - 60,
+                close: base + 10,
+                volume: 5,
+            }
+        })
+        .collect()
+}
+
+fn tpo_fixture(edit: impl FnOnce(&mut ChartSettings), bar_px: f64) -> Fixture {
+    let mut settings = kind(ChartKind::Tpo);
+    settings.zone = Zone::Utc;
+    settings.tpo.row_units = 20;
+    edit(&mut settings);
+    // A little air after the last profile, not the six points a narrow view keeps.
+    let mut view = View::new(bar_px);
+    view.offset = 1.0;
+    Fixture::new(Series::Bars(tpo_bars()), settings, view)
+}
+
+#[test]
+fn a_tpo_chart_makes_one_element_for_each_session() {
+    let f = tpo_fixture(|_| {}, 200.0);
+    assert_eq!(f.display.tpo.len(), 3);
+    assert_eq!(f.display.shown(&f.raw).len(), 3);
+    assert!(f.display.is_derived());
+}
+
+#[test]
+fn profiles_are_written_in_letters_with_their_levels() {
+    let f = tpo_fixture(
+        |s| s.tpo.display = crate::app::chart::tpo::TpoDisplay::Letters,
+        200.0,
+    );
+    let text = texts(&build(&f.frame()));
+    assert!(text.iter().any(|t| t == "A"), "{text:?}");
+    assert!(text.iter().any(|t| t == "B"), "{text:?}");
+    assert!(text.iter().any(|t| t.starts_with("POC ")), "{text:?}");
+    assert!(text.iter().any(|t| t.starts_with("VAH ")), "{text:?}");
+    assert!(text.iter().any(|t| t.starts_with("VAL ")), "{text:?}");
+}
+
+#[test]
+fn blocks_have_no_letters_and_the_levels_can_be_turned_off() {
+    let f = tpo_fixture(
+        |s| {
+            s.tpo.display = crate::app::chart::tpo::TpoDisplay::Blocks;
+            s.tpo.poc = false;
+            s.tpo.value_area = false;
+        },
+        200.0,
+    );
+    let text = texts(&build(&f.frame()));
+    assert!(!text.iter().any(|t| t == "A" || t == "B"), "{text:?}");
+    assert!(
+        !text
+            .iter()
+            .any(|t| t.starts_with("POC ") || t.starts_with("VAH "))
+    );
+    let plain = tpo_fixture(|s| s.tpo.labels = false, 200.0);
+    let text = texts(&build(&plain.frame()));
+    assert!(!text.iter().any(|t| t.starts_with("POC ")), "{text:?}");
+}
+
+#[test]
+fn the_profile_extras_add_what_they_draw() {
+    let bare = tpo_fixture(
+        |s| {
+            s.tpo.value_area = false;
+            s.tpo.poc_line = false;
+            s.tpo.initial_balance = false;
+            s.tpo.single_prints = false;
+            s.tpo.poor_extremes = false;
+            s.tpo.open_close = false;
+            s.tpo.labels = false;
+        },
+        200.0,
+    );
+    let full = tpo_fixture(|s| s.tpo.midpoint = true, 200.0);
+    assert!(count(&build(&full.frame())) > count(&build(&bare.frame())));
+}
+
+#[test]
+fn zoomed_out_the_sessions_are_bars_and_the_work_stays_bounded() {
+    let f = tpo_fixture(|_| {}, 4.0);
+    let text = texts(&build(&f.frame()));
+    assert!(!text.iter().any(|t| t == "A"), "{text:?}");
+    let mut view = View::new(0.2);
+    view.offset = View::home_offset();
+    let many: Vec<Bar> = (0..60_000)
+        .map(|i| {
+            let base = 100_000 + ((i as f64 * 0.01).sin() * 900.0) as i64;
+            Bar {
+                time_ms: 1_767_571_200_000 + i as i64 * 3_600_000,
+                open: base,
+                high: base + 50,
+                low: base - 50,
+                close: base + 5,
+                volume: 3,
+            }
+        })
+        .collect();
+    let mut settings = kind(ChartKind::Tpo);
+    settings.zone = Zone::Utc;
+    let huge = Fixture::new(Series::Bars(many), settings, view);
+    assert!(count(&build(&huge.frame())) < 8_000);
+}
+
+#[test]
+fn every_color_mode_draws() {
+    use crate::app::chart::tpo::TpoColor;
+    for mode in TpoColor::ALL {
+        let f = tpo_fixture(|s| s.tpo.color = mode, 200.0);
+        assert!(count(&build(&f.frame())) > 100, "{mode:?}");
+    }
+}
+
+#[test]
+fn the_automatic_display_keeps_letters_for_columns_wide_enough_to_read() {
+    // With few periods in a session the columns are wide, and the letters show by themselves.
+    let f = tpo_fixture(|s| s.tpo.period_minutes = 240, 200.0);
+    let text = texts(&build(&f.frame()));
+    assert!(text.iter().any(|t| t == "A"), "{text:?}");
+    let crowded = tpo_fixture(|s| s.tpo.period_minutes = 5, 200.0);
+    let text = texts(&build(&crowded.frame()));
+    assert!(!text.iter().any(|t| t == "A"), "{text:?}");
+}
+
+/// How many strokes of `points` or more points a frame has (the ring of an O has twenty one).
+fn long_strokes(cmds: &[Cmd], points: usize) -> usize {
+    cmds.iter()
+        .map(|c| match c {
+            Cmd::Stroke { points: p, .. } if p.len() >= points => 1,
+            Cmd::Clip { inner, .. } => long_strokes(inner, points),
+            _ => 0,
+        })
+        .sum()
+}
+
+#[test]
+fn point_and_figure_draws_its_x_and_o_on_a_real_price_scale() {
+    // The prices are around 100000 raw units, far from the zero the boxes used to be measured
+    // from: the boxes then had no height and every column fell back to a bar.
+    let mut settings = kind(ChartKind::PointFigure);
+    settings.transform.pnf_box = crate::app::chart::transform::BoxSize::Fixed { price: 0.0015 };
+    let mut view = View::new(22.0);
+    view.offset = 1.0;
+    let f = Fixture::new(Series::Bars(bars(500)), settings, view);
+    let mut frame = f.frame();
+    frame.hover = None;
+    assert!(
+        long_strokes(&build(&frame), 10) > 0,
+        "no O drawn: the columns fell back to bars"
+    );
 }

@@ -16,6 +16,7 @@ pub mod geometry;
 pub mod price;
 mod series;
 mod studies;
+mod tpo;
 
 pub use self::cmd::{Align, Cmd, FONT, LINE, P, hsla, rgb_alpha, with_alpha};
 pub use self::geometry::{AXIS_H, AXIS_W, Band, Geometry};
@@ -40,6 +41,13 @@ const GRID_ALPHA: f32 = 0.3;
 /// The size of the text of the watermark.
 const WATERMARK_SIZE: f32 = 46.0;
 
+/// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
+pub const TPO_MARKS: u32 = 0x7f93b2;
+pub const TPO_POC: u32 = 0xf0a020;
+pub const TPO_VALUE_AREA: u32 = 0x5b8def;
+pub const TPO_IB: u32 = 0xb27be6;
+pub const TPO_SINGLE: u32 = 0xe5586a;
+
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
     10f64.powi(5 - i32::try_from(digits.min(5)).unwrap_or(5))
@@ -58,6 +66,19 @@ pub struct Palette {
     pub tag: gpui::Rgba,
     pub border: gpui::Rgba,
     pub crosshair: gpui::Rgba,
+    /// The thick and thin lines of Kagi.
+    pub kagi_yang: gpui::Rgba,
+    pub kagi_yin: gpui::Rgba,
+    /// The X and the O of point and figure.
+    pub pnf_up: gpui::Rgba,
+    pub pnf_down: gpui::Rgba,
+    /// The marks, the point of control, the value area, the initial balance and the single
+    /// prints of a TPO profile.
+    pub tpo: gpui::Rgba,
+    pub tpo_poc: gpui::Rgba,
+    pub tpo_value_area: gpui::Rgba,
+    pub tpo_ib: gpui::Rgba,
+    pub tpo_single: gpui::Rgba,
 }
 
 impl Palette {
@@ -73,6 +94,15 @@ impl Palette {
             tag: theme::chart_tag(),
             border: theme::chart_border(),
             crosshair: theme::chart_crosshair(),
+            kagi_yang: theme::chart_up(),
+            kagi_yin: theme::chart_down(),
+            pnf_up: theme::chart_up(),
+            pnf_down: theme::chart_down(),
+            tpo: gpui::rgb(TPO_MARKS),
+            tpo_poc: gpui::rgb(TPO_POC),
+            tpo_value_area: gpui::rgb(TPO_VALUE_AREA),
+            tpo_ib: gpui::rgb(TPO_IB),
+            tpo_single: gpui::rgb(TPO_SINGLE),
         }
     }
 
@@ -85,6 +115,32 @@ impl Palette {
         }
         if let Some(c) = colors.down {
             palette.down = pick(c);
+        }
+        // What follows the rising and falling colors, unless it has a color of its own.
+        (palette.kagi_yang, palette.kagi_yin) = (palette.up, palette.down);
+        (palette.pnf_up, palette.pnf_down) = (palette.up, palette.down);
+        if let Some(c) = colors.kagi_yang {
+            palette.kagi_yang = pick(c);
+        }
+        if let Some(c) = colors.kagi_yin {
+            palette.kagi_yin = pick(c);
+        }
+        if let Some(c) = colors.pnf_up {
+            palette.pnf_up = pick(c);
+        }
+        if let Some(c) = colors.pnf_down {
+            palette.pnf_down = pick(c);
+        }
+        for (own, slot) in [
+            (colors.tpo, &mut palette.tpo),
+            (colors.tpo_poc, &mut palette.tpo_poc),
+            (colors.tpo_value_area, &mut palette.tpo_value_area),
+            (colors.tpo_ib, &mut palette.tpo_ib),
+            (colors.tpo_single, &mut palette.tpo_single),
+        ] {
+            if let Some(c) = own {
+                *slot = pick(c);
+            }
         }
         if let Some(c) = colors.line {
             palette.line = pick(c);

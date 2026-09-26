@@ -18,7 +18,10 @@ use super::settings::{ChartKind, ChartSettings, MAX_STUDIES, ScaleMode};
 use super::study::StudyConfig;
 use super::transform::{BoxSize, TransformSettings};
 use super::zone::Zone;
-use super::{Chart, footprint_ui, indicator_picker, overlay, study_settings};
+use super::{
+    Chart, construction_ui, footprint_ui, indicator_picker, overlay, study_settings, tpo_ui,
+    volume_ui,
+};
 use crate::app::connection::ui::icon_colored;
 use crate::app::settings_ui::{self as ui, Head, Tab};
 use crate::app::{modal, theme, widgets};
@@ -100,6 +103,15 @@ enum ColorKey {
     Grid,
     Text,
     Crosshair,
+    KagiYang,
+    KagiYin,
+    PnfUp,
+    PnfDown,
+    Tpo,
+    TpoPoc,
+    TpoValueArea,
+    TpoIb,
+    TpoSingle,
 }
 
 impl ColorKey {
@@ -112,6 +124,15 @@ impl ColorKey {
             Self::Grid => "Grid lines",
             Self::Text => "Axis text",
             Self::Crosshair => "Crosshair",
+            Self::KagiYang => "Thick line (yang)",
+            Self::KagiYin => "Thin line (yin)",
+            Self::PnfUp => "X (rising)",
+            Self::PnfDown => "O (falling)",
+            Self::Tpo => "Marks",
+            Self::TpoPoc => "Point of control",
+            Self::TpoValueArea => "Value area",
+            Self::TpoIb => "Initial balance",
+            Self::TpoSingle => "Single prints",
         }
     }
 
@@ -124,6 +145,15 @@ impl ColorKey {
             Self::Grid => colors.grid,
             Self::Text => colors.text,
             Self::Crosshair => colors.crosshair,
+            Self::KagiYang => colors.kagi_yang,
+            Self::KagiYin => colors.kagi_yin,
+            Self::PnfUp => colors.pnf_up,
+            Self::PnfDown => colors.pnf_down,
+            Self::Tpo => colors.tpo,
+            Self::TpoPoc => colors.tpo_poc,
+            Self::TpoValueArea => colors.tpo_value_area,
+            Self::TpoIb => colors.tpo_ib,
+            Self::TpoSingle => colors.tpo_single,
         }
     }
 
@@ -136,6 +166,15 @@ impl ColorKey {
             Self::Grid => colors.grid = color,
             Self::Text => colors.text = color,
             Self::Crosshair => colors.crosshair = color,
+            Self::KagiYang => colors.kagi_yang = color,
+            Self::KagiYin => colors.kagi_yin = color,
+            Self::PnfUp => colors.pnf_up = color,
+            Self::PnfDown => colors.pnf_down = color,
+            Self::Tpo => colors.tpo = color,
+            Self::TpoPoc => colors.tpo_poc = color,
+            Self::TpoValueArea => colors.tpo_value_area = color,
+            Self::TpoIb => colors.tpo_ib = color,
+            Self::TpoSingle => colors.tpo_single = color,
         }
     }
 
@@ -151,6 +190,15 @@ impl ColorKey {
             Self::Grid => palette.text,
             Self::Text => palette.text,
             Self::Crosshair => palette.text,
+            Self::KagiYang => palette.kagi_yang,
+            Self::KagiYin => palette.kagi_yin,
+            Self::PnfUp => palette.pnf_up,
+            Self::PnfDown => palette.pnf_down,
+            Self::Tpo => palette.tpo,
+            Self::TpoPoc => palette.tpo_poc,
+            Self::TpoValueArea => palette.tpo_value_area,
+            Self::TpoIb => palette.tpo_ib,
+            Self::TpoSingle => palette.tpo_single,
         })
     }
 }
@@ -240,6 +288,9 @@ struct ChartSettingsEditor {
     line_break: Entity<InputState>,
     reversal: Entity<InputState>,
     footprint: Vec<(footprint_ui::Field, Entity<InputState>)>,
+    volume: volume_ui::Inputs,
+    construction: construction_ui::Inputs,
+    tpo: tpo_ui::Inputs,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -303,6 +354,13 @@ impl ChartSettingsEditor {
         }));
         let (footprint, footprint_subscriptions) = footprint_ui::inputs(&chart, window, cx);
         subscriptions.extend(footprint_subscriptions);
+        let (volume, volume_subscriptions) = volume_ui::inputs(&chart, window, cx);
+        subscriptions.extend(volume_subscriptions);
+        let (construction, construction_subscriptions) =
+            construction_ui::inputs(&chart, window, cx);
+        subscriptions.extend(construction_subscriptions);
+        let (tpo, tpo_subscriptions) = tpo_ui::inputs(&chart, window, cx);
+        subscriptions.extend(tpo_subscriptions);
         Self {
             chart,
             original,
@@ -312,6 +370,9 @@ impl ChartSettingsEditor {
             line_break,
             reversal,
             footprint,
+            volume,
+            construction,
+            tpo,
             _subscriptions: subscriptions,
         }
     }
@@ -536,6 +597,12 @@ impl ChartSettingsEditor {
             )),
             _ => {}
         }
+        rows.extend(construction_ui::rows(
+            kind,
+            &self.chart,
+            &self.construction,
+            &settings.transform,
+        ));
         (!rows.is_empty()).then(|| {
             ui::group(
                 overlay::kind_icon(kind),
@@ -562,6 +629,28 @@ impl ChartSettingsEditor {
                 &settings.footprint,
             ));
         }
+        match settings.kind {
+            ChartKind::VolumeCandles => {
+                page = page.children(volume_ui::candle_groups(
+                    &self.chart,
+                    &self.volume,
+                    &settings.volume_candles,
+                ));
+            }
+            ChartKind::VolumeBars => {
+                let resolved = self.chart.read(cx).display.volume_size;
+                page = page.child(volume_ui::bar_group(
+                    &self.chart,
+                    &self.volume,
+                    &settings.volume_bars,
+                    resolved,
+                ));
+            }
+            ChartKind::Tpo => {
+                page = page.children(tpo_ui::groups(&self.chart, &self.tpo, &settings.tpo));
+            }
+            _ => {}
+        }
         let mut colors = vec![
             self.color_row(
                 ColorKey::Up,
@@ -579,6 +668,30 @@ impl ChartSettingsEditor {
             ChartKind::Line | ChartKind::Step | ChartKind::Area | ChartKind::Baseline
         ) {
             colors.push(self.color_row(ColorKey::Line, None, cx));
+        }
+        let own: &[(ColorKey, &'static str)] = match settings.kind {
+            ChartKind::Kagi => &[
+                (ColorKey::KagiYang, "Follows the rising color"),
+                (ColorKey::KagiYin, "Follows the falling color"),
+            ],
+            ChartKind::PointFigure => &[
+                (ColorKey::PnfUp, "Follows the rising color"),
+                (ColorKey::PnfDown, "Follows the falling color"),
+            ],
+            ChartKind::Tpo => &[
+                (ColorKey::Tpo, "The letters and blocks of a profile"),
+                (ColorKey::TpoPoc, "The row with the most marks"),
+                (
+                    ColorKey::TpoValueArea,
+                    "The rows around it that hold most marks",
+                ),
+                (ColorKey::TpoIb, "The range of the first periods"),
+                (ColorKey::TpoSingle, "Rows only one period visited"),
+            ],
+            _ => &[],
+        };
+        for (key, hint) in own {
+            colors.push(self.color_row(*key, Some(hint), cx));
         }
         page.child(ui::group(IconName::Palette, "Colors", colors))
             .into_any_element()
