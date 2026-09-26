@@ -13,7 +13,7 @@ use gpui::{
 use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 
-use super::{color_picker, theme};
+use super::{color_picker, menu, theme};
 
 /// The id of child `n` of an element.
 pub fn child_id(id: &ElementId, n: usize) -> ElementId {
@@ -106,15 +106,8 @@ pub fn color_swatch(
     div()
         .relative()
         .child(swatch)
-        .child(
-            gpui::deferred(
-                gpui::anchored()
-                    .snap_to_window_with_margin(px(8.))
-                    .child(div().pt(px(30.)).child(panel)),
-            )
-            // Above the dialogs of gpui-component, which hold the color fields of the settings.
-            .with_priority(100),
-        )
+        // Above the dialogs of gpui-component, which hold the color fields of the settings.
+        .child(menu::below(panel, 30., 100))
         .into_any_element()
 }
 

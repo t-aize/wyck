@@ -3,10 +3,7 @@
 use std::sync::Arc;
 
 use gpui::prelude::*;
-use gpui::{
-    Context, FontFeatures, FontWeight, MouseButton, SharedString, Window, anchored, deferred, div,
-    px,
-};
+use gpui::{Context, FontFeatures, FontWeight, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -15,7 +12,7 @@ use gpui_kit::component::{Selectable, Sizable};
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::app::connection::ui;
-use crate::app::{anim, chart, theme, trading};
+use crate::app::{anim, chart, menu, theme, trading};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;
@@ -302,8 +299,13 @@ impl Dashboard {
             .items_center()
             .gap_0p5()
             .children(quick)
-            .child(more)
-            .children(self.tf_menu_open.then(|| self.timeframe_menu(current, cx)))
+            .child(
+                div()
+                    .relative()
+                    .flex_none()
+                    .child(more)
+                    .children(self.tf_menu_open.then(|| self.timeframe_menu(current, cx))),
+            )
     }
 
     fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
@@ -564,18 +566,11 @@ impl Dashboard {
                      unit picked, or a code such as 45m, 2h or 3D.",
                 ),
         );
-        deferred(
-            anchored()
-                .anchor(gpui::Anchor::TopLeft)
-                .offset(gpui::point(px(0.), px(0.)))
-                .snap_to_window_with_margin(px(8.))
-                .child(
-                    div()
-                        .pt(px(40.))
-                        .child(anim::enter(card, "timeframe-menu", 0)),
-                ),
+        menu::below(
+            anim::enter(card, "timeframe-menu", 0),
+            menu::BELOW_BUTTON,
+            1,
         )
-        .with_priority(1)
     }
 
     /// The switches of the panel under the charts and of the ticket beside them.

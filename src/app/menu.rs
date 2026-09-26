@@ -278,8 +278,17 @@ impl Menu {
                 .child(div().pt(px(offset)).child(card)),
             (Placement::Cursor, None) => anchored().snap_to_window_with_margin(px(8.)).child(card),
         };
+        // Under a button, the box is anchored to the corner of it: without an offset it would sit
+        // where it would have been in the flow, under the button, and `Below` would count from
+        // there instead of from the top of the button.
+        let root = div().absolute().size_0();
+        let root = if matches!(placement, Placement::Below(_)) {
+            root.top_0().left_0()
+        } else {
+            root
+        };
         Some(
-            deferred(div().absolute().size_0().child(keys).child(placed))
+            deferred(root.child(keys).child(placed))
                 .with_priority(PRIORITY)
                 .into_any_element(),
         )
@@ -421,6 +430,34 @@ impl Menu {
             )
             .into_any_element()
     }
+}
+
+/// The gap that leaves a few pixels between a 28 px button and what opens under it, for [`below`].
+pub const BELOW_BUTTON: f32 = 32.;
+
+/// Puts `content` under the button it is a child of, `gap` pixels below the top of it, drawn over
+/// what is around (at `priority`) and kept inside the window. The parent must be `relative` and
+/// the size of the button.
+///
+/// The box is anchored to the corner of the button: without an offset an anchored element sits
+/// where it would have been in the flow, which is under the button, and the gap would count from
+/// there. Every panel that opens under a button goes through this, so they all leave the same
+/// space.
+pub fn below(content: impl IntoElement, gap: f32, priority: usize) -> AnyElement {
+    div()
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_0()
+        .child(
+            deferred(
+                anchored()
+                    .snap_to_window_with_margin(px(8.))
+                    .child(div().pt(px(gap)).child(content)),
+            )
+            .with_priority(priority),
+        )
+        .into_any_element()
 }
 
 /// The next entry that can be picked, after `from` going forward or back, wrapping round.

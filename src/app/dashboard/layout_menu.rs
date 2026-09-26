@@ -2,13 +2,13 @@
 //! arranged, and what is linked between them.
 
 use gpui::prelude::*;
-use gpui::{Context, SharedString, Window, anchored, deferred, div, px};
+use gpui::{Context, SharedString, Window, div, px};
 
 use super::Dashboard;
 use crate::app::multichart::icon::layout_icon;
 use crate::app::multichart::layouts::{self, LayoutKey};
 use crate::app::multichart::links::{Link, Links};
-use crate::app::theme;
+use crate::app::{menu, theme};
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 5] = [
@@ -172,17 +172,11 @@ impl Dashboard {
             .child(reset)
             .child(links_section);
 
-        deferred(
-            anchored()
-                .anchor(gpui::Anchor::TopLeft)
-                .snap_to_window_with_margin(px(8.))
-                .child(div().pt(px(40.)).child(crate::app::anim::enter(
-                    card,
-                    "layout-menu-card",
-                    0,
-                ))),
+        menu::below(
+            crate::app::anim::enter(card, "layout-menu-card", 0),
+            menu::BELOW_BUTTON,
+            1,
         )
-        .with_priority(1)
     }
 }
 
