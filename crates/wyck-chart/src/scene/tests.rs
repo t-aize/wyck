@@ -52,6 +52,7 @@ impl Fixture {
             view: &self.view,
             timeframe: Timeframe::DEFAULT,
             digits: 5,
+            pip_position: Some(4),
             origin: (0.0, 0.0),
             w: 1_000.0,
             h: 600.0,
@@ -275,7 +276,7 @@ fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
         bold: false,
     };
     let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
-    spread_tags(&mut tags, 0.0, 500.0);
+    spread_tags(&mut tags, &Geometry::single(1_000.0, 528.0), 0.0);
     let ys: Vec<f32> = tags
         .iter()
         .map(|t| match t {
@@ -287,6 +288,50 @@ fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
     let mut sorted = ys.clone();
     sorted.sort_by(f32::total_cmp);
     assert!(sorted.windows(2).all(|w| w[1] - w[0] >= 18.0), "{ys:?}");
+}
+
+#[test]
+fn a_compact_atr_pane_keeps_its_last_value_on_the_axis() {
+    let mut settings = ChartSettings::default();
+    let mut atr = StudyConfig::new(StudyKind::Atr);
+    atr.weight = 0.1;
+    settings.studies.push(atr);
+    let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+    let g = geometry(&f.settings, 1_000.0, 600.0);
+    assert_eq!(g.bands[1].h, geometry::MIN_BAND);
+    let value = f.display.studies[0].as_ref().unwrap().plots[0]
+        .values
+        .iter()
+        .rev()
+        .find(|v| v.is_finite())
+        .copied()
+        .unwrap();
+    let label = price::format_value(value, ValueFormat::Price, 5);
+    let cmds = build(&f.frame());
+    assert!(
+        cmds.iter().any(|cmd| match cmd {
+            Cmd::Tag {
+                text,
+                y,
+                height,
+                fixed_width: Some(_),
+                ..
+            } => {
+                text == &label
+                    && g.bands[1].top as f32 <= *y
+                    && *y + *height <= g.bands[1].bottom() as f32
+            }
+            _ => false,
+        }),
+        "missing ATR tag: {label}"
+    );
+}
+
+#[test]
+fn price_axis_uses_the_available_vertical_space() {
+    let target = axis_tick_target(300.0);
+    let ticks = axis::price_ticks(30_580.0, 30_660.0, target, 1.0);
+    assert!(ticks.len() >= 8, "{ticks:?}");
 }
 
 /// The flow of some bars: the price walks from the low to the high (buyers) and back (sellers).
@@ -453,8 +498,8 @@ fn a_crosshair_that_is_off_draws_neither_lines_nor_tags() {
     let dashed = with(CrosshairStyle::Dashed);
     assert_eq!(with(CrosshairStyle::Solid), dashed);
     let off = with(CrosshairStyle::Off);
-    // Two lines and two tags.
-    assert_eq!(dashed - off, 4);
+    // Two lines and two tags. A tag may also cover one scale label.
+    assert!((3..=4).contains(&(dashed - off)));
     assert_eq!(CrosshairStyle::Solid.dash(), None);
     assert!(CrosshairStyle::Dotted.dash().is_some());
 }

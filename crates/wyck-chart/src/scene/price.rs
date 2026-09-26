@@ -180,6 +180,7 @@ pub fn format_value(value: f64, format: ValueFormat, digits: u32) -> String {
     match format {
         ValueFormat::Price => format_price(value.round() as i64, digits),
         ValueFormat::Plain(decimals) => trim(value, decimals as usize, false),
+        ValueFormat::Percent(decimals) => format!("{}%", trim(value, decimals as usize, false)),
         ValueFormat::Count => count(value),
     }
 }
@@ -318,6 +319,7 @@ mod tests {
     #[test]
     fn values_read_the_way_their_pane_says() {
         assert_eq!(format_value(70.123, ValueFormat::Plain(2), 5), "70.12");
+        assert_eq!(format_value(0.375, ValueFormat::Percent(2), 5), "0.38%");
         assert_eq!(format_value(70.0, ValueFormat::Plain(2), 5), "70");
         assert_eq!(format_value(1_234.0, ValueFormat::Count, 5), "1.23K");
         assert_eq!(format_value(12.0, ValueFormat::Count, 5), "12");

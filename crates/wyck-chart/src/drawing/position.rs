@@ -59,13 +59,15 @@ pub struct PositionSettings {
     pub show_percent: bool,
     #[serde(default)]
     pub show_ticks: bool,
+    #[serde(default)]
+    pub show_pips: bool,
     #[serde(default = "yes")]
     pub show_price: bool,
     /// Shorter tags, for a crowded chart.
-    #[serde(default)]
-    pub compact: bool,
-    /// Whether the stats show all the time. Off, they show only while the drawing is selected.
     #[serde(default = "yes")]
+    pub compact: bool,
+    /// Whether the tags show all the time. Off, they show only while the drawing is selected.
+    #[serde(default)]
     pub always_stats: bool,
 }
 
@@ -125,9 +127,10 @@ impl Default for PositionSettings {
             show_ratio: true,
             show_percent: true,
             show_ticks: false,
+            show_pips: false,
             show_price: true,
-            compact: false,
-            always_stats: true,
+            compact: true,
+            always_stats: false,
         }
     }
 }
@@ -399,7 +402,11 @@ mod tests {
         let old: PositionSettings = toml::from_str("account = 500.0\n").unwrap();
         assert_eq!(old.account, 500.0);
         assert_eq!(old.risk, 1.0);
-        assert!(old.risk_percent && old.always_stats && old.show_qty);
+        assert!(old.risk_percent && old.compact && !old.always_stats && old.show_qty);
+        let visible: PositionSettings = toml::from_str("always_stats = true\n").unwrap();
+        assert!(visible.always_stats);
+        let full: PositionSettings = toml::from_str("compact = false\n").unwrap();
+        assert!(!full.compact);
         assert!(PositionSettings::default().is_default());
         assert!(!old.is_default());
     }

@@ -2,7 +2,8 @@
 
 use crate::layouts::{self, LayoutKey};
 use serde::{Deserialize, Serialize};
-use wyck_chart::drawing::model::Tool;
+use wyck_chart::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
+use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use wyck_chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
 use wyck_trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 
@@ -10,6 +11,48 @@ const SCHEMA_VERSION: u32 = 1;
 
 /// Maximum length of a watchlist name.
 pub const MAX_LIST_NAME: usize = 40;
+pub const MAX_SAVED_ALERTS: usize = 2_000;
+pub const DEFAULT_SAVED_ALERTS: usize = 500;
+
+/// User limits for adding new chart objects. Lowering one keeps objects already saved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UsageLimits {
+    #[serde(default = "default_studies_limit")]
+    pub studies_per_chart: usize,
+    #[serde(default = "default_alerts_limit")]
+    pub alerts: usize,
+    #[serde(default = "default_drawings_limit")]
+    pub drawings_per_symbol: usize,
+}
+
+fn default_studies_limit() -> usize {
+    DEFAULT_STUDIES_LIMIT
+}
+fn default_alerts_limit() -> usize {
+    DEFAULT_SAVED_ALERTS
+}
+fn default_drawings_limit() -> usize {
+    DEFAULT_DRAWINGS_PER_SYMBOL
+}
+
+impl Default for UsageLimits {
+    fn default() -> Self {
+        Self {
+            studies_per_chart: default_studies_limit(),
+            alerts: default_alerts_limit(),
+            drawings_per_symbol: default_drawings_limit(),
+        }
+    }
+}
+
+impl UsageLimits {
+    pub fn normalized(mut self) -> Self {
+        self.studies_per_chart = self.studies_per_chart.clamp(1, MAX_STUDIES);
+        self.alerts = self.alerts.clamp(1, MAX_SAVED_ALERTS);
+        self.drawings_per_symbol = self.drawings_per_symbol.clamp(1, MAX_DRAWINGS_PER_SYMBOL);
+        self
+    }
+}
 
 // ---- preferences ----
 
@@ -120,6 +163,8 @@ pub struct Preferences {
     #[serde(default = "schema_version")]
     pub schema_version: u32,
     #[serde(default)]
+    pub limits: UsageLimits,
+    #[serde(default)]
     pub zone: Zone,
     /// The timeframes shown as buttons in the header (all of them stay in the menu).
     #[serde(default = "default_favorite_timeframes")]
@@ -215,6 +260,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
+            limits: UsageLimits::default(),
             zone: Zone::default(),
             favorite_timeframes: default_favorite_timeframes(),
             custom_timeframes: Vec::new(),
@@ -249,6 +295,7 @@ impl Preferences {
     #[must_use]
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
+        self.limits = self.limits.normalized();
 
         // The custom timeframes, each once under its own code, shortest first. A favorite
         // that is neither offered nor added becomes an added one, so its star has a home.
@@ -630,6 +677,25 @@ mod tests {
     fn an_empty_file_gives_the_defaults() {
         let prefs: Preferences = toml::from_str("").unwrap();
         assert_eq!(prefs.normalized(), Preferences::default().normalized());
+    }
+
+    #[test]
+    fn usage_limits_load_from_old_files_and_stay_in_supported_ranges() {
+        let old: Preferences = toml::from_str("magnet = true").unwrap();
+        assert_eq!(old.normalized().limits, UsageLimits::default());
+        let mut prefs = Preferences::default();
+        prefs.limits = UsageLimits {
+            studies_per_chart: 0,
+            alerts: usize::MAX,
+            drawings_per_symbol: 3_000,
+        };
+        let prefs = prefs.normalized();
+        assert_eq!(prefs.limits.studies_per_chart, 1);
+        assert_eq!(prefs.limits.alerts, MAX_SAVED_ALERTS);
+        assert_eq!(prefs.limits.drawings_per_symbol, 3_000);
+        let saved = toml::to_string(&prefs).unwrap();
+        let loaded: Preferences = toml::from_str(&saved).unwrap();
+        assert_eq!(loaded.normalized().limits, prefs.limits);
     }
 
     #[test]

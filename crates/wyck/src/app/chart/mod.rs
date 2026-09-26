@@ -229,6 +229,7 @@ pub struct Symbol {
     pub id: i64,
     pub name: SharedString,
     pub digits: u32,
+    pub pip_position: Option<i64>,
 }
 
 enum Load {
@@ -273,6 +274,8 @@ pub struct Span {
 pub enum ChartEvent {
     /// The user clicked in this chart.
     Activated,
+    /// The user clicked a candle to inspect the same time on linked charts.
+    TimePicked(i64),
     /// The pointer is over a point of this chart (or left it).
     Hover(Option<Hover>),
     /// The user moved or zoomed the view.
@@ -333,6 +336,7 @@ pub struct Chart {
     selected: bool,
     timeframe: Timeframe,
     settings: ChartSettings,
+    max_studies: usize,
     /// The prices, as held.
     series: Series,
     /// What is drawn from them.
@@ -365,6 +369,8 @@ pub struct Chart {
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
+    /// A linked chart's picked time, kept while older history is being loaded.
+    pending_focus: Option<i64>,
     drag: Option<input::Drag>,
     /// The drawings shared by the charts, and the subscription that redraws this chart when
     /// they change.
@@ -394,6 +400,7 @@ impl Chart {
         id: u64,
         timeframe: Timeframe,
         settings: ChartSettings,
+        max_studies: usize,
         cx: &mut Context<Self>,
     ) -> Self {
         // Redraw once a second, so the time left in the current bar counts down.
@@ -423,6 +430,7 @@ impl Chart {
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,
+            max_studies: max_studies.clamp(1, settings::MAX_STUDIES),
             series: empty_series(timeframe),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
@@ -444,6 +452,7 @@ impl Chart {
             group_tail: Vec::new(),
             hover: None,
             remote: None,
+            pending_focus: None,
             drag: None,
             drawings: None,
             _drawings_observe: None,
@@ -512,21 +521,48 @@ impl Chart {
         Some(self.hours.as_ref()?.status_at(now_ms()))
     }
 
-    pub fn set_symbol(&mut self, id: i64, name: SharedString, digits: u32, cx: &mut Context<Self>) {
+    pub fn set_symbol(
+        &mut self,
+        id: i64,
+        name: SharedString,
+        digits: u32,
+        pip_position: Option<i64>,
+        cx: &mut Context<Self>,
+    ) {
         if self.symbol.as_ref().is_some_and(|s| s.id == id) {
+            if let Some(symbol) = self.symbol.as_mut()
+                && pip_position.is_some()
+                && (symbol.digits != digits || symbol.pip_position != pip_position)
+            {
+                symbol.digits = digits;
+                symbol.pip_position = pip_position.or(symbol.pip_position);
+                self.data_changed(cx);
+            }
             return;
         }
-        self.symbol = Some(Symbol { id, name, digits });
+        self.symbol = Some(Symbol {
+            id,
+            name,
+            digits,
+            pip_position,
+        });
         self.lines.clear();
         self.reload(cx);
     }
 
     /// The broker said how the symbol is quoted.
-    pub fn set_digits(&mut self, id: i64, digits: u32, cx: &mut Context<Self>) {
+    pub fn set_quote_details(
+        &mut self,
+        id: i64,
+        digits: u32,
+        pip_position: i64,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(symbol) = self.symbol.as_mut().filter(|s| s.id == id)
-            && symbol.digits != digits
+            && (symbol.digits != digits || symbol.pip_position != Some(pip_position))
         {
             symbol.digits = digits;
+            symbol.pip_position = Some(pip_position);
             self.data_changed(cx);
         }
     }
@@ -589,7 +625,28 @@ impl Chart {
 
     /// Adds an indicator, with its defaults.
     pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
+        if self.settings.studies.len() >= self.max_studies {
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Warning,
+                "Indicator limit reached",
+                format!(
+                    "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",
+                    self.max_studies
+                ),
+            );
+            return;
+        }
         self.edit_settings(cx, |s| s.studies.push(config));
+    }
+
+    pub fn max_studies(&self) -> usize {
+        self.max_studies
+    }
+
+    pub fn set_max_studies(&mut self, limit: usize, cx: &mut Context<Self>) {
+        self.max_studies = limit.clamp(1, settings::MAX_STUDIES);
+        cx.notify();
     }
 
     pub fn remove_study(&mut self, index: usize, cx: &mut Context<Self>) {

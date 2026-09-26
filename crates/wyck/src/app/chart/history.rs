@@ -22,6 +22,7 @@ impl Chart {
         self.series = empty_series(self.timeframe);
         self.display = Default::default();
         self.view = View::new(super::bar_px_for(&self.settings, self.timeframe));
+        self.pending_focus = None;
         self.reset_flow();
         self.older = Older::Idle;
         self.hover = None;
@@ -78,6 +79,7 @@ impl Chart {
                 let plot_w = self.geometry().plot_w();
                 let len = self.shown().len();
                 self.view.clamp(len, plot_w);
+                self.focus_pending_time(cx);
                 cx.notify();
                 // Prices that arrived while the history was on its way are not in it: fetch the
                 // few seconds in between. The server's own bars fix themselves on the next tick.
@@ -190,12 +192,16 @@ impl Chart {
         }
         if self.series.len() >= self.series.capacity_limit() {
             self.older = Older::Exhausted;
+            self.pending_focus = None;
             return;
         }
         let plot_w = self.geometry().plot_w();
         let shown = self.shown().len();
         let (first, _) = self.view.visible(shown, plot_w);
-        if (first as f64) > self.view.span(plot_w) * 0.5 {
+        let seeking_older = self
+            .pending_focus
+            .is_some_and(|time| self.series.first_time().is_some_and(|oldest| time < oldest));
+        if !seeking_older && (first as f64) > self.view.span(plot_w) * 0.5 {
             return;
         }
         let (Some(symbol), Some(oldest)) = (&self.symbol, self.series.first_time()) else {
@@ -238,6 +244,7 @@ impl Chart {
                     // The view counts from the newest point, so it stays where it was; a
                     // construction is rebuilt from the start and may differ at its old edge.
                     self.rebuild_display();
+                    self.focus_pending_time(cx);
                 }
             }
             Err(error) => {
@@ -246,6 +253,9 @@ impl Chart {
             }
         }
         cx.notify();
+        if matches!(self.older, Older::Exhausted) {
+            self.pending_focus = None;
+        }
         if matches!(self.older, Older::Idle) {
             // Still near the edge after the step? Keep going until the screen is full.
             self.load_older_if_needed(cx);

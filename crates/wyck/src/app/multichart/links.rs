@@ -64,6 +64,8 @@ pub enum Follow {
     Span(Span),
     /// Show this time at the right edge.
     RightEdge(i64),
+    /// Center the time picked on another chart without changing its zoom.
+    PickedTime(i64),
 }
 
 /// What the other charts are told when chart `from` (of `symbols.len()`) reports `event`.
@@ -76,6 +78,9 @@ pub fn route(
 ) -> Vec<(usize, Follow)> {
     let others = (0..symbols.len()).filter(|&i| i != from);
     match event {
+        ChartEvent::TimePicked(time_ms) if links.time || links.range => {
+            others.map(|i| (i, Follow::PickedTime(*time_ms))).collect()
+        }
         ChartEvent::Hover(pointer) if links.crosshair => others
             .map(|i| {
                 let same = symbols[i].is_some() && symbols[i] == symbols[from];
@@ -152,6 +157,24 @@ mod tests {
         let cleared = route(&links(), 1, &symbols, &ChartEvent::Hover(None));
         assert!(cleared.iter().all(|(_, f)| *f == Follow::Pointer(None)));
         assert!(cleared.iter().all(|(i, _)| *i != 1));
+    }
+
+    #[test]
+    fn a_picked_candle_centers_other_charts_when_time_is_linked() {
+        let symbols = [Some(1), Some(1), Some(2)];
+        let picked = ChartEvent::TimePicked(123_000);
+        assert_eq!(
+            route(&links(), 0, &symbols, &picked),
+            vec![
+                (1, Follow::PickedTime(123_000)),
+                (2, Follow::PickedTime(123_000))
+            ]
+        );
+        let mut unlinked = links();
+        unlinked.time = false;
+        assert!(route(&unlinked, 0, &symbols, &picked).is_empty());
+        unlinked.range = true;
+        assert_eq!(route(&unlinked, 0, &symbols, &picked).len(), 2);
     }
 
     #[test]

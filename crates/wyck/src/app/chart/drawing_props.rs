@@ -1328,6 +1328,14 @@ impl DrawingProps {
                     |d, on| d.style.position.show_ticks = on,
                 ),
                 stat(
+                    "pos-pips",
+                    "Pips",
+                    Some("Distance from the entry using the symbol's pip size, when available"),
+                    p.show_pips,
+                    cx,
+                    |d, on| d.style.position.show_pips = on,
+                ),
+                stat(
                     "pos-compact",
                     "Compact tags",
                     Some("One short figure per tag"),
@@ -1337,8 +1345,8 @@ impl DrawingProps {
                 ),
                 stat(
                     "pos-always",
-                    "Always show the stats",
-                    Some("Off: the quantity and the amounts show only while it is selected"),
+                    "Always show the tags",
+                    Some("Off: show the level tags only while the position is selected"),
                     p.always_stats,
                     cx,
                     |d, on| d.style.position.always_stats = on,

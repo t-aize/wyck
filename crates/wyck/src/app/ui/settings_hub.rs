@@ -14,11 +14,13 @@ use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
 use super::appearance::{self, ColorField, Mode};
+use super::chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
+use super::chart::settings::MAX_STUDIES;
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
 use super::settings_ui::{self as ui, Head};
 use super::theme::Colors;
-use super::workspace::Workspace;
+use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use super::{backup, modal, theme, toast, widgets};
 
 /// Opens the settings.
@@ -90,6 +92,13 @@ enum Pick {
     Theme(ColorField),
 }
 
+#[derive(Clone, Copy)]
+enum UsageLimitKind {
+    Indicators,
+    Alerts,
+    Drawings,
+}
+
 /// The colors offered for the accent.
 const ACCENTS: [u32; 10] = [
     0x7c86ff, 0x3b82f6, 0x06b6d4, 0x10b981, 0x84cc16, 0xeab308, 0xf97316, 0xef4444, 0xec4899,
@@ -115,6 +124,9 @@ struct SettingsHub {
     new_theme: Entity<InputState>,
     rename: Entity<InputState>,
     font_filter: Entity<InputState>,
+    study_limit: Entity<InputState>,
+    alert_limit: Entity<InputState>,
+    drawing_limit: Entity<InputState>,
     fonts: Vec<String>,
     fonts_open: bool,
     notice: Option<Notice>,
@@ -131,11 +143,45 @@ impl SettingsHub {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let limits = workspace.read(cx).preferences().limits;
         let new_theme =
             cx.new(|cx| InputState::new(window, cx).placeholder("Name of the new theme"));
         let rename = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
         let font_filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search the fonts"));
-        let subscriptions = vec![
+        let study_limit = cx.new(|cx| {
+            widgets::number_state(
+                limits.studies_per_chart as f64,
+                1.0,
+                MAX_STUDIES as f64,
+                1.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let alert_limit = cx.new(|cx| {
+            widgets::number_state(
+                limits.alerts as f64,
+                1.0,
+                MAX_SAVED_ALERTS as f64,
+                1.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let drawing_limit = cx.new(|cx| {
+            widgets::number_state(
+                limits.drawings_per_symbol as f64,
+                1.0,
+                MAX_DRAWINGS_PER_SYMBOL as f64,
+                1.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        let mut subscriptions = vec![
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
             cx.subscribe(&font_filter, |_this, _input, _event: &InputEvent, cx| {
@@ -152,6 +198,27 @@ impl SettingsHub {
                 }
             }),
         ];
+        subscriptions.push(widgets::watch_number(
+            &study_limit,
+            cx,
+            |this, value, cx| {
+                this.set_usage_limit(UsageLimitKind::Indicators, value, cx);
+            },
+        ));
+        subscriptions.push(widgets::watch_number(
+            &alert_limit,
+            cx,
+            |this, value, cx| {
+                this.set_usage_limit(UsageLimitKind::Alerts, value, cx);
+            },
+        ));
+        subscriptions.push(widgets::watch_number(
+            &drawing_limit,
+            cx,
+            |this, value, cx| {
+                this.set_usage_limit(UsageLimitKind::Drawings, value, cx);
+            },
+        ));
         let mut fonts = cx.text_system().all_font_names();
         fonts.retain(|name| !name.starts_with('.') && !name.starts_with('@'));
         fonts.sort_by_key(|name| name.to_lowercase());
@@ -169,12 +236,30 @@ impl SettingsHub {
             new_theme,
             rename,
             font_filter,
+            study_limit,
+            alert_limit,
+            drawing_limit,
             fonts,
             fonts_open: false,
             notice: None,
             waiting,
             _subscriptions: subscriptions,
         }
+    }
+
+    fn set_usage_limit(&self, kind: UsageLimitKind, value: f64, cx: &mut Context<Self>) {
+        let mut limits: UsageLimits = self.workspace.read(cx).preferences().limits;
+        match kind {
+            UsageLimitKind::Indicators => limits.studies_per_chart = value as usize,
+            UsageLimitKind::Alerts => limits.alerts = value as usize,
+            UsageLimitKind::Drawings => limits.drawings_per_symbol = value as usize,
+        }
+        let limits = limits.normalized();
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.limits = limits);
+        });
+        self.multi
+            .update(cx, |multi, cx| multi.set_usage_limits(limits, cx));
     }
 
     fn toggle_pick(&mut self, pick: Pick, cx: &mut Context<Self>) {
@@ -1028,8 +1113,29 @@ impl SettingsHub {
                     ),
                 ],
             ))
+            .child(ui::group(
+                IconName::SlidersHorizontal,
+                "Usage limits",
+                [
+                    ui::field(
+                        "Indicators per chart",
+                        Some("Includes hidden indicators. Existing ones stay when you lower it (1 to 64)"),
+                        widgets::number_field(&self.study_limit, 110.),
+                    ),
+                    ui::field(
+                        "Saved price alerts",
+                        Some("Includes inactive alerts. Existing ones stay when you lower it (1 to 2000)"),
+                        widgets::number_field(&self.alert_limit, 110.),
+                    ),
+                    ui::field(
+                        "Drawings per symbol",
+                        Some("Includes hidden drawings. Existing ones stay when you lower it (1 to 5000)"),
+                        widgets::number_field(&self.drawing_limit, 110.),
+                    ),
+                ],
+            ))
             .child(ui::note(
-                "More settings live where they are used: the order ticket, the chart settings, and each drawing and indicator.",
+                "Higher limits can slow charts or use more memory. Script execution has a separate limit on the Indicators page.",
             ))
             .into_any_element()
     }

@@ -328,6 +328,11 @@ impl StudyEditor {
         } else {
             page = page.child(ui::group(IconName::SlidersHorizontal, "Parameters", rows));
         }
+        if config.kind == StudyKind::Atr {
+            page = page.child(ui::note(
+                "ATR measures volatility, not direction. Price uses the symbol's price scale; % of close compares volatility across price levels. Percent decimals only affects % of close. Enable the Signal average or True range on the Style tab. Signal length and smoothing affect only the Signal average.",
+            ));
+        }
         page.into_any_element()
     }
 

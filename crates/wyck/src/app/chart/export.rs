@@ -1280,7 +1280,7 @@ fn cell(
                 .settings
                 .studies
                 .get(study)
-                .is_some_and(|c| matches!(c.spec().format, ValueFormat::Price));
+                .is_some_and(|c| matches!(c.value_format(), ValueFormat::Price));
             usable
                 .then(|| {
                     source

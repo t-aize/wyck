@@ -344,7 +344,7 @@ impl Chart {
         };
         let format = match config.spec().placement {
             Placement::Overlay => ValueFormat::Price,
-            Placement::Pane => config.spec().format,
+            Placement::Pane => config.value_format(),
         };
         output
             .plots
@@ -376,8 +376,8 @@ impl Chart {
             .collect()
     }
 
-    /// One indicator's line in a legend: its title, its values, and the buttons that appear
-    /// when the pointer is over it.
+    /// One indicator's line in a legend. Keep its actions before the changing values so their
+    /// hit targets stay in place while the pointer moves across bars.
     fn study_row(&self, study: usize, index: Option<usize>, cx: &mut Context<Self>) -> AnyElement {
         let config = &self.settings.studies[study];
         let visible = config.visible;
@@ -421,8 +421,7 @@ impl Chart {
                 })
         };
         div()
-            .id(group.clone())
-            .group(group.clone())
+            .id(group)
             .flex()
             .flex_row()
             .items_center()
@@ -457,21 +456,13 @@ impl Chart {
                             .build(window, cx)
                     })
             }))
-            .children(visible.then(|| {
-                div().flex().flex_row().gap_2().children(
-                    values
-                        .into_iter()
-                        .map(|(text, color)| div().text_color(rgb(color)).child(text)),
-                )
-            }))
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_0p5()
-                    .opacity(if visible { 0.0 } else { 1.0 })
-                    .group_hover(group, |s| s.opacity(1.0))
+                    .flex_none()
                     .child(
                         button(
                             "study-eye",
@@ -512,6 +503,19 @@ impl Chart {
                         ),
                     ),
             )
+            .children(visible.then(|| {
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .children(
+                        values
+                            .into_iter()
+                            .map(|(text, color)| div().text_color(rgb(color)).child(text)),
+                    )
+            }))
             .into_any_element()
     }
 

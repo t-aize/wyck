@@ -14,7 +14,7 @@ use gpui_kit::component::input::InputState;
 use wyck_openapi::market::PRICE_SCALE;
 
 use super::options::{ChartColors, CrosshairStyle, ScaleMargin};
-use super::settings::{ChartKind, ChartSettings, MAX_STUDIES, ScaleMode};
+use super::settings::{ChartKind, ChartSettings, ScaleMode};
 use super::study::StudyConfig;
 use super::transform::{BoxSize, TransformSettings};
 use super::zone::Zone;
@@ -1083,7 +1083,7 @@ impl ChartSettingsEditor {
             .into_any_element()
     }
 
-    fn indicators_page(&self, settings: &ChartSettings) -> AnyElement {
+    fn indicators_page(&self, settings: &ChartSettings, cx: &App) -> AnyElement {
         let on_chart: Vec<AnyElement> = settings
             .studies
             .iter()
@@ -1096,11 +1096,12 @@ impl ChartSettingsEditor {
             on_chart
         };
 
-        let full = settings.studies.len() >= MAX_STUDIES;
+        let limit = self.chart.read(cx).max_studies();
+        let full = settings.studies.len() >= limit;
         let (browse, editor, new) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let add = if full {
             ui::block(ui::note(format!(
-                "A chart holds at most {MAX_STUDIES} indicators. Remove one to add another."
+                "This chart allows {limit} indicators. Change the limit in Settings (Ctrl+,)."
             )))
         } else {
             ui::block(
@@ -1202,7 +1203,7 @@ impl Render for ChartSettingsEditor {
             Page::Canvas => self.canvas_page(&settings, cx),
             Page::Time => self.time_page(&settings),
             Page::Trading => self.trading_page(&settings, cx),
-            Page::Indicators => self.indicators_page(&settings),
+            Page::Indicators => self.indicators_page(&settings, cx),
         };
 
         let this = cx.entity();

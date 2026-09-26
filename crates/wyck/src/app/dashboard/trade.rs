@@ -248,10 +248,18 @@ impl Dashboard {
     /// set straight away.
     pub(super) fn add_alert(&mut self, symbol: &SymbolRef, price: f64, cx: &mut Context<Self>) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
+        let limit = self.workspace.read(cx).preferences().limits.alerts;
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
             alerts.edit(cx, |book| {
-                book.add(id, &name, price, alerts::Condition::Crossing, now_ms())
+                book.add_with_limit(
+                    id,
+                    &name,
+                    price,
+                    alerts::Condition::Crossing,
+                    now_ms(),
+                    limit,
+                )
             })
         });
         match added {
@@ -265,7 +273,7 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                "There are too many alerts. Remove some first.",
+                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
             ),
         }
         cx.notify();

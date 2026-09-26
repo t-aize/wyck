@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 
 use super::geometry::{self, P, Part, Projection};
 use super::model::{
-    Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL, MAX_NAMED_TEMPLATES,
-    MAX_PATH_POINTS, MAX_TEMPLATE_NAME, NamedTemplate, Point, Template, Tool,
+    DEFAULT_DRAWINGS_PER_SYMBOL, Drawing, DrawingsDoc, MAX_BRUSH_POINTS, MAX_DRAWINGS_PER_SYMBOL,
+    MAX_NAMED_TEMPLATES, MAX_PATH_POINTS, MAX_TEMPLATE_NAME, NamedTemplate, Point, Template, Tool,
 };
 
 /// How far a press must move before it counts as a drag, in pixels.
@@ -111,6 +111,7 @@ struct Editing {
 #[derive(Default)]
 pub struct Book {
     symbols: BTreeMap<String, Vec<Drawing>>,
+    drawing_limit: Option<usize>,
     /// What each tool starts with, by the tool's code.
     templates: BTreeMap<String, Template>,
     /// Looks saved under a name, each for one tool.
@@ -209,6 +210,14 @@ impl Book {
 
     pub fn count(&self, symbol: &str) -> usize {
         self.drawings(symbol).len()
+    }
+
+    pub fn set_drawing_limit(&mut self, limit: usize) {
+        self.drawing_limit = Some(limit.clamp(1, MAX_DRAWINGS_PER_SYMBOL));
+    }
+
+    pub fn drawing_limit(&self) -> usize {
+        self.drawing_limit.unwrap_or(DEFAULT_DRAWINGS_PER_SYMBOL)
     }
 
     // ---- tools ----
@@ -342,7 +351,8 @@ impl Book {
 
     /// Puts a finished drawing in its symbol, selects it and goes back to the pointer.
     fn commit(&mut self, symbol: &str, drawing: Drawing) {
-        if self.count(symbol) >= MAX_DRAWINGS_PER_SYMBOL {
+        if self.count(symbol) >= self.drawing_limit() {
+            self.creating = None;
             return;
         }
         let before = self.snapshot(symbol);
@@ -930,7 +940,7 @@ impl Book {
         let Some(original) = self.selected.and_then(|id| self.get(symbol, id)).cloned() else {
             return false;
         };
-        if self.count(symbol) >= MAX_DRAWINGS_PER_SYMBOL {
+        if self.count(symbol) >= self.drawing_limit() {
             return false;
         }
         let mut copy = original;
@@ -1964,11 +1974,19 @@ mod tests {
     #[test]
     fn a_symbol_cannot_hold_more_than_the_limit() {
         let mut book = book();
-        for _ in 0..MAX_DRAWINGS_PER_SYMBOL + 5 {
+        book.set_drawing_limit(3);
+        for _ in 0..5 {
             book.set_tool(Some(Tool::HorizontalLine));
             click(&mut book, 60.0, 150.0);
         }
-        assert_eq!(book.count(SYMBOL), MAX_DRAWINGS_PER_SYMBOL);
+        assert_eq!(book.count(SYMBOL), 3);
+        let mut loaded = Book::from_doc(book.to_doc());
+        loaded.set_drawing_limit(2);
+        assert_eq!(
+            loaded.count(SYMBOL),
+            3,
+            "lowering a limit keeps saved drawings"
+        );
     }
 
     fn two_lines() -> (Book, u64, u64) {

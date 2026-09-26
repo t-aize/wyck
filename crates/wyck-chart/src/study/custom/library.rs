@@ -282,6 +282,7 @@ pub fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
             color: p.color,
             width: p.width,
             dash: p.dash,
+            visible: true,
         })
         .collect();
     let spec = Spec {

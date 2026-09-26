@@ -82,6 +82,10 @@ pub trait Projection {
     fn tick(&self) -> f64 {
         0.0
     }
+    /// The size of one pip in real price, or 0 when the symbol does not provide it.
+    fn pip(&self) -> f64 {
+        0.0
+    }
 }
 
 /// A shape to draw. Colors are `0xRRGGBB` with an alpha.
@@ -845,7 +849,7 @@ fn position_prims(
         width,
         Dash::Solid,
     ));
-    if !style.labels {
+    if !style.labels || !(selected || cfg.always_stats) {
         return;
     }
 
@@ -867,6 +871,7 @@ fn position_prims(
         target < entry && stop > entry
     };
     let tick = proj.tick();
+    let pip = proj.pip();
     let stats = sensible
         .then(|| {
             cfg.stats(
@@ -886,6 +891,13 @@ fn position_prims(
             0.0
         }
     };
+    let pips_of = |price: f64| {
+        if pip > 0.0 {
+            (proj.real_price(price) - proj.real_price(entry)).abs() / pip
+        } else {
+            0.0
+        }
+    };
 
     // The words of a level tag: what the switches ask for, or one short figure when compact.
     let level_text = |name: &str, price: f64, amount: Option<f64>| -> String {
@@ -893,9 +905,16 @@ fn position_prims(
             .filter(|_| cfg.show_amounts && details)
             .map(|a| cfg.format_amount(a));
         if cfg.compact {
-            return amount
+            let mut text = amount
                 .or_else(|| cfg.show_percent.then(|| format!("{:+.2}%", pct(price))))
                 .unwrap_or_else(|| proj.format_price(price));
+            if cfg.show_pips && pip > 0.0 {
+                text.push_str(&format!(" | {:.1} pips", pips_of(price)));
+            }
+            if cfg.show_ticks && tick > 0.0 {
+                text.push_str(&format!(" | {} ticks", ticks_of(price).round()));
+            }
+            return text;
         }
         let mut parts = vec![name.to_owned()];
         if cfg.show_price {
@@ -906,6 +925,9 @@ fn position_prims(
         }
         if cfg.show_ticks && tick > 0.0 {
             parts.push(format!("{} ticks", ticks_of(price).round()));
+        }
+        if cfg.show_pips && pip > 0.0 {
+            parts.push(format!("{:.1} pips", pips_of(price)));
         }
         parts.extend(amount);
         parts.join(" ")
@@ -1048,6 +1070,43 @@ pub fn hit(drawing: &Drawing, proj: &dyn Projection, at: P, with_handles: bool) 
             return Some(Part::Handle(index));
         }
     }
+    if drawing.tool.is_position() {
+        // Position tags are information, not handles for moving the trade. The same rule applies
+        // when a tag overlaps a zone. The four grips above remain available when selected.
+        let over_tag = prims_with(
+            drawing,
+            proj,
+            with_handles || drawing.style.position.always_stats,
+        )
+        .iter()
+        .any(|prim| {
+            if let Prim::Label {
+                at: position,
+                text,
+                anchor,
+                size,
+                ..
+            } = prim
+            {
+                let (a, b) = label_box(*position, text, *anchor, *size);
+                inside_rect(at, a, b)
+            } else {
+                false
+            }
+        });
+        if over_tag {
+            return None;
+        }
+        let pts = anchors(drawing, proj)?;
+        if pts.len() != 4 {
+            return None;
+        }
+        let left = pts[0].0;
+        let right = pts[3].0.max(left + 1.0);
+        return (inside_rect(at, (left, pts[0].1), (right, pts[1].1))
+            || inside_rect(at, (left, pts[0].1), (right, pts[2].1)))
+        .then_some(Part::Body);
+    }
     let reach = LINE_REACH + drawing.style.width / 2.0;
     for prim in prims(drawing, proj) {
         let on = match &prim {
@@ -1177,6 +1236,9 @@ pub(super) mod tests {
         }
         fn y_of(&self, price: f64) -> f32 {
             500.0 - price as f32
+        }
+        fn pip(&self) -> f64 {
+            0.01
         }
     }
 
@@ -1369,11 +1431,12 @@ pub(super) mod tests {
     #[test]
     fn a_position_shows_its_risk_and_reward() {
         // Long: entry 100, stop 90, target 130.
-        let d = drawing(
+        let mut d = drawing(
             Tool::LongPosition,
             &[(100, 100.0), (100, 90.0), (100, 130.0), (400, 100.0)],
         );
-        let labels: Vec<String> = prims(&d, &Linear)
+        d.style.position.compact = false;
+        let labels: Vec<String> = prims_with(&d, &Linear, true)
             .into_iter()
             .filter_map(|s| match s {
                 Prim::Label { text, .. } => Some(text),
@@ -1393,19 +1456,21 @@ pub(super) mod tests {
         );
 
         // A long with the stop above the entry is said to be wrong, not given a ratio.
-        let wrong = drawing(
+        let mut wrong = drawing(
             Tool::LongPosition,
             &[(100, 100.0), (100, 120.0), (100, 130.0), (400, 100.0)],
         );
-        assert!(prims(&wrong, &Linear).iter().any(|s| matches!(
+        wrong.style.position.compact = false;
+        assert!(prims_with(&wrong, &Linear, true).iter().any(|s| matches!(
             s, Prim::Label { text, .. } if text.contains("wrong sides")
         )));
         // A short mirrors it.
-        let short = drawing(
+        let mut short = drawing(
             Tool::ShortPosition,
             &[(100, 100.0), (100, 110.0), (100, 80.0), (400, 100.0)],
         );
-        assert!(prims(&short, &Linear).iter().any(|s| matches!(
+        short.style.position.compact = false;
+        assert!(prims_with(&short, &Linear, true).iter().any(|s| matches!(
             s, Prim::Label { text, .. } if text.starts_with("Short | Qty") && text.contains("R/R 2.00")
         )));
     }
@@ -1432,7 +1497,9 @@ pub(super) mod tests {
 
     #[test]
     fn a_position_writes_its_size_and_its_money() {
-        let labels = position_labels(&long_position(), true);
+        let mut d = long_position();
+        d.style.position.compact = false;
+        let labels = position_labels(&d, true);
         assert!(
             labels
                 .iter()
@@ -1446,6 +1513,7 @@ pub(super) mod tests {
     #[test]
     fn the_switches_choose_what_a_position_writes() {
         let mut d = long_position();
+        d.style.position.compact = false;
         d.style.position.show_qty = false;
         d.style.position.show_risk = false;
         d.style.position.show_amounts = false;
@@ -1473,18 +1541,88 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn stats_can_wait_for_the_position_to_be_selected() {
+    fn visible_tags_show_the_full_stats_when_requested() {
         let mut d = long_position();
-        d.style.position.always_stats = false;
+        d.style.position.always_stats = true;
+        d.style.position.compact = false;
         let idle = position_labels(&d, false);
-        assert!(idle.iter().any(|t| t == "Long | R/R 3.00"), "{idle:?}");
-        assert!(
-            !idle
-                .iter()
-                .any(|t| t.contains("Qty") || t.ends_with("+300.00"))
-        );
+        assert!(idle.iter().any(|t| t.contains("Qty 10")), "{idle:?}");
         let picked = position_labels(&d, true);
-        assert!(picked.iter().any(|t| t.contains("Qty 10")), "{picked:?}");
+        assert_eq!(picked, idle);
+    }
+
+    #[test]
+    fn position_tags_show_only_when_selected_by_default() {
+        for tool in [Tool::LongPosition, Tool::ShortPosition] {
+            let mut d = long_position();
+            d.tool = tool;
+            assert!(position_labels(&d, false).is_empty());
+            assert!(
+                prims_with(&d, &Linear, false)
+                    .iter()
+                    .any(|prim| matches!(prim, Prim::Rect { .. }))
+            );
+            assert_eq!(position_labels(&d, true).len(), 3);
+            d.style.position.always_stats = true;
+            assert_eq!(position_labels(&d, false).len(), 3);
+            d.style.labels = false;
+            assert!(position_labels(&d, true).is_empty());
+        }
+    }
+
+    #[test]
+    fn positions_can_show_pips_in_compact_and_full_tags() {
+        for (tool, stop, target) in [
+            (Tool::LongPosition, 99.9, 100.3),
+            (Tool::ShortPosition, 100.1, 99.7),
+        ] {
+            let mut d = drawing(
+                tool,
+                &[(100, 100.0), (100, stop), (100, target), (400, 100.0)],
+            );
+            d.style.position.show_pips = true;
+            let compact = position_labels(&d, true);
+            assert!(
+                compact.iter().any(|text| text.contains("30.0 pips")),
+                "{compact:?}"
+            );
+            assert!(
+                compact.iter().any(|text| text.contains("10.0 pips")),
+                "{compact:?}"
+            );
+            d.style.position.compact = false;
+            let full = position_labels(&d, true);
+            assert!(
+                full.iter().any(|text| text.contains("30.0 pips")),
+                "{full:?}"
+            );
+            assert!(
+                full.iter().any(|text| text.contains("10.0 pips")),
+                "{full:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn positions_move_from_the_zones_but_not_their_tags() {
+        for (tool, stop, target, stop_y, target_y) in [
+            (Tool::LongPosition, 90.0, 130.0, 405.0, 385.0),
+            (Tool::ShortPosition, 110.0, 80.0, 395.0, 415.0),
+        ] {
+            let mut d = drawing(
+                tool,
+                &[(100, 100.0), (100, stop), (100, target), (400, 100.0)],
+            );
+            assert_eq!(hit(&d, &Linear, (150.0, stop_y), true), Some(Part::Body));
+            assert_eq!(hit(&d, &Linear, (150.0, target_y), true), Some(Part::Body));
+            assert_eq!(hit(&d, &Linear, (250.0, 400.0), true), None);
+            assert_eq!(
+                hit(&d, &Linear, (100.0, 400.0), true),
+                Some(Part::Handle(0))
+            );
+            d.style.position.always_stats = true;
+            assert_eq!(hit(&d, &Linear, (250.0, 400.0), false), None);
+        }
     }
 
     #[test]

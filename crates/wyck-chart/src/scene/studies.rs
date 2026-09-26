@@ -40,6 +40,7 @@ pub(super) fn visible_range(plot: &PlotOut, first: usize, last: usize) -> Option
 
 /// The scale of an indicator pane: its fixed range, or what its plots and levels span on screen.
 pub(super) fn pane_map(
+    config: &StudyConfig,
     output: &StudyOutput,
     fixed: Option<(f64, f64)>,
     band: Band,
@@ -51,6 +52,9 @@ pub(super) fn pane_map(
         None => {
             let mut range: Option<(f64, f64)> = None;
             for plot in &output.plots {
+                if !config.plot_style(plot.key).visible {
+                    continue;
+                }
                 if let Some((l, h)) = visible_range(plot, first, last) {
                     range = Some(range.map_or((l, h), |(lo, hi)| (lo.min(l), hi.max(h))));
                 }
@@ -72,6 +76,39 @@ pub(super) fn pane_map(
         }
     };
     PriceMap::linear(lo, hi, band.top + 6.0, band.bottom() - 6.0)
+}
+
+#[cfg(test)]
+mod pane_map_tests {
+    use super::*;
+
+    #[test]
+    fn hidden_atr_plots_do_not_change_the_axis() {
+        let mut config = StudyConfig::new(StudyKind::Atr);
+        let output = StudyOutput {
+            plots: vec![
+                plot_for_test("atr", vec![1.0, 2.0]),
+                plot_for_test("tr", vec![100.0, 200.0]),
+            ],
+            ..StudyOutput::default()
+        };
+        let band = Band { top: 0.0, h: 100.0 };
+        let hidden = pane_map(&config, &output, None, band, 0, 2);
+        assert!(hidden.hi < 3.0);
+        config.plots.get_mut("tr").unwrap().visible = true;
+        let shown = pane_map(&config, &output, None, band, 0, 2);
+        assert!(shown.hi >= 200.0);
+    }
+
+    fn plot_for_test(key: &'static str, values: Vec<f64>) -> PlotOut {
+        PlotOut {
+            key,
+            kind: PlotKind::Line,
+            values,
+            offset: 0,
+            up: None,
+        }
+    }
 }
 
 /// The points of a plot on screen, cut where it has no value. Several points per pixel column
@@ -475,13 +512,13 @@ pub(super) fn value_tags(
     let mut tag = |text: String, y: f32, band: &Band, color: u32| {
         let top = cx.oy + band.top as f32 + 9.0;
         let bottom = cx.oy + band.bottom() as f32 - 9.0;
-        if y < top || y > bottom {
+        if bottom < top || !y.is_finite() {
             return;
         }
         out.push(Cmd::Tag {
             text,
             x: axis_x,
-            y: y - 9.0,
+            y: y.clamp(top, bottom) - 9.0,
             height: 18.0,
             pad: 7.0,
             bg: rgb_alpha(color, 1.0),

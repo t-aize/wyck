@@ -18,12 +18,11 @@ use wyck_openapi::market::PRICE_SCALE;
 
 use crate::app::chart::live::{LiveHub, Wish};
 use crate::app::toast;
+pub use crate::app::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 use crate::app::workspace::Saver;
 
 const DOCUMENT: &str = "alerts";
 const SCHEMA_VERSION: u32 = 1;
-/// The most alerts kept.
-pub const MAX_ALERTS: usize = 500;
 /// The owner of the alerts' price subscriptions in the live hub.
 pub const ALERTS_OWNER: u64 = u64::MAX - 3;
 
@@ -165,6 +164,7 @@ impl AlertBook {
         self
     }
 
+    #[cfg(test)]
     pub fn add(
         &mut self,
         symbol_id: i64,
@@ -173,7 +173,26 @@ impl AlertBook {
         condition: Condition,
         now_ms: i64,
     ) -> Option<u64> {
-        if self.alerts.len() >= MAX_ALERTS || !(price.is_finite() && price > 0.0) {
+        self.add_with_limit(
+            symbol_id,
+            symbol,
+            price,
+            condition,
+            now_ms,
+            crate::app::workspace::DEFAULT_SAVED_ALERTS,
+        )
+    }
+
+    pub fn add_with_limit(
+        &mut self,
+        symbol_id: i64,
+        symbol: &str,
+        price: f64,
+        condition: Condition,
+        now_ms: i64,
+        limit: usize,
+    ) -> Option<u64> {
+        if self.alerts.len() >= limit.clamp(1, MAX_ALERTS) || !(price.is_finite() && price > 0.0) {
             return None;
         }
         let id = self.next_id.max(1);
@@ -324,6 +343,28 @@ fn notify(cx: &mut App, alert: &Alert, digits: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lower_alert_limit_blocks_new_alerts_without_removing_saved_ones() {
+        let mut book = AlertBook::default();
+        assert!(
+            book.add_with_limit(7, "EURUSD", 1.1, Condition::Crossing, 0, 2)
+                .is_some()
+        );
+        assert!(
+            book.add_with_limit(7, "EURUSD", 1.2, Condition::Crossing, 0, 2)
+                .is_some()
+        );
+        assert!(
+            book.add_with_limit(7, "EURUSD", 1.3, Condition::Crossing, 0, 2)
+                .is_none()
+        );
+        assert!(
+            book.add_with_limit(7, "EURUSD", 1.3, Condition::Crossing, 0, 1)
+                .is_none()
+        );
+        assert_eq!(book.normalized().alerts.len(), 2);
+    }
 
     #[test]
     fn crossings_are_told_by_the_price_before_and_now() {

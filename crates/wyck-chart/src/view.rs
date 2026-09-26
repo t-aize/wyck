@@ -86,6 +86,12 @@ impl View {
         self.clamp(len, plot_w);
     }
 
+    /// Put a point at the middle of the plot without changing the zoom.
+    pub fn center_on(&mut self, index: f64, len: usize, plot_w: f64) {
+        self.offset = index + 0.5 + self.span(plot_w) / 2.0 - len as f64;
+        self.clamp(len, plot_w);
+    }
+
     /// Zooms by `factor` (above 1 magnifies) keeping the point under `anchor_x` where it is.
     pub fn zoom(&mut self, factor: f64, anchor_x: f64, len: usize, plot_w: f64) {
         if !(factor.is_finite() && factor > 0.0) {
@@ -176,6 +182,14 @@ mod tests {
         let after = view.index_at(anchor_x, len, W);
         assert!((before - after).abs() < 1e-6, "{before} {after}");
         assert!(view.bar_px > 8.0);
+    }
+
+    #[test]
+    fn centering_a_point_keeps_the_zoom() {
+        let mut view = View::new(8.0);
+        view.center_on(250.0, 1_000, W);
+        assert!((view.x_of(250.0, 1_000, W) - W / 2.0).abs() < 1e-9);
+        assert_eq!(view.bar_px, 8.0);
     }
 
     #[test]

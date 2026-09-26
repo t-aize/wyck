@@ -118,6 +118,11 @@ impl Picker {
             Source::Builtin(_) => None,
         };
         let usable = item.ready;
+        let full = {
+            let chart = self.chart.read(cx);
+            chart.settings().studies.len() >= chart.max_studies()
+        };
+        let can_add = usable && !full;
         div()
             .id(("picker-row", number))
             .flex()
@@ -281,16 +286,16 @@ impl Picker {
                     .border_1()
                     .border_color(theme::border_subtle())
                     .text_size(px(12.))
-                    .text_color(if usable {
+                    .text_color(if can_add {
                         theme::fg()
                     } else {
                         theme::muted_fg()
                     })
-                    .when(usable, |el| {
+                    .when(can_add, |el| {
                         el.cursor_pointer()
                             .hover(|s| s.bg(theme::accent_selected()).border_color(theme::accent()))
                     })
-                    .when(usable, |el| {
+                    .when(can_add, |el| {
                         el.on_click(move |_, _window, cx| {
                             add_this.update(cx, |picker, cx| picker.add(&add_item, cx));
                         })
@@ -304,7 +309,9 @@ impl Picker {
                             theme::muted_fg()
                         },
                     ))
-                    .child(if held > 0 {
+                    .child(if full {
+                        "Limit reached".to_owned()
+                    } else if held > 0 {
                         format!("Add ({held} on chart)")
                     } else {
                         "Add".to_owned()

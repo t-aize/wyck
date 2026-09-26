@@ -215,8 +215,9 @@ impl ScaleMode {
 
 /// The heights of the panes: the prices, then one weight per indicator pane.
 pub const MAIN_WEIGHT: f32 = 3.0;
-/// The most indicators on one chart.
-pub const MAX_STUDIES: usize = 16;
+/// The largest supported number of indicators on one chart.
+pub const MAX_STUDIES: usize = 64;
+pub const DEFAULT_STUDIES_LIMIT: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChartSettings {
@@ -428,6 +429,17 @@ mod tests {
             toml::from_str::<ChartSettings>("").unwrap(),
             ChartSettings::default()
         );
+    }
+
+    #[test]
+    fn loading_a_chart_keeps_indicators_above_the_default_user_limit() {
+        let mut settings = ChartSettings::default();
+        settings.studies = vec![StudyConfig::new(StudyKind::Sma); 20];
+        assert_eq!(settings.clone().normalized().studies.len(), 20);
+        settings
+            .studies
+            .resize(MAX_STUDIES + 1, StudyConfig::new(StudyKind::Sma));
+        assert_eq!(settings.normalized().studies.len(), MAX_STUDIES);
     }
 
     #[test]

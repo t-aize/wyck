@@ -138,11 +138,10 @@ impl Chart {
         items.push(
             self.menu_entry(
                 menu,
-                Entry::new("Fit the prices")
+                Entry::new("Auto scale prices")
                     .icon(IconName::Scaling)
-                    .hint("Alt+R")
-                    .disabled(matches!(self.view.price, PriceScale::Auto)),
-                |this, _, cx| this.reset_price_scale(cx),
+                    .checked(matches!(self.view.price, PriceScale::Auto)),
+                |this, _, cx| this.toggle_auto_price_scale(cx),
                 cx,
             ),
         );

@@ -492,14 +492,18 @@ impl Dashboard {
 
     /// A symbol of the list, with the decimals the broker gave for it (5 until it says).
     fn symbol_ref(&self, entry: &Entry) -> SymbolRef {
-        let digits = match self.details.get(&entry.id) {
-            Some(details::Detail::Ready(symbol)) => u32::try_from(symbol.digits).unwrap_or(5),
-            _ => 5,
+        let (digits, pip_position) = match self.details.get(&entry.id) {
+            Some(details::Detail::Ready(symbol)) => (
+                u32::try_from(symbol.digits).unwrap_or(5),
+                Some(symbol.pip_position),
+            ),
+            _ => (5, None),
         };
         SymbolRef {
             id: entry.id,
             name: SharedString::from(entry.name.clone()),
             digits,
+            pip_position,
         }
     }
 
@@ -527,12 +531,14 @@ impl Dashboard {
             let _ = this.update(cx, |this, cx| match fetched {
                 Ok(Ok(symbol)) => {
                     let digits = u32::try_from(symbol.digits).unwrap_or(5);
+                    let pip_position = symbol.pip_position;
                     let hours = wyck_openapi::market::TradingHours::from_symbol(&symbol);
                     this.multi
                         .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                     this.details.insert(id, details::Detail::Ready(symbol));
-                    this.multi
-                        .update(cx, |multi, cx| multi.set_digits(id, digits, cx));
+                    this.multi.update(cx, |multi, cx| {
+                        multi.set_quote_details(id, digits, pip_position, cx)
+                    });
                     this.refresh_active(cx);
                 }
                 Ok(Err(error)) => {

@@ -8,6 +8,30 @@ use super::input::Region;
 use super::{Chart, ChartEvent, Hover, Span};
 
 impl Chart {
+    pub(super) fn focus_pending_time(&mut self, cx: &mut Context<Self>) {
+        let Some(time_ms) = self.pending_focus else {
+            return;
+        };
+        let series = self.shown();
+        let Some(index) = series.index_of_time(time_ms, self.step_ms()) else {
+            return;
+        };
+        let needs_history = series.first_time().is_some_and(|first| time_ms < first);
+        self.view
+            .center_on(index, series.len(), self.geometry().plot_w());
+        if !needs_history {
+            self.pending_focus = None;
+        }
+        cx.notify();
+    }
+
+    /// Center a picked time from another chart, fetching older bars if needed.
+    pub fn follow_picked_time(&mut self, time_ms: i64, cx: &mut Context<Self>) {
+        self.pending_focus = Some(time_ms);
+        self.focus_pending_time(cx);
+        self.load_older_if_needed(cx);
+    }
+
     pub(super) fn emit_span(&self, cx: &mut Context<Self>) {
         if let Some(span) = self.span() {
             cx.emit(ChartEvent::ViewChanged(span));
@@ -50,6 +74,7 @@ impl Chart {
 
     /// Another chart was scrolled: show the same time at the right edge. Does not tell anyone.
     pub fn follow_right_edge(&mut self, right_ms: i64, cx: &mut Context<Self>) {
+        self.pending_focus = None;
         let step = self.step_ms();
         let series = self.shown();
         let len = series.len();
@@ -64,6 +89,7 @@ impl Chart {
 
     /// Another chart was scrolled or zoomed: show the same span of time. Does not tell anyone.
     pub fn follow_span(&mut self, span: Span, cx: &mut Context<Self>) {
+        self.pending_focus = None;
         let step = self.step_ms();
         let series = self.shown();
         let len = series.len();

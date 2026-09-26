@@ -2,7 +2,7 @@
 //!
 //! - On the plot: a drawing takes the press if it is under the pointer (or a tool is picked), a
 //!   line (order, stop, alert) is grabbed if it is under it, anything else scrolls the chart
-//!   (with Shift, the prices too).
+//!   (in Manual mode, a vertical drag also moves the prices). Shift keeps it horizontal.
 //! - On the line between two panes: drags it, resizing both.
 //! - On the price axis: drags zoom the prices, the wheel too; a double click fits them again.
 //! - On the time axis: drags and the wheel zoom the time; a double click goes to the newest.
@@ -28,8 +28,8 @@ pub enum Region {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DragKind {
-    /// The plot moved by the pointer: in time, and in price once the pointer went far enough up
-    /// or down (on the prices band only). `free` tells that it did.
+    /// The plot moved by the pointer: in time, and in price only while the price scale is Manual.
+    /// `free` says whether vertical movement has passed the threshold.
     Pan {
         prices: bool,
         free: bool,
@@ -52,9 +52,15 @@ pub struct Drag {
     pub moved: bool,
 }
 
-/// How far (in pixels) the pointer must go up or down before a pan also moves the prices, so a
-/// sideways drag does not leave the automatic price scale by a hair.
+/// How far the pointer must move vertically before a Manual scale pans too.
 const FREE_PAN: f32 = 6.0;
+
+fn pan_moves_prices(scale: PriceScale, price_band: bool, shift: bool, free: bool, dy: f32) -> bool {
+    matches!(scale, PriceScale::Manual { .. })
+        && price_band
+        && !shift
+        && (free || dy.abs() > FREE_PAN)
+}
 
 /// How close (in pixels) the pointer must be to a line to grab it.
 const LINE_REACH: f32 = 5.0;
@@ -79,6 +85,7 @@ impl Chart {
     }
 
     pub(super) fn pan_by(&mut self, dx: f32, cx: &mut Context<Self>) {
+        self.pending_focus = None;
         let plot_w = self.geometry().plot_w();
         let len = self.shown().len();
         self.view.pan(f64::from(dx), len, plot_w);
@@ -86,6 +93,7 @@ impl Chart {
     }
 
     pub(super) fn zoom_by(&mut self, factor: f64, anchor_x: f32, cx: &mut Context<Self>) {
+        self.pending_focus = None;
         let plot_w = self.geometry().plot_w();
         let len = self.shown().len();
         self.view.zoom(factor, f64::from(anchor_x), len, plot_w);
@@ -120,6 +128,22 @@ impl Chart {
         cx.notify();
     }
 
+    /// Switches between fitting visible prices and keeping the current price range.
+    pub fn toggle_auto_price_scale(&mut self, cx: &mut Context<Self>) {
+        match self.view.price {
+            PriceScale::Auto => {
+                if let Some(map) = self.main_map() {
+                    self.view.price = PriceScale::Manual {
+                        lo: map.lo,
+                        hi: map.hi,
+                    };
+                    cx.notify();
+                }
+            }
+            PriceScale::Manual { .. } => self.reset_price_scale(cx),
+        }
+    }
+
     pub fn pan_keys(&mut self, forward: bool, cx: &mut Context<Self>) {
         let step = (self.view.bar_px * 6.0) as f32;
         self.pan_by(if forward { -step } else { step }, cx);
@@ -131,6 +155,7 @@ impl Chart {
     }
 
     pub fn jump_to_latest(&mut self, cx: &mut Context<Self>) {
+        self.pending_focus = None;
         self.view.jump_to_latest();
         self.view.price = PriceScale::Auto;
         cx.notify();
@@ -269,8 +294,8 @@ impl Chart {
             match drag.kind {
                 DragKind::Pan { prices, free } => {
                     self.set_hover(x, y, cx);
-                    // Shift keeps the drag in time only.
-                    let free = prices && !shift && (free || (y - drag.start.1).abs() > FREE_PAN);
+                    let free =
+                        pan_moves_prices(self.view.price, prices, shift, free, y - drag.start.1);
                     if free {
                         // The first step catches up with what the threshold held back.
                         let step = if drag.kind
@@ -349,10 +374,19 @@ impl Chart {
     }
 
     pub(super) fn on_mouse_up(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
+        let picked = self.drag.and_then(|drag| {
+            matches!(drag.kind, DragKind::Pan { .. })
+                .then_some(drag)
+                .filter(|drag| (x - drag.start.0).abs() <= 4.0 && (y - drag.start.1).abs() <= 4.0)
+                .and_then(|_| self.hover_info(x, y))
+        });
         if self.drawing_drag {
             self.drawing_released(x, y, cx);
         }
         self.finish_drag(cx);
+        if let Some(hover) = picked {
+            cx.emit(ChartEvent::TimePicked(hover.time_ms));
+        }
     }
 
     pub(super) fn on_right_down(&mut self, x: f32, y: f32, cx: &mut Context<Self>) {
@@ -454,6 +488,30 @@ impl Chart {
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
             Region::Corner => CursorStyle::PointingHand,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn moving_the_plot_keeps_auto_price_scaling() {
+        assert!(!pan_moves_prices(
+            PriceScale::Auto,
+            true,
+            false,
+            false,
+            20.0
+        ));
+        assert!(!pan_moves_prices(PriceScale::Auto, true, false, true, 20.0));
+        let manual = PriceScale::Manual {
+            lo: 90.0,
+            hi: 110.0,
+        };
+        assert!(!pan_moves_prices(manual, true, false, false, 4.0));
+        assert!(pan_moves_prices(manual, true, false, false, 20.0));
+        assert!(!pan_moves_prices(manual, true, true, false, 20.0));
     }
 }
 

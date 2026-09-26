@@ -23,15 +23,6 @@ fn gpui_color(color: scene::color::Hsla) -> gpui::Hsla {
     }
 }
 
-fn scene_color(color: gpui::Hsla) -> scene::color::Hsla {
-    scene::color::Hsla {
-        h: color.h,
-        s: color.s,
-        l: color.l,
-        a: color.a,
-    }
-}
-
 /// Most points in one stroked path: a GPU path may only hold so many vertices.
 const PATH_CHUNK: usize = 1_500;
 
@@ -71,6 +62,7 @@ impl Chart {
             view: &self.view,
             timeframe: self.timeframe,
             digits: self.digits(),
+            pip_position: self.symbol.as_ref().and_then(|symbol| symbol.pip_position),
             origin: (f32::from(bounds.origin.x), f32::from(bounds.origin.y)),
             w: f64::from(f32::from(bounds.size.width)),
             h: f64::from(f32::from(bounds.size.height)),
@@ -105,6 +97,7 @@ impl Chart {
         let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));
         // No crosshair in a picture: it is drawn for the pointer, which is not in it.
         let cmds = self.scene(cx, bounds, scale, false);
+        let palette = super::palette_for_chart(&self.settings.colors);
         let symbol = self
             .symbol
             .as_ref()
@@ -118,13 +111,13 @@ impl Chart {
             super::raster::Caption {
                 text: title,
                 size: 15.0,
-                color: scene_color(crate::app::theme::fg().into()),
+                color: scene::hsla(palette.text_strong),
                 bold: true,
             },
             super::raster::Caption {
                 text: format!("{when}  {}", self.settings.zone.label(super::now_ms())),
                 size: 11.0,
-                color: scene_color(crate::app::theme::muted_fg().into()),
+                color: scene::hsla(palette.text),
                 bold: false,
             },
         ];
@@ -133,7 +126,7 @@ impl Chart {
             w as f32,
             h as f32,
             scale,
-            scene_color(crate::app::theme::bg().into()),
+            scene::hsla(palette.bg),
             &captions,
         )?;
         let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();

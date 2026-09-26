@@ -16,7 +16,8 @@ const SCHEMA_VERSION: u32 = 1;
 
 /// The most drawings kept for one symbol, and the most points in one brush stroke. A guard
 /// against a runaway file more than a limit anyone meets.
-pub const MAX_DRAWINGS_PER_SYMBOL: usize = 2_000;
+pub const MAX_DRAWINGS_PER_SYMBOL: usize = 5_000;
+pub const DEFAULT_DRAWINGS_PER_SYMBOL: usize = 2_000;
 pub const MAX_BRUSH_POINTS: usize = 2_000;
 /// The most points an arrow path can have.
 pub const MAX_PATH_POINTS: usize = 64;
@@ -557,6 +558,17 @@ impl Tool {
 
     pub fn is_position(self) -> bool {
         matches!(self, Self::LongPosition | Self::ShortPosition)
+    }
+
+    /// The quick color is useful only when it changes the drawing's visible primary color.
+    /// Positions, levels and range measures have separate colors in their settings.
+    pub fn has_quick_color(self) -> bool {
+        !self.is_position()
+            && !self.has_levels()
+            && !matches!(
+                self,
+                Self::Measure | Self::PriceRange | Self::DateRange | Self::DatePriceRange
+            )
     }
 
     /// Whether the drawing is a stroke that follows the pointer while the button is down.
@@ -1666,6 +1678,21 @@ mod tests {
         let mut nan = drawing(1, Tool::HorizontalLine, 1);
         nan.points[0].p = f64::NAN;
         assert!(!nan.is_valid());
+    }
+
+    #[test]
+    fn quick_color_is_only_for_drawings_with_a_primary_color() {
+        assert!(Tool::TrendLine.has_quick_color());
+        assert!(Tool::Rectangle.has_quick_color());
+        for tool in [
+            Tool::LongPosition,
+            Tool::ShortPosition,
+            Tool::FibRetracement,
+            Tool::Measure,
+            Tool::PriceRange,
+        ] {
+            assert!(!tool.has_quick_color(), "{}", tool.label());
+        }
     }
 
     #[test]

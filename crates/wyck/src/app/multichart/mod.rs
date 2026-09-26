@@ -40,7 +40,7 @@ use super::chart::{
 };
 use super::text_input::TextInput;
 use super::theme;
-use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, Workspace};
+use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
 
 /// The symbol of a chart: its id, name and number of decimals.
 #[derive(Debug, Clone, PartialEq)]
@@ -48,6 +48,7 @@ pub struct SymbolRef {
     pub id: i64,
     pub name: SharedString,
     pub digits: u32,
+    pub pip_position: Option<i64>,
 }
 
 /// What the rest of the app acts on.
@@ -140,6 +141,7 @@ impl MultiChart {
             drawings.edit(cx, |book| {
                 book.set_magnet(prefs.magnet);
                 book.set_keep_tool(prefs.keep_drawing);
+                book.set_drawing_limit(prefs.limits.drawings_per_symbol);
             });
         });
         let text_input = cx.new(|cx| TextInput::new(cx, "Text"));
@@ -235,6 +237,7 @@ impl MultiChart {
             id: s.id,
             name: s.name.clone(),
             digits: s.digits,
+            pip_position: s.pip_position,
         })
     }
 
@@ -268,7 +271,13 @@ impl MultiChart {
             settings,
             symbol,
         } = state;
-        let chart = cx.new(|cx| Chart::new(session, hub, id, timeframe, settings, cx));
+        let max_studies = self
+            .workspace
+            .read(cx)
+            .preferences()
+            .limits
+            .studies_per_chart;
+        let chart = cx.new(|cx| Chart::new(session, hub, id, timeframe, settings, max_studies, cx));
         let drawings = self.drawings.clone();
         chart.update(cx, |chart, cx| chart.attach_drawings(drawings, cx));
         // A linked symbol comes from the charts already open.
@@ -284,7 +293,13 @@ impl MultiChart {
         if let Some(symbol) = &shared {
             let symbol = symbol.clone();
             chart.update(cx, |chart, cx| {
-                chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+                chart.set_symbol(
+                    symbol.id,
+                    symbol.name,
+                    symbol.digits,
+                    symbol.pip_position,
+                    cx,
+                );
             });
         }
         let events = cx.subscribe(&chart, |this, source, event: &ChartEvent, cx| {
@@ -306,7 +321,13 @@ impl MultiChart {
             slot.wanted_symbol = None;
             let symbol = symbol.clone();
             slot.chart.update(cx, |chart, cx| {
-                chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+                chart.set_symbol(
+                    symbol.id,
+                    symbol.name,
+                    symbol.digits,
+                    symbol.pip_position,
+                    cx,
+                );
             });
             if let Some(lines) = self.lines.get(&symbol.id).cloned() {
                 self.slots[index]
@@ -326,7 +347,13 @@ impl MultiChart {
         };
         slot.wanted_symbol = None;
         slot.chart.update(cx, |chart, cx| {
-            chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+            chart.set_symbol(
+                symbol.id,
+                symbol.name,
+                symbol.digits,
+                symbol.pip_position,
+                cx,
+            );
         });
         cx.emit(MultiChartEvent::ActiveChanged);
         cx.notify();
@@ -356,10 +383,17 @@ impl MultiChart {
         }
     }
 
-    pub fn set_digits(&mut self, id: i64, digits: u32, cx: &mut Context<Self>) {
+    pub fn set_quote_details(
+        &mut self,
+        id: i64,
+        digits: u32,
+        pip_position: i64,
+        cx: &mut Context<Self>,
+    ) {
         for slot in &self.slots {
-            slot.chart
-                .update(cx, |chart, cx| chart.set_digits(id, digits, cx));
+            slot.chart.update(cx, |chart, cx| {
+                chart.set_quote_details(id, digits, pip_position, cx)
+            });
         }
     }
 
@@ -437,7 +471,13 @@ impl MultiChart {
                 && slot.chart.read(cx).symbol().is_none()
             {
                 slot.chart.update(cx, |chart, cx| {
-                    chart.set_symbol(symbol.id, symbol.name, symbol.digits, cx);
+                    chart.set_symbol(
+                        symbol.id,
+                        symbol.name,
+                        symbol.digits,
+                        symbol.pip_position,
+                        cx,
+                    );
                 });
             }
         }
@@ -495,6 +535,20 @@ impl MultiChart {
     }
 
     // ---- drawing ----
+
+    pub fn set_usage_limits(&mut self, limits: UsageLimits, cx: &mut Context<Self>) {
+        for slot in &self.slots {
+            slot.chart.update(cx, |chart, cx| {
+                chart.set_max_studies(limits.studies_per_chart, cx);
+            });
+        }
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| {
+                book.set_drawing_limit(limits.drawings_per_symbol)
+            });
+        });
+        cx.notify();
+    }
 
     fn symbol_name(&self, cx: &gpui::App) -> Option<String> {
         self.active_chart()
@@ -684,7 +738,7 @@ impl MultiChart {
         };
         match event {
             ChartEvent::Activated => self.activate(from, cx),
-            ChartEvent::Hover(_) | ChartEvent::ViewChanged(_) => {
+            ChartEvent::Hover(_) | ChartEvent::ViewChanged(_) | ChartEvent::TimePicked(_) => {
                 let symbols: Vec<Option<i64>> = self
                     .slots
                     .iter()
@@ -697,6 +751,7 @@ impl MultiChart {
                             Follow::Pointer(pointer) => chart.show_remote_pointer(pointer, cx),
                             Follow::Span(span) => chart.follow_span(span, cx),
                             Follow::RightEdge(right) => chart.follow_right_edge(right, cx),
+                            Follow::PickedTime(time) => chart.follow_picked_time(time, cx),
                         });
                 }
             }
@@ -716,6 +771,7 @@ impl MultiChart {
                         id: symbol.id,
                         name: symbol.name.clone(),
                         digits: symbol.digits,
+                        pip_position: symbol.pip_position,
                     };
                     cx.emit(MultiChartEvent::Action(symbol, action.clone()));
                 }

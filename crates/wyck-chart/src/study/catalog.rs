@@ -127,7 +127,10 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
             "Momentum",
             "Where the close sits in the recent range, from 0 to 100.",
         ),
-        StudyKind::Atr => ("Volatility", "The average size of a bar's range."),
+        StudyKind::Atr => (
+            "Volatility",
+            "Average true range with selectable smoothing, a percent view, and optional signal and true range lines.",
+        ),
         StudyKind::Cci => (
             "Momentum",
             "How far the price is from its average, in units of its spread.",

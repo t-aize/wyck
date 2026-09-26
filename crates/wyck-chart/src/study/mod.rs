@@ -70,6 +70,8 @@ pub enum ValueFormat {
     Price,
     /// Plain numbers with this many decimals.
     Plain(u32),
+    /// A percentage with this many decimals.
+    Percent(u32),
     /// Large counts, shortened: 1.2K, 3.4M.
     Count,
 }
@@ -169,6 +171,7 @@ pub struct PlotSpec {
     pub color: u32,
     pub width: f32,
     pub dash: Dash,
+    pub visible: bool,
 }
 
 const fn line(key: &'static str, label: &'static str, color: u32, width: f32) -> PlotSpec {
@@ -179,8 +182,18 @@ const fn line(key: &'static str, label: &'static str, color: u32, width: f32) ->
         color,
         width,
         dash: Dash::Solid,
+        visible: true,
     }
 }
+
+const fn hidden_line(key: &'static str, label: &'static str, color: u32) -> PlotSpec {
+    PlotSpec {
+        visible: false,
+        ..line(key, label, color, 1.0)
+    }
+}
+
+const ATR_SMOOTHING: &[&str] = &["RMA (Wilder)", "SMA", "EMA", "WMA"];
 
 /// Everything fixed about an indicator.
 #[derive(Debug, Clone, Copy)]
@@ -407,6 +420,7 @@ impl StudyKind {
                             color: BLUE,
                             width: 2.0,
                             dash: Dash::Solid,
+                            visible: true,
                         }],
                         range: None,
                     }
@@ -467,6 +481,7 @@ impl StudyKind {
                                 color: GRAY,
                                 width: 1.0,
                                 dash: Dash::Solid,
+                                visible: true,
                             },
                             line("ma", "Average", BLUE, 1.0),
                         ],
@@ -513,6 +528,7 @@ impl StudyKind {
                                 color: GRAY,
                                 width: 1.0,
                                 dash: Dash::Solid,
+                                visible: true,
                             },
                             line("macd", "MACD", BLUE, 1.5),
                             line("signal", "Signal", ORANGE, 1.5),
@@ -547,8 +563,43 @@ impl StudyKind {
                         short: "ATR",
                         placement: Pane,
                         format: ValueFormat::Price,
-                        inputs: &[int("length", "Length", 14.0, 1.0, 1000.0)],
-                        plots: &[line("atr", "ATR", 0xb71c1c, 1.5)],
+                        inputs: &[
+                            int("length", "ATR length", 14.0, 1.0, 1000.0),
+                            InputSpec {
+                                key: "smoothing",
+                                label: "ATR smoothing",
+                                kind: InputKind::Choice(ATR_SMOOTHING),
+                                default: 0.0,
+                                min: 0.0,
+                                max: 3.0,
+                                step: 1.0,
+                            },
+                            InputSpec {
+                                key: "unit",
+                                label: "Display unit",
+                                kind: InputKind::Choice(&["Price", "% of close"]),
+                                default: 0.0,
+                                min: 0.0,
+                                max: 1.0,
+                                step: 1.0,
+                            },
+                            int("percent_decimals", "Percent decimals", 2.0, 0.0, 6.0),
+                            int("signal_length", "Signal length", 14.0, 1.0, 1000.0),
+                            InputSpec {
+                                key: "signal_smoothing",
+                                label: "Signal smoothing",
+                                kind: InputKind::Choice(ATR_SMOOTHING),
+                                default: 1.0,
+                                min: 0.0,
+                                max: 3.0,
+                                step: 1.0,
+                            },
+                        ],
+                        plots: &[
+                            line("atr", "ATR", 0xb71c1c, 1.5),
+                            hidden_line("signal", "Signal average", ORANGE),
+                            hidden_line("tr", "True range", GRAY),
+                        ],
                         range: None,
                     }
                 }
@@ -802,7 +853,7 @@ impl StudyConfig {
                 .unwrap_or(PlotStyle {
                     color: plot.color,
                     width: plot.width,
-                    visible: true,
+                    visible: plot.visible,
                     opacity: opaque(),
                     dash: Dash::Solid,
                 });
@@ -829,6 +880,14 @@ impl StudyConfig {
         self.weight
     }
 
+    pub fn value_format(&self) -> ValueFormat {
+        if self.kind == StudyKind::Atr && self.input("unit") == 1.0 {
+            ValueFormat::Percent(self.input("percent_decimals").clamp(0.0, 6.0) as u32)
+        } else {
+            self.spec().format
+        }
+    }
+
     /// An input's value (its default if it is somehow missing).
     pub fn input(&self, key: &str) -> f64 {
         self.inputs.get(key).copied().unwrap_or_else(|| {
@@ -852,7 +911,7 @@ impl StudyConfig {
             PlotStyle {
                 color: plot.map_or(GRAY, |p| p.color),
                 width: plot.map_or(1.0, |p| p.width),
-                visible: true,
+                visible: plot.is_none_or(|p| p.visible),
                 opacity: opaque(),
                 dash: Dash::Solid,
             }
@@ -861,6 +920,19 @@ impl StudyConfig {
 
     /// The legend's title: the short name and the main inputs, `SMA 20 close`.
     pub fn title(&self) -> String {
+        if self.kind == StudyKind::Atr {
+            let mut title = format!("ATR {}", self.length("length"));
+            if self.input("smoothing") != 0.0 {
+                title.push_str(&format!(
+                    " {}",
+                    ATR_SMOOTHING[(self.input("smoothing") as usize).min(ATR_SMOOTHING.len() - 1)]
+                ));
+            }
+            if self.input("unit") == 1.0 {
+                title.push_str(" %");
+            }
+            return title;
+        }
         let spec = self.spec();
         let mut parts = vec![spec.short.to_owned()];
         for input in spec.inputs {
@@ -1185,15 +1257,38 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             out.band = Some((lower, upper));
         }
         StudyKind::Atr => {
-            out.plots.push(plot(
-                "atr",
-                math::atr(
-                    &input.high,
-                    &input.low,
-                    &input.close,
-                    config.length("length"),
-                ),
-            ));
+            let tr = math::true_range(&input.high, &input.low, &input.close);
+            let smooth = |values: &[f64], length: usize, method: usize| match method {
+                1 => math::sma(values, length),
+                2 => math::ema(values, length),
+                3 => math::wma(values, length),
+                _ => math::rma(values, length),
+            };
+            let mut atr = smooth(
+                &tr,
+                config.length("length"),
+                config.input("smoothing") as usize,
+            );
+            let mut tr = tr;
+            if config.input("unit") == 1.0 {
+                for (i, close) in input.close.iter().enumerate() {
+                    let scale = if close.is_finite() && *close != 0.0 {
+                        100.0 / close.abs()
+                    } else {
+                        f64::NAN
+                    };
+                    atr[i] *= scale;
+                    tr[i] *= scale;
+                }
+            }
+            let signal = smooth(
+                &atr,
+                config.length("signal_length"),
+                config.input("signal_smoothing") as usize,
+            );
+            out.plots.push(plot("atr", atr));
+            out.plots.push(plot("signal", signal));
+            out.plots.push(plot("tr", tr));
         }
         StudyKind::Cci => {
             let typical = input.source(5.0);
@@ -1365,6 +1460,58 @@ mod tests {
         let out = compute(&StudyConfig::new(StudyKind::Ichimoku), &input(200));
         let offsets: Vec<i64> = out.plots.iter().map(|p| p.offset).collect();
         assert_eq!(offsets, vec![0, 0, -25, 25, 25]);
+    }
+
+    #[test]
+    fn atr_methods_optional_plots_and_percent_use_the_same_bars() {
+        let data = StudyInput {
+            high: vec![12.0, 13.0, 17.0, 16.0],
+            low: vec![8.0, 9.0, 11.0, 10.0],
+            close: vec![10.0, 12.0, 12.0, 15.0],
+            ..StudyInput::default()
+        };
+        let mut config = StudyConfig::new(StudyKind::Atr);
+        config.inputs.insert("length".into(), 2.0);
+        config.inputs.insert("signal_length".into(), 2.0);
+        assert!(!config.plot_style("signal").visible);
+        assert!(!config.plot_style("tr").visible);
+        let out = compute(&config, &data);
+        assert_eq!(
+            out.plots.iter().map(|p| p.key).collect::<Vec<_>>(),
+            ["atr", "signal", "tr"]
+        );
+        assert_eq!(out.plots[2].values, [4.0, 4.0, 6.0, 6.0]);
+        assert!(out.plots[0].values[0].is_nan());
+        assert_eq!(&out.plots[0].values[1..], &[4.0, 5.0, 5.5]);
+        assert!(out.plots[1].values[1].is_nan());
+        assert_eq!(&out.plots[1].values[2..], &[4.5, 5.25]);
+
+        for (method, expected) in [(1.0, 6.0), (2.0, 5.777777777777778), (3.0, 6.0)] {
+            config.inputs.insert("smoothing".into(), method);
+            let out = compute(&config, &data);
+            assert!((out.plots[0].values[3] - expected).abs() < 1e-10);
+        }
+
+        config.inputs.insert("smoothing".into(), 0.0);
+        config.inputs.insert("unit".into(), 1.0);
+        let out = compute(&config, &data);
+        assert_eq!(config.value_format(), ValueFormat::Percent(2));
+        config.inputs.insert("percent_decimals".into(), 4.0);
+        assert_eq!(config.value_format(), ValueFormat::Percent(4));
+        assert!((out.plots[0].values[3] - 5.5 / 15.0 * 100.0).abs() < 1e-10);
+        assert!((out.plots[2].values[3] - 6.0 / 15.0 * 100.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn old_atr_settings_keep_wilder_and_one_visible_plot() {
+        let config: StudyConfig = toml::from_str("kind = 'atr'\n[inputs]\nlength = 21\n").unwrap();
+        let config = config.normalized();
+        assert_eq!(config.input("smoothing"), 0.0);
+        assert_eq!(config.input("unit"), 0.0);
+        assert_eq!(config.value_format(), ValueFormat::Price);
+        assert!(config.plot_style("atr").visible);
+        assert!(!config.plot_style("signal").visible);
+        assert!(!config.plot_style("tr").visible);
     }
 
     #[test]

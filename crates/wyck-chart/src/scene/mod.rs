@@ -211,6 +211,7 @@ pub struct Frame<'a> {
     pub view: &'a View,
     pub timeframe: Timeframe,
     pub digits: u32,
+    pub pip_position: Option<i64>,
     pub origin: P,
     pub w: f64,
     pub h: f64,
@@ -511,7 +512,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         )
     };
     let unit = quote_unit(frame.digits);
-    let main_ticks = map.ticks(8.max((main.h / 60.0) as usize).min(14), unit);
+    let main_ticks = map.ticks(axis_tick_target(main.h), unit);
 
     // ---- the prices band ----
     let mut plot: Vec<Cmd> = Vec::new();
@@ -596,13 +597,16 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             continue;
         };
         let spec = config.spec();
-        let pmap = studies::pane_map(output, spec.range, band, first, last);
-        let ticks = axis::price_ticks(
-            pmap.lo,
-            pmap.hi,
-            (band.h / 40.0).clamp(2.0, 8.0) as usize,
-            f64::MIN_POSITIVE,
-        );
+        let pmap = studies::pane_map(config, output, spec.range, band, first, last);
+        let format = config.value_format();
+        let min_step = match format {
+            ValueFormat::Price => unit,
+            ValueFormat::Plain(decimals) | ValueFormat::Percent(decimals) => {
+                10f64.powi(-(decimals as i32))
+            }
+            ValueFormat::Count => 1.0,
+        };
+        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axis_tick_target(band.h), min_step);
         let mut inner = Vec::new();
         if grid_h {
             for value in &ticks {
@@ -632,7 +636,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             h: band.h as f32,
             inner,
         });
-        pane_maps.push((band, pmap, spec.format, ticks));
+        pane_maps.push((band, pmap, format, ticks));
     }
 
     // The crosshair's vertical line crosses every band.
@@ -700,7 +704,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &mut tags,
         &mut pointer_tags,
     );
-    spread_tags(&mut tags, oy, oy + plot_h as f32);
+    spread_tags(&mut tags, &geometry, oy);
     let taken: Vec<(f32, f32)> = tags
         .iter()
         .chain(&pointer_tags)
@@ -1064,43 +1068,53 @@ fn draw_axis_tags(
     }
 }
 
-/// Moves the tags of the price axes apart so none covers another. The later a tag comes, the
-/// more it matters: it keeps its place, and the earlier ones make room around it, each moved as
-/// little as it can be within `top..bottom`.
-fn spread_tags(tags: &mut [Cmd], top: f32, bottom: f32) {
+/// Keep enough room for a label while using the height available on each axis.
+fn axis_tick_target(height: f64) -> usize {
+    (height / 28.0).floor().clamp(2.0, 32.0) as usize
+}
+
+/// Move axis tags apart within their own bands. Later tags have priority. Drop a lower priority
+/// tag when its band cannot fit it without covering another one.
+fn spread_tags(tags: &mut Vec<Cmd>, geometry: &Geometry, oy: f32) {
     let mut placed: Vec<(f32, f32)> = Vec::new();
-    for cmd in tags.iter_mut().rev() {
+    for i in (0..tags.len()).rev() {
         let Cmd::Tag {
             y,
             height,
             fixed_width: Some(_),
             ..
-        } = cmd
+        } = &tags[i]
         else {
             continue;
         };
         let h = *height;
+        let wanted = *y;
+        let Some(band) = geometry.band_at(f64::from(wanted + h / 2.0 - oy)) else {
+            tags.remove(i);
+            continue;
+        };
+        let band = geometry.bands[band];
+        let top = oy + band.top as f32;
+        let bottom = oy + band.bottom() as f32;
         let fits = |at: f32| {
             at >= top && at + h <= bottom && placed.iter().all(|(t, b)| at + h <= *t || at >= *b)
         };
-        let wanted = *y;
-        let mut chosen = wanted;
-        if !fits(wanted) {
-            // The nearest free place, looking up and down a pixel at a time.
-            for step in 1..400 {
+        let chosen = if fits(wanted) {
+            Some(wanted)
+        } else {
+            (1..400).find_map(|step| {
                 let d = step as f32;
-                if fits(wanted - d) {
-                    chosen = wanted - d;
-                    break;
-                }
-                if fits(wanted + d) {
-                    chosen = wanted + d;
-                    break;
-                }
+                [wanted - d, wanted + d].into_iter().find(|at| fits(*at))
+            })
+        };
+        if let Some(chosen) = chosen {
+            if let Cmd::Tag { y, .. } = &mut tags[i] {
+                *y = chosen;
             }
+            placed.push((chosen, chosen + h));
+        } else {
+            tags.remove(i);
         }
-        *y = chosen;
-        placed.push((chosen, chosen + h));
     }
 }
 
@@ -1124,6 +1138,7 @@ fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
         plot_h: cx.band.h,
         step_ms: cx.f.step_ms(),
         digits: cx.f.digits,
+        pip_position: cx.f.pip_position,
     };
     for drawing in view
         .list

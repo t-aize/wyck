@@ -405,46 +405,48 @@ impl MultiChart {
             .child(divider());
 
         if !locked {
-            for color in PALETTE {
-                let selected = style.color == color;
-                bar = bar.child(
-                    div()
-                        .id(("draw-color", u64::from(color)))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .size(px(22.))
-                        .rounded_full()
-                        .cursor_pointer()
-                        .when(selected, |el| el.border_1().border_color(theme::fg()))
-                        .on_click(cx.listener(move |this, _event, _window, cx| {
-                            this.set_drawing_color(color, cx);
-                        }))
-                        .child(div().size(px(14.)).rounded_full().bg(swatch_color(color))),
-                );
+            if tool.has_quick_color() {
+                for color in PALETTE {
+                    let selected = style.color == color;
+                    bar = bar.child(
+                        div()
+                            .id(("draw-color", u64::from(color)))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(22.))
+                            .rounded_full()
+                            .cursor_pointer()
+                            .when(selected, |el| el.border_1().border_color(theme::fg()))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.set_drawing_color(color, cx);
+                            }))
+                            .child(div().size(px(14.)).rounded_full().bg(swatch_color(color))),
+                    );
+                }
+                // Any other color: the panel with the square, the hue bar and the typed values.
+                let (open_this, pick_this) = (cx.entity(), cx.entity());
+                bar = bar.child(widgets::color_swatch(
+                    "draw-color-custom",
+                    style.color,
+                    self.color_open == Some(id),
+                    cx,
+                    move |_window, cx| {
+                        open_this.update(cx, |this, cx| {
+                            this.color_open = if this.color_open == Some(id) {
+                                None
+                            } else {
+                                Some(id)
+                            };
+                            cx.notify();
+                        });
+                    },
+                    move |color, _window, cx| {
+                        pick_this.update(cx, |this, cx| this.set_drawing_color(color, cx));
+                    },
+                ));
+                bar = bar.child(divider());
             }
-            // Any other color: the panel with the square, the hue bar and the typed values.
-            let (open_this, pick_this) = (cx.entity(), cx.entity());
-            bar = bar.child(widgets::color_swatch(
-                "draw-color-custom",
-                style.color,
-                self.color_open == Some(id),
-                cx,
-                move |_window, cx| {
-                    open_this.update(cx, |this, cx| {
-                        this.color_open = if this.color_open == Some(id) {
-                            None
-                        } else {
-                            Some(id)
-                        };
-                        cx.notify();
-                    });
-                },
-                move |color, _window, cx| {
-                    pick_this.update(cx, |this, cx| this.set_drawing_color(color, cx));
-                },
-            ));
-            bar = bar.child(divider());
             if tool.has_width() {
                 for (index, width) in tool.widths().into_iter().enumerate() {
                     let selected = (style.width - width).abs() < 0.01;

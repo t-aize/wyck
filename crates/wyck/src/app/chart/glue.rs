@@ -44,6 +44,7 @@ impl Chart {
             plot_h: geometry.main().h,
             step_ms: self.step_ms(),
             digits: self.digits(),
+            pip_position: self.symbol.as_ref().and_then(|symbol| symbol.pip_position),
         };
         Some(f(&projection))
     }
@@ -58,6 +59,20 @@ impl Chart {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return false;
         };
+        let at_limit = {
+            let drawings = drawings.read(cx);
+            let book = drawings.book();
+            book.tool().is_some() && book.count(&symbol) >= book.drawing_limit()
+        };
+        if at_limit {
+            crate::app::toast::show(
+                cx,
+                crate::app::toast::Kind::Warning,
+                "Drawing limit reached",
+                "Change the drawings per symbol limit in Settings (Ctrl+,).",
+            );
+            return true;
+        }
         let timeframe = self.timeframe.code();
         let taken = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {

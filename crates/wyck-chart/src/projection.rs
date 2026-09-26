@@ -24,6 +24,7 @@ pub struct ChartProjection<'a> {
     /// The time between two points, for placing times beyond the data.
     pub step_ms: f64,
     pub digits: u32,
+    pub pip_position: Option<i64>,
 }
 
 impl ChartProjection<'_> {
@@ -128,6 +129,12 @@ impl Projection for ChartProjection<'_> {
     fn tick(&self) -> f64 {
         super::scene::quote_unit(self.digits) / PRICE_SCALE as f64
     }
+
+    fn pip(&self) -> f64 {
+        self.pip_position
+            .filter(|position| (0..=12).contains(position))
+            .map_or(0.0, |position| 10f64.powi(-(position as i32)))
+    }
 }
 
 #[cfg(test)]
@@ -168,6 +175,7 @@ mod tests {
             plot_h: geometry.plot_h(),
             step_ms: 300_000.0,
             digits: 5,
+            pip_position: Some(4),
         };
         f(&projection)
     }
@@ -276,8 +284,17 @@ mod tests {
             plot_h: 300.0,
             step_ms: 1_000.0,
             digits: 5,
+            pip_position: Some(4),
         };
         assert!(projection.to_screen(Point { t: 0, p: 0.5 }).is_none());
         assert!(projection.point_at(10.0, 10.0, false).is_none());
+    }
+
+    #[test]
+    fn pips_use_the_symbol_position_instead_of_the_quote_tick() {
+        with(|proj| {
+            assert!((proj.tick() - 0.00001).abs() < 1e-12);
+            assert!((proj.pip() - 0.0001).abs() < 1e-12);
+        });
     }
 }
