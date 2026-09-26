@@ -68,9 +68,9 @@ pub struct Prefs {
     pub auto_reload: bool,
     #[serde(default)]
     pub budget: Budget,
-    /// Whether the examples were put in the folder already.
+    /// Whether the old Examples folder was removed.
     #[serde(default)]
-    pub seeded: bool,
+    pub examples_removed: bool,
     /// The keys of the indicators the user starred (see `catalog::Item::key`).
     #[serde(default)]
     pub favorites: Vec<String>,
@@ -85,7 +85,7 @@ impl Default for Prefs {
             folder: None,
             auto_reload: true,
             budget: Budget::Normal,
-            seeded: false,
+            examples_removed: false,
             favorites: Vec::new(),
             recent: Vec::new(),
         }
@@ -156,7 +156,7 @@ mod tests {
             folder: Some("D:\\Indicators".to_owned()),
             auto_reload: false,
             budget: Budget::Heavy,
-            seeded: true,
+            examples_removed: true,
             ..Prefs::default()
         };
         prefs.toggle_favorite("builtin:rsi");

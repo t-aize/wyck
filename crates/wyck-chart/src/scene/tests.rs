@@ -5,7 +5,7 @@ use super::cmd::{count, rect_widths, texts};
 use super::*;
 use crate::flow::Flow;
 use crate::options::{ChartColors, CrosshairStyle, ScaleMargin};
-use crate::study::{StudyConfig, StudyKind};
+use crate::study::{ScriptDrawing, StudyConfig, StudyKind, StudyOutput};
 use crate::zone::Zone;
 
 fn bars(n: usize) -> Vec<Bar> {
@@ -85,6 +85,40 @@ fn a_screenful_of_candles_draws() {
         View::new(8.0),
     );
     assert!(count(&build(&f.frame())) > 100);
+}
+
+#[test]
+fn script_drawings_follow_indicator_visibility_and_reach_the_scene() {
+    let mut settings = kind(ChartKind::Candles);
+    settings.studies.push(StudyConfig::for_script("generated"));
+    let mut fixture = Fixture::new(Series::Bars(bars(20)), settings, View::new(8.0));
+    let mut drawing = Drawing::new(
+        0,
+        crate::drawing::model::Tool::Text,
+        vec![crate::drawing::model::Point {
+            t: 1_767_571_200_000,
+            p: 100_020.0,
+        }],
+    );
+    drawing.text = "SCRIPT_MARKER_UNIQUE".into();
+    fixture.display.studies[0] = Some(StudyOutput {
+        drawings: vec![ScriptDrawing {
+            key: "marker".into(),
+            drawing,
+        }],
+        ..StudyOutput::default()
+    });
+    assert!(
+        texts(&build(&fixture.frame()))
+            .iter()
+            .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+    );
+    fixture.settings.studies[0].visible = false;
+    assert!(
+        !texts(&build(&fixture.frame()))
+            .iter()
+            .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+    );
 }
 
 #[test]

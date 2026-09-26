@@ -16,18 +16,22 @@ pub mod providers;
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, KeyBinding, SharedString, Subscription, Task,
-    Window, actions,
+    App, Context, Entity, EventEmitter, FocusHandle, KeyBinding, MouseMoveEvent, SharedString,
+    Subscription, Task, Window, actions,
 };
 use gpui_kit::component::highlighter::{Diagnostic, DiagnosticSeverity};
 use gpui_kit::component::input::language_config::LanguageConfig;
 use gpui_kit::component::input::{
     AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
 };
+use serde::{Deserialize, Serialize};
+use wyck_config::DocumentStore;
 
 use crate::app::chart::Chart;
 use crate::app::chart::study::custom::library::{LibraryError, registry};
@@ -41,7 +45,16 @@ use crate::app::multichart::MultiChart;
 
 actions!(
     wyck_indicator_editor,
-    [SaveScript, AddToChart, CloseTab, ToggleReference]
+    [
+        SaveScript,
+        AddToChart,
+        CloseTab,
+        ToggleReference,
+        NextProblem,
+        PreviousProblem,
+        NextTab,
+        PreviousTab
+    ]
 );
 
 /// The key context of the editor's panel.
@@ -67,6 +80,10 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("f5", AddToChart, Some(CONTEXT)),
         KeyBinding::new("secondary-w", CloseTab, Some(CONTEXT)),
         KeyBinding::new("secondary-alt-r", ToggleReference, Some(CONTEXT)),
+        KeyBinding::new("f8", NextProblem, Some(CONTEXT)),
+        KeyBinding::new("shift-f8", PreviousProblem, Some(CONTEXT)),
+        KeyBinding::new("secondary-tab", NextTab, Some(CONTEXT)),
+        KeyBinding::new("secondary-shift-tab", PreviousTab, Some(CONTEXT)),
     ]);
 }
 
@@ -86,6 +103,24 @@ const CHECK_DELAY: Duration = Duration::from_millis(350);
 
 /// How long a message stays in the status bar.
 const NOTICE_TIME: Duration = Duration::from_secs(6);
+const DRAFT_DOCUMENT: &str = "indicator_editor_drafts";
+const DRAFT_DELAY: Duration = Duration::from_millis(500);
+
+#[derive(Default, Serialize, Deserialize)]
+struct Drafts {
+    directory: String,
+    active: usize,
+    tabs: Vec<DraftTab>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DraftTab {
+    id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    buffer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    base: Option<String>,
+}
 
 /// One script open in a tab.
 pub(super) struct Doc {
@@ -133,6 +168,20 @@ pub(super) struct Notice {
     _clear: Task<()>,
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum ResizeSide {
+    Explorer,
+    Reference,
+    Console,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct ResizeDrag {
+    pub side: ResizeSide,
+    pub start: f32,
+    pub size: f32,
+}
+
 pub struct IndicatorEditor {
     pub(super) multi: Entity<MultiChart>,
     pub(super) docs: Vec<Doc>,
@@ -148,13 +197,34 @@ pub struct IndicatorEditor {
     /// The script the file menu is open for.
     pub(super) menu_target: Option<String>,
     pub(super) maximized: bool,
+    pub(super) explorer_width: f32,
+    pub(super) reference_width: f32,
+    pub(super) console_height: f32,
+    pub(super) resize: Option<ResizeDrag>,
+    draft_store: Option<DocumentStore>,
+    drafts_loaded: bool,
+    draft_revision: Arc<AtomicU64>,
+    draft_write_lock: Arc<Mutex<()>>,
     pub(super) focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
 impl IndicatorEditor {
     pub fn new(multi: Entity<MultiChart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search scripts"));
+        let draft_store = indicators::draft_store(cx);
+        if let Some(store) = draft_store.clone() {
+            let load = cx
+                .background_executor()
+                .spawn(async move { store.load_or_default::<Drafts>(DRAFT_DOCUMENT) });
+            cx.spawn_in(window, async move |this, cx| {
+                let drafts = load.await;
+                let _ = this.update_in(cx, |editor, window, cx| {
+                    editor.restore_drafts(drafts, window, cx);
+                });
+            })
+            .detach();
+        }
+        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search names or code"));
         let reference_filter =
             cx.new(|cx| InputState::new(window, cx).placeholder("Search the reference"));
         let subscriptions = vec![
@@ -185,8 +255,137 @@ impl IndicatorEditor {
             notice: None,
             menu_target: None,
             maximized: false,
+            explorer_width: 236.0,
+            reference_width: 320.0,
+            console_height: 148.0,
+            resize: None,
+            drafts_loaded: draft_store.is_none(),
+            draft_store,
+            draft_revision: Arc::new(AtomicU64::new(0)),
+            draft_write_lock: Arc::new(Mutex::new(())),
             focus: cx.focus_handle(),
             _subscriptions: subscriptions,
+        }
+    }
+
+    fn restore_drafts(&mut self, drafts: Drafts, window: &mut Window, cx: &mut Context<Self>) {
+        if drafts.directory == indicators::dir(cx).to_string_lossy() {
+            for tab in drafts.tabs {
+                if self.docs.iter().any(|doc| doc.id == tab.id) {
+                    continue;
+                }
+                let entry = registry::get(&tab.id);
+                let Some(text) = tab
+                    .buffer
+                    .clone()
+                    .or_else(|| entry.as_ref().map(|entry| entry.source.to_string()))
+                else {
+                    continue;
+                };
+                let base = tab
+                    .base
+                    .or_else(|| entry.as_ref().map(|entry| entry.source.to_string()))
+                    .unwrap_or_default();
+                let dirty = text != base;
+                let conflict = dirty
+                    && entry
+                        .as_ref()
+                        .is_some_and(|entry| entry.source.as_ref() != base);
+                let state = new_state(&text, window, cx);
+                let id = tab.id.clone();
+                let subscription =
+                    cx.subscribe(&state, move |this, _state, event: &InputEvent, cx| {
+                        if matches!(event, InputEvent::Change) {
+                            this.text_changed(&id, cx);
+                        }
+                    });
+                let problems = entry
+                    .as_ref()
+                    .map_or_else(Vec::new, |entry| entry.problems.clone());
+                self.docs.push(Doc {
+                    id: tab.id,
+                    state,
+                    saved: base,
+                    dirty,
+                    problems,
+                    conflict,
+                    gone: entry.is_none(),
+                    check: None,
+                    _subscription: subscription,
+                });
+                let index = self.docs.len() - 1;
+                self.show_problems(index, cx);
+                if dirty {
+                    let id = self.docs[index].id.clone();
+                    self.text_changed(&id, cx);
+                }
+            }
+            if !self.docs.is_empty() {
+                self.active = drafts.active.min(self.docs.len() - 1);
+            }
+        }
+        self.drafts_loaded = true;
+        self.queue_drafts(cx);
+        cx.notify();
+    }
+
+    fn queue_drafts(&mut self, cx: &mut Context<Self>) {
+        let Some(store) = self.draft_store.clone().filter(|_| self.drafts_loaded) else {
+            return;
+        };
+        let drafts = Drafts {
+            directory: indicators::dir(cx).to_string_lossy().into_owned(),
+            active: self.active,
+            tabs: self
+                .docs
+                .iter()
+                .map(|doc| DraftTab {
+                    id: doc.id.clone(),
+                    buffer: doc.dirty.then(|| doc.state.read(cx).value().to_string()),
+                    base: doc.dirty.then(|| doc.saved.clone()),
+                })
+                .collect(),
+        };
+        let revision = self.draft_revision.clone();
+        let lock = self.draft_write_lock.clone();
+        let serial = revision.fetch_add(1, Ordering::Relaxed) + 1;
+        let executor = cx.background_executor().clone();
+        executor
+            .clone()
+            .spawn(async move {
+                executor.timer(DRAFT_DELAY).await;
+                if revision.load(Ordering::Relaxed) != serial {
+                    return;
+                }
+                let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
+                if revision.load(Ordering::Relaxed) != serial {
+                    return;
+                }
+                if let Err(error) = store.save(DRAFT_DOCUMENT, &drafts) {
+                    tracing::warn!(%error, "could not save indicator editor drafts");
+                }
+            })
+            .detach();
+    }
+
+    fn drag_resize(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let Some(drag) = self.resize else { return };
+        let position = match drag.side {
+            ResizeSide::Console => f32::from(event.position.y),
+            _ => f32::from(event.position.x),
+        };
+        let delta = position - drag.start;
+        match drag.side {
+            ResizeSide::Explorer => self.explorer_width = (drag.size + delta).clamp(170.0, 440.0),
+            ResizeSide::Reference => self.reference_width = (drag.size - delta).clamp(220.0, 540.0),
+            ResizeSide::Console => self.console_height = (drag.size - delta).clamp(80.0, 360.0),
+        }
+        cx.notify();
+    }
+
+    fn end_resize(&mut self, cx: &mut Context<Self>) {
+        if self.resize.take().is_some() {
+            cx.notify();
         }
     }
 
@@ -240,6 +439,7 @@ impl IndicatorEditor {
     pub fn open(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(at) = self.docs.iter().position(|d| d.id == id) {
             self.active = at;
+            self.queue_drafts(cx);
             cx.notify();
             self.focus_editor(window, cx);
             return;
@@ -269,6 +469,7 @@ impl IndicatorEditor {
         };
         self.docs.push(doc);
         self.active = self.docs.len() - 1;
+        self.queue_drafts(cx);
         self.show_problems(self.active, cx);
         cx.notify();
         self.focus_editor(window, cx);
@@ -277,9 +478,22 @@ impl IndicatorEditor {
     pub(super) fn activate(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         if at < self.docs.len() {
             self.active = at;
+            self.queue_drafts(cx);
             cx.notify();
             self.focus_editor(window, cx);
         }
+    }
+
+    fn cycle_tab(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.docs.is_empty() {
+            return;
+        }
+        let next = if forward {
+            (self.active + 1) % self.docs.len()
+        } else {
+            (self.active + self.docs.len() - 1) % self.docs.len()
+        };
+        self.activate(next, window, cx);
     }
 
     /// Closes the tab at `at`, asking first when it has changes.
@@ -311,6 +525,7 @@ impl IndicatorEditor {
         if at < self.docs.len() {
             self.docs.remove(at);
             self.active = self.active.min(self.docs.len().saturating_sub(1));
+            self.queue_drafts(cx);
             cx.notify();
         }
     }
@@ -329,13 +544,16 @@ impl IndicatorEditor {
             let source = text.clone();
             let result = cx
                 .background_executor()
-                .spawn(async move { Script::compile(&source).map(|_| ()) })
+                .spawn(async move { Script::compile(&source).map(|script| script.warnings) })
                 .await;
             let _ = this.update(cx, |this, cx| {
-                let problems = result.err().unwrap_or_default();
+                let problems = match result {
+                    Ok(warnings) | Err(warnings) => warnings,
+                };
                 this.checked(&script, &text, problems, cx);
             });
         }));
+        self.queue_drafts(cx);
         cx.notify();
     }
 
@@ -368,6 +586,14 @@ impl IndicatorEditor {
         let Some(doc) = self.current() else {
             return;
         };
+        if doc.conflict {
+            self.say(
+                false,
+                "The file changed on disk. Load it or choose Keep mine before saving.",
+                cx,
+            );
+            return;
+        }
         let (id, text) = (doc.id.clone(), doc.state.read(cx).value().to_string());
         let task = {
             let (id, text) = (id.clone(), text.clone());
@@ -421,6 +647,7 @@ impl IndicatorEditor {
             Some(Err(error)) => self.say(false, error.to_string(), cx),
             None => self.say(false, "The indicators folder is not available.", cx),
         }
+        self.queue_drafts(cx);
     }
 
     /// Saves the script of the tab and puts it on the active chart.
@@ -428,19 +655,27 @@ impl IndicatorEditor {
         let Some(doc) = self.current() else {
             return;
         };
+        if doc.conflict {
+            self.say(
+                false,
+                "The file changed on disk. Resolve the conflict before adding it.",
+                cx,
+            );
+            return;
+        }
         let id = doc.id.clone();
-        self.save(window, cx);
+        let text = doc.state.read(cx).value().to_string();
         let chart: Entity<Chart> = self.multi.read(cx).active_chart().clone();
-        // Once the file is read (a moment): the chart then has the script to look up.
-        let entity = cx.entity();
-        cx.spawn(async move |_this, cx| {
-            cx.background_executor()
-                .timer(Duration::from_millis(250))
-                .await;
-            entity.update(cx, |editor, cx| {
-                let ready = registry::get(&id).is_some_and(|e| e.is_ready());
-                if !ready {
-                    editor.say(false, "It has problems, so it is not put on the chart.", cx);
+        let task = {
+            let (id, text) = (id.clone(), text.clone());
+            indicators::on_library(cx, move |library| library.save(&id, &text))
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            let _ = this.update_in(cx, |editor, _window, cx| {
+                let saved = result.as_ref().is_some_and(Result::is_ok);
+                editor.saved(&id, text, result, cx);
+                if !saved || !registry::get(&id).is_some_and(|entry| entry.is_ready()) {
                     return;
                 }
                 let held = chart
@@ -494,6 +729,7 @@ impl IndicatorEditor {
                 }
             }
         }
+        self.queue_drafts(cx);
         cx.notify();
     }
 
@@ -512,6 +748,7 @@ impl IndicatorEditor {
                 .update(cx, |state, cx| state.set_value(text.clone(), window, cx));
             show_diagnostics(&doc.state, &doc.problems, &text, cx);
         }
+        self.queue_drafts(cx);
         cx.notify();
     }
 
@@ -524,6 +761,7 @@ impl IndicatorEditor {
                 doc.dirty = doc.state.read(cx).value() != doc.saved.as_str();
             }
         }
+        self.queue_drafts(cx);
         cx.notify();
     }
 
@@ -708,6 +946,41 @@ impl IndicatorEditor {
         Some((position.line as usize + 1, position.character as usize + 1))
     }
 
+    pub(super) fn step_problem(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current = self.cursor(cx).unwrap_or((0, 0));
+        let Some(doc) = self.current() else { return };
+        let mut places: Vec<_> = doc
+            .problems
+            .iter()
+            .filter(|problem| problem.line > 0)
+            .map(|problem| (problem.line, problem.column.max(1)))
+            .collect();
+        places.sort_unstable();
+        let target = if forward {
+            places
+                .iter()
+                .copied()
+                .find(|at| *at > current)
+                .or_else(|| places.first().copied())
+        } else {
+            places
+                .iter()
+                .rev()
+                .copied()
+                .find(|at| *at < current)
+                .or_else(|| places.last().copied())
+        };
+        if let Some((line, column)) = target {
+            self.console = ConsoleTab::Problems;
+            self.jump_to(line, column, window, cx);
+        }
+    }
+
     // ---- exporting and importing ----
 
     pub(super) fn export_current(&mut self, cx: &mut Context<Self>) {
@@ -886,4 +1159,26 @@ fn show_diagnostics(state: &Entity<EditorState>, problems: &[Problem], text: &st
         }
         cx.notify();
     });
+}
+
+#[cfg(test)]
+mod draft_tests {
+    use super::*;
+
+    #[test]
+    fn unsaved_multiline_script_survives_the_draft_document() {
+        let drafts = Drafts {
+            directory: "C:/indicators".into(),
+            active: 0,
+            tabs: vec![DraftTab {
+                id: "SMC/Gap".into(),
+                buffer: Some("indicator(#{ name: \"Gap\" });\n// unsaved\n".into()),
+                base: Some("indicator(#{ name: \"Gap\" });\n".into()),
+            }],
+        };
+        let text = toml::to_string(&drafts).unwrap();
+        let restored: Drafts = toml::from_str(&text).unwrap();
+        assert_eq!(restored.tabs[0].buffer, drafts.tabs[0].buffer);
+        assert_eq!(restored.tabs[0].base, drafts.tabs[0].base);
+    }
 }

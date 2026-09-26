@@ -27,6 +27,7 @@ pub fn register(engine: &mut Engine) {
     indicators(engine);
     describing(engine);
     colors(engine);
+    super::draw_api::register(engine);
 }
 
 /// A period, checked.

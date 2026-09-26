@@ -559,6 +559,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     studies::overlays_under(&cx, first, last, &mut plot);
     series::draw(&cx, kind, first, last, &mut plot);
     studies::overlays(&cx, first, last, &mut plot);
+    draw_script_drawings(&cx, &mut plot);
     for mark in frame.marks {
         let y = cx.y(mark.price);
         let x0 = ox + mark.from_x.unwrap_or(0.0).max(0.0);
@@ -1153,6 +1154,37 @@ fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
         if selected && !drawing.locked {
             for at in shapes::handles(drawing, &projection) {
                 push_prim(cx, Prim::Handle { at }, out);
+            }
+        }
+    }
+}
+
+/// Draws generated objects using the same geometry as the manual tools, without edit handles.
+fn draw_script_drawings(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
+    let projection = ChartProjection {
+        series: cx.series,
+        view: cx.f.view,
+        map: cx.map,
+        plot_w: cx.plot_w,
+        plot_h: cx.band.h,
+        step_ms: cx.f.step_ms(),
+        digits: cx.f.digits,
+        pip_position: cx.f.pip_position,
+    };
+    let timeframe = cx.f.timeframe.code();
+    for (config, output) in cx.f.settings.studies.iter().zip(&cx.f.display.studies) {
+        if !config.visible {
+            continue;
+        }
+        let Some(output) = output else {
+            continue;
+        };
+        for script_drawing in &output.drawings {
+            let drawing = &script_drawing.drawing;
+            if drawing.shows_on(&timeframe) {
+                for prim in shapes::prims_with(drawing, &projection, false) {
+                    push_prim(cx, prim, out);
+                }
             }
         }
     }

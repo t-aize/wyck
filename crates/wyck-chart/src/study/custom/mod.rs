@@ -10,6 +10,7 @@
 
 pub mod api;
 pub mod docs;
+mod draw_api;
 pub mod library;
 pub mod run;
 pub mod series;

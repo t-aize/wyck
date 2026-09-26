@@ -8,12 +8,14 @@ use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, d
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Editor, Input};
+use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::{
-    AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, SaveScript,
-    ToggleReference,
+    AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
+    NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
+use crate::app::chart::drawing::model::Tool;
 use crate::app::chart::study::custom::docs::{self, Group};
 use crate::app::chart::study::custom::library::{Entry as Script, registry};
 use crate::app::chart::study::custom::templates::TEMPLATES;
@@ -24,9 +26,9 @@ use crate::app::menu::{Entry, Item, Placement};
 use crate::app::{theme, widgets};
 
 /// The width of the list of scripts and of the reference.
-const SIDE_WIDTH: f32 = 236.0;
-const REFERENCE_WIDTH: f32 = 320.0;
-const CONSOLE_HEIGHT: f32 = 148.0;
+const FONT_BODY: f32 = 12.0;
+const FONT_META: f32 = 11.0;
+const FONT_TITLE: f32 = 13.0;
 
 /// A fixed width font that the system has.
 fn mono() -> &'static str {
@@ -49,6 +51,14 @@ fn folder_of(id: &str) -> &str {
     id.rsplit_once('/').map_or("", |(folder, _)| folder)
 }
 
+fn source_match(source: &str, query: &str) -> Option<(usize, usize)> {
+    source.lines().enumerate().find_map(|(line, text)| {
+        let lowered = text.to_lowercase();
+        let column = lowered.find(query)?;
+        Some((line + 1, lowered[..column].chars().count() + 1))
+    })
+}
+
 impl IndicatorEditor {
     fn tool_button(
         &self,
@@ -60,6 +70,7 @@ impl IndicatorEditor {
     ) -> Button {
         let button = Button::new(id)
             .ghost()
+            .xsmall()
             .compact()
             .icon(icon)
             .tooltip(tip)
@@ -94,21 +105,14 @@ impl IndicatorEditor {
             let close = new_menu.clone();
             templates.push(
                 Entry::new(template.name)
-                    .icon(if template.example {
-                        IconName::FileCode
-                    } else {
-                        IconName::FilePlus
-                    })
-                    .hint(if template.example { "example" } else { "blank" })
+                    .icon(IconName::FilePlus)
+                    .hint("blank")
                     .on_click(move |window, cx| {
                         close.close(cx);
                         this.update(cx, |e, cx| e.ask_new(index, window, cx));
                     })
                     .into(),
             );
-            if index == 1 {
-                templates.push(Item::Separator);
-            }
         }
 
         let this = cx.entity();
@@ -158,7 +162,7 @@ impl IndicatorEditor {
                     .child(icon_colored(IconName::CodeXml, 16., theme::accent()))
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(px(FONT_TITLE))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::fg())
                             .child("Indicator editor"),
@@ -299,6 +303,7 @@ impl IndicatorEditor {
                 query.is_empty()
                     || e.id.to_lowercase().contains(&query)
                     || e.info.name.to_lowercase().contains(&query)
+                    || source_match(&e.source, &query).is_some()
             })
             .collect();
         let mut folders: BTreeMap<String, Vec<_>> = BTreeMap::new();
@@ -310,7 +315,6 @@ impl IndicatorEditor {
         }
         let total: usize = folders.values().map(Vec::len).sum();
         let file_menu = self.menu(window, cx, "editor-file-menu");
-        let current_id = self.current().map(|d| d.id.clone());
 
         let mut list = div()
             .id("editor-files")
@@ -330,7 +334,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(FONT_BODY))
                             .text_color(theme::muted_fg())
                             .child(if query.is_empty() {
                                 "No script yet. Make one with New, or drop .rhai files in the folder."
@@ -340,7 +344,7 @@ impl IndicatorEditor {
                     )
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(px(FONT_META))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     ),
@@ -385,7 +389,7 @@ impl IndicatorEditor {
                         .child(
                             div()
                                 .flex_1()
-                                .text_size(px(12.))
+                                .text_size(px(FONT_BODY))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme::muted_fg())
                                 .truncate()
@@ -393,7 +397,7 @@ impl IndicatorEditor {
                         )
                         .child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(px(FONT_META))
                                 .text_color(theme::muted_fg())
                                 .child(entries.len().to_string()),
                         ),
@@ -404,14 +408,18 @@ impl IndicatorEditor {
             }
             for entry in entries {
                 row_number += 1;
-                list = list.child(self.script_row(
-                    &entry,
-                    row_number,
-                    !folder.is_empty(),
-                    current_id.as_deref() == Some(entry.id.as_str()),
-                    &file_menu,
-                    cx,
-                ));
+                list = list.child(
+                    self.script_row(
+                        &entry,
+                        row_number,
+                        !folder.is_empty(),
+                        (!query.is_empty())
+                            .then(|| source_match(&entry.source, &query))
+                            .flatten(),
+                        &file_menu,
+                        cx,
+                    ),
+                );
             }
         }
 
@@ -419,7 +427,7 @@ impl IndicatorEditor {
         let prompt = self.prompt_row(cx);
         div()
             .flex_none()
-            .w(px(SIDE_WIDTH))
+            .w(px(self.explorer_width))
             .h_full()
             .flex()
             .flex_col()
@@ -429,7 +437,7 @@ impl IndicatorEditor {
             .child(
                 div()
                     .p_2()
-                    .child(Input::new(&self.filter).small().prefix(icon_colored(
+                    .child(Input::new(&self.filter).xsmall().prefix(icon_colored(
                         IconName::Search,
                         14.,
                         theme::muted_fg(),
@@ -446,7 +454,7 @@ impl IndicatorEditor {
         entry: &std::sync::Arc<Script>,
         number: usize,
         indented: bool,
-        active: bool,
+        match_at: Option<(usize, usize)>,
         menu: &crate::app::menu::Menu,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -454,6 +462,7 @@ impl IndicatorEditor {
         let (open, right) = (cx.entity(), cx.entity());
         let (open_id, right_id, menu) = (id.clone(), id.clone(), menu.clone());
         let open_doc = self.docs.iter().find(|d| d.id == id);
+        let active = self.current().is_some_and(|doc| doc.id == id);
         let unsaved = open_doc.is_some_and(|d| d.dirty);
         let ready = entry.is_ready();
         div()
@@ -471,7 +480,12 @@ impl IndicatorEditor {
             .when(active, |el| el.bg(theme::accent_selected()))
             .when(!active, |el| el.hover(|s| s.bg(theme::surface_hover())))
             .on_click(move |_, window, cx| {
-                open.update(cx, |e, cx| e.open(&open_id, window, cx));
+                open.update(cx, |e, cx| {
+                    e.open(&open_id, window, cx);
+                    if let Some((line, column)) = match_at {
+                        e.jump_to(line, column, window, cx);
+                    }
+                });
             })
             .on_mouse_down(MouseButton::Right, move |event, _window, cx| {
                 right.update(cx, |e, cx| {
@@ -497,7 +511,7 @@ impl IndicatorEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(12.5))
+                    .text_size(px(FONT_BODY))
                     .text_color(if active {
                         theme::fg()
                     } else {
@@ -590,17 +604,17 @@ impl IndicatorEditor {
                 .bg(theme::surface())
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(FONT_META))
                         .text_color(theme::muted_fg())
                         .child(title),
                 )
                 .children(description.map(|text| {
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(FONT_META))
                         .text_color(theme::muted_fg())
                         .child(text)
                 }))
-                .child(Input::new(&prompt.input).small())
+                .child(Input::new(&prompt.input).xsmall())
                 .child(
                     div()
                         .flex()
@@ -610,6 +624,7 @@ impl IndicatorEditor {
                         .child(
                             Button::new("editor-prompt-cancel")
                                 .ghost()
+                                .xsmall()
                                 .compact()
                                 .label("Cancel")
                                 .cursor_pointer()
@@ -620,6 +635,7 @@ impl IndicatorEditor {
                         .child(
                             Button::new("editor-prompt-ok")
                                 .primary()
+                                .xsmall()
                                 .compact()
                                 .label("OK")
                                 .cursor_pointer()
@@ -645,7 +661,7 @@ impl IndicatorEditor {
             .px_2()
             .border_b_1()
             .border_color(theme::border_hairline())
-            .overflow_hidden();
+            .overflow_x_scrollbar();
         for (index, doc) in self.docs.iter().enumerate() {
             let active = index == self.active;
             let (pick, close) = (cx.entity(), cx.entity());
@@ -690,7 +706,7 @@ impl IndicatorEditor {
                     ))
                     .child(
                         div()
-                            .text_size(px(12.5))
+                            .text_size(px(FONT_BODY))
                             .text_color(if active {
                                 theme::fg()
                             } else {
@@ -759,13 +775,14 @@ impl IndicatorEditor {
                 .child(
                     div()
                         .flex_1()
-                        .text_size(px(12.))
+                        .text_size(px(FONT_BODY))
                         .text_color(theme::fg())
                         .child(text.to_owned()),
                 )
                 .children(actions.then(|| {
                     Button::new("editor-reload")
                         .ghost()
+                        .xsmall()
                         .compact()
                         .label("Load the file")
                         .cursor_pointer()
@@ -776,6 +793,7 @@ impl IndicatorEditor {
                 .children(actions.then(|| {
                     Button::new("editor-keep")
                         .ghost()
+                        .xsmall()
                         .compact()
                         .label("Keep mine")
                         .cursor_pointer()
@@ -799,7 +817,7 @@ impl IndicatorEditor {
             .child(icon_colored(IconName::CodeXml, 32., theme::muted_fg()))
             .child(
                 div()
-                    .text_size(px(14.))
+                    .text_size(px(FONT_TITLE))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child("Write your own indicators"),
@@ -808,7 +826,7 @@ impl IndicatorEditor {
                 div()
                     .max_w(px(420.))
                     .text_center()
-                    .text_size(px(12.))
+                    .text_size(px(FONT_BODY))
                     .text_color(theme::muted_fg())
                     .child("Pick a script on the left, or start from a template. A saved script shows up in the list of indicators, on every chart."),
             )
@@ -820,6 +838,7 @@ impl IndicatorEditor {
                     .child(
                         Button::new("editor-empty-new")
                             .primary()
+                            .xsmall()
                             .compact()
                             .icon(IconName::FilePlus)
                             .label("New script")
@@ -831,6 +850,7 @@ impl IndicatorEditor {
                     .child(
                         Button::new("editor-empty-folder")
                             .ghost()
+                            .xsmall()
                             .compact()
                             .icon(IconName::FolderOpen)
                             .label("Open the folder")
@@ -847,7 +867,7 @@ impl IndicatorEditor {
 
     fn console(&self, cx: &mut Context<Self>) -> AnyElement {
         let problems: &[Problem] = self.current().map_or(&[], |d| d.problems.as_slice());
-        let (a, b) = (cx.entity(), cx.entity());
+        let (a, b, previous, next) = (cx.entity(), cx.entity(), cx.entity(), cx.entity());
         let tab = |id: &'static str, label: &'static str, count: Option<usize>, chosen: bool| {
             div()
                 .id(id)
@@ -858,7 +878,7 @@ impl IndicatorEditor {
                 .h(px(26.))
                 .px_2p5()
                 .cursor_pointer()
-                .text_size(px(12.))
+                .text_size(px(FONT_BODY))
                 .border_b_2()
                 .border_color(if chosen {
                     theme::accent()
@@ -876,7 +896,7 @@ impl IndicatorEditor {
                         .px_1p5()
                         .rounded_full()
                         .bg(theme::destructive_bg())
-                        .text_size(px(10.5))
+                        .text_size(px(FONT_META))
                         .text_color(theme::destructive())
                         .child(c.to_string())
                 }))
@@ -887,11 +907,31 @@ impl IndicatorEditor {
         };
         div()
             .flex_none()
-            .h(px(CONSOLE_HEIGHT))
+            .h(px(self.console_height))
             .flex()
             .flex_col()
             .border_t_1()
             .border_color(theme::border_hairline())
+            .child(
+                div()
+                    .id("editor-console-resize")
+                    .flex_none()
+                    .h(px(5.))
+                    .w_full()
+                    .cursor_row_resize()
+                    .hover(|s| s.bg(theme::accent_alpha(0.35)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                            this.resize = Some(ResizeDrag {
+                                side: ResizeSide::Console,
+                                start: f32::from(event.position.y),
+                                size: this.console_height,
+                            });
+                            cx.notify();
+                        }),
+                    ),
+            )
             .child(
                 div()
                     .flex_none()
@@ -927,6 +967,31 @@ impl IndicatorEditor {
                                 cx.notify();
                             });
                         }),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        self.tool_button(
+                            "problem-prev",
+                            IconName::ChevronUp,
+                            None,
+                            "Previous problem (Shift+F8)",
+                            !problems.is_empty(),
+                        )
+                        .on_click(move |_, window, cx| {
+                            previous.update(cx, |e, cx| e.step_problem(false, window, cx));
+                        }),
+                    )
+                    .child(
+                        self.tool_button(
+                            "problem-next",
+                            IconName::ChevronDown,
+                            None,
+                            "Next problem (F8)",
+                            !problems.is_empty(),
+                        )
+                        .on_click(move |_, window, cx| {
+                            next.update(cx, |e, cx| e.step_problem(true, window, cx));
+                        }),
                     ),
             )
             .child(body)
@@ -956,7 +1021,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(12.))
+                        .text_size(px(FONT_BODY))
                         .text_color(theme::muted_fg())
                         .child(icon_colored(IconName::Check, 14., theme::emerald()))
                         .child(text),
@@ -999,14 +1064,14 @@ impl IndicatorEditor {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(12.))
+                            .text_size(px(FONT_BODY))
                             .text_color(theme::fg())
                             .child(problem.message.clone()),
                     )
                     .children((line > 0).then(|| {
                         div()
                             .flex_none()
-                            .text_size(px(11.))
+                            .text_size(px(FONT_META))
                             .text_color(theme::muted_fg())
                             .child(format!("line {line}, column {column}"))
                     })),
@@ -1050,14 +1115,14 @@ impl IndicatorEditor {
                 }
                 list = list.child(
                     div()
-                        .text_size(px(11.5))
+                        .text_size(px(FONT_META))
                         .text_color(theme::muted_fg())
                         .child(line),
                 );
                 if let Some(problem) = report.problems.first() {
                     list = list.child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(FONT_BODY))
                             .text_color(theme::destructive())
                             .child(problem.message.clone()),
                     );
@@ -1071,7 +1136,7 @@ impl IndicatorEditor {
                     list = list.child(
                         div()
                             .font_family(mono())
-                            .text_size(px(12.))
+                            .text_size(px(FONT_BODY))
                             .text_color(theme::fg())
                             .child(text),
                     );
@@ -1140,9 +1205,27 @@ impl IndicatorEditor {
                 ));
             }
         }
+        let tools: Vec<_> = Tool::ALL
+            .iter()
+            .filter_map(|tool| {
+                let name = serde_json::to_value(tool).ok()?.as_str()?.to_owned();
+                matches(&format!("{} {}", name, tool.label())).then_some((name, tool.label()))
+            })
+            .collect();
+        if !tools.is_empty() {
+            list = list.child(section_title("Drawing tool names"));
+            for (name, label) in tools {
+                row_number += 1;
+                let this = cx.entity();
+                let snippet = format!("\"{name}\"");
+                list = list.child(reference_row(row_number, name, label, move |window, cx| {
+                    this.update(cx, |e, cx| e.insert(&snippet, window, cx))
+                }));
+            }
+        }
         div()
             .flex_none()
-            .w(px(REFERENCE_WIDTH))
+            .w(px(self.reference_width))
             .h_full()
             .flex()
             .flex_col()
@@ -1159,14 +1242,14 @@ impl IndicatorEditor {
                     .child(
                         div()
                             .px_1()
-                            .text_size(px(11.))
+                            .text_size(px(FONT_META))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::muted_fg())
                             .child("REFERENCE"),
                     )
                     .child(
                         Input::new(&self.reference_filter)
-                            .small()
+                            .xsmall()
                             .prefix(icon_colored(IconName::Search, 14., theme::muted_fg())),
                     ),
             )
@@ -1178,7 +1261,7 @@ impl IndicatorEditor {
                     .py_1p5()
                     .border_t_1()
                     .border_color(theme::border_hairline())
-                    .text_size(px(11.))
+                    .text_size(px(FONT_META))
                     .text_color(theme::muted_fg())
                     .child("Click a line to write its example where the cursor is."),
             )
@@ -1208,7 +1291,7 @@ impl IndicatorEditor {
             .gap_3()
             .border_t_1()
             .border_color(theme::border_hairline())
-            .text_size(px(11.))
+            .text_size(px(FONT_META))
             .text_color(theme::muted_fg())
             .child("Rhai")
             .children(position)
@@ -1245,7 +1328,7 @@ impl IndicatorEditor {
 
 fn note(text: &'static str) -> gpui::Div {
     div()
-        .text_size(px(12.))
+        .text_size(px(FONT_BODY))
         .text_color(theme::muted_fg())
         .child(text)
 }
@@ -1255,7 +1338,7 @@ fn section_title(title: &'static str) -> gpui::Div {
         .px_3()
         .pt_2p5()
         .pb_1()
-        .text_size(px(11.))
+        .text_size(px(FONT_META))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(theme::muted_fg())
         .child(title.to_uppercase())
@@ -1263,8 +1346,8 @@ fn section_title(title: &'static str) -> gpui::Div {
 
 fn reference_row(
     number: usize,
-    title: &'static str,
-    summary: &'static str,
+    title: impl Into<SharedString>,
+    summary: impl Into<SharedString>,
     on_click: impl Fn(&mut Window, &mut gpui::App) + 'static,
 ) -> AnyElement {
     div()
@@ -1279,15 +1362,15 @@ fn reference_row(
         .child(
             div()
                 .font_family(mono())
-                .text_size(px(12.))
+                .text_size(px(FONT_BODY))
                 .text_color(theme::accent())
-                .child(title),
+                .child(title.into()),
         )
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(px(FONT_META))
                 .text_color(theme::muted_fg())
-                .child(summary),
+                .child(summary.into()),
         )
         .into_any_element()
 }
@@ -1302,7 +1385,13 @@ impl Render for IndicatorEditor {
             Some(doc) => div()
                 .flex_1()
                 .min_h_0()
-                .child(Editor::new(&doc.state).h_full().bordered(false))
+                .child(
+                    Editor::new(&doc.state)
+                        .h_full()
+                        .bordered(false)
+                        .font_family(mono())
+                        .text_size(px(FONT_BODY)),
+                )
                 .into_any_element(),
             None => self.empty(cx),
         };
@@ -1313,6 +1402,19 @@ impl Render for IndicatorEditor {
         div()
             .key_context(CONTEXT)
             .track_focus(&self.focus)
+            .when(self.resize.is_some(), |el| {
+                el.on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, _, cx| {
+                    this.drag_resize(event, cx);
+                }))
+                .on_mouse_up(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| this.end_resize(cx)),
+                )
+                .on_mouse_up_out(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| this.end_resize(cx)),
+                )
+            })
             .on_action(cx.listener(|this, _: &SaveScript, window, cx| this.save(window, cx)))
             .on_action(
                 cx.listener(|this, _: &AddToChart, window, cx| this.add_to_chart(window, cx)),
@@ -1325,10 +1427,24 @@ impl Render for IndicatorEditor {
                 this.reference_open = !this.reference_open;
                 cx.notify();
             }))
+            .on_action(cx.listener(|this, _: &NextProblem, window, cx| {
+                this.step_problem(true, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &PreviousProblem, window, cx| {
+                this.step_problem(false, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &NextTab, window, cx| {
+                this.cycle_tab(true, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &PreviousTab, window, cx| {
+                this.cycle_tab(false, window, cx);
+            }))
             .size_full()
             .flex()
             .flex_col()
             .bg(theme::bg())
+            .font_family(crate::app::appearance::font(cx))
+            .text_size(px(FONT_BODY))
             .text_color(theme::fg())
             .child(toolbar)
             .child(
@@ -1338,6 +1454,26 @@ impl Render for IndicatorEditor {
                     .flex()
                     .flex_row()
                     .child(explorer)
+                    .child(
+                        div()
+                            .id("editor-explorer-resize")
+                            .flex_none()
+                            .w(px(5.))
+                            .h_full()
+                            .cursor_col_resize()
+                            .hover(|s| s.bg(theme::accent_alpha(0.35)))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                                    this.resize = Some(ResizeDrag {
+                                        side: ResizeSide::Explorer,
+                                        start: f32::from(event.position.x),
+                                        size: this.explorer_width,
+                                    });
+                                    cx.notify();
+                                }),
+                            ),
+                    )
                     .child(
                         div()
                             .flex_1()
@@ -1350,7 +1486,32 @@ impl Render for IndicatorEditor {
                             .child(center)
                             .child(console),
                     )
-                    .children(reference),
+                    .children(reference.map(|reference| {
+                        div()
+                            .flex()
+                            .flex_row()
+                            .child(
+                                div()
+                                    .id("editor-reference-resize")
+                                    .flex_none()
+                                    .w(px(5.))
+                                    .h_full()
+                                    .cursor_col_resize()
+                                    .hover(|s| s.bg(theme::accent_alpha(0.35)))
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                                            this.resize = Some(ResizeDrag {
+                                                side: ResizeSide::Reference,
+                                                start: f32::from(event.position.x),
+                                                size: this.reference_width,
+                                            });
+                                            cx.notify();
+                                        }),
+                                    ),
+                            )
+                            .child(reference)
+                    })),
             )
             .child(status)
     }

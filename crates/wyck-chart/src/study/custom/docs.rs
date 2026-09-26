@@ -19,16 +19,19 @@ pub enum Group {
     Series,
     /// Colors.
     Colors,
+    /// The chart drawing tools.
+    Drawings,
 }
 
 impl Group {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Declare,
         Self::Series,
         Self::Windows,
         Self::Indicators,
         Self::Conditions,
         Self::Colors,
+        Self::Drawings,
     ];
 
     pub fn label(self) -> &'static str {
@@ -39,6 +42,7 @@ impl Group {
             Self::Indicators => "Ready made indicators",
             Self::Conditions => "Conditions",
             Self::Colors => "Colors",
+            Self::Drawings => "Chart drawings",
         }
     }
 }
@@ -71,9 +75,37 @@ const fn doc(
     }
 }
 
-use Group::{Colors, Conditions, Declare, Indicators, Series, Windows};
+use Group::{Colors, Conditions, Declare, Drawings, Indicators, Series, Windows};
 
 pub const FUNCTIONS: &[Doc] = &[
+    doc(
+        Drawings,
+        "draw",
+        "draw(id, tool, points, options?)",
+        "Draws one script-owned object on the main chart. Tool names are the drawing tool names in snake_case. Points come from bar_point or time_point. Options accept color, width, text, levels, position, profile and other drawing settings. An id may be used only once per run; an indicator may draw up to 500 objects.",
+        "draw(\"swing\", \"trend_line\", [bar_point(0, low.at(0)), bar_point(n - 1, high.at(n - 1))], #{ color: \"orange\" });",
+    ),
+    doc(
+        Drawings,
+        "bar_point",
+        "bar_point(index, price) -> point",
+        "A point at the time of an existing chart bar and a given price.",
+        "bar_point(n - 1, close.at(n - 1))",
+    ),
+    doc(
+        Drawings,
+        "time_point",
+        "time_point(unix_ms, price) -> point",
+        "A point at Unix time in milliseconds and a given price. It can be in the future.",
+        "time_point(1700000000000, 100.0)",
+    ),
+    doc(
+        Drawings,
+        "drawing_tools",
+        "drawing_tools() -> array",
+        "Lists the names of all chart drawing tools accepted by draw.",
+        "drawing_tools()",
+    ),
     // ---- describing the indicator ----
     doc(
         Declare,

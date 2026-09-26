@@ -65,15 +65,15 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
         .normalized();
     let dir = prefs.folder_path().unwrap_or_else(|| default_dir.clone());
     let mut library = Library::new(&dir);
-    if library.ensure_dir().is_ok() && !prefs.seeded {
-        // The first time, the folder gets the examples, once: a file deleted later stays deleted.
-        match library.install_examples() {
-            Ok(count) => tracing::info!(count, "wrote the example indicators"),
-            Err(error) => tracing::warn!(%error, "could not write the example indicators"),
-        }
-        prefs.seeded = true;
-        if let Some(store) = &store {
-            let _ = store.save(DOCUMENT, &prefs);
+    if library.ensure_dir().is_ok() && !prefs.examples_removed {
+        match remove_examples_folder(library.dir()) {
+            Ok(()) => {
+                prefs.examples_removed = true;
+                if let Some(store) = &store {
+                    let _ = store.save(DOCUMENT, &prefs);
+                }
+            }
+            Err(error) => tracing::warn!(%error, "could not remove the old Examples folder"),
         }
     }
     library.refresh();
@@ -89,6 +89,27 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
         _poll: None,
     });
     start_polling(cx);
+}
+
+/// Remove only the Examples folder directly inside the active indicators directory.
+fn remove_examples_folder(dir: &Path) -> std::io::Result<()> {
+    let target = dir.join("Examples");
+    let metadata = match std::fs::symlink_metadata(&target) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(std::io::Error::other("Examples is not a regular directory"));
+    }
+    let base = dir.canonicalize()?;
+    let resolved = target.canonicalize()?;
+    if resolved.parent() != Some(base.as_path()) {
+        return Err(std::io::Error::other(
+            "Examples resolves outside the indicators directory",
+        ));
+    }
+    std::fs::remove_dir_all(target)
 }
 
 fn start_polling(cx: &mut App) {
@@ -275,6 +296,12 @@ pub fn on_library<T: Send + 'static>(
     })
 }
 
+/// Storage for the editor's open tabs and unsaved buffers.
+pub fn draft_store(cx: &App) -> Option<DocumentStore> {
+    cx.try_global::<Service>()
+        .and_then(|service| service.store.clone())
+}
+
 /// Reads the folder now, instead of at the next moment.
 pub fn reload(cx: &mut App) -> Task<Option<Changes>> {
     on_library(cx, Library::refresh)
@@ -319,4 +346,27 @@ pub fn open_folder(cx: &mut App) {
 /// Shows `file` in the file explorer, selected in its folder.
 pub fn reveal(cx: &mut App, file: &Path) {
     cx.reveal_path(file);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_old_examples_folder_is_removed() {
+        let root = tempfile::tempdir().unwrap();
+        let examples = root.path().join("Examples");
+        let smc = root.path().join("SMC");
+        std::fs::create_dir(&examples).unwrap();
+        std::fs::create_dir(&smc).unwrap();
+        std::fs::write(examples.join("changed.rhai"), "edited").unwrap();
+        std::fs::write(smc.join("mine.rhai"), "kept").unwrap();
+        remove_examples_folder(root.path()).unwrap();
+        remove_examples_folder(root.path()).unwrap();
+        assert!(!examples.exists());
+        assert_eq!(
+            std::fs::read_to_string(smc.join("mine.rhai")).unwrap(),
+            "kept"
+        );
+    }
 }

@@ -1527,19 +1527,6 @@ impl SettingsHub {
                     move |_window, cx| indicators::reload(cx).detach(),
                 ),
             ),
-            ui::field(
-                "The examples",
-                Some("Puts back the ones you deleted, without touching the others"),
-                ui::action(
-                    "indicators-examples",
-                    "Add the examples",
-                    Some(IconName::FilePlus),
-                    false,
-                    move |_window, cx| {
-                        indicators::on_library(cx, |library| library.install_examples()).detach();
-                    },
-                ),
-            ),
         ];
 
         let budgets: Vec<&str> = prefs::Budget::ALL.iter().map(|b| b.label()).collect();
