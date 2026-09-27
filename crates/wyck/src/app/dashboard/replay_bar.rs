@@ -10,20 +10,19 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::Sizable;
 
+use wyck_market_data::replay::prefs::SPEED_PRESETS;
+
 use super::Dashboard;
 use crate::app::theme;
 
-/// The speed presets the cycle button steps through, in order.
-const SPEEDS: [f64; 6] = [0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
-
-/// The preset after `current` in [`SPEEDS`], wrapping around, or `1.0` (the middle of
-/// the range) if `current` is not one of them.
+/// The preset after `current` in [`SPEED_PRESETS`], wrapping around, or the middle of the
+/// range if `current` is not one of them.
 pub(super) fn next_speed(current: f64) -> f64 {
-    let at = SPEEDS
+    let at = SPEED_PRESETS
         .iter()
         .position(|speed| (*speed - current).abs() < 0.001)
         .unwrap_or(2);
-    SPEEDS[(at + 1) % SPEEDS.len()]
+    SPEED_PRESETS[(at + 1) % SPEED_PRESETS.len()]
 }
 
 /// Formats a Replay cursor for the control bar's time readout (UTC, minute precision:
@@ -118,6 +117,6 @@ mod tests {
 
     #[test]
     fn an_unrecognized_speed_lands_on_the_middle_preset() {
-        assert_eq!(next_speed(3.7), SPEEDS[3]);
+        assert_eq!(next_speed(3.7), SPEED_PRESETS[3]);
     }
 }

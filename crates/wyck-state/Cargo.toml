@@ -11,6 +11,7 @@ description = "Persisted workspace preferences and watchlists for Wyck."
 
 [dependencies]
 wyck-chart.workspace = true
+wyck-market-data.workspace = true
 wyck-trading.workspace = true
 serde.workspace = true
 

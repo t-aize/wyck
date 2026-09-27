@@ -383,10 +383,9 @@ impl Dashboard {
         };
         let start_ms = feed.first_bar_time().unwrap_or_else(chart::now_ms);
         let step_ms = feed.period().millis();
-        self.replay = Some(ReplayState {
-            session: wyck_market_data::replay::ReplaySession::new(start_ms, step_ms),
-            feed,
-        });
+        let mut session = wyck_market_data::replay::ReplaySession::new(start_ms, step_ms);
+        session.set_speed(self.workspace.read(cx).preferences().replay.default_speed, start_ms);
+        self.replay = Some(ReplayState { session, feed });
         cx.notify();
     }
 

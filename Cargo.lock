@@ -9290,6 +9290,7 @@ name = "wyck-market-data"
 version = "0.1.0"
 dependencies = [
  "rusqlite",
+ "serde",
  "tempfile",
  "thiserror 2.0.20",
  "time",
@@ -9336,6 +9337,7 @@ dependencies = [
  "serde",
  "toml 1.1.6+spec-1.1.0",
  "wyck-chart",
+ "wyck-market-data",
  "wyck-openapi-model",
  "wyck-trading",
 ]

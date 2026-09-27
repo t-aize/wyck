@@ -5,7 +5,9 @@
 //! shape the real live feed produces.
 
 pub mod clock;
+pub mod prefs;
 pub mod session;
 
 pub use clock::TestClock;
+pub use prefs::ReplayPrefs;
 pub use session::ReplaySession;
