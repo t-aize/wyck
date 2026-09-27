@@ -15,6 +15,7 @@
 //! flat, fixed-record binary files, one per `(symbol, series, calendar month)`
 //! ([`catalog::chunks`]).
 
+pub mod backfill;
 pub mod catalog;
 pub mod error;
 

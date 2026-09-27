@@ -63,4 +63,10 @@ pub enum MarketDataError {
     /// A manifest query or write failed.
     #[error("catalog manifest query failed: {0}")]
     ManifestQuery(#[source] rusqlite::Error),
+
+    /// The upstream historical data source (the broker, or a test fake) returned an
+    /// error. Only its display text is kept, never its concrete type, so this crate
+    /// never has to depend on the upstream's own error type.
+    #[error("upstream historical data request failed: {0}")]
+    Upstream(String),
 }

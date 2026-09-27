@@ -1,10 +1,15 @@
 //! Month-partitioned flat binary chunk files: one file per `(symbol, series, calendar
-//! month)`, holding fixed-size records back to back. Only the current month is ever
-//! appended to; sealed months are immutable (see [`super::manifest::Manifest`] for the
-//! "which months are sealed" bookkeeping) and are read as a single sequential file read.
+//! month)`, holding fixed-size records back to back, sorted by time and deduplicated.
+//! Only the current (still-open) month is ever written to more than once; sealed months
+//! are immutable (see [`super::manifest::Manifest`] for the "which months are sealed"
+//! bookkeeping) and are read as a single sequential file read.
+//!
+//! Storing is a read-merge-dedup-rewrite, not a blind append: the backfill scheduler may
+//! ask for the same still-open month more than once as new data arrives, and a live
+//! write-behind cache would too. Rewriting the whole (small, one month of one instrument)
+//! file keeps that safe without a separate "have I already stored this record" index.
 
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use time::OffsetDateTime;
@@ -30,6 +35,33 @@ pub fn month_start_ms(year: i32, month: u8) -> i64 {
     let month = time::Month::try_from(month).unwrap_or(time::Month::January);
     let date = time::Date::from_calendar_date(year, month, 1).unwrap_or(time::Date::MIN);
     date.midnight().assume_utc().unix_timestamp() * 1000
+}
+
+/// The Unix-millisecond timestamp of the first instant of the UTC calendar month right
+/// after `(year, month)`: the exclusive end of that month's range.
+#[must_use]
+pub fn next_month_start_ms(year: i32, month: u8) -> i64 {
+    if month == 12 {
+        month_start_ms(year + 1, 1)
+    } else {
+        month_start_ms(year, month + 1)
+    }
+}
+
+/// Every calendar month whose range overlaps `[from_ms, to_ms)`, oldest first. Empty if
+/// the range is empty or inverted.
+#[must_use]
+pub fn months_between(from_ms: i64, to_ms: i64) -> Vec<(i32, u8)> {
+    if to_ms <= from_ms {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let (mut year, mut month) = month_of(from_ms);
+    while month_start_ms(year, month) < to_ms {
+        out.push((year, month));
+        (year, month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+    }
+    out
 }
 
 /// The path of the bar chunk file for `symbol_id`/`period`'s `(year, month)`, rooted at
@@ -61,58 +93,58 @@ fn create_parent(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Appends `bars` (already sorted and belonging to the same chunk) to `path`, creating
-/// the file and its parent directories if needed.
+/// Writes `bytes` to `path` atomically: written to a sibling temp file first, then
+/// renamed into place, so a crash mid-write never leaves a half-written chunk where a
+/// reader could see it.
+fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+    create_parent(path)?;
+    let tmp = path.with_extension("bin.tmp");
+    fs::write(&tmp, bytes).map_err(|source| MarketDataError::Write {
+        path: tmp.clone(),
+        source,
+    })?;
+    fs::rename(&tmp, path).map_err(|source| MarketDataError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Merges `bars` into whatever is already stored at `path` (if anything), keeping the
+/// newest record for any duplicate timestamp, and rewrites the file sorted by time. Safe
+/// to call more than once with overlapping data, which the backfill scheduler and a live
+/// write-behind cache both need for a still-open month.
 pub fn append_bars(path: &Path, bars: &[Bar]) -> Result<()> {
     if bars.is_empty() {
         return Ok(());
     }
-    create_parent(path)?;
-    let mut buf = Vec::with_capacity(bars.len() * BAR_RECORD_LEN);
-    for bar in bars {
+    // New records are placed first so that, after the stable sort below, they win over
+    // an existing record at the same timestamp: `dedup_by_key` keeps the first of each
+    // run of equal keys.
+    let mut all = bars.to_vec();
+    all.extend(read_bars(path)?);
+    all.sort_by_key(|bar| bar.time_ms);
+    all.dedup_by_key(|bar| bar.time_ms);
+    let mut buf = Vec::with_capacity(all.len() * BAR_RECORD_LEN);
+    for bar in &all {
         encode_bar(bar, &mut buf);
     }
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|source| MarketDataError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    file.write_all(&buf)
-        .and_then(|()| file.sync_data())
-        .map_err(|source| MarketDataError::Write {
-            path: path.to_path_buf(),
-            source,
-        })
+    write_atomic(path, &buf)
 }
 
-/// Appends `ticks` (already sorted and belonging to the same chunk) to `path`, creating
-/// the file and its parent directories if needed.
+/// Merges `ticks` into whatever is already stored at `path`, see [`append_bars`].
 pub fn append_ticks(path: &Path, ticks: &[Tick]) -> Result<()> {
     if ticks.is_empty() {
         return Ok(());
     }
-    create_parent(path)?;
-    let mut buf = Vec::with_capacity(ticks.len() * TICK_RECORD_LEN);
-    for tick in ticks {
+    let mut all = ticks.to_vec();
+    all.extend(read_ticks(path)?);
+    all.sort_by_key(|tick| tick.time_ms);
+    all.dedup_by_key(|tick| tick.time_ms);
+    let mut buf = Vec::with_capacity(all.len() * TICK_RECORD_LEN);
+    for tick in &all {
         encode_tick(tick, &mut buf);
     }
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|source| MarketDataError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    file.write_all(&buf)
-        .and_then(|()| file.sync_data())
-        .map_err(|source| MarketDataError::Write {
-            path: path.to_path_buf(),
-            source,
-        })
+    write_atomic(path, &buf)
 }
 
 /// Reads every bar in the chunk file at `path`, or an empty vec if it does not exist.
@@ -168,6 +200,28 @@ mod tests {
     }
 
     #[test]
+    fn next_month_start_ms_rolls_over_the_year() {
+        assert_eq!(next_month_start_ms(2024, 3), month_start_ms(2024, 4));
+        assert_eq!(next_month_start_ms(2024, 12), month_start_ms(2025, 1));
+    }
+
+    #[test]
+    fn months_between_lists_every_overlapping_month() {
+        let from = month_start_ms(2024, 2) + 1;
+        let to = month_start_ms(2024, 4) + 1;
+        assert_eq!(
+            months_between(from, to),
+            vec![(2024, 2), (2024, 3), (2024, 4)]
+        );
+    }
+
+    #[test]
+    fn months_between_is_empty_for_an_inverted_or_empty_range() {
+        assert_eq!(months_between(100, 100), Vec::new());
+        assert_eq!(months_between(100, 0), Vec::new());
+    }
+
+    #[test]
     fn bars_round_trip_through_append_and_read() {
         let dir = tempfile::tempdir().unwrap();
         let path = bar_chunk_path(dir.path(), 1, Period::M1, 2024, 3);
@@ -211,6 +265,31 @@ mod tests {
             read_ticks(&path).unwrap(),
             vec![first[0], second[0]]
         );
+    }
+
+    #[test]
+    fn storing_the_same_timestamp_again_replaces_it_and_keeps_it_sorted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = bar_chunk_path(dir.path(), 1, Period::M1, 2024, 3);
+        let original = Bar {
+            time_ms: 10,
+            open: 1,
+            high: 1,
+            low: 1,
+            close: 1,
+            volume: 1,
+        };
+        let earlier = Bar {
+            time_ms: 5,
+            ..original
+        };
+        let corrected = Bar {
+            close: 999,
+            ..original
+        };
+        append_bars(&path, &[original]).unwrap();
+        append_bars(&path, &[earlier, corrected]).unwrap();
+        assert_eq!(read_bars(&path).unwrap(), vec![earlier, corrected]);
     }
 
     #[test]

@@ -72,7 +72,7 @@ impl Catalog {
         to_ms: i64,
     ) -> Result<Vec<Bar>> {
         let mut out = Vec::new();
-        for (year, month) in months_between(from_ms, to_ms) {
+        for (year, month) in chunks::months_between(from_ms, to_ms) {
             let path = chunks::bar_chunk_path(&self.root, symbol_id, period, year, month);
             out.extend(chunks::read_bars(&path)?);
         }
@@ -85,7 +85,7 @@ impl Catalog {
     /// by time.
     pub fn load_ticks(&self, symbol_id: i64, from_ms: i64, to_ms: i64) -> Result<Vec<Tick>> {
         let mut out = Vec::new();
-        for (year, month) in months_between(from_ms, to_ms) {
+        for (year, month) in chunks::months_between(from_ms, to_ms) {
             let path = chunks::tick_chunk_path(&self.root, symbol_id, year, month);
             out.extend(chunks::read_ticks(&path)?);
         }
@@ -164,32 +164,6 @@ fn group_by_month<T: Copy>(
         }
     }
     groups
-}
-
-/// Every calendar month whose range overlaps `[from_ms, to_ms)`, oldest first.
-fn months_between(from_ms: i64, to_ms: i64) -> Vec<(i32, u8)> {
-    if to_ms <= from_ms {
-        return Vec::new();
-    }
-    let mut out = Vec::new();
-    let (mut year, mut month) = chunks::month_of(from_ms);
-    loop {
-        out.push((year, month));
-        if chunks::month_start_ms(year, month) >= to_ms {
-            break;
-        }
-        if month == 12 {
-            year += 1;
-            month = 1;
-        } else {
-            month += 1;
-        }
-        if chunks::month_start_ms(year, month) >= to_ms {
-            out.push((year, month));
-            break;
-        }
-    }
-    out
 }
 
 #[cfg(test)]
