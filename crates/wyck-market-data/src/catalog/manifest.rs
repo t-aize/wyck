@@ -1,0 +1,205 @@
+//! The catalog's SQLite manifest: which `(symbol, series, month)` chunks are sealed and
+//! complete, and the resumable state of in-flight backfill jobs. Small and relational, so
+//! this is the one place the catalog needs atomic commits; the bulk numeric data lives in
+//! the flat chunk files from [`super::chunks`], never in SQLite.
+
+use std::path::Path;
+
+use rusqlite::{Connection, OptionalExtension, params};
+
+use crate::error::{MarketDataError, Result};
+
+/// A series identifier within the manifest: either a bar period's label (e.g. `"M1"`) or
+/// the literal `"ticks"`. Kept as a plain string key rather than an enum so the manifest
+/// schema does not need to change if `wyck_openapi_model::market::Period` grows variants.
+pub type Series<'a> = &'a str;
+
+/// The series key for ticks, as stored in the manifest.
+pub const TICKS: Series<'static> = "ticks";
+
+/// The SQLite-backed manifest of catalog coverage and backfill job state.
+pub struct Manifest {
+    conn: Connection,
+}
+
+impl Manifest {
+    /// Opens (creating if needed) the manifest database at `path`, and applies the
+    /// schema if it is not already present.
+    pub fn open(path: &Path) -> Result<Self> {
+        let conn = Connection::open(path).map_err(|source| MarketDataError::Manifest {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        let manifest = Self { conn };
+        manifest.migrate(path)?;
+        Ok(manifest)
+    }
+
+    /// Opens an in-memory manifest, for tests that don't need the database to survive
+    /// the process.
+    #[must_use]
+    pub fn open_in_memory() -> Self {
+        let conn = Connection::open_in_memory().expect("in-memory sqlite connection");
+        let manifest = Self { conn };
+        manifest
+            .migrate(Path::new(":memory:"))
+            .expect("in-memory schema migration");
+        manifest
+    }
+
+    fn migrate(&self, path: &Path) -> Result<()> {
+        self.conn
+            .execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS coverage (
+                    symbol_id INTEGER NOT NULL,
+                    series TEXT NOT NULL,
+                    month_start_ms INTEGER NOT NULL,
+                    complete INTEGER NOT NULL DEFAULT 0,
+                    request_count INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (symbol_id, series, month_start_ms)
+                );
+                CREATE TABLE IF NOT EXISTS oldest_known (
+                    symbol_id INTEGER NOT NULL,
+                    series TEXT NOT NULL,
+                    oldest_ms INTEGER NOT NULL,
+                    probed_at_ms INTEGER NOT NULL,
+                    PRIMARY KEY (symbol_id, series)
+                );
+                CREATE TABLE IF NOT EXISTS backfill_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol_id INTEGER NOT NULL,
+                    series TEXT NOT NULL,
+                    from_ms INTEGER NOT NULL,
+                    to_ms INTEGER NOT NULL,
+                    cursor_ms INTEGER NOT NULL,
+                    status TEXT NOT NULL
+                );
+                ",
+            )
+            .map_err(|source| MarketDataError::Manifest {
+                path: path.to_path_buf(),
+                source,
+            })
+    }
+
+    /// Marks the chunk for `symbol_id`/`series`/`month_start_ms` as sealed and complete.
+    /// Called only after the chunk file itself has been written and flushed
+    /// successfully, so a crash between the two never leaves a month marked complete
+    /// with data missing on disk.
+    pub fn mark_month_complete(
+        &self,
+        symbol_id: i64,
+        series: Series<'_>,
+        month_start_ms: i64,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO coverage (symbol_id, series, month_start_ms, complete)
+                 VALUES (?1, ?2, ?3, 1)
+                 ON CONFLICT (symbol_id, series, month_start_ms)
+                 DO UPDATE SET complete = 1",
+                params![symbol_id, series, month_start_ms],
+            )
+            .map(|_| ())
+            .map_err(MarketDataError::ManifestQuery)
+    }
+
+    /// Whether the chunk for `symbol_id`/`series`/`month_start_ms` is sealed and
+    /// complete.
+    pub fn is_month_complete(
+        &self,
+        symbol_id: i64,
+        series: Series<'_>,
+        month_start_ms: i64,
+    ) -> Result<bool> {
+        self.conn
+            .query_row(
+                "SELECT complete FROM coverage
+                 WHERE symbol_id = ?1 AND series = ?2 AND month_start_ms = ?3",
+                params![symbol_id, series, month_start_ms],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map(|value| value == Some(1))
+            .map_err(MarketDataError::ManifestQuery)
+    }
+
+    /// Records that a backward probe for `symbol_id`/`series` found no data older than
+    /// `oldest_ms`, so future range requests never assume a fixed retention depth and
+    /// never re-probe past this point.
+    pub fn record_oldest_known(
+        &self,
+        symbol_id: i64,
+        series: Series<'_>,
+        oldest_ms: i64,
+        probed_at_ms: i64,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO oldest_known (symbol_id, series, oldest_ms, probed_at_ms)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (symbol_id, series)
+                 DO UPDATE SET oldest_ms = excluded.oldest_ms, probed_at_ms = excluded.probed_at_ms",
+                params![symbol_id, series, oldest_ms, probed_at_ms],
+            )
+            .map(|_| ())
+            .map_err(MarketDataError::ManifestQuery)
+    }
+
+    /// The oldest timestamp known to have data for `symbol_id`/`series`, if a backward
+    /// probe has ever completed for it.
+    pub fn oldest_known_ms(&self, symbol_id: i64, series: Series<'_>) -> Result<Option<i64>> {
+        self.conn
+            .query_row(
+                "SELECT oldest_ms FROM oldest_known WHERE symbol_id = ?1 AND series = ?2",
+                params![symbol_id, series],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(MarketDataError::ManifestQuery)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_month_starts_incomplete() {
+        let manifest = Manifest::open_in_memory();
+        assert!(!manifest.is_month_complete(1, "M1", 0).unwrap());
+    }
+
+    #[test]
+    fn marking_a_month_complete_persists() {
+        let manifest = Manifest::open_in_memory();
+        manifest.mark_month_complete(1, "M1", 1_700_000_000_000).unwrap();
+        assert!(
+            manifest
+                .is_month_complete(1, "M1", 1_700_000_000_000)
+                .unwrap()
+        );
+        // A different symbol/series/month is unaffected.
+        assert!(!manifest.is_month_complete(2, "M1", 1_700_000_000_000).unwrap());
+        assert!(!manifest.is_month_complete(1, TICKS, 1_700_000_000_000).unwrap());
+    }
+
+    #[test]
+    fn marking_complete_twice_is_idempotent() {
+        let manifest = Manifest::open_in_memory();
+        manifest.mark_month_complete(1, "M1", 0).unwrap();
+        manifest.mark_month_complete(1, "M1", 0).unwrap();
+        assert!(manifest.is_month_complete(1, "M1", 0).unwrap());
+    }
+
+    #[test]
+    fn oldest_known_round_trips_and_can_be_updated() {
+        let manifest = Manifest::open_in_memory();
+        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), None);
+        manifest.record_oldest_known(1, TICKS, 1_000, 5_000).unwrap();
+        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(1_000));
+        manifest.record_oldest_known(1, TICKS, 500, 6_000).unwrap();
+        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(500));
+    }
+}

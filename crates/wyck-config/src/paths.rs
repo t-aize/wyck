@@ -89,6 +89,17 @@ impl AppPaths {
     pub fn indicators_dir(&self) -> PathBuf {
         self.config_dir.join("indicators")
     }
+
+    /// The folder the scripted strategies are read from unless the user chose another.
+    pub fn strategies_dir(&self) -> PathBuf {
+        self.config_dir.join("strategies")
+    }
+
+    /// The folder the local historical market data catalog (manifest and bar/tick chunk
+    /// files) is stored in.
+    pub fn market_data_dir(&self) -> PathBuf {
+        self.data_dir.join("market-data")
+    }
 }
 
 #[cfg(test)]
@@ -103,5 +114,10 @@ mod tests {
         assert_eq!(paths.config_file(), Path::new("/tmp/example/config.toml"));
         assert_eq!(paths.secrets_dir(), Path::new("/tmp/example/secrets"));
         assert_eq!(paths.indicators_dir(), Path::new("/tmp/example/indicators"));
+        assert_eq!(paths.strategies_dir(), Path::new("/tmp/example/strategies"));
+        assert_eq!(
+            paths.market_data_dir(),
+            Path::new("/tmp/example/market-data")
+        );
     }
 }

@@ -13,8 +13,10 @@ repository = "https://github.com/t-aize/wyck"
 publish = false
 
 [workspace.dependencies]
+wyck-backtest = { path = "crates/wyck-backtest", version = "0.1.0" }
 wyck-chart = { path = "crates/wyck-chart", version = "0.1.0" }
 wyck-config = { path = "crates/wyck-config", version = "0.1.0" }
+wyck-market-data = { path = "crates/wyck-market-data", version = "0.1.0" }
 wyck-openapi = { path = "crates/wyck-openapi", version = "0.1.0" }
 wyck-openapi-model = { path = "crates/wyck-openapi-model", version = "0.1.0" }
 wyck-state = { path = "crates/wyck-state", version = "0.1.0" }
@@ -37,6 +39,7 @@ lsp-types = "0.97"
 proptest = "1.11.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
 rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 rust-embed = { version = "8", features = ["debug-embed"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
