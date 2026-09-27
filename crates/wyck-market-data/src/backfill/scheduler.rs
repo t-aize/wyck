@@ -176,10 +176,15 @@ pub struct BackfillRange {
 }
 
 /// Ensures every whole calendar month overlapping `range` is present in the catalog for
-/// `symbol_id`/`period`, fetching and storing any month not already marked complete. The
-/// month `range.now_ms` falls in is fetched and stored like any other, but deliberately
-/// never sealed, since it is still receiving new bars and would otherwise be skipped
-/// forever on the next backfill run.
+/// `symbol_id`/`period`, fetching and storing any month not already marked complete.
+///
+/// A closed month (one that has fully elapsed) is fetched and cached in full, once, then
+/// sealed. The month `range.now_ms` falls in is different: it keeps receiving new bars,
+/// so it is never sealed, and — critically — only the slice of it actually asked for is
+/// fetched, not the whole month. Without that distinction, every single call touching
+/// "now" (which is every chart load) would re-fetch the entire current month from
+/// scratch, since it can never be marked complete: exactly the bug this comment is here
+/// to keep someone from reintroducing.
 pub async fn backfill_bars(
     catalog: &Catalog,
     upstream: &impl Upstream,
@@ -197,10 +202,19 @@ pub async fn backfill_bars(
         if catalog.bars_month_complete(symbol_id, period, start)? {
             continue;
         }
-        let end = next_month_start_ms(year, month) - 1;
-        let bars = fetch_bars_chunked(upstream, limiter, symbol_id, period, start, end).await?;
-        catalog.store_bars(symbol_id, period, &bars)?;
-        if start != open_month_start {
+        if start == open_month_start {
+            let month_end = next_month_start_ms(year, month);
+            let from = range.from_ms.max(start);
+            let to = range.to_ms.min(month_end) - 1;
+            if from > to {
+                continue;
+            }
+            let bars = fetch_bars_chunked(upstream, limiter, symbol_id, period, from, to).await?;
+            catalog.store_bars(symbol_id, period, &bars)?;
+        } else {
+            let end = next_month_start_ms(year, month) - 1;
+            let bars = fetch_bars_chunked(upstream, limiter, symbol_id, period, start, end).await?;
+            catalog.store_bars(symbol_id, period, &bars)?;
             catalog.mark_bars_month_complete(symbol_id, period, start)?;
         }
     }
@@ -208,7 +222,8 @@ pub async fn backfill_bars(
 }
 
 /// Ensures every whole calendar month overlapping `range` is present in the catalog's
-/// tick series for `symbol_id`, see [`backfill_bars`].
+/// tick series for `symbol_id`, see [`backfill_bars`] (including why the still-open month
+/// only ever fetches the requested slice, never the whole month).
 pub async fn backfill_ticks(
     catalog: &Catalog,
     upstream: &impl Upstream,
@@ -225,12 +240,21 @@ pub async fn backfill_ticks(
         if catalog.ticks_month_complete(symbol_id, start)? {
             continue;
         }
+        if start == open_month_start {
+            let month_end = next_month_start_ms(year, month);
+            let from = range.from_ms.max(start);
+            let to = range.to_ms.min(month_end) - 1;
+            if from > to {
+                continue;
+            }
+            let ticks = fetch_ticks_chunked(upstream, limiter, symbol_id, from, to).await?;
+            catalog.store_ticks(symbol_id, &ticks)?;
+            continue;
+        }
         let end = next_month_start_ms(year, month) - 1;
         let ticks = fetch_ticks_chunked(upstream, limiter, symbol_id, start, end).await?;
         catalog.store_ticks(symbol_id, &ticks)?;
-        if start != open_month_start {
-            catalog.mark_ticks_month_complete(symbol_id, start)?;
-        }
+        catalog.mark_ticks_month_complete(symbol_id, start)?;
     }
     Ok(())
 }
@@ -415,6 +439,44 @@ mod tests {
 
         assert!(!catalog.load_bars(1, Period::M1, start, now).unwrap().is_empty());
         assert!(!catalog.bars_month_complete(1, Period::M1, start).unwrap());
+    }
+
+    /// Regression test: a chart asking for a small recent window (as every normal chart
+    /// load does) must never trigger fetching the whole current month, or a load that
+    /// used to be instant against the live broker becomes a multi-second (or, on a
+    /// dense M1 chart, multi-request) stall every single time, since the open month can
+    /// never be marked complete and would otherwise be re-fetched whole on every call.
+    #[tokio::test]
+    async fn a_small_window_in_the_open_month_never_fetches_the_whole_month() {
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = Catalog::open(dir.path()).unwrap();
+        let month_start = month_start_ms(2024, 8);
+        let now = month_start + 20 * 86_400_000; // 20 days into the month
+        let fake = Fake::new(month_start, now);
+        let window_start = now - 20 * 60_000; // the last 20 minutes only
+
+        backfill_bars(
+            &catalog,
+            &fake,
+            &limiter(),
+            1,
+            Period::M1,
+            BackfillRange {
+                from_ms: window_start,
+                to_ms: now,
+                now_ms: now,
+            },
+        )
+        .await
+        .unwrap();
+
+        for (from, _to) in fake.bar_requests.lock().unwrap().iter() {
+            assert!(
+                *from >= window_start,
+                "asked for {from}, long before the requested window {window_start}: the whole month was fetched"
+            );
+        }
+        assert!(!catalog.bars_month_complete(1, Period::M1, month_start).unwrap());
     }
 
     #[tokio::test]
