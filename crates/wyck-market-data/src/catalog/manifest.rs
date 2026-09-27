@@ -4,6 +4,7 @@
 //! the flat chunk files from [`super::chunks`], never in SQLite.
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -18,8 +19,14 @@ pub type Series<'a> = &'a str;
 pub const TICKS: Series<'static> = "ticks";
 
 /// The SQLite-backed manifest of catalog coverage and backfill job state.
+///
+/// A `rusqlite::Connection` is `Send` but not `Sync` (its interior mutability is not safe
+/// to touch from two threads at once), while a [`super::Catalog`] is shared behind a
+/// plain `&self` across concurrent async tasks (multiple charts backfilling at once).
+/// The `Mutex` here is that synchronization, not a performance optimization: catalog
+/// access is not a hot path.
 pub struct Manifest {
-    conn: Connection,
+    conn: Mutex<Connection>,
 }
 
 impl Manifest {
@@ -30,7 +37,9 @@ impl Manifest {
             path: path.to_path_buf(),
             source,
         })?;
-        let manifest = Self { conn };
+        let manifest = Self {
+            conn: Mutex::new(conn),
+        };
         manifest.migrate(path)?;
         Ok(manifest)
     }
@@ -40,7 +49,9 @@ impl Manifest {
     #[must_use]
     pub fn open_in_memory() -> Self {
         let conn = Connection::open_in_memory().expect("in-memory sqlite connection");
-        let manifest = Self { conn };
+        let manifest = Self {
+            conn: Mutex::new(conn),
+        };
         manifest
             .migrate(Path::new(":memory:"))
             .expect("in-memory schema migration");
@@ -48,7 +59,7 @@ impl Manifest {
     }
 
     fn migrate(&self, path: &Path) -> Result<()> {
-        self.conn
+        self.conn()
             .execute_batch(
                 "
                 CREATE TABLE IF NOT EXISTS coverage (
@@ -83,6 +94,13 @@ impl Manifest {
             })
     }
 
+    /// Locks the connection, recovering it if a previous holder panicked while holding
+    /// the lock rather than poisoning every later access: a manifest query is never
+    /// half-applied (SQLite statements are atomic), so there is nothing to roll back.
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     /// Marks the chunk for `symbol_id`/`series`/`month_start_ms` as sealed and complete.
     /// Called only after the chunk file itself has been written and flushed
     /// successfully, so a crash between the two never leaves a month marked complete
@@ -93,7 +111,7 @@ impl Manifest {
         series: Series<'_>,
         month_start_ms: i64,
     ) -> Result<()> {
-        self.conn
+        self.conn()
             .execute(
                 "INSERT INTO coverage (symbol_id, series, month_start_ms, complete)
                  VALUES (?1, ?2, ?3, 1)
@@ -113,7 +131,7 @@ impl Manifest {
         series: Series<'_>,
         month_start_ms: i64,
     ) -> Result<bool> {
-        self.conn
+        self.conn()
             .query_row(
                 "SELECT complete FROM coverage
                  WHERE symbol_id = ?1 AND series = ?2 AND month_start_ms = ?3",
@@ -135,7 +153,7 @@ impl Manifest {
         oldest_ms: i64,
         probed_at_ms: i64,
     ) -> Result<()> {
-        self.conn
+        self.conn()
             .execute(
                 "INSERT INTO oldest_known (symbol_id, series, oldest_ms, probed_at_ms)
                  VALUES (?1, ?2, ?3, ?4)
@@ -150,7 +168,7 @@ impl Manifest {
     /// The oldest timestamp known to have data for `symbol_id`/`series`, if a backward
     /// probe has ever completed for it.
     pub fn oldest_known_ms(&self, symbol_id: i64, series: Series<'_>) -> Result<Option<i64>> {
-        self.conn
+        self.conn()
             .query_row(
                 "SELECT oldest_ms FROM oldest_known WHERE symbol_id = ?1 AND series = ?2",
                 params![symbol_id, series],

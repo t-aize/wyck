@@ -51,6 +51,7 @@
 //! quotes, and the chart says so.
 
 use wyck_chart::axis;
+pub mod catalog_client;
 mod chart_settings_ui;
 mod construction_ui;
 mod custom_runs;

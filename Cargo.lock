@@ -9230,6 +9230,7 @@ dependencies = [
  "unicode-segmentation",
  "wyck-chart",
  "wyck-config",
+ "wyck-market-data",
  "wyck-openapi",
  "wyck-state",
  "wyck-trading",

@@ -18,6 +18,8 @@ mod dashboard;
 mod indicators;
 #[path = "ui/menu.rs"]
 mod menu;
+#[path = "services/market_data.rs"]
+mod market_data;
 #[path = "ui/modal.rs"]
 mod modal;
 mod multichart;
@@ -66,10 +68,12 @@ pub fn run() {
                     }
                     appearance::init(wyck_config::DocumentStore::global(&paths), cx);
                     indicators::init(Some(&paths), cx);
+                    market_data::init(Some(&paths), cx);
                 }
                 Err(_) => {
                     theme::apply(cx);
                     indicators::init(None, cx);
+                    market_data::init(None, cx);
                 }
             }
             text_input::init(cx);

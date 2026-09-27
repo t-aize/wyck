@@ -66,12 +66,17 @@ impl Chart {
         }
         self.atr_loading.insert(key);
         let session = self.session.clone();
+        let catalog = crate::app::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(
-                    async move { load::initial(&session, key.0, timeframe, now_ms()).await },
-                )
-                .await;
+            let result = runtime::spawn(async move {
+                match catalog {
+                    Some(catalog) => {
+                        load::initial_cached(&session, catalog, key.0, timeframe, now_ms()).await
+                    }
+                    None => load::initial(&session, key.0, timeframe, now_ms()).await,
+                }
+            })
+            .await;
             let _ = this.update(cx, |this, cx| {
                 this.atr_loading.remove(&key);
                 let bars = match flatten(result) {
@@ -117,12 +122,17 @@ impl Chart {
         cx.notify();
 
         let (session, id, timeframe) = (self.session.clone(), symbol.id, self.timeframe);
+        let catalog = crate::app::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(
-                    async move { load::initial(&session, id, timeframe, now_ms()).await },
-                )
-                .await;
+            let result = runtime::spawn(async move {
+                match catalog {
+                    Some(catalog) => {
+                        load::initial_cached(&session, catalog, id, timeframe, now_ms()).await
+                    }
+                    None => load::initial(&session, id, timeframe, now_ms()).await,
+                }
+            })
+            .await;
             let _ = this.update(cx, |this, cx| {
                 this.initial_loaded(epoch, flatten(result), cx);
             });
@@ -208,10 +218,17 @@ impl Chart {
         }
         let (session, id, timeframe, epoch) =
             (self.session.clone(), symbol.id, self.timeframe, self.epoch);
+        let catalog = crate::app::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(async move { load::gap(&session, id, timeframe, from, to).await })
-                    .await;
+            let result = runtime::spawn(async move {
+                match catalog {
+                    Some(catalog) => {
+                        load::gap_cached(&session, catalog, id, timeframe, from, to).await
+                    }
+                    None => load::gap(&session, id, timeframe, from, to).await,
+                }
+            })
+            .await;
             let _ = this.update(cx, |this, cx| {
                 if epoch != this.epoch {
                     return;
@@ -283,10 +300,17 @@ impl Chart {
         cx.notify();
         let (session, id, timeframe, epoch) =
             (self.session.clone(), symbol.id, self.timeframe, self.epoch);
+        let catalog = crate::app::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result =
-                runtime::spawn(async move { load::older(&session, id, timeframe, oldest).await })
-                    .await;
+            let result = runtime::spawn(async move {
+                match catalog {
+                    Some(catalog) => {
+                        load::older_cached(&session, catalog, id, timeframe, oldest).await
+                    }
+                    None => load::older(&session, id, timeframe, oldest).await,
+                }
+            })
+            .await;
             let _ = this.update(cx, |this, cx| this.older_loaded(epoch, flatten(result), cx));
         })
         .detach();

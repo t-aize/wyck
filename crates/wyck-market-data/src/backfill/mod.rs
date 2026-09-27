@@ -6,4 +6,4 @@
 pub mod probe;
 pub mod scheduler;
 
-pub use scheduler::{BackfillRange, RateLimiter, Upstream};
+pub use scheduler::{BackfillRange, RateLimiter, Upstream, backfill_bars, backfill_ticks};
