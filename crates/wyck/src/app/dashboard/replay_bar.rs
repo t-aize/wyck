@@ -38,7 +38,7 @@ pub(super) fn parse_goto(text: &str) -> Option<i64> {
 }
 
 impl Dashboard {
-    /// The control strip, or `None` when the active chart has no replay running.
+    /// The control strip, or `None` when no replay is running on the layout.
     pub(super) fn render_replay_bar(
         &self,
         window: &mut Window,

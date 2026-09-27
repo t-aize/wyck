@@ -12,27 +12,17 @@
 //! [`super::history::Chart::replay_seek`], which reloads the chart truncated to the new
 //! point and builds a fresh [`ReplayFeed`] for what comes after it, rather than trying to
 //! un-reveal bars already applied to the chart (which has no primitive for that).
+//!
+//! The clock itself (cursor, speed, play state) is not kept here, or anywhere on the
+//! chart: in a multichart layout every chart replays the same moment together, so the
+//! single
+//! clock is owned by `Dashboard` and drives every chart's [`ReplayFeed`] with the one
+//! cursor (see `Dashboard::replay_seek_all`/`replay_tick`). A chart only ever holds the
+//! bars it has left to reveal.
 
 use wyck_openapi::market::{Bar, Period};
 
 use super::live::LiveUpdate;
-use wyck_market_data::replay::ReplaySession;
-
-/// An active Replay: the cursor/speed/play state, and the bars still to reveal.
-pub struct ReplayState {
-    pub session: ReplaySession,
-    pub feed: ReplayFeed,
-}
-
-/// A read-only snapshot of a [`ReplayState`], for the control bar to render.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ReplayView {
-    pub speed: f64,
-    pub playing: bool,
-    pub cursor_ms: i64,
-    pub start_ms: i64,
-    pub exhausted: bool,
-}
 
 /// Reveals bars from a fixed, already-loaded set one at a time as the replay cursor
 /// crosses them. Tick-by-tick precision (revealing the ticks inside a bar rather than

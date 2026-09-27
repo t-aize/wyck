@@ -331,6 +331,9 @@ pub enum ChartAction {
         take_profit: Option<f64>,
     },
     AddAlert(f64),
+    /// "Replay from here" was picked at this time: every chart in the layout should
+    /// start or move its replay there together, not just this one.
+    ReplayFrom(i64),
 }
 
 impl EventEmitter<ChartEvent> for Chart {}
@@ -405,8 +408,10 @@ pub struct Chart {
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Keeps the bar countdown ticking while the chart lives.
     _clock: gpui::Task<()>,
-    /// The active Replay, if any: see [`replay`].
-    replay: Option<replay::ReplayState>,
+    /// The bars still to reveal for the active Replay, if any: see [`replay`]. The clock
+    /// driving it (cursor, speed, play state) is shared across every chart and lives on
+    /// `Dashboard`, not here.
+    replay: Option<replay::ReplayFeed>,
 }
 
 impl Chart {

@@ -247,6 +247,7 @@ impl Dashboard {
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
+            ChartAction::ReplayFrom(time_ms) => self.replay_seek_all(*time_ms, cx),
         }
         cx.notify();
     }

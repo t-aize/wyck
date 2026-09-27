@@ -293,7 +293,12 @@ impl Chart {
                 Entry::new("Replay from here")
                     .icon(IconName::RotateCcw)
                     .on_click(move |_: &mut Window, cx: &mut App| {
-                        chart.update(cx, |chart, cx| chart.replay_seek(time_ms, None, cx));
+                        // Emitted rather than called directly: in a multichart layout
+                        // every chart's replay should move together, and only Dashboard
+                        // (which sees every chart) can do that.
+                        chart.update(cx, |_, cx| {
+                            cx.emit(ChartEvent::Action(ChartAction::ReplayFrom(time_ms)));
+                        });
                     })
                     .into(),
             );

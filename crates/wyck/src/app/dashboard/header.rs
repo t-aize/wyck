@@ -73,16 +73,20 @@ impl Dashboard {
             .child(self.fullscreen_button(window))
     }
 
-    /// Toggles Replay on the active chart, at a distance back set in Settings, and shows
-    /// the [`super::replay_bar`] control strip docked at the bottom of the chart.
+    /// Toggles Replay for every chart in the layout, starting at a distance back set in
+    /// Settings, and shows the [`super::replay_bar`] control strip docked at the bottom
+    /// of the chart. Carries a visible label, not just an icon: "replay" has no single
+    /// widely-recognized icon the way play/pause or fullscreen do, so a tooltip alone
+    /// left it unclear what the button was for.
     fn replay_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
         Button::new("toggle-replay")
             .ghost()
             .small()
-            .selected(self.is_replaying(cx))
+            .selected(self.is_replaying())
             .icon(IconName::RotateCcw)
-            .tooltip("Replay")
-            .accessibility_label("Replay")
+            .label("Replay")
+            .tooltip("Replay this layout from an earlier point in history")
+            .accessibility_label("Toggle replay")
             .cursor_pointer()
             .on_click(cx.listener(|this, _, _, cx| this.toggle_replay(cx)))
     }

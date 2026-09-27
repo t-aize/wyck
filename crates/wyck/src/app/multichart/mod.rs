@@ -238,6 +238,13 @@ impl MultiChart {
         &self.slots[self.active].chart
     }
 
+    /// Every chart in the current layout, active or not: what a Replay driven from the
+    /// header (rather than a single chart's own context menu) applies to, so a multichart
+    /// layout replays together instead of only the focused chart moving.
+    pub fn charts(&self) -> impl Iterator<Item = &Entity<Chart>> {
+        self.slots.iter().map(|slot| &slot.chart)
+    }
+
     pub fn has_chart_focus(&self, window: &Window) -> bool {
         self.focus.is_focused(window)
     }

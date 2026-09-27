@@ -184,46 +184,33 @@ impl Chart {
     }
 
     // ---- replay ----
+    //
+    // A chart only ever holds the bars still to reveal (`self.replay`); the clock
+    // (cursor, speed, play state) is shared across every chart in the layout and lives
+    // on `Dashboard`, so a multichart layout replays as one instead of each chart
+    // running its own independent clock. See the module docs on `super::replay`.
 
-    /// Whether a replay is currently active (played, paused, or mid-seek).
-    pub fn is_replaying(&self) -> bool {
-        self.replay.is_some()
-    }
-
-    /// A read-only snapshot of the active replay, for the control bar to render. `None`
-    /// while no replay is active, or while a seek is in flight and has not landed yet.
-    pub fn replay_view(&self) -> Option<super::replay::ReplayView> {
-        let state = self.replay.as_ref()?;
-        Some(super::replay::ReplayView {
-            speed: state.session.speed(),
-            playing: state.session.is_playing(),
-            cursor_ms: state.session.cursor_ms(),
-            start_ms: state.session.start_ms(),
-            exhausted: state.feed.is_exhausted(),
-        })
+    /// Whether this chart has nothing left to reveal: no replay running at all counts as
+    /// exhausted too, so a chart that could not start one (e.g. a tick-built timeframe)
+    /// never blocks the shared clock from noticing every other chart is done.
+    pub fn replay_is_exhausted(&self) -> bool {
+        self.replay.as_ref().is_none_or(super::replay::ReplayFeed::is_exhausted)
     }
 
     /// Moves to `start_ms`: reloads the chart truncated to that point and prepares a
     /// fresh [`super::replay::ReplayFeed`] for everything after it, replacing any replay
     /// already in progress. This is how a replay is started, and also how "go to a
     /// different date" and "jump to start" both work: see the module docs on
-    /// [`super::replay`] for why seeking reloads rather than scrubbing bars already shown.
-    /// `default_speed` seeds the new session's speed when there was no replay already
-    /// running to carry a speed over from (a fresh start, not a seek within one); a
-    /// speed already in progress always wins over it. Only bar timeframes are supported;
-    /// a no-op otherwise.
-    pub fn replay_seek(&mut self, start_ms: i64, default_speed: Option<f64>, cx: &mut Context<Self>) {
+    /// [`super::replay`] for why seeking reloads rather than scrubbing bars already
+    /// shown. Only bar timeframes are supported; a no-op otherwise.
+    pub fn replay_seek(&mut self, start_ms: i64, cx: &mut Context<Self>) {
         let Timeframe::Bars(period) = self.timeframe else {
             return;
         };
         let Some(symbol) = self.symbol.clone() else {
             return;
         };
-        let speed = self
-            .replay
-            .take()
-            .map(|state| state.session.speed())
-            .or(default_speed);
+        self.replay = None;
         self.epoch += 1;
         let epoch = self.epoch;
         self.hub.set(self.id, None);
@@ -253,20 +240,17 @@ impl Chart {
             })
             .await;
             let _ = this.update(cx, |this, cx| {
-                this.replay_seek_loaded(epoch, symbol.id, period, start_ms, speed, flatten(result), cx);
+                this.replay_seek_loaded(epoch, symbol.id, period, flatten(result), cx);
             });
         })
         .detach();
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn replay_seek_loaded(
         &mut self,
         epoch: u64,
         symbol_id: i64,
         period: wyck_openapi::market::Period,
-        start_ms: i64,
-        previous_speed: Option<f64>,
         result: ApiResult<(Loaded, Loaded)>,
         cx: &mut Context<Self>,
     ) {
@@ -279,14 +263,7 @@ impl Chart {
                     Loaded::Bars(bars) | Loaded::Grouped { bars, .. } => bars,
                     Loaded::Ticks(_) => Vec::new(),
                 };
-                let mut session = wyck_market_data::replay::ReplaySession::new(start_ms, period.millis());
-                if let Some(speed) = previous_speed {
-                    session.set_speed(speed, now_ms());
-                }
-                self.replay = Some(super::replay::ReplayState {
-                    session,
-                    feed: super::replay::ReplayFeed::new(symbol_id, period, future_bars),
-                });
+                self.replay = Some(super::replay::ReplayFeed::new(symbol_id, period, future_bars));
                 self.initial_loaded(epoch, Ok(past), cx);
             }
             Err(error) => {
@@ -300,80 +277,17 @@ impl Chart {
     /// Reveals every bar the feed holds up to `cursor_ms`, applying each exactly as a
     /// live update. A no-op while no replay is active (including mid-seek, when the
     /// previous feed was already cleared but the new one has not landed yet).
-    fn replay_reveal(&mut self, cursor_ms: i64, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
+    pub fn replay_reveal_to(&mut self, cursor_ms: i64, cx: &mut Context<Self>) {
+        let Some(feed) = &mut self.replay else {
             return;
         };
-        let updates = state.feed.reveal(cursor_ms);
+        let updates = feed.reveal(cursor_ms);
         if updates.is_empty() {
             return;
         }
         for update in &updates {
             self.on_live(update, cx);
         }
-    }
-
-    /// Advances the replay clock to `wall_now_ms` and reveals whatever it newly crossed.
-    /// A no-op while there is no replay, or it is paused. Pauses itself once every held
-    /// bar has been revealed.
-    pub fn replay_tick(&mut self, wall_now_ms: i64, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        if !state.session.is_playing() {
-            return;
-        }
-        state.session.advance_to(wall_now_ms);
-        let cursor = state.session.cursor_ms();
-        self.replay_reveal(cursor, cx);
-        if let Some(state) = &mut self.replay
-            && state.feed.is_exhausted()
-        {
-            state.session.pause();
-        }
-        cx.notify();
-    }
-
-    /// Starts or stops the replay clock.
-    pub fn replay_play_pause(&mut self, wall_now_ms: i64, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        if state.session.is_playing() {
-            state.session.pause();
-        } else {
-            state.session.play(wall_now_ms);
-        }
-        cx.notify();
-    }
-
-    /// Moves forward by exactly one bar and reveals it immediately, whether or not the
-    /// replay is playing.
-    pub fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        state.session.step(true);
-        let cursor = state.session.cursor_ms();
-        self.replay_reveal(cursor, cx);
-        cx.notify();
-    }
-
-    /// Sets the playback speed multiplier (clamped by [`wyck_market_data::replay::ReplaySession::set_speed`]).
-    pub fn replay_set_speed(&mut self, speed: f64, wall_now_ms: i64, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        state.session.set_speed(speed, wall_now_ms);
-        cx.notify();
-    }
-
-    /// Returns to the point this replay currently started from, undoing forward progress.
-    pub fn replay_jump_to_start(&mut self, cx: &mut Context<Self>) {
-        let Some(start_ms) = self.replay.as_ref().map(|state| state.session.start_ms()) else {
-            return;
-        };
-        self.replay_seek(start_ms, None, cx);
     }
 
     /// Leaves Replay: resubscribes to the real live feed and reloads from scratch, the
