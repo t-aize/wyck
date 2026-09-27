@@ -12,13 +12,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui::{Context, EventEmitter};
+use wyck_openapi::account::PositionStatus;
 use wyck_openapi::account::TradeSide;
 use wyck_openapi::market::PRICE_SCALE;
 use wyck_openapi::session::Session;
-use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
+use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
 use wyck_openapi::{Event, OpenApiError, Result as ApiResult};
 
 use super::book::{AccountBook, Notice, Tone, explain, is_buy};
@@ -31,6 +32,8 @@ use crate::app::{runtime, toast};
 const HISTORY_DAYS: i64 = 7;
 /// How often the profit is asked while positions are open.
 const PNL_EVERY: Duration = Duration::from_secs(2);
+const REVERSE_RECHECK: Duration = Duration::from_secs(10);
+const REVERSE_FINAL_WAIT: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Status {
@@ -48,6 +51,94 @@ pub enum Busy {
     Amending(i64),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ReverseOrder {
+    symbol: i64,
+    buy: bool,
+    volume: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingReverse {
+    order: ReverseOrder,
+    started: Instant,
+    close_order_id: Option<i64>,
+    acknowledged: bool,
+    closed: bool,
+}
+
+#[derive(Default)]
+struct ReverseTracker(HashMap<i64, PendingReverse>);
+
+impl ReverseTracker {
+    fn start(&mut self, position_id: i64, order: ReverseOrder) -> bool {
+        if self.0.contains_key(&position_id) {
+            return false;
+        }
+        self.0.insert(
+            position_id,
+            PendingReverse {
+                order,
+                started: Instant::now(),
+                close_order_id: None,
+                acknowledged: false,
+                closed: false,
+            },
+        );
+        true
+    }
+
+    fn acknowledged(
+        &mut self,
+        position_id: i64,
+        kind: Option<ExecutionType>,
+        close_order_id: Option<i64>,
+    ) -> Option<ReverseOrder> {
+        if !matches!(
+            kind,
+            Some(
+                ExecutionType::OrderAccepted
+                    | ExecutionType::OrderPartialFill
+                    | ExecutionType::OrderFilled
+            )
+        ) {
+            self.0.remove(&position_id);
+            return None;
+        }
+        if let Some(pending) = self.0.get_mut(&position_id) {
+            pending.acknowledged = true;
+            pending.close_order_id = close_order_id;
+        }
+        self.take_ready(position_id)
+    }
+
+    fn cancel_related(&mut self, position_id: Option<i64>, order_id: Option<i64>) {
+        if position_id.is_none() && order_id.is_none() {
+            self.0.clear();
+            return;
+        }
+        self.0.retain(|id, pending| {
+            Some(*id) != position_id && !(order_id.is_some() && pending.close_order_id == order_id)
+        });
+    }
+
+    fn closed(&mut self, position_id: i64) -> Option<ReverseOrder> {
+        if let Some(pending) = self.0.get_mut(&position_id) {
+            pending.closed = true;
+        }
+        self.take_ready(position_id)
+    }
+
+    fn take_ready(&mut self, position_id: i64) -> Option<ReverseOrder> {
+        self.0
+            .get(&position_id)
+            .is_some_and(|p| p.acknowledged && p.closed)
+            .then(|| self.0.remove(&position_id))
+            .flatten()
+            .map(|p| p.order)
+    }
+}
+
 /// Tells the views the account changed (they also observe the entity).
 pub enum AccountEvent {
     Changed,
@@ -61,6 +152,8 @@ pub struct Account {
     quotes: HashMap<i64, (Option<i64>, Option<i64>)>,
     pub status: Status,
     busy: HashSet<Busy>,
+    trading_enabled: bool,
+    reversals: ReverseTracker,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
     conversions: HashMap<i64, Conversion>,
@@ -107,6 +200,8 @@ impl Account {
             quotes: HashMap::new(),
             status: Status::Loading,
             busy: HashSet::new(),
+            trading_enabled: true,
+            reversals: ReverseTracker::default(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
             focus: None,
@@ -121,6 +216,15 @@ impl Account {
 
     pub fn is_busy(&self, what: Busy) -> bool {
         self.busy.contains(&what)
+            || matches!(what, Busy::Closing(id) if self.reversals.0.contains_key(&id))
+    }
+
+    pub fn set_trading_enabled(&mut self, enabled: bool) {
+        self.trading_enabled = enabled;
+        if !enabled {
+            // An in-flight close may still finish, but it must not open a reverse order.
+            self.reversals.0.clear();
+        }
     }
 
     /// The real bid and ask of a symbol.
@@ -268,6 +372,44 @@ impl Account {
         toast::show(cx, kind, notice.title, notice.message);
     }
 
+    fn watch_reverse(&mut self, position_id: i64, started: Instant, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(REVERSE_RECHECK).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.trading_enabled
+                    && this
+                        .reversals
+                        .0
+                        .get(&position_id)
+                        .is_some_and(|pending| pending.started == started)
+                {
+                    this.on_ready(cx);
+                }
+            });
+            cx.background_executor().timer(REVERSE_FINAL_WAIT).await;
+            let _ = this.update(cx, |this, cx| {
+                if this
+                    .reversals
+                    .0
+                    .get(&position_id)
+                    .is_some_and(|pending| pending.started == started)
+                {
+                    this.reversals.0.remove(&position_id);
+                    this.tell(
+                        Notice {
+                            tone: Tone::Warning,
+                            title: "Reverse stopped".into(),
+                            message: "The position's closure was not confirmed. Check the account before trying again.".into(),
+                        },
+                        cx,
+                    );
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
     // ---- loading ----
 
     /// The session is connected (again): read everything afresh.
@@ -319,6 +461,17 @@ impl Account {
                         this.book.trader = Some(trader);
                         this.book.currency = currency;
                         this.book.reconcile(positions, orders);
+                        let closed: Vec<i64> = this
+                            .reversals
+                            .0
+                            .keys()
+                            .copied()
+                            .filter(|id| !this.book.positions.contains_key(id))
+                            .collect();
+                        let reverse_orders: Vec<ReverseOrder> = closed
+                            .into_iter()
+                            .filter_map(|id| this.reversals.closed(id))
+                            .collect();
                         deals.sort_by_key(|d| std::cmp::Reverse(d.execution_timestamp));
                         this.book.deals = deals;
                         this.status = Status::Ready;
@@ -333,6 +486,9 @@ impl Account {
                         }
                         this.refresh_pnl(cx);
                         this.changed(cx);
+                        for order in reverse_orders {
+                            this.market(order.symbol, order.buy, order.volume, cx);
+                        }
                     }
                     Err(error) => {
                         tracing::warn!(%error, "could not read the account");
@@ -448,7 +604,33 @@ impl Account {
                 }
             }
             Event::Execution(execution) => {
+                if matches!(
+                    execution.kind(),
+                    Some(
+                        ExecutionType::OrderRejected
+                            | ExecutionType::OrderCancelled
+                            | ExecutionType::OrderExpired
+                    )
+                ) {
+                    self.reversals.cancel_related(
+                        execution
+                            .position
+                            .as_ref()
+                            .map(|p| p.position_id)
+                            .or_else(|| execution.order.as_ref().and_then(|o| o.position_id)),
+                        execution.order.as_ref().map(|o| o.order_id),
+                    );
+                }
                 let applied = self.book.apply(execution);
+                let reverse_order = if execution.kind() == Some(ExecutionType::OrderFilled) {
+                    execution.position.as_ref().and_then(|position| {
+                        (position.status() == Some(PositionStatus::Closed))
+                            .then(|| self.reversals.closed(position.position_id))
+                            .flatten()
+                    })
+                } else {
+                    None
+                };
                 if let Some(notice) = applied.notice {
                     self.tell(notice, cx);
                 }
@@ -460,8 +642,13 @@ impl Account {
                 }
                 self.refresh_pnl(cx);
                 self.changed(cx);
+                if let Some(order) = reverse_order {
+                    self.market(order.symbol, order.buy, order.volume, cx);
+                }
             }
             Event::OrderError(error) => {
+                self.reversals
+                    .cancel_related(error.position_id, error.order_id);
                 self.tell(
                     Notice {
                         tone: Tone::Error,
@@ -513,6 +700,9 @@ impl Account {
             + Send
             + 'static,
     {
+        if !self.trading_enabled {
+            return;
+        }
         if !self.busy.insert(busy) {
             return;
         }
@@ -529,8 +719,29 @@ impl Account {
                 match flatten(result) {
                     // The first execution event answers the request and goes only to it; the
                     // ones after it (a fill after the acceptance) come on the event stream.
-                    Ok(event) => this.on_event(&Event::Execution(Box::new(event)), cx),
+                    Ok(event) => {
+                        let reverse_order = match busy {
+                            Busy::Closing(id) => this.reversals.acknowledged(
+                                id,
+                                event.kind(),
+                                event.order.as_ref().map(|o| o.order_id),
+                            ),
+                            _ => None,
+                        };
+                        this.on_event(&Event::Execution(Box::new(event)), cx);
+                        if let Some(order) = reverse_order {
+                            this.market(order.symbol, order.buy, order.volume, cx);
+                        }
+                        if let Busy::Closing(id) = busy
+                            && let Some(pending) = this.reversals.0.get(&id)
+                        {
+                            this.watch_reverse(id, pending.started, cx);
+                        }
+                    }
                     Err(error) => {
+                        if let Busy::Closing(id) = busy {
+                            this.reversals.0.remove(&id);
+                        }
                         let message = match error.code() {
                             Some(code) => explain(code),
                             None => error.to_string(),
@@ -609,13 +820,25 @@ impl Account {
 
     /// Reverses a position: closes it and opens the same volume the other way.
     pub fn reverse_position(&mut self, position_id: i64, cx: &mut Context<Self>) {
+        if !self.trading_enabled || self.busy.contains(&Busy::Closing(position_id)) {
+            return;
+        }
         let Some(position) = self.book.positions.get(&position_id).cloned() else {
             return;
         };
         let buy = !is_buy(position.trade_data.trade_side);
         let (symbol, volume) = (position.trade_data.symbol_id, position.trade_data.volume);
+        if !self.reversals.start(
+            position_id,
+            ReverseOrder {
+                symbol,
+                buy,
+                volume,
+            },
+        ) {
+            return;
+        }
         self.close_position(position_id, None, cx);
-        self.market(symbol, buy, volume, cx);
     }
 
     pub fn cancel_order(&mut self, order_id: i64, cx: &mut Context<Self>) {
@@ -701,5 +924,68 @@ impl Account {
         self.trade(Busy::Amending(position_id), cx, move |trading| async move {
             trading.amend_position_sl_tp(request).await
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ReverseOrder, ReverseTracker};
+    use wyck_openapi::trading::ExecutionType;
+
+    fn order() -> ReverseOrder {
+        ReverseOrder {
+            symbol: 7,
+            buy: false,
+            volume: 1_000,
+        }
+    }
+
+    #[test]
+    fn reverse_waits_for_both_close_acceptance_and_full_closure() {
+        let mut tracker = ReverseTracker::default();
+        assert!(tracker.start(11, order()));
+        assert!(!tracker.start(11, order()));
+        assert_eq!(
+            tracker.acknowledged(11, Some(ExecutionType::OrderAccepted), Some(101)),
+            None
+        );
+        assert_eq!(tracker.closed(11), Some(order()));
+        assert_eq!(tracker.closed(11), None);
+
+        assert!(tracker.start(12, order()));
+        assert_eq!(tracker.closed(12), None);
+        assert_eq!(
+            tracker.acknowledged(12, Some(ExecutionType::OrderPartialFill), Some(102)),
+            Some(order())
+        );
+    }
+
+    #[test]
+    fn rejected_or_uncertain_close_never_opens_the_reverse_order() {
+        for kind in [Some(ExecutionType::OrderRejected), None] {
+            let mut tracker = ReverseTracker::default();
+            assert!(tracker.start(11, order()));
+            assert_eq!(tracker.closed(11), None);
+            assert_eq!(tracker.acknowledged(11, kind, None), None);
+            assert_eq!(tracker.closed(11), None);
+        }
+    }
+
+    #[test]
+    fn a_later_close_error_cancels_only_its_reverse() {
+        let mut tracker = ReverseTracker::default();
+        assert!(tracker.start(11, order()));
+        assert!(tracker.start(12, order()));
+        assert_eq!(
+            tracker.acknowledged(11, Some(ExecutionType::OrderAccepted), Some(101)),
+            None
+        );
+        assert_eq!(
+            tracker.acknowledged(12, Some(ExecutionType::OrderAccepted), Some(102)),
+            None
+        );
+        tracker.cancel_related(None, Some(101));
+        assert_eq!(tracker.closed(11), None);
+        assert_eq!(tracker.closed(12), Some(order()));
     }
 }

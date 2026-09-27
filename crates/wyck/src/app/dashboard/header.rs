@@ -7,7 +7,7 @@ use gpui::{Context, FontFeatures, FontWeight, MouseButton, SharedString, Window,
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::{Selectable, Sizable};
+use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
@@ -612,6 +612,7 @@ impl Dashboard {
                 Button::new("toggle-panel")
                     .ghost()
                     .small()
+                    .disabled(self.is_replaying())
                     .selected(self.panel_open)
                     .icon(IconName::PanelBottom)
                     .tooltip("Positions, orders and alerts")
@@ -625,6 +626,7 @@ impl Dashboard {
                 Button::new("toggle-ticket")
                     .ghost()
                     .small()
+                    .disabled(self.is_replaying())
                     .selected(self.ticket_open)
                     .icon(if ticket_on_left {
                         IconName::PanelLeft

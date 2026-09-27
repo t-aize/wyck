@@ -411,6 +411,9 @@ impl Dashboard {
     pub(super) fn toggle_replay(&mut self, cx: &mut Context<Self>) {
         if self.replay_session.take().is_some() {
             self.on_every_chart(cx, |chart, cx| chart.stop_replay(cx));
+            self.trading
+                .update(cx, |account, _| account.set_trading_enabled(true));
+            self.push_lines(cx);
             self.replay_goto_open = false;
             cx.notify();
             return;
@@ -457,8 +460,21 @@ impl Dashboard {
             .unwrap_or_else(|| self.workspace.read(cx).preferences().replay.default_speed);
         let mut session = wyck_market_data::replay::ReplaySession::new(start_ms, step_ms);
         session.set_speed(speed, chart::now_ms());
+        self.trading
+            .update(cx, |account, _| account.set_trading_enabled(false));
         self.replay_session = Some(session);
         self.on_every_chart(cx, |chart, cx| chart.replay_seek(start_ms, cx));
+        self.pending.retain(|pending| {
+            !matches!(
+                pending,
+                trade::Pending::Ticket { .. }
+                    | trade::Pending::TicketLine(..)
+                    | trade::Pending::ClosePosition(..)
+            )
+        });
+        self.ticket_drag = None;
+        self.panel_drag = None;
+        self.push_lines(cx);
         cx.notify();
     }
 
