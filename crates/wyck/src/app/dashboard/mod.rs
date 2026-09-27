@@ -16,16 +16,18 @@ mod layout_menu;
 mod lists;
 mod marks;
 mod picker;
+mod replay_bar;
 mod trade;
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
-    deferred, div, px,
+    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Task,
+    Window, deferred, div, px,
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
@@ -147,6 +149,20 @@ struct Peek {
     quote: Quote,
 }
 
+/// How often the replay clock is advanced and checked while playing.
+const REPLAY_TICK: Duration = Duration::from_millis(100);
+/// How many of the active chart's most recently loaded bars a replay holds back to play
+/// forward again. Chosen so a replay always has a substantial run without needing to
+/// fetch anything: everything it plays was already sitting in memory.
+const REPLAY_BARS: usize = 300;
+
+/// An active Replay: a cursor over the bars [`Chart::start_replay`] held back, and the
+/// play/pause/speed state the [`replay_bar`] control strip drives.
+struct ReplayState {
+    session: wyck_market_data::replay::ReplaySession,
+    feed: chart::replay::ReplayFeed,
+}
+
 pub struct Dashboard {
     session: Session,
     /// Every price and live bar subscription goes through it.
@@ -208,6 +224,12 @@ pub struct Dashboard {
     ticket_drag: Option<(f32, f32)>,
     /// What waits for the window.
     pending: Vec<trade::Pending>,
+    /// The active Replay, if the header's Replay button is on.
+    replay: Option<ReplayState>,
+    /// Advances the replay clock on a timer; a no-op while `replay` is `None` or paused.
+    /// Kept alive for as long as the dashboard is, rather than spawned per-play, so
+    /// starting and stopping a replay never has to manage a task's lifetime.
+    _replay_ticker: Task<()>,
 }
 
 impl Dashboard {
@@ -266,6 +288,14 @@ impl Dashboard {
             this.on_multi_event(event, cx);
         })
         .detach();
+        let replay_ticker = cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(REPLAY_TICK).await;
+                if this.update(cx, |this, cx| this.replay_tick(cx)).is_err() {
+                    break;
+                }
+            }
+        });
         let mut dashboard = Self {
             session,
             hub,
@@ -308,6 +338,8 @@ impl Dashboard {
             viewport_height: 800.0,
             ticket_drag: None,
             pending: Vec::new(),
+            replay: None,
+            _replay_ticker: replay_ticker,
         };
         dashboard.follow_session(cx);
         dashboard
@@ -321,6 +353,115 @@ impl Dashboard {
     ) {
         let chart = self.multi.read(cx).active_chart().clone();
         chart.update(cx, f);
+    }
+
+    // ---- replay ----
+
+    /// Whether a replay is currently active (played or paused).
+    pub(super) fn is_replaying(&self) -> bool {
+        self.replay.is_some()
+    }
+
+    /// Turns Replay on (holding back the active chart's most recent bars to play forward
+    /// again) or off (resuming a genuinely live chart).
+    pub(super) fn toggle_replay(&mut self, cx: &mut Context<Self>) {
+        if self.replay.take().is_some() {
+            self.on_active_chart(cx, |chart, cx| chart.stop_replay(cx));
+            cx.notify();
+            return;
+        }
+        let chart = self.multi.read(cx).active_chart().clone();
+        let feed = chart.update(cx, |chart, cx| chart.start_replay(REPLAY_BARS, cx));
+        let Some(feed) = feed else {
+            toast::show(
+                cx,
+                toast::Kind::Warning,
+                "Can't start replay",
+                "Not enough history is loaded on this chart yet, or its timeframe does not support replay.",
+            );
+            return;
+        };
+        let start_ms = feed.first_bar_time().unwrap_or_else(chart::now_ms);
+        let step_ms = feed.period().millis();
+        self.replay = Some(ReplayState {
+            session: wyck_market_data::replay::ReplaySession::new(start_ms, step_ms),
+            feed,
+        });
+        cx.notify();
+    }
+
+    /// Starts or stops the replay clock.
+    pub(super) fn replay_play_pause(&mut self, cx: &mut Context<Self>) {
+        let Some(state) = &mut self.replay else {
+            return;
+        };
+        if state.session.is_playing() {
+            state.session.pause();
+        } else {
+            state.session.play(chart::now_ms());
+        }
+        cx.notify();
+    }
+
+    /// Moves the replay forward by exactly one bar and reveals it immediately, whether
+    /// or not the replay is playing.
+    pub(super) fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
+        let Some(state) = &mut self.replay else {
+            return;
+        };
+        state.session.step(true);
+        let updates = state.feed.reveal(state.session.cursor_ms());
+        if !updates.is_empty() {
+            self.on_active_chart(cx, |chart, cx| {
+                for update in &updates {
+                    chart.on_live(update, cx);
+                }
+            });
+        }
+        cx.notify();
+    }
+
+    /// Cycles the playback speed through a fixed set of presets.
+    pub(super) fn replay_cycle_speed(&mut self, cx: &mut Context<Self>) {
+        let Some(state) = &mut self.replay else {
+            return;
+        };
+        state
+            .session
+            .set_speed(replay_bar::next_speed(state.session.speed()), chart::now_ms());
+        cx.notify();
+    }
+
+    /// A read-only view of the active replay's state, for the control bar to render.
+    pub(super) fn replay_state(&self) -> Option<(f64, bool, i64)> {
+        self.replay
+            .as_ref()
+            .map(|state| (state.session.speed(), state.session.is_playing(), state.session.cursor_ms()))
+    }
+
+    /// Advances the replay clock and reveals whatever bars it newly crossed. A no-op
+    /// while there is no replay, or it is paused.
+    fn replay_tick(&mut self, cx: &mut Context<Self>) {
+        let updates = match &mut self.replay {
+            Some(state) if state.session.is_playing() => {
+                state.session.advance_to(chart::now_ms());
+                let updates = state.feed.reveal(state.session.cursor_ms());
+                if state.feed.is_exhausted() {
+                    state.session.pause();
+                }
+                updates
+            }
+            _ => return,
+        };
+        if updates.is_empty() {
+            return;
+        }
+        self.on_active_chart(cx, |chart, cx| {
+            for update in &updates {
+                chart.on_live(update, cx);
+            }
+        });
+        cx.notify();
     }
 
     /// Stops the session: no more reconnects, and the connection closes.
@@ -790,6 +931,7 @@ impl Render for Dashboard {
         self.editor_frame(window, cx);
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
+        let replay_bar = self.render_replay_bar(cx).map(IntoElement::into_any_element);
         let body = self.body(cx).into_any_element();
         let menu = self.render_menu(cx);
         let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
@@ -970,6 +1112,7 @@ impl Render for Dashboard {
             .h_full()
             .bg(theme::bg())
             .child(header)
+            .children(replay_bar)
             .child(body)
             .children(menu)
             .children(picker)

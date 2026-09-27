@@ -64,11 +64,26 @@ impl Dashboard {
             .child(divider())
             .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
+            .child(divider())
+            .child(self.replay_button(cx))
             .child(div().flex_1().min_w_0())
             .child(self.indicators_button(window, cx))
             .child(self.panel_toggles(cx))
             .child(self.account_pill(fit, cx))
             .child(self.fullscreen_button(window))
+    }
+
+    /// Toggles Replay: holds back the active chart's most recent bars and plays them
+    /// forward again, at a chosen speed, through the [`super::replay_bar`] control strip.
+    fn replay_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        Button::new("toggle-replay")
+            .ghost()
+            .small()
+            .selected(self.is_replaying())
+            .icon(IconName::RotateCcw)
+            .tooltip("Replay")
+            .cursor_pointer()
+            .on_click(cx.listener(|this, _, _, cx| this.toggle_replay(cx)))
     }
 
     /// The symbol: its tile, ticker and name. It is a button that opens the picker.

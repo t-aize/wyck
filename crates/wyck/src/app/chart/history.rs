@@ -183,6 +183,47 @@ impl Chart {
         self.reload(cx);
     }
 
+    // ---- replay ----
+
+    /// Starts a Replay: holds back the newest `replay_bars` bars already loaded (no
+    /// fetch), truncates the chart to what is left, and returns a
+    /// [`super::replay::ReplayFeed`] the caller drives to reveal the held-back bars one
+    /// at a time. Only bar timeframes are supported for now; `None` if there is nothing
+    /// to hold back (a tick-built timeframe, or fewer bars loaded than asked for).
+    ///
+    /// The real live feed is unsubscribed for the duration (see [`Self::stop_replay`]),
+    /// so a genuine live update can never race with a replayed one.
+    pub fn start_replay(
+        &mut self,
+        replay_bars: usize,
+        cx: &mut Context<Self>,
+    ) -> Option<super::replay::ReplayFeed> {
+        let Timeframe::Bars(period) = self.timeframe else {
+            return None;
+        };
+        let Series::Bars(bars) = &self.series else {
+            return None;
+        };
+        let symbol_id = self.symbol.as_ref()?.id;
+        let cut = bars.len().checked_sub(replay_bars).filter(|cut| *cut > 0)?;
+        let mut all = bars.clone();
+        let future = all.split_off(cut);
+        self.hub.set(self.id, None);
+        let epoch = self.epoch;
+        self.initial_loaded(epoch, Ok(Loaded::Bars(all)), cx);
+        Some(super::replay::ReplayFeed::new(symbol_id, period, future))
+    }
+
+    /// Leaves Replay: resubscribes to the real live feed and reloads from scratch, the
+    /// simplest way back to an honestly-live chart.
+    pub fn stop_replay(&mut self, cx: &mut Context<Self>) {
+        if let Some(symbol) = &self.symbol {
+            self.hub
+                .set(self.id, Some(Wish::symbol(symbol.id, self.timeframe.period())));
+        }
+        self.reload(cx);
+    }
+
     // ---- the connection ----
 
     /// The session is connected (again): fetch what was missed, or start over if the first

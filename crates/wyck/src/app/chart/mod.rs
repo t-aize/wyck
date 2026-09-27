@@ -79,6 +79,7 @@ mod overlay;
 mod paint;
 use wyck_chart::projection;
 pub mod raster;
+pub mod replay;
 pub use wyck_chart::scene;
 pub use wyck_chart::settings;
 mod settings_rows;
