@@ -18,6 +18,7 @@
 pub mod backfill;
 pub mod catalog;
 pub mod error;
+pub mod replay;
 
 pub use catalog::Catalog;
 pub use error::{MarketDataError, Result};
