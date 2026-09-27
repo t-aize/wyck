@@ -3,10 +3,36 @@
 //! of its own: the chart is structurally unable to see a bar past the cursor, because it
 //! is never handed to it. [`ReplayFeed`] only ever reveals bars it already holds; it does
 //! not fetch, which is what keeps it a pure, synchronous, easily tested step.
+//!
+//! Moving forward (play, step forward) only ever needs [`ReplayFeed::reveal`]: the bars
+//! are already held, nothing is thrown away. Moving to an earlier point is different, and
+//! deliberately not supported by scrubbing: TradingView's own Bar Replay has no step-back
+//! either, and MetaTrader's Visual Mode restarts from a newly chosen date rather than
+//! rewinding a running one. This codebase does the same: "go to an earlier date" means
+//! [`super::history::Chart::replay_seek`], which reloads the chart truncated to the new
+//! point and builds a fresh [`ReplayFeed`] for what comes after it, rather than trying to
+//! un-reveal bars already applied to the chart (which has no primitive for that).
 
 use wyck_openapi::market::{Bar, Period};
 
 use super::live::LiveUpdate;
+use wyck_market_data::replay::ReplaySession;
+
+/// An active Replay: the cursor/speed/play state, and the bars still to reveal.
+pub struct ReplayState {
+    pub session: ReplaySession,
+    pub feed: ReplayFeed,
+}
+
+/// A read-only snapshot of a [`ReplayState`], for the control bar to render.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReplayView {
+    pub speed: f64,
+    pub playing: bool,
+    pub cursor_ms: i64,
+    pub start_ms: i64,
+    pub exhausted: bool,
+}
 
 /// Reveals bars from a fixed, already-loaded set one at a time as the replay cursor
 /// crosses them. Tick-by-tick precision (revealing the ticks inside a bar rather than
@@ -21,8 +47,8 @@ pub struct ReplayFeed {
 
 impl ReplayFeed {
     /// `bars` is every bar of `period`, oldest first, from the replay's start point
-    /// onward: exactly what [`super::history::Chart::start_replay`] holds back from the
-    /// chart's already-loaded history.
+    /// onward: what [`super::history::Chart::replay_seek`] loads for the range after the
+    /// picked point.
     #[must_use]
     pub fn new(symbol_id: i64, period: Period, bars: Vec<Bar>) -> Self {
         Self {
@@ -62,17 +88,6 @@ impl ReplayFeed {
         self.revealed >= self.bars.len()
     }
 
-    /// The open time of the first held bar: where the replay's "future" begins.
-    #[must_use]
-    pub fn first_bar_time(&self) -> Option<i64> {
-        self.bars.first().map(|bar| bar.time_ms)
-    }
-
-    /// The bar period every revealed [`LiveUpdate`] carries.
-    #[must_use]
-    pub fn period(&self) -> Period {
-        self.period
-    }
 }
 
 #[cfg(test)]
@@ -125,11 +140,5 @@ mod tests {
         let updates = feed.reveal(1_000_000);
         assert_eq!(updates.len(), 3);
         assert!(feed.is_exhausted());
-    }
-
-    #[test]
-    fn first_bar_time_is_where_the_held_range_begins() {
-        let feed = feed();
-        assert_eq!(feed.first_bar_time(), Some(0));
     }
 }

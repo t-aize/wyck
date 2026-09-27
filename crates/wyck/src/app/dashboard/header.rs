@@ -73,15 +73,16 @@ impl Dashboard {
             .child(self.fullscreen_button(window))
     }
 
-    /// Toggles Replay: holds back the active chart's most recent bars and plays them
-    /// forward again, at a chosen speed, through the [`super::replay_bar`] control strip.
+    /// Toggles Replay on the active chart, at a distance back set in Settings, and shows
+    /// the [`super::replay_bar`] control strip docked at the bottom of the chart.
     fn replay_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
         Button::new("toggle-replay")
             .ghost()
             .small()
-            .selected(self.is_replaying())
+            .selected(self.is_replaying(cx))
             .icon(IconName::RotateCcw)
             .tooltip("Replay")
+            .accessibility_label("Replay")
             .cursor_pointer()
             .on_click(cx.listener(|this, _, _, cx| this.toggle_replay(cx)))
     }

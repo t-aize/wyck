@@ -180,7 +180,7 @@ pub struct BackfillRange {
 ///
 /// A closed month (one that has fully elapsed) is fetched and cached in full, once, then
 /// sealed. The month `range.now_ms` falls in is different: it keeps receiving new bars,
-/// so it is never sealed, and — critically — only the slice of it actually asked for is
+/// so it is never sealed, and, critically, only the slice of it actually asked for is
 /// fetched, not the whole month. Without that distinction, every single call touching
 /// "now" (which is every chart load) would re-fetch the entire current month from
 /// scratch, since it can never be marked complete: exactly the bug this comment is here

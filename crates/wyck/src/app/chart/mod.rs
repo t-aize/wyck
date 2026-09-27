@@ -405,6 +405,8 @@ pub struct Chart {
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Keeps the bar countdown ticking while the chart lives.
     _clock: gpui::Task<()>,
+    /// The active Replay, if any: see [`replay`].
+    replay: Option<replay::ReplayState>,
 }
 
 impl Chart {
@@ -481,6 +483,7 @@ impl Chart {
             context_at: None,
             bounds: Rc::new(Cell::new(None)),
             _clock: clock,
+            replay: None,
         }
     }
 

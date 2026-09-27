@@ -151,17 +151,9 @@ struct Peek {
 
 /// How often the replay clock is advanced and checked while playing.
 const REPLAY_TICK: Duration = Duration::from_millis(100);
-/// How many of the active chart's most recently loaded bars a replay holds back to play
-/// forward again. Chosen so a replay always has a substantial run without needing to
-/// fetch anything: everything it plays was already sitting in memory.
-const REPLAY_BARS: usize = 300;
-
-/// An active Replay: a cursor over the bars [`Chart::start_replay`] held back, and the
-/// play/pause/speed state the [`replay_bar`] control strip drives.
-struct ReplayState {
-    session: wyck_market_data::replay::ReplaySession,
-    feed: chart::replay::ReplayFeed,
-}
+/// How far back of the active chart's timeframe a replay starts by default when armed
+/// from the header button (before the user picks a different date).
+const REPLAY_DEFAULT_BARS: i64 = 300;
 
 pub struct Dashboard {
     session: Session,
@@ -224,12 +216,15 @@ pub struct Dashboard {
     ticket_drag: Option<(f32, f32)>,
     /// What waits for the window.
     pending: Vec<trade::Pending>,
-    /// The active Replay, if the header's Replay button is on.
-    replay: Option<ReplayState>,
-    /// Advances the replay clock on a timer; a no-op while `replay` is `None` or paused.
-    /// Kept alive for as long as the dashboard is, rather than spawned per-play, so
-    /// starting and stopping a replay never has to manage a task's lifetime.
+    /// Ticks the active chart's replay clock forward while it is playing. The replay
+    /// state itself (cursor, speed, feed) lives on the [`Chart`] being replayed, not
+    /// here: see `chart::history::Chart::replay_*`. Kept alive for as long as the
+    /// dashboard is, rather than spawned per-play, so starting and stopping a replay
+    /// never has to manage a task's lifetime.
     _replay_ticker: Task<()>,
+    /// Whether the "go to date" popover is open, and the text field it edits.
+    replay_goto_open: bool,
+    replay_goto: Option<Entity<gpui_kit::component::input::InputState>>,
 }
 
 impl Dashboard {
@@ -291,7 +286,11 @@ impl Dashboard {
         let replay_ticker = cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(REPLAY_TICK).await;
-                if this.update(cx, |this, cx| this.replay_tick(cx)).is_err() {
+                let now = chart::now_ms();
+                let alive = this.update(cx, |this, cx| {
+                    this.on_active_chart(cx, |chart, cx| chart.replay_tick(now, cx));
+                });
+                if alive.is_err() {
                     break;
                 }
             }
@@ -338,8 +337,9 @@ impl Dashboard {
             viewport_height: 800.0,
             ticket_drag: None,
             pending: Vec::new(),
-            replay: None,
             _replay_ticker: replay_ticker,
+            replay_goto_open: false,
+            replay_goto: None,
         };
         dashboard.follow_session(cx);
         dashboard
@@ -357,109 +357,105 @@ impl Dashboard {
 
     // ---- replay ----
 
-    /// Whether a replay is currently active (played or paused).
-    pub(super) fn is_replaying(&self) -> bool {
-        self.replay.is_some()
+    /// Whether the active chart currently has a replay running (played or paused).
+    pub(super) fn is_replaying(&self, cx: &mut Context<Self>) -> bool {
+        self.multi.read(cx).active_chart().read(cx).is_replaying()
     }
 
-    /// Turns Replay on (holding back the active chart's most recent bars to play forward
-    /// again) or off (resuming a genuinely live chart).
+    /// A read-only view of the active chart's replay, for the control bar to render.
+    pub(super) fn replay_view(&self, cx: &mut Context<Self>) -> Option<chart::replay::ReplayView> {
+        self.multi.read(cx).active_chart().read(cx).replay_view()
+    }
+
+    /// Turns Replay on (starting a default distance back on the active chart's
+    /// timeframe) or off (resuming a genuinely live chart).
     pub(super) fn toggle_replay(&mut self, cx: &mut Context<Self>) {
-        if self.replay.take().is_some() {
-            self.on_active_chart(cx, |chart, cx| chart.stop_replay(cx));
+        let chart = self.multi.read(cx).active_chart().clone();
+        if chart.read(cx).is_replaying() {
+            chart.update(cx, |chart, cx| chart.stop_replay(cx));
+            self.replay_goto_open = false;
             cx.notify();
             return;
         }
-        let chart = self.multi.read(cx).active_chart().clone();
-        let feed = chart.update(cx, |chart, cx| chart.start_replay(REPLAY_BARS, cx));
-        let Some(feed) = feed else {
+        let Some(step_ms) = chart.read(cx).timeframe().bar_ms() else {
             toast::show(
                 cx,
                 toast::Kind::Warning,
                 "Can't start replay",
-                "Not enough history is loaded on this chart yet, or its timeframe does not support replay.",
+                "This chart's timeframe does not support replay.",
             );
             return;
         };
-        let start_ms = feed.first_bar_time().unwrap_or_else(chart::now_ms);
-        let step_ms = feed.period().millis();
-        let mut session = wyck_market_data::replay::ReplaySession::new(start_ms, step_ms);
-        session.set_speed(self.workspace.read(cx).preferences().replay.default_speed, start_ms);
-        self.replay = Some(ReplayState { session, feed });
-        cx.notify();
-    }
-
-    /// Starts or stops the replay clock.
-    pub(super) fn replay_play_pause(&mut self, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        if state.session.is_playing() {
-            state.session.pause();
-        } else {
-            state.session.play(chart::now_ms());
-        }
-        cx.notify();
-    }
-
-    /// Moves the replay forward by exactly one bar and reveals it immediately, whether
-    /// or not the replay is playing.
-    pub(super) fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        state.session.step(true);
-        let updates = state.feed.reveal(state.session.cursor_ms());
-        if !updates.is_empty() {
-            self.on_active_chart(cx, |chart, cx| {
-                for update in &updates {
-                    chart.on_live(update, cx);
-                }
-            });
-        }
-        cx.notify();
-    }
-
-    /// Cycles the playback speed through a fixed set of presets.
-    pub(super) fn replay_cycle_speed(&mut self, cx: &mut Context<Self>) {
-        let Some(state) = &mut self.replay else {
-            return;
-        };
-        state
-            .session
-            .set_speed(replay_bar::next_speed(state.session.speed()), chart::now_ms());
-        cx.notify();
-    }
-
-    /// A read-only view of the active replay's state, for the control bar to render.
-    pub(super) fn replay_state(&self) -> Option<(f64, bool, i64)> {
-        self.replay
-            .as_ref()
-            .map(|state| (state.session.speed(), state.session.is_playing(), state.session.cursor_ms()))
-    }
-
-    /// Advances the replay clock and reveals whatever bars it newly crossed. A no-op
-    /// while there is no replay, or it is paused.
-    fn replay_tick(&mut self, cx: &mut Context<Self>) {
-        let updates = match &mut self.replay {
-            Some(state) if state.session.is_playing() => {
-                state.session.advance_to(chart::now_ms());
-                let updates = state.feed.reveal(state.session.cursor_ms());
-                if state.feed.is_exhausted() {
-                    state.session.pause();
-                }
-                updates
-            }
-            _ => return,
-        };
-        if updates.is_empty() {
-            return;
-        }
-        self.on_active_chart(cx, |chart, cx| {
-            for update in &updates {
-                chart.on_live(update, cx);
-            }
+        let start_ms = chart::now_ms() - REPLAY_DEFAULT_BARS * step_ms;
+        let default_speed = self.workspace.read(cx).preferences().replay.default_speed;
+        chart.update(cx, |chart, cx| {
+            chart.replay_seek(start_ms, Some(default_speed), cx);
         });
+        cx.notify();
+    }
+
+    /// Starts or stops the active chart's replay clock.
+    pub(super) fn replay_play_pause(&mut self, cx: &mut Context<Self>) {
+        let now = chart::now_ms();
+        self.on_active_chart(cx, |chart, cx| chart.replay_play_pause(now, cx));
+    }
+
+    /// Moves the active chart's replay forward by exactly one bar.
+    pub(super) fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
+        self.on_active_chart(cx, |chart, cx| chart.replay_step_forward(cx));
+    }
+
+    /// Sets the active chart's playback speed to an exact multiplier (from the speed menu).
+    pub(super) fn replay_set_speed(&mut self, speed: f64, cx: &mut Context<Self>) {
+        let now = chart::now_ms();
+        self.on_active_chart(cx, |chart, cx| chart.replay_set_speed(speed, now, cx));
+    }
+
+    /// Returns the active chart's replay to the point it currently started from.
+    pub(super) fn replay_jump_to_start(&mut self, cx: &mut Context<Self>) {
+        self.on_active_chart(cx, |chart, cx| chart.replay_jump_to_start(cx));
+    }
+
+    /// Opens or closes the "go to date" popover, creating its text field the first time.
+    pub(super) fn toggle_replay_goto(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.replay_goto_open = !self.replay_goto_open;
+        if self.replay_goto_open && self.replay_goto.is_none() {
+            let default_value = self
+                .replay_view(cx)
+                .map(|view| replay_bar::format_goto_default(view.cursor_ms))
+                .unwrap_or_default();
+            let state = cx.new(|cx| {
+                gpui_kit::component::input::InputState::new(window, cx).default_value(default_value)
+            });
+            cx.subscribe_in(&state, window, |this, _state, event, _window, cx| {
+                if matches!(event, gpui_kit::component::input::InputEvent::PressEnter { .. }) {
+                    this.submit_replay_goto(cx);
+                }
+            })
+            .detach();
+            self.replay_goto = Some(state);
+        }
+        cx.notify();
+    }
+
+    /// Parses the "go to date" field (`YYYY-MM-DD HH:MM`) and seeks the active chart's
+    /// replay there if it parses; otherwise leaves the popover open with nothing applied.
+    pub(super) fn submit_replay_goto(&mut self, cx: &mut Context<Self>) {
+        let Some(state) = &self.replay_goto else {
+            return;
+        };
+        let text = state.read(cx).value().to_string();
+        let Some(start_ms) = replay_bar::parse_goto(&text) else {
+            toast::show(
+                cx,
+                toast::Kind::Warning,
+                "Can't read that date",
+                "Use the format YYYY-MM-DD HH:MM, for example 2024-03-15 14:30.",
+            );
+            return;
+        };
+        self.replay_goto_open = false;
+        self.on_active_chart(cx, |chart, cx| chart.replay_seek(start_ms, None, cx));
         cx.notify();
     }
 
@@ -930,8 +926,10 @@ impl Render for Dashboard {
         self.editor_frame(window, cx);
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
-        let replay_bar = self.render_replay_bar(cx).map(IntoElement::into_any_element);
         let body = self.body(cx).into_any_element();
+        let replay_bar = self
+            .render_replay_bar(window, cx)
+            .map(IntoElement::into_any_element);
         let menu = self.render_menu(cx);
         let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
             deferred(
@@ -1111,8 +1109,8 @@ impl Render for Dashboard {
             .h_full()
             .bg(theme::bg())
             .child(header)
-            .children(replay_bar)
             .child(body)
+            .children(replay_bar)
             .children(menu)
             .children(picker)
             .children(menu_backdrop)
