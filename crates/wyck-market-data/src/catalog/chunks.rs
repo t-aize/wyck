@@ -1,10 +1,11 @@
 //! Month-partitioned flat binary chunk files: one file per `(symbol, series, calendar
-//! month)`, holding fixed-size records back to back, sorted by time and deduplicated.
+//! month)`, holding fixed-size records back to back, sorted by time. Bars have one
+//! record per time; ticks can share a millisecond.
 //! Only the current (still-open) month is ever written to more than once; sealed months
 //! are immutable (see [`super::manifest::Manifest`] for the "which months are sealed"
 //! bookkeeping) and are read as a single sequential file read.
 //!
-//! Storing is a read-merge-dedup-rewrite, not a blind append: the backfill scheduler may
+//! Storing is a read-merge-rewrite, not a blind append: the backfill scheduler may
 //! ask for the same still-open month more than once as new data arrives, and a live
 //! write-behind cache would too. Rewriting the whole (small, one month of one instrument)
 //! file keeps that safe without a separate "have I already stored this record" index.
@@ -59,7 +60,11 @@ pub fn months_between(from_ms: i64, to_ms: i64) -> Vec<(i32, u8)> {
     let (mut year, mut month) = month_of(from_ms);
     while month_start_ms(year, month) < to_ms {
         out.push((year, month));
-        (year, month) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+        (year, month) = if month == 12 {
+            (year + 1, 1)
+        } else {
+            (year, month + 1)
+        };
     }
     out
 }
@@ -67,7 +72,13 @@ pub fn months_between(from_ms: i64, to_ms: i64) -> Vec<(i32, u8)> {
 /// The path of the bar chunk file for `symbol_id`/`period`'s `(year, month)`, rooted at
 /// the catalog directory.
 #[must_use]
-pub fn bar_chunk_path(root: &Path, symbol_id: i64, period: Period, year: i32, month: u8) -> PathBuf {
+pub fn bar_chunk_path(
+    root: &Path,
+    symbol_id: i64,
+    period: Period,
+    year: i32,
+    month: u8,
+) -> PathBuf {
     root.join("bars")
         .join(symbol_id.to_string())
         .join(period.label())
@@ -136,10 +147,11 @@ pub fn append_ticks(path: &Path, ticks: &[Tick]) -> Result<()> {
     if ticks.is_empty() {
         return Ok(());
     }
-    let mut all = ticks.to_vec();
-    all.extend(read_ticks(path)?);
+    let times: std::collections::HashSet<i64> = ticks.iter().map(|tick| tick.time_ms).collect();
+    let mut all = read_ticks(path)?;
+    all.retain(|tick| !times.contains(&tick.time_ms));
+    all.extend_from_slice(ticks);
     all.sort_by_key(|tick| tick.time_ms);
-    all.dedup_by_key(|tick| tick.time_ms);
     let mut buf = Vec::with_capacity(all.len() * TICK_RECORD_LEN);
     for tick in &all {
         encode_tick(tick, &mut buf);
@@ -157,11 +169,7 @@ pub fn read_ticks(path: &Path) -> Result<Vec<Tick>> {
     read_records(path, TICK_RECORD_LEN, decode_tick)
 }
 
-fn read_records<T>(
-    path: &Path,
-    record_len: usize,
-    decode: impl Fn(&[u8]) -> T,
-) -> Result<Vec<T>> {
+fn read_records<T>(path: &Path, record_len: usize, decode: impl Fn(&[u8]) -> T) -> Result<Vec<T>> {
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -261,10 +269,34 @@ mod tests {
         }];
         append_ticks(&path, &first).unwrap();
         append_ticks(&path, &second).unwrap();
-        assert_eq!(
-            read_ticks(&path).unwrap(),
-            vec![first[0], second[0]]
-        );
+        assert_eq!(read_ticks(&path).unwrap(), vec![first[0], second[0]]);
+    }
+
+    #[test]
+    fn ticks_at_the_same_millisecond_survive_repeated_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = tick_chunk_path(dir.path(), 1, 2024, 3);
+        let ticks = vec![
+            Tick {
+                time_ms: 10,
+                price: 100,
+            },
+            Tick {
+                time_ms: 10,
+                price: 101,
+            },
+            Tick {
+                time_ms: 10,
+                price: 101,
+            },
+            Tick {
+                time_ms: 11,
+                price: 102,
+            },
+        ];
+        append_ticks(&path, &ticks).unwrap();
+        append_ticks(&path, &ticks).unwrap();
+        assert_eq!(read_ticks(&path).unwrap(), ticks);
     }
 
     #[test]

@@ -18,7 +18,7 @@ use super::settings::ChartKind;
 use super::study::{Placement, PlotKind, ValueFormat};
 use super::zone::Zone;
 use super::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older, Timeframe,
+    Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
 use crate::app::connection::ui;
@@ -286,7 +286,7 @@ impl Chart {
                 Item::Separator,
             ]);
         }
-        if let (Timeframe::Bars(_), Some(hover)) = (self.timeframe, self.hover_info(x, y)) {
+        if let Some(hover) = self.hover_info(x, y) {
             let time_ms = hover.time_ms;
             let chart = chart.clone();
             items.push(

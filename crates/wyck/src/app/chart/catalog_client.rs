@@ -6,6 +6,7 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use wyck_market_data::Catalog;
 use wyck_market_data::backfill::{self, BackfillRange, RateLimiter, Upstream};
@@ -54,7 +55,11 @@ fn store_err(err: wyck_market_data::MarketDataError) -> OpenApiError {
 pub struct CatalogClient {
     catalog: Arc<Catalog>,
     market: MarketClient,
-    limiter: RateLimiter,
+}
+
+fn limiter() -> &'static RateLimiter {
+    static LIMITER: OnceLock<RateLimiter> = OnceLock::new();
+    LIMITER.get_or_init(RateLimiter::for_ctrader_history)
 }
 
 impl CatalogClient {
@@ -62,20 +67,22 @@ impl CatalogClient {
     /// historical endpoints allow. `catalog` is the app-wide shared catalog (see
     /// `crate::app::market_data::catalog`), cheap to clone into one client per chart.
     pub fn new(catalog: Arc<Catalog>, market: MarketClient) -> Self {
-        Self {
-            catalog,
-            market,
-            limiter: RateLimiter::for_ctrader_history(),
-        }
+        Self { catalog, market }
     }
 }
 
 impl History for CatalogClient {
-    async fn bars(&self, symbol_id: i64, period: Period, from_ms: i64, to_ms: i64) -> Result<Vec<Bar>> {
+    async fn bars(
+        &self,
+        symbol_id: i64,
+        period: Period,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<Bar>> {
         backfill::backfill_bars(
             &self.catalog,
             &MarketUpstream(&self.market),
-            &self.limiter,
+            limiter(),
             symbol_id,
             period,
             BackfillRange {
@@ -95,7 +102,7 @@ impl History for CatalogClient {
         backfill::backfill_ticks(
             &self.catalog,
             &MarketUpstream(&self.market),
-            &self.limiter,
+            limiter(),
             symbol_id,
             BackfillRange {
                 from_ms,

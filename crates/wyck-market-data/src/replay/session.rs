@@ -118,6 +118,12 @@ impl ReplaySession {
         self.cursor_ms = self.cursor_ms.max(self.anchor_cursor_ms + delta);
     }
 
+    /// Holds playback at the next visible market event while the wall clock may
+    /// already be farther ahead. The anchor stays fixed so later frames catch up.
+    pub fn cap_cursor(&mut self, time_ms: i64) {
+        self.cursor_ms = self.cursor_ms.min(time_ms);
+    }
+
     /// Sets the playback speed multiplier, clamped to `[0.05, 100.0]`. If currently
     /// playing, re-anchors at `wall_now_ms` first so the cursor does not jump: without
     /// this, changing speed mid-playback would retroactively apply the new speed to time
@@ -244,5 +250,19 @@ mod tests {
         let frozen = session.cursor_ms();
         session.advance_to(10_000);
         assert_eq!(session.cursor_ms(), frozen);
+    }
+
+    #[test]
+    fn capping_at_one_tick_keeps_playback_running() {
+        let mut session = ReplaySession::new(0, 60_000);
+        session.play(0);
+        session.advance_to(1_000);
+        session.cap_cursor(100);
+        assert_eq!(session.cursor_ms(), 100);
+        assert!(session.is_playing());
+        session.advance_to(1_033);
+        assert_eq!(session.cursor_ms(), 1_033);
+        session.cap_cursor(101);
+        assert_eq!(session.cursor_ms(), 101);
     }
 }

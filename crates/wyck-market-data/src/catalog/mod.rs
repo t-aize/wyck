@@ -8,6 +8,7 @@ pub mod manifest;
 pub mod record;
 
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use wyck_openapi_model::market::{Bar, Period, Tick};
 
@@ -19,6 +20,7 @@ use crate::error::{MarketDataError, Result};
 pub struct Catalog {
     root: PathBuf,
     manifest: Manifest,
+    write_lock: Mutex<()>,
 }
 
 impl Catalog {
@@ -30,7 +32,11 @@ impl Catalog {
             source,
         })?;
         let manifest = Manifest::open(&root.join("catalog.sqlite3"))?;
-        Ok(Self { root, manifest })
+        Ok(Self {
+            root,
+            manifest,
+            write_lock: Mutex::new(()),
+        })
     }
 
     /// The directory this catalog is rooted at.
@@ -44,6 +50,10 @@ impl Catalog {
     /// not itself seal any month as complete: call [`Self::mark_bars_month_complete`]
     /// once a caller (typically the backfill scheduler) knows a month has no more gaps.
     pub fn store_bars(&self, symbol_id: i64, period: Period, bars: &[Bar]) -> Result<()> {
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         for (year, month, group) in group_by_month(bars, |bar| bar.time_ms) {
             let path = chunks::bar_chunk_path(&self.root, symbol_id, period, year, month);
             chunks::append_bars(&path, &group)?;
@@ -54,6 +64,10 @@ impl Catalog {
     /// Appends `ticks` to the catalog for `symbol_id`, grouped by calendar month exactly
     /// as [`Self::store_bars`] does for bars.
     pub fn store_ticks(&self, symbol_id: i64, ticks: &[Tick]) -> Result<()> {
+        let _guard = self
+            .write_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         for (year, month, group) in group_by_month(ticks, |tick| tick.time_ms) {
             let path = chunks::tick_chunk_path(&self.root, symbol_id, year, month);
             chunks::append_ticks(&path, &group)?;
@@ -151,10 +165,7 @@ impl Catalog {
 
 /// Splits `items` into contiguous per-calendar-month groups, in the order given (callers
 /// are expected to pass time-ordered data; this does not sort).
-fn group_by_month<T: Copy>(
-    items: &[T],
-    time_of: impl Fn(T) -> i64,
-) -> Vec<(i32, u8, Vec<T>)> {
+fn group_by_month<T: Copy>(items: &[T], time_of: impl Fn(T) -> i64) -> Vec<(i32, u8, Vec<T>)> {
     let mut groups: Vec<(i32, u8, Vec<T>)> = Vec::new();
     for &item in items {
         let (year, month) = chunks::month_of(time_of(item));
@@ -190,9 +201,7 @@ mod tests {
         let bars = vec![bar(feb), bar(mar)];
         catalog.store_bars(7, Period::M1, &bars).unwrap();
 
-        let loaded = catalog
-            .load_bars(7, Period::M1, feb - 1, mar + 1)
-            .unwrap();
+        let loaded = catalog.load_bars(7, Period::M1, feb - 1, mar + 1).unwrap();
         assert_eq!(loaded, bars);
     }
 
@@ -201,7 +210,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let catalog = Catalog::open(dir.path()).unwrap();
         assert_eq!(
-            catalog.load_bars(1, Period::D1, 0, 1_000_000_000_000).unwrap(),
+            catalog
+                .load_bars(1, Period::D1, 0, 1_000_000_000_000)
+                .unwrap(),
             Vec::new()
         );
     }
@@ -212,7 +223,9 @@ mod tests {
         let catalog = Catalog::open(dir.path()).unwrap();
         let now = chunks::month_start_ms(2024, 5) + 1;
         assert!(!catalog.bars_month_complete(1, Period::H1, now).unwrap());
-        catalog.mark_bars_month_complete(1, Period::H1, now).unwrap();
+        catalog
+            .mark_bars_month_complete(1, Period::H1, now)
+            .unwrap();
         assert!(catalog.bars_month_complete(1, Period::H1, now).unwrap());
     }
 
@@ -236,9 +249,7 @@ mod tests {
             },
         ];
         catalog.store_ticks(9, &ticks).unwrap();
-        let loaded = catalog
-            .load_ticks(9, base, base + 2)
-            .unwrap();
+        let loaded = catalog.load_ticks(9, base, base + 2).unwrap();
         assert_eq!(loaded, vec![ticks[0], ticks[1]]);
     }
 }

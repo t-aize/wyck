@@ -133,8 +133,8 @@ pub(crate) async fn fetch_bars_chunked(
     Ok(all)
 }
 
-/// Fetches `[from_ms, to_ms]` ticks in server-sized windows, rate-limited, sorted and
-/// deduplicated by time.
+/// Fetches `[from_ms, to_ms]` ticks in server-sized windows, rate-limited and sorted.
+/// Distinct ticks may share a millisecond.
 pub(crate) async fn fetch_ticks_chunked(
     upstream: &impl Upstream,
     limiter: &RateLimiter,
@@ -159,7 +159,6 @@ pub(crate) async fn fetch_ticks_chunked(
         from = to + 1;
     }
     all.sort_by_key(|tick| tick.time_ms);
-    all.dedup_by_key(|tick| tick.time_ms);
     Ok(all)
 }
 
@@ -376,11 +375,21 @@ mod tests {
         .await
         .unwrap();
 
-        let loaded = catalog.load_bars(1, Period::M1, feb_start, mar_end).unwrap();
+        let loaded = catalog
+            .load_bars(1, Period::M1, feb_start, mar_end)
+            .unwrap();
         assert!(!loaded.is_empty());
         assert!(loaded.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
-        assert!(catalog.bars_month_complete(1, Period::M1, feb_start).unwrap());
-        assert!(catalog.bars_month_complete(1, Period::M1, month_start_ms(2024, 3)).unwrap());
+        assert!(
+            catalog
+                .bars_month_complete(1, Period::M1, feb_start)
+                .unwrap()
+        );
+        assert!(
+            catalog
+                .bars_month_complete(1, Period::M1, month_start_ms(2024, 3))
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -437,7 +446,12 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(!catalog.load_bars(1, Period::M1, start, now).unwrap().is_empty());
+        assert!(
+            !catalog
+                .load_bars(1, Period::M1, start, now)
+                .unwrap()
+                .is_empty()
+        );
         assert!(!catalog.bars_month_complete(1, Period::M1, start).unwrap());
     }
 
@@ -476,7 +490,11 @@ mod tests {
                 "asked for {from}, long before the requested window {window_start}: the whole month was fetched"
             );
         }
-        assert!(!catalog.bars_month_complete(1, Period::M1, month_start).unwrap());
+        assert!(
+            !catalog
+                .bars_month_complete(1, Period::M1, month_start)
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -504,7 +522,10 @@ mod tests {
 
         assert!(!catalog.load_ticks(1, start, end).unwrap().is_empty());
         assert!(catalog.ticks_month_complete(1, start).unwrap());
-        assert!(fake.tick_requests.lock().unwrap().len() > 1, "a month is longer than one tick window");
+        assert!(
+            fake.tick_requests.lock().unwrap().len() > 1,
+            "a month is longer than one tick window"
+        );
     }
 
     #[tokio::test]

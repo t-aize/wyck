@@ -150,7 +150,7 @@ struct Peek {
 }
 
 /// How often the replay clock is advanced and checked while playing.
-const REPLAY_TICK: Duration = Duration::from_millis(100);
+const REPLAY_TICK: Duration = Duration::from_millis(33);
 /// How far back of the active chart's timeframe a replay starts by default when armed
 /// from the header button (before the user picks a different date).
 const REPLAY_DEFAULT_BARS: i64 = 300;
@@ -380,7 +380,11 @@ impl Dashboard {
     /// A read-only view of the shared replay clock, for the control bar to render.
     pub(super) fn replay_view(&self, cx: &mut Context<Self>) -> Option<ReplayStatus> {
         let session = self.replay_session.as_ref()?;
-        let exhausted = self.multi.read(cx).charts().all(|chart| chart.read(cx).replay_is_exhausted());
+        let exhausted = self
+            .multi
+            .read(cx)
+            .charts()
+            .all(|chart| chart.read(cx).replay_is_exhausted());
         Some(ReplayStatus {
             speed: session.speed(),
             playing: session.is_playing(),
@@ -391,7 +395,11 @@ impl Dashboard {
     }
 
     /// Runs `f` on every chart in the current layout, active or not.
-    fn on_every_chart(&self, cx: &mut Context<Self>, mut f: impl FnMut(&mut Chart, &mut Context<Chart>)) {
+    fn on_every_chart(
+        &self,
+        cx: &mut Context<Self>,
+        mut f: impl FnMut(&mut Chart, &mut Context<Chart>),
+    ) {
         let charts: Vec<Entity<Chart>> = self.multi.read(cx).charts().cloned().collect();
         for chart in charts {
             chart.update(cx, |chart, cx| f(chart, cx));
@@ -407,15 +415,14 @@ impl Dashboard {
             cx.notify();
             return;
         }
-        let Some(step_ms) = self.multi.read(cx).active_chart().read(cx).timeframe().bar_ms() else {
-            toast::show(
-                cx,
-                toast::Kind::Warning,
-                "Can't start replay",
-                "This chart's timeframe does not support replay.",
-            );
-            return;
-        };
+        let step_ms = self
+            .multi
+            .read(cx)
+            .active_chart()
+            .read(cx)
+            .timeframe()
+            .bar_ms()
+            .unwrap_or(1);
         let start_ms = chart::now_ms() - REPLAY_DEFAULT_BARS * step_ms;
         self.replay_seek_all(start_ms, cx);
     }
@@ -426,6 +433,15 @@ impl Dashboard {
     /// `ChartAction::ReplayFrom` so it, too, moves every chart, not just the one
     /// right-clicked).
     pub(super) fn replay_seek_all(&mut self, start_ms: i64, cx: &mut Context<Self>) {
+        if start_ms >= chart::now_ms() {
+            toast::show(
+                cx,
+                toast::Kind::Warning,
+                "Can't start replay",
+                "Choose a time in the past.",
+            );
+            return;
+        }
         let step_ms = self
             .multi
             .read(cx)
@@ -433,7 +449,7 @@ impl Dashboard {
             .read(cx)
             .timeframe()
             .bar_ms()
-            .unwrap_or(60_000);
+            .unwrap_or(1);
         let speed = self
             .replay_session
             .as_ref()
@@ -461,13 +477,31 @@ impl Dashboard {
 
     /// Moves every chart's replay forward by exactly one step of the shared clock.
     pub(super) fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
+        if self
+            .multi
+            .read(cx)
+            .charts()
+            .any(|chart| chart.read(cx).replay_needs_data())
+        {
+            return;
+        }
+        let next = self
+            .multi
+            .read(cx)
+            .charts()
+            .filter_map(|chart| chart.read(cx).replay_next_time())
+            .min();
         let Some(cursor) = self.replay_session.as_mut().map(|session| {
-            session.step(true);
+            if let Some(next) = next {
+                session.seek(next.max(session.cursor_ms()));
+            } else {
+                session.step(true);
+            }
             session.cursor_ms()
         }) else {
             return;
         };
-        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_to(cursor, cx));
+        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_one_to(cursor, cx));
         cx.notify();
     }
 
@@ -482,7 +516,10 @@ impl Dashboard {
 
     /// Returns the layout's replay to the point it currently started from.
     pub(super) fn replay_jump_to_start(&mut self, cx: &mut Context<Self>) {
-        let Some(start_ms) = self.replay_session.as_ref().map(wyck_market_data::replay::ReplaySession::start_ms)
+        let Some(start_ms) = self
+            .replay_session
+            .as_ref()
+            .map(wyck_market_data::replay::ReplaySession::start_ms)
         else {
             return;
         };
@@ -493,18 +530,45 @@ impl Dashboard {
     /// no-op while there is no replay, or it is paused. Pauses itself once every chart
     /// has nothing left to reveal.
     fn replay_tick(&mut self, cx: &mut Context<Self>) {
+        if self
+            .multi
+            .read(cx)
+            .charts()
+            .any(|chart| chart.read(cx).replay_needs_data())
+        {
+            if let Some(session) = &mut self.replay_session
+                && session.is_playing()
+            {
+                session.play(chart::now_ms());
+            }
+            return;
+        }
         let now = chart::now_ms();
+        let next = self
+            .multi
+            .read(cx)
+            .charts()
+            .filter_map(|chart| chart.read(cx).replay_next_time())
+            .min();
         let Some(cursor) = self.replay_session.as_mut().and_then(|session| {
             if !session.is_playing() {
                 return None;
             }
+            let previous = session.cursor_ms();
             session.advance_to(now);
+            if let Some(next) = next.filter(|next| *next <= session.cursor_ms()) {
+                session.cap_cursor(next.max(previous));
+            }
             Some(session.cursor_ms())
         }) else {
             return;
         };
-        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_to(cursor, cx));
-        let exhausted = self.multi.read(cx).charts().all(|chart| chart.read(cx).replay_is_exhausted());
+        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_one_to(cursor, cx));
+        let exhausted = self
+            .multi
+            .read(cx)
+            .charts()
+            .all(|chart| chart.read(cx).replay_is_exhausted());
         if exhausted && let Some(session) = &mut self.replay_session {
             session.pause();
         }
@@ -523,7 +587,10 @@ impl Dashboard {
                 gpui_kit::component::input::InputState::new(window, cx).default_value(default_value)
             });
             cx.subscribe_in(&state, window, |this, _state, event, _window, cx| {
-                if matches!(event, gpui_kit::component::input::InputEvent::PressEnter { .. }) {
+                if matches!(
+                    event,
+                    gpui_kit::component::input::InputEvent::PressEnter { .. }
+                ) {
                     this.submit_replay_goto(cx);
                 }
             })
@@ -1025,26 +1092,27 @@ impl Render for Dashboard {
             .render_replay_bar(window, cx)
             .map(IntoElement::into_any_element);
         let menu = self.render_menu(cx);
-        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open || self.replay_goto_open).then(|| {
-            deferred(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full()
-                    .occlude()
-                    .on_mouse_down(
-                        gpui::MouseButton::Left,
-                        cx.listener(|this, _event, _window, cx| {
-                            this.tf_menu_open = false;
-                            this.layout_menu_open = false;
-                            this.replay_goto_open = false;
-                            cx.notify();
-                        }),
-                    ),
-            )
-            .with_priority(0)
-        });
+        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open || self.replay_goto_open)
+            .then(|| {
+                deferred(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full()
+                        .occlude()
+                        .on_mouse_down(
+                            gpui::MouseButton::Left,
+                            cx.listener(|this, _event, _window, cx| {
+                                this.tf_menu_open = false;
+                                this.layout_menu_open = false;
+                                this.replay_goto_open = false;
+                                cx.notify();
+                            }),
+                        ),
+                )
+                .with_priority(0)
+            });
 
         // A second context name while a drawing is being made turns on the keys for that.
         let context = if self.multi.read(cx).drawing_in_progress(cx) {

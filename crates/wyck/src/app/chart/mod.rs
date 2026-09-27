@@ -417,6 +417,9 @@ pub struct Chart {
     /// otherwise assume the real wall clock. `None` when not replaying, so those fall
     /// back to the real time.
     replay_cursor_ms: Option<i64>,
+    replay_loaded_until_ms: i64,
+    replay_end_ms: i64,
+    replay_loading_more: bool,
 }
 
 impl Chart {
@@ -495,6 +498,9 @@ impl Chart {
             _clock: clock,
             replay: None,
             replay_cursor_ms: None,
+            replay_loaded_until_ms: 0,
+            replay_end_ms: 0,
+            replay_loading_more: false,
         }
     }
 
