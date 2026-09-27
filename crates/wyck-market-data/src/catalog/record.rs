@@ -29,7 +29,8 @@ pub fn encode_bar(bar: &Bar, out: &mut Vec<u8>) {
 /// [`super::chunks::read_bars`]).
 pub fn decode_bar(bytes: &[u8]) -> Bar {
     debug_assert_eq!(bytes.len(), BAR_RECORD_LEN);
-    let field = |range: std::ops::Range<usize>| i64::from_le_bytes(bytes[range].try_into().unwrap());
+    let field =
+        |range: std::ops::Range<usize>| i64::from_le_bytes(bytes[range].try_into().unwrap());
     Bar {
         time_ms: field(0..8),
         open: field(8..16),

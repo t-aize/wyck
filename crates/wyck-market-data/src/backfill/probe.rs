@@ -30,7 +30,7 @@ fn map_upstream_err<E: std::fmt::Display>(err: E) -> MarketDataError {
 }
 
 /// Walks backward from `before_ms` one server-sized chunk at a time until
-/// [`MAX_EMPTY_RUN`] consecutive empty chunks are seen, records `symbol_id`/`period`'s
+/// `MAX_EMPTY_RUN` consecutive empty chunks are seen, records `symbol_id`/`period`'s
 /// oldest known bar time in the catalog manifest, and stores every bar fetched along the
 /// way (it does not mark any month complete: a probe chunk is not month-aligned, only
 /// [`super::scheduler::backfill_bars`] seals a month). Idempotent: safe to call again
@@ -170,7 +170,10 @@ mod tests {
             async move {
                 Ok((from_ms.max(start)..=to_ms.min(end))
                     .step_by(1_000)
-                    .map(|t| Tick { time_ms: t, price: 1 })
+                    .map(|t| Tick {
+                        time_ms: t,
+                        price: 1,
+                    })
                     .collect())
             }
         }
@@ -247,6 +250,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(oldest, history_start);
-        assert!(!catalog.load_ticks(1, history_start, before + 1).unwrap().is_empty());
+        assert!(
+            !catalog
+                .load_ticks(1, history_start, before + 1)
+                .unwrap()
+                .is_empty()
+        );
     }
 }

@@ -98,7 +98,9 @@ impl Manifest {
     /// the lock rather than poisoning every later access: a manifest query is never
     /// half-applied (SQLite statements are atomic), so there is nothing to roll back.
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Marks the chunk for `symbol_id`/`series`/`month_start_ms` as sealed and complete.
@@ -192,15 +194,25 @@ mod tests {
     #[test]
     fn marking_a_month_complete_persists() {
         let manifest = Manifest::open_in_memory();
-        manifest.mark_month_complete(1, "M1", 1_700_000_000_000).unwrap();
+        manifest
+            .mark_month_complete(1, "M1", 1_700_000_000_000)
+            .unwrap();
         assert!(
             manifest
                 .is_month_complete(1, "M1", 1_700_000_000_000)
                 .unwrap()
         );
         // A different symbol/series/month is unaffected.
-        assert!(!manifest.is_month_complete(2, "M1", 1_700_000_000_000).unwrap());
-        assert!(!manifest.is_month_complete(1, TICKS, 1_700_000_000_000).unwrap());
+        assert!(
+            !manifest
+                .is_month_complete(2, "M1", 1_700_000_000_000)
+                .unwrap()
+        );
+        assert!(
+            !manifest
+                .is_month_complete(1, TICKS, 1_700_000_000_000)
+                .unwrap()
+        );
     }
 
     #[test]
@@ -215,7 +227,9 @@ mod tests {
     fn oldest_known_round_trips_and_can_be_updated() {
         let manifest = Manifest::open_in_memory();
         assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), None);
-        manifest.record_oldest_known(1, TICKS, 1_000, 5_000).unwrap();
+        manifest
+            .record_oldest_known(1, TICKS, 1_000, 5_000)
+            .unwrap();
         assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(1_000));
         manifest.record_oldest_known(1, TICKS, 500, 6_000).unwrap();
         assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(500));

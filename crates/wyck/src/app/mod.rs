@@ -16,10 +16,10 @@ mod confirm;
 mod connection;
 mod dashboard;
 mod indicators;
-#[path = "ui/menu.rs"]
-mod menu;
 #[path = "services/market_data.rs"]
 mod market_data;
+#[path = "ui/menu.rs"]
+mod menu;
 #[path = "ui/modal.rs"]
 mod modal;
 mod multichart;

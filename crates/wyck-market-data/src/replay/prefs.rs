@@ -31,7 +31,10 @@ impl ReplayPrefs {
     /// version of the app) falls back to the default rather than being rejected outright.
     #[must_use]
     pub fn normalized(mut self) -> Self {
-        if !SPEED_PRESETS.iter().any(|preset| (*preset - self.default_speed).abs() < 0.001) {
+        if !SPEED_PRESETS
+            .iter()
+            .any(|preset| (*preset - self.default_speed).abs() < 0.001)
+        {
             self.default_speed = default_speed();
         }
         self
@@ -49,19 +52,13 @@ mod tests {
 
     #[test]
     fn an_unrecognized_speed_is_repaired_to_the_default() {
-        let prefs = ReplayPrefs {
-            default_speed: 3.7,
-        }
-        .normalized();
+        let prefs = ReplayPrefs { default_speed: 3.7 }.normalized();
         assert_eq!(prefs.default_speed, default_speed());
     }
 
     #[test]
     fn a_recognized_speed_survives_normalization() {
-        let prefs = ReplayPrefs {
-            default_speed: 5.0,
-        }
-        .normalized();
+        let prefs = ReplayPrefs { default_speed: 5.0 }.normalized();
         assert_eq!(prefs.default_speed, 5.0);
     }
 }

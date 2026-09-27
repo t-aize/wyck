@@ -1,6 +1,6 @@
 //! The local historical market data catalog (`wyck-market-data`), opened once at startup
 //! and shared as a GPUI global so every chart reads and backfills history through the
-//! same [`CatalogClient`](super::super::chart::catalog_client::CatalogClient) instead of
+//! same [`CatalogClient`](crate::app::chart::catalog_client::CatalogClient) instead of
 //! each re-fetching from the broker every session.
 
 use std::sync::Arc;
@@ -33,5 +33,6 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
 
 /// The shared catalog, if it was opened successfully at startup.
 pub fn catalog(cx: &App) -> Option<Arc<Catalog>> {
-    cx.try_global::<Service>().map(|service| service.catalog.clone())
+    cx.try_global::<Service>()
+        .map(|service| service.catalog.clone())
 }

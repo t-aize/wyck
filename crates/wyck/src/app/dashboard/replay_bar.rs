@@ -105,7 +105,11 @@ impl Dashboard {
             .child(
                 icon_button(
                     "replay-play-pause",
-                    if view.playing { IconName::Pause } else { IconName::Play },
+                    if view.playing {
+                        IconName::Pause
+                    } else {
+                        IconName::Play
+                    },
                     if view.playing { "Pause" } else { "Play" },
                 )
                 .selected(view.playing)
@@ -116,19 +120,23 @@ impl Dashboard {
                     .disabled(view.exhausted)
                     .on_click(cx.listener(|this, _, _, cx| this.replay_step_forward(cx))),
             )
-            .child(div().relative().child(
-                Button::new("replay-speed")
-                    .ghost()
-                    .small()
-                    .label(format!("{}x", view.speed))
-                    .tooltip("Playback speed")
-                    .accessibility_label("Playback speed")
-                    .cursor_pointer()
-                    .on_click({
-                        let menu = speed_menu.clone();
-                        move |_, _, cx| menu.toggle(cx)
-                    }),
-                ).children(speed_menu.popup(speed_items, Placement::Below(4.), window, cx)),
+            .child(
+                div()
+                    .relative()
+                    .child(
+                        Button::new("replay-speed")
+                            .ghost()
+                            .small()
+                            .label(format!("{}x", view.speed))
+                            .tooltip("Playback speed")
+                            .accessibility_label("Playback speed")
+                            .cursor_pointer()
+                            .on_click({
+                                let menu = speed_menu.clone();
+                                move |_, _, cx| menu.toggle(cx)
+                            }),
+                    )
+                    .children(speed_menu.popup(speed_items, Placement::Below(4.), window, cx)),
             )
             .child(
                 icon_button("replay-jump-to-start", IconName::SkipBack, "Jump to start")
