@@ -197,6 +197,15 @@ impl Chart {
         self.replay.as_ref().is_none_or(super::replay::ReplayFeed::is_exhausted)
     }
 
+    /// "Now" for anything the chart draws that means "the current moment": the real wall
+    /// clock, unless replaying, in which case the shared replay clock's own position.
+    /// This is what lets the "time left in this bar" countdown mean something during a
+    /// replay instead of comparing a historical bar's time to today's date and never
+    /// showing at all.
+    pub(super) fn now_for_display(&self) -> i64 {
+        self.replay_cursor_ms.unwrap_or_else(now_ms)
+    }
+
     /// Moves to `start_ms`: reloads the chart truncated to that point and prepares a
     /// fresh [`super::replay::ReplayFeed`] for everything after it, replacing any replay
     /// already in progress. This is how a replay is started, and also how "go to a
@@ -211,6 +220,7 @@ impl Chart {
             return;
         };
         self.replay = None;
+        self.replay_cursor_ms = Some(start_ms);
         self.epoch += 1;
         let epoch = self.epoch;
         self.hub.set(self.id, None);
@@ -274,15 +284,25 @@ impl Chart {
         }
     }
 
-    /// Reveals every bar the feed holds up to `cursor_ms`, applying each exactly as a
-    /// live update. A no-op while no replay is active (including mid-seek, when the
-    /// previous feed was already cleared but the new one has not landed yet).
+    /// Moves this chart's replay clock to `cursor_ms` and reveals every bar the feed
+    /// holds up to it, applying each exactly as a live update. Updates the clock (and
+    /// redraws, for the "time left in this bar" countdown) even when nothing new is
+    /// revealed, so the display visibly keeps pace with the speed multiplier between bar
+    /// closes rather than only jumping once a new bar appears. A no-op while no replay is
+    /// active (including mid-seek, when the previous feed was already cleared but the new
+    /// one has not landed yet).
     pub fn replay_reveal_to(&mut self, cursor_ms: i64, cx: &mut Context<Self>) {
-        let Some(feed) = &mut self.replay else {
+        if self.replay.is_none() {
             return;
-        };
-        let updates = feed.reveal(cursor_ms);
+        }
+        self.replay_cursor_ms = Some(cursor_ms);
+        let updates = self
+            .replay
+            .as_mut()
+            .map(|feed| feed.reveal(cursor_ms))
+            .unwrap_or_default();
         if updates.is_empty() {
+            cx.notify();
             return;
         }
         for update in &updates {
@@ -294,6 +314,7 @@ impl Chart {
     /// simplest way back to an honestly-live chart.
     pub fn stop_replay(&mut self, cx: &mut Context<Self>) {
         self.replay = None;
+        self.replay_cursor_ms = None;
         if let Some(symbol) = &self.symbol {
             self.hub
                 .set(self.id, Some(Wish::symbol(symbol.id, self.timeframe.period())));

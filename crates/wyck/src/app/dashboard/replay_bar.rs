@@ -37,6 +37,16 @@ pub(super) fn parse_goto(text: &str) -> Option<i64> {
     drawing_props::parse_time(wyck_chart::Zone::default(), text)
 }
 
+/// The cursor readout, to the second: at a real speed multiplier the minute-level
+/// precision `format_goto_default` uses (fine for a one-off "go to" field) would look
+/// frozen for up to 59 real seconds even while playing, which is exactly what someone
+/// checking whether a speed multiplier is doing anything would not want to see.
+fn format_cursor(zone: wyck_chart::Zone, time_ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(zone.shift(time_ms))
+        .map(|t| t.naive_utc().format("%Y-%m-%d %H:%M:%S").to_string())
+        .unwrap_or_default()
+}
+
 impl Dashboard {
     /// The control strip, or `None` when no replay is running on the layout.
     pub(super) fn render_replay_bar(
@@ -131,7 +141,7 @@ impl Dashboard {
                     .px_1()
                     .text_size(px(12.))
                     .text_color(theme::muted_fg())
-                    .child(drawing_props::format_time(zone, view.cursor_ms)),
+                    .child(format_cursor(zone, view.cursor_ms)),
             )
             .child(
                 icon_button("replay-exit", IconName::X, "Exit replay")
@@ -219,5 +229,13 @@ mod tests {
     #[test]
     fn garbage_does_not_parse() {
         assert_eq!(parse_goto("not a date"), None);
+    }
+
+    #[test]
+    fn the_cursor_readout_shows_seconds() {
+        // 2024-03-15 11:00:07 UTC. Zone::Utc, not Zone::default() (the machine's local
+        // zone), so this holds regardless of where the test runs.
+        let text = format_cursor(wyck_chart::Zone::Utc, 1_710_500_407_000);
+        assert_eq!(text, "2024-03-15 11:00:07");
     }
 }

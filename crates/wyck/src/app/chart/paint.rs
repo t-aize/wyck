@@ -78,7 +78,7 @@ impl Chart {
                 .filter(|_| with_pointer)
                 .map(|r| (r.time_ms, r.price)),
             ask: self.ask,
-            now_ms: super::now_ms(),
+            now_ms: self.now_for_display(),
             palette: super::palette_for_chart(&self.settings.colors),
             drawings: drawings
                 .as_ref()

@@ -412,6 +412,11 @@ pub struct Chart {
     /// driving it (cursor, speed, play state) is shared across every chart and lives on
     /// `Dashboard`, not here.
     replay: Option<replay::ReplayFeed>,
+    /// The shared replay clock's current position, while a replay is active: what "now"
+    /// means for the countdown to the next bar's close, and anything else that would
+    /// otherwise assume the real wall clock. `None` when not replaying, so those fall
+    /// back to the real time.
+    replay_cursor_ms: Option<i64>,
 }
 
 impl Chart {
@@ -489,6 +494,7 @@ impl Chart {
             bounds: Rc::new(Cell::new(None)),
             _clock: clock,
             replay: None,
+            replay_cursor_ms: None,
         }
     }
 
