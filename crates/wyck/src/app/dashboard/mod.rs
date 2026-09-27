@@ -931,7 +931,7 @@ impl Render for Dashboard {
             .render_replay_bar(window, cx)
             .map(IntoElement::into_any_element);
         let menu = self.render_menu(cx);
-        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
+        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open || self.replay_goto_open).then(|| {
             deferred(
                 div()
                     .absolute()
@@ -944,6 +944,7 @@ impl Render for Dashboard {
                         cx.listener(|this, _event, _window, cx| {
                             this.tf_menu_open = false;
                             this.layout_menu_open = false;
+                            this.replay_goto_open = false;
                             cx.notify();
                         }),
                     ),

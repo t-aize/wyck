@@ -18,7 +18,7 @@ use super::settings::ChartKind;
 use super::study::{Placement, PlotKind, ValueFormat};
 use super::zone::Zone;
 use super::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
+    Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older, Timeframe,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
 use crate::app::connection::ui;
@@ -285,6 +285,19 @@ impl Chart {
                     .into(),
                 Item::Separator,
             ]);
+        }
+        if let (Timeframe::Bars(_), Some(hover)) = (self.timeframe, self.hover_info(x, y)) {
+            let time_ms = hover.time_ms;
+            let chart = chart.clone();
+            items.push(
+                Entry::new("Replay from here")
+                    .icon(IconName::RotateCcw)
+                    .on_click(move |_: &mut Window, cx: &mut App| {
+                        chart.update(cx, |chart, cx| chart.replay_seek(time_ms, None, cx));
+                    })
+                    .into(),
+            );
+            items.push(Item::Separator);
         }
         let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
             let chart = chart.clone();

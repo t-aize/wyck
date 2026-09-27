@@ -189,7 +189,10 @@ impl Dashboard {
                         )
                         .child(Input::new(&state).small()),
                     4.,
-                    0,
+                    // Above the click-outside-to-close backdrop (priority 0, see
+                    // Dashboard::render), and matching Menu::popup's own priority so it
+                    // stacks consistently with the speed dropdown next to it.
+                    100,
                 )
             });
 
