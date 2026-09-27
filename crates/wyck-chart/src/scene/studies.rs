@@ -5,8 +5,8 @@ use super::super::data::Series;
 use super::super::drawing::model::Dash;
 use super::super::study::profile::{self, Slice};
 use super::super::study::{
-    DOWN_COLOR, FillOut, PlotKind, PlotOut, StudyConfig, StudyKind, StudyOutput, UP_COLOR,
-    ValueFormat,
+    DOWN_COLOR, FillOut, FillStyle, PlotKind, PlotOut, StudyConfig, StudyKind, StudyOutput,
+    UP_COLOR, ValueFormat,
 };
 use super::cmd::{Align, Cmd, FONT, P, rgb_alpha};
 use super::geometry::{AXIS_W, Band};
@@ -241,16 +241,13 @@ fn dash_pattern(dash: Dash) -> Option<[f32; 2]> {
 
 fn draw_fill(
     cx: &Ctx<'_>,
-    config: &StudyConfig,
-    index: usize,
+    style: Option<&FillStyle>,
     output: &StudyOutput,
     fill: &FillOut,
     map: &PriceMap,
-    first: usize,
-    last: usize,
+    visible: (usize, usize),
     out: &mut Vec<Cmd>,
 ) {
-    let style = config.fills.get(&index);
     if style.is_some_and(|s| !s.visible) {
         return;
     }
@@ -260,7 +257,7 @@ fn draw_fill(
     if a.offset != b.offset {
         return;
     }
-    let (from, to) = data_range(cx, a, first, last);
+    let (from, to) = data_range(cx, a, visible.0, visible.1);
     let to = to.min(b.values.len());
     // Runs where both have a value and the same one is on top.
     let mut run: Vec<usize> = Vec::new();
@@ -325,7 +322,15 @@ pub(super) fn overlays_under(cx: &Ctx<'_>, first: usize, last: usize, out: &mut 
         }
         if let Some(output) = output {
             for (index, fill) in output.fills.iter().enumerate() {
-                draw_fill(cx, config, index, output, fill, &cx.map, first, last, out);
+                draw_fill(
+                    cx,
+                    config.fills.get(&index),
+                    output,
+                    fill,
+                    &cx.map,
+                    (first, last),
+                    out,
+                );
             }
         }
     }
@@ -361,22 +366,22 @@ pub(super) fn pane(
         .plots
         .first()
         .map_or(0x787b86, |plot| config.plot_style(plot.key).color);
-    if let Some((lo, hi)) = output.band {
-        if config.band.is_none_or(|style| style.visible) {
-            let (y0, y1) = (cx.y_on(map, hi), cx.y_on(map, lo));
-            out.push(Cmd::Rect {
-                x: left,
-                y: y0.min(y1),
-                w: right - left,
-                h: (y1 - y0).abs(),
-                fill: rgb_alpha(
-                    config.band.map_or(accent, |s| s.color),
-                    config.band.map_or(0.06, |s| s.opacity),
-                ),
-                border: None,
-                radius: 0.0,
-            });
-        }
+    if let Some((lo, hi)) = output.band
+        && config.band.is_none_or(|style| style.visible)
+    {
+        let (y0, y1) = (cx.y_on(map, hi), cx.y_on(map, lo));
+        out.push(Cmd::Rect {
+            x: left,
+            y: y0.min(y1),
+            w: right - left,
+            h: (y1 - y0).abs(),
+            fill: rgb_alpha(
+                config.band.map_or(accent, |s| s.color),
+                config.band.map_or(0.06, |s| s.opacity),
+            ),
+            border: None,
+            radius: 0.0,
+        });
     }
     for (index, level) in output.levels.iter().enumerate() {
         let style = config.levels.get(&index).copied().unwrap_or_default();
@@ -392,7 +397,15 @@ pub(super) fn pane(
         });
     }
     for (index, fill) in output.fills.iter().enumerate() {
-        draw_fill(cx, config, index, output, fill, map, first, last, out);
+        draw_fill(
+            cx,
+            config.fills.get(&index),
+            output,
+            fill,
+            map,
+            (first, last),
+            out,
+        );
     }
     for plot in &output.plots {
         draw_plot(cx, config, plot, map, first, last, out);

@@ -594,8 +594,8 @@ pub(super) fn compute(kind: StudyKind, config: &StudyConfig, input: &StudyInput)
             let mut current = None;
             let (mut hi, mut lo, mut close) = (f64::NEG_INFINITY, f64::INFINITY, f64::NAN);
             let mut previous = None;
-            for i in 0..n {
-                let period = pivot_period(input.day[i], config.input("period") as usize);
+            for (i, day) in input.day.iter().enumerate().take(n) {
+                let period = pivot_period(*day, config.input("period") as usize);
                 if current != Some(period) {
                     if current.is_some() && hi.is_finite() && lo.is_finite() && close.is_finite() {
                         previous = Some((hi, lo, close));
