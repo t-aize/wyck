@@ -285,7 +285,16 @@ pub fn main_map(
                 }
                 if let Some(output) = output {
                     for plot in &output.plots {
-                        if let Some((l, h)) = studies::visible_range(plot, first, last) {
+                        let style = config.plot_style(plot.key);
+                        if !style.visible {
+                            continue;
+                        }
+                        if let Some((l, h)) = studies::visible_range(
+                            plot,
+                            style.kind.unwrap_or(plot.kind),
+                            first,
+                            last,
+                        ) {
                             lo = lo.min(l);
                             hi = hi.max(h);
                         }
@@ -951,10 +960,13 @@ fn draw_axis_tags(
     let axis_x = cx.ox + cx.plot_w as f32 + 1.0;
     let main = geometry.main();
     let clamp_y = |band: &Band, y: f32| {
-        y.clamp(
-            cx.oy + band.top as f32 + 9.0,
-            cx.oy + band.bottom() as f32 - 9.0,
-        )
+        let top = cx.oy + band.top as f32 + 9.0;
+        let bottom = cx.oy + band.bottom() as f32 - 9.0;
+        if top <= bottom {
+            y.clamp(top, bottom)
+        } else {
+            (top + bottom) / 2.0
+        }
     };
     let tag = |text: String, y: f32, bg: Hsla, fg: Hsla| Cmd::Tag {
         text,

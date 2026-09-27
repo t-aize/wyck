@@ -24,7 +24,12 @@ fn data_range(cx: &Ctx<'_>, plot: &PlotOut, first: usize, _last: usize) -> (usiz
 }
 
 /// The lowest and highest value of a plot among the points on screen.
-pub(super) fn visible_range(plot: &PlotOut, first: usize, last: usize) -> Option<(f64, f64)> {
+pub(super) fn visible_range(
+    plot: &PlotOut,
+    kind: PlotKind,
+    first: usize,
+    last: usize,
+) -> Option<(f64, f64)> {
     let n = plot.values.len() as i64;
     let from = (first as i64 - plot.offset).clamp(0, n) as usize;
     let to = (last as i64 - plot.offset).clamp(0, n) as usize;
@@ -32,7 +37,7 @@ pub(super) fn visible_range(plot: &PlotOut, first: usize, last: usize) -> Option
     for v in plot.values.get(from..to)?.iter().filter(|v| v.is_finite()) {
         range = Some(range.map_or((*v, *v), |(lo, hi)| (lo.min(*v), hi.max(*v))));
     }
-    if plot.kind == PlotKind::Histogram {
+    if kind == PlotKind::Histogram {
         range = range.map(|(lo, hi)| (lo.min(0.0), hi.max(0.0)));
     }
     range
@@ -55,12 +60,22 @@ pub(super) fn pane_map(
                 if !config.plot_style(plot.key).visible {
                     continue;
                 }
-                if let Some((l, h)) = visible_range(plot, first, last) {
+                if let Some((l, h)) = visible_range(
+                    plot,
+                    config.plot_style(plot.key).kind.unwrap_or(plot.kind),
+                    first,
+                    last,
+                ) {
                     range = Some(range.map_or((l, h), |(lo, hi)| (lo.min(l), hi.max(h))));
                 }
             }
             let (mut lo, mut hi) = range.unwrap_or((0.0, 1.0));
-            for level in &output.levels {
+            for (index, level) in output.levels.iter().enumerate() {
+                let style = config.levels.get(&index).copied().unwrap_or_default();
+                if !style.visible {
+                    continue;
+                }
+                let level = style.value.as_ref().unwrap_or(level);
                 if *level >= lo - (hi - lo) && *level <= hi + (hi - lo) {
                     lo = lo.min(*level);
                     hi = hi.max(*level);
@@ -132,7 +147,7 @@ fn draw_plot(
     if !style.visible {
         return;
     }
-    match plot.kind {
+    match style.kind.unwrap_or(plot.kind) {
         PlotKind::Line => {
             for points in segments(cx, plot, map, first, last) {
                 out.push(Cmd::Stroke {
@@ -167,7 +182,7 @@ fn draw_plot(
             let zero = cx.y_on(map, 0.0);
             let bar_px = cx.f.view.bar_px as f32;
             let width = if bar_px >= 2.0 {
-                (bar_px * 0.6).max(1.0)
+                (bar_px * style.bar_width).max(1.0)
             } else {
                 1.0
             };
@@ -186,7 +201,18 @@ fn draw_plot(
                 let color = match &plot.up {
                     Some(up) => {
                         let rising = up.get(i).copied().unwrap_or(true);
-                        if rising { UP_COLOR } else { DOWN_COLOR }
+                        if rising {
+                            style.up_color.unwrap_or(UP_COLOR)
+                        } else {
+                            style.down_color.unwrap_or(DOWN_COLOR)
+                        }
+                    }
+                    None if style.up_color.is_some() || style.down_color.is_some() => {
+                        if v >= 0.0 {
+                            style.up_color.unwrap_or(style.color)
+                        } else {
+                            style.down_color.unwrap_or(style.color)
+                        }
                     }
                     None => style.color,
                 };
@@ -195,7 +221,7 @@ fn draw_plot(
                     y: y.min(zero),
                     w: width,
                     h: (y - zero).abs().max(1.0 / cx.f.scale),
-                    fill: rgb_alpha(color, 0.6 * style.opacity),
+                    fill: rgb_alpha(color, style.opacity),
                     border: None,
                     radius: 0.0,
                 });
@@ -215,6 +241,8 @@ fn dash_pattern(dash: Dash) -> Option<[f32; 2]> {
 
 fn draw_fill(
     cx: &Ctx<'_>,
+    config: &StudyConfig,
+    index: usize,
     output: &StudyOutput,
     fill: &FillOut,
     map: &PriceMap,
@@ -222,6 +250,10 @@ fn draw_fill(
     last: usize,
     out: &mut Vec<Cmd>,
 ) {
+    let style = config.fills.get(&index);
+    if style.is_some_and(|s| !s.visible) {
+        return;
+    }
     let (Some(a), Some(b)) = (output.plots.get(fill.a), output.plots.get(fill.b)) else {
         return;
     };
@@ -235,9 +267,10 @@ fn draw_fill(
     let flush = |run: &mut Vec<usize>, out: &mut Vec<Cmd>| {
         if run.len() > 1 {
             let above = a.values[run[0]] >= b.values[run[0]];
-            let color = match fill.other {
+            let other = style.and_then(|s| s.other).or(fill.other);
+            let color = match other {
                 Some(other) if !above => other,
-                _ => fill.color,
+                _ => style.map_or(fill.color, |s| s.color),
             };
             let mut points: Vec<P> = run
                 .iter()
@@ -256,7 +289,7 @@ fn draw_fill(
             }));
             out.push(Cmd::Fill {
                 points,
-                color: rgb_alpha(color, fill.alpha),
+                color: rgb_alpha(color, style.map_or(fill.alpha, |s| s.opacity)),
             });
         }
         run.clear();
@@ -267,7 +300,7 @@ fn draw_fill(
             flush(&mut run, out);
             continue;
         }
-        if fill.other.is_some()
+        if style.and_then(|s| s.other).or(fill.other).is_some()
             && let Some(&prev) = run.last()
             && (a.values[prev] >= b.values[prev]) != (va >= vb)
         {
@@ -291,8 +324,8 @@ pub(super) fn overlays_under(cx: &Ctx<'_>, first: usize, last: usize, out: &mut 
             continue;
         }
         if let Some(output) = output {
-            for fill in &output.fills {
-                draw_fill(cx, output, fill, &cx.map, first, last, out);
+            for (index, fill) in output.fills.iter().enumerate() {
+                draw_fill(cx, config, index, output, fill, &cx.map, first, last, out);
             }
         }
     }
@@ -329,28 +362,37 @@ pub(super) fn pane(
         .first()
         .map_or(0x787b86, |plot| config.plot_style(plot.key).color);
     if let Some((lo, hi)) = output.band {
-        let (y0, y1) = (cx.y_on(map, hi), cx.y_on(map, lo));
-        out.push(Cmd::Rect {
-            x: left,
-            y: y0.min(y1),
-            w: right - left,
-            h: (y1 - y0).abs(),
-            fill: rgb_alpha(accent, 0.06),
-            border: None,
-            radius: 0.0,
-        });
+        if config.band.is_none_or(|style| style.visible) {
+            let (y0, y1) = (cx.y_on(map, hi), cx.y_on(map, lo));
+            out.push(Cmd::Rect {
+                x: left,
+                y: y0.min(y1),
+                w: right - left,
+                h: (y1 - y0).abs(),
+                fill: rgb_alpha(
+                    config.band.map_or(accent, |s| s.color),
+                    config.band.map_or(0.06, |s| s.opacity),
+                ),
+                border: None,
+                radius: 0.0,
+            });
+        }
     }
-    for level in &output.levels {
-        let y = cx.snap(cx.y_on(map, *level)) + 0.5;
+    for (index, level) in output.levels.iter().enumerate() {
+        let style = config.levels.get(&index).copied().unwrap_or_default();
+        if !style.visible {
+            continue;
+        }
+        let y = cx.snap(cx.y_on(map, style.value.unwrap_or(*level))) + 0.5;
         out.push(Cmd::Stroke {
             points: vec![(left, y), (right, y)],
-            width: 1.0,
-            color: rgb_alpha(0x787b86, 0.55),
-            dash: Some([4.0, 4.0]),
+            width: style.width,
+            color: rgb_alpha(style.color, style.opacity),
+            dash: dash_pattern(style.dash),
         });
     }
-    for fill in &output.fills {
-        draw_fill(cx, output, fill, map, first, last, out);
+    for (index, fill) in output.fills.iter().enumerate() {
+        draw_fill(cx, config, index, output, fill, map, first, last, out);
     }
     for plot in &output.plots {
         draw_plot(cx, config, plot, map, first, last, out);
@@ -418,11 +460,11 @@ fn volume_profile(
         }
         let in_area = (profile.value_area.0..=profile.value_area.1).contains(&index);
         let alpha = if in_area && highlight {
-            0.45
+            config.input("area_opacity") as f32 / 100.0
         } else if highlight {
-            0.2
+            config.input("other_opacity") as f32 / 100.0
         } else {
-            0.35
+            config.input("normal_opacity") as f32 / 100.0
         };
         let (y_top, y_bottom) = (cx.y(row.hi), cx.y(row.lo));
         let height = (y_bottom - y_top).abs() - 1.0;
@@ -433,11 +475,16 @@ fn volume_profile(
         let width = (total / profile.max_total) as f32 * max_w;
         let up_w = (row.up / total) as f32 * width;
         let parts = [
-            (up_w, up_style.color, up_style.visible),
-            (width - up_w, down_style.color, down_style.visible),
+            (up_w, up_style.color, up_style.visible, up_style.opacity),
+            (
+                width - up_w,
+                down_style.color,
+                down_style.visible,
+                down_style.opacity,
+            ),
         ];
         let mut offset = 0.0;
-        for (w, color, visible) in parts {
+        for (w, color, visible, opacity) in parts {
             if visible && w > 0.0 {
                 let x = if right_side {
                     edge - offset - w
@@ -449,7 +496,7 @@ fn volume_profile(
                     y: top,
                     w,
                     h: height,
-                    fill: rgb_alpha(color, alpha),
+                    fill: rgb_alpha(color, alpha * opacity),
                     border: None,
                     radius: 0.0,
                 });
@@ -463,8 +510,8 @@ fn volume_profile(
         out.push(Cmd::Stroke {
             points: vec![(cx.ox, y), (cx.ox + cx.plot_w as f32, y)],
             width: poc_style.width,
-            color: rgb_alpha(poc_style.color, 0.9),
-            dash: None,
+            color: rgb_alpha(poc_style.color, poc_style.opacity),
+            dash: dash_pattern(poc_style.dash),
         });
     }
 }
@@ -500,19 +547,19 @@ pub(super) fn value_tags(
     let last_value = |plot: &PlotOut| plot.values.iter().rev().find(|v| v.is_finite()).copied();
     // Overlays, on the prices.
     for (config, output) in cx.f.settings.studies.iter().zip(&cx.f.display.studies) {
-        if !config.visible || config.spec().placement != Placement::Overlay {
+        if !config.visible || !config.axis_labels || config.spec().placement != Placement::Overlay {
             continue;
         }
         let Some(output) = output else { continue };
         for plot in &output.plots {
             let style = config.plot_style(plot.key);
             if style.visible
-                && plot.kind == PlotKind::Line
+                && style.kind.unwrap_or(plot.kind) == PlotKind::Line
                 && plot.offset == 0
                 && let Some(v) = last_value(plot)
             {
                 tag(
-                    cx.map.label(v, ValueFormat::Price, cx.f.digits),
+                    cx.map.label(v, config.value_format(), cx.f.digits),
                     cx.y(v),
                     &cx.band,
                     style.color,
@@ -522,6 +569,9 @@ pub(super) fn value_tags(
     }
     for (study, map, band, format) in panes {
         let config = &cx.f.settings.studies[*study];
+        if !config.axis_labels {
+            continue;
+        }
         let Some(Some(output)) = cx.f.display.studies.get(*study) else {
             continue;
         };
@@ -531,12 +581,21 @@ pub(super) fn value_tags(
                 && plot.offset == 0
                 && let Some(v) = last_value(plot)
             {
-                let color = match (&plot.up, plot.kind) {
+                let color = match (&plot.up, style.kind.unwrap_or(plot.kind)) {
                     (Some(up), PlotKind::Histogram) => {
                         if up.last().copied().unwrap_or(true) {
-                            UP_COLOR
+                            style.up_color.unwrap_or(UP_COLOR)
                         } else {
-                            DOWN_COLOR
+                            style.down_color.unwrap_or(DOWN_COLOR)
+                        }
+                    }
+                    (None, PlotKind::Histogram)
+                        if style.up_color.is_some() || style.down_color.is_some() =>
+                    {
+                        if v >= 0.0 {
+                            style.up_color.unwrap_or(style.color)
+                        } else {
+                            style.down_color.unwrap_or(style.color)
                         }
                     }
                     _ => style.color,

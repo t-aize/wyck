@@ -515,6 +515,82 @@ mod tests {
     use crate::app::chart::scene::{FONT, rgb_alpha};
 
     #[test]
+    #[ignore = "writes a chart preview for visual review"]
+    fn indicator_families_preview() {
+        use wyck_chart::data::Series;
+        use wyck_chart::display::Display;
+        use wyck_chart::scene::{Frame, Palette, build};
+        use wyck_chart::study::{StudyConfig, StudyKind};
+        use wyck_chart::view::View;
+        use wyck_chart::{ChartSettings, Timeframe};
+        use wyck_openapi::market::Bar;
+
+        let bars: Vec<Bar> = (0..240)
+            .map(|i| {
+                let base = 100_000 + (i as f64 * 0.17).sin().mul_add(350.0, i as f64 * 3.0) as i64;
+                Bar {
+                    time_ms: 1_767_571_200_000 + i * 60_000,
+                    open: base,
+                    high: base + 55,
+                    low: base - 50,
+                    close: base + 12,
+                    volume: 10 + i % 8,
+                }
+            })
+            .collect();
+        let raw = Series::Bars(bars);
+        let mut settings = ChartSettings::default();
+        for kind in [
+            StudyKind::Bollinger,
+            StudyKind::Vwap,
+            StudyKind::Rsi,
+            StudyKind::Macd,
+            StudyKind::Volume,
+        ] {
+            settings.studies.push(StudyConfig::new(kind));
+        }
+        settings.studies[1]
+            .plots
+            .get_mut("upper_1")
+            .unwrap()
+            .visible = true;
+        settings.studies[1]
+            .plots
+            .get_mut("lower_1")
+            .unwrap()
+            .visible = true;
+        let display = Display::build(&raw, &settings, 1);
+        let view = View::new(5.0);
+        let frame = Frame {
+            raw: &raw,
+            display: &display,
+            settings: &settings,
+            view: &view,
+            timeframe: Timeframe::DEFAULT,
+            digits: 5,
+            pip_position: Some(4),
+            origin: (0.0, 0.0),
+            w: 1_400.0,
+            h: 900.0,
+            scale: 1.0,
+            hover: None,
+            remote: None,
+            ask: None,
+            now_ms: 1_767_571_200_000,
+            palette: Palette::new(),
+            drawings: None,
+            marks: &[],
+            flow: None,
+            watermark: None,
+        };
+        let cmds = build(&frame);
+        let png = render_png(&cmds, 1_400.0, 900.0, 1.0, rgb_alpha(0x0a0a0a, 1.0), &[]).unwrap();
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/indicator-families.png");
+        std::fs::write(path, png).unwrap();
+    }
+
+    #[test]
     fn a_frame_becomes_a_png_of_the_right_size() {
         let cmds = vec![
             Cmd::Rect {

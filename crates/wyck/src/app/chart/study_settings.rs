@@ -7,13 +7,16 @@
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::input::InputState;
+use gpui_kit::component::Sizable;
+use gpui_kit::component::input::{Input, InputEvent, InputState};
 
 use super::Chart;
 use super::drawing::model::{DASHES, WIDTHS};
 use super::study::custom::library::registry;
 use super::study::custom::{Problem, Severity};
-use super::study::{InputKind, Placement, PlotKind, SOURCES, StudyConfig, StudyKind};
+use super::study::{
+    FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
+};
 use crate::app::connection::ui::icon_colored;
 use crate::app::settings_ui::{self as ui, Head, Tab};
 use crate::app::{modal, theme, widgets};
@@ -77,6 +80,26 @@ impl Target {
             }
         });
     }
+
+    fn level(&self, index: usize, cx: &mut App, change: impl FnOnce(&mut LevelStyle)) {
+        self.edit(cx, |study| change(study.levels.entry(index).or_default()));
+    }
+
+    fn fill(
+        &self,
+        index: usize,
+        default: FillStyle,
+        cx: &mut App,
+        change: impl FnOnce(&mut FillStyle),
+    ) {
+        self.edit(cx, |study| {
+            change(study.fills.entry(index).or_insert(default))
+        });
+    }
+
+    fn band(&self, default: FillStyle, cx: &mut App, change: impl FnOnce(&mut FillStyle)) {
+        self.edit(cx, |study| change(study.band.get_or_insert(default)));
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,7 +142,21 @@ struct StudyEditor {
     opacity: Vec<(&'static str, Entity<InputState>)>,
     /// The width field of each plot, in pixels: any width, beside the presets.
     widths: Vec<(&'static str, Entity<InputState>)>,
+    bar_widths: Vec<(&'static str, Entity<InputState>)>,
+    level_values: Vec<(usize, Entity<InputState>)>,
+    level_widths: Vec<(usize, Entity<InputState>)>,
+    level_opacity: Vec<(usize, Entity<InputState>)>,
+    fill_opacity: Vec<(usize, Entity<InputState>)>,
+    band_opacity: Option<Entity<InputState>>,
+    name: Entity<InputState>,
+    precision: Entity<InputState>,
     color_open: Option<&'static str>,
+    up_color_open: Option<&'static str>,
+    down_color_open: Option<&'static str>,
+    level_color_open: Option<usize>,
+    fill_color_open: Option<usize>,
+    fill_other_open: Option<usize>,
+    band_color_open: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -204,6 +241,141 @@ impl StudyEditor {
             }));
             widths.push((key, state));
         }
+        let mut bar_widths = Vec::new();
+        for plot in config.spec().plots {
+            let key = plot.key;
+            let state = cx.new(|cx| {
+                widgets::number_state(
+                    f64::from(config.plot_style(key).bar_width) * 100.0,
+                    10.0,
+                    100.0,
+                    5.0,
+                    0,
+                    window,
+                    cx,
+                )
+            });
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                this.target
+                    .clone()
+                    .plot(key, cx, |style| style.bar_width = (value / 100.0) as f32);
+            }));
+            bar_widths.push((key, state));
+        }
+        let mut level_values = Vec::new();
+        let mut level_widths = Vec::new();
+        let mut level_opacity = Vec::new();
+        for (index, value) in config.default_levels().into_iter().enumerate() {
+            let style = config.levels.get(&index).copied().unwrap_or_default();
+            let value = style.value.unwrap_or(value);
+            let state = cx.new(|cx| widgets::number_state(value, -1e12, 1e12, 0.1, 3, window, cx));
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                this.target
+                    .clone()
+                    .level(index, cx, |style| style.value = Some(value));
+            }));
+            level_values.push((index, state));
+            let width = cx.new(|cx| {
+                widgets::number_state(f64::from(style.width), 0.5, 20.0, 0.5, 1, window, cx)
+            });
+            subscriptions.push(widgets::watch_number(&width, cx, move |this, value, cx| {
+                this.target
+                    .clone()
+                    .level(index, cx, |style| style.width = value as f32);
+            }));
+            level_widths.push((index, width));
+            let opacity = cx.new(|cx| {
+                widgets::number_state(
+                    f64::from(style.opacity) * 100.0,
+                    0.0,
+                    100.0,
+                    5.0,
+                    0,
+                    window,
+                    cx,
+                )
+            });
+            subscriptions.push(widgets::watch_number(
+                &opacity,
+                cx,
+                move |this, value, cx| {
+                    this.target
+                        .clone()
+                        .level(index, cx, |style| style.opacity = (value / 100.0) as f32);
+                },
+            ));
+            level_opacity.push((index, opacity));
+        }
+        let mut fill_opacity = Vec::new();
+        for index in 0..2 {
+            let Some(default) = config.default_fill(index) else {
+                continue;
+            };
+            let style = config.fills.get(&index).copied().unwrap_or(default);
+            let state = cx.new(|cx| {
+                widgets::number_state(
+                    f64::from(style.opacity) * 100.0,
+                    0.0,
+                    100.0,
+                    5.0,
+                    0,
+                    window,
+                    cx,
+                )
+            });
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                this.target.clone().fill(index, default, cx, |style| {
+                    style.opacity = (value / 100.0) as f32
+                });
+            }));
+            fill_opacity.push((index, state));
+        }
+        let band_opacity = config.default_band().map(|default| {
+            let style = config.band.unwrap_or(default);
+            let state = cx.new(|cx| {
+                widgets::number_state(
+                    f64::from(style.opacity) * 100.0,
+                    0.0,
+                    100.0,
+                    5.0,
+                    0,
+                    window,
+                    cx,
+                )
+            });
+            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+                this.target
+                    .clone()
+                    .band(default, cx, |style| style.opacity = (value / 100.0) as f32);
+            }));
+            state
+        });
+        let name = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(config.name.clone())
+                .placeholder(config.spec().label)
+        });
+        subscriptions.push(cx.subscribe(&name, |this, state, event: &InputEvent, cx| {
+            if matches!(event, InputEvent::Change) {
+                let value = state.read(cx).value().to_string();
+                this.target.edit(cx, |study| study.name = value);
+            }
+        }));
+        let precision = cx.new(|cx| {
+            widgets::number_state(
+                config.precision.unwrap_or(2) as f64,
+                0.0,
+                8.0,
+                1.0,
+                0,
+                window,
+                cx,
+            )
+        });
+        subscriptions.push(widgets::watch_number(&precision, cx, |this, value, cx| {
+            this.target
+                .edit(cx, |study| study.precision = Some(value as u32));
+        }));
         Self {
             target,
             chart,
@@ -214,7 +386,21 @@ impl StudyEditor {
             fields,
             opacity,
             widths,
+            bar_widths,
+            level_values,
+            level_widths,
+            level_opacity,
+            fill_opacity,
+            band_opacity,
+            name,
+            precision,
             color_open: None,
+            up_color_open: None,
+            down_color_open: None,
+            level_color_open: None,
+            fill_color_open: None,
+            fill_other_open: None,
+            band_color_open: false,
             _subscriptions: subscriptions,
         }
     }
@@ -243,6 +429,71 @@ impl StudyEditor {
             let text = widgets::format_number(f64::from(config.plot_style(key).width), 1);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
+        for (key, state) in &self.bar_widths {
+            let text =
+                widgets::format_number(f64::from(config.plot_style(key).bar_width) * 100.0, 0);
+            state.update(cx, |state, cx| state.set_value(text, window, cx));
+        }
+        for (index, state) in &self.level_values {
+            if let Some(value) = config.default_levels().get(*index) {
+                let value = config
+                    .levels
+                    .get(index)
+                    .and_then(|s| s.value)
+                    .unwrap_or(*value);
+                state.update(cx, |state, cx| {
+                    state.set_value(widgets::format_number(value, 3), window, cx)
+                });
+            }
+        }
+        for (index, state) in &self.level_widths {
+            let style = config.levels.get(index).copied().unwrap_or_default();
+            state.update(cx, |state, cx| {
+                state.set_value(
+                    widgets::format_number(f64::from(style.width), 1),
+                    window,
+                    cx,
+                )
+            });
+        }
+        for (index, state) in &self.level_opacity {
+            let style = config.levels.get(index).copied().unwrap_or_default();
+            state.update(cx, |state, cx| {
+                state.set_value(
+                    widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                    window,
+                    cx,
+                )
+            });
+        }
+        for (index, state) in &self.fill_opacity {
+            if let Some(default) = config.default_fill(*index) {
+                let style = config.fills.get(index).copied().unwrap_or(default);
+                state.update(cx, |state, cx| {
+                    state.set_value(
+                        widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                        window,
+                        cx,
+                    )
+                });
+            }
+        }
+        if let (Some(default), Some(state)) = (config.default_band(), &self.band_opacity) {
+            let style = config.band.unwrap_or(default);
+            state.update(cx, |state, cx| {
+                state.set_value(
+                    widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                    window,
+                    cx,
+                )
+            });
+        }
+        self.name.update(cx, |state, cx| {
+            state.set_value(config.name.clone(), window, cx)
+        });
+        self.precision.update(cx, |state, cx| {
+            state.set_value(config.precision.unwrap_or(2).to_string(), window, cx)
+        });
     }
 
     fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
@@ -274,7 +525,7 @@ impl StudyEditor {
         let mut rows = Vec::new();
         let script = config.script.as_deref().and_then(registry::get);
         for input in config.spec().inputs {
-            let in_style = script
+            let script_style = script
                 .as_ref()
                 .and_then(|entry| entry.script.as_ref())
                 .and_then(|script| {
@@ -285,6 +536,14 @@ impl StudyEditor {
                         .find(|decl| decl.key == input.key)
                 })
                 .is_some_and(|decl| decl.in_style());
+            let in_style = script_style
+                || match config.kind {
+                    StudyKind::VolumeProfile => matches!(
+                        input.key,
+                        "area_opacity" | "other_opacity" | "normal_opacity"
+                    ),
+                    _ => false,
+                };
             if in_style != style {
                 continue;
             }
@@ -484,7 +743,7 @@ impl StudyEditor {
         let mut page = ui::page();
         let style_rows = self.input_rows(config, true, cx);
         if !style_rows.is_empty() {
-            page = page.child(ui::group(IconName::Palette, "Script style", style_rows));
+            page = page.child(ui::group(IconName::Palette, "Indicator style", style_rows));
         } else if config.is_script() && config.spec().plots.is_empty() {
             page = page.child(ui::note("This script has no style settings. Declare a color, opacity, width or text size input, or use section: \"style\" on an input."));
         }
@@ -540,6 +799,32 @@ impl StudyEditor {
                     .children(opacity),
             )];
 
+            let kind_target = self.target.clone();
+            let displayed_kind = style.kind.unwrap_or(plot.kind);
+            if config.kind != StudyKind::VolumeProfile {
+                rows.push(ui::field(
+                    "Plot type",
+                    None,
+                    widgets::segmented(
+                        SharedString::from(format!("plot-type-{key}")),
+                        &["Line", "Dots", "Columns"],
+                        match displayed_kind {
+                            PlotKind::Line => 0,
+                            PlotKind::Dots => 1,
+                            PlotKind::Histogram => 2,
+                        },
+                        move |choice, _window, cx| {
+                            let kind = match choice {
+                                1 => PlotKind::Dots,
+                                2 => PlotKind::Histogram,
+                                _ => PlotKind::Line,
+                            };
+                            kind_target.plot(key, cx, |s| s.kind = Some(kind));
+                        },
+                    ),
+                ));
+            }
+
             let width_index = WIDTHS.iter().position(|w| (w - style.width).abs() < 0.01);
             let width_target = self.target.clone();
             let picker = ui::width_picker(
@@ -564,8 +849,8 @@ impl StudyEditor {
                         .find(|(k, _)| *k == key)
                         .map(|(_, state)| widgets::number_field(state, 84.)),
                 );
-            match plot.kind {
-                PlotKind::Line => {
+            if config.kind == StudyKind::VolumeProfile {
+                if key == "poc" {
                     let dash_target = self.target.clone();
                     let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
                     rows.push(ui::field("Width", None, width));
@@ -573,18 +858,275 @@ impl StudyEditor {
                         "Line style",
                         None,
                         ui::dash_picker(
-                            SharedString::from(format!("plot-dash-{key}")),
+                            SharedString::from("profile-poc-dash"),
                             dash_index,
                             move |choice, _window, cx| {
-                                dash_target.plot(key, cx, |s| s.dash = DASHES[choice]);
+                                dash_target.plot(key, cx, |s| s.dash = DASHES[choice])
                             },
                         ),
                     ));
                 }
-                PlotKind::Dots => rows.push(ui::field("Size", None, width)),
-                PlotKind::Histogram => {}
+            } else {
+                match displayed_kind {
+                    PlotKind::Line => {
+                        let dash_target = self.target.clone();
+                        let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
+                        rows.push(ui::field("Width", None, width));
+                        rows.push(ui::field(
+                            "Line style",
+                            None,
+                            ui::dash_picker(
+                                SharedString::from(format!("plot-dash-{key}")),
+                                dash_index,
+                                move |choice, _window, cx| {
+                                    dash_target.plot(key, cx, |s| s.dash = DASHES[choice]);
+                                },
+                            ),
+                        ));
+                    }
+                    PlotKind::Dots => rows.push(ui::field("Size", None, width)),
+                    PlotKind::Histogram => {
+                        let up_target = self.target.clone();
+                        let down_target = self.target.clone();
+                        let up_open = self.up_color_open == Some(key);
+                        let down_open = self.down_color_open == Some(key);
+                        let this_up = this.clone();
+                        let this_down = this.clone();
+                        rows.push(ui::field(
+                            "Up color",
+                            None,
+                            widgets::color_swatch(
+                                SharedString::from(format!("plot-up-{key}")),
+                                style.up_color.unwrap_or(super::study::UP_COLOR),
+                                up_open,
+                                cx,
+                                move |_window, cx| {
+                                    this_up.update(cx, |e, cx| {
+                                        e.up_color_open = if e.up_color_open == Some(key) {
+                                            None
+                                        } else {
+                                            Some(key)
+                                        };
+                                        cx.notify();
+                                    })
+                                },
+                                move |color, _window, cx| {
+                                    up_target.plot(key, cx, |s| s.up_color = Some(color))
+                                },
+                            ),
+                        ));
+                        rows.push(ui::field(
+                            "Down color",
+                            None,
+                            widgets::color_swatch(
+                                SharedString::from(format!("plot-down-{key}")),
+                                style.down_color.unwrap_or(super::study::DOWN_COLOR),
+                                down_open,
+                                cx,
+                                move |_window, cx| {
+                                    this_down.update(cx, |e, cx| {
+                                        e.down_color_open = if e.down_color_open == Some(key) {
+                                            None
+                                        } else {
+                                            Some(key)
+                                        };
+                                        cx.notify();
+                                    })
+                                },
+                                move |color, _window, cx| {
+                                    down_target.plot(key, cx, |s| s.down_color = Some(color))
+                                },
+                            ),
+                        ));
+                        if let Some((_, state)) = self.bar_widths.iter().find(|(k, _)| *k == key) {
+                            rows.push(ui::field(
+                                "Column width (%)",
+                                None,
+                                widgets::number_field(state, 96.),
+                            ));
+                        }
+                    }
+                }
             }
             page = page.child(ui::group_with(icon, plot.label, Some(shown), rows));
+        }
+        for (index, value) in config.default_levels().into_iter().enumerate() {
+            let style = config.levels.get(&index).copied().unwrap_or_default();
+            let target = self.target.clone();
+            let shown = ui::toggle(
+                SharedString::from(format!("level-visible-{index}")),
+                style.visible,
+                move |on, _window, cx| target.level(index, cx, |s| s.visible = on),
+            );
+            let pick = self.target.clone();
+            let open = self.level_color_open == Some(index);
+            let owner = this.clone();
+            let color = widgets::color_swatch(
+                SharedString::from(format!("level-color-{index}")),
+                style.color,
+                open,
+                cx,
+                move |_window, cx| {
+                    owner.update(cx, |e, cx| {
+                        e.level_color_open = if e.level_color_open == Some(index) {
+                            None
+                        } else {
+                            Some(index)
+                        };
+                        cx.notify();
+                    })
+                },
+                move |color, _window, cx| pick.level(index, cx, |s| s.color = color),
+            );
+            let dash_target = self.target.clone();
+            let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
+            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            if let Some((_, state)) = self.level_values.iter().find(|(i, _)| *i == index) {
+                rows.push(
+                    ui::field(
+                        "Value",
+                        Some("Overrides the calculated level"),
+                        widgets::number_field(state, 130.),
+                    )
+                    .into_any_element(),
+                );
+            }
+            if let Some((_, state)) = self.level_widths.iter().find(|(i, _)| *i == index) {
+                rows.push(
+                    ui::field("Width", None, widgets::number_field(state, 96.)).into_any_element(),
+                );
+            }
+            if let Some((_, state)) = self.level_opacity.iter().find(|(i, _)| *i == index) {
+                rows.push(
+                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
+                        .into_any_element(),
+                );
+            }
+            rows.push(
+                ui::field(
+                    "Line style",
+                    None,
+                    ui::dash_picker(
+                        SharedString::from(format!("level-dash-{index}")),
+                        dash_index,
+                        move |choice, _window, cx| {
+                            dash_target.level(index, cx, |s| s.dash = DASHES[choice])
+                        },
+                    ),
+                )
+                .into_any_element(),
+            );
+            page = page.child(ui::group_with(
+                IconName::Minus,
+                format!("Level {} ({})", index + 1, widgets::format_number(value, 2)),
+                Some(shown.into_any_element()),
+                rows,
+            ));
+        }
+        for index in 0..2 {
+            let Some(default) = config.default_fill(index) else {
+                continue;
+            };
+            let style = config.fills.get(&index).copied().unwrap_or(default);
+            let shown_target = self.target.clone();
+            let shown = ui::toggle(
+                SharedString::from(format!("fill-visible-{index}")),
+                style.visible,
+                move |on, _window, cx| shown_target.fill(index, default, cx, |s| s.visible = on),
+            );
+            let color_target = self.target.clone();
+            let owner = this.clone();
+            let color = widgets::color_swatch(
+                SharedString::from(format!("fill-color-{index}")),
+                style.color,
+                self.fill_color_open == Some(index),
+                cx,
+                move |_window, cx| {
+                    owner.update(cx, |e, cx| {
+                        e.fill_color_open = if e.fill_color_open == Some(index) {
+                            None
+                        } else {
+                            Some(index)
+                        };
+                        cx.notify();
+                    })
+                },
+                move |color, _window, cx| {
+                    color_target.fill(index, default, cx, |s| s.color = color)
+                },
+            );
+            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            if let Some(other) = style.other {
+                let other_target = self.target.clone();
+                let owner = this.clone();
+                let other = widgets::color_swatch(
+                    SharedString::from(format!("fill-other-{index}")),
+                    other,
+                    self.fill_other_open == Some(index),
+                    cx,
+                    move |_window, cx| {
+                        owner.update(cx, |e, cx| {
+                            e.fill_other_open = if e.fill_other_open == Some(index) {
+                                None
+                            } else {
+                                Some(index)
+                            };
+                            cx.notify();
+                        })
+                    },
+                    move |color, _window, cx| {
+                        other_target.fill(index, default, cx, |s| s.other = Some(color))
+                    },
+                );
+                rows.push(ui::field("Other color", None, other).into_any_element());
+            }
+            if let Some((_, state)) = self.fill_opacity.iter().find(|(i, _)| *i == index) {
+                rows.push(
+                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
+                        .into_any_element(),
+                );
+            }
+            page = page.child(ui::group_with(
+                IconName::Palette,
+                format!("Fill {}", index + 1),
+                Some(shown.into_any_element()),
+                rows,
+            ));
+        }
+        if let Some(default) = config.default_band() {
+            let style = config.band.unwrap_or(default);
+            let shown_target = self.target.clone();
+            let shown = ui::toggle("band-visible", style.visible, move |on, _window, cx| {
+                shown_target.band(default, cx, |s| s.visible = on)
+            });
+            let color_target = self.target.clone();
+            let owner = this.clone();
+            let color = widgets::color_swatch(
+                "band-color",
+                style.color,
+                self.band_color_open,
+                cx,
+                move |_window, cx| {
+                    owner.update(cx, |e, cx| {
+                        e.band_color_open = !e.band_color_open;
+                        cx.notify();
+                    })
+                },
+                move |color, _window, cx| color_target.band(default, cx, |s| s.color = color),
+            );
+            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            if let Some(state) = &self.band_opacity {
+                rows.push(
+                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
+                        .into_any_element(),
+                );
+            }
+            page = page.child(ui::group_with(
+                IconName::Palette,
+                "Threshold zone",
+                Some(shown.into_any_element()),
+                rows,
+            ));
         }
         page.into_any_element()
     }
@@ -599,6 +1141,54 @@ impl StudyEditor {
                 target.edit(cx, |s| s.visible = on);
             }),
         )];
+        rows.push(ui::field(
+            "Name",
+            Some("Leave empty to use the indicator name"),
+            div().w(px(220.)).child(Input::new(&self.name).small()),
+        ));
+        let axis = self.target.clone();
+        rows.push(ui::field(
+            "Axis value labels",
+            None,
+            ui::toggle(
+                "study-axis-labels",
+                config.axis_labels,
+                move |on, _window, cx| {
+                    axis.edit(cx, |s| s.axis_labels = on);
+                },
+            ),
+        ));
+        let legend = self.target.clone();
+        rows.push(ui::field(
+            "Values in legend",
+            None,
+            ui::toggle(
+                "study-legend-values",
+                config.legend_values,
+                move |on, _window, cx| {
+                    legend.edit(cx, |s| s.legend_values = on);
+                },
+            ),
+        ));
+        let auto = self.target.clone();
+        rows.push(ui::field(
+            "Automatic precision",
+            None,
+            ui::toggle(
+                "study-auto-precision",
+                config.precision.is_none(),
+                move |on, _window, cx| {
+                    auto.edit(cx, |s| s.precision = if on { None } else { Some(2) });
+                },
+            ),
+        ));
+        if config.precision.is_some() {
+            rows.push(ui::field(
+                "Decimal places",
+                None,
+                widgets::number_field(&self.precision, 96.),
+            ));
+        }
         if config.spec().placement == Placement::Pane {
             let target = self.target.clone();
             rows.push(ui::field(

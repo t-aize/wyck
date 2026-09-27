@@ -91,7 +91,7 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
         StudyKind::Hma => ("Trend", "A fast average with very little lag."),
         StudyKind::Vwap => (
             "Volume",
-            "The average price weighted by volume, starting over every day.",
+            "The average price weighted by tick volume, with a calendar anchor.",
         ),
         StudyKind::Bollinger => (
             "Volatility",
@@ -110,11 +110,8 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
             "Five lines that show trend, momentum and support in one look.",
         ),
         StudyKind::ParabolicSar => ("Trend", "Dots that trail the price and flip when it turns."),
-        StudyKind::VolumeProfile => (
-            "Volume",
-            "How much traded at each price, on the bars in view.",
-        ),
-        StudyKind::Volume => ("Volume", "The volume of each bar, with its average."),
+        StudyKind::VolumeProfile => ("Volume", "Tick volume at each price, on the bars in view."),
+        StudyKind::Volume => ("Volume", "Tick volume of each bar, with its average."),
         StudyKind::Rsi => (
             "Momentum",
             "How strong recent gains are against recent losses, from 0 to 100.",
@@ -142,11 +139,59 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
         StudyKind::Momentum => ("Momentum", "The change in price over some bars."),
         StudyKind::Obv => (
             "Volume",
-            "A running total of volume, added on rises and taken away on falls.",
+            "A running total of tick volume, added on rises and taken away on falls.",
         ),
         StudyKind::Dmi => (
             "Trend",
             "The strength of a trend (ADX) and which side leads (+DI and -DI).",
+        ),
+        StudyKind::Rma => ("Trend", "Wilder's smoothed moving average."),
+        StudyKind::Supertrend => (
+            "Trend",
+            "A volatility trailing line that switches with the trend.",
+        ),
+        StudyKind::Aroon => ("Trend", "Time since the most recent high and low."),
+        StudyKind::Alligator => ("Trend", "Three shifted smoothed averages."),
+        StudyKind::Envelopes => ("Trend", "Bands at a percentage distance from an average."),
+        StudyKind::LinearRegression => ("Trend", "A rolling least squares price line with bands."),
+        StudyKind::PivotPoints => ("Trend", "Levels from the preceding day, week or month."),
+        StudyKind::Fractals => ("Trend", "Confirmed local highs and lows."),
+        StudyKind::StochasticRsi => ("Momentum", "Stochastic position of the RSI."),
+        StudyKind::Roc => ("Momentum", "Percentage price change over a number of bars."),
+        StudyKind::AwesomeOscillator => ("Momentum", "Fast minus slow average of median price."),
+        StudyKind::AcceleratorOscillator => ("Momentum", "Awesome oscillator minus its average."),
+        StudyKind::Dpo => ("Momentum", "Price relative to a displaced average."),
+        StudyKind::Trix => ("Momentum", "Change in a triple smoothed average."),
+        StudyKind::UltimateOscillator => ("Momentum", "Buying pressure across three windows."),
+        StudyKind::RelativeVigorIndex => {
+            ("Momentum", "Close-open strength relative to the bar range.")
+        }
+        StudyKind::DeMarker => ("Momentum", "High and low pressure between bars."),
+        StudyKind::StandardDeviation => {
+            ("Volatility", "Rolling spread of prices around their mean.")
+        }
+        StudyKind::TrueRange => ("Volatility", "Each bar's range including gaps."),
+        StudyKind::HistoricalVolatility => ("Volatility", "Annualized spread of log returns."),
+        StudyKind::ChaikinVolatility => ("Volatility", "Change in the smoothed high-low range."),
+        StudyKind::ChoppinessIndex => ("Volatility", "How much price moves within its range."),
+        StudyKind::MoneyFlowIndex => ("Volume", "Volume weighted momentum on tick volume."),
+        StudyKind::ChaikinMoneyFlow => ("Volume", "Buying pressure weighted by tick volume."),
+        StudyKind::AccumulationDistribution => (
+            "Volume",
+            "Running total of tick volume weighted by the close's place in the bar.",
+        ),
+        StudyKind::PriceVolumeTrend => (
+            "Volume",
+            "Running total of price change weighted by tick volume.",
+        ),
+        StudyKind::ForceIndex => ("Volume", "Price change times tick volume, smoothed."),
+        StudyKind::VolumeOscillator => (
+            "Volume",
+            "Difference between fast and slow tick volume averages.",
+        ),
+        StudyKind::EaseOfMovement => (
+            "Volume",
+            "Price movement relative to tick volume and range.",
         ),
         StudyKind::Custom | StudyKind::Unknown => ("", ""),
     }
@@ -236,6 +281,7 @@ mod tests {
         keys.dedup();
         assert_eq!(keys.len(), items.len(), "every indicator has its own key");
         assert!(builtin.iter().any(|i| i.key() == "builtin:rsi"));
+        assert!(!builtin.iter().any(|i| i.category == "Patterns"));
     }
 
     #[test]

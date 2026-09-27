@@ -41,6 +41,10 @@ const PRIORITY: usize = 100;
 /// that click is the one that closed it.
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
 
+/// Right-click menus share one width; button menus can grow to fit their contents.
+const CONTEXT_WIDTH: f32 = 320.;
+pub const DROPDOWN_WIDTH: f32 = 230.;
+
 /// What a card holds.
 #[derive(Clone)]
 pub enum Item {
@@ -334,14 +338,15 @@ impl Menu {
     }
 
     fn card(&self, items: &[Item], selected: Option<usize>, placement: Placement) -> AnyElement {
-        let min_w = match placement {
-            Placement::Cursor => 230.,
-            Placement::Below(_) => 190.,
-        };
         let close = self.clone();
         let mut card = div()
             .id(widgets::child_id(&self.id, usize::MAX))
-            .min_w(px(min_w))
+            .when(matches!(placement, Placement::Cursor), |card| {
+                card.w(px(CONTEXT_WIDTH))
+            })
+            .when(matches!(placement, Placement::Below(_)), |card| {
+                card.min_w(px(DROPDOWN_WIDTH))
+            })
             .max_h(px(520.))
             .overflow_y_scroll()
             .p_1()

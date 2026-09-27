@@ -13,6 +13,7 @@
 pub mod atr_stop;
 pub mod catalog;
 pub mod custom;
+mod extended;
 pub mod intern;
 pub mod math;
 pub mod profile;
@@ -48,6 +49,35 @@ pub enum StudyKind {
     Momentum,
     Obv,
     Dmi,
+    Rma,
+    Supertrend,
+    Aroon,
+    Alligator,
+    Envelopes,
+    LinearRegression,
+    PivotPoints,
+    Fractals,
+    StochasticRsi,
+    Roc,
+    AwesomeOscillator,
+    AcceleratorOscillator,
+    Dpo,
+    Trix,
+    UltimateOscillator,
+    RelativeVigorIndex,
+    DeMarker,
+    StandardDeviation,
+    TrueRange,
+    HistoricalVolatility,
+    ChaikinVolatility,
+    ChoppinessIndex,
+    MoneyFlowIndex,
+    ChaikinMoneyFlow,
+    AccumulationDistribution,
+    PriceVolumeTrend,
+    ForceIndex,
+    VolumeOscillator,
+    EaseOfMovement,
     /// An indicator written as a script: which one is in [`StudyConfig::script`].
     Custom,
     /// An indicator a newer version wrote. Dropped on load.
@@ -142,6 +172,23 @@ const fn float(
     }
 }
 
+const fn choice(
+    key: &'static str,
+    label: &'static str,
+    options: &'static [&'static str],
+    default: f64,
+) -> InputSpec {
+    InputSpec {
+        key,
+        label,
+        kind: InputKind::Choice(options),
+        default,
+        min: 0.0,
+        max: (options.len() - 1) as f64,
+        step: 1.0,
+    }
+}
+
 const SOURCE: InputSpec = InputSpec {
     key: "source",
     label: "Source",
@@ -155,7 +202,8 @@ const SOURCE: InputSpec = InputSpec {
 const OFFSET: InputSpec = int("offset", "Offset", 0.0, -500.0, 500.0);
 
 /// How a plot is drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PlotKind {
     Line,
     /// Columns from zero, colored up or down.
@@ -224,7 +272,7 @@ const GRAY: u32 = 0x787b86;
 
 impl StudyKind {
     /// Every indicator a user can add, in menu order.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 50] = [
         Self::Sma,
         Self::Ema,
         Self::Wma,
@@ -246,6 +294,35 @@ impl StudyKind {
         Self::Momentum,
         Self::Obv,
         Self::Dmi,
+        Self::Rma,
+        Self::Supertrend,
+        Self::Aroon,
+        Self::Alligator,
+        Self::Envelopes,
+        Self::LinearRegression,
+        Self::PivotPoints,
+        Self::Fractals,
+        Self::StochasticRsi,
+        Self::Roc,
+        Self::AwesomeOscillator,
+        Self::AcceleratorOscillator,
+        Self::Dpo,
+        Self::Trix,
+        Self::UltimateOscillator,
+        Self::RelativeVigorIndex,
+        Self::DeMarker,
+        Self::StandardDeviation,
+        Self::TrueRange,
+        Self::HistoricalVolatility,
+        Self::ChaikinVolatility,
+        Self::ChoppinessIndex,
+        Self::MoneyFlowIndex,
+        Self::ChaikinMoneyFlow,
+        Self::AccumulationDistribution,
+        Self::PriceVolumeTrend,
+        Self::ForceIndex,
+        Self::VolumeOscillator,
+        Self::EaseOfMovement,
     ];
 
     pub fn spec(self) -> Spec {
@@ -306,15 +383,26 @@ impl StudyKind {
             Self::Vwap => {
                 const {
                     Spec {
-                        label: "VWAP (daily)",
+                        label: "VWAP",
                         short: "VWAP",
                         placement: Overlay,
                         format: ValueFormat::Price,
-                        inputs: &[InputSpec {
-                            default: 5.0,
-                            ..SOURCE
-                        }],
-                        plots: &[line("vwap", "VWAP", PINK, 1.5)],
+                        inputs: &[
+                            InputSpec {
+                                default: 5.0,
+                                ..SOURCE
+                            },
+                            choice("anchor", "Anchor", &["Day", "Week", "Month", "Year"], 0.0),
+                            float("band_1", "Band 1 deviations", 1.0, 0.1, 10.0, 0.1),
+                            float("band_2", "Band 2 deviations", 2.0, 0.1, 10.0, 0.1),
+                        ],
+                        plots: &[
+                            line("vwap", "VWAP", PINK, 1.5),
+                            hidden_line("upper_1", "Upper band 1", BLUE),
+                            hidden_line("lower_1", "Lower band 1", BLUE),
+                            hidden_line("upper_2", "Upper band 2", PURPLE),
+                            hidden_line("lower_2", "Lower band 2", PURPLE),
+                        ],
                         range: None,
                     }
                 }
@@ -330,6 +418,12 @@ impl StudyKind {
                             int("length", "Length", 20.0, 1.0, 1000.0),
                             float("mult", "Deviations", 2.0, 0.1, 10.0, 0.1),
                             SOURCE,
+                            choice(
+                                "method",
+                                "Basis average",
+                                &["SMA", "EMA", "WMA", "RMA"],
+                                0.0,
+                            ),
                         ],
                         plots: &[
                             line("basis", "Basis", ORANGE, 1.0),
@@ -351,6 +445,13 @@ impl StudyKind {
                             int("length", "Length", 20.0, 1.0, 1000.0),
                             float("mult", "Multiplier", 2.0, 0.1, 10.0, 0.1),
                             int("atr", "ATR length", 10.0, 1.0, 1000.0),
+                            SOURCE,
+                            choice(
+                                "method",
+                                "Basis average",
+                                &["SMA", "EMA", "WMA", "RMA"],
+                                1.0,
+                            ),
                         ],
                         plots: &[
                             line("basis", "Basis", BLUE, 1.0),
@@ -456,6 +557,30 @@ impl StudyKind {
                                 max: 1.0,
                                 step: 1.0,
                             },
+                            float(
+                                "area_opacity",
+                                "Value area opacity (%)",
+                                45.0,
+                                0.0,
+                                100.0,
+                                1.0,
+                            ),
+                            float(
+                                "other_opacity",
+                                "Other rows opacity (%)",
+                                20.0,
+                                0.0,
+                                100.0,
+                                1.0,
+                            ),
+                            float(
+                                "normal_opacity",
+                                "Opacity without highlight (%)",
+                                35.0,
+                                0.0,
+                                100.0,
+                                1.0,
+                            ),
                         ],
                         plots: &[
                             line("up", "Up volume", UP, 1.0),
@@ -698,6 +823,7 @@ impl StudyKind {
                     }
                 }
             }
+            other => extended::spec_for(other),
         }
     }
 }
@@ -715,6 +841,74 @@ pub struct PlotStyle {
     /// The line style of a line plot.
     #[serde(default)]
     pub dash: Dash,
+    /// Replace the default presentation of a numeric series.
+    #[serde(default)]
+    pub kind: Option<PlotKind>,
+    #[serde(default)]
+    pub up_color: Option<u32>,
+    #[serde(default)]
+    pub down_color: Option<u32>,
+    /// Fraction of a bar occupied by a histogram column.
+    #[serde(default = "default_bar_width")]
+    pub bar_width: f32,
+}
+
+fn default_bar_width() -> f32 {
+    0.6
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct LevelStyle {
+    #[serde(default)]
+    pub value: Option<f64>,
+    #[serde(default = "default_level_color")]
+    pub color: u32,
+    #[serde(default = "opaque")]
+    pub opacity: f32,
+    #[serde(default = "default_level_width")]
+    pub width: f32,
+    #[serde(default = "default_level_dash")]
+    pub dash: Dash,
+    #[serde(default = "yes")]
+    pub visible: bool,
+}
+
+fn default_level_color() -> u32 {
+    0x787b86
+}
+fn default_level_width() -> f32 {
+    1.0
+}
+fn default_level_dash() -> Dash {
+    Dash::Dashed
+}
+
+impl Default for LevelStyle {
+    fn default() -> Self {
+        Self {
+            value: None,
+            color: default_level_color(),
+            opacity: 0.55,
+            width: default_level_width(),
+            dash: default_level_dash(),
+            visible: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FillStyle {
+    pub color: u32,
+    #[serde(default)]
+    pub other: Option<u32>,
+    #[serde(default = "default_fill_opacity")]
+    pub opacity: f32,
+    #[serde(default = "yes")]
+    pub visible: bool,
+}
+
+fn default_fill_opacity() -> f32 {
+    0.08
 }
 
 fn yes() -> bool {
@@ -741,6 +935,20 @@ pub struct StudyConfig {
     /// How tall its pane is, relative to the prices (only for an indicator with a pane).
     #[serde(default = "pane_weight")]
     pub weight: f32,
+    #[serde(default)]
+    pub levels: BTreeMap<usize, LevelStyle>,
+    #[serde(default)]
+    pub fills: BTreeMap<usize, FillStyle>,
+    #[serde(default)]
+    pub band: Option<FillStyle>,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub precision: Option<u32>,
+    #[serde(default = "yes")]
+    pub axis_labels: bool,
+    #[serde(default = "yes")]
+    pub legend_values: bool,
 }
 
 fn pane_weight() -> f32 {
@@ -748,6 +956,81 @@ fn pane_weight() -> f32 {
 }
 
 impl StudyConfig {
+    pub fn default_levels(&self) -> Vec<f64> {
+        match self.kind {
+            StudyKind::Rsi => vec![self.input("upper"), 50.0, self.input("lower")],
+            StudyKind::Stochastic | StudyKind::WilliamsR | StudyKind::StochasticRsi => {
+                vec![self.input("upper"), self.input("lower")]
+            }
+            StudyKind::Cci => vec![self.input("upper"), 0.0, self.input("lower")],
+            StudyKind::Dmi => vec![25.0],
+            StudyKind::Aroon | StudyKind::UltimateOscillator => vec![70.0, 30.0],
+            StudyKind::DeMarker => vec![0.7, 0.3],
+            StudyKind::MoneyFlowIndex => vec![80.0, 20.0],
+            StudyKind::Macd
+            | StudyKind::Momentum
+            | StudyKind::Roc
+            | StudyKind::AwesomeOscillator
+            | StudyKind::AcceleratorOscillator
+            | StudyKind::Trix
+            | StudyKind::RelativeVigorIndex
+            | StudyKind::ChaikinMoneyFlow
+            | StudyKind::ForceIndex
+            | StudyKind::VolumeOscillator
+            | StudyKind::EaseOfMovement => vec![0.0],
+            _ => Vec::new(),
+        }
+    }
+
+    pub fn default_band(&self) -> Option<FillStyle> {
+        matches!(
+            self.kind,
+            StudyKind::Rsi
+                | StudyKind::Stochastic
+                | StudyKind::WilliamsR
+                | StudyKind::Cci
+                | StudyKind::StochasticRsi
+        )
+        .then(|| FillStyle {
+            color: self
+                .spec()
+                .plots
+                .first()
+                .map_or(GRAY, |p| self.plot_style(p.key).color),
+            other: None,
+            opacity: 0.06,
+            visible: true,
+        })
+    }
+
+    pub fn default_fill(&self, index: usize) -> Option<FillStyle> {
+        let (color, other, opacity) = match self.kind {
+            StudyKind::Bollinger
+            | StudyKind::Keltner
+            | StudyKind::Donchian
+            | StudyKind::Envelopes
+            | StudyKind::LinearRegression
+                if index == 0 =>
+            {
+                (self.plot_style("upper").color, None, 0.08)
+            }
+            StudyKind::Ichimoku if index == 0 => (0x43a047, Some(0xf44336), 0.12),
+            StudyKind::Vwap if index < 2 => (
+                self.plot_style(if index == 0 { "upper_1" } else { "upper_2" })
+                    .color,
+                None,
+                if index == 0 { 0.06 } else { 0.04 },
+            ),
+            _ => return None,
+        };
+        Some(FillStyle {
+            color,
+            other,
+            opacity,
+            visible: true,
+        })
+    }
+
     /// An indicator with every input and plot at its default.
     pub fn new(kind: StudyKind) -> Self {
         Self {
@@ -757,6 +1040,13 @@ impl StudyConfig {
             plots: BTreeMap::new(),
             visible: true,
             weight: pane_weight(),
+            levels: BTreeMap::new(),
+            fills: BTreeMap::new(),
+            band: None,
+            name: String::new(),
+            precision: None,
+            axis_labels: true,
+            legend_values: true,
         }
         .normalized()
     }
@@ -770,6 +1060,13 @@ impl StudyConfig {
             plots: BTreeMap::new(),
             visible: true,
             weight: pane_weight(),
+            levels: BTreeMap::new(),
+            fills: BTreeMap::new(),
+            band: None,
+            name: String::new(),
+            precision: None,
+            axis_labels: true,
+            legend_values: true,
         }
         .normalized()
     }
@@ -855,8 +1152,16 @@ impl StudyConfig {
                     color: plot.color,
                     width: plot.width,
                     visible: plot.visible,
-                    opacity: opaque(),
+                    opacity: if plot.kind == PlotKind::Histogram {
+                        0.6
+                    } else {
+                        opaque()
+                    },
                     dash: Dash::Solid,
+                    kind: None,
+                    up_color: None,
+                    down_color: None,
+                    bar_width: default_bar_width(),
                 });
             let style = PlotStyle {
                 opacity: if style.opacity.is_finite() {
@@ -864,6 +1169,12 @@ impl StudyConfig {
                 } else {
                     opaque()
                 },
+                bar_width: if style.bar_width.is_finite() {
+                    style.bar_width.clamp(0.1, 1.0)
+                } else {
+                    default_bar_width()
+                },
+                width: style.width.clamp(0.5, 20.0),
                 ..style
             };
             plots.insert(plot.key.to_owned(), style);
@@ -873,6 +1184,37 @@ impl StudyConfig {
             self.weight = pane_weight();
         }
         self.weight = self.weight.clamp(0.1, 20.0);
+        self.levels
+            .retain(|index, style| *index < 32 && style.value.is_none_or(f64::is_finite));
+        for style in self.levels.values_mut() {
+            style.opacity = if style.opacity.is_finite() {
+                style.opacity.clamp(0.0, 1.0)
+            } else {
+                0.55
+            };
+            style.width = if style.width.is_finite() {
+                style.width.clamp(0.5, 20.0)
+            } else {
+                1.0
+            };
+        }
+        self.fills.retain(|index, _| *index < 16);
+        for style in self.fills.values_mut() {
+            style.opacity = if style.opacity.is_finite() {
+                style.opacity.clamp(0.0, 1.0)
+            } else {
+                default_fill_opacity()
+            };
+        }
+        if let Some(style) = &mut self.band {
+            style.opacity = if style.opacity.is_finite() {
+                style.opacity.clamp(0.0, 1.0)
+            } else {
+                default_fill_opacity()
+            };
+        }
+        self.precision = self.precision.map(|p| p.min(8));
+        self.name = self.name.trim().chars().take(80).collect();
         self
     }
 
@@ -882,6 +1224,13 @@ impl StudyConfig {
     }
 
     pub fn value_format(&self) -> ValueFormat {
+        if let Some(precision) = self.precision {
+            return match self.spec().format {
+                ValueFormat::Percent(_) => ValueFormat::Percent(precision),
+                ValueFormat::Count => ValueFormat::Plain(precision),
+                _ => ValueFormat::Plain(precision),
+            };
+        }
         if self.kind == StudyKind::Atr && self.input("unit") == 1.0 {
             ValueFormat::Percent(self.input("percent_decimals").clamp(0.0, 6.0) as u32)
         } else {
@@ -913,14 +1262,25 @@ impl StudyConfig {
                 color: plot.map_or(GRAY, |p| p.color),
                 width: plot.map_or(1.0, |p| p.width),
                 visible: plot.is_none_or(|p| p.visible),
-                opacity: opaque(),
+                opacity: if plot.is_some_and(|p| p.kind == PlotKind::Histogram) {
+                    0.6
+                } else {
+                    opaque()
+                },
                 dash: Dash::Solid,
+                kind: None,
+                up_color: None,
+                down_color: None,
+                bar_width: default_bar_width(),
             }
         })
     }
 
     /// The legend's title: the short name and the main inputs, `SMA 20 close`.
     pub fn title(&self) -> String {
+        if !self.name.is_empty() {
+            return self.name.clone();
+        }
         if self.kind == StudyKind::Atr {
             let mut title = format!("ATR {}", self.length("length"));
             if self.input("smoothing") != 0.0 {
@@ -937,6 +1297,12 @@ impl StudyConfig {
         let spec = self.spec();
         let mut parts = vec![spec.short.to_owned()];
         for input in spec.inputs {
+            if matches!(
+                input.key,
+                "area_opacity" | "other_opacity" | "normal_opacity"
+            ) {
+                continue;
+            }
             let value = self.input(input.key);
             match input.kind {
                 InputKind::Int => parts.push(format!("{value:.0}")),
@@ -1087,24 +1453,64 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::Vwap => {
             let src = source();
             let mut values = vec![f64::NAN; n];
-            let (mut pv, mut vol, mut day) = (0.0, 0.0, None);
+            let mut deviation = vec![f64::NAN; n];
+            let (mut pv, mut pv2, mut vol, mut anchor) = (0.0, 0.0, 0.0, None);
             for i in 0..n {
-                if day != Some(input.day[i]) {
-                    day = Some(input.day[i]);
+                let period = extended::pivot_period(input.day[i], config.input("anchor") as usize);
+                if anchor != Some(period) {
+                    anchor = Some(period);
                     pv = 0.0;
+                    pv2 = 0.0;
                     vol = 0.0;
+                }
+                if !src[i].is_finite() || !input.volume[i].is_finite() {
+                    continue;
                 }
                 let v = input.volume[i].max(0.0);
                 pv += src[i] * v;
+                pv2 += src[i] * src[i] * v;
                 vol += v;
                 values[i] = if vol > 0.0 { pv / vol } else { src[i] };
+                deviation[i] = if vol > 0.0 {
+                    (pv2 / vol - values[i] * values[i]).max(0.0).sqrt()
+                } else {
+                    0.0
+                };
             }
             out.plots.push(plot("vwap", values));
+            for (key, sign, mult) in [
+                ("upper_1", 1.0, config.input("band_1")),
+                ("lower_1", -1.0, config.input("band_1")),
+                ("upper_2", 1.0, config.input("band_2")),
+                ("lower_2", -1.0, config.input("band_2")),
+            ] {
+                let series = out.plots[0]
+                    .values
+                    .iter()
+                    .zip(&deviation)
+                    .map(|(v, d)| v + sign * mult * d)
+                    .collect();
+                out.plots.push(plot(key, series));
+            }
+            out.fills.push(FillOut {
+                a: 1,
+                b: 2,
+                color: config.plot_style("upper_1").color,
+                alpha: 0.06,
+                other: None,
+            });
+            out.fills.push(FillOut {
+                a: 3,
+                b: 4,
+                color: config.plot_style("upper_2").color,
+                alpha: 0.04,
+                other: None,
+            });
         }
         StudyKind::Bollinger => {
             let (length, mult) = (config.length("length"), config.input("mult"));
             let src = source();
-            let basis = math::sma(&src, length);
+            let basis = extended::average(&src, length, config.input("method") as usize);
             let dev = math::stdev(&src, length);
             let upper = basis.iter().zip(&dev).map(|(b, d)| b + mult * d).collect();
             let lower = basis.iter().zip(&dev).map(|(b, d)| b - mult * d).collect();
@@ -1121,7 +1527,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         }
         StudyKind::Keltner => {
             let (length, mult) = (config.length("length"), config.input("mult"));
-            let basis = math::ema(&input.close, length);
+            let basis = extended::average(&source(), length, config.input("method") as usize);
             let range = math::atr(&input.high, &input.low, &input.close, config.length("atr"));
             let upper = basis
                 .iter()
@@ -1346,6 +1752,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
             out.plots.push(plot("minus", minus));
             out.levels = vec![25.0];
         }
+        other => return extended::compute(other, config, input),
     }
     out
 }
@@ -1385,11 +1792,13 @@ mod tests {
                     "{kind:?}: plot {} has no spec",
                     plot.key
                 );
-                assert!(
-                    plot.values.iter().rev().take(5).all(|v| v.is_finite()),
-                    "{kind:?} {}: the newest values are defined",
-                    plot.key
-                );
+                if !matches!(kind, StudyKind::Supertrend | StudyKind::Fractals) {
+                    assert!(
+                        plot.values.iter().rev().take(5).all(|v| v.is_finite()),
+                        "{kind:?} {}: the newest values are defined",
+                        plot.key
+                    );
+                }
             }
             if kind != StudyKind::VolumeProfile {
                 assert!(!out.plots.is_empty(), "{kind:?}");
@@ -1438,6 +1847,109 @@ mod tests {
             toml::from_str("[[studies]]\nkind = \"super_trend\"\n[studies.inputs]\nx = 1.0\n")
                 .unwrap();
         assert_eq!(future.studies[0].kind, StudyKind::Unknown);
+    }
+
+    #[test]
+    fn old_and_new_style_fields_survive_storage() {
+        let old: StudyConfig = toml::from_str("kind = 'macd'\n[plots.macd]\ncolor = 1193046\nwidth = 2.0\nvisible = true\nopacity = 1.0\ndash = 'solid'\n").unwrap();
+        let old = old.normalized();
+        assert_eq!(old.plot_style("macd").color, 0x123456);
+        assert!(old.axis_labels);
+        assert!(old.legend_values);
+        assert!(old.fills.is_empty());
+
+        let mut current = StudyConfig::new(StudyKind::Vwap);
+        current.name = "Session VWAP".into();
+        current.precision = Some(4);
+        current.axis_labels = false;
+        current.legend_values = false;
+        current.plots.get_mut("vwap").unwrap().kind = Some(PlotKind::Dots);
+        current.fills.insert(
+            1,
+            FillStyle {
+                color: 0x123456,
+                other: None,
+                opacity: 0.2,
+                visible: false,
+            },
+        );
+        let saved = toml::to_string(&current).unwrap();
+        let loaded: StudyConfig = toml::from_str(&saved).unwrap();
+        assert_eq!(loaded.normalized(), current);
+    }
+
+    #[test]
+    fn extended_formulas_use_documented_prices_and_warmup() {
+        let mut data = input(60);
+        data.open = (0..60).map(|i| 10.0 + i as f64).collect();
+        data.high = (0..60).map(|i| 14.0 + i as f64).collect();
+        data.low = (0..60).map(|i| 8.0 + i as f64).collect();
+        data.close = (0..60).map(|i| 12.0 + i as f64).collect();
+        data.volume = vec![2.0; 60];
+
+        let mut rma = StudyConfig::new(StudyKind::Rma);
+        rma.inputs.insert("length".into(), 3.0);
+        let rma_out = compute(&rma, &data);
+        assert!(rma_out.plots[0].values[1].is_nan());
+        assert_eq!(rma_out.plots[0].values[2], 13.0);
+        assert!((rma_out.plots[0].values[3] - (13.0 + 2.0 / 3.0)).abs() < 1e-10);
+
+        let mut ao = StudyConfig::new(StudyKind::AwesomeOscillator);
+        ao.inputs.insert("fast".into(), 2.0);
+        ao.inputs.insert("slow".into(), 3.0);
+        let ao_out = compute(&ao, &data);
+        assert!(ao_out.plots[0].values[1].is_nan());
+        assert!((ao_out.plots[0].values[2] - 0.5).abs() < 1e-10);
+
+        let mut dpo = StudyConfig::new(StudyKind::Dpo);
+        dpo.inputs.insert("length".into(), 4.0);
+        let dpo_out = compute(&dpo, &data);
+        assert!(dpo_out.plots[0].values[2].is_nan());
+        assert!((dpo_out.plots[0].values[6] - (data.close[6] - 13.5)).abs() < 1e-10);
+
+        let mut aroon = StudyConfig::new(StudyKind::Aroon);
+        aroon.inputs.insert("length".into(), 3.0);
+        let aroon_out = compute(&aroon, &data);
+        assert!(aroon_out.plots[0].values[2].is_nan());
+        assert_eq!(aroon_out.plots[0].values[3], 100.0);
+        assert_eq!(aroon_out.plots[1].values[3], 0.0);
+
+        let mut regression = StudyConfig::new(StudyKind::LinearRegression);
+        regression.inputs.insert("length".into(), 5.0);
+        let regression_out = compute(&regression, &data);
+        assert!((regression_out.plots[0].values[10] - data.close[10]).abs() < 1e-10);
+        assert!(
+            (regression_out.plots[1].values[10] - regression_out.plots[2].values[10]).abs() < 1e-10
+        );
+    }
+
+    #[test]
+    fn all_indicators_tolerate_a_gap_and_a_large_bar() {
+        let mut data = input(240);
+        for column in [
+            &mut data.open,
+            &mut data.high,
+            &mut data.low,
+            &mut data.close,
+            &mut data.volume,
+        ] {
+            column[100] = f64::NAN;
+        }
+        data.open[120] = 1e12;
+        data.high[120] = 1e12 + 100.0;
+        data.low[120] = 1e12 - 100.0;
+        data.close[120] = 1e12 + 10.0;
+        for kind in StudyKind::ALL {
+            let output = compute(&StudyConfig::new(kind), &data);
+            for plot in output.plots {
+                assert_eq!(plot.values.len(), data.len(), "{kind:?}");
+                assert!(
+                    !plot.values.iter().any(|v| v.is_infinite()),
+                    "{kind:?} {}",
+                    plot.key
+                );
+            }
+        }
     }
 
     #[test]

@@ -398,7 +398,7 @@ impl Chart {
         let visible = config.visible;
         let group = SharedString::from(format!("study-row-{study}"));
         let values = index
-            .filter(|_| self.settings.status.indicator_values)
+            .filter(|_| self.settings.status.indicator_values && config.legend_values)
             .map(|i| self.study_values(study, i))
             .unwrap_or_default();
         // An indicator written as a script: which one, and what is wrong with it if anything.
@@ -1065,7 +1065,7 @@ impl Chart {
                 }
                 self.menu_card()
                     .id("chart-zone-menu")
-                    .w(px(230.))
+                    .w(px(popup::DROPDOWN_WIDTH))
                     .max_h(px((geometry.h as f32 - 60.0).max(160.0)))
                     .overflow_y_scroll()
                     .child(Self::section_title("Time zone"))
