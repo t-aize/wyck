@@ -9,8 +9,10 @@
 //! - [`run`]: compiling, declaring and computing a script, with limits on what a run may do.
 
 pub mod api;
+pub mod assist;
 pub mod docs;
 mod draw_api;
+pub mod lexer;
 pub mod library;
 pub mod run;
 pub mod series;

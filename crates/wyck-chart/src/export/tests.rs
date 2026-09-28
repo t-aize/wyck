@@ -1,8 +1,8 @@
-use wyck_openapi::market::{Bar, Tick};
+use wyck_openapi_model::market::{Bar, Tick};
 
 use super::*;
-use crate::chart::study::{StudyConfig, StudyKind};
-use crate::chart::transform::BoxSize;
+use crate::study::{StudyConfig, StudyKind};
+use crate::transform::BoxSize;
 
 /// Monday 2026-01-05 00:00 UTC.
 const MONDAY: i64 = 1_767_571_200_000;

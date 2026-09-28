@@ -1,6 +1,6 @@
 //! What connects the words of a script to the editor of gpui: the colors, the folds, the list of
 //! names that opens while typing, and the help that shows under the pointer. The thinking is in
-//! [`super::lexer`] and [`super::assist`]; this only hands it over in the shape the editor takes.
+//! [`wyck_chart::study::custom::lexer`] and [`wyck_chart::study::custom::assist`]; this only hands it over in the shape the editor takes.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -15,8 +15,8 @@ use lsp_types::{
     Documentation, Hover, HoverContents, MarkupContent, MarkupKind, TextEdit,
 };
 
-use super::assist::{self, CandidateKind};
-use super::lexer::{self, Kind, Token};
+use wyck_chart::study::custom::assist::{self, CandidateKind};
+use wyck_chart::study::custom::lexer::{self, Kind, Token};
 use wyck_ui::theme;
 
 /// The name of the language, as the editor is told.

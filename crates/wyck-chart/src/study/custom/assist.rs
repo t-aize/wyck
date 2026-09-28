@@ -1,13 +1,13 @@
 //! What the editor offers while a script is typed: the names that complete the word under the
 //! cursor, and the help shown when the pointer rests on a name.
 //!
-//! This is plain text in, plain text out (no window), so it is tested on its own. The glue that
-//! hands it to the editor is in [`super::providers`].
+//! This is plain text in, plain text out (no window), so it is tested on its own. The app's
+//! indicator editor hands it to its text field.
 
 use std::collections::BTreeSet;
 
+use super::docs::{self, Group};
 use super::lexer::{self, Kind, Place};
-use wyck_chart::study::custom::docs::{self, Group};
 
 /// What an offered name is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

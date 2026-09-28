@@ -59,7 +59,6 @@ use wyck_chart::data;
 use wyck_chart::display;
 pub mod drawing;
 pub mod drawing_props;
-pub mod export;
 mod export_ui;
 use wyck_chart::flow;
 mod flow_sync;

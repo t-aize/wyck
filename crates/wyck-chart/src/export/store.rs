@@ -111,7 +111,7 @@ pub fn write(dir: &Path, saved: &Saved) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chart::export::{Delimiter, Format};
+    use crate::export::{Delimiter, Format};
 
     /// A folder of its own for one test.
     fn folder(name: &str) -> std::path::PathBuf {

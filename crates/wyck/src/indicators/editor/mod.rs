@@ -9,8 +9,6 @@
 //! Saving (Ctrl+S) writes the file; the app notices the change like it does for a file edited in
 //! another program, so every chart that holds the script draws the new version at once.
 
-pub mod assist;
-pub mod lexer;
 mod parts;
 pub mod providers;
 

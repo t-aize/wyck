@@ -18,11 +18,11 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, FixedOffset, format::Item, format::StrftimeItems};
 use serde::{Deserialize, Serialize};
 
-use super::data::Series;
-use super::display::Display;
-use super::settings::{ChartKind, ChartSettings};
-use super::study::ValueFormat;
-use super::zone::Zone;
+use crate::data::Series;
+use crate::display::Display;
+use crate::settings::{ChartKind, ChartSettings};
+use crate::study::ValueFormat;
+use crate::zone::Zone;
 
 /// How many rows a preview shows.
 pub const PREVIEW_ROWS: usize = 12;
@@ -427,7 +427,7 @@ pub struct ExportOptions {
     /// The names written for columns, by their code, instead of the default ones.
     #[serde(default)]
     pub renames: BTreeMap<String, String>,
-    #[serde(default = "wyck_chart::defaults::yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub header: bool,
     #[serde(default)]
     pub header_case: HeaderCase,
@@ -475,7 +475,7 @@ pub struct ExportOptions {
     /// JSON file).
     #[serde(default)]
     pub notes: bool,
-    #[serde(default = "wyck_chart::defaults::yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub json_pretty: bool,
     /// The table of SQL inserts.
     #[serde(default = "default_table")]
@@ -1079,13 +1079,13 @@ pub struct Table {
 
 /// Whether a date field holds a date, or nothing (an open side of the range).
 pub fn date_is_valid(text: &str) -> bool {
-    text.trim().is_empty() || wyck_chart::zone::parse_local(text).is_some()
+    text.trim().is_empty() || crate::zone::parse_local(text).is_some()
 }
 
 /// A side of a range of dates, in Unix milliseconds: the time typed, or for the end of the range
 /// the last instant of a day typed alone. `None` for a text that is not a date.
 fn parse_bound(text: &str, zone: Zone, end: bool) -> Option<i64> {
-    let (_, whole_day) = wyck_chart::zone::parse_local(text)?;
+    let (_, whole_day) = crate::zone::parse_local(text)?;
     let utc = zone.parse(text)?;
     Some(if end && whole_day {
         utc + 86_400_000 - 1
@@ -1470,7 +1470,7 @@ pub fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
 
 fn value_text(value: f64, digits: u32, decimal: char, trim: bool) -> String {
     let mut text = if trim {
-        wyck_chart::format::trim(value, digits as usize)
+        crate::format::trim(value, digits as usize)
     } else {
         format!("{value:.*}", digits as usize)
     };
