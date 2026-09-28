@@ -20,6 +20,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use wyck_config::names::is_valid_name;
+use wyck_config::{AppPaths, DocumentStore};
 
 /// The value of `format` in a backup file.
 pub const FORMAT: &str = "wyck-backup";
@@ -105,82 +107,49 @@ impl From<io::Error> for BackupError {
     }
 }
 
-/// Whether `name` is safe to become part of a path: letters, digits, `-`, `_` and `.` inside.
-fn safe_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 100
-        && !name.starts_with('.')
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
-        && !name.contains("..")
-}
-
-/// Whether `scope` names a place documents can go: `global`, or `scope:` and a safe name.
+/// Whether `scope` names a place documents can go: `global`, or `scope:` and a valid name.
 fn safe_scope(scope: &str) -> bool {
-    scope == GLOBAL || scope.strip_prefix("scope:").is_some_and(safe_name)
+    scope == GLOBAL || scope.strip_prefix("scope:").is_some_and(is_valid_name)
 }
 
-/// The folder of the documents of `scope`, under the config directory.
-fn scope_dir(config_dir: &Path, scope: &str) -> PathBuf {
+/// The store of the documents of `scope`, under the config directory.
+fn store_for(paths: &AppPaths, scope: &str) -> DocumentStore {
     match scope.strip_prefix("scope:") {
-        Some(name) => config_dir.join("scopes").join(name),
-        None => config_dir.join("state"),
+        Some(name) => DocumentStore::scoped(paths, name),
+        None => DocumentStore::global(paths),
     }
 }
 
-/// The documents of a folder: the `.toml` files in it, by name.
-fn documents_in(dir: &Path) -> io::Result<Vec<(String, String)>> {
-    let mut found = Vec::new();
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(found),
-        Err(error) => return Err(error),
-    };
-    for entry in entries {
-        let path = entry?.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("toml") || !path.is_file() {
-            continue;
-        }
-        let Some(name) = path.file_stem().and_then(|n| n.to_str()) else {
-            continue;
-        };
-        if !safe_name(name) {
-            continue;
-        }
-        // A document that cannot be read as text is left out, not fatal to the rest.
-        if let Ok(content) = fs::read_to_string(&path) {
-            found.push((name.to_owned(), content));
-        }
-    }
-    found.sort();
-    Ok(found)
+/// The documents of a store: name and text of each. A document that cannot be read as text is
+/// left out, not fatal to the rest.
+fn documents_in(store: &DocumentStore) -> io::Result<Vec<(String, String)>> {
+    let names = store.list().map_err(to_io)?;
+    Ok(names
+        .into_iter()
+        .filter_map(|name| {
+            let text = store.load_text(&name).ok().flatten()?;
+            Some((name, text))
+        })
+        .collect())
+}
+
+fn to_io(error: wyck_config::ConfigError) -> io::Error {
+    io::Error::other(error.to_string())
 }
 
 /// Reads every saved document under `config_dir` into a backup made by `app_version` at `created`.
 pub fn collect(config_dir: &Path, app_version: &str, created: &str) -> io::Result<Backup> {
+    let paths = AppPaths::at(config_dir);
     let mut files = Vec::new();
-    for (name, content) in documents_in(&config_dir.join("state"))? {
+    for (name, content) in documents_in(&DocumentStore::global(&paths))? {
         files.push(BackupFile {
             scope: GLOBAL.to_owned(),
             name,
             content,
         });
     }
-    let scopes = config_dir.join("scopes");
-    let mut scope_names: Vec<String> = match fs::read_dir(&scopes) {
-        Ok(entries) => entries
-            .filter_map(Result::ok)
-            .filter(|e| e.path().is_dir())
-            .filter_map(|e| e.file_name().into_string().ok())
-            .filter(|name| safe_name(name))
-            .collect(),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Vec::new(),
-        Err(error) => return Err(error),
-    };
-    scope_names.sort();
-    for scope in scope_names {
-        for (name, content) in documents_in(&scopes.join(&scope))? {
+    for scope in DocumentStore::list_scopes(&paths).map_err(to_io)? {
+        for (name, content) in documents_in(&DocumentStore::scoped(&paths, &scope))? {
             files.push(BackupFile {
                 scope: format!("scope:{scope}"),
                 name,
@@ -248,7 +217,7 @@ pub fn parse(text: &str) -> Result<Backup, BackupError> {
     let mut total = 0;
     let mut seen: Vec<(&str, &str)> = Vec::new();
     for file in &backup.files {
-        if !safe_scope(&file.scope) || !safe_name(&file.name) {
+        if !safe_scope(&file.scope) || !is_valid_name(&file.name) {
             return Err(BackupError::Damaged(format!(
                 "\"{}\" in \"{}\" has no safe place to go",
                 file.name, file.scope
@@ -439,8 +408,9 @@ pub fn apply_pending_reset(config_dir: &Path) -> io::Result<bool> {
     if !reset_pending(config_dir) {
         return Ok(false);
     }
-    for folder in ["state", "scopes"] {
-        match fs::remove_dir_all(config_dir.join(folder)) {
+    let paths = AppPaths::at(config_dir);
+    for folder in [paths.state_dir(), paths.scopes_dir()] {
+        match fs::remove_dir_all(folder) {
             Ok(()) => {}
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => return Err(error),
@@ -479,10 +449,11 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
     let keep = config_dir
         .join("backups")
         .join(format!("import-{}", stamp_name(stamp)));
+    let paths = AppPaths::at(config_dir);
     let mut kept = false;
     for file in &backup.files {
-        let dir = scope_dir(config_dir, &file.scope);
-        let target = dir.join(format!("{}.toml", file.name));
+        let store = store_for(&paths, &file.scope);
+        let target = store.path(&file.name);
         if target.is_file() {
             let relative = target.strip_prefix(config_dir).unwrap_or(&target);
             let copy = keep.join(relative);
@@ -492,8 +463,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
             fs::copy(&target, &copy)?;
             kept = true;
         }
-        fs::create_dir_all(&dir)?;
-        wyck_config::write_atomically(&target, file.content.as_bytes())?;
+        store.save_text(&file.name, &file.content).map_err(to_io)?;
     }
     // The scripts go in the default indicators folder; one that is there already and differs is
     // copied aside first, like the documents.

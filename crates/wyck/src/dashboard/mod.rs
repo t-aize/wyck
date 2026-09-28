@@ -814,10 +814,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         gpui::ImageFormat::Png,
         png.clone(),
     )));
-    let folder = directories::UserDirs::new()
-        .and_then(|dirs| dirs.picture_dir().map(|p| p.to_path_buf()))
-        .or_else(|| directories::UserDirs::new().map(|dirs| dirs.home_dir().to_path_buf()))
-        .map(|dir| dir.join("Wyck"));
+    let folder = wyck_config::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
     let Some(folder) = folder else {
         toast::show(
             cx,

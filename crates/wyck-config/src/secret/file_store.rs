@@ -3,21 +3,19 @@
 use std::fs;
 use std::path::PathBuf;
 
-use argon2::Argon2;
-use chacha20poly1305::aead::Aead;
-use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce};
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
+use crate::crypto::{self, CryptoError, KdfParams, Sealed};
 use crate::error::{ConfigError, Result};
 use crate::fs_util::atomic_write;
 use crate::secret::{SecretKey, SecretStore};
 
-const ENVELOPE_VERSION: u8 = 1;
-const SALT_LEN: usize = 16;
-const KEY_LEN: usize = 32;
-const NONCE_LEN: usize = 12;
+/// The layout written now. Version 1 (no cost written down, nothing bound to the key) is still
+/// read, and replaced by version 2 the next time the secret is stored.
+const ENVELOPE_VERSION: u8 = 2;
+const LEGACY_VERSION: u8 = 1;
 
 /// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
 /// use where no OS credential store is available: headless Linux boxes, some
@@ -26,27 +24,23 @@ const NONCE_LEN: usize = 12;
 ///
 /// # Design
 ///
-/// Each call to [`Self::store`] generates a fresh random 16-byte salt and derives a
-/// fresh 32-byte ChaCha20-Poly1305 key from `passphrase` via Argon2id
-/// (`Argon2::default()`'s parameters: the algorithm's current recommended default
-/// work factor). A fresh random 12-byte nonce is generated per encryption. Salt, nonce,
-/// and ciphertext are hex-encoded into a small versioned TOML envelope and written
-/// atomically (see the crate-internal `atomic_write` helper) to `{dir}/{sanitized key}.toml`,
-/// with `0600` permissions on Unix.
+/// Each call to [`Self::store`] draws a fresh random salt and nonce, derives a 32-byte key from
+/// the passphrase with Argon2id (see the crate-private `crypto` module for the cost and the
+/// reasons), and encrypts the secret. The salt, the nonce, the ciphertext and the cost are
+/// hex-encoded into a small versioned TOML envelope, written atomically to
+/// `{dir}/{key}-{hash}.toml` with `0600` permissions on Unix.
 ///
-/// Because a fresh salt (and therefore a fresh derived key) is used per secret, two
-/// secrets stored under the same passphrase never share key material, even though they
-/// share a passphrase, so nonce reuse under the same key, the one catastrophic failure
-/// mode for an AEAD cipher, cannot happen across secrets. Within one secret, exactly one
-/// nonce is ever generated per [`Self::store`] call (each call re-derives a new
-/// salt+key+nonce triple from scratch, it never reuses a previous encryption's nonce
-/// under the same key).
+/// The key of the secret is part of what the cipher signs (its *associated data*): copying the
+/// envelope of one secret over another's file makes opening fail, instead of quietly giving the
+/// first secret's value for the second key.
 ///
-/// On [`Self::retrieve`], a failed AEAD authentication (wrong passphrase, or a tampered
-/// file) surfaces as [`ConfigError::Crypto`] with a message that says so: it is
-/// deliberately NOT reported as a generic I/O or parse failure, since "wrong passphrase"
-/// is the overwhelmingly common real-world cause and the caller should be able to
-/// present that specific message to the user.
+/// A failed authentication (wrong passphrase, or a tampered file) surfaces as
+/// [`ConfigError::Crypto`] with a message that says so, and not as a generic I/O or parse error,
+/// since "wrong passphrase" is the overwhelmingly common real-world cause and the caller can
+/// present that specific message.
+///
+/// A store is meant to be owned by one process at a time. Two processes storing the same key at
+/// once both write a complete envelope (the last rename wins), but nothing coordinates them.
 pub struct EncryptedFileSecretStore {
     dir: PathBuf,
     passphrase: SecretString,
@@ -67,61 +61,96 @@ impl EncryptedFileSecretStore {
         }
     }
 
+    /// The file of a key: its readable part, and a short hash of the whole key so two keys that
+    /// only differ in characters a file name cannot hold (`a/b` and `a_b`) never share a file.
     fn envelope_path(&self, key: &SecretKey) -> PathBuf {
+        self.dir.join(format!("{}.toml", file_stem(key)))
+    }
+
+    /// The file older versions used for a key: only the readable part.
+    fn legacy_path(&self, key: &SecretKey) -> PathBuf {
         self.dir
             .join(format!("{}.toml", sanitize_filename(key.as_str())))
     }
 
-    fn derive_key(&self, salt: &[u8]) -> Result<[u8; KEY_LEN]> {
-        let mut key_bytes = [0u8; KEY_LEN];
-        Argon2::default()
-            .hash_password_into(
-                self.passphrase.expose_secret().as_bytes(),
-                salt,
-                &mut key_bytes,
-            )
-            .map_err(|source| ConfigError::KeyDerivation(source.to_string()))?;
-        Ok(key_bytes)
+    /// What the cipher signs for a key.
+    fn associated_data(key: &SecretKey) -> Vec<u8> {
+        format!("wyck-secret:v{ENVELOPE_VERSION}:{}", key.as_str()).into_bytes()
+    }
+
+    fn crypto_error(key: &SecretKey, error: CryptoError) -> ConfigError {
+        match error {
+            CryptoError::Random(source) => ConfigError::Random(source),
+            CryptoError::Kdf(message) => ConfigError::KeyDerivation(message),
+            CryptoError::Encrypt => ConfigError::Crypto {
+                key: key.to_string(),
+                message: "the secret could not be encrypted".to_owned(),
+            },
+            CryptoError::Decrypt => {
+                warn!(%key, "decryption failed: wrong passphrase, or the file was tampered with");
+                ConfigError::Crypto {
+                    key: key.to_string(),
+                    message: "decryption failed: this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
+                }
+            }
+            CryptoError::Shape(reason) => ConfigError::MalformedEnvelope {
+                key: key.to_string(),
+                reason,
+            },
+        }
     }
 }
 
 impl SecretStore for EncryptedFileSecretStore {
     fn store(&self, key: &SecretKey, secret: &SecretString) -> Result<()> {
-        let mut salt = [0u8; SALT_LEN];
-        getrandom::fill(&mut salt)?;
-        let mut nonce_bytes = [0u8; NONCE_LEN];
-        getrandom::fill(&mut nonce_bytes)?;
+        use secrecy::ExposeSecret;
 
-        let key_bytes = self.derive_key(&salt)?;
-        let cipher = ChaCha20Poly1305::new(&Key::from(key_bytes));
-        let nonce = Nonce::from(nonce_bytes);
-        let ciphertext = cipher
-            .encrypt(&nonce, secret.expose_secret().as_bytes())
-            .map_err(|source| ConfigError::Crypto {
-                key: key.to_string(),
-                message: source.to_string(),
-            })?;
+        let sealed = crypto::seal(
+            &self.passphrase,
+            &Self::associated_data(key),
+            secret.expose_secret().as_bytes(),
+        )
+        .map_err(|error| Self::crypto_error(key, error))?;
 
         let envelope = Envelope {
             version: ENVELOPE_VERSION,
-            salt: hex_encode(&salt),
-            nonce: hex_encode(&nonce_bytes),
-            ciphertext: hex_encode(&ciphertext),
+            memory_kib: Some(sealed.params.memory_kib),
+            iterations: Some(sealed.params.iterations),
+            parallelism: Some(sealed.params.parallelism),
+            salt: crypto::hex_encode(&sealed.salt),
+            nonce: crypto::hex_encode(&sealed.nonce),
+            ciphertext: crypto::hex_encode(&sealed.ciphertext),
         };
         let toml_text = toml::to_string(&envelope).map_err(ConfigError::Serialize)?;
         let path = self.envelope_path(key);
         atomic_write(&path, toml_text.as_bytes())?;
+        // The envelope of an older version, if there is one, is now stale.
+        let legacy = self.legacy_path(key);
+        if legacy != path {
+            let _ = fs::remove_file(legacy);
+        }
         debug!(%key, path = %path.display(), "encrypted and stored a secret");
         Ok(())
     }
 
     fn retrieve(&self, key: &SecretKey) -> Result<Option<SecretString>> {
-        let path = self.envelope_path(key);
+        let mut path = self.envelope_path(key);
         let text = match fs::read_to_string(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-                trace!(%key, path = %path.display(), "no envelope on disk for this key");
-                return Ok(None);
+                // Before the hash was added to the file name.
+                path = self.legacy_path(key);
+                match fs::read_to_string(&path) {
+                    Ok(text) => text,
+                    Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                        trace!(%key, "no envelope on disk for this key");
+                        return Ok(None);
+                    }
+                    Err(source) => {
+                        warn!(%key, path = %path.display(), error = %source, "could not read the envelope");
+                        return Err(ConfigError::Read { path, source });
+                    }
+                }
             }
             Err(source) => {
                 warn!(%key, path = %path.display(), error = %source, "could not read the envelope");
@@ -136,76 +165,87 @@ impl SecretStore for EncryptedFileSecretStore {
                 source: Box::new(source),
             }
         })?;
-        if envelope.version != ENVELOPE_VERSION {
-            warn!(%key, found = envelope.version, expected = ENVELOPE_VERSION, "unsupported envelope version");
-            return Err(ConfigError::MalformedEnvelope {
-                key: key.to_string(),
-                reason: format!(
-                    "unsupported envelope version {} (this build understands version {ENVELOPE_VERSION})",
-                    envelope.version
-                ),
-            });
-        }
-
         let malformed = |reason: String| ConfigError::MalformedEnvelope {
             key: key.to_string(),
             reason,
         };
-        let salt = hex_decode(&envelope.salt).map_err(malformed)?;
-        let nonce_bytes = hex_decode(&envelope.nonce).map_err(malformed)?;
-        let ciphertext = hex_decode(&envelope.ciphertext).map_err(malformed)?;
-
-        let key_bytes = self.derive_key(&salt)?;
-        let cipher = ChaCha20Poly1305::new(&Key::from(key_bytes));
-        let nonce = Nonce::try_from(nonce_bytes.as_slice())
-            .map_err(|_| malformed("nonce is not exactly 12 bytes".to_owned()))?;
-        let plaintext = cipher.decrypt(&nonce, ciphertext.as_ref()).map_err(|_source| {
-            warn!(%key, "decryption failed: wrong passphrase, or the file was tampered with");
-            ConfigError::Crypto {
-                key: key.to_string(),
-                message: "decryption failed: this almost always means the passphrase is wrong (or the file was tampered with)".to_owned(),
+        let (params, aad) = match envelope.version {
+            ENVELOPE_VERSION => (
+                KdfParams {
+                    memory_kib: envelope.memory_kib.unwrap_or(0),
+                    iterations: envelope.iterations.unwrap_or(0),
+                    parallelism: envelope.parallelism.unwrap_or(0),
+                },
+                Self::associated_data(key),
+            ),
+            // Sealed before the cost was written down and the key signed: the cost was the one
+            // `Argon2::default()` has, and nothing was signed.
+            LEGACY_VERSION => (KdfParams::CURRENT, Vec::new()),
+            other => {
+                warn!(%key, found = other, expected = ENVELOPE_VERSION, "unsupported envelope version");
+                return Err(malformed(format!(
+                    "unsupported envelope version {other} (this build understands versions {LEGACY_VERSION} and {ENVELOPE_VERSION})"
+                )));
             }
-        })?;
+        };
 
-        let plaintext = String::from_utf8(plaintext)
+        let decode = |what: &str, hex: &str| {
+            crypto::hex_decode(hex).map_err(|reason| malformed(format!("{what}: {reason}")))
+        };
+        let sealed = Sealed {
+            params,
+            salt: crypto::exact(&decode("salt", &envelope.salt)?, "the salt")
+                .map_err(|error| Self::crypto_error(key, error))?,
+            nonce: crypto::exact(&decode("nonce", &envelope.nonce)?, "the nonce")
+                .map_err(|error| Self::crypto_error(key, error))?,
+            ciphertext: decode("ciphertext", &envelope.ciphertext)?,
+        };
+        let plaintext = crypto::open(&self.passphrase, &aad, &sealed)
+            .map_err(|error| Self::crypto_error(key, error))?;
+
+        let plaintext = String::from_utf8(plaintext.to_vec())
             .map_err(|_| malformed("decrypted payload was not valid UTF-8".to_owned()))?;
         trace!(%key, path = %path.display(), "decrypted and retrieved a secret");
         Ok(Some(SecretString::from(plaintext)))
     }
 
     fn delete(&self, key: &SecretKey) -> Result<()> {
-        let path = self.envelope_path(key);
-        match fs::remove_file(&path) {
-            Ok(()) => {
-                debug!(%key, path = %path.display(), "deleted a secret envelope");
-                Ok(())
-            }
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(source) => {
-                warn!(%key, path = %path.display(), error = %source, "could not delete the secret envelope");
-                Err(ConfigError::Write { path, source })
+        for path in [self.envelope_path(key), self.legacy_path(key)] {
+            match fs::remove_file(&path) {
+                Ok(()) => {
+                    debug!(%key, path = %path.display(), "deleted a secret envelope");
+                }
+                Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
+                Err(source) => {
+                    warn!(%key, path = %path.display(), error = %source, "could not delete the secret envelope");
+                    return Err(ConfigError::Write { path, source });
+                }
             }
         }
+        Ok(())
     }
 }
 
-/// The on-disk envelope for one encrypted secret. All three byte fields are hex-encoded
-/// so the file stays plain ASCII TOML (consistent with [`crate::AppConfig`]'s format,
-/// easy to `cat`/diff for debugging without special tooling: only the plaintext they
-/// decode to is sensitive, and that never touches disk).
+/// The on-disk envelope for one encrypted secret. All byte fields are hex-encoded so the file
+/// stays plain ASCII TOML (easy to `cat` and diff without special tooling: only the plaintext
+/// they decode to is sensitive, and that never touches disk). The cost fields are absent in
+/// version 1.
 #[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
     version: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    memory_kib: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    iterations: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    parallelism: Option<u32>,
     salt: String,
     nonce: String,
     ciphertext: String,
 }
 
-/// Maps a [`SecretKey`]'s raw string to a filesystem-safe file stem by replacing every
-/// character outside `[A-Za-z0-9._-]` with `_`. [`SecretKey`] values are always built by
-/// this crate's own code (namespace:name pairs: see [`SecretKey::new`]), never from
-/// unsanitized external input, so this only needs to guarantee a valid, collision-free-
-/// in-practice filename, not defend against adversarial input.
+/// Maps a [`SecretKey`]'s raw string to a readable, file-system-safe stem: every character
+/// outside `[A-Za-z0-9._-]` becomes `_`.
 fn sanitize_filename(raw: &str) -> String {
     raw.chars()
         .map(|c| {
@@ -218,28 +258,74 @@ fn sanitize_filename(raw: &str) -> String {
         .collect()
 }
 
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+/// The stem of the file of a key: the readable part (kept short), then 16 hex digits of a
+/// fingerprint of the whole key. Different keys give different stems even when their
+/// readable parts are the same.
+fn file_stem(key: &SecretKey) -> String {
+    let readable: String = sanitize_filename(key.as_str()).chars().take(80).collect();
+    format!("{readable}-{}", fingerprint(key.as_str()))
 }
 
-fn hex_decode(text: &str) -> std::result::Result<Vec<u8>, String> {
-    if !text.len().is_multiple_of(2) {
-        return Err("hex string has odd length".to_owned());
+/// A stable 64-bit fingerprint (FNV-1a), as 16 hex digits. It only has to tell apart the few keys
+/// of one app on one machine; it protects nothing, so a fast non-cryptographic hash is right.
+fn fingerprint(text: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
     }
-    (0..text.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).map_err(|source| source.to_string()))
-        .collect()
+    format!("{hash:016x}")
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
+    use secrecy::ExposeSecret;
+
     use super::*;
 
     fn store_at(dir: &Path, passphrase: &str) -> EncryptedFileSecretStore {
         EncryptedFileSecretStore::new(dir, SecretString::from(passphrase.to_owned()))
+    }
+
+    fn secret(text: &str) -> SecretString {
+        SecretString::from(text.to_owned())
+    }
+
+    fn envelope_of(store: &EncryptedFileSecretStore, key: &SecretKey) -> Envelope {
+        toml::from_str(&fs::read_to_string(store.envelope_path(key)).unwrap()).unwrap()
+    }
+
+    /// An envelope as the first version of this crate wrote it: `Argon2::default()`, nothing
+    /// signed, the readable part of the key as the file name.
+    fn write_legacy_envelope(
+        store: &EncryptedFileSecretStore,
+        key: &SecretKey,
+        passphrase: &str,
+        value: &str,
+    ) {
+        use argon2::Argon2;
+        use chacha20poly1305::aead::Aead;
+        use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce};
+
+        let (salt, nonce) = ([7u8; 16], [9u8; 12]);
+        let mut key_bytes = [0u8; 32];
+        Argon2::default()
+            .hash_password_into(passphrase.as_bytes(), &salt, &mut key_bytes)
+            .unwrap();
+        let cipher = ChaCha20Poly1305::new(&Key::from(key_bytes));
+        let ciphertext = cipher
+            .encrypt(&Nonce::from(nonce), value.as_bytes())
+            .unwrap();
+        let text = format!(
+            "version = 1\nsalt = \"{}\"\nnonce = \"{}\"\nciphertext = \"{}\"\n",
+            crypto::hex_encode(&salt),
+            crypto::hex_encode(&nonce),
+            crypto::hex_encode(&ciphertext)
+        );
+        fs::create_dir_all(&store.dir).unwrap();
+        fs::write(store.legacy_path(key), text).unwrap();
     }
 
     #[test]
@@ -248,21 +334,25 @@ mod tests {
         let store = store_at(temp_dir.path(), "correct horse battery staple");
         let key = SecretKey::new("test", "profile-1");
 
-        store
-            .store(&key, &SecretString::from("super-secret-token".to_owned()))
-            .unwrap();
+        store.store(&key, &secret("super-secret-token")).unwrap();
         let retrieved = store.retrieve(&key).unwrap().unwrap();
 
         assert_eq!(retrieved.expose_secret(), "super-secret-token");
+        let text = fs::read_to_string(store.envelope_path(&key)).unwrap();
+        assert!(!text.contains("super-secret-token"));
+        assert_eq!(envelope_of(&store, &key).version, 2);
     }
 
     #[test]
     fn retrieve_returns_none_for_unknown_key() {
         let temp_dir = tempfile::tempdir().unwrap();
         let store = store_at(temp_dir.path(), "passphrase");
-        let key = SecretKey::new("test", "does-not-exist");
-
-        assert!(store.retrieve(&key).unwrap().is_none());
+        assert!(
+            store
+                .retrieve(&SecretKey::new("test", "does-not-exist"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -270,7 +360,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let key = SecretKey::new("test", "profile-1");
         store_at(temp_dir.path(), "right passphrase")
-            .store(&key, &SecretString::from("token".to_owned()))
+            .store(&key, &secret("token"))
             .unwrap();
 
         let result = store_at(temp_dir.path(), "wrong passphrase").retrieve(&key);
@@ -284,9 +374,7 @@ mod tests {
         let store = store_at(temp_dir.path(), "passphrase");
         let key = SecretKey::new("test", "profile-1");
 
-        store
-            .store(&key, &SecretString::from("token".to_owned()))
-            .unwrap();
+        store.store(&key, &secret("token")).unwrap();
         store.delete(&key).unwrap();
         store.delete(&key).unwrap(); // deleting again must not error
         assert!(store.retrieve(&key).unwrap().is_none());
@@ -298,20 +386,13 @@ mod tests {
         let store = store_at(temp_dir.path(), "passphrase");
         let key = SecretKey::new("test", "profile-1");
 
-        store
-            .store(&key, &SecretString::from("first".to_owned()))
-            .unwrap();
-        let path = store.envelope_path(&key);
-        let first_envelope: Envelope = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        store.store(&key, &secret("first")).unwrap();
+        let first = envelope_of(&store, &key);
+        store.store(&key, &secret("second")).unwrap();
+        let second = envelope_of(&store, &key);
 
-        store
-            .store(&key, &SecretString::from("second".to_owned()))
-            .unwrap();
-        let second_envelope: Envelope =
-            toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-
-        assert_ne!(first_envelope.salt, second_envelope.salt);
-        assert_ne!(first_envelope.nonce, second_envelope.nonce);
+        assert_ne!(first.salt, second.salt);
+        assert_ne!(first.nonce, second.nonce);
         assert_eq!(
             store.retrieve(&key).unwrap().unwrap().expose_secret(),
             "second"
@@ -319,16 +400,142 @@ mod tests {
     }
 
     #[test]
-    fn hex_round_trip() {
-        let bytes = [0u8, 1, 15, 16, 255];
-        assert_eq!(hex_decode(&hex_encode(&bytes)).unwrap(), bytes);
+    fn the_envelope_of_one_secret_cannot_stand_in_for_another() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = store_at(temp_dir.path(), "passphrase");
+        let (cheap, precious) = (
+            SecretKey::new("test", "cheap"),
+            SecretKey::new("test", "precious"),
+        );
+        store.store(&cheap, &secret("low value")).unwrap();
+        store.store(&precious, &secret("high value")).unwrap();
+
+        // Someone with write access to the folder copies one envelope over the other.
+        fs::copy(store.envelope_path(&cheap), store.envelope_path(&precious)).unwrap();
+
+        assert!(matches!(
+            store.retrieve(&precious),
+            Err(ConfigError::Crypto { .. })
+        ));
+        assert_eq!(
+            store.retrieve(&cheap).unwrap().unwrap().expose_secret(),
+            "low value"
+        );
     }
 
     #[test]
-    fn sanitize_filename_strips_unsafe_characters() {
+    fn keys_that_only_differ_in_unsafe_characters_do_not_share_a_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = store_at(temp_dir.path(), "passphrase");
+        let (a, b) = (SecretKey::new("ns", "a/b"), SecretKey::new("ns", "a_b"));
+        assert_ne!(store.envelope_path(&a), store.envelope_path(&b));
+
+        store.store(&a, &secret("first")).unwrap();
+        store.store(&b, &secret("second")).unwrap();
+
+        assert_eq!(
+            store.retrieve(&a).unwrap().unwrap().expose_secret(),
+            "first"
+        );
+        assert_eq!(
+            store.retrieve(&b).unwrap().unwrap().expose_secret(),
+            "second"
+        );
+    }
+
+    #[test]
+    fn an_envelope_from_the_first_version_still_opens_and_is_upgraded_on_the_next_store() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = store_at(temp_dir.path(), "old passphrase");
+        let key = SecretKey::new("profile-field", "abc:oauth-token-set");
+        write_legacy_envelope(&store, &key, "old passphrase", "legacy-value");
+
+        assert_eq!(
+            store.retrieve(&key).unwrap().unwrap().expose_secret(),
+            "legacy-value"
+        );
+
+        store.store(&key, &secret("new-value")).unwrap();
+        assert!(!store.legacy_path(&key).exists(), "the old file is gone");
+        assert_eq!(envelope_of(&store, &key).version, 2);
+        assert_eq!(
+            store.retrieve(&key).unwrap().unwrap().expose_secret(),
+            "new-value"
+        );
+    }
+
+    #[test]
+    fn deleting_removes_the_old_file_too() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = store_at(temp_dir.path(), "p");
+        let key = SecretKey::new("ns", "legacy");
+        write_legacy_envelope(&store, &key, "p", "v");
+        store.delete(&key).unwrap();
+        assert!(store.retrieve(&key).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_damaged_envelope_is_an_error_and_never_a_panic() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let store = store_at(temp_dir.path(), "p");
+        let key = SecretKey::new("ns", "damaged");
+        store.store(&key, &secret("v")).unwrap();
+        let path = store.envelope_path(&key);
+        let good = fs::read_to_string(&path).unwrap();
+        let envelope = envelope_of(&store, &key);
+
+        for (name, bad) in [
+            (
+                "multi-byte character in the salt",
+                good.replace(&envelope.salt, "\u{e9}\u{e9}\u{e9}\u{e9}"),
+            ),
+            ("salt too short", good.replace(&envelope.salt, "00ff")),
+            (
+                "nonce not hex",
+                good.replace(&envelope.nonce, &"zz".repeat(12)),
+            ),
+            ("future version", good.replace("version = 2", "version = 9")),
+            (
+                "hostile cost",
+                good.replace("memory_kib = 19456", "memory_kib = 4000000000"),
+            ),
+            ("cost left out", good.replace("memory_kib = 19456\n", "")),
+            ("not toml", "]]] not toml".to_owned()),
+        ] {
+            fs::write(&path, bad).unwrap();
+            let result = store.retrieve(&key);
+            assert!(result.is_err(), "{name} should be refused, got {result:?}");
+        }
+    }
+
+    #[test]
+    fn hex_round_trip() {
+        let bytes = [0u8, 1, 15, 16, 255];
+        assert_eq!(
+            crypto::hex_decode(&crypto::hex_encode(&bytes)).unwrap(),
+            bytes
+        );
+    }
+
+    #[test]
+    fn the_readable_part_of_a_file_name_holds_only_safe_characters() {
         assert_eq!(
             sanitize_filename("ctrader-remote:profile:abc/def"),
             "ctrader-remote_profile_abc_def"
         );
+        let stem = file_stem(&SecretKey::new("ns", "../../etc/passwd"));
+        assert!(
+            stem.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        );
+        assert!(!stem.contains('/'));
+    }
+
+    #[test]
+    fn the_fingerprint_is_stable() {
+        // Envelope files are found by it: changing it would lose every stored secret.
+        assert_eq!(fingerprint(""), "cbf29ce484222325");
+        assert_eq!(fingerprint("a"), "af63dc4c8601ec8c");
+        assert_eq!(fingerprint("profile:abc"), fingerprint("profile:abc"));
     }
 }

@@ -164,7 +164,7 @@ impl Dashboard {
         let x = f32::from(event.position.x);
         let width = self.viewport_width.max(1.0);
         // Dragging the left edge to the left makes the drawer wider.
-        let least = (WIDTH_MIN / width).max(SHARE_MIN).min(SHARE_MAX);
+        let least = (WIDTH_MIN / width).clamp(SHARE_MIN, SHARE_MAX);
         self.editor_share = (self.editor_share - (x - last) / width).clamp(least, SHARE_MAX);
         self.editor_drag = Some(x);
         cx.notify();

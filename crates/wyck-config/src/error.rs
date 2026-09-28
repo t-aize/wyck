@@ -109,6 +109,42 @@ pub enum ConfigError {
     #[error("no profile with id `{0}` is configured")]
     UnknownProfile(String),
 
+    /// A name (of a document, a scope or a named credential) cannot be used as given: it is empty,
+    /// too long, or holds characters that could point outside the folder it belongs in. See
+    /// [`crate::names`].
+    #[error("`{name}` cannot be used as a name: {reason}")]
+    InvalidName {
+        /// The name that was refused.
+        name: String,
+        /// Why.
+        reason: &'static str,
+    },
+
+    /// The config file was written by a newer version of the app than this one, so it is left
+    /// alone instead of being read wrong and written back without what this version does not
+    /// know.
+    #[error(
+        "`{path}` uses config format {found}, but this version only understands up to {supported}"
+    )]
+    UnsupportedSchema {
+        /// The file.
+        path: PathBuf,
+        /// The version it says it has.
+        found: u32,
+        /// The newest version this build understands.
+        supported: u32,
+    },
+
+    /// Text that should be a sealed (passphrase-encrypted) document is not one, or is damaged, or
+    /// was made by a newer version.
+    #[error("not a readable sealed document: {0}")]
+    Sealed(String),
+
+    /// A sealed document did not open: the passphrase does not match, or the document was
+    /// changed after it was sealed. The two cannot be told apart, on purpose.
+    #[error("the passphrase is wrong, or the sealed document was changed")]
+    WrongPassphrase,
+
     /// Secure random byte generation failed (extremely rare: indicates a broken or
     /// exhausted OS entropy source).
     #[error("failed to generate random bytes: {0}")]

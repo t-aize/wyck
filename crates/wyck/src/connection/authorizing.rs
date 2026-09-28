@@ -133,8 +133,11 @@ impl ConnectionFlow {
             CALLBACK_PORT,
             account.ctid_trader_account_id,
         )?;
-        self.config
-            .set_profile_secret(&id, "client-secret", &credentials.client_secret)?;
+        self.config.set_profile_secret(
+            &id,
+            wyck_config::CLIENT_SECRET,
+            &credentials.client_secret,
+        )?;
         self.config.save_openapi_tokens(
             &id,
             &OpenApiTokens {

@@ -9281,7 +9281,6 @@ dependencies = [
  "cargo-packager-updater",
  "chrono",
  "chrono-tz",
- "directories",
  "gpui-kit",
  "gpui-pre",
  "lsp-types",
@@ -9326,6 +9325,7 @@ dependencies = [
  "directories",
  "getrandom 0.4.3",
  "keyring",
+ "proptest",
  "secrecy",
  "serde",
  "serde_json",
@@ -9334,6 +9334,7 @@ dependencies = [
  "toml 1.1.6+spec-1.1.0",
  "tracing",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]

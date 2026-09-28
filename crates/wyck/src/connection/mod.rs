@@ -106,7 +106,10 @@ impl ConnectionFlow {
         let client_id = profile.client_id.clone()?;
         let account_id = profile.account_id?;
 
-        let secret = match self.config.profile_secret(&profile.id, "client-secret") {
+        let secret = match self
+            .config
+            .profile_secret(&profile.id, wyck_config::CLIENT_SECRET)
+        {
             Ok(Some(secret)) => secret,
             Ok(None) => return None,
             Err(error) => {

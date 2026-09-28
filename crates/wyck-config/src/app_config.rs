@@ -8,7 +8,8 @@ use crate::fs_util::atomic_write;
 use crate::paths::AppPaths;
 use crate::profile::{ProfileConfig, ProfileId};
 
-const CURRENT_SCHEMA_VERSION: u32 = 1;
+/// The version of the layout this build writes, and the newest it reads.
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
@@ -59,7 +60,7 @@ impl AppConfig {
     ///
     /// [`ConfigError::Read`] on any I/O failure other than "file not found";
     /// [`ConfigError::Parse`] if the file exists but isn't valid TOML matching this
-    /// shape.
+    /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         let path = paths.config_file();
         let text = match std::fs::read_to_string(&path) {
@@ -73,13 +74,28 @@ impl AppConfig {
                 return Err(ConfigError::Read { path, source });
             }
         };
-        let config = toml::from_str(&text).map_err(|source| {
+        let config: Self = toml::from_str(&text).map_err(|source| {
             warn!(path = %path.display(), error = %source, "the config file could not be parsed");
             ConfigError::Parse {
                 path: path.clone(),
                 source: Box::new(source),
             }
         })?;
+        // A file from the future is left alone: reading it with what this version knows and
+        // writing it back would drop what this version does not.
+        if config.schema_version > CURRENT_SCHEMA_VERSION {
+            warn!(
+                path = %path.display(),
+                found = config.schema_version,
+                supported = CURRENT_SCHEMA_VERSION,
+                "the config file was written by a newer version"
+            );
+            return Err(ConfigError::UnsupportedSchema {
+                path,
+                found: config.schema_version,
+                supported: CURRENT_SCHEMA_VERSION,
+            });
+        }
         debug!(path = %path.display(), "loaded the config file");
         Ok(config)
     }
@@ -162,6 +178,37 @@ mod tests {
         let result = AppConfig::load(&paths);
 
         assert!(matches!(result, Err(ConfigError::Parse { .. })));
+    }
+
+    #[test]
+    fn a_config_from_a_newer_version_is_refused_and_left_untouched() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        let future = "schema_version = 99\nfrom_the_future = true\n";
+        std::fs::write(paths.config_file(), future).unwrap();
+
+        let result = AppConfig::load(&paths);
+
+        assert!(matches!(
+            result,
+            Err(ConfigError::UnsupportedSchema {
+                found: 99,
+                supported: 1,
+                ..
+            })
+        ));
+        assert_eq!(
+            std::fs::read_to_string(paths.config_file()).unwrap(),
+            future
+        );
+    }
+
+    #[test]
+    fn a_config_with_no_version_is_the_first_one() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        std::fs::write(paths.config_file(), "").unwrap();
+        assert_eq!(AppConfig::load(&paths).unwrap().schema_version, 1);
     }
 
     #[test]
