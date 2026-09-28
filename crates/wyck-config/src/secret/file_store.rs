@@ -12,10 +12,8 @@ use crate::error::{ConfigError, Result};
 use crate::fs_util::atomic_write;
 use crate::secret::{SecretKey, SecretStore};
 
-/// The layout written now. Version 1 (no cost written down, nothing bound to the key) is still
-/// read, and replaced by version 2 the next time the secret is stored.
-const ENVELOPE_VERSION: u8 = 2;
-const LEGACY_VERSION: u8 = 1;
+/// The version of the envelope layout: the only one written and the only one read.
+const ENVELOPE_VERSION: u8 = 1;
 
 /// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
 /// use where no OS credential store is available: headless Linux boxes, some
@@ -28,7 +26,7 @@ const LEGACY_VERSION: u8 = 1;
 /// the passphrase with Argon2id (see the crate-private `crypto` module for the cost and the
 /// reasons), and encrypts the secret. The salt, the nonce, the ciphertext and the cost are
 /// hex-encoded into a small versioned TOML envelope, written atomically to
-/// `{dir}/{key}-{hash}.toml` with `0600` permissions on Unix.
+/// `{dir}/{key}-{fingerprint}.toml` with `0600` permissions on Unix.
 ///
 /// The key of the secret is part of what the cipher signs (its *associated data*): copying the
 /// envelope of one secret over another's file makes opening fail, instead of quietly giving the
@@ -65,12 +63,6 @@ impl EncryptedFileSecretStore {
     /// only differ in characters a file name cannot hold (`a/b` and `a_b`) never share a file.
     fn envelope_path(&self, key: &SecretKey) -> PathBuf {
         self.dir.join(format!("{}.toml", file_stem(key)))
-    }
-
-    /// The file older versions used for a key: only the readable part.
-    fn legacy_path(&self, key: &SecretKey) -> PathBuf {
-        self.dir
-            .join(format!("{}.toml", sanitize_filename(key.as_str())))
     }
 
     /// What the cipher signs for a key.
@@ -114,9 +106,9 @@ impl SecretStore for EncryptedFileSecretStore {
 
         let envelope = Envelope {
             version: ENVELOPE_VERSION,
-            memory_kib: Some(sealed.params.memory_kib),
-            iterations: Some(sealed.params.iterations),
-            parallelism: Some(sealed.params.parallelism),
+            memory_kib: sealed.params.memory_kib,
+            iterations: sealed.params.iterations,
+            parallelism: sealed.params.parallelism,
             salt: crypto::hex_encode(&sealed.salt),
             nonce: crypto::hex_encode(&sealed.nonce),
             ciphertext: crypto::hex_encode(&sealed.ciphertext),
@@ -124,33 +116,17 @@ impl SecretStore for EncryptedFileSecretStore {
         let toml_text = toml::to_string(&envelope).map_err(ConfigError::Serialize)?;
         let path = self.envelope_path(key);
         atomic_write(&path, toml_text.as_bytes())?;
-        // The envelope of an older version, if there is one, is now stale.
-        let legacy = self.legacy_path(key);
-        if legacy != path {
-            let _ = fs::remove_file(legacy);
-        }
         debug!(%key, path = %path.display(), "encrypted and stored a secret");
         Ok(())
     }
 
     fn retrieve(&self, key: &SecretKey) -> Result<Option<SecretString>> {
-        let mut path = self.envelope_path(key);
+        let path = self.envelope_path(key);
         let text = match fs::read_to_string(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-                // Before the hash was added to the file name.
-                path = self.legacy_path(key);
-                match fs::read_to_string(&path) {
-                    Ok(text) => text,
-                    Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-                        trace!(%key, "no envelope on disk for this key");
-                        return Ok(None);
-                    }
-                    Err(source) => {
-                        warn!(%key, path = %path.display(), error = %source, "could not read the envelope");
-                        return Err(ConfigError::Read { path, source });
-                    }
-                }
+                trace!(%key, path = %path.display(), "no envelope on disk for this key");
+                return Ok(None);
             }
             Err(source) => {
                 warn!(%key, path = %path.display(), error = %source, "could not read the envelope");
@@ -169,25 +145,19 @@ impl SecretStore for EncryptedFileSecretStore {
             key: key.to_string(),
             reason,
         };
-        let (params, aad) = match envelope.version {
-            ENVELOPE_VERSION => (
-                KdfParams {
-                    memory_kib: envelope.memory_kib.unwrap_or(0),
-                    iterations: envelope.iterations.unwrap_or(0),
-                    parallelism: envelope.parallelism.unwrap_or(0),
-                },
-                Self::associated_data(key),
-            ),
-            // Sealed before the cost was written down and the key signed: the cost was the one
-            // `Argon2::default()` has, and nothing was signed.
-            LEGACY_VERSION => (KdfParams::CURRENT, Vec::new()),
-            other => {
-                warn!(%key, found = other, expected = ENVELOPE_VERSION, "unsupported envelope version");
-                return Err(malformed(format!(
-                    "unsupported envelope version {other} (this build understands versions {LEGACY_VERSION} and {ENVELOPE_VERSION})"
-                )));
-            }
+        if envelope.version != ENVELOPE_VERSION {
+            warn!(%key, found = envelope.version, expected = ENVELOPE_VERSION, "unsupported envelope version");
+            return Err(malformed(format!(
+                "unsupported envelope version {} (this build understands version {ENVELOPE_VERSION})",
+                envelope.version
+            )));
+        }
+        let params = KdfParams {
+            memory_kib: envelope.memory_kib,
+            iterations: envelope.iterations,
+            parallelism: envelope.parallelism,
         };
+        let aad = Self::associated_data(key);
 
         let decode = |what: &str, hex: &str| {
             crypto::hex_decode(hex).map_err(|reason| malformed(format!("{what}: {reason}")))
@@ -210,35 +180,30 @@ impl SecretStore for EncryptedFileSecretStore {
     }
 
     fn delete(&self, key: &SecretKey) -> Result<()> {
-        for path in [self.envelope_path(key), self.legacy_path(key)] {
-            match fs::remove_file(&path) {
-                Ok(()) => {
-                    debug!(%key, path = %path.display(), "deleted a secret envelope");
-                }
-                Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
-                Err(source) => {
-                    warn!(%key, path = %path.display(), error = %source, "could not delete the secret envelope");
-                    return Err(ConfigError::Write { path, source });
-                }
+        let path = self.envelope_path(key);
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                debug!(%key, path = %path.display(), "deleted a secret envelope");
+                Ok(())
+            }
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(source) => {
+                warn!(%key, path = %path.display(), error = %source, "could not delete the secret envelope");
+                Err(ConfigError::Write { path, source })
             }
         }
-        Ok(())
     }
 }
 
 /// The on-disk envelope for one encrypted secret. All byte fields are hex-encoded so the file
 /// stays plain ASCII TOML (easy to `cat` and diff without special tooling: only the plaintext
-/// they decode to is sensitive, and that never touches disk). The cost fields are absent in
-/// version 1.
+/// they decode to is sensitive, and that never touches disk). Every field is required.
 #[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
     version: u8,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    memory_kib: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    iterations: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    parallelism: Option<u32>,
+    memory_kib: u32,
+    iterations: u32,
+    parallelism: u32,
     salt: String,
     nonce: String,
     ciphertext: String,
@@ -297,37 +262,6 @@ mod tests {
         toml::from_str(&fs::read_to_string(store.envelope_path(key)).unwrap()).unwrap()
     }
 
-    /// An envelope as the first version of this crate wrote it: `Argon2::default()`, nothing
-    /// signed, the readable part of the key as the file name.
-    fn write_legacy_envelope(
-        store: &EncryptedFileSecretStore,
-        key: &SecretKey,
-        passphrase: &str,
-        value: &str,
-    ) {
-        use argon2::Argon2;
-        use chacha20poly1305::aead::Aead;
-        use chacha20poly1305::{ChaCha20Poly1305, Key, KeyInit, Nonce};
-
-        let (salt, nonce) = ([7u8; 16], [9u8; 12]);
-        let mut key_bytes = [0u8; 32];
-        Argon2::default()
-            .hash_password_into(passphrase.as_bytes(), &salt, &mut key_bytes)
-            .unwrap();
-        let cipher = ChaCha20Poly1305::new(&Key::from(key_bytes));
-        let ciphertext = cipher
-            .encrypt(&Nonce::from(nonce), value.as_bytes())
-            .unwrap();
-        let text = format!(
-            "version = 1\nsalt = \"{}\"\nnonce = \"{}\"\nciphertext = \"{}\"\n",
-            crypto::hex_encode(&salt),
-            crypto::hex_encode(&nonce),
-            crypto::hex_encode(&ciphertext)
-        );
-        fs::create_dir_all(&store.dir).unwrap();
-        fs::write(store.legacy_path(key), text).unwrap();
-    }
-
     #[test]
     fn round_trips_a_secret() {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -340,7 +274,7 @@ mod tests {
         assert_eq!(retrieved.expose_secret(), "super-secret-token");
         let text = fs::read_to_string(store.envelope_path(&key)).unwrap();
         assert!(!text.contains("super-secret-token"));
-        assert_eq!(envelope_of(&store, &key).version, 2);
+        assert_eq!(envelope_of(&store, &key).version, 1);
     }
 
     #[test]
@@ -444,37 +378,6 @@ mod tests {
     }
 
     #[test]
-    fn an_envelope_from_the_first_version_still_opens_and_is_upgraded_on_the_next_store() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let store = store_at(temp_dir.path(), "old passphrase");
-        let key = SecretKey::new("profile-field", "abc:oauth-token-set");
-        write_legacy_envelope(&store, &key, "old passphrase", "legacy-value");
-
-        assert_eq!(
-            store.retrieve(&key).unwrap().unwrap().expose_secret(),
-            "legacy-value"
-        );
-
-        store.store(&key, &secret("new-value")).unwrap();
-        assert!(!store.legacy_path(&key).exists(), "the old file is gone");
-        assert_eq!(envelope_of(&store, &key).version, 2);
-        assert_eq!(
-            store.retrieve(&key).unwrap().unwrap().expose_secret(),
-            "new-value"
-        );
-    }
-
-    #[test]
-    fn deleting_removes_the_old_file_too() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let store = store_at(temp_dir.path(), "p");
-        let key = SecretKey::new("ns", "legacy");
-        write_legacy_envelope(&store, &key, "p", "v");
-        store.delete(&key).unwrap();
-        assert!(store.retrieve(&key).unwrap().is_none());
-    }
-
-    #[test]
     fn a_damaged_envelope_is_an_error_and_never_a_panic() {
         let temp_dir = tempfile::tempdir().unwrap();
         let store = store_at(temp_dir.path(), "p");
@@ -494,12 +397,19 @@ mod tests {
                 "nonce not hex",
                 good.replace(&envelope.nonce, &"zz".repeat(12)),
             ),
-            ("future version", good.replace("version = 2", "version = 9")),
+            (
+                "another version",
+                good.replace("version = 1", "version = 2"),
+            ),
+            ("cost left out", good.replace("memory_kib = 19456\n", "")),
+            (
+                "no cost at all",
+                "version = 1\nsalt = \"00\"\nnonce = \"00\"\nciphertext = \"00\"\n".to_owned(),
+            ),
             (
                 "hostile cost",
                 good.replace("memory_kib = 19456", "memory_kib = 4000000000"),
             ),
-            ("cost left out", good.replace("memory_kib = 19456\n", "")),
             ("not toml", "]]] not toml".to_owned()),
         ] {
             fs::write(&path, bad).unwrap();

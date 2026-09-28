@@ -8,7 +8,7 @@
 //!   the same passphrase never gives the same key twice and a nonce is never used twice under one
 //!   key (the one mistake that breaks this kind of cipher).
 //! * The Argon2id cost is written next to the data ([`KdfParams`]), so it can be raised later
-//!   without making older files unreadable, and a file cannot ask for more than
+//!   without a new format, and a file cannot ask for more than
 //!   [`KdfParams::validated`] allows (a hostile file must not make the app allocate gigabytes).
 //! * The *associated data* ties the ciphertext to what it is for: the key it was stored under, or
 //!   the label of the document. Copying the file of one secret over another, or a backup over a
@@ -52,9 +52,8 @@ pub(crate) struct KdfParams {
 }
 
 impl KdfParams {
-    /// What new data is sealed with: 19 MiB, 2 passes, 1 lane. This is the minimum the OWASP
-    /// Password Storage Cheat Sheet gives for Argon2id, and what the `argon2` crate uses by
-    /// default, so data sealed before the cost was written down opens the same way.
+    /// What data is sealed with: 19 MiB, 2 passes, 1 lane. This is the minimum the OWASP
+    /// Password Storage Cheat Sheet gives for Argon2id.
     pub(crate) const CURRENT: Self = Self {
         memory_kib: 19_456,
         iterations: 2,
@@ -278,15 +277,6 @@ mod tests {
             assert!(params.validated().is_err(), "{params:?}");
         }
         assert!(KdfParams::CURRENT.validated().is_ok());
-    }
-
-    #[test]
-    fn the_current_cost_is_what_the_argon2_crate_uses_by_default() {
-        // Data sealed before the cost was written down used `Argon2::default()`.
-        let default = Params::DEFAULT;
-        assert_eq!(default.m_cost(), KdfParams::CURRENT.memory_kib);
-        assert_eq!(default.t_cost(), KdfParams::CURRENT.iterations);
-        assert_eq!(default.p_cost(), KdfParams::CURRENT.parallelism);
     }
 
     #[test]

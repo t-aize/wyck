@@ -270,55 +270,27 @@ fn a_config_written_by_a_newer_version_is_refused_untouched() {
 }
 
 #[test]
-fn files_from_the_first_release_still_open() {
+fn files_in_a_format_this_build_does_not_write_are_refused_not_migrated() {
     let dir = tempfile::tempdir().unwrap();
     let paths = AppPaths::at(dir.path());
-    // The config file of 0.1, and a secret envelope as version 1 wrote it (fixed salt and nonce,
-    // `Argon2::default()`, nothing bound to the key, named after the readable part of the key).
-    std::fs::write(
-        paths.config_file(),
-        include_str!("fixtures/app-config-0.1.toml"),
-    )
-    .unwrap();
-    std::fs::create_dir_all(paths.secrets_dir()).unwrap();
-    std::fs::write(
-        paths.secrets_dir().join("profile_legacy-fixture.toml"),
-        include_str!("fixtures/secret-envelope-v1.toml"),
-    )
-    .unwrap();
 
-    let mut config = WyckConfig::builder()
-        .portable(dir.path())
-        .encrypted_file(passphrase("fixture-passphrase"))
-        .build()
-        .unwrap();
-    assert_eq!(
-        config.active_profile().unwrap().display_name,
-        "Demo account"
-    );
+    // A config with no version, as an earlier layout would have it.
+    std::fs::write(paths.config_file(), "last_symbol = \"EURUSD\"\n").unwrap();
+    assert!(matches!(
+        WyckConfig::builder().portable(dir.path()).build(),
+        Err(ConfigError::Parse { .. })
+    ));
 
-    let legacy = wyck_config::SecretKey::new("profile", "legacy-fixture");
-    let store = wyck_config::EncryptedFileSecretStore::new(
-        paths.secrets_dir(),
-        passphrase("fixture-passphrase"),
-    );
-    use wyck_config::SecretStore;
-    assert_eq!(
-        store.retrieve(&legacy).unwrap().unwrap().expose_secret(),
-        "fixture-secret-value"
-    );
-    // Saving the config again keeps everything the old file had.
-    config.set_last_symbol(Some("GBPUSD".into())).unwrap();
-    let again = WyckConfig::builder()
-        .portable(dir.path())
-        .encrypted_file(passphrase("fixture-passphrase"))
-        .build()
+    // A secret envelope of another version.
+    std::fs::remove_file(paths.config_file()).unwrap();
+    let mut config = open(dir.path());
+    let id = config
+        .add_profile("Demo", "s", None, Some(passphrase("token")))
         .unwrap();
-    assert_eq!(
-        again.active_profile().unwrap().client_id.as_deref(),
-        Some("legacy-client")
-    );
-    assert_eq!(again.last_symbol(), Some("GBPUSD"));
+    let file = every_file(&paths.secrets_dir()).pop().unwrap();
+    let text = std::fs::read_to_string(&file).unwrap();
+    std::fs::write(&file, text.replace("version = 1", "version = 0")).unwrap();
+    assert!(config.token_for(&id).is_err());
 }
 
 #[test]

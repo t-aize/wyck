@@ -122,8 +122,8 @@ system owns the keys, and there is no passphrase to manage.
   passphrase or a changed bit is detected instead of decrypting to garbage;
 - the **key of the secret is signed into the ciphertext** (associated data): copying the file of
   one secret over another's makes opening fail;
-- the cost is written in the file, so it can be raised later without breaking older files, and a
-  hostile file cannot ask for gigabytes (the cost is bounded before anything is allocated);
+- the cost is written in the file, so it can be raised later without a new format, and a hostile
+  file cannot ask for gigabytes (the cost is bounded before anything is allocated);
 - keys and decrypted bytes live in buffers that are wiped when dropped;
 - files are written with `0600` permissions, in folders created `0700` (Unix).
 
@@ -143,9 +143,9 @@ The crate does not lock files: one process should own a config at a time.
   `add_profile` removes a token it stored if the profile could not be saved;
   `remove_profile` deletes the credentials first and keeps the profile when one refuses to go,
   so the call can be repeated.
-- **A file from a newer version is left alone.** `config.toml` with a higher `schema_version`
-  is refused (`UnsupportedSchema`) instead of being read wrong and written back without what this
-  version does not know.
+- **A file this build does not know is left alone.** `config.toml` with a higher `schema_version`
+  is refused (`UnsupportedSchema`), and one without a version is a parse error: it is never read
+  wrong and written back without what this version does not know.
 - **Names cannot leave their folder.** Names of documents, scopes and named credentials are 1 to
   100 characters of `A-Z a-z 0-9 - _`. No dot, no separator: two different names never share a
   file.
@@ -222,10 +222,10 @@ callback_port = 52123
 account_id = 12345678
 ```
 
-A secret envelope (`secrets/<key>-<fingerprint>.toml`), version 2:
+A secret envelope (`secrets/<key>-<fingerprint>.toml`):
 
 ```toml
-version = 2
+version = 1
 memory_kib = 19456
 iterations = 2
 parallelism = 1
@@ -234,9 +234,9 @@ nonce = "..."       # hex, 12 bytes
 ciphertext = "..."  # hex
 ```
 
-Version 1 envelopes (no cost written down, key not signed, file named after the readable part of
-the key only) are still read, and replaced by version 2 the next time the secret is stored. A
-sealed document is described in the docs of the `sealed` module.
+Every field is required. There is one format and no migration: a file with another `version`, or
+with a field missing, is refused. A sealed document is described in the docs of the `sealed`
+module.
 
 ## Errors
 
@@ -257,24 +257,23 @@ Every fallible call returns `wyck_config::Result<T>`. `ConfigError` says what fa
 
 ```sh
 scripts/check-config.sh          # fmt, clippy -D warnings, tests, docs -D warnings
-cargo test -p wyck-config        # 78 unit tests, 9 end-to-end tests, doc tests
+cargo test -p wyck-config        # unit tests, end-to-end tests, doc tests
 ```
 
 - `src/**` unit tests sit next to the code they test; `tests/lifecycle.rs` uses the public API
-  only, the way an app does (install, restart, damage, upgrade, backup).
+  only, the way an app does (install, restart, damage, refuse a foreign format, backup).
 - Properties (names, hex, the cipher) are checked with `proptest`.
-- `tests/fixtures/` holds files as earlier versions wrote them; a test opens each one. **Never
-  edit a fixture to make a test pass**: a fixture that stops opening means users' files would.
 - Tests work in temporary folders and never touch the real config or keyring.
 - `#![forbid(unsafe_code)]` and `#![warn(missing_docs)]`: every public item is documented.
 
 ## Compatibility
 
-- Files: everything an earlier release wrote is read. `config.toml` carries a `schema_version`
-  and secret envelopes carry a `version`; a newer one is refused, never misread.
-- API: the crate is part of the Wyck workspace and versioned with it (see the
-  [changelog](CHANGELOG.md)). Its public API is what the other crates use, and a change to it is
-  listed there.
-- Rust: the version in the workspace `Cargo.toml` (`rust-version`).
+- **Formats.** There has been no release yet, so the formats are not frozen and there is no
+  migration code: `config.toml`, the secret envelopes and the sealed documents are read only in the
+  layout this build writes. Once a first release is out, a change of layout will bump the version
+  written in the file, and an older build will refuse a newer file instead of misreading it.
+- **API.** The crate is part of the Wyck workspace and versioned with it (see the
+  [changelog](CHANGELOG.md)).
+- **Rust.** The version in the workspace `Cargo.toml` (`rust-version`).
 
 License: Apache-2.0, like the rest of the workspace.

@@ -2,22 +2,20 @@
 
 All notable changes to `wyck-config` are written here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The crate is versioned with the
-workspace; releases before this file are in the git history.
+workspace. There has been no release yet: formats are not frozen and carry no migration code.
 
 ## [Unreleased]
 
 ### Security
 
-- Secret envelopes are now version 2: the key of the secret is signed into the ciphertext
-  (associated data), so copying the file of one secret over another's no longer opens. Version 1
-  envelopes are still read and are replaced by version 2 the next time the secret is stored.
+- The key of a secret is signed into its ciphertext (associated data), so copying the file of one
+  secret over another's does not open.
 - The Argon2id cost (19 MiB, 2 passes, 1 lane) is written in the envelope and bounded when it is
   read: a hostile file can no longer make the app allocate gigabytes.
 - Keys and decrypted bytes are held in buffers that are wiped when dropped.
-- Envelope file names now include a fingerprint of the whole key, so two keys that differ only in
-  characters a file name cannot hold (`a/b`, `a_b`) no longer share a file. Envelopes named the old
-  way are still found.
-- Folders created by a write are `0700` on Unix, not the default of the process.
+- Envelope file names include a fingerprint of the whole key, so two keys that differ only in
+  characters a file name cannot hold (`a/b`, `a_b`) never share a file.
+- Folders created by a write are `0700` on Unix.
 - Names of named credentials are checked (`InvalidName`) instead of being put in a file name.
 
 ### Fixed
@@ -52,13 +50,14 @@ workspace; releases before this file are in the git history.
   `OAUTH_TOKENS` constants.
 - `stale_temp_files`, to find what a crash left behind.
 - `ConfigError::UnsupportedSchema`, `InvalidName`, `Sealed` and `WrongPassphrase`.
-- End-to-end tests (`tests/lifecycle.rs`), property tests, and fixtures of files as the first
-  release wrote them.
+- End-to-end tests (`tests/lifecycle.rs`) and property tests.
 
 ### Changed
 
-- `config.toml` written by a newer version is refused with `UnsupportedSchema` instead of being
-  read and written back without what this version does not know.
+- **One strict format, no migration.** `config.toml` requires `schema_version` and refuses a
+  higher one (`UnsupportedSchema`); a secret envelope requires every field, including the
+  Argon2id cost, and only `version = 1` is read. Nothing written by an earlier layout is read,
+  and the file name of an envelope no longer has a fallback to the old naming.
 - `WyckConfig::set_profile_secret`, `profile_secret` and `delete_profile_secret` check the name
   they are given.
 - The OAuth token pair moved to its own module; the types are still exported from the crate root.

@@ -15,15 +15,12 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
 /// [`crate::secret`] for where those live instead.
 ///
-/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is
-/// bumped whenever a breaking change to this shape ships, so a future version of this
-/// crate can detect and migrate an older config file instead of failing to parse it
-/// silently wrong.
+/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is required
+/// and is bumped whenever a breaking change to this shape ships; a file with a version this build
+/// does not know is refused (see [`AppConfig::load`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AppConfig {
-    /// Bumped whenever a breaking change to this shape ships, to detect and migrate an
-    /// older config file instead of failing to parse it silently wrong.
-    #[serde(default = "current_schema_version")]
+    /// The version of this layout. Required: a file without it is not a config file of this app.
     pub schema_version: u32,
     /// The profile to connect with by default, if one is set and still exists.
     #[serde(default)]
@@ -34,10 +31,6 @@ pub struct AppConfig {
     /// The symbol the user was on when the application last ran, so the next start opens on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_symbol: Option<String>,
-}
-
-fn current_schema_version() -> u32 {
-    CURRENT_SCHEMA_VERSION
 }
 
 impl Default for AppConfig {
@@ -204,28 +197,13 @@ mod tests {
     }
 
     #[test]
-    fn a_config_with_no_version_is_the_first_one() {
+    fn a_config_without_a_version_is_refused() {
         let temp_dir = tempfile::tempdir().unwrap();
         let paths = AppPaths::at(temp_dir.path());
-        std::fs::write(paths.config_file(), "").unwrap();
-        assert_eq!(AppConfig::load(&paths).unwrap().schema_version, 1);
-    }
-
-    #[test]
-    fn a_0_1_config_fixture_keeps_its_profile_and_selection() {
-        let text = include_str!("../tests/fixtures/app-config-0.1.toml");
-        let config: AppConfig = toml::from_str(text).unwrap();
-
-        assert_eq!(config.schema_version, 1);
-        assert_eq!(config.last_symbol.as_deref(), Some("XAUUSD"));
-        let active = config.active_profile().unwrap();
-        assert_eq!(active.display_name, "Demo account");
-        assert_eq!(active.client_id.as_deref(), Some("legacy-client"));
-        assert_eq!(active.callback_port, Some(52123));
-        assert_eq!(active.account_id, Some(12345678));
-
-        let saved = toml::to_string_pretty(&config).unwrap();
-        let reloaded: AppConfig = toml::from_str(&saved).unwrap();
-        assert_eq!(reloaded, config);
+        std::fs::write(paths.config_file(), "last_symbol = \"EURUSD\"\n").unwrap();
+        assert!(matches!(
+            AppConfig::load(&paths),
+            Err(ConfigError::Parse { .. })
+        ));
     }
 }
