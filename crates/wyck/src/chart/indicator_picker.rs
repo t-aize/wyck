@@ -16,7 +16,7 @@ use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
 use crate::indicators;
-use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, theme, tokens};
+use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
@@ -179,16 +179,24 @@ impl Picker {
                                     .truncate()
                                     .child(item.label.clone()),
                             )
-                            .child(pill(if item.placement == Placement::Overlay {
-                                "On the prices"
-                            } else {
-                                "Own pane"
-                            }))
-                            .child(pill(if item.is_builtin() {
-                                "Built in"
-                            } else {
-                                "Script"
-                            })),
+                            .child(layout::badge(
+                                if item.placement == Placement::Overlay {
+                                    "On the prices"
+                                } else {
+                                    "Own pane"
+                                },
+                                theme::muted_fg(),
+                                theme::fg_alpha(0.06),
+                            ))
+                            .child(layout::badge(
+                                if item.is_builtin() {
+                                    "Built in"
+                                } else {
+                                    "Script"
+                                },
+                                theme::muted_fg(),
+                                theme::fg_alpha(0.06),
+                            )),
                     )
                     .child(
                         div()
@@ -328,17 +336,6 @@ impl Picker {
         self.chart
             .update(cx, |_, cx| cx.emit(ChartEvent::IndicatorEditor(request)));
     }
-}
-
-fn pill(text: &'static str) -> gpui::Div {
-    div()
-        .flex_none()
-        .px_1p5()
-        .rounded_sm()
-        .bg(theme::fg_alpha(0.06))
-        .text_size(px(tokens::text::SMALL))
-        .text_color(theme::muted_fg())
-        .child(text)
 }
 
 impl Render for Picker {

@@ -9,7 +9,7 @@ use wyck_openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
-use wyck_ui::{anim, icon, theme, tokens};
+use wyck_ui::{anim, icon, layout, theme, tokens};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {
@@ -116,18 +116,6 @@ fn spec_rows(symbol: &Symbol) -> Vec<(&'static str, String)> {
         rows.push(("Trading hours zone", zone.to_owned()));
     }
     rows
-}
-
-/// A small rounded tag: the class, the category, "Current".
-fn pill(text: impl Into<SharedString>, color: gpui::Rgba, tint: gpui::Rgba) -> Div {
-    div()
-        .px_2p5()
-        .py_1()
-        .rounded_full()
-        .bg(tint)
-        .text_size(px(tokens::text::SMALL))
-        .text_color(color)
-        .child(text.into())
 }
 
 /// One live figure: bid, ask or spread.
@@ -247,16 +235,20 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
         );
 
     let mut badges = div().flex().flex_row().flex_wrap().gap_1p5().mt_3();
-    badges = badges.child(pill(
+    badges = badges.child(layout::badge(
         entry.class.label(),
         theme::muted_fg(),
         theme::surface(),
     ));
     if let Some(category) = &entry.category {
-        badges = badges.child(pill(category.clone(), theme::muted_fg(), theme::surface()));
+        badges = badges.child(layout::badge(
+            category.clone(),
+            theme::muted_fg(),
+            theme::surface(),
+        ));
     }
     if sheet.is_current {
-        badges = badges.child(pill("Current", theme::emerald(), {
+        badges = badges.child(layout::badge("Current", theme::emerald(), {
             let mut tint = theme::emerald();
             tint.a = 0.14;
             tint

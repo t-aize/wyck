@@ -22,7 +22,7 @@ use crate::chart::study::custom::templates::TEMPLATES;
 use crate::chart::study::custom::{Problem, Severity};
 use crate::indicators;
 use wyck_ui::{
-    controls, icon, layout,
+    controls, icon, layout, menu,
     menu::{Entry, Item, Placement},
     theme, tokens,
 };
@@ -1168,7 +1168,7 @@ impl IndicatorEditor {
             .filter(|g| matches(&format!("{} {}", g.name, g.summary)))
             .collect();
         if !globals.is_empty() {
-            list = list.child(section_title("Names you start with"));
+            list = list.child(menu::section_title("Names you start with").px_3().pt_2p5());
             for global in globals {
                 row_number += 1;
                 let this = cx.entity();
@@ -1190,7 +1190,7 @@ impl IndicatorEditor {
             if items.is_empty() {
                 continue;
             }
-            list = list.child(section_title(group.label()));
+            list = list.child(menu::section_title(group.label()).px_3().pt_2p5());
             for doc in items {
                 row_number += 1;
                 let this = cx.entity();
@@ -1211,7 +1211,7 @@ impl IndicatorEditor {
             })
             .collect();
         if !tools.is_empty() {
-            list = list.child(section_title("Drawing tool names"));
+            list = list.child(menu::section_title("Drawing tool names").px_3().pt_2p5());
             for (name, label) in tools {
                 row_number += 1;
                 let this = cx.entity();
@@ -1329,17 +1329,6 @@ fn note(text: &'static str) -> gpui::Div {
         .text_size(px(tokens::text::BODY))
         .text_color(theme::muted_fg())
         .child(text)
-}
-
-fn section_title(title: &'static str) -> gpui::Div {
-    div()
-        .px_3()
-        .pt_2p5()
-        .pb_1()
-        .text_size(px(tokens::text::SMALL))
-        .font_weight(FontWeight::SEMIBOLD)
-        .text_color(theme::muted_fg())
-        .child(title.to_uppercase())
 }
 
 fn reference_row(

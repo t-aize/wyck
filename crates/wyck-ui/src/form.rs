@@ -241,7 +241,7 @@ pub fn group_with(
         .flex_col()
         .rounded_lg()
         .border_1()
-        .border_color(theme::border_hairline())
+        .border_color(theme::border_subtle())
         .bg(theme::fg_alpha(0.025))
         .child(
             div()
