@@ -21,6 +21,7 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
+use wyck_ui::tokens;
 use wyck_ui::{
     anim, button, icon,
     menu::{self as popup, Entry, Item},
@@ -1005,61 +1006,6 @@ impl Chart {
         out
     }
 
-    fn menu_card(&self) -> gpui::Div {
-        div()
-            .p_1()
-            .flex()
-            .flex_col()
-            .rounded_lg()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .shadow_lg()
-            .occlude()
-    }
-
-    fn menu_row(
-        &self,
-        id: SharedString,
-        selected: bool,
-        icon: Option<IconName>,
-        label: impl Into<SharedString>,
-    ) -> gpui::Stateful<gpui::Div> {
-        let tone = if selected {
-            theme::fg()
-        } else {
-            theme::muted_fg()
-        };
-        div()
-            .id(id)
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .h(px(28.))
-            .px_2()
-            .rounded_md()
-            .cursor_pointer()
-            .text_size(px(12.))
-            .text_color(tone)
-            .when(selected, |el| el.bg(theme::accent_selected()))
-            .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
-            .children(icon.map(|icon| icon::tinted(icon, 15., tone)))
-            .child(div().flex_1().child(label.into()))
-            .children(selected.then(|| icon::tinted(IconName::Check, 13., theme::accent())))
-    }
-
-    fn section_title(title: &'static str) -> gpui::Div {
-        div()
-            .px_2()
-            .pt_1p5()
-            .pb_0p5()
-            .text_size(px(10.))
-            .font_weight(FontWeight::SEMIBOLD)
-            .text_color(theme::muted_fg())
-            .child(title.to_uppercase())
-    }
-
     /// The open menu of the toolbar or the corner.
     fn menu_popup(&self, geometry: &Geometry, cx: &mut Context<Self>) -> Option<AnyElement> {
         let menu = self.menu?;
@@ -1069,11 +1015,11 @@ impl Chart {
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(
-                        self.menu_row(
+                        popup::row(
                             SharedString::from(format!("chart-zone-{}", zone.code())),
-                            self.settings.zone == zone,
-                            None,
                             zone.name(now),
+                            None,
+                            self.settings.zone == zone,
                         )
                         .on_click(cx.listener(
                             move |this, _event, _window, cx| {
@@ -1083,12 +1029,12 @@ impl Chart {
                         )),
                     );
                 }
-                self.menu_card()
+                popup::card()
                     .id("chart-zone-menu")
-                    .w(px(popup::DROPDOWN_WIDTH))
+                    .w(px(tokens::menu::DROPDOWN_WIDTH))
                     .max_h(px((geometry.h as f32 - 60.0).max(160.0)))
                     .overflow_y_scroll()
-                    .child(Self::section_title("Time zone"))
+                    .child(popup::section_title("Time zone"))
                     .child(list)
                     .into_any_element()
             }
@@ -1101,21 +1047,18 @@ impl Chart {
             .child(card);
         Some(
             deferred(
-                div()
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full()
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(|this, _event, _window, cx| {
+                popup::backdrop({
+                    let this = cx.entity().downgrade();
+                    move |_, cx| {
+                        let _ = this.update(cx, |this, cx| {
                             this.menu = None;
                             cx.notify();
-                        }),
-                    )
-                    .child(positioned.on_mouse_down(MouseButton::Left, |_, _, cx| {
-                        cx.stop_propagation();
-                    })),
+                        });
+                    }
+                })
+                .child(positioned.on_mouse_down(MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation();
+                })),
             )
             .with_priority(2)
             .into_any_element(),

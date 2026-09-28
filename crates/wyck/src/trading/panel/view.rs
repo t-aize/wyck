@@ -22,6 +22,7 @@ use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
+use wyck_ui::tokens;
 use wyck_ui::{
     confirm::confirm,
     controls, icon,
@@ -1465,7 +1466,7 @@ impl Render for AccountPanel {
                                     )
                                     .children(bulk.popup(
                                         bulk_items,
-                                        popup::Placement::Below(26.),
+                                        popup::Placement::Below(tokens::height::TINY),
                                         window,
                                         cx,
                                     )),

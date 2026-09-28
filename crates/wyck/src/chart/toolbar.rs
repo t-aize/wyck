@@ -19,6 +19,7 @@ use super::{
 };
 use crate::indicators;
 use wyck_ui::icon;
+use wyck_ui::tokens;
 use wyck_ui::{
     menu::{Entry, Item, Menu, Placement},
     theme,
@@ -47,7 +48,7 @@ fn tool(
         .flex_row()
         .items_center()
         .gap_1p5()
-        .h(px(26.))
+        .h(px(tokens::height::COMPACT))
         .px_1p5()
         .rounded_md()
         .cursor_pointer()
@@ -322,7 +323,12 @@ impl Chart {
                 )
                 .on_click(toggle(&kind_menu)),
             )
-            .children(kind_menu.popup(kind_items, Placement::Below(30.), window, cx));
+            .children(kind_menu.popup(
+                kind_items,
+                Placement::Below(tokens::height::COMPACT),
+                window,
+                cx,
+            ));
 
         let mut bar = div()
             .absolute()
@@ -377,7 +383,7 @@ impl Chart {
                         )
                         .children(studies_menu.popup(
                             studies_items,
-                            Placement::Below(30.),
+                            Placement::Below(tokens::height::COMPACT),
                             window,
                             cx,
                         )),
@@ -406,7 +412,12 @@ impl Chart {
                             )
                             .on_click(toggle(&scale_menu)),
                         )
-                        .children(scale_menu.popup(scale_items, Placement::Below(30.), window, cx)),
+                        .children(scale_menu.popup(
+                            scale_items,
+                            Placement::Below(tokens::height::COMPACT),
+                            window,
+                            cx,
+                        )),
                 );
             if !auto {
                 bar = bar.child(
@@ -462,7 +473,12 @@ impl Chart {
                         tool("chart-more", IconName::Ellipsis, None, "More", false)
                             .on_click(toggle(&more_menu)),
                     )
-                    .children(more_menu.popup(more_items, Placement::Below(30.), window, cx)),
+                    .children(more_menu.popup(
+                        more_items,
+                        Placement::Below(tokens::height::COMPACT),
+                        window,
+                        cx,
+                    )),
             );
         }
         bar.child(

@@ -15,7 +15,8 @@ use super::MultiChart;
 use crate::chart::DrawingCommand;
 use crate::chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use crate::chart::object_tree::tool_icon;
-use wyck_ui::{controls, icon, theme};
+use wyck_ui::menu as popup;
+use wyck_ui::{controls, icon, theme, tokens};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -238,30 +239,15 @@ impl MultiChart {
         let current = self.drawings.read(cx).book().tool();
         // Beside the family's button: the pointer's comes first, then one per family.
         let index = Group::ALL.iter().position(|g| *g == group).unwrap_or(0);
-        let mut list = div()
+        let mut list = popup::card()
             .id("draw-flyout-list")
             .absolute()
             .top(px(4.0 + 36.0 * (index as f32 + 1.0)))
             .left(px(RAIL_WIDTH + 6.0))
-            .w(px(250.))
-            .max_h(px(520.))
+            .w(px(tokens::menu::CONTEXT_WIDTH))
+            .max_h(px(tokens::menu::MAX_HEIGHT))
             .overflow_y_scroll()
-            .p_1()
-            .flex()
-            .flex_col()
-            .rounded_lg()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .occlude()
-            .child(
-                div()
-                    .px_2()
-                    .py_1()
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(group.label()),
-            );
+            .child(popup::section_title(group.label()));
         let favorites = self.favorite_tools(cx);
         for tool in group_tools(group) {
             let selected = current == Some(tool);
@@ -285,10 +271,10 @@ impl MultiChart {
                             .flex_row()
                             .items_center()
                             .gap_2()
-                            .h(px(30.))
+                            .h(px(tokens::height::CONTROL))
                             .pl_2()
                             .cursor_pointer()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(if selected {
                                 theme::fg()
                             } else {
@@ -316,7 +302,7 @@ impl MultiChart {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(30.))
+                            .size(px(tokens::height::CONTROL))
                             .cursor_pointer()
                             .tooltip(move |window, cx| {
                                 Tooltip::new(if starred {

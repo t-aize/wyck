@@ -1110,23 +1110,15 @@ impl Render for Dashboard {
         let menu = self.render_menu(cx);
         let menu_backdrop = (self.tf_menu_open || self.layout_menu_open || self.replay_goto_open)
             .then(|| {
-                deferred(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full()
-                        .occlude()
-                        .on_mouse_down(
-                            gpui::MouseButton::Left,
-                            cx.listener(|this, _event, _window, cx| {
-                                this.tf_menu_open = false;
-                                this.layout_menu_open = false;
-                                this.replay_goto_open = false;
-                                cx.notify();
-                            }),
-                        ),
-                )
+                let this = cx.entity().downgrade();
+                deferred(wyck_ui::menu::backdrop(move |_, cx| {
+                    let _ = this.update(cx, |this, cx| {
+                        this.tf_menu_open = false;
+                        this.layout_menu_open = false;
+                        this.replay_goto_open = false;
+                        cx.notify();
+                    });
+                }))
                 .with_priority(0)
             });
 

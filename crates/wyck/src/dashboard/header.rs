@@ -12,7 +12,7 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::{chart, trading};
-use wyck_ui::{anim, button, icon, layout, menu, theme};
+use wyck_ui::{anim, button, icon, layout, menu, theme, tokens};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;
@@ -454,28 +454,13 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let prefs = self.workspace.read(cx).preferences().clone();
-        let mut card = div()
-            .w(px(380.))
-            .p_3()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .rounded_xl()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .occlude();
+        let mut card = menu::panel(tokens::menu::PANEL_WIDTH);
         let section = |title: &'static str, chips: Vec<gpui::AnyElement>| {
             div()
                 .flex()
                 .flex_col()
                 .gap_1p5()
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme::muted_fg())
-                        .child(title),
-                )
+                .child(menu::section_title(title).px_0())
                 .child(div().flex().flex_row().flex_wrap().gap_1().children(chips))
         };
         for (title, items) in chart::GROUPS {
@@ -559,12 +544,7 @@ impl Dashboard {
                 .flex()
                 .flex_col()
                 .gap_1p5()
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme::muted_fg())
-                        .child("Custom"),
-                )
+                .child(menu::section_title("Custom").px_0())
                 .when(!customs.is_empty(), |el| {
                     el.child(
                         div()
@@ -579,7 +559,7 @@ impl Dashboard {
         );
         card = card.child(
             div()
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child(
                     "Star a timeframe to keep it in the header. A custom one is a number in the \
@@ -588,7 +568,7 @@ impl Dashboard {
         );
         menu::below(
             anim::enter(card, "timeframe-menu", 0),
-            menu::BELOW_BUTTON,
+            tokens::height::CONTROL,
             1,
         )
     }
@@ -806,16 +786,7 @@ impl Dashboard {
         if !self.menu_open {
             return None;
         }
-        let card = div()
-            .w(px(300.))
-            .p_4()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .rounded_xl()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
+        let card = menu::panel(tokens::menu::PANEL_WIDTH)
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
                 cx.stop_propagation();
             })

@@ -16,6 +16,7 @@ use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
+use wyck_ui::tokens;
 use wyck_ui::{
     confirm::confirm,
     controls, icon,
@@ -146,7 +147,7 @@ impl OrderTicket {
                     .flex_row()
                     .items_center()
                     .gap_1()
-                    .h(px(24.))
+                    .h(px(tokens::height::COMPACT))
                     .px_2()
                     .rounded_sm()
                     .cursor_pointer()
@@ -157,7 +158,12 @@ impl OrderTicket {
                     .child(text)
                     .child(icon::tinted(IconName::ChevronDown, 12., theme::muted_fg())),
             )
-            .children(menu.popup(entries, popup::Placement::Below(26.), window, cx))
+            .children(menu.popup(
+                entries,
+                popup::Placement::Below(tokens::height::COMPACT),
+                window,
+                cx,
+            ))
             .into_any_element()
     }
 

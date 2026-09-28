@@ -22,6 +22,7 @@ use crate::chart::study::custom::templates::TEMPLATES;
 use crate::chart::study::custom::{Problem, Severity};
 use crate::indicators;
 use wyck_ui::icon;
+use wyck_ui::tokens;
 use wyck_ui::{
     controls,
     menu::{Entry, Item, Placement},
@@ -184,7 +185,12 @@ impl IndicatorEditor {
                         )
                         .on_click(move |_, _window, cx| new_toggle.toggle(cx)),
                     )
-                    .children(new_menu.popup(templates, Placement::Below(30.), window, cx)),
+                    .children(new_menu.popup(
+                        templates,
+                        Placement::Below(tokens::height::TINY),
+                        window,
+                        cx,
+                    )),
             )
             .child(
                 self.tool_button(
@@ -236,7 +242,12 @@ impl IndicatorEditor {
                         )
                         .on_click(move |_, _window, cx| export_toggle.toggle(cx)),
                     )
-                    .children(export_menu.popup(export_items, Placement::Below(30.), window, cx)),
+                    .children(export_menu.popup(
+                        export_items,
+                        Placement::Below(tokens::height::TINY),
+                        window,
+                        cx,
+                    )),
             )
             .child(
                 self.tool_button(

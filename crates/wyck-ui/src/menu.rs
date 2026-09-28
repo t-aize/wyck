@@ -24,11 +24,12 @@ use std::time::{Duration, Instant};
 
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, ElementId, Entity, KeyDownEvent, MouseButton, Pixels, Point, SharedString,
-    Window, anchored, canvas, deferred, div, px,
+    AnyElement, App, Div, ElementId, Entity, KeyDownEvent, MouseButton, Pixels, Point,
+    SharedString, Window, anchored, canvas, deferred, div, px,
 };
 use gpui_kit::assets::IconName;
 
+use crate::tokens::{menu as size, text};
 use crate::{controls, icon, theme};
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -39,10 +40,6 @@ const PRIORITY: usize = 100;
 /// How long after a click outside closed the card a click on its button does not open it again:
 /// that click is the one that closed it.
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
-
-/// Right-click menus share one width; button menus can grow to fit their contents.
-const CONTEXT_WIDTH: f32 = 320.;
-pub const DROPDOWN_WIDTH: f32 = 230.;
 
 /// What a card holds.
 #[derive(Clone)]
@@ -139,7 +136,7 @@ impl Entry {
 pub enum Placement {
     /// At the pointer of the right click that opened it.
     Cursor,
-    /// Under its button, this far below the top of it.
+    /// Under its button, which is this tall: the card leaves [`size::GAP`] under the button.
     Below(f32),
 }
 
@@ -271,15 +268,17 @@ impl Menu {
                     div().w(size.width).h(size.height).child(
                         anchored()
                             .position(at)
-                            .snap_to_window_with_margin(px(8.))
+                            .snap_to_window_with_margin(px(size::MARGIN))
                             .child(card),
                     ),
                 )
             }
-            (Placement::Below(offset), _) => anchored()
-                .snap_to_window_with_margin(px(8.))
-                .child(div().pt(px(offset)).child(card)),
-            (Placement::Cursor, None) => anchored().snap_to_window_with_margin(px(8.)).child(card),
+            (Placement::Below(button), _) => anchored()
+                .snap_to_window_with_margin(px(size::MARGIN))
+                .child(div().pt(px(button + size::GAP)).child(card)),
+            (Placement::Cursor, None) => anchored()
+                .snap_to_window_with_margin(px(size::MARGIN))
+                .child(card),
         };
         // Under a button, the box is anchored to the corner of it: without an offset it would sit
         // where it would have been in the flow, under the button, and `Below` would count from
@@ -338,43 +337,21 @@ impl Menu {
 
     fn card(&self, items: &[Item], selected: Option<usize>, placement: Placement) -> AnyElement {
         let close = self.clone();
-        let mut card = div()
+        let mut card = card()
             .id(controls::child_id(&self.id, usize::MAX))
             .when(matches!(placement, Placement::Cursor), |card| {
-                card.w(px(CONTEXT_WIDTH))
+                card.w(px(size::CONTEXT_WIDTH))
             })
             .when(matches!(placement, Placement::Below(_)), |card| {
-                card.min_w(px(DROPDOWN_WIDTH))
+                card.min_w(px(size::DROPDOWN_WIDTH))
             })
-            .max_h(px(520.))
+            .max_h(px(size::MAX_HEIGHT))
             .overflow_y_scroll()
-            .p_1()
-            .flex()
-            .flex_col()
-            .gap_0p5()
-            .rounded_lg()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .shadow_lg()
-            .occlude()
             .on_mouse_down_out(move |_, _, cx| close.dismiss(cx));
         for (index, item) in items.iter().enumerate() {
             card = card.child(match item {
-                Item::Separator => div()
-                    .my_0p5()
-                    .h(px(1.))
-                    .bg(theme::border_hairline())
-                    .into_any_element(),
-                Item::Title(text) => div()
-                    .px_2()
-                    .pt_1p5()
-                    .pb_0p5()
-                    .text_size(px(10.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_color(theme::muted_fg())
-                    .child(text.to_uppercase())
-                    .into_any_element(),
+                Item::Separator => separator().into_any_element(),
+                Item::Title(title) => section_title(title.clone()).into_any_element(),
                 Item::Entry(entry) => self.entry(index, entry, selected == Some(index)),
             });
         }
@@ -391,16 +368,8 @@ impl Menu {
             theme::fg()
         };
         let (menu, action, keep_open) = (self.clone(), entry.on_click.clone(), entry.keep_open);
-        div()
+        row_base()
             .id(controls::child_id(&self.id, index))
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .h(px(28.))
-            .px_2()
-            .rounded_md()
-            .text_size(px(12.))
             .text_color(tone)
             .when(!enabled, |el| el.cursor_default().opacity(0.55))
             .when(enabled, |el| {
@@ -423,7 +392,7 @@ impl Menu {
             .children(entry.hint.clone().map(|hint| {
                 div()
                     .pl_3()
-                    .text_size(px(11.))
+                    .text_size(px(text::SMALL))
                     .text_color(theme::muted_fg())
                     .child(hint)
             }))
@@ -436,18 +405,15 @@ impl Menu {
     }
 }
 
-/// The gap that leaves a few pixels between a 28 px button and what opens under it, for [`below`].
-pub const BELOW_BUTTON: f32 = 32.;
-
-/// Puts `content` under the button it is a child of, `gap` pixels below the top of it, drawn over
+/// Puts `content` under the button it is a child of, which is `button` pixels tall, drawn over
 /// what is around (at `priority`) and kept inside the window. The parent must be `relative` and
 /// the size of the button.
 ///
 /// The box is anchored to the corner of the button: without an offset an anchored element sits
 /// where it would have been in the flow, which is under the button, and the gap would count from
 /// there. Every panel that opens under a button goes through this, so they all leave the same
-/// space.
-pub fn below(content: impl IntoElement, gap: f32, priority: usize) -> AnyElement {
+/// [`size::GAP`].
+pub fn below(content: impl IntoElement, button: f32, priority: usize) -> AnyElement {
     div()
         .absolute()
         .top_0()
@@ -456,12 +422,109 @@ pub fn below(content: impl IntoElement, gap: f32, priority: usize) -> AnyElement
         .child(
             deferred(
                 anchored()
-                    .snap_to_window_with_margin(px(8.))
-                    .child(div().pt(px(gap)).child(content)),
+                    .snap_to_window_with_margin(px(size::MARGIN))
+                    .child(div().pt(px(button + size::GAP)).child(content)),
             )
             .with_priority(priority),
         )
         .into_any_element()
+}
+
+/// The card of a menu: a column of rows on the surface, with an edge and a shadow. [`Menu`] draws
+/// its entries in it; a list that is not a [`Menu`] (a picker placed by hand) uses it too, so every
+/// menu of the app is the same card.
+pub fn card() -> Div {
+    div()
+        .p_1()
+        .flex()
+        .flex_col()
+        .gap_0p5()
+        .rounded_lg()
+        .bg(theme::surface())
+        .border_1()
+        .border_color(theme::border_subtle())
+        .shadow_lg()
+        .occlude()
+}
+
+/// The card of a popover that holds controls rather than entries (the timeframes, the layouts,
+/// the account), `width` pixels wide: usually [`size::PANEL_WIDTH`].
+pub fn panel(width: f32) -> Div {
+    div()
+        .w(px(width))
+        .p_3()
+        .flex()
+        .flex_col()
+        .gap_3()
+        .rounded_lg()
+        .bg(theme::surface())
+        .border_1()
+        .border_color(theme::border_subtle())
+        .shadow_lg()
+        .occlude()
+}
+
+/// What every row of a menu starts from: its height, padding, corners and text.
+fn row_base() -> Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .h(px(crate::tokens::height::CONTROL))
+        .px_2()
+        .rounded_md()
+        .text_size(px(text::BODY))
+}
+
+/// A row of a list placed in a [`card`] by hand, in the look of a [`Menu`] entry: an optional
+/// icon, the label, and a check mark on the one chosen. The caller adds the click.
+pub fn row(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    glyph: Option<IconName>,
+    checked: bool,
+) -> gpui::Stateful<Div> {
+    row_base()
+        .id(id)
+        .cursor_pointer()
+        .text_color(theme::fg())
+        .hover(|s| s.bg(theme::surface_hover()))
+        .children(glyph.map(|glyph| icon::tinted(glyph, 15., theme::fg())))
+        .child(div().flex_1().min_w_0().child(label.into()))
+        .children(checked.then(|| icon::tinted(IconName::Check, 13., theme::accent())))
+}
+
+/// The heading of a group of rows, in a menu or a popover.
+pub fn section_title(title: impl Into<SharedString>) -> Div {
+    div()
+        .px_2()
+        .pt_1p5()
+        .pb_0p5()
+        .text_size(px(text::CAPTION))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme::muted_fg())
+        .child(title.into().to_uppercase())
+}
+
+/// A line between two groups of rows.
+pub fn separator() -> Div {
+    div().my_0p5().h(px(1.)).bg(theme::border_hairline())
+}
+
+/// A layer over the whole window that closes what is open when it is pressed: the one way a
+/// popover whose open state its view keeps is dismissed by a click outside it. The caller draws it
+/// under the popover (`deferred` at a lower priority).
+pub fn backdrop(on_dismiss: impl Fn(&mut Window, &mut App) + 'static) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .occlude()
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            on_dismiss(window, cx);
+        })
 }
 
 /// The next entry that can be picked, after `from` going forward or back, wrapping round.

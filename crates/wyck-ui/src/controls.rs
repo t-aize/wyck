@@ -11,7 +11,7 @@ use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px}
 use gpui_kit::component::Sizable;
 use gpui_kit::component::switch::Switch;
 
-use crate::{color_picker, menu, theme};
+use crate::{color_picker, menu, theme, tokens};
 
 /// The id of child `n` of an element.
 pub fn child_id(id: &ElementId, n: usize) -> ElementId {
@@ -82,7 +82,7 @@ pub fn color_swatch(
     let hover = panel.clone();
     let swatch = div()
         .id(id.clone())
-        .size(px(26.))
+        .size(px(tokens::height::COMPACT))
         .p(px(3.))
         .rounded_md()
         .border_1()
@@ -105,7 +105,7 @@ pub fn color_swatch(
         .relative()
         .child(swatch)
         // Above the dialogs of gpui-component, which hold the color fields of the settings.
-        .child(menu::below(panel, 30., 100))
+        .child(menu::below(panel, tokens::height::COMPACT, 100))
         .into_any_element()
 }
 

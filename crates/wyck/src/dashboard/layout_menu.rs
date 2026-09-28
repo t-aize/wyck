@@ -8,7 +8,8 @@ use super::Dashboard;
 use crate::multichart::icon::layout_icon;
 use crate::multichart::layouts::{self, LayoutKey};
 use crate::multichart::links::{Link, Links};
-use wyck_ui::{menu, theme};
+use gpui_kit::component::Disableable;
+use wyck_ui::{controls, menu, theme, tokens};
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [
@@ -62,7 +63,7 @@ impl Dashboard {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .h(px(28.))
+                    .h(px(tokens::height::CONTROL))
                     .px_2()
                     .rounded_md()
                     .cursor_pointer()
@@ -127,7 +128,7 @@ impl Dashboard {
                     .child(
                         div()
                             .w(px(20.))
-                            .text_size(px(11.))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::muted_fg())
                             .child(count.to_string()),
                     )
@@ -137,7 +138,6 @@ impl Dashboard {
 
         let reset = div()
             .id("layout-reset-splits")
-            .mt_2()
             .px_1()
             .py_1()
             .rounded_md()
@@ -149,35 +149,24 @@ impl Dashboard {
                 this.multi.update(cx, |multi, cx| multi.reset_splits(cx));
             }))
             .child("Make the charts equal again (or double click a line between them)");
-        let mut links_section = div().flex().flex_col().gap_1().pt_3().child(
-            div()
-                .pb_1()
-                .text_size(px(10.5))
-                .text_color(theme::muted_fg())
-                .child("SYNC IN LAYOUT"),
-        );
+        let mut links_section = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(menu::section_title("Sync in layout").px_0());
         for (index, (link, title, hint)) in LINK_ROWS.into_iter().enumerate() {
             links_section = links_section.child(link_row(index, link, title, hint, links, cx));
         }
 
-        let card = div()
+        let card = menu::panel(tokens::menu::PANEL_WIDTH)
             .id("layout-menu")
-            .w(px(380.))
             .max_h(px(max_height))
             .overflow_y_scroll()
-            .p_3()
-            .flex()
-            .flex_col()
-            .rounded_xl()
-            .bg(theme::surface())
-            .border_1()
-            .border_color(theme::border_subtle())
-            .occlude()
             .child(arrangements)
             .child(reset)
             .child(links_section);
 
-        menu::below(card, menu::BELOW_BUTTON, 1)
+        menu::below(card, tokens::height::CONTROL, 1)
     }
 }
 
@@ -219,36 +208,23 @@ fn link_row(
                 .flex_col()
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .text_color(theme::fg())
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(hint.to_owned()),
                 ),
         )
-        .child(switch(on, link.is_none()))
-}
-
-/// A small on/off switch. A locked one is dimmed.
-fn switch(on: bool, locked: bool) -> impl IntoElement {
-    div()
-        .flex_none()
-        .w(px(34.))
-        .h(px(20.))
-        .p(px(2.))
-        .rounded_full()
-        .flex()
-        .flex_row()
-        .bg(if on {
-            theme::accent()
-        } else {
-            theme::surface_pressed()
-        })
-        .when(on, |el| el.justify_end())
-        .when(locked, |el| el.opacity(0.5))
-        .child(div().size(px(16.)).rounded_full().bg(theme::fg()))
+        // The row takes the click: the switch only shows the state.
+        .child(
+            controls::switch(
+                SharedString::from(format!("layout-link-switch-{index}")),
+                on,
+            )
+            .disabled(link.is_none()),
+        )
 }

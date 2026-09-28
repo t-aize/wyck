@@ -10,6 +10,7 @@ use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
 use crate::indicators::{self, editor::EditorEvent, editor::IndicatorEditor};
+use wyck_ui::tokens;
 use wyck_ui::{
     menu::{Entry, Item, Menu, Placement},
     theme,
@@ -260,7 +261,7 @@ impl Dashboard {
                     .rounded_full()
                     .bg(theme::amber())
             }))
-            .children(menu.popup(items, Placement::Below(34.), window, cx))
+            .children(menu.popup(items, Placement::Below(tokens::height::COMPACT), window, cx))
     }
 }
 

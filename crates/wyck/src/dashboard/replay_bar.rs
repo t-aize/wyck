@@ -23,6 +23,7 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::Dashboard;
 use crate::chart::drawing_props;
+use wyck_ui::tokens;
 use wyck_ui::{
     menu::{Entry, Item, Menu, Placement},
     theme,
@@ -138,7 +139,12 @@ impl Dashboard {
                                 move |_, _, cx| menu.toggle(cx)
                             }),
                     )
-                    .children(speed_menu.popup(speed_items, Placement::Below(4.), window, cx)),
+                    .children(speed_menu.popup(
+                        speed_items,
+                        Placement::Below(tokens::height::COMPACT),
+                        window,
+                        cx,
+                    )),
             )
             .child(
                 icon_button("replay-jump-to-start", IconName::SkipBack, "Jump to start")
@@ -190,25 +196,15 @@ impl Dashboard {
             .flatten()
             .map(|state| {
                 wyck_ui::menu::below(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .p_2()
-                        .w(px(220.))
-                        .rounded_lg()
-                        .border_1()
-                        .border_color(theme::border_subtle())
-                        .bg(theme::bg())
-                        .shadow_md()
+                    wyck_ui::menu::panel(tokens::menu::DROPDOWN_WIDTH)
                         .child(
                             div()
-                                .text_size(px(11.))
+                                .text_size(px(tokens::text::SMALL))
                                 .text_color(theme::muted_fg())
                                 .child("Go to date (YYYY-MM-DD HH:MM)"),
                         )
                         .child(Input::new(&state).small()),
-                    4.,
+                    tokens::height::COMPACT,
                     // Above the click-outside-to-close backdrop (priority 0, see
                     // Dashboard::render), and matching Menu::popup's own priority so it
                     // stacks consistently with the speed dropdown next to it.

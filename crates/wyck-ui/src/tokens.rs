@@ -24,6 +24,8 @@ pub mod text {
 
 /// Heights of controls and rows, in pixels.
 pub mod height {
+    /// The smallest button (gpui-kit's `xsmall`): a tool in a panel's own bar.
+    pub const TINY: f32 = 20.0;
     /// A control in a dense strip: a toolbar, the order ticket.
     pub const COMPACT: f32 = 24.0;
     /// A button, a field, a row of a menu or of a list.
