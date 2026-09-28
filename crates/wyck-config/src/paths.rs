@@ -129,6 +129,11 @@ impl AppPaths {
         self.config_dir.join("scopes")
     }
 
+    /// The folder where the app keeps a copy of what an import or a reset replaced.
+    pub fn backups_dir(&self) -> PathBuf {
+        self.config_dir.join("backups")
+    }
+
     /// The folder the scripted indicators are read from unless the user chose another.
     pub fn indicators_dir(&self) -> PathBuf {
         self.config_dir.join("indicators")
@@ -168,6 +173,7 @@ mod tests {
         assert_eq!(paths.indicators_dir(), Path::new("/tmp/example/indicators"));
         assert_eq!(paths.state_dir(), Path::new("/tmp/example/state"));
         assert_eq!(paths.scopes_dir(), Path::new("/tmp/example/scopes"));
+        assert_eq!(paths.backups_dir(), Path::new("/tmp/example/backups"));
     }
 
     fn env<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {

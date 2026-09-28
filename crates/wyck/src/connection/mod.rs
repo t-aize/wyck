@@ -25,7 +25,7 @@ use gpui::{
     div,
 };
 use secrecy::ExposeSecret;
-use wyck_config::{AppPaths, KeyringSecretStore, ProfileId, WyckConfig};
+use wyck_config::{ProfileId, Severity, WyckConfig};
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::session::{Session, SessionConfig, TokenStore};
@@ -304,11 +304,21 @@ impl Render for ConnectionFlow {
     }
 }
 
-/// Loads the on-disk config, falling back to the OS keyring for secret storage. This is the one
-/// place the app decides where its state lives; every screen goes through `self.config` instead
-/// of touching [`wyck_config`] directly.
+/// Loads the on-disk config, with the OS keyring for secret storage. This is the one place the app
+/// decides where its state lives; every screen goes through `self.config` instead of touching
+/// [`wyck_config`] directly. A config that has something to report (a missing secret, a folder
+/// other users can read) says so in the log.
 fn load_config() -> WyckConfig {
-    let paths = AppPaths::discover().expect("could not resolve the app's config directories");
-    WyckConfig::load(paths, Box::new(KeyringSecretStore::default()))
-        .expect("could not load or initialize the app config")
+    let paths = crate::app_paths()
+        .expect("could not resolve the app's config directories")
+        .clone();
+    let config = WyckConfig::builder()
+        .paths(paths)
+        .build()
+        .expect("could not load or initialize the app config");
+    let report = config.diagnose();
+    if report.worst() >= Some(Severity::Warning) {
+        tracing::warn!("the config has something to report:\n{report}");
+    }
+    config
 }

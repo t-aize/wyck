@@ -44,7 +44,7 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
 - The `names` module: the one rule for names that become part of a path.
 - `DocumentStore::list`, `list_scopes`, `load_text`, `save_text` and `scoped_checked`, so a backup
   no longer needs to know how the folders are laid out.
-- `AppPaths::state_dir`, `scopes_dir` and `pictures_dir`; `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR`
+- `AppPaths::state_dir`, `scopes_dir`, `backups_dir` and `pictures_dir`; `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR`
   move the folders.
 - `WyckConfig::delete_profile_secret`, `OpenApiTokenStorage::clear`, and the `CLIENT_SECRET` and
   `OAUTH_TOKENS` constants.

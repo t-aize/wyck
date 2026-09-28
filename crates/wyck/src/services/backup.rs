@@ -446,10 +446,10 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
             return Ok(None);
         }
     };
-    let keep = config_dir
-        .join("backups")
-        .join(format!("import-{}", stamp_name(stamp)));
     let paths = AppPaths::at(config_dir);
+    let keep = paths
+        .backups_dir()
+        .join(format!("import-{}", stamp_name(stamp)));
     let mut kept = false;
     for file in &backup.files {
         let store = store_for(&paths, &file.scope);
@@ -468,7 +468,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
     // The scripts go in the default indicators folder; one that is there already and differs is
     // copied aside first, like the documents.
     for script in &backup.scripts {
-        let mut target = config_dir.join("indicators");
+        let mut target = paths.indicators_dir();
         for part in script.id.split('/') {
             target.push(part);
         }
