@@ -1,20 +1,16 @@
 //! What the user keeps of the export panel: the options it had last, and the presets they saved.
 //!
-//! It is one small TOML file in the settings folder. Reading never fails: a file that is missing
-//! or that cannot be read gives the defaults, so a damaged file never keeps the panel from
-//! opening. Writing goes through a temporary file that is then renamed over the old one, so a
-//! crash in the middle leaves the previous file whole.
-
-use std::fs;
-use std::io;
-use std::path::Path;
+//! It is one small document of the [`DocumentStore`]. Reading never fails: a document that is
+//! missing or that cannot be read gives the defaults (the damaged one is set aside by the store),
+//! so it never keeps the panel from opening. Writing is atomic.
 
 use serde::{Deserialize, Serialize};
+use wyck_config::{DocumentStore, Result};
 
 use super::{ExportOptions, Preset};
 
-/// The name of the file, in the settings folder.
-pub const FILE: &str = "export.toml";
+/// The name of the document.
+pub const DOCUMENT: &str = "export";
 /// The most presets kept, and the longest name of one.
 const MAX_PRESETS: usize = 100;
 const MAX_NAME: usize = 60;
@@ -93,19 +89,18 @@ pub fn clean_name(name: &str) -> String {
         .collect()
 }
 
-/// What `dir` holds, or the defaults.
-pub fn read(dir: &Path) -> Saved {
-    fs::read_to_string(dir.join(FILE))
-        .ok()
-        .and_then(|text| toml::from_str::<Saved>(&text).ok())
-        .unwrap_or_default()
-        .normalized()
+/// What the store holds, or the defaults.
+pub fn read(store: &DocumentStore) -> Saved {
+    store.load_or_default::<Saved>(DOCUMENT).normalized()
 }
 
-/// Writes `saved` in `dir`, making the folder when it is not there yet.
-pub fn write(dir: &Path, saved: &Saved) -> io::Result<()> {
-    let text = toml::to_string_pretty(saved).map_err(io::Error::other)?;
-    wyck_config::atomic_write(&dir.join(FILE), text.as_bytes()).map_err(io::Error::from)
+/// Writes `saved` in the store.
+///
+/// # Errors
+///
+/// Any error of [`DocumentStore::save`].
+pub fn write(store: &DocumentStore, saved: &Saved) -> Result<()> {
+    store.save(DOCUMENT, saved)
 }
 
 #[cfg(test)]
@@ -113,11 +108,11 @@ mod tests {
     use super::*;
     use crate::export::{Delimiter, Format};
 
-    /// A folder of its own for one test.
-    fn folder(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("wyck-export-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        dir
+    /// A store of its own for one test.
+    fn store() -> (tempfile::TempDir, DocumentStore) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = DocumentStore::global(&wyck_config::AppPaths::at(dir.path()));
+        (dir, store)
     }
 
     fn semicolons() -> ExportOptions {
@@ -129,26 +124,26 @@ mod tests {
 
     #[test]
     fn what_is_saved_is_read_back() {
-        let dir = folder("roundtrip");
+        let (_dir, store) = store();
         let mut saved = Saved::default();
         saved.last.format = Format::Json;
         assert!(saved.save_preset("Mine", &semicolons()));
-        write(&dir, &saved).unwrap();
-        assert_eq!(read(&dir), saved.normalized());
-        assert!(!dir.join(format!("{FILE}.tmp")).exists());
-        let _ = fs::remove_dir_all(&dir);
+        write(&store, &saved).unwrap();
+        assert_eq!(read(&store), saved.normalized());
     }
 
     #[test]
     fn a_missing_or_broken_file_gives_the_defaults() {
-        let dir = folder("broken");
-        assert_eq!(read(&dir), Saved::default());
-        fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join(FILE), "this is [not toml").unwrap();
-        assert_eq!(read(&dir), Saved::default());
-        fs::write(dir.join(FILE), "").unwrap();
-        assert_eq!(read(&dir), Saved::default());
-        let _ = fs::remove_dir_all(&dir);
+        let (_dir, store) = store();
+        assert_eq!(read(&store), Saved::default());
+        store.save_text(DOCUMENT, "").unwrap();
+        assert_eq!(read(&store), Saved::default());
+        std::fs::write(store.path(DOCUMENT), "this is [not toml").unwrap();
+        assert_eq!(read(&store), Saved::default());
+        assert!(
+            store.dir().join("export.toml.bad").is_file(),
+            "the damaged document is kept aside"
+        );
     }
 
     #[test]
@@ -173,14 +168,14 @@ mod tests {
 
     #[test]
     fn what_is_read_is_repaired() {
-        let dir = folder("repair");
-        fs::create_dir_all(&dir).unwrap();
-        fs::write(
-            dir.join(FILE),
-            "[last]\nevery = 0\n\n[[presets]]\nname = \"  \"\n\n[[presets]]\nname = \"A\"\n[presets.options]\nlast = 0\n\n[[presets]]\nname = \"a\"\n",
-        )
-        .unwrap();
-        let saved = read(&dir);
+        let (_dir, store) = store();
+        store
+            .save_text(
+                DOCUMENT,
+                "[last]\nevery = 0\n\n[[presets]]\nname = \"  \"\n\n[[presets]]\nname = \"A\"\n[presets.options]\nlast = 0\n\n[[presets]]\nname = \"a\"\n",
+            )
+            .unwrap();
+        let saved = read(&store);
         assert_eq!(saved.last.every, 1);
         assert_eq!(
             saved.presets.len(),
@@ -188,7 +183,6 @@ mod tests {
             "the nameless and the repeat are gone"
         );
         assert_eq!(saved.presets[0].options.last, 1);
-        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

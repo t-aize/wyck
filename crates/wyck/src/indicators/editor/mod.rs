@@ -14,10 +14,9 @@ pub mod providers;
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use crate::workspace::Saver;
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, KeyBinding, MouseMoveEvent, SharedString,
@@ -29,7 +28,6 @@ use gpui_kit::component::input::{
     AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
 };
 use serde::{Deserialize, Serialize};
-use wyck_config::DocumentStore;
 
 use crate::chart::Chart;
 use crate::indicators;
@@ -101,8 +99,6 @@ const CHECK_DELAY: Duration = Duration::from_millis(350);
 /// How long a message stays in the status bar.
 const NOTICE_TIME: Duration = Duration::from_secs(6);
 const DRAFT_DOCUMENT: &str = "indicator_editor_drafts";
-const DRAFT_DELAY: Duration = Duration::from_millis(500);
-
 #[derive(Default, Serialize, Deserialize)]
 struct Drafts {
     directory: String,
@@ -198,10 +194,9 @@ pub struct IndicatorEditor {
     pub(super) reference_width: f32,
     pub(super) console_height: f32,
     pub(super) resize: Option<ResizeDrag>,
-    draft_store: Option<DocumentStore>,
+    /// Writes the unsaved work a moment after the last change; `None` when nothing is remembered.
+    draft_saver: Option<Saver<Drafts>>,
     drafts_loaded: bool,
-    draft_revision: Arc<AtomicU64>,
-    draft_write_lock: Arc<Mutex<()>>,
     pub(super) focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -257,9 +252,7 @@ impl IndicatorEditor {
             console_height: 148.0,
             resize: None,
             drafts_loaded: draft_store.is_none(),
-            draft_store,
-            draft_revision: Arc::new(AtomicU64::new(0)),
-            draft_write_lock: Arc::new(Mutex::new(())),
+            draft_saver: draft_store.map(|store| Saver::new(store, DRAFT_DOCUMENT)),
             focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -327,10 +320,13 @@ impl IndicatorEditor {
     }
 
     fn queue_drafts(&mut self, cx: &mut Context<Self>) {
-        let Some(store) = self.draft_store.clone().filter(|_| self.drafts_loaded) else {
+        if !self.drafts_loaded {
+            return;
+        }
+        let Some(saver) = &self.draft_saver else {
             return;
         };
-        let drafts = Drafts {
+        saver.schedule(Drafts {
             directory: indicators::dir(cx).to_string_lossy().into_owned(),
             active: self.active,
             tabs: self
@@ -342,27 +338,7 @@ impl IndicatorEditor {
                     base: doc.dirty.then(|| doc.saved.clone()),
                 })
                 .collect(),
-        };
-        let revision = self.draft_revision.clone();
-        let lock = self.draft_write_lock.clone();
-        let serial = revision.fetch_add(1, Ordering::Relaxed) + 1;
-        let executor = cx.background_executor().clone();
-        executor
-            .clone()
-            .spawn(async move {
-                executor.timer(DRAFT_DELAY).await;
-                if revision.load(Ordering::Relaxed) != serial {
-                    return;
-                }
-                let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
-                if revision.load(Ordering::Relaxed) != serial {
-                    return;
-                }
-                if let Err(error) = store.save(DRAFT_DOCUMENT, &drafts) {
-                    tracing::warn!(%error, "could not save indicator editor drafts");
-                }
-            })
-            .detach();
+        });
     }
 
     fn drag_resize(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {

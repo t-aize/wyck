@@ -207,7 +207,8 @@ impl SettingsHub {
                 .map_err(backup::BackupError::from)
                 .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
                 .and_then(|(b, text)| {
-                    std::fs::write(&path, text)?;
+                    wyck_config::atomic_write(&path, text.as_bytes())
+                        .map_err(std::io::Error::from)?;
                     Ok(b)
                 });
             let _ = this.update(cx, |this, cx| match result {
