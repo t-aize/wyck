@@ -222,6 +222,7 @@ pub fn volume_units(raw: i64) -> f64 {
 /// The account itself (`ProtoOATrader`): balance, leverage, rights.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Trader {
     /// The trading account id.
     #[serde(deserialize_with = "flex::int")]
@@ -296,6 +297,7 @@ impl Trader {
 /// What an order or a position is about (`ProtoOATradeData`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct TradeData {
     /// The symbol.
     #[serde(deserialize_with = "flex::int")]
@@ -337,6 +339,7 @@ impl TradeData {
 /// An open or closed position (`ProtoOAPosition`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Position {
     /// The position id.
     #[serde(deserialize_with = "flex::int")]
@@ -386,6 +389,7 @@ impl Position {
 /// An order (`ProtoOAOrder`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Order {
     /// The order id.
     #[serde(deserialize_with = "flex::int")]
@@ -447,6 +451,7 @@ impl Order {
 /// An execution (`ProtoOADeal`): one fill of an order.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Deal {
     /// The deal id.
     #[serde(deserialize_with = "flex::int")]
@@ -511,6 +516,7 @@ impl Deal {
 /// commissions, rebates, transfers, ...) and this crate does not give each one a name.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DepositWithdraw {
     /// The kind of operation, as `ProtoOAChangeBalanceType`'s number (0 deposit, 1 withdrawal, and
     /// about thirty more for swaps, commissions, rebates, transfers and the rest).
@@ -553,6 +559,7 @@ impl DepositWithdraw {
 /// A deal that offset, or was offset by, another deal (`ProtoOADealOffset`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DealOffset {
     /// The deal id.
     #[serde(deserialize_with = "flex::int")]
@@ -571,6 +578,7 @@ pub struct DealOffset {
 /// The unrealized profit or loss of one position (`ProtoOAPositionUnrealizedPnL`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct PositionUnrealizedPnL {
     /// The position.
     #[serde(deserialize_with = "flex::int")]

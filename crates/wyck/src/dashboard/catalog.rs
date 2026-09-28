@@ -296,59 +296,47 @@ fn rank(entry: &Entry, text: &str, words: &[&str]) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    fn from_json<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> T {
+        serde_json::from_value(value).unwrap()
+    }
 
     fn light(id: i64, name: &str, description: &str, category: Option<i64>) -> LightSymbol {
-        LightSymbol {
-            symbol_id: id,
-            symbol_name: Some(name.into()),
-            enabled: Some(true),
-            description: Some(description.into()),
-            base_asset_id: None,
-            quote_asset_id: None,
-            symbol_category_id: category,
-        }
+        from_json(json!({
+            "symbolId": id,
+            "symbolName": name,
+            "enabled": true,
+            "description": description,
+            "symbolCategoryId": category,
+        }))
     }
 
     fn catalog() -> Catalog {
         Catalog::build(
             vec![
-                LightSymbol {
-                    base_asset_id: Some(1),
-                    quote_asset_id: Some(2),
-                    ..light(1, "EURUSD", "Euro vs US Dollar", None)
+                {
+                    let mut eurusd = light(1, "EURUSD", "Euro vs US Dollar", None);
+                    eurusd.base_asset_id = Some(1);
+                    eurusd.quote_asset_id = Some(2);
+                    eurusd
                 },
                 light(2, "US 30", "Dow Jones", Some(10)),
                 light(3, "XAUUSD", "Gold vs US Dollar", None),
                 light(4, "USDJPY", "US Dollar vs Japanese Yen", None),
-                LightSymbol {
-                    enabled: Some(false),
-                    ..light(5, "HIDDEN", "off", None)
+                {
+                    let mut hidden = light(5, "HIDDEN", "off", None);
+                    hidden.enabled = Some(false);
+                    hidden
                 },
             ],
-            vec![SymbolCategory {
-                id: 10,
-                asset_class_id: 1,
-                name: "US Indices".into(),
-                sorting_number: None,
-            }],
-            vec![AssetClass {
-                id: Some(1),
-                name: Some("Indices".into()),
-                sorting_number: None,
-            }],
+            vec![from_json(
+                json!({ "id": 10, "assetClassId": 1, "name": "US Indices" }),
+            )],
+            vec![from_json(json!({ "id": 1, "name": "Indices" }))],
             vec![
-                Asset {
-                    asset_id: 1,
-                    name: "EUR".into(),
-                    display_name: None,
-                    digits: None,
-                },
-                Asset {
-                    asset_id: 2,
-                    name: "USD".into(),
-                    display_name: None,
-                    digits: None,
-                },
+                from_json(json!({ "assetId": 1, "name": "EUR" })),
+                from_json(json!({ "assetId": 2, "name": "USD" })),
             ],
         )
     }

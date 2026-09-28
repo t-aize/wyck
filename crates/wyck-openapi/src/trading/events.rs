@@ -39,6 +39,7 @@ number_enum! {
 /// withdrawal or swap that was not asked for by one.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ExecutionEvent {
     /// The account the execution belongs to.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -76,6 +77,7 @@ impl ExecutionEvent {
 /// (for example the account moved out of margin between requests).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct OrderErrorEvent {
     /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -96,6 +98,7 @@ pub struct OrderErrorEvent {
 /// `ProtoOATrailingSLChangedEvent`: a trailing stop loss moved with the price.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct TrailingSlChangedEvent {
     /// The account.
     #[serde(default, deserialize_with = "flex::opt")]

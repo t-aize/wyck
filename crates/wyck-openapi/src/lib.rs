@@ -3,12 +3,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-//! # openapi
+//! # wyck-openapi
 //!
-//! A Rust client for the **cTrader Open API**, over its JSON WebSocket.
+//! A Rust SDK for the **cTrader Open API**, over its JSON WebSocket.
 //!
 //! It streams every price change, serves tick history, bars of fourteen periods, live bars and
-//! the order book. This module is a typed, tested client for that, with what it takes to use it
+//! the order book. This crate is a typed, tested client for that, with what it takes to use it
 //! for days without babysitting: request matching, heartbeats, the documented rate limits and
 //! their retries, the OAuth 2 sign in, and a [`session::Session`] that reconnects and renews its
 //! tokens by itself.
@@ -28,8 +28,7 @@
 //!
 //! | Module | Role |
 //! |---|---|
-//! | [`transport`] | The connection: [`Client`], [`ClientBuilder`], the envelope, the rate limiter |
-//! | [`handle`] | [`AccountClient`]: a client bound to one account, routing to the four below |
+//! | (root) | [`Client`], [`ClientBuilder`]: the connection; [`AccountClient`]: a client bound to one account, routing to the four below |
 //! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
 //! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals; [`account::book::AccountBook`]: the account kept current from the server's messages |
 //! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`trading::contract`]: lots, volumes, pips, risk sizing and profit |
@@ -38,7 +37,7 @@
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |
 //! | [`event`] | What the server sends unasked: prices, order book, executions, notices |
 //! | [`config`] | Demo or live, timeouts, application credentials |
-//! | [`error`] | [`OpenApiError`] and its classification |
+//! | [`error`] | [`Error`] and its classification |
 //! | [`prelude`] | A group import of the pieces most programs need |
 //!
 //! # Features
@@ -46,6 +45,22 @@
 //! `client` (on by default) brings the connection, the session and OAuth, with tokio and the
 //! WebSocket and HTTP stacks. Without it the crate holds only the messages, the market types and
 //! the trading calculations, for code that works on prices without talking to the server.
+//!
+//! # Stability
+//!
+//! The crate follows [semantic versioning](https://semver.org). Before 1.0, a minor release
+//! (0.4 to 0.5) may break the API and a patch release does not. What the promise covers:
+//!
+//! - Everything reachable from the documented modules and the root re-exports.
+//! - The server's messages, the events and the error type are `#[non_exhaustive]`: a field or a
+//!   variant the server gains is added in a patch release, so build them through their
+//!   constructors or from JSON, match with a wildcard arm, and prefer [`Error::kind`] to the
+//!   error's variants.
+//!
+//! What it does not cover: items hidden from these docs (the `transport` module, the wire
+//! envelope, `event::event_from`). They are public only for this crate's own tests.
+//!
+//! Changes are listed in `CHANGELOG.md`, next to this crate's manifest.
 //!
 //! # Which layer to use
 //!
@@ -145,7 +160,7 @@ pub mod config;
 pub mod error;
 pub mod event;
 #[cfg(feature = "client")]
-pub mod handle;
+mod handle;
 pub mod margin;
 pub mod market;
 #[cfg(feature = "client")]
@@ -153,14 +168,20 @@ pub mod prelude;
 #[cfg(feature = "client")]
 pub mod session;
 pub mod trading;
+/// The wire format and the connection machinery. Public only for this crate's own tests: not
+/// part of the stable API, and it may change in any release.
+#[doc(hidden)]
 pub mod transport;
 
 pub(crate) use account::types::number_enum;
 #[cfg(feature = "client")]
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
-pub use error::{ErrorKind, OpenApiError, Result};
+#[allow(deprecated)]
+pub use error::OpenApiError;
+pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};
 #[cfg(feature = "client")]
 pub use handle::AccountClient;
 #[cfg(feature = "client")]
 pub use transport::connection::{Client, ClientBuilder, ConnectionState};
+pub use transport::messages::{AccountsRes, CtidProfile, RefreshTokenRes, TraderAccount};

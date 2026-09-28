@@ -20,7 +20,7 @@ use wyck_openapi::account::TradeSide;
 use wyck_openapi::market::PRICE_SCALE;
 use wyck_openapi::session::Session;
 use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use wyck_openapi::{Event, OpenApiError, Result as ApiResult};
+use wyck_openapi::{Error as ApiError, Event, Result as ApiResult};
 
 use super::book::{AccountBook, Notice, Tone, explain, is_buy};
 use super::math::{self, Contract, Link, Summary};
@@ -175,7 +175,7 @@ enum Conversion {
 }
 
 fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
-    result.unwrap_or(Err(OpenApiError::Closed))
+    result.unwrap_or(Err(ApiError::Closed))
 }
 
 impl Account {
@@ -284,7 +284,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let chain = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 client
                     .account(session.account_id())
                     .market()
@@ -359,6 +359,7 @@ impl Account {
             Tone::Success => toast::Kind::Success,
             Tone::Warning => toast::Kind::Warning,
             Tone::Error => toast::Kind::Error,
+            _ => toast::Kind::Info,
         };
         toast::show(cx, kind, notice.title, notice.message);
     }
@@ -413,7 +414,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let loaded = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let data = account.account_data();
                 let trader = data.trader().await?;
@@ -439,7 +440,7 @@ impl Account {
                         .unwrap_or_default(),
                     None => String::new(),
                 };
-                Ok::<_, OpenApiError>((trader, positions, orders, deals, currency))
+                Ok::<_, ApiError>((trader, positions, orders, deals, currency))
             })
             .await;
             let _ = this.update(cx, |this, cx| {
@@ -501,7 +502,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let fetched = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 account.market().symbol_details(&[symbol_id]).await
             })
@@ -528,7 +529,7 @@ impl Account {
         let epoch = self.epoch;
         cx.spawn(async move |this, cx| {
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 account.account_data().unrealized_pnl().await
             })
@@ -563,7 +564,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let trader = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 client
                     .account(session.account_id())
                     .account_data()
@@ -697,7 +698,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let result = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 call(client.account(session.account_id()).trading()).await
             })
             .await;

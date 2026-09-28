@@ -16,7 +16,7 @@ use support::{MockServer, Reply, answers, config, connect};
 use tokio::sync::broadcast::error::RecvError;
 use wyck_openapi::config::ConnectionConfig;
 use wyck_openapi::transport::wire::payload;
-use wyck_openapi::{Client, DisconnectReason, ErrorKind, Event, OpenApiError};
+use wyck_openapi::{Client, DisconnectReason, Error, ErrorKind, Event};
 
 fn version_answers() -> Vec<(u32, u32, serde_json::Value)> {
     vec![(
@@ -60,10 +60,7 @@ async fn a_malformed_trading_or_margin_event_is_reported_not_a_panic() {
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(
-        event,
-        Event::ServerError(OpenApiError::Protocol(_))
-    ));
+    assert!(matches!(event, Event::ServerError(Error::Protocol(_))));
 
     // A margin call trigger event missing its required `marginCall` field: same story.
     server.push(payload::MARGIN_CALL_TRIGGER_EVENT, json!({}));
@@ -71,10 +68,7 @@ async fn a_malformed_trading_or_margin_event_is_reported_not_a_panic() {
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(
-        event,
-        Event::ServerError(OpenApiError::Protocol(_))
-    ));
+    assert!(matches!(event, Event::ServerError(Error::Protocol(_))));
 
     // The connection is still good afterwards.
     assert_eq!(client.version().await.unwrap(), "ok");
@@ -250,7 +244,7 @@ async fn requests_racing_a_close_all_finish_instead_of_hanging() {
     for task in tasks {
         match task.await.unwrap() {
             Ok(version) => assert_eq!(version, "ok"),
-            Err(error) => assert!(matches!(error, OpenApiError::Closed), "{error:?}"),
+            Err(error) => assert!(matches!(error, Error::Closed), "{error:?}"),
         }
     }
     assert!(started.elapsed() < Duration::from_secs(3), "nothing hung");
@@ -336,7 +330,7 @@ async fn a_peer_that_vanishes_without_a_goodbye_ends_the_connection_cleanly() {
 
     let started = Instant::now();
     let error = client.version().await.unwrap_err();
-    assert!(matches!(error, OpenApiError::Closed), "{error:?}");
+    assert!(matches!(error, Error::Closed), "{error:?}");
     assert!(
         started.elapsed() < Duration::from_secs(3),
         "did not wait for the request timeout"

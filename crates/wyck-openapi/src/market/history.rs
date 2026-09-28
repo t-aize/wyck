@@ -24,7 +24,7 @@
 use super::bars::{Bar, Period};
 use super::client::MarketClient;
 use super::ticks::{QuoteType, Tick};
-use crate::error::{OpenApiError, Result};
+use crate::error::{Error, Result};
 
 /// The longest range of one tick request: one week.
 pub const MAX_TICK_RANGE_MS: i64 = 7 * 24 * 60 * 60 * 1_000;
@@ -102,7 +102,7 @@ pub async fn fetch_ticks(
                     upper = oldest - 1;
                 }
                 _ => {
-                    return Err(OpenApiError::Protocol(format!(
+                    return Err(Error::Protocol(format!(
                         "tick history for {symbol_id} is incomplete in [{window_start}, {upper}]: \
                          the server reported more ticks but paging could not continue"
                     )));
@@ -139,7 +139,7 @@ pub async fn fetch_bars(
             page.last().map(|b| b.time_ms),
         ) else {
             if has_more {
-                return Err(OpenApiError::Protocol(format!(
+                return Err(Error::Protocol(format!(
                     "bar history for {symbol_id} is incomplete in [{low}, {high}]: \
                      the server reported more bars but returned an empty page"
                 )));
@@ -151,7 +151,7 @@ pub async fn fetch_bars(
             break;
         }
         if page_number + 1 == MAX_PAGES {
-            return Err(OpenApiError::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "bar history for {symbol_id} is incomplete: reached the {MAX_PAGES}-page limit"
             )));
         }
@@ -160,7 +160,7 @@ pub async fn fetch_bars(
         match continuation(low, high, first, last, period) {
             Some((next_low, next_high)) => (low, high) = (next_low, next_high),
             None => {
-                return Err(OpenApiError::Protocol(format!(
+                return Err(Error::Protocol(format!(
                     "bar history for {symbol_id} is incomplete in [{low}, {high}]: \
                      the server reported more bars without advancing"
                 )));

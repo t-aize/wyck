@@ -1,6 +1,7 @@
 [package]
 name = "wyck-openapi"
-version.workspace = true
+# Versioned on its own, following semver for its API (see CHANGELOG.md), not the app's version.
+version = "0.4.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -42,6 +43,22 @@ uuid = { workspace = true, optional = true }
 dotenvy.workspace = true
 tracing-subscriber.workspace = true
 proptest.workspace = true
+
+[[example]]
+name = "accounts"
+required-features = ["client"]
+
+[[example]]
+name = "prices"
+required-features = ["client"]
+
+[[example]]
+name = "history"
+required-features = ["client"]
+
+[[example]]
+name = "demo_order"
+required-features = ["client"]
 
 [lints]
 workspace = true

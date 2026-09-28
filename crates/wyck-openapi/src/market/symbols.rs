@@ -11,6 +11,7 @@ use crate::transport::wire::flex;
 /// A symbol in the list of an account (`ProtoOALightSymbol`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct LightSymbol {
     /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
@@ -38,6 +39,7 @@ pub struct LightSymbol {
 /// The details of a symbol (`ProtoOASymbol`, the fields that matter to a data client).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Symbol {
     /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
@@ -78,6 +80,7 @@ pub struct Symbol {
 /// An asset: a currency or other unit an account or symbol is denominated in (`ProtoOAAsset`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Asset {
     /// The asset id.
     #[serde(deserialize_with = "flex::int")]
@@ -95,6 +98,7 @@ pub struct Asset {
 /// A group of symbols by market (`ProtoOAAssetClass`): forex, indices, metals...
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AssetClass {
     /// The class id.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -110,6 +114,7 @@ pub struct AssetClass {
 /// A group of symbols inside an asset class (`ProtoOASymbolCategory`): major pairs, cryptos...
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolCategory {
     /// The category id (what `LightSymbol::symbol_category_id` points to).
     #[serde(deserialize_with = "flex::int")]
@@ -128,6 +133,7 @@ pub struct SymbolCategory {
 /// rules, ...). Ask `MarketClient::symbol_details` again for the ones named here.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolChangedEvent {
     /// The account the changed symbols belong to.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -151,6 +157,7 @@ pub struct SymbolsListReq {
 /// `ProtoOASymbolsListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolsListRes {
     /// The symbols of the account.
     #[serde(default)]
@@ -170,6 +177,7 @@ pub struct SymbolByIdReq {
 /// `ProtoOASymbolByIdRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolByIdRes {
     /// The details asked for.
     #[serde(default)]
@@ -192,6 +200,7 @@ pub struct SymbolsForConversionReq {
 /// direct quote exists (for example EUR/USD, USD/JPY for a EUR/JPY conversion).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolsForConversionRes {
     /// The chain, in order.
     #[serde(default)]
@@ -201,6 +210,7 @@ pub struct SymbolsForConversionRes {
 /// `ProtoOAAssetListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AssetListRes {
     /// The assets.
     #[serde(default)]
@@ -210,6 +220,7 @@ pub struct AssetListRes {
 /// `ProtoOAAssetClassListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AssetClassListRes {
     /// The classes.
     #[serde(default)]
@@ -219,6 +230,7 @@ pub struct AssetClassListRes {
 /// `ProtoOASymbolCategoryListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SymbolCategoryListRes {
     /// The categories.
     #[serde(default)]

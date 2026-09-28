@@ -11,6 +11,19 @@
 use crate::market::PRICE_SCALE;
 
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
+///
+/// ```
+/// use wyck_openapi::trading::contract::{Contract, lots_for_risk};
+///
+/// // A forex pair: 100 000 units a lot, steps of 0.01 lot, pips at the fourth decimal.
+/// let eurusd = Contract::default();
+/// assert_eq!(eurusd.volume_of_lots(0.5), 5_000_000);
+/// assert!((eurusd.pips(0.0020) - 20.0).abs() < 1e-9);
+///
+/// // Risk 100 of the deposit currency over a 20 pip stop, quote currency = deposit currency.
+/// let lots = lots_for_risk(100.0, 0.0020, 1.0, &eurusd).unwrap();
+/// assert_eq!(eurusd.volume_of_lots(lots), 5_000_000);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Contract {
     /// Decimals of the symbol's prices.
@@ -138,6 +151,7 @@ pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -
 
 /// Why an order would be refused before it is sent.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum TicketProblem {
     /// A pending order without a price.
     NoPrice,

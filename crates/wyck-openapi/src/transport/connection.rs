@@ -27,11 +27,11 @@
 //! in flight at once and answers may come in any order. A request waits for its turn at the
 //! [rate limiter](crate::transport::rate_limit::RateLimiter) (50 per second, 5 for history), then
 //! for its answer up to the configured timeout. A server error becomes an
-//! [`OpenApiError::Server`].
+//! [`Error::Server`].
 //!
 //! # When the connection ends
 //!
-//! Every waiting request fails with [`OpenApiError::Closed`], an [`Event::Disconnected`] is
+//! Every waiting request fails with [`Error::Closed`], an [`Event::Disconnected`] is
 //! broadcast, and [`Client::state`] turns to [`ConnectionState::Closed`]. **The client does not
 //! reconnect by itself**: after a reconnect the application and the accounts must be authorized
 //! again and the subscriptions renewed, which is the caller's business (see [`crate::session`] for
@@ -51,7 +51,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, trace, warn};
 
 use crate::config::{ClientCredentials, ConnectionConfig, Environment};
-use crate::error::{ErrorKind, OpenApiError, Result};
+use crate::error::{Error, ErrorKind, Result};
 use crate::event::{DisconnectReason, Event, error_of, event_from, order_error_of};
 use crate::transport::messages::{
     AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
@@ -75,6 +75,7 @@ pub(crate) enum RateClass {
 
 /// Whether the connection is usable.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ConnectionState {
     /// The socket is open.
     Connected,
@@ -160,7 +161,7 @@ impl Shared {
         }
         let waiters: Vec<_> = self.pending().drain().map(|(_, waiter)| waiter).collect();
         for waiter in waiters {
-            let _ = waiter.send(Err(OpenApiError::Closed));
+            let _ = waiter.send(Err(Error::Closed));
         }
         self.state
             .send_replace(ConnectionState::Closed(reason.clone()));
@@ -168,7 +169,21 @@ impl Shared {
     }
 }
 
-/// A connection to the cTrader Open API. See the [module docs](self).
+/// A connection to the cTrader Open API: one WebSocket, shared by every account and sub-client
+/// built from it.
+///
+/// ```no_run
+/// # async fn demo() -> wyck_openapi::Result<()> {
+/// use wyck_openapi::{ClientBuilder, ClientCredentials, Environment};
+///
+/// let client = ClientBuilder::new(Environment::Demo)
+///     .credentials(ClientCredentials::new("client-id", "client-secret"))
+///     .connect()
+///     .await?;
+/// println!("server {}", client.version().await?);
+/// client.close().await;
+/// # Ok(()) }
+/// ```
 ///
 /// Cheap to clone: every clone (and every sub-client built from one, such as
 /// [`AccountClient`](crate::AccountClient)) shares the same background task and socket. Calling
@@ -216,8 +231,8 @@ impl Client {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Config`] for unusable settings, [`OpenApiError::Timeout`] when the connection
-    /// takes longer than `connect_timeout`, [`OpenApiError::Transport`] when it fails (address, TLS,
+    /// [`Error::Config`] for unusable settings, [`Error::Timeout`] when the connection
+    /// takes longer than `connect_timeout`, [`Error::Transport`] when it fails (address, TLS,
     /// handshake).
     pub async fn connect(config: &ConnectionConfig) -> Result<Self> {
         config.validate()?;
@@ -229,13 +244,13 @@ impl Client {
         .await
         .map_err(|_| {
             warn!(url = %config.url, timeout = ?config.connect_timeout, "the connection timed out");
-            OpenApiError::Timeout {
+            Error::Timeout {
                 operation: "the connection",
             }
         })?
         .map_err(|e| {
             warn!(url = %config.url, error = %e, "the connection failed");
-            OpenApiError::Transport(e.to_string())
+            Error::Transport(e.to_string())
         })?;
 
         let (outgoing_tx, outgoing_rx) = mpsc::channel(OUTGOING_QUEUE);
@@ -294,7 +309,7 @@ impl Client {
         self.shared.closed.load(Ordering::SeqCst)
     }
 
-    /// Closes the connection. Requests still waiting fail with [`OpenApiError::Closed`]. Calling it
+    /// Closes the connection. Requests still waiting fail with [`Error::Closed`]. Calling it
     /// again, or on a closed client, does nothing.
     pub async fn close(&self) {
         if self.is_closed() {
@@ -395,7 +410,7 @@ impl Client {
                     ?elapsed,
                     "unexpected message type answering a request"
                 );
-                Err(OpenApiError::Protocol(format!(
+                Err(Error::Protocol(format!(
                     "expected message {response_type} for {operation}, got {other}"
                 )))
             }
@@ -411,7 +426,7 @@ impl Client {
         operation: &'static str,
     ) -> Result<Envelope> {
         if self.is_closed() {
-            return Err(OpenApiError::Closed);
+            return Err(Error::Closed);
         }
         match class {
             RateClass::Standard => self.shared.standard.acquire().await,
@@ -429,7 +444,7 @@ impl Client {
         // A connection that ended between the check above and now would leave this waiter alone
         // forever, so look again after registering.
         if self.is_closed() {
-            return Err(OpenApiError::Closed);
+            return Err(Error::Closed);
         }
         trace!(operation, request_type, id = %id, "sending request");
         match tokio::time::timeout(
@@ -439,20 +454,20 @@ impl Client {
         .await
         {
             Ok(Ok(())) => {}
-            Ok(Err(_)) => return Err(OpenApiError::Closed),
+            Ok(Err(_)) => return Err(Error::Closed),
             Err(_) => {
                 warn!(operation, request_type, id = %id, "timed out sending the request");
-                return Err(OpenApiError::Timeout { operation });
+                return Err(Error::Timeout { operation });
             }
         }
 
         match tokio::time::timeout(self.shared.request_timeout, rx).await {
             Ok(Ok(answer)) => answer,
             // The sender was dropped without an answer: the connection is gone.
-            Ok(Err(_)) => Err(OpenApiError::Closed),
+            Ok(Err(_)) => Err(Error::Closed),
             Err(_) => {
                 warn!(operation, request_type, id = %id, "timed out waiting for the answer");
-                Err(OpenApiError::Timeout { operation })
+                Err(Error::Timeout { operation })
             }
         }
     }

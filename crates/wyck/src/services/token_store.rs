@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use async_trait::async_trait;
 use wyck_config::{OpenApiTokenStorage, OpenApiTokens};
-use wyck_openapi::OpenApiError;
+use wyck_openapi::Error as ApiError;
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::session::TokenStore;
 
@@ -49,13 +49,13 @@ impl TokenStore for ConfigTokenStore {
         self.storage
             .load()
             .map(|stored| stored.map(to_token_set))
-            .map_err(|error| OpenApiError::Config(format!("could not read the tokens: {error}")))
+            .map_err(|error| ApiError::Config(format!("could not read the tokens: {error}")))
     }
 
     async fn save(&self, tokens: &TokenSet) -> wyck_openapi::Result<()> {
         self.storage
             .save(&to_stored(tokens))
-            .map_err(|error| OpenApiError::Config(format!("could not save the tokens: {error}")))
+            .map_err(|error| ApiError::Config(format!("could not save the tokens: {error}")))
     }
 }
 

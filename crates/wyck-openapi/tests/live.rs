@@ -60,14 +60,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use secrecy::SecretString;
+use wyck_openapi::AccountClient;
+use wyck_openapi::TraderAccount;
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-use wyck_openapi::handle::AccountClient;
 use wyck_openapi::market::symbols::{LightSymbol, Symbol};
 use wyck_openapi::market::{Period, QuoteType, merge_sides, to_price};
 use wyck_openapi::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
 use wyck_openapi::trading::{ExecutionType, NewOrderReq};
-use wyck_openapi::transport::messages::TraderAccount;
 use wyck_openapi::{Client, Event};
 
 fn init_tracing() {

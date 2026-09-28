@@ -8,8 +8,8 @@
 //! # Non-idempotency
 //!
 //! [`TradingClient::new_order`] and its siblings are not guaranteed idempotent. If a request times
-//! out ([`crate::OpenApiError::Timeout`]) or the connection drops while it is in flight
-//! ([`crate::OpenApiError::Closed`]), the order may still have reached the server: the answer was
+//! out ([`crate::Error::Timeout`]) or the connection drops while it is in flight
+//! ([`crate::Error::Closed`]), the order may still have reached the server: the answer was
 //! lost, not necessarily the request. Sending the same order again on a bare timeout can double a
 //! position. Instead, check what the account actually holds first:
 //! [`crate::account::AccountDataClient::open_positions_and_orders`] (`ProtoOAReconcileReq`) for

@@ -12,7 +12,7 @@ use std::future::Future;
 
 use wyck_openapi::market::{Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteType, Tick};
 use wyck_openapi::session::Session;
-use wyck_openapi::{OpenApiError, Result};
+use wyck_openapi::{Error as ApiError, Result};
 
 use super::data::{aggregate_ticks, bucket_start, group_bars, last_group};
 use super::timeframe::Timeframe;
@@ -104,7 +104,7 @@ impl History for MarketClient {
 }
 
 pub(super) fn market(session: &Session) -> Result<MarketClient> {
-    let client = session.client().ok_or(OpenApiError::Closed)?;
+    let client = session.client().ok_or(ApiError::Closed)?;
     Ok(client.account(session.account_id()).market())
 }
 
@@ -351,7 +351,7 @@ mod tests {
             let (start, end, fail) = (self.start, self.end, self.fail);
             async move {
                 if fail {
-                    return Err(OpenApiError::Closed);
+                    return Err(ApiError::Closed);
                 }
                 assert!(
                     (to_ms - from_ms) / step <= CHUNK_BARS,

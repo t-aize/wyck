@@ -1041,7 +1041,7 @@ impl OrderTicket {
                 return;
             }
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(wyck_openapi::OpenApiError::Closed)?;
+                let client = session.client().ok_or(wyck_openapi::Error::Closed)?;
                 client
                     .account(session.account_id())
                     .margin()

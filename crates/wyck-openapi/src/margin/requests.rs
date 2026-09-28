@@ -40,6 +40,7 @@ pub struct MarginCallUpdateReq {
 /// `ProtoOAExpectedMarginRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ExpectedMarginRes {
     /// One estimate per volume asked about.
     #[serde(default)]
@@ -52,6 +53,7 @@ pub struct ExpectedMarginRes {
 /// `ProtoOAMarginCallListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct MarginCallListRes {
     /// The three thresholds of the account.
     #[serde(default)]
@@ -61,6 +63,7 @@ pub struct MarginCallListRes {
 /// `ProtoOAGetDynamicLeverageByIDRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct GetDynamicLeverageRes {
     /// The schedule asked for.
     pub leverage: DynamicLeverage,

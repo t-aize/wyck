@@ -1,15 +1,19 @@
 //! The errors of this crate, and how to react to each.
 //!
-//! Everything that can go wrong is an [`OpenApiError`]. Most callers do not need the variants:
-//! [`OpenApiError::kind`] sorts them into a short list of [`ErrorKind`]s, and
-//! [`OpenApiError::is_retryable`] says whether trying again later can work. The error codes are
+//! Everything that can go wrong is an [`Error`]. Most callers do not need the variants:
+//! [`Error::kind`] sorts them into a short list of [`ErrorKind`]s, and
+//! [`Error::is_retryable`] says whether trying again later can work. The error codes are
 //! the strings the server sends in `ProtoOAErrorRes.errorCode`, taken from the official
 //! `ProtoOAErrorCode` list.
 
 use std::time::Duration;
 
 /// A specialized `Result` for this crate.
-pub type Result<T> = std::result::Result<T, OpenApiError>;
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// The former name of [`Error`].
+#[deprecated(since = "0.4.0", note = "renamed to `Error`")]
+pub type OpenApiError = Error;
 
 /// What went wrong, in a few words a caller can act on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -40,9 +44,28 @@ pub enum ErrorKind {
 }
 
 /// Every failure of the Open API client.
+///
+/// Match on [`Error::kind`] rather than on the variants: new variants may come in a minor
+/// release, the kinds are the stable way to decide what to do.
+///
+/// ```no_run
+/// # async fn demo(account: wyck_openapi::AccountClient) {
+/// use wyck_openapi::ErrorKind;
+///
+/// match account.account_data().trader().await {
+///     Ok(trader) => println!("balance {}", trader.balance_amount()),
+///     Err(error) if error.kind() == ErrorKind::TokenInvalid => { /* refresh, then retry */ }
+///     Err(error) if error.is_retryable() => {
+///         let wait = error.retry_after().unwrap_or(std::time::Duration::from_secs(1));
+///         println!("try again in {wait:?}");
+///     }
+///     Err(error) => eprintln!("{error}"),
+/// }
+/// # }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
-pub enum OpenApiError {
+pub enum Error {
     /// The configuration cannot be used (an address that is not a WebSocket URL, and so on).
     #[error("invalid configuration: {0}")]
     Config(String),
@@ -85,7 +108,7 @@ pub enum OpenApiError {
     Auth(String),
 }
 
-impl OpenApiError {
+impl Error {
     /// A server error from the fields of `ProtoOAErrorRes`. `retry_after_secs` is in seconds and
     /// `maintenance_end` is a Unix time in seconds, both as the server sends them.
     #[must_use]
@@ -184,8 +207,8 @@ impl OpenApiError {
 mod tests {
     use super::*;
 
-    fn server(code: &str) -> OpenApiError {
-        OpenApiError::server(code, None, None, None)
+    fn server(code: &str) -> Error {
+        Error::server(code, None, None, None)
     }
 
     #[test]
@@ -273,28 +296,28 @@ mod tests {
     fn only_transient_failures_are_retryable() {
         assert!(server("REQUEST_FREQUENCY_EXCEEDED").is_retryable());
         assert!(server("SERVER_IS_UNDER_MAINTENANCE").is_retryable());
-        assert!(OpenApiError::Timeout { operation: "x" }.is_retryable());
-        assert!(OpenApiError::Transport("x".into()).is_retryable());
+        assert!(Error::Timeout { operation: "x" }.is_retryable());
+        assert!(Error::Transport("x".into()).is_retryable());
         assert!(!server("SYMBOL_NOT_FOUND").is_retryable());
         assert!(!server("CH_ACCESS_TOKEN_INVALID").is_retryable());
-        assert!(!OpenApiError::Closed.is_retryable());
-        assert!(!OpenApiError::Protocol("x".into()).is_retryable());
+        assert!(!Error::Closed.is_retryable());
+        assert!(!Error::Protocol("x".into()).is_retryable());
     }
 
     #[test]
     fn the_server_advice_on_waiting_is_kept() {
-        let e = OpenApiError::server("BLOCKED_PAYLOAD_TYPE", None, Some(2), None);
+        let e = Error::server("BLOCKED_PAYLOAD_TYPE", None, Some(2), None);
         assert_eq!(e.retry_after(), Some(Duration::from_secs(2)));
         assert_eq!(e.kind(), ErrorKind::RateLimited);
         assert_eq!(e.code(), Some("BLOCKED_PAYLOAD_TYPE"));
-        assert_eq!(OpenApiError::Closed.retry_after(), None);
-        let negative = OpenApiError::server("X", None, Some(-5), None);
+        assert_eq!(Error::Closed.retry_after(), None);
+        let negative = Error::server("X", None, Some(-5), None);
         assert_eq!(negative.retry_after(), None, "a nonsense value is dropped");
     }
 
     #[test]
     fn the_message_names_the_code_and_the_description() {
-        let e = OpenApiError::server(
+        let e = Error::server(
             "SYMBOL_NOT_FOUND",
             Some("no such symbol".into()),
             None,

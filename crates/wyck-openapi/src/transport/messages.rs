@@ -35,6 +35,7 @@ pub struct AccountAuthReq {
 /// `ProtoOAAccountAuthRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AccountAuthRes {
     /// The account that was authorized.
     #[serde(deserialize_with = "flex::int")]
@@ -52,6 +53,7 @@ pub struct GetAccountsByAccessTokenReq {
 /// One trading account of a cTrader ID (`ProtoOACtidTraderAccount`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct TraderAccount {
     /// The id to pass as `ctidTraderAccountId`.
     #[serde(deserialize_with = "flex::int")]
@@ -70,6 +72,7 @@ pub struct TraderAccount {
 /// `ProtoOAGetAccountListByAccessTokenRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AccountsRes {
     /// The permission of the token: 0 view, 1 trade.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -90,6 +93,7 @@ pub struct RefreshTokenReq {
 /// `ProtoOARefreshTokenRes`.
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct RefreshTokenRes {
     /// The new access token.
     pub access_token: String,
@@ -110,6 +114,7 @@ pub struct VersionReq {}
 /// `ProtoOAVersionRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct VersionRes {
     /// The proxy's version.
     pub version: String,
@@ -126,6 +131,7 @@ pub struct CtidProfileReq {
 /// The profile of a cTrader ID (`ProtoOACtidProfile`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct CtidProfile {
     /// The user id.
     #[serde(deserialize_with = "flex::int")]
@@ -135,6 +141,7 @@ pub struct CtidProfile {
 /// `ProtoOAGetCtidProfileByTokenRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct CtidProfileRes {
     /// The profile.
     pub profile: CtidProfile,
@@ -152,6 +159,7 @@ pub struct AccountReq {
 /// `ProtoOAErrorRes` (and the proxy's own `ProtoErrorRes`, which has the same useful fields).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ErrorRes {
     /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -173,6 +181,7 @@ pub struct ErrorRes {
 /// `ProtoOAAccountsTokenInvalidatedEvent`: tokens stopped working.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AccountsTokenInvalidatedEvent {
     /// The accounts whose tokens were invalidated.
     #[serde(default, deserialize_with = "flex::list")]
@@ -185,6 +194,7 @@ pub struct AccountsTokenInvalidatedEvent {
 /// `ProtoOAClientDisconnectEvent`: the server is ending the connection.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ClientDisconnectEvent {
     /// Why.
     #[serde(default)]
@@ -194,6 +204,7 @@ pub struct ClientDisconnectEvent {
 /// `ProtoOAAccountDisconnectEvent`: an account was logged out of the connection.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AccountDisconnectEvent {
     /// The account.
     #[serde(deserialize_with = "flex::int")]

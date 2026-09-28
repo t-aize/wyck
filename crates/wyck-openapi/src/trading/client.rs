@@ -1,12 +1,25 @@
 //! [`TradingClient`]: the calls themselves.
 
 use super::*;
-use crate::error::{OpenApiError, Result};
+use crate::error::{Error, Result};
 use crate::transport::connection::{Client, RateClass};
 use crate::transport::wire::payload;
 
 /// Trading bound to one account: places, amends and cancels orders, closes positions. See
 /// [`crate::AccountClient::trading`] and the [module docs](crate::trading) for the non-idempotency caveat.
+///
+/// ```no_run
+/// # async fn demo(account: wyck_openapi::AccountClient) -> wyck_openapi::Result<()> {
+/// use wyck_openapi::account::TradeSide;
+/// use wyck_openapi::trading::NewOrderReq;
+///
+/// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.
+/// let order = NewOrderReq::market(1, TradeSide::Buy, 100_000)
+///     .with_protection(Some(1.0750), Some(1.0950));
+/// let execution = account.trading().new_order(order).await?;
+/// println!("{:?}", execution.kind());
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone)]
 pub struct TradingClient {
     client: Client,
@@ -68,7 +81,7 @@ impl TradingClient {
     /// `ORDER_NOT_FOUND`, `UNABLE_TO_CANCEL_ORDER`, and the usual account errors.
     pub async fn cancel_order(&self, order_id: i64) -> Result<ExecutionEvent> {
         if order_id <= 0 {
-            return Err(OpenApiError::Config("order id must be positive".into()));
+            return Err(Error::Config("order id must be positive".into()));
         }
         self.client
             .call(
@@ -94,7 +107,7 @@ impl TradingClient {
     pub async fn amend_order(&self, mut request: AmendOrderReq) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
         if request.order_id <= 0 {
-            return Err(OpenApiError::Config("order id must be positive".into()));
+            return Err(Error::Config("order id must be positive".into()));
         }
         check_prices(&[
             request.limit_price,
@@ -122,7 +135,7 @@ impl TradingClient {
     /// close volume larger than the position, and the usual account errors.
     pub async fn close_position(&self, position_id: i64, volume: i64) -> Result<ExecutionEvent> {
         if position_id <= 0 || volume <= 0 {
-            return Err(OpenApiError::Config(
+            return Err(Error::Config(
                 "position id and close volume must be positive".into(),
             ));
         }
@@ -154,7 +167,7 @@ impl TradingClient {
     ) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
         if request.position_id <= 0 {
-            return Err(OpenApiError::Config("position id must be positive".into()));
+            return Err(Error::Config("position id must be positive".into()));
         }
         check_prices(&[request.stop_loss, request.take_profit])?;
         self.client
@@ -175,7 +188,7 @@ fn check_prices(prices: &[Option<f64>]) -> Result<()> {
         .flatten()
         .any(|price| !price.is_finite() || *price <= 0.0)
     {
-        return Err(OpenApiError::Config(
+        return Err(Error::Config(
             "trading prices must be finite and positive".into(),
         ));
     }

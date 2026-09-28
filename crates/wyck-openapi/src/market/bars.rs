@@ -245,6 +245,7 @@ pub struct GetTrendbarsReq {
 /// `ProtoOAGetTrendbarsRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct GetTrendbarsRes {
     /// The bars.
     #[serde(default)]

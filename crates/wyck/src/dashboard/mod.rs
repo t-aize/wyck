@@ -31,7 +31,7 @@ use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
 use wyck_openapi::market::{PRICE_SCALE, Spot, format_price};
 use wyck_openapi::session::{Session, SessionEvent, SessionState};
-use wyck_openapi::{Event, OpenApiError};
+use wyck_openapi::{Error as ApiError, Event};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
@@ -400,14 +400,14 @@ impl Dashboard {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let loaded = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let market = account.market();
                 let symbols = market.symbols().await?;
                 let categories = market.symbol_categories().await?;
                 let classes = market.asset_classes().await?;
                 let assets = market.assets().await?;
-                Ok::<_, OpenApiError>(Catalog::build(symbols, categories, classes, assets))
+                Ok::<_, ApiError>(Catalog::build(symbols, categories, classes, assets))
             })
             .await;
             let _ = this.update(cx, |this, cx| {
@@ -519,13 +519,13 @@ impl Dashboard {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let fetched = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let details = account.market().symbol_details(&[id]).await?;
                 details
                     .into_iter()
                     .find(|d| d.symbol_id == id)
-                    .ok_or_else(|| OpenApiError::Protocol("the broker sent no details".into()))
+                    .ok_or_else(|| ApiError::Protocol("the broker sent no details".into()))
             })
             .await;
             let _ = this.update(cx, |this, cx| match fetched {
@@ -767,7 +767,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
 }
 
 /// What to tell the user about a session that ended for good.
-fn failure_message(error: &OpenApiError) -> String {
+fn failure_message(error: &ApiError) -> String {
     format!("{error}. Sign in again to keep going.")
 }
 

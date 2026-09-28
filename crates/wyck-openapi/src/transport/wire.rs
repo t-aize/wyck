@@ -299,7 +299,7 @@ impl Envelope {
     ///
     /// # Errors
     ///
-    /// [`crate::OpenApiError::Protocol`] when the payload cannot be turned into JSON.
+    /// [`crate::Error::Protocol`] when the payload cannot be turned into JSON.
     pub fn request<T: Serialize>(
         payload_type: u32,
         id: impl Into<String>,
@@ -308,9 +308,8 @@ impl Envelope {
         Ok(Self {
             client_msg_id: Some(id.into()),
             payload_type,
-            payload: serde_json::to_value(payload).map_err(|e| {
-                crate::OpenApiError::Protocol(format!("cannot encode a request: {e}"))
-            })?,
+            payload: serde_json::to_value(payload)
+                .map_err(|e| crate::Error::Protocol(format!("cannot encode a request: {e}")))?,
         })
     }
 
@@ -328,10 +327,10 @@ impl Envelope {
     ///
     /// # Errors
     ///
-    /// [`crate::OpenApiError::Protocol`] when the payload does not have the shape of `T`.
+    /// [`crate::Error::Protocol`] when the payload does not have the shape of `T`.
     pub fn decode<T: serde::de::DeserializeOwned>(&self) -> crate::Result<T> {
         serde_json::from_value(self.payload.clone()).map_err(|e| {
-            crate::OpenApiError::Protocol(format!(
+            crate::Error::Protocol(format!(
                 "cannot read message {} as {}: {e}",
                 self.payload_type,
                 std::any::type_name::<T>()
@@ -346,20 +345,20 @@ impl Envelope {
     ///
     /// # Errors
     ///
-    /// [`crate::OpenApiError::Protocol`] when it cannot be serialized.
+    /// [`crate::Error::Protocol`] when it cannot be serialized.
     pub fn to_text(&self) -> crate::Result<String> {
         serde_json::to_string(self)
-            .map_err(|e| crate::OpenApiError::Protocol(format!("cannot encode a message: {e}")))
+            .map_err(|e| crate::Error::Protocol(format!("cannot encode a message: {e}")))
     }
 
     /// Reads a text frame.
     ///
     /// # Errors
     ///
-    /// [`crate::OpenApiError::Protocol`] when it is not a valid envelope.
+    /// [`crate::Error::Protocol`] when it is not a valid envelope.
     pub fn from_text(text: &str) -> crate::Result<Self> {
         serde_json::from_str(text)
-            .map_err(|e| crate::OpenApiError::Protocol(format!("not a valid message: {e}")))
+            .map_err(|e| crate::Error::Protocol(format!("not a valid message: {e}")))
     }
 }
 

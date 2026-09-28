@@ -10,6 +10,14 @@ use crate::transport::wire::payload;
 
 /// Margin bound to one account: expected margin, margin call thresholds, dynamic leverage. See
 /// [`crate::AccountClient::margin`].
+///
+/// ```no_run
+/// # async fn demo(account: wyck_openapi::AccountClient) -> wyck_openapi::Result<()> {
+/// for call in account.margin().margin_calls().await? {
+///     println!("{:?} at {}%", call.kind(), call.margin_level_threshold);
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone)]
 pub struct MarginClient {
     client: Client,

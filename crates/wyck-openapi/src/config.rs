@@ -43,6 +43,7 @@ impl Environment {
 /// How the connection behaves. [`ConnectionConfig::new`] gives the settings the documentation
 /// asks for; every field can be changed.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ConnectionConfig {
     /// The WebSocket address to connect to (`wss://...`, or `ws://...` for a local test server).
     pub url: String,
@@ -97,10 +98,10 @@ impl ConnectionConfig {
     ///
     /// # Errors
     ///
-    /// [`crate::OpenApiError::Config`] when the address is not a WebSocket URL, a rate is zero,
+    /// [`crate::Error::Config`] when the address is not a WebSocket URL, a rate is zero,
     /// or the heartbeat is not under the server's 10 second silence limit.
     pub fn validate(&self) -> crate::Result<()> {
-        let bad = |what: &str| Err(crate::OpenApiError::Config(what.to_owned()));
+        let bad = |what: &str| Err(crate::Error::Config(what.to_owned()));
         if !(self.url.starts_with("wss://") || self.url.starts_with("ws://")) {
             return bad("the address must start with wss:// or ws://");
         }

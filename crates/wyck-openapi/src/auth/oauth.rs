@@ -16,8 +16,8 @@
 //!    [`crate::AccountClient::authorize`].
 //!
 //! Errors are told apart on purpose: a refusal by the server (a bad code, a revoked refresh token) is
-//! [`OpenApiError::Auth`] and will not get better by trying again, while a failure to reach the endpoint
-//! is [`OpenApiError::Transport`] and may. The session relies on that difference.
+//! [`Error::Auth`] and will not get better by trying again, while a failure to reach the endpoint
+//! is [`Error::Transport`] and may. The session relies on that difference.
 //!
 //! The token endpoint is a plain HTTPS `GET` with the secret in the query string. That is how the
 //! server wants it, and it is why errors from the HTTP layer are stripped of their URL here: a
@@ -31,7 +31,7 @@ use serde::Deserialize;
 use tracing::{debug, warn};
 
 use crate::config::ClientCredentials;
-use crate::error::{OpenApiError, Result};
+use crate::error::{Error, Result};
 use crate::transport::wire::flex;
 
 /// The consent page, where the user grants access.
@@ -141,27 +141,25 @@ struct TokenResponse {
 ///
 /// # Errors
 ///
-/// [`OpenApiError::Auth`] when the answer holds an error, or lacks a token. The text names the
+/// [`Error::Auth`] when the answer holds an error, or lacks a token. The text names the
 /// server's error code and description, never a token.
 pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
     let response: TokenResponse = serde_json::from_slice(body)
-        .map_err(|_| OpenApiError::Auth("the token endpoint sent an unreadable answer".into()))?;
+        .map_err(|_| Error::Auth("the token endpoint sent an unreadable answer".into()))?;
     if let Some(code) = response.error_code.filter(|c| !c.is_empty()) {
         let detail = response.description.filter(|d| !d.is_empty());
-        return Err(OpenApiError::Auth(match detail {
+        return Err(Error::Auth(match detail {
             Some(detail) => format!("{code}: {detail}"),
             None => code,
         }));
     }
     let (Some(access), Some(refresh)) = (response.access_token, response.refresh_token) else {
-        return Err(OpenApiError::Auth(
+        return Err(Error::Auth(
             "the token endpoint answered without tokens".into(),
         ));
     };
     if access.is_empty() || refresh.is_empty() {
-        return Err(OpenApiError::Auth(
-            "the token endpoint sent an empty token".into(),
-        ));
+        return Err(Error::Auth("the token endpoint sent an empty token".into()));
     }
     Ok(TokenSet {
         access_token: SecretString::from(access),
@@ -176,6 +174,17 @@ pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
 }
 
 /// Talks to the token endpoint for one application.
+///
+/// ```no_run
+/// # async fn demo(refresh_token: &str) -> wyck_openapi::Result<()> {
+/// use wyck_openapi::ClientCredentials;
+/// use wyck_openapi::auth::OAuthClient;
+///
+/// let oauth = OAuthClient::new(ClientCredentials::new("client-id", "client-secret"))?;
+/// let tokens = oauth.refresh(refresh_token).await?;
+/// println!("valid until {:?}", tokens.expires_at());
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone)]
 pub struct OAuthClient {
     http: reqwest::Client,
@@ -188,13 +197,13 @@ impl OAuthClient {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Config`] when the HTTP client cannot be built (no TLS backend, for one).
+    /// [`Error::Config`] when the HTTP client cannot be built (no TLS backend, for one).
     pub fn new(credentials: ClientCredentials) -> Result<Self> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|e| {
-                OpenApiError::Config(format!("cannot build the HTTP client: {}", e.without_url()))
+                Error::Config(format!("cannot build the HTTP client: {}", e.without_url()))
             })?;
         Ok(Self {
             http,
@@ -216,7 +225,7 @@ impl OAuthClient {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Auth`] for a refused, expired or reused code, or when the endpoint cannot
+    /// [`Error::Auth`] for a refused, expired or reused code, or when the endpoint cannot
     /// be reached.
     pub async fn exchange_code(&self, code: &str, redirect_uri: &str) -> Result<TokenSet> {
         self.request_tokens(&[
@@ -232,7 +241,7 @@ impl OAuthClient {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Auth`] when the refresh token is unknown, already used, or revoked: the user
+    /// [`Error::Auth`] when the refresh token is unknown, already used, or revoked: the user
     /// has to sign in again.
     pub async fn refresh(&self, refresh_token: &str) -> Result<TokenSet> {
         self.request_tokens(&[
@@ -247,7 +256,7 @@ impl OAuthClient {
         // and never the URL built below (it carries the client secret in its query string).
         let grant_type = params.first().map_or("?", |(_, value)| *value);
         let mut url = Url::parse(&self.token_url)
-            .map_err(|_| OpenApiError::Config("the token endpoint is not a valid URL".into()))?;
+            .map_err(|_| Error::Config("the token endpoint is not a valid URL".into()))?;
         {
             let mut query = url.query_pairs_mut();
             for (key, value) in params {
@@ -265,27 +274,23 @@ impl OAuthClient {
         let response = self.http.get(url).send().await.map_err(|e| {
             let error = e.without_url();
             warn!(grant_type, %error, "the token endpoint could not be reached");
-            OpenApiError::Transport(format!("the token endpoint could not be reached: {error}"))
+            Error::Transport(format!("the token endpoint could not be reached: {error}"))
         })?;
         let status = response.status();
         let body = response.bytes().await.map_err(|e| {
             let error = e.without_url();
             warn!(grant_type, %status, %error, "the token answer could not be read");
-            OpenApiError::Transport(format!("the token answer could not be read: {error}"))
+            Error::Transport(format!("the token answer could not be read: {error}"))
         })?;
         let result = match parse_token_response(&body, SystemTime::now()) {
             Ok(tokens) if status.is_success() => Ok(tokens),
-            Ok(_) => Err(OpenApiError::Auth(format!(
-                "the token endpoint answered {status}"
-            ))),
+            Ok(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
             // An error body is more useful than the bare status.
             Err(error) if status.is_success() => Err(error),
-            Err(OpenApiError::Auth(text)) if !text.starts_with("the token endpoint") => {
-                Err(OpenApiError::Auth(format!("{text} ({status})")))
+            Err(Error::Auth(text)) if !text.starts_with("the token endpoint") => {
+                Err(Error::Auth(format!("{text} ({status})")))
             }
-            Err(_) => Err(OpenApiError::Auth(format!(
-                "the token endpoint answered {status}"
-            ))),
+            Err(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
         };
         match &result {
             Ok(tokens) => debug!(

@@ -99,7 +99,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 use wyck_openapi::session::Session;
-use wyck_openapi::{OpenApiError, Result as ApiResult};
+use wyck_openapi::{Error as ApiError, Result as ApiResult};
 
 use self::data::Series;
 use self::display::Display;
@@ -822,7 +822,7 @@ fn empty_series(timeframe: Timeframe) -> Series {
 fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
     match result {
         Ok(inner) => inner,
-        Err(_) => Err(OpenApiError::Closed),
+        Err(_) => Err(ApiError::Closed),
     }
 }
 

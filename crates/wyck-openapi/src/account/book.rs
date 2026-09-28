@@ -20,6 +20,7 @@ const MAX_DEALS: usize = 500;
 
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Tone {
     /// Worth knowing.
     Info,
@@ -52,6 +53,25 @@ pub struct Applied {
 }
 
 /// The account's state, rebuilt from a reconcile answer and kept current by execution events.
+///
+/// ```no_run
+/// # async fn demo(account: wyck_openapi::AccountClient) -> wyck_openapi::Result<()> {
+/// use wyck_openapi::Event;
+/// use wyck_openapi::account::book::AccountBook;
+///
+/// let mut book = AccountBook::default();
+/// let mut events = account.client().events();
+/// let (positions, orders) = account.account_data().open_positions_and_orders(false).await?;
+/// book.reconcile(positions, orders);
+/// while let Ok(event) = events.recv().await {
+///     if let Event::Execution(execution) = event {
+///         if let Some(notice) = book.apply(&execution).notice {
+///             println!("{}: {}", notice.title, notice.message);
+///         }
+///     }
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct AccountBook {
     /// The account itself, once the server sent it.

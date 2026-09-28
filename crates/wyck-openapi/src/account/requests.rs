@@ -117,6 +117,7 @@ pub struct DealOffsetListReq {
 /// `ProtoOATraderRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct TraderRes {
     /// The account.
     pub trader: Trader,
@@ -125,6 +126,7 @@ pub struct TraderRes {
 /// `ProtoOAReconcileRes`: everything the account holds right now.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct ReconcileRes {
     /// The open positions.
     #[serde(default)]
@@ -137,6 +139,7 @@ pub struct ReconcileRes {
 /// `ProtoOADealListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DealListRes {
     /// The deals.
     #[serde(default)]
@@ -149,6 +152,7 @@ pub struct DealListRes {
 /// `ProtoOAOrderListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct OrderListRes {
     /// The orders.
     #[serde(default)]
@@ -161,6 +165,7 @@ pub struct OrderListRes {
 /// `ProtoOATraderUpdatedEvent`: the account changed (a balance moved).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct TraderUpdatedEvent {
     /// The account after the change.
     pub trader: Trader,
@@ -169,6 +174,7 @@ pub struct TraderUpdatedEvent {
 /// `ProtoOACashFlowHistoryListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct CashFlowHistoryListRes {
     /// The deposits and withdrawals of the range.
     #[serde(default)]
@@ -178,6 +184,7 @@ pub struct CashFlowHistoryListRes {
 /// `ProtoOADealListByPositionIdRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DealListByPositionIdRes {
     /// The deals of the position.
     #[serde(default)]
@@ -190,6 +197,7 @@ pub struct DealListByPositionIdRes {
 /// `ProtoOAOrderListByPositionIdRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct OrderListByPositionIdRes {
     /// The orders of the position, newest first.
     #[serde(default)]
@@ -202,6 +210,7 @@ pub struct OrderListByPositionIdRes {
 /// `ProtoOAOrderDetailsRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct OrderDetailsRes {
     /// The order.
     pub order: Order,
@@ -213,6 +222,7 @@ pub struct OrderDetailsRes {
 /// `ProtoOADealOffsetListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DealOffsetListRes {
     /// Deals that closed the one asked about.
     #[serde(default)]
@@ -225,6 +235,7 @@ pub struct DealOffsetListRes {
 /// `ProtoOAGetPositionUnrealizedPnLRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct PositionUnrealizedPnLRes {
     /// The unrealized profit or loss of every open position. Renamed explicitly: the server's
     /// field is `positionUnrealizedPnL` (capital `L`), which plain camelCase would not reproduce

@@ -104,7 +104,7 @@ impl NewOrderReq {
     /// Checks values that would otherwise encode incorrectly or produce a known refusal.
     /// The server still decides whether the symbol, account and price are tradable.
     pub fn validate(&self) -> crate::Result<()> {
-        let bad = |message: &str| Err(crate::OpenApiError::Config(message.to_owned()));
+        let bad = |message: &str| Err(crate::Error::Config(message.to_owned()));
         if self.symbol_id <= 0 || self.volume <= 0 {
             return bad("an order needs a positive symbol id and volume");
         }

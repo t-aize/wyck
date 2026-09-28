@@ -81,6 +81,7 @@ pub struct GetTickDataReq {
 /// `ProtoOAGetTickDataRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct GetTickDataRes {
     /// The ticks, newest first.
     #[serde(default)]

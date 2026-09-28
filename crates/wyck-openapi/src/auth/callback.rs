@@ -34,7 +34,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, warn};
 
-use crate::error::{OpenApiError, Result};
+use crate::error::{Error, Result};
 
 /// The biggest request head read: a redirect is a few hundred bytes.
 const MAX_REQUEST_BYTES: usize = 8 * 1024;
@@ -87,18 +87,18 @@ impl CallbackListener {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Transport`] when the port cannot be used, usually because another program
+    /// [`Error::Transport`] when the port cannot be used, usually because another program
     /// holds it: the text says so, since the user can act on it.
     pub async fn bind(port: u16) -> Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| {
             warn!(port, error = %e, "cannot listen for the sign in redirect");
-            OpenApiError::Transport(format!(
+            Error::Transport(format!(
                 "cannot listen on port {port} for the sign in redirect ({e}); is it in use?"
             ))
         })?;
         let port = listener
             .local_addr()
-            .map_err(|e| OpenApiError::Transport(e.to_string()))?
+            .map_err(|e| Error::Transport(e.to_string()))?
             .port();
         debug!(port, "listening for the OAuth sign in redirect");
         Ok(Self { listener, port })
@@ -121,12 +121,12 @@ impl CallbackListener {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Timeout`] when nothing valid arrives in time, and [`OpenApiError::Auth`]
+    /// [`Error::Timeout`] when nothing valid arrives in time, and [`Error::Auth`]
     /// when the user refused (the redirect carried an `error`).
     pub async fn wait(self, expected_state: &str, timeout: Duration) -> Result<AuthorizationCode> {
         tokio::time::timeout(timeout, self.accept_until_code(expected_state))
             .await
-            .map_err(|_| OpenApiError::Timeout {
+            .map_err(|_| Error::Timeout {
                 operation: "the sign in in the browser",
             })?
     }
@@ -158,7 +158,7 @@ impl CallbackListener {
                 Redirect::Denied(reason) => {
                     warn!(%reason, "the sign in redirect denied access");
                     respond(&mut stream, "200 OK", FAILURE_PAGE).await;
-                    return Err(OpenApiError::Auth(reason));
+                    return Err(Error::Auth(reason));
                 }
                 Redirect::Ignore => {
                     debug!(
@@ -357,7 +357,7 @@ mod tests {
         let waiting = tokio::spawn(listener.wait("st", Duration::from_secs(5)));
         get(port, "/?error=access_denied&state=st").await;
         let error = waiting.await.unwrap().unwrap_err();
-        assert!(matches!(error, OpenApiError::Auth(_)));
+        assert!(matches!(error, Error::Auth(_)));
     }
 
     #[tokio::test(start_paused = true)]
@@ -367,7 +367,7 @@ mod tests {
             .wait("st", Duration::from_secs(60))
             .await
             .unwrap_err();
-        assert!(matches!(error, OpenApiError::Timeout { .. }));
+        assert!(matches!(error, Error::Timeout { .. }));
     }
 
     #[tokio::test]
