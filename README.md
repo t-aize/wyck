@@ -61,9 +61,9 @@ The workspace crates are:
 | `wyck-state` | Saved workspace preferences and layouts |
 | `wyck` | GPUI desktop application and bundled assets |
 
-Each crate's modules sit directly under its `src` directory. `crates/wyck/src/app` owns GPUI
+Each crate's modules sit directly under its `src` directory. `crates/wyck/src` owns GPUI
 views and connects the crates to the desktop. Its shared controls are in
-`crates/wyck/src/app/ui` and native app services are in `crates/wyck/src/app/services`.
+`crates/wyck/src/ui` and native app services are in `crates/wyck/src/services`.
 The Open API guide is in the `wyck-openapi` crate documentation.
 
 ## Your own indicators
