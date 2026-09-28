@@ -1,7 +1,5 @@
 //! The Style tab of the drawing settings: lines, caps, fill, the measure and profile options, and the saved templates.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {

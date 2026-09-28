@@ -1,7 +1,5 @@
 //! The stop loss and take profit of the order ticket, and the ATR stop options.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl OrderTicket {

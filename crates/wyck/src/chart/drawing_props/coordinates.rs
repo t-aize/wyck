@@ -1,7 +1,5 @@
 //! The Coordinates tab of the drawing settings: the exact time and price of each point.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {

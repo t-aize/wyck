@@ -1,7 +1,5 @@
 //! The reference of the indicator editor: every function a script can call.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl IndicatorEditor {

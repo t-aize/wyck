@@ -1,7 +1,5 @@
 //! The tabs of a long or short position: its trade and its look.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {

@@ -1,7 +1,5 @@
 //! The About page of the settings: the version, the build and the updates.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl SettingsHub {

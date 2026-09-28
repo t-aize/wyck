@@ -1,7 +1,5 @@
 //! The top of the order ticket: the header, the buy and sell buttons, the kind of order, the size and its presets.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl OrderTicket {

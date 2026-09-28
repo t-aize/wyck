@@ -1,7 +1,5 @@
 //! The console of the indicator editor: the problems of the script and what it printed.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl IndicatorEditor {

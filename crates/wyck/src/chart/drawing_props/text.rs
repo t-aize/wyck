@@ -1,7 +1,5 @@
 //! The Text tab of the drawing settings: the words, their place and the captions of the levels.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {

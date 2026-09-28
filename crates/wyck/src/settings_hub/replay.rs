@@ -1,7 +1,5 @@
 //! The Replay page of the settings.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl SettingsHub {

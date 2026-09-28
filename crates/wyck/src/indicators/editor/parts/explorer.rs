@@ -1,7 +1,5 @@
 //! The list of the scripts of the indicator editor, as a tree of folders, and its file menu.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl IndicatorEditor {

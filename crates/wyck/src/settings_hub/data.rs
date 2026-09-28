@@ -1,7 +1,5 @@
 //! The Data page of the settings: exporting and importing a backup of everything the user made.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl SettingsHub {

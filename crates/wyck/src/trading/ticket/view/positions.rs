@@ -1,7 +1,5 @@
 //! The open positions of the symbol, under the order ticket.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl OrderTicket {

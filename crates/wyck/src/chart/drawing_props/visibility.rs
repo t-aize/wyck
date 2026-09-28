@@ -1,7 +1,5 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {

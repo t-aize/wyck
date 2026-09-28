@@ -1,7 +1,5 @@
 //! The options block of the order ticket: expiry, slippage, comment and one-click trading.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl OrderTicket {

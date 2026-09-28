@@ -1,7 +1,5 @@
 //! The Indicators page of the settings: the scripts and their limits.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl SettingsHub {

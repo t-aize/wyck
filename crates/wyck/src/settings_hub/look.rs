@@ -1,7 +1,5 @@
 //! The Appearance page of the settings: the theme, the accent, the user's own themes, the fonts and the candle colors.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl SettingsHub {

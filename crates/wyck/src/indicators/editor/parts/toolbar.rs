@@ -1,7 +1,5 @@
 //! The toolbar of the indicator editor.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl IndicatorEditor {

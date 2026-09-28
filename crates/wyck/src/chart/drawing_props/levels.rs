@@ -1,7 +1,5 @@
 //! The Levels tab of the drawing settings.
 
-use gpui::prelude::*;
-
 use super::*;
 
 impl DrawingProps {
