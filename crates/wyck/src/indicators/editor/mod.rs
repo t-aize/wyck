@@ -247,7 +247,7 @@ impl IndicatorEditor {
             reference_filter,
             prompt: None,
             console: ConsoleTab::Problems,
-            reference_open: true,
+            reference_open: false,
             folded: BTreeSet::new(),
             notice: None,
             menu_target: None,

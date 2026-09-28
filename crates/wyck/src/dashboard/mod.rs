@@ -200,10 +200,12 @@ pub struct Dashboard {
     /// The editor of the indicator scripts, made when it is first opened.
     editor: Option<Entity<IndicatorEditor>>,
     editor_open: bool,
-    editor_height: f32,
-    /// Where the pointer was while the top edge of the editor is dragged.
+    /// How much of the window the editor drawer covers, from the right edge.
+    editor_share: f32,
+    /// Where the pointer was while the left edge of the editor drawer is dragged.
     editor_drag: Option<f32>,
-    /// The height of the window as last drawn, for the editor that is as tall as it.
+    /// The size of the window as last drawn, for the drawer that is a share of it.
+    viewport_width: f32,
     viewport_height: f32,
     /// Where the pointer was, and how wide the ticket was, when its edge was grabbed.
     ticket_drag: Option<(f32, f32)>,
@@ -304,8 +306,9 @@ impl Dashboard {
             panel_drag: None,
             editor: None,
             editor_open: false,
-            editor_height: editor_dock::DOCK_DEFAULT,
+            editor_share: editor_dock::SHARE_DEFAULT,
             editor_drag: None,
+            viewport_width: 1400.0,
             viewport_height: 800.0,
             ticket_drag: None,
             pending: Vec::new(),
