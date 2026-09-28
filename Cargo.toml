@@ -39,7 +39,7 @@ lsp-types = "0.97"
 proptest = "1.11.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
 rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 rust-embed = { version = "8", features = ["debug-embed"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
