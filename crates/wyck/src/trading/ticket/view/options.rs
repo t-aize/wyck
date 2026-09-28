@@ -1,4 +1,5 @@
-//! The options block of the order ticket: expiry, slippage, comment and one-click trading.
+//! The options block of the order ticket: the expiry, the slippage, the stop loss options and
+//! the comment.
 
 use super::*;
 
