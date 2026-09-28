@@ -324,6 +324,12 @@ impl Chart {
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
                 .into(),
             Item::Separator,
+            Entry::new("Remove all drawings")
+                .icon(IconName::Trash)
+                .disabled(self.drawing_count(cx).is_none_or(|count| count == 0))
+                .on_click(on(|this, _, cx| this.clear_drawings(cx)))
+                .into(),
+            Item::Separator,
             Entry::new("Reset chart view")
                 .icon(IconName::RotateCcw)
                 .hint("End")

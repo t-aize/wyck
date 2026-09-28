@@ -335,6 +335,11 @@ impl Chart {
         });
     }
 
+    /// Removes every drawing of the symbol that is not locked, as one undo step.
+    pub fn clear_drawings(&mut self, cx: &mut Context<Self>) {
+        self.edit_drawings(cx, |book, symbol| book.clear(symbol));
+    }
+
     /// Selects a drawing, as a click on it would.
     pub fn select_drawing(&self, id: u64, cx: &mut Context<Self>) {
         self.edit_drawings(cx, |book, _| {
