@@ -5,10 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-fn yes() -> bool {
-    true
-}
-
 /// Colors that replace the ones of the theme on one chart. `None` follows the theme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ChartColors {
@@ -159,16 +155,16 @@ impl ScaleMargin {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PriceLines {
     /// The dotted line across the chart at the newest price.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub last_line: bool,
     /// The tag with the newest price on the axis.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub last_tag: bool,
     /// The time left in the bar, under the tag of the newest price.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub countdown: bool,
     /// The faint line at the ask.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub ask_line: bool,
     /// The line at the close of the day before the newest bar.
     #[serde(default)]
@@ -196,19 +192,19 @@ impl Default for PriceLines {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatusLine {
     /// The open, high, low and close of the bar under the pointer.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub prices: bool,
     /// The change from the bar before, in price and percent.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub change: bool,
     /// The dot that says whether the market is open.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub market: bool,
     /// The lines of the indicators drawn on the prices.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub indicators: bool,
     /// The values of the indicators at the pointer.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub indicator_values: bool,
 }
 
@@ -227,14 +223,14 @@ impl Default for StatusLine {
 /// Which of the lines handed in by trading show on the prices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TradingLines {
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub orders: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub positions: bool,
     /// The stop loss and take profit of positions and orders.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub protection: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub alerts: bool,
 }
 

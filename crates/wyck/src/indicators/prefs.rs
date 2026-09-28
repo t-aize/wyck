@@ -54,17 +54,13 @@ impl Budget {
     }
 }
 
-fn yes() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prefs {
     /// The folder the user chose, when it is not the default one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
     /// Whether the folder is read again every moment, so a file edited elsewhere shows up.
-    #[serde(default = "yes")]
+    #[serde(default = "wyck_chart::defaults::yes")]
     pub auto_reload: bool,
     #[serde(default)]
     pub budget: Budget,

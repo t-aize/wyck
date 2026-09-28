@@ -206,12 +206,8 @@ pub struct TransformSettings {
     #[serde(default = "default_brick_opacity")]
     pub brick_opacity: f32,
     /// A line around each brick.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub brick_border: bool,
-}
-
-fn yes() -> bool {
-    true
 }
 
 fn default_lines() -> u32 {

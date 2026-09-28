@@ -2,6 +2,7 @@
 
 pub mod axis;
 pub mod data;
+pub mod defaults;
 pub mod display;
 pub mod drawing;
 pub mod flow;

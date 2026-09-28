@@ -241,13 +241,13 @@ pub struct ChartSettings {
     #[serde(default)]
     pub zone: Zone,
     /// Whether the grid shows.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub grid: bool,
     /// Whether the grid has its horizontal lines (at the prices), when it shows.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub grid_horizontal: bool,
     /// Whether the grid has its vertical lines (at the times), when it shows.
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub grid_vertical: bool,
     #[serde(default)]
     pub crosshair: CrosshairStyle,
@@ -270,10 +270,6 @@ pub struct ChartSettings {
     /// How much height the prices take relative to the panes.
     #[serde(default = "main_weight")]
     pub main_weight: f32,
-}
-
-fn yes() -> bool {
-    true
 }
 
 fn main_weight() -> f32 {

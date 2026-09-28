@@ -199,7 +199,7 @@ pub struct Appearance {
     #[serde(default = "default_font")]
     pub font: String,
     /// Whether screens and panels move as they appear.
-    #[serde(default = "yes")]
+    #[serde(default = "wyck_chart::defaults::yes")]
     pub animations: bool,
     /// The themes the user made.
     #[serde(default)]
@@ -216,10 +216,6 @@ fn default_light() -> String {
 
 fn default_font() -> String {
     DEFAULT_FONT.to_owned()
-}
-
-fn yes() -> bool {
-    true
 }
 
 impl Default for Appearance {

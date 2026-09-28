@@ -427,7 +427,7 @@ pub struct ExportOptions {
     /// The names written for columns, by their code, instead of the default ones.
     #[serde(default)]
     pub renames: BTreeMap<String, String>,
-    #[serde(default = "yes")]
+    #[serde(default = "wyck_chart::defaults::yes")]
     pub header: bool,
     #[serde(default)]
     pub header_case: HeaderCase,
@@ -475,7 +475,7 @@ pub struct ExportOptions {
     /// JSON file).
     #[serde(default)]
     pub notes: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "wyck_chart::defaults::yes")]
     pub json_pretty: bool,
     /// The table of SQL inserts.
     #[serde(default = "default_table")]
@@ -484,10 +484,6 @@ pub struct ExportOptions {
     /// `{date}`.
     #[serde(default = "default_file_name")]
     pub file_name: String,
-}
-
-fn yes() -> bool {
-    true
 }
 
 fn default_last() -> u32 {

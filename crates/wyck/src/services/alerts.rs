@@ -79,17 +79,13 @@ pub struct Alert {
     #[serde(default)]
     pub repeat: bool,
     /// Whether it is watching.
-    #[serde(default = "yes")]
+    #[serde(default = "wyck_chart::defaults::yes")]
     pub active: bool,
     /// When it last fired, in Unix milliseconds.
     #[serde(default)]
     pub fired_at: Option<i64>,
     #[serde(default)]
     pub created_at: i64,
-}
-
-fn yes() -> bool {
-    true
 }
 
 impl Alert {
