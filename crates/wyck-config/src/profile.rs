@@ -18,12 +18,6 @@ impl ProfileId {
         Self(uuid::Uuid::new_v4().to_string())
     }
 
-    /// Wraps an existing id string (e.g. one read back from config). Prefer
-    /// [`Self::new_random`] when creating a brand new profile.
-    pub fn from_raw(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
     /// The raw id string.
     pub fn as_str(&self) -> &str {
         &self.0

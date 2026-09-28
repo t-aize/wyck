@@ -618,15 +618,6 @@ impl ClientBuilder {
         }
     }
 
-    /// A builder with explicit connection settings (a test server, different timeouts, ...).
-    #[must_use]
-    pub fn with_config(config: ConnectionConfig) -> Self {
-        Self {
-            config,
-            credentials: None,
-        }
-    }
-
     /// Identifies the application once connected. Without this, [`ClientBuilder::connect`] only
     /// opens the socket, same as [`Client::connect`].
     #[must_use]

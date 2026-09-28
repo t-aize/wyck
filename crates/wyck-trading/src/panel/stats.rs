@@ -123,32 +123,15 @@ pub fn csv_line<'a>(fields: impl IntoIterator<Item = &'a str>) -> String {
 
 /// A moment written in a style. `shifted_ms` is already in the zone the user reads.
 pub fn format_time(shifted_ms: i64, style: TimeStyle) -> String {
-    let Ok(t) = time::OffsetDateTime::from_unix_timestamp(shifted_ms.div_euclid(1_000)) else {
+    let Some(t) = chrono::DateTime::from_timestamp(shifted_ms.div_euclid(1_000), 0) else {
         return String::new();
     };
-    match style {
-        TimeStyle::Short => {
-            let month = t.month().to_string();
-            format!(
-                "{} {} {:02}:{:02}:{:02}",
-                &month[..3.min(month.len())],
-                t.day(),
-                t.hour(),
-                t.minute(),
-                t.second()
-            )
-        }
-        TimeStyle::Iso => format!(
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-            t.year(),
-            u8::from(t.month()),
-            t.day(),
-            t.hour(),
-            t.minute(),
-            t.second()
-        ),
-        TimeStyle::Clock => format!("{:02}:{:02}:{:02}", t.hour(), t.minute(), t.second()),
-    }
+    let pattern = match style {
+        TimeStyle::Short => "%b %-d %H:%M:%S",
+        TimeStyle::Iso => "%Y-%m-%d %H:%M:%S",
+        TimeStyle::Clock => "%H:%M:%S",
+    };
+    t.format(pattern).to_string()
 }
 
 #[cfg(test)]

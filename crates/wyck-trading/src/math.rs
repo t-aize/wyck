@@ -69,7 +69,7 @@ impl Contract {
 
     /// The size of one pip in price.
     pub fn pip(&self) -> f64 {
-        10f64.powi(-i32::try_from(self.pip_position).unwrap_or(4))
+        wyck_openapi_model::market::pip_size(self.pip_position)
     }
 
     /// A price distance in pips.
@@ -91,8 +91,7 @@ impl Contract {
 
 /// Lots written plainly: `0.01`, `1.5`, `10`.
 pub fn format_lots(lots: f64) -> String {
-    let text = format!("{lots:.2}");
-    text.trim_end_matches('0').trim_end_matches('.').to_owned()
+    wyck_chart::format::trim(lots, 2)
 }
 
 /// A price distance in the server's relative units (a stop loss or take profit of a market
@@ -443,14 +442,7 @@ pub fn format_money(amount: f64, currency: &str) -> String {
     let negative = amount < 0.0;
     let cents = (amount.abs() * 100.0).round() as i64;
     let (whole, rest) = (cents / 100, cents % 100);
-    let digits = whole.to_string();
-    let mut grouped = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
+    let grouped = wyck_chart::format::grouped(whole);
     let sign = if negative && cents > 0 { "-" } else { "" };
     if currency.is_empty() {
         format!("{sign}{grouped}.{rest:02}")

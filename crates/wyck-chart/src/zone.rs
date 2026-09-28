@@ -96,6 +96,22 @@ impl Zone {
         time_ms.saturating_add(self.offset_ms(time_ms))
     }
 
+    /// `time_ms` written in this zone with a chrono `pattern`, such as `%Y-%m-%d %H:%M`.
+    pub fn format(self, time_ms: i64, pattern: &str) -> String {
+        chrono::DateTime::from_timestamp_millis(self.shift(time_ms))
+            .map(|t| t.naive_utc().format(pattern).to_string())
+            .unwrap_or_default()
+    }
+
+    /// Reads a time written in this zone (see [`parse_local`]), as Unix milliseconds.
+    pub fn parse(self, text: &str) -> Option<i64> {
+        let (local, _) = parse_local(text)?;
+        let local_ms = local.and_utc().timestamp_millis();
+        // The offset depends on the moment itself: guess with the local reading, then correct.
+        let guess = local_ms - self.offset_ms(local_ms);
+        Some(local_ms - self.offset_ms(guess))
+    }
+
     /// The day `time_ms` is in, counted from the epoch, in this zone.
     pub fn day(self, time_ms: i64) -> i64 {
         self.shift(time_ms).div_euclid(86_400_000)
@@ -186,9 +202,46 @@ pub fn offset_label(offset_ms: i64) -> String {
     }
 }
 
+/// How a time is written for the user to read and type back: `2025-03-14 09:30`.
+pub const TIME_PATTERN: &str = "%Y-%m-%d %H:%M";
+
+/// A date and time as typed: `2025-03-14 09:30`, with seconds, with a `T` for the space, or a
+/// date alone, and whether it was a date alone (a whole day).
+pub fn parse_local(text: &str) -> Option<(chrono::NaiveDateTime, bool)> {
+    let text = text.trim().replace('T', " ");
+    ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
+        .iter()
+        .find_map(|pattern| chrono::NaiveDateTime::parse_from_str(&text, pattern).ok())
+        .map(|d| (d, false))
+        .or_else(|| {
+            chrono::NaiveDate::parse_from_str(&text, "%Y-%m-%d")
+                .ok()
+                .and_then(|d| d.and_hms_opt(0, 0, 0))
+                .map(|d| (d, true))
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn times_are_written_and_read_in_the_charts_zone() {
+        let t = 1_741_944_600_000; // 2025-03-14 09:30 UTC
+        let minutes = TIME_PATTERN;
+        assert_eq!(Zone::Utc.format(t, minutes), "2025-03-14 09:30");
+        assert_eq!(Zone::Utc.parse("2025-03-14 09:30"), Some(t));
+        assert_eq!(Zone::Utc.parse(" 2025-03-14 09:30:00 "), Some(t));
+        assert_eq!(Zone::Utc.parse("2025-03-14T09:30"), Some(t));
+        assert_eq!(
+            Zone::Utc.parse("2025-03-14"),
+            Some(t - (9 * 60 + 30) * 60_000)
+        );
+        assert_eq!(Zone::Utc.parse("14/03/2025"), None);
+        let tokyo = Zone::from_code("Asia/Tokyo");
+        assert_eq!(tokyo.format(t, minutes), "2025-03-14 18:30");
+        assert_eq!(tokyo.parse("2025-03-14 18:30"), Some(t));
+    }
 
     /// 2026-01-05 00:00 UTC, a winter Monday.
     const WINTER: i64 = 1_767_571_200_000;

@@ -90,9 +90,12 @@ impl AppPaths {
         self.config_dir.join("indicators")
     }
 
-    /// The folder the scripted strategies are read from unless the user chose another.
-    pub fn strategies_dir(&self) -> PathBuf {
-        self.config_dir.join("strategies")
+    /// The user's documents folder, where a file dialog starts: the temporary folder when the
+    /// system has none.
+    pub fn documents_dir() -> PathBuf {
+        directories::UserDirs::new()
+            .and_then(|dirs| dirs.document_dir().map(Path::to_path_buf))
+            .unwrap_or_else(std::env::temp_dir)
     }
 
     /// The folder the local historical market data catalog (manifest and bar/tick chunk
@@ -114,7 +117,6 @@ mod tests {
         assert_eq!(paths.config_file(), Path::new("/tmp/example/config.toml"));
         assert_eq!(paths.secrets_dir(), Path::new("/tmp/example/secrets"));
         assert_eq!(paths.indicators_dir(), Path::new("/tmp/example/indicators"));
-        assert_eq!(paths.strategies_dir(), Path::new("/tmp/example/strategies"));
         assert_eq!(
             paths.market_data_dir(),
             Path::new("/tmp/example/market-data")

@@ -58,12 +58,13 @@ The workspace crates are:
 | `wyck-config` | Native settings, documents and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
 | `wyck-trading` | Trading calculations, books and saved panel preferences |
-| `wyck-state` | Saved workspace preferences and layouts |
-| `wyck` | GPUI desktop application and bundled assets |
+| `wyck-market-data` | Local historical data catalog, backfill and the Replay session |
+| `wyck-ui` | Widget kit, theme and sizes shared by every screen |
+| `wyck` | GPUI desktop application, saved workspace and bundled assets |
 
-Each crate's modules sit directly under its `src` directory. `crates/wyck/src/app` owns GPUI
-views and connects the crates to the desktop. Its shared controls are in
-`crates/wyck/src/app/ui` and native app services are in `crates/wyck/src/app/services`.
+Each crate's modules sit directly under its `src` directory. `crates/wyck/src` owns GPUI
+views and connects the crates to the desktop; its native services are in
+`crates/wyck/src/services`. Every control, menu, dialog and color comes from `wyck-ui`.
 The Open API guide is in the `wyck-openapi` crate documentation.
 
 ## Your own indicators

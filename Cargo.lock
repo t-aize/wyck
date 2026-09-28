@@ -9339,32 +9339,17 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "time",
  "tiny-skia 0.12.0",
  "tokio",
  "toml 1.1.6+spec-1.1.0",
  "tracing",
  "tracing-subscriber",
- "unicode-segmentation",
  "wyck-chart",
  "wyck-config",
  "wyck-market-data",
  "wyck-openapi",
- "wyck-state",
  "wyck-trading",
-]
-
-[[package]]
-name = "wyck-backtest"
-version = "0.3.0"
-dependencies = [
- "proptest",
- "rhai",
- "thiserror 2.0.20",
- "wyck-chart",
- "wyck-market-data",
- "wyck-openapi-model",
- "wyck-trading",
+ "wyck-ui",
 ]
 
 [[package]]
@@ -9378,7 +9363,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
- "time",
  "toml 1.1.6+spec-1.1.0",
  "wyck-config",
  "wyck-openapi-model",
@@ -9407,12 +9391,13 @@ dependencies = [
 name = "wyck-market-data"
 version = "0.3.0"
 dependencies = [
+ "chrono",
  "rusqlite",
  "serde",
  "tempfile",
  "thiserror 2.0.20",
- "time",
  "tokio",
+ "wyck-config",
  "wyck-openapi-model",
 ]
 
@@ -9428,7 +9413,6 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "time",
  "tokio",
  "tokio-tungstenite",
  "tracing",
@@ -9449,27 +9433,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "wyck-state"
-version = "0.3.0"
-dependencies = [
- "serde",
- "toml 1.1.6+spec-1.1.0",
- "wyck-chart",
- "wyck-market-data",
- "wyck-openapi-model",
- "wyck-trading",
-]
-
-[[package]]
 name = "wyck-trading"
 version = "0.3.0"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
- "time",
  "toml 1.1.6+spec-1.1.0",
  "wyck-chart",
  "wyck-openapi-model",
+]
+
+[[package]]
+name = "wyck-ui"
+version = "0.3.0"
+dependencies = [
+ "gpui-kit",
+ "gpui-pre",
+ "serde",
+ "unicode-segmentation",
 ]
 
 [[package]]

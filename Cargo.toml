@@ -13,14 +13,13 @@ repository = "https://github.com/t-aize/wyck"
 publish = false
 
 [workspace.dependencies]
-wyck-backtest = { path = "crates/wyck-backtest", version = "0.3.0" }
 wyck-chart = { path = "crates/wyck-chart", version = "0.3.0" }
 wyck-config = { path = "crates/wyck-config", version = "0.3.0" }
 wyck-market-data = { path = "crates/wyck-market-data", version = "0.3.0" }
 wyck-openapi = { path = "crates/wyck-openapi", version = "0.3.0" }
 wyck-openapi-model = { path = "crates/wyck-openapi-model", version = "0.3.0" }
-wyck-state = { path = "crates/wyck-state", version = "0.3.0" }
 wyck-trading = { path = "crates/wyck-trading", version = "0.3.0" }
+wyck-ui = { path = "crates/wyck-ui", version = "0.3.0" }
 ab_glyph = "0.2.32"
 anyhow = "1"
 argon2 = "0.6.0"
@@ -47,7 +46,6 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
-time = "0.3.44"
 tiny-skia = "0.12.0"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "test-util"] }
 tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }

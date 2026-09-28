@@ -70,13 +70,6 @@ impl Manifest {
                     request_count INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (symbol_id, series, month_start_ms)
                 );
-                CREATE TABLE IF NOT EXISTS oldest_known (
-                    symbol_id INTEGER NOT NULL,
-                    series TEXT NOT NULL,
-                    oldest_ms INTEGER NOT NULL,
-                    probed_at_ms INTEGER NOT NULL,
-                    PRIMARY KEY (symbol_id, series)
-                );
                 CREATE TABLE IF NOT EXISTS backfill_jobs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     symbol_id INTEGER NOT NULL,
@@ -144,41 +137,6 @@ impl Manifest {
             .map(|value| value == Some(1))
             .map_err(MarketDataError::ManifestQuery)
     }
-
-    /// Records that a backward probe for `symbol_id`/`series` found no data older than
-    /// `oldest_ms`, so future range requests never assume a fixed retention depth and
-    /// never re-probe past this point.
-    pub fn record_oldest_known(
-        &self,
-        symbol_id: i64,
-        series: Series<'_>,
-        oldest_ms: i64,
-        probed_at_ms: i64,
-    ) -> Result<()> {
-        self.conn()
-            .execute(
-                "INSERT INTO oldest_known (symbol_id, series, oldest_ms, probed_at_ms)
-                 VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT (symbol_id, series)
-                 DO UPDATE SET oldest_ms = excluded.oldest_ms, probed_at_ms = excluded.probed_at_ms",
-                params![symbol_id, series, oldest_ms, probed_at_ms],
-            )
-            .map(|_| ())
-            .map_err(MarketDataError::ManifestQuery)
-    }
-
-    /// The oldest timestamp known to have data for `symbol_id`/`series`, if a backward
-    /// probe has ever completed for it.
-    pub fn oldest_known_ms(&self, symbol_id: i64, series: Series<'_>) -> Result<Option<i64>> {
-        self.conn()
-            .query_row(
-                "SELECT oldest_ms FROM oldest_known WHERE symbol_id = ?1 AND series = ?2",
-                params![symbol_id, series],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(MarketDataError::ManifestQuery)
-    }
 }
 
 #[cfg(test)]
@@ -221,17 +179,5 @@ mod tests {
         manifest.mark_month_complete(1, "M1", 0).unwrap();
         manifest.mark_month_complete(1, "M1", 0).unwrap();
         assert!(manifest.is_month_complete(1, "M1", 0).unwrap());
-    }
-
-    #[test]
-    fn oldest_known_round_trips_and_can_be_updated() {
-        let manifest = Manifest::open_in_memory();
-        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), None);
-        manifest
-            .record_oldest_known(1, TICKS, 1_000, 5_000)
-            .unwrap();
-        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(1_000));
-        manifest.record_oldest_known(1, TICKS, 500, 6_000).unwrap();
-        assert_eq!(manifest.oldest_known_ms(1, TICKS).unwrap(), Some(500));
     }
 }

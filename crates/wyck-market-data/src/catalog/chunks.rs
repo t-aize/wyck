@@ -13,7 +13,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use time::OffsetDateTime;
+use chrono::{DateTime, Datelike, NaiveDate, NaiveTime};
 use wyck_openapi_model::market::{Bar, Period, Tick};
 
 use super::record::{
@@ -24,18 +24,17 @@ use crate::error::{MarketDataError, Result};
 /// The UTC calendar month a Unix-millisecond timestamp falls in, as `(year, month 1-12)`.
 #[must_use]
 pub fn month_of(time_ms: i64) -> (i32, u8) {
-    let dt = OffsetDateTime::from_unix_timestamp(time_ms.div_euclid(1000))
-        .unwrap_or(OffsetDateTime::UNIX_EPOCH);
-    (dt.year(), u8::from(dt.month()))
+    let dt = DateTime::from_timestamp(time_ms.div_euclid(1000), 0).unwrap_or(DateTime::UNIX_EPOCH);
+    (dt.year(), dt.month() as u8)
 }
 
 /// The Unix-millisecond timestamp of the first instant of the UTC calendar month
 /// `(year, month)`.
 #[must_use]
 pub fn month_start_ms(year: i32, month: u8) -> i64 {
-    let month = time::Month::try_from(month).unwrap_or(time::Month::January);
-    let date = time::Date::from_calendar_date(year, month, 1).unwrap_or(time::Date::MIN);
-    date.midnight().assume_utc().unix_timestamp() * 1000
+    let month = if (1..=12).contains(&month) { month } else { 1 };
+    let date = NaiveDate::from_ymd_opt(year, u32::from(month), 1).unwrap_or(NaiveDate::MIN);
+    date.and_time(NaiveTime::MIN).and_utc().timestamp() * 1000
 }
 
 /// The Unix-millisecond timestamp of the first instant of the UTC calendar month right
@@ -94,27 +93,10 @@ pub fn tick_chunk_path(root: &Path, symbol_id: i64, year: i32, month: u8) -> Pat
         .join(format!("{year:04}-{month:02}.bin"))
 }
 
-fn create_parent(path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|source| MarketDataError::CreateDir {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
-    Ok(())
-}
-
-/// Writes `bytes` to `path` atomically: written to a sibling temp file first, then
-/// renamed into place, so a crash mid-write never leaves a half-written chunk where a
-/// reader could see it.
+/// Writes `bytes` to `path` atomically (see [`wyck_config::write_atomically`]), so a crash
+/// mid-write never leaves a half-written chunk where a reader could see it.
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    create_parent(path)?;
-    let tmp = path.with_extension("bin.tmp");
-    fs::write(&tmp, bytes).map_err(|source| MarketDataError::Write {
-        path: tmp.clone(),
-        source,
-    })?;
-    fs::rename(&tmp, path).map_err(|source| MarketDataError::Write {
+    wyck_config::write_atomically(path, bytes).map_err(|source| MarketDataError::Write {
         path: path.to_path_buf(),
         source,
     })

@@ -1,0 +1,382 @@
+//! How the order ticket looks: its blocks in the order the user chose, the menus that pick the
+//! units, the quick values and the summary of what the order risks.
+
+use std::rc::Rc;
+
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, SharedString, Window, div, px};
+use gpui_kit::assets::IconName;
+use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::input::{Input, NumberInput};
+use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
+
+use super::prefs::{Density, Kind, Line, Section, Slot, Span, Tif};
+use super::{OrderTicket, Plan, TicketEvent, customize, nice, side_of, stop_limit_price};
+use crate::trading::account::Busy;
+use crate::trading::book::is_buy;
+use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
+use wyck_chart::study::atr_stop::Smoothing;
+use wyck_ui::{
+    confirm::confirm,
+    controls, icon,
+    menu::{self as popup, Entry, Item},
+    number, theme, tokens,
+};
+
+mod options;
+mod order;
+mod positions;
+mod protection;
+
+/// What a button of a position row does.
+type Action = Rc<dyn Fn(&mut Window, &mut App)>;
+
+/// Sizes that follow the density chosen for the panel.
+#[derive(Debug, Clone, Copy)]
+struct Metrics {
+    gap: f32,
+    pad: f32,
+    text: f32,
+    small: f32,
+    side_pad: f32,
+    compact: bool,
+}
+
+impl Metrics {
+    fn of(density: Density) -> Self {
+        match density {
+            Density::Comfortable => Self {
+                gap: 12.,
+                pad: 12.,
+                text: tokens::text::BODY,
+                small: tokens::text::SMALL,
+                side_pad: 8.,
+                compact: false,
+            },
+            Density::Compact => Self {
+                gap: 8.,
+                pad: 8.,
+                text: tokens::text::SMALL,
+                small: tokens::text::CAPTION,
+                side_pad: 4.,
+                compact: true,
+            },
+        }
+    }
+}
+
+/// What the blocks are drawn from, worked out once per frame.
+struct Frame {
+    m: Metrics,
+    contract: Contract,
+    plan: Plan,
+    bid: Option<f64>,
+    ask: Option<f64>,
+    busy: bool,
+    balance: f64,
+    free_margin: f64,
+    currency: String,
+    quote_currency: String,
+    name: SharedString,
+    spread: String,
+    lots: Option<f64>,
+    units: Option<f64>,
+    /// The margin of the order, when the server has said it for this volume.
+    margin: Option<f64>,
+}
+
+impl Frame {
+    fn money(&self, amount: f64) -> String {
+        math::format_money(amount, &self.currency)
+    }
+
+    /// An amount and its share of the balance.
+    fn share(&self, amount: f64) -> String {
+        if self.balance > 0.0 {
+            format!("{:.2}%", amount / self.balance * 100.0)
+        } else {
+            String::new()
+        }
+    }
+
+    fn price(&self, price: Option<f64>) -> String {
+        price.map_or_else(|| "-".to_owned(), |p| self.contract.format_price(p))
+    }
+}
+
+impl OrderTicket {
+    fn size_label(mode: SizeMode, currency: &str) -> String {
+        match mode {
+            SizeMode::Lots => "Lots".to_owned(),
+            SizeMode::Units => "Units".to_owned(),
+            SizeMode::RiskBalance => "Risk % of balance".to_owned(),
+            SizeMode::RiskEquity => "Risk % of equity".to_owned(),
+            SizeMode::RiskMoney => format!("Risk in {}", or_money(currency)),
+            SizeMode::FreeMargin => "% of free margin".to_owned(),
+        }
+    }
+
+    fn unit_label(unit: Offset, currency: &str) -> String {
+        match unit {
+            Offset::Price => "Price".to_owned(),
+            Offset::Pips => "Pips".to_owned(),
+            Offset::Money => or_money(currency).to_owned(),
+            Offset::Percent => "% balance".to_owned(),
+            Offset::Ratio => "R".to_owned(),
+        }
+    }
+
+    // ---- the blocks ----
+
+    fn summary(&self, f: &Frame) -> AnyElement {
+        let plan = &f.plan;
+        let ratio = plan
+            .risk
+            .zip(plan.reward)
+            .filter(|(r, _)| *r > 0.0)
+            .map(|(r, w)| format!("1 : {:.2}", w / r));
+        let mut card = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .p_2()
+            .rounded_md()
+            .bg(theme::surface())
+            .text_size(px(f.m.text));
+        for line in self.layout.visible_lines() {
+            let text = match line {
+                Line::Volume => f.lots.zip(f.units).map_or_else(
+                    || "-".into(),
+                    |(l, u)| format!("{} lots, {} units", math::format_lots(l), format_units(u)),
+                ),
+                Line::Notional => plan.sized.zip(plan.entry).zip(plan.rate).map_or_else(
+                    || "-".into(),
+                    |((s, e), r)| f.money(s.volume as f64 / 100.0 * e * r),
+                ),
+                Line::Risk => match plan.risk {
+                    Some(r) => format!("{}  {}", f.money(r), f.share(r)),
+                    None if self.stop_on => "-".into(),
+                    None => "No stop loss".into(),
+                },
+                Line::Reward => plan
+                    .reward
+                    .map_or_else(|| "-".into(), |r| format!("{}  {}", f.money(r), f.share(r))),
+                Line::RiskReward => ratio.clone().unwrap_or_else(|| "-".into()),
+                Line::Margin => f.margin.map_or_else(|| "-".into(), |m| f.money(m)),
+                Line::PipValue => match (f.units, plan.rate) {
+                    (Some(u), Some(rate)) => f.money(f.contract.pip() * u * rate),
+                    (Some(u), None) => math::format_money(f.contract.pip() * u, &f.quote_currency),
+                    _ => "-".into(),
+                },
+                Line::SpreadCost => f
+                    .bid
+                    .zip(f.ask)
+                    .zip(f.units)
+                    .zip(plan.rate)
+                    .map_or_else(|| "-".into(), |(((b, a), u), r)| f.money((a - b) * u * r)),
+            };
+            card = card.child(summary_row(line.label(), text));
+        }
+        card.into_any_element()
+    }
+
+    /// The warnings that do not stop the order, then what does.
+    fn warnings(&self, f: &Frame) -> Vec<String> {
+        let mut warnings: Vec<String> = Vec::new();
+        match f.plan.sized.and_then(|s| s.limit) {
+            Some(Limit::Min) => warnings.push(format!(
+                "Raised to the least volume, {} lots: more at stake than asked",
+                math::format_lots(f.contract.lots_of_volume(f.contract.min_volume))
+            )),
+            Some(Limit::Max) => warnings.push("Cut to the most volume the broker takes".into()),
+            None => {}
+        }
+        if let Some(m) = f.margin
+            && m > f.free_margin
+        {
+            warnings.push("Not enough free margin".into());
+        }
+        let high = self.layout.high_risk;
+        if let Some(risk) = f.plan.risk
+            && f.balance > 0.0
+            && risk / f.balance * 100.0 > high
+        {
+            warnings.push(format!(
+                "Risks more than {}% of the balance",
+                number::format(high, 2)
+            ));
+        }
+        warnings.extend(f.plan.problem.clone());
+        warnings
+    }
+
+    fn send_button(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
+        let blocked = f.plan.problem.is_some() || f.busy;
+        Button::new("ticket-send")
+            .cursor_pointer()
+            .when(blocked, |button| button.cursor_not_allowed())
+            .label(self.describe(&f.plan, cx))
+            .with_size(gpui_kit::component::Size::Large)
+            .disabled(blocked)
+            .loading(f.busy)
+            .bg(if self.buy {
+                theme::chart_up()
+            } else {
+                theme::chart_down()
+            })
+            .text_color(theme::bg())
+            .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
+            .into_any_element()
+    }
+}
+
+impl Render for OrderTicket {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.request_atr(cx);
+        let contract = self.contract(cx);
+        let mut plan = self.plan(cx);
+        // The protections the defaults ask for start as soon as there is a price to start from.
+        if self.autofill && plan.entry.is_some() {
+            self.apply_defaults(window, cx);
+            plan = self.plan(cx);
+        }
+        // The margin follows the volume.
+        if let Some(symbol) = self.symbol.as_ref().map(|s| s.id) {
+            let volume = plan.sized.map_or(contract.min_volume, |s| s.volume);
+            if self.margin_asked != Some((symbol, volume)) {
+                self.request_margin(symbol, volume, cx);
+            }
+        }
+        let (bid, ask) = self.quote(cx);
+        let (busy, summary, currency, quote_currency) = {
+            let account = self.account.read(cx);
+            (
+                account.is_busy(Busy::Placing),
+                account.summary(),
+                account.book.currency.clone(),
+                self.symbol
+                    .as_ref()
+                    .and_then(|s| account.book.quote_currency.get(&s.id).cloned())
+                    .unwrap_or_default(),
+            )
+        };
+        let margin = self
+            .margin
+            .filter(|m| Some(m.volume) == plan.sized.map(|s| s.volume))
+            .map(|m| side_of(m.order, self.buy));
+        let frame = Frame {
+            m: Metrics::of(self.layout.density),
+            spread: bid
+                .zip(ask)
+                .map(|(b, a)| format!("{:.1}", contract.pips(a - b)))
+                .unwrap_or_default(),
+            lots: plan.sized.map(|s| contract.lots_of_volume(s.volume)),
+            units: plan.sized.map(|s| s.volume as f64 / 100.0),
+            name: self
+                .symbol
+                .as_ref()
+                .map_or_else(|| SharedString::from("No symbol"), |s| s.name.clone()),
+            contract,
+            plan,
+            bid,
+            ask,
+            busy,
+            balance: summary.balance,
+            free_margin: summary.free_margin,
+            currency,
+            quote_currency,
+            margin,
+        };
+        let m = frame.m;
+        let warnings = self.warnings(&frame);
+
+        let mut blocks: Vec<AnyElement> = Vec::new();
+        for section in self.layout.clone().visible_sections() {
+            blocks.push(match section {
+                Section::Sides => self.sides(&frame, cx),
+                Section::Order => self.order_block(&frame, cx),
+                Section::Size => self.size_block(&frame, window, cx),
+                Section::StopLoss => self.protection(true, &frame, window, cx),
+                Section::TakeProfit => self.protection(false, &frame, window, cx),
+                Section::Options => self.options(&frame, window, cx),
+                Section::Positions => self.positions(&frame, cx),
+                Section::Summary => self.summary(&frame),
+                Section::Send => {
+                    // The warnings sit over the button that sends, or at the end without one.
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .children(warning_rows(&warnings))
+                        .child(self.send_button(&frame, cx))
+                        .into_any_element()
+                }
+            });
+        }
+        let has_send = self.layout.shows(Section::Send);
+
+        div()
+            .id("order-ticket")
+            .flex()
+            .flex_col()
+            .gap(px(m.gap))
+            .p(px(m.pad))
+            .h_full()
+            .overflow_y_scroll()
+            .child(self.header(&frame, cx))
+            .children(blocks)
+            .when(!has_send, |el| el.children(warning_rows(&warnings)))
+            .child(
+                controls::switch("ticket-one-click", self.one_click)
+                    .label("One-click trading (no confirmation)")
+                    .on_click(cx.listener(|this, checked: &bool, _, cx| {
+                        this.one_click = *checked;
+                        cx.emit(TicketEvent::LinesChanged);
+                        cx.notify();
+                    })),
+            )
+    }
+}
+
+fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
+    warnings
+        .iter()
+        .map(|message| {
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .text_size(px(tokens::text::BODY))
+                .text_color(theme::amber())
+                .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber()))
+                .child(message.clone())
+                .into_any_element()
+        })
+        .collect()
+}
+
+/// The deposit currency, or a word for it before it is known.
+fn or_money(currency: &str) -> &str {
+    if currency.is_empty() {
+        "money"
+    } else {
+        currency
+    }
+}
+
+fn summary_row(label: &'static str, value: String) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_row()
+        .justify_between()
+        .child(div().text_color(theme::muted_fg()).child(label))
+        .child(div().text_color(theme::fg()).child(value))
+}
+
+fn format_units(units: f64) -> String {
+    math::format_money(units, "")
+        .trim_end_matches("00")
+        .trim_end_matches('.')
+        .to_owned()
+}

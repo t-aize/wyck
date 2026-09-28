@@ -833,7 +833,7 @@ impl StudyKind {
 pub struct PlotStyle {
     pub color: u32,
     pub width: f32,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub visible: bool,
     /// How opaque the plot is, from 0 to 1.
     #[serde(default = "opaque")]
@@ -869,7 +869,7 @@ pub struct LevelStyle {
     pub width: f32,
     #[serde(default = "default_level_dash")]
     pub dash: Dash,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub visible: bool,
 }
 
@@ -903,16 +903,12 @@ pub struct FillStyle {
     pub other: Option<u32>,
     #[serde(default = "default_fill_opacity")]
     pub opacity: f32,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub visible: bool,
 }
 
 fn default_fill_opacity() -> f32 {
     0.08
-}
-
-fn yes() -> bool {
-    true
 }
 
 fn opaque() -> f32 {
@@ -930,7 +926,7 @@ pub struct StudyConfig {
     pub inputs: BTreeMap<String, f64>,
     #[serde(default)]
     pub plots: BTreeMap<String, PlotStyle>,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub visible: bool,
     /// How tall its pane is, relative to the prices (only for an indicator with a pane).
     #[serde(default = "pane_weight")]
@@ -945,9 +941,9 @@ pub struct StudyConfig {
     pub name: String,
     #[serde(default)]
     pub precision: Option<u32>,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub axis_labels: bool,
-    #[serde(default = "yes")]
+    #[serde(default = "crate::defaults::yes")]
     pub legend_values: bool,
 }
 
@@ -1306,7 +1302,7 @@ impl StudyConfig {
             let value = self.input(input.key);
             match input.kind {
                 InputKind::Int => parts.push(format!("{value:.0}")),
-                InputKind::Float => parts.push(trim_float(value)),
+                InputKind::Float => parts.push(crate::format::trim(value, 3)),
                 InputKind::Source => {
                     parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
                 }
@@ -1318,11 +1314,6 @@ impl StudyConfig {
         }
         parts.join(" ")
     }
-}
-
-fn trim_float(value: f64) -> String {
-    let text = format!("{value:.3}");
-    text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
 /// The bars an indicator reads, as columns of numbers. Prices are raw (the server's integers as

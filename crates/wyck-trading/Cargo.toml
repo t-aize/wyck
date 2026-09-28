@@ -13,7 +13,7 @@ description = "Trading state, calculations and preferences for Wyck."
 wyck-chart.workspace = true
 wyck-openapi-model.workspace = true
 serde.workspace = true
-time.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -43,19 +43,6 @@ const DECLARE_LIMITS: Limits = Limits {
 /// The folder a deleted indicator goes to, inside the library's own.
 const TRASH: &str = ".trash";
 
-#[cfg(not(target_arch = "wasm32"))]
-fn write_script(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    wyck_config::atomic_write(path, contents).map_err(std::io::Error::other)
-}
-
-#[cfg(target_arch = "wasm32")]
-fn write_script(_path: &Path, _contents: &[u8]) -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "script file storage is unavailable in the browser",
-    ))
-}
-
 /// What is said about an indicator apart from how it computes: the words the menus show.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Info {
@@ -609,9 +596,11 @@ impl Library {
             ));
         }
         let path = self.path_of(id);
-        write_script(&path, source.as_bytes()).map_err(|error| LibraryError::Io {
-            path: path.clone(),
-            source: error,
+        wyck_config::write_atomically(&path, source.as_bytes()).map_err(|error| {
+            LibraryError::Io {
+                path: path.clone(),
+                source: error,
+            }
         })?;
         Ok(path)
     }

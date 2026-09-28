@@ -156,7 +156,7 @@ impl Catalog {
     }
 
     /// A reference to the underlying manifest, for callers (the backfill scheduler) that
-    /// need the lower-level coverage/probe bookkeeping directly.
+    /// need the lower-level coverage bookkeeping directly.
     #[must_use]
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
