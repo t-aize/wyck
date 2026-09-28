@@ -954,6 +954,9 @@ pub struct Style {
     pub scale: f32,
 }
 
+/// The least opacity a line can have: below it a drawing is there but cannot be seen or picked.
+pub const MIN_LINE_OPACITY: f32 = 0.05;
+
 fn default_color() -> u32 {
     0x4f8dff
 }
@@ -1033,7 +1036,7 @@ impl Style {
         if !self.opacity.is_finite() {
             self.opacity = default_line_opacity();
         }
-        self.opacity = self.opacity.clamp(0.05, 1.0);
+        self.opacity = self.opacity.clamp(MIN_LINE_OPACITY, 1.0);
         if !self.fill_opacity.is_finite() {
             self.fill_opacity = default_opacity();
         }

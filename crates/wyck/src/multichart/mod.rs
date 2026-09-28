@@ -38,7 +38,7 @@ use super::chart::{
     LiveUpdate, Timeframe,
 };
 use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
-use wyck_chart::drawing::model::{Dash, Group, Tool};
+use wyck_chart::drawing::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
 use wyck_chart::study::StudyConfig;
 use wyck_ui::{text_input::TextInput, theme};
 
@@ -859,6 +859,14 @@ impl MultiChart {
         self.recent_colors.insert(0, color);
         self.recent_colors.truncate(MAX_RECENT_COLORS);
         self.edit_book(cx, |book, symbol| book.set_color(symbol, color));
+    }
+
+    /// The opacity bar of the color panel: the lines of the selected drawings, from 0 to 1.
+    pub(crate) fn set_drawing_opacity(&mut self, opacity: f32, cx: &mut Context<Self>) {
+        let opacity = opacity.clamp(MIN_LINE_OPACITY, 1.0);
+        self.edit_book(cx, |book, symbol| {
+            book.edit_style(symbol, |s| s.opacity = opacity)
+        });
     }
 
     pub(crate) fn set_drawing_width(&mut self, width: f32, cx: &mut Context<Self>) {

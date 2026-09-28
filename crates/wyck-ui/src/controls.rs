@@ -133,10 +133,27 @@ pub fn color_swatch(
     on_toggle: impl Fn(&mut Window, &mut App) + 'static,
     on_pick: impl Fn(u32, &mut Window, &mut App) + 'static,
 ) -> AnyElement {
+    color_swatch_with_opacity(id, color, None, open, cx, on_toggle, on_pick)
+}
+
+/// Like [`color_swatch`], for what has an opacity of its own (a drawing): the panel shows a bar for
+/// it, and every change of it calls the second callback of `opacity` (from 0 to 1). The swatch is
+/// drawn with the opacity too, so it shows what the drawing looks like.
+pub fn color_swatch_with_opacity(
+    id: impl Into<ElementId>,
+    color: u32,
+    opacity: Option<color_picker::Opacity>,
+    open: bool,
+    cx: &mut App,
+    on_toggle: impl Fn(&mut Window, &mut App) + 'static,
+    on_pick: impl Fn(u32, &mut Window, &mut App) + 'static,
+) -> AnyElement {
     let id: ElementId = id.into();
     let on_toggle = Rc::new(on_toggle);
     let close = on_toggle.clone();
-    let panel = color_picker::panel(&id, color, open, cx, Rc::new(on_pick), close);
+    let shown = opacity.as_ref().map_or(1.0, |o| o.value);
+    let panel =
+        color_picker::panel_with_opacity(&id, color, opacity, open, cx, Rc::new(on_pick), close);
     let hover = panel.clone();
     let swatch = div()
         .id(id.clone())
@@ -155,7 +172,10 @@ pub fn color_swatch(
             color_picker::set_swatch_hovered(&hover, *hovered, cx);
         })
         .on_click(move |_, window, cx| on_toggle(window, cx))
-        .child(div().size_full().rounded_sm().bg(gpui::rgb(color)));
+        .child(div().size_full().rounded_sm().bg(gpui::Rgba {
+            a: shown,
+            ..gpui::rgb(color)
+        }));
     if !open {
         return swatch.into_any_element();
     }

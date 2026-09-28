@@ -606,10 +606,19 @@ impl MultiChart {
                 );
             }
             // Any other color: the panel with the square, the hue bar and the typed values.
-            let (open_this, pick_this) = (cx.entity(), cx.entity());
-            bar = bar.child(controls::color_swatch(
+            let (open_this, pick_this, opacity_this) = (cx.entity(), cx.entity(), cx.entity());
+            let opacity: wyck_ui::color_picker::ChangeOpacity =
+                std::rc::Rc::new(move |value, _window, cx| {
+                    opacity_this.update(cx, |this, cx| this.set_drawing_opacity(value, cx));
+                });
+            bar = bar.child(controls::color_swatch_with_opacity(
                 "draw-color-custom",
                 style.color,
+                Some(wyck_ui::color_picker::Opacity {
+                    value: style.opacity,
+                    label: "LINES",
+                    change: opacity,
+                }),
                 self.color_open == Some(id),
                 cx,
                 move |_window, cx| {

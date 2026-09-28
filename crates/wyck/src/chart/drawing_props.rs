@@ -22,7 +22,7 @@ use wyck_chart::drawing::extras::{ICONS, icon_key};
 use wyck_chart::drawing::figures::wave_names;
 use wyck_chart::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 use wyck_chart::drawing::model::{
-    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label,
+    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Point, Tool, wave_label,
 };
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
@@ -256,7 +256,7 @@ impl DrawingProps {
             }),
             number::watch(&line_opacity, cx, |this, value, cx| {
                 this.change(cx, |d| {
-                    d.style.opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                    d.style.opacity = (value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0) as f32
                 });
             }),
             number::watch(&text_size, cx, |this, value, cx| {
@@ -674,9 +674,47 @@ impl DrawingProps {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let (toggle, pick) = (cx.entity(), cx.entity());
-        controls::color_swatch(
+        // The lines and the zones each have an opacity, shown as a bar in their color panel. The
+        // number field beside it is kept in step. What a swatch colors decides which one it is: the
+        // lines (the line, a position's entry) or the area (the fill, a position's target and stop
+        // zones). The other colors have no opacity of their own.
+        let kind: Option<(&'static str, bool)> = match swatch {
+            Swatch::Line | Swatch::Entry => Some(("LINES", true)),
+            Swatch::Fill => Some(("FILL", false)),
+            Swatch::Target | Swatch::Stop => Some(("ZONE", false)),
+            _ => None,
+        };
+        let opacity = kind.and_then(|(label, lines)| {
+            let drawing = self.current(cx)?;
+            let value = if lines {
+                drawing.style.opacity
+            } else {
+                drawing.style.fill_opacity
+            };
+            let this = cx.entity();
+            let change: wyck_ui::color_picker::ChangeOpacity =
+                std::rc::Rc::new(move |value, window, cx| {
+                    this.update(cx, |e, cx| {
+                        e.change(cx, |d| {
+                            if lines {
+                                d.style.opacity = value.clamp(MIN_LINE_OPACITY, 1.0);
+                            } else {
+                                d.style.fill_opacity = value;
+                            }
+                        });
+                        e.set_fields(window, cx);
+                    });
+                });
+            Some(wyck_ui::color_picker::Opacity {
+                value,
+                label,
+                change,
+            })
+        });
+        controls::color_swatch_with_opacity(
             SharedString::from(id.to_owned()),
             color,
+            opacity,
             self.swatch == Some(swatch),
             cx,
             move |_window, cx| toggle.update(cx, |e, cx| e.toggle_swatch(swatch, cx)),

@@ -5,7 +5,9 @@
 //! Dragging in the square or on the bar, typing a value or clicking a preset all move the same
 //! thing (the color), so the marker in the square and the thumb on the bar always show where the
 //! color is, whichever way it was chosen. Colors are `0xRRGGBB`; the drawings and studies keep
-//! their opacity apart from their color, so there is no alpha here.
+//! their opacity apart from their color, so a color has no alpha. A swatch whose owner has an
+//! opacity of its own (a drawing) can still show a bar for it, told apart from the color: see
+//! [`panel_with_opacity`].
 //!
 //! The panel is an entity kept per swatch (by the swatch's id) so that a hue survives a drag
 //! through white, gray or black, where a color no longer says which hue it came from.
@@ -120,12 +122,24 @@ pub fn parse_hex(text: &str) -> Option<u32> {
 type SaveColors = Rc<dyn Fn(&[u32], &mut App)>;
 type Change = Rc<dyn Fn(u32, &mut Window, &mut App)>;
 type Close = Rc<dyn Fn(&mut Window, &mut App)>;
+/// What to call with the opacity, from 0 to 1, when the bar for it is dragged.
+pub type ChangeOpacity = Rc<dyn Fn(f32, &mut Window, &mut App)>;
+
+/// An opacity a color panel shows a bar for.
+pub struct Opacity {
+    /// The opacity now, from 0 to 1.
+    pub value: f32,
+    /// What it is the opacity of, in a word: the panel writes it beside the bar.
+    pub label: &'static str,
+    pub change: ChangeOpacity,
+}
 
 /// What a drag in progress moves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Drag {
     Area,
     Hue,
+    Alpha,
 }
 
 /// The typed fields of the panel.
@@ -220,6 +234,11 @@ pub struct ColorPanel {
     open: bool,
     on_change: Option<Change>,
     on_close: Option<Close>,
+    /// The opacity of what the swatch colors, when the owner has one to show a bar for.
+    opacity: Option<f32>,
+    opacity_label: &'static str,
+    on_opacity: Option<ChangeOpacity>,
+    alpha: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Whether the pointer is on the swatch, whose click closes the panel by itself.
     swatch_hovered: bool,
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -239,6 +258,10 @@ impl ColorPanel {
             open: false,
             on_change: None,
             on_close: None,
+            opacity: None,
+            opacity_label: "",
+            on_opacity: None,
+            alpha: Rc::new(Cell::new(None)),
             swatch_hovered: false,
             area: Rc::new(Cell::new(None)),
             bar: Rc::new(Cell::new(None)),
@@ -253,7 +276,14 @@ impl ColorPanel {
     }
 
     /// Follows the color the owner holds, and remembers what to tell it.
-    fn attach(&mut self, color: u32, open: bool, on_change: Change, on_close: Close) {
+    fn attach(
+        &mut self,
+        color: u32,
+        open: bool,
+        on_change: Change,
+        on_close: Close,
+        opacity: Option<Opacity>,
+    ) {
         if open && !self.open {
             self.original = color;
         }
@@ -270,6 +300,17 @@ impl ColorPanel {
         }
         self.on_change = Some(on_change);
         self.on_close = Some(on_close);
+        (self.opacity, self.on_opacity) = match opacity {
+            Some(Opacity {
+                value,
+                label,
+                change,
+            }) => {
+                self.opacity_label = label;
+                (Some(value.clamp(0.0, 1.0)), Some(change))
+            }
+            None => (None, None),
+        };
     }
 
     fn emit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -332,6 +373,7 @@ impl ColorPanel {
         let cell = match drag {
             Drag::Area => &self.area,
             Drag::Hue => &self.bar,
+            Drag::Alpha => &self.alpha,
         };
         let Some(bounds) = cell.get() else {
             return;
@@ -347,6 +389,17 @@ impl ColorPanel {
                 self.hsv.2 = 1.0 - y;
             }
             Drag::Hue => self.hsv.0 = (x * 360.0).min(359.99),
+            Drag::Alpha => {
+                // Whole percents, so the number beside the bar is what is set.
+                let value = (x * 100.0).round() / 100.0;
+                self.opacity = Some(value);
+                self.editing = None;
+                if let Some(change) = self.on_opacity.clone() {
+                    change(value, window, cx);
+                }
+                cx.notify();
+                return;
+            }
         }
         self.editing = None;
         self.emit(window, cx);
@@ -430,6 +483,21 @@ pub fn panel(
     on_change: Change,
     on_close: Close,
 ) -> Entity<ColorPanel> {
+    panel_with_opacity(id, color, None, open, cx, on_change, on_close)
+}
+
+/// Like [`panel`], with a bar for the opacity of what the color is for, from 0 to 1, told the
+/// value the owner holds now. Each drag on the bar calls `on_opacity`. The color itself stays
+/// `0xRRGGBB`: the opacity travels apart from it.
+pub fn panel_with_opacity(
+    id: &ElementId,
+    color: u32,
+    opacity: Option<Opacity>,
+    open: bool,
+    cx: &mut App,
+    on_change: Change,
+    on_close: Close,
+) -> Entity<ColorPanel> {
     let known = cx.default_global::<Panels>().0.get(id).cloned();
     let panel = known.unwrap_or_else(|| {
         let panel = cx.new(|_| ColorPanel::new(color));
@@ -439,7 +507,7 @@ pub fn panel(
         panel
     });
     panel.update(cx, |panel, _| {
-        panel.attach(color, open, on_change, on_close)
+        panel.attach(color, open, on_change, on_close, opacity)
     });
     panel
 }
@@ -523,6 +591,70 @@ fn small_label(text: &'static str) -> gpui::Div {
         .text_size(px(crate::tokens::text::SMALL))
         .text_color(theme::muted_fg())
         .child(text)
+}
+
+impl ColorPanel {
+    /// The bar for the opacity of what is colored, with the percent beside it, or nothing when the
+    /// owner has no opacity to show. It runs from clear to the color, over a checker-free gray so
+    /// the fade reads on any theme.
+    #[inline(never)]
+    fn opacity_row(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+        let value = self.opacity?;
+        let color = self.rgb();
+        let (r, g, b) = (
+            ((color >> 16) & 0xff) as f32 / 255.0,
+            ((color >> 8) & 0xff) as f32 / 255.0,
+            (color & 0xff) as f32 / 255.0,
+        );
+        // The bar as last drawn, for the thumb; a guess until it has been drawn once.
+        let width = self
+            .alpha
+            .get()
+            .map_or(120.0, |bounds| f32::from(bounds.size.width));
+        let clear = gpui::Rgba { r, g, b, a: 0.0 };
+        let solid = gpui::Rgba { r, g, b, a: 1.0 };
+        let track = div()
+            .relative()
+            .flex_1()
+            .h(px(HUE_H))
+            .child(
+                div()
+                    .size_full()
+                    .rounded_full()
+                    .overflow_hidden()
+                    .bg(theme::surface_hover())
+                    .child(div().size_full().bg(linear_gradient(
+                        90.,
+                        linear_color_stop(clear, 0.),
+                        linear_color_stop(solid, 1.),
+                    ))),
+            )
+            .child(
+                marker(16.0, color)
+                    .left(px(value * width - 8.0))
+                    .top(px(-2.0)),
+            )
+            .child(surface("color-alpha", Drag::Alpha, self.alpha.clone(), cx).cursor_pointer());
+        Some(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .w(px(AREA_W))
+                .child(small_label(self.opacity_label))
+                .child(track)
+                .child(
+                    div()
+                        .w(px(34.))
+                        .flex()
+                        .justify_end()
+                        .text_size(px(crate::tokens::text::SMALL))
+                        .text_color(theme::fg())
+                        .child(format!("{}%", (value * 100.0).round() as u32)),
+                ),
+        )
+    }
 }
 
 impl Render for ColorPanel {
@@ -695,6 +827,7 @@ impl Render for ColorPanel {
             }))
             .child(area)
             .child(bar)
+            .children(self.opacity_row(cx))
             .children(typed)
             .child(
                 div()
