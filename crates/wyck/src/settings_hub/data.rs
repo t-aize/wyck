@@ -141,12 +141,44 @@ impl SettingsHub {
         if let Some(dir) = &dir {
             place.push(form::block(form::note(dir.display().to_string())));
         }
+
+        let reset = cx.entity();
+        let danger_group = form::group(
+            IconName::TriangleAlert,
+            "Danger zone",
+            vec![form::field(
+                "Reset everything",
+                Some(
+                    "Appearance, layout, charts and their indicators, favorites, ticket settings, drawings and their saved looks, watchlists and alerts: all of it goes back to how it is on a fresh install, for every account. Your indicator scripts and your sign-in are not touched",
+                ),
+                Button::new("settings-reset-all")
+                    .cursor_pointer()
+                    .danger()
+                    .small()
+                    .icon(IconName::TriangleAlert)
+                    .label("Reset everything")
+                    .on_click(move |_, window, cx| {
+                        let reset = reset.clone();
+                        confirm::confirm(
+                            window,
+                            cx,
+                            "Reset everything?",
+                            "This puts the appearance, layout, charts, drawings, watchlists, favorites and alerts of every account back to how they are on a fresh install. It cannot be undone. Wyck restarts right after. Your indicator scripts and your sign-in stay exactly as they are.",
+                            move |_window, cx| {
+                                reset.update(cx, |hub, cx| hub.reset_all(cx));
+                            },
+                        );
+                    }),
+            )],
+        );
+
         form::page()
             .child(backup_group)
             .child(form::group(IconName::HardDrive, "Where it is", place))
             .child(form::note(
                 "The keys that sign in to your broker are not in a backup: they stay in the system's secure storage.",
             ))
+            .child(danger_group)
             .into_any_element()
     }
 
@@ -236,5 +268,19 @@ impl SettingsHub {
         }
         self.waiting = None;
         self.say(true, "The import is cancelled. Nothing was changed.", cx);
+    }
+
+    /// Stages a full reset and restarts right away, so it applies before anything is loaded.
+    pub(super) fn reset_all(&mut self, cx: &mut Context<Self>) {
+        let Some(dir) = crate::config_dir() else {
+            self.say(false, "The settings folder could not be found.", cx);
+            return;
+        };
+        if let Err(error) = backup::stage_reset(&dir) {
+            self.say(false, error.to_string(), cx);
+            return;
+        }
+        self.waiting = None;
+        cx.restart();
     }
 }

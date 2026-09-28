@@ -42,6 +42,13 @@ fn main() {
                 Ok(paths) => {
                     // An import the user asked for waits for this moment, before anything reads the
                     // documents it replaces.
+                    match backup::apply_pending_reset(paths.config_dir()) {
+                        Ok(true) => tracing::info!(
+                            "reset the look, layout, charts and every account's data"
+                        ),
+                        Ok(false) => {}
+                        Err(error) => tracing::warn!(%error, "could not apply the pending reset"),
+                    }
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
                     match backup::apply_pending(paths.config_dir(), &stamp) {
                         Ok(Some(applied)) => tracing::info!(?applied, "restored a backup"),

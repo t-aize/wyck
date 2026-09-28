@@ -32,6 +32,8 @@ const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
 const MAX_DOCUMENTS: usize = 500;
 /// The name of the file a checked import waits in.
 const PENDING: &str = "pending-import.toml";
+/// The name of the marker a full reset waits behind.
+const RESET_MARKER: &str = "reset-pending";
 /// The scope of the documents shared by every account.
 pub const GLOBAL: &str = "global";
 
@@ -387,6 +389,8 @@ pub fn stage(config_dir: &Path, text: &str) -> Result<Backup, BackupError> {
     let backup = parse(text)?;
     fs::create_dir_all(config_dir)?;
     wyck_config::write_atomically(&config_dir.join(PENDING), text.as_bytes())?;
+    // An import always wins over a reset that was waiting.
+    let _ = cancel_reset(config_dir);
     Ok(backup)
 }
 
@@ -401,6 +405,49 @@ pub fn cancel_pending(config_dir: &Path) -> io::Result<()> {
         Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
         _ => Ok(()),
     }
+}
+
+/// Asks for the look, layout, charts and indicators, drawings and their saved looks, favorites,
+/// watchlists and alerts of every account to go back to how they are on a fresh install, at the
+/// next start. What a reset never touches: the app's own config file (the accounts and which one
+/// is active) and the system's secure storage (the keys that sign in), so signing back in is not
+/// needed after it runs.
+pub fn stage_reset(config_dir: &Path) -> io::Result<()> {
+    fs::create_dir_all(config_dir)?;
+    wyck_config::write_atomically(&config_dir.join(RESET_MARKER), b"")?;
+    // A reset always wins over an import that was waiting.
+    cancel_pending(config_dir)
+}
+
+/// Whether a reset waits for the next start.
+pub fn reset_pending(config_dir: &Path) -> bool {
+    config_dir.join(RESET_MARKER).is_file()
+}
+
+/// Forgets a reset that waits, for one the user changed their mind about.
+pub fn cancel_reset(config_dir: &Path) -> io::Result<()> {
+    match fs::remove_file(config_dir.join(RESET_MARKER)) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
+        _ => Ok(()),
+    }
+}
+
+/// Applies a reset that waits, if there is one: removes every saved document of every account, and
+/// the marker. Call it before anything reads the documents, the same as [`apply_pending`]. The
+/// indicator scripts, the app's own config file and the system's secure storage are left alone.
+pub fn apply_pending_reset(config_dir: &Path) -> io::Result<bool> {
+    if !reset_pending(config_dir) {
+        return Ok(false);
+    }
+    for folder in ["state", "scopes"] {
+        match fs::remove_dir_all(config_dir.join(folder)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    fs::remove_file(config_dir.join(RESET_MARKER))?;
+    Ok(true)
 }
 
 /// What applying an import did.
@@ -765,5 +812,45 @@ mod tests {
         assert!(dir.path().join("pending-import.toml.bad").is_file());
         assert!(stage(dir.path(), "garbage").is_err());
         assert!(!pending(dir.path()), "a bad file is not staged");
+    }
+
+    #[test]
+    fn a_reset_wipes_every_account_but_leaves_the_sign_in_and_the_scripts_alone() {
+        let dir = setup();
+        write(dir.path(), "indicators/Mine.rhai", "plot(\"a\", close);");
+        stage_reset(dir.path()).unwrap();
+        assert!(reset_pending(dir.path()));
+        // Nothing is removed until the next start.
+        assert!(dir.path().join("state/preferences.toml").is_file());
+
+        assert!(apply_pending_reset(dir.path()).unwrap());
+        assert!(!reset_pending(dir.path()));
+        assert!(!dir.path().join("state").exists());
+        assert!(!dir.path().join("scopes").exists());
+        assert!(
+            dir.path().join("config.toml").is_file(),
+            "the sign-in stays"
+        );
+        assert!(
+            dir.path().join("indicators/Mine.rhai").is_file(),
+            "the scripts stay"
+        );
+        // Applied once.
+        assert!(!apply_pending_reset(dir.path()).unwrap());
+    }
+
+    #[test]
+    fn a_reset_and_an_import_each_cancel_the_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = to_text(&collect(setup().path(), "1", "t").unwrap()).unwrap();
+
+        stage(dir.path(), &text).unwrap();
+        stage_reset(dir.path()).unwrap();
+        assert!(reset_pending(dir.path()));
+        assert!(!pending(dir.path()), "the reset cancels the import");
+
+        stage(dir.path(), &text).unwrap();
+        assert!(pending(dir.path()));
+        assert!(!reset_pending(dir.path()), "the import cancels the reset");
     }
 }
