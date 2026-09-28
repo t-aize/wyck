@@ -176,8 +176,6 @@ pub mod transport;
 pub(crate) use account::types::number_enum;
 #[cfg(feature = "client")]
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
-#[allow(deprecated)]
-pub use error::OpenApiError;
 pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};
 #[cfg(feature = "client")]

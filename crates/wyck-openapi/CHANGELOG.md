@@ -32,7 +32,7 @@ The first version with its own number; earlier versions followed the Wyck app.
 
 ### Changed
 
-- `OpenApiError` is now `Error`. `OpenApiError` remains as a deprecated alias.
+- `OpenApiError` is now `Error`.
 - `#[non_exhaustive]` on the server's answers and events, on `Event`, `DisconnectReason`,
   `ConnectionState`, `SessionEvent`, `SessionState`, `Tone`, `TicketProblem`,
   `ConnectionConfig` and `SessionConfig`. The wire fragments (`WireTick`, `WireTrendbar`) and the

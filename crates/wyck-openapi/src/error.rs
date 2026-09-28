@@ -11,10 +11,6 @@ use std::time::Duration;
 /// A specialized `Result` for this crate.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The former name of [`Error`].
-#[deprecated(since = "0.4.0", note = "renamed to `Error`")]
-pub type OpenApiError = Error;
-
 /// What went wrong, in a few words a caller can act on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
