@@ -110,7 +110,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
             window.prevent_default();
             cx.stop_propagation();
         })
-        .child("Journalisation")
+        .child("Journal")
         .when(show_badge, |bar| {
             bar.child(
                 div()
@@ -119,7 +119,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
                     .border_color(theme::border_subtle())
                     .px_1p5()
                     .text_size(px(9.0))
-                    .child("Bient\u{f4}t"),
+                    .child("Soon"),
             )
         });
 
