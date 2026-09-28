@@ -15,12 +15,12 @@ use super::{
     AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
-use crate::chart::drawing::model::Tool;
-use crate::chart::study::custom::docs::{self, Group};
-use crate::chart::study::custom::library::{Entry as Script, registry};
-use crate::chart::study::custom::templates::TEMPLATES;
-use crate::chart::study::custom::{Problem, Severity};
 use crate::indicators;
+use wyck_chart::drawing::model::Tool;
+use wyck_chart::study::custom::docs::{self, Group};
+use wyck_chart::study::custom::library::{Entry as Script, registry};
+use wyck_chart::study::custom::templates::TEMPLATES;
+use wyck_chart::study::custom::{Problem, Severity};
 use wyck_ui::{
     controls, icon, layout, menu,
     menu::{Entry, Item, Placement},

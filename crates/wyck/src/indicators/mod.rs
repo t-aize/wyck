@@ -5,7 +5,7 @@
 //! can point it elsewhere in the settings). The app reads that folder when it starts and again
 //! every moment, so a file edited in another program shows up on its own. What was read is
 //! published to the registry that charts look their indicators up in
-//! ([`crate::chart::study::custom::library::registry`]), and every chart is told to look
+//! ([`wyck_chart::study::custom::library::registry`]), and every chart is told to look
 //! again.
 //!
 //! Everything that touches a file goes through here and runs off the interface thread, so a
@@ -21,9 +21,9 @@ use std::time::Duration;
 use gpui::{App, BorrowAppContext as _, Global, Task};
 use wyck_config::{AppPaths, DocumentStore};
 
-use crate::chart::study::custom::library::{Changes, Library, LibraryError};
-use crate::chart::study::custom::{Limits, library};
 use prefs::{DOCUMENT, Prefs};
+use wyck_chart::study::custom::library::{Changes, Library, LibraryError};
+use wyck_chart::study::custom::{Limits, library};
 
 /// How often the folder is read again.
 const POLL: Duration = Duration::from_millis(1500);

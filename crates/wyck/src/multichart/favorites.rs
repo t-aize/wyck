@@ -12,9 +12,9 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
-use crate::chart::drawing::model::Tool;
 use crate::chart::object_tree::tool_icon;
 use crate::workspace::MAX_FAVORITE_TOOLS;
+use wyck_chart::drawing::model::Tool;
 use wyck_ui::{
     controls, icon,
     menu::{self as popup, Entry, Item},

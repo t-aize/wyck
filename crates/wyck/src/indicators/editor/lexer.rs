@@ -7,7 +7,7 @@
 
 use std::ops::Range;
 
-use crate::chart::study::custom::docs;
+use wyck_chart::study::custom::docs;
 
 /// What a piece of the text is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

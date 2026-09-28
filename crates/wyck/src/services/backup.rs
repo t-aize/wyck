@@ -203,7 +203,7 @@ pub fn collect_with_scripts(
     app_version: &str,
     created: &str,
 ) -> io::Result<Backup> {
-    use crate::chart::study::custom::library::Library;
+    use wyck_chart::study::custom::library::Library;
     let mut backup = collect(config_dir, app_version, created)?;
     let mut library = Library::new(scripts_dir);
     library.refresh();
@@ -282,7 +282,7 @@ pub fn parse(text: &str) -> Result<Backup, BackupError> {
 /// Checks the scripts of a backup: each has a safe id inside the indicators folder, a size that makes
 /// sense, and is there once.
 fn check_scripts(backup: &Backup) -> Result<(), BackupError> {
-    use crate::chart::study::custom::library::{MAX_FILE_BYTES, MAX_SCRIPTS, clean_id};
+    use wyck_chart::study::custom::library::{MAX_FILE_BYTES, MAX_SCRIPTS, clean_id};
     if backup.scripts.len() > MAX_SCRIPTS {
         return Err(BackupError::Damaged(
             "it holds too many indicator scripts".to_owned(),

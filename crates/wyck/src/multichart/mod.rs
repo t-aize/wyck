@@ -33,13 +33,13 @@ use self::layouts::{LayoutKey, layout};
 use self::links::{Follow, Link, Links};
 use self::split::{Divider, Node};
 use super::chart::drawing::Drawings;
-use super::chart::drawing::model::{Dash, Group, Tool};
-use super::chart::study::StudyConfig;
 use super::chart::{
     Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId, LiveHub,
     LiveUpdate, Timeframe,
 };
 use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
+use wyck_chart::drawing::model::{Dash, Group, Tool};
+use wyck_chart::study::StudyConfig;
 use wyck_ui::{text_input::TextInput, theme};
 
 /// The symbol of a chart: its id, name and number of decimals.
@@ -745,7 +745,7 @@ impl MultiChart {
     pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
-        change: impl FnOnce(&mut super::chart::drawing::book::Book, &str) -> bool,
+        change: impl FnOnce(&mut wyck_chart::drawing::book::Book, &str) -> bool,
     ) {
         let Some(symbol) = self.symbol_name(cx) else {
             return;

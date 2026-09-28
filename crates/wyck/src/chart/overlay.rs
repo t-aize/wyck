@@ -11,7 +11,6 @@ use gpui_kit::assets::IconName;
 use wyck_openapi::market::format_price;
 
 use super::data::Series;
-use super::drawing::book::Order;
 use super::lines::to_real;
 use super::scene::{AXIS_H, AXIS_W, Geometry, price};
 use super::settings::ChartKind;
@@ -21,6 +20,7 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
+use wyck_chart::drawing::book::Order;
 use wyck_ui::{
     anim, button, controls, icon,
     menu::{self as popup, Entry, Item},
@@ -147,7 +147,7 @@ impl Chart {
                 chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
             }
         };
-        let long = drawing.tool == super::drawing::model::Tool::LongPosition;
+        let long = drawing.tool == wyck_chart::drawing::model::Tool::LongPosition;
         let settings = chart.clone();
         let mut items = vec![
             Item::Title(drawing.title().into()),
@@ -610,7 +610,7 @@ impl Chart {
             Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
-            Some((super::drawing::model::Tool::ArrowPath, placed, _)) => format!(
+            Some((wyck_chart::drawing::model::Tool::ArrowPath, placed, _)) => format!(
                 "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),
@@ -676,7 +676,8 @@ impl Chart {
         use wyck_openapi::market::MarketStatus;
         let status = self.market_status()?;
         let now = super::now_ms();
-        let within = |at: Option<i64>| at.map(|t| super::drawing::geometry::duration_text(t - now));
+        let within =
+            |at: Option<i64>| at.map(|t| wyck_chart::drawing::geometry::duration_text(t - now));
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (
                 theme::emerald(),

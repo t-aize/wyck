@@ -6,11 +6,11 @@ use gpui::{App, Context, Entity, Window};
 use wyck_openapi::market::PRICE_SCALE;
 
 use super::drawing::Drawings;
-use super::drawing::book::{Book, Order, Press};
-use super::drawing::model::Tool;
 use super::projection::ChartProjection;
 use super::study::StudyKind;
 use super::{Chart, ChartAction, ChartEvent, drawing_props, object_tree};
+use wyck_chart::drawing::book::{Book, Order, Press};
+use wyck_chart::drawing::model::Tool;
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
@@ -58,8 +58,8 @@ impl Chart {
 
     pub(super) fn resolved_position(
         &self,
-        drawing: &super::drawing::model::Drawing,
-    ) -> Option<super::drawing::model::Drawing> {
+        drawing: &wyck_chart::drawing::model::Drawing,
+    ) -> Option<wyck_chart::drawing::model::Drawing> {
         if !drawing.tool.is_position() || drawing.points.len() < 3 {
             return Some(drawing.clone());
         }

@@ -16,11 +16,11 @@ use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use super::stats::{self, HistoryStats};
 use crate::alerts::Alerts;
 use crate::chart::now_ms;
-use crate::chart::zone::Zone;
 use crate::trading::account::{Account, Busy};
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, format_money};
 use crate::trading::ticket::prefs::Slot;
+use wyck_chart::zone::Zone;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

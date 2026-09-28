@@ -15,12 +15,12 @@ use gpui_kit::component::{Disableable, Sizable};
 use super::appearance::presets::CANDLE_SETS;
 use super::appearance::{self, ColorField, Mode};
 use super::build_info::{BuildMode, VERSION};
-use super::chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
-use super::chart::settings::MAX_STUDIES;
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use super::{backup, updates};
+use wyck_chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
+use wyck_chart::settings::MAX_STUDIES;
 use wyck_ui::{
     button, confirm, controls, form, form::Head, icon, modal, number, theme, theme::Colors, toast,
     tokens,
@@ -1418,7 +1418,7 @@ impl SettingsHub {
         let dir = indicators::dir(cx);
         let default_dir = indicators::default_dir(cx);
         let using_default = prefs.folder.is_none();
-        let entries = crate::chart::study::custom::library::registry::all();
+        let entries = wyck_chart::study::custom::library::registry::all();
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
         let folder = vec![

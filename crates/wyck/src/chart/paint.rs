@@ -21,7 +21,7 @@ impl Chart {
     /// Builds the frame for the canvas at `bounds`.
     fn scene(&self, cx: &App, bounds: Bounds<Pixels>, scale: f32, with_pointer: bool) -> Vec<Cmd> {
         let timeframe = self.timeframe.code();
-        let visible = move |d: &super::drawing::model::Drawing| d.shows_on(&timeframe);
+        let visible = move |d: &wyck_chart::drawing::model::Drawing| d.shows_on(&timeframe);
         let drawings =
             self.drawings
                 .as_ref()

@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use super::lexer::{self, Kind, Place};
-use crate::chart::study::custom::docs::{self, Group};
+use wyck_chart::study::custom::docs::{self, Group};
 
 /// What an offered name is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

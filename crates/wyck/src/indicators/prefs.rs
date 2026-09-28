@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::chart::study::custom::Limits;
+use wyck_chart::study::custom::Limits;
 
 /// The name of the document.
 pub const DOCUMENT: &str = "indicators";

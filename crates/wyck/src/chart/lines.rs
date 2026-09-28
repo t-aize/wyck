@@ -9,8 +9,8 @@
 
 use wyck_openapi::market::PRICE_SCALE;
 
-use super::drawing::model::Dash;
 use super::scene::PriceMark;
+use wyck_chart::drawing::model::Dash;
 
 pub use wyck_chart::lines::LineId;
 

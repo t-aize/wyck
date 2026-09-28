@@ -8,10 +8,10 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::drawing::Drawings;
-use super::drawing::book::{Book, Order};
-use super::drawing::model::{Drawing, Tool};
 use super::drawing_props;
 use super::zone::Zone;
+use wyck_chart::drawing::book::{Book, Order};
+use wyck_chart::drawing::model::{Drawing, Tool};
 use wyck_ui::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {

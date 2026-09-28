@@ -12,8 +12,8 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
 use crate::chart::DrawingCommand;
-use crate::chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use crate::chart::object_tree::tool_icon;
+use wyck_chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use wyck_ui::{controls, icon, layout, menu as popup, theme, tokens};
 
 /// The width of the rail of tools.

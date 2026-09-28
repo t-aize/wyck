@@ -15,15 +15,15 @@ use wyck_openapi::market::PRICE_SCALE;
 
 use super::Chart;
 use super::drawing::Drawings;
-use super::drawing::extras::{ICONS, icon_key};
-use super::drawing::figures::wave_names;
-use super::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
-use super::drawing::model::{
-    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label,
-};
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
+use wyck_chart::drawing::extras::{ICONS, icon_key};
+use wyck_chart::drawing::figures::wave_names;
+use wyck_chart::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+use wyck_chart::drawing::model::{
+    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, Point, Tool, wave_label,
+};
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
 

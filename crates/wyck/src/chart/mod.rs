@@ -74,26 +74,26 @@ pub mod lines;
 pub mod live;
 mod load;
 pub mod object_tree;
-pub use wyck_chart::options;
+use wyck_chart::options;
 mod overlay;
 mod paint;
 use wyck_chart::projection;
 pub mod raster;
 pub mod replay;
-pub use wyck_chart::scene;
-pub use wyck_chart::settings;
+use wyck_chart::scene;
+use wyck_chart::settings;
 mod settings_rows;
-pub use wyck_chart::study;
+use wyck_chart::study;
 mod study_settings;
 use wyck_chart::timeframe;
 mod toolbar;
-pub use wyck_chart::tpo;
+use wyck_chart::tpo;
 mod tpo_ui;
-pub use wyck_chart::transform;
+use wyck_chart::transform;
 use wyck_chart::view;
-pub use wyck_chart::volume;
+use wyck_chart::volume;
 mod volume_ui;
-pub use wyck_chart::zone;
+use wyck_chart::zone;
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -411,7 +411,7 @@ pub struct Chart {
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
     /// Whether the pointer is over a drawing, for the mouse cursor.
-    over_drawing: Option<drawing::book::Grab>,
+    over_drawing: Option<wyck_chart::drawing::book::Grab>,
     /// A drawing was double-clicked: its settings open at the next render, which has the window.
     settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.

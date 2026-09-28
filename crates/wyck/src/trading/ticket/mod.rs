@@ -37,10 +37,10 @@ use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 use super::account::Account;
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
-use crate::chart::drawing::model::Dash;
 use crate::chart::{ChartLine, LineId, now_ms};
 use crate::multichart::SymbolRef;
 use crate::runtime;
+use wyck_chart::drawing::model::Dash;
 use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
@@ -650,7 +650,7 @@ impl OrderTicket {
                 .settings()
                 .studies
                 .iter()
-                .find(|study| study.kind == crate::chart::study::StudyKind::Atr)
+                .find(|study| study.kind == wyck_chart::study::StudyKind::Atr)
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {

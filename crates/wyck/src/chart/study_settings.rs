@@ -11,12 +11,12 @@ use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 
 use super::Chart;
-use super::drawing::model::{DASHES, WIDTHS};
 use super::study::custom::library::registry;
 use super::study::custom::{Problem, Severity};
 use super::study::{
     FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
 };
+use wyck_chart::drawing::model::{DASHES, WIDTHS};
 use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
