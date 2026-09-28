@@ -9355,19 +9355,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wyck-backtest"
-version = "0.3.0"
-dependencies = [
- "proptest",
- "rhai",
- "thiserror 2.0.20",
- "wyck-chart",
- "wyck-market-data",
- "wyck-openapi-model",
- "wyck-trading",
-]
-
-[[package]]
 name = "wyck-chart"
 version = "0.3.0"
 dependencies = [

@@ -1,6 +1,6 @@
 //! Bridges the local historical catalog (`wyck-market-data`) into the chart's existing
 //! [`History`] trait, backfilling any missing range from the broker on demand before
-//! reading back from disk. Live charts, Replay and Backtesting all read history through
+//! reading back from disk. Live charts and Replay both read history through
 //! [`CatalogClient`], so they see one consistent, persistent store instead of each
 //! re-fetching from the rate-limited broker endpoint every session.
 

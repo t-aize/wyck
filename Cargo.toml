@@ -13,7 +13,6 @@ repository = "https://github.com/t-aize/wyck"
 publish = false
 
 [workspace.dependencies]
-wyck-backtest = { path = "crates/wyck-backtest", version = "0.3.0" }
 wyck-chart = { path = "crates/wyck-chart", version = "0.3.0" }
 wyck-config = { path = "crates/wyck-config", version = "0.3.0" }
 wyck-market-data = { path = "crates/wyck-market-data", version = "0.3.0" }

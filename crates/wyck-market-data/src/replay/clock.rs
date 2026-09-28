@@ -1,7 +1,6 @@
-//! A clock abstraction so the same stepping logic can later drive both a deterministic,
-//! manually advanced backtest and a real-time-paced replay, without either depending on
-//! wall-clock time directly. [`TestClock`] is the deterministic half: it only moves when
-//! told to, in milliseconds, with no notion of "real" time at all.
+//! A clock abstraction for the Replay feature's stepping logic, so it does not depend on
+//! wall-clock time directly. [`TestClock`] only moves when told to, in milliseconds, with
+//! no notion of "real" time at all.
 
 /// A point in (simulated) time, advanced only when told to.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
