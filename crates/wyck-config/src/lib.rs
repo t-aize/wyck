@@ -24,21 +24,17 @@
 //!
 //! ```no_run
 //! use secrecy::SecretString;
-//! use wyck_config::WyckConfig;
+//! use wyck_config::{CLIENT_SECRET, WyckConfig};
 //!
 //! # fn main() -> wyck_config::Result<()> {
 //! let mut config = WyckConfig::open()?;
 //!
-//! let id = config.add_profile(
-//!     "Live: FTMO 100k",
-//!     "ctrader-openapi",
-//!     None,
-//!     Some(SecretString::from("the-account-token".to_owned())),
-//! )?;
+//! let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
+//! config.set_profile_secret(&id, CLIENT_SECRET, &SecretString::from("the-secret".to_owned()))?;
 //! config.set_active_profile(Some(id.clone()))?;
 //!
-//! if let Some(token) = config.token_for(&id)? {
-//!     // hand `token` to the client that needs it
+//! if let Some(secret) = config.profile_secret(&id, CLIENT_SECRET)? {
+//!     // hand `secret` to the client that needs it
 //! }
 //! # Ok(())
 //! # }
@@ -62,7 +58,7 @@
 //!
 //! ## Guarantees
 //!
-//! * **Writes are atomic and durable.** Every file goes through [`write_atomically`]: a crash or a
+//! * **Writes are atomic and durable.** Every file goes through [`atomic_write`]: a crash or a
 //!   power cut leaves the old file or the new one, never half of one.
 //! * **The memory never gets ahead of the disk.** Every change of [`WyckConfig`] is saved before it
 //!   is kept: when the save fails the change did not happen.
@@ -103,7 +99,7 @@ pub use app_config::{AppConfig, CURRENT_SCHEMA_VERSION};
 pub use doctor::{Finding, Report, Severity};
 pub use documents::DocumentStore;
 pub use error::{ConfigError, Result};
-pub use fs_util::{atomic_write, stale_temp_files, write_atomically};
+pub use fs_util::{atomic_write, stale_temp_files};
 pub use paths::{AppPaths, CONFIG_DIR_ENV, DATA_DIR_ENV};
 pub use profile::{ProfileConfig, ProfileId};
 pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, SecretStore};
@@ -219,47 +215,24 @@ impl WyckConfig {
         self.app_config.profile(id)
     }
 
-    /// Adds a new profile: stores `token` (if given) under the profile's derived
-    /// [`SecretKey`] (see [`SecretKey::for_profile`]) in the configured
-    /// [`SecretStore`], appends the non-secret [`ProfileConfig`], and persists the
-    /// updated [`AppConfig`] to disk.
-    ///
-    /// `token` is `None` for services that don't require one, or whose credentials are
-    /// stored separately through [`Self::set_profile_secret`].
-    ///
-    /// If saving the config fails after the token was stored, the token is deleted again
-    /// (best effort) and the profile is not added: nothing is left half done.
+    /// Adds a new, empty profile and persists the updated [`AppConfig`] to disk. Its credentials
+    /// are stored afterwards with [`Self::set_profile_secret`] and [`Self::openapi_token_storage`].
     ///
     /// # Errors
     ///
-    /// Any error the [`SecretStore`] backend or [`AppConfig::save`] returns.
+    /// Any error of [`AppConfig::save`]; the profile is then not added.
     pub fn add_profile(
         &mut self,
         display_name: impl Into<String>,
         service: impl Into<String>,
-        endpoint: Option<String>,
-        token: Option<SecretString>,
     ) -> Result<ProfileId> {
-        let profile = ProfileConfig::new(display_name, service, endpoint);
+        let profile = ProfileConfig::new(display_name, service);
         let id = profile.id.clone();
-
-        let key = SecretKey::for_profile(&id);
-        if let Some(token) = &token {
-            self.secrets.store(&key, token)?;
-        }
-        if let Err(error) = self.commit(|config| {
+        self.commit(|config| {
             config.profiles.push(profile);
             Ok(())
-        }) {
-            if token.is_some()
-                && let Err(cleanup) = self.secrets.delete(&key)
-            {
-                warn!(%id, error = %cleanup, "could not remove the token of a profile that was not added");
-            }
-            return Err(error);
-        }
-        info!(%id, has_token = token.is_some(), "added a profile");
-
+        })?;
+        info!(%id, "added a profile");
         Ok(id)
     }
 
@@ -281,7 +254,6 @@ impl WyckConfig {
             return Err(ConfigError::UnknownProfile(id.to_string()));
         }
 
-        self.secrets.delete(&SecretKey::for_profile(id))?;
         for name in [CLIENT_SECRET, OAUTH_TOKENS] {
             self.secrets.delete(&profile_secret_key(id, name))?;
         }
@@ -294,17 +266,6 @@ impl WyckConfig {
         })?;
         info!(%id, "removed a profile");
         Ok(())
-    }
-
-    /// Retrieves the token for `id`, or `Ok(None)` if none is stored (e.g. the profile
-    /// was created without a token, or it was deleted from the credential store
-    /// directly).
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
-    pub fn token_for(&self, id: &ProfileId) -> Result<Option<SecretString>> {
-        self.secrets.retrieve(&SecretKey::for_profile(id))
     }
 
     /// Stores a named credential for a profile, apart from its main token: the Open API client
@@ -349,30 +310,11 @@ impl WyckConfig {
         self.secrets.delete(&profile_secret_key(id, name))
     }
 
-    /// Saves an OAuth token pair with one credential-store write. A rotated refresh
-    /// token must never be persisted separately from its matching access token.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], or any error of the credential store.
-    pub fn save_openapi_tokens(&self, id: &ProfileId, tokens: &OpenApiTokens) -> Result<()> {
-        self.require_profile(id)?;
-        self.openapi_token_storage(id).save(tokens)
-    }
-
-    /// Loads the OAuth token pair of a profile, if it has one.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], or any error of the credential store.
-    pub fn openapi_tokens(&self, id: &ProfileId) -> Result<Option<OpenApiTokens>> {
-        self.require_profile(id)?;
-        self.openapi_token_storage(id).load()
-    }
-
-    /// A handle on where a profile's OAuth tokens are kept, that can outlive this borrow of the
-    /// config and move to another thread. A long-running session uses it to save the tokens it
-    /// renews on its own, without going through the `WyckConfig` the UI owns.
+    /// Where a profile's OAuth token pair is kept: load it, save it (both halves in one
+    /// credential-store write, so a rotated refresh token is never saved apart from its access
+    /// token), or clear it. The handle can outlive this borrow of the config and move to another
+    /// thread, so a long-running session can save the tokens it renews on its own, without going
+    /// through the `WyckConfig` the UI owns.
     pub fn openapi_token_storage(&self, id: &ProfileId) -> OpenApiTokenStorage {
         OpenApiTokenStorage {
             secrets: Arc::clone(&self.secrets),
@@ -425,16 +367,6 @@ impl WyckConfig {
         })?;
         info!(active = ?id, "changed the active profile");
         Ok(())
-    }
-
-    /// The documents shared by every profile (how the user likes to work).
-    pub fn global_documents(&self) -> DocumentStore {
-        DocumentStore::global(&self.paths)
-    }
-
-    /// The documents of one scope, such as an account (what depends on the broker behind it).
-    pub fn scoped_documents(&self, scope: &str) -> DocumentStore {
-        DocumentStore::scoped(&self.paths, scope)
     }
 
     /// The symbol the user was last on, if one was remembered.
@@ -596,12 +528,13 @@ mod tests {
     }
 
     #[test]
-    fn add_profile_persists_both_the_config_entry_and_the_secret() {
+    fn a_profile_and_its_secret_persist_across_a_restart() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
 
-        let id = config
-            .add_profile("Demo", "ctrader-remote", None, Some(secret("token-123")))
+        let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
+        config
+            .set_profile_secret(&id, CLIENT_SECRET, &secret("token-123"))
             .unwrap();
 
         assert_eq!(config.profiles().len(), 1);
@@ -611,31 +544,31 @@ mod tests {
         let reloaded = config_in(temp_dir.path());
         assert_eq!(reloaded.profiles().len(), 1);
         assert_eq!(
-            reloaded.token_for(&id).unwrap().unwrap().expose_secret(),
+            reloaded
+                .profile_secret(&id, CLIENT_SECRET)
+                .unwrap()
+                .unwrap()
+                .expose_secret(),
             "token-123"
         );
     }
 
     #[test]
-    fn add_profile_without_a_token_stores_no_secret() {
+    fn a_new_profile_has_no_secret() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
-
         let id = config
-            .add_profile("Local desktop", "ctrader-local", None, None)
+            .add_profile("Local desktop", "ctrader-local")
             .unwrap();
-
-        assert_eq!(config.profiles().len(), 1);
-        assert!(config.token_for(&id).unwrap().is_none());
+        assert!(config.profile_secret(&id, CLIENT_SECRET).unwrap().is_none());
+        assert!(config.openapi_token_storage(&id).load().unwrap().is_none());
     }
 
     #[test]
-    fn remove_profile_deletes_config_entry_secret_and_active_pointer() {
+    fn remove_profile_deletes_config_entry_secrets_and_active_pointer() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
-        let id = config
-            .add_profile("Demo", "ctrader-remote", None, Some(secret("token")))
-            .unwrap();
+        let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
         config.set_active_profile(Some(id.clone())).unwrap();
         config
             .set_profile_secret(&id, CLIENT_SECRET, &secret("app-secret"))
@@ -648,7 +581,6 @@ mod tests {
 
         assert!(config.profiles().is_empty());
         assert!(config.active_profile().is_none());
-        assert!(config.token_for(&id).unwrap().is_none());
         for name in [CLIENT_SECRET, OAUTH_TOKENS] {
             assert!(
                 config
@@ -667,9 +599,7 @@ mod tests {
     fn openapi_profile_settings_and_secrets_survive_restart() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = config_in(dir.path());
-        let id = config
-            .add_profile("Demo", "ctrader-openapi", None, None)
-            .unwrap();
+        let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
         config
             .set_openapi_profile(&id, "client-id".into(), 8765, 42)
             .unwrap();
@@ -677,14 +607,12 @@ mod tests {
             .set_profile_secret(&id, CLIENT_SECRET, &secret("secret"))
             .unwrap();
         config
-            .save_openapi_tokens(
-                &id,
-                &OpenApiTokens {
-                    access_token: secret("access"),
-                    refresh_token: secret("refresh"),
-                    expires_at: Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000)),
-                },
-            )
+            .openapi_token_storage(&id)
+            .save(&OpenApiTokens {
+                access_token: secret("access"),
+                refresh_token: secret("refresh"),
+                expires_at: Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000)),
+            })
             .unwrap();
         drop(config);
 
@@ -701,7 +629,7 @@ mod tests {
                 .expose_secret(),
             "secret"
         );
-        let tokens = config.openapi_tokens(&id).unwrap().unwrap();
+        let tokens = config.openapi_token_storage(&id).load().unwrap().unwrap();
         assert_eq!(tokens.access_token.expose_secret(), "access");
         assert_eq!(tokens.refresh_token.expose_secret(), "refresh");
         assert_eq!(
@@ -738,7 +666,7 @@ mod tests {
             Err(ConfigError::UnknownProfile(_))
         ));
         assert!(matches!(
-            config.openapi_tokens(&ghost),
+            config.profile_secret(&ghost, CLIENT_SECRET),
             Err(ConfigError::UnknownProfile(_))
         ));
     }
@@ -747,7 +675,7 @@ mod tests {
     fn a_credential_name_cannot_be_a_path() {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
-        let id = config.add_profile("P", "s", None, None).unwrap();
+        let id = config.add_profile("P", "s").unwrap();
         for bad in ["", "../x", "a/b", "a:b", "with space"] {
             assert!(
                 matches!(
@@ -814,8 +742,9 @@ mod tests {
     fn a_failed_credential_delete_keeps_the_profile_so_the_removal_can_be_retried() {
         let dir = tempfile::tempdir().unwrap();
         let (mut config, flaky) = flaky_config(dir.path());
-        let id = config
-            .add_profile("Demo", "s", None, Some(secret("token")))
+        let id = config.add_profile("Demo", "s").unwrap();
+        config
+            .set_profile_secret(&id, CLIENT_SECRET, &secret("token"))
             .unwrap();
         flaky
             .fail_deletes
@@ -844,23 +773,20 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_save_leaves_the_memory_as_it_was_and_removes_the_orphan_token() {
+    fn a_failed_save_leaves_the_memory_as_it_was() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = config_in(dir.path());
-        let kept = config.add_profile("Kept", "s", None, None).unwrap();
+        let kept = config.add_profile("Kept", "s").unwrap();
 
         // The config file can no longer be replaced: a directory sits where it goes.
         let file = config.paths().config_file();
         std::fs::remove_file(&file).unwrap();
         std::fs::create_dir(&file).unwrap();
 
-        assert!(
-            config
-                .add_profile("Lost", "s", None, Some(secret("orphan")))
-                .is_err()
-        );
+        assert!(config.add_profile("Lost", "s").is_err());
         assert!(config.set_active_profile(Some(kept.clone())).is_err());
         assert!(config.set_last_symbol(Some("EURUSD".into())).is_err());
+        assert!(config.set_openapi_profile(&kept, "c".into(), 1, 2).is_err());
 
         assert_eq!(config.profiles().len(), 1, "no profile was kept in memory");
         assert!(
@@ -868,13 +794,7 @@ mod tests {
             "no change was kept in memory"
         );
         assert_eq!(config.last_symbol(), None);
-        let leftovers = std::fs::read_dir(config.paths().secrets_dir())
-            .map(|entries| entries.count())
-            .unwrap_or(0);
-        assert_eq!(
-            leftovers, 0,
-            "the token of the profile that was not added is gone"
-        );
+        assert_eq!(config.profile(&kept).unwrap().client_id, None);
     }
 
     #[test]
@@ -897,9 +817,7 @@ mod tests {
     fn a_healthy_config_has_nothing_to_report_and_a_broken_one_says_what() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = config_in(dir.path());
-        let id = config
-            .add_profile("Demo", "ctrader-openapi", None, None)
-            .unwrap();
+        let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
         assert!(config.diagnose().is_healthy());
 
         // An Open API profile with no application secret stored.
@@ -919,7 +837,7 @@ mod tests {
 
         // A crash left a temporary file, and a document was set aside.
         std::fs::write(config.paths().config_dir().join(".config.toml.tmp-1"), b"x").unwrap();
-        let state = config.global_documents();
+        let state = DocumentStore::global(config.paths());
         std::fs::create_dir_all(state.dir()).unwrap();
         std::fs::write(state.dir().join("prefs.toml.bad"), b"junk").unwrap();
         let text = config.diagnose().to_string();

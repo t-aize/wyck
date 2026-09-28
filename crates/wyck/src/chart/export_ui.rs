@@ -263,7 +263,7 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let dir = crate::config_dir();
+        let dir = crate::app_paths().map(|paths| paths.config_dir().to_path_buf());
         let saved = dir.as_deref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.

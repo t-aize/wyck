@@ -25,7 +25,7 @@ use gpui::{
     div,
 };
 use secrecy::ExposeSecret;
-use wyck_config::{ProfileId, Severity, WyckConfig};
+use wyck_config::{DocumentStore, ProfileId, Severity, WyckConfig};
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::session::{Session, SessionConfig, TokenStore};
@@ -117,7 +117,7 @@ impl ConnectionFlow {
                 return None;
             }
         };
-        let tokens = match self.config.openapi_tokens(&profile.id) {
+        let tokens = match self.config.openapi_token_storage(&profile.id).load() {
             Ok(Some(tokens)) => tokens,
             Ok(None) => return None,
             Err(error) => {
@@ -174,8 +174,8 @@ impl ConnectionFlow {
         // the watchlists where they were.
         let scope = rules::document_scope(environment, account_id);
         let documents = Documents {
-            global: self.config.global_documents(),
-            account: self.config.scoped_documents(&scope),
+            global: DocumentStore::global(self.config.paths()),
+            account: DocumentStore::scoped(self.config.paths(), &scope),
         };
         let dashboard =
             cx.new(|cx| Dashboard::new(session, account, initial_symbol, documents, cx));

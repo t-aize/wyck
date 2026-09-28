@@ -123,7 +123,7 @@ fn store_for(paths: &AppPaths, scope: &str) -> DocumentStore {
 /// The documents of a store: name and text of each. A document that cannot be read as text is
 /// left out, not fatal to the rest.
 fn documents_in(store: &DocumentStore) -> io::Result<Vec<(String, String)>> {
-    let names = store.list().map_err(to_io)?;
+    let names = store.list()?;
     Ok(names
         .into_iter()
         .filter_map(|name| {
@@ -133,23 +133,18 @@ fn documents_in(store: &DocumentStore) -> io::Result<Vec<(String, String)>> {
         .collect())
 }
 
-fn to_io(error: wyck_config::ConfigError) -> io::Error {
-    io::Error::other(error.to_string())
-}
-
-/// Reads every saved document under `config_dir` into a backup made by `app_version` at `created`.
-pub fn collect(config_dir: &Path, app_version: &str, created: &str) -> io::Result<Backup> {
-    let paths = AppPaths::at(config_dir);
+/// Reads every saved document of `paths` into a backup made by `app_version` at `created`.
+pub fn collect(paths: &AppPaths, app_version: &str, created: &str) -> io::Result<Backup> {
     let mut files = Vec::new();
-    for (name, content) in documents_in(&DocumentStore::global(&paths))? {
+    for (name, content) in documents_in(&DocumentStore::global(paths))? {
         files.push(BackupFile {
             scope: GLOBAL.to_owned(),
             name,
             content,
         });
     }
-    for scope in DocumentStore::list_scopes(&paths).map_err(to_io)? {
-        for (name, content) in documents_in(&DocumentStore::scoped(&paths, &scope))? {
+    for scope in DocumentStore::list_scopes(paths)? {
+        for (name, content) in documents_in(&DocumentStore::scoped(paths, &scope))? {
             files.push(BackupFile {
                 scope: format!("scope:{scope}"),
                 name,
@@ -169,13 +164,13 @@ pub fn collect(config_dir: &Path, app_version: &str, created: &str) -> io::Resul
 
 /// [`collect`], with the indicator scripts of `scripts_dir` too.
 pub fn collect_with_scripts(
-    config_dir: &Path,
+    paths: &AppPaths,
     scripts_dir: &Path,
     app_version: &str,
     created: &str,
 ) -> io::Result<Backup> {
     use wyck_chart::study::custom::library::Library;
-    let mut backup = collect(config_dir, app_version, created)?;
+    let mut backup = collect(paths, app_version, created)?;
     let mut library = Library::new(scripts_dir);
     library.refresh();
     backup.scripts = library
@@ -354,23 +349,24 @@ pub fn summary(backup: &Backup) -> Vec<String> {
 }
 
 /// Checks the text of a backup and puts it aside, to be applied when the app starts again.
-pub fn stage(config_dir: &Path, text: &str) -> Result<Backup, BackupError> {
+pub fn stage(paths: &AppPaths, text: &str) -> Result<Backup, BackupError> {
     let backup = parse(text)?;
-    fs::create_dir_all(config_dir)?;
-    wyck_config::write_atomically(&config_dir.join(PENDING), text.as_bytes())?;
+    fs::create_dir_all(paths.config_dir())?;
+    wyck_config::atomic_write(&paths.config_dir().join(PENDING), text.as_bytes())
+        .map_err(io::Error::from)?;
     // An import always wins over a reset that was waiting.
-    let _ = cancel_reset(config_dir);
+    let _ = cancel_reset(paths);
     Ok(backup)
 }
 
 /// Whether an import waits for the next start.
-pub fn pending(config_dir: &Path) -> bool {
-    config_dir.join(PENDING).is_file()
+pub fn pending(paths: &AppPaths) -> bool {
+    paths.config_dir().join(PENDING).is_file()
 }
 
 /// Forgets an import that waits, for one the user changed their mind about.
-pub fn cancel_pending(config_dir: &Path) -> io::Result<()> {
-    match fs::remove_file(config_dir.join(PENDING)) {
+pub fn cancel_pending(paths: &AppPaths) -> io::Result<()> {
+    match fs::remove_file(paths.config_dir().join(PENDING)) {
         Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
         _ => Ok(()),
     }
@@ -381,21 +377,21 @@ pub fn cancel_pending(config_dir: &Path) -> io::Result<()> {
 /// next start. What a reset never touches: the app's own config file (the accounts and which one
 /// is active) and the system's secure storage (the keys that sign in), so signing back in is not
 /// needed after it runs.
-pub fn stage_reset(config_dir: &Path) -> io::Result<()> {
-    fs::create_dir_all(config_dir)?;
-    wyck_config::write_atomically(&config_dir.join(RESET_MARKER), b"")?;
+pub fn stage_reset(paths: &AppPaths) -> io::Result<()> {
+    fs::create_dir_all(paths.config_dir())?;
+    wyck_config::atomic_write(&paths.config_dir().join(RESET_MARKER), b"")?;
     // A reset always wins over an import that was waiting.
-    cancel_pending(config_dir)
+    cancel_pending(paths)
 }
 
 /// Whether a reset waits for the next start.
-pub fn reset_pending(config_dir: &Path) -> bool {
-    config_dir.join(RESET_MARKER).is_file()
+pub fn reset_pending(paths: &AppPaths) -> bool {
+    paths.config_dir().join(RESET_MARKER).is_file()
 }
 
 /// Forgets a reset that waits, for one the user changed their mind about.
-pub fn cancel_reset(config_dir: &Path) -> io::Result<()> {
-    match fs::remove_file(config_dir.join(RESET_MARKER)) {
+pub fn cancel_reset(paths: &AppPaths) -> io::Result<()> {
+    match fs::remove_file(paths.config_dir().join(RESET_MARKER)) {
         Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
         _ => Ok(()),
     }
@@ -404,11 +400,10 @@ pub fn cancel_reset(config_dir: &Path) -> io::Result<()> {
 /// Applies a reset that waits, if there is one: removes every saved document of every account, and
 /// the marker. Call it before anything reads the documents, the same as [`apply_pending`]. The
 /// indicator scripts, the app's own config file and the system's secure storage are left alone.
-pub fn apply_pending_reset(config_dir: &Path) -> io::Result<bool> {
-    if !reset_pending(config_dir) {
+pub fn apply_pending_reset(paths: &AppPaths) -> io::Result<bool> {
+    if !reset_pending(paths) {
         return Ok(false);
     }
-    let paths = AppPaths::at(config_dir);
     for folder in [paths.state_dir(), paths.scopes_dir()] {
         match fs::remove_dir_all(folder) {
             Ok(()) => {}
@@ -416,7 +411,7 @@ pub fn apply_pending_reset(config_dir: &Path) -> io::Result<bool> {
             Err(error) => return Err(error),
         }
     }
-    fs::remove_file(config_dir.join(RESET_MARKER))?;
+    fs::remove_file(paths.config_dir().join(RESET_MARKER))?;
     Ok(true)
 }
 
@@ -432,8 +427,8 @@ pub struct Applied {
 /// Applies the import that waits, if there is one: copies every document it replaces into
 /// `backups/import-<stamp>`, writes the new ones, and removes the import. Call it before anything
 /// reads the documents. An import that cannot be read is set aside as `.bad`, not tried again.
-pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applied>> {
-    let path = config_dir.join(PENDING);
+pub fn apply_pending(paths: &AppPaths, stamp: &str) -> io::Result<Option<Applied>> {
+    let path = paths.config_dir().join(PENDING);
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -442,20 +437,19 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
     let backup = match parse(&text) {
         Ok(backup) => backup,
         Err(_) => {
-            let _ = fs::rename(&path, config_dir.join(format!("{PENDING}.bad")));
+            let _ = fs::rename(&path, paths.config_dir().join(format!("{PENDING}.bad")));
             return Ok(None);
         }
     };
-    let paths = AppPaths::at(config_dir);
     let keep = paths
         .backups_dir()
         .join(format!("import-{}", stamp_name(stamp)));
     let mut kept = false;
     for file in &backup.files {
-        let store = store_for(&paths, &file.scope);
+        let store = store_for(paths, &file.scope);
         let target = store.path(&file.name);
         if target.is_file() {
-            let relative = target.strip_prefix(config_dir).unwrap_or(&target);
+            let relative = target.strip_prefix(paths.config_dir()).unwrap_or(&target);
             let copy = keep.join(relative);
             if let Some(parent) = copy.parent() {
                 fs::create_dir_all(parent)?;
@@ -463,7 +457,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
             fs::copy(&target, &copy)?;
             kept = true;
         }
-        store.save_text(&file.name, &file.content).map_err(to_io)?;
+        store.save_text(&file.name, &file.content)?;
     }
     // The scripts go in the default indicators folder; one that is there already and differs is
     // copied aside first, like the documents.
@@ -477,7 +471,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
             if fs::read_to_string(&target).ok().as_deref() == Some(script.content.as_str()) {
                 continue;
             }
-            let relative = target.strip_prefix(config_dir).unwrap_or(&target);
+            let relative = target.strip_prefix(paths.config_dir()).unwrap_or(&target);
             let copy = keep.join(relative);
             if let Some(parent) = copy.parent() {
                 fs::create_dir_all(parent)?;
@@ -488,7 +482,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)?;
         }
-        wyck_config::write_atomically(&target, script.content.as_bytes())?;
+        wyck_config::atomic_write(&target, script.content.as_bytes())?;
     }
     fs::remove_file(&path)?;
     Ok(Some(Applied {
@@ -520,6 +514,10 @@ fn stamp_name(stamp: &str) -> String {
 mod tests {
     use super::*;
 
+    fn at(dir: &Path) -> AppPaths {
+        AppPaths::at(dir)
+    }
+
     fn write(dir: &Path, relative: &str, content: &str) {
         let path = dir.join(relative);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -543,7 +541,7 @@ mod tests {
     #[test]
     fn a_backup_holds_every_document_and_nothing_else() {
         let dir = setup();
-        let backup = collect(dir.path(), "1.2.3", "today").unwrap();
+        let backup = collect(&at(dir.path()), "1.2.3", "today").unwrap();
         let listed: Vec<(String, String)> = backup
             .files
             .iter()
@@ -579,7 +577,7 @@ mod tests {
             "plot(\"a\", close);",
         );
         write(scripts.path(), "Other.rhai", "plot(\"b\", open);");
-        let backup = collect_with_scripts(dir.path(), scripts.path(), "1", "now").unwrap();
+        let backup = collect_with_scripts(&at(dir.path()), scripts.path(), "1", "now").unwrap();
         assert_eq!(backup.scripts.len(), 2);
         let text = to_text(&backup).unwrap();
         let parsed = parse(&text).unwrap();
@@ -592,8 +590,8 @@ mod tests {
 
         // Applied on another machine: the scripts land in the default folder.
         let other = tempfile::tempdir().unwrap();
-        stage(other.path(), &text).unwrap();
-        let applied = apply_pending(other.path(), "s").unwrap().unwrap();
+        stage(&at(other.path()), &text).unwrap();
+        let applied = apply_pending(&at(other.path()), "s").unwrap().unwrap();
         assert_eq!(applied.written, backup.files.len() + 2);
         let restored = other
             .path()
@@ -608,7 +606,7 @@ mod tests {
         let scripts = tempfile::tempdir().unwrap();
         write(scripts.path(), "Mine.rhai", "plot(\"new\", close);");
         let backup = collect_with_scripts(
-            tempfile::tempdir().unwrap().path(),
+            &at(tempfile::tempdir().unwrap().path()),
             scripts.path(),
             "1",
             "now",
@@ -620,8 +618,8 @@ mod tests {
             "indicators/Mine.rhai",
             "plot(\"old\", close);",
         );
-        stage(target.path(), &to_text(&backup).unwrap()).unwrap();
-        let applied = apply_pending(target.path(), "s").unwrap().unwrap();
+        stage(&at(target.path()), &to_text(&backup).unwrap()).unwrap();
+        let applied = apply_pending(&at(target.path()), "s").unwrap().unwrap();
         assert!(applied.kept_in.is_some());
         assert_eq!(
             fs::read_to_string(target.path().join("indicators/Mine.rhai")).unwrap(),
@@ -652,7 +650,7 @@ mod tests {
     #[test]
     fn a_backup_of_nothing_is_valid_and_says_so() {
         let dir = tempfile::tempdir().unwrap();
-        let backup = collect(dir.path(), "1", "t").unwrap();
+        let backup = collect(&at(dir.path()), "1", "t").unwrap();
         assert!(backup.files.is_empty());
         let back = parse(&to_text(&backup).unwrap()).unwrap();
         assert_eq!(
@@ -664,7 +662,7 @@ mod tests {
     #[test]
     fn what_is_written_is_read_back_and_summarized() {
         let dir = setup();
-        let backup = collect(dir.path(), "1", "t").unwrap();
+        let backup = collect(&at(dir.path()), "1", "t").unwrap();
         let back = parse(&to_text(&backup).unwrap()).unwrap();
         assert_eq!(back, backup);
         let lines = summary(&back);
@@ -724,26 +722,26 @@ mod tests {
     #[test]
     fn an_import_waits_and_is_applied_at_the_next_start_keeping_what_it_replaces() {
         let source = setup();
-        let text = to_text(&collect(source.path(), "1", "t").unwrap()).unwrap();
+        let text = to_text(&collect(&at(source.path()), "1", "t").unwrap()).unwrap();
 
         // Another machine: one document differs, one is new, one is not in the backup.
         let target = tempfile::tempdir().unwrap();
         write(target.path(), "state/preferences.toml", "magnet = false\n");
         write(target.path(), "scopes/other/alerts.toml", "keep = true\n");
-        let staged = stage(target.path(), &text).unwrap();
+        let staged = stage(&at(target.path()), &text).unwrap();
         assert_eq!(staged.files.len(), 5);
-        assert!(pending(target.path()));
+        assert!(pending(&at(target.path())));
         assert_eq!(
             fs::read_to_string(target.path().join("state/preferences.toml")).unwrap(),
             "magnet = false\n",
             "nothing is written until the next start"
         );
 
-        let applied = apply_pending(target.path(), "2026-09-24 10:00")
+        let applied = apply_pending(&at(target.path()), "2026-09-24 10:00")
             .unwrap()
             .unwrap();
         assert_eq!(applied.written, 5);
-        assert!(!pending(target.path()));
+        assert!(!pending(&at(target.path())));
         assert_eq!(
             fs::read_to_string(target.path().join("state/preferences.toml")).unwrap(),
             "magnet = true\n"
@@ -764,37 +762,41 @@ mod tests {
             "magnet = false\n"
         );
         // Applied once.
-        assert!(apply_pending(target.path(), "again").unwrap().is_none());
+        assert!(
+            apply_pending(&at(target.path()), "again")
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
     fn a_staged_import_can_be_cancelled_and_a_broken_one_is_set_aside() {
         let dir = tempfile::tempdir().unwrap();
-        let text = to_text(&collect(setup().path(), "1", "t").unwrap()).unwrap();
-        stage(dir.path(), &text).unwrap();
-        cancel_pending(dir.path()).unwrap();
-        assert!(!pending(dir.path()));
-        cancel_pending(dir.path()).unwrap();
+        let text = to_text(&collect(&at(setup().path()), "1", "t").unwrap()).unwrap();
+        stage(&at(dir.path()), &text).unwrap();
+        cancel_pending(&at(dir.path())).unwrap();
+        assert!(!pending(&at(dir.path())));
+        cancel_pending(&at(dir.path())).unwrap();
 
         write(dir.path(), "pending-import.toml", "this is not a backup");
-        assert!(apply_pending(dir.path(), "t").unwrap().is_none());
-        assert!(!pending(dir.path()));
+        assert!(apply_pending(&at(dir.path()), "t").unwrap().is_none());
+        assert!(!pending(&at(dir.path())));
         assert!(dir.path().join("pending-import.toml.bad").is_file());
-        assert!(stage(dir.path(), "garbage").is_err());
-        assert!(!pending(dir.path()), "a bad file is not staged");
+        assert!(stage(&at(dir.path()), "garbage").is_err());
+        assert!(!pending(&at(dir.path())), "a bad file is not staged");
     }
 
     #[test]
     fn a_reset_wipes_every_account_but_leaves_the_sign_in_and_the_scripts_alone() {
         let dir = setup();
         write(dir.path(), "indicators/Mine.rhai", "plot(\"a\", close);");
-        stage_reset(dir.path()).unwrap();
-        assert!(reset_pending(dir.path()));
+        stage_reset(&at(dir.path())).unwrap();
+        assert!(reset_pending(&at(dir.path())));
         // Nothing is removed until the next start.
         assert!(dir.path().join("state/preferences.toml").is_file());
 
-        assert!(apply_pending_reset(dir.path()).unwrap());
-        assert!(!reset_pending(dir.path()));
+        assert!(apply_pending_reset(&at(dir.path())).unwrap());
+        assert!(!reset_pending(&at(dir.path())));
         assert!(!dir.path().join("state").exists());
         assert!(!dir.path().join("scopes").exists());
         assert!(
@@ -806,21 +808,24 @@ mod tests {
             "the scripts stay"
         );
         // Applied once.
-        assert!(!apply_pending_reset(dir.path()).unwrap());
+        assert!(!apply_pending_reset(&at(dir.path())).unwrap());
     }
 
     #[test]
     fn a_reset_and_an_import_each_cancel_the_other() {
         let dir = tempfile::tempdir().unwrap();
-        let text = to_text(&collect(setup().path(), "1", "t").unwrap()).unwrap();
+        let text = to_text(&collect(&at(setup().path()), "1", "t").unwrap()).unwrap();
 
-        stage(dir.path(), &text).unwrap();
-        stage_reset(dir.path()).unwrap();
-        assert!(reset_pending(dir.path()));
-        assert!(!pending(dir.path()), "the reset cancels the import");
+        stage(&at(dir.path()), &text).unwrap();
+        stage_reset(&at(dir.path())).unwrap();
+        assert!(reset_pending(&at(dir.path())));
+        assert!(!pending(&at(dir.path())), "the reset cancels the import");
 
-        stage(dir.path(), &text).unwrap();
-        assert!(pending(dir.path()));
-        assert!(!reset_pending(dir.path()), "the import cancels the reset");
+        stage(&at(dir.path()), &text).unwrap();
+        assert!(pending(&at(dir.path())));
+        assert!(
+            !reset_pending(&at(dir.path())),
+            "the import cancels the reset"
+        );
     }
 }

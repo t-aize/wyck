@@ -1,13 +1,12 @@
 //! A configured connection profile: the non-secret half of an account (display name,
-//! service, endpoint and optional Open API settings). Secret credentials never
-//! lives here; see [`crate::secret`].
+//! service and optional Open API settings). Secret credentials never live here; see
+//! [`crate::secret`].
 
 use serde::{Deserialize, Serialize};
 
 /// A stable, opaque identifier for one [`ProfileConfig`], generated once when the
-/// profile is created and never reused. Also doubles as the [`crate::secret::SecretKey`]
-/// derivation input (see [`crate::secret::SecretKey::for_profile`]), so a profile and
-/// its credential are always looked up by the same identifier.
+/// profile is created and never reused. The credentials of a profile are stored under keys built
+/// from it, so a profile and its credentials are always found by the same identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProfileId(String);
@@ -49,10 +48,6 @@ pub struct ProfileConfig {
     /// Free-form tag identifying which client/service this profile authenticates
     /// against. Not validated or interpreted by this crate.
     pub service: String,
-    /// The connection endpoint, if the service is addressed by URI (e.g. an MCP
-    /// endpoint). `None` for services that resolve their endpoint another way.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
     /// Public Open API application ID, if this profile uses Open API.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_id: Option<String>,
@@ -66,16 +61,11 @@ pub struct ProfileConfig {
 
 impl ProfileConfig {
     /// Creates a new profile with a freshly generated [`ProfileId`].
-    pub fn new(
-        display_name: impl Into<String>,
-        service: impl Into<String>,
-        endpoint: Option<String>,
-    ) -> Self {
+    pub fn new(display_name: impl Into<String>, service: impl Into<String>) -> Self {
         Self {
             id: ProfileId::new_random(),
             display_name: display_name.into(),
             service: service.into(),
-            endpoint,
             client_id: None,
             callback_port: None,
             account_id: None,
@@ -96,24 +86,22 @@ mod tests {
 
     #[test]
     fn profile_config_round_trips_through_toml() {
-        let profile = ProfileConfig::new(
-            "Live: FTMO 100k",
-            "ctrader-remote",
-            Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
-        );
+        let mut profile = ProfileConfig::new("Live: FTMO 100k", "ctrader-openapi");
+        profile.client_id = Some("public-client-id".to_owned());
+        profile.callback_port = Some(52123);
+        profile.account_id = Some(12_345_678);
         let toml_text = toml::to_string(&profile).unwrap();
         let parsed: ProfileConfig = toml::from_str(&toml_text).unwrap();
         assert_eq!(profile, parsed);
     }
 
     #[test]
-    fn endpoint_is_omitted_from_toml_when_absent() {
-        let profile = ProfileConfig::new("Minimal profile", "some-service", None);
+    fn settings_a_profile_does_not_use_are_left_out_of_the_file() {
+        let profile = ProfileConfig::new("Minimal profile", "some-service");
         let toml_text = toml::to_string(&profile).unwrap();
         let value: toml::Value = toml::from_str(&toml_text).unwrap();
-        assert!(
-            value.get("endpoint").is_none(),
-            "expected no `endpoint` key in:\n{toml_text}"
-        );
+        for key in ["client_id", "callback_port", "account_id"] {
+            assert!(value.get(key).is_none(), "`{key}` in:\n{toml_text}");
+        }
     }
 }

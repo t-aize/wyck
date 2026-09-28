@@ -11,7 +11,7 @@ impl SettingsHub {
             cx.entity(),
             cx.entity(),
         );
-        let dir = crate::config_dir();
+        let dir = crate::app_paths();
         let mut rows: Vec<AnyElement> = vec![
             form::field(
                 "Export everything",
@@ -133,13 +133,15 @@ impl SettingsHub {
                 .disabled(dir.is_none())
                 .on_click(move |_, _window, cx| {
                     open_folder.update(cx, |_, _| {});
-                    if let Some(dir) = crate::config_dir() {
-                        cx.reveal_path(&dir);
+                    if let Some(paths) = crate::app_paths() {
+                        cx.reveal_path(paths.config_dir());
                     }
                 }),
         )];
         if let Some(dir) = &dir {
-            place.push(form::block(form::note(dir.display().to_string())));
+            place.push(form::block(form::note(
+                dir.config_dir().display().to_string(),
+            )));
         }
 
         let reset = cx.entity();
@@ -184,7 +186,7 @@ impl SettingsHub {
 
     /// Asks where to save, then writes the backup there.
     pub(super) fn export(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = crate::config_dir() else {
+        let Some(dir) = crate::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -201,7 +203,7 @@ impl SettingsHub {
                 return;
             };
             let created = chrono::Local::now().to_rfc3339();
-            let result = backup::collect_with_scripts(&dir, &scripts_dir, VERSION, &created)
+            let result = backup::collect_with_scripts(dir, &scripts_dir, VERSION, &created)
                 .map_err(backup::BackupError::from)
                 .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
                 .and_then(|(b, text)| {
@@ -225,7 +227,7 @@ impl SettingsHub {
 
     /// Asks for a backup, checks it, and sets it aside for the next start.
     pub(super) fn import(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = crate::config_dir() else {
+        let Some(dir) = crate::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -244,7 +246,7 @@ impl SettingsHub {
             };
             let result = std::fs::read_to_string(&path)
                 .map_err(backup::BackupError::from)
-                .and_then(|text| backup::stage(&dir, &text));
+                .and_then(|text| backup::stage(dir, &text));
             let _ = this.update(cx, |this, cx| match result {
                 Ok(b) => {
                     let lines = backup::summary(&b);
@@ -263,8 +265,8 @@ impl SettingsHub {
     }
 
     pub(super) fn cancel_import(&mut self, cx: &mut Context<Self>) {
-        if let Some(dir) = crate::config_dir() {
-            let _ = backup::cancel_pending(&dir);
+        if let Some(dir) = crate::app_paths() {
+            let _ = backup::cancel_pending(dir);
         }
         self.waiting = None;
         self.say(true, "The import is cancelled. Nothing was changed.", cx);
@@ -272,11 +274,11 @@ impl SettingsHub {
 
     /// Stages a full reset and restarts right away, so it applies before anything is loaded.
     pub(super) fn reset_all(&mut self, cx: &mut Context<Self>) {
-        let Some(dir) = crate::config_dir() else {
+        let Some(dir) = crate::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
-        if let Err(error) = backup::stage_reset(&dir) {
+        if let Err(error) = backup::stage_reset(dir) {
             self.say(false, error.to_string(), cx);
             return;
         }

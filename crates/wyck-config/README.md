@@ -30,7 +30,7 @@ reusable.
 | Tokens, client secrets, OAuth pairs | `SecretStore`: `KeyringSecretStore` or `EncryptedFileSecretStore` | the OS keyring, or one encrypted file per secret |
 | Anything else the app remembers (layouts, favorites, drawings) | `DocumentStore` | one TOML file per document |
 | Text to carry to another machine, unreadable without a passphrase | `sealed::seal_text`, `sealed::open_text` | a small TOML document |
-| Files written without ever leaving half a file | `write_atomically`, `atomic_write` | any path |
+| Files written without ever leaving half a file | `atomic_write` | any path |
 | Names that can never leave their folder | `names::validate_name`, `names::sanitize` | none |
 | "Is my config healthy?" | `WyckConfig::diagnose` | none |
 
@@ -38,22 +38,20 @@ reusable.
 
 ```rust
 use secrecy::SecretString;
-use wyck_config::WyckConfig;
+use wyck_config::{CLIENT_SECRET, WyckConfig};
 
 // The standard folders of the OS, credentials in the OS keyring.
 let mut config = WyckConfig::open()?;
 
-let id = config.add_profile(
-    "Live: FTMO 100k",
-    "ctrader-openapi",
-    None,
-    Some(SecretString::from("the-account-token".to_owned())),
-)?;
+let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
+config.set_profile_secret(&id, CLIENT_SECRET, &SecretString::from("the-secret".to_owned()))?;
 config.set_active_profile(Some(id.clone()))?;
 
-if let Some(token) = config.token_for(&id)? {
-    // hand `token` to the client that needs it
+if let Some(secret) = config.profile_secret(&id, CLIENT_SECRET)? {
+    // hand `secret` to the client that needs it
 }
+// The OAuth token pair of the profile has its own handle, movable to another thread:
+let tokens = config.openapi_token_storage(&id);   // .load() / .save(..) / .clear()
 ```
 
 The builder changes the folders or the credential store:
@@ -69,8 +67,8 @@ let config = WyckConfig::builder()
 Documents are typed, and the crate never looks inside them:
 
 ```rust
-let store = config.global_documents();               // shared by every account
-let account = config.scoped_documents("demo-4242");  // one folder per account
+let store = DocumentStore::global(config.paths());                // shared by every account
+let account = DocumentStore::scoped(config.paths(), "demo-4242"); // one folder per account
 
 store.save("layout", &my_layout)?;                   // atomic
 let layout: MyLayout = store.load_or_default("layout"); // never fails
@@ -140,7 +138,6 @@ The crate does not lock files: one process should own a config at a time.
   `stale_temp_files` and by the check-up.
 - **The memory never gets ahead of the disk.** A change of `WyckConfig` is applied to a copy,
   saved, and only then kept. When the save fails, the change did not happen.
-  `add_profile` removes a token it stored if the profile could not be saved;
   `remove_profile` deletes the credentials first and keeps the profile when one refuses to go,
   so the call can be repeated.
 - **A file this build does not know is left alone.** `config.toml` with a higher `schema_version`

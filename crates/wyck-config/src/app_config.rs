@@ -138,11 +138,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let paths = AppPaths::at(temp_dir.path());
         let mut config = AppConfig::default();
-        let profile = ProfileConfig::new(
-            "Demo",
-            "ctrader-remote",
-            Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
-        );
+        let profile = ProfileConfig::new("Demo", "ctrader-openapi");
         config.active_profile = Some(profile.id.clone());
         config.profiles.push(profile);
 

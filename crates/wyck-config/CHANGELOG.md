@@ -26,7 +26,6 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
   `set_last_symbol`, `remove_profile`) was kept in memory even when saving it failed, so the memory
   and the disk disagreed until the next restart. Changes are applied to a copy, saved, and only then
   kept.
-- `add_profile` left the token it had stored behind when the profile could not be saved.
 - `remove_profile` removed the profile from memory before deleting its credentials; a credential
   that could not be deleted left a profile with no credentials. The credentials go first now, and
   the profile stays when one refuses, so the call can be repeated.
@@ -42,7 +41,7 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
 - The `sealed` module: `seal_text`, `open_text` and `is_sealed`, to encrypt an export or a backup
   with a passphrase (Argon2id and ChaCha20-Poly1305, with a label that cannot be swapped).
 - The `names` module: the one rule for names that become part of a path.
-- `DocumentStore::list`, `list_scopes`, `load_text`, `save_text` and `scoped_checked`, so a backup
+- `DocumentStore::list`, `list_scopes`, `load_text` and `save_text`, so a backup
   no longer needs to know how the folders are laid out.
 - `AppPaths::state_dir`, `scopes_dir`, `backups_dir` and `pictures_dir`; `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR`
   move the folders.
@@ -63,5 +62,14 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
 - The OAuth token pair moved to its own module; the types are still exported from the crate root.
 
 ### Removed
+
+- The redundant parts of the API, so there is one way to do each thing:
+  the profile's main token (`add_profile` no longer takes a token or an endpoint, and `token_for`,
+  `SecretKey::for_profile` and `ProfileConfig::endpoint` are gone; credentials are named secrets and
+  the OAuth pair); `WyckConfig::global_documents`, `scoped_documents`, `openapi_tokens` and
+  `save_openapi_tokens` (use `DocumentStore::global(config.paths())` and
+  `config.openapi_token_storage(id)`); `write_atomically` (`atomic_write` is the only writer, and
+  `std::io::Error` converts from `ConfigError`); `DocumentStore::scoped_checked` (validate with
+  `names::validate_name`).
 
 - The dependency of the desktop app on `directories`: it asks `AppPaths::pictures_dir` instead.

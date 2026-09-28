@@ -596,11 +596,9 @@ impl Library {
             ));
         }
         let path = self.path_of(id);
-        wyck_config::write_atomically(&path, source.as_bytes()).map_err(|error| {
-            LibraryError::Io {
-                path: path.clone(),
-                source: error,
-            }
+        wyck_config::atomic_write(&path, source.as_bytes()).map_err(|error| LibraryError::Io {
+            path: path.clone(),
+            source: error.into(),
         })?;
         Ok(path)
     }

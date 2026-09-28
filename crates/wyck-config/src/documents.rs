@@ -41,22 +41,12 @@ impl DocumentStore {
 
     /// The documents of one scope, such as `demo-45970491`. Whatever the name holds, the
     /// directory stays inside the config directory (the name is cleaned with
-    /// [`crate::names::sanitize`]; use [`Self::scoped_checked`] to refuse a name instead).
+    /// [`crate::names::sanitize`]; check it with [`crate::names::validate_name`] first where two
+    /// different names must never share a folder).
     pub fn scoped(paths: &AppPaths, scope: &str) -> Self {
         Self {
             dir: paths.scopes_dir().join(sanitize(scope)),
         }
-    }
-
-    /// [`Self::scoped`], for a scope name that must be exactly what it says: two different names
-    /// never share a folder.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::InvalidName`] when the name breaks the rule of [`crate::names`].
-    pub fn scoped_checked(paths: &AppPaths, scope: &str) -> Result<Self> {
-        crate::names::validate_name(scope)?;
-        Ok(Self::scoped(paths, scope))
     }
 
     /// The names of every scope that has a folder, sorted: the accounts whose documents are kept.
@@ -433,21 +423,6 @@ mod tests {
             Some(text),
             "a refused text leaves the document as it was"
         );
-    }
-
-    #[test]
-    fn a_scope_can_be_required_to_be_exact() {
-        let paths = AppPaths::at("/base");
-        assert!(DocumentStore::scoped_checked(&paths, "demo-45970491").is_ok());
-        for bad in ["", "a/b", "..", "a b"] {
-            assert!(
-                matches!(
-                    DocumentStore::scoped_checked(&paths, bad),
-                    Err(ConfigError::InvalidName { .. })
-                ),
-                "{bad:?}"
-            );
-        }
     }
 
     #[test]

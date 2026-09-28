@@ -105,7 +105,7 @@ pub fn read(dir: &Path) -> Saved {
 /// Writes `saved` in `dir`, making the folder when it is not there yet.
 pub fn write(dir: &Path, saved: &Saved) -> io::Result<()> {
     let text = toml::to_string_pretty(saved).map_err(io::Error::other)?;
-    wyck_config::write_atomically(&dir.join(FILE), text.as_bytes())
+    wyck_config::atomic_write(&dir.join(FILE), text.as_bytes()).map_err(io::Error::from)
 }
 
 #[cfg(test)]

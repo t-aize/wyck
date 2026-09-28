@@ -42,7 +42,7 @@ fn main() {
                 Some(paths) => {
                     // An import the user asked for waits for this moment, before anything reads the
                     // documents it replaces.
-                    match backup::apply_pending_reset(paths.config_dir()) {
+                    match backup::apply_pending_reset(paths) {
                         Ok(true) => tracing::info!(
                             "reset the look, layout, charts and every account's data"
                         ),
@@ -50,7 +50,7 @@ fn main() {
                         Err(error) => tracing::warn!(%error, "could not apply the pending reset"),
                     }
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match backup::apply_pending(paths.config_dir(), &stamp) {
+                    match backup::apply_pending(paths, &stamp) {
                         Ok(Some(applied)) => tracing::info!(?applied, "restored a backup"),
                         Ok(None) => {}
                         Err(error) => tracing::warn!(%error, "could not restore the backup"),
@@ -125,11 +125,6 @@ fn app_paths() -> Option<&'static wyck_config::AppPaths> {
     PATHS
         .get_or_init(|| wyck_config::AppPaths::discover().ok())
         .as_ref()
-}
-
-/// The settings folder, or `None` when the system gives the app none.
-fn config_dir() -> Option<std::path::PathBuf> {
-    app_paths().map(|paths| paths.config_dir().to_path_buf())
 }
 
 /// Installs a `tracing` subscriber so the events `wyck_config` and `wyck_openapi` emit (and

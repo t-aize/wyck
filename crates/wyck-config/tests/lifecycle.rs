@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-use wyck_config::{AppPaths, ConfigError, DocumentStore, OpenApiTokens, WyckConfig, sealed};
+use wyck_config::{
+    AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig, sealed,
+};
 
 fn passphrase(text: &str) -> SecretString {
     SecretString::from(text.to_owned())
@@ -53,29 +55,26 @@ fn a_first_run_a_working_session_and_a_restart() {
         assert!(config.profiles().is_empty(), "a first run starts empty");
 
         let id = config
-            .add_profile("Demo: scalping", "ctrader-openapi", None, None)
+            .add_profile("Demo: scalping", "ctrader-openapi")
             .unwrap();
         config
             .set_openapi_profile(&id, "public-client-id".into(), 8765, 4242)
             .unwrap();
         config
-            .set_profile_secret(&id, "client-secret", &passphrase("APP-SECRET-VALUE"))
+            .set_profile_secret(&id, CLIENT_SECRET, &passphrase("APP-SECRET-VALUE"))
             .unwrap();
         config
-            .save_openapi_tokens(
-                &id,
-                &OpenApiTokens {
-                    access_token: passphrase("ACCESS-TOKEN-VALUE"),
-                    refresh_token: passphrase("REFRESH-TOKEN-VALUE"),
-                    expires_at: None,
-                },
-            )
+            .openapi_token_storage(&id)
+            .save(&OpenApiTokens {
+                access_token: passphrase("ACCESS-TOKEN-VALUE"),
+                refresh_token: passphrase("REFRESH-TOKEN-VALUE"),
+                expires_at: None,
+            })
             .unwrap();
         config.set_active_profile(Some(id.clone())).unwrap();
         config.set_last_symbol(Some("EURUSD".into())).unwrap();
 
-        config
-            .global_documents()
+        DocumentStore::global(config.paths())
             .save(
                 "layout",
                 &Layout {
@@ -84,8 +83,7 @@ fn a_first_run_a_working_session_and_a_restart() {
                 },
             )
             .unwrap();
-        config
-            .scoped_documents("demo-4242")
+        DocumentStore::scoped(config.paths(), "demo-4242")
             .save(
                 "layout",
                 &Layout {
@@ -104,7 +102,7 @@ fn a_first_run_a_working_session_and_a_restart() {
     assert_eq!(config.last_symbol(), Some("EURUSD"));
     assert_eq!(
         config
-            .profile_secret(&account, "client-secret")
+            .profile_secret(&account, CLIENT_SECRET)
             .unwrap()
             .unwrap()
             .expose_secret(),
@@ -112,7 +110,8 @@ fn a_first_run_a_working_session_and_a_restart() {
     );
     assert_eq!(
         config
-            .openapi_tokens(&account)
+            .openapi_token_storage(&account)
+            .load()
             .unwrap()
             .unwrap()
             .refresh_token
@@ -120,8 +119,7 @@ fn a_first_run_a_working_session_and_a_restart() {
         "REFRESH-TOKEN-VALUE"
     );
     assert_eq!(
-        config
-            .global_documents()
+        DocumentStore::global(config.paths())
             .load::<Layout>("layout")
             .unwrap()
             .unwrap()
@@ -129,8 +127,7 @@ fn a_first_run_a_working_session_and_a_restart() {
         1.25
     );
     assert_eq!(
-        config
-            .scoped_documents("demo-4242")
+        DocumentStore::scoped(config.paths(), "demo-4242")
             .load::<Layout>("layout")
             .unwrap()
             .unwrap()
@@ -157,28 +154,19 @@ fn a_first_run_a_working_session_and_a_restart() {
 fn removing_an_account_leaves_no_credential_and_no_profile() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = open(dir.path());
-    let id = config
-        .add_profile(
-            "Old",
-            "ctrader-openapi",
-            None,
-            Some(passphrase("main-token")),
-        )
+    let id = config.add_profile("Old", "ctrader-openapi").unwrap();
+    config
+        .set_profile_secret(&id, CLIENT_SECRET, &passphrase("s"))
         .unwrap();
     config
-        .set_profile_secret(&id, "client-secret", &passphrase("s"))
+        .openapi_token_storage(&id)
+        .save(&OpenApiTokens {
+            access_token: passphrase("a"),
+            refresh_token: passphrase("r"),
+            expires_at: None,
+        })
         .unwrap();
-    config
-        .save_openapi_tokens(
-            &id,
-            &OpenApiTokens {
-                access_token: passphrase("a"),
-                refresh_token: passphrase("r"),
-                expires_at: None,
-            },
-        )
-        .unwrap();
-    assert_eq!(every_file(&AppPaths::at(dir.path()).secrets_dir()).len(), 3);
+    assert_eq!(every_file(&AppPaths::at(dir.path()).secrets_dir()).len(), 2);
 
     config.remove_profile(&id).unwrap();
 
@@ -190,8 +178,9 @@ fn removing_an_account_leaves_no_credential_and_no_profile() {
 fn a_wrong_passphrase_is_reported_as_such_and_changes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = open(dir.path());
-    let id = config
-        .add_profile("Demo", "s", None, Some(passphrase("token")))
+    let id = config.add_profile("Demo", "s").unwrap();
+    config
+        .set_profile_secret(&id, CLIENT_SECRET, &passphrase("token"))
         .unwrap();
     drop(config);
 
@@ -200,7 +189,7 @@ fn a_wrong_passphrase_is_reported_as_such_and_changes_nothing() {
         .encrypted_file(passphrase("guess"))
         .build()
         .unwrap();
-    let error = intruder.token_for(&id).unwrap_err();
+    let error = intruder.profile_secret(&id, CLIENT_SECRET).unwrap_err();
     assert!(matches!(error, ConfigError::Crypto { .. }), "{error:?}");
     assert!(
         !error.to_string().contains("token"),
@@ -209,7 +198,7 @@ fn a_wrong_passphrase_is_reported_as_such_and_changes_nothing() {
 
     assert_eq!(
         open(dir.path())
-            .token_for(&id)
+            .profile_secret(&id, CLIENT_SECRET)
             .unwrap()
             .unwrap()
             .expose_secret(),
@@ -222,9 +211,8 @@ fn a_wrong_passphrase_is_reported_as_such_and_changes_nothing() {
 fn a_damaged_config_is_reported_and_never_overwritten_and_damaged_documents_are_set_aside() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = open(dir.path());
-    config.add_profile("Demo", "s", None, None).unwrap();
-    config
-        .global_documents()
+    config.add_profile("Demo", "s").unwrap();
+    DocumentStore::global(config.paths())
         .save("layout", &Layout::default())
         .unwrap();
     drop(config);
@@ -284,21 +272,23 @@ fn files_in_a_format_this_build_does_not_write_are_refused_not_migrated() {
     // A secret envelope of another version.
     std::fs::remove_file(paths.config_file()).unwrap();
     let mut config = open(dir.path());
-    let id = config
-        .add_profile("Demo", "s", None, Some(passphrase("token")))
+    let id = config.add_profile("Demo", "s").unwrap();
+    config
+        .set_profile_secret(&id, CLIENT_SECRET, &passphrase("token"))
         .unwrap();
     let file = every_file(&paths.secrets_dir()).pop().unwrap();
     let text = std::fs::read_to_string(&file).unwrap();
     std::fs::write(&file, text.replace("version = 1", "version = 0")).unwrap();
-    assert!(config.token_for(&id).is_err());
+    assert!(config.profile_secret(&id, CLIENT_SECRET).is_err());
 }
 
 #[test]
 fn two_installs_share_nothing() {
     let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let mut first = open(a.path());
+    let id = first.add_profile("Only in A", "s").unwrap();
     first
-        .add_profile("Only in A", "s", None, Some(passphrase("t")))
+        .set_profile_secret(&id, CLIENT_SECRET, &passphrase("t"))
         .unwrap();
     let second = open(b.path());
     assert!(second.profiles().is_empty());
@@ -401,7 +391,8 @@ fn a_sealed_backup_moves_every_document_to_another_install() {
         let store = if entry.scope.is_empty() {
             DocumentStore::global(&target)
         } else {
-            DocumentStore::scoped_checked(&target, &entry.scope).unwrap()
+            wyck_config::names::validate_name(&entry.scope).unwrap();
+            DocumentStore::scoped(&target, &entry.scope)
         };
         store.save_text(&entry.name, &entry.content).unwrap();
     }

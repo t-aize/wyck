@@ -211,7 +211,7 @@ impl SettingsHub {
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| crate::config_dir().is_some_and(|dir| backup::pending(&dir)));
+            .filter(|_| crate::app_paths().is_some_and(backup::pending));
         Self {
             workspace,
             multi,

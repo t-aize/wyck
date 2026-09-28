@@ -150,3 +150,18 @@ pub enum ConfigError {
     #[error("failed to generate random bytes: {0}")]
     Random(#[from] getrandom::Error),
 }
+
+impl From<ConfigError> for std::io::Error {
+    /// A config error as an I/O error, for code that returns `io::Result` and writes or reads
+    /// through this crate: the kind of the underlying I/O error is kept when there is one.
+    fn from(error: ConfigError) -> Self {
+        let kind = match &error {
+            ConfigError::Read { source, .. } | ConfigError::Write { source, .. } => source.kind(),
+            ConfigError::Parse { .. }
+            | ConfigError::InvalidName { .. }
+            | ConfigError::UnsupportedSchema { .. } => std::io::ErrorKind::InvalidData,
+            _ => std::io::ErrorKind::Other,
+        };
+        Self::new(kind, error)
+    }
+}

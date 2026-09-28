@@ -27,12 +27,21 @@ const TEMP_MARKER: &str = ".tmp-";
 ///    this crate targets.
 /// 5. The directory is flushed too (Unix), so the rename itself survives a power cut.
 ///
-/// A failure removes the temporary file and leaves the target as it was.
+/// A failure removes the temporary file and leaves the target as it was. Every file the app
+/// writes goes through this function. A caller that returns `io::Result` can use `?` on it
+/// directly (see the `From<ConfigError>` impl of `std::io::Error`).
 ///
 /// # Errors
 ///
-/// Any I/O error of those steps.
-pub fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+/// [`ConfigError::Write`], with the path.
+pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
+    write_atomically(path, contents).map_err(|source| ConfigError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let dir = path.parent().ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -57,19 +66,7 @@ pub fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
-/// [`write_atomically`], with the error of this crate.
-///
-/// # Errors
-///
-/// [`ConfigError::Write`], with the path.
-pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
-    write_atomically(path, contents).map_err(|source| ConfigError::Write {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
-/// The temporary files [`write_atomically`] left in `dir` because the program stopped in the
+/// The temporary files [`atomic_write`] left in `dir` because the program stopped in the
 /// middle of a write. They are harmless (nothing reads them) and safe to delete.
 #[must_use]
 pub fn stale_temp_files(dir: &Path) -> Vec<PathBuf> {
