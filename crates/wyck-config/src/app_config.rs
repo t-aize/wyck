@@ -163,4 +163,22 @@ mod tests {
 
         assert!(matches!(result, Err(ConfigError::Parse { .. })));
     }
+
+    #[test]
+    fn a_0_1_config_fixture_keeps_its_profile_and_selection() {
+        let text = include_str!("../tests/fixtures/app-config-0.1.toml");
+        let config: AppConfig = toml::from_str(text).unwrap();
+
+        assert_eq!(config.schema_version, 1);
+        assert_eq!(config.last_symbol.as_deref(), Some("XAUUSD"));
+        let active = config.active_profile().unwrap();
+        assert_eq!(active.display_name, "Demo account");
+        assert_eq!(active.client_id.as_deref(), Some("legacy-client"));
+        assert_eq!(active.callback_port, Some(52123));
+        assert_eq!(active.account_id, Some(12345678));
+
+        let saved = toml::to_string_pretty(&config).unwrap();
+        let reloaded: AppConfig = toml::from_str(&saved).unwrap();
+        assert_eq!(reloaded, config);
+    }
 }

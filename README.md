@@ -25,6 +25,27 @@ marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, show
 instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
 next to it).
 
+## Install
+
+Download the files for your system from the [latest Wyck release](https://github.com/t-aize/wyck/releases/latest):
+
+| System | File |
+|---|---|
+| Windows x86_64 | `Wyck_<version>_windows-x86_64-setup.exe` |
+| macOS Intel | `Wyck_<version>_macos-x86_64.dmg` |
+| macOS Apple Silicon | `Wyck_<version>_macos-aarch64.dmg` |
+| Linux x86_64 | `Wyck_<version>_linux-x86_64.AppImage` or `.deb` |
+
+The first releases are not signed with Authenticode or Apple Developer ID. Windows SmartScreen
+and macOS Gatekeeper can therefore show a warning. Check `SHA256SUMS` and the GitHub artifact
+attestation before running a download. The updater uses a separate committed public key and
+refuses an update whose cargo-packager signature is invalid.
+
+Production builds check the latest stable release once at startup. Open Settings with `Ctrl+,`,
+then select About to check again or install an available update. The AppImage, macOS bundle and
+Windows installer can update in place. A `.deb` installation opens the release page so the system
+package remains managed by the package manager.
+
 ## Layout
 
 The root manifest only configures the workspace. `cargo run` starts the desktop crate `wyck`.
@@ -80,7 +101,7 @@ cargo test -p wyck-openapi --test live -- --ignored --nocapture
 
 ## Checks
 
-The same checks run in CI on Linux and Windows:
+The same checks run in CI on Linux, Windows and macOS:
 
 ```sh
 cargo fmt --check
@@ -91,6 +112,8 @@ RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
 (`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.
+
+Release builds and signing are described in [RELEASING.md](RELEASING.md).
 
 ## Contributing
 

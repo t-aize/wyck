@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: always
+  RUSTUP_MAX_RETRIES: 10
+  CARGO_PACKAGER_VERSION: 0.11.8
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - id: version
+        name: Validate tag and workspace versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tags must use stable SemVer: vX.Y.Z" >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          mapfile -t versions < <(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[].version' | sort -u)
+          if [[ "${#versions[@]}" -ne 1 || "${versions[0]}" != "$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match every workspace package version." >&2
+            printf 'Workspace versions: %s\n' "${versions[*]}" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            formats: nsis
+          - platform: macos-x86_64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            formats: app,dmg
+          - platform: macos-aarch64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            formats: app,dmg
+          - platform: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            formats: appimage,deb
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require updater signing secrets
+        shell: bash
+        env:
+          PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$PRIVATE_KEY" || { echo "CARGO_PACKAGER_SIGN_PRIVATE_KEY is missing" >&2; exit 1; }
+          test -n "$PRIVATE_KEY_PASSWORD" || { echo "CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD is missing" >&2; exit 1; }
+
+      - if: runner.os == 'Linux'
+        name: Install Linux packaging libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          key: release-${{ matrix.target }}
+          save-if: false
+
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --version "$env:CARGO_PACKAGER_VERSION" --locked
+        if: runner.os == 'Windows'
+
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --version "$CARGO_PACKAGER_VERSION" --locked
+        if: runner.os != 'Windows'
+
+      - name: Build release binary
+        run: cargo build --release --locked -p wyck --target ${{ matrix.target }}
+
+      - name: Package and sign
+        run: >-
+          cargo packager --release --packages wyck
+          --target ${{ matrix.target }}
+          --formats ${{ matrix.formats }}
+          --out-dir dist/${{ matrix.platform }}
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+
+      - name: Validate and name release assets
+        run: >-
+          python scripts/prepare_release_assets.py
+          --input dist/${{ matrix.platform }}
+          --platform ${{ matrix.platform }}
+          --version ${{ needs.validate.outputs.version }}
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/${{ matrix.platform }}/Wyck_${{ needs.validate.outputs.version }}_*
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: [validate, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api --method POST
+          repos/${{ github.repository }}/releases/generate-notes
+          -f tag_name="${GITHUB_REF_NAME}"
+          -f target_commitish="${GITHUB_SHA}"
+          --jq .body > release-assets/RELEASE_NOTES.md
+
+      - name: Validate assets and generate update manifest
+        run: >-
+          python scripts/generate_release_manifest.py
+          --assets release-assets
+          --tag "$GITHUB_REF_NAME"
+          --repository "${{ github.repository }}"
+          --notes release-assets/RELEASE_NOTES.md
+
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/*
+
+      - name: Create draft, upload everything, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --verify-tag \
+            --title "Wyck $VERSION" \
+            --notes-file release-assets/RELEASE_NOTES.md
+          gh release upload "$GITHUB_REF_NAME" release-assets/*
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

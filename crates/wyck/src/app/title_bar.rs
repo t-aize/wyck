@@ -5,6 +5,7 @@ use gpui::{FontWeight, MouseButton, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::TitleBar;
 
+use super::build_info::BuildMode;
 use super::connection::ui;
 use super::theme;
 
@@ -51,7 +52,24 @@ pub fn render(window: &mut Window) -> impl IntoElement {
                     .text_color(foreground)
                     .child("Wyck"),
             )
-        });
+        })
+        .when(
+            show_brand && BuildMode::CURRENT == BuildMode::Development,
+            |bar| {
+                bar.child(
+                    div()
+                        .rounded_sm()
+                        .border_1()
+                        .border_color(theme::accent_alpha(0.45))
+                        .bg(theme::accent_selected())
+                        .px_1p5()
+                        .text_size(px(9.0))
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(accent)
+                        .child("DEV"),
+                )
+            },
+        );
 
     // These sections are display-only. Occluding their hitboxes keeps them out of the
     // platform drag region that TitleBar places behind its children.

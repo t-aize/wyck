@@ -8,6 +8,7 @@ mod appearance;
 mod assets;
 #[path = "services/backup.rs"]
 mod backup;
+mod build_info;
 mod chart;
 #[path = "ui/color_picker.rs"]
 mod color_picker;
@@ -37,6 +38,8 @@ mod toast;
 #[path = "services/token_store.rs"]
 mod token_store;
 mod trading;
+#[path = "services/updates.rs"]
+mod updates;
 #[path = "ui/widgets.rs"]
 mod widgets;
 mod workspace;
@@ -55,6 +58,7 @@ pub fn run() {
         .with_assets(assets::Assets)
         .run(|cx: &mut App| {
             gpui_kit::init(cx);
+            updates::init(cx);
             // The saved look is in force before a window opens, so the first frame is the right one.
             match wyck_config::AppPaths::discover() {
                 Ok(paths) => {
@@ -124,6 +128,8 @@ pub fn run() {
                 cx.new(|cx| Root::new(flow, window, cx))
             })
             .expect("failed to open the main window");
+
+            updates::check(cx, true);
 
             cx.activate(true);
         });

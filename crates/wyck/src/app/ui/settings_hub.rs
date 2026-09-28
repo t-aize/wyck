@@ -14,6 +14,7 @@ use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
 use super::appearance::{self, ColorField, Mode};
+use super::build_info::{BuildMode, VERSION};
 use super::chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use super::chart::settings::MAX_STUDIES;
 use super::indicators::{self, prefs};
@@ -21,7 +22,7 @@ use super::multichart::MultiChart;
 use super::settings_ui::{self as ui, Head};
 use super::theme::Colors;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
-use super::{backup, modal, theme, toast, widgets};
+use super::{backup, confirm, modal, theme, toast, updates, widgets};
 
 /// Opens the settings.
 pub fn open(
@@ -187,6 +188,7 @@ impl SettingsHub {
         let mut subscriptions = vec![
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
+            updates::observe(cx, |_this: &mut Self, cx| cx.notify()),
             cx.subscribe(&font_filter, |_this, _input, _event: &InputEvent, cx| {
                 cx.notify();
             }),
@@ -1347,18 +1349,13 @@ impl SettingsHub {
                 return;
             };
             let created = chrono::Local::now().to_rfc3339();
-            let result = backup::collect_with_scripts(
-                &dir,
-                &scripts_dir,
-                env!("CARGO_PKG_VERSION"),
-                &created,
-            )
-            .map_err(backup::BackupError::from)
-            .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
-            .and_then(|(b, text)| {
-                std::fs::write(&path, text)?;
-                Ok(b)
-            });
+            let result = backup::collect_with_scripts(&dir, &scripts_dir, VERSION, &created)
+                .map_err(backup::BackupError::from)
+                .and_then(|b| backup::to_text(&b).map(|text| (b, text)))
+                .and_then(|(b, text)| {
+                    std::fs::write(&path, text)?;
+                    Ok(b)
+                });
             let _ = this.update(cx, |this, cx| match result {
                 Ok(b) => {
                     let count = b.files.len();
@@ -1636,9 +1633,10 @@ impl SettingsHub {
             .into_any_element()
     }
 
-    fn about_page(&self) -> AnyElement {
+    fn about_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let facts = [
-            ("Version", env!("CARGO_PKG_VERSION").to_owned()),
+            ("Version", VERSION.to_owned()),
+            ("Build mode", BuildMode::CURRENT.label().to_owned()),
             ("License", "Apache License 2.0".to_owned()),
             ("Built with", "Rust and GPUI".to_owned()),
         ];
@@ -1655,8 +1653,93 @@ impl SettingsHub {
                 )
             })
             .collect();
+
+        let update_state = updates::state(cx);
+        let mut update_rows = vec![ui::field(
+            "Status",
+            None,
+            div()
+                .text_size(px(13.))
+                .text_color(theme::fg())
+                .child(update_state.status()),
+        )];
+        if let updates::UpdateState::Available {
+            notes: Some(notes), ..
+        } = &update_state
+            && !notes.trim().is_empty()
+        {
+            update_rows.push(ui::field(
+                "Release notes",
+                None,
+                div()
+                    .max_w(px(440.))
+                    .text_size(px(12.))
+                    .text_color(theme::muted_fg())
+                    .child(notes.clone()),
+            ));
+        }
+
+        let action = match update_state {
+            updates::UpdateState::Disabled
+            | updates::UpdateState::Checking
+            | updates::UpdateState::Downloading { .. }
+            | updates::UpdateState::Installing { .. } => None,
+            updates::UpdateState::Available {
+                automatic: true, ..
+            } => {
+                let multi = self.multi.clone();
+                Some(
+                    ui::action(
+                        "settings-update-install",
+                        "Update and restart",
+                        Some(IconName::Download),
+                        true,
+                        move |window, cx| {
+                            let multi = multi.clone();
+                            confirm::confirm(
+                                window,
+                                cx,
+                                "Update and restart?",
+                                "Wyck will close after saving pending workspace and appearance changes. The downloaded update is installed only after its signature is verified.",
+                                move |_window, cx| updates::install(multi.clone(), cx),
+                            );
+                        },
+                    )
+                    .into_any_element(),
+                )
+            }
+            updates::UpdateState::Available {
+                automatic: false, ..
+            } => Some(
+                ui::action(
+                    "settings-update-open-release",
+                    "Open download page",
+                    Some(IconName::ExternalLink),
+                    true,
+                    |_window, cx| updates::open_releases(cx),
+                )
+                .into_any_element(),
+            ),
+            updates::UpdateState::Idle
+            | updates::UpdateState::UpToDate
+            | updates::UpdateState::Failed { .. } => Some(
+                ui::action(
+                    "settings-update-check",
+                    "Check again",
+                    Some(IconName::RefreshCw),
+                    false,
+                    |_window, cx| updates::check(cx, true),
+                )
+                .into_any_element(),
+            ),
+        };
+        if let Some(action) = action {
+            update_rows.push(ui::field("Actions", None, action));
+        }
+
         ui::page()
             .child(ui::group(IconName::Info, "wyck", rows))
+            .child(ui::group(IconName::Download, "Updates", update_rows))
             .child(ui::note(
                 "wyck is an independent project. It is not affiliated with, endorsed by, or sponsored by cTrader or Spotware Systems. Trading carries a high risk of loss, and nothing here is financial advice.",
             ))
@@ -1696,7 +1779,7 @@ impl Render for SettingsHub {
             Page::Behaviour => self.behaviour_page(cx),
             Page::Replay => self.replay_page(cx),
             Page::Data => self.data_page(cx),
-            Page::About => self.about_page(),
+            Page::About => self.about_page(cx),
         };
         let head = Head {
             icon: IconName::Settings,

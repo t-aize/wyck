@@ -796,6 +796,32 @@ mod tests {
     }
 
     #[test]
+    fn a_0_1_preferences_fixture_keeps_its_layout_and_chart_state() {
+        let text = include_str!("../tests/fixtures/preferences-0.1.toml");
+        let prefs: Preferences = toml::from_str(text).unwrap();
+        let prefs = prefs.normalized();
+
+        assert_eq!(prefs.schema_version, 1);
+        assert_eq!(
+            prefs.layout,
+            LayoutPref {
+                count: 4,
+                variant: 0
+            }
+        );
+        assert_eq!(prefs.active_chart, 2);
+        assert_eq!(prefs.favorite_timeframes, vec!["M5", "H1"]);
+        assert_eq!(prefs.custom_timeframes, vec!["M7"]);
+        assert_eq!(prefs.charts.len(), 4);
+        assert_eq!(prefs.chart(1).symbol.as_deref(), Some("XAUUSD"));
+        assert_eq!(prefs.chart(1).settings.kind, ChartKind::Hollow);
+        assert!(prefs.magnet && prefs.ticket_open);
+        assert!(!prefs.keep_drawing);
+        assert_eq!(prefs.panel_height, 280.0);
+        assert_eq!(prefs.saved_colors, vec![16711680, 65280]);
+    }
+
+    #[test]
     fn the_charts_always_match_the_layout() {
         let prefs = Preferences {
             layout: LayoutPref {
@@ -950,6 +976,20 @@ mod tests {
         assert_eq!(lists.favorites, vec!["A", "B"]);
         assert_eq!(lists.lists.len(), 1);
         assert_eq!(lists.lists[0].symbols, vec!["X", "Y"]);
+    }
+
+    #[test]
+    fn a_0_1_watchlist_fixture_is_preserved_and_normalized() {
+        let text = include_str!("../tests/fixtures/watchlists-0.1.toml");
+        let lists: Watchlists = toml::from_str(text).unwrap();
+        let lists = lists.normalized();
+
+        assert_eq!(lists.schema_version, 1);
+        assert_eq!(lists.favorites, vec!["EURUSD", "XAUUSD"]);
+        assert_eq!(lists.lists.len(), 2);
+        assert_eq!(lists.lists[0].name, "Majors");
+        assert_eq!(lists.lists[0].symbols, vec!["EURUSD", "GBPUSD"]);
+        assert_eq!(lists.lists[1].symbols, vec!["XAUUSD", "XAGUSD"]);
     }
 
     #[test]

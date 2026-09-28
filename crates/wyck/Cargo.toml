@@ -13,6 +13,40 @@ categories = ["finance", "gui"]
 description = "Desktop trading terminal for cTrader."
 default-run = "wyck"
 
+[package.metadata.packager]
+product-name = "Wyck"
+identifier = "sh.wyck.wyck"
+category = "finance"
+description = "Desktop trading terminal for cTrader."
+long-description = "Wyck is a native desktop trading terminal for cTrader."
+homepage = "https://github.com/t-aize/wyck"
+license-file = "../../LICENSE"
+icons = ["assets/app-icon.png"]
+out-dir = "../../dist"
+formats = ["default"]
+binaries = [{ path = "wyck", main = true }]
+
+[package.metadata.packager.nsis]
+install-mode = "currentUser"
+languages = ["English", "French"]
+
+[package.metadata.packager.windows]
+allow-downgrades = false
+
+[package.metadata.packager.linux]
+generate-desktop-entry = true
+
+[package.metadata.packager.deb]
+depends = [
+    "libc6",
+    "libfontconfig1",
+    "libssl3 | libssl3t64",
+    "libwayland-client0",
+    "libxcb1",
+    "libxkbcommon0",
+    "libxkbcommon-x11-0",
+]
+
 [dependencies]
 wyck-config.workspace = true
 wyck-market-data.workspace = true
@@ -36,6 +70,7 @@ secrecy.workspace = true
 tracing-subscriber.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+cargo-packager-updater.workspace = true
 tiny-skia.workspace = true
 ab_glyph.workspace = true
 lsp-types.workspace = true

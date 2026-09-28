@@ -1,0 +1,12 @@
+schema_version = 1
+active_profile = "11111111-2222-4333-8444-555555555555"
+last_symbol = "XAUUSD"
+
+[[profiles]]
+id = "11111111-2222-4333-8444-555555555555"
+display_name = "Demo account"
+service = "ctrader-openapi"
+endpoint = "https://openapi.ctrader.com"
+client_id = "legacy-client"
+callback_port = 52123
+account_id = 12345678
