@@ -22,7 +22,9 @@ use super::multichart::MultiChart;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use super::{backup, updates};
 use wyck_ui::form::Head;
-use wyck_ui::{button, confirm, controls, form, icon, modal, number, theme, theme::Colors, toast};
+use wyck_ui::{
+    button, confirm, controls, form, icon, modal, number, theme, theme::Colors, toast, tokens,
+};
 
 /// Opens the settings.
 pub fn open(
@@ -154,36 +156,28 @@ impl SettingsHub {
         let font_filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search the fonts"));
         let study_limit = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 limits.studies_per_chart as f64,
-                1.0,
-                MAX_STUDIES as f64,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .min(1.0)
+            .max(MAX_STUDIES as f64)
         });
         let alert_limit = cx.new(|cx| {
-            number::state(
-                limits.alerts as f64,
-                1.0,
-                MAX_SAVED_ALERTS as f64,
-                1.0,
-                0,
-                window,
-                cx,
-            )
+            number::state(number::Kind::Count, limits.alerts as f64, window, cx)
+                .min(1.0)
+                .max(MAX_SAVED_ALERTS as f64)
         });
         let drawing_limit = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 limits.drawings_per_symbol as f64,
-                1.0,
-                MAX_DRAWINGS_PER_SYMBOL as f64,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .min(1.0)
+            .max(MAX_DRAWINGS_PER_SYMBOL as f64)
         });
         let mut subscriptions = vec![
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
@@ -1114,17 +1108,17 @@ impl SettingsHub {
                     form::field(
                         "Indicators per chart",
                         Some("Includes hidden indicators. Existing ones stay when you lower it (1 to 64)"),
-                        number::field(&self.study_limit, 110.),
+                        number::field(&self.study_limit, tokens::field::NUMBER),
                     ),
                     form::field(
                         "Saved price alerts",
                         Some("Includes inactive alerts. Existing ones stay when you lower it (1 to 2000)"),
-                        number::field(&self.alert_limit, 110.),
+                        number::field(&self.alert_limit, tokens::field::NUMBER),
                     ),
                     form::field(
                         "Drawings per symbol",
                         Some("Includes hidden drawings. Existing ones stay when you lower it (1 to 5000)"),
-                        number::field(&self.drawing_limit, 110.),
+                        number::field(&self.drawing_limit, tokens::field::NUMBER),
                     ),
                 ],
             ))

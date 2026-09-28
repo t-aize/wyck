@@ -19,7 +19,7 @@ use super::study::{
 };
 use wyck_ui::form::Head;
 use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, icon, modal, number, theme};
+use wyck_ui::{button, controls, form, icon, modal, number, theme, tokens};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -182,14 +182,16 @@ impl StudyEditor {
             let decimals = if input.kind == InputKind::Int { 0 } else { 4 };
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::Declared {
+                        step: input.step,
+                        decimals,
+                    },
                     config.input(input.key),
-                    input.min,
-                    input.max,
-                    input.step,
-                    decimals,
                     window,
                     cx,
                 )
+                .min(input.min)
+                .max(input.max)
             });
             let key = input.key;
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
@@ -201,11 +203,8 @@ impl StudyEditor {
         for plot in config.spec().plots {
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::Share,
                     f64::from(config.plot_style(plot.key).opacity) * 100.0,
-                    5.0,
-                    100.0,
-                    5.0,
-                    0,
                     window,
                     cx,
                 )
@@ -223,11 +222,8 @@ impl StudyEditor {
         for plot in config.spec().plots {
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::LineWidth,
                     f64::from(config.plot_style(plot.key).width),
-                    0.5,
-                    20.0,
-                    0.5,
-                    1,
                     window,
                     cx,
                 )
@@ -246,14 +242,12 @@ impl StudyEditor {
             let key = plot.key;
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::Share,
                     f64::from(config.plot_style(key).bar_width) * 100.0,
-                    10.0,
-                    100.0,
-                    5.0,
-                    0,
                     window,
                     cx,
                 )
+                .min(10.0)
             });
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
@@ -268,15 +262,16 @@ impl StudyEditor {
         for (index, value) in config.default_levels().into_iter().enumerate() {
             let style = config.levels.get(&index).copied().unwrap_or_default();
             let value = style.value.unwrap_or(value);
-            let state = cx.new(|cx| number::state(value, -1e12, 1e12, 0.1, 3, window, cx));
+            let state = cx.new(|cx| number::state(number::Kind::Level, value, window, cx));
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
                     .level(index, cx, |style| style.value = Some(value));
             }));
             level_values.push((index, state));
-            let width =
-                cx.new(|cx| number::state(f64::from(style.width), 0.5, 20.0, 0.5, 1, window, cx));
+            let width = cx.new(|cx| {
+                number::state(number::Kind::LineWidth, f64::from(style.width), window, cx)
+            });
             subscriptions.push(number::watch(&width, cx, move |this, value, cx| {
                 this.target
                     .clone()
@@ -285,11 +280,8 @@ impl StudyEditor {
             level_widths.push((index, width));
             let opacity = cx.new(|cx| {
                 number::state(
+                    number::Kind::Share,
                     f64::from(style.opacity) * 100.0,
-                    0.0,
-                    100.0,
-                    5.0,
-                    0,
                     window,
                     cx,
                 )
@@ -309,11 +301,8 @@ impl StudyEditor {
             let style = config.fills.get(&index).copied().unwrap_or(default);
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::Share,
                     f64::from(style.opacity) * 100.0,
-                    0.0,
-                    100.0,
-                    5.0,
-                    0,
                     window,
                     cx,
                 )
@@ -329,11 +318,8 @@ impl StudyEditor {
             let style = config.band.unwrap_or(default);
             let state = cx.new(|cx| {
                 number::state(
+                    number::Kind::Share,
                     f64::from(style.opacity) * 100.0,
-                    0.0,
-                    100.0,
-                    5.0,
-                    0,
                     window,
                     cx,
                 )
@@ -358,14 +344,12 @@ impl StudyEditor {
         }));
         let precision = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 config.precision.unwrap_or(2) as f64,
-                0.0,
-                8.0,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .max(8.0)
         });
         subscriptions.push(number::watch(&precision, cx, |this, value, cx| {
             this.target
@@ -543,7 +527,7 @@ impl StudyEditor {
                     .fields
                     .iter()
                     .find(|(k, _)| *k == key)
-                    .map(|(_, state)| number::field(state, 130.).into_any_element()),
+                    .map(|(_, state)| number::field(state, tokens::field::WIDE).into_any_element()),
                 InputKind::Source => {
                     let target = target.clone();
                     Some(
@@ -780,7 +764,7 @@ impl StudyEditor {
                 .opacity
                 .iter()
                 .find(|(k, _)| *k == key)
-                .map(|(_, state)| number::field(state, 96.));
+                .map(|(_, state)| number::field(state, tokens::field::NUMBER));
             let mut rows = vec![form::field(
                 "Color",
                 Some("Opacity in percent"),
@@ -841,7 +825,7 @@ impl StudyEditor {
                     self.widths
                         .iter()
                         .find(|(k, _)| *k == key)
-                        .map(|(_, state)| number::field(state, 84.)),
+                        .map(|(_, state)| number::field(state, tokens::field::NARROW)),
                 );
             if config.kind == StudyKind::VolumeProfile {
                 if key == "poc" {
@@ -936,7 +920,7 @@ impl StudyEditor {
                             rows.push(form::field(
                                 "Column width (%)",
                                 None,
-                                number::field(state, 96.),
+                                number::field(state, tokens::field::NUMBER),
                             ));
                         }
                     }
@@ -980,17 +964,25 @@ impl StudyEditor {
                     form::field(
                         "Value",
                         Some("Overrides the calculated level"),
-                        number::field(state, 130.),
+                        number::field(state, tokens::field::WIDE),
                     )
                     .into_any_element(),
                 );
             }
             if let Some((_, state)) = self.level_widths.iter().find(|(i, _)| *i == index) {
-                rows.push(form::field("Width", None, number::field(state, 96.)).into_any_element());
+                rows.push(
+                    form::field("Width", None, number::field(state, tokens::field::NUMBER))
+                        .into_any_element(),
+                );
             }
             if let Some((_, state)) = self.level_opacity.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
+                    form::field(
+                        "Opacity (%)",
+                        None,
+                        number::field(state, tokens::field::NUMBER),
+                    )
+                    .into_any_element(),
                 );
             }
             rows.push(
@@ -1073,7 +1065,12 @@ impl StudyEditor {
             }
             if let Some((_, state)) = self.fill_opacity.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
+                    form::field(
+                        "Opacity (%)",
+                        None,
+                        number::field(state, tokens::field::NUMBER),
+                    )
+                    .into_any_element(),
                 );
             }
             page = page.child(form::group_with(
@@ -1107,7 +1104,12 @@ impl StudyEditor {
             let mut rows = vec![form::field("Color", None, color).into_any_element()];
             if let Some(state) = &self.band_opacity {
                 rows.push(
-                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
+                    form::field(
+                        "Opacity (%)",
+                        None,
+                        number::field(state, tokens::field::NUMBER),
+                    )
+                    .into_any_element(),
                 );
             }
             page = page.child(form::group_with(
@@ -1175,7 +1177,7 @@ impl StudyEditor {
             rows.push(form::field(
                 "Decimal places",
                 None,
-                number::field(&self.precision, 96.),
+                number::field(&self.precision, tokens::field::NUMBER),
             ));
         }
         if config.spec().placement == Placement::Pane {

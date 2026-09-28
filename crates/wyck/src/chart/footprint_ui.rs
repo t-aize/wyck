@@ -9,7 +9,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::footprint::{CellMode, FootprintSettings, HeatScope};
 use super::settings::ChartSettings;
-use wyck_ui::{controls, form, number};
+use wyck_ui::{controls, form, number, tokens};
 
 /// The numbers of the footprint that are typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,7 +94,11 @@ pub(super) fn inputs<T: 'static>(
     for field in Field::ALL {
         let (low, high) = field.range();
         let value = f64::from(field.get(&settings));
-        let state = cx.new(|cx| number::state(value, low, high, 1.0, 0, window, cx));
+        let state = cx.new(|cx| {
+            number::state(number::Kind::Count, value, window, cx)
+                .min(low)
+                .max(high)
+        });
         let chart = chart.clone();
         subscriptions.push(number::watch(&state, cx, move |_this, value, cx| {
             if value >= 0.0 {
@@ -132,7 +136,7 @@ pub(super) fn groups(
         form::field(
             field.label(),
             field.hint(),
-            gpui::div().children(state.map(|state| number::field(state, 120.))),
+            gpui::div().children(state.map(|state| number::field(state, tokens::field::NUMBER))),
         )
     };
     let mode_labels: Vec<&str> = CellMode::ALL.iter().map(|m| m.label()).collect();

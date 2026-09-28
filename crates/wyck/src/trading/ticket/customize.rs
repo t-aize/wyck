@@ -18,7 +18,7 @@ use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
 use crate::trading::math::SizeMode;
 use wyck_ui::form::Head;
 use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, modal, number};
+use wyck_ui::{button, controls, form, modal, number, tokens};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
 const PRESET_MODES: [(SizeMode, &str, &str); 5] = [
@@ -115,52 +115,54 @@ fn list_text(values: &[f64]) -> String {
         .join(", ")
 }
 
-/// The number fields of the defaults page: the value now, its range, its step, its decimals, and
-/// what changes in the layout when it is typed.
-type NumberSpec = (fn(&Layout) -> f64, f64, f64, f64, usize, NumberSetter);
+/// The number fields of the defaults page: the value now, what it holds, its range, and what
+/// changes in the layout when it is typed.
+type NumberSpec = (fn(&Layout) -> f64, number::Kind, f64, f64, NumberSetter);
 
 const NUMBERS: [NumberSpec; 5] = [
     (
         |l| l.defaults.stop_pips,
+        number::Kind::Pips,
         0.1,
         100_000.,
-        1.,
-        1,
         |l, v| {
             l.defaults.stop_pips = v;
         },
     ),
     (
         |l| l.defaults.target_ratio,
+        number::Kind::Ratio,
         0.1,
         1_000.,
-        0.5,
-        2,
         |l, v| {
             l.defaults.target_ratio = v;
         },
     ),
     (
         |l| l.defaults.expiry,
+        number::Kind::Count,
         1.,
         100_000.,
-        1.,
-        0,
         |l, v| {
             l.defaults.expiry = v;
         },
     ),
     (
         |l| l.defaults.slippage_pips,
+        number::Kind::Slippage,
         0.,
         10_000.,
-        0.5,
-        1,
         |l, v| {
             l.defaults.slippage_pips = v;
         },
     ),
-    (|l| l.high_risk, 0.1, 100., 0.5, 1, |l, v| l.high_risk = v),
+    (
+        |l| l.high_risk,
+        number::Kind::Percent,
+        0.1,
+        100.,
+        |l, v| l.high_risk = v,
+    ),
 ];
 
 impl Customizer {
@@ -170,14 +172,13 @@ impl Customizer {
 
         let width = cx.new(|cx| {
             number::state(
+                number::Kind::PanelWidth,
                 f64::from(layout.width),
-                f64::from(super::prefs::WIDTH_MIN),
-                f64::from(super::prefs::WIDTH_MAX),
-                10.,
-                0,
                 window,
                 cx,
             )
+            .min(f64::from(super::prefs::WIDTH_MIN))
+            .max(f64::from(super::prefs::WIDTH_MAX))
         });
         subscriptions.push(cx.subscribe(&width, |this, state, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change)
@@ -203,9 +204,12 @@ impl Customizer {
         }
 
         let mut numbers = Vec::new();
-        for (get, min, max, step, decimals, set) in NUMBERS {
-            let state =
-                cx.new(|cx| number::state(get(&layout), min, max, step, decimals, window, cx));
+        for (get, kind, min, max, set) in NUMBERS {
+            let state = cx.new(|cx| {
+                number::state(kind, get(&layout), window, cx)
+                    .min(min)
+                    .max(max)
+            });
             subscriptions.push(
                 cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change)
@@ -239,8 +243,8 @@ impl Customizer {
             let text = list_text(layout.presets.of(mode));
             state.update(cx, |s, cx| s.set_value(text, window, cx));
         }
-        for (state, (get, _, _, _, decimals, _)) in self.numbers.iter().zip(NUMBERS) {
-            let text = number::format(get(&layout), decimals);
+        for (state, (get, kind, _, _, _)) in self.numbers.iter().zip(NUMBERS) {
+            let text = number::format(get(&layout), kind.spec().decimals);
             state.update(cx, |s, cx| s.set_value(text, window, cx));
         }
         cx.notify();
@@ -301,7 +305,7 @@ impl Customizer {
                     form::field(
                         "Width",
                         Some("Also dragged from the edge of the panel"),
-                        number::field(&self.width, 130.),
+                        number::field(&self.width, tokens::field::WIDE),
                     ),
                     form::field(
                         "Spacing",

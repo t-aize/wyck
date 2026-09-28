@@ -10,7 +10,7 @@ use gpui_kit::component::input::{Input, InputState};
 use crate::alerts::{Alerts, Condition};
 use crate::trading::account::Account;
 use wyck_ui::form::Head;
-use wyck_ui::{button, controls, form, modal, number};
+use wyck_ui::{button, controls, form, modal, number, tokens};
 
 // ---- modifying a position or an order ----
 
@@ -118,18 +118,18 @@ impl Render for ProtectionEditor {
             rows.push(form::field(
                 "Price",
                 None,
-                form::text_field(&self.price, 160.),
+                form::text_field(&self.price, tokens::field::TEXT),
             ));
         }
         rows.push(form::field(
             "Stop loss",
             Some("Leave it empty to remove it"),
-            form::text_field(&self.stop_loss, 160.),
+            form::text_field(&self.stop_loss, tokens::field::TEXT),
         ));
         rows.push(form::field(
             "Take profit",
             Some("Leave it empty to remove it"),
-            form::text_field(&self.take_profit, 160.),
+            form::text_field(&self.take_profit, tokens::field::TEXT),
         ));
         let body = form::page()
             .child(form::group(IconName::Target, "Levels", rows))
@@ -250,7 +250,11 @@ impl Render for AlertEditor {
                     },
                 ),
             ),
-            form::field("Price", None, form::text_field(&self.price, 160.)),
+            form::field(
+                "Price",
+                None,
+                form::text_field(&self.price, tokens::field::TEXT),
+            ),
         ];
         let message = vec![form::block(Input::new(&self.message).small())];
         let options = vec![form::field(

@@ -34,6 +34,7 @@ use wyck_ui::form::Tab;
 use wyck_ui::{
     button, controls, form, modal, number, theme,
     toast::{self, Kind},
+    tokens,
 };
 
 /// The most rows put on the clipboard: past it a file is the better way.
@@ -258,7 +259,11 @@ fn number_input(
     (low, high): (f64, f64),
     apply: fn(&mut ExportOptions, f64),
 ) -> Entity<InputState> {
-    let state = cx.new(|cx| number::state(value, low, high, 1.0, 0, window, cx));
+    let state = cx.new(|cx| {
+        number::state(number::Kind::Count, value, window, cx)
+            .min(low)
+            .max(high)
+    });
     subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
         if value >= low {
             apply(&mut this.options, value);
@@ -706,7 +711,11 @@ impl ExportDialog {
         hint: Option<&'static str>,
         state: &Entity<InputState>,
     ) -> AnyElement {
-        form::field(label, hint, div().child(number::field(state, 120.)))
+        form::field(
+            label,
+            hint,
+            div().child(number::field(state, tokens::field::NUMBER)),
+        )
     }
 
     fn text(
@@ -855,7 +864,7 @@ impl ExportDialog {
                         div().flex_1().min_w_0().children(
                             self.names
                                 .get(&code)
-                                .map(|state| form::text_field(state, 240.)),
+                                .map(|state| form::text_field(state, tokens::field::TEXT)),
                         ),
                     )
                     .child(
@@ -1253,7 +1262,10 @@ impl ExportDialog {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .child(form::text_field(&self.inputs.preset_name, 200.))
+                .child(form::text_field(
+                    &self.inputs.preset_name,
+                    tokens::field::TEXT,
+                ))
                 .child(
                     Button::new("preset-save")
                         .primary()

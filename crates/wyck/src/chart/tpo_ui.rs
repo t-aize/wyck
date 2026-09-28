@@ -10,7 +10,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
 use super::tpo::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
-use wyck_ui::{form, number};
+use wyck_ui::{form, number, tokens};
 
 /// The fields that are typed in.
 pub(super) struct Inputs {
@@ -31,25 +31,54 @@ pub(super) fn inputs<T: 'static>(
 ) -> (Inputs, Vec<Subscription>) {
     let t = chart.read(cx).settings.tpo;
     let mut numbers = Numbers::new(chart, window, cx);
-    let session_hours = numbers.add(f64::from(t.session_hours), (1.0, 168.0), 0, |s, v| {
-        s.tpo.session_hours = v.round() as u32;
-    });
-    let period_minutes = numbers.add(f64::from(t.period_minutes), (1.0, 1_440.0), 0, |s, v| {
-        s.tpo.period_minutes = v.round() as u32;
-    });
-    let row_units = numbers.add(f64::from(t.row_units), (0.0, 1e6), 0, |s, v| {
-        s.tpo.row_units = v.round() as u32;
-    });
-    let value_area_percent =
-        numbers.add(f64::from(t.value_area_percent), (50.0, 95.0), 0, |s, v| {
+    let session_hours = numbers.add(
+        number::Kind::Count,
+        f64::from(t.session_hours),
+        (1.0, 168.0),
+        |s, v| {
+            s.tpo.session_hours = v.round() as u32;
+        },
+    );
+    let period_minutes = numbers.add(
+        number::Kind::Count,
+        f64::from(t.period_minutes),
+        (1.0, 1_440.0),
+        |s, v| {
+            s.tpo.period_minutes = v.round() as u32;
+        },
+    );
+    let row_units = numbers.add(
+        number::Kind::Count,
+        f64::from(t.row_units),
+        (0.0, 1e6),
+        |s, v| {
+            s.tpo.row_units = v.round() as u32;
+        },
+    );
+    let value_area_percent = numbers.add(
+        number::Kind::Share,
+        f64::from(t.value_area_percent),
+        (50.0, 95.0),
+        |s, v| {
             s.tpo.value_area_percent = v.round() as u32;
-        });
-    let ib_periods = numbers.add(f64::from(t.ib_periods), (1.0, 24.0), 0, |s, v| {
-        s.tpo.ib_periods = v.round() as u32;
-    });
-    let single_min_rows = numbers.add(f64::from(t.single_min_rows), (1.0, 20.0), 0, |s, v| {
-        s.tpo.single_min_rows = v.round() as u32;
-    });
+        },
+    );
+    let ib_periods = numbers.add(
+        number::Kind::Count,
+        f64::from(t.ib_periods),
+        (1.0, 24.0),
+        |s, v| {
+            s.tpo.ib_periods = v.round() as u32;
+        },
+    );
+    let single_min_rows = numbers.add(
+        number::Kind::Count,
+        f64::from(t.single_min_rows),
+        (1.0, 20.0),
+        |s, v| {
+            s.tpo.single_min_rows = v.round() as u32;
+        },
+    );
     let mut subscriptions = numbers.subscriptions;
     // The start of a session is a time of day, typed as 09:30.
     let session_start =
@@ -92,7 +121,7 @@ pub(super) fn groups(chart: &Entity<Chart>, inputs: &Inputs, t: &TpoSettings) ->
     profile.push(form::field(
         "Session starts at",
         Some("In the time zone of the chart, as 09:30"),
-        form::text_field(&inputs.session_start, 110.),
+        form::text_field(&inputs.session_start, tokens::field::NUMBER),
     ));
     profile.push(number(
         "Period of a letter (minutes)",

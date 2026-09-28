@@ -24,7 +24,7 @@ use super::{
 };
 use wyck_ui::form::Head;
 use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, icon, modal, number, theme};
+use wyck_ui::{button, controls, form, icon, modal, number, theme, tokens};
 
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[
@@ -302,7 +302,9 @@ impl ChartSettingsEditor {
         let mut sizes = Vec::new();
         for field in SizeField::ALL {
             let size = field.get(&transform);
-            let state = cx.new(|cx| number::state(size_value(size), 0.0, 1e9, 1.0, 6, window, cx));
+            let state = cx.new(|cx| {
+                number::state(number::Kind::Amount, size_value(size), window, cx).max(1e9)
+            });
             subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 if value > 0.0 {
                     edit_chart(&this.chart, cx, |s| {
@@ -321,14 +323,13 @@ impl ChartSettingsEditor {
         }
         let line_break = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 f64::from(transform.line_break),
-                1.0,
-                10.0,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .min(1.0)
+            .max(10.0)
         });
         subscriptions.push(number::watch(&line_break, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
@@ -337,14 +338,13 @@ impl ChartSettingsEditor {
         }));
         let reversal = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 f64::from(transform.pnf_reversal),
-                1.0,
-                10.0,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .min(1.0)
+            .max(10.0)
         });
         subscriptions.push(number::watch(&reversal, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
@@ -576,19 +576,19 @@ impl ChartSettingsEditor {
                             });
                         },
                     ))
-                    .child(number::field(state, 110.)),
+                    .child(number::field(state, tokens::field::NUMBER)),
             ));
         }
         match kind {
             ChartKind::LineBreak => rows.push(form::field(
                 "Lines to break",
                 Some("A new line turns after breaking the extreme of this many"),
-                number::field(&self.line_break, 110.),
+                number::field(&self.line_break, tokens::field::NUMBER),
             )),
             ChartKind::PointFigure => rows.push(form::field(
                 "Reversal (boxes)",
                 Some("Boxes the price must go back to start a new column"),
-                number::field(&self.reversal, 110.),
+                number::field(&self.reversal, tokens::field::NUMBER),
             )),
             _ => {}
         }

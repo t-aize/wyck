@@ -26,7 +26,7 @@ use super::timeframe::GROUPS;
 use super::zone::Zone;
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
 use wyck_ui::form::Head;
-use wyck_ui::{button, controls, form, modal, number, theme};
+use wyck_ui::{button, controls, form, modal, number, theme, tokens};
 
 pub struct PropsContext {
     pub zone: Zone,
@@ -187,62 +187,54 @@ impl DrawingProps {
         let style = &drawing.style;
         let opacity = cx.new(|cx| {
             number::state(
+                number::Kind::Share,
                 f64::from(style.fill_opacity) * 100.0,
-                0.0,
-                100.0,
-                5.0,
-                0,
                 window,
                 cx,
             )
         });
         let line_opacity = cx.new(|cx| {
             number::state(
+                number::Kind::Share,
                 f64::from(style.opacity) * 100.0,
-                5.0,
-                100.0,
-                5.0,
-                0,
                 window,
                 cx,
             )
         });
-        let text_size =
-            cx.new(|cx| number::state(f64::from(style.text_size), 6.0, 48.0, 1.0, 0, window, cx));
+        let text_size = cx.new(|cx| {
+            number::state(number::Kind::Count, f64::from(style.text_size), window, cx)
+                .min(6.0)
+                .max(48.0)
+        });
         let width =
-            cx.new(|cx| number::state(f64::from(style.width), 0.5, 40.0, 0.5, 1, window, cx));
+            cx.new(|cx| number::state(number::Kind::LineWidth, f64::from(style.width), window, cx));
         let scale = cx.new(|cx| {
             number::state(
+                number::Kind::Scale,
                 f64::from(style.scale) * 100.0,
-                30.0,
-                500.0,
-                10.0,
-                0,
                 window,
                 cx,
             )
+            .min(30.0)
+            .max(500.0)
         });
         let profile_rows = cx.new(|cx| {
             number::state(
+                number::Kind::Count,
                 f64::from(style.profile.rows),
-                0.0,
-                240.0,
-                1.0,
-                0,
                 window,
                 cx,
             )
+            .max(240.0)
         });
         let profile_area = cx.new(|cx| {
             number::state(
+                number::Kind::Share,
                 f64::from(style.profile.value_area) * 100.0,
-                10.0,
-                100.0,
-                5.0,
-                0,
                 window,
                 cx,
             )
+            .min(10.0)
         });
         let template_name = cx.new(|cx| InputState::new(window, cx).placeholder("Name this look"));
         let text = cx.new(|cx| TextareaState::new(window, cx).default_value(drawing.text.clone()));
@@ -317,35 +309,35 @@ impl DrawingProps {
                 .clone()
                 .or_else(|| atr_seed.clone())
                 .unwrap_or_default();
-            let atr_length =
-                cx.new(|cx| number::state(atr.length as f64, 1.0, 1_000.0, 1.0, 0, window, cx));
+            let atr_length = cx.new(|cx| {
+                number::state(number::Kind::Count, atr.length as f64, window, cx)
+                    .min(1.0)
+                    .max(1_000.0)
+            });
             let atr_multiplier =
-                cx.new(|cx| number::state(atr.multiplier, 0.01, 1_000.0, 0.1, 2, window, cx));
+                cx.new(|cx| number::state(number::Kind::Multiplier, atr.multiplier, window, cx));
             let rr = cx.new(|cx| {
-                number::state(
-                    p.target_rr.unwrap_or(2.0),
-                    0.01,
-                    1_000.0,
-                    0.1,
-                    2,
-                    window,
-                    cx,
-                )
+                number::state(number::Kind::Ratio, p.target_rr.unwrap_or(2.0), window, cx)
             });
             let atr_timeframe = cx.new(|cx| {
                 InputState::new(window, cx)
                     .default_value(atr.timeframe.clone().unwrap_or_default())
                     .placeholder("Chart TF, M15, H1...")
             });
-            let account = cx.new(|cx| number::state(p.account, 1.0, 1e12, 100.0, 2, window, cx));
-            let risk = cx.new(|cx| number::state(p.risk, 0.01, 1e12, 0.25, 2, window, cx));
-            let lot_size = cx.new(|cx| number::state(p.lot_size, 1e-8, 1e9, 1.0, 4, window, cx));
-            let leverage =
-                cx.new(|cx| number::state(p.leverage, 1.0, 10_000.0, 1.0, 0, window, cx));
+            let account =
+                cx.new(|cx| number::state(number::Kind::Money, p.account, window, cx).min(1.0));
+            let risk = cx.new(|cx| number::state(number::Kind::Percent, p.risk, window, cx));
+            let lot_size = cx.new(|cx| number::state(number::Kind::Amount, p.lot_size, window, cx));
+            let leverage = cx.new(|cx| {
+                number::state(number::Kind::Count, p.leverage, window, cx)
+                    .min(1.0)
+                    .max(10_000.0)
+            });
             let point_value =
-                cx.new(|cx| number::state(p.point_value, 1e-9, 1e9, 1.0, 4, window, cx));
-            let qty_precision = cx
-                .new(|cx| number::state(f64::from(p.qty_precision), 0.0, 8.0, 1.0, 0, window, cx));
+                cx.new(|cx| number::state(number::Kind::Amount, p.point_value, window, cx));
+            let qty_precision = cx.new(|cx| {
+                number::state(number::Kind::Count, f64::from(p.qty_precision), window, cx).max(8.0)
+            });
             let currency = cx.new(|cx| {
                 InputState::new(window, cx)
                     .default_value(p.currency.clone())
@@ -490,7 +482,11 @@ impl DrawingProps {
         self._level_subscriptions.clear();
         self.level_widths.clear();
         for (index, level) in drawing.levels().iter().enumerate() {
-            let state = cx.new(|cx| number::state(level.value, -100.0, 100.0, 0.1, 4, window, cx));
+            let state = cx.new(|cx| {
+                number::state(number::Kind::Level, level.value, window, cx)
+                    .min(-100.0)
+                    .max(100.0)
+            });
             self._level_subscriptions
                 .push(number::watch(&state, cx, move |this, value, cx| {
                     this.change(cx, |d| {
@@ -501,8 +497,9 @@ impl DrawingProps {
                     });
                 }));
             self.levels.push(state);
-            let width =
-                cx.new(|cx| number::state(f64::from(level.width), 0.0, 40.0, 0.5, 1, window, cx));
+            let width = cx.new(|cx| {
+                number::state(number::Kind::LineWidth, f64::from(level.width), window, cx)
+            });
             self._level_subscriptions
                 .push(number::watch(&width, cx, move |this, value, cx| {
                     this.change(cx, |d| {
@@ -837,7 +834,7 @@ impl DrawingProps {
                         });
                     },
                 ))
-                .child(number::field(&self.width, 84.)),
+                .child(number::field(&self.width, tokens::field::NARROW)),
         )
     }
 
@@ -935,7 +932,7 @@ impl DrawingProps {
             [form::field(
                 "Size",
                 Some("In percent of its usual size"),
-                number::field(&self.scale, 96.),
+                number::field(&self.scale, tokens::field::NUMBER),
             )],
         )
     }
@@ -949,12 +946,12 @@ impl DrawingProps {
                 form::field(
                     "Rows",
                     Some("0 lets the height on the screen decide"),
-                    number::field(&self.profile_rows, 96.),
+                    number::field(&self.profile_rows, tokens::field::NUMBER),
                 ),
                 form::field(
                     "Value area",
                     Some("The share of the volume it holds, in percent"),
-                    number::field(&self.profile_area, 96.),
+                    number::field(&self.profile_area, tokens::field::NUMBER),
                 ),
             ],
         )
@@ -1112,7 +1109,7 @@ impl DrawingProps {
                 .items_center()
                 .gap_2()
                 .child(self.swatch(Swatch::Line, style.color, "props-line-color", cx))
-                .child(number::field(&self.line_opacity, 96.)),
+                .child(number::field(&self.line_opacity, tokens::field::NUMBER)),
         )];
         if tool.has_width() {
             rows.push(self.width_row(drawing, cx));
@@ -1254,7 +1251,7 @@ impl DrawingProps {
             rows.push(form::field(
                 "Fill opacity",
                 Some("In percent"),
-                number::field(&self.opacity, 96.),
+                number::field(&self.opacity, tokens::field::NUMBER),
             ));
             page = page.child(form::group(IconName::PaintBucket, "Background", rows));
         }
@@ -1278,7 +1275,7 @@ impl DrawingProps {
                 form::field(
                     "Account size",
                     Some("The balance the position is sized for"),
-                    number::field(&pos.account, 130.),
+                    number::field(&pos.account, tokens::field::WIDE),
                 ),
                 form::field(
                     "Currency",
@@ -1288,7 +1285,7 @@ impl DrawingProps {
                 form::field(
                     "Leverage",
                     Some("Caps the quantity at account x leverage / entry price"),
-                    number::field(&pos.leverage, 130.),
+                    number::field(&pos.leverage, tokens::field::WIDE),
                 ),
             ],
         );
@@ -1306,7 +1303,7 @@ impl DrawingProps {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .child(number::field(&pos.risk, 100.))
+                        .child(number::field(&pos.risk, tokens::field::NUMBER))
                         .child(controls::segmented(
                             "props-risk-mode",
                             &["%", "Amount"],
@@ -1326,19 +1323,19 @@ impl DrawingProps {
                 form::field(
                     "Lot size",
                     Some("The step the quantity is rounded down to"),
-                    number::field(&pos.lot_size, 130.),
+                    number::field(&pos.lot_size, tokens::field::WIDE),
                 ),
                 form::field(
                     "Quantity decimals",
                     None,
-                    number::field(&pos.qty_precision, 130.),
+                    number::field(&pos.qty_precision, tokens::field::WIDE),
                 ),
                 form::field(
                     "Point value",
                     Some(
                         "What one unit gains per 1.0 of price, in the account currency. 1 when the symbol is quoted in it",
                     ),
-                    number::field(&pos.point_value, 130.),
+                    number::field(&pos.point_value, tokens::field::WIDE),
                 ),
             ],
         );
@@ -1390,12 +1387,12 @@ impl DrawingProps {
             levels.push(form::field(
                 "ATR length",
                 None,
-                number::field(&pos.atr_length, 100.),
+                number::field(&pos.atr_length, tokens::field::NUMBER),
             ));
             levels.push(form::field(
                 "ATR multiplier",
                 None,
-                number::field(&pos.atr_multiplier, 100.),
+                number::field(&pos.atr_multiplier, tokens::field::NUMBER),
             ));
             levels.push(form::field(
                 "ATR smoothing",
@@ -1447,7 +1444,7 @@ impl DrawingProps {
             levels.push(form::field(
                 "Risk multiple",
                 None,
-                number::field(&pos.rr, 100.),
+                number::field(&pos.rr, tokens::field::NUMBER),
             ));
         }
         let levels = form::group(IconName::ChartNoAxesCombined, "Protection levels", levels);
@@ -1615,7 +1612,7 @@ impl DrawingProps {
                 form::field(
                     "Zone opacity",
                     Some("In percent"),
-                    number::field(&self.opacity, 96.),
+                    number::field(&self.opacity, tokens::field::NUMBER),
                 ),
             ],
         );
@@ -1641,7 +1638,11 @@ impl DrawingProps {
                         cx,
                     ),
                 ),
-                form::field("Text size", None, number::field(&self.text_size, 96.)),
+                form::field(
+                    "Text size",
+                    None,
+                    number::field(&self.text_size, tokens::field::NUMBER),
+                ),
                 form::field(
                     "Bold",
                     None,
@@ -1829,7 +1830,7 @@ impl DrawingProps {
                             }
                         },
                     ))
-                    .child(number::field(field, 100.))
+                    .child(number::field(field, tokens::field::NUMBER))
                     .child(self.swatch(
                         Swatch::Level(index),
                         level.color,
@@ -1839,7 +1840,7 @@ impl DrawingProps {
                     .children(
                         self.level_widths
                             .get(index)
-                            .map(|width| number::field(width, 84.)),
+                            .map(|width| number::field(width, tokens::field::NARROW)),
                     )
                     .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
@@ -2013,7 +2014,11 @@ impl DrawingProps {
                     None,
                     self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
                 ),
-                form::field("Size", None, number::field(&self.text_size, 96.)),
+                form::field(
+                    "Size",
+                    None,
+                    number::field(&self.text_size, tokens::field::NUMBER),
+                ),
                 form::field(
                     "Bold",
                     None,

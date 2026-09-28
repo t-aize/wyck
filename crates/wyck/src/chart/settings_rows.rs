@@ -8,7 +8,7 @@ use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartSettings;
-use wyck_ui::{controls, form, number};
+use wyck_ui::{controls, form, number, tokens};
 
 pub(super) fn edit(
     chart: &Entity<Chart>,
@@ -70,7 +70,11 @@ pub(super) fn number(
     hint: Option<&'static str>,
     state: &Entity<InputState>,
 ) -> AnyElement {
-    form::field(label, hint, div().child(number::field(state, 120.)))
+    form::field(
+        label,
+        hint,
+        div().child(number::field(state, tokens::field::NUMBER)),
+    )
 }
 
 /// Makes the number fields of a panel and keeps the subscriptions that apply what is typed.
@@ -95,19 +99,19 @@ impl<'a, 'b, T: 'static> Numbers<'a, 'b, T> {
         }
     }
 
-    /// A field holding `value`, between `low` and `high`. What is typed at least `low` is
-    /// applied with `apply` (which the settings then repair to what they allow).
+    /// A field of `kind` holding `value`, between `low` and `high`. What is typed at least `low`
+    /// is applied with `apply` (which the settings then repair to what they allow).
     pub fn add(
         &mut self,
+        kind: number::Kind,
         value: f64,
         (low, high): (f64, f64),
-        decimals: usize,
         apply: fn(&mut ChartSettings, f64),
     ) -> Entity<InputState> {
         let window = &mut *self.window;
         let state = self
             .cx
-            .new(|cx| number::state(value, low, high, 1.0, decimals, window, cx));
+            .new(|cx| number::state(kind, value, window, cx).min(low).max(high));
         let chart = self.chart.clone();
         self.subscriptions
             .push(number::watch(&state, self.cx, move |_this, value, cx| {

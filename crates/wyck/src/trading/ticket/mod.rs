@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
-use gpui_kit::component::input::{InputEvent, InputState, NumberStep};
+use gpui_kit::component::input::{InputEvent, InputState};
 use wyck_openapi::account::TradeSide;
 use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 
@@ -136,12 +136,6 @@ pub struct OrderTicket {
 
 impl EventEmitter<TicketEvent> for OrderTicket {}
 
-fn number(value: &str, window: &mut Window, cx: &mut Context<InputState>) -> InputState {
-    InputState::new(window, cx)
-        .default_value(value.to_owned())
-        .min(0.0)
-}
-
 impl OrderTicket {
     pub fn new(
         account: Entity<Account>,
@@ -154,29 +148,36 @@ impl OrderTicket {
         let layout = prefs.layout;
         let defaults = layout.defaults.clone();
         let size = cx.new(|cx| {
-            number(&number::format(prefs.size, 2), window, cx)
-                .step(step_of_size(prefs.size_mode, &Contract::default()))
+            number::state(
+                size_kind(prefs.size_mode, &Contract::default()),
+                prefs.size,
+                window,
+                cx,
+            )
         });
         let price = cx.new(|cx| InputState::new(window, cx));
-        let stop_loss = cx.new(|cx| number("", window, cx));
+        let stop_loss = cx.new(|cx| {
+            number::empty(
+                offset_kind(prefs.stop_unit, &Contract::default()),
+                window,
+                cx,
+            )
+        });
         let atr_length = cx.new(|cx| {
-            number(&prefs.atr.length.to_string(), window, cx)
-                .max(1_000.0)
-                .step(NumberStep::Fixed(1.0))
+            number::state(number::Kind::Count, prefs.atr.length as f64, window, cx).max(1_000.0)
         });
-        let atr_multiplier = cx.new(|cx| {
-            number(&number::format(prefs.atr.multiplier, 2), window, cx)
-                .max(1_000.0)
-                .step(NumberStep::Fixed(0.1))
+        let atr_multiplier =
+            cx.new(|cx| number::state(number::Kind::Multiplier, prefs.atr.multiplier, window, cx));
+        let take_profit = cx.new(|cx| {
+            number::empty(
+                offset_kind(prefs.target_unit, &Contract::default()),
+                window,
+                cx,
+            )
         });
-        let take_profit = cx.new(|cx| number("", window, cx));
-        let expiry = cx.new(|cx| {
-            number(&number::format(defaults.expiry, 2), window, cx).step(NumberStep::Fixed(1.0))
-        });
-        let slippage = cx.new(|cx| {
-            number(&number::format(defaults.slippage_pips, 1), window, cx)
-                .step(NumberStep::Fixed(0.5))
-        });
+        let expiry = cx.new(|cx| number::state(number::Kind::Count, defaults.expiry, window, cx));
+        let slippage =
+            cx.new(|cx| number::state(number::Kind::Slippage, defaults.slippage_pips, window, cx));
         let comment = cx.new(|cx| InputState::new(window, cx).placeholder("Comment (optional)"));
         let mut subscriptions = vec![cx.observe(&account, |_this, _account, cx| cx.notify())];
         subscriptions.push(cx.subscribe(&size, |this, _state, event: &InputEvent, cx| {
@@ -735,20 +736,12 @@ impl OrderTicket {
     /// Sets how far the steppers of the fields move, for their units.
     fn apply_steps(&self, window: &mut Window, cx: &mut Context<Self>) {
         let contract = self.contract(cx);
-        let size = step_of_size(self.size_mode, &contract);
-        self.size.update(cx, |s, cx| s.set_step(size, window, cx));
+        number::set_kind(&self.size, size_kind(self.size_mode, &contract), window, cx);
         for (state, unit) in [
             (&self.stop_loss, self.stop_unit),
             (&self.take_profit, self.target_unit),
         ] {
-            let step = match unit {
-                Offset::Price => contract.pip(),
-                Offset::Pips => 1.0,
-                Offset::Money => 10.0,
-                Offset::Percent => 0.25,
-                Offset::Ratio => 0.5,
-            };
-            state.update(cx, |s, cx| s.set_step(NumberStep::Fixed(step), window, cx));
+            number::set_kind(state, offset_kind(unit, &contract), window, cx);
         }
     }
 
@@ -1243,15 +1236,33 @@ fn stop_limit_price(buy: bool, stop: f64, range: f64) -> f64 {
     if buy { stop + range } else { stop - range }
 }
 
-/// How far the stepper of the volume moves in a mode.
-fn step_of_size(mode: SizeMode, contract: &Contract) -> NumberStep {
-    NumberStep::Fixed(match mode {
-        SizeMode::Lots => contract.lots_of_volume(contract.step_volume.max(1)),
-        SizeMode::Units => contract.step_volume.max(1) as f64 / 100.0,
-        SizeMode::RiskBalance | SizeMode::RiskEquity => 0.25,
-        SizeMode::RiskMoney => 10.0,
-        SizeMode::FreeMargin => 5.0,
-    })
+/// What the size field holds in a mode.
+fn size_kind(mode: SizeMode, contract: &Contract) -> number::Kind {
+    match mode {
+        SizeMode::Lots => number::Kind::Volume {
+            step: contract.lots_of_volume(contract.step_volume.max(1)),
+        },
+        SizeMode::Units => number::Kind::Volume {
+            step: contract.step_volume.max(1) as f64 / 100.0,
+        },
+        SizeMode::RiskBalance | SizeMode::RiskEquity | SizeMode::FreeMargin => {
+            number::Kind::Percent
+        }
+        SizeMode::RiskMoney => number::Kind::Money,
+    }
+}
+
+/// What a protection field holds in its unit.
+fn offset_kind(unit: Offset, contract: &Contract) -> number::Kind {
+    match unit {
+        Offset::Price => number::Kind::Price {
+            step: contract.pip(),
+        },
+        Offset::Pips => number::Kind::Pips,
+        Offset::Money => number::Kind::Money,
+        Offset::Percent => number::Kind::Percent,
+        Offset::Ratio => number::Kind::Ratio,
+    }
 }
 
 /// A value of a protection written for its unit.

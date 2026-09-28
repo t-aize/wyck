@@ -29,35 +29,60 @@ pub(super) fn inputs<T: 'static>(
 ) -> (Inputs, Vec<Subscription>) {
     let t = chart.read(cx).settings.transform;
     let mut numbers = Numbers::new(chart, window, cx);
-    let renko_reversal = numbers.add(f64::from(t.renko_reversal), (1.0, 10.0), 0, |s, v| {
-        s.transform.renko_reversal = v.round() as u32;
-    });
+    let renko_reversal = numbers.add(
+        wyck_ui::number::Kind::Count,
+        f64::from(t.renko_reversal),
+        (1.0, 10.0),
+        |s, v| {
+            s.transform.renko_reversal = v.round() as u32;
+        },
+    );
     let brick_width = numbers.add(
+        wyck_ui::number::Kind::Share,
         f64::from(t.brick_width) * 100.0,
         (20.0, 100.0),
-        0,
         |s, v| {
             s.transform.brick_width = (v / 100.0) as f32;
         },
     );
     let brick_opacity = numbers.add(
+        wyck_ui::number::Kind::Share,
         f64::from(t.brick_opacity) * 100.0,
         (10.0, 100.0),
-        0,
         |s, v| s.transform.brick_opacity = (v / 100.0) as f32,
     );
-    let kagi_thick = numbers.add(f64::from(t.kagi_thick), (0.5, 8.0), 1, |s, v| {
-        s.transform.kagi_thick = v as f32;
-    });
-    let kagi_thin = numbers.add(f64::from(t.kagi_thin), (0.5, 8.0), 1, |s, v| {
-        s.transform.kagi_thin = v as f32;
-    });
-    let pnf_glyph = numbers.add(f64::from(t.pnf_glyph) * 100.0, (30.0, 100.0), 0, |s, v| {
-        s.transform.pnf_glyph = (v / 100.0) as f32;
-    });
-    let pnf_line = numbers.add(f64::from(t.pnf_line), (0.0, 6.0), 1, |s, v| {
-        s.transform.pnf_line = v as f32;
-    });
+    let kagi_thick = numbers.add(
+        wyck_ui::number::Kind::LineWidth,
+        f64::from(t.kagi_thick),
+        (0.5, 8.0),
+        |s, v| {
+            s.transform.kagi_thick = v as f32;
+        },
+    );
+    let kagi_thin = numbers.add(
+        wyck_ui::number::Kind::LineWidth,
+        f64::from(t.kagi_thin),
+        (0.5, 8.0),
+        |s, v| {
+            s.transform.kagi_thin = v as f32;
+        },
+    );
+    let pnf_glyph = numbers.add(
+        wyck_ui::number::Kind::Share,
+        f64::from(t.pnf_glyph) * 100.0,
+        (30.0, 100.0),
+        |s, v| {
+            s.transform.pnf_glyph = (v / 100.0) as f32;
+        },
+    );
+    let pnf_line = numbers.add(
+        wyck_ui::number::Kind::LineWidth,
+        f64::from(t.pnf_line),
+        (0.0, 6.0),
+        |s, v| {
+            s.transform.pnf_line = v as f32;
+        },
+    );
     (
         Inputs {
             renko_reversal,

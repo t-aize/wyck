@@ -13,7 +13,7 @@ use super::transform::PricePath;
 use super::volume::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
-use wyck_ui::{controls, form, number};
+use wyck_ui::{controls, form, number, tokens};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {
@@ -43,28 +43,38 @@ pub(super) fn inputs<T: 'static>(
     };
     let mut numbers = Numbers::new(chart, window, cx);
     let min_width = numbers.add(
+        number::Kind::Share,
         f64::from(candles.min_width) * 100.0,
         (5.0, 100.0),
-        0,
         |s, v| s.volume_candles.min_width = (v / 100.0) as f32,
     );
     let max_width = numbers.add(
+        number::Kind::Share,
         f64::from(candles.max_width) * 100.0,
         (10.0, 100.0),
-        0,
         |s, v| s.volume_candles.max_width = (v / 100.0) as f32,
     );
-    let wick = numbers.add(f64::from(candles.wick_width), (1.0, 4.0), 0, |s, v| {
-        s.volume_candles.wick_width = v as f32;
-    });
-    let size = numbers.add(size_value(bars.size), (0.01, 1e9), 2, |s, v| {
-        s.volume_bars.size = match s.volume_bars.size {
-            VolumeSize::Fixed { .. } => VolumeSize::Fixed {
-                volume: v.round().clamp(1.0, 1e9) as u32,
-            },
-            VolumeSize::Average { .. } => VolumeSize::Average { multiple: v },
-        };
-    });
+    let wick = numbers.add(
+        number::Kind::LineWidth,
+        f64::from(candles.wick_width),
+        (1.0, 4.0),
+        |s, v| {
+            s.volume_candles.wick_width = v as f32;
+        },
+    );
+    let size = numbers.add(
+        number::Kind::Amount,
+        size_value(bars.size),
+        (0.01, 1e9),
+        |s, v| {
+            s.volume_bars.size = match s.volume_bars.size {
+                VolumeSize::Fixed { .. } => VolumeSize::Fixed {
+                    volume: v.round().clamp(1.0, 1e9) as u32,
+                },
+                VolumeSize::Average { .. } => VolumeSize::Average { multiple: v },
+            };
+        },
+    );
     (
         Inputs {
             min_width,
@@ -199,7 +209,7 @@ pub(super) fn bar_group(
                     });
                 },
             ))
-            .child(number::field(&inputs.size, 110.)),
+            .child(number::field(&inputs.size, tokens::field::NUMBER)),
     );
     let mut rows = vec![size];
     if resolved > 0 {
