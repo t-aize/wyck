@@ -1288,8 +1288,9 @@ impl Render for Dashboard {
 fn quote_text(quote: Quote, digits: u32, pip_position: i64) -> Option<details::Live> {
     let bid = quote.bid?;
     let spread = quote.ask.map(|ask| {
-        let pips = (ask - bid) as f64 / PRICE_SCALE as f64
-            * 10f64.powi(i32::try_from(pip_position).unwrap_or(4));
+        let pips = (ask - bid) as f64
+            / PRICE_SCALE as f64
+            / wyck_openapi::market::price::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

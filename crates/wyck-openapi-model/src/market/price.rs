@@ -69,9 +69,31 @@ pub fn format_price(raw: i64, digits: u32) -> String {
     )
 }
 
+/// The size of one pip in price for a symbol whose pip sits at `pip_position` decimals: `4` gives
+/// `0.0001`. A position the server should never send (below 0, past 12) is read as 4, the usual
+/// one for a currency pair.
+#[must_use]
+pub fn pip_size(pip_position: i64) -> f64 {
+    let position = if (0..=12).contains(&pip_position) {
+        pip_position
+    } else {
+        4
+    };
+    10f64.powi(-(position as i32))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pip_is_ten_to_the_minus_its_position() {
+        assert!((pip_size(4) - 0.0001).abs() < 1e-12);
+        assert!((pip_size(2) - 0.01).abs() < 1e-12);
+        assert!((pip_size(0) - 1.0).abs() < 1e-12);
+        assert!((pip_size(-3) - 0.0001).abs() < 1e-12);
+        assert!((pip_size(40) - 0.0001).abs() < 1e-12);
+    }
 
     #[test]
     fn prices_convert_both_ways_without_drift() {

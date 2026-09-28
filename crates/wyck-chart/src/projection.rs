@@ -132,8 +132,7 @@ impl Projection for ChartProjection<'_> {
 
     fn pip(&self) -> f64 {
         self.pip_position
-            .filter(|position| (0..=12).contains(position))
-            .map_or(0.0, |position| 10f64.powi(-(position as i32)))
+            .map_or(0.0, wyck_openapi_model::market::pip_size)
     }
 }
 

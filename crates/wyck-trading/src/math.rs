@@ -69,7 +69,7 @@ impl Contract {
 
     /// The size of one pip in price.
     pub fn pip(&self) -> f64 {
-        10f64.powi(-i32::try_from(self.pip_position).unwrap_or(4))
+        wyck_openapi_model::market::pip_size(self.pip_position)
     }
 
     /// A price distance in pips.
