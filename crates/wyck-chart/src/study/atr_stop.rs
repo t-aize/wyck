@@ -1,7 +1,7 @@
 //! ATR settings and price levels used before an order is sent.
 
 use serde::{Deserialize, Serialize};
-use wyck_openapi_model::market::{Bar, PRICE_SCALE};
+use wyck_openapi::market::{Bar, PRICE_SCALE};
 
 use super::math;
 

@@ -15,7 +15,7 @@ pub const UNITS_PER_PRICE: i64 = PRICE_SCALE;
 /// The raw price `raw` as a real price.
 ///
 /// ```
-/// assert_eq!(wyck_openapi_model::market::to_price(108_501), 1.08501);
+/// assert_eq!(wyck_openapi::market::to_price(108_501), 1.08501);
 /// ```
 #[must_use]
 pub fn to_price(raw: i64) -> f64 {
@@ -25,7 +25,7 @@ pub fn to_price(raw: i64) -> f64 {
 /// A real price as the server's integer, rounded to the nearest unit.
 ///
 /// ```
-/// assert_eq!(wyck_openapi_model::market::from_price(1.08501), 108_501);
+/// assert_eq!(wyck_openapi::market::from_price(1.08501), 108_501);
 /// ```
 #[must_use]
 pub fn from_price(price: f64) -> i64 {
@@ -33,7 +33,7 @@ pub fn from_price(price: f64) -> i64 {
 }
 
 /// ```
-/// use wyck_openapi_model::market::format_price;
+/// use wyck_openapi::market::format_price;
 ///
 /// assert_eq!(format_price(114_880, 5), "1.14880");
 /// assert_eq!(format_price(114_886, 4), "1.1489"); // rounded to the decimals asked for

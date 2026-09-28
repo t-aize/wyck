@@ -15,9 +15,7 @@ publish = false
 [workspace.dependencies]
 wyck-chart = { path = "crates/wyck-chart", version = "0.3.0" }
 wyck-config = { path = "crates/wyck-config", version = "0.3.0" }
-wyck-openapi = { path = "crates/wyck-openapi", version = "0.3.0" }
-wyck-openapi-model = { path = "crates/wyck-openapi-model", version = "0.3.0" }
-wyck-trading = { path = "crates/wyck-trading", version = "0.3.0" }
+wyck-openapi = { path = "crates/wyck-openapi", version = "0.3.0", default-features = false }
 wyck-ui = { path = "crates/wyck-ui", version = "0.3.0" }
 ab_glyph = "0.2.32"
 anyhow = "1"

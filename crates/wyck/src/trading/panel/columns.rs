@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ticket::prefs::{Placed, Slot, default_list, mend};
+use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
 
 /// A column of a table.
 pub trait Column: Slot + Serialize + for<'de> Deserialize<'de> {

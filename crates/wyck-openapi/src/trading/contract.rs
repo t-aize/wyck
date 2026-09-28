@@ -8,17 +8,22 @@
 //! - **Prices** here are real (1.08412), like the prices of positions and orders on the wire.
 //! - **Money** is in the account's deposit currency, as real numbers.
 
-use wyck_openapi_model::market::PRICE_SCALE;
+use crate::market::PRICE_SCALE;
 
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Contract {
+    /// Decimals of the symbol's prices.
     pub digits: u32,
+    /// The decimal a pip sits at: `4` makes a pip `0.0001`.
     pub pip_position: i64,
     /// Hundredths of a unit per lot.
     pub lot_size: i64,
+    /// The smallest volume the broker accepts.
     pub min_volume: i64,
+    /// The largest volume the broker accepts.
     pub max_volume: i64,
+    /// The volumes accepted are multiples of this one.
     pub step_volume: i64,
 }
 
@@ -37,7 +42,9 @@ impl Default for Contract {
 }
 
 impl Contract {
-    pub fn from_symbol(symbol: &wyck_openapi_model::market::Symbol) -> Self {
+    /// The contract of a symbol as the server describes it, with a forex pair's values for
+    /// anything missing or zero.
+    pub fn from_symbol(symbol: &crate::market::Symbol) -> Self {
         let default = Self::default();
         let positive =
             |value: Option<i64>, fallback: i64| value.filter(|v| *v > 0).unwrap_or(fallback);
@@ -63,13 +70,14 @@ impl Contract {
         stepped.clamp(self.min_volume, self.max_volume.max(self.min_volume))
     }
 
+    /// The lots a volume makes.
     pub fn lots_of_volume(&self, volume: i64) -> f64 {
         volume as f64 / self.lot_size.max(1) as f64
     }
 
     /// The size of one pip in price.
     pub fn pip(&self) -> f64 {
-        wyck_openapi_model::market::pip_size(self.pip_position)
+        crate::market::pip_size(self.pip_position)
     }
 
     /// A price distance in pips.
@@ -91,7 +99,14 @@ impl Contract {
 
 /// Lots written plainly: `0.01`, `1.5`, `10`.
 pub fn format_lots(lots: f64) -> String {
-    wyck_chart::format::trim(lots, 2)
+    let mut text = format!("{lots:.2}");
+    if text.contains('.') {
+        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
+    }
+    if text == "-0" {
+        text = "0".to_owned();
+    }
+    text
 }
 
 /// A price distance in the server's relative units (a stop loss or take profit of a market
@@ -103,7 +118,9 @@ pub fn relative_distance(distance: f64) -> i64 {
 /// Which pending order a price makes for a side, given the market.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pending {
+    /// Waits for the price to come to it.
     Limit,
+    /// Waits for the price to go through it.
     Stop,
 }
 
@@ -122,8 +139,11 @@ pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -
 /// Why an order would be refused before it is sent.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TicketProblem {
+    /// A pending order without a price.
     NoPrice,
+    /// The stop loss is on the profit side of the entry.
     StopLossWrongSide,
+    /// The take profit is on the loss side of the entry.
     TakeProfitWrongSide,
 }
 
@@ -173,6 +193,7 @@ pub fn quote_profit(buy: bool, entry: f64, close: f64, units: f64) -> f64 {
 pub struct PnlMark {
     /// Before and after commission and swap, in the deposit currency.
     pub gross: f64,
+    /// See [`PnlMark::gross`].
     pub net: f64,
     /// Deposit currency per unit of quote currency, when it is known.
     pub rate: Option<f64>,
@@ -199,107 +220,6 @@ pub fn live_net(mark: &PnlMark, quote_now: f64) -> f64 {
     }
 }
 
-/// How the volume of an order is chosen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SizeMode {
-    /// Lots, as typed.
-    #[default]
-    Lots,
-    /// Units of the base asset, as typed.
-    Units,
-    /// A share of the balance lost if the stop loss is hit.
-    RiskBalance,
-    /// A share of the equity lost if the stop loss is hit.
-    RiskEquity,
-    /// An amount of the deposit currency lost if the stop loss is hit.
-    RiskMoney,
-    /// A share of the free margin the order may use.
-    FreeMargin,
-}
-
-impl SizeMode {
-    pub const ALL: [Self; 6] = [
-        Self::Lots,
-        Self::Units,
-        Self::RiskBalance,
-        Self::RiskEquity,
-        Self::RiskMoney,
-        Self::FreeMargin,
-    ];
-
-    /// Whether the volume comes from the distance to the stop loss.
-    pub fn is_risk(self) -> bool {
-        matches!(self, Self::RiskBalance | Self::RiskEquity | Self::RiskMoney)
-    }
-}
-
-/// How a stop loss or take profit is given: as a price, or as a distance from the entry in
-/// pips, in money, in percent of the balance, or in multiples of the risk (a take profit only).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Offset {
-    #[default]
-    Price,
-    Pips,
-    Money,
-    Percent,
-    Ratio,
-}
-
-impl Offset {
-    /// Whether the distance it stands for depends on the volume.
-    pub fn needs_volume(self) -> bool {
-        matches!(self, Self::Money | Self::Percent)
-    }
-}
-
-/// What turns an offset into a price distance and back.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Scale {
-    /// The size of a pip in price.
-    pub pip: f64,
-    /// What a move of 1.0 in price is worth in the deposit currency, for the volume of the
-    /// order: its units times the rate of the quote currency. `None` until the rate is known.
-    pub money_per_price: Option<f64>,
-    pub balance: f64,
-    /// The distance from the entry to the stop loss, for a take profit given in multiples of
-    /// the risk.
-    pub stop_distance: Option<f64>,
-}
-
-impl Scale {
-    /// The price distance a value of `offset` stands for (positive away from the entry, on the
-    /// side the protection belongs).
-    pub fn distance(&self, offset: Offset, value: f64) -> Option<f64> {
-        let per_price = || self.money_per_price.filter(|m| *m > 0.0);
-        match offset {
-            Offset::Price => None,
-            Offset::Pips => Some(value * self.pip),
-            Offset::Money => per_price().map(|m| value / m),
-            Offset::Percent => per_price().map(|m| self.balance * value / 100.0 / m),
-            Offset::Ratio => self.stop_distance.map(|d| value * d),
-        }
-    }
-
-    /// The value of `offset` a price distance stands for.
-    pub fn value(&self, offset: Offset, distance: f64) -> Option<f64> {
-        let per_price = || self.money_per_price.filter(|m| *m > 0.0);
-        match offset {
-            Offset::Price => None,
-            Offset::Pips => (self.pip > 0.0).then(|| distance / self.pip),
-            Offset::Money => per_price().map(|m| distance * m),
-            Offset::Percent => per_price()
-                .filter(|_| self.balance > 0.0)
-                .map(|m| distance * m / self.balance * 100.0),
-            Offset::Ratio => self
-                .stop_distance
-                .filter(|d| *d > 0.0)
-                .map(|d| distance / d),
-        }
-    }
-}
-
 /// Which way a protection sits from the entry: `-1.0` under it, `1.0` over it.
 pub fn protection_side(buy: bool, stop: bool) -> f64 {
     if buy == stop { -1.0 } else { 1.0 }
@@ -316,7 +236,9 @@ pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contra
 /// A volume chosen by the ticket, and whether the broker's limits changed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Stepped {
+    /// The volume to send.
     pub volume: i64,
+    /// The limit that changed it, if one did.
     pub limit: Option<Limit>,
 }
 
@@ -374,8 +296,11 @@ impl Contract {
 /// A symbol of a conversion chain, with the assets it trades.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Link {
+    /// The symbol.
     pub symbol_id: i64,
+    /// The asset it prices.
     pub base: i64,
+    /// The asset it is priced in.
     pub quote: i64,
 }
 
@@ -416,15 +341,21 @@ pub fn mid(bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
 /// The totals of an account.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Summary {
+    /// The balance, without the open positions.
     pub balance: f64,
+    /// The balance with the open positions' profit.
     pub equity: f64,
+    /// The margin the open positions use.
     pub margin: f64,
+    /// The equity left over the margin in use.
     pub free_margin: f64,
     /// Equity over used margin, in percent; `None` without margin in use.
     pub margin_level: Option<f64>,
+    /// The open positions' profit or loss.
     pub unrealized: f64,
 }
 
+/// The totals of an account from its balance, its open profit and the margin in use.
 pub fn summary(balance: f64, unrealized: f64, margin: f64) -> Summary {
     let equity = balance + unrealized;
     Summary {
@@ -434,20 +365,6 @@ pub fn summary(balance: f64, unrealized: f64, margin: f64) -> Summary {
         free_margin: equity - margin,
         margin_level: (margin > 0.0).then(|| equity / margin * 100.0),
         unrealized,
-    }
-}
-
-/// An amount of money with its currency: `1,234.56 USD`, `-12.30 EUR`.
-pub fn format_money(amount: f64, currency: &str) -> String {
-    let negative = amount < 0.0;
-    let cents = (amount.abs() * 100.0).round() as i64;
-    let (whole, rest) = (cents / 100, cents % 100);
-    let grouped = wyck_chart::format::grouped(whole);
-    let sign = if negative && cents > 0 { "-" } else { "" };
-    if currency.is_empty() {
-        format!("{sign}{grouped}.{rest:02}")
-    } else {
-        format!("{sign}{grouped}.{rest:02} {currency}")
     }
 }
 
@@ -560,15 +477,10 @@ mod tests {
     }
 
     #[test]
-    fn money_is_grouped_and_signed() {
-        assert_eq!(format_money(1_234.5, "USD"), "1,234.50 USD");
-        assert_eq!(format_money(-12.3, "EUR"), "-12.30 EUR");
-        assert_eq!(format_money(-0.001, ""), "0.00");
-        assert_eq!(format_money(1_000_000.0, ""), "1,000,000.00");
+    fn lots_are_written_plainly() {
         assert_eq!(format_lots(0.10), "0.1");
         assert_eq!(format_lots(2.0), "2");
     }
-
     #[test]
     fn a_risk_makes_the_volume_that_loses_it_at_the_stop() {
         let c = Contract::default();
@@ -589,40 +501,6 @@ mod tests {
         // A quote currency worth half the deposit one needs twice the lots.
         let half = lots_for_risk(100.0, 0.0020, 0.5, &c).unwrap();
         assert!((half - 1.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn offsets_turn_into_distances_and_back() {
-        let scale = Scale {
-            pip: 0.0001,
-            // 1 lot of EURUSD: 100 000 USD per 1.0 of price.
-            money_per_price: Some(100_000.0),
-            balance: 10_000.0,
-            stop_distance: Some(0.0020),
-        };
-        let cases = [
-            (Offset::Pips, 20.0, 0.0020),
-            (Offset::Money, 200.0, 0.0020),
-            (Offset::Percent, 2.0, 0.0020),
-            (Offset::Ratio, 2.0, 0.0040),
-        ];
-        for (offset, value, distance) in cases {
-            let d = scale.distance(offset, value).unwrap();
-            assert!((d - distance).abs() < 1e-12, "{offset:?}");
-            let back = scale.value(offset, distance).unwrap();
-            assert!((back - value).abs() < 1e-9, "{offset:?}");
-        }
-        assert_eq!(scale.distance(Offset::Price, 1.1), None);
-        let unknown = Scale {
-            money_per_price: None,
-            stop_distance: None,
-            ..scale
-        };
-        assert_eq!(unknown.distance(Offset::Money, 100.0), None);
-        assert_eq!(unknown.distance(Offset::Ratio, 2.0), None);
-        assert_eq!(protection_side(true, true), -1.0);
-        assert_eq!(protection_side(true, false), 1.0);
-        assert_eq!(protection_side(false, true), 1.0);
     }
 
     #[test]

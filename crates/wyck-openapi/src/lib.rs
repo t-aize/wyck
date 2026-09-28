@@ -1,4 +1,4 @@
-//! cTrader Open API client for Wyck.
+//! cTrader Open API SDK: messages, client, session, OAuth and trading calculations.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -31,8 +31,8 @@
 //! | [`transport`] | The connection: [`Client`], [`ClientBuilder`], the envelope, the rate limiter |
 //! | [`handle`] | [`AccountClient`]: a client bound to one account, routing to the four below |
 //! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
-//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals |
-//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders |
+//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals; [`account::book::AccountBook`]: the account kept current from the server's messages |
+//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`trading::contract`]: lots, volumes, pips, risk sizing and profit |
 //! | [`margin`] | [`margin::MarginClient`]: expected margin, margin calls, dynamic leverage |
 //! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |
@@ -40,6 +40,12 @@
 //! | [`config`] | Demo or live, timeouts, application credentials |
 //! | [`error`] | [`OpenApiError`] and its classification |
 //! | [`prelude`] | A group import of the pieces most programs need |
+//!
+//! # Features
+//!
+//! `client` (on by default) brings the connection, the session and OAuth, with tokio and the
+//! WebSocket and HTTP stacks. Without it the crate holds only the messages, the market types and
+//! the trading calculations, for code that works on prices without talking to the server.
 //!
 //! # Which layer to use
 //!
@@ -132,20 +138,29 @@
 //! narrows it by probing rather than asserting a fixed answer).
 
 pub mod account;
+#[cfg(feature = "client")]
 pub mod auth;
+#[cfg(feature = "client")]
 pub mod config;
-pub use wyck_openapi_model::error;
+pub mod error;
 pub mod event;
+#[cfg(feature = "client")]
 pub mod handle;
 pub mod margin;
 pub mod market;
+#[cfg(feature = "client")]
 pub mod prelude;
+#[cfg(feature = "client")]
 pub mod session;
 pub mod trading;
 pub mod transport;
 
+pub(crate) use account::types::number_enum;
+#[cfg(feature = "client")]
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{ErrorKind, OpenApiError, Result};
 pub use event::{DisconnectReason, Event};
+#[cfg(feature = "client")]
 pub use handle::AccountClient;
+#[cfg(feature = "client")]
 pub use transport::connection::{Client, ClientBuilder, ConnectionState};

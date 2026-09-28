@@ -44,7 +44,7 @@ use wyck_chart::drawing::model::Dash;
 use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
-pub use wyck_trading::ticket::prefs;
+pub mod prefs;
 mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};

@@ -618,7 +618,6 @@ fn classify(error: &OpenApiError) -> Next {
         | ErrorKind::RateLimited
         | ErrorKind::Maintenance
         | ErrorKind::Protocol => Next::Retry,
-        _ => Next::Fail,
     }
 }
 

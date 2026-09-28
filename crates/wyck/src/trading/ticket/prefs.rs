@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::{Offset, SizeMode};
+use crate::trading::math::{Offset, SizeMode};
 use wyck_chart::study::atr_stop::AtrStop;
 
 /// The kind of order the ticket sends.

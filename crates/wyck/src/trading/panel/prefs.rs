@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::columns::{AlertCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs};
-use crate::ticket::prefs::{Placed, Slot, default_list, mend};
+use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
 
 /// A tab of the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

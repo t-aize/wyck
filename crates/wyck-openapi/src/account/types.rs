@@ -200,7 +200,7 @@ number_enum! {
 }
 
 /// ```
-/// use wyck_openapi_model::account::money;
+/// use wyck_openapi::account::money;
 ///
 /// assert_eq!(money(1_000_050, Some(2)), 10_000.5);
 /// assert_eq!(money(500, None), 5.0); // two digits when the server did not say

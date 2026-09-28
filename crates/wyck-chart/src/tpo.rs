@@ -26,7 +26,7 @@
 
 use chrono::DateTime;
 use serde::{Deserialize, Serialize};
-use wyck_openapi_model::market::Bar;
+use wyck_openapi::market::Bar;
 
 use super::zone::Zone;
 

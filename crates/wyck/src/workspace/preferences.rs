@@ -1,11 +1,11 @@
 //! Saved preferences and watchlists.
 
 use super::layouts::{self, LayoutKey};
+use crate::trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 use serde::{Deserialize, Serialize};
 use wyck_chart::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
 use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use wyck_chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
-use wyck_trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 
 const SCHEMA_VERSION: u32 = 1;
 

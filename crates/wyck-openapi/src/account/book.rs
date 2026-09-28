@@ -7,13 +7,13 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use wyck_openapi_model::account::{
+use crate::account::{
     Deal, Order, OrderStatus, OrderType, Position, PositionStatus, PositionUnrealizedPnL,
     TradeSide, Trader, money,
 };
-use wyck_openapi_model::trading::{ExecutionEvent, ExecutionType};
+use crate::trading::{ExecutionEvent, ExecutionType};
 
-use super::math::{self, Contract, PnlMark, Summary};
+use crate::trading::contract::{self as math, Contract, PnlMark, Summary};
 
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;
@@ -21,34 +21,46 @@ const MAX_DEALS: usize = 500;
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
+    /// Worth knowing.
     Info,
+    /// Something went through.
     Success,
+    /// Something went through, but not quite as asked.
     Warning,
+    /// Something was refused or failed.
     Error,
 }
 
 /// Something to tell the user about what happened to their orders.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Notice {
+    /// How serious it is.
     pub tone: Tone,
+    /// A short headline.
     pub title: String,
+    /// The details.
     pub message: String,
 }
 
 /// What an execution event changed, beyond the positions and orders themselves.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Applied {
+    /// What to tell the user, if anything.
     pub notice: Option<Notice>,
     /// The balance may have changed: ask for the account again.
     pub balance_changed: bool,
 }
 
+/// The account's state, rebuilt from a reconcile answer and kept current by execution events.
 #[derive(Debug, Clone, Default)]
 pub struct AccountBook {
+    /// The account itself, once the server sent it.
     pub trader: Option<Trader>,
     /// The deposit currency, when known: `USD`.
     pub currency: String,
+    /// The open positions, by id.
     pub positions: BTreeMap<i64, Position>,
+    /// The working orders, by id.
     pub orders: BTreeMap<i64, Order>,
     /// The server's last word on each position's profit.
     pub marks: HashMap<i64, PnlMark>,
@@ -77,6 +89,7 @@ fn is_working(order: &Order) -> bool {
 }
 
 impl AccountBook {
+    /// The broker's name of a symbol, or `#id` before it is known.
     pub fn name(&self, symbol_id: i64) -> String {
         self.names
             .get(&symbol_id)
@@ -84,6 +97,7 @@ impl AccountBook {
             .unwrap_or_else(|| format!("#{symbol_id}"))
     }
 
+    /// How a symbol trades, or a forex pair's contract before it is known.
     pub fn contract(&self, symbol_id: i64) -> Contract {
         self.contracts.get(&symbol_id).copied().unwrap_or_default()
     }
@@ -93,6 +107,7 @@ impl AccountBook {
         self.trader.as_ref().and_then(|t| t.digits())
     }
 
+    /// The balance in the deposit currency, `0.0` before the account is known.
     pub fn balance(&self) -> f64 {
         self.trader.as_ref().map_or(0.0, Trader::balance_amount)
     }
