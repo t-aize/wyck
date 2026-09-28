@@ -53,7 +53,6 @@ wyck-market-data.workspace = true
 wyck-openapi.workspace = true
 wyck-trading.workspace = true
 wyck-chart.workspace = true
-wyck-state.workspace = true
 wyck-ui.workspace = true
 async-trait.workspace = true
 tokio.workspace = true

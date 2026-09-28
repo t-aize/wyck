@@ -9348,7 +9348,6 @@ dependencies = [
  "wyck-config",
  "wyck-market-data",
  "wyck-openapi",
- "wyck-state",
  "wyck-trading",
  "wyck-ui",
 ]
@@ -9432,18 +9431,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
-]
-
-[[package]]
-name = "wyck-state"
-version = "0.3.0"
-dependencies = [
- "serde",
- "toml 1.1.6+spec-1.1.0",
- "wyck-chart",
- "wyck-market-data",
- "wyck-openapi-model",
- "wyck-trading",
 ]
 
 [[package]]

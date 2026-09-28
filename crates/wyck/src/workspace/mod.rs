@@ -15,11 +15,13 @@
 //! [`Workspace::edit_preferences`] and [`Workspace::edit_watchlists`], and are told when it
 //! changed. Each change is saved a moment later (see [`saver`]) and once more on exit.
 
+pub mod layouts;
+mod preferences;
 mod saver;
 
+pub use self::preferences::*;
 pub use self::saver::Saver;
 use wyck_config::DocumentStore;
-pub use wyck_state::*;
 
 const PREFERENCES: &str = "preferences";
 const WATCHLISTS: &str = "watchlists";

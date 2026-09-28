@@ -1,6 +1,6 @@
 //! Saved preferences and watchlists.
 
-use crate::layouts::{self, LayoutKey};
+use super::layouts::{self, LayoutKey};
 use serde::{Deserialize, Serialize};
 use wyck_chart::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
 use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
@@ -676,7 +676,7 @@ fn dedup_keep_order(items: &mut Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_openapi_model::market::Period;
+    use wyck_openapi::market::Period;
 
     #[test]
     fn an_empty_file_gives_the_defaults() {

@@ -13,7 +13,7 @@
 mod drawing_ui;
 mod favorites;
 pub mod icon;
-pub use wyck_state::layouts;
+pub use crate::workspace::layouts;
 pub mod links;
 pub mod split;
 
