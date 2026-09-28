@@ -386,7 +386,7 @@ pub fn summary(backup: &Backup) -> Vec<String> {
 pub fn stage(config_dir: &Path, text: &str) -> Result<Backup, BackupError> {
     let backup = parse(text)?;
     fs::create_dir_all(config_dir)?;
-    write_file(&config_dir.join(PENDING), text.as_bytes())?;
+    wyck_config::write_atomically(&config_dir.join(PENDING), text.as_bytes())?;
     Ok(backup)
 }
 
@@ -446,7 +446,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
             kept = true;
         }
         fs::create_dir_all(&dir)?;
-        write_file(&target, file.content.as_bytes())?;
+        wyck_config::write_atomically(&target, file.content.as_bytes())?;
     }
     // The scripts go in the default indicators folder; one that is there already and differs is
     // copied aside first, like the documents.
@@ -471,7 +471,7 @@ pub fn apply_pending(config_dir: &Path, stamp: &str) -> io::Result<Option<Applie
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)?;
         }
-        write_file(&target, script.content.as_bytes())?;
+        wyck_config::write_atomically(&target, script.content.as_bytes())?;
     }
     fs::remove_file(&path)?;
     Ok(Some(Applied {
@@ -497,15 +497,6 @@ fn stamp_name(stamp: &str) -> String {
     } else {
         cleaned
     }
-}
-
-/// Writes a file whole: a crash halfway leaves the old one, never half of a new one.
-fn write_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let mut temp = path.as_os_str().to_owned();
-    temp.push(".tmp");
-    let temp = PathBuf::from(temp);
-    fs::write(&temp, bytes)?;
-    fs::rename(&temp, path)
 }
 
 #[cfg(test)]

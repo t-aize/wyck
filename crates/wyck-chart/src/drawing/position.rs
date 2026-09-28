@@ -247,12 +247,7 @@ impl PositionSettings {
 
     /// A quantity as written: its decimals, no trailing zeros.
     pub fn format_qty(&self, qty: f64) -> String {
-        let text = format!("{qty:.*}", usize::from(self.qty_precision));
-        if text.contains('.') {
-            text.trim_end_matches('0').trim_end_matches('.').to_owned()
-        } else {
-            text
-        }
+        crate::format::trim(qty, usize::from(self.qty_precision))
     }
 
     /// An amount with its sign, two decimals and the currency.

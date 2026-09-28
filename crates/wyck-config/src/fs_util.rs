@@ -1,5 +1,4 @@
-//! Shared atomic-write helper used by [`crate::AppConfig::save`] and
-//! [`crate::secret::EncryptedFileSecretStore`].
+//! The atomic write every file of the app goes through.
 
 use std::fs;
 use std::path::Path;
@@ -11,46 +10,47 @@ use crate::error::{ConfigError, Result};
 /// Writes `contents` to `path` atomically: write to a uniquely-named temp file in the
 /// same directory, then rename over the target. Rename-over-existing-file is atomic on
 /// the same filesystem on every platform this crate targets, so a crash or power loss
-/// mid-write can never leave a half-written config or secret-envelope file behind:
-/// readers only ever see the old complete file or the new complete file, never a
-/// partial one.
+/// mid-write can never leave a half-written file behind: readers only ever see the old
+/// complete file or the new complete file, never a partial one. The directory is created
+/// when it is missing.
 ///
 /// On Unix, the temp file is created with `0600` permissions (owner read/write only)
-/// before any content is written, since every caller of this function writes either a
-/// [`crate::SecretKey`] reference (in the config file) or ciphertext (in an encrypted
-/// envelope): neither should be world-readable.
-pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
-    let dir = path.parent().ok_or_else(|| ConfigError::Write {
-        path: path.to_path_buf(),
-        source: std::io::Error::new(
+/// before any content is written, since some callers write a [`crate::SecretKey`]
+/// reference (in the config file) or ciphertext (in an encrypted envelope): neither
+/// should be world-readable, and nothing the app writes needs to be.
+///
+/// Every file the app writes goes through this function (or [`atomic_write`], the same
+/// with this crate's error).
+pub fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let dir = path.parent().ok_or_else(|| {
+        std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "path has no parent directory",
-        ),
+        )
     })?;
-    fs::create_dir_all(dir).map_err(|source| ConfigError::Write {
-        path: path.to_path_buf(),
-        source,
-    })?;
+    fs::create_dir_all(dir)?;
 
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
-        .unwrap_or("wyck-config");
+        .unwrap_or("wyck");
     let tmp_path = dir.join(format!(".{file_name}.tmp-{}", uuid::Uuid::new_v4()));
 
-    write_with_restricted_permissions(&tmp_path, contents).map_err(|source| {
-        ConfigError::Write {
-            path: tmp_path.clone(),
-            source,
-        }
-    })?;
-
-    fs::rename(&tmp_path, path).map_err(|source| ConfigError::Write {
-        path: path.to_path_buf(),
-        source,
-    })?;
+    write_with_restricted_permissions(&tmp_path, contents)
+        .and_then(|()| fs::rename(&tmp_path, path))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&tmp_path);
+        })?;
     trace!(path = %path.display(), bytes = contents.len(), "wrote a file atomically");
     Ok(())
+}
+
+/// [`write_atomically`], with the error of this crate.
+pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
+    write_atomically(path, contents).map_err(|source| ConfigError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 #[cfg(unix)]

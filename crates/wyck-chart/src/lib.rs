@@ -6,6 +6,7 @@ pub mod display;
 pub mod drawing;
 pub mod flow;
 pub mod footprint;
+pub mod format;
 pub mod lines;
 pub mod options;
 pub mod projection;

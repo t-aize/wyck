@@ -1306,7 +1306,7 @@ impl StudyConfig {
             let value = self.input(input.key);
             match input.kind {
                 InputKind::Int => parts.push(format!("{value:.0}")),
-                InputKind::Float => parts.push(trim_float(value)),
+                InputKind::Float => parts.push(crate::format::trim(value, 3)),
                 InputKind::Source => {
                     parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
                 }
@@ -1318,11 +1318,6 @@ impl StudyConfig {
         }
         parts.join(" ")
     }
-}
-
-fn trim_float(value: f64) -> String {
-    let text = format!("{value:.3}");
-    text.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
 /// The bars an indicator reads, as columns of numbers. Prices are raw (the server's integers as

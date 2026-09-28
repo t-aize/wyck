@@ -7,6 +7,8 @@
 
 use wyck_openapi_model::market::format_price;
 
+use crate::format;
+
 use super::super::axis;
 use super::super::settings::ScaleMode;
 use super::super::study::ValueFormat;
@@ -140,9 +142,9 @@ impl PriceMap {
         match self.mode {
             ScaleMode::Percent if self.base > 0.0 => {
                 let pct = (price / self.base - 1.0) * 100.0;
-                format!("{}%", trim(pct, 2, true))
+                format!("{}%", format::signed(pct, 2))
             }
-            ScaleMode::Indexed if self.base > 0.0 => trim(price / self.base * 100.0, 2, false),
+            ScaleMode::Indexed if self.base > 0.0 => format::trim(price / self.base * 100.0, 2),
             _ => format_value(price, format, digits),
         }
     }
@@ -179,8 +181,8 @@ pub fn format_value(value: f64, format: ValueFormat, digits: u32) -> String {
     }
     match format {
         ValueFormat::Price => format_price(value.round() as i64, digits),
-        ValueFormat::Plain(decimals) => trim(value, decimals as usize, false),
-        ValueFormat::Percent(decimals) => format!("{}%", trim(value, decimals as usize, false)),
+        ValueFormat::Plain(decimals) => format::trim(value, decimals as usize),
+        ValueFormat::Percent(decimals) => format!("{}%", format::trim(value, decimals as usize)),
         ValueFormat::Count => count(value),
     }
 }
@@ -197,22 +199,7 @@ pub fn count(value: f64) -> String {
     } else {
         return format!("{}", value.round() as i64);
     };
-    format!("{}{suffix}", trim(scaled, 2, false))
-}
-
-/// A number with at most `decimals` decimals, trailing zeros dropped, optionally signed.
-fn trim(value: f64, decimals: usize, signed: bool) -> String {
-    let mut text = format!("{value:.decimals$}");
-    if text.contains('.') {
-        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
-    }
-    if text == "-0" {
-        text = "0".to_owned();
-    }
-    if signed && value > 0.0 && text != "0" {
-        text.insert(0, '+');
-    }
-    text
+    format!("{}{suffix}", format::trim(scaled, 2))
 }
 
 #[cfg(test)]

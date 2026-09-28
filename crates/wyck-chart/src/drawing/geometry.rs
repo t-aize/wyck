@@ -712,13 +712,7 @@ pub(super) fn visible_levels(drawing: &Drawing) -> Vec<Level> {
 
 /// A level's value as the chart writes it: up to three decimals, no trailing zeros.
 pub fn level_text(value: f64) -> String {
-    let text = format!("{value:.3}");
-    let text = text.trim_end_matches('0').trim_end_matches('.');
-    if text == "-0" {
-        "0".to_owned()
-    } else {
-        text.to_owned()
-    }
+    crate::format::trim(value, 3)
 }
 
 /// The caption of a level as the style asks for it: `price` is the price of the level, for a tool

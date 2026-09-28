@@ -21,30 +21,14 @@ pub(super) enum Detail {
 /// The live prices of the symbol being followed: bid, ask and spread in pips.
 pub(super) type Live = (String, Option<String>, Option<String>);
 
-/// `1234567` as `1,234,567`.
-fn grouped(value: i64) -> String {
-    let digits = value.unsigned_abs().to_string();
-    let mut out = String::new();
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    if value < 0 {
-        out.insert(0, '-');
-    }
-    out
-}
-
 /// A volume as the server gives it, in hundredths of a unit, as a count of units.
 fn units(hundredths: i64) -> String {
     let whole = hundredths / 100;
     let rest = hundredths % 100;
     if rest == 0 {
-        grouped(whole)
+        wyck_chart::format::grouped(whole)
     } else {
-        format!("{}.{:02}", grouped(whole), rest.abs())
+        format!("{}.{:02}", wyck_chart::format::grouped(whole), rest.abs())
     }
 }
 
@@ -65,10 +49,9 @@ fn volume(hundredths: i64, lot_size: Option<i64>) -> String {
         Some(lot) => {
             let lots = hundredths as f64 / lot as f64;
             let text = if lots >= 1000.0 {
-                grouped(lots.round() as i64)
+                wyck_chart::format::grouped(lots.round() as i64)
             } else {
-                let text = format!("{lots:.4}");
-                text.trim_end_matches('0').trim_end_matches('.').to_owned()
+                wyck_chart::format::trim(lots, 4)
             };
             let plural = if (lots - 1.0).abs() < f64::EPSILON {
                 ""
@@ -387,15 +370,6 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn numbers_are_grouped_by_thousands() {
-        assert_eq!(grouped(0), "0");
-        assert_eq!(grouped(999), "999");
-        assert_eq!(grouped(1_000), "1,000");
-        assert_eq!(grouped(10_000_000), "10,000,000");
-        assert_eq!(grouped(-1_234_567), "-1,234,567");
-    }
 
     #[test]
     fn a_volume_in_hundredths_is_shown_in_units() {

@@ -1492,10 +1492,11 @@ pub fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
 }
 
 fn value_text(value: f64, digits: u32, decimal: char, trim: bool) -> String {
-    let mut text = format!("{value:.*}", digits as usize);
-    if trim && text.contains('.') {
-        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
-    }
+    let mut text = if trim {
+        wyck_chart::format::trim(value, digits as usize)
+    } else {
+        format!("{value:.*}", digits as usize)
+    };
     if text == "-0" {
         text = "0".to_owned();
     }

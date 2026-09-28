@@ -94,27 +94,10 @@ pub fn tick_chunk_path(root: &Path, symbol_id: i64, year: i32, month: u8) -> Pat
         .join(format!("{year:04}-{month:02}.bin"))
 }
 
-fn create_parent(path: &Path) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|source| MarketDataError::CreateDir {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
-    Ok(())
-}
-
-/// Writes `bytes` to `path` atomically: written to a sibling temp file first, then
-/// renamed into place, so a crash mid-write never leaves a half-written chunk where a
-/// reader could see it.
+/// Writes `bytes` to `path` atomically (see [`wyck_config::write_atomically`]), so a crash
+/// mid-write never leaves a half-written chunk where a reader could see it.
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    create_parent(path)?;
-    let tmp = path.with_extension("bin.tmp");
-    fs::write(&tmp, bytes).map_err(|source| MarketDataError::Write {
-        path: tmp.clone(),
-        source,
-    })?;
-    fs::rename(&tmp, path).map_err(|source| MarketDataError::Write {
+    wyck_config::write_atomically(path, bytes).map_err(|source| MarketDataError::Write {
         path: path.to_path_buf(),
         source,
     })
