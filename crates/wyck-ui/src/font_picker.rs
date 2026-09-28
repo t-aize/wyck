@@ -139,6 +139,7 @@ impl FontPicker {
         let this = cx.entity();
         let base = div()
             .id(("font-row", row))
+            .w_full()
             .flex()
             .flex_row()
             .items_center()
