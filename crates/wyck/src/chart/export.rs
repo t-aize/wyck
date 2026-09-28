@@ -15,7 +15,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime, format::Item, format::StrftimeItems};
+use chrono::{DateTime, FixedOffset, format::Item, format::StrftimeItems};
 use serde::{Deserialize, Serialize};
 
 use super::data::Series;
@@ -1077,35 +1077,16 @@ pub struct Table {
     pub total_rows: usize,
 }
 
-/// The first and last time of a range of dates, in Unix milliseconds, or `None` for a side that is
-/// open (or a text that is not a date).
-/// A date as typed: `2026-01-05`, `2026-01-05 09:30` or with seconds, and whether it was a date
-/// alone (a whole day).
-fn parse_local(text: &str) -> Option<(NaiveDateTime, bool)> {
-    let text = text.trim().replace('T', " ");
-    ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
-        .iter()
-        .find_map(|pattern| NaiveDateTime::parse_from_str(&text, pattern).ok())
-        .map(|d| (d, false))
-        .or_else(|| {
-            chrono::NaiveDate::parse_from_str(&text, "%Y-%m-%d")
-                .ok()
-                .and_then(|d| d.and_hms_opt(0, 0, 0))
-                .map(|d| (d, true))
-        })
-}
-
 /// Whether a date field holds a date, or nothing (an open side of the range).
 pub fn date_is_valid(text: &str) -> bool {
-    text.trim().is_empty() || parse_local(text).is_some()
+    text.trim().is_empty() || wyck_chart::zone::parse_local(text).is_some()
 }
 
+/// A side of a range of dates, in Unix milliseconds: the time typed, or for the end of the range
+/// the last instant of a day typed alone. `None` for a text that is not a date.
 fn parse_bound(text: &str, zone: Zone, end: bool) -> Option<i64> {
-    let (naive, whole_day) = parse_local(text)?;
-    let local = naive.and_utc().timestamp_millis();
-    // The zone's offset at that moment: guessed from the local time, then corrected.
-    let guess = local - zone.offset_ms(local);
-    let utc = local - zone.offset_ms(guess);
+    let (_, whole_day) = wyck_chart::zone::parse_local(text)?;
+    let utc = zone.parse(text)?;
     Some(if end && whole_day {
         utc + 86_400_000 - 1
     } else {

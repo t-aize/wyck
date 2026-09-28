@@ -288,13 +288,13 @@ impl DrawingProps {
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .default_value(format_time(zone, point.t))
+                        .default_value(zone.format(point.t, wyck_chart::zone::TIME_PATTERN))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
                 subscriptions.push(number::watch_parsed(
                     &time,
                     cx,
-                    |this, text| parse_time(this.zone, text),
+                    |this, text| this.zone.parse(text),
                     move |this, t, cx| this.change(cx, |d| set_point(d, index, Some(t), None)),
                 ));
                 prices.push(price);
@@ -2369,49 +2369,9 @@ fn format_real(raw: f64, digits: u32) -> String {
     format!("{:.*}", digits as usize, raw / PRICE_SCALE as f64)
 }
 
-/// A time as `2025-03-14 09:30` in `zone`.
-pub fn format_time(zone: Zone, time_ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(zone.shift(time_ms))
-        .map(|t| t.naive_utc().format("%Y-%m-%d %H:%M").to_string())
-        .unwrap_or_default()
-}
-
-/// Reads a time written in `zone`: `2025-03-14 09:30`, with seconds, or a date alone.
-pub fn parse_time(zone: Zone, text: &str) -> Option<i64> {
-    let text = text.trim();
-    let local = chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M")
-        .or_else(|_| chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M:%S"))
-        .ok()
-        .or_else(|| {
-            chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d")
-                .ok()
-                .and_then(|d| d.and_hms_opt(0, 0, 0))
-        })?;
-    let local_ms = local.and_utc().timestamp_millis();
-    // The offset depends on the moment itself: guess with the local reading, then correct.
-    let guess = local_ms - zone.offset_ms(local_ms);
-    Some(local_ms - zone.offset_ms(guess))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn times_are_written_and_read_in_the_charts_zone() {
-        let t = 1_741_944_600_000; // 2025-03-14 09:30 UTC
-        assert_eq!(format_time(Zone::Utc, t), "2025-03-14 09:30");
-        assert_eq!(parse_time(Zone::Utc, "2025-03-14 09:30"), Some(t));
-        assert_eq!(parse_time(Zone::Utc, " 2025-03-14 09:30:00 "), Some(t));
-        assert_eq!(
-            parse_time(Zone::Utc, "2025-03-14"),
-            Some(t - (9 * 60 + 30) * 60_000)
-        );
-        assert_eq!(parse_time(Zone::Utc, "14/03/2025"), None);
-        let tokyo = Zone::from_code("Asia/Tokyo");
-        assert_eq!(format_time(tokyo, t), "2025-03-14 18:30");
-        assert_eq!(parse_time(tokyo, "2025-03-14 18:30"), Some(t));
-    }
 
     #[test]
     fn a_positions_points_keep_their_shape_when_typed() {

@@ -22,7 +22,6 @@ use gpui_kit::component::input::Input;
 use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::Dashboard;
-use crate::chart::drawing_props;
 use wyck_ui::{
     button,
     menu::{Entry, Item, Menu, Placement},
@@ -31,13 +30,13 @@ use wyck_ui::{
 
 /// The prefill for the "go to date" field: the replay's current position.
 pub(super) fn format_goto_default(cursor_ms: i64) -> String {
-    drawing_props::format_time(wyck_chart::Zone::default(), cursor_ms)
+    wyck_chart::Zone::default().format(cursor_ms, wyck_chart::zone::TIME_PATTERN)
 }
 
 /// Parses the "go to date" field the same way a drawing's time field is read:
 /// `YYYY-MM-DD HH:MM`, with seconds, or a bare date.
 pub(super) fn parse_goto(text: &str) -> Option<i64> {
-    drawing_props::parse_time(wyck_chart::Zone::default(), text)
+    wyck_chart::Zone::default().parse(text)
 }
 
 /// The cursor readout, to the second: at a real speed multiplier the minute-level
@@ -45,9 +44,7 @@ pub(super) fn parse_goto(text: &str) -> Option<i64> {
 /// frozen for up to 59 real seconds even while playing, which is exactly what someone
 /// checking whether a speed multiplier is doing anything would not want to see.
 fn format_cursor(zone: wyck_chart::Zone, time_ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(zone.shift(time_ms))
-        .map(|t| t.naive_utc().format("%Y-%m-%d %H:%M:%S").to_string())
-        .unwrap_or_default()
+    zone.format(time_ms, "%Y-%m-%d %H:%M:%S")
 }
 
 impl Dashboard {
