@@ -1,6 +1,7 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
 use super::*;
+use wyck_ui::field;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
@@ -23,7 +24,7 @@ impl DrawingProps {
                 form::field(
                     "Name",
                     Some("As shown in the list of drawings"),
-                    div().w(px(220.)).child(Input::new(&self.name).small()),
+                    field::text(&self.name),
                 ),
             ],
         ));

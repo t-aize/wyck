@@ -382,7 +382,7 @@ impl MultiChart {
             .absolute()
             .top(px(top.max(0.0)))
             .left(px(RAIL_WIDTH + 6.0))
-            .w(px(tokens::menu::CONTEXT_WIDTH + 40.0))
+            .w(px(tokens::menu::FLYOUT_WIDTH))
             .max_h(px(tokens::menu::MAX_HEIGHT))
             .overflow_y_scroll();
 

@@ -289,35 +289,141 @@ pub fn field(
     hint: Option<&'static str>,
     control: impl IntoElement,
 ) -> AnyElement {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .gap_4()
-        .min_h(px(42.))
-        .py_1p5()
-        .child(
+    let row = Row::new(label);
+    match hint {
+        Some(hint) => row.hint(hint),
+        None => row,
+    }
+    .control(control)
+}
+
+/// What a row does when the user asks to put its value back.
+type OnReset = Rc<dyn Fn(&mut Window, &mut App)>;
+
+/// A row of a group, with the parts a plain [`field`] does not have: a longer explanation behind
+/// a help mark, and a reset button that shows while the value differs from the default.
+///
+/// ```ignore
+/// Row::new("Width").hint("In pixels").help("How thick the line is drawn.")
+///     .reset(width != default, move |w, cx| reset(w, cx))
+///     .control(number::field(&state, tokens::field::NARROW))
+/// ```
+pub struct Row {
+    label: SharedString,
+    hint: Option<SharedString>,
+    help: Option<SharedString>,
+    reset: Option<(bool, OnReset)>,
+}
+
+impl Row {
+    pub fn new(label: impl Into<SharedString>) -> Self {
+        Self {
+            label: label.into(),
+            hint: None,
+            help: None,
+            reset: None,
+        }
+    }
+
+    /// A short line under the label.
+    pub fn hint(mut self, hint: impl Into<SharedString>) -> Self {
+        self.hint = Some(hint.into());
+        self
+    }
+
+    /// A longer explanation, shown in a tooltip on the help mark after the label.
+    pub fn help(mut self, help: impl Into<SharedString>) -> Self {
+        self.help = Some(help.into());
+        self
+    }
+
+    /// Shows a reset button while `modified` is true; `on_reset` puts the default back.
+    pub fn reset(
+        mut self,
+        modified: bool,
+        on_reset: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.reset = Some((modified, Rc::new(on_reset)));
+        self
+    }
+
+    pub fn control(self, control: impl IntoElement) -> AnyElement {
+        let modified = self.reset.as_ref().is_some_and(|(modified, _)| *modified);
+        let mut title = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1p5()
+            .child(
+                div()
+                    .text_size(px(crate::tokens::text::EMPHASIS))
+                    .text_color(theme::fg())
+                    .child(self.label),
+            )
+            .children(modified.then(|| {
+                div()
+                    .size(px(6.))
+                    .rounded_full()
+                    .bg(theme::accent())
+                    .into_any_element()
+            }));
+        if let Some(help) = self.help {
+            title = title.child(
+                div()
+                    .id("row-help")
+                    .cursor_default()
+                    .tooltip(crate::controls::tooltip(help))
+                    .child(icon::tinted(IconName::Info, 12., theme::muted_fg())),
+            );
+        }
+        let reset = self.reset.filter(|(modified, _)| *modified).map(|(_, f)| {
             div()
-                .flex_1()
-                .min_w_0()
+                .id("row-reset")
                 .flex()
-                .flex_col()
-                .child(
-                    div()
-                        .text_size(px(crate::tokens::text::EMPHASIS))
-                        .text_color(theme::fg())
-                        .child(label.into()),
-                )
-                .children(hint.map(|hint| {
-                    div()
-                        .text_size(px(crate::tokens::text::SMALL))
-                        .text_color(theme::muted_fg())
-                        .child(hint)
-                })),
-        )
-        .child(div().flex_none().child(control))
-        .into_any_element()
+                .items_center()
+                .justify_center()
+                .size(px(crate::tokens::height::COMPACT))
+                .rounded_md()
+                .cursor_pointer()
+                .hover(|s| s.bg(theme::surface_hover()))
+                .tooltip(crate::controls::tooltip("Back to the default"))
+                .on_click(move |_, window, cx| f(window, cx))
+                .child(icon::tinted(IconName::RotateCcw, 13., theme::muted_fg()))
+        });
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_between()
+            .gap_4()
+            .min_h(px(42.))
+            .py_1p5()
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .child(title)
+                    .children(self.hint.map(|hint| {
+                        div()
+                            .text_size(px(crate::tokens::text::SMALL))
+                            .text_color(theme::muted_fg())
+                            .child(hint)
+                    })),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .children(reset)
+                    .child(control),
+            )
+            .into_any_element()
+    }
 }
 
 /// A row for a whole element that has no label at the left (a table, a list of chips).

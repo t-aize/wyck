@@ -1,6 +1,8 @@
 //! The Text tab of the drawing settings: the words, their place and the captions of the levels.
 
 use super::*;
+use wyck_ui::field;
+use wyck_ui::form::Row;
 
 impl DrawingProps {
     /// What the levels are called on the chart, and the side their labels stand on.
@@ -52,22 +54,6 @@ impl DrawingProps {
         form::group(IconName::Tag, "Captions", rows)
     }
 
-    /// A choice of how the label sits, for `set` to apply. `names` are the words for each choice.
-    pub(super) fn align_picker<const N: usize>(
-        &self,
-        id: &'static str,
-        names: [&'static str; N],
-        current: usize,
-        cx: &mut Context<Self>,
-        set: fn(&mut Drawing, usize),
-    ) -> AnyElement {
-        let this = cx.entity();
-        controls::segmented(id, &names, current, move |choice, _window, cx| {
-            this.update(cx, |e, cx| e.change(cx, |d| set(d, choice)));
-        })
-        .into_any_element()
-    }
-
     /// The words a line or a shape carries, and where they stand.
     pub(super) fn label_groups(&self, drawing: &Drawing, cx: &mut Context<Self>) -> Vec<gpui::Div> {
         let tool = drawing.tool;
@@ -83,35 +69,63 @@ impl DrawingProps {
         } else {
             ["Top", "Middle", "Bottom"]
         };
-        let horizontal = self.align_picker(
+        let (along_this, across_this) = (cx.entity(), cx.entity());
+        let horizontal = field::icon_choice(
             "label-align",
-            ["Start", "Center", "End"],
+            &[
+                (
+                    IconName::AlignHorizontalJustifyStart,
+                    "Start of the drawing",
+                ),
+                (IconName::AlignHorizontalJustifyCenter, "Center"),
+                (IconName::AlignHorizontalJustifyEnd, "End of the drawing"),
+            ],
             match layout.align {
                 HAlign::Start => 0,
                 HAlign::Center => 1,
                 HAlign::End => 2,
             },
-            cx,
-            |d, choice| {
-                d.style.text_layout.align = [HAlign::Start, HAlign::Center, HAlign::End][choice];
+            move |choice, _window, cx| {
+                along_this.update(cx, |e, cx| {
+                    e.change(cx, |d| {
+                        d.style.text_layout.align =
+                            [HAlign::Start, HAlign::Center, HAlign::End][choice];
+                    });
+                });
             },
         );
-        let across = self.align_picker(
+        let across = field::icon_choice(
             "label-valign",
-            vertical,
+            &[
+                (IconName::AlignVerticalJustifyStart, vertical[0]),
+                (IconName::AlignVerticalJustifyCenter, vertical[1]),
+                (IconName::AlignVerticalJustifyEnd, vertical[2]),
+            ],
             match layout.valign {
                 VAlign::Auto | VAlign::Top => 0,
                 VAlign::Middle => 1,
                 VAlign::Bottom => 2,
             },
-            cx,
-            |d, choice| {
-                d.style.text_layout.valign = [VAlign::Top, VAlign::Middle, VAlign::Bottom][choice];
+            move |choice, _window, cx| {
+                across_this.update(cx, |e, cx| {
+                    e.change(cx, |d| {
+                        d.style.text_layout.valign =
+                            [VAlign::Top, VAlign::Middle, VAlign::Bottom][choice];
+                    });
+                });
             },
         );
         let mut placement = vec![
-            form::field("Along the drawing", None, horizontal),
-            form::field("Across the drawing", None, across),
+            form::field(
+                "Along the drawing",
+                Some("Start, center or end of the drawing"),
+                horizontal,
+            ),
+            form::field(
+                "Across the drawing",
+                Some("Which side of the line or shape the words sit on"),
+                across,
+            ),
             form::field(
                 "Background",
                 Some("Puts the words on a filled tag"),
@@ -131,11 +145,20 @@ impl DrawingProps {
                     cx,
                 ),
             ));
-            placement.push(form::field(
-                "Tag opacity",
-                Some("In percent"),
-                number::field(&self.tag_opacity, tokens::field::NUMBER),
-            ));
+            placement.push(
+                Row::new("Tag opacity")
+                    .hint("How solid the tag behind the words is")
+                    .reset(
+                        (layout.tag_opacity() - wyck_chart::drawing::look::DEFAULT_TAG_OPACITY)
+                            .abs()
+                            > 0.005,
+                        self.restore(cx, |d, built_in| {
+                            d.style.text_layout.background_opacity =
+                                built_in.text_layout.background_opacity;
+                        }),
+                    )
+                    .control(self.tag_opacity.clone()),
+            );
         }
         vec![
             form::group(
@@ -215,27 +238,33 @@ impl DrawingProps {
         let labels: Vec<String> = SIZES.iter().map(|size| format!("{size}")).collect();
         let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
         let size_this = this.clone();
-        rows.push(form::field(
-            "Size",
-            Some("Pick one, or type any size in points"),
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(controls::segmented(
-                    "props-size",
-                    &label_refs,
-                    index.unwrap_or(usize::MAX),
-                    move |choice, window, cx| {
-                        size_this.update(cx, |e, cx| {
-                            e.change(cx, |d| d.style.text_size = SIZES[choice]);
-                            e.set_fields(window, cx);
-                        });
-                    },
-                ))
-                .child(number::field(&self.text_size, tokens::field::NARROW)),
-        ));
+        rows.push(
+            Row::new("Size")
+                .hint("Pick a size or type one")
+                .reset(
+                    (style.text_size - tool_default_size(drawing)).abs() > 0.01,
+                    self.restore(cx, |d, built_in| d.style.text_size = built_in.text_size),
+                )
+                .control(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(controls::segmented(
+                            "props-size",
+                            &label_refs,
+                            index.unwrap_or(usize::MAX),
+                            move |choice, window, cx| {
+                                size_this.update(cx, |e, cx| {
+                                    e.change(cx, |d| d.style.text_size = SIZES[choice]);
+                                    e.set_fields(window, cx);
+                                });
+                            },
+                        ))
+                        .child(field::unit(&self.text_size, "pt", tokens::field::NUMBER)),
+                ),
+        );
         rows.push(form::field(
             "Color",
             None,
@@ -287,3 +316,7 @@ impl DrawingProps {
 
 /// The sizes offered as one click, in points.
 const SIZES: [f32; 7] = [10.0, 12.0, 14.0, 16.0, 20.0, 24.0, 32.0];
+
+fn tool_default_size(drawing: &Drawing) -> f32 {
+    drawing.tool.default_style().text_size
+}

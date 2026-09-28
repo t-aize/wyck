@@ -1,6 +1,7 @@
 //! The Appearance page of the settings: the theme, the accent, the user's own themes, the fonts and the candle colors.
 
 use super::*;
+use wyck_ui::field;
 
 impl SettingsHub {
     /// A card that shows a theme: its colors in miniature, its name, and a check when it is the
@@ -355,7 +356,7 @@ impl SettingsHub {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .child(div().w(px(170.)).child(Input::new(&self.new_theme).small()))
+                .child(field::text(&self.new_theme))
                 .child(
                     Button::new("theme-create")
                         .cursor_pointer()
@@ -393,7 +394,7 @@ impl SettingsHub {
                         .text_color(theme::muted_fg())
                         .child("Name"),
                 )
-                .child(div().w(px(220.)).child(Input::new(&self.rename).small()))
+                .child(field::text(&self.rename))
                 .child(
                     div()
                         .text_size(px(tokens::text::SMALL))

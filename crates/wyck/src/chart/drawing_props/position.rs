@@ -1,6 +1,7 @@
 //! The tabs of a long or short position: its trade and its look.
 
 use super::*;
+use wyck_ui::field;
 
 impl DrawingProps {
     /// What the position comes to with these settings, as rows of a card: the plan in figures.
@@ -80,7 +81,7 @@ impl DrawingProps {
                 form::field(
                     "Currency",
                     Some("Written after the amounts. Empty writes none"),
-                    div().w(px(130.)).child(Input::new(&pos.currency).small()),
+                    field::text(&pos.currency).w(px(tokens::field::WIDE)),
                 ),
                 form::field(
                     "Leverage",
@@ -413,11 +414,7 @@ impl DrawingProps {
                     Some("Colors the profit and the loss zones"),
                     self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
                 ),
-                form::field(
-                    "Zone opacity",
-                    Some("In percent"),
-                    number::field(&self.opacity, tokens::field::NUMBER),
-                ),
+                form::field("Zone opacity", Some("In percent"), self.opacity.clone()),
             ],
         );
 

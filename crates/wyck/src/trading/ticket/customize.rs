@@ -10,8 +10,9 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState, NumberInput};
+use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 use gpui_kit::component::{Disableable, Sizable};
+use wyck_ui::field;
 
 use super::OrderTicket;
 use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
@@ -445,13 +446,7 @@ impl Customizer {
             .presets
             .iter()
             .zip(PRESET_MODES)
-            .map(|(state, (_, label, hint))| {
-                form::field(
-                    label,
-                    Some(hint),
-                    div().w(px(220.)).child(Input::new(state).small()),
-                )
-            })
+            .map(|(state, (_, label, hint))| form::field(label, Some(hint), field::text(state)))
             .collect();
         form::page()
             .child(form::group(
