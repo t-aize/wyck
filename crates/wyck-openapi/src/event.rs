@@ -12,7 +12,7 @@ use serde_json::Value;
 use tracing::{debug, warn};
 
 use crate::account::TraderUpdatedEvent;
-use crate::error::OpenApiError;
+use crate::error::Error;
 use crate::margin::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
 use crate::market::{DepthEvent, SpotEvent, SymbolChangedEvent};
 use crate::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
@@ -23,6 +23,7 @@ use crate::transport::wire::{Envelope, payload};
 
 /// Why a connection ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DisconnectReason {
     /// [`crate::Client::close`] was called.
     ClosedByClient,
@@ -68,7 +69,7 @@ pub enum Event {
     /// The broker changed one or more symbols (trading hours, volume rules, ...).
     SymbolChanged(SymbolChangedEvent),
     /// An error with no request to attach it to.
-    ServerError(OpenApiError),
+    ServerError(Error),
     /// A message this client does not know. Its type and raw payload are kept.
     Other {
         /// The payload type number.
@@ -83,8 +84,9 @@ pub enum Event {
 /// Turns an unsolicited message into an [`Event`]. Heartbeats give `None`: they are only for the
 /// connection's own upkeep.
 #[must_use]
+#[doc(hidden)]
 pub fn event_from(envelope: &Envelope) -> Option<Event> {
-    let decode_failed = |e: OpenApiError| {
+    let decode_failed = |e: Error| {
         warn!(
             payload_type = envelope.payload_type,
             %e,
@@ -160,12 +162,12 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
     })
 }
 
-/// The error an error message describes: an [`OpenApiError::Server`] with its code and advice, or
-/// an [`OpenApiError::Protocol`] when the message cannot be read.
+/// The error an error message describes: an [`Error::Server`] with its code and advice, or
+/// an [`Error::Protocol`] when the message cannot be read.
 #[must_use]
-pub fn error_of(envelope: &Envelope) -> OpenApiError {
+pub(crate) fn error_of(envelope: &Envelope) -> Error {
     match envelope.decode::<ErrorRes>() {
-        Ok(res) => OpenApiError::server(
+        Ok(res) => Error::server(
             res.error_code,
             res.description,
             res.retry_after,
@@ -176,12 +178,13 @@ pub fn error_of(envelope: &Envelope) -> OpenApiError {
 }
 
 /// The error a `ProtoOAOrderErrorEvent` describes, for a trading request the server refused this
-/// way instead of with a `ProtoOAErrorRes`: an [`OpenApiError::Server`] with its code and advice,
-/// or an [`OpenApiError::Protocol`] when the message cannot be read.
+/// way instead of with a `ProtoOAErrorRes`: an [`Error::Server`] with its code and advice,
+/// or an [`Error::Protocol`] when the message cannot be read.
 #[must_use]
-pub fn order_error_of(envelope: &Envelope) -> OpenApiError {
+#[cfg(feature = "client")]
+pub(crate) fn order_error_of(envelope: &Envelope) -> Error {
     match envelope.decode::<OrderErrorEvent>() {
-        Ok(event) => OpenApiError::server(event.error_code, event.description, None, None),
+        Ok(event) => Error::server(event.error_code, event.description, None, None),
         Err(error) => error,
     }
 }
@@ -260,7 +263,7 @@ mod tests {
         ))
         .unwrap();
         match event {
-            Event::ServerError(OpenApiError::Server {
+            Event::ServerError(Error::Server {
                 code,
                 maintenance_end,
                 ..
@@ -275,10 +278,7 @@ mod tests {
     #[test]
     fn a_broken_event_payload_is_reported_not_dropped() {
         let event = event_from(&env(payload::SPOT_EVENT, json!({"bid": "not a number"}))).unwrap();
-        assert!(matches!(
-            event,
-            Event::ServerError(OpenApiError::Protocol(_))
-        ));
+        assert!(matches!(event, Event::ServerError(Error::Protocol(_))));
     }
 
     #[test]

@@ -9,7 +9,7 @@
 //! has not loaded yet are candles too, so a bar is never missing.
 
 use super::color::{Hsla, Rgba, rgb, transparent_black};
-use wyck_openapi_model::market::Bar;
+use wyck_openapi::market::Bar;
 
 use super::super::flow::Flow;
 use super::super::footprint::{self as model, Analysis, CellMode, HeatScope};

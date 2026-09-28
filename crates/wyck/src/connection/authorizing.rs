@@ -6,11 +6,11 @@ use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 use wyck_config::{OpenApiTokens, ProfileId};
+use wyck_openapi::Client;
 use wyck_openapi::Environment;
+use wyck_openapi::TraderAccount;
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
-use wyck_openapi::transport::connection::Client;
-use wyck_openapi::transport::messages::TraderAccount;
 
 use super::credentials::CALLBACK_PORT;
 use super::{ConnectionFlow, SavedConnection, Screen, service_tag};

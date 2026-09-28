@@ -26,7 +26,7 @@ use super::lists::{self, ListEditor, Scope};
 use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::runtime;
-use wyck_openapi::OpenApiError;
+use wyck_openapi::Error as ApiError;
 use wyck_ui::{anim, button, icon, text_input::TextInput, theme, tokens};
 
 const ROW_HEIGHT: f32 = 52.;
@@ -573,14 +573,14 @@ impl Dashboard {
             });
 
             let fetched = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let market = account.market();
                 let details = market.symbol_details(&[id]).await?;
                 details
                     .into_iter()
                     .find(|symbol| symbol.symbol_id == id)
-                    .ok_or_else(|| OpenApiError::Protocol("the broker sent no details".into()))
+                    .ok_or_else(|| ApiError::Protocol("the broker sent no details".into()))
             })
             .await;
             let _ = this.update(cx, |this, cx| {

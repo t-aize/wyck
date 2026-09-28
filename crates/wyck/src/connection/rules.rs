@@ -4,8 +4,8 @@
 
 use wyck_config::ProfileConfig;
 use wyck_openapi::Environment;
+use wyck_openapi::TraderAccount;
 use wyck_openapi::auth::Scope;
-use wyck_openapi::transport::messages::TraderAccount;
 
 /// The permission the sign-in asks for. Trading includes reading, and the app places orders.
 pub const SIGN_IN_SCOPE: Scope = Scope::Trading;
@@ -127,12 +127,13 @@ mod tests {
 
     #[test]
     fn accounts_are_named_by_broker_kind_and_login() {
-        let mut account = TraderAccount {
-            ctid_trader_account_id: 99,
-            is_live: Some(true),
-            trader_login: Some(1234567),
-            broker_title_short: Some("Pepperstone".into()),
-        };
+        let mut account: TraderAccount = serde_json::from_value(serde_json::json!({
+            "ctidTraderAccountId": 99,
+            "isLive": true,
+            "traderLogin": 1234567,
+            "brokerTitleShort": "Pepperstone",
+        }))
+        .unwrap();
         assert_eq!(account_label(&account), "Pepperstone Live - 1234567");
         account.is_live = None;
         account.trader_login = None;

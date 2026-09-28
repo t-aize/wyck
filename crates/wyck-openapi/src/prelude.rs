@@ -11,6 +11,6 @@ pub use crate::market::{Period, QuoteType};
 pub use crate::session::{Session, SessionConfig, SessionEvent};
 pub use crate::trading::NewOrderReq;
 pub use crate::{
-    AccountClient, Client, ClientBuilder, ConnectionState, DisconnectReason, ErrorKind, Event,
-    OpenApiError, Result,
+    AccountClient, Client, ClientBuilder, ConnectionState, DisconnectReason, Error, ErrorKind,
+    Event, Result,
 };

@@ -9,12 +9,12 @@
 //!
 //! A row can be clicked to show its symbol on the active chart.
 
-pub use wyck_trading::panel::columns;
+pub mod columns;
 mod customize;
 mod data;
 mod dialogs;
-pub use wyck_trading::panel::prefs;
-use wyck_trading::panel::stats;
+pub mod prefs;
+mod stats;
 mod view;
 
 use gpui::{Context, Entity, EventEmitter, Subscription};

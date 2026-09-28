@@ -11,7 +11,7 @@ description = "Chart models, calculations and studies for Wyck."
 
 [dependencies]
 wyck-config.workspace = true
-wyck-openapi-model.workspace = true
+wyck-openapi.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 rhai.workspace = true

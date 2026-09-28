@@ -23,7 +23,7 @@
 //! still land near the right place and the time axis still reads.
 
 use serde::{Deserialize, Serialize};
-use wyck_openapi_model::market::Bar;
+use wyck_openapi::market::Bar;
 
 use super::study::math;
 
@@ -142,7 +142,7 @@ impl BoxSize {
                         ((hi - lo) / 20.0).max(unit as f64)
                     })
             }
-            Self::Fixed { price } => price * wyck_openapi_model::market::PRICE_SCALE as f64,
+            Self::Fixed { price } => price * wyck_openapi::market::PRICE_SCALE as f64,
             Self::Percent { percent } => {
                 bars.last().map_or(0.0, |b| b.close as f64) * percent / 100.0
             }

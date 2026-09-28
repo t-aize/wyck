@@ -251,7 +251,7 @@ async fn a_tick_page_claiming_more_without_progress_is_an_error() {
         .ticks(1, QuoteType::Bid, 1000, 6000)
         .await
         .unwrap_err();
-    assert!(matches!(error, wyck_openapi::OpenApiError::Protocol(_)));
+    assert!(matches!(error, wyck_openapi::Error::Protocol(_)));
 }
 
 #[tokio::test]
@@ -321,7 +321,7 @@ async fn an_empty_bar_page_claiming_more_is_an_error() {
     .await;
     let market = market(&server).await;
     let error = market.bars(1, Period::M1, 0, 60_000).await.unwrap_err();
-    assert!(matches!(error, wyck_openapi::OpenApiError::Protocol(_)));
+    assert!(matches!(error, wyck_openapi::Error::Protocol(_)));
 }
 
 #[tokio::test]

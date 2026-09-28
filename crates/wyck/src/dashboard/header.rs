@@ -7,7 +7,7 @@ use gpui::{Context, FontFeatures, FontWeight, MouseButton, SharedString, Window,
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::{Disableable, Selectable, Sizable};
+use gpui_kit::component::{Selectable, Sizable};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
@@ -64,31 +64,11 @@ impl Dashboard {
             .child(divider())
             .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
-            .child(divider())
-            .child(self.replay_button(cx))
             .child(div().flex_1().min_w_0())
             .child(self.indicators_button(window, cx))
             .child(self.panel_toggles(cx))
             .child(self.account_pill(fit, cx))
             .child(self.fullscreen_button(window))
-    }
-
-    /// Toggles Replay for every chart in the layout, starting at a distance back set in
-    /// Settings, and shows the [`super::replay_bar`] control strip docked at the bottom
-    /// of the chart. Carries a visible label, not just an icon: "replay" has no single
-    /// widely-recognized icon the way play/pause or fullscreen do, so a tooltip alone
-    /// left it unclear what the button was for.
-    fn replay_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        Button::new("toggle-replay")
-            .ghost()
-            .small()
-            .selected(self.is_replaying())
-            .icon(IconName::RotateCcw)
-            .label("Replay")
-            .tooltip("Replay this layout from an earlier point in history")
-            .accessibility_label("Toggle replay")
-            .cursor_pointer()
-            .on_click(cx.listener(|this, _, _, cx| this.toggle_replay(cx)))
     }
 
     /// The symbol: its tile, ticker and name. It is a button that opens the picker.
@@ -581,7 +561,6 @@ impl Dashboard {
                 Button::new("toggle-panel")
                     .ghost()
                     .small()
-                    .disabled(self.is_replaying())
                     .selected(self.panel_open)
                     .icon(IconName::PanelBottom)
                     .tooltip("Positions, orders and alerts")
@@ -595,7 +574,6 @@ impl Dashboard {
                 Button::new("toggle-ticket")
                     .ghost()
                     .small()
-                    .disabled(self.is_replaying())
                     .selected(self.ticket_open)
                     .icon(if ticket_on_left {
                         IconName::PanelLeft

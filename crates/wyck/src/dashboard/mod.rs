@@ -16,24 +16,22 @@ mod layout_menu;
 mod lists;
 mod marks;
 mod picker;
-mod replay_bar;
 mod trade;
 
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Task,
-    Window, deferred, div, px,
+    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
+    deferred, div, px,
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
 use wyck_openapi::market::{PRICE_SCALE, Spot, format_price};
 use wyck_openapi::session::{Session, SessionEvent, SessionState};
-use wyck_openapi::{Event, OpenApiError};
+use wyck_openapi::{Error as ApiError, Event};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
@@ -149,23 +147,6 @@ struct Peek {
     quote: Quote,
 }
 
-/// How often the replay clock is advanced and checked while playing.
-const REPLAY_TICK: Duration = Duration::from_millis(33);
-/// How far back of the active chart's timeframe a replay starts by default when armed
-/// from the header button (before the user picks a different date).
-const REPLAY_DEFAULT_BARS: i64 = 300;
-
-/// A read-only snapshot of the layout's shared replay clock, for the control bar to render.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct ReplayStatus {
-    pub speed: f64,
-    pub playing: bool,
-    pub cursor_ms: i64,
-    pub start_ms: i64,
-    /// Whether every chart in the layout has nothing left to reveal.
-    pub exhausted: bool,
-}
-
 pub struct Dashboard {
     session: Session,
     /// Every price and live bar subscription goes through it.
@@ -227,17 +208,6 @@ pub struct Dashboard {
     ticket_drag: Option<(f32, f32)>,
     /// What waits for the window.
     pending: Vec<trade::Pending>,
-    /// The Replay clock shared by every chart in the layout, so a multichart layout
-    /// replays as one instead of each chart running its own independent clock. Each
-    /// chart only holds the bars it still has to reveal; see `chart::replay`.
-    replay_session: Option<wyck_market_data::replay::ReplaySession>,
-    /// Advances `replay_session` and reveals whatever it newly crosses on every chart.
-    /// Kept alive for as long as the dashboard is, rather than spawned per-play, so
-    /// starting and stopping a replay never has to manage a task's lifetime.
-    _replay_ticker: Task<()>,
-    /// Whether the "go to date" popover is open, and the text field it edits.
-    replay_goto_open: bool,
-    replay_goto: Option<Entity<gpui_kit::component::input::InputState>>,
 }
 
 impl Dashboard {
@@ -296,15 +266,6 @@ impl Dashboard {
             this.on_multi_event(event, cx);
         })
         .detach();
-        let replay_ticker = cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(REPLAY_TICK).await;
-                let alive = this.update(cx, |this, cx| this.replay_tick(cx));
-                if alive.is_err() {
-                    break;
-                }
-            }
-        });
         let mut dashboard = Self {
             session,
             hub,
@@ -347,10 +308,6 @@ impl Dashboard {
             viewport_height: 800.0,
             ticket_drag: None,
             pending: Vec::new(),
-            replay_session: None,
-            _replay_ticker: replay_ticker,
-            replay_goto_open: false,
-            replay_goto: None,
         };
         dashboard.follow_session(cx);
         dashboard
@@ -364,276 +321,6 @@ impl Dashboard {
     ) {
         let chart = self.multi.read(cx).active_chart().clone();
         chart.update(cx, f);
-    }
-
-    // ---- replay ----
-    //
-    // Every method here applies to every chart in the layout (see `on_every_chart`), not
-    // just the active one: the shared `replay_session` clock is what a multichart layout
-    // replays together against.
-
-    /// Whether a replay is currently running (played or paused) on this layout.
-    pub(super) fn is_replaying(&self) -> bool {
-        self.replay_session.is_some()
-    }
-
-    /// A read-only view of the shared replay clock, for the control bar to render.
-    pub(super) fn replay_view(&self, cx: &mut Context<Self>) -> Option<ReplayStatus> {
-        let session = self.replay_session.as_ref()?;
-        let exhausted = self
-            .multi
-            .read(cx)
-            .charts()
-            .all(|chart| chart.read(cx).replay_is_exhausted());
-        Some(ReplayStatus {
-            speed: session.speed(),
-            playing: session.is_playing(),
-            cursor_ms: session.cursor_ms(),
-            start_ms: session.start_ms(),
-            exhausted,
-        })
-    }
-
-    /// Runs `f` on every chart in the current layout, active or not.
-    fn on_every_chart(
-        &self,
-        cx: &mut Context<Self>,
-        mut f: impl FnMut(&mut Chart, &mut Context<Chart>),
-    ) {
-        let charts: Vec<Entity<Chart>> = self.multi.read(cx).charts().cloned().collect();
-        for chart in charts {
-            chart.update(cx, |chart, cx| f(chart, cx));
-        }
-    }
-
-    /// Turns Replay on (starting a default distance back on the active chart's
-    /// timeframe, applied to every chart) or off (every chart resumes genuinely live).
-    pub(super) fn toggle_replay(&mut self, cx: &mut Context<Self>) {
-        if self.replay_session.take().is_some() {
-            self.on_every_chart(cx, |chart, cx| chart.stop_replay(cx));
-            self.trading
-                .update(cx, |account, _| account.set_trading_enabled(true));
-            self.push_lines(cx);
-            self.replay_goto_open = false;
-            cx.notify();
-            return;
-        }
-        let step_ms = self
-            .multi
-            .read(cx)
-            .active_chart()
-            .read(cx)
-            .timeframe()
-            .bar_ms()
-            .unwrap_or(1);
-        let start_ms = chart::now_ms() - REPLAY_DEFAULT_BARS * step_ms;
-        self.replay_seek_all(start_ms, cx);
-    }
-
-    /// Moves the whole layout's replay to `start_ms`, starting one first if none is
-    /// running yet. Used by the header toggle, "jump to start", "go to date", and a
-    /// chart's own "Replay from here" context menu entry (routed here through
-    /// `ChartAction::ReplayFrom` so it, too, moves every chart, not just the one
-    /// right-clicked).
-    pub(super) fn replay_seek_all(&mut self, start_ms: i64, cx: &mut Context<Self>) {
-        if start_ms >= chart::now_ms() {
-            toast::show(
-                cx,
-                toast::Kind::Warning,
-                "Can't start replay",
-                "Choose a time in the past.",
-            );
-            return;
-        }
-        let step_ms = self
-            .multi
-            .read(cx)
-            .active_chart()
-            .read(cx)
-            .timeframe()
-            .bar_ms()
-            .unwrap_or(1);
-        let speed = self
-            .replay_session
-            .as_ref()
-            .map(wyck_market_data::replay::ReplaySession::speed)
-            .unwrap_or_else(|| self.workspace.read(cx).preferences().replay.default_speed);
-        let mut session = wyck_market_data::replay::ReplaySession::new(start_ms, step_ms);
-        session.set_speed(speed, chart::now_ms());
-        self.trading
-            .update(cx, |account, _| account.set_trading_enabled(false));
-        self.replay_session = Some(session);
-        self.on_every_chart(cx, |chart, cx| chart.replay_seek(start_ms, cx));
-        self.pending.retain(|pending| {
-            !matches!(
-                pending,
-                trade::Pending::Ticket { .. }
-                    | trade::Pending::TicketLine(..)
-                    | trade::Pending::ClosePosition(..)
-            )
-        });
-        self.ticket_drag = None;
-        self.panel_drag = None;
-        self.push_lines(cx);
-        cx.notify();
-    }
-
-    /// Starts or stops the shared replay clock.
-    pub(super) fn replay_play_pause(&mut self, cx: &mut Context<Self>) {
-        let Some(session) = &mut self.replay_session else {
-            return;
-        };
-        if session.is_playing() {
-            session.pause();
-        } else {
-            session.play(chart::now_ms());
-        }
-        cx.notify();
-    }
-
-    /// Moves every chart's replay forward by exactly one step of the shared clock.
-    pub(super) fn replay_step_forward(&mut self, cx: &mut Context<Self>) {
-        if self
-            .multi
-            .read(cx)
-            .charts()
-            .any(|chart| chart.read(cx).replay_needs_data())
-        {
-            return;
-        }
-        let next = self
-            .multi
-            .read(cx)
-            .charts()
-            .filter_map(|chart| chart.read(cx).replay_next_time())
-            .min();
-        let Some(cursor) = self.replay_session.as_mut().map(|session| {
-            if let Some(next) = next {
-                session.seek(next.max(session.cursor_ms()));
-            } else {
-                session.step(true);
-            }
-            session.cursor_ms()
-        }) else {
-            return;
-        };
-        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_one_to(cursor, cx));
-        cx.notify();
-    }
-
-    /// Sets the shared playback speed to an exact multiplier (from the speed menu).
-    pub(super) fn replay_set_speed(&mut self, speed: f64, cx: &mut Context<Self>) {
-        let Some(session) = &mut self.replay_session else {
-            return;
-        };
-        session.set_speed(speed, chart::now_ms());
-        cx.notify();
-    }
-
-    /// Returns the layout's replay to the point it currently started from.
-    pub(super) fn replay_jump_to_start(&mut self, cx: &mut Context<Self>) {
-        let Some(start_ms) = self
-            .replay_session
-            .as_ref()
-            .map(wyck_market_data::replay::ReplaySession::start_ms)
-        else {
-            return;
-        };
-        self.replay_seek_all(start_ms, cx);
-    }
-
-    /// Advances the shared clock and reveals whatever it newly crosses on every chart. A
-    /// no-op while there is no replay, or it is paused. Pauses itself once every chart
-    /// has nothing left to reveal.
-    fn replay_tick(&mut self, cx: &mut Context<Self>) {
-        if self
-            .multi
-            .read(cx)
-            .charts()
-            .any(|chart| chart.read(cx).replay_needs_data())
-        {
-            if let Some(session) = &mut self.replay_session
-                && session.is_playing()
-            {
-                session.play(chart::now_ms());
-            }
-            return;
-        }
-        let now = chart::now_ms();
-        let next = self
-            .multi
-            .read(cx)
-            .charts()
-            .filter_map(|chart| chart.read(cx).replay_next_time())
-            .min();
-        let Some(cursor) = self.replay_session.as_mut().and_then(|session| {
-            if !session.is_playing() {
-                return None;
-            }
-            let previous = session.cursor_ms();
-            session.advance_to(now);
-            if let Some(next) = next.filter(|next| *next <= session.cursor_ms()) {
-                session.cap_cursor(next.max(previous));
-            }
-            Some(session.cursor_ms())
-        }) else {
-            return;
-        };
-        self.on_every_chart(cx, |chart, cx| chart.replay_reveal_one_to(cursor, cx));
-        let exhausted = self
-            .multi
-            .read(cx)
-            .charts()
-            .all(|chart| chart.read(cx).replay_is_exhausted());
-        if exhausted && let Some(session) = &mut self.replay_session {
-            session.pause();
-        }
-        cx.notify();
-    }
-
-    /// Opens or closes the "go to date" popover, creating its text field the first time.
-    pub(super) fn toggle_replay_goto(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.replay_goto_open = !self.replay_goto_open;
-        if self.replay_goto_open && self.replay_goto.is_none() {
-            let default_value = self
-                .replay_view(cx)
-                .map(|view| replay_bar::format_goto_default(view.cursor_ms))
-                .unwrap_or_default();
-            let state = cx.new(|cx| {
-                gpui_kit::component::input::InputState::new(window, cx).default_value(default_value)
-            });
-            cx.subscribe_in(&state, window, |this, _state, event, _window, cx| {
-                if matches!(
-                    event,
-                    gpui_kit::component::input::InputEvent::PressEnter { .. }
-                ) {
-                    this.submit_replay_goto(cx);
-                }
-            })
-            .detach();
-            self.replay_goto = Some(state);
-        }
-        cx.notify();
-    }
-
-    /// Parses the "go to date" field (`YYYY-MM-DD HH:MM`) and moves the layout's replay
-    /// there if it parses; otherwise leaves the popover open with nothing applied.
-    pub(super) fn submit_replay_goto(&mut self, cx: &mut Context<Self>) {
-        let Some(state) = &self.replay_goto else {
-            return;
-        };
-        let text = state.read(cx).value().to_string();
-        let Some(start_ms) = replay_bar::parse_goto(&text) else {
-            toast::show(
-                cx,
-                toast::Kind::Warning,
-                "Can't read that date",
-                "Use the format YYYY-MM-DD HH:MM, for example 2024-03-15 14:30.",
-            );
-            return;
-        };
-        self.replay_goto_open = false;
-        self.replay_seek_all(start_ms, cx);
     }
 
     /// Stops the session: no more reconnects, and the connection closes.
@@ -713,14 +400,14 @@ impl Dashboard {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let loaded = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let market = account.market();
                 let symbols = market.symbols().await?;
                 let categories = market.symbol_categories().await?;
                 let classes = market.asset_classes().await?;
                 let assets = market.assets().await?;
-                Ok::<_, OpenApiError>(Catalog::build(symbols, categories, classes, assets))
+                Ok::<_, ApiError>(Catalog::build(symbols, categories, classes, assets))
             })
             .await;
             let _ = this.update(cx, |this, cx| {
@@ -832,13 +519,13 @@ impl Dashboard {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let fetched = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let details = account.market().symbol_details(&[id]).await?;
                 details
                     .into_iter()
                     .find(|d| d.symbol_id == id)
-                    .ok_or_else(|| OpenApiError::Protocol("the broker sent no details".into()))
+                    .ok_or_else(|| ApiError::Protocol("the broker sent no details".into()))
             })
             .await;
             let _ = this.update(cx, |this, cx| match fetched {
@@ -1080,7 +767,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
 }
 
 /// What to tell the user about a session that ended for good.
-fn failure_message(error: &OpenApiError) -> String {
+fn failure_message(error: &ApiError) -> String {
     format!("{error}. Sign in again to keep going.")
 }
 
@@ -1104,23 +791,18 @@ impl Render for Dashboard {
         let picker = self.render_picker(window, cx);
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
-        let replay_bar = self
-            .render_replay_bar(window, cx)
-            .map(IntoElement::into_any_element);
         let menu = self.render_menu(cx);
-        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open || self.replay_goto_open)
-            .then(|| {
-                let this = cx.entity().downgrade();
-                deferred(wyck_ui::menu::backdrop(move |_, cx| {
-                    let _ = this.update(cx, |this, cx| {
-                        this.tf_menu_open = false;
-                        this.layout_menu_open = false;
-                        this.replay_goto_open = false;
-                        cx.notify();
-                    });
-                }))
-                .with_priority(0)
-            });
+        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
+            let this = cx.entity().downgrade();
+            deferred(wyck_ui::menu::backdrop(move |_, cx| {
+                let _ = this.update(cx, |this, cx| {
+                    this.tf_menu_open = false;
+                    this.layout_menu_open = false;
+                    cx.notify();
+                });
+            }))
+            .with_priority(0)
+        });
 
         // A second context name while a drawing is being made turns on the keys for that.
         let context = if self.multi.read(cx).drawing_in_progress(cx) {
@@ -1276,7 +958,6 @@ impl Render for Dashboard {
             .bg(theme::bg())
             .child(header)
             .child(body)
-            .children(replay_bar)
             .children(menu)
             .children(picker)
             .children(menu_backdrop)

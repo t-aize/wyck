@@ -44,7 +44,7 @@ use wyck_chart::drawing::model::Dash;
 use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
-pub use wyck_trading::ticket::prefs;
+pub mod prefs;
 mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
@@ -1041,7 +1041,7 @@ impl OrderTicket {
                 return;
             }
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(wyck_openapi::OpenApiError::Closed)?;
+                let client = session.client().ok_or(wyck_openapi::Error::Closed)?;
                 client
                     .account(session.account_id())
                     .margin()

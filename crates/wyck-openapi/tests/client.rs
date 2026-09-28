@@ -11,7 +11,7 @@ use serde_json::json;
 use support::{MockServer, Reply, answers, config, connect};
 use wyck_openapi::config::{ClientCredentials, ConnectionConfig};
 use wyck_openapi::transport::wire::payload;
-use wyck_openapi::{Client, ConnectionState, DisconnectReason, ErrorKind, Event, OpenApiError};
+use wyck_openapi::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
 
 // ---- sign in ----
 
@@ -153,7 +153,7 @@ async fn an_answer_of_the_wrong_type_is_a_protocol_error() {
     .await;
     let client = connect(&server).await;
     let error = client.version().await.unwrap_err();
-    assert!(matches!(error, OpenApiError::Protocol(_)), "{error:?}");
+    assert!(matches!(error, Error::Protocol(_)), "{error:?}");
 }
 
 #[tokio::test]
@@ -165,10 +165,7 @@ async fn an_answer_that_cannot_be_read_is_a_protocol_error() {
     )]))
     .await;
     let client = connect(&server).await;
-    assert!(matches!(
-        client.version().await,
-        Err(OpenApiError::Protocol(_))
-    ));
+    assert!(matches!(client.version().await, Err(Error::Protocol(_))));
 }
 
 #[tokio::test]
@@ -187,7 +184,7 @@ async fn silence_ends_in_a_timeout_and_a_late_answer_does_no_harm() {
     let client = Client::connect(&config).await.unwrap();
 
     let error = client.version().await.unwrap_err();
-    assert!(matches!(error, OpenApiError::Timeout { .. }));
+    assert!(matches!(error, Error::Timeout { .. }));
     assert!(error.is_retryable());
     // The late answer arrives while nothing waits for it, and the client carries on.
     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -303,7 +300,7 @@ async fn when_the_server_closes_waiting_requests_fail_and_the_end_is_announced()
     let mut state = client.state();
 
     let error = client.version().await.unwrap_err();
-    assert!(matches!(error, OpenApiError::Closed), "{error:?}");
+    assert!(matches!(error, Error::Closed), "{error:?}");
 
     let last = loop {
         let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
@@ -322,7 +319,7 @@ async fn when_the_server_closes_waiting_requests_fail_and_the_end_is_announced()
     assert!(client.is_closed());
     // A closed client fails fast instead of waiting for a timeout.
     let started = Instant::now();
-    assert!(matches!(client.version().await, Err(OpenApiError::Closed)));
+    assert!(matches!(client.version().await, Err(Error::Closed)));
     assert!(started.elapsed() < Duration::from_millis(500));
 }
 
@@ -342,7 +339,7 @@ async fn closing_the_client_ends_the_connection_once() {
         ConnectionState::Closed(DisconnectReason::ClosedByClient)
     );
     client.close().await; // does nothing
-    assert!(matches!(client.version().await, Err(OpenApiError::Closed)));
+    assert!(matches!(client.version().await, Err(Error::Closed)));
 }
 
 #[tokio::test]

@@ -9,7 +9,7 @@ use std::time::Duration;
 use secrecy::ExposeSecret;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use wyck_openapi::OpenApiError;
+use wyck_openapi::Error;
 use wyck_openapi::auth::OAuthClient;
 use wyck_openapi::config::ClientCredentials;
 
@@ -107,7 +107,7 @@ async fn an_error_in_a_normal_answer_is_reported_with_the_servers_words() {
         .exchange_code("bad", "http://localhost:1")
         .await
         .unwrap_err();
-    assert!(matches!(error, OpenApiError::Auth(_)));
+    assert!(matches!(error, Error::Auth(_)));
     assert!(error.to_string().contains("ACCESS_DENIED"));
     assert!(error.to_string().contains("Invalid authorization code"));
 }
@@ -134,7 +134,7 @@ async fn an_error_status_with_an_error_body_keeps_both() {
 async fn an_unreadable_body_is_an_error_not_a_panic() {
     let (url, _) = token_server("502 Bad Gateway", "<html>oops</html>").await;
     let error = client(&url).refresh("x").await.unwrap_err();
-    assert!(matches!(error, OpenApiError::Auth(_)));
+    assert!(matches!(error, Error::Auth(_)));
     assert!(error.to_string().contains("502"), "{error}");
 }
 
@@ -159,7 +159,7 @@ async fn an_unreachable_endpoint_never_leaks_the_secret_or_the_code_in_the_error
         "the code leaked: {text}"
     );
     // A network failure is a transport error (worth retrying), not a refusal of the sign in.
-    assert!(matches!(error, OpenApiError::Transport(_)), "{error:?}");
+    assert!(matches!(error, Error::Transport(_)), "{error:?}");
 }
 
 #[tokio::test]
@@ -167,8 +167,5 @@ async fn a_token_endpoint_that_is_not_a_url_is_a_config_error() {
     let oauth = OAuthClient::new(ClientCredentials::new("a", "b"))
         .unwrap()
         .with_token_url("not a url");
-    assert!(matches!(
-        oauth.refresh("x").await,
-        Err(OpenApiError::Config(_))
-    ));
+    assert!(matches!(oauth.refresh("x").await, Err(Error::Config(_))));
 }

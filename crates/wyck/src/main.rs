@@ -11,8 +11,6 @@ mod chart;
 mod connection;
 mod dashboard;
 mod indicators;
-#[path = "services/market_data.rs"]
-mod market_data;
 mod multichart;
 mod runtime;
 mod settings_hub;
@@ -52,12 +50,10 @@ fn main() {
                     }
                     appearance::init(wyck_config::DocumentStore::global(&paths), cx);
                     indicators::init(Some(&paths), cx);
-                    market_data::init(Some(&paths), cx);
                 }
                 Err(_) => {
                     wyck_ui::theme::apply(cx);
                     indicators::init(None, cx);
-                    market_data::init(None, cx);
                 }
             }
             wyck_ui::text_input::init(cx);

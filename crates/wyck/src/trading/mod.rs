@@ -7,7 +7,8 @@
 //! stands for.
 
 pub mod account;
-pub use wyck_trading::{book, math};
+pub use wyck_openapi::account::book;
+pub mod math;
 pub mod panel;
 pub mod ticket;
 

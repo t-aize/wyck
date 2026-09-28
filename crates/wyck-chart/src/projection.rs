@@ -1,6 +1,6 @@
 //! How a chart maps times and prices to screen positions, for the drawings.
 
-use wyck_openapi_model::market::{PRICE_SCALE, format_price};
+use wyck_openapi::market::{PRICE_SCALE, format_price};
 
 use super::data::Series;
 use super::drawing::geometry::{BarView, P, Projection, Rect};
@@ -132,7 +132,7 @@ impl Projection for ChartProjection<'_> {
 
     fn pip(&self) -> f64 {
         self.pip_position
-            .map_or(0.0, wyck_openapi_model::market::pip_size)
+            .map_or(0.0, wyck_openapi::market::pip_size)
     }
 }
 
@@ -142,7 +142,7 @@ mod tests {
     use crate::display::Display;
     use crate::scene::{Geometry, main_map};
     use crate::settings::ChartSettings;
-    use wyck_openapi_model::market::Bar;
+    use wyck_openapi::market::Bar;
 
     fn bars() -> Series {
         Series::Bars(

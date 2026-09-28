@@ -1,5 +1,5 @@
 use super::color::rgb;
-use wyck_openapi_model::market::{Bar, Period, Quote, Tick};
+use wyck_openapi::market::{Bar, Period, Quote, Tick};
 
 use super::cmd::{count, rect_widths, texts};
 use super::*;

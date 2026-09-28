@@ -39,7 +39,7 @@ impl Client {
     }
 }
 
-/// A [`Client`] and one account id. Cheap to clone. See the [module docs](self).
+/// A [`Client`] and one account id. Cheap to clone. Made by [`Client::account`].
 #[derive(Debug, Clone)]
 pub struct AccountClient {
     client: Client,

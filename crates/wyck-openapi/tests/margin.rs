@@ -63,11 +63,7 @@ async fn margin_calls_are_listed_and_one_threshold_can_be_updated() {
     assert_eq!(calls[0].kind(), Some(MarginCallType::First));
 
     margin
-        .update_margin_call(MarginCall {
-            margin_call_type: 61,
-            margin_level_threshold: 120.0,
-            utc_last_update_timestamp: None,
-        })
+        .update_margin_call(MarginCall::new(MarginCallType::First, 120.0))
         .await
         .unwrap();
     let sent = &server.received_of(payload::MARGIN_CALL_UPDATE_REQ)[0].payload;

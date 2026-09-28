@@ -2,11 +2,13 @@
 //! plain messages that sign the application and an account in.
 //!
 //! Everything above this module (the sub-clients under [`crate::market`], [`crate::account`],
-//! [`crate::trading`] and [`crate::margin`]) is built on [`connection::Client`] and its
+//! [`crate::trading`] and [`crate::margin`]) is built on [`crate::Client`] and its
 //! `pub(crate)` request machinery; nothing outside this crate needs to reach lower than
-//! [`connection::Client`] itself.
+//! [`crate::Client`] itself.
 
+#[cfg(feature = "client")]
 pub mod connection;
-pub use wyck_openapi_model::transport::messages;
+pub mod messages;
+#[cfg(feature = "client")]
 pub mod rate_limit;
-pub use wyck_openapi_model::transport::wire;
+pub mod wire;

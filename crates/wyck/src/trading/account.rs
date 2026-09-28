@@ -20,7 +20,7 @@ use wyck_openapi::account::TradeSide;
 use wyck_openapi::market::PRICE_SCALE;
 use wyck_openapi::session::Session;
 use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use wyck_openapi::{Event, OpenApiError, Result as ApiResult};
+use wyck_openapi::{Error as ApiError, Event, Result as ApiResult};
 
 use super::book::{AccountBook, Notice, Tone, explain, is_buy};
 use super::math::{self, Contract, Link, Summary};
@@ -153,7 +153,6 @@ pub struct Account {
     quotes: HashMap<i64, (Option<i64>, Option<i64>)>,
     pub status: Status,
     busy: HashSet<Busy>,
-    trading_enabled: bool,
     reversals: ReverseTracker,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
@@ -176,7 +175,7 @@ enum Conversion {
 }
 
 fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
-    result.unwrap_or(Err(OpenApiError::Closed))
+    result.unwrap_or(Err(ApiError::Closed))
 }
 
 impl Account {
@@ -201,7 +200,6 @@ impl Account {
             quotes: HashMap::new(),
             status: Status::Loading,
             busy: HashSet::new(),
-            trading_enabled: true,
             reversals: ReverseTracker::default(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
@@ -218,14 +216,6 @@ impl Account {
     pub fn is_busy(&self, what: Busy) -> bool {
         self.busy.contains(&what)
             || matches!(what, Busy::Closing(id) if self.reversals.0.contains_key(&id))
-    }
-
-    pub fn set_trading_enabled(&mut self, enabled: bool) {
-        self.trading_enabled = enabled;
-        if !enabled {
-            // An in-flight close may still finish, but it must not open a reverse order.
-            self.reversals.0.clear();
-        }
     }
 
     /// The real bid and ask of a symbol.
@@ -294,7 +284,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let chain = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 client
                     .account(session.account_id())
                     .market()
@@ -369,6 +359,7 @@ impl Account {
             Tone::Success => toast::Kind::Success,
             Tone::Warning => toast::Kind::Warning,
             Tone::Error => toast::Kind::Error,
+            _ => toast::Kind::Info,
         };
         toast::show(cx, kind, notice.title, notice.message);
     }
@@ -377,8 +368,7 @@ impl Account {
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(REVERSE_RECHECK).await;
             let _ = this.update(cx, |this, cx| {
-                if this.trading_enabled
-                    && this
+                if this
                         .reversals
                         .0
                         .get(&position_id)
@@ -424,7 +414,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let loaded = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 let data = account.account_data();
                 let trader = data.trader().await?;
@@ -450,7 +440,7 @@ impl Account {
                         .unwrap_or_default(),
                     None => String::new(),
                 };
-                Ok::<_, OpenApiError>((trader, positions, orders, deals, currency))
+                Ok::<_, ApiError>((trader, positions, orders, deals, currency))
             })
             .await;
             let _ = this.update(cx, |this, cx| {
@@ -512,7 +502,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let fetched = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 account.market().symbol_details(&[symbol_id]).await
             })
@@ -539,7 +529,7 @@ impl Account {
         let epoch = self.epoch;
         cx.spawn(async move |this, cx| {
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 let account = client.account(session.account_id());
                 account.account_data().unrealized_pnl().await
             })
@@ -574,7 +564,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let trader = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 client
                     .account(session.account_id())
                     .account_data()
@@ -701,9 +691,6 @@ impl Account {
             + Send
             + 'static,
     {
-        if !self.trading_enabled {
-            return;
-        }
         if !self.busy.insert(busy) {
             return;
         }
@@ -711,7 +698,7 @@ impl Account {
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let result = runtime::spawn(async move {
-                let client = session.client().ok_or(OpenApiError::Closed)?;
+                let client = session.client().ok_or(ApiError::Closed)?;
                 call(client.account(session.account_id()).trading()).await
             })
             .await;
@@ -821,7 +808,7 @@ impl Account {
 
     /// Reverses a position: closes it and opens the same volume the other way.
     pub fn reverse_position(&mut self, position_id: i64, cx: &mut Context<Self>) {
-        if !self.trading_enabled || self.busy.contains(&Busy::Closing(position_id)) {
+        if self.busy.contains(&Busy::Closing(position_id)) {
             return;
         }
         let Some(position) = self.book.positions.get(&position_id).cloned() else {

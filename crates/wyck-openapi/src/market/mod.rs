@@ -21,22 +21,31 @@
 //! | [`live`] | [`LiveBarTracker`]: live bars with their real close (the server's is wrong) |
 //! | [`history`] | [`history::fetch_bars`], [`history::fetch_ticks`]: whole ranges, paged |
 
-pub use wyck_openapi_model::market::bars;
+pub mod bars;
+#[cfg(feature = "client")]
 pub mod client;
-pub use wyck_openapi_model::market::depth;
+pub mod depth;
+#[cfg(feature = "client")]
 pub mod history;
-pub use wyck_openapi_model::market::{hours, live, price, quotes, symbols, ticks};
+pub mod hours;
+pub mod live;
+pub mod price;
+pub mod quotes;
+pub mod symbols;
+pub mod ticks;
 
 pub use bars::{
     Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, WireTrendbar, decode_bar,
     decode_bars,
 };
+#[cfg(feature = "client")]
 pub use client::MarketClient;
 pub use depth::{DepthBook, DepthEvent, DepthLevel, DepthQuote};
+#[cfg(feature = "client")]
 pub use history::{MAX_TICK_RANGE_MS, continuation, fetch_bars, fetch_ticks, tick_windows};
 pub use hours::{Holiday, Interval, MarketStatus, TradingHours};
 pub use live::{LiveBarTracker, with_true_close};
-pub use price::{PRICE_SCALE, UNITS_PER_PRICE, format_price, from_price, to_price};
+pub use price::{PRICE_SCALE, UNITS_PER_PRICE, format_price, from_price, pip_size, to_price};
 pub use quotes::{Spot, SpotEvent, SpotTracker, SubscribeSpotsReq};
 pub use symbols::{
     Asset, AssetClass, AssetClassListRes, AssetListRes, LightSymbol, Symbol, SymbolByIdReq,

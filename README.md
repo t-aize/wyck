@@ -53,12 +53,9 @@ The workspace crates are:
 
 | Crate | Owns |
 |---|---|
-| `wyck-openapi-model` | cTrader messages, wire types and API errors |
-| `wyck-openapi` | WebSocket client, OAuth and reconnecting session |
+| `wyck-openapi` | cTrader Open API SDK: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
 | `wyck-config` | Native settings, documents and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
-| `wyck-trading` | Trading calculations, books and saved panel preferences |
-| `wyck-market-data` | Local historical data catalog, backfill and the Replay session |
 | `wyck-ui` | Widget kit, theme and sizes shared by every screen |
 | `wyck` | GPUI desktop application, saved workspace and bundled assets |
 

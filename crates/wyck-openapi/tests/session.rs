@@ -18,7 +18,7 @@ use wyck_openapi::session::{
     Backoff, MemoryTokenStore, Session, SessionConfig, SessionEvent, SessionState, TokenStore,
 };
 use wyck_openapi::transport::wire::payload;
-use wyck_openapi::{ErrorKind, Event, OpenApiError};
+use wyck_openapi::{Error, ErrorKind, Event};
 
 const ACCOUNT: i64 = 48_332_955;
 
@@ -713,14 +713,14 @@ async fn a_refused_refresh_ends_the_session_without_ever_connecting() {
 
     let failed = next_event(&mut events, |e| matches!(e, SessionEvent::Failed(_))).await;
     match failed {
-        SessionEvent::Failed(OpenApiError::Auth(text)) => assert!(text.contains("ACCESS_DENIED")),
+        SessionEvent::Failed(Error::Auth(text)) => assert!(text.contains("ACCESS_DENIED")),
         other => panic!("{other:?}"),
     }
     assert!(matches!(*session.state().borrow(), SessionState::Failed(_)));
     assert_eq!(server.connections(), 0);
     assert!(matches!(
         session.wait_ready(Duration::from_secs(1)).await,
-        Err(OpenApiError::Closed)
+        Err(Error::Closed)
     ));
 }
 
@@ -774,7 +774,7 @@ async fn an_unreachable_server_is_retried_with_a_growing_wait_then_given_up() {
         "the wait does not shrink: {waits:?}"
     );
     match end {
-        SessionEvent::Failed(OpenApiError::Transport(text)) => assert!(text.contains("gave up")),
+        SessionEvent::Failed(Error::Transport(text)) => assert!(text.contains("gave up")),
         other => panic!("{other:?}"),
     }
 }
@@ -846,7 +846,7 @@ async fn stopping_closes_the_connection_and_announces_it_once() {
     session.stop().await; // a second stop does nothing
     assert!(matches!(
         session.wait_ready(Duration::from_millis(200)).await,
-        Err(OpenApiError::Closed)
+        Err(Error::Closed)
     ));
 }
 
@@ -906,7 +906,7 @@ async fn waiting_for_a_session_that_cannot_come_up_times_out() {
         .wait_ready(Duration::from_millis(300))
         .await
         .unwrap_err();
-    assert!(matches!(error, OpenApiError::Timeout { .. }));
+    assert!(matches!(error, Error::Timeout { .. }));
     session.stop().await;
 }
 
@@ -916,7 +916,7 @@ async fn unusable_settings_are_refused_when_starting() {
     bad.connection.url = "http://not-a-websocket".to_owned();
     let store: Arc<dyn TokenStore> = Arc::new(MemoryTokenStore::default());
     let result = Session::start(bad, tokens("a", "r", 10), store);
-    assert!(matches!(result, Err(OpenApiError::Config(_))));
+    assert!(matches!(result, Err(Error::Config(_))));
 }
 
 #[tokio::test]

@@ -49,9 +49,7 @@ depends = [
 
 [dependencies]
 wyck-config.workspace = true
-wyck-market-data.workspace = true
-wyck-openapi.workspace = true
-wyck-trading.workspace = true
+wyck-openapi = { workspace = true, features = ["client"] }
 wyck-chart.workspace = true
 wyck-ui.workspace = true
 async-trait.workspace = true

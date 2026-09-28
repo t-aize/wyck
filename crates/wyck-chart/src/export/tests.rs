@@ -1,4 +1,4 @@
-use wyck_openapi_model::market::{Bar, Tick};
+use wyck_openapi::market::{Bar, Tick};
 
 use super::*;
 use crate::study::{StudyConfig, StudyKind};

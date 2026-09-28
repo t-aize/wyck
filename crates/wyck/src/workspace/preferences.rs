@@ -1,12 +1,11 @@
 //! Saved preferences and watchlists.
 
 use super::layouts::{self, LayoutKey};
+use crate::trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 use serde::{Deserialize, Serialize};
 use wyck_chart::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
 use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use wyck_chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
-use wyck_market_data::replay::ReplayPrefs;
-use wyck_trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 
 const SCHEMA_VERSION: u32 = 1;
 
@@ -219,9 +218,6 @@ pub struct Preferences {
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
-    /// Defaults for a new Replay session.
-    #[serde(default)]
-    pub replay: ReplayPrefs,
 }
 
 fn default_panel_height() -> f32 {
@@ -284,7 +280,6 @@ impl Default for Preferences {
             favorites_bar: true,
             favorites_labels: false,
             saved_colors: Vec::new(),
-            replay: ReplayPrefs::default(),
         }
     }
 }
@@ -300,7 +295,6 @@ impl Preferences {
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
         self.limits = self.limits.normalized();
-        self.replay = self.replay.normalized();
 
         // The custom timeframes, each once under its own code, shortest first. A favorite
         // that is neither offered nor added becomes an added one, so its star has a home.
@@ -682,6 +676,13 @@ mod tests {
     fn an_empty_file_gives_the_defaults() {
         let prefs: Preferences = toml::from_str("").unwrap();
         assert_eq!(prefs.normalized(), Preferences::default().normalized());
+    }
+
+    #[test]
+    fn a_file_from_before_replay_was_removed_still_loads() {
+        let old: Preferences =
+            toml::from_str("magnet = true\n\n[replay]\ndefault_speed = 2.0\n").unwrap();
+        assert!(old.magnet);
     }
 
     #[test]

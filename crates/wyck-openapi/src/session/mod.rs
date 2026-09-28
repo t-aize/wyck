@@ -57,7 +57,7 @@
 //! # What it does not do
 //!
 //! It does not replay requests that were in flight when the connection dropped (they fail with
-//! [`OpenApiError::Closed`]; the caller may repeat them), and it does not keep data: events that
+//! [`Error::Closed`]; the caller may repeat them), and it does not keep data: events that
 //! arrive while a reader is not listening are lost, as with any broadcast channel.
 //!
 //! # Why it stays flat
@@ -68,8 +68,8 @@
 //! (recorded in a registry and replayed after every reconnect), and forcing the same split here
 //! would not add anything real.
 
-pub mod backoff;
-pub mod token_store;
+mod backoff;
+mod token_store;
 
 pub use backoff::Backoff;
 pub use token_store::{MemoryTokenStore, TokenStore};
@@ -87,13 +87,14 @@ use tracing::{debug, info, warn};
 
 use crate::auth::{OAuthClient, TokenSet};
 use crate::config::{ClientCredentials, ConnectionConfig};
-use crate::error::{ErrorKind, OpenApiError, Result};
+use crate::error::{Error, ErrorKind, Result};
 use crate::event::Event;
 use crate::market::Period;
 use crate::transport::connection::Client;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SessionConfig {
     /// The connection settings (demo or live, timeouts, limits).
     pub connection: ConnectionConfig,
@@ -134,6 +135,7 @@ impl SessionConfig {
 
 /// Where a session stands.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SessionState {
     /// Connecting (the attempt number, starting at 1).
     Connecting {
@@ -178,10 +180,10 @@ pub enum SessionEvent {
         /// What was being subscribed to.
         what: String,
         /// Why the server refused it.
-        error: OpenApiError,
+        error: Error,
     },
     /// The session ended by a failure that will not pass; the user has to act (sign in again).
-    Failed(OpenApiError),
+    Failed(Error),
     /// The session was stopped. This is always the last event.
     Stopped,
 }
@@ -289,7 +291,7 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Config`] for unusable settings.
+    /// [`Error::Config`] for unusable settings.
     pub fn start(
         config: SessionConfig,
         tokens: TokenSet,
@@ -357,7 +359,7 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// [`OpenApiError::Timeout`] when it is not ready in time, and [`OpenApiError::Closed`] when the
+    /// [`Error::Timeout`] when it is not ready in time, and [`Error::Closed`] when the
     /// session has stopped or failed.
     pub async fn wait_ready(&self, timeout: Duration) -> Result<Client> {
         let mut state = self.state();
@@ -371,14 +373,14 @@ impl Session {
             }),
         )
         .await
-        .map_err(|_| OpenApiError::Timeout {
+        .map_err(|_| Error::Timeout {
             operation: "the session to be ready",
         })?
-        .map_err(|_| OpenApiError::Closed)?
+        .map_err(|_| Error::Closed)?
         .clone();
         match waited {
-            SessionState::Ready => self.client().ok_or(OpenApiError::Closed),
-            _ => Err(OpenApiError::Closed),
+            SessionState::Ready => self.client().ok_or(Error::Closed),
+            _ => Err(Error::Closed),
         }
     }
 
@@ -585,7 +587,7 @@ impl Session {
 }
 
 /// Whether an error is about the connection or the load, not about the request itself.
-fn error_is_transient(error: &OpenApiError) -> bool {
+fn error_is_transient(error: &Error) -> bool {
     matches!(
         error.kind(),
         ErrorKind::Transport
@@ -608,7 +610,7 @@ enum Next {
 }
 
 /// Decides what a failure means for the session.
-fn classify(error: &OpenApiError) -> Next {
+fn classify(error: &Error) -> Next {
     match error.kind() {
         ErrorKind::TokenInvalid => Next::RefreshThenRetry,
         ErrorKind::NotAuthorized | ErrorKind::Config | ErrorKind::Rejected => Next::Fail,
@@ -618,7 +620,6 @@ fn classify(error: &OpenApiError) -> Next {
         | ErrorKind::RateLimited
         | ErrorKind::Maintenance
         | ErrorKind::Protocol => Next::Retry,
-        _ => Next::Fail,
     }
 }
 
@@ -671,7 +672,7 @@ async fn supervise(
     // token invalid the refresh did not help and the session ends.
     let mut refreshed_for_invalid = false;
 
-    let outcome: Option<OpenApiError> = 'session: loop {
+    let outcome: Option<Error> = 'session: loop {
         if *stop.borrow() {
             break None;
         }
@@ -766,7 +767,7 @@ async fn supervise(
             }
             Served::Disconnected(reason) => {
                 attempt = 1;
-                let error = OpenApiError::Transport(reason.clone());
+                let error = Error::Transport(reason.clone());
                 if let Some(end) =
                     wait_after_failure(&config, &shared, &mut stop, attempt, &error).await
                 {
@@ -912,7 +913,7 @@ async fn connect(config: &SessionConfig, tokens: &TokenSet) -> Result<Client> {
 async fn restore_subscriptions(client: &Client, shared: &Shared) {
     let registry = lock(&shared.registry).clone();
     let market = client.account(shared.account_id).market();
-    let report = |what: String, error: OpenApiError| {
+    let report = |what: String, error: Error| {
         // Already subscribed is what we wanted.
         if error.code() != Some("ALREADY_SUBSCRIBED") {
             shared.emit(SessionEvent::SubscriptionFailed { what, error });
@@ -950,19 +951,17 @@ async fn refresh(
     *lock(&shared.tokens) = fresh.clone();
     tokio::time::timeout(Duration::from_secs(30), store.save(&fresh))
         .await
-        .map_err(|_| OpenApiError::Auth("saving the new tokens timed out".into()))?
-        .map_err(|error| {
-            OpenApiError::Auth(format!("the new tokens could not be saved: {error}"))
-        })?;
+        .map_err(|_| Error::Auth("saving the new tokens timed out".into()))?
+        .map_err(|error| Error::Auth(format!("the new tokens could not be saved: {error}")))?;
     shared.emit(SessionEvent::TokensRefreshed);
     debug!("the Open API tokens were refreshed");
     Ok(fresh)
 }
 
 /// A refusal by the token endpoint ends the session; failing to reach it is retried.
-fn classify_refresh_error(error: &OpenApiError) -> Next {
+fn classify_refresh_error(error: &Error) -> Next {
     match error {
-        OpenApiError::Transport(_) | OpenApiError::Timeout { .. } => Next::Retry,
+        Error::Transport(_) | Error::Timeout { .. } => Next::Retry,
         _ => Next::Fail,
     }
 }
@@ -974,13 +973,13 @@ async fn wait_after_failure(
     shared: &Shared,
     stop: &mut watch::Receiver<bool>,
     attempt: u32,
-    error: &OpenApiError,
-) -> Option<Option<OpenApiError>> {
+    error: &Error,
+) -> Option<Option<Error>> {
     if config
         .max_reconnect_attempts
         .is_some_and(|max| attempt > max)
     {
-        return Some(Some(OpenApiError::Transport(format!(
+        return Some(Some(Error::Transport(format!(
             "gave up after {} attempts: {error}",
             attempt.saturating_sub(1).max(1)
         ))));
@@ -1011,13 +1010,10 @@ mod tests {
 
     #[test]
     fn failures_are_sorted_into_retry_refresh_or_end() {
-        let server = |code: &str| OpenApiError::server(code, None, None, None);
-        assert_eq!(classify(&OpenApiError::Transport("x".into())), Next::Retry);
-        assert_eq!(
-            classify(&OpenApiError::Timeout { operation: "x" }),
-            Next::Retry
-        );
-        assert_eq!(classify(&OpenApiError::Closed), Next::Retry);
+        let server = |code: &str| Error::server(code, None, None, None);
+        assert_eq!(classify(&Error::Transport("x".into())), Next::Retry);
+        assert_eq!(classify(&Error::Timeout { operation: "x" }), Next::Retry);
+        assert_eq!(classify(&Error::Closed), Next::Retry);
         assert_eq!(classify(&server("REQUEST_FREQUENCY_EXCEEDED")), Next::Retry);
         assert_eq!(
             classify(&server("SERVER_IS_UNDER_MAINTENANCE")),
@@ -1033,28 +1029,26 @@ mod tests {
         );
         assert_eq!(classify(&server("ACCOUNT_NOT_AUTHORIZED")), Next::Fail);
         assert_eq!(classify(&server("CH_CLIENT_AUTH_FAILURE")), Next::Fail);
-        assert_eq!(classify(&OpenApiError::Config("x".into())), Next::Fail);
+        assert_eq!(classify(&Error::Config("x".into())), Next::Fail);
     }
 
     #[test]
     fn a_refusal_of_the_token_endpoint_ends_the_session_but_an_unreachable_one_does_not() {
         assert_eq!(
-            classify_refresh_error(&OpenApiError::Auth("ACCESS_DENIED".into())),
+            classify_refresh_error(&Error::Auth("ACCESS_DENIED".into())),
             Next::Fail
         );
         assert_eq!(
-            classify_refresh_error(&OpenApiError::Transport("unreachable".into())),
+            classify_refresh_error(&Error::Transport("unreachable".into())),
             Next::Retry
         );
     }
 
     #[test]
     fn transient_errors_are_the_ones_a_reconnect_can_cure() {
-        assert!(error_is_transient(&OpenApiError::Closed));
-        assert!(error_is_transient(&OpenApiError::Timeout {
-            operation: "x"
-        }));
-        assert!(!error_is_transient(&OpenApiError::server(
+        assert!(error_is_transient(&Error::Closed));
+        assert!(error_is_transient(&Error::Timeout { operation: "x" }));
+        assert!(!error_is_transient(&Error::server(
             "SYMBOL_NOT_FOUND",
             None,
             None,

@@ -9,14 +9,10 @@
 //! [`History`], so they are tested with a fake server; the app gives them the real client.
 
 use std::future::Future;
-use std::sync::Arc;
 
-use wyck_market_data::Catalog;
 use wyck_openapi::market::{Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteType, Tick};
 use wyck_openapi::session::Session;
-use wyck_openapi::{OpenApiError, Result};
-
-use super::catalog_client::CatalogClient;
+use wyck_openapi::{Error as ApiError, Result};
 
 use super::data::{aggregate_ticks, bucket_start, group_bars, last_group};
 use super::timeframe::Timeframe;
@@ -108,7 +104,7 @@ impl History for MarketClient {
 }
 
 pub(super) fn market(session: &Session) -> Result<MarketClient> {
-    let client = session.client().ok_or(OpenApiError::Closed)?;
+    let client = session.client().ok_or(ApiError::Closed)?;
     Ok(client.account(session.account_id()).market())
 }
 
@@ -141,44 +137,6 @@ pub async fn gap(
     to_ms: i64,
 ) -> Result<Loaded> {
     gap_from(&market(session)?, symbol_id, timeframe, from_ms, to_ms).await
-}
-
-/// [`initial`], reading and backfilling through the local catalog instead of always
-/// fetching fresh from the broker.
-pub async fn initial_cached(
-    session: &Session,
-    catalog: Arc<Catalog>,
-    symbol_id: i64,
-    timeframe: Timeframe,
-    now_ms: i64,
-) -> Result<Loaded> {
-    let client = CatalogClient::new(catalog, market(session)?);
-    initial_from(&client, symbol_id, timeframe, now_ms).await
-}
-
-/// [`older`], see [`initial_cached`].
-pub async fn older_cached(
-    session: &Session,
-    catalog: Arc<Catalog>,
-    symbol_id: i64,
-    timeframe: Timeframe,
-    oldest_ms: i64,
-) -> Result<Loaded> {
-    let client = CatalogClient::new(catalog, market(session)?);
-    older_from(&client, symbol_id, timeframe, oldest_ms).await
-}
-
-/// [`gap`], see [`initial_cached`].
-pub async fn gap_cached(
-    session: &Session,
-    catalog: Arc<Catalog>,
-    symbol_id: i64,
-    timeframe: Timeframe,
-    from_ms: i64,
-    to_ms: i64,
-) -> Result<Loaded> {
-    let client = CatalogClient::new(catalog, market(session)?);
-    gap_from(&client, symbol_id, timeframe, from_ms, to_ms).await
 }
 
 /// [`initial`], from any source.
@@ -393,7 +351,7 @@ mod tests {
             let (start, end, fail) = (self.start, self.end, self.fail);
             async move {
                 if fail {
-                    return Err(OpenApiError::Closed);
+                    return Err(ApiError::Closed);
                 }
                 assert!(
                     (to_ms - from_ms) / step <= CHUNK_BARS,

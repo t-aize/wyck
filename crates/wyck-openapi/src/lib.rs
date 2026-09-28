@@ -1,14 +1,14 @@
-//! cTrader Open API client for Wyck.
+//! cTrader Open API SDK: messages, client, session, OAuth and trading calculations.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-//! # openapi
+//! # wyck-openapi
 //!
-//! A Rust client for the **cTrader Open API**, over its JSON WebSocket.
+//! A Rust SDK for the **cTrader Open API**, over its JSON WebSocket.
 //!
 //! It streams every price change, serves tick history, bars of fourteen periods, live bars and
-//! the order book. This module is a typed, tested client for that, with what it takes to use it
+//! the order book. This crate is a typed, tested client for that, with what it takes to use it
 //! for days without babysitting: request matching, heartbeats, the documented rate limits and
 //! their retries, the OAuth 2 sign in, and a [`session::Session`] that reconnects and renews its
 //! tokens by itself.
@@ -28,18 +28,34 @@
 //!
 //! | Module | Role |
 //! |---|---|
-//! | [`transport`] | The connection: [`Client`], [`ClientBuilder`], the envelope, the rate limiter |
-//! | [`handle`] | [`AccountClient`]: a client bound to one account, routing to the four below |
+//! | (root) | [`Client`], [`ClientBuilder`]: the connection; [`AccountClient`]: a client bound to one account, routing to the four below |
 //! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
-//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals |
-//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders |
+//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals; [`account::book::AccountBook`]: the account kept current from the server's messages |
+//! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`trading::contract`]: lots, volumes, pips, risk sizing and profit |
 //! | [`margin`] | [`margin::MarginClient`]: expected margin, margin calls, dynamic leverage |
 //! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |
 //! | [`event`] | What the server sends unasked: prices, order book, executions, notices |
 //! | [`config`] | Demo or live, timeouts, application credentials |
-//! | [`error`] | [`OpenApiError`] and its classification |
+//! | [`error`] | [`Error`] and its classification |
 //! | [`prelude`] | A group import of the pieces most programs need |
+//!
+//! # Features
+//!
+//! `client` (on by default) brings the connection, the session and OAuth, with tokio and the
+//! WebSocket and HTTP stacks. Without it the crate holds only the messages, the market types and
+//! the trading calculations, for code that works on prices without talking to the server.
+//!
+//! # Stability
+//!
+//! The public API is everything reachable from the documented modules and the root re-exports.
+//! The server's messages, the events and the error type are `#[non_exhaustive]`, so a field or a
+//! variant the server gains can be added without breaking callers: build them through their
+//! constructors or from JSON, match with a wildcard arm, and prefer [`Error::kind`] to the
+//! error's variants.
+//!
+//! Items hidden from these docs (the `transport` module, the wire envelope, `event::event_from`)
+//! are not part of that API. They are public only for this crate's own tests.
 //!
 //! # Which layer to use
 //!
@@ -132,20 +148,33 @@
 //! narrows it by probing rather than asserting a fixed answer).
 
 pub mod account;
+#[cfg(feature = "client")]
 pub mod auth;
+#[cfg(feature = "client")]
 pub mod config;
-pub use wyck_openapi_model::error;
+pub mod error;
 pub mod event;
-pub mod handle;
+#[cfg(feature = "client")]
+mod handle;
 pub mod margin;
 pub mod market;
+#[cfg(feature = "client")]
 pub mod prelude;
+#[cfg(feature = "client")]
 pub mod session;
 pub mod trading;
+/// The wire format and the connection machinery. Public only for this crate's own tests: not
+/// part of the stable API, and it may change in any release.
+#[doc(hidden)]
 pub mod transport;
 
+pub(crate) use account::types::number_enum;
+#[cfg(feature = "client")]
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
-pub use error::{ErrorKind, OpenApiError, Result};
+pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};
+#[cfg(feature = "client")]
 pub use handle::AccountClient;
+#[cfg(feature = "client")]
 pub use transport::connection::{Client, ClientBuilder, ConnectionState};
+pub use transport::messages::{AccountsRes, CtidProfile, RefreshTokenRes, TraderAccount};
