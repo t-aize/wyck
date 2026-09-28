@@ -120,12 +120,7 @@ use self::view::View;
 
 fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
     let mut base = scene::Palette::new();
-    let color = |c: gpui::Rgba| scene::color::Rgba {
-        r: c.r,
-        g: c.g,
-        b: c.b,
-        a: c.a,
-    };
+    let color = chart_rgba;
     base.up = color(wyck_ui::theme::chart_up());
     base.down = color(wyck_ui::theme::chart_down());
     base.line = color(wyck_ui::theme::chart_line());
@@ -152,11 +147,31 @@ struct DesktopPalette {
     bg: gpui::Rgba,
 }
 
-fn desktop_color(color: scene::color::Rgba) -> gpui::Rgba {
+// The chart crate has no gpui, so its colors are types of its own: these move them across.
+
+fn chart_rgba(color: gpui::Rgba) -> scene::color::Rgba {
+    scene::color::Rgba {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    }
+}
+
+fn gpui_rgba(color: scene::color::Rgba) -> gpui::Rgba {
     gpui::Rgba {
         r: color.r,
         g: color.g,
         b: color.b,
+        a: color.a,
+    }
+}
+
+fn gpui_hsla(color: scene::color::Hsla) -> gpui::Hsla {
+    gpui::Hsla {
+        h: color.h,
+        s: color.s,
+        l: color.l,
         a: color.a,
     }
 }
@@ -712,11 +727,11 @@ impl Chart {
     fn palette(&self) -> DesktopPalette {
         let palette = palette_for_chart(&self.settings.colors);
         DesktopPalette {
-            up: desktop_color(palette.up),
-            down: desktop_color(palette.down),
-            text: desktop_color(palette.text),
-            text_strong: desktop_color(palette.text_strong),
-            bg: desktop_color(palette.bg),
+            up: gpui_rgba(palette.up),
+            down: gpui_rgba(palette.down),
+            text: gpui_rgba(palette.text),
+            text_strong: gpui_rgba(palette.text_strong),
+            bg: gpui_rgba(palette.bg),
         }
     }
 

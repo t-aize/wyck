@@ -46,13 +46,7 @@ struct Canvas<'a> {
 }
 
 fn color(hsla: Hsla) -> tiny_skia::Color {
-    let rgba: gpui::Rgba = gpui::Hsla {
-        h: hsla.h,
-        s: hsla.s,
-        l: hsla.l,
-        a: hsla.a,
-    }
-    .into();
+    let rgba: gpui::Rgba = super::gpui_hsla(hsla).into();
     tiny_skia::Color::from_rgba(
         rgba.r.clamp(0.0, 1.0),
         rgba.g.clamp(0.0, 1.0),
