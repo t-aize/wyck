@@ -127,7 +127,13 @@ impl Chart {
 
     /// A press on the prices. Returns whether a drawing took it, in which case the chart does not
     /// scroll.
-    pub(super) fn drawing_press(&mut self, x: f32, y: f32, cx: &mut Context<Self>) -> bool {
+    pub(super) fn drawing_press(
+        &mut self,
+        x: f32,
+        y: f32,
+        add: bool,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return false;
         };
@@ -149,7 +155,7 @@ impl Chart {
         let taken = self.with_projection(|projection| {
             drawings.update(cx, |drawings, cx| {
                 drawings.edit(cx, |book| {
-                    book.press_resolved(&symbol, &timeframe, projection, x, y, &|d| {
+                    book.press_adding(&symbol, &timeframe, projection, x, y, add, &|d| {
                         self.resolved_position(d)
                     })
                 })
@@ -200,6 +206,82 @@ impl Chart {
         if changed == Some(true) {
             cx.notify();
         }
+    }
+
+    /// Selects the drawings a box dragged over the plot touches, added to the selection.
+    pub(super) fn select_in_box(
+        &mut self,
+        from: (f32, f32),
+        to: (f32, f32),
+        cx: &mut Context<Self>,
+    ) {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return;
+        };
+        let timeframe = self.timeframe.code();
+        self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| {
+                    book.select_in_box(&symbol, &timeframe, projection, from, to, true)
+                })
+            })
+        });
+    }
+
+    /// Ctrl+A: selects every drawing of the symbol that shows on this timeframe.
+    pub fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
+        let timeframe = self.timeframe.code();
+        self.edit_drawings(cx, |book, symbol| book.select_all(symbol, &timeframe));
+    }
+
+    /// Keeps a copy of the selected drawings. Returns whether there was anything selected.
+    pub fn copy_selected_drawings(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(drawings) = self.drawings.clone() else {
+            return false;
+        };
+        let Some(symbol) = self.symbol_name() else {
+            return false;
+        };
+        drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, |book| book.copy_selection(&symbol))
+        })
+    }
+
+    /// Pastes the copied drawings on this chart's symbol. Returns whether anything was copied.
+    pub fn paste_drawings(&mut self, cx: &mut Context<Self>) -> bool {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return false;
+        };
+        if !drawings.read(cx).book().can_paste() {
+            return false;
+        }
+        self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.paste(&symbol, projection))
+            })
+        });
+        true
+    }
+
+    /// The arrow keys with something selected: moves it by `bars` bars and `steps` hundredths of the
+    /// price span. Returns whether there was a selection, in which case the arrow does not pan.
+    pub fn nudge_selected(&mut self, bars: f64, steps: f64, cx: &mut Context<Self>) -> bool {
+        let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
+            return false;
+        };
+        {
+            let drawings = drawings.read(cx);
+            let book = drawings.book();
+            if book.selected_count() == 0 || book.tool().is_some() {
+                return false;
+            }
+        }
+        self.with_projection(|projection| {
+            drawings.update(cx, |drawings, cx| {
+                drawings.edit(cx, |book| book.nudge(&symbol, projection, bars, steps))
+            })
+        });
+        true
     }
 
     /// Duplicates the selected drawing, a little to the side.

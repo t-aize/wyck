@@ -201,6 +201,22 @@ gpui::actions!(
         ChartCopyIndicators,
         ChartCopySettings,
         ChartPaste,
+        SelectAllDrawings,
+        FindTool,
+        NudgeUp,
+        NudgeDown,
+        NudgeBackFast,
+        NudgeForwardFast,
+        NudgeUpFast,
+        NudgeDownFast,
+        ToolTrendLine,
+        ToolHorizontal,
+        ToolVertical,
+        ToolFib,
+        ToolRectangle,
+        ToolText,
+        ToolMeasure,
+        ToolBrush,
     ]
 );
 
@@ -237,6 +253,25 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-c", ChartCopyIndicators, Some("Dashboard")),
         KeyBinding::new("secondary-shift-c", ChartCopySettings, Some("Dashboard")),
         KeyBinding::new("secondary-v", ChartPaste, Some("Dashboard")),
+        KeyBinding::new("secondary-a", SelectAllDrawings, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-k", FindTool, Some("Dashboard")),
+        // With drawings selected the arrows move them: one bar or a little price, ten times that
+        // with Shift. With none selected the keys go on to the chart.
+        KeyBinding::new("up", NudgeUp, Some("Dashboard")),
+        KeyBinding::new("down", NudgeDown, Some("Dashboard")),
+        KeyBinding::new("shift-left", NudgeBackFast, Some("Dashboard")),
+        KeyBinding::new("shift-right", NudgeForwardFast, Some("Dashboard")),
+        KeyBinding::new("shift-up", NudgeUpFast, Some("Dashboard")),
+        KeyBinding::new("shift-down", NudgeDownFast, Some("Dashboard")),
+        // Alt and a letter picks a tool drawn often, see `Tool::shortcut`.
+        KeyBinding::new("alt-t", ToolTrendLine, Some("Dashboard")),
+        KeyBinding::new("alt-h", ToolHorizontal, Some("Dashboard")),
+        KeyBinding::new("alt-v", ToolVertical, Some("Dashboard")),
+        KeyBinding::new("alt-f", ToolFib, Some("Dashboard")),
+        KeyBinding::new("alt-b", ToolRectangle, Some("Dashboard")),
+        KeyBinding::new("alt-n", ToolText, Some("Dashboard")),
+        KeyBinding::new("alt-m", ToolMeasure, Some("Dashboard")),
+        KeyBinding::new("alt-p", ToolBrush, Some("Dashboard")),
     ]);
 }
 
@@ -358,6 +393,9 @@ pub struct Chart {
     /// Whether this is the chart the user works on; only that one shows its toolbar when there
     /// are several.
     selected: bool,
+    /// How far from the bottom of the chart the hint of a drawing tool must stay, to clear what floats
+    /// over the chart there (the favorites pill). 0 when nothing does.
+    hint_floor: f32,
     timeframe: Timeframe,
     settings: ChartSettings,
     max_studies: usize,
@@ -454,6 +492,7 @@ impl Chart {
             symbol: None,
             hours: None,
             selected: true,
+            hint_floor: 0.0,
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,
@@ -535,6 +574,14 @@ impl Chart {
     }
 
     /// Whether this is the chart the user works on.
+    /// Keeps the hint of a drawing tool `floor` pixels off the bottom of the chart.
+    pub fn set_hint_floor(&mut self, floor: f32, cx: &mut Context<Self>) {
+        if (self.hint_floor - floor).abs() > 0.5 {
+            self.hint_floor = floor;
+            cx.notify();
+        }
+    }
+
     pub fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
         if self.selected != selected {
             self.selected = selected;

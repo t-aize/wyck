@@ -199,6 +199,8 @@ pub struct DrawingView<'a> {
     /// The drawing being made, which follows the pointer.
     pub creating: Option<&'a Drawing>,
     pub selected: Option<u64>,
+    /// The drawings selected along with it.
+    pub also: &'a [u64],
     /// Whether a drawing shows on this timeframe.
     pub visible: &'a dyn Fn(&Drawing) -> bool,
 }
@@ -1160,7 +1162,7 @@ fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
         .filter(|d| (view.visible)(d))
         .chain(view.creating)
     {
-        let selected = view.selected == Some(drawing.id);
+        let selected = view.selected == Some(drawing.id) || view.also.contains(&drawing.id);
         for prim in shapes::prims_with(drawing, &projection, selected) {
             push_prim(cx, prim, out);
         }

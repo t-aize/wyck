@@ -39,6 +39,7 @@ impl Chart {
                         list,
                         creating,
                         book.selected(),
+                        book.also().to_vec(),
                     ))
                 });
         let marks: Vec<scene::PriceMark> = self
@@ -73,10 +74,11 @@ impl Chart {
             palette: super::palette_for_chart(&self.settings.colors),
             drawings: drawings
                 .as_ref()
-                .map(|(list, creating, selected)| DrawingView {
+                .map(|(list, creating, selected, also)| DrawingView {
                     list,
                     creating: creating.as_ref(),
                     selected: *selected,
+                    also,
                     visible: &visible,
                 }),
             marks: &marks,
@@ -394,7 +396,8 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
         match event.button {
             MouseButton::Left => {
                 let clicks = event.click_count;
-                e.update(cx, |chart, cx| chart.on_mouse_down(x, y, clicks, cx));
+                let shift = event.modifiers.shift;
+                e.update(cx, |chart, cx| chart.on_mouse_down(x, y, clicks, shift, cx));
             }
             MouseButton::Right => e.update(cx, |chart, cx| chart.on_right_down(x, y, cx)),
             _ => {}

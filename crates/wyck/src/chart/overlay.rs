@@ -124,6 +124,7 @@ impl Render for Chart {
             )
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
+            .children(self.marquee())
             .children(self.status(cx))
             .on_mouse_down(MouseButton::Right, move |event, _window, cx| {
                 opener.open(Some(event.position), cx);
@@ -608,7 +609,7 @@ impl Chart {
                 "Click or press where it starts, then click or drag to each next point. Esc goes back to the pointer".to_owned()
             }
         };
-        let bottom = (geometry.h - geometry.main().bottom()) as f32 + 10.0;
+        let bottom = ((geometry.h - geometry.main().bottom()) as f32 + 10.0).max(self.hint_floor);
         Some(
             div()
                 .absolute()
@@ -1142,5 +1143,27 @@ impl Chart {
             );
         }
         out
+    }
+}
+
+impl Chart {
+    /// The box being dragged to select drawings.
+    pub(super) fn marquee(&self) -> Option<AnyElement> {
+        let drag = self
+            .drag
+            .filter(|d| d.kind == super::input::DragKind::Marquee && d.moved)?;
+        let (a, b) = (drag.start, drag.last);
+        Some(
+            div()
+                .absolute()
+                .left(px(a.0.min(b.0)))
+                .top(px(a.1.min(b.1)))
+                .w(px((a.0 - b.0).abs()))
+                .h(px((a.1 - b.1).abs()))
+                .bg(theme::accent_alpha(0.12))
+                .border_1()
+                .border_color(theme::accent_alpha(0.6))
+                .into_any_element(),
+        )
     }
 }

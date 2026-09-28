@@ -29,6 +29,7 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
+use wyck_chart::drawing::model::Tool;
 use wyck_openapi::market::{PRICE_SCALE, Spot, format_price};
 use wyck_openapi::session::{Session, SessionEvent, SessionState};
 use wyck_openapi::{Error as ApiError, Event};
@@ -314,6 +315,91 @@ impl Dashboard {
     }
 
     /// Runs `f` on the chart the user is working on.
+    /// An arrow key with drawings selected on the charts moves them; otherwise it goes on.
+    fn nudge(&mut self, window: &Window, bars: f64, steps: f64, cx: &mut Context<Self>) {
+        let moved = self.multi.read(cx).has_chart_focus(window)
+            && self
+                .multi
+                .update(cx, |multi, cx| multi.nudge_drawings(bars, steps, cx));
+        if !moved {
+            cx.propagate();
+        }
+    }
+
+    /// The keys of the drawing tools: select all, the arrows, the finder and the tool letters.
+    /// Kept out of `render`, whose frame grows with every handler chained onto it.
+    #[inline(never)]
+    fn drawing_actions(root: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
+        root.on_action(cx.listener(|this, _: &chart::FindTool, window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.open_tool_search(window, cx));
+        }))
+        .on_action(
+            cx.listener(|this, _: &chart::SelectAllDrawings, window, cx| {
+                if this.multi.read(cx).has_chart_focus(window) {
+                    this.multi
+                        .update(cx, |multi, cx| multi.select_all_drawings(cx));
+                } else {
+                    cx.propagate();
+                }
+            }),
+        )
+        .on_action(cx.listener(|this, _: &chart::NudgeUp, window, cx| {
+            this.nudge(window, 0.0, 0.2, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::NudgeDown, window, cx| {
+            this.nudge(window, 0.0, -0.2, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::NudgeBackFast, window, cx| {
+            this.nudge(window, -10.0, 0.0, cx);
+        }))
+        .on_action(
+            cx.listener(|this, _: &chart::NudgeForwardFast, window, cx| {
+                this.nudge(window, 10.0, 0.0, cx);
+            }),
+        )
+        .on_action(cx.listener(|this, _: &chart::NudgeUpFast, window, cx| {
+            this.nudge(window, 0.0, 2.0, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::NudgeDownFast, window, cx| {
+            this.nudge(window, 0.0, -2.0, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolTrendLine, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::TrendLine, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolHorizontal, _window, cx| {
+            this.multi.update(cx, |multi, cx| {
+                multi.pick_tool_key(Tool::HorizontalLine, cx)
+            });
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolVertical, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::VerticalLine, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolFib, _window, cx| {
+            this.multi.update(cx, |multi, cx| {
+                multi.pick_tool_key(Tool::FibRetracement, cx)
+            });
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolRectangle, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::Rectangle, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolText, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::Text, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolMeasure, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::Measure, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ToolBrush, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_tool_key(Tool::Brush, cx));
+        }))
+    }
+
     fn on_active_chart(
         &self,
         cx: &mut Context<Self>,
@@ -810,157 +896,168 @@ impl Render for Dashboard {
         } else {
             "Dashboard"
         };
-        div()
-            .key_context(context)
-            .track_focus(&self.focus_handle)
-            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
-                crate::settings_hub::open(this.workspace.clone(), this.multi.clone(), window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
-                this.toggle_editor(cx);
-            }))
-            .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
-                this.open_picker(window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
-                // Escape gives up a drawing in progress before it closes anything else.
-                let nothing_open = this.picker.is_none()
-                    && !this.menu_open
-                    && !this.tf_menu_open
-                    && !this.layout_menu_open;
-                if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
-                    // The field that had the keyboard may be gone with the selection.
-                    window.focus(&this.focus_handle, cx);
-                    return;
-                }
-                this.close_overlays(window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
-                this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
+        Self::drawing_actions(
+            div().key_context(context).track_focus(&self.focus_handle),
+            cx,
+        )
+        .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+            crate::settings_hub::open(this.workspace.clone(), this.multi.clone(), window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
+            this.toggle_editor(cx);
+        }))
+        .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
+            this.open_picker(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
+            // Escape gives up a drawing in progress before it closes anything else.
+            let nothing_open = this.picker.is_none()
+                && !this.menu_open
+                && !this.tf_menu_open
+                && !this.layout_menu_open;
+            if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
+                // The field that had the keyboard may be gone with the selection.
                 window.focus(&this.focus_handle, cx);
-            }))
-            .on_action(cx.listener(|this, _: &chart::FinishDrawing, _window, cx| {
-                // Only an arrow path ends on Enter: for anything else the key goes on.
-                if !this.multi.update(cx, |multi, cx| multi.finish_drawing(cx)) {
-                    cx.propagate();
-                }
-            }))
-            // Alt and a number picks the favorite tool at that place in the bar.
-            .on_action(cx.listener(|this, _: &chart::Favorite1, _window, cx| {
+                return;
+            }
+            this.close_overlays(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
+            this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
+            window.focus(&this.focus_handle, cx);
+        }))
+        .on_action(cx.listener(|this, _: &chart::FinishDrawing, _window, cx| {
+            // Only an arrow path ends on Enter: for anything else the key goes on.
+            if !this.multi.update(cx, |multi, cx| multi.finish_drawing(cx)) {
+                cx.propagate();
+            }
+        }))
+        // Alt and a number picks the favorite tool at that place in the bar.
+        .on_action(cx.listener(|this, _: &chart::Favorite1, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(0, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite2, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(1, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite3, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(2, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite4, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(3, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite5, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(4, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite6, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(5, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite7, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(6, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite8, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(7, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::Favorite9, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.pick_favorite(8, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
+            this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::RedoDrawing, _window, cx| {
+            this.multi.update(cx, |multi, cx| multi.redo_drawing(cx));
+        }))
+        .on_action(
+            cx.listener(|this, _: &chart::DuplicateDrawing, _window, cx| {
                 this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(0, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite2, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(1, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite3, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(2, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite4, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(3, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite5, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(4, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite6, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(5, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite7, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(6, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite8, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(7, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::Favorite9, _window, cx| {
-                this.multi
-                    .update(cx, |multi, cx| multi.pick_favorite(8, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::RedoDrawing, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.redo_drawing(cx));
-            }))
-            .on_action(
-                cx.listener(|this, _: &chart::DuplicateDrawing, _window, cx| {
-                    this.multi
-                        .update(cx, |multi, cx| multi.duplicate_drawing(cx));
-                }),
-            )
-            .on_action(cx.listener(|this, _: &chart::ChartPanBack, _window, cx| {
+                    .update(cx, |multi, cx| multi.duplicate_drawing(cx));
+            }),
+        )
+        .on_action(cx.listener(|this, _: &chart::ChartPanBack, window, cx| {
+            let moved = this.multi.read(cx).has_chart_focus(window)
+                && this
+                    .multi
+                    .update(cx, |multi, cx| multi.nudge_drawings(-1.0, 0.0, cx));
+            if !moved {
                 this.on_active_chart(cx, |chart, cx| chart.pan_keys(false, cx));
-            }))
-            .on_action(
-                cx.listener(|this, _: &chart::ChartPanForward, _window, cx| {
-                    this.on_active_chart(cx, |chart, cx| chart.pan_keys(true, cx));
-                }),
-            )
-            .on_action(cx.listener(|this, _: &chart::ChartZoomIn, _window, cx| {
-                this.on_active_chart(cx, |chart, cx| chart.zoom_keys(true, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::ChartZoomOut, _window, cx| {
-                this.on_active_chart(cx, |chart, cx| chart.zoom_keys(false, cx));
-            }))
-            .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
-                this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
-            }))
-            .on_action(
-                cx.listener(|this, _: &chart::ChartResetScale, _window, cx| {
-                    this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
-                }),
-            )
-            .on_action(cx.listener(|this, _: &chart::ChartAddAlert, _window, cx| {
-                this.add_alert_here(cx);
-            }))
-            .on_action(
-                cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
-                    this.multi.update(cx, |multi, cx| multi.picture(cx));
-                }),
-            )
-            .on_action(
-                cx.listener(|this, _: &chart::ChartCopyIndicators, window, cx| {
-                    this.multi.update(cx, |multi, cx| {
-                        if multi.has_chart_focus(window) {
-                            multi.copy_active_indicators(cx);
-                        }
-                    });
-                }),
-            )
-            .on_action(
-                cx.listener(|this, _: &chart::ChartCopySettings, window, cx| {
-                    this.multi.update(cx, |multi, cx| {
-                        if multi.has_chart_focus(window) {
-                            multi.copy_active_settings(cx);
-                        }
-                    });
-                }),
-            )
-            .on_action(cx.listener(|this, _: &chart::ChartPaste, window, cx| {
+            }
+        }))
+        .on_action(cx.listener(|this, _: &chart::ChartPanForward, window, cx| {
+            let moved = this.multi.read(cx).has_chart_focus(window)
+                && this
+                    .multi
+                    .update(cx, |multi, cx| multi.nudge_drawings(1.0, 0.0, cx));
+            if !moved {
+                this.on_active_chart(cx, |chart, cx| chart.pan_keys(true, cx));
+            }
+        }))
+        .on_action(cx.listener(|this, _: &chart::ChartZoomIn, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.zoom_keys(true, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ChartZoomOut, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.zoom_keys(false, cx));
+        }))
+        .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
+        }))
+        .on_action(
+            cx.listener(|this, _: &chart::ChartResetScale, _window, cx| {
+                this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
+            }),
+        )
+        .on_action(cx.listener(|this, _: &chart::ChartAddAlert, _window, cx| {
+            this.add_alert_here(cx);
+        }))
+        .on_action(
+            cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
+                this.multi.update(cx, |multi, cx| multi.picture(cx));
+            }),
+        )
+        .on_action(
+            cx.listener(|this, _: &chart::ChartCopyIndicators, window, cx| {
                 this.multi.update(cx, |multi, cx| {
                     if multi.has_chart_focus(window) {
-                        multi.paste_active(cx);
+                        multi.copy_active_indicators(cx);
                     }
                 });
-            }))
-            .relative()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .w_full()
-            .h_full()
-            .bg(theme::bg())
-            .child(header)
-            .child(body)
-            .children(menu)
-            .children(picker)
-            .children(menu_backdrop)
+            }),
+        )
+        .on_action(
+            cx.listener(|this, _: &chart::ChartCopySettings, window, cx| {
+                this.multi.update(cx, |multi, cx| {
+                    if multi.has_chart_focus(window) {
+                        multi.copy_active_settings(cx);
+                    }
+                });
+            }),
+        )
+        .on_action(cx.listener(|this, _: &chart::ChartPaste, window, cx| {
+            this.multi.update(cx, |multi, cx| {
+                if multi.has_chart_focus(window) {
+                    multi.paste_active(cx);
+                }
+            });
+        }))
+        .relative()
+        .flex()
+        .flex_col()
+        .flex_1()
+        .w_full()
+        .h_full()
+        .bg(theme::bg())
+        .child(header)
+        .child(body)
+        .children(menu)
+        .children(picker)
+        .children(menu_backdrop)
     }
 }
 

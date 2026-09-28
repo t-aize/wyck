@@ -104,6 +104,8 @@ struct Editing {
     symbol: String,
     id: u64,
     original: Drawing,
+    /// The other drawings moving with this one, as they were when the press began.
+    group: Vec<Drawing>,
     before: Vec<Drawing>,
     kind: EditKind,
 }
@@ -122,6 +124,12 @@ pub struct Book {
     /// Whether a tool stays picked once a drawing is finished, to draw several in a row.
     keep_tool: bool,
     selected: Option<u64>,
+    /// The drawings selected along with `selected`, by Shift and a click, a box or Ctrl+A.
+    also: Vec<u64>,
+    /// What was copied, to paste on any symbol. Not saved.
+    clipboard: Vec<Drawing>,
+    /// How many times the clipboard was pasted in a row, so each paste lands a step further.
+    pasted: u32,
     creating: Option<Creating>,
     editing: Option<Editing>,
     undo: Vec<Snapshot>,
@@ -168,6 +176,100 @@ impl Book {
 
     pub fn selected(&self) -> Option<u64> {
         self.selected
+    }
+
+    /// The drawings selected along with the main one.
+    pub fn also(&self) -> &[u64] {
+        &self.also
+    }
+
+    /// Every selected drawing, the main one first.
+    pub fn selection(&self) -> Vec<u64> {
+        self.selected
+            .into_iter()
+            .chain(self.also.iter().copied())
+            .collect()
+    }
+
+    pub fn is_selected(&self, id: u64) -> bool {
+        self.selected == Some(id) || self.also.contains(&id)
+    }
+
+    /// How many drawings are selected.
+    pub fn selected_count(&self) -> usize {
+        usize::from(self.selected.is_some()) + self.also.len()
+    }
+
+    /// Adds the drawing to the selection, or takes it out when it is in.
+    pub fn toggle_select(&mut self, id: u64) {
+        if self.selected == Some(id) {
+            self.selected = if self.also.is_empty() {
+                None
+            } else {
+                Some(self.also.remove(0))
+            };
+        } else if let Some(at) = self.also.iter().position(|other| *other == id) {
+            self.also.remove(at);
+        } else if self.selected.is_none() {
+            self.selected = Some(id);
+        } else {
+            self.also.push(id);
+        }
+    }
+
+    /// Selects every drawing of the symbol that shows on `timeframe`.
+    pub fn select_all(&mut self, symbol: &str, timeframe: &str) -> bool {
+        let ids: Vec<u64> = self
+            .drawings(symbol)
+            .iter()
+            .filter(|d| d.shows_on(timeframe) && !d.hidden)
+            .map(|d| d.id)
+            .collect();
+        if ids.is_empty() {
+            return false;
+        }
+        self.tool = None;
+        self.selected = Some(ids[0]);
+        self.also = ids[1..].to_vec();
+        true
+    }
+
+    /// Selects the drawings that have a point inside the box from `a` to `b` (screen positions),
+    /// added to the selection when `add` is set.
+    pub fn select_in_box(
+        &mut self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        a: P,
+        b: P,
+        add: bool,
+    ) -> bool {
+        let (left, right) = (a.0.min(b.0), a.0.max(b.0));
+        let (top, bottom) = (a.1.min(b.1), a.1.max(b.1));
+        let inside = |d: &Drawing| {
+            d.points.iter().any(|point| {
+                proj.to_screen(*point).is_some_and(|at| {
+                    at.0 >= left && at.0 <= right && at.1 >= top && at.1 <= bottom
+                })
+            })
+        };
+        let ids: Vec<u64> = self
+            .drawings(symbol)
+            .iter()
+            .filter(|d| d.shows_on(timeframe) && !d.hidden && inside(d))
+            .map(|d| d.id)
+            .collect();
+        let mut all = if add { self.selection() } else { Vec::new() };
+        for id in ids {
+            if !all.contains(&id) {
+                all.push(id);
+            }
+        }
+        let changed = all != self.selection();
+        self.selected = all.first().copied();
+        self.also = all.into_iter().skip(1).collect();
+        changed
     }
 
     pub fn drawings(&self, symbol: &str) -> &[Drawing] {
@@ -228,6 +330,7 @@ impl Book {
         self.tool = tool;
         if tool.is_some() {
             self.selected = None;
+            self.also.clear();
         }
     }
 
@@ -272,7 +375,10 @@ impl Book {
         if self.tool.take().is_some() {
             return true;
         }
-        self.selected.take().is_some()
+        let had = self.selected.take().is_some();
+        let had_more = !self.also.is_empty();
+        self.also.clear();
+        had || had_more
     }
 
     // ---- history ----
@@ -307,6 +413,14 @@ impl Book {
         {
             self.selected = None;
         }
+        let symbol = snapshot.symbol.clone();
+        let alive: Vec<u64> = self
+            .also
+            .iter()
+            .copied()
+            .filter(|id| self.get(&symbol, *id).is_some())
+            .collect();
+        self.also = alive;
         self.revision += 1;
         current
     }
@@ -358,6 +472,7 @@ impl Book {
         let before = self.snapshot(symbol);
         self.remember(before);
         self.selected = Some(drawing.id);
+        self.also.clear();
         self.wants_text_focus = drawing.tool.has_text();
         self.symbols
             .entry(symbol.to_owned())
@@ -419,13 +534,29 @@ impl Book {
         y: f32,
         resolve: &dyn Fn(&Drawing) -> Option<Drawing>,
     ) -> Press {
+        self.press_adding(symbol, timeframe, proj, x, y, false, resolve)
+    }
+
+    /// A press, with `add` (Shift held) turning a click on a drawing into adding it to the
+    /// selection, or taking it out, and leaving the selection alone on a click on nothing.
+    #[allow(clippy::too_many_arguments)]
+    pub fn press_adding(
+        &mut self,
+        symbol: &str,
+        timeframe: &str,
+        proj: &dyn Projection,
+        x: f32,
+        y: f32,
+        add: bool,
+        resolve: &dyn Fn(&Drawing) -> Option<Drawing>,
+    ) -> Press {
         if let Some(tool) = self.tool {
             let Some(point) = proj.point_at(x, y, self.magnet) else {
                 return Press::Taken;
             };
             return self.press_with_tool(symbol, tool, point, (x, y), proj);
         }
-        self.press_to_edit(symbol, timeframe, proj, x, y, resolve)
+        self.press_to_edit(symbol, timeframe, proj, x, y, add, resolve)
     }
 
     fn press_with_tool(
@@ -565,6 +696,7 @@ impl Book {
         self.tool.take().is_some()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn press_to_edit(
         &mut self,
         symbol: &str,
@@ -572,6 +704,7 @@ impl Book {
         proj: &dyn Projection,
         x: f32,
         y: f32,
+        add: bool,
         resolve: &dyn Fn(&Drawing) -> Option<Drawing>,
     ) -> Press {
         let at = (x, y);
@@ -588,10 +721,23 @@ impl Book {
             found = self.hit_resolved(symbol, timeframe, proj, at, resolve);
         }
         let Some((id, part)) = found else {
-            self.selected = None;
+            // Shift keeps the selection, so a box can be dragged from empty space to add to it.
+            if !add {
+                self.selected = None;
+                self.also.clear();
+            }
             return Press::Ignored;
         };
-        self.selected = Some(id);
+        if add {
+            self.toggle_select(id);
+            return Press::Taken;
+        }
+        // A press on a drawing of a group keeps the group, and moves it whole.
+        let in_group = self.selected_count() > 1 && self.is_selected(id);
+        if !in_group {
+            self.selected = Some(id);
+            self.also.clear();
+        }
         let Some(original) = self.get(symbol, id).and_then(resolve) else {
             return Press::Taken;
         };
@@ -605,10 +751,21 @@ impl Book {
                 None => return Press::Taken,
             },
         };
+        let group = if in_group && matches!(kind, EditKind::Move(_)) {
+            self.selection()
+                .into_iter()
+                .filter(|other| *other != id)
+                .filter_map(|other| self.get(symbol, other).cloned())
+                .filter(|d| !d.locked)
+                .collect()
+        } else {
+            Vec::new()
+        };
         self.editing = Some(Editing {
             symbol: symbol.to_owned(),
             id,
             original,
+            group,
             before: self.drawings(symbol).to_vec(),
             kind,
         });
@@ -702,7 +859,7 @@ impl Book {
         let Some(editing) = self.editing.as_ref() else {
             return false;
         };
-        let (symbol, id) = (editing.symbol.clone(), editing.id);
+        let symbol = editing.symbol.clone();
         let Some(now) = proj.point_at(
             x,
             y,
@@ -711,6 +868,7 @@ impl Book {
             return false;
         };
         let mut updated = editing.original.clone();
+        let mut moved_group: Vec<Drawing> = Vec::new();
         match editing.kind {
             EditKind::Handle(index) => apply_handle(&mut updated, index, now),
             EditKind::Move(start) => {
@@ -718,25 +876,34 @@ impl Book {
                     return false;
                 };
                 let (bars, price) = (to - from, now.p - start.p);
-                for point in &mut updated.points {
-                    if let Some(t) = proj.shift_bars(point.t, bars) {
-                        point.t = t;
-                        point.p += price;
+                let shift = |drawing: &mut Drawing| {
+                    for point in &mut drawing.points {
+                        if let Some(t) = proj.shift_bars(point.t, bars) {
+                            point.t = t;
+                            point.p += price;
+                        }
                     }
+                };
+                shift(&mut updated);
+                moved_group = editing.group.clone();
+                for other in &mut moved_group {
+                    shift(other);
                 }
             }
         }
-        match self
-            .symbols
-            .get_mut(&symbol)
-            .and_then(|list| list.iter_mut().find(|d| d.id == id))
-        {
-            Some(slot) if *slot != updated => {
-                *slot = updated;
-                true
+        let Some(list) = self.symbols.get_mut(&symbol) else {
+            return false;
+        };
+        let mut changed = false;
+        for next in std::iter::once(updated).chain(moved_group) {
+            if let Some(slot) = list.iter_mut().find(|d| d.id == next.id)
+                && *slot != next
+            {
+                *slot = next;
+                changed = true;
             }
-            _ => false,
         }
+        changed
     }
 
     /// The left button was released at `(x, y)`. Returns whether something changed.
@@ -933,25 +1100,24 @@ impl Book {
 
     // ---- changing what exists ----
 
-    fn edit_selected(&mut self, symbol: &str, change: impl FnOnce(&mut Drawing)) -> bool {
-        let Some(id) = self.selected else {
-            return false;
-        };
-        let before = self.snapshot(symbol);
-        let Some(drawing) = self
-            .symbols
-            .get_mut(symbol)
-            .and_then(|list| list.iter_mut().find(|d| d.id == id))
-        else {
-            return false;
-        };
-        let original = drawing.clone();
-        change(drawing);
-        if *drawing == original {
+    fn edit_selected(&mut self, symbol: &str, mut change: impl FnMut(&mut Drawing)) -> bool {
+        let ids = self.selection();
+        if ids.is_empty() {
             return false;
         }
-        self.remember(before);
-        true
+        let before = self.snapshot(symbol);
+        let mut changed = false;
+        if let Some(list) = self.symbols.get_mut(symbol) {
+            for drawing in list.iter_mut().filter(|d| ids.contains(&d.id)) {
+                let original = drawing.clone();
+                change(drawing);
+                changed |= *drawing != original;
+            }
+        }
+        if changed {
+            self.remember(before);
+        }
+        changed
     }
 
     pub fn set_color(&mut self, symbol: &str, color: u32) -> bool {
@@ -964,6 +1130,16 @@ impl Book {
 
     pub fn set_dash(&mut self, symbol: &str, dash: super::model::Dash) -> bool {
         self.edit_selected(symbol, |d| d.style.dash = dash)
+    }
+
+    /// Changes the look of the selected drawing as one undo step, for the quick controls of the
+    /// style bar that have no setter of their own.
+    pub fn edit_style(
+        &mut self,
+        symbol: &str,
+        mut change: impl FnMut(&mut super::model::Style),
+    ) -> bool {
+        self.edit_selected(symbol, |d| change(&mut d.style))
     }
 
     pub fn toggle_fill(&mut self, symbol: &str) -> bool {
@@ -994,49 +1170,124 @@ impl Book {
         true
     }
 
-    /// Duplicates the selected drawing, a little to the side, and selects the copy.
+    /// Duplicates the selected drawings, a little to the side, and selects the copies.
     pub fn duplicate(&mut self, symbol: &str, proj: &dyn Projection) -> bool {
-        let Some(original) = self.selected.and_then(|id| self.get(symbol, id)).cloned() else {
-            return false;
-        };
-        if self.count(symbol) >= self.drawing_limit() {
+        let originals: Vec<Drawing> = self
+            .selection()
+            .into_iter()
+            .filter_map(|id| self.get(symbol, id).cloned())
+            .collect();
+        self.add_copies(symbol, originals, proj, 1)
+    }
+
+    /// Puts copies of `originals` on the symbol, `step` steps to the side and down, and selects
+    /// them. The drawing limit stops it early.
+    fn add_copies(
+        &mut self,
+        symbol: &str,
+        originals: Vec<Drawing>,
+        proj: &dyn Projection,
+        step: u32,
+    ) -> bool {
+        if originals.is_empty() {
             return false;
         }
-        let mut copy = original;
-        copy.id = self.new_id();
-        copy.locked = false;
-        let step = proj.price_span() * 0.03;
-        for point in &mut copy.points {
-            point.t = proj.shift_bars(point.t, 3.0).unwrap_or(point.t);
-            point.p -= step;
+        let room = self.drawing_limit().saturating_sub(self.count(symbol));
+        if room == 0 {
+            return false;
         }
+        let bars = 3.0 * f64::from(step);
+        let down = proj.price_span() * 0.03 * f64::from(step);
         let before = self.snapshot(symbol);
+        let mut ids = Vec::new();
+        for original in originals.into_iter().take(room) {
+            let mut copy = original;
+            copy.id = self.new_id();
+            copy.locked = false;
+            for point in &mut copy.points {
+                point.t = proj.shift_bars(point.t, bars).unwrap_or(point.t);
+                point.p -= down;
+            }
+            ids.push(copy.id);
+            self.symbols
+                .entry(symbol.to_owned())
+                .or_default()
+                .push(copy);
+        }
         self.remember(before);
-        self.selected = Some(copy.id);
-        self.symbols
-            .entry(symbol.to_owned())
-            .or_default()
-            .push(copy);
+        self.selected = ids.first().copied();
+        self.also = ids.into_iter().skip(1).collect();
         true
     }
 
-    /// Deletes the selected drawing, unless it is locked.
-    pub fn delete_selected(&mut self, symbol: &str) -> bool {
-        let Some(id) = self.selected else {
+    /// Keeps a copy of the selected drawings, to paste.
+    pub fn copy_selection(&mut self, symbol: &str) -> bool {
+        let copied: Vec<Drawing> = self
+            .selection()
+            .into_iter()
+            .filter_map(|id| self.get(symbol, id).cloned())
+            .collect();
+        if copied.is_empty() {
             return false;
-        };
-        if self.get(symbol, id).is_none_or(|d| d.locked) {
+        }
+        self.clipboard = copied;
+        self.pasted = 0;
+        true
+    }
+
+    /// Whether something was copied.
+    pub fn can_paste(&self) -> bool {
+        !self.clipboard.is_empty()
+    }
+
+    /// Pastes what was copied, on any symbol. Each paste in a row lands a step further along.
+    pub fn paste(&mut self, symbol: &str, proj: &dyn Projection) -> bool {
+        self.pasted += 1;
+        let copies = self.clipboard.clone();
+        let done = self.add_copies(symbol, copies, proj, self.pasted);
+        if !done {
+            self.pasted -= 1;
+        }
+        done
+    }
+
+    /// Moves the selected drawings by `bars` bars and `steps` hundredths of the price span, which
+    /// the arrow keys ask for. Locked drawings stay.
+    pub fn nudge(&mut self, symbol: &str, proj: &dyn Projection, bars: f64, steps: f64) -> bool {
+        let rise = proj.price_span() * 0.01 * steps;
+        self.edit_selected(symbol, |d| {
+            if d.locked {
+                return;
+            }
+            for point in &mut d.points {
+                if bars != 0.0 {
+                    point.t = proj.shift_bars(point.t, bars).unwrap_or(point.t);
+                }
+                point.p += rise;
+            }
+        })
+    }
+
+    /// Deletes the selected drawings, except the locked ones.
+    pub fn delete_selected(&mut self, symbol: &str) -> bool {
+        let ids: Vec<u64> = self
+            .selection()
+            .into_iter()
+            .filter(|id| self.get(symbol, *id).is_some_and(|d| !d.locked))
+            .collect();
+        if ids.is_empty() {
             return false;
         }
         let before = self.snapshot(symbol);
         self.remember(before);
         if let Some(list) = self.symbols.get_mut(symbol) {
-            list.retain(|d| d.id != id);
+            list.retain(|d| !ids.contains(&d.id));
             if list.is_empty() {
                 self.symbols.remove(symbol);
             }
         }
         self.selected = None;
+        self.also.clear();
         true
     }
 
@@ -1054,6 +1305,7 @@ impl Book {
             }
         }
         self.selected = None;
+        self.also.clear();
         true
     }
 
@@ -1062,6 +1314,7 @@ impl Book {
     /// Selects a drawing (or nothing), as a click on it would.
     pub fn select(&mut self, id: Option<u64>) {
         self.selected = id;
+        self.also.clear();
     }
 
     fn edit_one(&mut self, symbol: &str, id: u64, change: impl FnOnce(&mut Drawing)) -> bool {
@@ -1188,6 +1441,7 @@ impl Book {
                 self.symbols.remove(symbol);
             }
         }
+        self.also.retain(|other| *other != id);
         if self.selected == Some(id) {
             self.selected = None;
         }
@@ -1297,6 +1551,36 @@ impl Book {
         removed
     }
 
+    /// Gives the selected drawings of `tool` the look saved under `name` for that tool.
+    pub fn apply_named_template(&mut self, symbol: &str, tool: Tool, name: &str) -> bool {
+        let code = tool.code();
+        let Some(template) = self
+            .named_templates
+            .iter()
+            .find(|t| t.tool == code && t.name == name)
+            .cloned()
+        else {
+            return false;
+        };
+        self.edit_selected(symbol, |d| {
+            if d.tool == tool {
+                d.style = template.style.clone();
+                d.levels = template.levels.clone();
+            }
+        })
+    }
+
+    /// Gives the selected drawings of `tool` the look new ones of the tool start with.
+    pub fn apply_starting_style(&mut self, symbol: &str, tool: Tool) -> bool {
+        let (style, levels) = self.starting_style(tool);
+        self.edit_selected(symbol, |d| {
+            if d.tool == tool {
+                d.style = style.clone();
+                d.levels = levels.clone();
+            }
+        })
+    }
+
     /// The look a new drawing of `tool` starts with: the saved one, or the built-in one.
     pub fn starting_style(&self, tool: Tool) -> (super::model::Style, Vec<super::model::Level>) {
         match self.templates.get(&tool.code()) {
@@ -1390,6 +1674,132 @@ mod tests {
         let (x, y) = at(seconds, price);
         book.press(SYMBOL, TF, &Linear, x, y);
         book.release(SYMBOL, &Linear, x, y);
+    }
+
+    /// Two trend lines, far apart, the way a user would draw them.
+    fn apart_lines(book: &mut Book) {
+        book.set_tool(Some(Tool::TrendLine));
+        click(book, 60.0, 100.0);
+        click(book, 240.0, 160.0);
+        book.set_tool(Some(Tool::TrendLine));
+        click(book, 60.0, 300.0);
+        click(book, 240.0, 360.0);
+        book.select(None);
+    }
+
+    #[test]
+    fn shift_and_a_click_builds_a_selection_and_a_second_click_takes_one_out() {
+        let mut book = book();
+        apart_lines(&mut book);
+        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
+        let (x, y) = at(150.0, 130.0);
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        let (x, y) = at(150.0, 330.0);
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        assert_eq!(book.selected_count(), 2);
+        assert!(ids.iter().all(|id| book.is_selected(*id)));
+
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        assert_eq!(book.selected_count(), 1);
+        assert!(!book.is_selected(ids[1]));
+    }
+
+    #[test]
+    fn dragging_one_of_a_group_moves_all_of_it_as_one_undo_step() {
+        let mut book = book();
+        apart_lines(&mut book);
+        assert!(book.select_all(SYMBOL, TF));
+        let before: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        let (x, y) = at(150.0, 130.0);
+        book.press(SYMBOL, TF, &Linear, x, y);
+        let (x2, y2) = at(150.0, 150.0);
+        book.pointer_moved(SYMBOL, &Linear, x2, y2, false);
+        book.release(SYMBOL, &Linear, x2, y2);
+        let after: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        let moved: Vec<f64> = before.iter().zip(&after).map(|(a, b)| b - a).collect();
+        assert!(moved[0].abs() > 0.0);
+        assert!((moved[0] - moved[1]).abs() < 1e-6, "both moved the same");
+        assert_eq!(book.selected_count(), 2, "the group is kept");
+
+        assert!(book.undo());
+        let restored: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        assert_eq!(restored, before);
+    }
+
+    #[test]
+    fn a_box_selects_what_has_a_point_inside_it() {
+        let mut book = book();
+        apart_lines(&mut book);
+        let low = book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 80.0), at(300.0, 200.0), false);
+        assert!(low);
+        assert_eq!(book.selected_count(), 1);
+        book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 280.0), at(300.0, 400.0), true);
+        assert_eq!(book.selected_count(), 2, "added to the selection");
+    }
+
+    #[test]
+    fn delete_and_style_changes_reach_every_selected_drawing() {
+        let mut book = book();
+        apart_lines(&mut book);
+        book.select_all(SYMBOL, TF);
+        assert!(book.set_color(SYMBOL, 0x123456));
+        assert!(
+            book.drawings(SYMBOL)
+                .iter()
+                .all(|d| d.style.color == 0x123456)
+        );
+        assert!(book.delete_selected(SYMBOL));
+        assert_eq!(book.count(SYMBOL), 0);
+        assert!(book.undo());
+        assert_eq!(book.count(SYMBOL), 2);
+    }
+
+    #[test]
+    fn a_copy_pastes_on_another_symbol_and_each_paste_lands_further() {
+        let mut book = book();
+        apart_lines(&mut book);
+        book.select_all(SYMBOL, TF);
+        assert!(book.copy_selection(SYMBOL));
+        assert!(book.paste("EURUSD", &Linear));
+        assert_eq!(book.count("EURUSD"), 2);
+        assert_eq!(book.selected_count(), 2, "the copies are selected");
+        assert!(book.paste("EURUSD", &Linear));
+        let list = book.drawings("EURUSD");
+        assert_eq!(list.len(), 4);
+        assert_ne!(list[0].points[0], list[2].points[0]);
+        assert_eq!(book.count(SYMBOL), 2, "the originals stay");
+    }
+
+    #[test]
+    fn the_arrows_move_the_selection_but_not_a_locked_drawing() {
+        let mut book = book();
+        apart_lines(&mut book);
+        let id = book.drawings(SYMBOL)[0].id;
+        book.select(Some(id));
+        let start = book.drawings(SYMBOL)[0].points[0];
+        assert!(book.nudge(SYMBOL, &Linear, 1.0, 1.0));
+        let moved = book.drawings(SYMBOL)[0].points[0];
+        assert!(moved.t > start.t && moved.p > start.p);
+        assert!(book.toggle_lock(SYMBOL));
+        assert!(
+            !book.nudge(SYMBOL, &Linear, 1.0, 1.0),
+            "a locked drawing stays"
+        );
     }
 
     #[test]

@@ -551,6 +551,21 @@ impl Tool {
         }
     }
 
+    /// The keys that pick the tool, for the tools drawn most, or `None`.
+    pub fn shortcut(self) -> Option<&'static str> {
+        match self {
+            Self::TrendLine => Some("Alt+T"),
+            Self::HorizontalLine => Some("Alt+H"),
+            Self::VerticalLine => Some("Alt+V"),
+            Self::FibRetracement => Some("Alt+F"),
+            Self::Rectangle => Some("Alt+B"),
+            Self::Text => Some("Alt+N"),
+            Self::Measure => Some("Alt+M"),
+            Self::Brush => Some("Alt+P"),
+            _ => None,
+        }
+    }
+
     /// Whether a click places the last point and finishes, without a second click.
     pub fn is_single_click(self) -> bool {
         self.anchors() == 1 || self.is_position()

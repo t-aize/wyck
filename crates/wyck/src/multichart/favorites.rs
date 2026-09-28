@@ -1,8 +1,8 @@
-//! The bar of favorite drawing tools: the tools drawn most, pinned in a strip over the charts so
-//! they are one click away (or Alt and a number), whatever family they belong to.
+//! The favorite drawing tools: the tools drawn most, pinned in a pill over the charts so they
+//! are one click away (or Alt and a number), whatever family they belong to.
 //!
-//! The bar is docked and always there, unless it is turned off, so it is never in the way of a
-//! drag and never has to be found. A tool is pinned or unpinned with the star beside it in the
+//! The pill is anchored at the bottom center of the chart area, not draggable. It fades while
+//! the pointer is elsewhere and is always there, unless it is turned off. A tool is pinned or unpinned with the star beside it in the
 //! list of its family, and a right click on a favorite moves it along the bar or removes it. The
 //! favorites are kept with the rest of the workspace.
 
@@ -21,8 +21,15 @@ use wyck_ui::{
     theme, tokens,
 };
 
-/// How tall the bar is.
-const BAR_HEIGHT: f32 = 36.0;
+/// How tall the pill is.
+const PILL_HEIGHT: f32 = 36.0;
+/// How far the pill sits above the bottom of the chart area, clear of the time axis.
+const PILL_BOTTOM: f32 = 44.0;
+/// The opacity of the pill while the pointer is elsewhere.
+const IDLE_OPACITY: f32 = 0.7;
+
+/// How far from the bottom of the chart area the pill reaches, and so how high a hint must sit.
+pub(super) const PILL_TOP: f32 = PILL_BOTTOM + PILL_HEIGHT + 8.0;
 
 impl MultiChart {
     /// The favorite tools, in the order the bar shows them.
@@ -112,20 +119,25 @@ impl MultiChart {
         let mut bar = div()
             .id("favorites-bar")
             .flex_none()
-            .w_full()
-            .h(px(BAR_HEIGHT))
+            .h(px(PILL_HEIGHT))
+            .max_w_full()
             .flex()
             .flex_row()
             .items_center()
-            .gap_1()
-            .px_2()
+            .gap_0p5()
+            .px_1p5()
             .overflow_hidden()
-            .border_b_1()
-            .border_color(theme::border_hairline())
-            .bg(theme::bg())
-            .child(div().flex_none().px_1().child(icon::tinted(
+            .rounded_full()
+            .border_1()
+            .border_color(theme::border_subtle())
+            .bg(theme::surface_alpha(0.92))
+            .shadow_lg()
+            .occlude()
+            .opacity(IDLE_OPACITY)
+            .hover(|s| s.opacity(1.0))
+            .child(div().flex_none().px_1p5().child(icon::tinted(
                 IconName::StarFill,
-                14.,
+                13.,
                 theme::amber(),
             )));
 
@@ -186,7 +198,7 @@ impl MultiChart {
                     .gap_1p5()
                     .h(px(tokens::height::CONTROL))
                     .px_2()
-                    .rounded_md()
+                    .rounded_full()
                     .cursor_pointer()
                     .text_size(px(tokens::text::BODY))
                     .text_color(if selected {
@@ -219,35 +231,56 @@ impl MultiChart {
             );
         }
 
+        // The pill floats at the bottom of the chart area, over the time axis, centered. The
+        // wrapper takes no mouse events, so the chart stays live around the pill.
+        let pill = bar
+            .child(
+                div()
+                    .flex_none()
+                    .w(px(1.))
+                    .h(px(16.))
+                    .mx_1()
+                    .bg(theme::border_subtle()),
+            )
+            .child(
+                Button::new("favorites-names")
+                    .ghost()
+                    .compact()
+                    .icon(IconName::Type)
+                    .tooltip(if names {
+                        "Show icons only"
+                    } else {
+                        "Show the names of the tools"
+                    })
+                    .toggled(names)
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.toggle_favorite_names(cx);
+                    })),
+            )
+            .child(
+                Button::new("favorites-hide")
+                    .ghost()
+                    .compact()
+                    .icon(IconName::X)
+                    .tooltip("Hide the favorites")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.toggle_favorites_bar(cx);
+                    })),
+            );
+
         Some(
-            bar.child(div().flex_1())
-                .child(
-                    Button::new("favorites-names")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::Type)
-                        .tooltip(if names {
-                            "Show icons only"
-                        } else {
-                            "Show the names of the tools"
-                        })
-                        .toggled(names)
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.toggle_favorite_names(cx);
-                        })),
-                )
-                .child(
-                    Button::new("favorites-hide")
-                        .ghost()
-                        .compact()
-                        .icon(IconName::PanelTopClose)
-                        .tooltip("Hide the favorites bar")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.toggle_favorites_bar(cx);
-                        })),
-                )
+            div()
+                .absolute()
+                .left_0()
+                .right_0()
+                .bottom(px(PILL_BOTTOM))
+                .px_2()
+                .flex()
+                .flex_row()
+                .justify_center()
+                .child(pill)
                 .into_any_element(),
         )
     }

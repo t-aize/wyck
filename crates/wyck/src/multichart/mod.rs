@@ -17,7 +17,7 @@ pub use crate::workspace::layouts;
 pub mod links;
 pub mod split;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -41,6 +41,10 @@ use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimit
 use wyck_chart::drawing::model::{Dash, Group, Tool};
 use wyck_chart::study::StudyConfig;
 use wyck_ui::{text_input::TextInput, theme};
+
+/// How many recent tools and colors are kept.
+const MAX_RECENT_TOOLS: usize = 8;
+const MAX_RECENT_COLORS: usize = 6;
 
 /// The symbol of a chart: its id, name and number of decimals.
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +120,19 @@ pub struct MultiChart {
     _text_observe: Subscription,
     /// The family of drawing tools that is open, if any.
     flyout: Option<Group>,
+    /// Whether the search over every tool is open, in place of a family.
+    tool_search: bool,
+    /// The field the tools are searched with.
+    search_input: Entity<TextInput>,
+    _search_observe: Subscription,
+    /// The tools picked last, most recent first.
+    recent_tools: Vec<Tool>,
+    /// The colors set on drawings last, most recent first.
+    recent_colors: Vec<u32>,
+    /// Where the button of each family was last drawn, so its list opens beside it.
+    rail_slots: Rc<RefCell<HashMap<Group, Bounds<Pixels>>>>,
+    /// Where this whole view was last drawn.
+    root_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// The drawing whose color panel is open in the style bar.
     color_open: Option<u64>,
     /// Taken when a chart is clicked, so the keys (arrows, Delete, Ctrl+Z) reach the charts and
@@ -154,6 +171,8 @@ impl MultiChart {
         });
         let text_input = cx.new(|cx| TextInput::new(cx, "Text"));
         let _text_observe = cx.observe(&text_input, |this, _input, cx| this.on_text_edited(cx));
+        let search_input = cx.new(|cx| TextInput::new(cx, "Search the tools"));
+        let _search_observe = cx.observe(&search_input, |_, _input, cx| cx.notify());
         let _drawings_observe = cx.observe(&drawings, |this, _drawings, cx| {
             this.on_drawings_changed(cx);
         });
@@ -163,6 +182,13 @@ impl MultiChart {
             text_input,
             _text_observe,
             flyout: None,
+            tool_search: false,
+            search_input,
+            _search_observe,
+            recent_tools: Vec::new(),
+            recent_colors: Vec::new(),
+            rail_slots: Rc::default(),
+            root_bounds: Rc::new(Cell::new(None)),
             color_open: None,
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
@@ -241,7 +267,14 @@ impl MultiChart {
         self.focus.is_focused(window)
     }
 
+    /// Ctrl+C: copies the selected drawings, or else the indicators of the chart.
     pub fn copy_active_indicators(&mut self, cx: &mut Context<Self>) {
+        let chart = self.active_chart().clone();
+        if chart.update(cx, |chart, cx| chart.copy_selected_drawings(cx)) {
+            // What was copied last is what Ctrl+V pastes.
+            self.clipboard = None;
+            return;
+        }
         self.copy_chart(self.active, false, cx);
     }
 
@@ -249,8 +282,40 @@ impl MultiChart {
         self.copy_chart(self.active, true, cx);
     }
 
+    /// Ctrl+V: the drawings copied last, or else the indicators or settings copied.
     pub fn paste_active(&mut self, cx: &mut Context<Self>) {
+        if self.clipboard.is_none() {
+            let chart = self.active_chart().clone();
+            if chart.update(cx, |chart, cx| chart.paste_drawings(cx)) {
+                return;
+            }
+        }
         self.paste_chart(self.active, cx);
+    }
+
+    /// Ctrl+A on the charts: selects every drawing of the symbol.
+    pub fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.select_all_drawings(cx));
+    }
+
+    /// An arrow key: moves the selected drawings. Returns whether there were any to move.
+    pub fn nudge_drawings(&mut self, bars: f64, steps: f64, cx: &mut Context<Self>) -> bool {
+        let chart = self.active_chart().clone();
+        chart.update(cx, |chart, cx| chart.nudge_selected(bars, steps, cx))
+    }
+
+    /// The key of a tool: picks it, or goes back to the pointer when it is in hand already.
+    pub fn pick_tool_key(&mut self, tool: Tool, cx: &mut Context<Self>) {
+        let current = self.drawings.read(cx).book().tool();
+        self.pick_tool(
+            if current == Some(tool) {
+                None
+            } else {
+                Some(tool)
+            },
+            cx,
+        );
     }
 
     fn copy_chart(&mut self, index: usize, settings: bool, cx: &mut Context<Self>) {
@@ -663,12 +728,26 @@ impl MultiChart {
 
     pub(crate) fn pick_tool(&mut self, tool: Option<Tool>, cx: &mut Context<Self>) {
         self.flyout = None;
+        self.tool_search = false;
         if let Some(tool) = tool {
             self.last_tool.insert(tool.group(), tool);
+            self.recent_tools.retain(|other| *other != tool);
+            self.recent_tools.insert(0, tool);
+            self.recent_tools.truncate(MAX_RECENT_TOOLS);
         }
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| book.set_tool(tool))
         });
+        cx.notify();
+    }
+
+    /// Opens the search over every tool, with the keyboard in its field.
+    pub fn open_tool_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.flyout = None;
+        self.tool_search = true;
+        self.search_input
+            .update(cx, |input, cx| input.set_text("", cx));
+        window.focus(&gpui::Focusable::focus_handle(&self.search_input, cx), cx);
         cx.notify();
     }
 
@@ -711,7 +790,7 @@ impl MultiChart {
 
     /// Escape: gives up what the drawing tools have in progress. Returns whether there was any.
     pub fn cancel_drawing(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.flyout.take().is_some() {
+        if self.flyout.take().is_some() || std::mem::take(&mut self.tool_search) {
             cx.notify();
             return true;
         }
@@ -776,6 +855,9 @@ impl MultiChart {
     }
 
     pub(crate) fn set_drawing_color(&mut self, color: u32, cx: &mut Context<Self>) {
+        self.recent_colors.retain(|other| *other != color);
+        self.recent_colors.insert(0, color);
+        self.recent_colors.truncate(MAX_RECENT_COLORS);
         self.edit_book(cx, |book, symbol| book.set_color(symbol, color));
     }
 
@@ -966,14 +1048,21 @@ impl Render for MultiChart {
         // A chart that changed symbol gets that symbol's hours (a no-op when it has them).
         self.give_hours(cx);
         let several = self.slots.len() > 1;
+        let floor = if self.favorites_shown(cx) {
+            favorites::PILL_TOP
+        } else {
+            0.0
+        };
         for (index, slot) in self.slots.iter().enumerate() {
             let selected = !several || index == self.active;
-            slot.chart
-                .update(cx, |chart, cx| chart.set_selected(selected, cx));
+            slot.chart.update(cx, |chart, cx| {
+                chart.set_selected(selected, cx);
+                chart.set_hint_floor(floor, cx);
+            });
         }
         let (rects, dividers) = self.tree.place(self.slots.len());
         // The bar of the selected drawing floats over the chart it is being edited on.
-        let mut style_bar = self.render_style_bar(cx);
+        let mut style_bar = self.render_style_bar(window, cx);
         let gap = if several { 1.0 } else { 0.0 };
 
         let cells = self
@@ -1095,6 +1184,7 @@ impl Render for MultiChart {
         let favorites = self.render_favorites(window, cx);
         let flyout = self.render_flyout(cx);
         let area_cell = self.area.clone();
+        let root_cell = self.root_bounds.clone();
 
         div()
             .relative()
@@ -1105,46 +1195,46 @@ impl Render for MultiChart {
             .min_h_0()
             .bg(theme::bg())
             .track_focus(&self.focus)
+            .child(
+                canvas(
+                    move |bounds, _window, _cx| root_cell.set(Some(bounds)),
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
             .child(rail)
             .child(
-                div()
-                    .flex_1()
-                    .h_full()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .children(favorites)
-                    .child(
-                        div()
-                            .id("chart-area")
-                            .relative()
-                            .flex_1()
-                            .w_full()
-                            .min_h_0()
-                            .on_mouse_move(cx.listener(
-                                |this, event: &MouseMoveEvent, _window, cx| {
-                                    this.on_area_move(event, cx);
-                                },
-                            ))
-                            .on_mouse_up(
-                                MouseButton::Left,
-                                cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                div().flex_1().h_full().min_w_0().flex().flex_col().child(
+                    div()
+                        .id("chart-area")
+                        .relative()
+                        .flex_1()
+                        .w_full()
+                        .min_h_0()
+                        .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                            this.on_area_move(event, cx);
+                        }))
+                        .on_mouse_up(
+                            MouseButton::Left,
+                            cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                        )
+                        .on_mouse_up_out(
+                            MouseButton::Left,
+                            cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
+                        )
+                        .child(
+                            canvas(
+                                move |bounds, _window, _cx| area_cell.set(Some(bounds)),
+                                |_, _, _, _| {},
                             )
-                            .on_mouse_up_out(
-                                MouseButton::Left,
-                                cx.listener(|this, _event, _window, cx| this.end_split_drag(cx)),
-                            )
-                            .child(
-                                canvas(
-                                    move |bounds, _window, _cx| area_cell.set(Some(bounds)),
-                                    |_, _, _, _| {},
-                                )
-                                .absolute()
-                                .size_full(),
-                            )
-                            .children(cells)
-                            .children(divider_elements),
-                    ),
+                            .absolute()
+                            .size_full(),
+                        )
+                        .children(cells)
+                        .children(divider_elements)
+                        .children(favorites),
+                ),
             )
             .children(flyout)
     }

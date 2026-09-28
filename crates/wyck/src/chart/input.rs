@@ -40,6 +40,8 @@ pub enum DragKind {
     Separator(usize),
     /// A line being moved, and where it is now (raw price).
     Line(LineId, f64),
+    /// A box dragged over the drawings to select them (Shift and a drag on empty space).
+    Marquee,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -182,7 +184,14 @@ impl Chart {
         Some((map.price(f64::from(y)) / unit).round() * unit)
     }
 
-    pub(super) fn on_mouse_down(&mut self, x: f32, y: f32, clicks: usize, cx: &mut Context<Self>) {
+    pub(super) fn on_mouse_down(
+        &mut self,
+        x: f32,
+        y: f32,
+        clicks: usize,
+        shift: bool,
+        cx: &mut Context<Self>,
+    ) {
         cx.emit(ChartEvent::Activated);
         // A release that never came (the button let go outside the window) ends the last press
         // before this one starts.
@@ -224,7 +233,7 @@ impl Chart {
                 cx.notify();
                 return;
             }
-            if self.drawing_press(x, y, cx) {
+            if self.drawing_press(x, y, shift, cx) {
                 self.drawing_drag = true;
                 // A double click on a drawing opens its settings.
                 if clicks >= 2
@@ -245,7 +254,14 @@ impl Chart {
             }
             return;
         }
+        let boxing = shift
+            && region == Region::Plot(0)
+            && self
+                .drawings
+                .as_ref()
+                .is_some_and(|d| d.read(cx).book().tool().is_none());
         let kind = match region {
+            Region::Plot(0) if boxing => DragKind::Marquee,
             Region::Plot(pane) => DragKind::Pan {
                 prices: pane == 0,
                 free: false,
@@ -318,6 +334,10 @@ impl Chart {
                     self.zoom_by((f64::from(dx) * 0.006).exp(), anchor, cx);
                 }
                 DragKind::Separator(index) => self.drag_separator(index, dy, cx),
+                DragKind::Marquee => {
+                    self.set_hover(x, y, cx);
+                    cx.notify();
+                }
                 DragKind::Line(id, _) => {
                     self.set_hover(x, y, cx);
                     if let Some(price) = self.price_at(y) {
@@ -337,6 +357,9 @@ impl Chart {
     /// A drag ended: a line that moved says where it went.
     fn finish_drag(&mut self, cx: &mut Context<Self>) {
         if let Some(drag) = self.drag.take() {
+            if drag.kind == DragKind::Marquee && drag.moved {
+                self.select_in_box(drag.start, drag.last, cx);
+            }
             if let DragKind::Line(id, price) = drag.kind
                 && drag.moved
             {
@@ -445,6 +468,7 @@ impl Chart {
         if let Some(drag) = self.drag {
             return match drag.kind {
                 DragKind::Pan { .. } => grabbing(),
+                DragKind::Marquee => CursorStyle::Crosshair,
                 DragKind::Price | DragKind::Separator(_) | DragKind::Line(..) => {
                     CursorStyle::ResizeUpDown
                 }
