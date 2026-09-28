@@ -103,11 +103,12 @@ fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
             color: style.text_color(),
             background: layout
                 .background
-                .then(|| (layout.background_color.unwrap_or(TAG), 0.9)),
+                .then(|| (layout.background_color.unwrap_or(TAG), layout.tag_opacity())),
             align: layout.align,
             valign: layout.valign,
             size,
             bold: style.bold,
+            face: style.face(),
         });
         return;
     }
@@ -118,10 +119,11 @@ fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
         color: style.text_color(),
         background: layout
             .background
-            .then(|| (layout.background_color.unwrap_or(TAG), 0.9)),
+            .then(|| (layout.background_color.unwrap_or(TAG), layout.tag_opacity())),
         anchor,
         size,
         bold: style.bold,
+        face: style.face(),
     });
 }
 
@@ -257,6 +259,7 @@ mod tests {
             valign: VAlign::Bottom,
             background: true,
             background_color: Some(0x123456),
+            ..TextLayout::default()
         };
         let mut out = Vec::new();
         decorate(&d, &pts, PLOT, &mut out);

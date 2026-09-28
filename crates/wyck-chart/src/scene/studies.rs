@@ -555,6 +555,7 @@ pub(super) fn value_tags(
             within: None,
             size: FONT,
             bold: false,
+            face: Default::default(),
         });
     };
     let last_value = |plot: &PlotOut| plot.values.iter().rev().find(|v| v.is_finite()).copied();

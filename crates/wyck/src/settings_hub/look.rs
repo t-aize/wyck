@@ -463,13 +463,34 @@ impl SettingsHub {
         cx.notify();
     }
 
+    /// Opens or closes the list of fonts, made the first time it opens.
+    fn toggle_fonts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.font_open = !self.font_open;
+        if self.font_open && self.font_picker.is_none() {
+            let current = appearance::font(cx).to_string();
+            let picker =
+                cx.new(|cx| FontPicker::new(Some(current), appearance::DEFAULT_FONT, window, cx));
+            self._font_subscription = Some(cx.subscribe(
+                &picker,
+                |_this, _picker, event: &FontChosen, cx| {
+                    let name = event
+                        .0
+                        .clone()
+                        .unwrap_or_else(|| appearance::DEFAULT_FONT.to_owned());
+                    appearance::update(cx, |a| a.font = name);
+                },
+            ));
+            self.font_picker = Some(picker);
+        }
+        cx.notify();
+    }
+
     pub(super) fn font_group(
         &self,
         a: &appearance::Appearance,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let this = cx.entity();
-        let toggle = this.clone();
+        let toggle = cx.entity();
         let mut rows = vec![form::field(
             "Interface font",
             Some("Any font installed on this computer. Inter comes with the app"),
@@ -479,107 +500,16 @@ impl SettingsHub {
                 .small()
                 .icon(IconName::Type)
                 .label(SharedString::from(a.font.clone()))
-                .toggled(self.fonts_open)
-                .on_click(move |_, _window, cx| {
-                    toggle.update(cx, |e, cx| {
-                        e.fonts_open = !e.fonts_open;
-                        cx.notify();
-                    });
+                .toggled(self.font_open)
+                .on_click(move |_, window, cx| {
+                    toggle.update(cx, |e, cx| e.toggle_fonts(window, cx));
                 }),
         )];
-        if self.fonts_open {
-            let query = self.font_filter.read(cx).value().to_lowercase();
-            let mut items: Vec<AnyElement> = Vec::new();
-            let matching: Vec<&String> = self
-                .fonts
-                .iter()
-                .filter(|f| query.is_empty() || f.to_lowercase().contains(&query))
-                .take(FONTS_SHOWN)
-                .collect();
-            if matching.is_empty() {
-                items.push(form::note("No font matches.").p_3().into_any_element());
-            }
-            for name in matching {
-                let chosen = *name == a.font;
-                let name = name.clone();
-                items.push(
-                    div()
-                        .id(SharedString::from(format!("font-{name}")))
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .justify_between()
-                        .h(px(tokens::height::CONTROL))
-                        .px_2()
-                        .cursor_pointer()
-                        .text_size(px(tokens::text::EMPHASIS))
-                        .font_family(SharedString::from(name.clone()))
-                        .text_color(if chosen {
-                            theme::fg()
-                        } else {
-                            theme::muted_fg()
-                        })
-                        .when(chosen, |el| el.bg(theme::accent_selected()))
-                        .hover(|s| s.bg(theme::surface_hover()))
-                        .on_click({
-                            let name = name.clone();
-                            move |_, _window, cx| {
-                                let name = name.clone();
-                                appearance::update(cx, |a| a.font = name);
-                            }
-                        })
-                        .child(name.clone())
-                        .children(chosen.then(|| icon::small(IconName::Check, theme::accent())))
-                        .into_any_element(),
-                );
-            }
-            // A fixed height and the scrollbar of the components: a list inside a panel that scrolls
-            // must have its own scroll, or the wheel goes to the panel.
-            let list = div()
-                .id("settings-font-list")
-                .flex()
-                .flex_col()
-                .h(px(220.))
-                .rounded_md()
-                .border_1()
-                .border_color(theme::border_subtle())
-                .overflow_y_scrollbar()
-                .children(items);
-            let reset_font = this.clone();
-            rows.push(form::block(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(div().flex_1().child(Input::new(&self.font_filter).small()))
-                            .child(
-                                Button::new("settings-font-default")
-                                    .cursor_pointer()
-                                    .ghost()
-                                    .small()
-                                    .icon(IconName::RotateCcw)
-                                    .label("Inter")
-                                    .on_click(move |_, _window, cx| {
-                                        reset_font.update(cx, |_, _| {});
-                                        appearance::update(cx, |a| {
-                                            a.font = appearance::DEFAULT_FONT.to_owned();
-                                        });
-                                    }),
-                            ),
-                    )
-                    // The list scrolls by itself: the wheel stops here, so the panel around it stays put.
-                    .child(
-                        div()
-                            .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
-                            .child(list),
-                    ),
-            ));
+        if let Some(picker) = self.font_picker.as_ref().filter(|_| self.font_open) {
+            picker.update(cx, |picker, cx| {
+                picker.set_current(Some(a.font.clone()), cx)
+            });
+            rows.push(form::block(picker.clone()));
         }
         form::group(IconName::Type, "Typography", rows)
     }

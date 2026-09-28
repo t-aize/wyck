@@ -6,10 +6,12 @@ use std::rc::Rc;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Bounds, ContentMask, Entity, FontWeight, Hitbox, HitboxBehavior, MouseButton,
+    App, Bounds, ContentMask, Entity, FontStyle, FontWeight, Hitbox, HitboxBehavior, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, PathBuilder, PinchEvent, Pixels,
     ScrollWheelEvent, SharedString, TextAlign, TextRun, Window, canvas, point, px, size,
 };
+
+use wyck_chart::drawing::look::Face;
 
 use super::Chart;
 use super::scene::{self, Align, Cmd, DrawingView, Frame, P};
@@ -195,8 +197,9 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 color,
                 align,
                 bold,
+                face,
             } => {
-                let line = shape(window, &text, font_size, color, bold);
+                let line = shape(window, &text, font_size, color, bold, face);
                 let x = aligned(x, f32::from(line.width), align);
                 let _ = line.paint(
                     point(px(x), px(y)),
@@ -219,15 +222,16 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 align,
                 valign,
                 bold,
+                face,
             } => {
                 let Some(font_size) =
                     scene::cmd::fitted_size(&text, preferred, w, h, |font_size| {
-                        f32::from(shape(window, &text, font_size, color, bold).width)
+                        f32::from(shape(window, &text, font_size, color, bold, face).width)
                     })
                 else {
                     continue;
                 };
-                let line = shape(window, &text, font_size, color, bold);
+                let line = shape(window, &text, font_size, color, bold, face);
                 let text_w = f32::from(line.width);
                 let (left, top) =
                     scene::cmd::fitted_origin((x, y, w, h), text_w, font_size, align, valign);
@@ -264,8 +268,9 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 within,
                 size: font_size,
                 bold,
+                face,
             } => {
-                let line = shape(window, &text, font_size, fg, bold);
+                let line = shape(window, &text, font_size, fg, bold, face);
                 let width = fixed_width.unwrap_or_else(|| f32::from(line.width) + pad * 2.0);
                 let mut x = aligned(x, width, align);
                 if let Some((left, right)) = within {
@@ -331,11 +336,18 @@ fn shape(
     size_px: f32,
     color: scene::color::Hsla,
     bold: bool,
+    face: Face,
 ) -> gpui::ShapedLine {
     let style = window.text_style();
     let mut font = style.font();
     if bold {
         font.weight = FontWeight::SEMIBOLD;
+    }
+    if face.italic {
+        font.style = FontStyle::Italic;
+    }
+    if let Some(family) = face.family {
+        font.family = SharedString::from(family);
     }
     let run = TextRun {
         len: text.len(),

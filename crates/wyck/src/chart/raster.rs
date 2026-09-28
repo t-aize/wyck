@@ -308,6 +308,7 @@ impl Canvas<'_> {
                     color: text_color,
                     align,
                     bold,
+                    ..
                 } => {
                     let width = self.measure(text, *size);
                     let x = aligned(*x, width, *align);
@@ -335,6 +336,7 @@ impl Canvas<'_> {
                     align,
                     valign,
                     bold,
+                    ..
                 } => {
                     let Some(font_size) =
                         super::scene::cmd::fitted_size(text, *size, *w, *h, |s| {
@@ -400,6 +402,7 @@ impl Canvas<'_> {
                     within,
                     size,
                     bold,
+                    ..
                 } => {
                     let text_w = self.measure(text, *size);
                     let width = fixed_width.unwrap_or(text_w + pad * 2.0);
@@ -620,6 +623,7 @@ mod tests {
                 color: rgb_alpha(0xffffff, 1.0),
                 align: Align::Center,
                 bold: false,
+                face: Default::default(),
             },
             Cmd::Tag {
                 text: "UTC".into(),
@@ -634,6 +638,7 @@ mod tests {
                 within: Some((0.0, 200.0)),
                 size: FONT,
                 bold: false,
+                face: Default::default(),
             },
         ];
         let png = render_png(
@@ -686,6 +691,7 @@ mod tests {
                 align: Align::Center,
                 valign: wyck_chart::drawing::look::VAlign::Auto,
                 bold: false,
+                face: Default::default(),
             }],
             80.0,
             50.0,

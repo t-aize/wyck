@@ -218,6 +218,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                     color: tone(*mark),
                     align: Align::Center,
                     bold: is_poc,
+                    face: Default::default(),
                 });
             }
         } else if look.blocks_apart {
@@ -297,6 +298,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                     color: with_alpha(p.tpo_single, 0.95),
                     align: Align::Left,
                     bold: false,
+                    face: Default::default(),
                 });
             }
         }
@@ -350,6 +352,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
                     color,
                     align: Align::Left,
                     bold: false,
+                    face: Default::default(),
                 });
             }
         };

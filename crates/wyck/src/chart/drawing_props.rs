@@ -25,6 +25,7 @@ use wyck_chart::drawing::model::{
     DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Point, Tool, wave_label,
 };
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
+use wyck_ui::font_picker::{FontChosen, FontPicker};
 use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
 
 mod coordinates;
@@ -133,6 +134,12 @@ struct DrawingProps {
     /// The name a look is about to be saved under.
     template_name: Entity<InputState>,
     text_size: Entity<InputState>,
+    /// The opacity of the tag behind the words, in percent.
+    tag_opacity: Entity<InputState>,
+    /// The list of fonts of the Text tab, made when it is first opened.
+    font_picker: Option<Entity<FontPicker>>,
+    font_open: bool,
+    _font_subscription: Option<Subscription>,
     text: Entity<TextareaState>,
     /// The number fields of a long or short position, when the drawing is one.
     pos: Option<PositionFields>,
@@ -212,6 +219,15 @@ impl DrawingProps {
                 .min(6.0)
                 .max(48.0)
         });
+        let tag_opacity = cx.new(|cx| {
+            number::state(
+                number::Kind::Share,
+                f64::from(style.text_layout.tag_opacity()) * 100.0,
+                window,
+                cx,
+            )
+            .min(5.0)
+        });
         let width =
             cx.new(|cx| number::state(number::Kind::LineWidth, f64::from(style.width), window, cx));
         let scale = cx.new(|cx| {
@@ -261,6 +277,11 @@ impl DrawingProps {
             }),
             number::watch(&text_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.text_size = value as f32);
+            }),
+            number::watch(&tag_opacity, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    d.style.text_layout.background_opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                });
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -461,6 +482,10 @@ impl DrawingProps {
             profile_area,
             template_name,
             text_size,
+            tag_opacity,
+            font_picker: None,
+            font_open: false,
+            _font_subscription: None,
             text,
             pos,
             atr_seed,
@@ -636,6 +661,12 @@ impl DrawingProps {
         }
         self.text_size
             .update(cx, |s, cx| s.set_value(size, window, cx));
+        let tag = number::format(
+            f64::from(drawing.style.text_layout.tag_opacity()) * 100.0,
+            0,
+        );
+        self.tag_opacity
+            .update(cx, |s, cx| s.set_value(tag, window, cx));
         if let Some(pos) = &self.pos {
             let p = &drawing.style.position;
             let texts = [

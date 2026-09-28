@@ -263,6 +263,7 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
                 color: label_ink,
                 align: Align::Center,
                 bold: false,
+                face: Default::default(),
             });
         }
     }

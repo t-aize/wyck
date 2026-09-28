@@ -214,6 +214,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                                 color: hsla(if wins { color } else { p.text_strong }),
                                 align,
                                 bold: wins,
+                                face: Default::default(),
                             });
                         }
                     }
@@ -256,6 +257,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                             color: hsla(p.text_strong),
                             align: Align::Center,
                             bold: buy_wins || sell_wins,
+                            face: Default::default(),
                         });
                     }
                     for (wins, color) in [(buy_wins, up), (sell_wins, down)] {
@@ -394,6 +396,7 @@ fn summary(
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
+        face: Default::default(),
     };
     for (k, analysis) in analyses.iter().enumerate() {
         let Some(a) = analysis else { continue };
@@ -413,6 +416,7 @@ fn summary(
                     color: hsla(color),
                     align: Align::Center,
                     bold,
+                    face: Default::default(),
                 });
             }
         };

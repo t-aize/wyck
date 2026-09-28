@@ -131,6 +131,11 @@ impl DrawingProps {
                     cx,
                 ),
             ));
+            placement.push(form::field(
+                "Tag opacity",
+                Some("In percent"),
+                number::field(&self.tag_opacity, tokens::field::NUMBER),
+            ));
         }
         vec![
             form::group(
@@ -143,7 +148,6 @@ impl DrawingProps {
     }
 
     pub(super) fn text_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
-        let style = &drawing.style;
         let mut page = form::page();
         if drawing.tool.has_text() {
             page = page.child(form::group(
@@ -157,27 +161,129 @@ impl DrawingProps {
                 page = page.child(group);
             }
         }
-        page.child(form::group(
-            IconName::Type,
+        page.child(self.font_group(drawing, cx)).into_any_element()
+    }
+
+    /// Opens or closes the list of fonts, made the first time it opens.
+    pub(super) fn toggle_fonts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.font_open = !self.font_open;
+        if self.font_open && self.font_picker.is_none() {
+            let current = self.current(cx).and_then(|d| d.style.font);
+            let picker = cx.new(|cx| FontPicker::new(current, "interface font", window, cx));
+            self._font_subscription = Some(cx.subscribe(
+                &picker,
+                |this, _picker, event: &FontChosen, cx| {
+                    let font = event.0.clone();
+                    this.change(cx, |d| d.style.font = font);
+                },
+            ));
+            self.font_picker = Some(picker);
+        }
+        cx.notify();
+    }
+
+    /// The font, size, weight and color of the words, and a line that shows them.
+    pub(super) fn font_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
+        let style = &drawing.style;
+        let this = cx.entity();
+        let toggle = this.clone();
+        let family = style
+            .font
+            .clone()
+            .unwrap_or_else(|| "Interface font".to_owned());
+        let mut rows = vec![form::field(
             "Font",
-            [
-                form::field(
-                    "Color",
-                    None,
-                    self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
-                ),
-                form::field(
-                    "Size",
-                    None,
-                    number::field(&self.text_size, tokens::field::NUMBER),
-                ),
-                form::field(
-                    "Bold",
-                    None,
-                    self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
-                ),
-            ],
-        ))
-        .into_any_element()
+            Some("Any font installed on this computer"),
+            Button::new("props-font-open")
+                .cursor_pointer()
+                .ghost()
+                .small()
+                .icon(IconName::Type)
+                .label(SharedString::from(family))
+                .toggled(self.font_open)
+                .on_click(move |_, window, cx| {
+                    toggle.update(cx, |e, cx| e.toggle_fonts(window, cx));
+                }),
+        )];
+        if let Some(picker) = self.font_picker.as_ref().filter(|_| self.font_open) {
+            picker.update(cx, |picker, cx| picker.set_current(style.font.clone(), cx));
+            rows.push(form::block(picker.clone()));
+        }
+        let index = SIZES
+            .iter()
+            .position(|size| (*size - style.text_size).abs() < 0.01);
+        let labels: Vec<String> = SIZES.iter().map(|size| format!("{size}")).collect();
+        let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let size_this = this.clone();
+        rows.push(form::field(
+            "Size",
+            Some("Pick one, or type any size in points"),
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(controls::segmented(
+                    "props-size",
+                    &label_refs,
+                    index.unwrap_or(usize::MAX),
+                    move |choice, window, cx| {
+                        size_this.update(cx, |e, cx| {
+                            e.change(cx, |d| d.style.text_size = SIZES[choice]);
+                            e.set_fields(window, cx);
+                        });
+                    },
+                ))
+                .child(number::field(&self.text_size, tokens::field::NARROW)),
+        ));
+        rows.push(form::field(
+            "Color",
+            None,
+            self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
+        ));
+        rows.push(form::field(
+            "Bold",
+            None,
+            self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
+        ));
+        rows.push(form::field(
+            "Italic",
+            None,
+            self.switch("props-italic", style.italic, cx, |d, on| {
+                d.style.italic = on
+            }),
+        ));
+        rows.push(form::block(self.font_preview(drawing)));
+        form::group(IconName::Type, "Font", rows)
+    }
+
+    /// A line of words in the font in force, to see a change before leaving.
+    fn font_preview(&self, drawing: &Drawing) -> gpui::Div {
+        let style = &drawing.style;
+        let mut line = div()
+            .h(px(52.))
+            .px_3()
+            .flex()
+            .items_center()
+            .rounded_md()
+            .border_1()
+            .border_color(theme::border_subtle())
+            .bg(theme::chart_bg())
+            .text_size(px(style.text_size.clamp(6.0, 48.0)))
+            .text_color(gpui::rgb(style.text_color()))
+            .child("Support 1.0850  Resistance 1.0920  0123456789");
+        if let Some(font) = style.font.as_deref().filter(|f| !f.trim().is_empty()) {
+            line = line.font_family(SharedString::from(font.trim().to_owned()));
+        }
+        if style.bold {
+            line = line.font_weight(gpui::FontWeight::SEMIBOLD);
+        }
+        if style.italic {
+            line = line.italic();
+        }
+        line
     }
 }
+
+/// The sizes offered as one click, in points.
+const SIZES: [f32; 7] = [10.0, 12.0, 14.0, 16.0, 20.0, 24.0, 32.0];

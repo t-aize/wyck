@@ -527,14 +527,16 @@ pub fn refresh_system(cx: &mut App) {
 }
 
 fn put_in_force(cx: &mut App) {
-    let (colors, animations) = {
+    let (colors, animations, font) = {
         let state = cx.global::<State>();
         (
             state.appearance.resolve(state.system_dark),
             state.appearance.animations,
+            state.appearance.font.clone(),
         )
     };
     wyck_ui::anim::set_enabled(animations);
+    theme::set_font(Some(&font));
     theme::set_colors(colors);
     theme::apply(cx);
 }

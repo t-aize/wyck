@@ -33,8 +33,27 @@ pub enum VAlign {
     Bottom,
 }
 
+/// The letterforms of the words of a drawing beyond their size and weight: whether they lean, and
+/// which font they are set in (the font of the interface when unset).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Face {
+    pub italic: bool,
+    pub family: Option<&'static str>,
+}
+
+/// How opaque the tag behind a label is when nothing says otherwise.
+pub const DEFAULT_TAG_OPACITY: f32 = 0.9;
+
+fn default_tag_opacity() -> f32 {
+    DEFAULT_TAG_OPACITY
+}
+
+fn is_default_tag_opacity(value: &f32) -> bool {
+    (*value - DEFAULT_TAG_OPACITY).abs() < 1e-6
+}
+
 /// How the label of a drawing is laid out.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct TextLayout {
     #[serde(default)]
     pub align: HAlign,
@@ -46,6 +65,35 @@ pub struct TextLayout {
     /// The color of that tag; a dark one when unset.
     #[serde(default)]
     pub background_color: Option<u32>,
+    /// How opaque that tag is, from 0.05 to 1.
+    #[serde(
+        default = "default_tag_opacity",
+        skip_serializing_if = "is_default_tag_opacity"
+    )]
+    pub background_opacity: f32,
+}
+
+impl Default for TextLayout {
+    fn default() -> Self {
+        Self {
+            align: HAlign::default(),
+            valign: VAlign::default(),
+            background: false,
+            background_color: None,
+            background_opacity: DEFAULT_TAG_OPACITY,
+        }
+    }
+}
+
+impl TextLayout {
+    /// The opacity of the tag, kept where it can be seen.
+    pub fn tag_opacity(&self) -> f32 {
+        if self.background_opacity.is_finite() {
+            self.background_opacity.clamp(0.05, 1.0)
+        } else {
+            DEFAULT_TAG_OPACITY
+        }
+    }
 }
 
 /// What ends a line.
@@ -193,6 +241,43 @@ mod tests {
         assert!(is_default(&LabelSide::default()));
         assert_eq!(TextLayout::default().align, HAlign::Center);
         assert_eq!(TextLayout::default().valign, VAlign::Auto);
+    }
+
+    #[test]
+    fn the_tag_opacity_and_the_face_stay_out_of_a_file_until_changed() {
+        let text = toml::to_string(&TextLayout::default()).unwrap();
+        assert!(!text.contains("background_opacity"), "{text}");
+        let faint = TextLayout {
+            background_opacity: 0.4,
+            ..TextLayout::default()
+        };
+        let back: TextLayout = toml::from_str(&toml::to_string(&faint).unwrap()).unwrap();
+        assert_eq!(back.background_opacity, 0.4);
+        let wild = TextLayout {
+            background_opacity: f32::NAN,
+            ..TextLayout::default()
+        };
+        assert_eq!(wild.tag_opacity(), DEFAULT_TAG_OPACITY);
+        assert_eq!(
+            TextLayout {
+                background_opacity: 0.0,
+                ..TextLayout::default()
+            }
+            .tag_opacity(),
+            0.05
+        );
+        let mut style = crate::drawing::model::Style::default();
+        assert_eq!(style.face(), Face::default());
+        style.italic = true;
+        style.font = Some("  Georgia ".into());
+        let face = style.face();
+        assert!(face.italic);
+        assert_eq!(face.family, Some("Georgia"));
+        let saved = toml::to_string(&crate::drawing::model::Style::default()).unwrap();
+        assert!(
+            !saved.contains("font") && !saved.contains("italic"),
+            "{saved}"
+        );
     }
 
     #[test]
