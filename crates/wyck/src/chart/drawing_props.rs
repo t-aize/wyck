@@ -1196,7 +1196,7 @@ impl DrawingProps {
             page = page.child(form::group(
                 IconName::Sparkles,
                 "Icon",
-                [form::block(chips(
+                [form::block(controls::chips(
                     "props-icon",
                     &labels,
                     &[chosen],
@@ -1221,7 +1221,7 @@ impl DrawingProps {
                 IconName::Waypoints,
                 "Wave degree",
                 [
-                    form::block(chips(
+                    form::block(controls::chips(
                         "props-degree",
                         &DEGREES,
                         &[usize::from(drawing.degree)],
@@ -1744,13 +1744,9 @@ impl DrawingProps {
             .border_color(theme::border_subtle())
             .cursor_pointer()
             .hover(|s| s.bg(theme::surface_hover()))
-            .tooltip(move |window, cx| {
-                gpui_kit::component::tooltip::Tooltip::new(
-                    "Line style of this level: the drawing's, solid, dashed, dotted",
-                )
-                .m_1()
-                .build(window, cx)
-            })
+            .tooltip(controls::tooltip(
+                "Line style of this level: the drawing's, solid, dashed, dotted",
+            ))
             .on_click(move |_, _window, cx| {
                 this.update(cx, |e, cx| {
                     e.change(cx, |d| {
@@ -2149,8 +2145,8 @@ impl DrawingProps {
                         .flex_col()
                         .gap_1p5()
                         .child(form::note(group))
-                        .child(chips(
-                            &format!("props-tf-{group}"),
+                        .child(controls::chips(
+                            SharedString::from(format!("props-tf-{group}")),
                             &label_refs,
                             &selected,
                             move |index, _window, cx| {
@@ -2285,48 +2281,6 @@ impl Render for DrawingProps {
         )
         .into_any_element()
     }
-}
-
-/// Buttons that wrap, any number of them chosen.
-fn chips(
-    id: &str,
-    labels: &[&str],
-    selected: &[usize],
-    on_click: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> gpui::Div {
-    let on_click = std::rc::Rc::new(on_click);
-    let mut row = div().flex().flex_row().flex_wrap().gap_1();
-    for (index, label) in labels.iter().enumerate() {
-        let chosen = selected.contains(&index);
-        let on_click = on_click.clone();
-        row = row.child(
-            div()
-                .id(SharedString::from(format!("{id}-{index}")))
-                .h(px(26.))
-                .px_2p5()
-                .flex()
-                .items_center()
-                .rounded_md()
-                .border_1()
-                .border_color(if chosen {
-                    theme::accent()
-                } else {
-                    theme::border_subtle()
-                })
-                .when(chosen, |el| el.bg(theme::accent_selected()))
-                .cursor_pointer()
-                .text_size(px(12.))
-                .text_color(if chosen {
-                    theme::fg()
-                } else {
-                    theme::muted_fg()
-                })
-                .hover(|s| s.bg(theme::surface_hover()))
-                .on_click(move |_, window, cx| on_click(index, window, cx))
-                .child(SharedString::from((*label).to_owned())),
-        );
-    }
-    row
 }
 
 /// Every timeframe's code.

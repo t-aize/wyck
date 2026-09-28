@@ -18,6 +18,7 @@ use super::{
     Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
 };
 use crate::indicators;
+use wyck_ui::controls;
 use wyck_ui::icon;
 use wyck_ui::tokens;
 use wyck_ui::{
@@ -58,11 +59,7 @@ fn tool(
         .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
         // The press is the button's, not the chart's under it.
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .tooltip(move |window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(tip)
-                .m_1()
-                .build(window, cx)
-        })
+        .tooltip(controls::tooltip(tip))
         .child(icon::tinted(icon, 15., ink))
         .children(label)
 }

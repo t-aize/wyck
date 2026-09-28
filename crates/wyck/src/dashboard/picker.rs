@@ -16,7 +16,7 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Context, Entity, Focusable, FontWeight, MouseButton, MouseMoveEvent, ScrollStrategy, Stateful,
-    Subscription, UniformListScrollHandle, Window, div, px, relative, rgba, uniform_list,
+    Subscription, UniformListScrollHandle, Window, div, px, relative, uniform_list,
 };
 use gpui_kit::assets::IconName;
 
@@ -374,7 +374,7 @@ impl Dashboard {
             .justify_center()
             .items_center()
             .py(px(24.))
-            .bg(rgba(0x0000008c))
+            .bg(theme::veil())
             .occlude()
             .on_mouse_down(
                 MouseButton::Left,

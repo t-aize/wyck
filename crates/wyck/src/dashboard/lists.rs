@@ -14,7 +14,7 @@ use gpui_kit::assets::IconName;
 
 use super::Dashboard;
 use crate::workspace::{NameError, Watchlists};
-use wyck_ui::{icon, text_input::TextInput, theme};
+use wyck_ui::{controls, icon, text_input::TextInput, theme};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,45 +170,6 @@ impl Dashboard {
     }
 }
 
-/// A rounded chip, like the asset class ones.
-fn chip(
-    id: impl Into<gpui::ElementId>,
-    selected: bool,
-    on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
-) -> gpui::Stateful<gpui::Div> {
-    div()
-        .id(id)
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap_1p5()
-        .px_3()
-        .py_1()
-        .rounded_full()
-        .border_1()
-        .border_color(if selected {
-            theme::accent()
-        } else {
-            theme::border_subtle()
-        })
-        .bg(if selected {
-            theme::accent_selected()
-        } else {
-            theme::bg()
-        })
-        .text_size(px(12.))
-        .text_color(if selected {
-            theme::fg()
-        } else {
-            theme::muted_fg()
-        })
-        .cursor_pointer()
-        .when(!selected, |el| {
-            el.hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
-        })
-        .on_click(on_click)
-}
-
 /// A small round icon button that sits next to a chip.
 fn icon_button(
     id: impl Into<gpui::ElementId>,
@@ -238,40 +199,34 @@ pub(super) fn list_chips(
     let mut out: Vec<AnyElement> = Vec::new();
 
     out.push(
-        chip(
-            "scope-favorites",
-            scope == Some(Scope::Favorites),
-            cx.listener(|this, _event, _window, cx| {
+        controls::chip("scope-favorites", scope == Some(Scope::Favorites))
+            .on_click(cx.listener(|this, _event, _window, cx| {
                 let next = (this.picker.as_ref().and_then(|p| p.scope) != Some(Scope::Favorites))
                     .then_some(Scope::Favorites);
                 this.set_scope(next, cx);
-            }),
-        )
-        .child(icon::tinted(IconName::Star, 12., theme::amber()))
-        .child(format!("Favorites {}", lists.favorites.len()))
-        .into_any_element(),
+            }))
+            .child(icon::tinted(IconName::Star, 12., theme::amber()))
+            .child(format!("Favorites {}", lists.favorites.len()))
+            .into_any_element(),
     );
 
     for (index, list) in lists.lists.iter().enumerate() {
         let selected = scope == Some(Scope::List(index));
         out.push(
-            chip(
-                ("scope-list", index as u64),
-                selected,
-                cx.listener(move |this, _event, _window, cx| {
+            controls::chip(("scope-list", index as u64), selected)
+                .on_click(cx.listener(move |this, _event, _window, cx| {
                     let current = this.picker.as_ref().and_then(|p| p.scope);
                     let next = (current != Some(Scope::List(index))).then_some(Scope::List(index));
                     this.set_scope(next, cx);
-                }),
-            )
-            .child(list.name.clone())
-            .child(
-                div()
-                    .text_size(px(11.))
-                    .text_color(theme::muted_fg())
-                    .child(list.symbols.len().to_string()),
-            )
-            .into_any_element(),
+                }))
+                .child(list.name.clone())
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(theme::muted_fg())
+                        .child(list.symbols.len().to_string()),
+                )
+                .into_any_element(),
         );
         if selected && editor.is_none() {
             out.push(
@@ -297,14 +252,13 @@ pub(super) fn list_chips(
 
     match editor {
         None => out.push(
-            chip(
-                "new-list",
-                false,
-                cx.listener(|this, _event, window, cx| this.open_list_editor(None, window, cx)),
-            )
-            .child(icon::tinted(IconName::Plus, 12., theme::muted_fg()))
-            .child("New list")
-            .into_any_element(),
+            controls::chip("new-list", false)
+                .on_click(
+                    cx.listener(|this, _event, window, cx| this.open_list_editor(None, window, cx)),
+                )
+                .child(icon::tinted(IconName::Plus, 12., theme::muted_fg()))
+                .child("New list")
+                .into_any_element(),
         ),
         Some(editor) => out.push(
             div()

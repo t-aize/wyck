@@ -19,7 +19,7 @@ use gpui::{
     ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, GlobalElementId,
     KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad,
     Pixels, Point, ShapedLine, SharedString, Style, TextRun, UTF16Selection, UnderlineStyle,
-    Window, div, fill, hsla, point, px, relative, size,
+    Window, div, fill, point, px, relative, size,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -523,7 +523,7 @@ impl gpui::Element for TextElement {
         let style = window.text_style();
 
         let (display_text, text_color) = if content.is_empty() {
-            (input.placeholder.clone(), hsla(0., 0., 1., 0.35))
+            (input.placeholder.clone(), theme::fg_alpha(0.35).into())
         } else {
             (content, style.color)
         };

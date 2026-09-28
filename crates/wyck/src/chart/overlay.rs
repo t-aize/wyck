@@ -21,6 +21,7 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
+use wyck_ui::controls;
 use wyck_ui::tokens;
 use wyck_ui::{
     anim, button, icon,
@@ -452,11 +453,7 @@ impl Chart {
                 // The press is the button's, not the chart's under it.
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(icon::tinted(icon, 13., theme::chart_muted()))
-                .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(tooltip)
-                        .m_1()
-                        .build(window, cx)
-                })
+                .tooltip(controls::tooltip(tooltip))
         };
         div()
             .id(group)
@@ -489,11 +486,7 @@ impl Chart {
                         13.,
                         theme::destructive(),
                     ))
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(message.clone())
-                            .m_1()
-                            .build(window, cx)
-                    })
+                    .tooltip(controls::tooltip(message.clone()))
             }))
             .child(
                 div()
@@ -728,11 +721,7 @@ impl Chart {
                 .rounded_full()
                 .cursor_default()
                 .hover(move |s| s.bg(hover))
-                .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(text.clone())
-                        .m_1()
-                        .build(window, cx)
-                })
+                .tooltip(controls::tooltip(text.clone()))
                 .child(
                     div()
                         .size(px(7.))

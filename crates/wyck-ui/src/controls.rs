@@ -18,15 +18,30 @@ pub fn child_id(id: &ElementId, n: usize) -> ElementId {
     ElementId::NamedChild(std::sync::Arc::new(id.clone()), n.to_string().into())
 }
 
-/// Buttons side by side, one of them chosen.
+/// Buttons side by side, one of them chosen, each as wide as its label.
 pub fn segmented(
     id: impl Into<ElementId>,
     options: &[&str],
     selected: usize,
     on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    let on_select = Rc::new(on_select);
-    let id: ElementId = id.into();
+) -> Div {
+    strip(id.into(), options, selected, false, Rc::new(on_select))
+}
+
+/// [`segmented`] with the buttons sharing the whole width, for a choice that heads a panel (buy or
+/// sell, market or pending).
+pub fn segmented_fill(
+    id: impl Into<ElementId>,
+    options: &[&str],
+    selected: usize,
+    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
+) -> Div {
+    strip(id.into(), options, selected, true, Rc::new(on_select))
+}
+
+type OnSelect = Rc<dyn Fn(usize, &mut Window, &mut App)>;
+
+fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select: OnSelect) -> Div {
     let mut strip = div()
         .flex()
         .flex_row()
@@ -43,18 +58,15 @@ pub fn segmented(
         strip = strip.child(
             div()
                 .id(child_id(&id, index))
-                .h(px(24.))
+                .when(fill, |el| el.flex_1().justify_center())
+                .h(px(tokens::height::COMPACT))
                 .px_2p5()
                 .flex()
                 .items_center()
                 .rounded_sm()
                 .cursor_pointer()
-                .text_size(px(12.))
-                .text_color(if chosen {
-                    theme::fg()
-                } else {
-                    theme::muted_fg()
-                })
+                .text_size(px(tokens::text::BODY))
+                .text_color(ink(chosen))
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
                 .on_click(move |_, window, cx| on_select(index, window, cx))
@@ -62,6 +74,52 @@ pub fn segmented(
         );
     }
     strip
+}
+
+/// A chip: a small toggle with an edge, lit when `chosen`. The caller adds what it shows (a label,
+/// an icon) and the click.
+pub fn chip(id: impl Into<ElementId>, chosen: bool) -> gpui::Stateful<Div> {
+    div()
+        .id(id)
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap_1p5()
+        .h(px(tokens::height::COMPACT))
+        .px_2p5()
+        .rounded_md()
+        .border_1()
+        .border_color(if chosen {
+            theme::accent()
+        } else {
+            theme::border_subtle()
+        })
+        .when(chosen, |el| el.bg(theme::accent_selected()))
+        .cursor_pointer()
+        .text_size(px(tokens::text::BODY))
+        .text_color(ink(chosen))
+        .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
+}
+
+/// [`chip`]s that wrap, any number of them chosen. `on_click` gets the index of the one clicked.
+pub fn chips(
+    id: impl Into<ElementId>,
+    labels: &[&str],
+    selected: &[usize],
+    on_click: impl Fn(usize, &mut Window, &mut App) + 'static,
+) -> Div {
+    let id: ElementId = id.into();
+    let on_click = Rc::new(on_click);
+    let mut row = div().flex().flex_row().flex_wrap().gap_1();
+    for (index, label) in labels.iter().enumerate() {
+        let on_click = on_click.clone();
+        row = row.child(
+            chip(child_id(&id, index), selected.contains(&index))
+                .on_click(move |_, window, cx| on_click(index, window, cx))
+                .child(SharedString::from((*label).to_owned())),
+        );
+    }
+    row
 }
 
 /// A swatch showing `color`; clicking it calls `on_toggle`. With `open`, the color panel shows

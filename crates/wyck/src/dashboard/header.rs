@@ -12,7 +12,7 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::{chart, trading};
-use wyck_ui::{anim, button, icon, layout, menu, theme, tokens};
+use wyck_ui::{anim, button, controls, icon, layout, menu, theme, tokens};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;
@@ -400,11 +400,7 @@ impl Dashboard {
                 .rounded_md()
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::surface_hover()))
-                .tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(tip)
-                        .m_1()
-                        .build(window, cx)
-                })
+                .tooltip(controls::tooltip(tip))
                 .child(icon::tinted(icon, 13., color))
         };
         div()
@@ -506,11 +502,7 @@ impl Dashboard {
                     })
                     .when(chosen, |el| el.bg(theme::accent_selected()))
                     .hover(|style| style.bg(theme::surface_hover()))
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(unit.label())
-                            .m_1()
-                            .build(window, cx)
-                    })
+                    .tooltip(controls::tooltip(unit.label()))
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.tf_unit = unit;
                         cx.notify();

@@ -293,6 +293,11 @@ pub fn chart_crosshair() -> Rgba {
     with_alpha(colors().chart_text().1, 0.69)
 }
 
+/// The veil behind a dialog, so what is open stands out from the screen under it.
+pub fn veil() -> Rgba {
+    rgba(if is_light() { 0x0000_0055 } else { 0x0000_0099 })
+}
+
 /// Whether the palette in force is a light one.
 pub fn is_light() -> bool {
     colors().is_light()
@@ -370,12 +375,7 @@ pub fn apply(cx: &mut gpui::App) {
     theme_colors.success = hsla(emerald());
     theme_colors.warning = hsla(amber());
     theme_colors.link = hsla(accent());
-    // The veil behind a dialog, so what is open stands out from the screen under it.
-    theme_colors.overlay = hsla(gpui::rgba(if is_light() {
-        0x0000_0055
-    } else {
-        0x0000_0099
-    }));
+    theme_colors.overlay = hsla(veil());
 
     // Buttons read their own set of colors, which default to unrelated values.
     theme_colors.button = theme_colors.secondary;

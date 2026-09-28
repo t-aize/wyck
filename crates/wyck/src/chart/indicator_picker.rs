@@ -18,7 +18,7 @@ use super::{Chart, ChartEvent, EditorRequest};
 use crate::indicators;
 use wyck_ui::form::Head;
 use wyck_ui::form::Tab;
-use wyck_ui::{button, form, icon, modal, theme};
+use wyck_ui::{button, controls, form, icon, modal, theme};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
@@ -225,11 +225,7 @@ impl Picker {
                     .rounded_md()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme::surface_pressed()))
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new("Edit the script")
-                            .m_1()
-                            .build(window, cx)
-                    })
+                    .tooltip(controls::tooltip("Edit the script"))
                     .on_click(move |_, window, cx| {
                         let Source::Script(id) = edit_item.source.clone() else {
                             return;
@@ -250,15 +246,11 @@ impl Picker {
                     .rounded_md()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme::surface_pressed()))
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(if favorite {
-                            "Take the star away"
-                        } else {
-                            "Star it: it goes to Favorites"
-                        })
-                        .m_1()
-                        .build(window, cx)
-                    })
+                    .tooltip(controls::tooltip(if favorite {
+                        "Take the star away"
+                    } else {
+                        "Star it: it goes to Favorites"
+                    }))
                     .on_click(move |_, _window, cx| {
                         let key = star_item.key();
                         indicators::update_prefs(cx, |prefs| prefs.toggle_favorite(&key));

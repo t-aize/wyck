@@ -518,14 +518,10 @@ impl SettingsHub {
                 theme::border_hairline()
             })
             .cursor_pointer()
-            .tooltip(move |window, cx| {
-                gpui_kit::component::tooltip::Tooltip::new(match color {
-                    Some(_) => "Use this accent",
-                    None => "The theme's own accent",
-                })
-                .m_1()
-                .build(window, cx)
-            })
+            .tooltip(controls::tooltip(match color {
+                Some(_) => "Use this accent",
+                None => "The theme's own accent",
+            }))
             .on_click(cx.listener(move |_this, _event, _window, cx| {
                 appearance::update(cx, |a| a.accent = color);
             }));

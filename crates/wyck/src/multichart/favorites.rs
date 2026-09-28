@@ -10,12 +10,12 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::tooltip::Tooltip;
 
 use super::MultiChart;
 use crate::chart::drawing::model::Tool;
 use crate::chart::object_tree::tool_icon;
 use crate::workspace::MAX_FAVORITE_TOOLS;
+use wyck_ui::controls;
 use wyck_ui::{
     icon,
     menu::{self as popup, Entry, Item},
@@ -199,7 +199,7 @@ impl MultiChart {
                     .when(!selected, |el| {
                         el.hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
                     })
-                    .tooltip(move |window, cx| Tooltip::new(hint.clone()).m_1().build(window, cx))
+                    .tooltip(controls::tooltip(hint.clone()))
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.pick_favorite(index, cx);
                     }))

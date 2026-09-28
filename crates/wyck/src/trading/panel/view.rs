@@ -645,24 +645,7 @@ impl AccountPanel {
             .map(|s| self.account.read(cx).book.name(s))
             .unwrap_or_default();
         let chip = |id: &'static str, label: String, on: bool, run: Action| {
-            div()
-                .id(id)
-                .flex()
-                .items_center()
-                .h(px(22.))
-                .px_2()
-                .rounded_md()
-                .border_1()
-                .cursor_pointer()
-                .text_size(px(11.))
-                .border_color(if on {
-                    theme::accent()
-                } else {
-                    theme::border_subtle()
-                })
-                .text_color(if on { theme::fg() } else { theme::muted_fg() })
-                .when(on, |el| el.bg(theme::accent_selected()))
-                .hover(|s| s.bg(theme::surface_hover()))
+            controls::chip(id, on)
                 .on_click(move |_, window, cx| run(window, cx))
                 .child(label)
         };

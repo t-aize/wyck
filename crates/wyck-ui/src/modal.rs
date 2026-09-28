@@ -23,7 +23,7 @@ use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Entity, FocusHandle, Global,
     KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Window, actions, div, point, px,
-    relative, rgba,
+    relative,
 };
 
 use crate::anim::{self, ease_out_cubic};
@@ -279,7 +279,7 @@ impl Render for ModalHost {
             .top_0()
             .left_0()
             .size_full()
-            .bg(rgba(0x0000_00a6))
+            .bg(crate::theme::veil())
             .with_animation(
                 ("modal-veil", phase),
                 Animation::new(duration),

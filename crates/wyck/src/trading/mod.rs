@@ -19,14 +19,10 @@ use crate::chart::{ChartLine, LineId};
 
 use self::book::{AccountBook, is_buy};
 
-/// The colors of the lines.
-pub const POSITION_COLOR: u32 = 0x5b8def;
-pub const ORDER_COLOR: u32 = 0xffb900;
-pub const STOP_COLOR: u32 = 0xef5350;
-pub const TARGET_COLOR: u32 = 0x26a69a;
+/// The color of an alert's line. The other lines take theirs from the palette in force: a
+/// position the chart's line color, an order the amber, a stop loss the falling candle and a take
+/// profit the rising one.
 pub const ALERT_COLOR: u32 = 0xff9800;
-pub const GAIN_COLOR: u32 = 0x26a69a;
-pub const LOSS_COLOR: u32 = 0xef5350;
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`
@@ -37,6 +33,7 @@ pub fn lines(
     profit: &dyn Fn(i64) -> Option<f64>,
     currency: &str,
 ) -> HashMap<i64, Vec<ChartLine>> {
+    let palette = wyck_ui::theme::colors();
     let mut out: HashMap<i64, Vec<ChartLine>> = HashMap::new();
     let line = |id, price, color, label: String, dash, draggable, closable| ChartLine {
         id,
@@ -62,7 +59,7 @@ pub fn lines(
             let mut entry = line(
                 LineId::Position(position.position_id),
                 price,
-                POSITION_COLOR,
+                palette.line,
                 format!("{side} {lots}"),
                 Dash::Solid,
                 false,
@@ -71,7 +68,7 @@ pub fn lines(
             entry.detail = profit(position.position_id).map(|p| {
                 (
                     math::format_money(p, currency),
-                    if p >= 0.0 { GAIN_COLOR } else { LOSS_COLOR },
+                    if p >= 0.0 { palette.up } else { palette.down },
                 )
             });
             list.push(entry);
@@ -79,7 +76,7 @@ pub fn lines(
                 let mut stop = line(
                     LineId::StopLoss(position.position_id),
                     sl,
-                    STOP_COLOR,
+                    palette.down,
                     "SL".into(),
                     Dash::Dashed,
                     true,
@@ -87,7 +84,7 @@ pub fn lines(
                 );
                 stop.detail = Some((
                     format!("{:.1} pips", contract.pips((price - sl).abs())),
-                    STOP_COLOR,
+                    palette.down,
                 ));
                 list.push(stop);
             }
@@ -95,7 +92,7 @@ pub fn lines(
                 let mut target = line(
                     LineId::TakeProfit(position.position_id),
                     tp,
-                    TARGET_COLOR,
+                    palette.up,
                     "TP".into(),
                     Dash::Dashed,
                     true,
@@ -103,7 +100,7 @@ pub fn lines(
                 );
                 target.detail = Some((
                     format!("{:.1} pips", contract.pips((tp - price).abs())),
-                    TARGET_COLOR,
+                    palette.up,
                 ));
                 list.push(target);
             }
@@ -126,7 +123,7 @@ pub fn lines(
             list.push(line(
                 LineId::Order(order.order_id),
                 price,
-                ORDER_COLOR,
+                palette.amber,
                 format!("{side} {kind} {lots}"),
                 Dash::Dashed,
                 true,
@@ -137,7 +134,7 @@ pub fn lines(
             list.push(line(
                 LineId::OrderStopLoss(order.order_id),
                 sl,
-                STOP_COLOR,
+                palette.down,
                 "SL".into(),
                 Dash::Dotted,
                 true,
@@ -148,7 +145,7 @@ pub fn lines(
             list.push(line(
                 LineId::OrderTakeProfit(order.order_id),
                 tp,
-                TARGET_COLOR,
+                palette.up,
                 "TP".into(),
                 Dash::Dotted,
                 true,
@@ -207,7 +204,10 @@ mod tests {
         assert_eq!(first.len(), 4);
         let entry = first.iter().find(|l| l.id == LineId::Position(5)).unwrap();
         assert_eq!(entry.label, "Buy 1");
-        assert_eq!(entry.detail, Some(("-12.50 USD".into(), LOSS_COLOR)));
+        assert_eq!(
+            entry.detail,
+            Some(("-12.50 USD".into(), wyck_ui::theme::colors().down))
+        );
         assert!(!entry.draggable && entry.closable);
         let stop = first.iter().find(|l| l.id == LineId::StopLoss(5)).unwrap();
         assert!(stop.draggable);

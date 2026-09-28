@@ -9,7 +9,6 @@ use gpui::{AnyElement, Context, MouseButton, SharedString, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Disableable;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::tooltip::Tooltip;
 
 use super::MultiChart;
 use crate::chart::DrawingCommand;
@@ -304,15 +303,11 @@ impl MultiChart {
                             .justify_center()
                             .size(px(tokens::height::CONTROL))
                             .cursor_pointer()
-                            .tooltip(move |window, cx| {
-                                Tooltip::new(if starred {
-                                    "Unpin from the favorites bar"
-                                } else {
-                                    "Pin to the favorites bar"
-                                })
-                                .m_1()
-                                .build(window, cx)
-                            })
+                            .tooltip(controls::tooltip(if starred {
+                                "Unpin from the favorites bar"
+                            } else {
+                                "Pin to the favorites bar"
+                            }))
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.toggle_favorite(tool, cx);
                             }))

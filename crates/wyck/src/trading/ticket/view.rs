@@ -548,11 +548,10 @@ impl OrderTicket {
             .flex()
             .flex_col()
             .gap(px(gap))
-            .child(tabs(
+            .child(controls::segmented_fill(
                 "ticket-kind",
                 &labels,
                 index,
-                f.m.small,
                 move |choice, window, cx| {
                     this.update(cx, |t, cx| t.set_kind(Kind::ALL[choice], window, cx));
                 },
@@ -967,11 +966,10 @@ impl OrderTicket {
                                 .text_color(theme::muted_fg())
                                 .child("Expires"),
                         )
-                        .child(tabs(
+                        .child(controls::segmented_fill(
                             "ticket-tif",
                             &["Until cancelled", "Good till date"],
                             tif_index,
-                            f.m.small,
                             move |choice, _, cx| {
                                 tif_this.update(cx, |t, cx| {
                                     t.tif = if choice == 1 {
@@ -1592,53 +1590,6 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .into_any_element()
         })
         .collect()
-}
-
-/// Buttons side by side that share the width, one of them chosen.
-fn tabs(
-    id: &'static str,
-    options: &[&str],
-    selected: usize,
-    text: f32,
-    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    let on_select = Rc::new(on_select);
-    let mut strip = div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .p_0p5()
-        .gap_0p5()
-        .rounded_md()
-        .bg(theme::bg())
-        .border_1()
-        .border_color(theme::border_subtle());
-    for (index, label) in options.iter().enumerate() {
-        let chosen = index == selected;
-        let on_select = on_select.clone();
-        strip = strip.child(
-            div()
-                .id((id, index))
-                .flex_1()
-                .h(px(24.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded_sm()
-                .cursor_pointer()
-                .text_size(px(text + 1.))
-                .text_color(if chosen {
-                    theme::fg()
-                } else {
-                    theme::muted_fg()
-                })
-                .when(chosen, |el| el.bg(theme::accent_selected()))
-                .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
-                .on_click(move |_, window, cx| on_select(index, window, cx))
-                .child(SharedString::from((*label).to_owned())),
-        );
-    }
-    strip
 }
 
 /// The deposit currency, or a word for it before it is known.
