@@ -548,15 +548,21 @@ impl Book {
         self.creating.is_some()
     }
 
-    /// A right click while a drawing is being made on `symbol`: drops it, whatever it has, and
-    /// keeps the tool. Returns whether there was one. With nothing to drop it does nothing, so the
-    /// right click is left for its usual menu.
+    /// A right click while a drawing tool is active on `symbol`: drops what is half made, if there
+    /// is any, and gives up the tool itself, back to the normal cursor, the same as TradingView.
+    /// Returns whether there was anything to give up. With no tool armed and nothing half made it
+    /// does nothing, so the right click is left for its usual menu. A drawing half made on another
+    /// chart's symbol is left alone, tool and all: that chart still needs it to keep going.
     pub fn abort(&mut self, symbol: &str) -> bool {
-        if self.creating.as_ref().is_some_and(|c| c.symbol == symbol) {
+        if let Some(creating) = self.creating.as_ref() {
+            if creating.symbol != symbol {
+                return false;
+            }
             self.creating = None;
+            self.tool = None;
             return true;
         }
-        false
+        self.tool.take().is_some()
     }
 
     fn press_to_edit(
@@ -1680,19 +1686,25 @@ mod tests {
     }
 
     #[test]
-    fn a_right_click_drops_the_drawing_being_made_and_only_that() {
+    fn a_right_click_drops_the_drawing_being_made_and_gives_up_the_tool() {
         let mut book = book();
+        assert!(!book.abort(SYMBOL), "no tool armed: the menu is free");
+
         book.set_tool(Some(Tool::ArrowPath));
         assert!(
-            !book.abort(SYMBOL),
-            "nothing is being made: the menu is free"
+            book.abort(SYMBOL),
+            "a tool armed but idle still gives it up"
         );
+        assert_eq!(book.tool(), None);
+
+        book.set_tool(Some(Tool::ArrowPath));
         click(&mut book, 60.0, 100.0);
         click(&mut book, 200.0, 180.0);
         assert!(
             !book.abort("EURUSD"),
-            "another symbol's drawing is not this one"
+            "another chart's drawing still needs the tool, so this one is left alone"
         );
+        assert_eq!(book.tool(), Some(Tool::ArrowPath));
         assert!(book.abort(SYMBOL));
         assert!(!book.is_creating());
         assert_eq!(
@@ -1700,7 +1712,11 @@ mod tests {
             0,
             "dropped, not finished like Escape does"
         );
-        assert_eq!(book.tool(), Some(Tool::ArrowPath), "the tool stays");
+        assert_eq!(
+            book.tool(),
+            None,
+            "back to the normal cursor, like TradingView"
+        );
         assert!(!book.abort(SYMBOL), "the next right click is free again");
     }
 

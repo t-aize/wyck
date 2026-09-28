@@ -261,8 +261,9 @@ impl Chart {
         });
     }
 
-    /// A right click: drops the drawing being made here, if there is one. Returns whether it did,
-    /// in which case the click has done its work and opens no menu.
+    /// A right click while a drawing tool is active: drops what is half made and gives up the tool,
+    /// back to the normal cursor. Returns whether there was anything to give up, in which case the
+    /// click has done its work and opens no menu.
     pub(super) fn abort_drawing(&mut self, cx: &mut Context<Self>) -> bool {
         let (Some(drawings), Some(symbol)) = (self.drawings.clone(), self.symbol_name()) else {
             return false;
