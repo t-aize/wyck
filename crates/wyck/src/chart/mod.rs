@@ -51,7 +51,6 @@
 //! quotes, and the chart says so.
 
 use wyck_chart::axis;
-pub mod catalog_client;
 mod chart_settings_ui;
 mod construction_ui;
 mod custom_runs;
@@ -78,7 +77,6 @@ mod overlay;
 mod paint;
 use wyck_chart::projection;
 pub mod raster;
-pub mod replay;
 use wyck_chart::scene;
 use wyck_chart::settings;
 mod settings_rows;
@@ -345,9 +343,6 @@ pub enum ChartAction {
         take_profit: Option<f64>,
     },
     AddAlert(f64),
-    /// "Replay from here" was picked at this time: every chart in the layout should
-    /// start or move its replay there together, not just this one.
-    ReplayFrom(i64),
 }
 
 impl EventEmitter<ChartEvent> for Chart {}
@@ -422,18 +417,6 @@ pub struct Chart {
     bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Keeps the bar countdown ticking while the chart lives.
     _clock: gpui::Task<()>,
-    /// The bars still to reveal for the active Replay, if any: see [`replay`]. The clock
-    /// driving it (cursor, speed, play state) is shared across every chart and lives on
-    /// `Dashboard`, not here.
-    replay: Option<replay::ReplayFeed>,
-    /// The shared replay clock's current position, while a replay is active: what "now"
-    /// means for the countdown to the next bar's close, and anything else that would
-    /// otherwise assume the real wall clock. `None` when not replaying, so those fall
-    /// back to the real time.
-    replay_cursor_ms: Option<i64>,
-    replay_loaded_until_ms: i64,
-    replay_end_ms: i64,
-    replay_loading_more: bool,
 }
 
 impl Chart {
@@ -510,11 +493,6 @@ impl Chart {
             context_at: None,
             bounds: Rc::new(Cell::new(None)),
             _clock: clock,
-            replay: None,
-            replay_cursor_ms: None,
-            replay_loaded_until_ms: 0,
-            replay_end_ms: 0,
-            replay_loading_more: false,
         }
     }
 

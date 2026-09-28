@@ -19,7 +19,7 @@ use crate::trading::panel::{PanelEvent, Tab};
 use crate::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::trading::ticket::{OrderTicket, TicketEvent};
 use crate::trading::{self, math};
-use wyck_ui::{confirm::confirm, theme, toast, tokens};
+use wyck_ui::{confirm::confirm, theme, toast};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {
@@ -100,14 +100,6 @@ impl Dashboard {
     }
 
     fn run_pending(&mut self, pending: Pending, window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_replaying()
-            && matches!(
-                &pending,
-                Pending::Ticket { .. } | Pending::TicketLine(..) | Pending::ClosePosition(..)
-            )
-        {
-            return;
-        }
         match pending {
             Pending::Ticket {
                 symbol,
@@ -180,8 +172,7 @@ impl Dashboard {
             &|id| account.net_profit(id),
             &account.book.currency,
         );
-        if !self.is_replaying()
-            && self.ticket_open
+        if self.ticket_open
             && let Some(ticket) = &self.ticket
             && let Some(symbol) = ticket.read(cx).symbol().map(|s| s.id)
         {
@@ -190,20 +181,11 @@ impl Dashboard {
                 .or_default()
                 .extend(ticket.read(cx).lines(cx));
         }
-        if self.is_replaying() {
-            for list in lines.values_mut() {
-                list.retain(|line| matches!(line.id, LineId::Alert(_)));
-            }
-            lines.retain(|_, list| !list.is_empty());
-        }
         self.multi
             .update(cx, |multi, cx| multi.set_lines(lines, cx));
     }
 
     pub(super) fn set_ticket_open(&mut self, open: bool, cx: &mut Context<Self>) {
-        if open && self.is_replaying() {
-            return;
-        }
         self.ticket_open = open;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.ticket_open = open);
@@ -213,9 +195,6 @@ impl Dashboard {
     }
 
     pub(super) fn set_panel_open(&mut self, open: bool, cx: &mut Context<Self>) {
-        if open && self.is_replaying() {
-            return;
-        }
         self.panel_open = open;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.panel_open = open);
@@ -259,9 +238,6 @@ impl Dashboard {
                 stop_loss,
                 take_profit,
             } => {
-                if self.is_replaying() {
-                    return;
-                }
                 self.pending.push(Pending::Ticket {
                     symbol: symbol.clone(),
                     buy: *buy,
@@ -271,7 +247,6 @@ impl Dashboard {
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
-            ChartAction::ReplayFrom(time_ms) => self.replay_seek_all(*time_ms, cx),
         }
         cx.notify();
     }
@@ -325,9 +300,6 @@ impl Dashboard {
 
     /// A line was dragged on a chart.
     pub(super) fn on_line_moved(&mut self, id: LineId, price: f64, cx: &mut Context<Self>) {
-        if self.is_replaying() && !matches!(id, LineId::Alert(_)) {
-            return;
-        }
         let account = self.trading.clone();
         match id {
             LineId::Order(order) => account.update(cx, |a, cx| a.move_order(order, price, cx)),
@@ -388,9 +360,6 @@ impl Dashboard {
 
     /// The close button of a line was clicked.
     pub(super) fn on_line_closed(&mut self, id: LineId, cx: &mut Context<Self>) {
-        if self.is_replaying() && !matches!(id, LineId::Alert(_)) {
-            return;
-        }
         match id {
             LineId::Position(position) => self.pending.push(Pending::ClosePosition(position)),
             LineId::Order(order) => self.trading.update(cx, |a, cx| a.cancel_order(order, cx)),
@@ -410,7 +379,6 @@ impl Dashboard {
         charts: gpui::AnyElement,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let replaying = self.is_replaying();
         let panel = self.panel.clone().filter(|_| self.panel_open);
         let ticket = self.ticket.clone().filter(|_| self.ticket_open);
         let dragging = self.panel_drag.is_some();
@@ -442,9 +410,6 @@ impl Dashboard {
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
-                        if this.is_replaying() {
-                            return;
-                        }
                         this.ticket_drag = Some((f32::from(event.position.x), width));
                         cx.notify();
                     }),
@@ -463,31 +428,8 @@ impl Dashboard {
                         .id("ticket-scroll")
                         .h_full()
                         .overflow_y_scroll()
-                        .when(replaying, |el| el.opacity(0.4))
                         .child(ticket),
-                )
-                .children(replaying.then(|| {
-                    div()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full()
-                        .occlude()
-                        .cursor_default()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .child(
-                            div()
-                                .rounded_md()
-                                .bg(theme::surface())
-                                .px_3()
-                                .py_2()
-                                .text_size(px(tokens::text::BODY))
-                                .text_color(theme::muted_fg())
-                                .child("Trading unavailable during Replay"),
-                        )
-                }));
+                );
             let column = div().flex_none().w(px(width)).h_full().flex().flex_row();
             if dock == Dock::Right {
                 column.child(edge("ticket-resize")).child(body)
@@ -566,7 +508,6 @@ impl Dashboard {
                     .h(px(self.panel_height))
                     .flex()
                     .flex_col()
-                    .when(replaying, |el| el.opacity(0.4))
                     .child(
                         div()
                             .id("panel-resize")
@@ -590,25 +531,12 @@ impl Dashboard {
                             ),
                     )
                     .child(div().flex_1().min_h_0().child(panel))
-                    .children(replaying.then(|| {
-                        div()
-                            .absolute()
-                            .top_0()
-                            .left_0()
-                            .size_full()
-                            .occlude()
-                            .cursor_default()
-                    }))
             }))
     }
 
     /// The edge of the ticket is being dragged: its width follows the pointer, from where the
     /// edge was grabbed.
     fn drag_ticket(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
-        if self.is_replaying() {
-            self.end_ticket_drag(cx);
-            return;
-        }
         let Some((start, width)) = self.ticket_drag else {
             return;
         };

@@ -31,7 +31,6 @@ mod behaviour;
 mod charts;
 mod data;
 mod look;
-mod replay;
 mod scripts;
 
 /// Opens the settings.
@@ -65,18 +64,16 @@ pub enum Page {
     Charts,
     Indicators,
     Behaviour,
-    Replay,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 6] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
-        Self::Replay,
         Self::Data,
         Self::About,
     ];
@@ -87,7 +84,6 @@ impl Page {
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
-            Self::Replay => ("Replay", IconName::RotateCcw),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
         };
@@ -296,8 +292,6 @@ impl SettingsHub {
 
     // ---- behavior ----
 
-    // ---- replay ----
-
     // ---- data ----
 
     fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
@@ -329,7 +323,6 @@ impl Render for SettingsHub {
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
-            Page::Replay => self.replay_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(cx),
         };

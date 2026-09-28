@@ -49,7 +49,6 @@ depends = [
 
 [dependencies]
 wyck-config.workspace = true
-wyck-market-data.workspace = true
 wyck-openapi.workspace = true
 wyck-trading.workspace = true
 wyck-chart.workspace = true

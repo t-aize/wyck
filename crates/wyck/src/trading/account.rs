@@ -153,7 +153,6 @@ pub struct Account {
     quotes: HashMap<i64, (Option<i64>, Option<i64>)>,
     pub status: Status,
     busy: HashSet<Busy>,
-    trading_enabled: bool,
     reversals: ReverseTracker,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
@@ -201,7 +200,6 @@ impl Account {
             quotes: HashMap::new(),
             status: Status::Loading,
             busy: HashSet::new(),
-            trading_enabled: true,
             reversals: ReverseTracker::default(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
@@ -218,14 +216,6 @@ impl Account {
     pub fn is_busy(&self, what: Busy) -> bool {
         self.busy.contains(&what)
             || matches!(what, Busy::Closing(id) if self.reversals.0.contains_key(&id))
-    }
-
-    pub fn set_trading_enabled(&mut self, enabled: bool) {
-        self.trading_enabled = enabled;
-        if !enabled {
-            // An in-flight close may still finish, but it must not open a reverse order.
-            self.reversals.0.clear();
-        }
     }
 
     /// The real bid and ask of a symbol.
@@ -377,8 +367,7 @@ impl Account {
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(REVERSE_RECHECK).await;
             let _ = this.update(cx, |this, cx| {
-                if this.trading_enabled
-                    && this
+                if this
                         .reversals
                         .0
                         .get(&position_id)
@@ -701,9 +690,6 @@ impl Account {
             + Send
             + 'static,
     {
-        if !self.trading_enabled {
-            return;
-        }
         if !self.busy.insert(busy) {
             return;
         }
@@ -821,7 +807,7 @@ impl Account {
 
     /// Reverses a position: closes it and opens the same volume the other way.
     pub fn reverse_position(&mut self, position_id: i64, cx: &mut Context<Self>) {
-        if !self.trading_enabled || self.busy.contains(&Busy::Closing(position_id)) {
+        if self.busy.contains(&Busy::Closing(position_id)) {
             return;
         }
         let Some(position) = self.book.positions.get(&position_id).cloned() else {

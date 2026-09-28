@@ -58,7 +58,6 @@ The workspace crates are:
 | `wyck-config` | Native settings, documents and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
 | `wyck-trading` | Trading calculations, books and saved panel preferences |
-| `wyck-market-data` | Local historical data catalog, backfill and the Replay session |
 | `wyck-ui` | Widget kit, theme and sizes shared by every screen |
 | `wyck` | GPUI desktop application, saved workspace and bundled assets |
 

@@ -288,24 +288,6 @@ impl Chart {
                 Item::Separator,
             ]);
         }
-        if let Some(hover) = self.hover_info(x, y) {
-            let time_ms = hover.time_ms;
-            let chart = chart.clone();
-            items.push(
-                Entry::new("Replay from here")
-                    .icon(IconName::RotateCcw)
-                    .on_click(move |_: &mut Window, cx: &mut App| {
-                        // Emitted rather than called directly: in a multichart layout
-                        // every chart's replay should move together, and only Dashboard
-                        // (which sees every chart) can do that.
-                        chart.update(cx, |_, cx| {
-                            cx.emit(ChartEvent::Action(ChartAction::ReplayFrom(time_ms)));
-                        });
-                    })
-                    .into(),
-            );
-            items.push(Item::Separator);
-        }
         let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
             let chart = chart.clone();
             move |window: &mut Window, cx: &mut App| {

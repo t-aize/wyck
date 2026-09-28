@@ -66,17 +66,12 @@ impl Chart {
         }
         self.atr_loading.insert(key);
         let session = self.session.clone();
-        let catalog = crate::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                match catalog {
-                    Some(catalog) => {
-                        load::initial_cached(&session, catalog, key.0, timeframe, now_ms()).await
-                    }
-                    None => load::initial(&session, key.0, timeframe, now_ms()).await,
-                }
-            })
-            .await;
+            let result =
+                runtime::spawn(
+                    async move { load::initial(&session, key.0, timeframe, now_ms()).await },
+                )
+                .await;
             let _ = this.update(cx, |this, cx| {
                 this.atr_loading.remove(&key);
                 let bars = match flatten(result) {
@@ -94,10 +89,6 @@ impl Chart {
 
     /// Throws the data away and loads the current symbol and timeframe from scratch.
     pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
-        if let Some(cursor) = self.replay_cursor_ms.filter(|_| self.symbol.is_some()) {
-            self.replay_seek(cursor, cx);
-            return;
-        }
         self.epoch += 1;
         let epoch = self.epoch;
         self.series = empty_series(self.timeframe);
@@ -126,17 +117,12 @@ impl Chart {
         cx.notify();
 
         let (session, id, timeframe) = (self.session.clone(), symbol.id, self.timeframe);
-        let catalog = crate::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                match catalog {
-                    Some(catalog) => {
-                        load::initial_cached(&session, catalog, id, timeframe, now_ms()).await
-                    }
-                    None => load::initial(&session, id, timeframe, now_ms()).await,
-                }
-            })
-            .await;
+            let result =
+                runtime::spawn(
+                    async move { load::initial(&session, id, timeframe, now_ms()).await },
+                )
+                .await;
             let _ = this.update(cx, |this, cx| {
                 this.initial_loaded(epoch, flatten(result), cx);
             });
@@ -187,333 +173,9 @@ impl Chart {
         self.reload(cx);
     }
 
-    // ---- replay ----
-    //
-    // A chart only ever holds the bars still to reveal (`self.replay`); the clock
-    // (cursor, speed, play state) is shared across every chart in the layout and lives
-    // on `Dashboard`, so a multichart layout replays as one instead of each chart
-    // running its own independent clock. See the module docs on `super::replay`.
-
-    /// Whether this chart has nothing left to reveal: no replay running at all counts as
-    /// exhausted too, so a chart that could not start one never blocks the shared
-    /// clock from noticing every other chart is done.
-    pub fn replay_is_exhausted(&self) -> bool {
-        if matches!(self.load, Load::Failed(_)) {
-            return true;
-        }
-        self.replay_cursor_ms.is_none_or(|_| {
-            self.replay_loaded_until_ms >= self.replay_end_ms
-                && self
-                    .replay
-                    .as_ref()
-                    .is_some_and(super::replay::ReplayFeed::is_exhausted)
-        })
-    }
-
-    pub fn replay_next_time(&self) -> Option<i64> {
-        self.replay.as_ref()?.next_time()
-    }
-
-    pub fn replay_needs_data(&self) -> bool {
-        self.replay_cursor_ms.is_some()
-            && !matches!(self.load, Load::Failed(_))
-            && (self.replay.is_none()
-                || (self.replay_loading_more
-                    && self
-                        .replay
-                        .as_ref()
-                        .is_some_and(super::replay::ReplayFeed::is_exhausted)))
-    }
-
-    /// "Now" for anything the chart draws that means "the current moment": the real wall
-    /// clock, unless replaying, in which case the shared replay clock's own position.
-    /// This is what lets the "time left in this bar" countdown mean something during a
-    /// replay instead of comparing a historical bar's time to today's date and never
-    /// showing at all.
+    /// "Now" for anything the chart draws that means "the current moment".
     pub(super) fn now_for_display(&self) -> i64 {
-        self.replay_cursor_ms.unwrap_or_else(now_ms)
-    }
-
-    /// Moves to `start_ms`: reloads the chart truncated to that point and prepares a
-    /// fresh [`super::replay::ReplayFeed`] for everything after it, replacing any replay
-    /// already in progress. This is how a replay is started, and also how "go to a
-    /// different date" and "jump to start" both work: see the module docs on
-    /// [`super::replay`] for why seeking reloads rather than scrubbing bars already
-    /// shown. All timeframes use the same bid tick stream after the pick.
-    pub fn replay_seek(&mut self, start_ms: i64, cx: &mut Context<Self>) {
-        let timeframe = self.timeframe;
-        let period = timeframe
-            .period()
-            .unwrap_or(wyck_openapi::market::Period::M1);
-        let Some(symbol) = self.symbol.clone() else {
-            return;
-        };
-        self.replay = None;
-        self.replay_cursor_ms = Some(start_ms);
-        self.replay_loaded_until_ms = 0;
-        self.replay_end_ms = 0;
-        self.replay_loading_more = false;
-        self.epoch += 1;
-        let epoch = self.epoch;
-        self.hub.set(self.id, None);
-        self.series = empty_series(self.timeframe);
-        self.display = Default::default();
-        self.view.jump_to_latest();
-        self.pending_focus = Some(start_ms);
-        self.reset_flow();
-        self.hover = None;
-        self.drag = None;
-        self.bid = None;
-        self.ask = None;
-        self.group_tail.clear();
-        self.last_time_ms = 0;
-        self.older = Older::Idle;
-        self.load = Load::Loading;
-        cx.notify();
-        let session = self.session.clone();
-        let catalog = crate::market_data::catalog(cx);
-        let now = now_ms();
-        const TICK_WINDOW_MS: i64 = 24 * 60 * 60 * 1_000;
-        let until = now.min(start_ms.saturating_add(TICK_WINDOW_MS));
-        cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                let past = match &catalog {
-                    Some(catalog) => {
-                        load::initial_cached(
-                            &session,
-                            catalog.clone(),
-                            symbol.id,
-                            timeframe,
-                            start_ms.saturating_sub(1),
-                        )
-                        .await?
-                    }
-                    None => {
-                        load::initial(&session, symbol.id, timeframe, start_ms.saturating_sub(1))
-                            .await?
-                    }
-                };
-                let future = match (timeframe.period(), &catalog) {
-                    (Some(period), Some(catalog)) => {
-                        load::gap_cached(
-                            &session,
-                            catalog.clone(),
-                            symbol.id,
-                            Timeframe::Bars(period),
-                            start_ms,
-                            until,
-                        )
-                        .await?
-                    }
-                    (Some(period), None) => {
-                        load::gap(
-                            &session,
-                            symbol.id,
-                            Timeframe::Bars(period),
-                            start_ms,
-                            until,
-                        )
-                        .await?
-                    }
-                    (None, _) => Loaded::Bars(Vec::new()),
-                };
-                let ticks = match &catalog {
-                    Some(catalog) => {
-                        load::gap_cached(
-                            &session,
-                            catalog.clone(),
-                            symbol.id,
-                            Timeframe::Ticks,
-                            start_ms,
-                            until,
-                        )
-                        .await?
-                    }
-                    None => {
-                        load::gap(&session, symbol.id, Timeframe::Ticks, start_ms, until).await?
-                    }
-                };
-                Ok::<_, wyck_openapi::OpenApiError>((past, future, ticks))
-            })
-            .await;
-            let _ = this.update(cx, |this, cx| {
-                this.replay_seek_loaded(
-                    epoch,
-                    symbol.id,
-                    period,
-                    (until, now),
-                    flatten(result),
-                    cx,
-                );
-            });
-        })
-        .detach();
-    }
-
-    fn replay_seek_loaded(
-        &mut self,
-        epoch: u64,
-        symbol_id: i64,
-        period: wyck_openapi::market::Period,
-        bounds: (i64, i64),
-        result: ApiResult<(Loaded, Loaded, Loaded)>,
-        cx: &mut Context<Self>,
-    ) {
-        if epoch != self.epoch {
-            return;
-        }
-        match result {
-            Ok((past, future, ticks)) => {
-                let future_bars = match future {
-                    Loaded::Bars(bars) | Loaded::Grouped { bars, .. } => bars,
-                    Loaded::Ticks(_) => Vec::new(),
-                };
-                let Loaded::Ticks(ticks) = ticks else {
-                    unreachable!()
-                };
-                self.replay = Some(super::replay::ReplayFeed::new(
-                    symbol_id,
-                    period,
-                    future_bars,
-                    ticks,
-                ));
-                self.replay_loaded_until_ms = bounds.0;
-                self.replay_end_ms = bounds.1;
-                self.initial_loaded(epoch, Ok(past), cx);
-                if let Some(cursor) = self.replay_cursor_ms {
-                    self.replay_reveal_one_to(cursor, cx);
-                }
-            }
-            Err(error) => {
-                tracing::warn!(%error, "could not load the chart history for replay");
-                self.load = Load::Failed(error.to_string().into());
-                cx.notify();
-            }
-        }
-    }
-
-    /// Reveals at most one tick at or before the shared replay cursor.
-    pub fn replay_reveal_one_to(&mut self, cursor_ms: i64, cx: &mut Context<Self>) {
-        self.replay_cursor_ms = Some(cursor_ms);
-        if self.replay.is_none() {
-            return;
-        }
-        let updates = self
-            .replay
-            .as_mut()
-            .map(|feed| feed.reveal_one(cursor_ms))
-            .unwrap_or_default();
-        if updates.is_empty() {
-            self.replay_load_more(cx);
-            cx.notify();
-            return;
-        }
-        for update in &updates {
-            self.apply_live(update, cx);
-        }
-        self.replay_load_more(cx);
-    }
-
-    fn replay_load_more(&mut self, cx: &mut Context<Self>) {
-        if self.replay_loading_more
-            || self.replay_loaded_until_ms >= self.replay_end_ms
-            || self
-                .replay_cursor_ms
-                .is_none_or(|cursor| cursor < self.replay_loaded_until_ms - 60_000)
-        {
-            return;
-        }
-        let Some(symbol_id) = self.symbol.as_ref().map(|symbol| symbol.id) else {
-            return;
-        };
-        let from = self.replay_loaded_until_ms.saturating_add(1);
-        let until = self
-            .replay_end_ms
-            .min(from.saturating_add(24 * 60 * 60 * 1_000));
-        let epoch = self.epoch;
-        let period = self.timeframe.period();
-        let session = self.session.clone();
-        let catalog = crate::market_data::catalog(cx);
-        self.replay_loading_more = true;
-        cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                let bars = match (period, &catalog) {
-                    (Some(period), Some(catalog)) => {
-                        load::gap_cached(
-                            &session,
-                            catalog.clone(),
-                            symbol_id,
-                            Timeframe::Bars(period),
-                            from,
-                            until,
-                        )
-                        .await?
-                    }
-                    (Some(period), None) => {
-                        load::gap(&session, symbol_id, Timeframe::Bars(period), from, until).await?
-                    }
-                    (None, _) => Loaded::Bars(Vec::new()),
-                };
-                let ticks = match catalog {
-                    Some(catalog) => {
-                        load::gap_cached(
-                            &session,
-                            catalog,
-                            symbol_id,
-                            Timeframe::Ticks,
-                            from,
-                            until,
-                        )
-                        .await?
-                    }
-                    None => load::gap(&session, symbol_id, Timeframe::Ticks, from, until).await?,
-                };
-                Ok::<_, wyck_openapi::OpenApiError>((bars, ticks))
-            })
-            .await;
-            let _ = this.update(cx, |this, cx| {
-                if this.epoch != epoch {
-                    return;
-                }
-                this.replay_loading_more = false;
-                match flatten(result) {
-                    Ok((bars, Loaded::Ticks(ticks))) => {
-                        if let Some(feed) = &mut this.replay {
-                            match bars {
-                                Loaded::Bars(bars) | Loaded::Grouped { bars, .. } => {
-                                    feed.append_bars(bars)
-                                }
-                                Loaded::Ticks(_) => {}
-                            }
-                            feed.append_ticks(ticks);
-                        }
-                        this.replay_loaded_until_ms = until;
-                        if let Some(cursor) = this.replay_cursor_ms {
-                            this.replay_reveal_one_to(cursor, cx);
-                        }
-                    }
-                    Err(error) => tracing::warn!(%error, "could not extend replay ticks"),
-                    _ => {}
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    /// Leaves Replay: resubscribes to the real live feed and reloads from scratch, the
-    /// simplest way back to an honestly-live chart.
-    pub fn stop_replay(&mut self, cx: &mut Context<Self>) {
-        self.replay = None;
-        self.replay_cursor_ms = None;
-        self.replay_loading_more = false;
-        if let Some(symbol) = &self.symbol {
-            self.hub.set(
-                self.id,
-                Some(Wish::symbol(symbol.id, self.timeframe.period())),
-            );
-        }
-        self.reload(cx);
+        now_ms()
     }
 
     // ---- the connection ----
@@ -530,9 +192,6 @@ impl Chart {
 
     /// Fetches the prices between the newest point held and now, and joins them in.
     fn refill(&mut self, cx: &mut Context<Self>) {
-        if self.replay_cursor_ms.is_some() {
-            return;
-        }
         self.flow_gap_open();
         let (Some(symbol), Some(from)) = (&self.symbol, self.series.last_time()) else {
             if self.symbol.is_some() && self.series.is_empty() {
@@ -554,17 +213,10 @@ impl Chart {
         }
         let (session, id, timeframe, epoch) =
             (self.session.clone(), symbol.id, self.timeframe, self.epoch);
-        let catalog = crate::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                match catalog {
-                    Some(catalog) => {
-                        load::gap_cached(&session, catalog, id, timeframe, from, to).await
-                    }
-                    None => load::gap(&session, id, timeframe, from, to).await,
-                }
-            })
-            .await;
+            let result =
+                runtime::spawn(async move { load::gap(&session, id, timeframe, from, to).await })
+                    .await;
             let _ = this.update(cx, |this, cx| {
                 if epoch != this.epoch {
                     return;
@@ -636,17 +288,10 @@ impl Chart {
         cx.notify();
         let (session, id, timeframe, epoch) =
             (self.session.clone(), symbol.id, self.timeframe, self.epoch);
-        let catalog = crate::market_data::catalog(cx);
         cx.spawn(async move |this, cx| {
-            let result = runtime::spawn(async move {
-                match catalog {
-                    Some(catalog) => {
-                        load::older_cached(&session, catalog, id, timeframe, oldest).await
-                    }
-                    None => load::older(&session, id, timeframe, oldest).await,
-                }
-            })
-            .await;
+            let result =
+                runtime::spawn(async move { load::older(&session, id, timeframe, oldest).await })
+                    .await;
             let _ = this.update(cx, |this, cx| this.older_loaded(epoch, flatten(result), cx));
         })
         .detach();
@@ -698,13 +343,6 @@ impl Chart {
 
     /// A price event (with its live bars corrected) from the session.
     pub fn on_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {
-        if self.replay_cursor_ms.is_some() {
-            return;
-        }
-        self.apply_live(update, cx);
-    }
-
-    fn apply_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {
         let Some(id) = self.symbol.as_ref().map(|s| s.id) else {
             return;
         };
