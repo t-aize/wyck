@@ -18,12 +18,10 @@ use super::{
     Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
 };
 use crate::indicators;
-use wyck_ui::controls;
-use wyck_ui::icon;
-use wyck_ui::tokens;
 use wyck_ui::{
+    controls, icon, layout,
     menu::{Entry, Item, Menu, Placement},
-    theme,
+    theme, tokens,
 };
 
 /// How many starred and recent indicators the quick menu lists.
@@ -53,7 +51,7 @@ fn tool(
         .px_1p5()
         .rounded_md()
         .cursor_pointer()
-        .text_size(px(12.))
+        .text_size(px(tokens::text::BODY))
         .font_weight(FontWeight::MEDIUM)
         .text_color(ink)
         .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
@@ -62,15 +60,6 @@ fn tool(
         .tooltip(controls::tooltip(tip))
         .child(icon::tinted(icon, 15., ink))
         .children(label)
-}
-
-fn separator() -> gpui::Div {
-    div()
-        .flex_none()
-        .w(px(1.))
-        .h(px(16.))
-        .mx_0p5()
-        .bg(theme::border_hairline())
 }
 
 impl Chart {
@@ -346,7 +335,7 @@ impl Chart {
         if !compact {
             let alert = cx.listener(|this, _, _, cx| this.alert_at_last(cx));
             bar = bar
-                .child(separator())
+                .child(layout::divider())
                 .child(
                     div().relative().child(
                         tool(
@@ -395,7 +384,7 @@ impl Chart {
                     )
                     .on_click(alert),
                 )
-                .child(separator())
+                .child(layout::divider())
                 .child(
                     div()
                         .relative()
@@ -440,7 +429,7 @@ impl Chart {
                     .on_click(cx.listener(|this, _, _, cx| this.jump_to_latest(cx))),
                 );
             }
-            bar = bar.child(separator()).child(
+            bar = bar.child(layout::divider()).child(
                 tool(
                     "chart-picture",
                     IconName::Camera,

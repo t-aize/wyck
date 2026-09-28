@@ -12,8 +12,7 @@ use super::drawing::book::{Book, Order};
 use super::drawing::model::{Drawing, Tool};
 use super::drawing_props;
 use super::zone::Zone;
-use wyck_ui::form::Head;
-use wyck_ui::{button, form, icon, modal, theme};
+use wyck_ui::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {
     match tool {
@@ -183,7 +182,7 @@ impl ObjectTree {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(34.))
+            .h(px(tokens::height::LARGE))
             .px_2()
             .rounded_md()
             .when(selected, |el| el.bg(theme::accent_selected()))
@@ -211,7 +210,7 @@ impl ObjectTree {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(13.))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .text_color(if hidden {
                         theme::muted_fg()
                     } else {
@@ -222,7 +221,7 @@ impl ObjectTree {
             .when(restricted, |el| {
                 el.child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child("Some timeframes"),
                 )

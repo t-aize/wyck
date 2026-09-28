@@ -14,7 +14,7 @@ use gpui_kit::assets::IconName;
 
 use super::Dashboard;
 use crate::workspace::{NameError, Watchlists};
-use wyck_ui::{controls, icon, text_input::TextInput, theme};
+use wyck_ui::{button, controls, icon, text_input::TextInput, theme, tokens};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,25 +170,6 @@ impl Dashboard {
     }
 }
 
-/// A small round icon button that sits next to a chip.
-fn icon_button(
-    id: impl Into<gpui::ElementId>,
-    icon: IconName,
-    on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App) + 'static,
-) -> gpui::Stateful<gpui::Div> {
-    div()
-        .id(id)
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(px(26.))
-        .rounded_full()
-        .cursor_pointer()
-        .hover(|style| style.bg(theme::surface_hover()))
-        .on_click(on_click)
-        .child(icon::tinted(icon, 14., theme::muted_fg()))
-}
-
 /// The row of chips under the class chips: favorites, each watchlist, and a way to make one.
 pub(super) fn list_chips(
     lists: &Watchlists,
@@ -222,7 +203,7 @@ pub(super) fn list_chips(
                 .child(list.name.clone())
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(list.symbols.len().to_string()),
                 )
@@ -230,21 +211,23 @@ pub(super) fn list_chips(
         );
         if selected && editor.is_none() {
             out.push(
-                icon_button(
+                button::icon(
                     ("rename-list", index as u64),
                     IconName::Pencil,
-                    cx.listener(move |this, _event, window, cx| {
-                        this.open_list_editor(Some(index), window, cx);
-                    }),
+                    "Rename the list",
                 )
+                .on_click(cx.listener(move |this, _event, window, cx| {
+                    this.open_list_editor(Some(index), window, cx);
+                }))
                 .into_any_element(),
             );
             out.push(
-                icon_button(
+                button::icon(
                     ("delete-list", index as u64),
                     IconName::Trash,
-                    cx.listener(move |this, _event, _window, cx| this.delete_list(index, cx)),
+                    "Delete the list",
                 )
+                .on_click(cx.listener(move |this, _event, _window, cx| this.delete_list(index, cx)))
                 .into_any_element(),
             );
         }
@@ -269,7 +252,7 @@ pub(super) fn list_chips(
                 .child(div().w(px(200.)).child(editor.input.clone()))
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(match editor.error {
                             Some(_) => theme::destructive(),
                             None => theme::muted_fg(),
@@ -298,7 +281,7 @@ pub(super) fn star(
         .flex()
         .items_center()
         .justify_center()
-        .size(px(30.))
+        .size(px(tokens::height::CONTROL))
         .rounded_md()
         .cursor_pointer()
         .hover(|style| style.bg(theme::surface_pressed()))
@@ -389,7 +372,7 @@ pub(super) fn membership_panel(
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::fg())
                         .child(title),
                 )
@@ -411,7 +394,7 @@ pub(super) fn membership_panel(
                 .py_2()
                 .border_t_1()
                 .border_color(theme::border_hairline())
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child("Make a list with New list, above, then add symbols to it here."),
         );
@@ -420,7 +403,7 @@ pub(super) fn membership_panel(
         .child(
             div()
                 .mt_4()
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child("SAVE TO"),
         )

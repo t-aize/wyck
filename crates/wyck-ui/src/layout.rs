@@ -78,7 +78,7 @@ pub fn stacked_field(
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(13.))
+                .text_size(px(crate::tokens::text::EMPHASIS))
                 .text_color(theme::fg())
                 .child(icon::plain(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
@@ -110,7 +110,7 @@ pub fn error_banner(
                 .flex_row()
                 .items_start()
                 .gap_2()
-                .text_size(px(13.))
+                .text_size(px(crate::tokens::text::EMPHASIS))
                 .text_color(theme::destructive())
                 .child(icon::tinted(
                     IconName::TriangleAlert,
@@ -121,7 +121,7 @@ pub fn error_banner(
         )
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(px(crate::tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(detail.into()),
         );
@@ -138,7 +138,7 @@ pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl In
         .py(px(2.))
         .rounded_sm()
         .bg(tint)
-        .text_size(px(10.))
+        .text_size(px(crate::tokens::text::CAPTION))
         .text_color(color)
         .child(label.into())
 }
@@ -155,4 +155,14 @@ pub fn environment_badge(is_live: bool) -> impl IntoElement {
 /// A small solid dot, for a status ("connected", "reconnecting").
 pub fn status_dot(color: Rgba) -> impl IntoElement {
     div().size(px(7.)).flex_shrink_0().rounded_full().bg(color)
+}
+
+/// A short upright line between two groups of a toolbar.
+pub fn divider() -> Div {
+    div()
+        .flex_none()
+        .mx_1()
+        .w(px(1.))
+        .h(px(16.))
+        .bg(theme::border_hairline())
 }

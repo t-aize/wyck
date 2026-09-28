@@ -17,9 +17,7 @@ use super::study::custom::{Problem, Severity};
 use super::study::{
     FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
 };
-use wyck_ui::form::Head;
-use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, icon, modal, number, theme, tokens};
+use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -640,7 +638,7 @@ impl StudyEditor {
                     div()
                         .max_w(px(200.))
                         .truncate()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::muted_fg())
                         .child(about),
                 )
@@ -687,7 +685,7 @@ impl StudyEditor {
                     .flex_row()
                     .gap_2()
                     .items_start()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if error {
                         theme::destructive()
                     } else {

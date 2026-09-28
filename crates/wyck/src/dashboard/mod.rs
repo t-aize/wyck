@@ -48,7 +48,7 @@ use super::trading::account::Account;
 use super::trading::panel::AccountPanel;
 use super::trading::ticket::OrderTicket;
 use super::workspace::{Documents, Workspace};
-use wyck_ui::{button, icon, theme, toast};
+use wyck_ui::{button, icon, theme, toast, tokens};
 
 gpui::actions!(
     wyck_dashboard,
@@ -1004,7 +1004,7 @@ impl Dashboard {
                 ))
                 .child(
                     div()
-                        .text_size(px(16.))
+                        .text_size(px(tokens::text::HEADING))
                         .text_color(theme::fg())
                         .child("The connection to cTrader ended"),
                 )
@@ -1012,7 +1012,7 @@ impl Dashboard {
                     div()
                         .max_w(px(460.))
                         .text_center()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .text_color(theme::muted_fg())
                         .child(message.clone()),
                 )

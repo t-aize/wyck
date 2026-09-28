@@ -142,7 +142,7 @@ impl Dashboard {
             .py_1()
             .rounded_md()
             .cursor_pointer()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .text_color(theme::muted_fg())
             .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
             .on_click(cx.listener(|this, _event, _window, cx| {

@@ -19,7 +19,7 @@ use crate::trading::panel::{PanelEvent, Tab};
 use crate::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::trading::ticket::{OrderTicket, TicketEvent};
 use crate::trading::{self, math};
-use wyck_ui::{confirm::confirm, theme, toast};
+use wyck_ui::{confirm::confirm, theme, toast, tokens};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {
@@ -483,7 +483,7 @@ impl Dashboard {
                                 .bg(theme::surface())
                                 .px_3()
                                 .py_2()
-                                .text_size(px(12.))
+                                .text_size(px(tokens::text::BODY))
                                 .text_color(theme::muted_fg())
                                 .child("Trading unavailable during Replay"),
                         )

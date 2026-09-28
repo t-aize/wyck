@@ -49,7 +49,7 @@ impl Render for Confirm {
             subtitle: "This asks for your confirmation".into(),
         };
         let body = div()
-            .text_size(px(14.))
+            .text_size(px(crate::tokens::text::TITLE))
             .text_color(theme::fg())
             .child(self.text.clone());
         let footer = form::footer(

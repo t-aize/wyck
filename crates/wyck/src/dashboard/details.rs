@@ -9,7 +9,7 @@ use wyck_openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
-use wyck_ui::{anim, icon, theme};
+use wyck_ui::{anim, icon, theme, tokens};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {
@@ -125,7 +125,7 @@ fn pill(text: impl Into<SharedString>, color: gpui::Rgba, tint: gpui::Rgba) -> D
         .py_1()
         .rounded_full()
         .bg(tint)
-        .text_size(px(11.))
+        .text_size(px(tokens::text::SMALL))
         .text_color(color)
         .child(text.into())
 }
@@ -143,14 +143,14 @@ fn tile(label: &'static str, value: String) -> Div {
         .border_color(theme::border_hairline())
         .child(
             div()
-                .text_size(px(10.5))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child(label),
         )
         .child(
             div()
                 .truncate()
-                .text_size(px(14.))
+                .text_size(px(tokens::text::TITLE))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme::fg())
                 .child(value),
@@ -170,7 +170,7 @@ fn row(label: &'static str, value: String, divider: bool) -> Div {
         .when(divider, |el| {
             el.border_t_1().border_color(theme::border_hairline())
         })
-        .text_size(px(12.))
+        .text_size(px(tokens::text::BODY))
         .child(div().flex_none().text_color(theme::muted_fg()).child(label))
         .child(
             div()
@@ -212,7 +212,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
         return pane
             .items_center()
             .justify_center()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .text_color(theme::muted_fg())
             .child("Highlight a symbol to see its details.");
     };
@@ -233,14 +233,14 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 .child(
                     div()
                         .truncate()
-                        .text_size(px(19.))
+                        .text_size(px(tokens::text::DISPLAY))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(theme::fg())
                         .child(entry.name.clone()),
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::muted_fg())
                         .child(entry.description.clone()),
                 ),
@@ -313,7 +313,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
     let no_price = (!has_live && matches!(sheet.detail, Some(Detail::Ready(_)))).then(|| {
         div()
             .mt_3()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .text_color(theme::muted_fg())
             .child("No price yet. The market may be closed for this symbol.")
     });
@@ -326,7 +326,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 .items_center()
                 .gap_2()
                 .mt_3()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(anim::spin(
                     icon::tinted(IconName::LoaderCircle, 13., theme::muted_fg()),
@@ -351,7 +351,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::destructive())
                         .child(icon::tinted(
                             IconName::TriangleAlert,
@@ -362,7 +362,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 )
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(message.clone()),
                 ),

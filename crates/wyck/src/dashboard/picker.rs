@@ -27,7 +27,7 @@ use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::runtime;
 use wyck_openapi::OpenApiError;
-use wyck_ui::{anim, button, icon, text_input::TextInput, theme};
+use wyck_ui::{anim, button, icon, text_input::TextInput, theme, tokens};
 
 const ROW_HEIGHT: f32 = 52.;
 /// How many rows a page key moves.
@@ -243,7 +243,7 @@ impl Dashboard {
                 .justify_center()
                 .px_6()
                 .text_center()
-                .text_size(px(13.))
+                .text_size(px(tokens::text::EMPHASIS))
                 .text_color(theme::muted_fg())
                 .child(empty_message)
                 .into_any_element()
@@ -408,7 +408,7 @@ fn class_chip(
         } else {
             theme::bg()
         })
-        .text_size(px(12.))
+        .text_size(px(tokens::text::BODY))
         .text_color(if selected {
             theme::fg()
         } else {
@@ -472,7 +472,7 @@ fn symbol_row(
                 .w(px(120.))
                 .flex_none()
                 .truncate()
-                .text_size(px(14.))
+                .text_size(px(tokens::text::TITLE))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(theme::fg())
                 .child(entry.name.clone()),
@@ -482,14 +482,14 @@ fn symbol_row(
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(entry.description.clone()),
         )
         .child(
             div()
                 .flex_none()
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child(
                     entry
@@ -608,13 +608,13 @@ fn key_cap(content: impl IntoElement) -> gpui::Div {
         .items_center()
         .justify_center()
         .min_w(px(22.))
-        .h(px(20.))
+        .h(px(tokens::height::TINY))
         .px_1p5()
         .rounded_md()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::bg())
-        .text_size(px(10.5))
+        .text_size(px(tokens::text::SMALL))
         .text_color(theme::muted_fg())
         .child(content)
 }
@@ -628,7 +628,7 @@ fn key_hint(caps: Vec<gpui::AnyElement>, label: &'static str) -> gpui::Div {
         .children(caps)
         .child(
             div()
-                .text_size(px(11.5))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(label),
         )
@@ -667,7 +667,7 @@ fn footer(shown: usize, total: usize) -> gpui::Div {
         )
         .child(
             div()
-                .text_size(px(11.5))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(count),
         )

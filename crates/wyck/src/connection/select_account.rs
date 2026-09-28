@@ -10,7 +10,7 @@ use wyck_openapi::transport::connection::Client;
 use wyck_openapi::transport::messages::TraderAccount;
 
 use super::{ConnectionFlow, Screen};
-use wyck_ui::{anim, button, icon, layout, theme};
+use wyck_ui::{anim, button, icon, layout, theme, tokens};
 
 pub(super) struct SelectAccountState {
     credentials: ClientCredentials,
@@ -78,13 +78,13 @@ impl ConnectionFlow {
                                     .gap_1()
                                     .child(
                                         div()
-                                            .text_size(px(20.))
+                                            .text_size(px(tokens::text::DISPLAY))
                                             .text_color(theme::fg())
                                             .child("Choose a trading account"),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(13.))
+                                            .text_size(px(tokens::text::EMPHASIS))
                                             .text_color(theme::muted_fg())
                                             .child(
                                                 "Your cTrader ID authorized Wyck for these \
@@ -238,7 +238,7 @@ fn account_row(
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(14.))
+                        .text_size(px(tokens::text::TITLE))
                         .text_color(theme::fg())
                         .child(
                             account
@@ -250,7 +250,7 @@ fn account_row(
                 )
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .text_color(theme::muted_fg())
                         .child(format!(
                             "cTrader ID {} - login {login}",

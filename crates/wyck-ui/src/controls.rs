@@ -190,7 +190,7 @@ fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Sta
         .items_center()
         .justify_center()
         .w(px(40.))
-        .h(px(28.))
+        .h(px(crate::tokens::height::CONTROL))
         .rounded_md()
         .border_1()
         .border_color(if chosen {

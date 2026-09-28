@@ -15,7 +15,7 @@ use wyck_openapi::transport::messages::TraderAccount;
 use super::credentials::CALLBACK_PORT;
 use super::{ConnectionFlow, SavedConnection, Screen, service_tag};
 use crate::runtime;
-use wyck_ui::{anim, button, icon, layout, theme};
+use wyck_ui::{anim, button, icon, layout, theme, tokens};
 
 pub(super) struct AuthorizingState {
     account: TraderAccount,
@@ -203,13 +203,13 @@ impl ConnectionFlow {
                     )
                     .child(
                         div()
-                            .text_size(px(20.))
+                            .text_size(px(tokens::text::DISPLAY))
                             .text_color(theme::fg())
                             .child("Connecting your account"),
                     )
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::muted_fg())
                             .child(format!(
                                 "Authorizing {} - {}",

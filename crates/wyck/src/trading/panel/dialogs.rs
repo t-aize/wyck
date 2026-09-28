@@ -9,8 +9,7 @@ use gpui_kit::component::input::{Input, InputState};
 
 use crate::alerts::{Alerts, Condition};
 use crate::trading::account::Account;
-use wyck_ui::form::Head;
-use wyck_ui::{button, controls, form, modal, number, tokens};
+use wyck_ui::{button, controls, form, form::Head, modal, number, tokens};
 
 // ---- modifying a position or an order ----
 

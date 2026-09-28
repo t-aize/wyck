@@ -6,7 +6,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::TitleBar;
 
 use super::build_info::BuildMode;
-use wyck_ui::{icon, theme};
+use wyck_ui::{icon, theme, tokens};
 
 /// Draws the current section and the unavailable journal beside a drag region.
 pub fn render(window: &mut Window) -> impl IntoElement {
@@ -46,7 +46,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
         .when(show_brand, |bar| {
             bar.child(
                 div()
-                    .text_size(px(13.0))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(foreground)
                     .child("Wyck"),
@@ -62,7 +62,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
                         .border_color(theme::accent_alpha(0.45))
                         .bg(theme::accent_selected())
                         .px_1p5()
-                        .text_size(px(9.0))
+                        .text_size(px(tokens::text::CAPTION))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(accent)
                         .child("DEV"),
@@ -84,7 +84,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
         .border_1()
         .border_color(theme::accent_alpha(0.28))
         .bg(theme::accent_selected())
-        .text_size(px(11.0))
+        .text_size(px(tokens::text::SMALL))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(foreground)
         .on_mouse_down(MouseButton::Left, |_, window, cx| {
@@ -103,7 +103,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
         .gap_1p5()
         .px_2()
         .rounded_md()
-        .text_size(px(11.0))
+        .text_size(px(tokens::text::SMALL))
         .text_color(theme::muted_fg())
         .on_mouse_down(MouseButton::Left, |_, window, cx| {
             window.prevent_default();
@@ -117,7 +117,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
                     .border_1()
                     .border_color(theme::border_subtle())
                     .px_1p5()
-                    .text_size(px(9.0))
+                    .text_size(px(tokens::text::CAPTION))
                     .child("Soon"),
             )
         });
@@ -145,7 +145,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
         div()
             .flex()
             .flex_none()
-            .h(px(34.0))
+            .h(px(tokens::height::LARGE))
             .pl_3()
             .pr_3()
             .border_b_1()

@@ -17,7 +17,7 @@ use wyck_openapi::transport::connection::Client;
 use super::select_account::SelectAccountState;
 use super::{ConnectionFlow, Screen};
 use crate::runtime;
-use wyck_ui::{anim, button, icon, layout, theme};
+use wyck_ui::{anim, button, icon, layout, theme, tokens};
 
 /// How long to wait for the user to finish signing in on cTrader's page before giving up.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(300);
@@ -247,13 +247,13 @@ impl ConnectionFlow {
                     )
                     .child(
                         div()
-                            .text_size(px(20.))
+                            .text_size(px(tokens::text::DISPLAY))
                             .text_color(theme::fg())
                             .child("Finish this in your browser"),
                     )
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(px(tokens::text::TITLE))
                             .text_color(theme::muted_fg())
                             .text_center()
                             .child(
@@ -267,7 +267,7 @@ impl ConnectionFlow {
                                 .flex()
                                 .items_center()
                                 .gap_2()
-                                .text_size(px(13.))
+                                .text_size(px(tokens::text::EMPHASIS))
                                 .text_color(theme::accent())
                                 .child(icon::tinted(IconName::Radio, 14., theme::accent()))
                                 .child("Waiting for cTrader..."),

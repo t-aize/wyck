@@ -13,9 +13,7 @@ use gpui_kit::component::{Disableable, Sizable};
 use super::AccountPanel;
 use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
 use crate::trading::ticket::prefs::{Placed, Slot, shift};
-use wyck_ui::form::Head;
-use wyck_ui::form::Tab as SettingsTab;
-use wyck_ui::{button, controls, form, modal};
+use wyck_ui::{button, controls, form, form::Head, form::Tab as SettingsTab, modal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {

@@ -15,11 +15,10 @@ use super::MultiChart;
 use crate::chart::drawing::model::Tool;
 use crate::chart::object_tree::tool_icon;
 use crate::workspace::MAX_FAVORITE_TOOLS;
-use wyck_ui::controls;
 use wyck_ui::{
-    icon,
+    controls, icon,
     menu::{self as popup, Entry, Item},
-    theme,
+    theme, tokens,
 };
 
 /// How tall the bar is.
@@ -133,7 +132,7 @@ impl MultiChart {
         if favorites.is_empty() {
             bar = bar.child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child("Star a tool in the list of its family to pin it here."),
             );
@@ -185,11 +184,11 @@ impl MultiChart {
                     .flex_row()
                     .items_center()
                     .gap_1p5()
-                    .h(px(28.))
+                    .h(px(tokens::height::CONTROL))
                     .px_2()
                     .rounded_md()
                     .cursor_pointer()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if selected {
                         theme::fg()
                     } else {

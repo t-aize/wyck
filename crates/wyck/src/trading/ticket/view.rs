@@ -16,12 +16,11 @@ use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
-use wyck_ui::tokens;
 use wyck_ui::{
     confirm::confirm,
     controls, icon,
     menu::{self as popup, Entry, Item},
-    number, theme,
+    number, theme, tokens,
 };
 
 /// What a button of a position row does.
@@ -44,16 +43,16 @@ impl Metrics {
             Density::Comfortable => Self {
                 gap: 12.,
                 pad: 12.,
-                text: 12.,
-                small: 11.,
+                text: tokens::text::BODY,
+                small: tokens::text::SMALL,
                 side_pad: 8.,
                 compact: false,
             },
             Density::Compact => Self {
                 gap: 8.,
                 pad: 8.,
-                text: 11.,
-                small: 10.,
+                text: tokens::text::SMALL,
+                small: tokens::text::CAPTION,
                 side_pad: 4.,
                 compact: true,
             },
@@ -151,7 +150,7 @@ impl OrderTicket {
                     .px_2()
                     .rounded_sm()
                     .cursor_pointer()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
                     .on_click(move |_, _, cx| toggle.toggle(cx))
@@ -389,7 +388,7 @@ impl OrderTicket {
                     )
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(px(tokens::text::HEADING))
                             .font_semibold()
                             .text_color(theme::fg())
                             .truncate()
@@ -480,7 +479,11 @@ impl OrderTicket {
                 .when(layout.show_prices, |el| {
                     el.child(
                         div()
-                            .text_size(px(if f.m.compact { 13. } else { 15. }))
+                            .text_size(px(if f.m.compact {
+                                tokens::text::EMPHASIS
+                            } else {
+                                tokens::text::HEADING
+                            }))
                             .font_semibold()
                             .text_color(theme::fg())
                             .child(f.price(price)),
@@ -489,7 +492,7 @@ impl OrderTicket {
                 .when(one_click, |el| {
                     el.child(
                         div()
-                            .text_size(px(9.))
+                            .text_size(px(tokens::text::CAPTION))
                             .text_color(theme::muted_fg())
                             .child("click to send"),
                     )
@@ -522,7 +525,7 @@ impl OrderTicket {
                                 .bg(theme::surface())
                                 .border_1()
                                 .border_color(theme::border_subtle())
-                                .text_size(px(10.))
+                                .text_size(px(tokens::text::CAPTION))
                                 .text_color(theme::muted_fg())
                                 .child(f.spread.clone()),
                         ),
@@ -1583,7 +1586,7 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::amber())
                 .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber()))
                 .child(message.clone())

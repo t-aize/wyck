@@ -21,12 +21,10 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
-use wyck_ui::controls;
-use wyck_ui::tokens;
 use wyck_ui::{
-    anim, button, icon,
+    anim, button, controls, icon,
     menu::{self as popup, Entry, Item},
-    theme,
+    theme, tokens,
 };
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
@@ -461,10 +459,10 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(20.))
+            .h(px(tokens::height::TINY))
             .pl_1()
             .rounded_sm()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .hover(move |s| s.bg(hover))
             .child(
                 div()
@@ -649,7 +647,7 @@ impl Chart {
                         .bg(theme::surface_alpha(0.92))
                         .border_1()
                         .border_color(theme::border_subtle())
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(
                             div()
@@ -806,7 +804,7 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_1()
-            .h(px(20.))
+            .h(px(tokens::height::TINY))
             .px_1()
             .rounded_sm()
             .cursor_pointer()
@@ -841,7 +839,7 @@ impl Chart {
             .flex_wrap()
             .items_center()
             .gap_x_2()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .child(symbol)
             .child(div().text_color(palette.text).child(kind_text))
             .children(
@@ -946,7 +944,7 @@ impl Chart {
                 .absolute()
                 .top(px(y - 10.0))
                 .right(px(AXIS_W + 8.0))
-                .h(px(20.))
+                .h(px(tokens::height::TINY))
                 .flex()
                 .flex_row()
                 .items_center()
@@ -955,7 +953,7 @@ impl Chart {
                 .border_1()
                 .border_color(color)
                 .bg(palette.bg)
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .occlude()
                 .child(
                     div()
@@ -1080,7 +1078,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(px(tokens::text::TITLE))
                             .text_color(theme::chart_muted())
                             .child("Pick a symbol to see its chart."),
                     )
@@ -1094,7 +1092,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::chart_muted())
                             .child("Loading the chart..."),
                     )
@@ -1109,7 +1107,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(px(tokens::text::TITLE))
                             .text_color(theme::chart_fg())
                             .child("Could not load the chart"),
                     )
@@ -1117,7 +1115,7 @@ impl Chart {
                         div()
                             .max_w(px(440.))
                             .text_center()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::chart_muted())
                             .child(message.clone()),
                     )
@@ -1132,7 +1130,7 @@ impl Chart {
                 centered()
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(px(tokens::text::TITLE))
                             .text_color(theme::chart_muted())
                             .child("No prices yet for this timeframe. New ones will show up here."),
                     )
@@ -1150,7 +1148,7 @@ impl Chart {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::chart_muted())
                     .child(anim::spin(
                         icon::tinted(IconName::LoaderCircle, 12., theme::chart_muted()),

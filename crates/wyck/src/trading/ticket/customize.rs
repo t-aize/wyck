@@ -16,9 +16,7 @@ use gpui_kit::component::{Disableable, Sizable};
 use super::OrderTicket;
 use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
 use crate::trading::math::SizeMode;
-use wyck_ui::form::Head;
-use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, modal, number, tokens};
+use wyck_ui::{button, controls, form, form::Head, form::Tab, modal, number, tokens};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
 const PRESET_MODES: [(SizeMode, &str, &str); 5] = [

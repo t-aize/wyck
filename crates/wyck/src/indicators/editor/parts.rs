@@ -21,18 +21,11 @@ use crate::chart::study::custom::library::{Entry as Script, registry};
 use crate::chart::study::custom::templates::TEMPLATES;
 use crate::chart::study::custom::{Problem, Severity};
 use crate::indicators;
-use wyck_ui::icon;
-use wyck_ui::tokens;
 use wyck_ui::{
-    controls,
+    controls, icon, layout,
     menu::{Entry, Item, Placement},
-    theme,
+    theme, tokens,
 };
-
-/// The width of the list of scripts and of the reference.
-const FONT_BODY: f32 = 12.0;
-const FONT_META: f32 = 11.0;
-const FONT_TITLE: f32 = 13.0;
 
 /// A fixed width font that the system has.
 fn mono() -> &'static str {
@@ -84,15 +77,6 @@ impl IndicatorEditor {
             Some(label) => button.label(label),
             None => button,
         }
-    }
-
-    fn separator() -> gpui::Div {
-        div()
-            .flex_none()
-            .w(px(1.))
-            .h(px(18.))
-            .mx_1()
-            .bg(theme::border_hairline())
     }
 
     // ---- the toolbar ----
@@ -166,7 +150,7 @@ impl IndicatorEditor {
                     .child(icon::tinted(IconName::CodeXml, 16., theme::accent()))
                     .child(
                         div()
-                            .text_size(px(FONT_TITLE))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::fg())
                             .child("Indicator editor"),
@@ -216,7 +200,7 @@ impl IndicatorEditor {
                     add.update(cx, |e, cx| e.add_to_chart(window, cx));
                 }),
             )
-            .child(Self::separator())
+            .child(layout::divider())
             .child(
                 self.tool_button(
                     "editor-import",
@@ -348,7 +332,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(FONT_BODY))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::muted_fg())
                             .child(if query.is_empty() {
                                 "No script yet. Make one with New, or drop .rhai files in the folder."
@@ -358,7 +342,7 @@ impl IndicatorEditor {
                     )
                     .child(
                         div()
-                            .text_size(px(FONT_META))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     ),
@@ -376,7 +360,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_1p5()
-                        .h(px(26.))
+                        .h(px(tokens::height::COMPACT))
                         .px_2()
                         .mt_1()
                         .cursor_pointer()
@@ -403,7 +387,7 @@ impl IndicatorEditor {
                         .child(
                             div()
                                 .flex_1()
-                                .text_size(px(FONT_BODY))
+                                .text_size(px(tokens::text::BODY))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme::muted_fg())
                                 .truncate()
@@ -411,7 +395,7 @@ impl IndicatorEditor {
                         )
                         .child(
                             div()
-                                .text_size(px(FONT_META))
+                                .text_size(px(tokens::text::SMALL))
                                 .text_color(theme::muted_fg())
                                 .child(entries.len().to_string()),
                         ),
@@ -485,7 +469,7 @@ impl IndicatorEditor {
             .flex_row()
             .items_center()
             .gap_1p5()
-            .h(px(28.))
+            .h(px(tokens::height::CONTROL))
             .pl(px(if indented { 24. } else { 8. }))
             .pr_2()
             .mx_1()
@@ -525,7 +509,7 @@ impl IndicatorEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(FONT_BODY))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if active {
                         theme::fg()
                     } else {
@@ -618,13 +602,13 @@ impl IndicatorEditor {
                 .bg(theme::surface())
                 .child(
                     div()
-                        .text_size(px(FONT_META))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(title),
                 )
                 .children(description.map(|text| {
                     div()
-                        .text_size(px(FONT_META))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(text)
                 }))
@@ -667,7 +651,7 @@ impl IndicatorEditor {
     fn tabs(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut row = div()
             .flex_none()
-            .h(px(34.))
+            .h(px(tokens::height::LARGE))
             .flex()
             .flex_row()
             .items_end()
@@ -688,7 +672,7 @@ impl IndicatorEditor {
                     .flex_row()
                     .items_center()
                     .gap_1p5()
-                    .h(px(30.))
+                    .h(px(tokens::height::CONTROL))
                     .pl_2p5()
                     .pr_1()
                     .rounded_t_md()
@@ -720,7 +704,7 @@ impl IndicatorEditor {
                     ))
                     .child(
                         div()
-                            .text_size(px(FONT_BODY))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(if active {
                                 theme::fg()
                             } else {
@@ -780,7 +764,7 @@ impl IndicatorEditor {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(34.))
+                .h(px(tokens::height::LARGE))
                 .px_3()
                 .bg(theme::amber_bg())
                 .border_b_1()
@@ -789,7 +773,7 @@ impl IndicatorEditor {
                 .child(
                     div()
                         .flex_1()
-                        .text_size(px(FONT_BODY))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::fg())
                         .child(text.to_owned()),
                 )
@@ -831,7 +815,7 @@ impl IndicatorEditor {
             .child(icon::tinted(IconName::CodeXml, 32., theme::muted_fg()))
             .child(
                 div()
-                    .text_size(px(FONT_TITLE))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child("Write your own indicators"),
@@ -840,7 +824,7 @@ impl IndicatorEditor {
                 div()
                     .max_w(px(420.))
                     .text_center()
-                    .text_size(px(FONT_BODY))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child("Pick a script on the left, or start from a template. A saved script shows up in the list of indicators, on every chart."),
             )
@@ -889,10 +873,10 @@ impl IndicatorEditor {
                 .flex_row()
                 .items_center()
                 .gap_1p5()
-                .h(px(26.))
+                .h(px(tokens::height::COMPACT))
                 .px_2p5()
                 .cursor_pointer()
-                .text_size(px(FONT_BODY))
+                .text_size(px(tokens::text::BODY))
                 .border_b_2()
                 .border_color(if chosen {
                     theme::accent()
@@ -910,7 +894,7 @@ impl IndicatorEditor {
                         .px_1p5()
                         .rounded_full()
                         .bg(theme::destructive_bg())
-                        .text_size(px(FONT_META))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::destructive())
                         .child(c.to_string())
                 }))
@@ -1035,7 +1019,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(FONT_BODY))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::muted_fg())
                         .child(icon::tinted(IconName::Check, 14., theme::emerald()))
                         .child(text),
@@ -1078,14 +1062,14 @@ impl IndicatorEditor {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(FONT_BODY))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::fg())
                             .child(problem.message.clone()),
                     )
                     .children((line > 0).then(|| {
                         div()
                             .flex_none()
-                            .text_size(px(FONT_META))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::muted_fg())
                             .child(format!("line {line}, column {column}"))
                     })),
@@ -1129,14 +1113,14 @@ impl IndicatorEditor {
                 }
                 list = list.child(
                     div()
-                        .text_size(px(FONT_META))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(line),
                 );
                 if let Some(problem) = report.problems.first() {
                     list = list.child(
                         div()
-                            .text_size(px(FONT_BODY))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::destructive())
                             .child(problem.message.clone()),
                     );
@@ -1150,7 +1134,7 @@ impl IndicatorEditor {
                     list = list.child(
                         div()
                             .font_family(mono())
-                            .text_size(px(FONT_BODY))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::fg())
                             .child(text),
                     );
@@ -1256,7 +1240,7 @@ impl IndicatorEditor {
                     .child(
                         div()
                             .px_1()
-                            .text_size(px(FONT_META))
+                            .text_size(px(tokens::text::SMALL))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::muted_fg())
                             .child("REFERENCE"),
@@ -1275,7 +1259,7 @@ impl IndicatorEditor {
                     .py_1p5()
                     .border_t_1()
                     .border_color(theme::border_hairline())
-                    .text_size(px(FONT_META))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .child("Click a line to write its example where the cursor is."),
             )
@@ -1297,7 +1281,7 @@ impl IndicatorEditor {
         });
         div()
             .flex_none()
-            .h(px(24.))
+            .h(px(tokens::height::COMPACT))
             .px_3()
             .flex()
             .flex_row()
@@ -1305,7 +1289,7 @@ impl IndicatorEditor {
             .gap_3()
             .border_t_1()
             .border_color(theme::border_hairline())
-            .text_size(px(FONT_META))
+            .text_size(px(tokens::text::SMALL))
             .text_color(theme::muted_fg())
             .child("Rhai")
             .children(position)
@@ -1342,7 +1326,7 @@ impl IndicatorEditor {
 
 fn note(text: &'static str) -> gpui::Div {
     div()
-        .text_size(px(FONT_BODY))
+        .text_size(px(tokens::text::BODY))
         .text_color(theme::muted_fg())
         .child(text)
 }
@@ -1352,7 +1336,7 @@ fn section_title(title: &'static str) -> gpui::Div {
         .px_3()
         .pt_2p5()
         .pb_1()
-        .text_size(px(FONT_META))
+        .text_size(px(tokens::text::SMALL))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(theme::muted_fg())
         .child(title.to_uppercase())
@@ -1376,13 +1360,13 @@ fn reference_row(
         .child(
             div()
                 .font_family(mono())
-                .text_size(px(FONT_BODY))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::accent())
                 .child(title.into()),
         )
         .child(
             div()
-                .text_size(px(FONT_META))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child(summary.into()),
         )
@@ -1404,7 +1388,7 @@ impl Render for IndicatorEditor {
                         .h_full()
                         .bordered(false)
                         .font_family(mono())
-                        .text_size(px(FONT_BODY)),
+                        .text_size(px(tokens::text::BODY)),
                 )
                 .into_any_element(),
             None => self.empty(cx),
@@ -1458,7 +1442,7 @@ impl Render for IndicatorEditor {
             .flex_col()
             .bg(theme::bg())
             .font_family(crate::appearance::font(cx))
-            .text_size(px(FONT_BODY))
+            .text_size(px(tokens::text::BODY))
             .text_color(theme::fg())
             .child(toolbar)
             .child(

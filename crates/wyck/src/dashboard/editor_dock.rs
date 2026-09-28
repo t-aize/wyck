@@ -10,10 +10,9 @@ use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
 use crate::indicators::{self, editor::EditorEvent, editor::IndicatorEditor};
-use wyck_ui::tokens;
 use wyck_ui::{
     menu::{Entry, Item, Menu, Placement},
-    theme,
+    theme, tokens,
 };
 
 /// The least and the most height of the panel that is not maximized.

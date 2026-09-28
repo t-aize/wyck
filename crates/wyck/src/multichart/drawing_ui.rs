@@ -14,8 +14,7 @@ use super::MultiChart;
 use crate::chart::DrawingCommand;
 use crate::chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use crate::chart::object_tree::tool_icon;
-use wyck_ui::menu as popup;
-use wyck_ui::{controls, icon, theme, tokens};
+use wyck_ui::{controls, icon, layout, menu as popup, theme, tokens};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -30,21 +29,6 @@ fn group_tools(group: Group) -> Vec<Tool> {
 /// A drawing color as the theme's color type.
 fn swatch_color(color: u32) -> gpui::Rgba {
     gpui::rgb(color)
-}
-
-/// A short sample of a line style, drawn as shapes so every style sits on the same middle line
-/// and has the same width (text dots sit on the baseline and drift off center).
-fn dash_preview(dash: Dash, ink: gpui::Rgba) -> impl IntoElement {
-    let row = div().flex().flex_row().items_center().justify_center();
-    match dash {
-        Dash::Solid => row.child(div().w(px(22.)).h(px(2.)).rounded_full().bg(ink)),
-        Dash::Dashed => row
-            .gap(px(3.))
-            .children((0..3).map(|_| div().w(px(6.)).h(px(2.)).rounded_full().bg(ink))),
-        Dash::Dotted => row
-            .gap(px(4.))
-            .children((0..4).map(|_| div().size(px(2.)).rounded_full().bg(ink))),
-    }
 }
 
 impl MultiChart {
@@ -358,13 +342,6 @@ impl MultiChart {
         let has_fill = tool.has_fill();
         let has_dash = tool.has_dash();
 
-        let divider = || {
-            div()
-                .mx_1()
-                .w(px(1.))
-                .h(px(18.))
-                .bg(theme::border_hairline())
-        };
         let mut bar = div()
             .flex()
             .flex_row()
@@ -379,11 +356,11 @@ impl MultiChart {
             .child(
                 div()
                     .px_2()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .child(tool.label()),
             )
-            .child(divider());
+            .child(layout::divider());
 
         if !locked {
             if tool.has_quick_color() {
@@ -395,7 +372,7 @@ impl MultiChart {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .size(px(22.))
+                            .size(px(tokens::height::COMPACT))
                             .rounded_full()
                             .cursor_pointer()
                             .when(selected, |el| el.border_1().border_color(theme::fg()))
@@ -426,67 +403,37 @@ impl MultiChart {
                         pick_this.update(cx, |this, cx| this.set_drawing_color(color, cx));
                     },
                 ));
-                bar = bar.child(divider());
+                bar = bar.child(layout::divider());
             }
             if tool.has_width() {
-                for (index, width) in tool.widths().into_iter().enumerate() {
-                    let selected = (style.width - width).abs() < 0.01;
-                    bar = bar.child(
-                        div()
-                            .id(("draw-width", index as u64))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(24.))
-                            .rounded_md()
-                            .cursor_pointer()
-                            .when(selected, |el| el.bg(theme::accent_selected()))
-                            .hover(|style| style.bg(theme::surface_hover()))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.set_drawing_width(width, cx);
-                            }))
-                            .child(
-                                div()
-                                    .w(px(14.))
-                                    .h(px(width.max(1.0)))
-                                    .rounded_full()
-                                    .bg(theme::fg()),
-                            ),
-                    );
-                }
-                bar = bar.child(divider());
+                let widths = tool.widths();
+                let selected = widths.iter().position(|w| (style.width - w).abs() < 0.01);
+                let (this, picked) = (cx.entity(), widths);
+                bar = bar
+                    .child(controls::width_picker(
+                        "draw-width",
+                        &widths,
+                        selected,
+                        move |index, _window, cx| {
+                            let width = picked[index];
+                            this.update(cx, |this, cx| this.set_drawing_width(width, cx));
+                        },
+                    ))
+                    .child(layout::divider());
             }
             if has_dash {
-                for (dash, label) in [
-                    (Dash::Solid, "Solid"),
-                    (Dash::Dashed, "Dashed"),
-                    (Dash::Dotted, "Dotted"),
-                ] {
-                    let selected = style.dash == dash;
-                    let ink = if selected {
-                        theme::fg()
-                    } else {
-                        theme::muted_fg()
-                    };
-                    bar = bar.child(
-                        div()
-                            .id(SharedString::from(format!("draw-dash-{label}")))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .w(px(38.))
-                            .h(px(24.))
-                            .rounded_md()
-                            .cursor_pointer()
-                            .when(selected, |el| el.bg(theme::accent_selected()))
-                            .hover(|style| style.bg(theme::surface_hover()))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.set_drawing_dash(dash, cx);
-                            }))
-                            .child(dash_preview(dash, ink)),
-                    );
-                }
-                bar = bar.child(divider());
+                const DASHES: [Dash; 3] = [Dash::Solid, Dash::Dashed, Dash::Dotted];
+                let selected = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
+                let this = cx.entity();
+                bar = bar
+                    .child(controls::dash_picker(
+                        "draw-dash",
+                        selected,
+                        move |index, _window, cx| {
+                            this.update(cx, |this, cx| this.set_drawing_dash(DASHES[index], cx));
+                        },
+                    ))
+                    .child(layout::divider());
             }
             if has_fill {
                 bar = bar
@@ -502,12 +449,12 @@ impl MultiChart {
                                 this.toggle_drawing_fill(cx)
                             })),
                     )
-                    .child(divider());
+                    .child(layout::divider());
             }
             if tool.has_text() {
                 bar = bar
                     .child(div().w(px(220.)).child(self.text_input.clone()))
-                    .child(divider());
+                    .child(layout::divider());
             }
         }
 
@@ -544,7 +491,7 @@ impl MultiChart {
                             this.drawing_command(id, DrawingCommand::Flip, cx);
                         })),
                 )
-                .child(divider());
+                .child(layout::divider());
         }
         bar = bar
             .child(

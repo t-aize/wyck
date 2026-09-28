@@ -22,9 +22,7 @@ use super::{
     Chart, construction_ui, footprint_ui, indicator_picker, overlay, study_settings, tpo_ui,
     volume_ui,
 };
-use wyck_ui::form::Head;
-use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, icon, modal, number, theme, tokens};
+use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[
@@ -493,7 +491,7 @@ impl ChartSettingsEditor {
                     div()
                         .id(SharedString::from(format!("chart-kind-{}", kind.code())))
                         .w(px(150.))
-                        .h(px(34.))
+                        .h(px(tokens::height::LARGE))
                         .flex()
                         .flex_row()
                         .items_center()
@@ -507,7 +505,7 @@ impl ChartSettingsEditor {
                             theme::border_subtle()
                         })
                         .cursor_pointer()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(ink)
                         .when(chosen, |el| el.bg(theme::accent_selected()))
                         .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -525,7 +523,7 @@ impl ChartSettingsEditor {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::muted_fg())
                             .child(title),
                     )
@@ -907,10 +905,10 @@ impl ChartSettingsEditor {
                     .flex_row()
                     .items_center()
                     .justify_between()
-                    .h(px(30.))
+                    .h(px(tokens::height::CONTROL))
                     .px_2p5()
                     .cursor_pointer()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if chosen {
                         theme::fg()
                     } else {
@@ -1019,7 +1017,7 @@ impl ChartSettingsEditor {
                 div()
                     .flex_none()
                     .w(px(56.))
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::accent())
                     .child(spec.short),
             )
@@ -1027,7 +1025,7 @@ impl ChartSettingsEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(13.))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .text_color(if visible {
                         theme::fg()
                     } else {

@@ -89,3 +89,15 @@ pub fn action(
         None => button,
     }
 }
+
+/// A button that is only an icon, with `tip` as its tooltip and its name for a screen reader. It
+/// is small; a dense strip makes it `.xsmall()`.
+pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {
+    Button::new(id)
+        .ghost()
+        .small()
+        .icon(glyph)
+        .tooltip(tip)
+        .accessibility_label(tip)
+        .cursor_pointer()
+}

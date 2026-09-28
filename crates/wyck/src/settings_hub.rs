@@ -21,9 +21,9 @@ use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use super::{backup, updates};
-use wyck_ui::form::Head;
 use wyck_ui::{
-    button, confirm, controls, form, icon, modal, number, theme, theme::Colors, toast, tokens,
+    button, confirm, controls, form, form::Head, icon, modal, number, theme, theme::Colors, toast,
+    tokens,
 };
 
 /// Opens the settings.
@@ -373,7 +373,7 @@ impl SettingsHub {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::fg())
                             .child(name.to_owned()),
                     )
@@ -509,7 +509,7 @@ impl SettingsHub {
             .flex()
             .items_center()
             .justify_center()
-            .size(px(26.))
+            .size(px(tokens::height::COMPACT))
             .rounded_full()
             .border_2()
             .border_color(if chosen {
@@ -562,13 +562,13 @@ impl SettingsHub {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::fg())
                             .child(name.clone()),
                     )
                     .children(used.then(|| {
                         div()
-                            .text_size(px(11.))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::accent())
                             .child("In use")
                     }))
@@ -657,18 +657,18 @@ impl SettingsHub {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(34.))
+                .h(px(tokens::height::LARGE))
                 .child(
                     div()
                         .w(px(150.))
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::muted_fg())
                         .child("Name"),
                 )
                 .child(div().w(px(220.)).child(Input::new(&self.rename).small()))
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child("Enter to rename"),
                 ),
@@ -682,11 +682,11 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(34.))
+                    .h(px(tokens::height::LARGE))
                     .child(
                         div()
                             .w(px(150.))
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::fg())
                             .child(field.label()),
                     )
@@ -777,10 +777,10 @@ impl SettingsHub {
                         .flex_row()
                         .items_center()
                         .justify_between()
-                        .h(px(30.))
+                        .h(px(tokens::height::CONTROL))
                         .px_2()
                         .cursor_pointer()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .font_family(SharedString::from(name.clone()))
                         .text_color(if chosen {
                             theme::fg()
@@ -917,7 +917,7 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(34.))
+                    .h(px(tokens::height::LARGE))
                     .px_2p5()
                     .rounded_md()
                     .border_1()
@@ -936,7 +936,12 @@ impl SettingsHub {
                     }))
                     .child(div().size(px(12.)).rounded_sm().bg(rgb(up)))
                     .child(div().size(px(12.)).rounded_sm().bg(rgb(down)))
-                    .child(div().text_size(px(12.)).text_color(theme::fg()).child(name)),
+                    .child(
+                        div()
+                            .text_size(px(tokens::text::BODY))
+                            .text_color(theme::fg())
+                            .child(name),
+                    ),
             );
         }
 
@@ -1206,14 +1211,14 @@ impl SettingsHub {
             let mut waiting = div().flex().flex_col().gap_1();
             waiting = waiting.child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .text_color(theme::amber())
                     .child("A backup is waiting to be applied when wyck starts again:"),
             );
             for line in lines {
                 waiting = waiting.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .text_color(theme::muted_fg())
                         .child(format!("- {line}")),
                 );
@@ -1271,7 +1276,7 @@ impl SettingsHub {
                     .child(
                         div()
                             .flex_1()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::fg())
                             .child(notice.text.clone()),
                     ),
@@ -1424,19 +1429,19 @@ impl SettingsHub {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::fg())
                             .child("Indicators folder"),
                     )
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     )
                     .child(
                         div()
-                            .text_size(px(11.))
+                            .text_size(px(tokens::text::SMALL))
                             .text_color(theme::muted_fg())
                             .child(if using_default {
                                 "The default folder, inside the settings folder."
@@ -1503,7 +1508,7 @@ impl SettingsHub {
                 div()
                     .max_w(px(360.))
                     .truncate()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .child(default_dir.display().to_string()),
             ),
@@ -1518,7 +1523,7 @@ impl SettingsHub {
                     "The ones with problems are marked in the editor and cannot be added"
                 }),
                 div()
-                    .text_size(px(13.))
+                    .text_size(px(tokens::text::EMPHASIS))
                     .text_color(if broken == 0 {
                         theme::fg()
                     } else {
@@ -1584,7 +1589,7 @@ impl SettingsHub {
                 .gap_2()
                 .child(
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .text_color(theme::fg())
                         .child(prefs.favorites.len().to_string()),
                 )
@@ -1625,7 +1630,7 @@ impl SettingsHub {
                     label,
                     None,
                     div()
-                        .text_size(px(13.))
+                        .text_size(px(tokens::text::EMPHASIS))
                         .text_color(theme::fg())
                         .child(value),
                 )
@@ -1637,7 +1642,7 @@ impl SettingsHub {
             "Status",
             None,
             div()
-                .text_size(px(13.))
+                .text_size(px(tokens::text::EMPHASIS))
                 .text_color(theme::fg())
                 .child(update_state.status()),
         )];
@@ -1651,7 +1656,7 @@ impl SettingsHub {
                 None,
                 div()
                     .max_w(px(440.))
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child(notes.clone()),
             ));

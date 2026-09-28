@@ -18,8 +18,12 @@ pub mod text {
     pub const EMPHASIS: f32 = 13.0;
     /// The title of a panel or of a card.
     pub const TITLE: f32 = 14.0;
-    /// A large figure or the title of a screen.
+    /// The head of a block: the symbol of the order ticket, a price, a notice.
+    pub const HEADING: f32 = 16.0;
+    /// The title of a screen, a large figure.
     pub const DISPLAY: f32 = 20.0;
+    /// The title of the welcome screen.
+    pub const HERO: f32 = 26.0;
 }
 
 /// Heights of controls and rows, in pixels.

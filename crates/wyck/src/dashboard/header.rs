@@ -45,7 +45,7 @@ impl Dashboard {
             div()
                 .flex_none()
                 .w(px(1.))
-                .h(px(22.))
+                .h(px(tokens::height::COMPACT))
                 .bg(theme::border_hairline())
         };
         div()
@@ -150,7 +150,7 @@ impl Dashboard {
                     .gap_0p5()
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(px(tokens::text::TITLE))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::fg())
                             .child(title),
@@ -160,7 +160,7 @@ impl Dashboard {
                             div()
                                 .max_w(px(170.))
                                 .truncate()
-                                .text_size(px(11.))
+                                .text_size(px(tokens::text::SMALL))
                                 .text_color(theme::muted_fg())
                                 .child(subtitle),
                         )
@@ -179,7 +179,7 @@ impl Dashboard {
         let Some((bid, ask, spread)) = self.price_text() else {
             return block.child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child(if self.active.is_some() {
                         "Waiting for a price..."
@@ -222,7 +222,7 @@ impl Dashboard {
                     .child(
                         div()
                             .w(px(bid_w))
-                            .text_size(px(17.))
+                            .text_size(px(tokens::text::HEADING))
                             .font_weight(FontWeight::SEMIBOLD)
                             .font_features(digits())
                             .text_color(tone)
@@ -245,7 +245,7 @@ impl Dashboard {
                         .w(px(side_chars * 6.6))
                         .flex()
                         .flex_col()
-                        .text_size(px(10.5))
+                        .text_size(px(tokens::text::SMALL))
                         .font_features(digits())
                         .children(ask.map(|ask| line("Ask", ask)))
                         .children(spread.map(|pips| line("Spread", pips))),
@@ -285,11 +285,11 @@ impl Dashboard {
             .flex_row()
             .items_center()
             .gap_1()
-            .h(px(28.))
+            .h(px(tokens::height::CONTROL))
             .px_2()
             .rounded_md()
             .cursor_pointer()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .text_color(if in_quick {
                 theme::muted_fg()
             } else {
@@ -396,7 +396,7 @@ impl Dashboard {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(22.))
+                .size(px(tokens::height::COMPACT))
                 .rounded_md()
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::surface_hover()))
@@ -487,14 +487,14 @@ impl Dashboard {
             units = units.child(
                 div()
                     .id(SharedString::from(format!("tf-unit-{}", unit.label())))
-                    .h(px(26.))
+                    .h(px(tokens::height::COMPACT))
                     .w(px(24.))
                     .flex()
                     .items_center()
                     .justify_center()
                     .rounded_md()
                     .cursor_pointer()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if chosen {
                         theme::fg()
                     } else {
@@ -650,7 +650,7 @@ impl Dashboard {
         };
         let figure = |value: String, color: gpui::Rgba| {
             div()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(color)
                 .child(value)
@@ -684,7 +684,7 @@ impl Dashboard {
             .child(layout::environment_badge(self.account.is_live))
             .children(problem.map(|text| {
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::amber())
                     .child(text)
             }))
@@ -743,7 +743,7 @@ impl Dashboard {
                 .flex()
                 .flex_row()
                 .justify_between()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .child(div().text_color(theme::muted_fg()).child(label))
                 .child(div().text_color(color).child(value))
         };
@@ -793,7 +793,7 @@ impl Dashboard {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::fg())
                             .child(self.account.label.clone()),
                     )
@@ -821,7 +821,7 @@ impl Dashboard {
             .child(div().h(px(1.)).bg(theme::border_hairline()))
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child(
                         "Disconnecting removes the saved sign-in from this device. You can \
@@ -877,13 +877,13 @@ fn timeframe_chip(
             "{prefix}-{}",
             timeframe.label()
         )))
-        .h(px(28.))
+        .h(px(tokens::height::CONTROL))
         .px_2()
         .flex()
         .items_center()
         .rounded_md()
         .cursor_pointer()
-        .text_size(px(12.))
+        .text_size(px(tokens::text::BODY))
         .text_color(if active {
             theme::fg()
         } else {

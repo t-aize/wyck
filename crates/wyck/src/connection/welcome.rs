@@ -5,7 +5,7 @@ use gpui::{Window, div, px};
 use gpui_kit::assets::IconName;
 
 use super::ConnectionFlow;
-use wyck_ui::{anim, button, layout, theme};
+use wyck_ui::{anim, button, layout, theme, tokens};
 
 impl ConnectionFlow {
     pub(super) fn render_welcome(
@@ -54,7 +54,7 @@ impl ConnectionFlow {
                 ))
                 .child(anim::enter(
                     div()
-                        .text_size(px(26.))
+                        .text_size(px(tokens::text::HERO))
                         .text_color(theme::fg())
                         .child("Connect your cTrader account"),
                     ("welcome-title", epoch),
@@ -62,7 +62,7 @@ impl ConnectionFlow {
                 ))
                 .child(anim::enter(
                     div()
-                        .text_size(px(14.))
+                        .text_size(px(tokens::text::TITLE))
                         .text_color(theme::muted_fg())
                         .text_center()
                         .child(
@@ -97,7 +97,7 @@ impl ConnectionFlow {
                         .gap_4()
                         .child(anim::enter(
                             div()
-                                .text_size(px(11.))
+                                .text_size(px(tokens::text::SMALL))
                                 .text_color(theme::muted_fg())
                                 .child("WHAT HAPPENS NEXT"),
                             ("welcome-next", epoch),
@@ -125,7 +125,7 @@ fn next_step(icon: IconName, text: &'static str) -> gpui::Div {
         .child(
             div()
                 .flex_1()
-                .text_size(px(14.))
+                .text_size(px(tokens::text::TITLE))
                 .text_color(theme::muted_fg())
                 .child(text),
         )

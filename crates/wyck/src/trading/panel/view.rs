@@ -22,12 +22,12 @@ use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
-use wyck_ui::tokens;
 use wyck_ui::{
+    button,
     confirm::confirm,
     controls, icon,
     menu::{self as popup, Entry, Item},
-    theme,
+    theme, tokens,
 };
 
 /// What a button or a menu entry of a row does.
@@ -139,13 +139,9 @@ fn icon_button(
     on: bool,
     run: Action,
 ) -> impl IntoElement {
-    Button::new(id)
-        .cursor_pointer()
-        .when(!enabled, |button| button.cursor_not_allowed())
-        .ghost()
+    button::icon(id, icon, tip)
         .xsmall()
-        .icon(icon)
-        .tooltip(tip)
+        .when(!enabled, |button| button.cursor_not_allowed())
         .selected(on)
         .disabled(!enabled)
         .on_click(move |_, window, cx| run(window, cx))
@@ -202,7 +198,7 @@ impl AccountPanel {
             .flex()
             .items_center()
             .cursor_pointer()
-            .text_size(px(12.))
+            .text_size(px(tokens::text::BODY))
             .font_weight(if chosen {
                 FontWeight::SEMIBOLD
             } else {
@@ -240,13 +236,13 @@ impl AccountPanel {
                 .gap_1p5()
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(label),
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .font_semibold()
                         .text_color(color)
                         .child(value),
@@ -720,7 +716,7 @@ impl AccountPanel {
             .child(div().flex_1())
             .child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .child(if shown == table.unfiltered {
                         format!("{shown} rows")
@@ -752,13 +748,13 @@ impl AccountPanel {
                 .gap_1p5()
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(tokens::text::SMALL))
                         .text_color(theme::muted_fg())
                         .child(label),
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(tokens::text::BODY))
                         .font_semibold()
                         .text_color(color)
                         .child(value),
@@ -772,7 +768,7 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_4()
-            .h(px(28.))
+            .h(px(tokens::height::CONTROL))
             .px_3()
             .overflow_hidden()
             .border_b_1()
@@ -1014,9 +1010,9 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(26.))
+            .h(px(tokens::height::COMPACT))
             .px_3()
-            .text_size(px(11.))
+            .text_size(px(tokens::text::SMALL))
             .text_color(theme::muted_fg())
             .border_b_1()
             .border_color(theme::border_hairline())
@@ -1203,7 +1199,7 @@ impl AccountPanel {
                 .py_6()
                 .flex()
                 .justify_center()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child(text)
                 .into_any_element()
@@ -1220,7 +1216,7 @@ impl AccountPanel {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(26.))
+                .h(px(tokens::height::COMPACT))
                 .px_3()
                 .text_size(px(text))
                 .font_semibold()
@@ -1345,7 +1341,7 @@ impl Render for AccountPanel {
                 .flex_col()
                 .items_center()
                 .gap_1()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .child(
                     div()
                         .text_color(theme::destructive())
@@ -1357,7 +1353,7 @@ impl Render for AccountPanel {
                 .py_6()
                 .flex()
                 .justify_center()
-                .text_size(px(12.))
+                .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
                 .child("Reading the account...")
                 .into_any_element(),

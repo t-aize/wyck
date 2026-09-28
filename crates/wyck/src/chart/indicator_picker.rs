@@ -16,9 +16,7 @@ use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
 use crate::indicators;
-use wyck_ui::form::Head;
-use wyck_ui::form::Tab;
-use wyck_ui::{button, controls, form, icon, modal, theme};
+use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, theme, tokens};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
@@ -142,7 +140,7 @@ impl Picker {
                 div()
                     .flex_none()
                     .w(px(58.))
-                    .h(px(28.))
+                    .h(px(tokens::height::CONTROL))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -152,7 +150,7 @@ impl Picker {
                     } else {
                         theme::destructive_bg()
                     })
-                    .text_size(px(11.5))
+                    .text_size(px(tokens::text::BODY))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(if usable {
                         theme::fg()
@@ -176,7 +174,7 @@ impl Picker {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_size(px(13.))
+                                    .text_size(px(tokens::text::EMPHASIS))
                                     .text_color(theme::fg())
                                     .truncate()
                                     .child(item.label.clone()),
@@ -194,7 +192,7 @@ impl Picker {
                     )
                     .child(
                         div()
-                            .text_size(px(11.5))
+                            .text_size(px(tokens::text::BODY))
                             .text_color(if usable {
                                 theme::muted_fg()
                             } else {
@@ -274,12 +272,12 @@ impl Picker {
                     .flex_row()
                     .items_center()
                     .gap_1p5()
-                    .h(px(28.))
+                    .h(px(tokens::height::CONTROL))
                     .px_2p5()
                     .rounded_md()
                     .border_1()
                     .border_color(theme::border_subtle())
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(if can_add {
                         theme::fg()
                     } else {
@@ -338,7 +336,7 @@ fn pill(text: &'static str) -> gpui::Div {
         .px_1p5()
         .rounded_sm()
         .bg(theme::fg_alpha(0.06))
-        .text_size(px(10.5))
+        .text_size(px(tokens::text::SMALL))
         .text_color(theme::muted_fg())
         .child(text)
 }

@@ -25,8 +25,7 @@ use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
-use wyck_ui::form::Head;
-use wyck_ui::{button, controls, form, modal, number, theme, tokens};
+use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
 
 pub struct PropsContext {
     pub zone: Zone,
@@ -679,7 +678,12 @@ impl DrawingProps {
                 "Nothing to size: the stop sits on the entry.",
             ))];
         };
-        let value = |text: String| div().text_size(px(13.)).text_color(theme::fg()).child(text);
+        let value = |text: String| {
+            div()
+                .text_size(px(tokens::text::EMPHASIS))
+                .text_color(theme::fg())
+                .child(text)
+        };
         let mut rows = vec![
             form::field("Quantity", None, value(p.format_qty(stats.qty))),
             form::field(
@@ -1724,7 +1728,7 @@ impl DrawingProps {
         };
         let glyph: AnyElement = match current {
             None => div()
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(theme::muted_fg())
                 .child("Auto")
                 .into_any_element(),
@@ -1738,7 +1742,7 @@ impl DrawingProps {
             .items_center()
             .justify_center()
             .w(px(44.))
-            .h(px(28.))
+            .h(px(tokens::height::CONTROL))
             .rounded_md()
             .border_1()
             .border_color(theme::border_subtle())
@@ -2034,7 +2038,9 @@ impl DrawingProps {
             .into_any_element();
         }
         let head = |text: SharedString, width: Option<f32>| {
-            let cell = div().text_size(px(11.)).text_color(theme::muted_fg());
+            let cell = div()
+                .text_size(px(tokens::text::SMALL))
+                .text_color(theme::muted_fg());
             match width {
                 Some(width) => cell.w(px(width)).child(text),
                 None => cell.flex_1().child(text),
@@ -2067,7 +2073,7 @@ impl DrawingProps {
                     .child(
                         div()
                             .w(px(110.))
-                            .text_size(px(13.))
+                            .text_size(px(tokens::text::EMPHASIS))
                             .text_color(theme::fg())
                             .child(point_name(drawing.tool, index)),
                     )

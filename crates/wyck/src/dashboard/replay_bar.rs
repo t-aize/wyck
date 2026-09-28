@@ -23,10 +23,10 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::Dashboard;
 use crate::chart::drawing_props;
-use wyck_ui::tokens;
 use wyck_ui::{
+    button,
     menu::{Entry, Item, Menu, Placement},
-    theme,
+    theme, tokens,
 };
 
 /// The prefill for the "go to date" field: the replay's current position.
@@ -81,16 +81,6 @@ impl Dashboard {
             Vec::new()
         };
 
-        let icon_button = |id: &'static str, icon: IconName, label: &'static str| {
-            Button::new(id)
-                .ghost()
-                .small()
-                .icon(icon)
-                .tooltip(label)
-                .accessibility_label(label)
-                .cursor_pointer()
-        };
-
         let can_jump_to_start = view.cursor_ms != view.start_ms;
 
         let bar = div()
@@ -106,7 +96,7 @@ impl Dashboard {
             .px_2()
             .py_1p5()
             .child(
-                icon_button(
+                button::icon(
                     "replay-play-pause",
                     if view.playing {
                         IconName::Pause
@@ -119,7 +109,7 @@ impl Dashboard {
                 .on_click(cx.listener(|this, _, _, cx| this.replay_play_pause(cx))),
             )
             .child(
-                icon_button("replay-step-forward", IconName::StepForward, "Step forward")
+                button::icon("replay-step-forward", IconName::StepForward, "Step forward")
                     .disabled(view.exhausted)
                     .on_click(cx.listener(|this, _, _, cx| this.replay_step_forward(cx))),
             )
@@ -147,7 +137,7 @@ impl Dashboard {
                     )),
             )
             .child(
-                icon_button("replay-jump-to-start", IconName::SkipBack, "Jump to start")
+                button::icon("replay-jump-to-start", IconName::SkipBack, "Jump to start")
                     .disabled(!can_jump_to_start)
                     .on_click(cx.listener(|this, _, _, cx| this.replay_jump_to_start(cx))),
             )
@@ -155,12 +145,12 @@ impl Dashboard {
             .child(
                 div()
                     .px_1()
-                    .text_size(px(12.))
+                    .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
                     .child(format_cursor(zone, view.cursor_ms)),
             )
             .child(
-                icon_button("replay-exit", IconName::X, "Exit replay")
+                button::icon("replay-exit", IconName::X, "Exit replay")
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_replay(cx))),
             );
 

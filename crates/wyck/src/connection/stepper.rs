@@ -7,7 +7,7 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{Animation, AnimationExt, div, px, relative};
 use gpui_kit::assets::IconName;
-use wyck_ui::{anim, icon, theme};
+use wyck_ui::{anim, icon, theme, tokens};
 
 const STEPS: [&str; 4] = ["Credentials", "Sign in", "Account", "Connect"];
 
@@ -34,12 +34,12 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
     let active = index == current;
 
     let circle = div()
-        .size(px(26.))
+        .size(px(tokens::height::COMPACT))
         .rounded_full()
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(12.))
+        .text_size(px(tokens::text::BODY))
         .border_1()
         .when(done, |el| {
             el.bg(theme::accent())
@@ -61,7 +61,7 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
 
     let marker = div()
         .relative()
-        .size(px(26.))
+        .size(px(tokens::height::COMPACT))
         .flex()
         .items_center()
         .justify_center()
@@ -76,7 +76,7 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
         .child(marker)
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(px(tokens::text::SMALL))
                 .text_color(if done || active {
                     theme::fg()
                 } else {
