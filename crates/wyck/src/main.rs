@@ -115,6 +115,13 @@ fn main() {
         });
 }
 
+/// The settings folder, or `None` when the system gives the app none.
+fn config_dir() -> Option<std::path::PathBuf> {
+    wyck_config::AppPaths::discover()
+        .ok()
+        .map(|paths| paths.config_dir().to_path_buf())
+}
+
 /// Installs a `tracing` subscriber so the events `wyck_config` and `wyck_openapi` emit (and
 /// the app's own) show up on stderr; the library only emits them, it never installs a subscriber
 /// itself. Reads `RUST_LOG`, defaulting to `debug` for `wyck` and `warn` for everything else.

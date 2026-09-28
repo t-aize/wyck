@@ -213,7 +213,7 @@ impl SettingsHub {
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| config_dir().is_some_and(|dir| backup::pending(&dir)));
+            .filter(|_| crate::config_dir().is_some_and(|dir| backup::pending(&dir)));
         Self {
             workspace,
             multi,
@@ -1174,7 +1174,7 @@ impl SettingsHub {
             cx.entity(),
             cx.entity(),
         );
-        let dir = config_dir();
+        let dir = crate::config_dir();
         let mut rows: Vec<AnyElement> = vec![
             form::field(
                 "Export everything",
@@ -1296,7 +1296,7 @@ impl SettingsHub {
                 .disabled(dir.is_none())
                 .on_click(move |_, _window, cx| {
                     open_folder.update(cx, |_, _| {});
-                    if let Some(dir) = config_dir() {
+                    if let Some(dir) = crate::config_dir() {
                         cx.reveal_path(&dir);
                     }
                 }),
@@ -1315,7 +1315,7 @@ impl SettingsHub {
 
     /// Asks where to save, then writes the backup there.
     fn export(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = config_dir() else {
+        let Some(dir) = crate::config_dir() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -1324,7 +1324,7 @@ impl SettingsHub {
         appearance::save_now(cx);
         let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
         let name = format!("wyck-backup-{stamp}.toml");
-        let start = directories_start();
+        let start = wyck_config::AppPaths::documents_dir();
         let scripts_dir = indicators::dir(cx);
         let picked = cx.prompt_for_new_path(&start, Some(&name));
         cx.spawn(async move |this, cx| {
@@ -1356,7 +1356,7 @@ impl SettingsHub {
 
     /// Asks for a backup, checks it, and sets it aside for the next start.
     fn import(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = config_dir() else {
+        let Some(dir) = crate::config_dir() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -1394,7 +1394,7 @@ impl SettingsHub {
     }
 
     fn cancel_import(&mut self, cx: &mut Context<Self>) {
-        if let Some(dir) = config_dir() {
+        if let Some(dir) = crate::config_dir() {
             let _ = backup::cancel_pending(&dir);
         }
         self.waiting = None;
@@ -1735,20 +1735,6 @@ impl SettingsHub {
 struct PendingSummary(Vec<String>);
 
 impl gpui::Global for PendingSummary {}
-
-/// The settings folder.
-fn config_dir() -> Option<std::path::PathBuf> {
-    wyck_config::AppPaths::discover()
-        .ok()
-        .map(|paths| paths.config_dir().to_path_buf())
-}
-
-/// Where the file dialogs start.
-fn directories_start() -> std::path::PathBuf {
-    directories::UserDirs::new()
-        .and_then(|dirs| dirs.document_dir().map(std::path::Path::to_path_buf))
-        .unwrap_or_else(std::env::temp_dir)
-}
 
 impl Render for SettingsHub {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

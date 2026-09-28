@@ -69,20 +69,6 @@ fn mono() -> &'static str {
     }
 }
 
-/// The folder where the file dialog starts.
-fn documents() -> PathBuf {
-    directories::UserDirs::new()
-        .and_then(|dirs| dirs.document_dir().map(std::path::Path::to_path_buf))
-        .unwrap_or_else(std::env::temp_dir)
-}
-
-/// The settings folder, where the presets are kept.
-fn config_dir() -> Option<PathBuf> {
-    wyck_config::AppPaths::discover()
-        .ok()
-        .map(|paths| paths.config_dir().to_path_buf())
-}
-
 /// A size as `830 B`, `12.4 KB`, `3.1 MB`.
 fn human_bytes(bytes: usize) -> String {
     let b = bytes as f64;
@@ -277,7 +263,7 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let dir = config_dir();
+        let dir = crate::config_dir();
         let saved = dir.as_deref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.
@@ -583,7 +569,10 @@ impl ExportDialog {
         self.persist();
         let options = self.options.clone().normalized();
         let snapshot = self.snapshot.clone();
-        let picked = cx.prompt_for_new_path(&documents(), Some(&self.preview.file_name));
+        let picked = cx.prompt_for_new_path(
+            &wyck_config::AppPaths::documents_dir(),
+            Some(&self.preview.file_name),
+        );
         self.busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
