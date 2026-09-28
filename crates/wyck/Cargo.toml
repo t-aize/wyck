@@ -28,7 +28,7 @@ binaries = [{ path = "wyck", main = true }]
 
 [package.metadata.packager.nsis]
 install-mode = "currentUser"
-languages = ["English", "French"]
+languages = ["English"]
 
 [package.metadata.packager.windows]
 allow-downgrades = false
@@ -61,7 +61,6 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 directories.workspace = true
-time.workspace = true
 gpui-kit.workspace = true
 rust-embed.workspace = true
 gpui.workspace = true

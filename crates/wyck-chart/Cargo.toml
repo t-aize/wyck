@@ -10,6 +10,7 @@ publish.workspace = true
 description = "Chart models, calculations and studies for Wyck."
 
 [dependencies]
+wyck-config.workspace = true
 wyck-openapi-model.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
@@ -22,9 +23,6 @@ toml.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wyck-config.workspace = true
 
 [lints]
 workspace = true

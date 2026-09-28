@@ -44,8 +44,11 @@ enum Screen {
     BrowserHandoff(browser_handoff::BrowserHandoffState),
     SelectAccount(select_account::SelectAccountState),
     Authorizing(authorizing::AuthorizingState),
-    /// The connected dashboard, and the subscription to what it reports.
-    Dashboard(Entity<Dashboard>, #[allow(dead_code)] Subscription),
+    /// The connected dashboard, and the subscription to what it reports, kept alive with it.
+    Dashboard {
+        view: Entity<Dashboard>,
+        _subscription: Subscription,
+    },
 }
 
 use self::rules::service_tag;
@@ -176,7 +179,10 @@ impl ConnectionFlow {
         let subscription = cx.subscribe(&dashboard, move |this, dashboard, event, cx| {
             this.on_dashboard_event(&profile_id, &dashboard, event, cx);
         });
-        self.screen = Screen::Dashboard(dashboard, subscription);
+        self.screen = Screen::Dashboard {
+            view: dashboard,
+            _subscription: subscription,
+        };
         cx.notify();
     }
 
@@ -215,7 +221,7 @@ impl ConnectionFlow {
             Screen::BrowserHandoff(_) => Some(1),
             Screen::SelectAccount(_) => Some(2),
             Screen::Authorizing(_) => Some(3),
-            Screen::Welcome | Screen::Dashboard(..) => None,
+            Screen::Welcome | Screen::Dashboard { .. } => None,
         }
     }
 
@@ -244,7 +250,7 @@ impl ConnectionFlow {
             Screen::Authorizing(state) => self
                 .render_authorizing(state, window, cx)
                 .into_any_element(),
-            Screen::Dashboard(dashboard, _) => dashboard.clone().into_any_element(),
+            Screen::Dashboard { view, .. } => view.clone().into_any_element(),
         }
     }
 }
