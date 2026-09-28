@@ -538,11 +538,7 @@ impl Dashboard {
                      unit picked, or a code such as 45m, 2h or 3D.",
                 ),
         );
-        menu::below(
-            anim::enter(card, "timeframe-menu", 0),
-            tokens::height::CONTROL,
-            1,
-        )
+        menu::below(card, tokens::height::CONTROL, 1)
     }
 
     /// The switches of the panel under the charts and of the ticket beside them.
