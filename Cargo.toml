@@ -46,7 +46,6 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
-time = "0.3.44"
 tiny-skia = "0.12.0"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "test-util"] }
 tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }

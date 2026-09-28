@@ -5,7 +5,7 @@
 //! well however the chart is zoomed, and they stay correct across weekend gaps because they look
 //! at the times of the bars, not at their positions.
 
-use time::OffsetDateTime;
+use chrono::{DateTime, Datelike, Timelike};
 
 use super::zone::Zone;
 
@@ -122,14 +122,14 @@ struct Civil {
 
 fn civil(time_ms: i64) -> Option<Civil> {
     let seconds = time_ms.div_euclid(1_000);
-    let dt = OffsetDateTime::from_unix_timestamp(seconds).ok()?;
+    let dt = DateTime::from_timestamp(seconds, 0)?;
     Some(Civil {
         year: dt.year(),
         month: dt.month() as u8,
-        day: dt.day(),
-        hour: dt.hour(),
-        minute: dt.minute(),
-        second: dt.second(),
+        day: dt.day() as u8,
+        hour: dt.hour() as u8,
+        minute: dt.minute() as u8,
+        second: dt.second() as u8,
         millisecond: time_ms.rem_euclid(1_000) as u16,
     })
 }
@@ -276,7 +276,7 @@ pub fn full_time(time_ms: i64, zone: Zone, with_seconds: bool, with_millis: bool
     let Some(c) = civil(time_ms) else {
         return String::new();
     };
-    let weekday = OffsetDateTime::from_unix_timestamp(time_ms.div_euclid(1_000))
+    let weekday = DateTime::from_timestamp(time_ms.div_euclid(1_000), 0)
         .map(|dt| dt.weekday().to_string())
         .unwrap_or_default();
     let weekday: String = weekday.chars().take(3).collect();

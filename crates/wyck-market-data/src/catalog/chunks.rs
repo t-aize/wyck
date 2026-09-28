@@ -13,7 +13,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use time::OffsetDateTime;
+use chrono::{DateTime, Datelike, NaiveDate, NaiveTime};
 use wyck_openapi_model::market::{Bar, Period, Tick};
 
 use super::record::{
@@ -24,18 +24,17 @@ use crate::error::{MarketDataError, Result};
 /// The UTC calendar month a Unix-millisecond timestamp falls in, as `(year, month 1-12)`.
 #[must_use]
 pub fn month_of(time_ms: i64) -> (i32, u8) {
-    let dt = OffsetDateTime::from_unix_timestamp(time_ms.div_euclid(1000))
-        .unwrap_or(OffsetDateTime::UNIX_EPOCH);
-    (dt.year(), u8::from(dt.month()))
+    let dt = DateTime::from_timestamp(time_ms.div_euclid(1000), 0).unwrap_or(DateTime::UNIX_EPOCH);
+    (dt.year(), dt.month() as u8)
 }
 
 /// The Unix-millisecond timestamp of the first instant of the UTC calendar month
 /// `(year, month)`.
 #[must_use]
 pub fn month_start_ms(year: i32, month: u8) -> i64 {
-    let month = time::Month::try_from(month).unwrap_or(time::Month::January);
-    let date = time::Date::from_calendar_date(year, month, 1).unwrap_or(time::Date::MIN);
-    date.midnight().assume_utc().unix_timestamp() * 1000
+    let month = if (1..=12).contains(&month) { month } else { 1 };
+    let date = NaiveDate::from_ymd_opt(year, u32::from(month), 1).unwrap_or(NaiveDate::MIN);
+    date.and_time(NaiveTime::MIN).and_utc().timestamp() * 1000
 }
 
 /// The Unix-millisecond timestamp of the first instant of the UTC calendar month right
