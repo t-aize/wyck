@@ -19,10 +19,10 @@ use super::chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use super::chart::settings::MAX_STUDIES;
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
-use super::settings_ui::{self as ui, Head};
-use super::theme::Colors;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
-use super::{backup, confirm, modal, theme, toast, updates, widgets};
+use super::{backup, updates};
+use wyck_ui::form::Head;
+use wyck_ui::{button, confirm, controls, form, icon, modal, number, theme, theme::Colors, toast};
 
 /// Opens the settings.
 pub fn open(
@@ -71,7 +71,7 @@ impl Page {
         Self::About,
     ];
 
-    fn tab(self) -> ui::Tab {
+    fn tab(self) -> form::Tab {
         let (label, icon) = match self {
             Self::Appearance => ("Appearance", IconName::Palette),
             Self::Charts => ("Charts", IconName::ChartCandlestick),
@@ -81,7 +81,7 @@ impl Page {
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
         };
-        ui::Tab { label, icon }
+        form::Tab { label, icon }
     }
 }
 
@@ -153,7 +153,7 @@ impl SettingsHub {
         let rename = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
         let font_filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search the fonts"));
         let study_limit = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 limits.studies_per_chart as f64,
                 1.0,
                 MAX_STUDIES as f64,
@@ -164,7 +164,7 @@ impl SettingsHub {
             )
         });
         let alert_limit = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 limits.alerts as f64,
                 1.0,
                 MAX_SAVED_ALERTS as f64,
@@ -175,7 +175,7 @@ impl SettingsHub {
             )
         });
         let drawing_limit = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 limits.drawings_per_symbol as f64,
                 1.0,
                 MAX_DRAWINGS_PER_SYMBOL as f64,
@@ -203,27 +203,15 @@ impl SettingsHub {
                 }
             }),
         ];
-        subscriptions.push(widgets::watch_number(
-            &study_limit,
-            cx,
-            |this, value, cx| {
-                this.set_usage_limit(UsageLimitKind::Indicators, value, cx);
-            },
-        ));
-        subscriptions.push(widgets::watch_number(
-            &alert_limit,
-            cx,
-            |this, value, cx| {
-                this.set_usage_limit(UsageLimitKind::Alerts, value, cx);
-            },
-        ));
-        subscriptions.push(widgets::watch_number(
-            &drawing_limit,
-            cx,
-            |this, value, cx| {
-                this.set_usage_limit(UsageLimitKind::Drawings, value, cx);
-            },
-        ));
+        subscriptions.push(number::watch(&study_limit, cx, |this, value, cx| {
+            this.set_usage_limit(UsageLimitKind::Indicators, value, cx);
+        }));
+        subscriptions.push(number::watch(&alert_limit, cx, |this, value, cx| {
+            this.set_usage_limit(UsageLimitKind::Alerts, value, cx);
+        }));
+        subscriptions.push(number::watch(&drawing_limit, cx, |this, value, cx| {
+            this.set_usage_limit(UsageLimitKind::Drawings, value, cx);
+        }));
         let mut fonts = cx.text_system().all_font_names();
         fonts.retain(|name| !name.starts_with('.') && !name.starts_with('@'));
         fonts.sort_by_key(|name| name.to_lowercase());
@@ -287,7 +275,7 @@ impl SettingsHub {
     ) -> AnyElement {
         let (toggle, choose) = (cx.entity(), cx.entity());
         let _ = &choose;
-        widgets::color_swatch(
+        controls::color_swatch(
             SharedString::from(id.to_owned()),
             color,
             self.pick == Some(pick),
@@ -395,8 +383,8 @@ impl SettingsHub {
                             .text_color(theme::fg())
                             .child(name.to_owned()),
                     )
-                    .children(custom.then(|| ui::small_icon(IconName::Pencil, theme::muted_fg())))
-                    .children(active.then(|| ui::small_icon(IconName::Check, theme::accent()))),
+                    .children(custom.then(|| icon::small(IconName::Pencil, theme::muted_fg())))
+                    .children(active.then(|| icon::small(IconName::Check, theme::accent()))),
             )
             .into_any_element()
     }
@@ -417,14 +405,14 @@ impl SettingsHub {
             let custom = a.custom_themes.iter().any(|t| t.id == id);
             grid = grid.child(self.theme_card(&id, &name, colors, id == active, custom, cx));
         }
-        let theme_group = ui::group(
+        let theme_group = form::group(
             IconName::Palette,
             "Theme",
             [
-                ui::field(
+                form::field(
                     "Mode",
                     Some("System follows the light or dark setting of your computer"),
-                    widgets::segmented(
+                    controls::segmented(
                         "settings-mode",
                         &mode_labels,
                         Mode::ALL.iter().position(|m| *m == a.mode).unwrap_or(0),
@@ -435,8 +423,8 @@ impl SettingsHub {
                         },
                     ),
                 ),
-                ui::block(grid),
-                ui::block(ui::note(
+                form::block(grid),
+                form::block(form::note(
                     "A theme goes in the dark or the light slot by what it is. In System mode both slots are used, one at night and one by day.",
                 )),
             ],
@@ -453,12 +441,12 @@ impl SettingsHub {
             accents = accents.child(self.accent_dot(Some(color), a.accent == Some(color), cx));
         }
         let accent_now = a.accent.unwrap_or_else(|| theme::colors().accent);
-        let accent_group = ui::group(
+        let accent_group = form::group(
             IconName::Sparkles,
             "Accent",
             [
-                ui::block(accents),
-                ui::field(
+                form::block(accents),
+                form::field(
                     "Any other color",
                     Some("The theme's own accent when none is picked"),
                     self.swatch(Pick::Accent, accent_now, "settings-accent", cx, |a, c| {
@@ -474,13 +462,13 @@ impl SettingsHub {
         // The font and the motion.
         let font_group = self.font_group(&a, cx);
         let motion_this = this.clone();
-        let motion = ui::group(
+        let motion = form::group(
             IconName::Zap,
             "Motion",
-            [ui::field(
+            [form::field(
                 "Animations",
                 Some("Screens and panels fade and slide in. Off makes them appear at once"),
-                ui::toggle(
+                controls::toggle(
                     "settings-animations",
                     a.animations,
                     move |on, _window, cx| {
@@ -509,7 +497,7 @@ impl SettingsHub {
                 });
             });
 
-        ui::page()
+        form::page()
             .child(theme_group)
             .child(accent_group)
             .child(themes_group)
@@ -552,7 +540,7 @@ impl SettingsHub {
                 .child(div().size(px(18.)).rounded_full().bg(rgb(shown)))
                 .into_any_element(),
             None => base
-                .child(ui::small_icon(IconName::RotateCcw, theme::muted_fg()))
+                .child(icon::small(IconName::RotateCcw, theme::muted_fg()))
                 .into_any_element(),
         }
     }
@@ -561,7 +549,7 @@ impl SettingsHub {
         let this = cx.entity();
         let mut rows: Vec<AnyElement> = Vec::new();
         if a.custom_themes.is_empty() {
-            rows.push(ui::block(ui::note(
+            rows.push(form::block(form::note(
                 "Copy a theme to make it yours: rename it and change any of its colors.",
             )));
         }
@@ -641,7 +629,7 @@ impl SettingsHub {
             }
         }
         let create = this.clone();
-        rows.push(ui::field(
+        rows.push(form::field(
             "New theme",
             Some("A copy of the theme in force"),
             div()
@@ -662,7 +650,7 @@ impl SettingsHub {
                         }),
                 ),
         ));
-        ui::group(IconName::Wand, "Your themes", rows)
+        form::group(IconName::Wand, "Your themes", rows)
     }
 
     /// The colors of a theme of the user's, each with the swatch that changes it.
@@ -760,7 +748,7 @@ impl SettingsHub {
     fn font_group(&self, a: &appearance::Appearance, cx: &mut Context<Self>) -> gpui::Div {
         let this = cx.entity();
         let toggle = this.clone();
-        let mut rows = vec![ui::field(
+        let mut rows = vec![form::field(
             "Interface font",
             Some("Any font installed on this computer. Inter comes with the app"),
             Button::new("settings-font-open")
@@ -787,7 +775,7 @@ impl SettingsHub {
                 .take(FONTS_SHOWN)
                 .collect();
             if matching.is_empty() {
-                items.push(ui::note("No font matches.").p_3().into_any_element());
+                items.push(form::note("No font matches.").p_3().into_any_element());
             }
             for name in matching {
                 let chosen = *name == a.font;
@@ -819,7 +807,7 @@ impl SettingsHub {
                             }
                         })
                         .child(name.clone())
-                        .children(chosen.then(|| ui::small_icon(IconName::Check, theme::accent())))
+                        .children(chosen.then(|| icon::small(IconName::Check, theme::accent())))
                         .into_any_element(),
                 );
             }
@@ -836,7 +824,7 @@ impl SettingsHub {
                 .overflow_y_scrollbar()
                 .children(items);
             let reset_font = this.clone();
-            rows.push(ui::block(
+            rows.push(form::block(
                 div()
                     .flex()
                     .flex_col()
@@ -871,7 +859,7 @@ impl SettingsHub {
                     ),
             ));
         }
-        ui::group(IconName::Type, "Typography", rows)
+        form::group(IconName::Type, "Typography", rows)
     }
 
     // ---- charts ----
@@ -983,13 +971,13 @@ impl SettingsHub {
                 .child(button)
         };
 
-        let candles = ui::group(
+        let candles = form::group(
             IconName::ChartCandlestick,
             "Candles",
             [
-                ui::block(self.candle_preview()),
-                ui::block(sets),
-                ui::field(
+                form::block(self.candle_preview()),
+                form::block(sets),
+                form::field(
                     "Rising candle",
                     None,
                     with_reset(
@@ -1001,7 +989,7 @@ impl SettingsHub {
                         }),
                     ),
                 ),
-                ui::field(
+                form::field(
                     "Falling candle",
                     None,
                     with_reset(
@@ -1013,7 +1001,7 @@ impl SettingsHub {
                         }),
                     ),
                 ),
-                ui::field(
+                form::field(
                     "Line of the line charts",
                     Some("Line, area, step and baseline charts"),
                     with_reset(
@@ -1028,10 +1016,10 @@ impl SettingsHub {
             ],
         );
 
-        let background = ui::group(
+        let background = form::group(
             IconName::PaintBucket,
             "Background",
-            [ui::field(
+            [form::field(
                 "Chart background",
                 Some("Apart from the rest of the app"),
                 with_reset(
@@ -1053,10 +1041,10 @@ impl SettingsHub {
             )],
         );
 
-        ui::page()
+        form::page()
             .child(candles)
             .child(background)
-            .child(ui::note(
+            .child(form::note(
                 "The type of a chart (candles, hollow candles, bars, Heikin Ashi, line...) is set on each chart, from its toolbar.",
             ))
             .into_any_element()
@@ -1072,42 +1060,42 @@ impl SettingsHub {
             self.multi.clone(),
             self.multi.clone(),
         );
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::PenLine,
                 "Drawing",
                 [
-                    ui::field(
+                    form::field(
                         "Stay in drawing mode",
                         Some("Keep the tool picked after a drawing, to draw several in a row"),
-                        ui::toggle("behaviour-keep", prefs.keep_drawing, move |on, _w, cx| {
+                        controls::toggle("behaviour-keep", prefs.keep_drawing, move |on, _w, cx| {
                             if on != prefs.keep_drawing {
                                 keep.update(cx, |m, cx| m.toggle_keep_drawing(cx));
                             }
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Magnet",
                         Some("Drawings snap to the open, high, low and close of the nearest bar"),
-                        ui::toggle("behaviour-magnet", prefs.magnet, move |on, _w, cx| {
+                        controls::toggle("behaviour-magnet", prefs.magnet, move |on, _w, cx| {
                             if on != prefs.magnet {
                                 magnet.update(cx, |m, cx| m.toggle_magnet(cx));
                             }
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Favorites bar",
                         Some("The drawing tools you pinned, over the charts"),
-                        ui::toggle("behaviour-bar", prefs.favorites_bar, move |on, _w, cx| {
+                        controls::toggle("behaviour-bar", prefs.favorites_bar, move |on, _w, cx| {
                             if on != prefs.favorites_bar {
                                 bar.update(cx, |m, cx| m.toggle_favorites_bar(cx));
                             }
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Names in the favorites bar",
                         None,
-                        ui::toggle(
+                        controls::toggle(
                             "behaviour-names",
                             prefs.favorites_labels,
                             move |on, _w, cx| {
@@ -1119,28 +1107,28 @@ impl SettingsHub {
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::SlidersHorizontal,
                 "Usage limits",
                 [
-                    ui::field(
+                    form::field(
                         "Indicators per chart",
                         Some("Includes hidden indicators. Existing ones stay when you lower it (1 to 64)"),
-                        widgets::number_field(&self.study_limit, 110.),
+                        number::field(&self.study_limit, 110.),
                     ),
-                    ui::field(
+                    form::field(
                         "Saved price alerts",
                         Some("Includes inactive alerts. Existing ones stay when you lower it (1 to 2000)"),
-                        widgets::number_field(&self.alert_limit, 110.),
+                        number::field(&self.alert_limit, 110.),
                     ),
-                    ui::field(
+                    form::field(
                         "Drawings per symbol",
                         Some("Includes hidden drawings. Existing ones stay when you lower it (1 to 5000)"),
-                        widgets::number_field(&self.drawing_limit, 110.),
+                        number::field(&self.drawing_limit, 110.),
                     ),
                 ],
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Higher limits can slow charts or use more memory. Script execution has a separate limit on the Indicators page.",
             ))
             .into_any_element()
@@ -1160,14 +1148,14 @@ impl SettingsHub {
             .collect();
         let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
         let workspace = self.workspace.clone();
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::RotateCcw,
                 "Replay",
-                [ui::field(
+                [form::field(
                     "Default speed",
                     Some("The playback speed a new replay starts at"),
-                    widgets::segmented("replay-default-speed", &label_refs, selected, move |index, _w, cx| {
+                    controls::segmented("replay-default-speed", &label_refs, selected, move |index, _w, cx| {
                         let speed = wyck_market_data::replay::prefs::SPEED_PRESETS[index];
                         workspace.update(cx, |workspace, cx| {
                             workspace.edit_preferences(cx, |prefs| prefs.replay.default_speed = speed);
@@ -1175,7 +1163,7 @@ impl SettingsHub {
                     }),
                 )],
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Replay holds back the active chart's most recently loaded bars and plays them forward again. It does not yet support picking an arbitrary historical start date, or scrubbing backward once started.",
             ))
             .into_any_element()
@@ -1193,7 +1181,7 @@ impl SettingsHub {
         );
         let dir = config_dir();
         let mut rows: Vec<AnyElement> = vec![
-            ui::field(
+            form::field(
                 "Export everything",
                 Some(
                     "One file: your look, charts and indicators, drawings and their saved looks, favorites, watchlists and alerts. No sign-in is in it",
@@ -1208,7 +1196,7 @@ impl SettingsHub {
                         export.update(cx, |e, cx| e.export(window, cx));
                     }),
             ),
-            ui::field(
+            form::field(
                 "Import a backup",
                 Some(
                     "Checked first, then applied when wyck starts again. What it replaces is kept in a folder of backups",
@@ -1269,16 +1257,16 @@ impl SettingsHub {
                             }),
                     ),
             );
-            rows.push(ui::block(waiting));
+            rows.push(form::block(waiting));
         }
         if let Some(notice) = &self.notice {
-            rows.push(ui::block(
+            rows.push(form::block(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .child(ui::small_icon(
+                    .child(icon::small(
                         if notice.ok {
                             IconName::CircleCheck
                         } else {
@@ -1299,9 +1287,9 @@ impl SettingsHub {
                     ),
             ));
         }
-        let backup_group = ui::group(IconName::Archive, "Backup", rows);
+        let backup_group = form::group(IconName::Archive, "Backup", rows);
 
-        let mut place: Vec<AnyElement> = vec![ui::field(
+        let mut place: Vec<AnyElement> = vec![form::field(
             "Settings folder",
             Some("Where everything is kept, one readable file per kind of data"),
             Button::new("backup-folder")
@@ -1319,12 +1307,12 @@ impl SettingsHub {
                 }),
         )];
         if let Some(dir) = &dir {
-            place.push(ui::block(ui::note(dir.display().to_string())));
+            place.push(form::block(form::note(dir.display().to_string())));
         }
-        ui::page()
+        form::page()
             .child(backup_group)
-            .child(ui::group(IconName::HardDrive, "Where it is", place))
-            .child(ui::note(
+            .child(form::group(IconName::HardDrive, "Where it is", place))
+            .child(form::note(
                 "The keys that sign in to your broker are not in a backup: they stay in the system's secure storage.",
             ))
             .into_any_element()
@@ -1439,7 +1427,7 @@ impl SettingsHub {
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
         let folder = vec![
-            ui::block(
+            form::block(
                 div()
                     .flex()
                     .flex_col()
@@ -1467,14 +1455,14 @@ impl SettingsHub {
                             }),
                     ),
             ),
-            ui::field(
+            form::field(
                 "Change the folder",
                 Some("Every .rhai file in it (and in the folders inside it) is an indicator"),
                 div()
                     .flex()
                     .flex_row()
                     .gap_1p5()
-                    .child(ui::action(
+                    .child(button::action(
                         "indicators-choose",
                         "Choose...",
                         Some(IconName::FolderOpen),
@@ -1502,7 +1490,7 @@ impl SettingsHub {
                         },
                     ))
                     .child(
-                        ui::action(
+                        button::action(
                             "indicators-default",
                             "Default",
                             Some(IconName::RotateCcw),
@@ -1511,7 +1499,7 @@ impl SettingsHub {
                         )
                         .disabled(using_default),
                     )
-                    .child(ui::action(
+                    .child(button::action(
                         "indicators-open",
                         "Open",
                         None,
@@ -1519,7 +1507,7 @@ impl SettingsHub {
                         move |_window, cx| indicators::open_folder(cx),
                     )),
             ),
-            ui::field(
+            form::field(
                 "Its default place",
                 None,
                 div()
@@ -1532,7 +1520,7 @@ impl SettingsHub {
         ];
 
         let scripts = vec![
-            ui::field(
+            form::field(
                 "Scripts found",
                 Some(if broken == 0 {
                     "All of them work"
@@ -1552,10 +1540,10 @@ impl SettingsHub {
                         format!("{} ({broken} with problems)", entries.len())
                     }),
             ),
-            ui::field(
+            form::field(
                 "Read the folder now",
                 Some("It is also read every moment on its own, when that is turned on"),
-                ui::action(
+                button::action(
                     "indicators-reload",
                     "Read again",
                     Some(IconName::RefreshCw),
@@ -1571,21 +1559,21 @@ impl SettingsHub {
             .position(|b| *b == prefs.budget)
             .unwrap_or(1);
         let behavior = vec![
-            ui::field(
+            form::field(
                 "Read the folder on its own",
                 Some(
                     "A file edited in another program shows up, and the charts that hold it update",
                 ),
-                ui::toggle("indicators-auto", prefs.auto_reload, move |on, _w, cx| {
+                controls::toggle("indicators-auto", prefs.auto_reload, move |on, _w, cx| {
                     indicators::update_prefs(cx, |p| p.auto_reload = on);
                 }),
             ),
-            ui::field(
+            form::field(
                 "What a script may do",
                 Some(
                     "A script over the limit is stopped. Light is for many charts, Heavy for scripts that loop over the bars",
                 ),
-                widgets::segmented(
+                controls::segmented(
                     "indicators-budget",
                     &budgets,
                     budget_index,
@@ -1596,7 +1584,7 @@ impl SettingsHub {
             ),
         ];
 
-        let favorites = vec![ui::field(
+        let favorites = vec![form::field(
             "Starred indicators",
             Some("The stars in the list of indicators"),
             div()
@@ -1611,7 +1599,7 @@ impl SettingsHub {
                         .child(prefs.favorites.len().to_string()),
                 )
                 .child(
-                    ui::action(
+                    button::action(
                         "indicators-clear-favorites",
                         "Clear",
                         None,
@@ -1622,12 +1610,12 @@ impl SettingsHub {
                 ),
         )];
 
-        ui::page()
-            .child(ui::group(IconName::FolderOpen, "Folder", folder))
-            .child(ui::group(IconName::CodeXml, "Scripts", scripts))
-            .child(ui::group(IconName::SlidersHorizontal, "Behavior", behavior))
-            .child(ui::group(IconName::Star, "Favorites", favorites))
-            .child(ui::note(
+        form::page()
+            .child(form::group(IconName::FolderOpen, "Folder", folder))
+            .child(form::group(IconName::CodeXml, "Scripts", scripts))
+            .child(form::group(IconName::SlidersHorizontal, "Behavior", behavior))
+            .child(form::group(IconName::Star, "Favorites", favorites))
+            .child(form::note(
                 "Open the editor from the button in the header (Ctrl+Shift+E). Export a script from the editor to share it.",
             ))
             .into_any_element()
@@ -1643,7 +1631,7 @@ impl SettingsHub {
         let rows: Vec<AnyElement> = facts
             .into_iter()
             .map(|(label, value)| {
-                ui::field(
+                form::field(
                     label,
                     None,
                     div()
@@ -1655,7 +1643,7 @@ impl SettingsHub {
             .collect();
 
         let update_state = updates::state(cx);
-        let mut update_rows = vec![ui::field(
+        let mut update_rows = vec![form::field(
             "Status",
             None,
             div()
@@ -1668,7 +1656,7 @@ impl SettingsHub {
         } = &update_state
             && !notes.trim().is_empty()
         {
-            update_rows.push(ui::field(
+            update_rows.push(form::field(
                 "Release notes",
                 None,
                 div()
@@ -1689,7 +1677,7 @@ impl SettingsHub {
             } => {
                 let multi = self.multi.clone();
                 Some(
-                    ui::action(
+                    button::action(
                         "settings-update-install",
                         "Update and restart",
                         Some(IconName::Download),
@@ -1711,7 +1699,7 @@ impl SettingsHub {
             updates::UpdateState::Available {
                 automatic: false, ..
             } => Some(
-                ui::action(
+                button::action(
                     "settings-update-open-release",
                     "Open download page",
                     Some(IconName::ExternalLink),
@@ -1723,7 +1711,7 @@ impl SettingsHub {
             updates::UpdateState::Idle
             | updates::UpdateState::UpToDate
             | updates::UpdateState::Failed { .. } => Some(
-                ui::action(
+                button::action(
                     "settings-update-check",
                     "Check again",
                     Some(IconName::RefreshCw),
@@ -1734,13 +1722,13 @@ impl SettingsHub {
             ),
         };
         if let Some(action) = action {
-            update_rows.push(ui::field("Actions", None, action));
+            update_rows.push(form::field("Actions", None, action));
         }
 
-        ui::page()
-            .child(ui::group(IconName::Info, "wyck", rows))
-            .child(ui::group(IconName::Download, "Updates", update_rows))
-            .child(ui::note(
+        form::page()
+            .child(form::group(IconName::Info, "wyck", rows))
+            .child(form::group(IconName::Download, "Updates", update_rows))
+            .child(form::note(
                 "wyck is an independent project. It is not affiliated with, endorsed by, or sponsored by cTrader or Spotware Systems. Trading carries a high risk of loss, and nothing here is financial advice.",
             ))
             .into_any_element()
@@ -1769,7 +1757,7 @@ fn directories_start() -> std::path::PathBuf {
 
 impl Render for SettingsHub {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tabs: Vec<ui::Tab> = Page::ALL.iter().map(|p| p.tab()).collect();
+        let tabs: Vec<form::Tab> = Page::ALL.iter().map(|p| p.tab()).collect();
         let active = Page::ALL.iter().position(|p| *p == self.page).unwrap_or(0);
         let this = cx.entity();
         let body = match self.page {
@@ -1786,16 +1774,16 @@ impl Render for SettingsHub {
             title: "Settings".into(),
             subtitle: "Look, charts, behavior, and the backup of everything you made".into(),
         };
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![],
             vec![
-                ui::action("settings-hub-close", "Close", None, true, |window, cx| {
+                button::action("settings-hub-close", "Close", None, true, |window, cx| {
                     modal::close(window, cx);
                 })
                 .into_any_element(),
             ],
         );
-        ui::frame(
+        form::frame(
             head,
             &tabs,
             active,

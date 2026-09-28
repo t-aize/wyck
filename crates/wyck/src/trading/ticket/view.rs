@@ -12,15 +12,16 @@ use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::prefs::{Density, Kind, Line, Section, Slot, Span, Tif};
 use super::{OrderTicket, Plan, TicketEvent, customize, nice, side_of, stop_limit_price};
-use crate::confirm::confirm;
-use crate::connection::ui;
-use crate::menu::{self as popup, Entry, Item};
-use crate::settings_ui;
 use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
-use crate::{theme, widgets};
 use wyck_chart::study::atr_stop::Smoothing;
+use wyck_ui::{
+    confirm::confirm,
+    controls, icon,
+    menu::{self as popup, Entry, Item},
+    number, theme,
+};
 
 /// What a button of a position row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -154,11 +155,7 @@ impl OrderTicket {
                     .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
                     .on_click(move |_, _, cx| toggle.toggle(cx))
                     .child(text)
-                    .child(ui::icon_colored(
-                        IconName::ChevronDown,
-                        12.,
-                        theme::muted_fg(),
-                    )),
+                    .child(icon::tinted(IconName::ChevronDown, 12., theme::muted_fg())),
             )
             .children(menu.popup(entries, popup::Placement::Below(26.), window, cx))
             .into_any_element()
@@ -290,9 +287,9 @@ impl OrderTicket {
                         SizeMode::Lots => math::format_lots(*v),
                         SizeMode::Units => format_units(*v),
                         SizeMode::RiskBalance | SizeMode::RiskEquity | SizeMode::FreeMargin => {
-                            format!("{}%", widgets::format_number(*v, 2))
+                            format!("{}%", number::format(*v, 2))
                         }
-                        SizeMode::RiskMoney => widgets::format_number(*v, 2),
+                        SizeMode::RiskMoney => number::format(*v, 2),
                     };
                     (label, *v)
                 })
@@ -309,7 +306,7 @@ impl OrderTicket {
             SizeMode::RiskMoney => [0.0025, 0.005, 0.01, 0.02]
                 .map(|share| {
                     let amount = nice(balance * share);
-                    (widgets::format_number(amount, 2), amount)
+                    (number::format(amount, 2), amount)
                 })
                 .to_vec(),
             // Lots, the risk and the margin always have a list of their own.
@@ -354,7 +351,7 @@ impl OrderTicket {
                     .hover(|s| s.bg(theme::surface_hover()))
                     .on_click(move |_, window, cx| {
                         this.update(cx, |t, cx| {
-                            let text = widgets::format_number(value, decimals);
+                            let text = number::format(value, decimals);
                             t.write(&t.size.clone(), text, window, cx);
                         });
                     })
@@ -703,7 +700,7 @@ impl OrderTicket {
                     .items_center()
                     .gap_1()
                     .child(
-                        settings_ui::switch(SharedString::from(format!("ticket-{label}")), on)
+                        controls::switch(SharedString::from(format!("ticket-{label}")), on)
                             .label(label)
                             .on_click(move |_, window, cx| {
                                 this.update(cx, |t, cx| t.toggle_protection(stop, window, cx));
@@ -868,7 +865,7 @@ impl OrderTicket {
                     .items_center()
                     .gap_1()
                     .child(
-                        settings_ui::switch("ticket-atr-current", self.atr.current_bar)
+                        controls::switch("ticket-atr-current", self.atr.current_bar)
                             .accessibility_label("Current bar (off: last closed)")
                             .on_click(move |on: &bool, _, cx| {
                                 let on = *on;
@@ -931,7 +928,7 @@ impl OrderTicket {
         let stop_on = self.stop_on;
         let switch = |id: &'static str, text: &'static str, on: bool, enabled: bool| {
             let this = this.clone();
-            settings_ui::switch(id, on && enabled)
+            controls::switch(id, on && enabled)
                 .disabled(!enabled)
                 .label(text)
                 .on_click(move |checked: &bool, _, cx| {
@@ -1438,7 +1435,7 @@ impl OrderTicket {
         {
             warnings.push(format!(
                 "Risks more than {}% of the balance",
-                widgets::format_number(high, 2)
+                number::format(high, 2)
             ));
         }
         warnings.extend(f.plan.problem.clone());
@@ -1562,7 +1559,7 @@ impl Render for OrderTicket {
             .children(blocks)
             .when(!has_send, |el| el.children(warning_rows(&warnings)))
             .child(
-                settings_ui::switch("ticket-one-click", self.one_click)
+                controls::switch("ticket-one-click", self.one_click)
                     .label("One-click trading (no confirmation)")
                     .on_click(cx.listener(|this, checked: &bool, _, cx| {
                         this.one_click = *checked;
@@ -1584,11 +1581,7 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .gap_2()
                 .text_size(px(12.))
                 .text_color(theme::amber())
-                .child(ui::icon_colored(
-                    IconName::TriangleAlert,
-                    13.,
-                    theme::amber(),
-                ))
+                .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber()))
                 .child(message.clone())
                 .into_any_element()
         })

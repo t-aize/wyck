@@ -26,7 +26,8 @@ use super::book::{AccountBook, Notice, Tone, explain, is_buy};
 use super::math::{self, Contract, Link, Summary};
 use crate::chart::LiveHub;
 use crate::chart::live::{ACCOUNT_OWNER, Wish};
-use crate::{runtime, toast};
+use crate::runtime;
+use wyck_ui::toast;
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;

@@ -9,8 +9,7 @@ use wyck_openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
-use crate::connection::ui;
-use crate::{anim, theme};
+use wyck_ui::{anim, icon, theme};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {
@@ -330,7 +329,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 .text_size(px(12.))
                 .text_color(theme::muted_fg())
                 .child(anim::spin(
-                    ui::icon_colored(IconName::LoaderCircle, 13., theme::muted_fg()),
+                    icon::tinted(IconName::LoaderCircle, 13., theme::muted_fg()),
                     ("details-loading", sheet.epoch),
                 ))
                 .child("Loading the details..."),
@@ -354,7 +353,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                         .gap_2()
                         .text_size(px(12.))
                         .text_color(theme::destructive())
-                        .child(ui::icon_colored(
+                        .child(icon::tinted(
                             IconName::TriangleAlert,
                             14.,
                             theme::destructive(),

@@ -13,10 +13,8 @@ use gpui::{
 use gpui_kit::assets::IconName;
 
 use super::Dashboard;
-use crate::connection::ui;
-use crate::text_input::TextInput;
-use crate::theme;
 use crate::workspace::{NameError, Watchlists};
+use wyck_ui::{icon, text_input::TextInput, theme};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,7 +225,7 @@ fn icon_button(
         .cursor_pointer()
         .hover(|style| style.bg(theme::surface_hover()))
         .on_click(on_click)
-        .child(ui::icon_colored(icon, 14., theme::muted_fg()))
+        .child(icon::tinted(icon, 14., theme::muted_fg()))
 }
 
 /// The row of chips under the class chips: favorites, each watchlist, and a way to make one.
@@ -249,7 +247,7 @@ pub(super) fn list_chips(
                 this.set_scope(next, cx);
             }),
         )
-        .child(ui::icon_colored(IconName::Star, 12., theme::amber()))
+        .child(icon::tinted(IconName::Star, 12., theme::amber()))
         .child(format!("Favorites {}", lists.favorites.len()))
         .into_any_element(),
     );
@@ -304,7 +302,7 @@ pub(super) fn list_chips(
                 false,
                 cx.listener(|this, _event, window, cx| this.open_list_editor(None, window, cx)),
             )
-            .child(ui::icon_colored(IconName::Plus, 12., theme::muted_fg()))
+            .child(icon::tinted(IconName::Plus, 12., theme::muted_fg()))
             .child("New list")
             .into_any_element(),
         ),
@@ -353,7 +351,7 @@ pub(super) fn star(
         .on_click(cx.listener(move |this, _event, _window, cx| {
             this.toggle_favorite_symbol(&symbol, cx);
         }))
-        .child(ui::icon_colored(
+        .child(icon::tinted(
             IconName::Star,
             15.,
             if favorite {
@@ -427,7 +425,7 @@ pub(super) fn membership_panel(
                         this.toggle_symbol_in_list(list_index, &name, cx);
                     }
                 }))
-                .child(ui::icon_colored(
+                .child(icon::tinted(
                     icon,
                     14.,
                     if on { tone } else { theme::muted_fg() },
@@ -441,7 +439,7 @@ pub(super) fn membership_panel(
                         .text_color(theme::fg())
                         .child(title),
                 )
-                .child(ui::icon_colored(
+                .child(icon::tinted(
                     if on { IconName::Check } else { IconName::Plus },
                     14.,
                     if on {

@@ -1,7 +1,7 @@
 //! The list of indicators to add to a chart: the ones the app ships and the ones the user wrote,
 //! by category, with a search, stars for the ones used most, and the way to the editor.
 //!
-//! It is a panel of the same frame as the settings (see [`crate::settings_ui`]). Adding
+//! It is a panel of the same frame as the settings (see [`wyck_ui::form`]). Adding
 //! does not close it, so several indicators can be added in a row.
 
 use gpui::prelude::*;
@@ -15,10 +15,10 @@ use super::study::Placement;
 use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
-use crate::connection::ui::icon_colored;
 use crate::indicators;
-use crate::settings_ui::{self as ui, Head, Tab};
-use crate::{modal, theme};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab;
+use wyck_ui::{button, form, icon, modal, theme};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
@@ -238,7 +238,7 @@ impl Picker {
                             picker.request(EditorRequest::Edit(id), window, cx);
                         });
                     })
-                    .child(icon_colored(IconName::Pencil, 14., theme::muted_fg()))
+                    .child(icon::tinted(IconName::Pencil, 14., theme::muted_fg()))
             }))
             .child(
                 div()
@@ -264,7 +264,7 @@ impl Picker {
                         indicators::update_prefs(cx, |prefs| prefs.toggle_favorite(&key));
                         star_this.update(cx, |_, cx| cx.notify());
                     })
-                    .child(icon_colored(
+                    .child(icon::tinted(
                         IconName::Star,
                         15.,
                         if favorite {
@@ -302,7 +302,7 @@ impl Picker {
                             add_this.update(cx, |picker, cx| picker.add(&add_item, cx));
                         })
                     })
-                    .child(icon_colored(
+                    .child(icon::tinted(
                         IconName::Plus,
                         13.,
                         if usable {
@@ -384,7 +384,7 @@ impl Render for Picker {
 
         let mut list = div().id("picker-list").flex().flex_col().gap_0p5();
         if shown.is_empty() {
-            list = list.child(ui::empty(
+            list = list.child(form::empty(
                 IconName::SearchX,
                 match (self.page, query.is_empty()) {
                     (1, true) => "Star an indicator with the star at its right: it stays here.",
@@ -410,9 +410,9 @@ impl Render for Picker {
         };
         let this = cx.entity();
         let (folder, new, editor, done) = (this.clone(), this.clone(), this.clone(), this.clone());
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![
-                ui::action(
+                button::action(
                     "picker-folder",
                     "Open the folder",
                     Some(IconName::FolderOpen),
@@ -420,7 +420,7 @@ impl Render for Picker {
                     move |_window, cx| indicators::open_folder(cx),
                 )
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "picker-editor",
                     "Editor",
                     Some(IconName::CodeXml),
@@ -430,7 +430,7 @@ impl Render for Picker {
                     },
                 )
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "picker-new",
                     "New script",
                     Some(IconName::FilePlus),
@@ -442,7 +442,7 @@ impl Render for Picker {
                 .into_any_element(),
             ],
             vec![
-                ui::action("picker-done", "Done", None, true, move |window, cx| {
+                button::action("picker-done", "Done", None, true, move |window, cx| {
                     done.update(cx, |_, _| ());
                     modal::close(window, cx);
                 })
@@ -455,13 +455,13 @@ impl Render for Picker {
             .flex()
             .flex_col()
             .gap_3()
-            .child(Input::new(&self.search).prefix(icon_colored(
+            .child(Input::new(&self.search).prefix(icon::tinted(
                 IconName::Search,
                 14.,
                 theme::muted_fg(),
             )))
             .child(list);
-        ui::frame(
+        form::frame(
             head,
             &tabs,
             self.page,

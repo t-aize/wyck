@@ -7,10 +7,7 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{Animation, AnimationExt, div, px, relative};
 use gpui_kit::assets::IconName;
-
-use super::theme;
-use super::ui;
-use crate::anim;
+use wyck_ui::{anim, icon, theme};
 
 const STEPS: [&str; 4] = ["Credentials", "Sign in", "Account", "Connect"];
 
@@ -48,7 +45,7 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
             el.bg(theme::accent())
                 .border_color(theme::accent())
                 .text_color(theme::accent_fg())
-                .child(ui::icon_colored(IconName::Check, 13., theme::accent_fg()))
+                .child(icon::tinted(IconName::Check, 13., theme::accent_fg()))
         })
         .when(active, |el| {
             el.bg(theme::accent_selected())

@@ -12,14 +12,14 @@ use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
 use super::Dashboard;
 use wyck_openapi::market::PRICE_SCALE;
 
+use crate::alerts;
 use crate::chart::{ChartAction, LineId, now_ms};
-use crate::confirm::confirm;
 use crate::multichart::SymbolRef;
 use crate::trading::panel::{PanelEvent, Tab};
 use crate::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::trading::ticket::{OrderTicket, TicketEvent};
 use crate::trading::{self, math};
-use crate::{alerts, theme, toast};
+use wyck_ui::{confirm::confirm, theme, toast};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {

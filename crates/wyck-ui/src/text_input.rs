@@ -23,7 +23,7 @@ use gpui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{anim, theme};
+use crate::{anim, theme};
 
 gpui::actions!(
     wyck_text_input,

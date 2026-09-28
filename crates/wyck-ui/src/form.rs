@@ -1,26 +1,22 @@
 //! What every settings panel and dialog is built from, so they all look and behave the same:
 //! the frame (a header, a rail of tabs with icons, a scrolling body, a footer) and the dialog (the
-//! same without the rail), groups of labelled rows, and the pickers for line width, line style and
-//! height.
+//! same without the rail), and groups of labelled rows.
 //!
-//! They are plain functions returning elements, like [`super::widgets`]. A panel owns its state
-//! and passes it in; the callbacks say what the user picked. A panel is shown in
-//! [`super::modal`], which sizes it, so the frame fills the space it is given.
+//! They are plain functions returning elements. A panel owns its state and passes it in; the
+//! callbacks say what the user picked. A panel is shown in [`crate::modal`], which sizes it, so the
+//! frame fills the space it is given.
 
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{
-    AnyElement, App, Div, ElementId, Entity, MouseButton, Rgba, SharedString, Window, div, px,
-};
+use gpui::{AnyElement, App, Div, Entity, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Sizable, StyledExt as _};
 
-use super::connection::ui::icon_colored;
-use super::{modal, theme, widgets};
+use crate::controls::ink;
+use crate::{icon, modal, theme};
 
 /// A tab of the rail.
 #[derive(Clone, Copy)]
@@ -65,7 +61,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 .justify_center()
                 .rounded_lg()
                 .bg(theme::accent_selected())
-                .child(icon_colored(head.icon, 17., theme::fg())),
+                .child(icon::tinted(head.icon, 17., theme::fg())),
         )
         .child(
             div()
@@ -156,7 +152,7 @@ pub fn frame(
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
                 .on_click(move |_, window, cx| on_tab(index, window, cx))
-                .child(icon_colored(tab.icon, 15., ink(chosen)))
+                .child(icon::tinted(tab.icon, 15., ink(chosen)))
                 .child(tab.label),
         );
     }
@@ -223,30 +219,6 @@ pub fn footer(left: Vec<AnyElement>, right: Vec<AnyElement>) -> Div {
         .children(right)
 }
 
-/// A button of a footer, with an optional icon. `primary` is the one that confirms.
-pub fn action(
-    id: impl Into<ElementId>,
-    label: &'static str,
-    icon: Option<IconName>,
-    primary: bool,
-    on_click: impl Fn(&mut Window, &mut App) + 'static,
-) -> Button {
-    let button = Button::new(id)
-        .cursor_pointer()
-        .small()
-        .label(label)
-        .on_click(move |_, window, cx| on_click(window, cx));
-    let button = if primary {
-        button.primary()
-    } else {
-        button.ghost()
-    };
-    match icon {
-        Some(icon) => button.icon(icon),
-        None => button,
-    }
-}
-
 /// A titled group of rows, on a card. The rows are separated by hairlines.
 pub fn group(
     icon: IconName,
@@ -281,7 +253,7 @@ pub fn group_with(
                 .px_3()
                 .border_b_1()
                 .border_color(theme::border_hairline())
-                .child(icon_colored(icon, 14., theme::muted_fg()))
+                .child(icon::tinted(icon, 14., theme::muted_fg()))
                 .child(
                     div()
                         .flex_1()
@@ -353,29 +325,9 @@ pub fn block(content: impl IntoElement) -> AnyElement {
     div().py_2p5().child(content).into_any_element()
 }
 
-/// A switch in the look of the panels: small, with the pointer of a button. The caller adds what
-/// it needs (a label, `disabled`, the click).
-pub fn switch(id: impl Into<ElementId>, on: bool) -> Switch {
-    Switch::new(id).cursor_pointer().small().checked(on)
-}
-
-/// A switch for a row: `on_change` gets the new state.
-pub fn toggle(
-    id: impl Into<ElementId>,
-    on: bool,
-    on_change: impl Fn(bool, &mut Window, &mut App) + 'static,
-) -> Switch {
-    switch(id, on).on_click(move |checked, window, cx| on_change(*checked, window, cx))
-}
-
 /// A text field of a row, `width` pixels wide, for a state made with [`InputState::new`].
 pub fn text_field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
     div().w(px(width)).child(Input::new(state).small())
-}
-
-/// A small icon, for a mark beside a name.
-pub fn small_icon(icon: IconName, color: Rgba) -> gpui::Svg {
-    icon_colored(icon, 13., color)
 }
 
 /// A line of muted text, for a note under a group or a state with nothing to show.
@@ -394,139 +346,6 @@ pub fn empty(icon: IconName, text: impl Into<SharedString>) -> Div {
         .items_center()
         .gap_2()
         .py_8()
-        .child(icon_colored(icon, 22., theme::muted_fg()))
+        .child(icon::tinted(icon, 22., theme::muted_fg()))
         .child(note(text))
-}
-
-/// One option of a picker: a box holding `glyph`, lit when chosen.
-fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Stateful<Div> {
-    div()
-        .id(id)
-        .flex()
-        .items_center()
-        .justify_center()
-        .w(px(40.))
-        .h(px(28.))
-        .rounded_md()
-        .border_1()
-        .border_color(if chosen {
-            theme::accent()
-        } else {
-            theme::border_subtle()
-        })
-        .cursor_pointer()
-        .when(chosen, |el| el.bg(theme::accent_selected()))
-        .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
-        .child(glyph)
-}
-
-fn ink(chosen: bool) -> Rgba {
-    if chosen {
-        theme::fg()
-    } else {
-        theme::muted_fg()
-    }
-}
-
-/// Line widths shown as lines of that thickness, one chosen (`None` when the value is none of
-/// them).
-pub fn width_picker(
-    id: impl Into<ElementId>,
-    widths: &[f32],
-    selected: Option<usize>,
-    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    let id: ElementId = id.into();
-    let on_select = Rc::new(on_select);
-    let mut row = div().flex().flex_row().gap_1();
-    for (index, width) in widths.iter().enumerate() {
-        let chosen = selected == Some(index);
-        let on_select = on_select.clone();
-        row = row.child(
-            option_box(
-                widgets::child_id(&id, index),
-                chosen,
-                div()
-                    .w(px(20.))
-                    .h(px(width.clamp(1.0, 6.0)))
-                    .rounded_full()
-                    .bg(ink(chosen)),
-            )
-            .tooltip(gpui_tooltip(format!("{width}")))
-            .on_click(move |_, window, cx| on_select(index, window, cx)),
-        );
-    }
-    row
-}
-
-/// A sample of a line style, drawn as shapes so every style sits on the same middle line and has
-/// the same width (text dots sit on the baseline and drift off center). `style` is 0 for solid, 1
-/// for dashed and 2 for dotted.
-pub fn dash_glyph(style: usize, ink: Rgba) -> impl IntoElement {
-    let row = div().flex().flex_row().items_center().justify_center();
-    match style {
-        0 => row.child(div().w(px(22.)).h(px(2.)).rounded_full().bg(ink)),
-        1 => row
-            .gap(px(3.))
-            .children((0..3).map(|_| div().w(px(6.)).h(px(2.)).rounded_full().bg(ink))),
-        _ => row
-            .gap(px(4.))
-            .children((0..4).map(|_| div().size(px(2.)).rounded_full().bg(ink))),
-    }
-}
-
-/// The three line styles as samples, one chosen.
-pub fn dash_picker(
-    id: impl Into<ElementId>,
-    selected: usize,
-    on_select: impl Fn(usize, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    let id: ElementId = id.into();
-    let on_select = Rc::new(on_select);
-    let mut row = div().flex().flex_row().gap_1();
-    for (index, name) in ["Solid", "Dashed", "Dotted"].into_iter().enumerate() {
-        let chosen = selected == index;
-        let on_select = on_select.clone();
-        row = row.child(
-            option_box(
-                widgets::child_id(&id, index),
-                chosen,
-                dash_glyph(index, ink(chosen)),
-            )
-            .tooltip(gpui_tooltip(name))
-            .on_click(move |_, window, cx| on_select(index, window, cx)),
-        );
-    }
-    row
-}
-
-/// Heights by name (a name and a weight against the rest), one chosen when `current` is the
-/// weight of one of them. `on_pick` gets the weight.
-pub fn height_picker(
-    id: impl Into<ElementId>,
-    presets: &'static [(&'static str, f32)],
-    current: f32,
-    on_pick: impl Fn(f32, &mut Window, &mut App) + 'static,
-) -> AnyElement {
-    let names: Vec<&str> = presets.iter().map(|(name, _)| *name).collect();
-    let selected = presets
-        .iter()
-        .position(|(_, weight)| (weight - current).abs() < 0.05)
-        .unwrap_or(usize::MAX);
-    widgets::segmented(id, &names, selected, move |choice, window, cx| {
-        on_pick(presets[choice].1, window, cx);
-    })
-    .into_any_element()
-}
-
-/// A tooltip with `text`, in the shape the elements of gpui take.
-fn gpui_tooltip(
-    text: impl Into<SharedString>,
-) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
-    let text: SharedString = text.into();
-    move |window, cx| {
-        gpui_kit::component::tooltip::Tooltip::new(text.clone())
-            .m_1()
-            .build(window, cx)
-    }
 }

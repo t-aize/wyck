@@ -38,10 +38,9 @@ use crate::chart::study::custom::library::{LibraryError, registry};
 use crate::chart::study::custom::run::Script;
 use crate::chart::study::custom::templates::{TEMPLATES, Template};
 use crate::chart::study::custom::{Problem, Severity};
-use crate::confirm::confirm;
 use crate::indicators;
-use crate::menu as popup;
 use crate::multichart::MultiChart;
+use wyck_ui::{confirm::confirm, menu as popup};
 
 actions!(
     wyck_indicator_editor,

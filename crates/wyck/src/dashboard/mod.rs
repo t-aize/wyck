@@ -41,14 +41,14 @@ use super::alerts::Alerts;
 use super::chart::drawing::Drawings;
 use super::chart::live::{PEEK_OWNER, Wish};
 use super::chart::{self, Chart, LiveHub};
-use super::connection::ui;
 use super::indicators::editor::IndicatorEditor;
 use super::multichart::{MultiChart, MultiChartEvent, SymbolRef};
+use super::runtime;
 use super::trading::account::Account;
 use super::trading::panel::AccountPanel;
 use super::trading::ticket::OrderTicket;
 use super::workspace::{Documents, Workspace};
-use super::{runtime, theme, toast};
+use wyck_ui::{button, icon, theme, toast};
 
 gpui::actions!(
     wyck_dashboard,
@@ -250,7 +250,7 @@ impl Dashboard {
     ) -> Self {
         let workspace = cx.new(|cx| Workspace::new(&documents, cx));
         // The colors saved in the color panel live with the preferences.
-        crate::color_picker::connect(
+        wyck_ui::color_picker::connect(
             workspace.read(cx).preferences().saved_colors.clone(),
             {
                 let workspace = workspace.clone();
@@ -997,7 +997,7 @@ impl Dashboard {
             .px_6();
         match &self.conn {
             Conn::Failed(message) => centered
-                .child(ui::icon_colored(
+                .child(icon::tinted(
                     IconName::CircleAlert,
                     28.,
                     theme::destructive(),
@@ -1016,7 +1016,7 @@ impl Dashboard {
                         .text_color(theme::muted_fg())
                         .child(message.clone()),
                 )
-                .child(div().pt_2().w(px(260.)).child(ui::primary_button(
+                .child(div().pt_2().w(px(260.)).child(button::primary(
                     "sign-in-again",
                     "Sign in again",
                     cx.listener(|_this, _event, _window, cx| {

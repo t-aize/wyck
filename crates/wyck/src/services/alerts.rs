@@ -17,9 +17,9 @@ use wyck_config::DocumentStore;
 use wyck_openapi::market::PRICE_SCALE;
 
 use crate::chart::live::{LiveHub, Wish};
-use crate::toast;
 pub use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 use crate::workspace::Saver;
+use wyck_ui::toast;
 
 const DOCUMENT: &str = "alerts";
 const SCHEMA_VERSION: u32 = 1;

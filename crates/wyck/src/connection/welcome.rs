@@ -4,8 +4,8 @@ use gpui::prelude::*;
 use gpui::{Window, div, px};
 use gpui_kit::assets::IconName;
 
-use super::ui;
-use super::{ConnectionFlow, anim, theme};
+use super::ConnectionFlow;
+use wyck_ui::{anim, button, layout, theme};
 
 impl ConnectionFlow {
     pub(super) fn render_welcome(
@@ -29,7 +29,7 @@ impl ConnectionFlow {
             ),
         ];
 
-        ui::screen().child(
+        layout::screen().child(
             div()
                 .flex()
                 .flex_col()
@@ -43,7 +43,7 @@ impl ConnectionFlow {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(ui::icon_tile(
+                        .child(layout::icon_tile(
                             IconName::ChartCandlestick,
                             72.,
                             34.,
@@ -75,7 +75,7 @@ impl ConnectionFlow {
                 ))
                 .child(anim::enter(
                     div().w_full().pt_2().child(
-                        ui::primary_button(
+                        button::primary(
                             "connect-ctrader",
                             "Connect cTrader account",
                             cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
@@ -121,7 +121,7 @@ fn next_step(icon: IconName, text: &'static str) -> gpui::Div {
         .flex_row()
         .items_center()
         .gap_3()
-        .child(ui::step_badge(icon))
+        .child(layout::step_badge(icon))
         .child(
             div()
                 .flex_1()

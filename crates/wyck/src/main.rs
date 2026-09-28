@@ -2,46 +2,26 @@
 
 #[path = "services/alerts.rs"]
 mod alerts;
-#[path = "ui/anim.rs"]
-mod anim;
 mod appearance;
 mod assets;
 #[path = "services/backup.rs"]
 mod backup;
 mod build_info;
 mod chart;
-#[path = "ui/color_picker.rs"]
-mod color_picker;
-#[path = "ui/confirm.rs"]
-mod confirm;
 mod connection;
 mod dashboard;
 mod indicators;
 #[path = "services/market_data.rs"]
 mod market_data;
-#[path = "ui/menu.rs"]
-mod menu;
-#[path = "ui/modal.rs"]
-mod modal;
 mod multichart;
 mod runtime;
-#[path = "ui/settings_hub.rs"]
 mod settings_hub;
-#[path = "ui/settings_ui.rs"]
-mod settings_ui;
-#[path = "ui/text_input.rs"]
-mod text_input;
-mod theme;
 mod title_bar;
-#[path = "ui/toast.rs"]
-mod toast;
 #[path = "services/token_store.rs"]
 mod token_store;
 mod trading;
 #[path = "services/updates.rs"]
 mod updates;
-#[path = "ui/widgets.rs"]
-mod widgets;
 mod workspace;
 
 use std::borrow::Cow;
@@ -75,16 +55,16 @@ fn main() {
                     market_data::init(Some(&paths), cx);
                 }
                 Err(_) => {
-                    theme::apply(cx);
+                    wyck_ui::theme::apply(cx);
                     indicators::init(None, cx);
                     market_data::init(None, cx);
                 }
             }
-            text_input::init(cx);
+            wyck_ui::text_input::init(cx);
             dashboard::init(cx);
             chart::init(cx);
             indicators::editor::init(cx);
-            modal::init(cx);
+            wyck_ui::modal::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

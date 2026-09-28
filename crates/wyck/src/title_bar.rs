@@ -6,8 +6,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::TitleBar;
 
 use super::build_info::BuildMode;
-use super::connection::ui;
-use super::theme;
+use wyck_ui::{icon, theme};
 
 /// Draws the current section and the unavailable journal beside a drag region.
 pub fn render(window: &mut Window) -> impl IntoElement {
@@ -41,7 +40,7 @@ pub fn render(window: &mut Window) -> impl IntoElement {
                     .justify_center()
                     .rounded_md()
                     .bg(theme::accent_selected())
-                    .child(ui::icon_colored(IconName::ChartCandlestick, 15.0, accent)),
+                    .child(icon::tinted(IconName::ChartCandlestick, 15.0, accent)),
             )
         })
         .when(show_brand, |bar| {

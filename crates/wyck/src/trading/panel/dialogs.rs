@@ -8,9 +8,9 @@ use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputState};
 
 use crate::alerts::{Alerts, Condition};
-use crate::settings_ui::{self as ui, Head};
 use crate::trading::account::Account;
-use crate::{modal, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::{button, controls, form, modal, number};
 
 // ---- modifying a position or an order ----
 
@@ -78,7 +78,7 @@ pub fn open_protection(
 
 impl ProtectionEditor {
     fn save(&self, cx: &mut App) {
-        let read = |state: &Entity<InputState>| widgets::parse_number(&state.read(cx).value());
+        let read = |state: &Entity<InputState>| number::parse(&state.read(cx).value());
         let (price, sl, tp) = (
             read(&self.price),
             read(&self.stop_loss),
@@ -115,35 +115,39 @@ impl Render for ProtectionEditor {
         };
         let mut rows = Vec::new();
         if matches!(self.target, Target::Order(_)) {
-            rows.push(ui::field("Price", None, ui::text_field(&self.price, 160.)));
+            rows.push(form::field(
+                "Price",
+                None,
+                form::text_field(&self.price, 160.),
+            ));
         }
-        rows.push(ui::field(
+        rows.push(form::field(
             "Stop loss",
             Some("Leave it empty to remove it"),
-            ui::text_field(&self.stop_loss, 160.),
+            form::text_field(&self.stop_loss, 160.),
         ));
-        rows.push(ui::field(
+        rows.push(form::field(
             "Take profit",
             Some("Leave it empty to remove it"),
-            ui::text_field(&self.take_profit, 160.),
+            form::text_field(&self.take_profit, 160.),
         ));
-        let body = ui::page()
-            .child(ui::group(IconName::Target, "Levels", rows))
-            .child(ui::note("Lines can also be dragged on the chart."));
+        let body = form::page()
+            .child(form::group(IconName::Target, "Levels", rows))
+            .child(form::note("Lines can also be dragged on the chart."));
         let save = cx.entity();
-        let footer = ui::footer(
+        let footer = form::footer(
             Vec::new(),
             vec![
-                ui::action("protection-cancel", "Cancel", None, false, modal::close)
+                button::action("protection-cancel", "Cancel", None, false, modal::close)
                     .into_any_element(),
-                ui::action("protection-save", "Save", None, true, move |window, cx| {
+                button::action("protection-save", "Save", None, true, move |window, cx| {
                     save.update(cx, |editor, cx| editor.save(cx));
                     modal::close(window, cx);
                 })
                 .into_any_element(),
             ],
         );
-        ui::dialog(head, modal::dismiss, body, footer)
+        form::dialog(head, modal::dismiss, body, footer)
     }
 }
 
@@ -197,7 +201,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
 
 impl AlertEditor {
     fn save(&self, cx: &mut App) {
-        let price = widgets::parse_number(&self.price.read(cx).value());
+        let price = number::parse(&self.price.read(cx).value());
         let message = self.message.read(cx).value().to_string();
         let (id, condition, repeat) = (self.id, self.condition, self.repeat);
         self.alerts.update(cx, |alerts, cx| {
@@ -231,10 +235,10 @@ impl Render for AlertEditor {
             subtitle: "Fires when the price crosses the level".into(),
         };
         let level = vec![
-            ui::field(
+            form::field(
                 "Condition",
                 None,
-                widgets::segmented(
+                controls::segmented(
                     "alert-condition",
                     &labels,
                     index,
@@ -246,37 +250,38 @@ impl Render for AlertEditor {
                     },
                 ),
             ),
-            ui::field("Price", None, ui::text_field(&self.price, 160.)),
+            form::field("Price", None, form::text_field(&self.price, 160.)),
         ];
-        let message = vec![ui::block(Input::new(&self.message).small())];
-        let options = vec![ui::field(
+        let message = vec![form::block(Input::new(&self.message).small())];
+        let options = vec![form::field(
             "Keep watching after it fires",
             Some("The alert stays on and can fire again"),
-            ui::toggle("alert-repeat", self.repeat, move |on, _window, cx| {
+            controls::toggle("alert-repeat", self.repeat, move |on, _window, cx| {
                 repeat.update(cx, |e, cx| {
                     e.repeat = on;
                     cx.notify();
                 });
             }),
         )];
-        let body = ui::page()
-            .child(ui::group(IconName::Target, "Level", level))
-            .child(ui::group(IconName::MessageSquare, "Message", message))
-            .child(ui::group(IconName::SlidersHorizontal, "Options", options))
-            .child(ui::note(
+        let body = form::page()
+            .child(form::group(IconName::Target, "Level", level))
+            .child(form::group(IconName::MessageSquare, "Message", message))
+            .child(form::group(IconName::SlidersHorizontal, "Options", options))
+            .child(form::note(
                 "The line of an alert can also be dragged on the chart.",
             ));
-        let footer = ui::footer(
+        let footer = form::footer(
             Vec::new(),
             vec![
-                ui::action("alert-cancel", "Cancel", None, false, modal::close).into_any_element(),
-                ui::action("alert-save", "Save", None, true, move |window, cx| {
+                button::action("alert-cancel", "Cancel", None, false, modal::close)
+                    .into_any_element(),
+                button::action("alert-save", "Save", None, true, move |window, cx| {
                     save.update(cx, |editor, cx| editor.save(cx));
                     modal::close(window, cx);
                 })
                 .into_any_element(),
             ],
         );
-        ui::dialog(head, modal::dismiss, body, footer)
+        form::dialog(head, modal::dismiss, body, footer)
     }
 }

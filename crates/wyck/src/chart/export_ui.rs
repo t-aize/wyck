@@ -29,9 +29,12 @@ use super::export::{
 use super::settings::{ChartKind, ChartSettings};
 use super::settings_rows::named;
 use super::zone::Zone;
-use crate::settings_ui::{self as ui, Head, Tab};
-use crate::toast::{self, Kind};
-use crate::{modal, theme, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab;
+use wyck_ui::{
+    button, controls, form, modal, number, theme,
+    toast::{self, Kind},
+};
 
 /// The most rows put on the clipboard: past it a file is the better way.
 const MAX_COPY_ROWS: usize = 250_000;
@@ -234,7 +237,7 @@ fn text_input(
             .placeholder(placeholder)
             .default_value(value.to_owned())
     });
-    subscriptions.push(widgets::watch_parsed(
+    subscriptions.push(number::watch_parsed(
         &state,
         cx,
         |_, text| Some(text.to_owned()),
@@ -255,8 +258,8 @@ fn number_input(
     (low, high): (f64, f64),
     apply: fn(&mut ExportOptions, f64),
 ) -> Entity<InputState> {
-    let state = cx.new(|cx| widgets::number_state(value, low, high, 1.0, 0, window, cx));
-    subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+    let state = cx.new(|cx| number::state(value, low, high, 1.0, 0, window, cx));
+    subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
         if value >= low {
             apply(&mut this.options, value);
             this.edited(cx);
@@ -505,7 +508,7 @@ impl ExportDialog {
                     .default_value(current)
             });
             let subscription =
-                widgets::watch_parsed(&state, cx, |_, text| Some(text.trim().to_owned()), {
+                number::watch_parsed(&state, cx, |_, text| Some(text.trim().to_owned()), {
                     let code = code.clone();
                     move |this, text: String, cx| {
                         if text.is_empty() {
@@ -664,10 +667,10 @@ impl ExportDialog {
         let names: Vec<&'static str> = options.iter().map(|(_, name)| *name).collect();
         let index = options.iter().position(|(v, _)| *v == current).unwrap_or(0);
         let this = cx.entity();
-        ui::field(
+        form::field(
             label,
             hint,
-            widgets::segmented(id, &names, index, move |chosen, _window, cx| {
+            controls::segmented(id, &names, index, move |chosen, _window, cx| {
                 this.update(cx, |d, cx| {
                     set(&mut d.options, options[chosen].0);
                     d.edited(cx);
@@ -686,10 +689,10 @@ impl ExportDialog {
         set: fn(&mut ExportOptions, bool),
     ) -> AnyElement {
         let this = cx.entity();
-        ui::field(
+        form::field(
             label,
             hint,
-            ui::toggle(id, on, move |on, _window, cx| {
+            controls::toggle(id, on, move |on, _window, cx| {
                 this.update(cx, |d, cx| {
                     set(&mut d.options, on);
                     d.edited(cx);
@@ -703,7 +706,7 @@ impl ExportDialog {
         hint: Option<&'static str>,
         state: &Entity<InputState>,
     ) -> AnyElement {
-        ui::field(label, hint, div().child(widgets::number_field(state, 120.)))
+        form::field(label, hint, div().child(number::field(state, 120.)))
     }
 
     fn text(
@@ -712,7 +715,7 @@ impl ExportDialog {
         state: &Entity<InputState>,
         width: f32,
     ) -> AnyElement {
-        ui::field(label, hint, ui::text_field(state, width))
+        form::field(label, hint, form::text_field(state, width))
     }
 
     // ---- pages ----
@@ -795,7 +798,7 @@ impl ExportDialog {
             ),
             Self::number("At most (rows)", Some("0 has no limit"), &self.inputs.limit),
         ];
-        let summary = ui::field(
+        let summary = form::field(
             "This export",
             None,
             div()
@@ -807,10 +810,10 @@ impl ExportDialog {
                     human_bytes(self.preview.bytes)
                 )),
         );
-        ui::page()
-            .child(ui::group(IconName::Layers, "What to export", what))
-            .child(ui::group(IconName::ListFilter, "Which rows", refine))
-            .child(ui::group(IconName::Info, "Result", [summary]))
+        form::page()
+            .child(form::group(IconName::Layers, "What to export", what))
+            .child(form::group(IconName::ListFilter, "Which rows", refine))
+            .child(form::group(IconName::Info, "Result", [summary]))
             .into_any_element()
     }
 
@@ -852,7 +855,7 @@ impl ExportDialog {
                         div().flex_1().min_w_0().children(
                             self.names
                                 .get(&code)
-                                .map(|state| ui::text_field(state, 240.)),
+                                .map(|state| form::text_field(state, 240.)),
                         ),
                     )
                     .child(
@@ -945,16 +948,16 @@ impl ExportDialog {
                     d.edited(cx);
                 });
             });
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::Rows3,
                 "Columns in the file, in order",
                 chosen,
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::Plus,
                 "Add a column",
-                [ui::block(wrap), ui::block(standard)],
+                [form::block(wrap), form::block(standard)],
             ))
             .into_any_element()
     }
@@ -1161,11 +1164,11 @@ impl ExportDialog {
             &self.inputs.file_name,
             260.,
         )];
-        ui::page()
-            .child(ui::group(IconName::FileText, "File", file))
-            .child(ui::group(IconName::Clock, "Times", times))
-            .child(ui::group(IconName::Hash, "Numbers", numbers))
-            .child(ui::group(IconName::Type, "Name of the file", name))
+        form::page()
+            .child(form::group(IconName::FileText, "File", file))
+            .child(form::group(IconName::Clock, "Times", times))
+            .child(form::group(IconName::Hash, "Numbers", numbers))
+            .child(form::group(IconName::Type, "Name of the file", name))
             .into_any_element()
     }
 
@@ -1242,7 +1245,7 @@ impl ExportDialog {
         }
         let save = this.clone();
         let name_state = self.inputs.preset_name.clone();
-        let save_row = ui::field(
+        let save_row = form::field(
             "Save the current choices",
             Some("A preset of the same name is replaced"),
             div()
@@ -1250,7 +1253,7 @@ impl ExportDialog {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .child(ui::text_field(&self.inputs.preset_name, 200.))
+                .child(form::text_field(&self.inputs.preset_name, 200.))
                 .child(
                     Button::new("preset-save")
                         .primary()
@@ -1274,10 +1277,10 @@ impl ExportDialog {
                         }),
                 ),
         );
-        ui::page()
-            .child(ui::group(IconName::Bookmark, "Your presets", yours))
-            .child(ui::group(IconName::Save, "Save", [save_row]))
-            .child(ui::group(IconName::Sparkles, "Built in", built_in))
+        form::page()
+            .child(form::group(IconName::Bookmark, "Your presets", yours))
+            .child(form::group(IconName::Save, "Save", [save_row]))
+            .child(form::group(IconName::Sparkles, "Built in", built_in))
             .into_any_element()
     }
 
@@ -1304,7 +1307,7 @@ impl ExportDialog {
             .text_size(px(11.))
             .text_color(theme::fg())
             .child(column);
-        let summary = ui::field(
+        let summary = form::field(
             "File",
             Some("Where the dialog will offer to save it"),
             div()
@@ -1312,7 +1315,7 @@ impl ExportDialog {
                 .text_color(theme::muted_fg())
                 .child(p.file_name.clone()),
         );
-        let size = ui::field(
+        let size = form::field(
             "Size",
             None,
             div()
@@ -1320,7 +1323,7 @@ impl ExportDialog {
                 .text_color(theme::muted_fg())
                 .child(format!("{} rows, about {}", p.rows, human_bytes(p.bytes))),
         );
-        let mut page = ui::page().child(ui::group(IconName::Info, "The file", [summary, size]));
+        let mut page = form::page().child(form::group(IconName::Info, "The file", [summary, size]));
         if !p.problems.is_empty() {
             let rows = p.problems.iter().map(|text| {
                 div()
@@ -1330,12 +1333,12 @@ impl ExportDialog {
                     .child(text.clone())
                     .into_any_element()
             });
-            page = page.child(ui::group(IconName::TriangleAlert, "To look at", rows));
+            page = page.child(form::group(IconName::TriangleAlert, "To look at", rows));
         }
-        page.child(ui::group(
+        page.child(form::group(
             IconName::Eye,
             format!("First {} rows", PREVIEW_ROWS),
-            [ui::block(code)],
+            [form::block(code)],
         ))
         .into_any_element()
     }
@@ -1376,9 +1379,9 @@ impl Render for ExportDialog {
                 human_bytes(self.preview.bytes)
             ))
             .into_any_element();
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![
-                ui::action(
+                button::action(
                     "export-defaults",
                     "Defaults",
                     Some(IconName::RotateCcw),
@@ -1393,8 +1396,9 @@ impl Render for ExportDialog {
                 summary,
             ],
             vec![
-                ui::action("export-close", "Close", None, false, modal::dismiss).into_any_element(),
-                ui::action(
+                button::action("export-close", "Close", None, false, modal::dismiss)
+                    .into_any_element(),
+                button::action(
                     "export-copy",
                     "Copy",
                     Some(IconName::Copy),
@@ -1406,7 +1410,7 @@ impl Render for ExportDialog {
                     },
                 )
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "export-write",
                     if self.busy { "Writing..." } else { "Export..." },
                     Some(IconName::Download),
@@ -1420,7 +1424,7 @@ impl Render for ExportDialog {
                 .into_any_element(),
             ],
         );
-        ui::frame(
+        form::frame(
             head,
             &tabs,
             active,

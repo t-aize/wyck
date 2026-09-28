@@ -8,7 +8,7 @@ use super::Dashboard;
 use crate::multichart::icon::layout_icon;
 use crate::multichart::layouts::{self, LayoutKey};
 use crate::multichart::links::{Link, Links};
-use crate::{menu, theme};
+use wyck_ui::{menu, theme};
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [

@@ -9345,13 +9345,13 @@ dependencies = [
  "toml 1.1.6+spec-1.1.0",
  "tracing",
  "tracing-subscriber",
- "unicode-segmentation",
  "wyck-chart",
  "wyck-config",
  "wyck-market-data",
  "wyck-openapi",
  "wyck-state",
  "wyck-trading",
+ "wyck-ui",
 ]
 
 [[package]]
@@ -9457,6 +9457,16 @@ dependencies = [
  "toml 1.1.6+spec-1.1.0",
  "wyck-chart",
  "wyck-openapi-model",
+]
+
+[[package]]
+name = "wyck-ui"
+version = "0.3.0"
+dependencies = [
+ "gpui-kit",
+ "gpui-pre",
+ "serde",
+ "unicode-segmentation",
 ]
 
 [[package]]

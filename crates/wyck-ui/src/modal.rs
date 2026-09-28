@@ -26,7 +26,7 @@ use gpui::{
     relative, rgba,
 };
 
-use super::anim::ease_out_cubic;
+use crate::anim::{self, ease_out_cubic};
 
 actions!(wyck_modal, [CloseModal]);
 
@@ -262,7 +262,7 @@ impl Render for ModalHost {
         let dragging = self.drag.is_some();
         // Each phase has its own animation id, so entering and leaving each play from the start.
         let phase = id * 2 + u64::from(leaving);
-        let duration = if !super::appearance::animations() {
+        let duration = if !anim::enabled() {
             Duration::from_millis(1)
         } else if leaving {
             EXIT

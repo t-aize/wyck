@@ -17,7 +17,7 @@ use lsp_types::{
 
 use super::assist::{self, CandidateKind};
 use super::lexer::{self, Kind, Token};
-use crate::theme;
+use wyck_ui::theme;
 
 /// The name of the language, as the editor is told.
 pub const LANGUAGE: &str = "rhai";

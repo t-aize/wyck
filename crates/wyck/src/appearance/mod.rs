@@ -13,15 +13,14 @@
 
 pub mod presets;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gpui::{App, Global, SharedString, Task};
 use serde::{Deserialize, Serialize};
 use wyck_config::DocumentStore;
 
-use super::theme::{self, Colors};
 use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
+use wyck_ui::theme::{self, Colors};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "appearance";
@@ -437,14 +436,6 @@ impl Appearance {
 
 // ---- in force ----
 
-/// Whether things move. Read by the animation helpers, which have no window at hand.
-static ANIMATIONS: AtomicBool = AtomicBool::new(true);
-
-/// Whether screens and panels move as they appear.
-pub fn animations() -> bool {
-    ANIMATIONS.load(Ordering::Relaxed)
-}
-
 struct State {
     appearance: Appearance,
     system_dark: bool,
@@ -547,7 +538,7 @@ fn put_in_force(cx: &mut App) {
             state.appearance.animations,
         )
     };
-    ANIMATIONS.store(animations, Ordering::Relaxed);
+    wyck_ui::anim::set_enabled(animations);
     theme::set_colors(colors);
     theme::apply(cx);
 }

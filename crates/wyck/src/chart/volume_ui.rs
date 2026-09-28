@@ -13,8 +13,7 @@ use super::transform::PricePath;
 use super::volume::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
-use crate::settings_ui as ui;
-use crate::widgets;
+use wyck_ui::{controls, form, number};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {
@@ -151,8 +150,8 @@ pub(super) fn candle_groups(
         ),
     ];
     vec![
-        ui::group(IconName::ChartCandlestick, "Width of the candles", width).into_any_element(),
-        ui::group(IconName::Palette, "Look of the candles", look).into_any_element(),
+        form::group(IconName::ChartCandlestick, "Width of the candles", width).into_any_element(),
+        form::group(IconName::Palette, "Look of the candles", look).into_any_element(),
     ]
 }
 
@@ -170,7 +169,7 @@ pub(super) fn bar_group(
     };
     let (mode_chart, state) = (chart.clone(), inputs.size.clone());
     let current = s.size;
-    let size = ui::field(
+    let size = form::field(
         "Volume of a bar",
         Some("A bar closes once it has seen this many ticks"),
         div()
@@ -178,7 +177,7 @@ pub(super) fn bar_group(
             .flex_row()
             .items_center()
             .gap_2()
-            .child(widgets::segmented(
+            .child(controls::segmented(
                 "vb-size-mode",
                 &["Fixed", "x average"],
                 mode,
@@ -196,15 +195,15 @@ pub(super) fn bar_group(
                         st.volume_bars.size = next;
                     });
                     state.update(cx, |state, cx| {
-                        state.set_value(widgets::format_number(size_value(next), 2), window, cx);
+                        state.set_value(number::format(size_value(next), 2), window, cx);
                     });
                 },
             ))
-            .child(widgets::number_field(&inputs.size, 110.)),
+            .child(number::field(&inputs.size, 110.)),
     );
     let mut rows = vec![size];
     if resolved > 0 {
-        rows.push(ui::field(
+        rows.push(form::field(
             "Volume of a bar now",
             Some("What the chart uses with the setting above"),
             div().child(format!("{resolved} ticks")),
@@ -219,5 +218,5 @@ pub(super) fn bar_group(
         s.path,
         |st, v| st.volume_bars.path = v,
     ));
-    ui::group(IconName::ChartBarBig, "Volume bar construction", rows).into_any_element()
+    form::group(IconName::ChartBarBig, "Volume bar construction", rows).into_any_element()
 }

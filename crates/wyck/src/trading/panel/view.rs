@@ -19,13 +19,15 @@ use super::dialogs::{Target, open_alert, open_protection};
 use super::prefs::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use super::stats::HistoryStats;
 use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
-use crate::confirm::confirm;
-use crate::connection::ui;
-use crate::menu::{self as popup, Entry, Item};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
-use crate::{theme, widgets};
+use wyck_ui::{
+    confirm::confirm,
+    controls, icon,
+    menu::{self as popup, Entry, Item},
+    theme,
+};
 
 /// What a button or a menu entry of a row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -160,9 +162,9 @@ fn row_text(table: &Table, row: &Row) -> String {
 
 fn copy(cx: &mut App, title: &'static str, text: String) {
     cx.write_to_clipboard(ClipboardItem::new_string(text));
-    crate::toast::show(
+    wyck_ui::toast::show(
         cx,
-        crate::toast::Kind::Info,
+        wyck_ui::toast::Kind::Info,
         title,
         "Copied to the clipboard.",
     );
@@ -688,7 +690,7 @@ impl AccountPanel {
             .unwrap_or(0);
         let side = {
             let this = this.clone();
-            widgets::segmented("panel-side", &sides, side_index, move |index, _, cx| {
+            controls::segmented("panel-side", &sides, side_index, move |index, _, cx| {
                 this.update(cx, |p, cx| {
                     p.edit_prefs(cx, |prefs| prefs.side = SideFilter::ALL[index]);
                 });
@@ -701,7 +703,7 @@ impl AccountPanel {
             .unwrap_or(0);
         let range = {
             let this = this.clone();
-            widgets::segmented("panel-range", &ranges, range_index, move |index, _, cx| {
+            controls::segmented("panel-range", &ranges, range_index, move |index, _, cx| {
                 this.update(cx, |p, cx| {
                     p.edit_prefs(cx, |prefs| prefs.history_range = HistoryRange::ALL[index]);
                 });
@@ -1059,7 +1061,7 @@ impl AccountPanel {
                     }))
                     .child(div().min_w_0().truncate().child(col.label))
                     .children(col.sorted.map(|descending| {
-                        ui::icon_colored(
+                        icon::tinted(
                             if descending {
                                 IconName::ChevronDown
                             } else {

@@ -126,17 +126,17 @@ fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
         b: c.b,
         a: c.a,
     };
-    base.up = color(crate::theme::chart_up());
-    base.down = color(crate::theme::chart_down());
-    base.line = color(crate::theme::chart_line());
-    base.grid = color(crate::theme::chart_grid());
-    base.text = color(crate::theme::chart_muted());
-    base.text_strong = color(crate::theme::chart_fg());
-    base.bg = color(crate::theme::chart_bg());
-    base.tag = color(crate::theme::chart_tag());
-    base.border = color(crate::theme::chart_border());
-    base.crosshair = color(crate::theme::chart_crosshair());
-    base.accent = color(crate::theme::accent());
+    base.up = color(wyck_ui::theme::chart_up());
+    base.down = color(wyck_ui::theme::chart_down());
+    base.line = color(wyck_ui::theme::chart_line());
+    base.grid = color(wyck_ui::theme::chart_grid());
+    base.text = color(wyck_ui::theme::chart_muted());
+    base.text_strong = color(wyck_ui::theme::chart_fg());
+    base.bg = color(wyck_ui::theme::chart_bg());
+    base.tag = color(wyck_ui::theme::chart_tag());
+    base.border = color(wyck_ui::theme::chart_border());
+    base.crosshair = color(wyck_ui::theme::chart_crosshair());
+    base.accent = color(wyck_ui::theme::accent());
     base.kagi_yang = base.up;
     base.kagi_yin = base.down;
     base.pnf_up = base.up;
@@ -665,9 +665,9 @@ impl Chart {
     /// Adds an indicator, with its defaults.
     pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
         if self.settings.studies.len() >= self.max_studies {
-            crate::toast::show(
+            wyck_ui::toast::show(
                 cx,
-                crate::toast::Kind::Warning,
+                wyck_ui::toast::Kind::Warning,
                 "Indicator limit reached",
                 format!(
                     "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",

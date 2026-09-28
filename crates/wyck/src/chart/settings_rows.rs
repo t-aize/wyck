@@ -8,8 +8,7 @@ use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartSettings;
-use crate::settings_ui as ui;
-use crate::widgets;
+use wyck_ui::{controls, form, number};
 
 pub(super) fn edit(
     chart: &Entity<Chart>,
@@ -37,10 +36,10 @@ pub(super) fn choice<T: Copy + PartialEq + 'static>(
     let names: Vec<&'static str> = options.iter().map(|(_, name)| *name).collect();
     let index = options.iter().position(|(v, _)| *v == current).unwrap_or(0);
     let chart = chart.clone();
-    ui::field(
+    form::field(
         label,
         hint,
-        widgets::segmented(id, &names, index, move |chosen, _window, cx| {
+        controls::segmented(id, &names, index, move |chosen, _window, cx| {
             edit(&chart, cx, |s| set(s, options[chosen].0));
         }),
     )
@@ -56,10 +55,10 @@ pub(super) fn switch(
     set: fn(&mut ChartSettings, bool),
 ) -> AnyElement {
     let chart = chart.clone();
-    ui::field(
+    form::field(
         label,
         hint,
-        ui::toggle(id, on, move |on, _window, cx| {
+        controls::toggle(id, on, move |on, _window, cx| {
             edit(&chart, cx, |s| set(s, on));
         }),
     )
@@ -71,7 +70,7 @@ pub(super) fn number(
     hint: Option<&'static str>,
     state: &Entity<InputState>,
 ) -> AnyElement {
-    ui::field(label, hint, div().child(widgets::number_field(state, 120.)))
+    form::field(label, hint, div().child(number::field(state, 120.)))
 }
 
 /// Makes the number fields of a panel and keeps the subscriptions that apply what is typed.
@@ -108,17 +107,14 @@ impl<'a, 'b, T: 'static> Numbers<'a, 'b, T> {
         let window = &mut *self.window;
         let state = self
             .cx
-            .new(|cx| widgets::number_state(value, low, high, 1.0, decimals, window, cx));
+            .new(|cx| number::state(value, low, high, 1.0, decimals, window, cx));
         let chart = self.chart.clone();
-        self.subscriptions.push(widgets::watch_number(
-            &state,
-            self.cx,
-            move |_this, value, cx| {
+        self.subscriptions
+            .push(number::watch(&state, self.cx, move |_this, value, cx| {
                 if value >= low {
                     edit(&chart, cx, |s| apply(s, value));
                 }
-            },
-        ));
+            }));
         state
     }
 }

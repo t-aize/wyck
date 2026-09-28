@@ -23,8 +23,10 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::Dashboard;
 use crate::chart::drawing_props;
-use crate::menu::{Entry, Item, Menu, Placement};
-use crate::theme;
+use wyck_ui::{
+    menu::{Entry, Item, Menu, Placement},
+    theme,
+};
 
 /// The prefill for the "go to date" field: the replay's current position.
 pub(super) fn format_goto_default(cursor_ms: i64) -> String {
@@ -187,7 +189,7 @@ impl Dashboard {
             .then(|| self.replay_goto.clone())
             .flatten()
             .map(|state| {
-                crate::menu::below(
+                wyck_ui::menu::below(
                     div()
                         .flex()
                         .flex_col()

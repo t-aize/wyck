@@ -39,9 +39,8 @@ use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
 use crate::chart::drawing::model::Dash;
 use crate::chart::{ChartLine, LineId, now_ms};
-use crate::confirm::confirm;
 use crate::multichart::SymbolRef;
-use crate::{runtime, widgets};
+use crate::runtime;
 use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
@@ -50,6 +49,7 @@ mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
+use wyck_ui::{confirm::confirm, number};
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;
@@ -154,7 +154,7 @@ impl OrderTicket {
         let layout = prefs.layout;
         let defaults = layout.defaults.clone();
         let size = cx.new(|cx| {
-            number(&widgets::format_number(prefs.size, 2), window, cx)
+            number(&number::format(prefs.size, 2), window, cx)
                 .step(step_of_size(prefs.size_mode, &Contract::default()))
         });
         let price = cx.new(|cx| InputState::new(window, cx));
@@ -165,22 +165,17 @@ impl OrderTicket {
                 .step(NumberStep::Fixed(1.0))
         });
         let atr_multiplier = cx.new(|cx| {
-            number(&widgets::format_number(prefs.atr.multiplier, 2), window, cx)
+            number(&number::format(prefs.atr.multiplier, 2), window, cx)
                 .max(1_000.0)
                 .step(NumberStep::Fixed(0.1))
         });
         let take_profit = cx.new(|cx| number("", window, cx));
         let expiry = cx.new(|cx| {
-            number(&widgets::format_number(defaults.expiry, 2), window, cx)
-                .step(NumberStep::Fixed(1.0))
+            number(&number::format(defaults.expiry, 2), window, cx).step(NumberStep::Fixed(1.0))
         });
         let slippage = cx.new(|cx| {
-            number(
-                &widgets::format_number(defaults.slippage_pips, 1),
-                window,
-                cx,
-            )
-            .step(NumberStep::Fixed(0.5))
+            number(&number::format(defaults.slippage_pips, 1), window, cx)
+                .step(NumberStep::Fixed(0.5))
         });
         let comment = cx.new(|cx| InputState::new(window, cx).placeholder("Comment (optional)"));
         let mut subscriptions = vec![cx.observe(&account, |_this, _account, cx| cx.notify())];
@@ -379,12 +374,7 @@ impl OrderTicket {
                 SizeMode::Units => lots * contract.lot_size as f64 / 100.0,
                 _ => lots,
             };
-            self.write(
-                &self.size.clone(),
-                widgets::format_number(value, 2),
-                window,
-                cx,
-            );
+            self.write(&self.size.clone(), number::format(value, 2), window, cx);
         }
         self.apply_steps(window, cx);
         cx.emit(TicketEvent::LinesChanged);
@@ -732,7 +722,7 @@ impl OrderTicket {
         let decimals = if mode == SizeMode::Units { 0 } else { 2 };
         self.write(
             &self.size.clone(),
-            widgets::format_number(value, decimals),
+            number::format(value, decimals),
             window,
             cx,
         );
@@ -780,7 +770,7 @@ impl OrderTicket {
     }
 
     fn read(state: &Entity<InputState>, cx: &App) -> Option<f64> {
-        widgets::parse_number(&state.read(cx).value())
+        number::parse(&state.read(cx).value())
     }
 
     /// The pips typed in the slippage field, when there are some.
@@ -1210,7 +1200,7 @@ impl OrderTicket {
         let order = match self.order(&plan, cx) {
             Ok(order) => order,
             Err(message) => {
-                crate::toast::show(cx, crate::toast::Kind::Warning, "Order not sent", message);
+                wyck_ui::toast::show(cx, wyck_ui::toast::Kind::Warning, "Order not sent", message);
                 return;
             }
         };
@@ -1270,7 +1260,7 @@ fn format_offset(unit: Offset, value: f64) -> String {
         Offset::Pips => 1,
         _ => 2,
     };
-    widgets::format_number(value, decimals)
+    number::format(value, decimals)
 }
 
 /// An amount rounded to two significant digits, for a preset: 97.3 is 97, 1 234 is 1 200.

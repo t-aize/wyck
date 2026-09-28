@@ -29,8 +29,7 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 
-use super::connection::ui;
-use super::{theme, widgets};
+use crate::{controls, icon, theme};
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -340,7 +339,7 @@ impl Menu {
     fn card(&self, items: &[Item], selected: Option<usize>, placement: Placement) -> AnyElement {
         let close = self.clone();
         let mut card = div()
-            .id(widgets::child_id(&self.id, usize::MAX))
+            .id(controls::child_id(&self.id, usize::MAX))
             .when(matches!(placement, Placement::Cursor), |card| {
                 card.w(px(CONTEXT_WIDTH))
             })
@@ -393,7 +392,7 @@ impl Menu {
         };
         let (menu, action, keep_open) = (self.clone(), entry.on_click.clone(), entry.keep_open);
         div()
-            .id(widgets::child_id(&self.id, index))
+            .id(controls::child_id(&self.id, index))
             .flex()
             .flex_row()
             .items_center()
@@ -419,7 +418,7 @@ impl Menu {
                         }
                     })
             })
-            .children(entry.icon.map(|icon| ui::icon_colored(icon, 15., tone)))
+            .children(entry.icon.map(|icon| icon::tinted(icon, 15., tone)))
             .child(div().flex_1().min_w_0().child(entry.label.clone()))
             .children(entry.hint.clone().map(|hint| {
                 div()
@@ -431,7 +430,7 @@ impl Menu {
             .children(
                 entry
                     .checked
-                    .then(|| ui::icon_colored(IconName::Check, 13., theme::accent())),
+                    .then(|| icon::tinted(IconName::Check, 13., theme::accent())),
             )
             .into_any_element()
     }

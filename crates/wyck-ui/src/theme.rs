@@ -4,8 +4,8 @@
 //! every function reads the palette in force. The palette is a plain value, [`Colors`], that
 //! [`set_colors`] replaces: that is how a theme, an accent or a set of candle colors chosen by the
 //! user reaches the whole interface without a screen having to know about it. The themes
-//! themselves (their names, their colors, what the user changed) live in
-//! [`super::appearance`]. A screen should read `theme::` values and never spell out a hex color
+//! themselves (their names, their colors, what the user changed) live in the app's
+//! `appearance` module. A screen should read `theme::` values and never spell out a hex color
 //! inline.
 //!
 //! The palette is small on purpose: the backgrounds, the text colors, the accent, the three

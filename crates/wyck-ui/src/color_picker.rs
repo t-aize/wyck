@@ -25,7 +25,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
-use super::theme;
+use crate::theme;
 
 /// The colors of the theme offered to click: a row of grays, then eight hues in four shades.
 pub const PRESETS: [u32; 40] = [

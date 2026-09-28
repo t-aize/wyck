@@ -8,6 +8,7 @@
 //! for.
 
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gpui::{
@@ -18,10 +19,23 @@ use gpui::{
 /// Length of a screen or card entrance.
 const ENTER: Duration = Duration::from_millis(380);
 
+/// Whether things move. Read by the helpers below, which have no window at hand.
+static ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// Whether screens and panels move as they appear.
+pub fn enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
+/// Turns the animations on or off, for the user's preference.
+pub fn set_enabled(on: bool) {
+    ENABLED.store(on, Ordering::Relaxed);
+}
+
 /// A length of time, or next to none when the user turned the animations off: the element still
 /// goes through its animation, in one frame, so it ends where it should.
 fn dur(length: Duration) -> Duration {
-    if super::appearance::animations() {
+    if enabled() {
         length
     } else {
         Duration::from_millis(1)

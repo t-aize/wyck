@@ -10,8 +10,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
 use super::tpo::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
-use crate::settings_ui as ui;
-use crate::widgets;
+use wyck_ui::{form, number};
 
 /// The fields that are typed in.
 pub(super) struct Inputs {
@@ -56,7 +55,7 @@ pub(super) fn inputs<T: 'static>(
     let session_start =
         cx.new(|cx| InputState::new(window, cx).default_value(format_clock(t.session_start)));
     let target = chart.clone();
-    subscriptions.push(widgets::watch_parsed(
+    subscriptions.push(number::watch_parsed(
         &session_start,
         cx,
         |_, text| parse_clock(text),
@@ -90,10 +89,10 @@ pub(super) fn groups(chart: &Entity<Chart>, inputs: &Inputs, t: &TpoSettings) ->
     if t.session == SessionKind::Hours {
         profile.push(number("Hours in a session", None, &inputs.session_hours));
     }
-    profile.push(ui::field(
+    profile.push(form::field(
         "Session starts at",
         Some("In the time zone of the chart, as 09:30"),
-        ui::text_field(&inputs.session_start, 110.),
+        form::text_field(&inputs.session_start, 110.),
     ));
     profile.push(number(
         "Period of a letter (minutes)",
@@ -221,9 +220,9 @@ pub(super) fn groups(chart: &Entity<Chart>, inputs: &Inputs, t: &TpoSettings) ->
     ];
 
     vec![
-        ui::group(IconName::ChartNoAxesGantt, "Sessions and periods", profile).into_any_element(),
-        ui::group(IconName::Palette, "Marks", marks).into_any_element(),
-        ui::group(IconName::Target, "Point of control and value area", levels).into_any_element(),
-        ui::group(IconName::Layers, "Structure", structure).into_any_element(),
+        form::group(IconName::ChartNoAxesGantt, "Sessions and periods", profile).into_any_element(),
+        form::group(IconName::Palette, "Marks", marks).into_any_element(),
+        form::group(IconName::Target, "Point of control and value area", levels).into_any_element(),
+        form::group(IconName::Layers, "Structure", structure).into_any_element(),
     ]
 }

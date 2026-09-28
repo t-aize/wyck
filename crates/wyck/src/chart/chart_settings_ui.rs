@@ -2,7 +2,7 @@
 //! grid, the canvas, the time zone, the trading lines, and the indicators it holds.
 //!
 //! It is built from the same frame as the panels of the indicators and the drawings (see
-//! [`crate::settings_ui`]). Every change applies at once, so the chart behind the panel shows
+//! [`wyck_ui::form`]). Every change applies at once, so the chart behind the panel shows
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
@@ -22,9 +22,9 @@ use super::{
     Chart, construction_ui, footprint_ui, indicator_picker, overlay, study_settings, tpo_ui,
     volume_ui,
 };
-use crate::connection::ui::icon_colored;
-use crate::settings_ui::{self as ui, Head, Tab};
-use crate::{modal, theme, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab;
+use wyck_ui::{button, controls, form, icon, modal, number, theme};
 
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[
@@ -302,9 +302,8 @@ impl ChartSettingsEditor {
         let mut sizes = Vec::new();
         for field in SizeField::ALL {
             let size = field.get(&transform);
-            let state =
-                cx.new(|cx| widgets::number_state(size_value(size), 0.0, 1e9, 1.0, 6, window, cx));
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            let state = cx.new(|cx| number::state(size_value(size), 0.0, 1e9, 1.0, 6, window, cx));
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 if value > 0.0 {
                     edit_chart(&this.chart, cx, |s| {
                         let size = match field.get(&s.transform) {
@@ -321,7 +320,7 @@ impl ChartSettingsEditor {
             sizes.push((field, state));
         }
         let line_break = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(transform.line_break),
                 1.0,
                 10.0,
@@ -331,13 +330,13 @@ impl ChartSettingsEditor {
                 cx,
             )
         });
-        subscriptions.push(widgets::watch_number(&line_break, cx, |this, value, cx| {
+        subscriptions.push(number::watch(&line_break, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
                 s.transform.line_break = value.round() as u32;
             });
         }));
         let reversal = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(transform.pnf_reversal),
                 1.0,
                 10.0,
@@ -347,7 +346,7 @@ impl ChartSettingsEditor {
                 cx,
             )
         });
-        subscriptions.push(widgets::watch_number(&reversal, cx, |this, value, cx| {
+        subscriptions.push(number::watch(&reversal, cx, |this, value, cx| {
             edit_chart(&this.chart, cx, |s| {
                 s.transform.pnf_reversal = value.round() as u32;
             });
@@ -388,10 +387,10 @@ impl ChartSettingsEditor {
         change: fn(&mut ChartSettings, bool),
     ) -> AnyElement {
         let chart = self.chart.clone();
-        ui::field(
+        form::field(
             label,
             hint,
-            ui::toggle(id, on, move |on, _window, cx| {
+            controls::toggle(id, on, move |on, _window, cx| {
                 edit_chart(&chart, cx, |s| change(s, on));
             }),
         )
@@ -412,10 +411,10 @@ impl ChartSettingsEditor {
             .position(|(value, _)| *value == current)
             .unwrap_or(usize::MAX);
         let chart = self.chart.clone();
-        ui::field(
+        form::field(
             label,
             hint,
-            widgets::segmented(id, &names, index, move |choice, _window, cx| {
+            controls::segmented(id, &names, index, move |choice, _window, cx| {
                 let value = options[choice].0;
                 edit_chart(&chart, cx, |s| change(s, value));
             }),
@@ -433,7 +432,7 @@ impl ChartSettingsEditor {
         let open = self.color_open == Some(key);
         let this = cx.entity();
         let (pick, reset) = (self.chart.clone(), self.chart.clone());
-        let swatch = widgets::color_swatch(
+        let swatch = controls::color_swatch(
             SharedString::from(format!("chart-color-{key:?}")),
             shown,
             open,
@@ -463,7 +462,7 @@ impl ChartSettingsEditor {
                     edit_chart(&reset, cx, |s| key.set(&mut s.colors, None));
                 })
         });
-        ui::field(
+        form::field(
             key.label(),
             hint,
             div()
@@ -515,7 +514,7 @@ impl ChartSettingsEditor {
                         .on_click(move |_, _window, cx| {
                             edit_chart(&chart, cx, |s| s.kind = kind);
                         })
-                        .child(icon_colored(overlay::kind_icon(kind), 15., ink))
+                        .child(icon::tinted(overlay::kind_icon(kind), 15., ink))
                         .child(kind.label()),
                 );
             }
@@ -533,7 +532,7 @@ impl ChartSettingsEditor {
                     .child(wrap),
             );
         }
-        ui::block(column)
+        form::block(column)
     }
 
     /// The sizes of the price based chart types, for the one the chart shows.
@@ -551,7 +550,7 @@ impl ChartSettingsEditor {
             let state_for_mode = state.clone();
             let unit_real = super::scene::quote_unit(digits) / PRICE_SCALE as f64;
             let resolved = (box_size > 0).then(|| box_size as f64 / PRICE_SCALE as f64);
-            rows.push(ui::field(
+            rows.push(form::field(
                 field.label(),
                 Some("Measured in ATR, in price or in percent"),
                 div()
@@ -559,7 +558,7 @@ impl ChartSettingsEditor {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .child(widgets::segmented(
+                    .child(controls::segmented(
                         SharedString::from(format!("size-mode-{field:?}")),
                         &["ATR", "Price", "%"],
                         size_mode(size),
@@ -573,27 +572,23 @@ impl ChartSettingsEditor {
                             };
                             edit_chart(&chart, cx, |s| field.set(&mut s.transform, next));
                             state_for_mode.update(cx, |state, cx| {
-                                state.set_value(
-                                    widgets::format_number(size_value(next), 6),
-                                    window,
-                                    cx,
-                                );
+                                state.set_value(number::format(size_value(next), 6), window, cx);
                             });
                         },
                     ))
-                    .child(widgets::number_field(state, 110.)),
+                    .child(number::field(state, 110.)),
             ));
         }
         match kind {
-            ChartKind::LineBreak => rows.push(ui::field(
+            ChartKind::LineBreak => rows.push(form::field(
                 "Lines to break",
                 Some("A new line turns after breaking the extreme of this many"),
-                widgets::number_field(&self.line_break, 110.),
+                number::field(&self.line_break, 110.),
             )),
-            ChartKind::PointFigure => rows.push(ui::field(
+            ChartKind::PointFigure => rows.push(form::field(
                 "Reversal (boxes)",
                 Some("Boxes the price must go back to start a new column"),
-                widgets::number_field(&self.reversal, 110.),
+                number::field(&self.reversal, 110.),
             )),
             _ => {}
         }
@@ -604,7 +599,7 @@ impl ChartSettingsEditor {
             &settings.transform,
         ));
         (!rows.is_empty()).then(|| {
-            ui::group(
+            form::group(
                 overlay::kind_icon(kind),
                 format!("{} construction", kind.label()),
                 rows,
@@ -614,7 +609,7 @@ impl ChartSettingsEditor {
     }
 
     fn symbol_page(&self, settings: &ChartSettings, cx: &mut Context<Self>) -> AnyElement {
-        let mut page = ui::page().child(ui::group(
+        let mut page = form::page().child(form::group(
             IconName::ChartCandlestick,
             "Chart type",
             [self.kind_tiles(settings.kind)],
@@ -693,7 +688,7 @@ impl ChartSettingsEditor {
         for (key, hint) in own {
             colors.push(self.color_row(*key, Some(hint), cx));
         }
-        page.child(ui::group(IconName::Palette, "Colors", colors))
+        page.child(form::group(IconName::Palette, "Colors", colors))
             .into_any_element()
     }
 
@@ -738,9 +733,9 @@ impl ChartSettingsEditor {
                 |s, on| s.status.indicator_values = on,
             ),
         ];
-        ui::page()
-            .child(ui::group(IconName::Type, "Symbol line", first_line))
-            .child(ui::group(IconName::ChartSpline, "Indicators", studies))
+        form::page()
+            .child(form::group(IconName::Type, "Symbol line", first_line))
+            .child(form::group(IconName::ChartSpline, "Indicators", studies))
             .into_any_element()
     }
 
@@ -843,11 +838,11 @@ impl ChartSettingsEditor {
                 |s, style| s.crosshair = style,
             ),
         ];
-        ui::page()
-            .child(ui::group(IconName::Ruler, "Price scale", scale))
-            .child(ui::group(IconName::Tag, "Price lines", lines))
-            .child(ui::group(IconName::Grid3x3, "Grid", grid))
-            .child(ui::group(IconName::Crosshair, "Crosshair", crosshair))
+        form::page()
+            .child(form::group(IconName::Ruler, "Price scale", scale))
+            .child(form::group(IconName::Tag, "Price lines", lines))
+            .child(form::group(IconName::Grid3x3, "Grid", grid))
+            .child(form::group(IconName::Crosshair, "Crosshair", crosshair))
             .into_any_element()
     }
 
@@ -864,10 +859,10 @@ impl ChartSettingsEditor {
         ];
         if settings.colors.any() {
             let chart = self.chart.clone();
-            colors.push(ui::field(
+            colors.push(form::field(
                 "Colors of this chart",
                 Some("Rising, falling and line colors are on the Symbol page"),
-                ui::action(
+                button::action(
                     "canvas-theme-colors",
                     "Use the theme",
                     Some(IconName::RotateCcw),
@@ -885,9 +880,9 @@ impl ChartSettingsEditor {
             settings.watermark,
             |s, on| s.watermark = on,
         )];
-        ui::page()
-            .child(ui::group(IconName::Palette, "Colors", colors))
-            .child(ui::group(IconName::Image, "Watermark", watermark))
+        form::page()
+            .child(form::group(IconName::Palette, "Colors", colors))
+            .child(form::group(IconName::Image, "Watermark", watermark))
             .into_any_element()
     }
 
@@ -927,16 +922,16 @@ impl ChartSettingsEditor {
                         edit_chart(&chart, cx, |s| s.zone = zone);
                     })
                     .child(zone.name(now))
-                    .children(chosen.then(|| icon_colored(IconName::Check, 13., theme::accent()))),
+                    .children(chosen.then(|| icon::tinted(IconName::Check, 13., theme::accent()))),
             );
         }
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::Clock,
                 "Time zone of the time axis",
-                [ui::block(zones)],
+                [form::block(zones)],
             ))
-            .child(ui::note(
+            .child(form::note(
                 "The zone applies to the time axis, the crosshair, the day separators and the times of the drawings.",
             ))
             .into_any_element()
@@ -970,24 +965,24 @@ impl ChartSettingsEditor {
                 s.trading.alerts = on
             }),
         ];
-        let mut page = ui::page().child(ui::group(
+        let mut page = form::page().child(form::group(
             IconName::ArrowLeftRight,
             "Lines on the chart",
             lines,
         ));
         if let Some(count) = self.chart.read(cx).drawing_count(cx) {
             let chart = self.chart.clone();
-            page = page.child(ui::group(
+            page = page.child(form::group(
                 IconName::PenTool,
                 "Drawings",
-                [ui::field(
+                [form::field(
                     "Drawings and positions on this symbol",
                     Some(match count {
                         0 => "None yet",
                         1 => "1 drawing",
                         _ => "Several drawings",
                     }),
-                    ui::action(
+                    button::action(
                         "trading-object-tree",
                         "Open the list",
                         Some(IconName::ListTree),
@@ -1091,7 +1086,7 @@ impl ChartSettingsEditor {
             .map(|(index, config)| self.study_row(index, config))
             .collect();
         let held = if on_chart.is_empty() {
-            vec![ui::block(ui::note("No indicator on this chart yet."))]
+            vec![form::block(form::note("No indicator on this chart yet."))]
         } else {
             on_chart
         };
@@ -1100,17 +1095,17 @@ impl ChartSettingsEditor {
         let full = settings.studies.len() >= limit;
         let (browse, editor, new) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let add = if full {
-            ui::block(ui::note(format!(
+            form::block(form::note(format!(
                 "This chart allows {limit} indicators. Change the limit in Settings (Ctrl+,)."
             )))
         } else {
-            ui::block(
+            form::block(
                 div()
                     .flex()
                     .flex_row()
                     .flex_wrap()
                     .gap_2()
-                    .child(ui::action(
+                    .child(button::action(
                         "chart-browse-indicators",
                         "Browse the indicators",
                         Some(IconName::ChartSpline),
@@ -1119,7 +1114,7 @@ impl ChartSettingsEditor {
                             indicator_picker::open(browse.clone(), window, cx);
                         },
                     ))
-                    .child(ui::action(
+                    .child(button::action(
                         "chart-open-editor",
                         "Indicator editor",
                         Some(IconName::CodeXml),
@@ -1133,7 +1128,7 @@ impl ChartSettingsEditor {
                             });
                         },
                     ))
-                    .child(ui::action(
+                    .child(button::action(
                         "chart-new-script",
                         "New script",
                         Some(IconName::FilePlus),
@@ -1151,24 +1146,24 @@ impl ChartSettingsEditor {
         };
 
         let chart = self.chart.clone();
-        let layout = vec![ui::field(
+        let layout = vec![form::field(
             "Height of the prices",
             Some("Against the panes of the indicators. Drag a divider for any other height"),
-            ui::height_picker(
+            controls::height_picker(
                 "chart-price-height",
                 PRICE_HEIGHTS,
                 settings.main_weight,
                 move |weight, _window, cx| edit_chart(&chart, cx, |s| s.main_weight = weight),
             ),
         )];
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::ChartSpline,
                 format!("On this chart ({})", settings.studies.len()),
                 held,
             ))
-            .child(ui::group(IconName::Plus, "Add an indicator", [add]))
-            .child(ui::group(IconName::LayoutPanelTop, "Layout", layout))
+            .child(form::group(IconName::Plus, "Add an indicator", [add]))
+            .child(form::group(IconName::LayoutPanelTop, "Layout", layout))
             .into_any_element()
     }
 }
@@ -1208,9 +1203,9 @@ impl Render for ChartSettingsEditor {
 
         let this = cx.entity();
         let (defaults, cancel) = (cx.entity(), cx.entity());
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![
-                ui::action(
+                button::action(
                     "chart-defaults",
                     "Defaults",
                     Some(IconName::RotateCcw),
@@ -1227,7 +1222,7 @@ impl Render for ChartSettingsEditor {
                 .into_any_element(),
             ],
             vec![
-                ui::action("chart-cancel", "Cancel", None, false, move |window, cx| {
+                button::action("chart-cancel", "Cancel", None, false, move |window, cx| {
                     cancel.update(cx, |e, cx| {
                         let original = e.original.clone();
                         edit_chart(&e.chart, cx, |s| *s = original);
@@ -1235,14 +1230,14 @@ impl Render for ChartSettingsEditor {
                     modal::close(window, cx);
                 })
                 .into_any_element(),
-                ui::action("chart-ok", "OK", None, true, |window, cx| {
+                button::action("chart-ok", "OK", None, true, |window, cx| {
                     modal::close(window, cx)
                 })
                 .into_any_element(),
             ],
         );
 
-        ui::frame(
+        form::frame(
             head,
             &tabs,
             active,

@@ -13,9 +13,9 @@ use wyck_openapi::transport::connection::Client;
 use wyck_openapi::transport::messages::TraderAccount;
 
 use super::credentials::CALLBACK_PORT;
-use super::ui;
-use super::{ConnectionFlow, SavedConnection, Screen, anim, service_tag, theme};
+use super::{ConnectionFlow, SavedConnection, Screen, service_tag};
 use crate::runtime;
+use wyck_ui::{anim, button, icon, layout, theme};
 
 pub(super) struct AuthorizingState {
     account: TraderAccount,
@@ -156,7 +156,7 @@ impl ConnectionFlow {
         let epoch = self.epoch;
         let failed = state.error.is_some();
 
-        ui::screen()
+        layout::screen()
             .child(
                 div()
                     .flex()
@@ -165,7 +165,7 @@ impl ConnectionFlow {
                     .gap_5()
                     .w(px(420.))
                     .children(state.error.clone().map(|message| {
-                        ui::error_banner(
+                        layout::error_banner(
                             "authorizing-error",
                             state.error_count,
                             "Couldn't finish connecting",
@@ -191,10 +191,10 @@ impl ConnectionFlow {
                                     .justify_center()
                                     .text_color(theme::fg())
                                     .child(if failed {
-                                        ui::icon(IconName::ShieldAlert, 30.).into_any_element()
+                                        icon::plain(IconName::ShieldAlert, 30.).into_any_element()
                                     } else {
                                         anim::spin(
-                                            ui::icon(IconName::LoaderCircle, 30.),
+                                            icon::plain(IconName::LoaderCircle, 30.),
                                             ("authorizing-spin", epoch),
                                         )
                                         .into_any_element()
@@ -222,14 +222,14 @@ impl ConnectionFlow {
                             )),
                     )
                     .when(failed, |el| {
-                        el.child(div().w_full().pt_2().child(ui::secondary_button(
+                        el.child(div().w_full().pt_2().child(button::secondary(
                             "authorizing-start-over",
                             "Start over",
                             cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
                         )))
                     }),
             )
-            .child(ui::back_button(
+            .child(button::back(
                 "authorizing-back",
                 cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
             ))

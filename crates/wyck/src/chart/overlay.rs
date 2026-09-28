@@ -21,9 +21,11 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
-use crate::connection::ui;
-use crate::menu::{self as popup, Entry, Item};
-use crate::{anim, theme};
+use wyck_ui::{
+    anim, button, icon,
+    menu::{self as popup, Entry, Item},
+    theme,
+};
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
     match kind {
@@ -448,7 +450,7 @@ impl Chart {
                 .hover(move |s| s.bg(hover))
                 // The press is the button's, not the chart's under it.
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(ui::icon_colored(icon, 13., theme::chart_muted()))
+                .child(icon::tinted(icon, 13., theme::chart_muted()))
                 .tooltip(move |window, cx| {
                     gpui_kit::component::tooltip::Tooltip::new(tooltip)
                         .m_1()
@@ -481,7 +483,7 @@ impl Chart {
             .children(alert.map(|message| {
                 div()
                     .id(SharedString::from(format!("study-alert-{study}")))
-                    .child(ui::icon_colored(
+                    .child(icon::tinted(
                         IconName::TriangleAlert,
                         13.,
                         theme::destructive(),
@@ -827,7 +829,7 @@ impl Chart {
                     .text_color(palette.text_strong)
                     .child(name),
             )
-            .child(ui::icon_colored(IconName::ChevronDown, 12., palette.text));
+            .child(icon::tinted(IconName::ChevronDown, 12., palette.text));
         let mut kind_text = self.timeframe.label();
         if self.settings.kind != ChartKind::Candles {
             kind_text.push_str(" \u{b7} ");
@@ -995,7 +997,7 @@ impl Chart {
                             .on_click(cx.listener(move |_this, _, _, cx| {
                                 cx.emit(ChartEvent::LineClosed(id));
                             }))
-                            .child(ui::icon_colored(IconName::X, 11., palette.text_strong)),
+                            .child(icon::tinted(IconName::X, 11., palette.text_strong)),
                     )
                 });
             out.push(pill.into_any_element());
@@ -1042,9 +1044,9 @@ impl Chart {
             .text_color(tone)
             .when(selected, |el| el.bg(theme::accent_selected()))
             .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
-            .children(icon.map(|icon| ui::icon_colored(icon, 15., tone)))
+            .children(icon.map(|icon| icon::tinted(icon, 15., tone)))
             .child(div().flex_1().child(label.into()))
-            .children(selected.then(|| ui::icon_colored(IconName::Check, 13., theme::accent())))
+            .children(selected.then(|| icon::tinted(IconName::Check, 13., theme::accent())))
     }
 
     fn section_title(title: &'static str) -> gpui::Div {
@@ -1139,7 +1141,7 @@ impl Chart {
         match &self.load {
             Load::Idle => out.push(
                 centered()
-                    .child(ui::icon_colored(
+                    .child(icon::tinted(
                         IconName::ChartCandlestick,
                         28.,
                         theme::chart_muted(),
@@ -1155,7 +1157,7 @@ impl Chart {
             Load::Loading => out.push(
                 centered()
                     .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 22., theme::chart_muted()),
+                        icon::tinted(IconName::LoaderCircle, 22., theme::chart_muted()),
                         ("chart-loading", self.id),
                     ))
                     .child(
@@ -1168,7 +1170,7 @@ impl Chart {
             ),
             Load::Failed(message) => out.push(
                 centered()
-                    .child(ui::icon_colored(
+                    .child(icon::tinted(
                         IconName::CircleAlert,
                         26.,
                         theme::destructive(),
@@ -1187,7 +1189,7 @@ impl Chart {
                             .text_color(theme::chart_muted())
                             .child(message.clone()),
                     )
-                    .child(div().pt_1().w(px(200.)).child(ui::primary_button(
+                    .child(div().pt_1().w(px(200.)).child(button::primary(
                         ("chart-retry", self.id),
                         "Try again",
                         cx.listener(|this, _event, _window, cx| this.retry(cx)),
@@ -1219,7 +1221,7 @@ impl Chart {
                     .text_size(px(11.))
                     .text_color(theme::chart_muted())
                     .child(anim::spin(
-                        ui::icon_colored(IconName::LoaderCircle, 12., theme::chart_muted()),
+                        icon::tinted(IconName::LoaderCircle, 12., theme::chart_muted()),
                         ("chart-older", self.id),
                     ))
                     .child("Loading older history")

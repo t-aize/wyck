@@ -1,7 +1,7 @@
 //! The panel that customizes the account panel: how the rows look, which tabs and figures show,
 //! the columns of each table, the history, and the buttons of a row.
 //!
-//! It is built like the other settings panels (see [`crate::settings_ui`]) and shows in the
+//! It is built like the other settings panels (see [`wyck_ui::form`]) and shows in the
 //! same modal. Every change applies to the account panel at once and is remembered.
 
 use gpui::prelude::*;
@@ -12,9 +12,10 @@ use gpui_kit::component::{Disableable, Sizable};
 
 use super::AccountPanel;
 use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
-use crate::settings_ui::{self as ui, Head, Tab as SettingsTab};
 use crate::trading::ticket::prefs::{Placed, Slot, shift};
-use crate::{modal, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab as SettingsTab;
+use wyck_ui::{button, controls, form, modal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -97,7 +98,7 @@ impl Customizer {
         set: fn(&mut PanelPrefs, bool),
     ) -> AnyElement {
         let this = cx.entity();
-        ui::toggle(id, on, move |value, _, cx| {
+        controls::toggle(id, on, move |value, _, cx| {
             this.update(cx, |c, cx| c.edit(cx, |p| set(p, value)));
         })
         .into_any_element()
@@ -112,7 +113,7 @@ impl Customizer {
         set: fn(&mut PanelPrefs, usize),
     ) -> AnyElement {
         let this = cx.entity();
-        widgets::segmented(id, options, selected, move |index, _, cx| {
+        controls::segmented(id, options, selected, move |index, _, cx| {
             this.update(cx, |c, cx| c.edit(cx, |p| set(p, index)));
         })
         .into_any_element()
@@ -131,7 +132,7 @@ impl Customizer {
         let this = cx.entity();
         let (up, down, toggle) = (this.clone(), this.clone(), this);
         let (edit_up, edit_down, edit_toggle) = (edit.clone(), edit.clone(), edit);
-        ui::field(
+        form::field(
             label,
             None,
             div()
@@ -165,7 +166,7 @@ impl Customizer {
                             down.update(cx, |c, cx| edit(c, cx, SlotEdit::Move(1)));
                         }),
                 )
-                .child(ui::toggle(
+                .child(controls::toggle(
                     SharedString::from(format!("{id}-on")),
                     shown,
                     move |_, _, cx| {
@@ -215,12 +216,12 @@ impl Customizer {
         let densities: Vec<&str> = RowDensity::ALL.iter().map(|d| d.label()).collect();
         let units: Vec<&str> = ProfitUnit::ALL.iter().map(|u| u.label()).collect();
         let times: Vec<&str> = TimeStyle::ALL.iter().map(|t| t.label()).collect();
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::Rows3,
                 "Rows",
                 [
-                    ui::field(
+                    form::field(
                         "Row height",
                         None,
                         self.choice(
@@ -234,17 +235,17 @@ impl Customizer {
                             |p, i| p.density = RowDensity::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Alternate row shading",
                         None,
                         self.flag("panel-zebra", prefs.zebra, cx, |p, v| p.zebra = v),
                     ),
-                    ui::field(
+                    form::field(
                         "Tint the rows that gain or lose",
                         None,
                         self.flag("panel-tint", prefs.tint_rows, cx, |p, v| p.tint_rows = v),
                     ),
-                    ui::field(
+                    form::field(
                         "Buy and sell in color",
                         None,
                         self.flag("panel-side-color", prefs.color_side, cx, |p, v| {
@@ -253,11 +254,11 @@ impl Customizer {
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::Hash,
                 "Figures",
                 [
-                    ui::field(
+                    form::field(
                         "Profit of a position",
                         Some("How the profit column is written"),
                         self.choice(
@@ -271,7 +272,7 @@ impl Customizer {
                             |p, i| p.profit_unit = ProfitUnit::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Times",
                         None,
                         self.choice(
@@ -285,30 +286,30 @@ impl Customizer {
                             |p, i| p.time_style = TimeStyle::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Line of totals under a table",
                         None,
                         self.flag("panel-totals", prefs.totals, cx, |p, v| p.totals = v),
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::MousePointerClick,
                 "Behavior",
                 [
-                    ui::field(
+                    form::field(
                         "Search and filters over the table",
                         None,
                         self.flag("panel-filters", prefs.filters, cx, |p, v| p.filters = v),
                     ),
-                    ui::field(
+                    form::field(
                         "A click on a row shows its symbol",
                         Some("On the active chart"),
                         self.flag("panel-click-shows", prefs.click_shows_symbol, cx, |p, v| {
                             p.click_shows_symbol = v
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Ask before closing",
                         Some("A position, many at once, a reversal or an order"),
                         self.flag("panel-confirm", prefs.confirm_close, cx, |p, v| {
@@ -321,16 +322,16 @@ impl Customizer {
     }
 
     fn tabs_page(&self, prefs: &PanelPrefs, cx: &Context<Self>) -> AnyElement {
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::LayoutList,
                 "Tabs",
                 self.slots("panel-tabs", &prefs.tabs, |p| &mut p.tabs, cx),
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Switch a tab off to hide it, and move it with the arrows to change where it sits.",
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::Hash,
                 "Figures of the account",
                 self.slots("panel-stats", &prefs.stats, |p| &mut p.stats, cx),
@@ -344,7 +345,7 @@ impl Customizer {
         let labels: Vec<&str> = tabs.iter().map(|t| t.label()).collect();
         let index = tabs.iter().position(|t| *t == table).unwrap_or(0);
         let this = cx.entity();
-        let picker = widgets::segmented("panel-column-table", &labels, index, move |i, _, cx| {
+        let picker = controls::segmented("panel-column-table", &labels, index, move |i, _, cx| {
             this.update(cx, |c, cx| {
                 c.table = Tab::ALL[i];
                 cx.notify();
@@ -374,15 +375,15 @@ impl Customizer {
             })
             .collect();
         let reset = cx.entity();
-        ui::page()
-            .child(ui::block(picker))
-            .child(ui::group(IconName::Columns3, "Columns of the table", rows))
-            .child(ui::note(
+        form::page()
+            .child(form::block(picker))
+            .child(form::group(IconName::Columns3, "Columns of the table", rows))
+            .child(form::note(
                 "A column is also resized by dragging the edge of its header, and sorted by clicking it. A right click on the header lists the columns.",
             ))
             .child(
                 div().flex().flex_row().child(
-                    ui::action(
+                    button::action(
                         "panel-reset-columns",
                         "Reset these columns",
                         Some(IconName::RotateCcw),
@@ -401,12 +402,12 @@ impl Customizer {
 
     fn history_page(&self, prefs: &PanelPrefs, cx: &Context<Self>) -> AnyElement {
         let ranges: Vec<&str> = HistoryRange::ALL.iter().map(|r| r.label()).collect();
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::Clock,
                 "History",
                 [
-                    ui::field(
+                    form::field(
                         "How far back",
                         Some("The account keeps the last seven days"),
                         self.choice(
@@ -420,7 +421,7 @@ impl Customizer {
                             |p, i| p.history_range = HistoryRange::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Deals that open a position",
                         Some("Beside the deals that close one"),
                         self.flag(
@@ -432,7 +433,7 @@ impl Customizer {
                             },
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Figures of the closed trades",
                         Some("Win rate, profit factor, best and worst, over the table"),
                         self.flag("panel-history-stats", prefs.history_stats, cx, |p, v| {
@@ -445,13 +446,13 @@ impl Customizer {
     }
 
     fn buttons_page(&self, prefs: &PanelPrefs, cx: &Context<Self>) -> AnyElement {
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::MousePointerClick,
                 "Buttons at the end of a row",
                 self.slots("panel-actions", &prefs.actions, |p| &mut p.actions, cx),
             ))
-            .child(ui::note(
+            .child(form::note(
                 "For positions, and for orders (modify and cancel). Everything here is also in the menu of a right click on a row.",
             ))
             .into_any_element()
@@ -479,7 +480,7 @@ impl Render for Customizer {
         };
         let this = cx.entity();
         let panel = self.panel.clone();
-        ui::frame(
+        form::frame(
             Head {
                 icon: IconName::PanelBottom,
                 title: "Account panel".into(),
@@ -495,9 +496,9 @@ impl Render for Customizer {
             },
             modal::dismiss,
             body,
-            ui::footer(
+            form::footer(
                 vec![
-                    ui::action(
+                    button::action(
                         "panel-customize-reset",
                         "Reset everything",
                         Some(IconName::RotateCcw),
@@ -507,7 +508,7 @@ impl Render for Customizer {
                     .into_any_element(),
                 ],
                 vec![
-                    ui::action("panel-customize-done", "Done", None, true, |window, cx| {
+                    button::action("panel-customize-done", "Done", None, true, |window, cx| {
                         modal::close(window, cx);
                     })
                     .into_any_element(),

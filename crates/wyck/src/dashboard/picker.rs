@@ -25,10 +25,9 @@ use super::details::{self, Detail};
 use super::lists::{self, ListEditor, Scope};
 use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
-use crate::connection::ui;
-use crate::text_input::TextInput;
-use crate::{anim, runtime, theme};
+use crate::runtime;
 use wyck_openapi::OpenApiError;
+use wyck_ui::{anim, button, icon, text_input::TextInput, theme};
 
 const ROW_HEIGHT: f32 = 52.;
 /// How many rows a page key moves.
@@ -189,7 +188,7 @@ impl Dashboard {
             }
         });
         let action = highlighted.as_ref().map(|entry| {
-            ui::primary_button(
+            button::primary(
                 "pick-symbol",
                 if is_current {
                     format!("Stay on {}", entry.name)
@@ -327,7 +326,7 @@ impl Dashboard {
                     .gap_3()
                     .px_4()
                     .py_3()
-                    .child(ui::icon_colored(IconName::Search, 18., theme::muted_fg()))
+                    .child(icon::tinted(IconName::Search, 18., theme::muted_fg()))
                     .child(div().flex_1().child(input))
                     .child(key_cap("esc")),
             )
@@ -503,7 +502,7 @@ fn symbol_row(
             div()
                 .w(px(16.))
                 .flex_none()
-                .children(active.then(|| ui::icon_colored(IconName::Check, 16., theme::accent()))),
+                .children(active.then(|| icon::tinted(IconName::Check, 16., theme::accent()))),
         );
     div()
         .id(("symbol-line", row as u64))
@@ -637,7 +636,7 @@ fn key_hint(caps: Vec<gpui::AnyElement>, label: &'static str) -> gpui::Div {
 
 /// The line of key hints and the count.
 fn footer(shown: usize, total: usize) -> gpui::Div {
-    let arrow = |icon| key_cap(ui::icon_colored(icon, 11., theme::muted_fg())).into_any_element();
+    let arrow = |icon| key_cap(icon::tinted(icon, 11., theme::muted_fg())).into_any_element();
     let count = if shown == total {
         format!("{total} symbols")
     } else {

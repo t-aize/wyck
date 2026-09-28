@@ -17,9 +17,9 @@ use super::study::custom::{Problem, Severity};
 use super::study::{
     FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
 };
-use crate::connection::ui::icon_colored;
-use crate::settings_ui::{self as ui, Head, Tab};
-use crate::{modal, theme, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab;
+use wyck_ui::{button, controls, form, icon, modal, number, theme};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -181,7 +181,7 @@ impl StudyEditor {
             }
             let decimals = if input.kind == InputKind::Int { 0 } else { 4 };
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     config.input(input.key),
                     input.min,
                     input.max,
@@ -192,7 +192,7 @@ impl StudyEditor {
                 )
             });
             let key = input.key;
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target.clone().set_input(key, value, cx);
             }));
             fields.push((key, state));
@@ -200,7 +200,7 @@ impl StudyEditor {
         let mut opacity = Vec::new();
         for plot in config.spec().plots {
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(config.plot_style(plot.key).opacity) * 100.0,
                     5.0,
                     100.0,
@@ -211,7 +211,7 @@ impl StudyEditor {
                 )
             });
             let key = plot.key;
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 let value = (value / 100.0).clamp(0.05, 1.0) as f32;
                 this.target
                     .clone()
@@ -222,7 +222,7 @@ impl StudyEditor {
         let mut widths = Vec::new();
         for plot in config.spec().plots {
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(config.plot_style(plot.key).width),
                     0.5,
                     20.0,
@@ -233,7 +233,7 @@ impl StudyEditor {
                 )
             });
             let key = plot.key;
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 let value = value.clamp(0.5, 20.0) as f32;
                 this.target
                     .clone()
@@ -245,7 +245,7 @@ impl StudyEditor {
         for plot in config.spec().plots {
             let key = plot.key;
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(config.plot_style(key).bar_width) * 100.0,
                     10.0,
                     100.0,
@@ -255,7 +255,7 @@ impl StudyEditor {
                     cx,
                 )
             });
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
                     .plot(key, cx, |style| style.bar_width = (value / 100.0) as f32);
@@ -268,24 +268,23 @@ impl StudyEditor {
         for (index, value) in config.default_levels().into_iter().enumerate() {
             let style = config.levels.get(&index).copied().unwrap_or_default();
             let value = style.value.unwrap_or(value);
-            let state = cx.new(|cx| widgets::number_state(value, -1e12, 1e12, 0.1, 3, window, cx));
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            let state = cx.new(|cx| number::state(value, -1e12, 1e12, 0.1, 3, window, cx));
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
                     .level(index, cx, |style| style.value = Some(value));
             }));
             level_values.push((index, state));
-            let width = cx.new(|cx| {
-                widgets::number_state(f64::from(style.width), 0.5, 20.0, 0.5, 1, window, cx)
-            });
-            subscriptions.push(widgets::watch_number(&width, cx, move |this, value, cx| {
+            let width =
+                cx.new(|cx| number::state(f64::from(style.width), 0.5, 20.0, 0.5, 1, window, cx));
+            subscriptions.push(number::watch(&width, cx, move |this, value, cx| {
                 this.target
                     .clone()
                     .level(index, cx, |style| style.width = value as f32);
             }));
             level_widths.push((index, width));
             let opacity = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(style.opacity) * 100.0,
                     0.0,
                     100.0,
@@ -295,15 +294,11 @@ impl StudyEditor {
                     cx,
                 )
             });
-            subscriptions.push(widgets::watch_number(
-                &opacity,
-                cx,
-                move |this, value, cx| {
-                    this.target
-                        .clone()
-                        .level(index, cx, |style| style.opacity = (value / 100.0) as f32);
-                },
-            ));
+            subscriptions.push(number::watch(&opacity, cx, move |this, value, cx| {
+                this.target
+                    .clone()
+                    .level(index, cx, |style| style.opacity = (value / 100.0) as f32);
+            }));
             level_opacity.push((index, opacity));
         }
         let mut fill_opacity = Vec::new();
@@ -313,7 +308,7 @@ impl StudyEditor {
             };
             let style = config.fills.get(&index).copied().unwrap_or(default);
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(style.opacity) * 100.0,
                     0.0,
                     100.0,
@@ -323,7 +318,7 @@ impl StudyEditor {
                     cx,
                 )
             });
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target.clone().fill(index, default, cx, |style| {
                     style.opacity = (value / 100.0) as f32
                 });
@@ -333,7 +328,7 @@ impl StudyEditor {
         let band_opacity = config.default_band().map(|default| {
             let style = config.band.unwrap_or(default);
             let state = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     f64::from(style.opacity) * 100.0,
                     0.0,
                     100.0,
@@ -343,7 +338,7 @@ impl StudyEditor {
                     cx,
                 )
             });
-            subscriptions.push(widgets::watch_number(&state, cx, move |this, value, cx| {
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
                 this.target
                     .clone()
                     .band(default, cx, |style| style.opacity = (value / 100.0) as f32);
@@ -362,7 +357,7 @@ impl StudyEditor {
             }
         }));
         let precision = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 config.precision.unwrap_or(2) as f64,
                 0.0,
                 8.0,
@@ -372,7 +367,7 @@ impl StudyEditor {
                 cx,
             )
         });
-        subscriptions.push(widgets::watch_number(&precision, cx, |this, value, cx| {
+        subscriptions.push(number::watch(&precision, cx, |this, value, cx| {
             this.target
                 .edit(cx, |study| study.precision = Some(value as u32));
         }));
@@ -418,20 +413,19 @@ impl StudyEditor {
     /// Puts the values of `config` back in the number fields.
     fn set_fields(&self, config: &StudyConfig, window: &mut Window, cx: &mut App) {
         for (key, state) in &self.fields {
-            let text = widgets::format_number(config.input(key), 4);
+            let text = number::format(config.input(key), 4);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
         for (key, state) in &self.opacity {
-            let text = widgets::format_number(f64::from(config.plot_style(key).opacity) * 100.0, 0);
+            let text = number::format(f64::from(config.plot_style(key).opacity) * 100.0, 0);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
         for (key, state) in &self.widths {
-            let text = widgets::format_number(f64::from(config.plot_style(key).width), 1);
+            let text = number::format(f64::from(config.plot_style(key).width), 1);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
         for (key, state) in &self.bar_widths {
-            let text =
-                widgets::format_number(f64::from(config.plot_style(key).bar_width) * 100.0, 0);
+            let text = number::format(f64::from(config.plot_style(key).bar_width) * 100.0, 0);
             state.update(cx, |state, cx| state.set_value(text, window, cx));
         }
         for (index, state) in &self.level_values {
@@ -442,25 +436,21 @@ impl StudyEditor {
                     .and_then(|s| s.value)
                     .unwrap_or(*value);
                 state.update(cx, |state, cx| {
-                    state.set_value(widgets::format_number(value, 3), window, cx)
+                    state.set_value(number::format(value, 3), window, cx)
                 });
             }
         }
         for (index, state) in &self.level_widths {
             let style = config.levels.get(index).copied().unwrap_or_default();
             state.update(cx, |state, cx| {
-                state.set_value(
-                    widgets::format_number(f64::from(style.width), 1),
-                    window,
-                    cx,
-                )
+                state.set_value(number::format(f64::from(style.width), 1), window, cx)
             });
         }
         for (index, state) in &self.level_opacity {
             let style = config.levels.get(index).copied().unwrap_or_default();
             state.update(cx, |state, cx| {
                 state.set_value(
-                    widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                    number::format(f64::from(style.opacity) * 100.0, 0),
                     window,
                     cx,
                 )
@@ -471,7 +461,7 @@ impl StudyEditor {
                 let style = config.fills.get(index).copied().unwrap_or(default);
                 state.update(cx, |state, cx| {
                     state.set_value(
-                        widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                        number::format(f64::from(style.opacity) * 100.0, 0),
                         window,
                         cx,
                     )
@@ -482,7 +472,7 @@ impl StudyEditor {
             let style = config.band.unwrap_or(default);
             state.update(cx, |state, cx| {
                 state.set_value(
-                    widgets::format_number(f64::from(style.opacity) * 100.0, 0),
+                    number::format(f64::from(style.opacity) * 100.0, 0),
                     window,
                     cx,
                 )
@@ -498,17 +488,17 @@ impl StudyEditor {
 
     fn inputs_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
         let rows = self.input_rows(config, false, cx);
-        let mut page = ui::page();
+        let mut page = form::page();
         if let Some(group) = self.script_group(config, cx) {
             page = page.child(group);
         }
         if rows.is_empty() {
-            page = page.child(ui::note("This indicator has no parameters to change."));
+            page = page.child(form::note("This indicator has no parameters to change."));
         } else {
-            page = page.child(ui::group(IconName::SlidersHorizontal, "Parameters", rows));
+            page = page.child(form::group(IconName::SlidersHorizontal, "Parameters", rows));
         }
         if config.kind == StudyKind::Atr {
-            page = page.child(ui::note(
+            page = page.child(form::note(
                 "ATR measures volatility, not direction. Price uses the symbol's price scale; % of close compares volatility across price levels. Percent decimals only affects % of close. Enable the Signal average or True range on the Style tab. Signal length and smoothing affect only the Signal average.",
             ));
         }
@@ -553,11 +543,11 @@ impl StudyEditor {
                     .fields
                     .iter()
                     .find(|(k, _)| *k == key)
-                    .map(|(_, state)| widgets::number_field(state, 130.).into_any_element()),
+                    .map(|(_, state)| number::field(state, 130.).into_any_element()),
                 InputKind::Source => {
                     let target = target.clone();
                     Some(
-                        widgets::segmented(
+                        controls::segmented(
                             SharedString::from(format!("source-{key}")),
                             &SOURCES,
                             config.input(key) as usize,
@@ -569,7 +559,7 @@ impl StudyEditor {
                 InputKind::Choice(options) => {
                     let target = target.clone();
                     Some(
-                        widgets::segmented(
+                        controls::segmented(
                             SharedString::from(format!("choice-{key}")),
                             options,
                             config.input(key) as usize,
@@ -581,7 +571,7 @@ impl StudyEditor {
                 InputKind::Toggle => {
                     let target = target.clone();
                     Some(
-                        ui::toggle(
+                        controls::toggle(
                             SharedString::from(format!("toggle-{key}")),
                             config.input(key) != 0.0,
                             move |on, _window, cx| {
@@ -594,7 +584,7 @@ impl StudyEditor {
                 InputKind::Color => {
                     let (this, pick) = (cx.entity(), target.clone());
                     let open = self.color_open == Some(key);
-                    Some(widgets::color_swatch(
+                    Some(controls::color_swatch(
                         SharedString::from(format!("input-color-{key}")),
                         config.input(key) as u32,
                         open,
@@ -614,7 +604,7 @@ impl StudyEditor {
                 }
             };
             if let Some(control) = control {
-                rows.push(ui::field(input.label, None, control));
+                rows.push(form::field(input.label, None, control));
             }
         }
         rows
@@ -651,7 +641,7 @@ impl StudyEditor {
                 about = format!("{id} ({})", parts.join(", "));
             }
         }
-        rows.push(ui::field(
+        rows.push(form::field(
             "Script",
             entry
                 .as_ref()
@@ -670,7 +660,7 @@ impl StudyEditor {
                         .text_color(theme::muted_fg())
                         .child(about),
                 )
-                .child(ui::action(
+                .child(button::action(
                     "study-edit-script",
                     "Edit",
                     Some(IconName::Pencil),
@@ -686,7 +676,7 @@ impl StudyEditor {
                     },
                 ))
                 .children(reveal_path.map(|path| {
-                    ui::action(
+                    button::action(
                         "study-reveal-script",
                         "Show",
                         Some(IconName::FolderOpen),
@@ -698,7 +688,7 @@ impl StudyEditor {
         if let Some(entry) = &entry
             && !entry.info.description.is_empty()
         {
-            rows.push(ui::block(ui::note(entry.info.description.clone())));
+            rows.push(form::block(form::note(entry.info.description.clone())));
         }
         for problem in problems.iter().take(4) {
             let error = problem.severity == Severity::Error;
@@ -707,7 +697,7 @@ impl StudyEditor {
             } else {
                 String::new()
             };
-            rows.push(ui::block(
+            rows.push(form::block(
                 div()
                     .flex()
                     .flex_row()
@@ -719,7 +709,7 @@ impl StudyEditor {
                     } else {
                         theme::amber()
                     })
-                    .child(icon_colored(
+                    .child(icon::tinted(
                         if error {
                             IconName::CircleAlert
                         } else {
@@ -735,17 +725,21 @@ impl StudyEditor {
                     .child(format!("{place}{}", problem.message)),
             ));
         }
-        Some(ui::group(IconName::CodeXml, "Script", rows).into_any_element())
+        Some(form::group(IconName::CodeXml, "Script", rows).into_any_element())
     }
 
     fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {
         let this = cx.entity();
-        let mut page = ui::page();
+        let mut page = form::page();
         let style_rows = self.input_rows(config, true, cx);
         if !style_rows.is_empty() {
-            page = page.child(ui::group(IconName::Palette, "Indicator style", style_rows));
+            page = page.child(form::group(
+                IconName::Palette,
+                "Indicator style",
+                style_rows,
+            ));
         } else if config.is_script() && config.spec().plots.is_empty() {
-            page = page.child(ui::note("This script has no style settings. Declare a color, opacity, width or text size input, or use section: \"style\" on an input."));
+            page = page.child(form::note("This script has no style settings. Declare a color, opacity, width or text size input, or use section: \"style\" on an input."));
         }
         for plot in config.spec().plots {
             let key = plot.key;
@@ -758,14 +752,14 @@ impl StudyEditor {
                 PlotKind::Histogram => IconName::ChartColumn,
                 PlotKind::Dots => IconName::CircleDot,
             };
-            let shown = ui::toggle(
+            let shown = controls::toggle(
                 SharedString::from(format!("plot-visible-{key}")),
                 style.visible,
                 move |on, _window, cx| shown_target.plot(key, cx, |s| s.visible = on),
             )
             .into_any_element();
 
-            let swatch = widgets::color_swatch(
+            let swatch = controls::color_swatch(
                 SharedString::from(format!("plot-color-{key}")),
                 style.color,
                 open,
@@ -786,8 +780,8 @@ impl StudyEditor {
                 .opacity
                 .iter()
                 .find(|(k, _)| *k == key)
-                .map(|(_, state)| widgets::number_field(state, 96.));
-            let mut rows = vec![ui::field(
+                .map(|(_, state)| number::field(state, 96.));
+            let mut rows = vec![form::field(
                 "Color",
                 Some("Opacity in percent"),
                 div()
@@ -802,10 +796,10 @@ impl StudyEditor {
             let kind_target = self.target.clone();
             let displayed_kind = style.kind.unwrap_or(plot.kind);
             if config.kind != StudyKind::VolumeProfile {
-                rows.push(ui::field(
+                rows.push(form::field(
                     "Plot type",
                     None,
-                    widgets::segmented(
+                    controls::segmented(
                         SharedString::from(format!("plot-type-{key}")),
                         &["Line", "Dots", "Columns"],
                         match displayed_kind {
@@ -827,7 +821,7 @@ impl StudyEditor {
 
             let width_index = WIDTHS.iter().position(|w| (w - style.width).abs() < 0.01);
             let width_target = self.target.clone();
-            let picker = ui::width_picker(
+            let picker = controls::width_picker(
                 // One id per plot: the pickers of several plots must not share state.
                 SharedString::from(format!("plot-width-{key}")),
                 &WIDTHS,
@@ -847,17 +841,17 @@ impl StudyEditor {
                     self.widths
                         .iter()
                         .find(|(k, _)| *k == key)
-                        .map(|(_, state)| widgets::number_field(state, 84.)),
+                        .map(|(_, state)| number::field(state, 84.)),
                 );
             if config.kind == StudyKind::VolumeProfile {
                 if key == "poc" {
                     let dash_target = self.target.clone();
                     let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
-                    rows.push(ui::field("Width", None, width));
-                    rows.push(ui::field(
+                    rows.push(form::field("Width", None, width));
+                    rows.push(form::field(
                         "Line style",
                         None,
-                        ui::dash_picker(
+                        controls::dash_picker(
                             SharedString::from("profile-poc-dash"),
                             dash_index,
                             move |choice, _window, cx| {
@@ -871,11 +865,11 @@ impl StudyEditor {
                     PlotKind::Line => {
                         let dash_target = self.target.clone();
                         let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
-                        rows.push(ui::field("Width", None, width));
-                        rows.push(ui::field(
+                        rows.push(form::field("Width", None, width));
+                        rows.push(form::field(
                             "Line style",
                             None,
-                            ui::dash_picker(
+                            controls::dash_picker(
                                 SharedString::from(format!("plot-dash-{key}")),
                                 dash_index,
                                 move |choice, _window, cx| {
@@ -884,7 +878,7 @@ impl StudyEditor {
                             ),
                         ));
                     }
-                    PlotKind::Dots => rows.push(ui::field("Size", None, width)),
+                    PlotKind::Dots => rows.push(form::field("Size", None, width)),
                     PlotKind::Histogram => {
                         let up_target = self.target.clone();
                         let down_target = self.target.clone();
@@ -892,10 +886,10 @@ impl StudyEditor {
                         let down_open = self.down_color_open == Some(key);
                         let this_up = this.clone();
                         let this_down = this.clone();
-                        rows.push(ui::field(
+                        rows.push(form::field(
                             "Up color",
                             None,
-                            widgets::color_swatch(
+                            controls::color_swatch(
                                 SharedString::from(format!("plot-up-{key}")),
                                 style.up_color.unwrap_or(super::study::UP_COLOR),
                                 up_open,
@@ -915,10 +909,10 @@ impl StudyEditor {
                                 },
                             ),
                         ));
-                        rows.push(ui::field(
+                        rows.push(form::field(
                             "Down color",
                             None,
-                            widgets::color_swatch(
+                            controls::color_swatch(
                                 SharedString::from(format!("plot-down-{key}")),
                                 style.down_color.unwrap_or(super::study::DOWN_COLOR),
                                 down_open,
@@ -939,21 +933,21 @@ impl StudyEditor {
                             ),
                         ));
                         if let Some((_, state)) = self.bar_widths.iter().find(|(k, _)| *k == key) {
-                            rows.push(ui::field(
+                            rows.push(form::field(
                                 "Column width (%)",
                                 None,
-                                widgets::number_field(state, 96.),
+                                number::field(state, 96.),
                             ));
                         }
                     }
                 }
             }
-            page = page.child(ui::group_with(icon, plot.label, Some(shown), rows));
+            page = page.child(form::group_with(icon, plot.label, Some(shown), rows));
         }
         for (index, value) in config.default_levels().into_iter().enumerate() {
             let style = config.levels.get(&index).copied().unwrap_or_default();
             let target = self.target.clone();
-            let shown = ui::toggle(
+            let shown = controls::toggle(
                 SharedString::from(format!("level-visible-{index}")),
                 style.visible,
                 move |on, _window, cx| target.level(index, cx, |s| s.visible = on),
@@ -961,7 +955,7 @@ impl StudyEditor {
             let pick = self.target.clone();
             let open = self.level_color_open == Some(index);
             let owner = this.clone();
-            let color = widgets::color_swatch(
+            let color = controls::color_swatch(
                 SharedString::from(format!("level-color-{index}")),
                 style.color,
                 open,
@@ -980,33 +974,30 @@ impl StudyEditor {
             );
             let dash_target = self.target.clone();
             let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
-            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            let mut rows = vec![form::field("Color", None, color).into_any_element()];
             if let Some((_, state)) = self.level_values.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    ui::field(
+                    form::field(
                         "Value",
                         Some("Overrides the calculated level"),
-                        widgets::number_field(state, 130.),
+                        number::field(state, 130.),
                     )
                     .into_any_element(),
                 );
             }
             if let Some((_, state)) = self.level_widths.iter().find(|(i, _)| *i == index) {
-                rows.push(
-                    ui::field("Width", None, widgets::number_field(state, 96.)).into_any_element(),
-                );
+                rows.push(form::field("Width", None, number::field(state, 96.)).into_any_element());
             }
             if let Some((_, state)) = self.level_opacity.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
-                        .into_any_element(),
+                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
                 );
             }
             rows.push(
-                ui::field(
+                form::field(
                     "Line style",
                     None,
-                    ui::dash_picker(
+                    controls::dash_picker(
                         SharedString::from(format!("level-dash-{index}")),
                         dash_index,
                         move |choice, _window, cx| {
@@ -1016,9 +1007,9 @@ impl StudyEditor {
                 )
                 .into_any_element(),
             );
-            page = page.child(ui::group_with(
+            page = page.child(form::group_with(
                 IconName::Minus,
-                format!("Level {} ({})", index + 1, widgets::format_number(value, 2)),
+                format!("Level {} ({})", index + 1, number::format(value, 2)),
                 Some(shown.into_any_element()),
                 rows,
             ));
@@ -1029,14 +1020,14 @@ impl StudyEditor {
             };
             let style = config.fills.get(&index).copied().unwrap_or(default);
             let shown_target = self.target.clone();
-            let shown = ui::toggle(
+            let shown = controls::toggle(
                 SharedString::from(format!("fill-visible-{index}")),
                 style.visible,
                 move |on, _window, cx| shown_target.fill(index, default, cx, |s| s.visible = on),
             );
             let color_target = self.target.clone();
             let owner = this.clone();
-            let color = widgets::color_swatch(
+            let color = controls::color_swatch(
                 SharedString::from(format!("fill-color-{index}")),
                 style.color,
                 self.fill_color_open == Some(index),
@@ -1055,11 +1046,11 @@ impl StudyEditor {
                     color_target.fill(index, default, cx, |s| s.color = color)
                 },
             );
-            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            let mut rows = vec![form::field("Color", None, color).into_any_element()];
             if let Some(other) = style.other {
                 let other_target = self.target.clone();
                 let owner = this.clone();
-                let other = widgets::color_swatch(
+                let other = controls::color_swatch(
                     SharedString::from(format!("fill-other-{index}")),
                     other,
                     self.fill_other_open == Some(index),
@@ -1078,15 +1069,14 @@ impl StudyEditor {
                         other_target.fill(index, default, cx, |s| s.other = Some(color))
                     },
                 );
-                rows.push(ui::field("Other color", None, other).into_any_element());
+                rows.push(form::field("Other color", None, other).into_any_element());
             }
             if let Some((_, state)) = self.fill_opacity.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
-                        .into_any_element(),
+                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
                 );
             }
-            page = page.child(ui::group_with(
+            page = page.child(form::group_with(
                 IconName::Palette,
                 format!("Fill {}", index + 1),
                 Some(shown.into_any_element()),
@@ -1096,12 +1086,12 @@ impl StudyEditor {
         if let Some(default) = config.default_band() {
             let style = config.band.unwrap_or(default);
             let shown_target = self.target.clone();
-            let shown = ui::toggle("band-visible", style.visible, move |on, _window, cx| {
+            let shown = controls::toggle("band-visible", style.visible, move |on, _window, cx| {
                 shown_target.band(default, cx, |s| s.visible = on)
             });
             let color_target = self.target.clone();
             let owner = this.clone();
-            let color = widgets::color_swatch(
+            let color = controls::color_swatch(
                 "band-color",
                 style.color,
                 self.band_color_open,
@@ -1114,14 +1104,13 @@ impl StudyEditor {
                 },
                 move |color, _window, cx| color_target.band(default, cx, |s| s.color = color),
             );
-            let mut rows = vec![ui::field("Color", None, color).into_any_element()];
+            let mut rows = vec![form::field("Color", None, color).into_any_element()];
             if let Some(state) = &self.band_opacity {
                 rows.push(
-                    ui::field("Opacity (%)", None, widgets::number_field(state, 96.))
-                        .into_any_element(),
+                    form::field("Opacity (%)", None, number::field(state, 96.)).into_any_element(),
                 );
             }
-            page = page.child(ui::group_with(
+            page = page.child(form::group_with(
                 IconName::Palette,
                 "Threshold zone",
                 Some(shown.into_any_element()),
@@ -1132,25 +1121,25 @@ impl StudyEditor {
     }
 
     fn display_page(&self, config: &StudyConfig) -> AnyElement {
-        let mut page = ui::page();
+        let mut page = form::page();
         let target = self.target.clone();
-        let mut rows = vec![ui::field(
+        let mut rows = vec![form::field(
             "Show on the chart",
             Some("Hides the indicator without removing it"),
-            ui::toggle("study-visible", config.visible, move |on, _window, cx| {
+            controls::toggle("study-visible", config.visible, move |on, _window, cx| {
                 target.edit(cx, |s| s.visible = on);
             }),
         )];
-        rows.push(ui::field(
+        rows.push(form::field(
             "Name",
             Some("Leave empty to use the indicator name"),
             div().w(px(220.)).child(Input::new(&self.name).small()),
         ));
         let axis = self.target.clone();
-        rows.push(ui::field(
+        rows.push(form::field(
             "Axis value labels",
             None,
-            ui::toggle(
+            controls::toggle(
                 "study-axis-labels",
                 config.axis_labels,
                 move |on, _window, cx| {
@@ -1159,10 +1148,10 @@ impl StudyEditor {
             ),
         ));
         let legend = self.target.clone();
-        rows.push(ui::field(
+        rows.push(form::field(
             "Values in legend",
             None,
-            ui::toggle(
+            controls::toggle(
                 "study-legend-values",
                 config.legend_values,
                 move |on, _window, cx| {
@@ -1171,10 +1160,10 @@ impl StudyEditor {
             ),
         ));
         let auto = self.target.clone();
-        rows.push(ui::field(
+        rows.push(form::field(
             "Automatic precision",
             None,
-            ui::toggle(
+            controls::toggle(
                 "study-auto-precision",
                 config.precision.is_none(),
                 move |on, _window, cx| {
@@ -1183,18 +1172,18 @@ impl StudyEditor {
             ),
         ));
         if config.precision.is_some() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Decimal places",
                 None,
-                widgets::number_field(&self.precision, 96.),
+                number::field(&self.precision, 96.),
             ));
         }
         if config.spec().placement == Placement::Pane {
             let target = self.target.clone();
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Pane height",
                 Some("Next to the price chart. Drag the divider for any other height"),
-                ui::height_picker(
+                controls::height_picker(
                     "study-height",
                     PANE_HEIGHTS,
                     config.pane_weight(),
@@ -1202,7 +1191,7 @@ impl StudyEditor {
                 ),
             ));
         }
-        page = page.child(ui::group(IconName::Eye, "Visibility", rows));
+        page = page.child(form::group(IconName::Eye, "Visibility", rows));
         page.into_any_element()
     }
 }
@@ -1227,7 +1216,7 @@ impl Render for StudyEditor {
                 .border_1()
                 .border_color(theme::border_subtle())
                 .bg(theme::bg())
-                .child(ui::empty(IconName::Info, "This indicator was removed."))
+                .child(form::empty(IconName::Info, "This indicator was removed."))
                 .into_any_element();
         };
         let pages = Self::pages(&config);
@@ -1263,9 +1252,9 @@ impl Render for StudyEditor {
 
         let this = cx.entity();
         let (defaults, cancel, remove) = (cx.entity(), cx.entity(), cx.entity());
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![
-                ui::action(
+                button::action(
                     "study-defaults",
                     "Defaults",
                     Some(IconName::RotateCcw),
@@ -1293,7 +1282,7 @@ impl Render for StudyEditor {
                     },
                 )
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "study-remove",
                     "Remove",
                     Some(IconName::Trash),
@@ -1310,7 +1299,7 @@ impl Render for StudyEditor {
                 .into_any_element(),
             ],
             vec![
-                ui::action("study-cancel", "Cancel", None, false, move |window, cx| {
+                button::action("study-cancel", "Cancel", None, false, move |window, cx| {
                     cancel.update(cx, |e, cx| {
                         let original = e.original.clone();
                         e.target.edit(cx, |study| *study = original);
@@ -1318,14 +1307,14 @@ impl Render for StudyEditor {
                     modal::close(window, cx);
                 })
                 .into_any_element(),
-                ui::action("study-ok", "OK", None, true, |window, cx| {
+                button::action("study-ok", "OK", None, true, |window, cx| {
                     modal::close(window, cx)
                 })
                 .into_any_element(),
             ],
         );
 
-        ui::frame(
+        form::frame(
             head,
             &tabs,
             active,

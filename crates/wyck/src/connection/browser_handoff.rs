@@ -15,9 +15,9 @@ use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::transport::connection::Client;
 
 use super::select_account::SelectAccountState;
-use super::ui;
-use super::{ConnectionFlow, Screen, anim, theme};
+use super::{ConnectionFlow, Screen};
 use crate::runtime;
+use wyck_ui::{anim, button, icon, layout, theme};
 
 /// How long to wait for the user to finish signing in on cTrader's page before giving up.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(300);
@@ -182,7 +182,7 @@ impl ConnectionFlow {
         let epoch = self.epoch;
         let failed = state.error.is_some();
 
-        ui::screen()
+        layout::screen()
             .child(
                 div()
                     .flex()
@@ -191,7 +191,7 @@ impl ConnectionFlow {
                     .gap_5()
                     .w(px(420.))
                     .children(state.error.clone().map(|message| {
-                        ui::error_banner(
+                        layout::error_banner(
                             "handoff-error",
                             state.error_count,
                             "Couldn't finish signing in",
@@ -216,7 +216,7 @@ impl ConnectionFlow {
                                     .items_center()
                                     .justify_center()
                                     .text_color(theme::fg())
-                                    .child(ui::icon(IconName::Globe, 30.)),
+                                    .child(icon::plain(IconName::Globe, 30.)),
                             )
                             .when(!failed, |el| {
                                 // A small spinner badge on the corner of the globe.
@@ -235,7 +235,7 @@ impl ConnectionFlow {
                                         .justify_center()
                                         .text_color(theme::accent())
                                         .child(anim::spin(
-                                            ui::icon_colored(
+                                            icon::tinted(
                                                 IconName::LoaderCircle,
                                                 15.,
                                                 theme::accent(),
@@ -269,7 +269,7 @@ impl ConnectionFlow {
                                 .gap_2()
                                 .text_size(px(13.))
                                 .text_color(theme::accent())
-                                .child(ui::icon_colored(IconName::Radio, 14., theme::accent()))
+                                .child(icon::tinted(IconName::Radio, 14., theme::accent()))
                                 .child("Waiting for cTrader..."),
                         )
                     })
@@ -281,20 +281,20 @@ impl ConnectionFlow {
                             .flex_col()
                             .gap_2()
                             .child(
-                                ui::secondary_button("reopen-browser", "Open browser again", {
+                                button::secondary("reopen-browser", "Open browser again", {
                                     let url = state.url.clone();
                                     move |_event, _window, cx| cx.open_url(&url)
                                 })
                                 .icon(IconName::ExternalLink),
                             )
-                            .child(ui::ghost_button(
+                            .child(button::ghost(
                                 "cancel-browser-handoff",
                                 "Cancel",
                                 cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
                             )),
                     ),
             )
-            .child(ui::back_button(
+            .child(button::back(
                 "browser-handoff-back",
                 cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
             ))

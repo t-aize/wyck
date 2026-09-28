@@ -24,9 +24,9 @@ use super::drawing::model::{
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
-use crate::settings_ui::{self as ui, Head};
-use crate::{modal, theme, widgets};
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
+use wyck_ui::form::Head;
+use wyck_ui::{button, controls, form, modal, number, theme};
 
 pub struct PropsContext {
     pub zone: Zone,
@@ -74,7 +74,7 @@ enum Tab {
 }
 
 impl Tab {
-    fn spec(self) -> ui::Tab {
+    fn spec(self) -> form::Tab {
         let (label, icon) = match self {
             Self::Position => ("Position", IconName::Calculator),
             Self::Style => ("Style", IconName::Palette),
@@ -83,7 +83,7 @@ impl Tab {
             Self::Coordinates => ("Coordinates", IconName::Crosshair),
             Self::Visibility => ("Visibility", IconName::Eye),
         };
-        ui::Tab { label, icon }
+        form::Tab { label, icon }
     }
 }
 
@@ -186,7 +186,7 @@ impl DrawingProps {
         let before = drawings.read(cx).book().drawings(&symbol).to_vec();
         let style = &drawing.style;
         let opacity = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(style.fill_opacity) * 100.0,
                 0.0,
                 100.0,
@@ -197,7 +197,7 @@ impl DrawingProps {
             )
         });
         let line_opacity = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(style.opacity) * 100.0,
                 5.0,
                 100.0,
@@ -207,13 +207,12 @@ impl DrawingProps {
                 cx,
             )
         });
-        let text_size = cx.new(|cx| {
-            widgets::number_state(f64::from(style.text_size), 6.0, 48.0, 1.0, 0, window, cx)
-        });
-        let width = cx
-            .new(|cx| widgets::number_state(f64::from(style.width), 0.5, 40.0, 0.5, 1, window, cx));
+        let text_size =
+            cx.new(|cx| number::state(f64::from(style.text_size), 6.0, 48.0, 1.0, 0, window, cx));
+        let width =
+            cx.new(|cx| number::state(f64::from(style.width), 0.5, 40.0, 0.5, 1, window, cx));
         let scale = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(style.scale) * 100.0,
                 30.0,
                 500.0,
@@ -224,7 +223,7 @@ impl DrawingProps {
             )
         });
         let profile_rows = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(style.profile.rows),
                 0.0,
                 240.0,
@@ -235,7 +234,7 @@ impl DrawingProps {
             )
         });
         let profile_area = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(style.profile.value_area) * 100.0,
                 10.0,
                 100.0,
@@ -254,15 +253,15 @@ impl DrawingProps {
         });
         let mut subscriptions = vec![
             cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
-            widgets::watch_number(&opacity, cx, |this, value, cx| {
+            number::watch(&opacity, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.fill_opacity = (value / 100.0) as f32);
             }),
-            widgets::watch_number(&line_opacity, cx, |this, value, cx| {
+            number::watch(&line_opacity, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     d.style.opacity = (value / 100.0).clamp(0.05, 1.0) as f32
                 });
             }),
-            widgets::watch_number(&text_size, cx, |this, value, cx| {
+            number::watch(&text_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.text_size = value as f32);
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
@@ -292,7 +291,7 @@ impl DrawingProps {
                 let price = cx.new(|cx| {
                     InputState::new(window, cx).default_value(format_real(point.p, digits))
                 });
-                subscriptions.push(widgets::watch_number(&price, cx, move |this, value, cx| {
+                subscriptions.push(number::watch(&price, cx, move |this, value, cx| {
                     let raw = value * PRICE_SCALE as f64;
                     this.change(cx, |d| set_point(d, index, None, Some(raw)));
                 }));
@@ -301,7 +300,7 @@ impl DrawingProps {
                         .default_value(format_time(zone, point.t))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
-                subscriptions.push(widgets::watch_parsed(
+                subscriptions.push(number::watch_parsed(
                     &time,
                     cx,
                     |this, text| parse_time(this.zone, text),
@@ -318,13 +317,12 @@ impl DrawingProps {
                 .clone()
                 .or_else(|| atr_seed.clone())
                 .unwrap_or_default();
-            let atr_length = cx.new(|cx| {
-                widgets::number_state(atr.length as f64, 1.0, 1_000.0, 1.0, 0, window, cx)
-            });
-            let atr_multiplier = cx
-                .new(|cx| widgets::number_state(atr.multiplier, 0.01, 1_000.0, 0.1, 2, window, cx));
+            let atr_length =
+                cx.new(|cx| number::state(atr.length as f64, 1.0, 1_000.0, 1.0, 0, window, cx));
+            let atr_multiplier =
+                cx.new(|cx| number::state(atr.multiplier, 0.01, 1_000.0, 0.1, 2, window, cx));
             let rr = cx.new(|cx| {
-                widgets::number_state(
+                number::state(
                     p.target_rr.unwrap_or(2.0),
                     0.01,
                     1_000.0,
@@ -339,27 +337,24 @@ impl DrawingProps {
                     .default_value(atr.timeframe.clone().unwrap_or_default())
                     .placeholder("Chart TF, M15, H1...")
             });
-            let account =
-                cx.new(|cx| widgets::number_state(p.account, 1.0, 1e12, 100.0, 2, window, cx));
-            let risk = cx.new(|cx| widgets::number_state(p.risk, 0.01, 1e12, 0.25, 2, window, cx));
-            let lot_size =
-                cx.new(|cx| widgets::number_state(p.lot_size, 1e-8, 1e9, 1.0, 4, window, cx));
+            let account = cx.new(|cx| number::state(p.account, 1.0, 1e12, 100.0, 2, window, cx));
+            let risk = cx.new(|cx| number::state(p.risk, 0.01, 1e12, 0.25, 2, window, cx));
+            let lot_size = cx.new(|cx| number::state(p.lot_size, 1e-8, 1e9, 1.0, 4, window, cx));
             let leverage =
-                cx.new(|cx| widgets::number_state(p.leverage, 1.0, 10_000.0, 1.0, 0, window, cx));
+                cx.new(|cx| number::state(p.leverage, 1.0, 10_000.0, 1.0, 0, window, cx));
             let point_value =
-                cx.new(|cx| widgets::number_state(p.point_value, 1e-9, 1e9, 1.0, 4, window, cx));
-            let qty_precision = cx.new(|cx| {
-                widgets::number_state(f64::from(p.qty_precision), 0.0, 8.0, 1.0, 0, window, cx)
-            });
+                cx.new(|cx| number::state(p.point_value, 1e-9, 1e9, 1.0, 4, window, cx));
+            let qty_precision = cx
+                .new(|cx| number::state(f64::from(p.qty_precision), 0.0, 8.0, 1.0, 0, window, cx));
             let currency = cx.new(|cx| {
                 InputState::new(window, cx)
                     .default_value(p.currency.clone())
                     .placeholder("USD")
             });
-            subscriptions.push(widgets::watch_number(&account, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&account, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.position.account = value.max(1.0));
             }));
-            subscriptions.push(widgets::watch_number(&risk, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&risk, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     let cap = if d.style.position.risk_percent {
                         100.0
@@ -369,30 +364,22 @@ impl DrawingProps {
                     d.style.position.risk = value.clamp(0.01, cap);
                 });
             }));
-            subscriptions.push(widgets::watch_number(&lot_size, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&lot_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.position.lot_size = value.max(1e-8));
             }));
-            subscriptions.push(widgets::watch_number(&leverage, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&leverage, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     d.style.position.leverage = value.clamp(1.0, 10_000.0)
                 });
             }));
-            subscriptions.push(widgets::watch_number(
-                &point_value,
-                cx,
-                |this, value, cx| {
-                    this.change(cx, |d| d.style.position.point_value = value.max(1e-9));
-                },
-            ));
-            subscriptions.push(widgets::watch_number(
-                &qty_precision,
-                cx,
-                |this, value, cx| {
-                    this.change(cx, |d| {
-                        d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
-                    });
-                },
-            ));
+            subscriptions.push(number::watch(&point_value, cx, |this, value, cx| {
+                this.change(cx, |d| d.style.position.point_value = value.max(1e-9));
+            }));
+            subscriptions.push(number::watch(&qty_precision, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
+                });
+            }));
             subscriptions.push(
                 cx.subscribe(&currency, |this, state, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change) {
@@ -401,25 +388,21 @@ impl DrawingProps {
                     }
                 }),
             );
-            subscriptions.push(widgets::watch_number(&atr_length, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&atr_length, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     if let Some(atr) = &mut d.style.position.atr_stop {
                         atr.length = (value as usize).clamp(1, 1_000);
                     }
                 });
             }));
-            subscriptions.push(widgets::watch_number(
-                &atr_multiplier,
-                cx,
-                |this, value, cx| {
-                    this.change(cx, |d| {
-                        if let Some(atr) = &mut d.style.position.atr_stop {
-                            atr.multiplier = value.clamp(0.01, 1_000.0);
-                        }
-                    });
-                },
-            ));
-            subscriptions.push(widgets::watch_number(&rr, cx, |this, value, cx| {
+            subscriptions.push(number::watch(&atr_multiplier, cx, |this, value, cx| {
+                this.change(cx, |d| {
+                    if let Some(atr) = &mut d.style.position.atr_stop {
+                        atr.multiplier = value.clamp(0.01, 1_000.0);
+                    }
+                });
+            }));
+            subscriptions.push(number::watch(&rr, cx, |this, value, cx| {
                 this.change(cx, |d| {
                     if d.style.position.target_rr.is_some() {
                         d.style.position.target_rr = Some(value.clamp(0.01, 1_000.0));
@@ -507,36 +490,28 @@ impl DrawingProps {
         self._level_subscriptions.clear();
         self.level_widths.clear();
         for (index, level) in drawing.levels().iter().enumerate() {
-            let state =
-                cx.new(|cx| widgets::number_state(level.value, -100.0, 100.0, 0.1, 4, window, cx));
-            self._level_subscriptions.push(widgets::watch_number(
-                &state,
-                cx,
-                move |this, value, cx| {
+            let state = cx.new(|cx| number::state(level.value, -100.0, 100.0, 0.1, 4, window, cx));
+            self._level_subscriptions
+                .push(number::watch(&state, cx, move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
                         if let Some(level) = d.levels.get_mut(index) {
                             level.value = value;
                         }
                     });
-                },
-            ));
+                }));
             self.levels.push(state);
-            let width = cx.new(|cx| {
-                widgets::number_state(f64::from(level.width), 0.0, 40.0, 0.5, 1, window, cx)
-            });
-            self._level_subscriptions.push(widgets::watch_number(
-                &width,
-                cx,
-                move |this, value, cx| {
+            let width =
+                cx.new(|cx| number::state(f64::from(level.width), 0.0, 40.0, 0.5, 1, window, cx));
+            self._level_subscriptions
+                .push(number::watch(&width, cx, move |this, value, cx| {
                     this.change(cx, |d| {
                         d.levels = d.levels();
                         if let Some(level) = d.levels.get_mut(index) {
                             level.width = value.clamp(0.0, 40.0) as f32;
                         }
                     });
-                },
-            ));
+                }));
             self.level_widths.push(width);
         }
         self.levels_changed = false;
@@ -589,9 +564,9 @@ impl DrawingProps {
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| book.save_template(&symbol, id))
         });
-        crate::toast::show(
+        wyck_ui::toast::show(
             cx,
-            crate::toast::Kind::Success,
+            wyck_ui::toast::Kind::Success,
             "Saved as default",
             format!(
                 "New {} drawings start with this look.",
@@ -628,9 +603,9 @@ impl DrawingProps {
         let Some(drawing) = self.current(cx) else {
             return;
         };
-        let opacity = widgets::format_number(f64::from(drawing.style.fill_opacity) * 100.0, 0);
-        let size = widgets::format_number(f64::from(drawing.style.text_size), 0);
-        let line = widgets::format_number(f64::from(drawing.style.opacity) * 100.0, 0);
+        let opacity = number::format(f64::from(drawing.style.fill_opacity) * 100.0, 0);
+        let size = number::format(f64::from(drawing.style.text_size), 0);
+        let line = number::format(f64::from(drawing.style.opacity) * 100.0, 0);
         self.opacity
             .update(cx, |s, cx| s.set_value(opacity, window, cx));
         self.line_opacity
@@ -638,19 +613,19 @@ impl DrawingProps {
         let numbers = [
             (
                 &self.width,
-                widgets::format_number(f64::from(drawing.style.width), 1),
+                number::format(f64::from(drawing.style.width), 1),
             ),
             (
                 &self.scale,
-                widgets::format_number(f64::from(drawing.style.scale) * 100.0, 0),
+                number::format(f64::from(drawing.style.scale) * 100.0, 0),
             ),
             (
                 &self.profile_rows,
-                widgets::format_number(f64::from(drawing.style.profile.rows), 0),
+                number::format(f64::from(drawing.style.profile.rows), 0),
             ),
             (
                 &self.profile_area,
-                widgets::format_number(f64::from(drawing.style.profile.value_area) * 100.0, 0),
+                number::format(f64::from(drawing.style.profile.value_area) * 100.0, 0),
             ),
         ];
         for (state, text) in numbers {
@@ -661,14 +636,14 @@ impl DrawingProps {
         if let Some(pos) = &self.pos {
             let p = &drawing.style.position;
             let texts = [
-                (&pos.account, widgets::format_number(p.account, 2)),
-                (&pos.risk, widgets::format_number(p.risk, 2)),
-                (&pos.lot_size, widgets::format_number(p.lot_size, 4)),
-                (&pos.leverage, widgets::format_number(p.leverage, 0)),
-                (&pos.point_value, widgets::format_number(p.point_value, 4)),
+                (&pos.account, number::format(p.account, 2)),
+                (&pos.risk, number::format(p.risk, 2)),
+                (&pos.lot_size, number::format(p.lot_size, 4)),
+                (&pos.leverage, number::format(p.leverage, 0)),
+                (&pos.point_value, number::format(p.point_value, 4)),
                 (
                     &pos.qty_precision,
-                    widgets::format_number(f64::from(p.qty_precision), 0),
+                    number::format(f64::from(p.qty_precision), 0),
                 ),
                 (&pos.currency, p.currency.clone()),
             ];
@@ -686,7 +661,7 @@ impl DrawingProps {
             .as_ref()
             .and_then(|chart| chart.read(cx).resolved_position(drawing));
         if drawing.style.position.atr_stop.is_some() && resolved.is_none() {
-            return vec![ui::block(ui::note(
+            return vec![form::block(form::note(
                 "ATR unavailable for the selected chart and timeframe.",
             ))];
         }
@@ -703,14 +678,14 @@ impl DrawingProps {
             )
         });
         let Some(stats) = stats else {
-            return vec![ui::block(ui::note(
+            return vec![form::block(form::note(
                 "Nothing to size: the stop sits on the entry.",
             ))];
         };
         let value = |text: String| div().text_size(px(13.)).text_color(theme::fg()).child(text);
         let mut rows = vec![
-            ui::field("Quantity", None, value(p.format_qty(stats.qty))),
-            ui::field(
+            form::field("Quantity", None, value(p.format_qty(stats.qty))),
+            form::field(
                 "Risk",
                 Some(if stats.capped {
                     "Capped by the leverage: less than the risk asked for"
@@ -719,11 +694,11 @@ impl DrawingProps {
                 }),
                 value(p.format_plain(stats.loss)),
             ),
-            ui::field("Reward", None, value(p.format_plain(stats.profit))),
-            ui::field("Risk/reward", None, value(format!("{:.2}", stats.ratio))),
+            form::field("Reward", None, value(p.format_plain(stats.profit))),
+            form::field("Risk/reward", None, value(format!("{:.2}", stats.ratio))),
         ];
         if stats.qty <= 0.0 {
-            rows.push(ui::block(ui::note(
+            rows.push(form::block(form::note(
                 "The quantity rounds down to nothing: lower the lot size or raise the risk.",
             )));
         }
@@ -747,7 +722,7 @@ impl DrawingProps {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let (toggle, pick) = (cx.entity(), cx.entity());
-        widgets::color_swatch(
+        controls::color_swatch(
             SharedString::from(id.to_owned()),
             color,
             self.swatch == Some(swatch),
@@ -787,7 +762,7 @@ impl DrawingProps {
         set: impl Fn(&mut Drawing, bool) + 'static,
     ) -> Switch {
         let this = cx.entity();
-        ui::toggle(
+        controls::toggle(
             SharedString::from(id.to_owned()),
             on,
             move |checked, _window, cx| {
@@ -825,7 +800,7 @@ impl DrawingProps {
     ) -> impl IntoElement + use<> {
         let caps = [Cap::None, Cap::Arrow, Cap::Circle];
         let this = cx.entity();
-        widgets::segmented(
+        controls::segmented(
             id,
             &["None", "Arrow", "Dot"],
             caps.iter().position(|c| *c == current).unwrap_or(0),
@@ -843,7 +818,7 @@ impl DrawingProps {
             .iter()
             .position(|w| (w - drawing.style.width).abs() < 0.01);
         let this = cx.entity();
-        ui::field(
+        form::field(
             "Width",
             Some("Pick one, or type any width in pixels"),
             div()
@@ -851,7 +826,7 @@ impl DrawingProps {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .child(ui::width_picker(
+                .child(controls::width_picker(
                     "props-width",
                     &widths,
                     index,
@@ -862,7 +837,7 @@ impl DrawingProps {
                         });
                     },
                 ))
-                .child(widgets::number_field(&self.width, 84.)),
+                .child(number::field(&self.width, 84.)),
         )
     }
 
@@ -871,7 +846,7 @@ impl DrawingProps {
         let (tool, caps) = (drawing.tool, drawing.style.caps);
         let mut rows = Vec::new();
         if tool.has_start_cap() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Start of the line",
                 None,
                 self.cap_picker("props-cap-start", caps.start, cx, |d, cap| {
@@ -880,7 +855,7 @@ impl DrawingProps {
             ));
         }
         if tool.has_end_cap() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "End of the line",
                 None,
                 self.cap_picker("props-cap-end", caps.end, cx, |d, cap| {
@@ -939,47 +914,47 @@ impl DrawingProps {
         let mut rows: Vec<AnyElement> = Vec::new();
         for (show, id, label, on, set) in flags {
             if show {
-                rows.push(ui::field(label, None, self.switch(id, on, cx, set)));
+                rows.push(form::field(label, None, self.switch(id, on, cx, set)));
             }
         }
         if tool == Tool::Measure {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Color of a move down",
                 Some("The color of the drawing is for a move up"),
                 self.swatch(Swatch::MeasureDown, look.down_color, "props-down-color", cx),
             ));
         }
-        ui::group(IconName::Ruler, "Numbers written", rows)
+        form::group(IconName::Ruler, "Numbers written", rows)
     }
 
     /// The size of a marker.
     fn marker_group(&self) -> gpui::Div {
-        ui::group(
+        form::group(
             IconName::Ruler,
             "Marker",
-            [ui::field(
+            [form::field(
                 "Size",
                 Some("In percent of its usual size"),
-                widgets::number_field(&self.scale, 96.),
+                number::field(&self.scale, 96.),
             )],
         )
     }
 
     /// How a volume profile is cut.
     fn profile_group(&self) -> gpui::Div {
-        ui::group(
+        form::group(
             IconName::ChartBarBig,
             "Profile",
             [
-                ui::field(
+                form::field(
                     "Rows",
                     Some("0 lets the height on the screen decide"),
-                    widgets::number_field(&self.profile_rows, 96.),
+                    number::field(&self.profile_rows, 96.),
                 ),
-                ui::field(
+                form::field(
                     "Value area",
                     Some("The share of the volume it holds, in percent"),
-                    widgets::number_field(&self.profile_area, 96.),
+                    number::field(&self.profile_area, 96.),
                 ),
             ],
         )
@@ -998,7 +973,7 @@ impl DrawingProps {
         let this = cx.entity();
         let mut rows: Vec<AnyElement> = Vec::new();
         if names.is_empty() {
-            rows.push(ui::block(ui::note(
+            rows.push(form::block(form::note(
                 "No saved look for this tool yet. Name the current one below to keep it.",
             )));
         }
@@ -1040,7 +1015,7 @@ impl DrawingProps {
             );
         }
         let save = this.clone();
-        rows.push(ui::field(
+        rows.push(form::field(
             "Save this look",
             Some("Under a name, for this tool. The same name replaces it"),
             div()
@@ -1065,7 +1040,7 @@ impl DrawingProps {
                         }),
                 ),
         ));
-        ui::group(IconName::Bookmark, "Saved looks", rows)
+        form::group(IconName::Bookmark, "Saved looks", rows)
     }
 
     /// Puts the look saved under `name` on the drawing.
@@ -1098,16 +1073,16 @@ impl DrawingProps {
         if saved {
             self.template_name
                 .update(cx, |state, cx| state.set_value("", window, cx));
-            crate::toast::show(
+            wyck_ui::toast::show(
                 cx,
-                crate::toast::Kind::Success,
+                wyck_ui::toast::Kind::Success,
                 "Look saved",
                 format!("{} is in the saved looks of this tool.", name.trim()),
             );
         } else {
-            crate::toast::show(
+            wyck_ui::toast::show(
                 cx,
-                crate::toast::Kind::Warning,
+                wyck_ui::toast::Kind::Warning,
                 "Give the look a name",
                 "Type a name first, then save.",
             );
@@ -1128,7 +1103,7 @@ impl DrawingProps {
         let tool = drawing.tool;
         let style = &drawing.style;
         let this = cx.entity();
-        let mut rows: Vec<AnyElement> = vec![ui::field(
+        let mut rows: Vec<AnyElement> = vec![form::field(
             "Color",
             Some("Opacity in percent"),
             div()
@@ -1137,7 +1112,7 @@ impl DrawingProps {
                 .items_center()
                 .gap_2()
                 .child(self.swatch(Swatch::Line, style.color, "props-line-color", cx))
-                .child(widgets::number_field(&self.line_opacity, 96.)),
+                .child(number::field(&self.line_opacity, 96.)),
         )];
         if tool.has_width() {
             rows.push(self.width_row(drawing, cx));
@@ -1145,24 +1120,24 @@ impl DrawingProps {
         if tool.has_dash() {
             let index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
             let dash_this = this.clone();
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Line style",
                 None,
-                ui::dash_picker("props-dash", index, move |choice, _window, cx| {
+                controls::dash_picker("props-dash", index, move |choice, _window, cx| {
                     dash_this.update(cx, |e, cx| e.change(cx, |d| d.style.dash = DASHES[choice]));
                 }),
             ));
         }
         rows.extend(self.caps_rows(drawing, cx));
         if tool.has_extend() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Extend left",
                 Some("Past the first point, to the edge of the chart"),
                 self.switch("props-extend-left", style.extend_left, cx, |d, on| {
                     d.style.extend_left = on;
                 }),
             ));
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Extend right",
                 Some("Past the last point, to the edge of the chart"),
                 self.switch("props-extend-right", style.extend_right, cx, |d, on| {
@@ -1171,7 +1146,7 @@ impl DrawingProps {
             ));
         }
         if let Some(label) = tool.middle_label() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 label,
                 None,
                 self.switch("props-middle", style.middle, cx, |d, on| {
@@ -1180,7 +1155,7 @@ impl DrawingProps {
             ));
         }
         if let Some(label) = tool.labels_switch() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 label,
                 None,
                 self.switch("props-labels", style.labels, cx, |d, on| {
@@ -1189,20 +1164,20 @@ impl DrawingProps {
             ));
         }
         if tool.has_reverse() {
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Reverse",
                 Some("Flips the drawing upside down"),
                 self.switch("props-reverse", drawing.reverse, cx, |d, on| d.reverse = on),
             ));
         }
-        ui::group(IconName::PenLine, "Line", rows)
+        form::group(IconName::PenLine, "Line", rows)
     }
 
     fn style_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let tool = drawing.tool;
         let style = &drawing.style;
         let this = cx.entity();
-        let mut page = ui::page().child(self.line_group(drawing, cx));
+        let mut page = form::page().child(self.line_group(drawing, cx));
         if tool.has_measure_look() {
             page = page.child(self.measure_group(drawing, cx));
         }
@@ -1221,10 +1196,10 @@ impl DrawingProps {
                 .position(|key| *key == icon_key(&drawing.text))
                 .unwrap_or(0);
             let icon_this = this.clone();
-            page = page.child(ui::group(
+            page = page.child(form::group(
                 IconName::Sparkles,
                 "Icon",
-                [ui::block(chips(
+                [form::block(chips(
                     "props-icon",
                     &labels,
                     &[chosen],
@@ -1245,11 +1220,11 @@ impl DrawingProps {
                 .take(3)
                 .map(|n| wave_label(n, drawing.degree))
                 .collect();
-            page = page.child(ui::group(
+            page = page.child(form::group(
                 IconName::Waypoints,
                 "Wave degree",
                 [
-                    ui::block(chips(
+                    form::block(chips(
                         "props-degree",
                         &DEGREES,
                         &[usize::from(drawing.degree)],
@@ -1258,30 +1233,30 @@ impl DrawingProps {
                                 .update(cx, |e, cx| e.change(cx, |d| d.degree = index as u8));
                         },
                     )),
-                    ui::block(ui::note(format!("Points read {}", example.join(" ")))),
+                    form::block(form::note(format!("Points read {}", example.join(" ")))),
                 ],
             ));
         }
 
         if tool.has_fill() {
-            let mut rows = vec![ui::field(
+            let mut rows = vec![form::field(
                 "Fill",
                 Some("Colors the area inside the shape"),
                 self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
             )];
             if !tool.has_levels() {
-                rows.push(ui::field(
+                rows.push(form::field(
                     "Fill color",
                     None,
                     self.swatch(Swatch::Fill, style.fill_color(), "props-fill-color", cx),
                 ));
             }
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Fill opacity",
                 Some("In percent"),
-                widgets::number_field(&self.opacity, 96.),
+                number::field(&self.opacity, 96.),
             ));
-            page = page.child(ui::group(IconName::PaintBucket, "Background", rows));
+            page = page.child(form::group(IconName::PaintBucket, "Background", rows));
         }
         page.child(self.templates_group(drawing, cx))
             .into_any_element()
@@ -1291,39 +1266,39 @@ impl DrawingProps {
     /// what it all comes to.
     fn position_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let Some(pos) = &self.pos else {
-            return ui::page().into_any_element();
+            return form::page().into_any_element();
         };
         let p = &drawing.style.position;
         let this = cx.entity();
 
-        let account = ui::group(
+        let account = form::group(
             IconName::Wallet,
             "Account",
             [
-                ui::field(
+                form::field(
                     "Account size",
                     Some("The balance the position is sized for"),
-                    widgets::number_field(&pos.account, 130.),
+                    number::field(&pos.account, 130.),
                 ),
-                ui::field(
+                form::field(
                     "Currency",
                     Some("Written after the amounts. Empty writes none"),
                     div().w(px(130.)).child(Input::new(&pos.currency).small()),
                 ),
-                ui::field(
+                form::field(
                     "Leverage",
                     Some("Caps the quantity at account x leverage / entry price"),
-                    widgets::number_field(&pos.leverage, 130.),
+                    number::field(&pos.leverage, 130.),
                 ),
             ],
         );
 
         let mode_this = this.clone();
-        let risk = ui::group(
+        let risk = form::group(
             IconName::ShieldAlert,
             "Risk and size",
             [
-                ui::field(
+                form::field(
                     "Risk",
                     Some("Lost if the stop is hit"),
                     div()
@@ -1331,8 +1306,8 @@ impl DrawingProps {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .child(widgets::number_field(&pos.risk, 100.))
-                        .child(widgets::segmented(
+                        .child(number::field(&pos.risk, 100.))
+                        .child(controls::segmented(
                             "props-risk-mode",
                             &["%", "Amount"],
                             usize::from(!p.risk_percent),
@@ -1348,22 +1323,22 @@ impl DrawingProps {
                             },
                         )),
                 ),
-                ui::field(
+                form::field(
                     "Lot size",
                     Some("The step the quantity is rounded down to"),
-                    widgets::number_field(&pos.lot_size, 130.),
+                    number::field(&pos.lot_size, 130.),
                 ),
-                ui::field(
+                form::field(
                     "Quantity decimals",
                     None,
-                    widgets::number_field(&pos.qty_precision, 130.),
+                    number::field(&pos.qty_precision, 130.),
                 ),
-                ui::field(
+                form::field(
                     "Point value",
                     Some(
                         "What one unit gains per 1.0 of price, in the account currency. 1 when the symbol is quoted in it",
                     ),
-                    widgets::number_field(&pos.point_value, 130.),
+                    number::field(&pos.point_value, 130.),
                 ),
             ],
         );
@@ -1372,10 +1347,10 @@ impl DrawingProps {
         let mode_this = this.clone();
         let target_this = this.clone();
         let mut levels = vec![
-            ui::field(
+            form::field(
                 "Stop loss",
                 None,
-                widgets::segmented(
+                controls::segmented(
                     "pos-stop-mode",
                     &["Fixed price", "ATR x"],
                     usize::from(p.atr_stop.is_some()),
@@ -1388,10 +1363,10 @@ impl DrawingProps {
                     },
                 ),
             ),
-            ui::field(
+            form::field(
                 "Take profit",
                 None,
-                widgets::segmented(
+                controls::segmented(
                     "pos-target-mode",
                     &["Fixed price", "Risk multiple"],
                     usize::from(p.target_rr.is_some()),
@@ -1412,20 +1387,20 @@ impl DrawingProps {
                 .iter()
                 .position(|m| *m == atr.smoothing)
                 .unwrap_or(0);
-            levels.push(ui::field(
+            levels.push(form::field(
                 "ATR length",
                 None,
-                widgets::number_field(&pos.atr_length, 100.),
+                number::field(&pos.atr_length, 100.),
             ));
-            levels.push(ui::field(
+            levels.push(form::field(
                 "ATR multiplier",
                 None,
-                widgets::number_field(&pos.atr_multiplier, 100.),
+                number::field(&pos.atr_multiplier, 100.),
             ));
-            levels.push(ui::field(
+            levels.push(form::field(
                 "ATR smoothing",
                 None,
-                widgets::segmented(
+                controls::segmented(
                     "pos-atr-smoothing",
                     &["RMA", "SMA", "EMA", "WMA"],
                     smooth_index,
@@ -1440,7 +1415,7 @@ impl DrawingProps {
                     },
                 ),
             ));
-            levels.push(ui::field(
+            levels.push(form::field(
                 "ATR timeframe",
                 Some(
                     "Leave blank to follow this chart, or enter a timeframe code such as M15 or H1",
@@ -1449,10 +1424,10 @@ impl DrawingProps {
                     .w(px(130.))
                     .child(Input::new(&pos.atr_timeframe).small()),
             ));
-            levels.push(ui::field(
+            levels.push(form::field(
                 "ATR bar",
                 None,
-                widgets::segmented(
+                controls::segmented(
                     "pos-atr-bar",
                     &["Last closed", "Current"],
                     usize::from(atr.current_bar),
@@ -1469,15 +1444,15 @@ impl DrawingProps {
             ));
         }
         if p.target_rr.is_some() {
-            levels.push(ui::field(
+            levels.push(form::field(
                 "Risk multiple",
                 None,
-                widgets::number_field(&pos.rr, 100.),
+                number::field(&pos.rr, 100.),
             ));
         }
-        let levels = ui::group(IconName::ChartNoAxesCombined, "Protection levels", levels);
+        let levels = form::group(IconName::ChartNoAxesCombined, "Protection levels", levels);
 
-        let result = ui::group(
+        let result = form::group(
             IconName::Calculator,
             "Result",
             self.position_result(drawing, cx),
@@ -1489,9 +1464,9 @@ impl DrawingProps {
                     on: bool,
                     cx: &mut Context<Self>,
                     set: fn(&mut Drawing, bool)| {
-            ui::field(label, hint, self.switch(id, on, cx, set))
+            form::field(label, hint, self.switch(id, on, cx, set))
         };
-        let stats = ui::group(
+        let stats = form::group(
             IconName::ListChecks,
             "Written on the chart",
             [
@@ -1571,13 +1546,13 @@ impl DrawingProps {
                 ),
             ],
         );
-        ui::page()
+        form::page()
             .child(account)
             .child(risk)
             .child(levels)
             .child(result)
             .child(stats)
-            .child(ui::note(
+            .child(form::note(
                 "The figures are a plan, not a quote: there is no exchange rate in them.",
             ))
             .into_any_element()
@@ -1591,12 +1566,12 @@ impl DrawingProps {
 
         let dash_this = this.clone();
         let dash_index = DASHES.iter().position(|d| *d == style.dash).unwrap_or(0);
-        let lines = ui::group(
+        let lines = form::group(
             IconName::PenLine,
             "Lines",
             [
                 self.width_row(drawing, cx),
-                ui::field(
+                form::field(
                     "Entry line",
                     None,
                     div()
@@ -1604,7 +1579,7 @@ impl DrawingProps {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .child(ui::dash_picker(
+                        .child(controls::dash_picker(
                             "props-dash",
                             dash_index,
                             move |choice, _w, cx| {
@@ -1615,12 +1590,12 @@ impl DrawingProps {
                         ))
                         .child(self.swatch(Swatch::Entry, p.entry_color, "props-entry-color", cx)),
                 ),
-                ui::field(
+                form::field(
                     "Target",
                     Some("The profit line and its zone"),
                     self.swatch(Swatch::Target, p.target_color, "props-target-color", cx),
                 ),
-                ui::field(
+                form::field(
                     "Stop",
                     Some("The loss line and its zone"),
                     self.swatch(Swatch::Stop, p.stop_color, "props-stop-color", cx),
@@ -1628,35 +1603,35 @@ impl DrawingProps {
             ],
         );
 
-        let background = ui::group(
+        let background = form::group(
             IconName::PaintBucket,
             "Background",
             [
-                ui::field(
+                form::field(
                     "Zones",
                     Some("Colors the profit and the loss zones"),
                     self.switch("props-fill", style.fill, cx, |d, on| d.style.fill = on),
                 ),
-                ui::field(
+                form::field(
                     "Zone opacity",
                     Some("In percent"),
-                    widgets::number_field(&self.opacity, 96.),
+                    number::field(&self.opacity, 96.),
                 ),
             ],
         );
 
-        let tags = ui::group(
+        let tags = form::group(
             IconName::Type,
             "Tags",
             [
-                ui::field(
+                form::field(
                     "Show the tags",
                     Some("The words on the levels"),
                     self.switch("props-labels", style.labels, cx, |d, on| {
                         d.style.labels = on
                     }),
                 ),
-                ui::field(
+                form::field(
                     "Text color",
                     Some("Dark on the colored tags unless you pick one"),
                     self.swatch(
@@ -1666,19 +1641,15 @@ impl DrawingProps {
                         cx,
                     ),
                 ),
-                ui::field(
-                    "Text size",
-                    None,
-                    widgets::number_field(&self.text_size, 96.),
-                ),
-                ui::field(
+                form::field("Text size", None, number::field(&self.text_size, 96.)),
+                form::field(
                     "Bold",
                     None,
                     self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
                 ),
             ],
         );
-        ui::page()
+        form::page()
             .child(lines)
             .child(background)
             .child(tags)
@@ -1695,10 +1666,10 @@ impl DrawingProps {
             .iter()
             .position(|t| *t == style.level_text)
             .unwrap_or(0);
-        let mut rows = vec![ui::field(
+        let mut rows = vec![form::field(
             "Caption",
             Some("What is written beside each level"),
-            widgets::segmented(
+            controls::segmented(
                 "props-level-text",
                 &labels,
                 index,
@@ -1711,10 +1682,10 @@ impl DrawingProps {
         )];
         if drawing.tool.has_label_side() {
             let side_this = cx.entity();
-            rows.push(ui::field(
+            rows.push(form::field(
                 "Side",
                 Some("Where the captions stand: left or right of the levels"),
-                widgets::segmented(
+                controls::segmented(
                     "props-level-side",
                     &["Left", "Right"],
                     usize::from(style.label_side == LabelSide::Right),
@@ -1732,7 +1703,7 @@ impl DrawingProps {
                 ),
             ));
         }
-        ui::group(IconName::Tag, "Captions", rows)
+        form::group(IconName::Tag, "Captions", rows)
     }
 
     /// The button of a level that picks its line style: the drawing's own, then solid, dashed and
@@ -1756,9 +1727,9 @@ impl DrawingProps {
                 .text_color(theme::muted_fg())
                 .child("Auto")
                 .into_any_element(),
-            Some(Dash::Solid) => ui::dash_glyph(0, theme::fg()).into_any_element(),
-            Some(Dash::Dashed) => ui::dash_glyph(1, theme::fg()).into_any_element(),
-            Some(Dash::Dotted) => ui::dash_glyph(2, theme::fg()).into_any_element(),
+            Some(Dash::Solid) => controls::dash_glyph(0, theme::fg()).into_any_element(),
+            Some(Dash::Dashed) => controls::dash_glyph(1, theme::fg()).into_any_element(),
+            Some(Dash::Dotted) => controls::dash_glyph(2, theme::fg()).into_any_element(),
         };
         div()
             .id(("props-level-dash", index))
@@ -1858,7 +1829,7 @@ impl DrawingProps {
                             }
                         },
                     ))
-                    .child(widgets::number_field(field, 100.))
+                    .child(number::field(field, 100.))
                     .child(self.swatch(
                         Swatch::Level(index),
                         level.color,
@@ -1868,7 +1839,7 @@ impl DrawingProps {
                     .children(
                         self.level_widths
                             .get(index)
-                            .map(|width| widgets::number_field(width, 84.)),
+                            .map(|width| number::field(width, 84.)),
                     )
                     .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
@@ -1887,15 +1858,15 @@ impl DrawingProps {
                     .into_any_element(),
             );
         }
-        ui::page()
+        form::page()
             .child(self.captions_group(drawing, cx))
-            .child(ui::group_with(
+            .child(form::group_with(
                 IconName::SlidersHorizontal,
                 format!("Levels ({}/{MAX_LEVELS})", levels.len()),
                 Some(controls),
                 rows,
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Each level is a ratio of the move between the points. The switch hides one without losing it. A width of 0 follows the drawing, and the line button cycles through the drawing's style, solid, dashed and dotted.",
             ))
             .into_any_element()
@@ -1938,7 +1909,7 @@ impl DrawingProps {
         set: fn(&mut Drawing, usize),
     ) -> AnyElement {
         let this = cx.entity();
-        widgets::segmented(id, &names, current, move |choice, _window, cx| {
+        controls::segmented(id, &names, current, move |choice, _window, cx| {
             this.update(cx, |e, cx| e.change(cx, |d| set(d, choice)));
         })
         .into_any_element()
@@ -1986,9 +1957,9 @@ impl DrawingProps {
             },
         );
         let mut placement = vec![
-            ui::field("Along the drawing", None, horizontal),
-            ui::field("Across the drawing", None, across),
-            ui::field(
+            form::field("Along the drawing", None, horizontal),
+            form::field("Across the drawing", None, across),
+            form::field(
                 "Background",
                 Some("Puts the words on a filled tag"),
                 self.switch("label-background", layout.background, cx, |d, on| {
@@ -1997,7 +1968,7 @@ impl DrawingProps {
             ),
         ];
         if layout.background {
-            placement.push(ui::field(
+            placement.push(form::field(
                 "Tag color",
                 None,
                 self.swatch(
@@ -2009,23 +1980,23 @@ impl DrawingProps {
             ));
         }
         vec![
-            ui::group(
+            form::group(
                 IconName::TextCursorInput,
                 "Label",
-                [ui::block(Textarea::new(&self.text).h(px(72.)))],
+                [form::block(Textarea::new(&self.text).h(px(72.)))],
             ),
-            ui::group(IconName::Move, "Placement", placement),
+            form::group(IconName::Move, "Placement", placement),
         ]
     }
 
     fn text_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let style = &drawing.style;
-        let mut page = ui::page();
+        let mut page = form::page();
         if drawing.tool.has_text() {
-            page = page.child(ui::group(
+            page = page.child(form::group(
                 IconName::TextCursorInput,
                 "Words",
-                [ui::block(Textarea::new(&self.text).h(px(96.)))],
+                [form::block(Textarea::new(&self.text).h(px(96.)))],
             ));
         }
         if drawing.tool.takes_label() {
@@ -2033,17 +2004,17 @@ impl DrawingProps {
                 page = page.child(group);
             }
         }
-        page.child(ui::group(
+        page.child(form::group(
             IconName::Type,
             "Font",
             [
-                ui::field(
+                form::field(
                     "Color",
                     None,
                     self.swatch(Swatch::Text, style.text_color(), "props-text-color", cx),
                 ),
-                ui::field("Size", None, widgets::number_field(&self.text_size, 96.)),
-                ui::field(
+                form::field("Size", None, number::field(&self.text_size, 96.)),
+                form::field(
                     "Bold",
                     None,
                     self.switch("props-bold", style.bold, cx, |d, on| d.style.bold = on),
@@ -2055,7 +2026,7 @@ impl DrawingProps {
 
     fn coordinates_page(&self, drawing: &Drawing) -> AnyElement {
         if drawing.tool.is_freehand() {
-            return ui::empty(
+            return form::empty(
                 IconName::Brush,
                 "A freehand stroke is moved as a whole, by dragging it on the chart.",
             )
@@ -2112,9 +2083,9 @@ impl DrawingProps {
                     .into_any_element(),
             );
         }
-        ui::page()
-            .child(ui::group(IconName::Crosshair, "Points", rows))
-            .child(ui::note(format!(
+        form::page()
+            .child(form::group(IconName::Crosshair, "Points", rows))
+            .child(form::note(format!(
                 "Prices have {} decimals. Times snap to the bars when the drawing is moved.",
                 self.digits
             )))
@@ -2124,21 +2095,21 @@ impl DrawingProps {
     fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
         let this = cx.entity();
         let all = drawing.timeframes.is_none();
-        let mut page = ui::page().child(ui::group(
+        let mut page = form::page().child(form::group(
             IconName::Eye,
             "Display",
             [
-                ui::field(
+                form::field(
                     "Hidden",
                     Some("Keeps the drawing but does not show it"),
                     self.switch("props-hidden", drawing.hidden, cx, |d, on| d.hidden = on),
                 ),
-                ui::field(
+                form::field(
                     "Locked",
                     Some("Stops it from being moved, changed or deleted"),
                     self.switch("props-locked", drawing.locked, cx, |d, on| d.locked = on),
                 ),
-                ui::field(
+                form::field(
                     "Name",
                     Some("As shown in the list of drawings"),
                     div().w(px(220.)).child(Input::new(&self.name).small()),
@@ -2146,7 +2117,7 @@ impl DrawingProps {
             ],
         ));
 
-        let mut rows: Vec<AnyElement> = vec![ui::field(
+        let mut rows: Vec<AnyElement> = vec![form::field(
             "On every timeframe",
             None,
             self.switch("props-all-tf", all, cx, |d, on| {
@@ -2167,12 +2138,12 @@ impl DrawingProps {
                     .collect();
                 let chip_this = this.clone();
                 let codes_for_click = codes.clone();
-                rows.push(ui::block(
+                rows.push(form::block(
                     div()
                         .flex()
                         .flex_col()
                         .gap_1p5()
-                        .child(ui::note(group))
+                        .child(form::note(group))
                         .child(chips(
                             &format!("props-tf-{group}"),
                             &label_refs,
@@ -2195,7 +2166,7 @@ impl DrawingProps {
                 ));
             }
         }
-        page = page.child(ui::group(IconName::Clock, "Timeframes", rows));
+        page = page.child(form::group(IconName::Clock, "Timeframes", rows));
         page.into_any_element()
     }
 
@@ -2203,9 +2174,9 @@ impl DrawingProps {
     fn footer(&self, cx: &mut Context<Self>) -> gpui::Div {
         let has_template = self.has_template(cx);
         let (template, reset, cancel, ok) = (cx.entity(), cx.entity(), cx.entity(), cx.entity());
-        ui::footer(
+        form::footer(
             vec![
-                ui::action(
+                button::action(
                     "drawing-template",
                     "Save as default",
                     Some(IconName::Save),
@@ -2214,7 +2185,7 @@ impl DrawingProps {
                 )
                 .tooltip("New drawings of this tool start with this look")
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "drawing-reset",
                     if has_template { "Reset" } else { "Reset look" },
                     Some(IconName::RotateCcw),
@@ -2225,7 +2196,7 @@ impl DrawingProps {
                 .into_any_element(),
             ],
             vec![
-                ui::action(
+                button::action(
                     "drawing-cancel",
                     "Cancel",
                     None,
@@ -2236,7 +2207,7 @@ impl DrawingProps {
                     },
                 )
                 .into_any_element(),
-                ui::action("drawing-ok", "OK", None, true, move |window, cx| {
+                button::action("drawing-ok", "OK", None, true, move |window, cx| {
                     ok.update(cx, |e, cx| e.finish(true, cx));
                     modal::close(window, cx);
                 })
@@ -2258,7 +2229,7 @@ impl Render for DrawingProps {
                 .border_1()
                 .border_color(theme::border_subtle())
                 .bg(theme::bg())
-                .child(ui::empty(IconName::Info, "This drawing was removed."))
+                .child(form::empty(IconName::Info, "This drawing was removed."))
                 .into_any_element();
         };
         if self.levels_changed || self.levels.len() != drawing.levels().len() {
@@ -2268,7 +2239,7 @@ impl Render for DrawingProps {
         if !tabs.contains(&self.tab) {
             self.tab = tabs[0];
         }
-        let specs: Vec<ui::Tab> = tabs.iter().map(|t| t.spec()).collect();
+        let specs: Vec<form::Tab> = tabs.iter().map(|t| t.spec()).collect();
         let active = tabs.iter().position(|t| *t == self.tab).unwrap_or(0);
         let this = cx.entity();
         let body = match self.tab {
@@ -2291,7 +2262,7 @@ impl Render for DrawingProps {
             .into(),
         };
         let footer = self.footer(cx);
-        ui::frame(
+        form::frame(
             head,
             &specs,
             active,

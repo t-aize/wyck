@@ -10,8 +10,10 @@ use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
 use crate::indicators::{self, editor::EditorEvent, editor::IndicatorEditor};
-use crate::menu::{Entry, Item, Menu, Placement};
-use crate::theme;
+use wyck_ui::{
+    menu::{Entry, Item, Menu, Placement},
+    theme,
+};
 
 /// The least and the most height of the panel that is not maximized.
 const DOCK_MIN: f32 = 220.0;

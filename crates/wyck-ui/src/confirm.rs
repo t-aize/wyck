@@ -1,5 +1,5 @@
 //! The question the app asks before it does something it cannot take back: send an order, close a
-//! position. It is a small dialog in the modal (see [`super::modal`]), with the same look as the
+//! position. It is a small dialog in the modal (see [`crate::modal`]), with the same look as the
 //! settings panels.
 
 use std::rc::Rc;
@@ -8,8 +8,8 @@ use gpui::prelude::*;
 use gpui::{App, Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 
-use super::settings_ui::{self as ui, Head};
-use super::{modal, theme};
+use crate::form::{self, Head};
+use crate::{button, modal, theme};
 
 /// The size of the dialog.
 const WIDTH: f32 = 440.0;
@@ -52,18 +52,18 @@ impl Render for Confirm {
             .text_size(px(14.))
             .text_color(theme::fg())
             .child(self.text.clone());
-        let footer = ui::footer(
+        let footer = form::footer(
             Vec::new(),
             vec![
-                ui::action("confirm-cancel", "Cancel", None, false, modal::close)
+                button::action("confirm-cancel", "Cancel", None, false, modal::close)
                     .into_any_element(),
-                ui::action("confirm-ok", "Confirm", None, true, move |window, cx| {
+                button::action("confirm-ok", "Confirm", None, true, move |window, cx| {
                     modal::close(window, cx);
                     then(window, cx);
                 })
                 .into_any_element(),
             ],
         );
-        ui::dialog(head, modal::dismiss, body, footer)
+        form::dialog(head, modal::dismiss, body, footer)
     }
 }

@@ -15,10 +15,12 @@ use gpui_kit::component::tooltip::Tooltip;
 use super::MultiChart;
 use crate::chart::drawing::model::Tool;
 use crate::chart::object_tree::tool_icon;
-use crate::connection::ui;
-use crate::menu::{self as popup, Entry, Item};
-use crate::theme;
 use crate::workspace::MAX_FAVORITE_TOOLS;
+use wyck_ui::{
+    icon,
+    menu::{self as popup, Entry, Item},
+    theme,
+};
 
 /// How tall the bar is.
 const BAR_HEIGHT: f32 = 36.0;
@@ -33,9 +35,9 @@ impl MultiChart {
     pub(crate) fn toggle_favorite(&mut self, tool: Tool, cx: &mut Context<Self>) {
         let list = self.favorite_tools(cx);
         if !list.contains(&tool) && list.len() >= MAX_FAVORITE_TOOLS {
-            crate::toast::show(
+            wyck_ui::toast::show(
                 cx,
-                crate::toast::Kind::Info,
+                wyck_ui::toast::Kind::Info,
                 "The favorites are full",
                 format!("The bar holds {MAX_FAVORITE_TOOLS} tools. Unpin one to make room."),
             );
@@ -122,7 +124,7 @@ impl MultiChart {
             .border_b_1()
             .border_color(theme::border_hairline())
             .bg(theme::bg())
-            .child(div().flex_none().px_1().child(ui::icon_colored(
+            .child(div().flex_none().px_1().child(icon::tinted(
                 IconName::StarFill,
                 14.,
                 theme::amber(),
@@ -201,7 +203,7 @@ impl MultiChart {
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.pick_favorite(index, cx);
                     }))
-                    .child(ui::icon_colored(
+                    .child(icon::tinted(
                         tool_icon(tool),
                         16.,
                         if selected {

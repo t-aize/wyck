@@ -15,8 +15,7 @@ use super::MultiChart;
 use crate::chart::DrawingCommand;
 use crate::chart::drawing::model::{Dash, Group, PALETTE, Tool};
 use crate::chart::object_tree::tool_icon;
-use crate::connection::ui;
-use crate::{theme, widgets};
+use wyck_ui::{controls, icon, theme};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -299,7 +298,7 @@ impl MultiChart {
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.pick_tool(Some(tool), cx);
                             }))
-                            .child(ui::icon_colored(
+                            .child(icon::tinted(
                                 tool_icon(tool),
                                 15.,
                                 if selected {
@@ -331,7 +330,7 @@ impl MultiChart {
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.toggle_favorite(tool, cx);
                             }))
-                            .child(ui::icon_colored(
+                            .child(icon::tinted(
                                 if starred {
                                     IconName::StarFill
                                 } else {
@@ -427,7 +426,7 @@ impl MultiChart {
                 }
                 // Any other color: the panel with the square, the hue bar and the typed values.
                 let (open_this, pick_this) = (cx.entity(), cx.entity());
-                bar = bar.child(widgets::color_swatch(
+                bar = bar.child(controls::color_swatch(
                     "draw-color-custom",
                     style.color,
                     self.color_open == Some(id),

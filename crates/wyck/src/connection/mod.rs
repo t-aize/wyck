@@ -15,7 +15,6 @@ mod credentials;
 mod rules;
 mod select_account;
 mod stepper;
-pub(crate) mod ui;
 mod welcome;
 
 use std::sync::Arc;
@@ -37,7 +36,7 @@ use gpui_kit::component::Root;
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
 use super::workspace::Documents;
-use super::{anim, runtime, theme, title_bar};
+use super::{runtime, title_bar};
 
 enum Screen {
     Welcome,
@@ -50,6 +49,7 @@ enum Screen {
 }
 
 use self::rules::service_tag;
+use wyck_ui::{anim, theme};
 
 /// Everything needed to open a session again, read back from the saved profile.
 struct SavedConnection {
@@ -290,7 +290,7 @@ impl Render for ConnectionFlow {
             .children(Root::render_sheet_layer(window, cx))
             .children(Root::render_dialog_layer(window, cx))
             // The settings panels, over the dialogs and under the notices.
-            .child(super::modal::host(cx))
+            .child(wyck_ui::modal::host(cx))
             .children(Root::render_notification_layer(window, cx))
     }
 }

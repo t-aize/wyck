@@ -11,8 +11,8 @@ use gpui_kit::component::{Disableable, Selectable, Sizable};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
-use crate::connection::ui;
-use crate::{anim, chart, menu, theme, trading};
+use crate::{chart, trading};
+use wyck_ui::{anim, button, icon, layout, menu, theme};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;
@@ -100,7 +100,7 @@ impl Dashboard {
                 active.entry.description.clone(),
             ),
             None => (
-                ui::icon_tile(
+                layout::icon_tile(
                     IconName::Search,
                     30.,
                     16.,
@@ -166,7 +166,7 @@ impl Dashboard {
                         )
                     }),
             )
-            .child(ui::icon_colored(
+            .child(icon::tinted(
                 IconName::ChevronsUpDown,
                 15.,
                 theme::muted_fg(),
@@ -229,7 +229,7 @@ impl Dashboard {
                             .child(bid),
                     )
                     .child(div().flex_none().w(px(14.)).children(self.tick.map(|tick| {
-                        ui::icon_colored(
+                        icon::tinted(
                             match tick {
                                 Tick::Up => IconName::ArrowUp,
                                 Tick::Down => IconName::ArrowDown,
@@ -305,11 +305,7 @@ impl Dashboard {
                 cx.notify();
             }))
             .when(!in_quick, |el| el.child(current.label()))
-            .child(ui::icon_colored(
-                IconName::ChevronDown,
-                14.,
-                theme::muted_fg(),
-            ));
+            .child(icon::tinted(IconName::ChevronDown, 14., theme::muted_fg()));
 
         div()
             .relative()
@@ -359,9 +355,9 @@ impl Dashboard {
             chart::Timeframe::from_code(&text)
         };
         let Some(timeframe) = timeframe else {
-            crate::toast::show(
+            wyck_ui::toast::show(
                 cx,
-                crate::toast::Kind::Warning,
+                wyck_ui::toast::Kind::Warning,
                 "Not a timeframe",
                 format!(
                     "\"{text}\" is not one: up to 300 seconds, a day in minutes or hours, 365 days, \
@@ -409,7 +405,7 @@ impl Dashboard {
                         .m_1()
                         .build(window, cx)
                 })
-                .child(ui::icon_colored(icon, 13., color))
+                .child(icon::tinted(icon, 13., color))
         };
         div()
             .flex()
@@ -659,21 +655,24 @@ impl Dashboard {
         };
         // The connection only speaks up when something is wrong.
         let (dot, problem): (gpui::AnyElement, Option<&str>) = match &self.conn {
-            Conn::Ready => (ui::status_dot(theme::emerald()).into_any_element(), None),
+            Conn::Ready => (
+                layout::status_dot(theme::emerald()).into_any_element(),
+                None,
+            ),
             Conn::Connecting => (
                 anim::spin(
-                    ui::icon_colored(IconName::LoaderCircle, 12., theme::muted_fg()),
+                    icon::tinted(IconName::LoaderCircle, 12., theme::muted_fg()),
                     "header-connecting",
                 )
                 .into_any_element(),
                 Some("Connecting..."),
             ),
             Conn::Reconnecting => (
-                ui::status_dot(theme::amber()).into_any_element(),
+                layout::status_dot(theme::amber()).into_any_element(),
                 Some("Reconnecting..."),
             ),
             Conn::Failed(_) => (
-                ui::status_dot(theme::destructive()).into_any_element(),
+                layout::status_dot(theme::destructive()).into_any_element(),
                 Some("Disconnected"),
             ),
         };
@@ -710,7 +709,7 @@ impl Dashboard {
                 cx.notify();
             }))
             .child(dot)
-            .child(ui::environment_badge(self.account.is_live))
+            .child(layout::environment_badge(self.account.is_live))
             .children(problem.map(|text| {
                 div()
                     .text_size(px(12.))
@@ -733,11 +732,7 @@ impl Dashboard {
                     profit_color,
                 ))
             })
-            .child(ui::icon_colored(
-                IconName::ChevronDown,
-                13.,
-                theme::muted_fg(),
-            ))
+            .child(icon::tinted(IconName::ChevronDown, 13., theme::muted_fg()))
     }
 
     fn fullscreen_button(&self, window: &mut Window) -> impl IntoElement {
@@ -839,7 +834,7 @@ impl Dashboard {
                             .text_color(theme::fg())
                             .child(self.account.label.clone()),
                     )
-                    .child(ui::environment_badge(self.account.is_live)),
+                    .child(layout::environment_badge(self.account.is_live)),
             )
             .child(self.menu_figures(cx))
             .child(
@@ -871,7 +866,7 @@ impl Dashboard {
                     ),
             )
             .child(
-                ui::primary_button(
+                button::primary(
                     "disconnect-account",
                     "Disconnect",
                     cx.listener(|_this, _event, _window, cx| {

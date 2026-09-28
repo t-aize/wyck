@@ -39,9 +39,8 @@ use super::chart::{
     Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId, LiveHub,
     LiveUpdate, Timeframe,
 };
-use super::text_input::TextInput;
-use super::theme;
 use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
+use wyck_ui::{text_input::TextInput, theme};
 
 /// The symbol of a chart: its id, name and number of decimals.
 #[derive(Debug, Clone, PartialEq)]
@@ -285,9 +284,9 @@ impl MultiChart {
             ChartClipboard::Studies(studies) => {
                 let limit = chart.read(cx).max_studies();
                 if studies.len() > limit {
-                    crate::toast::show(
+                    wyck_ui::toast::show(
                         cx,
-                        crate::toast::Kind::Warning,
+                        wyck_ui::toast::Kind::Warning,
                         "Indicator limit reached",
                         format!(
                             "The copied chart has {} indicators; this chart allows {limit}.",

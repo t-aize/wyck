@@ -9,8 +9,8 @@ use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::transport::connection::Client;
 use wyck_openapi::transport::messages::TraderAccount;
 
-use super::ui;
-use super::{ConnectionFlow, Screen, anim, theme};
+use super::{ConnectionFlow, Screen};
+use wyck_ui::{anim, button, icon, layout, theme};
 
 pub(super) struct SelectAccountState {
     credentials: ClientCredentials,
@@ -49,7 +49,7 @@ impl ConnectionFlow {
     ) -> impl IntoElement {
         let epoch = self.epoch;
 
-        ui::screen()
+        layout::screen()
             .child(
                 div()
                     .flex()
@@ -62,7 +62,7 @@ impl ConnectionFlow {
                             .flex_row()
                             .items_center()
                             .gap_4()
-                            .child(ui::icon_tile(
+                            .child(layout::icon_tile(
                                 IconName::Wallet,
                                 48.,
                                 22.,
@@ -104,7 +104,7 @@ impl ConnectionFlow {
                         }),
                     ))
                     .child(
-                        ui::primary_button(
+                        button::primary(
                             "connect-selected-account",
                             "Connect this account",
                             cx.listener(|this, _event, _window, cx| {
@@ -113,13 +113,13 @@ impl ConnectionFlow {
                         )
                         .icon(IconName::PlugZap),
                     )
-                    .child(div().flex().justify_center().child(ui::ghost_button(
+                    .child(div().flex().justify_center().child(button::ghost(
                         "use-different-account",
                         "Use a different cTrader ID",
                         cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
                     ))),
             )
-            .child(ui::back_button(
+            .child(button::back(
                 "select-account-back",
                 cx.listener(|this, _event, _window, cx| this.go_to_credentials(cx)),
             ))
@@ -224,11 +224,7 @@ fn account_row(
                 .items_center()
                 .justify_center()
                 .text_color(theme::muted_fg())
-                .child(ui::icon_colored(
-                    IconName::Building2,
-                    17.,
-                    theme::muted_fg(),
-                )),
+                .child(icon::tinted(IconName::Building2, 17., theme::muted_fg())),
         )
         .child(
             div()
@@ -250,7 +246,7 @@ fn account_row(
                                 .clone()
                                 .unwrap_or_else(|| "cTrader".into()),
                         )
-                        .child(ui::environment_badge(is_live)),
+                        .child(layout::environment_badge(is_live)),
                 )
                 .child(
                     div()

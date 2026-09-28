@@ -9,8 +9,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::footprint::{CellMode, FootprintSettings, HeatScope};
 use super::settings::ChartSettings;
-use crate::settings_ui as ui;
-use crate::widgets;
+use wyck_ui::{controls, form, number};
 
 /// The numbers of the footprint that are typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,21 +94,15 @@ pub(super) fn inputs<T: 'static>(
     for field in Field::ALL {
         let (low, high) = field.range();
         let value = f64::from(field.get(&settings));
-        let state = cx.new(|cx| widgets::number_state(value, low, high, 1.0, 0, window, cx));
+        let state = cx.new(|cx| number::state(value, low, high, 1.0, 0, window, cx));
         let chart = chart.clone();
-        subscriptions.push(widgets::watch_number(
-            &state,
-            cx,
-            move |_this, value, cx| {
-                if value >= 0.0 {
-                    chart.update(cx, |chart, cx| {
-                        chart.edit_settings(cx, |s| {
-                            field.set(&mut s.footprint, value.round() as u32)
-                        });
-                    });
-                }
-            },
-        ));
+        subscriptions.push(number::watch(&state, cx, move |_this, value, cx| {
+            if value >= 0.0 {
+                chart.update(cx, |chart, cx| {
+                    chart.edit_settings(cx, |s| field.set(&mut s.footprint, value.round() as u32));
+                });
+            }
+        }));
         inputs.push((field, state));
     }
     (inputs, subscriptions)
@@ -127,7 +120,7 @@ pub(super) fn groups(
 ) -> Vec<AnyElement> {
     let switch = |id: &'static str, on: bool, change: fn(&mut FootprintSettings, bool)| {
         let chart = chart.clone();
-        ui::toggle(id, on, move |on, _window, cx| {
+        controls::toggle(id, on, move |on, _window, cx| {
             edit(&chart, cx, |s| change(&mut s.footprint, on));
         })
     };
@@ -136,10 +129,10 @@ pub(super) fn groups(
             .iter()
             .find(|(candidate, _)| *candidate == field)
             .map(|(_, state)| state);
-        ui::field(
+        form::field(
             field.label(),
             field.hint(),
-            gpui::div().children(state.map(|state| widgets::number_field(state, 120.))),
+            gpui::div().children(state.map(|state| number::field(state, 120.))),
         )
     };
     let mode_labels: Vec<&str> = CellMode::ALL.iter().map(|m| m.label()).collect();
@@ -153,10 +146,10 @@ pub(super) fn groups(
     let scope_chart = chart.clone();
 
     let cells = vec![
-        ui::field(
+        form::field(
             "Cells show",
             None,
-            widgets::segmented(
+            controls::segmented(
                 "footprint-mode",
                 &mode_labels,
                 mode_index,
@@ -167,20 +160,20 @@ pub(super) fn groups(
                 },
             ),
         ),
-        ui::field(
+        form::field(
             "Numbers",
             None,
             switch("footprint-numbers", f.numbers, |f, on| f.numbers = on),
         ),
-        ui::field(
+        form::field(
             "Heat colors",
             None,
             switch("footprint-heat", f.heat, |f, on| f.heat = on),
         ),
-        ui::field(
+        form::field(
             "Heat compared with",
             None,
-            widgets::segmented(
+            controls::segmented(
                 "footprint-scope",
                 &scope_labels,
                 scope_index,
@@ -192,32 +185,32 @@ pub(super) fn groups(
             ),
         ),
         number(Field::RowSteps),
-        ui::field(
+        form::field(
             "Delta and volume under each bar",
             None,
             switch("footprint-summary", f.summary, |f, on| f.summary = on),
         ),
     ];
     let imbalances = vec![
-        ui::field(
+        form::field(
             "Highlight imbalances",
             None,
             switch("footprint-imbalance", f.imbalance, |f, on| f.imbalance = on),
         ),
-        ui::field(
+        form::field(
             "Ask against the bid below",
             Some("The diagonal comparison"),
             switch("footprint-diagonal", f.diagonal, |f, on| f.diagonal = on),
         ),
         number(Field::ImbalancePercent),
         number(Field::ImbalanceMin),
-        ui::field(
+        form::field(
             "Stacked imbalances",
             None,
             switch("footprint-stacked", f.stacked, |f, on| f.stacked = on),
         ),
         number(Field::StackRows),
-        ui::field(
+        form::field(
             "Extend stacks until touched",
             None,
             switch("footprint-project", f.project_stacks, |f, on| {
@@ -226,19 +219,19 @@ pub(super) fn groups(
         ),
     ];
     let control = vec![
-        ui::field(
+        form::field(
             "Point of control",
             None,
             switch("footprint-poc", f.poc, |f, on| f.poc = on),
         ),
-        ui::field(
+        form::field(
             "Extend the point of control until touched",
             None,
             switch("footprint-extend-poc", f.extend_poc, |f, on| {
                 f.extend_poc = on;
             }),
         ),
-        ui::field(
+        form::field(
             "Value area",
             None,
             switch("footprint-va", f.value_area, |f, on| f.value_area = on),
@@ -246,8 +239,9 @@ pub(super) fn groups(
         number(Field::ValueAreaPercent),
     ];
     vec![
-        ui::group(IconName::Rows3, "Footprint cells", cells).into_any_element(),
-        ui::group(IconName::Scale, "Imbalances", imbalances).into_any_element(),
-        ui::group(IconName::Target, "Point of control and value area", control).into_any_element(),
+        form::group(IconName::Rows3, "Footprint cells", cells).into_any_element(),
+        form::group(IconName::Scale, "Imbalances", imbalances).into_any_element(),
+        form::group(IconName::Target, "Point of control and value area", control)
+            .into_any_element(),
     ]
 }

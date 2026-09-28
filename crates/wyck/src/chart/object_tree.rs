@@ -12,9 +12,8 @@ use super::drawing::book::{Book, Order};
 use super::drawing::model::{Drawing, Tool};
 use super::drawing_props;
 use super::zone::Zone;
-use crate::connection::ui::icon_colored;
-use crate::settings_ui::{self as ui, Head};
-use crate::{modal, theme};
+use wyck_ui::form::Head;
+use wyck_ui::{button, form, icon, modal, theme};
 
 pub fn tool_icon(tool: Tool) -> IconName {
     match tool {
@@ -198,7 +197,7 @@ impl ObjectTree {
                     });
                 });
             })
-            .child(icon_colored(
+            .child(icon::tinted(
                 tool_icon(drawing.tool),
                 15.,
                 if hidden {
@@ -333,7 +332,7 @@ impl Render for ObjectTree {
             },
         };
         let body = if list.is_empty() {
-            ui::empty(
+            form::empty(
                 IconName::Pencil,
                 "No drawings on this symbol yet. Pick a tool on the left of the chart.",
             )
@@ -347,9 +346,9 @@ impl Render for ObjectTree {
             rows.into_any_element()
         };
         let (show, clear) = (this.clone(), this);
-        let footer = ui::footer(
+        let footer = form::footer(
             vec![
-                ui::action(
+                button::action(
                     "tree-show-all",
                     if some_hidden { "Show all" } else { "Hide all" },
                     Some(if some_hidden {
@@ -366,7 +365,7 @@ impl Render for ObjectTree {
                 )
                 .disabled(list.is_empty())
                 .into_any_element(),
-                ui::action(
+                button::action(
                     "tree-clear",
                     "Remove unlocked",
                     Some(IconName::Trash),
@@ -380,8 +379,10 @@ impl Render for ObjectTree {
                 .disabled(list.is_empty())
                 .into_any_element(),
             ],
-            vec![ui::action("tree-close", "Close", None, true, modal::close).into_any_element()],
+            vec![
+                button::action("tree-close", "Close", None, true, modal::close).into_any_element(),
+            ],
         );
-        ui::dialog(head, modal::dismiss, body, footer)
+        form::dialog(head, modal::dismiss, body, footer)
     }
 }

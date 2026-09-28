@@ -5,8 +5,6 @@
 //! and a red that stand apart from it. A theme is dark or light by what its background is, not by
 //! a flag.
 
-use crate::theme::Colors;
-
 /// A theme that comes with the app.
 pub struct Preset {
     pub id: &'static str,
@@ -19,6 +17,7 @@ const fn selection(accent: u32) -> u32 {
     (accent << 8) | 0x66
 }
 
+use wyck_ui::theme::Colors;
 /// Fills in what the palettes below leave to a rule: the tint of the selection, the text on the
 /// accent, and the chart's background, which is the page's.
 #[allow(clippy::too_many_arguments)]
@@ -223,7 +222,7 @@ pub const CANDLE_SETS: &[(&str, u32, u32)] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::luminance;
+    use wyck_ui::theme::luminance;
 
     #[test]
     fn every_preset_has_its_own_id_and_name() {

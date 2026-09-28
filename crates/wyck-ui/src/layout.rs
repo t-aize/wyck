@@ -1,33 +1,13 @@
-//! Small building blocks shared by every screen in the connection flow, styled from
-//! [`super::theme`] so a screen never spells out a color or radius itself. Buttons are
-//! gpui-component's, restyled through [`theme::apply`]; everything else is plain divs.
+//! Page-level building blocks: the screen shell, cards, tiles, banners, badges and status dots.
 
 use gpui::prelude::*;
-use gpui::{App, ClickEvent, Div, Rgba, SharedString, Svg, Window, div, px, svg};
+use gpui::{Div, Rgba, SharedString, div, px};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::Sizable;
-use gpui_kit::component::button::{Button, ButtonVariants};
 
-use super::theme;
-use crate::anim;
-
-/// A Lucide icon in the primary text color. An `svg` doesn't inherit color from its parent in
-/// this GPUI version, so a different tint is chained on with `.text_color(...)` (or use
-/// [`icon_colored`]).
-pub fn icon(name: IconName, size_px: f32) -> Svg {
-    icon_colored(name, size_px, theme::fg())
-}
-
-pub fn icon_colored(name: IconName, size_px: f32, color: Rgba) -> Svg {
-    svg()
-        .path(name.path())
-        .size(px(size_px))
-        .flex_shrink_0()
-        .text_color(color)
-}
+use crate::{anim, icon, theme};
 
 /// The page shell every screen renders into: content centered in the remaining space, with room
-/// for a [`back_button`] to sit absolutely positioned in the top-left corner.
+/// for a [`crate::button::back`] to sit absolutely positioned in the top-left corner.
 pub fn screen() -> Div {
     // The top padding keeps content clear of the progress indicator and the Back button.
     div()
@@ -38,65 +18,6 @@ pub fn screen() -> Div {
         .justify_center()
         .pt(px(76.))
         .pb(px(24.))
-}
-
-/// The "Back" button in the top-left corner of a [`screen`].
-pub fn back_button(
-    id: impl Into<gpui::ElementId>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div().absolute().top_5().left_5().child(
-        Button::new(id)
-            .ghost()
-            .icon(IconName::ArrowLeft)
-            .label("Back")
-            .cursor_pointer()
-            .tooltip("Go back")
-            .on_click(on_click),
-    )
-}
-
-/// The filled, accent-colored call-to-action button.
-pub fn primary_button(
-    id: impl Into<gpui::ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    Button::new(id)
-        .primary()
-        .large()
-        .w_full()
-        .label(label)
-        .cursor_pointer()
-        .on_click(on_click)
-}
-
-/// A borderless, muted text button (e.g. "Cancel", "Use a different cTrader ID").
-pub fn ghost_button(
-    id: impl Into<gpui::ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    Button::new(id)
-        .ghost()
-        .label(label)
-        .cursor_pointer()
-        .on_click(on_click)
-}
-
-/// An outlined, secondary button (e.g. "Disconnect").
-pub fn secondary_button(
-    id: impl Into<gpui::ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    Button::new(id)
-        .outline()
-        .large()
-        .w_full()
-        .label(label)
-        .cursor_pointer()
-        .on_click(on_click)
 }
 
 /// The raised panel most screens center their content in.
@@ -124,7 +45,7 @@ pub fn icon_tile(name: IconName, tile: f32, glyph: f32, bg: Rgba, fg: Rgba) -> D
         .items_center()
         .justify_center()
         .text_color(fg)
-        .child(icon_colored(name, glyph, fg))
+        .child(icon::tinted(name, glyph, fg))
 }
 
 /// A circular icon badge for the "what happens next" list.
@@ -138,11 +59,12 @@ pub fn step_badge(name: IconName) -> impl IntoElement {
         .items_center()
         .justify_center()
         .text_color(theme::fg())
-        .child(icon(name, 15.))
+        .child(icon::plain(name, 15.))
 }
 
-/// A labeled field wrapper: an icon and a small caption above whatever's given as the field.
-pub fn field(
+/// A labeled field wrapper: an icon and a small caption above whatever's given as the field. For a
+/// label beside the control, as in the settings panels, use [`crate::form::field`].
+pub fn stacked_field(
     icon_name: IconName,
     label: impl Into<SharedString>,
     content: impl IntoElement,
@@ -158,7 +80,7 @@ pub fn field(
                 .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::fg())
-                .child(icon(icon_name, 14.).text_color(theme::muted_fg()))
+                .child(icon::plain(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
         )
         .child(content)
@@ -190,7 +112,7 @@ pub fn error_banner(
                 .gap_2()
                 .text_size(px(13.))
                 .text_color(theme::destructive())
-                .child(icon_colored(
+                .child(icon::tinted(
                     IconName::TriangleAlert,
                     15.,
                     theme::destructive(),

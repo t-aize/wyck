@@ -20,10 +20,13 @@ use crate::chart::study::custom::docs::{self, Group};
 use crate::chart::study::custom::library::{Entry as Script, registry};
 use crate::chart::study::custom::templates::TEMPLATES;
 use crate::chart::study::custom::{Problem, Severity};
-use crate::connection::ui::icon_colored;
 use crate::indicators;
-use crate::menu::{Entry, Item, Placement};
-use crate::{theme, widgets};
+use wyck_ui::icon;
+use wyck_ui::{
+    controls,
+    menu::{Entry, Item, Placement},
+    theme,
+};
 
 /// The width of the list of scripts and of the reference.
 const FONT_BODY: f32 = 12.0;
@@ -159,7 +162,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .px_1()
                     .mr_1()
-                    .child(icon_colored(IconName::CodeXml, 16., theme::accent()))
+                    .child(icon::tinted(IconName::CodeXml, 16., theme::accent()))
                     .child(
                         div()
                             .text_size(px(FONT_TITLE))
@@ -376,7 +379,7 @@ impl IndicatorEditor {
                                 cx.notify();
                             });
                         })
-                        .child(icon_colored(
+                        .child(icon::tinted(
                             if folded {
                                 IconName::ChevronRight
                             } else {
@@ -385,7 +388,7 @@ impl IndicatorEditor {
                             13.,
                             theme::muted_fg(),
                         ))
-                        .child(icon_colored(IconName::Folder, 14., theme::muted_fg()))
+                        .child(icon::tinted(IconName::Folder, 14., theme::muted_fg()))
                         .child(
                             div()
                                 .flex_1()
@@ -437,7 +440,7 @@ impl IndicatorEditor {
             .child(
                 div()
                     .p_2()
-                    .child(Input::new(&self.filter).xsmall().prefix(icon_colored(
+                    .child(Input::new(&self.filter).xsmall().prefix(icon::tinted(
                         IconName::Search,
                         14.,
                         theme::muted_fg(),
@@ -455,7 +458,7 @@ impl IndicatorEditor {
         number: usize,
         indented: bool,
         match_at: Option<(usize, usize)>,
-        menu: &crate::menu::Menu,
+        menu: &wyck_ui::menu::Menu,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = entry.id.clone();
@@ -495,7 +498,7 @@ impl IndicatorEditor {
                 menu.open(Some(event.position), cx);
             })
             .child(if ready {
-                icon_colored(
+                icon::tinted(
                     IconName::FileCode,
                     14.,
                     if active {
@@ -505,7 +508,7 @@ impl IndicatorEditor {
                     },
                 )
             } else {
-                icon_colored(IconName::TriangleAlert, 14., theme::destructive())
+                icon::tinted(IconName::TriangleAlert, 14., theme::destructive())
             })
             .child(
                 div()
@@ -525,7 +528,7 @@ impl IndicatorEditor {
     }
 
     /// The entries of the menu of a right click on a script.
-    fn file_menu_items(&self, menu: &crate::menu::Menu, cx: &mut Context<Self>) -> Vec<Item> {
+    fn file_menu_items(&self, menu: &wyck_ui::menu::Menu, cx: &mut Context<Self>) -> Vec<Item> {
         let Some(id) = self.menu_target.clone() else {
             return Vec::new();
         };
@@ -691,7 +694,7 @@ impl IndicatorEditor {
                     .on_click(move |_, window, cx| {
                         pick.update(cx, |e, cx| e.activate(index, window, cx));
                     })
-                    .child(icon_colored(
+                    .child(icon::tinted(
                         if broken {
                             IconName::TriangleAlert
                         } else {
@@ -734,7 +737,7 @@ impl IndicatorEditor {
                                     .bg(theme::amber())
                                     .into_any_element()
                             } else {
-                                icon_colored(IconName::X, 12., theme::muted_fg()).into_any_element()
+                                icon::tinted(IconName::X, 12., theme::muted_fg()).into_any_element()
                             }),
                     ),
             );
@@ -771,7 +774,7 @@ impl IndicatorEditor {
                 .bg(theme::amber_bg())
                 .border_b_1()
                 .border_color(theme::border_hairline())
-                .child(icon_colored(IconName::Info, 14., theme::amber()))
+                .child(icon::tinted(IconName::Info, 14., theme::amber()))
                 .child(
                     div()
                         .flex_1()
@@ -814,7 +817,7 @@ impl IndicatorEditor {
             .items_center()
             .justify_center()
             .gap_3()
-            .child(icon_colored(IconName::CodeXml, 32., theme::muted_fg()))
+            .child(icon::tinted(IconName::CodeXml, 32., theme::muted_fg()))
             .child(
                 div()
                     .text_size(px(FONT_TITLE))
@@ -1023,7 +1026,7 @@ impl IndicatorEditor {
                         .gap_2()
                         .text_size(px(FONT_BODY))
                         .text_color(theme::muted_fg())
-                        .child(icon_colored(IconName::Check, 14., theme::emerald()))
+                        .child(icon::tinted(IconName::Check, 14., theme::emerald()))
                         .child(text),
                 )
                 .into_any_element();
@@ -1047,7 +1050,7 @@ impl IndicatorEditor {
                     .on_click(move |_, window, cx| {
                         this.update(cx, |e, cx| e.jump_to(line, column, window, cx));
                     })
-                    .child(icon_colored(
+                    .child(icon::tinted(
                         if error {
                             IconName::CircleAlert
                         } else {
@@ -1250,7 +1253,7 @@ impl IndicatorEditor {
                     .child(
                         Input::new(&self.reference_filter)
                             .xsmall()
-                            .prefix(icon_colored(IconName::Search, 14., theme::muted_fg())),
+                            .prefix(icon::tinted(IconName::Search, 14., theme::muted_fg())),
                     ),
             )
             .child(list)
@@ -1398,7 +1401,7 @@ impl Render for IndicatorEditor {
         let console = self.console(cx);
         let reference = self.reference_open.then(|| self.reference(cx));
         let status = self.status_bar(cx);
-        let _ = widgets::child_id;
+        let _ = controls::child_id;
         div()
             .key_context(CONTEXT)
             .track_focus(&self.focus)

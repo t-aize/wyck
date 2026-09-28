@@ -1,7 +1,7 @@
 //! The panel that customizes the order ticket: where it sits and how wide it is, which blocks
 //! show and in what order, the shortcuts under the volume, and what a new order starts with.
 //!
-//! It is built like the other settings panels (see [`crate::settings_ui`]) and shows in the
+//! It is built like the other settings panels (see [`wyck_ui::form`]) and shows in the
 //! same modal. Every change applies to the ticket at once and is remembered; there is nothing to
 //! confirm. The numbers are read as they are typed, and a value that is not a number leaves the
 //! setting as it was.
@@ -15,9 +15,10 @@ use gpui_kit::component::{Disableable, Sizable};
 
 use super::OrderTicket;
 use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
-use crate::settings_ui::{self as ui, Head, Tab};
 use crate::trading::math::SizeMode;
-use crate::{modal, widgets};
+use wyck_ui::form::Head;
+use wyck_ui::form::Tab;
+use wyck_ui::{button, controls, form, modal, number};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
 const PRESET_MODES: [(SizeMode, &str, &str); 5] = [
@@ -101,7 +102,7 @@ pub fn open(ticket: Entity<OrderTicket>, window: &mut Window, cx: &mut App) {
 /// not a positive number is left out.
 fn parse_list(text: &str) -> Vec<f64> {
     text.split([',', ';', ' '])
-        .filter_map(widgets::parse_number)
+        .filter_map(number::parse)
         .filter(|v| *v > 0.0)
         .collect()
 }
@@ -109,7 +110,7 @@ fn parse_list(text: &str) -> Vec<f64> {
 fn list_text(values: &[f64]) -> String {
     values
         .iter()
-        .map(|v| widgets::format_number(*v, 4))
+        .map(|v| number::format(*v, 4))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -168,7 +169,7 @@ impl Customizer {
         let mut subscriptions = vec![cx.observe(&ticket, |_this, _ticket, cx| cx.notify())];
 
         let width = cx.new(|cx| {
-            widgets::number_state(
+            number::state(
                 f64::from(layout.width),
                 f64::from(super::prefs::WIDTH_MIN),
                 f64::from(super::prefs::WIDTH_MAX),
@@ -180,7 +181,7 @@ impl Customizer {
         });
         subscriptions.push(cx.subscribe(&width, |this, state, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change)
-                && let Some(value) = widgets::parse_number(&state.read(cx).value())
+                && let Some(value) = number::parse(&state.read(cx).value())
             {
                 this.edit(cx, |l| l.width = value as f32);
             }
@@ -203,13 +204,12 @@ impl Customizer {
 
         let mut numbers = Vec::new();
         for (get, min, max, step, decimals, set) in NUMBERS {
-            let state = cx.new(|cx| {
-                widgets::number_state(get(&layout), min, max, step, decimals, window, cx)
-            });
+            let state =
+                cx.new(|cx| number::state(get(&layout), min, max, step, decimals, window, cx));
             subscriptions.push(
                 cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change)
-                        && let Some(value) = widgets::parse_number(&state.read(cx).value())
+                        && let Some(value) = number::parse(&state.read(cx).value())
                     {
                         this.edit(cx, |l| set(l, value));
                     }
@@ -233,18 +233,14 @@ impl Customizer {
         self.ticket.update(cx, |t, cx| t.reset_layout(cx));
         let layout = self.ticket.read(cx).layout().clone();
         self.width.update(cx, |s, cx| {
-            s.set_value(
-                widgets::format_number(f64::from(layout.width), 0),
-                window,
-                cx,
-            );
+            s.set_value(number::format(f64::from(layout.width), 0), window, cx);
         });
         for (state, (mode, _, _)) in self.presets.iter().zip(PRESET_MODES) {
             let text = list_text(layout.presets.of(mode));
             state.update(cx, |s, cx| s.set_value(text, window, cx));
         }
         for (state, (get, _, _, _, decimals, _)) in self.numbers.iter().zip(NUMBERS) {
-            let text = widgets::format_number(get(&layout), decimals);
+            let text = number::format(get(&layout), decimals);
             state.update(cx, |s, cx| s.set_value(text, window, cx));
         }
         cx.notify();
@@ -263,7 +259,7 @@ impl Customizer {
         set: fn(&mut Layout, bool),
     ) -> AnyElement {
         let this = cx.entity();
-        ui::toggle(id, on, move |value, _, cx| {
+        controls::toggle(id, on, move |value, _, cx| {
             this.update(cx, |c, cx| c.edit(cx, |l| set(l, value)));
         })
         .into_any_element()
@@ -279,19 +275,19 @@ impl Customizer {
         set: fn(&mut Layout, usize),
     ) -> AnyElement {
         let this = cx.entity();
-        widgets::segmented(id, options, selected, move |index, _, cx| {
+        controls::segmented(id, options, selected, move |index, _, cx| {
             this.update(cx, |c, cx| c.edit(cx, |l| set(l, index)));
         })
         .into_any_element()
     }
 
     fn panel_page(&self, layout: &Layout, cx: &Context<Self>) -> AnyElement {
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::PanelRight,
                 "Placement",
                 [
-                    ui::field(
+                    form::field(
                         "Side of the charts",
                         None,
                         self.choice(
@@ -302,12 +298,12 @@ impl Customizer {
                             |l, i| l.dock = if i == 0 { Dock::Left } else { Dock::Right },
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Width",
                         Some("Also dragged from the edge of the panel"),
-                        widgets::number_field(&self.width, 130.),
+                        number::field(&self.width, 130.),
                     ),
-                    ui::field(
+                    form::field(
                         "Spacing",
                         Some("Compact fits more of the panel on a small screen"),
                         self.choice(
@@ -326,25 +322,25 @@ impl Customizer {
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::ArrowLeftRight,
                 "Buy and sell buttons",
                 [
-                    ui::field(
+                    form::field(
                         "Buy on the left, sell on the right",
                         None,
                         self.flag("custom-buy-first", layout.buy_first, cx, |l, v| {
                             l.buy_first = v;
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Prices on the buttons",
                         None,
                         self.flag("custom-prices", layout.show_prices, cx, |l, v| {
                             l.show_prices = v;
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Spread between the buttons",
                         None,
                         self.flag("custom-spread", layout.show_spread, cx, |l, v| {
@@ -370,7 +366,7 @@ impl Customizer {
             .map(|(index, placed)| {
                 let this = cx.entity();
                 let (up, down, toggle) = (this.clone(), this.clone(), this);
-                ui::field(
+                form::field(
                     placed.item.label(),
                     None,
                     div()
@@ -410,7 +406,7 @@ impl Customizer {
                                     });
                                 }),
                         )
-                        .child(ui::toggle(
+                        .child(controls::toggle(
                             SharedString::from(format!("{id}-{index}")),
                             placed.shown,
                             move |shown, _, cx| {
@@ -425,16 +421,16 @@ impl Customizer {
     }
 
     fn blocks_page(&self, layout: &Layout, cx: &Context<Self>) -> AnyElement {
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::LayoutList,
                 "Blocks of the panel",
                 self.slots("custom-sections", &layout.sections, |l| &mut l.sections, cx),
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Switch a block off to hide it, and move it with the arrows to change where it sits.",
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::ListChecks,
                 "Lines of the summary",
                 self.slots("custom-lines", &layout.lines, |l| &mut l.lines, cx),
@@ -448,20 +444,20 @@ impl Customizer {
             .iter()
             .zip(PRESET_MODES)
             .map(|(state, (_, label, hint))| {
-                ui::field(
+                form::field(
                     label,
                     Some(hint),
                     div().w(px(220.)).child(Input::new(state).small()),
                 )
             })
             .collect();
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::Ruler,
                 "Buttons under the size field",
                 rows,
             ))
-            .child(ui::note(
+            .child(form::note(
                 "Values separated by commas, up to six for each way of sizing.",
             ))
             .into_any_element()
@@ -476,12 +472,12 @@ impl Customizer {
                 .w(px(130.))
                 .child(NumberInput::new(&self.numbers[index]).small())
         };
-        ui::page()
-            .child(ui::group(
+        form::page()
+            .child(form::group(
                 IconName::SlidersHorizontal,
                 "A new order starts with",
                 [
-                    ui::field(
+                    form::field(
                         "Order type",
                         None,
                         self.choice(
@@ -492,37 +488,37 @@ impl Customizer {
                             |l, i| l.defaults.kind = Kind::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Stop loss turned on",
                         None,
                         self.flag("custom-stop-on", d.stop_on, cx, |l, v| {
                             l.defaults.stop_on = v;
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Take profit turned on",
                         None,
                         self.flag("custom-target-on", d.target_on, cx, |l, v| {
                             l.defaults.target_on = v;
                         }),
                     ),
-                    ui::field(
+                    form::field(
                         "Stop loss distance",
                         Some("In pips, when a stop loss is turned on"),
                         number(0),
                     ),
-                    ui::field(
+                    form::field(
                         "Take profit distance",
                         Some("As a multiple of the risk"),
                         number(1),
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::Timer,
                 "Pending orders and slippage",
                 [
-                    ui::field(
+                    form::field(
                         "A pending order lasts",
                         None,
                         self.choice(
@@ -539,8 +535,8 @@ impl Customizer {
                             },
                         ),
                     ),
-                    ui::field("Good till date: lasts", None, number(2)),
-                    ui::field(
+                    form::field("Good till date: lasts", None, number(2)),
+                    form::field(
                         "Good till date: unit",
                         None,
                         self.choice(
@@ -554,7 +550,7 @@ impl Customizer {
                             |l, i| l.defaults.expiry_span = Span::ALL[i],
                         ),
                     ),
-                    ui::field(
+                    form::field(
                         "Slippage",
                         Some(
                             "In pips: the most a market order may slip, and the range of the limit of a stop limit",
@@ -563,10 +559,10 @@ impl Customizer {
                     ),
                 ],
             ))
-            .child(ui::group(
+            .child(form::group(
                 IconName::TriangleAlert,
                 "Warnings",
-                [ui::field(
+                [form::field(
                     "Warn when an order risks more than",
                     Some("In percent of the balance"),
                     number(4),
@@ -589,7 +585,7 @@ impl Render for Customizer {
         };
         let this = cx.entity();
         let reset = cx.entity();
-        ui::frame(
+        form::frame(
             Head {
                 icon: IconName::PanelRight,
                 title: "Order panel".into(),
@@ -605,9 +601,9 @@ impl Render for Customizer {
             },
             modal::dismiss,
             body,
-            ui::footer(
+            form::footer(
                 vec![
-                    ui::action(
+                    button::action(
                         "ticket-customize-reset",
                         "Reset everything",
                         Some(IconName::RotateCcw),
@@ -617,7 +613,7 @@ impl Render for Customizer {
                     .into_any_element(),
                 ],
                 vec![
-                    ui::action("ticket-customize-done", "Done", None, true, |window, cx| {
+                    button::action("ticket-customize-done", "Done", None, true, |window, cx| {
                         modal::close(window, cx);
                     })
                     .into_any_element(),

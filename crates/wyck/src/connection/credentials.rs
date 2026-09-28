@@ -12,10 +12,9 @@ use wyck_openapi::auth::CallbackListener;
 use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::{ClientBuilder, Environment};
 
-use super::ui;
-use super::{ConnectionFlow, Screen, anim, theme};
+use super::{ConnectionFlow, Screen};
 use crate::runtime;
-use crate::text_input::TextInput;
+use wyck_ui::{anim, button, icon, layout, text_input::TextInput, theme};
 
 /// The local port the OAuth redirect listener binds. Must match a redirect URI
 /// (`http://localhost:<port>`) registered for the user's cTrader Open API application.
@@ -70,16 +69,16 @@ impl ConnectionFlow {
         let can_submit = !state.connecting;
         let copied = state.copied;
 
-        ui::screen()
+        layout::screen()
             .child(
-                ui::card()
+                layout::card()
                     .child(
                         div()
                             .flex()
                             .flex_row()
                             .items_center()
                             .gap_4()
-                            .child(ui::icon_tile(
+                            .child(layout::icon_tile(
                                 IconName::KeyRound,
                                 48.,
                                 22.,
@@ -111,24 +110,24 @@ impl ConnectionFlow {
                             ),
                     )
                     .children(state.error.clone().map(|message| {
-                        ui::error_banner(
+                        layout::error_banner(
                             "credentials-error",
                             state.error_count,
                             "Wyck couldn't verify this application",
                             message,
                         )
                     }))
-                    .child(ui::field(
+                    .child(layout::stacked_field(
                         IconName::Hash,
                         "Client ID",
                         state.client_id.clone(),
                     ))
-                    .child(ui::field(
+                    .child(layout::stacked_field(
                         IconName::Lock,
                         "Client secret",
                         state.client_secret.clone(),
                     ))
-                    .child(ui::field(
+                    .child(layout::stacked_field(
                         IconName::Link,
                         "Redirect URI",
                         div()
@@ -158,13 +157,13 @@ impl ConnectionFlow {
                                  callback.",
                             ),
                     )
-                    .child(ui::field(
+                    .child(layout::stacked_field(
                         IconName::Globe,
                         "Environment",
                         environment_switch(state, cx),
                     ))
                     .child(
-                        ui::primary_button(
+                        button::primary(
                             "credentials-continue",
                             if state.connecting {
                                 "Verifying..."
@@ -181,7 +180,7 @@ impl ConnectionFlow {
                         .when(state.connecting, |button| button.cursor_not_allowed()),
                     ),
             )
-            .child(ui::back_button(
+            .child(button::back(
                 "credentials-back",
                 cx.listener(|this, _event, _window, cx| this.go_to_welcome(cx)),
             ))
@@ -281,7 +280,7 @@ fn copy_button(
         .flex()
         .items_center()
         .gap_1p5()
-        .child(ui::icon_colored(
+        .child(icon::tinted(
             if copied {
                 IconName::Check
             } else {
@@ -434,7 +433,7 @@ fn environment_option(
                 cx.notify();
             }
         }))
-        .child(ui::icon_colored(
+        .child(icon::tinted(
             icon,
             14.,
             if selected {
