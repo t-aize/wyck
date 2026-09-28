@@ -21,7 +21,7 @@
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
 //! | [`volume`], `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
 //! | [`tpo`], `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
-//! | [`export`], `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
+//! | [`export`](wyck_chart::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
 //! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
 //! out.
