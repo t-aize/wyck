@@ -45,10 +45,9 @@ jobs:
             exit 1
           fi
           version="${GITHUB_REF_NAME#v}"
-          # wyck-openapi carries its own semver version for its API, so it is left out here.
-          mapfile -t versions < <(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name != "wyck-openapi") | .version' | sort -u)
+          mapfile -t versions < <(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[].version' | sort -u)
           if [[ "${#versions[@]}" -ne 1 || "${versions[0]}" != "$version" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match every app workspace package version." >&2
+            echo "Tag $GITHUB_REF_NAME does not match every workspace package version." >&2
             printf 'Workspace versions: %s\n' "${versions[*]}" >&2
             exit 1
           fi

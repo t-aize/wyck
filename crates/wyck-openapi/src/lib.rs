@@ -48,19 +48,14 @@
 //!
 //! # Stability
 //!
-//! The crate follows [semantic versioning](https://semver.org). Before 1.0, a minor release
-//! (0.4 to 0.5) may break the API and a patch release does not. What the promise covers:
+//! The public API is everything reachable from the documented modules and the root re-exports.
+//! The server's messages, the events and the error type are `#[non_exhaustive]`, so a field or a
+//! variant the server gains can be added without breaking callers: build them through their
+//! constructors or from JSON, match with a wildcard arm, and prefer [`Error::kind`] to the
+//! error's variants.
 //!
-//! - Everything reachable from the documented modules and the root re-exports.
-//! - The server's messages, the events and the error type are `#[non_exhaustive]`: a field or a
-//!   variant the server gains is added in a patch release, so build them through their
-//!   constructors or from JSON, match with a wildcard arm, and prefer [`Error::kind`] to the
-//!   error's variants.
-//!
-//! What it does not cover: items hidden from these docs (the `transport` module, the wire
-//! envelope, `event::event_from`). They are public only for this crate's own tests.
-//!
-//! Changes are listed in `CHANGELOG.md`, next to this crate's manifest.
+//! Items hidden from these docs (the `transport` module, the wire envelope, `event::event_from`)
+//! are not part of that API. They are public only for this crate's own tests.
 //!
 //! # Which layer to use
 //!

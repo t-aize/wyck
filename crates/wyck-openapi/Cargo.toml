@@ -1,7 +1,6 @@
 [package]
 name = "wyck-openapi"
-# Versioned on its own, following semver for its API (see CHANGELOG.md), not the app's version.
-version = "0.4.0"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

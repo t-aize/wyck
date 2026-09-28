@@ -1,9 +1,8 @@
 # Releasing Wyck
 
 Stable releases are built by GitHub Actions from tags named `vX.Y.Z`. The workflow rejects a tag
-unless every workspace crate has the same `X.Y.Z` version, except `wyck-openapi`: the SDK has its
-own version, raised by the rules in `crates/wyck-openapi/CHANGELOG.md` when its API changes.
-The first release made by this system is `v0.3.0`; the existing `v0.2.0` tag is not changed.
+unless every workspace crate has the same `X.Y.Z` version. The first release made by this system
+is `v0.3.0`; the existing `v0.2.0` tag is not changed.
 
 ## One-time repository setup
 
@@ -29,8 +28,7 @@ a draft, uploads and attests all assets, and only then publishes it. This follow
 
 ## Create a release
 
-1. Change `[workspace.package].version` and every internal dependency version in `Cargo.toml`
-   (not `wyck-openapi`, which keeps its own version).
+1. Change `[workspace.package].version` and every internal dependency version in `Cargo.toml`.
 2. Run `cargo check --workspace` so `Cargo.lock` records the new workspace versions.
 3. Run the checks below and inspect the About page in both debug and release builds.
 4. Commit and push the version change.
