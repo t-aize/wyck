@@ -1,0 +1,10 @@
+schema_version = 1
+favorites = ["EURUSD", "XAUUSD", "EURUSD"]
+
+[[lists]]
+name = " Majors "
+symbols = ["EURUSD", "GBPUSD", "EURUSD"]
+
+[[lists]]
+name = "Metals"
+symbols = ["XAUUSD", "XAGUSD"]

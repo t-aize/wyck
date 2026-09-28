@@ -793,7 +793,7 @@ mod tests {
 
     #[test]
     fn a_0_1_preferences_fixture_keeps_its_layout_and_chart_state() {
-        let text = include_str!("../tests/fixtures/preferences-0.1.toml");
+        let text = include_str!("../../tests/fixtures/preferences-0.1.toml");
         let prefs: Preferences = toml::from_str(text).unwrap();
         let prefs = prefs.normalized();
 
@@ -976,7 +976,7 @@ mod tests {
 
     #[test]
     fn a_0_1_watchlist_fixture_is_preserved_and_normalized() {
-        let text = include_str!("../tests/fixtures/watchlists-0.1.toml");
+        let text = include_str!("../../tests/fixtures/watchlists-0.1.toml");
         let lists: Watchlists = toml::from_str(text).unwrap();
         let lists = lists.normalized();
 
