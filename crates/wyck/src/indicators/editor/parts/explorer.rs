@@ -300,8 +300,11 @@ impl IndicatorEditor {
             Ask::New(index) => TEMPLATES.get(*index).map(|t| t.description),
             Ask::Rename(_) => None,
         };
-        let (ok, cancel) = (cx.entity(), cx.entity());
+        let (ok, cancel, outside, escape) = (cx.entity(), cx.entity(), cx.entity(), cx.entity());
         let card = div()
+            .id("editor-prompt-card")
+            // A click on the card is its own: it must not reach the veil, which closes the prompt.
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .w(px(380.))
             .p_4()
             .flex()
@@ -357,12 +360,24 @@ impl IndicatorEditor {
             );
         Some(
             div()
+                .id("editor-prompt-veil")
                 .absolute()
                 .inset_0()
                 .flex()
                 .items_center()
                 .justify_center()
                 .bg(theme::veil())
+                // The veil takes the mouse: nothing behind it (the templates) reacts while a name
+                // is asked, and a click outside the card closes it.
+                .occlude()
+                .on_mouse_down(gpui::MouseButton::Left, move |_, _, cx| {
+                    outside.update(cx, |e, cx| e.cancel_prompt(cx));
+                })
+                .on_key_down(move |event, _, cx| {
+                    if event.keystroke.key == "escape" {
+                        escape.update(cx, |e, cx| e.cancel_prompt(cx));
+                    }
+                })
                 .child(card)
                 .into_any_element(),
         )
