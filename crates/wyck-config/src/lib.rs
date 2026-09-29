@@ -10,6 +10,8 @@
 //! | Which profiles exist, which is active | `config.toml`, plain TOML | [`AppConfig`], [`ProfileConfig`] |
 //! | Tokens and secrets | the OS keyring, or encrypted files | [`SecretStore`] |
 //! | Everything else the app remembers (layouts, drawings, favorites) | one TOML file per document | [`DocumentStore`] |
+//! | Indicator scripts | one `.rhai` file each | [`scripts::ScriptStore`] |
+//! | A backup of everything, to export, import, keep or restore | one TOML file | [`backup::Backup`], [`backup::BackupStore`] |
 //! | Text to carry elsewhere, unreadable without a passphrase | a small TOML document | [`sealed`] |
 //!
 //! **A token never appears in `config.toml`.** The file only holds a profile's public settings;
@@ -70,6 +72,14 @@
 //! * **Secrets stay secret.** Errors and logs carry the [`SecretKey`], never the value. See
 //!   [`secret::EncryptedFileSecretStore`] for the encryption.
 //!
+//! ## Backups
+//!
+//! [`backup`] owns the whole life of a backup: [`backup::export_to_file`] and
+//! [`backup::stage_import_file`] for the export and import buttons, [`backup::BackupStore`]
+//! (`config.backups()`) for the copies kept in `backups/` (automatic ones included), and
+//! [`backup::apply_pending`] to run at the start of the app, so a restore never writes over a
+//! running app and can itself be undone.
+//!
 //! ## Checking it
 //!
 //! [`WyckConfig::diagnose`] looks over the whole config (missing secrets, permissions, files a
@@ -83,6 +93,7 @@
 #![warn(missing_docs)]
 
 mod app_config;
+pub mod backup;
 mod crypto;
 mod doctor;
 mod documents;
@@ -91,6 +102,7 @@ mod fs_util;
 pub mod names;
 mod paths;
 mod profile;
+pub mod scripts;
 pub mod sealed;
 pub mod secret;
 mod tokens;
@@ -390,6 +402,27 @@ impl WyckConfig {
         })?;
         debug!(symbol = ?self.app_config.last_symbol, "remembered the last symbol");
         Ok(())
+    }
+
+    /// The documents shared by every account (see [`DocumentStore::global`]).
+    pub fn documents(&self) -> DocumentStore {
+        self.paths.documents()
+    }
+
+    /// The documents of one scope, such as an account (see [`DocumentStore::scoped`]).
+    pub fn scope(&self, scope: &str) -> DocumentStore {
+        self.paths.scope(scope)
+    }
+
+    /// The indicator scripts of the default folder (see [`scripts::ScriptStore`]).
+    pub fn scripts(&self) -> scripts::ScriptStore {
+        self.paths.scripts()
+    }
+
+    /// The backups kept in the backups folder: list, save, restore, delete (see
+    /// [`backup::BackupStore`]).
+    pub fn backups(&self) -> backup::BackupStore {
+        self.paths.backups()
     }
 
     /// Looks the whole config over and reports what is wrong or odd: missing or unreadable

@@ -4,8 +4,6 @@
 mod alerts;
 mod appearance;
 mod assets;
-#[path = "services/backup.rs"]
-mod backup;
 mod build_info;
 mod chart;
 mod connection;
@@ -40,23 +38,19 @@ fn main() {
             // The saved look is in force before a window opens, so the first frame is the right one.
             match app_paths() {
                 Some(paths) => {
-                    // An import the user asked for waits for this moment, before anything reads the
-                    // documents it replaces.
-                    match backup::apply_pending_reset(paths) {
-                        Ok(true) => tracing::info!(
-                            "reset the look, layout, charts and every account's data"
-                        ),
-                        Ok(false) => {}
-                        Err(error) => tracing::warn!(%error, "could not apply the pending reset"),
-                    }
+                    // A reset or an import the user asked for waits for this moment, before
+                    // anything reads the documents it replaces.
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match backup::apply_pending(paths, &stamp) {
-                        Ok(Some(applied)) => tracing::info!(?applied, "restored a backup"),
-                        Ok(None) => {}
-                        Err(error) => tracing::warn!(%error, "could not restore the backup"),
+                    match wyck_config::backup::apply_pending(paths, &stamp) {
+                        Ok(applied) if applied != Default::default() => {
+                            tracing::info!(?applied, "applied what was waiting for this start");
+                        }
+                        Ok(_) => {}
+                        Err(error) => tracing::warn!(%error, "could not apply what was waiting"),
                     }
-                    appearance::init(wyck_config::DocumentStore::global(paths), cx);
+                    appearance::init(paths.documents(), cx);
                     indicators::init(Some(paths), cx);
+                    keep_a_daily_copy(paths, cx);
                 }
                 None => {
                     wyck_ui::theme::apply(cx);
@@ -116,6 +110,28 @@ fn main() {
 
             cx.activate(true);
         });
+}
+
+/// Saves an automatic copy of everything the user made, at most one a day and the last few kept,
+/// off the interface thread: what a bad import, a reset or a broken disk cannot take away.
+fn keep_a_daily_copy(paths: &'static wyck_config::AppPaths, cx: &mut App) {
+    let scripts = wyck_config::scripts::ScriptStore::new(indicators::dir(cx));
+    cx.background_executor()
+        .spawn(async move {
+            let created = chrono::Local::now().to_rfc3339();
+            let policy = wyck_config::backup::AutoPolicy::default();
+            match paths.backups().auto_snapshot(
+                Some(&scripts),
+                build_info::VERSION,
+                &created,
+                policy,
+            ) {
+                Ok(Some(entry)) => tracing::info!(id = entry.id, "saved an automatic backup"),
+                Ok(None) => {}
+                Err(error) => tracing::warn!(%error, "could not save an automatic backup"),
+            }
+        })
+        .detach();
 }
 
 /// The folders of the app, resolved once: `None` when the system gives it none. Everything that

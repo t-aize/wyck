@@ -18,21 +18,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use wyck_config::scripts::{ScriptFile, ScriptStore};
+
 use super::super::intern::{self, Slices};
 use super::super::{InputSpec, Placement, PlotSpec, Spec};
 use super::run::{Declaration, Limits, Problem, Script};
 
-/// The extension of an indicator file.
-pub const EXTENSION: &str = "rhai";
-
-/// The biggest script kept, in bytes.
-pub const MAX_FILE_BYTES: u64 = 256 * 1024;
-
-/// The most indicators a library holds.
-pub const MAX_SCRIPTS: usize = 500;
-
-/// How many folders deep the library looks.
-pub const MAX_DEPTH: usize = 3;
+// The rules of the folder (the extension, the limits, which names are allowed) are owned by
+// `wyck-config`, the same ones the backup and the settings folder use.
+/// The extension of an indicator file, the biggest script kept (in bytes), the most indicators a
+/// library holds and how many folders deep it looks.
+pub use wyck_config::scripts::{EXTENSION, MAX_DEPTH, MAX_FILE_BYTES, MAX_SCRIPTS};
 
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
 const DECLARE_LIMITS: Limits = Limits {
@@ -41,7 +37,7 @@ const DECLARE_LIMITS: Limits = Limits {
 };
 
 /// The folder a deleted indicator goes to, inside the library's own.
-const TRASH: &str = ".trash";
+const TRASH: &str = wyck_config::scripts::TRASH;
 
 /// What is said about an indicator apart from how it computes: the words the menus show.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,6 +151,22 @@ pub enum LibraryError {
     },
 }
 
+impl From<wyck_config::ConfigError> for LibraryError {
+    fn from(error: wyck_config::ConfigError) -> Self {
+        use wyck_config::ConfigError;
+        match error {
+            ConfigError::InvalidName { name, reason } => Self::BadName(name, reason),
+            ConfigError::Read { path, source } | ConfigError::Write { path, source } => {
+                Self::Io { path, source }
+            }
+            other => Self::Io {
+                path: PathBuf::new(),
+                source: other.into(),
+            },
+        }
+    }
+}
+
 fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> LibraryError + '_ {
     move |source| LibraryError::Io {
         path: path.to_path_buf(),
@@ -162,48 +174,14 @@ fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> LibraryError + '_ {
     }
 }
 
-/// The names Windows keeps for devices; a file cannot have them whatever its extension.
-const RESERVED: [&str; 12] = [
-    "con", "prn", "aux", "nul", "com1", "com2", "com3", "com4", "lpt1", "lpt2", "lpt3", ".",
-];
-
-/// One part of an id: a file or folder name. Letters, digits, spaces and `- _ . ( )`.
+/// One part of an id: a file or folder name. Letters, digits, spaces and `- _ . ( ) % + , &`.
 pub fn clean_part(name: &str) -> Result<String, LibraryError> {
-    let name = name.trim();
-    let bad = |why| LibraryError::BadName(name.to_owned(), why);
-    if name.is_empty() {
-        return Err(bad("it is empty"));
-    }
-    if name.chars().count() > 64 {
-        return Err(bad("it is longer than 64 characters"));
-    }
-    if name.starts_with('.') || name.ends_with('.') {
-        return Err(bad("it cannot start or end with a dot"));
-    }
-    if !name.chars().all(|c| {
-        c.is_alphanumeric()
-            || matches!(c, ' ' | '-' | '_' | '.' | '(' | ')' | '%' | '+' | ',' | '&')
-    }) {
-        return Err(bad("use letters, digits, spaces and - _ . ( ) % + , &"));
-    }
-    let stem = name.split('.').next().unwrap_or(name).to_lowercase();
-    if RESERVED.contains(&stem.as_str()) {
-        return Err(bad("the system keeps that name"));
-    }
-    Ok(name.to_owned())
+    wyck_config::scripts::clean_part(name).map_err(LibraryError::from)
 }
 
 /// A whole id (`folder/name`), every part checked, at most [`MAX_DEPTH`] folders deep.
 pub fn clean_id(id: &str) -> Result<String, LibraryError> {
-    let parts: Vec<&str> = id.split('/').collect();
-    if parts.len() > MAX_DEPTH + 1 {
-        return Err(LibraryError::BadName(
-            id.to_owned(),
-            "the folders are nested too deep",
-        ));
-    }
-    let cleaned: Result<Vec<String>, _> = parts.into_iter().map(clean_part).collect();
-    Ok(cleaned?.join("/"))
+    wyck_config::scripts::clean_id(id).map_err(LibraryError::from)
 }
 
 /// A short name for the legend: the initials of several words, or the first letters of one.
@@ -385,61 +363,11 @@ impl Spec {
 
 // ---- the folder ----
 
-/// A file found in the folder.
-struct Found {
-    id: String,
-    path: PathBuf,
-    modified: Option<SystemTime>,
-    len: u64,
-}
+/// A file found in the folder: what [`ScriptStore::scan`] gives.
+type Found = ScriptFile;
 
 fn scan(root: &Path) -> Vec<Found> {
-    let mut out = Vec::new();
-    scan_into(root, root, 0, &mut out);
-    out.sort_by(|a, b| a.id.cmp(&b.id));
-    out
-}
-
-fn scan_into(root: &Path, dir: &Path, depth: usize, out: &mut Vec<Found>) {
-    let Ok(read) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for item in read.flatten() {
-        let path = item.path();
-        let name = item.file_name().to_string_lossy().into_owned();
-        // Hidden files and folders (the trash, an editor's leftovers) are not indicators.
-        if name.starts_with('.') || name.starts_with('~') {
-            continue;
-        }
-        let Ok(meta) = std::fs::symlink_metadata(&path) else {
-            continue;
-        };
-        if meta.is_dir() {
-            if depth < MAX_DEPTH {
-                scan_into(root, &path, depth + 1, out);
-            }
-        } else if meta.is_file()
-            && path
-                .extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case(EXTENSION))
-        {
-            let Ok(relative) = path.strip_prefix(root) else {
-                continue;
-            };
-            let id = relative
-                .with_extension("")
-                .components()
-                .map(|c| c.as_os_str().to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-                .join("/");
-            out.push(Found {
-                id,
-                path,
-                modified: meta.modified().ok(),
-                len: meta.len(),
-            });
-        }
-    }
+    ScriptStore::new(root).scan()
 }
 
 /// What a read of the folder changed.
@@ -515,12 +443,7 @@ impl Library {
 
     /// Where the file of `id` is (or would be).
     pub fn path_of(&self, id: &str) -> PathBuf {
-        let mut path = self.dir.clone();
-        for part in id.split('/') {
-            path.push(part);
-        }
-        path.set_extension(EXTENSION);
-        path
+        ScriptStore::new(&self.dir).path_of(id)
     }
 
     /// Reads the folder again: files that are new or edited are compiled, files that are gone
@@ -589,18 +512,7 @@ impl Library {
     }
 
     fn write(&self, id: &str, source: &str) -> Result<PathBuf, LibraryError> {
-        if source.len() as u64 > MAX_FILE_BYTES {
-            return Err(LibraryError::BadName(
-                id.to_owned(),
-                "the script is bigger than 256 KB",
-            ));
-        }
-        let path = self.path_of(id);
-        wyck_config::atomic_write(&path, source.as_bytes()).map_err(|error| LibraryError::Io {
-            path: path.clone(),
-            source: error.into(),
-        })?;
-        Ok(path)
+        Ok(ScriptStore::new(&self.dir).write(id, source)?)
     }
 
     /// Makes a new indicator named `name` (in `folder` when given) and reads it. The id is
@@ -709,7 +621,7 @@ impl Library {
         let mut files = Vec::new();
         for path in paths {
             if path.is_dir() {
-                scripts_in(path, 0, &mut files);
+                scripts_in(path, &mut files);
             } else {
                 files.push(path.clone());
             }
@@ -778,7 +690,7 @@ impl Library {
         } else {
             dest.with_extension(EXTENSION)
         };
-        std::fs::write(&target, entry.source.as_bytes()).map_err(io_error(&target))?;
+        wyck_config::atomic_write(&target, entry.source.as_bytes())?;
         Ok(target)
     }
 
@@ -788,17 +700,10 @@ impl Library {
     ///
     /// When a file or folder cannot be written.
     pub fn export_all(&self, dest: &Path) -> Result<usize, LibraryError> {
+        let target = ScriptStore::new(dest);
         let mut count = 0;
         for entry in self.known.values().map(|k| &k.entry) {
-            let mut target = dest.to_path_buf();
-            for part in entry.id.split('/') {
-                target.push(part);
-            }
-            target.set_extension(EXTENSION);
-            if let Some(parent) = target.parent() {
-                std::fs::create_dir_all(parent).map_err(io_error(parent))?;
-            }
-            std::fs::write(&target, entry.source.as_bytes()).map_err(io_error(&target))?;
+            wyck_config::atomic_write(&target.path_of(&entry.id), entry.source.as_bytes())?;
             count += 1;
         }
         Ok(count)
@@ -806,10 +711,8 @@ impl Library {
 }
 
 /// Collects the scripts of a folder (and of the folders in it) for [`Library::import`].
-fn scripts_in(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
-    let mut found = Vec::new();
-    scan_into(dir, dir, depth, &mut found);
-    out.extend(found.into_iter().map(|f| f.path));
+fn scripts_in(dir: &Path, out: &mut Vec<PathBuf>) {
+    out.extend(ScriptStore::new(dir).scan().into_iter().map(|f| f.path));
 }
 
 #[cfg(test)]

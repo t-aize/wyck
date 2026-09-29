@@ -145,6 +145,31 @@ pub enum ConfigError {
     #[error("the passphrase is wrong, or the sealed document was changed")]
     WrongPassphrase,
 
+    /// The text is not a backup of this app (see [`crate::backup`]).
+    #[error("This file is not a wyck backup.")]
+    NotABackup,
+
+    /// A backup made by a newer version than this one knows: it is refused, not misread.
+    #[error("This backup was made by a newer version of wyck (format {found}).")]
+    BackupTooNew {
+        /// The version it says it has.
+        found: u32,
+        /// The newest version this build understands.
+        supported: u32,
+    },
+
+    /// A part of a backup is not what it should be, with what is wrong.
+    #[error("This backup is damaged: {0}.")]
+    BackupDamaged(String),
+
+    /// A backup is sealed with a passphrase and none was given.
+    #[error("This backup is locked with a passphrase.")]
+    PassphraseRequired,
+
+    /// No backup is kept under this name (see [`crate::backup::BackupStore`]).
+    #[error("There is no saved backup called `{0}`.")]
+    BackupNotFound(String),
+
     /// Secure random byte generation failed (extremely rare: indicates a broken or
     /// exhausted OS entropy source).
     #[error("failed to generate random bytes: {0}")]
@@ -159,7 +184,11 @@ impl From<ConfigError> for std::io::Error {
             ConfigError::Read { source, .. } | ConfigError::Write { source, .. } => source.kind(),
             ConfigError::Parse { .. }
             | ConfigError::InvalidName { .. }
+            | ConfigError::NotABackup
+            | ConfigError::BackupTooNew { .. }
+            | ConfigError::BackupDamaged(_)
             | ConfigError::UnsupportedSchema { .. } => std::io::ErrorKind::InvalidData,
+            ConfigError::BackupNotFound(_) => std::io::ErrorKind::NotFound,
             _ => std::io::ErrorKind::Other,
         };
         Self::new(kind, error)

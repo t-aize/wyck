@@ -34,6 +34,18 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
 
 ### Added
 
+- `backup` module: the backup file (`Backup`: collect, check, read and write, plain or sealed),
+  `BackupStore` for the copies in `backups/` (list, create, automatic copies with `AutoPolicy`,
+  restore, export, remove, prune) and the staged restore and reset (`stage_import`,
+  `stage_import_file`, `stage_reset`, `apply_pending`), moved here from the app so any front end
+  gets the same rules. Applying an import or a reset first saves what it replaces as a copy
+  (`BeforeImport`, `BeforeReset`), so both can be undone. `export_to_file` is the one call behind an
+  export button.
+- `scripts` module: `ScriptStore`, the folder of indicator scripts, with the rule for ids and the
+  limits that `wyck-chart` and the backup used to each carry their own copy of.
+- Errors: `NotABackup`, `BackupTooNew`, `BackupDamaged`, `PassphraseRequired`, `BackupNotFound`.
+- `AppPaths::documents`, `scope`, `scripts` and `backups`, and the same four on `WyckConfig`.
+- The `config_backup` example (list, save, export, import, restore, prune from the command line).
 - `WyckConfig::open()` and `WyckConfig::builder()` (`ConfigBuilder`: `paths`, `portable`,
   `keyring_service`, `encrypted_file`, `secret_store`).
 - `WyckConfig::diagnose()` and the `Report`, `Finding` and `Severity` types; the `config_doctor`
