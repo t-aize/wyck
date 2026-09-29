@@ -339,6 +339,8 @@ impl Menu {
         let close = self.clone();
         let mut card = card()
             .id(controls::child_id(&self.id, usize::MAX))
+            .role(gpui::Role::Menu)
+            .aria_label("Menu")
             .when(matches!(placement, Placement::Cursor), |card| {
                 card.w(px(size::CONTEXT_WIDTH))
             })
@@ -370,6 +372,14 @@ impl Menu {
         let (menu, action, keep_open) = (self.clone(), entry.on_click.clone(), entry.keep_open);
         row_base()
             .id(controls::child_id(&self.id, index))
+            .role(if entry.checked {
+                gpui::Role::MenuItemCheckBox
+            } else {
+                gpui::Role::MenuItem
+            })
+            .aria_label(entry.label.clone())
+            .aria_selected(keyboard)
+            .when(entry.checked, |el| el.aria_toggled(gpui::Toggled::True))
             .text_color(tone)
             .when(!enabled, |el| el.cursor_default().opacity(0.55))
             .when(enabled, |el| {

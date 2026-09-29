@@ -27,6 +27,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
+use crate::focus::Keyboard;
 use crate::theme;
 
 /// The colors of the theme offered to click: a row of grays, then eight hues in four shades.
@@ -779,6 +780,9 @@ impl Render for ColorPanel {
             let panel = panel.clone();
             div()
                 .id(SharedString::from(id))
+                .keyboard()
+                .role(gpui::Role::Button)
+                .aria_label(SharedString::from(format!("Color {shade:06x}")))
                 .size(px(CELL))
                 .rounded_sm()
                 .bg(rgb(shade))

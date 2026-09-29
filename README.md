@@ -69,11 +69,29 @@ The Open API guide is in the `wyck-openapi` crate documentation.
 Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
 app reads on its own. The header has a button for the folder and for a full editor.
 
+## Accessibility
+
+- **Keyboard.** Tab reaches the controls. In the account panel, the current row is the one stop
+  of Tab: the arrows, Home, End, Page Up and Page Down move among the rows, Enter or Space does
+  what a click does, and the menu key (or Shift+F10) opens the menu of the row. Modal windows
+  keep Tab inside themselves and give the focus back when they close.
+- **Screen readers.** The app exposes roles and names through AccessKit (Windows UI Automation,
+  macOS, and AT-SPI on Linux): tables with rows, column headers and cells, tabs, dialogs, menus,
+  toggles and notices. This has been built from the AccessKit documentation and covered by unit
+  tests of what can be tested without a screen, but not yet tried with NVDA, VoiceOver or Orca.
+  Reports from people who use them are the most useful thing you can send.
+- **Size.** The interface scale in Settings (80 to 160 percent) also scales the text drawn on the
+  charts.
+- **Colors.** Every theme that comes with the app meets WCAG 2.2 contrast (4.5:1 for text, 3:1
+  for the accent and the chart). The editor of your own themes shows what falls short and can fix
+  it; it never refuses a color.
+
 ## Requirements
 
 - A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`).
 - Linux only: the development packages of fontconfig, Wayland, OpenSSL, X11 and xkbcommon, for example on Debian and Ubuntu
-  `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev`.
+  `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev`.
+  The last one is for the alert sounds.
 
 ## Build and test
 

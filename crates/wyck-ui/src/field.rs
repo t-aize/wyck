@@ -24,6 +24,7 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 
 use crate::controls::{child_id, ink, tooltip};
+use crate::focus::Keyboard;
 use crate::number::{self, Kind};
 use crate::{icon, theme, tokens};
 
@@ -224,6 +225,14 @@ pub fn icon_choice(
         strip = strip.child(
             div()
                 .id(child_id(&id, index))
+                .keyboard()
+                .role(gpui::Role::RadioButton)
+                .aria_label(SharedString::from((*label).to_owned()))
+                .aria_toggled(if chosen {
+                    gpui::Toggled::True
+                } else {
+                    gpui::Toggled::False
+                })
                 .flex()
                 .items_center()
                 .justify_center()

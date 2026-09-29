@@ -16,6 +16,7 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::{Sizable, StyledExt as _};
 
 use crate::controls::ink;
+use crate::focus::Keyboard;
 use crate::{icon, modal, theme};
 
 /// A tab of the rail.
@@ -124,6 +125,10 @@ pub fn frame(
 ) -> Div {
     let on_tab = Rc::new(on_tab);
     let mut rail = div()
+        .id("settings-tabs")
+        .role(gpui::Role::TabList)
+        .aria_label("Settings pages")
+        .aria_orientation(gpui::Orientation::Vertical)
         .flex_none()
         .w(px(RAIL_WIDTH))
         .flex()
@@ -139,6 +144,10 @@ pub fn frame(
         rail = rail.child(
             div()
                 .id(("settings-tab", index))
+                .keyboard()
+                .role(gpui::Role::Tab)
+                .aria_label(gpui::SharedString::from(tab.label.to_string()))
+                .aria_selected(chosen)
                 .flex()
                 .flex_row()
                 .items_center()
@@ -379,6 +388,9 @@ impl Row {
         let reset = self.reset.filter(|(modified, _)| *modified).map(|(_, f)| {
             div()
                 .id("row-reset")
+                .keyboard()
+                .role(gpui::Role::Button)
+                .aria_label("Back to the default")
                 .flex()
                 .items_center()
                 .justify_center()
