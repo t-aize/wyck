@@ -78,13 +78,13 @@ impl ConnectionFlow {
                                     .gap_1()
                                     .child(
                                         div()
-                                            .text_size(px(tokens::text::DISPLAY))
+                                            .text_size(px(tokens::text::display()))
                                             .text_color(theme::fg())
                                             .child("Choose a trading account"),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(tokens::text::EMPHASIS))
+                                            .text_size(px(tokens::text::emphasis()))
                                             .text_color(theme::muted_fg())
                                             .child(
                                                 "Your cTrader ID authorized Wyck for these \
@@ -238,7 +238,7 @@ fn account_row(
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(tokens::text::TITLE))
+                        .text_size(px(tokens::text::title()))
                         .text_color(theme::fg())
                         .child(
                             account
@@ -250,7 +250,7 @@ fn account_row(
                 )
                 .child(
                     div()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())
                         .child(format!(
                             "cTrader ID {} - login {login}",

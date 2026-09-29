@@ -136,7 +136,7 @@ pub(super) fn groups(
         form::field(
             field.label(),
             field.hint(),
-            gpui::div().children(state.map(|state| number::field(state, tokens::field::NUMBER))),
+            gpui::div().children(state.map(|state| number::field(state, tokens::field::number()))),
         )
     };
     let mode_labels: Vec<&str> = CellMode::ALL.iter().map(|m| m.label()).collect();

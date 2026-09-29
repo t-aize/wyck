@@ -55,8 +55,12 @@ impl Dashboard {
         if self.ticket.is_none() {
             let prefs = self.workspace.read(cx).preferences().clone();
             let account = self.trading.clone();
-            let ticket =
-                cx.new(|cx| OrderTicket::new(account, prefs.ticket, prefs.one_click, window, cx));
+            let ticket = cx.new(|cx| OrderTicket::new(account, prefs.ticket, false, window, cx));
+            // One-click trading starts off at every launch, whatever it was left at.
+            self.workspace.update(cx, |workspace, cx| {
+                workspace.edit_preferences(cx, |prefs| prefs.one_click = false);
+            });
+            self.sync_risk(cx);
             cx.subscribe(
                 &ticket,
                 |this, ticket, event: &TicketEvent, cx| match event {
@@ -191,6 +195,82 @@ impl Dashboard {
             .update(cx, |multi, cx| multi.set_lines(lines, cx));
     }
 
+    /// The keyboard shortcuts of the ticket: Alt+B and Alt+S pick a side, Ctrl+Enter sends the
+    /// order the way the send button does (with its confirmation, unless one-click is on).
+    pub(super) fn ticket_key(
+        &mut self,
+        side: Option<bool>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.ticket_open {
+            return;
+        }
+        let Some(ticket) = self.ticket.clone() else {
+            return;
+        };
+        ticket.update(cx, |t, cx| match side {
+            Some(buy) => t.choose_side(buy, window, cx),
+            None => t.send_now(window, cx),
+        });
+    }
+
+    /// The panic button: asks, then closes every open position. Working orders stay.
+    pub(super) fn ask_close_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let count = self.trading.read(cx).book.positions.len();
+        if count == 0 {
+            toast::show(
+                cx,
+                toast::Kind::Info,
+                "Nothing to close",
+                "No position is open.",
+            );
+            return;
+        }
+        let account = self.trading.clone();
+        confirm(
+            window,
+            cx,
+            "Close every position?",
+            format!("{count} open position(s) will be closed at market."),
+            move |_, cx| account.update(cx, |a, cx| a.close_all(None, cx)),
+        );
+    }
+
+    /// Turns the kill switch on or off: while it is on, no new order can be sent.
+    pub(super) fn toggle_kill_switch(&mut self, cx: &mut Context<Self>) {
+        let on = !self.workspace.read(cx).preferences().risk.kill_switch;
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.risk.kill_switch = on);
+        });
+        toast::show(
+            cx,
+            if on {
+                toast::Kind::Warning
+            } else {
+                toast::Kind::Info
+            },
+            if on {
+                "Kill switch on"
+            } else {
+                "Kill switch off"
+            },
+            if on {
+                "No new order can be sent. Closing still works."
+            } else {
+                "New orders can be sent again."
+            },
+        );
+    }
+
+    /// Hands the safety limits and the zone the day is counted in to the account.
+    pub(super) fn sync_risk(&mut self, cx: &mut Context<Self>) {
+        let prefs = self.workspace.read(cx).preferences();
+        let (risk, zone) = (prefs.risk.clone(), prefs.zone);
+        self.trading
+            .update(cx, |account, cx| account.set_risk(risk, zone, cx));
+    }
+
     pub(super) fn set_ticket_open(&mut self, open: bool, cx: &mut Context<Self>) {
         self.ticket_open = open;
         self.workspace.update(cx, |workspace, cx| {
@@ -217,16 +297,72 @@ impl Dashboard {
                     workspace.edit_preferences(cx, |prefs| prefs.account_panel = settings);
                 });
             }
-            PanelEvent::ShowSymbol(id) => {
-                let entry = match &self.catalog {
-                    super::Load::Ready(catalog) => catalog.by_id(*id).cloned(),
-                    _ => None,
+            PanelEvent::ShowSymbol(id) => self.show_symbol(*id, cx),
+        }
+    }
+
+    /// Puts a symbol on the active chart.
+    pub(super) fn show_symbol(&mut self, id: i64, cx: &mut Context<Self>) {
+        let entry = match &self.catalog {
+            super::Load::Ready(catalog) => catalog.by_id(id).cloned(),
+            _ => None,
+        };
+        if let Some(entry) = entry {
+            self.picker_target = None;
+            self.select(entry, false, cx);
+        }
+    }
+
+    /// An alert fired or ran out: says so, with the buttons that help.
+    pub(super) fn on_alert_event(&mut self, event: &alerts::AlertsEvent, cx: &mut Context<Self>) {
+        match event {
+            alerts::AlertsEvent::Fired(alert, text) => {
+                let title = if alert.source.is_indicator() {
+                    "Indicator alert"
+                } else if alert.drawing().is_some() {
+                    "Drawing alert"
+                } else {
+                    "Price alert"
                 };
-                if let Some(entry) = entry {
-                    self.picker_target = None;
-                    self.select(entry, false, cx);
+                let (id, symbol) = (alert.id, alert.symbol_id);
+                let dashboard = cx.entity();
+                let snooze = self.alerts.clone();
+                let mut toast = toast::Toast::warning(title, text.clone())
+                    .sticky(alert.sticky)
+                    .action("Show chart", move |_, cx| {
+                        dashboard.update(cx, |d, cx| d.show_symbol(symbol, cx));
+                    })
+                    .action("Snooze 1 h", move |_, cx| {
+                        snooze.update(cx, |a, cx| a.snooze(id, now_ms() + 3_600_000, cx));
+                    });
+                if alert.repeats() {
+                    let off = self.alerts.clone();
+                    toast = toast.action("Turn off", move |_, cx| {
+                        off.update(cx, |a, cx| {
+                            a.edit(cx, |book| {
+                                if let Some(alert) = book.get_mut(id) {
+                                    alert.active = false;
+                                }
+                            })
+                        });
+                    });
                 }
+                if !alert.tag.is_empty() {
+                    toast = toast.hint(format!("Tag: {}", alert.tag));
+                }
+                toast.show(cx);
             }
+            alerts::AlertsEvent::Expired(alert) => {
+                let digits = self
+                    .alerts
+                    .read(cx)
+                    .digits
+                    .get(&alert.symbol_id)
+                    .copied()
+                    .unwrap_or(5);
+                toast::Toast::info("Alert expired", alert.describe(digits)).show(cx);
+            }
+            alerts::AlertsEvent::Changed => {}
         }
     }
 
@@ -255,6 +391,7 @@ impl Dashboard {
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
+            ChartAction::AddAlertOn(seed) => self.add_alert_on(symbol, seed, cx),
         }
         cx.notify();
     }
@@ -280,6 +417,73 @@ impl Dashboard {
         match added {
             Some(alert) => {
                 self.pending.push(Pending::EditAlert(alert));
+                if let Some(panel) = &self.panel {
+                    panel.update(cx, |panel, cx| panel.show_tab(Tab::Alerts, cx));
+                }
+            }
+            None => toast::show(
+                cx,
+                toast::Kind::Warning,
+                "No alert added",
+                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+            ),
+        }
+        cx.notify();
+    }
+
+    /// Adds an alert on an indicator or a drawing and opens it, so its condition can be set.
+    pub(super) fn add_alert_on(
+        &mut self,
+        symbol: &SymbolRef,
+        seed: &crate::chart::AlertSeed,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::alerts::{Alert, Condition, Source};
+        let limit = self.workspace.read(cx).preferences().limits.alerts;
+        let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
+        match seed {
+            crate::chart::AlertSeed::Indicator { study, timeframe } => {
+                alert.timeframe = timeframe.clone();
+                let spec = study.kind.spec();
+                if matches!(spec.format, wyck_chart::study::ValueFormat::Price) {
+                    // An average or a band on the prices: the price crosses it.
+                    alert.versus = Some(Source::Indicator {
+                        study: study.clone(),
+                        plot: 0,
+                    });
+                } else {
+                    // An oscillator: its value crosses a level, a high one to start with.
+                    alert.source = Source::Indicator {
+                        study: study.clone(),
+                        plot: 0,
+                    };
+                    alert.price = spec
+                        .range
+                        .map_or(0.0, |(low, high)| low + (high - low) * 0.7);
+                }
+            }
+            crate::chart::AlertSeed::Drawing {
+                id,
+                zone,
+                timeframe,
+            } => {
+                alert.timeframe = timeframe.clone();
+                alert.versus = Some(Source::Drawing { id: *id });
+                alert.condition = if *zone {
+                    Condition::EntersZone
+                } else {
+                    Condition::Crossing
+                };
+            }
+        }
+        let digits = symbol.digits;
+        let added = self.alerts.update(cx, |alerts, cx| {
+            alerts.digits.insert(symbol.id, digits);
+            alerts.edit(cx, |book| book.insert(alert, limit))
+        });
+        match added {
+            Some(id) => {
+                self.pending.push(Pending::EditAlert(id));
                 if let Some(panel) = &self.panel {
                     panel.update(cx, |panel, cx| panel.show_tab(Tab::Alerts, cx));
                 }

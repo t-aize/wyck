@@ -714,7 +714,7 @@ impl Render for TextInput {
             } else {
                 theme::border_subtle()
             })
-            .text_size(px(crate::tokens::text::TITLE))
+            .text_size(px(crate::tokens::text::title()))
             .text_color(theme::fg())
             .child(TextElement { input: cx.entity() });
 

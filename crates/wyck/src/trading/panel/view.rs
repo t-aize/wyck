@@ -25,7 +25,9 @@ use crate::trading::ticket::prefs::Slot;
 use wyck_ui::{
     button,
     confirm::confirm,
-    controls, icon,
+    controls,
+    focus::Keyboard,
+    icon,
     menu::{self as popup, Entry, Item},
     theme, tokens,
 };
@@ -33,8 +35,8 @@ use wyck_ui::{
 /// What a button or a menu entry of a row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
-/// The width of one button of a row.
-const BUTTON_W: f32 = tokens::height::COMPACT;
+/// The width of one button of a row, at the base size of the interface.
+const BUTTON_W: f32 = 24.0;
 
 fn tone_color(tone: Tone) -> gpui::Rgba {
     match tone {
@@ -193,12 +195,13 @@ impl AccountPanel {
         };
         div()
             .id(SharedString::from(format!("panel-tab-{tab:?}")))
+            .keyboard()
             .h_full()
             .px_3()
             .flex()
             .items_center()
             .cursor_pointer()
-            .text_size(px(tokens::text::BODY))
+            .text_size(px(tokens::text::body()))
             .font_weight(if chosen {
                 FontWeight::SEMIBOLD
             } else {
@@ -223,6 +226,37 @@ impl AccountPanel {
     }
 
     /// The figures of the account the user chose, in the order chosen.
+    /// A chip in the header when the safety limits hold something back: locked, no answer from the
+    /// server, or the kill switch.
+    fn safety_chip(&self, cx: &App) -> Option<AnyElement> {
+        let account = self.account.read(cx);
+        let (text, color, back) = if let Some(lock) = account.lock() {
+            let text = match lock {
+                crate::trading::guard::Lock::KillSwitch => "KILL SWITCH",
+                crate::trading::guard::Lock::DailyLoss { .. } => "DAILY LOSS LIMIT",
+                crate::trading::guard::Lock::Cooldown { .. } => "COOLING DOWN",
+            };
+            (text, theme::destructive(), theme::destructive_bg())
+        } else if account.is_uncertain() {
+            ("CHECK ACCOUNT", theme::amber(), theme::amber_bg())
+        } else {
+            return None;
+        };
+        Some(
+            div()
+                .flex_none()
+                .px_2()
+                .py_0p5()
+                .rounded_full()
+                .bg(back)
+                .text_size(px(tokens::text::caption()))
+                .font_semibold()
+                .text_color(color)
+                .child(text)
+                .into_any_element(),
+        )
+    }
+
     fn stats_row(&self, cx: &App) -> AnyElement {
         let account = self.account.read(cx);
         let currency = account.book.currency.clone();
@@ -236,13 +270,13 @@ impl AccountPanel {
                 .gap_1p5()
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(label),
                 )
                 .child(
                     div()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .font_semibold()
                         .text_color(color)
                         .child(value),
@@ -552,13 +586,45 @@ impl AccountPanel {
                     }
                     RowKind::Alert { id, active } => {
                         let id = *id;
-                        let (edit, toggle, remove) = (
+                        let (edit, toggle, remove, snooze, copy) = (
+                            self.alerts.clone(),
+                            self.alerts.clone(),
                             self.alerts.clone(),
                             self.alerts.clone(),
                             self.alerts.clone(),
                         );
                         let active = *active;
                         items.extend([
+                            Entry::new("Snooze for an hour")
+                                .icon(IconName::Timer)
+                                .disabled(!active)
+                                .on_click(move |_, cx| {
+                                    snooze.update(cx, |alerts, cx| {
+                                        alerts.snooze(id, crate::chart::now_ms() + 3_600_000, cx)
+                                    });
+                                })
+                                .into(),
+                            Entry::new("Duplicate")
+                                .icon(IconName::Copy)
+                                .on_click(move |_, cx| {
+                                    copy.update(cx, |alerts, cx| {
+                                        alerts.edit(cx, |book| {
+                                            if let Some(mut alert) = book.get(id).cloned() {
+                                                alert.active = true;
+                                                alert.fired_at = None;
+                                                alert.fired_count = 0;
+                                                alert.snoozed_until = None;
+                                                alert.bar_key = None;
+                                                alert.created_at = crate::chart::now_ms();
+                                                book.insert(
+                                                    alert,
+                                                    crate::workspace::MAX_SAVED_ALERTS,
+                                                );
+                                            }
+                                        });
+                                    });
+                                })
+                                .into(),
                             Entry::new("Edit the alert...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |window, cx| {
@@ -697,13 +763,13 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(tokens::height::LARGE))
+            .h(px(tokens::height::large()))
             .px_3()
             .border_b_1()
             .border_color(theme::border_hairline())
             .children(self.search.as_ref().map(|search| {
                 div()
-                    .w(px(tokens::field::TEXT))
+                    .w(px(tokens::field::text()))
                     .child(Input::new(search).small().cleanable(true))
             }))
             .child(only)
@@ -715,7 +781,7 @@ impl AccountPanel {
             .child(div().flex_1())
             .child(
                 div()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(if shown == table.unfiltered {
                         format!("{shown} rows")
@@ -738,13 +804,13 @@ impl AccountPanel {
                 .gap_1p5()
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(label),
                 )
                 .child(
                     div()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .font_semibold()
                         .text_color(color)
                         .child(value),
@@ -758,7 +824,7 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_4()
-            .h(px(tokens::height::CONTROL))
+            .h(px(tokens::height::control()))
             .px_3()
             .overflow_hidden()
             .border_b_1()
@@ -972,7 +1038,7 @@ impl AccountPanel {
             }
             RowKind::Deal | RowKind::Exposure => {}
         }
-        let width = buttons.len() as f32 * BUTTON_W;
+        let width = buttons.len() as f32 * tokens::scaled(BUTTON_W);
         (buttons, width)
     }
 
@@ -980,15 +1046,25 @@ impl AccountPanel {
     fn table_view(&self, table: &Table, menu: &popup::Menu, cx: &mut Context<Self>) -> AnyElement {
         let prefs: &PanelPrefs = &self.prefs;
         let tab = table.tab;
-        let height = prefs.density.height();
-        let text = prefs.density.text();
+        let height = tokens::scaled(prefs.density.height());
+        let text = tokens::scaled(prefs.density.text());
         // The width the buttons of the rows take, from the first row that has some.
         let has_more = |row: &Row| matches!(row.kind, RowKind::Position(_) | RowKind::Order { .. });
         let buttons_w = table.rows.first().map_or(0.0, |row| {
-            self.row_buttons(row).1 + if has_more(row) { BUTTON_W } else { 0.0 }
+            self.row_buttons(row).1
+                + if has_more(row) {
+                    tokens::scaled(BUTTON_W)
+                } else {
+                    0.0
+                }
         });
-        let content_w: f32 =
-            table.columns.iter().map(|c| c.width + 8.0).sum::<f32>() + buttons_w + 24.0;
+        let content_w: f32 = table
+            .columns
+            .iter()
+            .map(|c| tokens::scaled(c.width) + 8.0)
+            .sum::<f32>()
+            + buttons_w
+            + 24.0;
 
         let header_menu = menu.clone();
         let this = cx.entity();
@@ -1000,9 +1076,9 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(tokens::height::COMPACT))
+            .h(px(tokens::height::compact()))
             .px_3()
-            .text_size(px(tokens::text::SMALL))
+            .text_size(px(tokens::text::small()))
             .text_color(theme::muted_fg())
             .border_b_1()
             .border_color(theme::border_hairline())
@@ -1016,7 +1092,7 @@ impl AccountPanel {
                 div()
                     .id(SharedString::from(format!("panel-col-{}", col.slot)))
                     .relative()
-                    .w(px(col.width))
+                    .w(px(tokens::scaled(col.width)))
                     .flex_none()
                     .h_full()
                     .flex()
@@ -1167,7 +1243,7 @@ impl AccountPanel {
                 let cell: &Cell = &row.cells[col.index];
                 el = el.child(
                     div()
-                        .w(px(col.width))
+                        .w(px(tokens::scaled(col.width)))
                         .flex_none()
                         .truncate()
                         .text_color(tone_color(cell.tone))
@@ -1213,7 +1289,7 @@ impl AccountPanel {
                 .items_center()
                 .justify_center()
                 .gap_2()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(icon::tinted(
                     match tab {
@@ -1238,7 +1314,7 @@ impl AccountPanel {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(tokens::height::COMPACT))
+                .h(px(tokens::height::compact()))
                 .px_3()
                 .text_size(px(text))
                 .font_semibold()
@@ -1248,7 +1324,7 @@ impl AccountPanel {
             for (col, total) in table.columns.iter().zip(&table.totals) {
                 row = row.child(
                     div()
-                        .w(px(col.width))
+                        .w(px(tokens::scaled(col.width)))
                         .flex_none()
                         .truncate()
                         .text_color(theme::fg())
@@ -1363,7 +1439,7 @@ impl Render for AccountPanel {
                 .flex_col()
                 .items_center()
                 .gap_1()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .child(
                     div()
                         .text_color(theme::destructive())
@@ -1375,7 +1451,7 @@ impl Render for AccountPanel {
                 .py_6()
                 .flex()
                 .justify_center()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child("Reading the account...")
                 .into_any_element(),
@@ -1417,7 +1493,7 @@ impl Render for AccountPanel {
             .child(
                 div()
                     .flex_none()
-                    .h(px(tokens::height::LARGE))
+                    .h(px(tokens::height::large()))
                     .flex()
                     .flex_row()
                     .items_center()
@@ -1442,6 +1518,7 @@ impl Render for AccountPanel {
                             .items_center()
                             .justify_end()
                             .gap_3()
+                            .children(self.safety_chip(cx))
                             // When the panel is narrow the figures give way from the left, where
                             // the least needed are.
                             .child(
@@ -1468,7 +1545,7 @@ impl Render for AccountPanel {
                                     )
                                     .children(bulk.popup(
                                         bulk_items,
-                                        popup::Placement::Below(tokens::height::TINY),
+                                        popup::Placement::Below(tokens::height::tiny()),
                                         window,
                                         cx,
                                     )),

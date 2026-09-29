@@ -73,7 +73,7 @@ pub(super) fn number(
     form::field(
         label,
         hint,
-        div().child(number::field(state, tokens::field::NUMBER)),
+        div().child(number::field(state, tokens::field::number())),
     )
 }
 

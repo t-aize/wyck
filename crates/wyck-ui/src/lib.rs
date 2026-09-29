@@ -10,6 +10,7 @@ pub mod color_picker;
 pub mod confirm;
 pub mod controls;
 pub mod field;
+pub mod focus;
 pub mod font_picker;
 pub mod form;
 pub mod icon;

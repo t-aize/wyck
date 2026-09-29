@@ -706,7 +706,7 @@ impl ExportDialog {
         form::field(
             label,
             hint,
-            div().child(number::field(state, tokens::field::NUMBER)),
+            div().child(number::field(state, tokens::field::number())),
         )
     }
 
@@ -803,7 +803,7 @@ impl ExportDialog {
             "This export",
             None,
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(format!(
                     "{} rows, about {}",
@@ -847,7 +847,7 @@ impl ExportDialog {
                         div()
                             .w(px(150.))
                             .flex_none()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .truncate()
                             .child(source.column_name(key)),
@@ -856,7 +856,7 @@ impl ExportDialog {
                         div().flex_1().min_w_0().children(
                             self.names
                                 .get(&code)
-                                .map(|state| form::text_field(state, tokens::field::TEXT)),
+                                .map(|state| form::text_field(state, tokens::field::text())),
                         ),
                     )
                     .child(
@@ -896,7 +896,7 @@ impl ExportDialog {
             chosen.push(
                 div()
                     .py_2()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child("No column: pick some below.")
                     .into_any_element(),
@@ -912,7 +912,7 @@ impl ExportDialog {
             wrap = wrap.child(
                 div()
                     .id(SharedString::from(format!("col-add-{}", key.code())))
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .flex()
                     .items_center()
                     .px_2p5()
@@ -920,7 +920,7 @@ impl ExportDialog {
                     .border_1()
                     .border_color(theme::border_subtle())
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .hover(|s| s.bg(theme::surface_hover()))
                     .on_click(move |_, _, cx| {
@@ -1189,7 +1189,7 @@ impl ExportDialog {
                     div()
                         .flex_1()
                         .min_w_0()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .truncate()
                         .child(name),
                 )
@@ -1238,7 +1238,7 @@ impl ExportDialog {
             yours.push(
                 div()
                     .py_2()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child("Nothing saved yet.")
                     .into_any_element(),
@@ -1256,7 +1256,7 @@ impl ExportDialog {
                 .gap_2()
                 .child(form::text_field(
                     &self.inputs.preset_name,
-                    tokens::field::TEXT,
+                    tokens::field::text(),
                 ))
                 .child(
                     Button::new("preset-save")
@@ -1308,14 +1308,14 @@ impl ExportDialog {
             .border_color(theme::border_hairline())
             .overflow_x_scroll()
             .font_family(mono())
-            .text_size(px(tokens::text::SMALL))
+            .text_size(px(tokens::text::small()))
             .text_color(theme::fg())
             .child(column);
         let summary = form::field(
             "File",
             Some("Where the dialog will offer to save it"),
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(p.file_name.clone()),
         );
@@ -1323,7 +1323,7 @@ impl ExportDialog {
             "Size",
             None,
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(format!("{} rows, about {}", p.rows, human_bytes(p.bytes))),
         );
@@ -1332,7 +1332,7 @@ impl ExportDialog {
             let rows = p.problems.iter().map(|text| {
                 div()
                     .py_1p5()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::destructive())
                     .child(text.clone())
                     .into_any_element()
@@ -1375,7 +1375,7 @@ impl Render for ExportDialog {
         let (defaults, copy, write) = (cx.entity(), cx.entity(), cx.entity());
         let ready = !self.options.columns.is_empty() && !self.busy;
         let summary = div()
-            .text_size(px(tokens::text::SMALL))
+            .text_size(px(tokens::text::small()))
             .text_color(theme::muted_fg())
             .child(format!(
                 "{} rows, about {}",

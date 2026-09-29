@@ -203,7 +203,7 @@ pub(super) fn list_chips(
                 .child(list.name.clone())
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(list.symbols.len().to_string()),
                 )
@@ -252,7 +252,7 @@ pub(super) fn list_chips(
                 .child(div().w(px(200.)).child(editor.input.clone()))
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(match editor.error {
                             Some(_) => theme::destructive(),
                             None => theme::muted_fg(),
@@ -281,7 +281,7 @@ pub(super) fn star(
         .flex()
         .items_center()
         .justify_center()
-        .size(px(tokens::height::CONTROL))
+        .size(px(tokens::height::control()))
         .rounded_md()
         .cursor_pointer()
         .hover(|style| style.bg(theme::surface_pressed()))
@@ -372,7 +372,7 @@ pub(super) fn membership_panel(
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(theme::fg())
                         .child(title),
                 )
@@ -394,7 +394,7 @@ pub(super) fn membership_panel(
                 .py_2()
                 .border_t_1()
                 .border_color(theme::border_hairline())
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg())
                 .child("Make a list with New list, above, then add symbols to it here."),
         );
@@ -403,7 +403,7 @@ pub(super) fn membership_panel(
         .child(
             div()
                 .mt_4()
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg())
                 .child("SAVE TO"),
         )

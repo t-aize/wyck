@@ -183,6 +183,22 @@ impl Chart {
                 .into(),
             );
         }
+        if crate::alerts::eval::is_alert_tool(drawing.tool) {
+            let seed = ChartAction::AddAlertOn(super::AlertSeed::Drawing {
+                id,
+                zone: crate::alerts::eval::is_zone_tool(drawing.tool),
+                timeframe: self.timeframe.code(),
+            });
+            let alert = chart.clone();
+            items.push(
+                Entry::new("Add alert on this drawing...")
+                    .icon(IconName::BellPlus)
+                    .on_click(move |_, cx| {
+                        alert.update(cx, |_, cx| cx.emit(ChartEvent::Action(seed.clone())));
+                    })
+                    .into(),
+            );
+        }
         items.extend([
             Entry::new("Duplicate")
                 .icon(IconName::Copy)
@@ -287,8 +303,30 @@ impl Chart {
                     .hint("Alt+A")
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
-                Item::Separator,
             ]);
+            // An alert on each indicator the chart shows.
+            for study in self
+                .settings()
+                .studies
+                .iter()
+                .filter(|s| {
+                    s.visible
+                        && !s.is_script()
+                        && s.kind != wyck_chart::study::StudyKind::VolumeProfile
+                })
+                .take(6)
+            {
+                items.push(
+                    Entry::new(format!("Add alert on {}...", study.title()))
+                        .icon(IconName::BellPlus)
+                        .on_click(emit(ChartAction::AddAlertOn(super::AlertSeed::Indicator {
+                            study: Box::new(study.clone()),
+                            timeframe: self.timeframe.code(),
+                        })))
+                        .into(),
+                );
+            }
+            items.push(Item::Separator);
         }
         let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
             let chart = chart.clone();
@@ -455,10 +493,10 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(tokens::height::TINY))
+            .h(px(tokens::height::tiny()))
             .pl_1()
             .rounded_sm()
-            .text_size(px(tokens::text::BODY))
+            .text_size(px(tokens::text::body()))
             .hover(move |s| s.bg(hover))
             .child(
                 div()
@@ -643,7 +681,7 @@ impl Chart {
                         .bg(theme::surface_alpha(0.92))
                         .border_1()
                         .border_color(theme::border_subtle())
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(
                             div()
@@ -803,12 +841,12 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_0p5()
-            .h(px(tokens::height::TINY))
+            .h(px(tokens::height::tiny()))
             .px_1()
             .rounded_sm()
             .cursor_pointer()
             .hover(move |s| s.bg(hover))
-            .text_size(px(tokens::text::SMALL))
+            .text_size(px(tokens::text::small()))
             .text_color(theme::chart_muted())
             // The press is the button's, not the chart's under it.
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -844,7 +882,7 @@ impl Chart {
             .flex_row()
             .items_center()
             .gap_1()
-            .h(px(tokens::height::TINY))
+            .h(px(tokens::height::tiny()))
             .px_1()
             .rounded_sm()
             .cursor_pointer()
@@ -879,7 +917,7 @@ impl Chart {
             .flex_wrap()
             .items_center()
             .gap_x_2()
-            .text_size(px(tokens::text::BODY))
+            .text_size(px(tokens::text::body()))
             .child(symbol)
             .child(div().text_color(palette.text).child(kind_text))
             .children(
@@ -987,7 +1025,7 @@ impl Chart {
                 .absolute()
                 .top(px(y - 10.0))
                 .right(px(AXIS_W + 8.0))
-                .h(px(tokens::height::TINY))
+                .h(px(tokens::height::tiny()))
                 .flex()
                 .flex_row()
                 .items_center()
@@ -996,7 +1034,7 @@ impl Chart {
                 .border_1()
                 .border_color(color)
                 .bg(palette.bg)
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .occlude()
                 .child(
                     div()
@@ -1121,7 +1159,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(tokens::text::TITLE))
+                            .text_size(px(tokens::text::title()))
                             .text_color(theme::chart_muted())
                             .child("Pick a symbol to see its chart."),
                     )
@@ -1135,7 +1173,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::chart_muted())
                             .child("Loading the chart..."),
                     )
@@ -1150,7 +1188,7 @@ impl Chart {
                     ))
                     .child(
                         div()
-                            .text_size(px(tokens::text::TITLE))
+                            .text_size(px(tokens::text::title()))
                             .text_color(theme::chart_fg())
                             .child("Could not load the chart"),
                     )
@@ -1158,7 +1196,7 @@ impl Chart {
                         div()
                             .max_w(px(440.))
                             .text_center()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::chart_muted())
                             .child(message.clone()),
                     )
@@ -1173,7 +1211,7 @@ impl Chart {
                 centered()
                     .child(
                         div()
-                            .text_size(px(tokens::text::TITLE))
+                            .text_size(px(tokens::text::title()))
                             .text_color(theme::chart_muted())
                             .child("No prices yet for this timeframe. New ones will show up here."),
                     )
@@ -1191,7 +1229,7 @@ impl Chart {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::chart_muted())
                     .child(anim::spin(
                         icon::tinted(IconName::LoaderCircle, 12., theme::chart_muted()),

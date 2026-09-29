@@ -97,7 +97,7 @@ impl IndicatorEditor {
                     .child(
                         div()
                             .px_1()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::muted_fg())
                             .child("REFERENCE"),
@@ -116,7 +116,7 @@ impl IndicatorEditor {
                     .py_1p5()
                     .border_t_1()
                     .border_color(theme::border_hairline())
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child("Click a line to write its example where the cursor is."),
             )

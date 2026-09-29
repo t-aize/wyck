@@ -42,7 +42,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(if query.is_empty() {
                                 "No script yet. Make one with New, or drop .rhai files in the folder."
@@ -52,7 +52,7 @@ impl IndicatorEditor {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     ),
@@ -70,7 +70,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_1p5()
-                        .h(px(tokens::height::COMPACT))
+                        .h(px(tokens::height::compact()))
                         .px_2()
                         .mt_1()
                         .cursor_pointer()
@@ -97,7 +97,7 @@ impl IndicatorEditor {
                         .child(
                             div()
                                 .flex_1()
-                                .text_size(px(tokens::text::BODY))
+                                .text_size(px(tokens::text::body()))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme::muted_fg())
                                 .truncate()
@@ -105,7 +105,7 @@ impl IndicatorEditor {
                         )
                         .child(
                             div()
-                                .text_size(px(tokens::text::SMALL))
+                                .text_size(px(tokens::text::small()))
                                 .text_color(theme::muted_fg())
                                 .child(entries.len().to_string()),
                         ),
@@ -177,7 +177,7 @@ impl IndicatorEditor {
             .flex_row()
             .items_center()
             .gap_1p5()
-            .h(px(tokens::height::CONTROL))
+            .h(px(tokens::height::control()))
             .pl(px(if indented { 24. } else { 8. }))
             .pr_2()
             .mx_1()
@@ -217,7 +217,7 @@ impl IndicatorEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if active {
                         theme::fg()
                     } else {
@@ -300,8 +300,11 @@ impl IndicatorEditor {
             Ask::New(index) => TEMPLATES.get(*index).map(|t| t.description),
             Ask::Rename(_) => None,
         };
-        let (ok, cancel) = (cx.entity(), cx.entity());
+        let (ok, cancel, outside, escape) = (cx.entity(), cx.entity(), cx.entity(), cx.entity());
         let card = div()
+            .id("editor-prompt-card")
+            // A click on the card is its own: it must not reach the veil, which closes the prompt.
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .w(px(380.))
             .p_4()
             .flex()
@@ -314,14 +317,14 @@ impl IndicatorEditor {
             .shadow_lg()
             .child(
                 div()
-                    .text_size(px(tokens::text::TITLE))
+                    .text_size(px(tokens::text::title()))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child(title),
             )
             .children(description.map(|text| {
                 div()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(text)
             }))
@@ -357,12 +360,24 @@ impl IndicatorEditor {
             );
         Some(
             div()
+                .id("editor-prompt-veil")
                 .absolute()
                 .inset_0()
                 .flex()
                 .items_center()
                 .justify_center()
                 .bg(theme::veil())
+                // The veil takes the mouse: nothing behind it (the templates) reacts while a name
+                // is asked, and a click outside the card closes it.
+                .occlude()
+                .on_mouse_down(gpui::MouseButton::Left, move |_, _, cx| {
+                    outside.update(cx, |e, cx| e.cancel_prompt(cx));
+                })
+                .on_key_down(move |event, _, cx| {
+                    if event.keystroke.key == "escape" {
+                        escape.update(cx, |e, cx| e.cancel_prompt(cx));
+                    }
+                })
                 .child(card)
                 .into_any_element(),
         )

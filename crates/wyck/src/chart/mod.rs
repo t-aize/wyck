@@ -70,7 +70,7 @@ mod indicator_picker;
 mod input;
 pub mod lines;
 pub mod live;
-mod load;
+pub(crate) mod load;
 pub mod object_tree;
 use wyck_chart::options;
 mod overlay;
@@ -388,6 +388,24 @@ pub enum ChartAction {
         link: Option<PositionLink>,
     },
     AddAlert(f64),
+    /// Add an alert on an indicator or a drawing of the chart.
+    AddAlertOn(AlertSeed),
+}
+
+/// What an alert asked from a chart is made on.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AlertSeed {
+    /// An indicator of the chart, and the timeframe it is worked out on.
+    Indicator {
+        study: Box<wyck_chart::study::StudyConfig>,
+        timeframe: String,
+    },
+    /// A drawing of the chart.
+    Drawing {
+        id: u64,
+        zone: bool,
+        timeframe: String,
+    },
 }
 
 /// What a long or short position drawing gives the ticket besides its prices: which drawing it is

@@ -24,11 +24,12 @@ impl OrderTicket {
             .child(
                 div()
                     .id(key)
+                    .keyboard()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_1()
-                    .h(px(tokens::height::COMPACT))
+                    .h(px(tokens::height::compact()))
                     .px_2()
                     .rounded_md()
                     .border_1()
@@ -38,7 +39,7 @@ impl OrderTicket {
                         theme::border_subtle()
                     })
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::fg())
                     .hover(|s| s.bg(theme::surface_hover()))
                     .on_click(move |_, _, cx| toggle.toggle(cx))
@@ -47,7 +48,7 @@ impl OrderTicket {
             )
             .children(menu.popup(
                 entries,
-                popup::Placement::Below(tokens::height::COMPACT),
+                popup::Placement::Below(tokens::height::compact()),
                 window,
                 cx,
             ))
@@ -252,13 +253,13 @@ impl OrderTicket {
                             .min_w_0()
                             .child(
                                 div()
-                                    .text_size(px(tokens::text::CAPTION))
+                                    .text_size(px(tokens::text::caption()))
                                     .text_color(theme::muted_fg())
                                     .child("NEW ORDER"),
                             )
                             .child(
                                 div()
-                                    .text_size(px(tokens::text::HEADING))
+                                    .text_size(px(tokens::text::heading()))
                                     .font_semibold()
                                     .text_color(theme::fg())
                                     .truncate()
@@ -349,7 +350,7 @@ impl OrderTicket {
                             div()
                                 .flex_1()
                                 .min_w_0()
-                                .text_size(px(tokens::text::BODY))
+                                .text_size(px(tokens::text::body()))
                                 .font_semibold()
                                 .text_color(theme::fg())
                                 .truncate()
@@ -384,6 +385,7 @@ impl OrderTicket {
             let price = if buy { f.ask } else { f.bid };
             div()
                 .id(if buy { "ticket-buy" } else { "ticket-sell" })
+                .keyboard()
                 .flex_1()
                 .flex()
                 .flex_col()
@@ -418,7 +420,7 @@ impl OrderTicket {
                 .when(!allowed, |el| el.cursor_not_allowed().opacity(0.4))
                 .child(
                     div()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .font_semibold()
                         .text_color(color)
                         .child(if buy { "BUY" } else { "SELL" }),
@@ -427,9 +429,9 @@ impl OrderTicket {
                     el.child(
                         div()
                             .text_size(px(if f.m.compact {
-                                tokens::text::EMPHASIS
+                                tokens::text::emphasis()
                             } else {
-                                tokens::text::HEADING
+                                tokens::text::heading()
                             }))
                             .font_semibold()
                             .text_color(theme::fg())
@@ -439,7 +441,7 @@ impl OrderTicket {
                 .when(one_click && allowed, |el| {
                     el.child(
                         div()
-                            .text_size(px(tokens::text::CAPTION))
+                            .text_size(px(tokens::text::caption()))
                             .text_color(theme::muted_fg())
                             .child("click to send"),
                     )
@@ -472,7 +474,7 @@ impl OrderTicket {
                                 .bg(theme::surface())
                                 .border_1()
                                 .border_color(theme::border_subtle())
-                                .text_size(px(tokens::text::CAPTION))
+                                .text_size(px(tokens::text::caption()))
                                 .text_color(theme::muted_fg())
                                 .child(format!("{} pips", f.spread)),
                         ),
@@ -514,7 +516,7 @@ impl OrderTicket {
                     line(
                         price_label,
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(f.price(f.plan.entry)),
                     )
@@ -553,7 +555,7 @@ impl OrderTicket {
                         .child(line(
                             "Range of the limit (pips)",
                             div()
-                                .text_size(px(tokens::text::SMALL))
+                                .text_size(px(tokens::text::small()))
                                 .text_color(theme::muted_fg())
                                 .children(limit_at.map(|p| format!("limit at {p}"))),
                         ))
@@ -588,7 +590,7 @@ impl OrderTicket {
                     .flex()
                     .flex_row()
                     .justify_between()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child("Volume")
                     .child(div().text_color(theme::fg()).child(note))

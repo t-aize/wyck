@@ -65,17 +65,17 @@ impl SettingsHub {
                     form::field(
                         "Indicators per chart",
                         Some("Includes hidden indicators. Existing ones stay when you lower it (1 to 64)"),
-                        number::field(&self.study_limit, tokens::field::NUMBER),
+                        number::field(&self.study_limit, tokens::field::number()),
                     ),
                     form::field(
                         "Saved price alerts",
                         Some("Includes inactive alerts. Existing ones stay when you lower it (1 to 2000)"),
-                        number::field(&self.alert_limit, tokens::field::NUMBER),
+                        number::field(&self.alert_limit, tokens::field::number()),
                     ),
                     form::field(
                         "Drawings per symbol",
                         Some("Includes hidden drawings. Existing ones stay when you lower it (1 to 5000)"),
-                        number::field(&self.drawing_limit, tokens::field::NUMBER),
+                        number::field(&self.drawing_limit, tokens::field::number()),
                     ),
                 ],
             ))

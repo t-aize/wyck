@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::trading::math::{Offset, SizeMode};
+use crate::trading::plan::ExitPlan;
 use wyck_chart::study::atr_stop::AtrStop;
 
 /// The kind of order the ticket sends.
@@ -112,6 +113,8 @@ pub enum Section {
     Size,
     StopLoss,
     TakeProfit,
+    /// Several take profits, the break-even and an OCO pair.
+    Exits,
     /// How long a pending order lives, the slippage, the trailing stop, the comment.
     Options,
     /// What is open on the symbol, with what can be done to it.
@@ -151,6 +154,7 @@ impl Slot for Section {
         Self::Size,
         Self::StopLoss,
         Self::TakeProfit,
+        Self::Exits,
         Self::Options,
         Self::Positions,
         Self::Summary,
@@ -164,6 +168,7 @@ impl Slot for Section {
             Self::Size => "Size",
             Self::StopLoss => "Stop loss",
             Self::TakeProfit => "Take profit",
+            Self::Exits => "Scale out, break-even, OCO",
             Self::Options => "Expiry, slippage, trailing, comment",
             Self::Positions => "Open on this symbol",
             Self::Summary => "Summary of the order",
@@ -468,6 +473,8 @@ pub struct TicketPrefs {
     pub atr: AtrStop,
     pub target_unit: Offset,
     pub layout: Layout,
+    /// The exits of a plan: several take profits, a break-even, an OCO pair.
+    pub exits: ExitPlan,
 }
 
 impl Default for TicketPrefs {
@@ -480,6 +487,7 @@ impl Default for TicketPrefs {
             atr: AtrStop::default(),
             target_unit: Offset::Pips,
             layout: Layout::default(),
+            exits: ExitPlan::default(),
         }
     }
 }
@@ -492,6 +500,7 @@ impl TicketPrefs {
         }
         self.layout = self.layout.normalized();
         self.atr = self.atr.normalized();
+        self.exits = self.exits.normalized();
         self
     }
 }

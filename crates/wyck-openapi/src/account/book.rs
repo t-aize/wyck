@@ -32,6 +32,18 @@ pub enum Tone {
     Error,
 }
 
+/// Something the user can do about a notice, straight from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NoticeAction {
+    /// Close this position.
+    ClosePosition(i64),
+    /// Move the stop loss of this position to its entry price.
+    BreakEven(i64),
+    /// Cancel this working order.
+    CancelOrder(i64),
+}
+
 /// Something to tell the user about what happened to their orders.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Notice {
@@ -45,6 +57,8 @@ pub struct Notice {
     pub hint: Option<String>,
     /// The exact words of the server or of the error, for a bug report.
     pub details: Option<String>,
+    /// What can be done about it from the notice itself.
+    pub actions: Vec<NoticeAction>,
 }
 
 impl Notice {
@@ -56,7 +70,15 @@ impl Notice {
             message: message.into(),
             hint: None,
             details: None,
+            actions: Vec::new(),
         }
+    }
+
+    /// Adds a button the notice offers.
+    #[must_use]
+    pub fn action(mut self, action: NoticeAction) -> Self {
+        self.actions.push(action);
+        self
     }
 
     /// Adds what to do about it.
@@ -255,7 +277,7 @@ impl AccountBook {
                     .position
                     .as_ref()
                     .is_some_and(|p| p.status() == Some(PositionStatus::Closed));
-                Some(notice(
+                let mut filled = notice(
                     Tone::Success,
                     if closing {
                         "Position closed"
@@ -263,16 +285,27 @@ impl AccountBook {
                         "Order filled"
                     },
                     format!("{text}{price}"),
-                ))
+                );
+                if let Some(position) = event
+                    .position
+                    .as_ref()
+                    .filter(|p| p.status() == Some(PositionStatus::Open))
+                {
+                    filled = filled
+                        .action(NoticeAction::ClosePosition(position.position_id))
+                        .action(NoticeAction::BreakEven(position.position_id));
+                }
+                Some(filled)
             }
             Some(ExecutionType::OrderPartialFill) => {
                 Some(notice(Tone::Info, "Order partly filled", text))
             }
-            Some(ExecutionType::OrderAccepted) => event
-                .order
-                .as_ref()
-                .filter(|o| is_working(o))
-                .map(|_| notice(Tone::Info, "Order placed", text)),
+            Some(ExecutionType::OrderAccepted) => {
+                event.order.as_ref().filter(|o| is_working(o)).map(|o| {
+                    notice(Tone::Info, "Order placed", text)
+                        .action(NoticeAction::CancelOrder(o.order_id))
+                })
+            }
             Some(ExecutionType::OrderReplaced) => Some(notice(Tone::Info, "Order changed", text)),
             Some(ExecutionType::OrderCancelled) => {
                 Some(notice(Tone::Info, "Order cancelled", text))

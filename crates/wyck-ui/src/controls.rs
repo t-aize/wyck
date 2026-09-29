@@ -11,6 +11,7 @@ use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px}
 use gpui_kit::component::Sizable;
 use gpui_kit::component::switch::Switch;
 
+use crate::focus::Keyboard;
 use crate::{color_picker, menu, theme, tokens};
 
 /// The id of child `n` of an element.
@@ -58,14 +59,15 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
         strip = strip.child(
             div()
                 .id(child_id(&id, index))
+                .keyboard()
                 .when(fill, |el| el.flex_1().justify_center())
-                .h(px(tokens::height::COMPACT))
+                .h(px(tokens::height::compact()))
                 .px_2p5()
                 .flex()
                 .items_center()
                 .rounded_sm()
                 .cursor_pointer()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(ink(chosen))
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -81,11 +83,12 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
 pub fn chip(id: impl Into<ElementId>, chosen: bool) -> gpui::Stateful<Div> {
     div()
         .id(id)
+        .keyboard()
         .flex()
         .flex_row()
         .items_center()
         .gap_1p5()
-        .h(px(tokens::height::COMPACT))
+        .h(px(tokens::height::compact()))
         .px_2p5()
         .rounded_md()
         .border_1()
@@ -96,7 +99,7 @@ pub fn chip(id: impl Into<ElementId>, chosen: bool) -> gpui::Stateful<Div> {
         })
         .when(chosen, |el| el.bg(theme::accent_selected()))
         .cursor_pointer()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .text_color(ink(chosen))
         .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
 }
@@ -157,7 +160,7 @@ pub fn color_swatch_with_opacity(
     let hover = panel.clone();
     let swatch = div()
         .id(id.clone())
-        .size(px(tokens::height::COMPACT))
+        .size(px(tokens::height::compact()))
         .p(px(3.))
         .rounded_md()
         .border_1()
@@ -183,7 +186,7 @@ pub fn color_swatch_with_opacity(
         .relative()
         .child(swatch)
         // Above the dialogs of gpui-component, which hold the color fields of the settings.
-        .child(menu::below(panel, tokens::height::COMPACT, 100))
+        .child(menu::below(panel, tokens::height::compact(), 100))
         .into_any_element()
 }
 
@@ -210,7 +213,7 @@ fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Sta
         .items_center()
         .justify_center()
         .w(px(40.))
-        .h(px(crate::tokens::height::CONTROL))
+        .h(px(crate::tokens::height::control()))
         .rounded_md()
         .border_1()
         .border_color(if chosen {

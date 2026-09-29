@@ -36,6 +36,7 @@ mod behaviour;
 mod charts;
 mod data;
 mod look;
+mod safety;
 mod scripts;
 
 /// Opens the settings.
@@ -69,16 +70,18 @@ pub enum Page {
     Charts,
     Indicators,
     Behaviour,
+    Safety,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
+        Self::Safety,
         Self::Data,
         Self::About,
     ];
@@ -89,6 +92,7 @@ impl Page {
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
+            Self::Safety => ("Safety", IconName::ShieldCheck),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
         };
@@ -138,6 +142,8 @@ struct SettingsHub {
     study_limit: Entity<InputState>,
     alert_limit: Entity<InputState>,
     drawing_limit: Entity<InputState>,
+    /// The number fields of the Safety page.
+    risk_inputs: Vec<(safety::RiskField, Entity<InputState>)>,
     /// The list of fonts, once it was opened.
     font_picker: Option<Entity<FontPicker>>,
     font_open: bool,
@@ -211,6 +217,15 @@ impl SettingsHub {
         subscriptions.push(number::watch(&drawing_limit, cx, |this, value, cx| {
             this.set_usage_limit(UsageLimitKind::Drawings, value, cx);
         }));
+        let risk = workspace.read(cx).preferences().risk.clone();
+        let mut risk_inputs = Vec::new();
+        for field in safety::RiskField::ALL {
+            let state = cx.new(|cx| number::state(field.kind(), field.value(&risk), window, cx));
+            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
+                this.set_risk_field(field, value, cx);
+            }));
+            risk_inputs.push((field, state));
+        }
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
@@ -226,6 +241,7 @@ impl SettingsHub {
             study_limit,
             alert_limit,
             drawing_limit,
+            risk_inputs,
             font_picker: None,
             font_open: false,
             _font_subscription: None,
@@ -321,6 +337,7 @@ impl Render for SettingsHub {
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
+            Page::Safety => self.safety_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(cx),
         };

@@ -289,7 +289,12 @@ impl Dashboard {
                     .rounded_full()
                     .bg(theme::amber())
             }))
-            .children(menu.popup(items, Placement::Below(tokens::height::COMPACT), window, cx))
+            .children(menu.popup(
+                items,
+                Placement::Below(tokens::height::compact()),
+                window,
+                cx,
+            ))
     }
 }
 

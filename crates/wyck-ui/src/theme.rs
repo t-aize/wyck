@@ -381,11 +381,13 @@ pub fn apply(cx: &mut gpui::App) {
     theme_colors.danger = hsla(destructive());
     theme_colors.danger_hover = hsla(destructive()).opacity(0.88);
     theme_colors.danger_active = hsla(destructive()).opacity(0.75);
-    theme_colors.danger_foreground = hsla(rgb(if luminance(palette.danger) > 0.4 {
-        0x0a0a0a
-    } else {
-        0xffffff
-    }));
+    theme_colors.danger_foreground = hsla(rgb(
+        if contrast(0x0a0a0a, palette.danger) >= contrast(0xffffff, palette.danger) {
+            0x0a0a0a
+        } else {
+            0xffffff
+        },
+    ));
     theme_colors.success = hsla(emerald());
     theme_colors.warning = hsla(amber());
     theme_colors.link = hsla(accent());

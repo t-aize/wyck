@@ -205,13 +205,13 @@ impl ConnectionFlow {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::DISPLAY))
+                            .text_size(px(tokens::text::display()))
                             .text_color(theme::fg())
                             .child("Connecting your account"),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::muted_fg())
                             .child(format!(
                                 "Authorizing {} - {}",

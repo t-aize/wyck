@@ -17,7 +17,7 @@ impl SettingsHub {
                     label,
                     None,
                     div()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::fg())
                         .child(value),
                 )
@@ -29,7 +29,7 @@ impl SettingsHub {
             "Status",
             None,
             div()
-                .text_size(px(tokens::text::EMPHASIS))
+                .text_size(px(tokens::text::emphasis()))
                 .text_color(theme::fg())
                 .child(update_state.status()),
         )];
@@ -43,7 +43,7 @@ impl SettingsHub {
                 None,
                 div()
                     .max_w(px(440.))
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child(notes.clone()),
             ));

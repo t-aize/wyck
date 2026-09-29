@@ -35,12 +35,12 @@
 use std::time::Duration;
 
 use gpui::prelude::*;
-use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
+use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 use wyck_openapi::account::TradeSide;
 use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 
-use super::account::Account;
+use super::account::{Account, Busy};
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
 use crate::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms};
@@ -55,11 +55,15 @@ mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
-use wyck_ui::{confirm::confirm, number};
+use super::guard::Verdict;
+use super::plan::{self, ExitPlan};
+use wyck_ui::confirm::{Details, confirm_details};
+use wyck_ui::number;
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;
 pub const LINE_STOP: u8 = 1;
+/// The take profit; with exits, the first of them (the next ones follow at 3 and 4).
 pub const LINE_TARGET: u8 = 2;
 
 pub enum TicketEvent {
@@ -175,6 +179,13 @@ pub struct OrderTicket {
     /// Whether the settings of the ATR stop show, and the block of the options.
     atr_open: bool,
     options_open: bool,
+    /// The exits of a plan (see [`plan`]). The shares and targets are typed in the inputs below;
+    /// this holds the rest, and [`Self::exits_now`] reads the inputs into it.
+    exits: ExitPlan,
+    /// The share and the take profit (in R) typed for each of the most legs.
+    leg_inputs: Vec<(Entity<InputState>, Entity<InputState>)>,
+    be_offset: Entity<InputState>,
+    oco_pips: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -274,6 +285,36 @@ impl OrderTicket {
                 }),
             );
         }
+        // The inputs of the exits: one pair per leg the plan can have.
+        let exits = prefs.exits.clone();
+        let mut leg_inputs = Vec::new();
+        for index in 0..plan::MAX_LEGS {
+            let leg = exits.legs.get(index).copied().unwrap_or(plan::Leg {
+                share: 0.0,
+                target_r: 0.0,
+            });
+            let share =
+                cx.new(|cx| number::state(number::Kind::Percent, leg.share, window, cx).max(100.0));
+            let target =
+                cx.new(|cx| number::state(number::Kind::Ratio, leg.target_r, window, cx).min(0.0));
+            leg_inputs.push((share, target));
+        }
+        let be_offset = cx
+            .new(|cx| number::state(number::Kind::Pips, exits.break_even.offset_pips, window, cx));
+        let oco_pips = cx.new(|cx| number::state(number::Kind::Pips, exits.oco_pips, window, cx));
+        for state in leg_inputs
+            .iter()
+            .flat_map(|(a, b)| [a, b])
+            .chain([&be_offset, &oco_pips])
+        {
+            subscriptions.push(cx.subscribe(state, |this, _state, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.settings_changed(cx);
+                    cx.emit(TicketEvent::LinesChanged);
+                    cx.notify();
+                }
+            }));
+        }
         let atr_seeded = prefs.stop_atr || prefs.atr != AtrStop::default();
         let mut ticket = Self {
             account,
@@ -313,6 +354,10 @@ impl OrderTicket {
             link: None,
             atr_open: false,
             options_open: false,
+            exits,
+            leg_inputs,
+            be_offset,
+            oco_pips,
             _subscriptions: subscriptions,
         };
         // A stop loss sizing the order by risk cannot depend on the volume.
@@ -363,7 +408,79 @@ impl OrderTicket {
             atr,
             target_unit,
             layout: self.layout.clone(),
+            exits: self.exits_now(cx),
         }
+    }
+
+    /// The plan of exits as typed now: the legs the inputs hold, and the other settings.
+    pub(super) fn exits_now(&self, cx: &App) -> ExitPlan {
+        let mut exits = self.exits.clone();
+        let count = exits.legs.len().clamp(2, plan::MAX_LEGS);
+        exits.legs = self
+            .leg_inputs
+            .iter()
+            .take(count)
+            .map(|(share, target)| plan::Leg {
+                share: Self::read(share, cx).unwrap_or(0.0),
+                target_r: Self::read(target, cx).unwrap_or(0.0),
+            })
+            .collect();
+        exits.break_even.offset_pips = Self::read(&self.be_offset, cx).unwrap_or(0.0);
+        exits.oco_pips = Self::read(&self.oco_pips, cx).unwrap_or(0.0);
+        exits.normalized()
+    }
+
+    /// Cuts the plan into two or three exits, with the shares and targets it starts from.
+    pub(super) fn set_leg_count(
+        &mut self,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let count = count.clamp(2, plan::MAX_LEGS);
+        let legs = if count == 2 {
+            vec![
+                plan::Leg {
+                    share: 60.0,
+                    target_r: 1.5,
+                },
+                plan::Leg {
+                    share: 40.0,
+                    target_r: 0.0,
+                },
+            ]
+        } else {
+            ExitPlan::default().legs
+        };
+        for (index, (share, target)) in self.leg_inputs.iter().enumerate() {
+            let leg = legs.get(index).copied().unwrap_or(plan::Leg {
+                share: 0.0,
+                target_r: 0.0,
+            });
+            let (share, target) = (share.clone(), target.clone());
+            self.write(&share, number::format(leg.share, 2), window, cx);
+            self.write(&target, number::format(leg.target_r, 2), window, cx);
+        }
+        let mut exits = self.exits_now(cx);
+        exits.legs = legs;
+        self.exits = exits.normalized();
+        self.settings_changed(cx);
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
+    }
+
+    /// Changes the plan of exits (its switches, its number of legs), and remembers it.
+    pub(super) fn edit_exits(
+        &mut self,
+        cx: &mut Context<Self>,
+        change: impl FnOnce(&mut ExitPlan),
+    ) {
+        let mut exits = self.exits_now(cx);
+        change(&mut exits);
+        self.exits = exits;
+        self.settings_changed(cx);
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
     }
 
     fn settings_changed(&self, cx: &mut Context<Self>) {
@@ -716,6 +833,21 @@ impl OrderTicket {
                 self.stop_unit = Offset::Price;
                 self.set_protection(true, price, window, cx);
             }
+            n if self.exits.on => {
+                // A take profit of the exits is given in R: the line sets it from the distance.
+                let plan = self.plan(cx);
+                if let (Some(entry), Some(distance), Some((_, target))) = (
+                    plan.entry,
+                    plan.stop_distance,
+                    self.leg_inputs.get(usize::from(n - LINE_TARGET)),
+                ) {
+                    let r = ((price - entry) * math::protection_side(self.buy, false)) / distance;
+                    if r.is_finite() && r > 0.0 {
+                        let target = target.clone();
+                        self.write(&target, number::format(r, 2), window, cx);
+                    }
+                }
+            }
             _ => {
                 self.target_unit = Offset::Price;
                 self.set_protection(false, price, window, cx);
@@ -788,6 +920,20 @@ impl OrderTicket {
     /// Whether a side can be picked: a followed drawing is a long or a short, not both.
     fn side_allowed(&self, buy: bool) -> bool {
         self.link.as_ref().is_none_or(|link| link.plan.buy == buy)
+    }
+
+    /// Picks a side from the keyboard.
+    pub fn choose_side(&mut self, buy: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_side(buy, window, cx);
+    }
+
+    /// Sends from the keyboard, as the send button does. A second press while the first order is
+    /// in flight does nothing.
+    pub fn send_now(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.account.read(cx).is_busy(Busy::Placing) {
+            return;
+        }
+        self.send(window, cx);
     }
 
     fn set_side(&mut self, buy: bool, _window: &mut Window, cx: &mut Context<Self>) {
@@ -1246,6 +1392,34 @@ impl OrderTicket {
         plan.reward = target_distance
             .zip(plan.money_per_price)
             .map(|(d, m)| d * m);
+        if self.exits.on {
+            // The exits have their own take profits, in multiples of the risk: the single take
+            // profit is not used, and the reward is the sum of what each exit earns.
+            let exits = self.exits_now(cx);
+            plan.target = None;
+            plan.reward = plan.risk.map(|risk| {
+                exits
+                    .legs
+                    .iter()
+                    .map(|leg| leg.share / 100.0 * leg.target_r * risk)
+                    .sum()
+            });
+            if !self.stop_on || plan.stop_distance.is_none() {
+                problem(
+                    &mut plan,
+                    "Exits need a stop loss: their targets are multiples of the risk".to_owned(),
+                );
+            }
+            if let Some(text) = exits.problem() {
+                problem(&mut plan, text);
+            }
+            if exits.oco_pips > 0.0 && !matches!(self.kind, Kind::Limit | Kind::Stop) {
+                problem(
+                    &mut plan,
+                    "An OCO pair needs a limit or stop order".to_owned(),
+                );
+            }
+        }
 
         if entry.is_none() {
             problem(&mut plan, math::TicketProblem::NoPrice.to_string());
@@ -1260,7 +1434,7 @@ impl OrderTicket {
             };
             problem(&mut plan, text.to_owned());
         }
-        if self.target_on && plan.target.is_none() {
+        if self.target_on && !self.exits.on && plan.target.is_none() {
             let text = if self.target_unit == Offset::Ratio && plan.stop_distance.is_none() {
                 "A take profit in R needs a stop loss"
             } else if self.target_unit.needs_volume() && rate.is_none() {
@@ -1298,6 +1472,7 @@ impl OrderTicket {
             return Vec::new();
         }
         let plan = self.plan(cx);
+        let palette_line = wyck_ui::theme::colors().line;
         let currency = self.account.read(cx).book.currency.clone();
         let mut lines = Vec::new();
         let line = |id: u8, price: f64, color: u32, label: &str, money: Option<f64>| ChartLine {
@@ -1321,19 +1496,40 @@ impl OrderTicket {
                 (false, Kind::StopLimit) => "Sell stop limit",
                 (false, _) => "Sell stop",
             };
-            lines.push(line(LINE_ENTRY, price, 0x5b8def, label, None));
+            lines.push(line(LINE_ENTRY, price, palette_line, label, None));
         }
+        let palette = wyck_ui::theme::colors();
         if let Some(price) = plan.stop {
             lines.push(line(
                 LINE_STOP,
                 price,
-                0xef5350,
+                palette.down,
                 "SL",
                 plan.risk.map(|r| -r),
             ));
         }
-        if let Some(price) = plan.target {
-            lines.push(line(LINE_TARGET, price, 0x26a69a, "TP", plan.reward));
+        if self.exits.on {
+            // One take profit line per exit that has one, each dragged to change its R.
+            let exits = self.exits_now(cx);
+            if let (Some(entry), Some(distance)) = (plan.entry, plan.stop_distance) {
+                for (index, leg) in exits.legs.iter().enumerate() {
+                    if leg.target_r <= 0.0 {
+                        continue;
+                    }
+                    let price =
+                        entry + math::protection_side(self.buy, false) * leg.target_r * distance;
+                    let money = plan.risk.map(|r| r * leg.target_r * leg.share / 100.0);
+                    lines.push(line(
+                        LINE_TARGET + index as u8,
+                        price,
+                        palette.up,
+                        &format!("TP{}", index + 1),
+                        money,
+                    ));
+                }
+            }
+        } else if let Some(price) = plan.target {
+            lines.push(line(LINE_TARGET, price, palette.up, "TP", plan.reward));
         }
         lines
     }
@@ -1396,6 +1592,18 @@ impl OrderTicket {
 
     /// The order as it would be sent, or why it cannot be.
     fn order(&self, plan: &Plan, cx: &App) -> Result<NewOrderReq, String> {
+        self.order_with(self.buy, self.kind, plan, cx)
+    }
+
+    /// The order of a side and a kind, from a plan: the ticket's own, or its opposite in an OCO
+    /// pair.
+    fn order_with(
+        &self,
+        buy: bool,
+        kind: Kind,
+        plan: &Plan,
+        cx: &App,
+    ) -> Result<NewOrderReq, String> {
         if let Some(problem) = &plan.problem {
             return Err(problem.clone());
         }
@@ -1404,15 +1612,11 @@ impl OrderTicket {
             return Err(math::TicketProblem::NoPrice.to_string());
         };
         let contract = self.contract(cx);
-        let side = if self.buy {
-            TradeSide::Buy
-        } else {
-            TradeSide::Sell
-        };
+        let side = if buy { TradeSide::Buy } else { TradeSide::Sell };
         let round = |p: f64| contract.round_price(p);
         let volume = sized.volume;
         let pips = self.slippage_pips(cx);
-        let mut order = match self.kind {
+        let mut order = match kind {
             Kind::Market if self.slippage_on => {
                 // A market range order takes absolute protection, and fills within the slippage.
                 let mut order = NewOrderReq::market(symbol.id, side, volume)
@@ -1444,14 +1648,14 @@ impl OrderTicket {
                     side,
                     volume,
                     round(entry),
-                    round(stop_limit_price(self.buy, entry, range * contract.pip())),
+                    round(stop_limit_price(buy, entry, range * contract.pip())),
                 )
                 .with_protection(plan.stop.map(round), plan.target.map(round));
                 order.slippage_in_points = Some(slippage_points(range, &contract));
                 order
             }
         };
-        if self.kind.is_pending() {
+        if kind.is_pending() {
             match self.tif {
                 Tif::GoodTillCancel => order.time_in_force = Some(2),
                 Tif::GoodTillDate => {
@@ -1469,6 +1673,94 @@ impl OrderTicket {
             order.comment = Some(comment.chars().take(512).collect());
         }
         Ok(order)
+    }
+
+    /// Every order the ticket sends: the one order, or the legs of a plan of exits, and their
+    /// opposites when an OCO pair is asked for. The orders of a plan carry a label that says
+    /// which plan and leg they are (see [`plan::Label`]).
+    fn orders(&self, plan: &Plan, cx: &App) -> Result<Vec<NewOrderReq>, String> {
+        if !self.exits.on {
+            return Ok(vec![self.order(plan, cx)?]);
+        }
+        if let Some(problem) = &plan.problem {
+            return Err(problem.clone());
+        }
+        let exits = self.exits_now(cx);
+        let (Some(entry), Some(sized), Some(stop), Some(distance)) =
+            (plan.entry, plan.sized, plan.stop, plan.stop_distance)
+        else {
+            return Err("Exits need a stop loss".to_owned());
+        };
+        let contract = self.contract(cx);
+        let shares: Vec<f64> = exits.legs.iter().map(|l| l.share).collect();
+        let (volumes, kept) = plan::split_volume(
+            sized.volume,
+            &shares,
+            contract.min_volume,
+            contract.step_volume,
+        );
+        if volumes.is_empty() {
+            return Err("The volume is too small to cut into exits".to_owned());
+        }
+        // The break-even leg counted among the legs that are left.
+        let break_even = (exits.break_even.on && kept.len() > 1).then(|| {
+            let want = usize::from(exits.break_even.after_leg).saturating_sub(1);
+            let at = kept.iter().rposition(|k| *k <= want).unwrap_or(0);
+            let after = (at + 1).min(kept.len() - 1).max(1);
+            (
+                after as u8,
+                (exits.break_even.offset_pips * 10.0).round() as u32,
+            )
+        });
+        let group = plan::new_group(now_ms());
+        let pip = contract.pip();
+        // The sides: the ticket's own, and the opposite one of an OCO pair.
+        let mut sides = vec![(self.buy, entry, stop)];
+        let oco = exits.oco_pips > 0.0 && matches!(self.kind, Kind::Limit | Kind::Stop);
+        if oco {
+            // A stop order of the other side waits beyond the price the other way; a limit order
+            // waits on the far side of it.
+            let toward = if (self.kind == Kind::Stop) == self.buy {
+                -1.0
+            } else {
+                1.0
+            };
+            let other = entry + toward * exits.oco_pips * pip;
+            if other <= 0.0 {
+                return Err("The opposite price of the OCO pair is not a price".to_owned());
+            }
+            let other_stop = other + math::protection_side(!self.buy, true) * distance;
+            sides.push((!self.buy, other, other_stop));
+        }
+        let mut orders = Vec::new();
+        for (buy, entry, stop) in sides {
+            for (n, (volume, leg)) in volumes.iter().zip(&kept).enumerate() {
+                let target_r = exits.legs[*leg].target_r;
+                let mut leg_plan = plan.clone();
+                leg_plan.entry = Some(entry);
+                leg_plan.stop = Some(stop);
+                leg_plan.target = (target_r > 0.0)
+                    .then(|| entry + math::protection_side(buy, false) * target_r * distance);
+                let mut sized = sized;
+                sized.volume = *volume;
+                leg_plan.sized = Some(sized);
+                let mut order = self.order_with(buy, self.kind, &leg_plan, cx)?;
+                order.trailing_stop_loss =
+                    (exits.trail_last && n + 1 == kept.len()).then_some(true);
+                order.label = Some(
+                    plan::Label {
+                        group: group.clone(),
+                        leg: (n + 1) as u8,
+                        of: kept.len() as u8,
+                        break_even,
+                        oco,
+                    }
+                    .encode(),
+                );
+                orders.push(order);
+            }
+        }
+        Ok(orders)
     }
 
     fn describe(&self, plan: &Plan, cx: &App) -> String {
@@ -1513,8 +1805,8 @@ impl OrderTicket {
 
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let plan = self.plan(cx);
-        let order = match self.order(&plan, cx) {
-            Ok(order) => order,
+        let orders = match self.orders(&plan, cx) {
+            Ok(orders) => orders,
             Err(message) => {
                 wyck_ui::toast::Toast::warning("The order is not ready", message)
                     .hint("Fix it in the ticket, then send again.")
@@ -1523,27 +1815,126 @@ impl OrderTicket {
                 return;
             }
         };
-        if self.one_click {
+        // The safety limits first: a hard one refuses the order here, before anything opens.
+        let (verdict, live, balance) = {
+            let account = self.account.read(cx);
+            (
+                account.assess_batch(&orders, self.one_click),
+                account.is_live(),
+                account.summary().balance,
+            )
+        };
+        let mut warnings = match verdict {
+            Verdict::Block(reason) => {
+                wyck_ui::toast::Toast::warning("Blocked by your safety settings", reason)
+                    .hint("Change the limits in Settings, Safety.")
+                    .show(cx);
+                return;
+            }
+            Verdict::Warn(warnings) => warnings,
+            Verdict::Ok => Vec::new(),
+        };
+        if let Some(risk) = plan.risk
+            && balance > 0.0
+            && risk / balance * 100.0 > self.layout.high_risk
+        {
+            warnings.push(format!(
+                "This order risks more than {}% of the balance.",
+                number::format(self.layout.high_risk, 2)
+            ));
+        }
+        // One click sends at once, unless something is worth a second look.
+        if self.one_click && warnings.is_empty() {
             self.account
-                .update(cx, |account, cx| account.place(order, cx));
+                .update(cx, |account, cx| account.place_batch(orders, true, cx));
             // The order is on its way: the drawing has done its part.
             self.release_link(true, window, cx);
             return;
         }
         let account = self.account.clone();
         let this = cx.entity();
-        let mut text = self.describe(&plan, cx);
+        let one_click = self.one_click;
+        let text = self.describe(&plan, cx);
+        let details = self.confirm_details(&plan, live, warnings, cx);
+        confirm_details(
+            window,
+            cx,
+            "Send this order?",
+            text,
+            details,
+            move |window, cx| {
+                account.update(cx, |account, cx| {
+                    account.place_batch(orders.clone(), one_click, cx)
+                });
+                this.update(cx, |ticket, cx| ticket.release_link(true, window, cx));
+            },
+        );
+    }
+
+    /// The rows the confirmation shows for an order: what it is, and what is at stake.
+    fn confirm_details(&self, plan: &Plan, live: bool, warnings: Vec<String>, cx: &App) -> Details {
+        let contract = self.contract(cx);
         let currency = self.account.read(cx).book.currency.clone();
-        if let Some(risk) = plan.risk {
-            text.push_str(&format!(
-                ", risking {}",
-                math::format_money(risk, &currency)
-            ));
+        let money = |amount: f64| math::format_money(amount, &currency);
+        let price = |value: Option<f64>| {
+            value.map_or_else(|| "none".to_owned(), |p| contract.format_price(p))
+        };
+        let mut rows: Vec<(SharedString, SharedString)> = Vec::new();
+        let mut row = |label: &'static str, value: String| rows.push((label.into(), value.into()));
+        if let Some(sized) = plan.sized {
+            row(
+                "Size",
+                format!(
+                    "{} lots",
+                    math::format_lots(contract.lots_of_volume(sized.volume))
+                ),
+            );
         }
-        confirm(window, cx, "Send this order?", text, move |window, cx| {
-            account.update(cx, |account, cx| account.place(order.clone(), cx));
-            this.update(cx, |ticket, cx| ticket.release_link(true, window, cx));
-        });
+        row(
+            if self.kind == Kind::Market {
+                "Price (market)"
+            } else {
+                "Price"
+            },
+            price(plan.entry),
+        );
+        row("Stop loss", price(plan.stop));
+        row("Take profit", price(plan.target));
+        if let Some(risk) = plan.risk {
+            let balance = self.account.read(cx).summary().balance;
+            let share = if balance > 0.0 {
+                format!(" ({}%)", number::format(risk / balance * 100.0, 2))
+            } else {
+                String::new()
+            };
+            row("Risk", format!("{}{share}", money(risk)));
+        }
+        if let Some(reward) = plan.reward {
+            row("Reward", money(reward));
+            if let Some(risk) = plan.risk.filter(|r| *r > 0.0) {
+                row(
+                    "Reward to risk",
+                    format!("{}R", number::format(reward / risk, 2)),
+                );
+            }
+        }
+        if let Some(margin) = self
+            .margin
+            .filter(|m| Some(m.volume) == plan.sized.map(|s| s.volume))
+            .map(|m| side_of(m.order, self.buy))
+        {
+            row("Margin", money(margin));
+        }
+        let (bid, ask) = self.quote(cx);
+        if let Some((bid, ask)) = bid.zip(ask) {
+            row("Spread", format!("{:.1} pips", contract.pips(ask - bid)));
+        }
+        Details {
+            rows,
+            warnings: warnings.into_iter().map(Into::into).collect(),
+            badge: live.then(|| "LIVE ACCOUNT".into()),
+            label: Some(if self.buy { "Buy" } else { "Sell" }),
+        }
     }
 }
 

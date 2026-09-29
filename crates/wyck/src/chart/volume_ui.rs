@@ -209,7 +209,7 @@ pub(super) fn bar_group(
                     });
                 },
             ))
-            .child(number::field(&inputs.size, tokens::field::NUMBER)),
+            .child(number::field(&inputs.size, tokens::field::number())),
     );
     let mut rows = vec![size];
     if resolved > 0 {

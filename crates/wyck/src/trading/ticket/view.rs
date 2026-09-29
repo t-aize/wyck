@@ -15,18 +15,21 @@ use gpui_kit::component::input::{Input, NumberInput};
 use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::prefs::{Density, Kind, Line, Section, Slot, Span, Tif};
-use super::{OrderTicket, Plan, TicketEvent, customize, nice, side_of, stop_limit_price};
+use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop_limit_price};
 use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
 use wyck_ui::{
     confirm::confirm,
-    controls, form, icon,
+    controls,
+    focus::Keyboard,
+    form, icon,
     menu::{self as popup, Entry, Item},
     number, theme, tokens,
 };
 
+mod exits;
 mod options;
 mod order;
 mod positions;
@@ -128,10 +131,10 @@ fn card_head(title: impl Into<SharedString>, right: Option<AnyElement>) -> Div {
         .items_center()
         .justify_between()
         .gap_2()
-        .h(px(tokens::height::COMPACT))
+        .h(px(tokens::height::compact()))
         .child(
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .font_semibold()
                 .text_color(theme::muted_fg())
                 .child(title.into()),
@@ -147,10 +150,10 @@ fn line(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
         .items_center()
         .justify_between()
         .gap_2()
-        .min_h(px(tokens::height::COMPACT))
+        .min_h(px(tokens::height::compact()))
         .child(
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(label.into()),
         )
@@ -160,7 +163,7 @@ fn line(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
 /// A line of secondary text.
 fn hint(text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(tokens::text::SMALL))
+        .text_size(px(tokens::text::small()))
         .text_color(theme::muted_fg())
         .child(text.into())
 }
@@ -169,8 +172,9 @@ fn hint(text: impl Into<SharedString>) -> Div {
 fn text_button(id: &'static str, text: &'static str) -> gpui::Stateful<Div> {
     div()
         .id(id)
+        .keyboard()
         .cursor_pointer()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .text_color(theme::accent())
         .hover(|s| s.underline())
         .child(text)
@@ -247,7 +251,7 @@ impl OrderTicket {
                             .flex()
                             .flex_row()
                             .justify_between()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .child(
                                 div()
                                     .text_color(theme::chart_down())
@@ -329,8 +333,149 @@ impl OrderTicket {
         warnings
     }
 
+    /// What the safety limits say now: a lock that stops new orders (with the way out), a request
+    /// that got no answer, and how much of the day's loss limit is used.
+    fn safety_banners(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let account_entity = self.account.clone();
+        let (lock, uncertain, standing, limit, positions, currency, text) = {
+            let account = self.account.read(cx);
+            let standing = account.standing();
+            let lock = account.lock();
+            (
+                lock,
+                account.is_uncertain(),
+                standing,
+                account.risk().daily_loss_limit(standing.day_start_balance),
+                account.book.positions.len(),
+                account.book.currency.clone(),
+                lock.map(|lock| {
+                    lock.text(
+                        &|m| math::format_money(m, &account.book.currency),
+                        standing.now,
+                    )
+                }),
+            )
+        };
+        let mut out: Vec<AnyElement> = Vec::new();
+        if let (Some(_), Some(text)) = (lock, text) {
+            let close = account_entity.clone();
+            out.push(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .p_2()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme::destructive())
+                    .bg(theme::destructive_bg())
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_start()
+                            .gap_2()
+                            .text_size(px(tokens::text::body()))
+                            .text_color(theme::destructive())
+                            .child(div().flex_none().pt(px(1.)).child(icon::tinted(
+                                IconName::ShieldAlert,
+                                13.,
+                                theme::destructive(),
+                            )))
+                            .child(div().flex_1().min_w_0().child(text)),
+                    )
+                    .when(positions > 0, |el| {
+                        el.child(
+                            text_button("ticket-lock-close-all", "Close all positions").on_click(
+                                move |_, window, cx| {
+                                    let close = close.clone();
+                                    confirm(
+                                        window,
+                                        cx,
+                                        "Close every position?",
+                                        "All open positions are closed at market.",
+                                        move |_, cx| {
+                                            close.update(cx, |a, cx| a.close_all(None, cx))
+                                        },
+                                    );
+                                },
+                            ),
+                        )
+                    })
+                    .into_any_element(),
+            );
+        }
+        if uncertain {
+            let refresh = account_entity.clone();
+            out.push(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .p_2()
+                    .rounded_md()
+                    .bg(theme::amber_bg())
+                    .text_size(px(tokens::text::body()))
+                    .text_color(theme::amber())
+                    .child("A request got no answer. It may have gone through: check the positions before sending again.")
+                    .child(text_button("ticket-uncertain-refresh", "Check the account").on_click(
+                        move |_, _, cx| refresh.update(cx, |a, cx| a.on_ready(cx)),
+                    ))
+                    .into_any_element(),
+            );
+        }
+        if let Some(limit) = limit.filter(|l| *l > 0.0) {
+            let used = (-standing.day_pnl).max(0.0);
+            let share = (used / limit).clamp(0.0, 1.0) as f32;
+            let color = if share >= 1.0 {
+                theme::destructive()
+            } else if share >= 0.7 {
+                theme::amber()
+            } else {
+                theme::emerald()
+            };
+            out.push(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .justify_between()
+                            .text_size(px(tokens::text::small()))
+                            .text_color(theme::muted_fg())
+                            .child("Daily loss")
+                            .child(format!(
+                                "{} of {}",
+                                math::format_money(used, &currency),
+                                math::format_money(limit, &currency)
+                            )),
+                    )
+                    .child(
+                        div()
+                            .h(px(4.))
+                            .w_full()
+                            .rounded_full()
+                            .bg(theme::fg_alpha(0.12))
+                            .child(
+                                div()
+                                    .h_full()
+                                    .rounded_full()
+                                    .bg(color)
+                                    .w(gpui::relative(share.max(0.02))),
+                            ),
+                    )
+                    .into_any_element(),
+            );
+        }
+        out
+    }
+
     fn send_button(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
-        let blocked = f.plan.problem.is_some() || f.busy;
+        let locked = self.account.read(cx).lock().is_some();
+        let blocked = f.plan.problem.is_some() || f.busy || locked;
         Button::new("ticket-send")
             .cursor_pointer()
             .when(blocked, |button| button.cursor_not_allowed())
@@ -366,6 +511,7 @@ impl OrderTicket {
             .border_t_1()
             .border_color(theme::border_hairline())
             .bg(theme::bg())
+            .children(self.safety_banners(cx))
             .children(warning_rows(warnings))
             .when(with_send, |el| el.child(self.send_button(f, cx)))
             .child(
@@ -376,7 +522,31 @@ impl OrderTicket {
                     .child(
                         controls::switch("ticket-one-click", self.one_click)
                             .label("One-click trading")
-                            .on_click(cx.listener(|this, checked: &bool, _, cx| {
+                            .on_click(cx.listener(|this, checked: &bool, window, cx| {
+                                if *checked && !this.one_click {
+                                    // Turning it on says what it does, and asks once.
+                                    let ticket = cx.entity();
+                                    let live = this.account.read(cx).is_live();
+                                    let text = if live {
+                                        "This is a LIVE account. Buy and Sell will send real orders as soon as you click, with no confirmation."
+                                    } else {
+                                        "Buy and Sell will send orders as soon as you click, with no confirmation."
+                                    };
+                                    confirm(
+                                        window,
+                                        cx,
+                                        "Turn on one-click trading?",
+                                        text,
+                                        move |_, cx| {
+                                            ticket.update(cx, |t, cx| {
+                                                t.one_click = true;
+                                                cx.emit(TicketEvent::LinesChanged);
+                                                cx.notify();
+                                            });
+                                        },
+                                    );
+                                    return;
+                                }
                                 this.one_click = *checked;
                                 cx.emit(TicketEvent::LinesChanged);
                                 cx.notify();
@@ -385,7 +555,7 @@ impl OrderTicket {
                     .when(self.one_click, |el| {
                         el.child(
                             div()
-                                .text_size(px(tokens::text::SMALL))
+                                .text_size(px(tokens::text::small()))
                                 .text_color(theme::amber())
                                 .child(
                                     "Orders are sent without asking. Buy and Sell send at once.",
@@ -479,6 +649,7 @@ impl Render for OrderTicket {
                     Section::Size => self.size_block(&frame, window, cx),
                     Section::StopLoss => self.protection(true, &frame, window, cx),
                     Section::TakeProfit => self.protection(false, &frame, window, cx),
+                    Section::Exits => self.exits_block(&frame, cx),
                     Section::Options => self.options(&frame, window, cx),
                     Section::Positions => self.positions(&frame, cx),
                     Section::Summary => self.summary(&frame),
@@ -531,7 +702,7 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .p_2()
                 .rounded_md()
                 .bg(theme::amber_bg())
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::amber())
                 .child(div().flex_none().pt(px(1.)).child(icon::tinted(
                     IconName::TriangleAlert,
@@ -559,7 +730,7 @@ fn summary_row(label: &'static str, value: String) -> impl IntoElement {
         .flex_row()
         .justify_between()
         .gap_2()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .child(div().text_color(theme::muted_fg()).child(label))
         .child(div().text_color(theme::fg()).child(value))
 }

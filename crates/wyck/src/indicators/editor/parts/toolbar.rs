@@ -94,7 +94,7 @@ impl IndicatorEditor {
                     .child(icon::tinted(IconName::CodeXml, 16., theme::accent()))
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(theme::fg())
                             .child("Indicator editor"),
@@ -115,7 +115,7 @@ impl IndicatorEditor {
                     )
                     .children(new_menu.popup(
                         templates,
-                        Placement::Below(tokens::height::TINY),
+                        Placement::Below(tokens::height::tiny()),
                         window,
                         cx,
                     )),
@@ -172,7 +172,7 @@ impl IndicatorEditor {
                     )
                     .children(export_menu.popup(
                         export_items,
-                        Placement::Below(tokens::height::TINY),
+                        Placement::Below(tokens::height::tiny()),
                         window,
                         cx,
                     )),

@@ -140,7 +140,7 @@ impl Picker {
                 div()
                     .flex_none()
                     .w(px(58.))
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -150,7 +150,7 @@ impl Picker {
                     } else {
                         theme::destructive_bg()
                     })
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(if usable {
                         theme::fg()
@@ -174,7 +174,7 @@ impl Picker {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_size(px(tokens::text::EMPHASIS))
+                                    .text_size(px(tokens::text::emphasis()))
                                     .text_color(theme::fg())
                                     .truncate()
                                     .child(item.label.clone()),
@@ -200,7 +200,7 @@ impl Picker {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(if usable {
                                 theme::muted_fg()
                             } else {
@@ -280,12 +280,12 @@ impl Picker {
                     .flex_row()
                     .items_center()
                     .gap_1p5()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .px_2p5()
                     .rounded_md()
                     .border_1()
                     .border_color(theme::border_subtle())
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if can_add {
                         theme::fg()
                     } else {

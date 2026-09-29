@@ -491,7 +491,7 @@ impl ChartSettingsEditor {
                     div()
                         .id(SharedString::from(format!("chart-kind-{}", kind.code())))
                         .w(px(150.))
-                        .h(px(tokens::height::LARGE))
+                        .h(px(tokens::height::large()))
                         .flex()
                         .flex_row()
                         .items_center()
@@ -505,7 +505,7 @@ impl ChartSettingsEditor {
                             theme::border_subtle()
                         })
                         .cursor_pointer()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(ink)
                         .when(chosen, |el| el.bg(theme::accent_selected()))
                         .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -523,7 +523,7 @@ impl ChartSettingsEditor {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(title),
                     )
@@ -574,19 +574,19 @@ impl ChartSettingsEditor {
                             });
                         },
                     ))
-                    .child(number::field(state, tokens::field::NUMBER)),
+                    .child(number::field(state, tokens::field::number())),
             ));
         }
         match kind {
             ChartKind::LineBreak => rows.push(form::field(
                 "Lines to break",
                 Some("A new line turns after breaking the extreme of this many"),
-                number::field(&self.line_break, tokens::field::NUMBER),
+                number::field(&self.line_break, tokens::field::number()),
             )),
             ChartKind::PointFigure => rows.push(form::field(
                 "Reversal (boxes)",
                 Some("Boxes the price must go back to start a new column"),
-                number::field(&self.reversal, tokens::field::NUMBER),
+                number::field(&self.reversal, tokens::field::number()),
             )),
             _ => {}
         }
@@ -905,10 +905,10 @@ impl ChartSettingsEditor {
                     .flex_row()
                     .items_center()
                     .justify_between()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .px_2p5()
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if chosen {
                         theme::fg()
                     } else {
@@ -1017,7 +1017,7 @@ impl ChartSettingsEditor {
                 div()
                     .flex_none()
                     .w(px(56.))
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::accent())
                     .child(spec.short),
             )
@@ -1025,7 +1025,7 @@ impl ChartSettingsEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(tokens::text::EMPHASIS))
+                    .text_size(px(tokens::text::emphasis()))
                     .text_color(if visible {
                         theme::fg()
                     } else {

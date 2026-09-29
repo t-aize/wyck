@@ -5,7 +5,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
-use wyck_ui::tokens;
 
 /// A column of a table.
 pub trait Column: Slot + Serialize + for<'de> Deserialize<'de> {
@@ -67,10 +66,12 @@ macro_rules! columns {
 
 // Widths come from the sizes every screen shares, so a column of one table is as wide as the
 // same kind of column of the others.
-const SHORT: f32 = tokens::field::NARROW;
-const NUMBER: f32 = tokens::field::NUMBER;
-const WIDE: f32 = tokens::field::WIDE;
-const TEXT: f32 = tokens::field::TEXT;
+// They are the base sizes: the table scales them with the interface when it draws (see
+// `tokens::scaled`).
+const SHORT: f32 = 84.0;
+const NUMBER: f32 = 110.0;
+const WIDE: f32 = 130.0;
+const TEXT: f32 = 220.0;
 
 columns! {
     /// The columns of the open positions.
@@ -164,7 +165,7 @@ columns! {
         Distance => ("Distance", NUMBER, true, false),
         State => ("State", WIDE, false, true),
         Message => ("Message", TEXT, false, true),
-        Repeats => ("Repeats", SHORT, false, false),
+        Repeats => ("Trigger", SHORT, false, false),
         Created => ("Created", WIDE, false, false),
         Fired => ("Last fired", WIDE, false, false),
     }

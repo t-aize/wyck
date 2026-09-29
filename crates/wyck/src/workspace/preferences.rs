@@ -1,7 +1,7 @@
 //! Saved preferences and watchlists.
 
 use super::layouts::{self, LayoutKey};
-use crate::trading::{panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
+use crate::trading::{guard::RiskPrefs, panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
 use serde::{Deserialize, Serialize};
 use wyck_chart::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
 use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
@@ -206,6 +206,9 @@ pub struct Preferences {
     /// How the account panel under the charts is arranged.
     #[serde(default)]
     pub account_panel: PanelPrefs,
+    /// The limits that keep the account safe: size, daily loss, kill switch.
+    #[serde(default)]
+    pub risk: RiskPrefs,
     /// The drawing tools pinned in the bar of favorites, by code, in the order they show.
     #[serde(default = "default_favorite_tools")]
     pub favorite_tools: Vec<String>,
@@ -276,6 +279,7 @@ impl Default for Preferences {
             one_click: false,
             ticket: TicketPrefs::default(),
             account_panel: PanelPrefs::default(),
+            risk: RiskPrefs::default(),
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,
@@ -361,6 +365,7 @@ impl Preferences {
         self.panel_height = self.panel_height.min(2_000.0);
         self.ticket = self.ticket.normalized();
         self.account_panel = self.account_panel.normalized();
+        self.risk = self.risk.normalized();
 
         // The favorite tools: known ones, each once, in the order saved, no more than the bar
         // holds. An empty list is kept: it is what the user chose, not a reason for the defaults.
@@ -676,6 +681,23 @@ mod tests {
     fn an_empty_file_gives_the_defaults() {
         let prefs: Preferences = toml::from_str("").unwrap();
         assert_eq!(prefs.normalized(), Preferences::default().normalized());
+    }
+
+    #[test]
+    fn safety_limits_and_exits_load_from_old_files_and_round_trip() {
+        let old: Preferences = toml::from_str("magnet = true").unwrap();
+        assert!(!old.ticket.exits.on);
+        assert_eq!(old.normalized().risk, RiskPrefs::default());
+        let mut prefs = Preferences::default();
+        prefs.risk.max_daily_loss = 250.0;
+        prefs.risk.kill_switch = true;
+        prefs.ticket.exits.on = true;
+        prefs.ticket.exits.oco_pips = 12.5;
+        let text = toml::to_string(&prefs).unwrap();
+        let back: Preferences = toml::from_str(&text).unwrap();
+        let back = back.normalized();
+        assert_eq!(back.risk, prefs.risk);
+        assert_eq!(back.ticket.exits, prefs.ticket.exits);
     }
 
     #[test]

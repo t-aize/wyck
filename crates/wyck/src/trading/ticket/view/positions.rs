@@ -128,7 +128,7 @@ impl OrderTicket {
                             .flex_row()
                             .items_center()
                             .justify_between()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .child(
                                 div()
                                     .flex()
@@ -165,7 +165,7 @@ impl OrderTicket {
                             .justify_between()
                             .child(
                                 div()
-                                    .text_size(px(tokens::text::SMALL))
+                                    .text_size(px(tokens::text::small()))
                                     .text_color(theme::muted_fg())
                                     .child(format!(
                                         "SL {}  TP {}{}",
@@ -248,7 +248,7 @@ impl OrderTicket {
                     .items_center()
                     .justify_between()
                     .px_2()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(format!(
                         "{} {} {} @ {}",

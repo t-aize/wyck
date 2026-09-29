@@ -7,9 +7,11 @@
 //! stands for.
 
 pub mod account;
+pub mod guard;
 pub use wyck_openapi::account::book;
 pub mod math;
 pub mod panel;
+pub mod plan;
 pub mod ticket;
 
 use std::collections::HashMap;
@@ -19,11 +21,6 @@ use crate::chart::{ChartLine, LineId};
 use wyck_chart::drawing::model::Dash;
 
 use self::book::{AccountBook, is_buy};
-
-/// The color of an alert's line. The other lines take theirs from the palette in force: a
-/// position the chart's line color, an order the amber, a stop loss the falling candle and a take
-/// profit the rising one.
-pub const ALERT_COLOR: u32 = 0xff9800;
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`
@@ -154,11 +151,18 @@ pub fn lines(
             ));
         }
     }
-    for alert in alerts.alerts.iter().filter(|a| a.active) {
+    // Only an alert on a price at a level of its own has a line: the others are in indicator
+    // units, or follow a drawing that is shown already.
+    for alert in alerts.alerts.iter().filter(|a| {
+        a.active
+            && a.versus.is_none()
+            && matches!(a.source, crate::alerts::Source::Price { .. })
+            && a.condition.needs_level()
+    }) {
         out.entry(alert.symbol_id).or_default().push(line(
             LineId::Alert(alert.id),
             alert.price,
-            ALERT_COLOR,
+            palette.amber,
             "Alert".into(),
             Dash::Dotted,
             true,

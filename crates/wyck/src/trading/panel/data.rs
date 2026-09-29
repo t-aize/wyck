@@ -909,21 +909,24 @@ fn alerts(ctx: &Ctx) -> Table {
             .get(&symbol)
             .copied()
             .unwrap_or(contract.digits);
+        let now = crate::chart::now_ms();
         let state = match (alert.active, alert.fired_at) {
-            (true, _) if alert.repeat => "Watching (repeats)",
+            (true, _) if alert.is_snoozed(now) => "Snoozed",
+            (true, _) if alert.repeats() => "Watching (repeats)",
             (true, _) => "Watching",
+            (false, _) if alert.is_expired(now) => "Expired",
             (false, Some(_)) => "Fired",
             (false, None) => "Paused",
         };
+        // A level in the units of the price: an alert on an indicator has its own units.
+        let on_price = matches!(alert.source, crate::alerts::Source::Price { .. })
+            && alert.versus.is_none()
+            && alert.condition.needs_level();
+        let described = alert.describe(digits);
         if !ctx.keeps(
             symbol,
             None,
-            &[
-                &alert.symbol,
-                alert.condition.label(),
-                state,
-                &alert.message,
-            ],
+            &[&alert.symbol, &described, &alert.tag, state, &alert.message],
         ) {
             continue;
         }
@@ -936,10 +939,12 @@ fn alerts(ctx: &Ctx) -> Table {
             .iter()
             .map(|col| match col {
                 AlertCol::Symbol => Cell::text(alert.symbol.clone()),
-                AlertCol::Condition => Cell::text(alert.condition.label()).tone(Tone::Muted),
-                AlertCol::Price => {
+                AlertCol::Condition => Cell::text(described.clone()).tone(Tone::Muted),
+                AlertCol::Price if on_price => {
                     Cell::num(format!("{:.*}", digits as usize, alert.price), alert.price)
                 }
+                AlertCol::Price => Cell::dash(),
+                AlertCol::Distance if !on_price => Cell::dash(),
                 AlertCol::Distance => match market {
                     Some(m) => {
                         let pips = contract.pips(alert.price - m);
@@ -953,9 +958,7 @@ fn alerts(ctx: &Ctx) -> Table {
                     Tone::Muted
                 }),
                 AlertCol::Message => Cell::text(alert.message.clone()).tone(Tone::Muted),
-                AlertCol::Repeats => {
-                    Cell::text(if alert.repeat { "Yes" } else { "No" }).tone(Tone::Muted)
-                }
+                AlertCol::Repeats => Cell::text(alert.trigger.label()).tone(Tone::Muted),
                 AlertCol::Created => {
                     if alert.created_at > 0 {
                         Cell::num(ctx.time(alert.created_at), alert.created_at as f64)
@@ -963,9 +966,12 @@ fn alerts(ctx: &Ctx) -> Table {
                         Cell::dash()
                     }
                 }
-                AlertCol::Fired => alert
-                    .fired_at
-                    .map_or_else(Cell::dash, |t| Cell::num(ctx.time(t), t as f64)),
+                AlertCol::Fired => alert.fired_at.map_or_else(Cell::dash, |t| {
+                    Cell::num(
+                        format!("{} ({}x)", ctx.time(t), alert.fired_count),
+                        t as f64,
+                    )
+                }),
             })
             .collect();
         rows.push(Row {

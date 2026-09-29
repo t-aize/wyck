@@ -34,12 +34,12 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
     let active = index == current;
 
     let circle = div()
-        .size(px(tokens::height::COMPACT))
+        .size(px(tokens::height::compact()))
         .rounded_full()
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .border_1()
         .when(done, |el| {
             el.bg(theme::accent())
@@ -61,7 +61,7 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
 
     let marker = div()
         .relative()
-        .size(px(tokens::height::COMPACT))
+        .size(px(tokens::height::compact()))
         .flex()
         .items_center()
         .justify_center()
@@ -76,7 +76,7 @@ fn stop(index: usize, label: &'static str, current: usize) -> impl IntoElement {
         .child(marker)
         .child(
             div()
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(if done || active {
                     theme::fg()
                 } else {

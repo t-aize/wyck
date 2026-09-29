@@ -55,7 +55,7 @@ pub struct Toast {
     message: SharedString,
     hint: Option<SharedString>,
     details: Option<SharedString>,
-    action: Option<(SharedString, OnAction)>,
+    actions: Vec<(SharedString, OnAction)>,
     sticky: Option<bool>,
 }
 
@@ -71,7 +71,7 @@ impl Toast {
             message: message.into(),
             hint: None,
             details: None,
-            action: None,
+            actions: Vec::new(),
             sticky: None,
         }
     }
@@ -119,14 +119,15 @@ impl Toast {
         self
     }
 
-    /// A button that does something about it, and closes the notice.
+    /// A button that does something about it, and closes the notice. Called again, it adds one
+    /// more button beside the first.
     #[must_use]
     pub fn action(
         mut self,
         label: impl Into<SharedString>,
         run: impl Fn(&mut Window, &mut App) + 'static,
     ) -> Self {
-        self.action = Some((label.into(), Rc::new(run)));
+        self.actions.push((label.into(), Rc::new(run)));
         self
     }
 
@@ -142,7 +143,7 @@ impl Toast {
     fn stays(&self) -> bool {
         self.sticky.unwrap_or_else(|| {
             self.kind == Kind::Error
-                || self.action.is_some()
+                || !self.actions.is_empty()
                 || (self.kind == Kind::Warning && (self.hint.is_some() || self.details.is_some()))
                 || self.message.len() > LONG_MESSAGE
         })
@@ -182,7 +183,7 @@ impl Toast {
             message,
             hint,
             details,
-            action,
+            actions,
             ..
         } = self;
         let copied = Rc::new(Cell::new(false));
@@ -198,31 +199,37 @@ impl Toast {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .font_semibold()
                             .text_color(theme::fg())
                             .child(title.clone()),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(message.clone()),
                     );
                 if let Some(hint) = &hint {
                     column = column.child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(hint.clone()),
                     );
                 }
-                if action.is_some() || details.is_some() {
-                    let mut row = div().flex().flex_row().items_center().gap_1().pt_1();
-                    if let Some((label, run)) = &action {
+                if !actions.is_empty() || details.is_some() {
+                    let mut row = div()
+                        .flex()
+                        .flex_row()
+                        .flex_wrap()
+                        .items_center()
+                        .gap_1()
+                        .pt_1();
+                    for (index, (label, run)) in actions.iter().enumerate() {
                         let (run, this) = (run.clone(), this.clone());
                         row = row.child(
-                            Button::new("toast-action")
+                            Button::new(("toast-action", index))
                                 .cursor_pointer()
                                 .outline()
                                 .xsmall()

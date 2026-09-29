@@ -509,6 +509,26 @@ impl Deal {
     pub fn status(&self) -> Option<DealStatus> {
         DealStatus::from_number(self.deal_status)
     }
+
+    /// What a closing deal made or lost after swap and commission, in the account's money. `None`
+    /// for a deal that opened a position (it has no closing details).
+    #[must_use]
+    pub fn realized_pnl(&self) -> Option<f64> {
+        let detail = self.close_position_detail.as_ref()?;
+        let number = |key: &str| {
+            let value = detail.get(key)?;
+            value
+                .as_i64()
+                .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+        };
+        let digits = number("moneyDigits")
+            .or(self.money_digits)
+            .and_then(|d| u32::try_from(d).ok());
+        let gross = number("grossProfit")?;
+        let swap = number("swap").unwrap_or(0);
+        let commission = number("commission").unwrap_or(0);
+        Some(money(gross + swap + commission, digits))
+    }
 }
 
 /// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`). `operation_type`
@@ -597,6 +617,21 @@ pub struct PositionUnrealizedPnL {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_closing_deal_reports_its_profit_after_costs() {
+        let mut deal: Deal = serde_json::from_value(json!({
+            "dealId": 1, "orderId": 2, "positionId": 3, "volume": 100, "filledVolume": 100,
+            "symbolId": 4, "createTimestamp": 0, "executionTimestamp": 0,
+            "tradeSide": 1, "dealStatus": 2, "moneyDigits": 2
+        }))
+        .unwrap();
+        assert_eq!(deal.realized_pnl(), None, "an opening deal has no profit");
+        deal.close_position_detail = Some(json!({
+            "grossProfit": -1500, "swap": -50, "commission": "-100", "moneyDigits": 2
+        }));
+        assert_eq!(deal.realized_pnl(), Some(-16.5));
+    }
 
     #[test]
     fn enumerations_map_numbers_both_ways_and_refuse_unknown_ones() {
