@@ -12,7 +12,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
-use super::appearance::{self, ColorField, Mode};
+use super::appearance::{self, ColorField, Mode, contrast};
 use super::build_info::{BuildMode, VERSION};
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
@@ -32,6 +32,7 @@ use wyck_ui::{
 };
 
 mod about;
+mod alerts;
 mod behaviour;
 mod charts;
 mod data;
@@ -60,7 +61,12 @@ pub fn open_at(
     // Opened once whatever asked is done updating.
     window.defer(cx, move |window, cx| {
         let hub = cx.new(|cx| SettingsHub::new(workspace, multi, page, window, cx));
-        modal::open(hub, modal::Options::new(920.0, 700.0), window, cx);
+        modal::open(
+            hub,
+            modal::Options::new(920.0, 700.0).label("Settings"),
+            window,
+            cx,
+        );
     });
 }
 
@@ -70,17 +76,19 @@ pub enum Page {
     Charts,
     Indicators,
     Behaviour,
+    Alerts,
     Safety,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
+        Self::Alerts,
         Self::Safety,
         Self::Data,
         Self::About,
@@ -92,6 +100,7 @@ impl Page {
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
+            Self::Alerts => ("Alerts", IconName::Bell),
             Self::Safety => ("Safety", IconName::ShieldCheck),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
@@ -337,6 +346,7 @@ impl Render for SettingsHub {
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
+            Page::Alerts => self.alerts_page(cx),
             Page::Safety => self.safety_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(cx),

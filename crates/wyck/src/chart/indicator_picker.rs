@@ -24,7 +24,12 @@ pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     window.defer(cx, move |window, cx| {
         let picker = cx.new(|cx| Picker::new(chart, window, cx));
         let search = picker.read(cx).search.clone();
-        modal::open(picker, modal::Options::new(900.0, 660.0), window, cx);
+        modal::open(
+            picker,
+            modal::Options::new(900.0, 660.0).label("Indicators"),
+            window,
+            cx,
+        );
         search.update(cx, |state, cx| state.focus(window, cx));
     });
 }

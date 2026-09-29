@@ -7,7 +7,7 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, ElementId, Rgba, SharedString, Window, div, px};
+use gpui::{AnyElement, App, Div, ElementId, Rgba, Role, SharedString, Toggled, Window, div, px};
 use gpui_kit::component::Sizable;
 use gpui_kit::component::switch::Switch;
 
@@ -53,6 +53,7 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
         .bg(theme::bg())
         .border_1()
         .border_color(theme::border_subtle());
+    let count = options.len();
     for (index, label) in options.iter().enumerate() {
         let chosen = index == selected;
         let on_select = on_select.clone();
@@ -60,6 +61,15 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
             div()
                 .id(child_id(&id, index))
                 .keyboard()
+                .role(Role::RadioButton)
+                .aria_label(SharedString::from((*label).to_owned()))
+                .aria_toggled(if chosen {
+                    Toggled::True
+                } else {
+                    Toggled::False
+                })
+                .aria_position_in_set(index + 1)
+                .aria_size_of_set(count)
                 .when(fill, |el| el.flex_1().justify_center())
                 .h(px(tokens::height::compact()))
                 .px_2p5()
@@ -84,6 +94,12 @@ pub fn chip(id: impl Into<ElementId>, chosen: bool) -> gpui::Stateful<Div> {
     div()
         .id(id)
         .keyboard()
+        .role(Role::Button)
+        .aria_toggled(if chosen {
+            Toggled::True
+        } else {
+            Toggled::False
+        })
         .flex()
         .flex_row()
         .items_center()
@@ -118,6 +134,7 @@ pub fn chips(
         let on_click = on_click.clone();
         row = row.child(
             chip(child_id(&id, index), selected.contains(&index))
+                .aria_label(SharedString::from((*label).to_owned()))
                 .on_click(move |_, window, cx| on_click(index, window, cx))
                 .child(SharedString::from((*label).to_owned())),
         );
@@ -160,6 +177,10 @@ pub fn color_swatch_with_opacity(
     let hover = panel.clone();
     let swatch = div()
         .id(id.clone())
+        .keyboard()
+        .role(Role::Button)
+        .aria_label(SharedString::from(format!("Color {color:06x}")))
+        .aria_expanded(open)
         .size(px(tokens::height::compact()))
         .p(px(3.))
         .rounded_md()
@@ -209,6 +230,13 @@ pub fn toggle(
 fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Stateful<Div> {
     div()
         .id(id)
+        .keyboard()
+        .role(Role::RadioButton)
+        .aria_toggled(if chosen {
+            Toggled::True
+        } else {
+            Toggled::False
+        })
         .flex()
         .items_center()
         .justify_center()
@@ -260,6 +288,7 @@ pub fn width_picker(
                     .rounded_full()
                     .bg(ink(chosen)),
             )
+            .aria_label(SharedString::from(format!("Width {width}")))
             .tooltip(tooltip(format!("{width}")))
             .on_click(move |_, window, cx| on_select(index, window, cx)),
         );
@@ -297,6 +326,7 @@ pub fn dash_picker(
         let on_select = on_select.clone();
         row = row.child(
             option_box(child_id(&id, index), chosen, dash_glyph(index, ink(chosen)))
+                .aria_label(SharedString::from(name))
                 .tooltip(tooltip(name))
                 .on_click(move |_, window, cx| on_select(index, window, cx)),
         );

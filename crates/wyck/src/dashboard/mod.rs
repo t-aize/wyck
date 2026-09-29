@@ -278,8 +278,11 @@ impl Dashboard {
         })
         .detach();
         // The lines on the charts follow the account and the alerts.
-        cx.observe(&trading, |this, _trading, cx| this.push_lines(cx))
-            .detach();
+        cx.observe(&trading, |this, _trading, cx| {
+            this.push_lines(cx);
+            this.feed_alerts(cx);
+        })
+        .detach();
         cx.observe(&alerts, |this, _alerts, cx| this.push_lines(cx))
             .detach();
         let prefs = workspace.read(cx).preferences().clone();

@@ -9,8 +9,8 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use super::figures;
 use super::geometry::{
-    Anchor, LABEL_SIZE, P, Prim, Projection, arrow_head, board_size, duration_text, extended,
-    fill_of, label, level_label, level_text, seg, stretch, visible_levels,
+    Anchor, P, Prim, Projection, arrow_head, board_size, duration_text, extended, fill_of, label,
+    label_size, level_label, level_text, seg, stretch, visible_levels,
 };
 use super::look::MeasureLook;
 use super::model::{Dash, Drawing, Point, Style, Tool};
@@ -251,7 +251,7 @@ fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
             span_text(proj, p, q, &style.measure),
             format!("Angle {:.1}\u{b0}", slope_degrees(a, b)),
         ];
-        let at = (b.0 + 10.0, b.1 - LABEL_SIZE * 1.8);
+        let at = (b.0 + 10.0, b.1 - label_size() * 1.8);
         stat_rows(style, at, rows, style.color, Anchor::Left, out);
     }
 }
@@ -911,7 +911,7 @@ fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
         ];
         stat_rows(
             style,
-            (b.0 + side, b.1 - LABEL_SIZE * 0.9),
+            (b.0 + side, b.1 - label_size() * 0.9),
             rows,
             style.color,
             anchor,

@@ -319,7 +319,7 @@ impl Chart {
         let mut bar = div()
             .absolute()
             .top(px(6.))
-            .right(px(super::scene::AXIS_W + 8.0))
+            .right(px(super::scene::axis_w() + 8.0))
             .flex()
             .flex_row()
             .items_center()

@@ -157,17 +157,29 @@ columns! {
 }
 
 columns! {
-    /// The columns of the price alerts.
+    /// The columns of the alerts.
     AlertCol {
         Symbol => ("Symbol", NUMBER, false, true),
         Condition => ("Condition", WIDE, false, true),
-        Price => ("Price", NUMBER, true, true),
+        Price => ("Level", NUMBER, true, true),
         Distance => ("Distance", NUMBER, true, false),
         State => ("State", WIDE, false, true),
         Message => ("Message", TEXT, false, true),
         Repeats => ("Trigger", SHORT, false, false),
         Created => ("Created", WIDE, false, false),
         Fired => ("Last fired", WIDE, false, false),
+    }
+}
+
+columns! {
+    /// The columns of the log of alerts that fired.
+    AlertLogCol {
+        Time => ("Time", WIDE, false, true),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Watched => ("Watched", NUMBER, false, true),
+        Condition => ("Condition", WIDE, false, true),
+        Value => ("Value", NUMBER, true, true),
+        Message => ("Message", TEXT, false, true),
     }
 }
 

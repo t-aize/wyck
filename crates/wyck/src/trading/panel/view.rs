@@ -7,18 +7,18 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, FontWeight, MouseButton, MouseDownEvent,
-    MouseMoveEvent, SharedString, Window, div, px,
+    MouseMoveEvent, Role, SharedString, Window, div, px,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
+use gpui_kit::component::{Disableable, ElementExt as _, Selectable, Sizable, StyledExt as _};
 
 use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
 use super::prefs::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use super::stats::HistoryStats;
-use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
+use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
@@ -196,6 +196,9 @@ impl AccountPanel {
         div()
             .id(SharedString::from(format!("panel-tab-{tab:?}")))
             .keyboard()
+            .role(Role::Tab)
+            .aria_label(SharedString::from(label.clone()))
+            .aria_selected(chosen)
             .h_full()
             .px_3()
             .flex()
@@ -464,6 +467,27 @@ impl AccountPanel {
                 let (reset, custom) = (this.clone(), this.clone());
                 let text = data::to_csv(table);
                 items.push(Item::Separator);
+                if tab == Tab::AlertLog {
+                    let alerts = self.alerts.clone();
+                    let clear = ask(
+                        confirm_on,
+                        "Clear the alert log?",
+                        "Every recorded time an alert fired is removed. The alerts stay."
+                            .to_owned(),
+                        move |cx| {
+                            alerts.update(cx, |alerts, cx| {
+                                alerts.edit(cx, |book| book.history.clear())
+                            });
+                        },
+                    );
+                    items.push(
+                        Entry::new("Clear the log")
+                            .icon(IconName::Trash)
+                            .danger()
+                            .on_click(move |w, cx| clear(w, cx))
+                            .into(),
+                    );
+                }
                 items.push(
                     Entry::new("Reset the columns")
                         .icon(IconName::RotateCcw)
@@ -519,10 +543,23 @@ impl AccountPanel {
                             acts.reverse.clone(),
                             acts.close.clone(),
                         );
+                        let alert = this.clone();
+                        let (position_id, symbol_id) = (position.id, row.symbol.unwrap_or(0));
                         items.extend([
                             Entry::new("Modify stop loss and take profit...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |w, cx| edit(w, cx))
+                                .into(),
+                            Entry::new("Alert on its profit...")
+                                .icon(IconName::BellRing)
+                                .on_click(move |_, cx| {
+                                    alert.update(cx, |_, cx| {
+                                        cx.emit(PanelEvent::NewAlert(NewAlert::Position {
+                                            id: position_id,
+                                            symbol_id,
+                                        }));
+                                    });
+                                })
                                 .into(),
                             Entry::new("Move the stop loss to the entry")
                                 .icon(IconName::ShieldCheck)
@@ -680,6 +717,20 @@ impl AccountPanel {
                             );
                         }
                     }
+                    RowKind::Firing { alert } => {
+                        let alert = *alert;
+                        if self.alerts.read(cx).book().get(alert).is_some() {
+                            let edit = self.alerts.clone();
+                            items.push(
+                                Entry::new("Open the alert...")
+                                    .icon(IconName::Pencil)
+                                    .on_click(move |window, cx| {
+                                        open_alert(edit.clone(), alert, window, cx)
+                                    })
+                                    .into(),
+                            );
+                        }
+                    }
                     RowKind::Deal => {}
                 }
                 if !matches!(items.last(), Some(Item::Separator) | None) {
@@ -779,6 +830,27 @@ impl AccountPanel {
             )
             .when(tab == Tab::History, |el| el.child(range))
             .child(div().flex_1())
+            .when(tab == Tab::Alerts, |el| {
+                let (spread, profit) = (this.clone(), this.clone());
+                el.child(button::action(
+                    "panel-new-spread-alert",
+                    "Spread alert",
+                    Some(IconName::Plus),
+                    false,
+                    move |_, cx| {
+                        spread.update(cx, |_, cx| cx.emit(PanelEvent::NewAlert(NewAlert::Spread)));
+                    },
+                ))
+                .child(button::action(
+                    "panel-new-profit-alert",
+                    "Profit alert",
+                    Some(IconName::Plus),
+                    false,
+                    move |_, cx| {
+                        profit.update(cx, |_, cx| cx.emit(PanelEvent::NewAlert(NewAlert::Profit)));
+                    },
+                ))
+            })
             .child(
                 div()
                     .text_size(px(tokens::text::small()))
@@ -1036,7 +1108,7 @@ impl AccountPanel {
                     .into_any_element(),
                 );
             }
-            RowKind::Deal | RowKind::Exposure => {}
+            RowKind::Deal | RowKind::Exposure | RowKind::Firing { .. } => {}
         }
         let width = buttons.len() as f32 * tokens::scaled(BUTTON_W);
         (buttons, width)
@@ -1071,6 +1143,8 @@ impl AccountPanel {
         let header_this = this.clone();
         let mut header = div()
             .id("panel-header")
+            .role(Role::Row)
+            .aria_row_index(1)
             .flex_none()
             .flex()
             .flex_row()
@@ -1088,9 +1162,18 @@ impl AccountPanel {
             });
         for col in &table.columns {
             let (slot, start_width) = (col.slot, col.width);
+            let sorted = match col.sorted {
+                Some(true) => ", sorted descending",
+                Some(false) => ", sorted ascending",
+                None => "",
+            };
             header = header.child(
                 div()
                     .id(SharedString::from(format!("panel-col-{}", col.slot)))
+                    .keyboard()
+                    .role(Role::ColumnHeader)
+                    .aria_label(SharedString::from(format!("{}{sorted}", col.label)))
+                    .aria_column_index(col.slot + 1)
                     .relative()
                     .w(px(tokens::scaled(col.width)))
                     .flex_none()
@@ -1166,6 +1249,7 @@ impl AccountPanel {
         }
 
         let click_shows = prefs.click_shows_symbol;
+        let current = self.current_index();
         let mut rows: Vec<AnyElement> = Vec::new();
         for (index, row) in table.rows.iter().enumerate() {
             let (mut buttons, _) = self.row_buttons(row);
@@ -1192,8 +1276,18 @@ impl AccountPanel {
             }
             let symbol = row.symbol;
             let active_symbol = symbol.is_some() && symbol == self.symbol;
+            let summary: String = table
+                .columns
+                .iter()
+                .map(|col| format!("{}: {}", col.label, row.cells[col.index].text))
+                .collect::<Vec<_>>()
+                .join(", ");
             let mut el = div()
                 .id(SharedString::from(row.key.clone()))
+                .role(Role::Row)
+                .aria_label(SharedString::from(summary))
+                .aria_row_index(index + 2)
+                .aria_selected(active_symbol)
                 .flex_none()
                 .flex()
                 .flex_row()
@@ -1232,6 +1326,36 @@ impl AccountPanel {
                         .bg(theme::accent()),
                 );
             }
+            // The keyboard: the row is a stop of Tab only when it is the current one, and the
+            // arrows move among the rows.
+            if let Some(handle) = self.row_focus.get(index) {
+                let is_current = index == current;
+                let handle = handle.clone().tab_index(0).tab_stop(is_current);
+                let (key_this, key_menu) = (this.clone(), menu.clone());
+                let (focus_this, focus_key) = (this.clone(), row.key.clone());
+                el = el
+                    .track_focus(&handle)
+                    .focus_visible(|style| {
+                        style
+                            .border_color(theme::accent())
+                            .bg(theme::accent_alpha(0.22))
+                    })
+                    .on_key_down(move |event, window, cx| {
+                        key_this.update(cx, |panel, cx| {
+                            panel.row_key(index, event, &key_menu, window, cx);
+                        });
+                    })
+                    // A click puts the keyboard where the mouse is.
+                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                        focus_this.update(cx, |panel, _| {
+                            panel.current_row = Some(focus_key.clone());
+                        });
+                    });
+                if is_current {
+                    let bounds = self.row_bounds.clone();
+                    el = el.on_prepaint(move |b, _, _| bounds.set(Some(b)));
+                }
+            }
             if click_shows && let Some(symbol) = symbol {
                 el = el
                     .cursor_pointer()
@@ -1243,6 +1367,10 @@ impl AccountPanel {
                 let cell: &Cell = &row.cells[col.index];
                 el = el.child(
                     div()
+                        .id(SharedString::from(format!("{}-c{}", row.key, col.slot)))
+                        .role(Role::Cell)
+                        .aria_label(SharedString::from(cell.text.to_string()))
+                        .aria_column_index(col.slot + 1)
                         .w(px(tokens::scaled(col.width)))
                         .flex_none()
                         .truncate()
@@ -1279,6 +1407,7 @@ impl AccountPanel {
                     Tab::Alerts => {
                         "No alert. Right click a chart, or press Alt+A, to add one at a price."
                     }
+                    Tab::AlertLog => "No alert has fired yet.",
                 }
             };
             div()
@@ -1293,7 +1422,7 @@ impl AccountPanel {
                 .text_color(theme::muted_fg())
                 .child(icon::tinted(
                     match tab {
-                        Tab::Alerts => IconName::Bell,
+                        Tab::Alerts | Tab::AlertLog => IconName::Bell,
                         _ => IconName::Inbox,
                     },
                     20.,
@@ -1340,6 +1469,10 @@ impl AccountPanel {
 
         div()
             .id("panel-scroll-x")
+            .role(Role::Table)
+            .aria_label(SharedString::from(format!("{} table", tab.label())))
+            .aria_row_count(table.rows.len() + 1)
+            .aria_column_count(table.columns.len())
             .flex_1()
             .min_h_0()
             .overflow_x_scroll()
@@ -1389,13 +1522,13 @@ impl Render for AccountPanel {
             Tab::Positions => positions,
             Tab::Orders => orders,
             Tab::Alerts => alerts,
-            Tab::History | Tab::Exposure => 0,
+            Tab::History | Tab::Exposure | Tab::AlertLog => 0,
         };
         let menu = popup::Menu::new("panel-context-menu", window, cx);
         let bulk = popup::Menu::new("panel-bulk-menu", window, cx);
 
         // The alerts do not depend on the account, so they show while it loads or failed.
-        let ready = status == Status::Ready || prefs.tab == Tab::Alerts;
+        let ready = status == Status::Ready || matches!(prefs.tab, Tab::Alerts | Tab::AlertLog);
         let table = ready.then(|| {
             let ctx = Ctx {
                 account: self.account.read(cx),
@@ -1406,6 +1539,12 @@ impl Render for AccountPanel {
             };
             data::build(&ctx, prefs.tab)
         });
+        // The rows on screen get their focus handles, and the tab that was left forgets its row.
+        let keys: Vec<String> = table
+            .as_ref()
+            .map(|t| t.rows.iter().map(|r| r.key.clone()).collect())
+            .unwrap_or_default();
+        self.set_rows(keys, cx);
 
         let context_items = match (&table, menu.is_open(cx)) {
             (Some(table), true) => self.menu_items(table, cx),
@@ -1503,6 +1642,9 @@ impl Render for AccountPanel {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
+                            .id("panel-tabs")
+                            .role(Role::TabList)
+                            .aria_label("Account panel")
                             .flex_none()
                             .h_full()
                             .flex()

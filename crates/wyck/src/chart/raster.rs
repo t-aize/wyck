@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(picture.pixel(2, 5).unwrap().red(), 0, "the gap");
         assert_eq!(picture.pixel(39, 5).unwrap().red(), 255, "the cut tile");
     }
-    use crate::chart::scene::{FONT, rgb_alpha};
+    use crate::chart::scene::{font, rgb_alpha};
 
     #[test]
     #[ignore = "writes a chart preview for visual review"]
@@ -698,7 +698,7 @@ mod tests {
                 text: "1.08412".into(),
                 x: 50.0,
                 y: 60.0,
-                size: FONT,
+                size: font(),
                 color: rgb_alpha(0xffffff, 1.0),
                 align: Align::Center,
                 bold: false,
@@ -715,7 +715,7 @@ mod tests {
                 align: Align::Left,
                 fixed_width: None,
                 within: Some((0.0, 200.0)),
-                size: FONT,
+                size: font(),
                 bold: false,
                 face: Default::default(),
             },
@@ -750,8 +750,8 @@ mod tests {
             scale: 1.0,
             font,
         };
-        let short = canvas.measure("1.0", FONT);
-        let long = canvas.measure("1.08412", FONT);
+        let short = canvas.measure("1.0", crate::chart::scene::font());
+        let long = canvas.measure("1.08412", crate::chart::scene::font());
         assert!(short > 0.0 && long > short * 1.8);
     }
 

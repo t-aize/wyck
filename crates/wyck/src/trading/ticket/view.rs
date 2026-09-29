@@ -32,6 +32,7 @@ use wyck_ui::{
 mod exits;
 mod options;
 mod order;
+mod plans;
 mod positions;
 mod protection;
 
@@ -650,6 +651,8 @@ impl Render for OrderTicket {
                     Section::StopLoss => self.protection(true, &frame, window, cx),
                     Section::TakeProfit => self.protection(false, &frame, window, cx),
                     Section::Exits => self.exits_block(&frame, cx),
+                    Section::TimeStop => self.time_stop_block(&frame, window, cx),
+                    Section::Plans => self.plans_block(&frame, cx),
                     Section::Options => self.options(&frame, window, cx),
                     Section::Positions => self.positions(&frame, cx),
                     Section::Summary => self.summary(&frame),

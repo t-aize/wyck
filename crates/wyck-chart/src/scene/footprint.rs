@@ -13,7 +13,7 @@ use wyck_openapi::market::Bar;
 
 use super::super::flow::Flow;
 use super::super::footprint::{self as model, Analysis, CellMode, HeatScope};
-use super::cmd::{Align, Cmd, FONT, hsla, with_alpha};
+use super::cmd::{Align, Cmd, font, hsla, with_alpha};
 use super::{Ctx, quote_unit, series};
 
 /// Bars narrower than this are drawn as plain candles.
@@ -162,7 +162,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
         };
         let column = left.1 - left.0;
         let font = (row_px - 2.0)
-            .min(FONT)
+            .min(font())
             .min((column - 4.0) / (longest as f32 * 0.6));
         let numbers = s.numbers && font >= 7.0;
 
@@ -387,12 +387,12 @@ fn summary(
     let y = cx.oy + cx.band.bottom() as f32 - SUMMARY_H;
     out.push(cx.rect(left, y, right - left, SUMMARY_H, with_alpha(p.bg, 0.94)));
     out.push(cx.hline(y, left, right, hsla(p.border)));
-    let (row_1, row_2) = (y + 4.0, y + 4.0 + FONT * 1.3 + 3.0);
+    let (row_1, row_2) = (y + 4.0, y + 4.0 + font() * 1.3 + 3.0);
     let label = |text: &str, y: f32| Cmd::Text {
         text: text.to_owned(),
         x: left + 6.0,
         y,
-        size: FONT,
+        size: font(),
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
@@ -407,12 +407,12 @@ fn summary(
         let delta = a.delta();
         let mut push = |text: String, y: f32, color: Rgba, bold: bool| {
             // Kept to the width of the bar, and dropped when it does not fit.
-            if text.len() as f32 * FONT * 0.6 <= width + 8.0 {
+            if text.len() as f32 * font() * 0.6 <= width + 8.0 {
                 out.push(Cmd::Text {
                     text,
                     x,
                     y,
-                    size: FONT,
+                    size: font(),
                     color: hsla(color),
                     align: Align::Center,
                     bold,

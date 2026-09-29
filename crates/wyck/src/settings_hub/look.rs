@@ -428,16 +428,18 @@ impl SettingsHub {
         for field in ColorField::ALL {
             let id_for_set = id.clone();
             let color = field.get(&theme_of_user.colors);
+            let findings = contrast::failing_for(&theme_of_user.colors, field);
             list = list.child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(tokens::height::large()))
+                    .min_h(px(tokens::height::large()))
                     .child(
                         div()
                             .w(px(150.))
+                            .flex_none()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(field.label()),
@@ -450,9 +452,71 @@ impl SettingsHub {
                         move |a, value| {
                             a.set_theme_color(&id_for_set, field, value);
                         },
-                    )),
+                    ))
+                    .when(!findings.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .text_size(px(tokens::text::small()))
+                                .text_color(theme::amber())
+                                .child(
+                                    findings
+                                        .iter()
+                                        .map(contrast::Finding::describe)
+                                        .collect::<Vec<_>>()
+                                        .join(". "),
+                                ),
+                        )
+                    }),
             );
         }
+        let failing = contrast::failing(&theme_of_user.colors);
+        let fix = cx.entity();
+        let fix_id = id.clone();
+        list = list.child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .pt_2()
+                .child(
+                    div()
+                        .flex_1()
+                        .text_size(px(tokens::text::small()))
+                        .text_color(if failing.is_empty() {
+                            theme::muted_fg()
+                        } else {
+                            theme::amber()
+                        })
+                        .child(if failing.is_empty() {
+                            "Every color reads well: text 4.5:1, the accent and the chart 3:1 (WCAG 2.2)."
+                                .to_owned()
+                        } else {
+                            format!(
+                                "{} of {} contrast checks fall short. A low contrast is yours to keep.",
+                                failing.len(),
+                                contrast::RULES.len()
+                            )
+                        }),
+                )
+                .child(
+                    Button::new("theme-fix-contrast")
+                        .cursor_pointer()
+                        .small()
+                        .icon(IconName::Wand)
+                        .label("Fix contrast")
+                        .disabled(failing.is_empty())
+                        .on_click(move |_, _, cx| {
+                            let id = fix_id.clone();
+                            appearance::update(cx, |a| {
+                                a.fix_theme_contrast(&id);
+                            });
+                            fix.update(cx, |_, cx| cx.notify());
+                        }),
+                ),
+        );
         list.into_any_element()
     }
 

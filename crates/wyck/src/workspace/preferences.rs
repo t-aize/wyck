@@ -209,6 +209,9 @@ pub struct Preferences {
     /// The limits that keep the account safe: size, daily loss, kill switch.
     #[serde(default)]
     pub risk: RiskPrefs,
+    /// The sound and the desktop notification of an alert that fires.
+    #[serde(default)]
+    pub alert_output: crate::alerts::sound::Output,
     /// The drawing tools pinned in the bar of favorites, by code, in the order they show.
     #[serde(default = "default_favorite_tools")]
     pub favorite_tools: Vec<String>,
@@ -280,6 +283,7 @@ impl Default for Preferences {
             ticket: TicketPrefs::default(),
             account_panel: PanelPrefs::default(),
             risk: RiskPrefs::default(),
+            alert_output: crate::alerts::sound::Output::default(),
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,
@@ -366,6 +370,7 @@ impl Preferences {
         self.ticket = self.ticket.normalized();
         self.account_panel = self.account_panel.normalized();
         self.risk = self.risk.normalized();
+        self.alert_output = self.alert_output.normalized();
 
         // The favorite tools: known ones, each once, in the order saved, no more than the bar
         // holds. An empty list is kept: it is what the user chose, not a reason for the defaults.

@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 use wyck_openapi::account::{OrderType, Position, money};
 
-use super::columns::{AlertCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs};
+use super::columns::{
+    AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs,
+};
 use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use super::stats::{self, HistoryStats};
 use crate::alerts::Alerts;
@@ -157,6 +159,10 @@ pub enum RowKind {
         active: bool,
     },
     Exposure,
+    /// A time an alert fired; `alert` is the alert, which may be gone.
+    Firing {
+        alert: u64,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -359,6 +365,7 @@ pub fn build(ctx: &Ctx, tab: Tab) -> Table {
         Tab::History => history(ctx),
         Tab::Exposure => exposure(ctx),
         Tab::Alerts => alerts(ctx),
+        Tab::AlertLog => alert_log(ctx),
     }
 }
 
@@ -899,6 +906,8 @@ fn alerts(ctx: &Ctx) -> Table {
     let book = ctx.alerts.book();
     let mut rows = Vec::new();
     let mut unfiltered = 0;
+    // Read from the account once, and only when an alert on a profit needs it.
+    let mut profits: Option<crate::alerts::Profits> = None;
     for alert in &book.alerts {
         unfiltered += 1;
         let symbol = alert.symbol_id;
@@ -935,15 +944,43 @@ fn alerts(ctx: &Ctx) -> Table {
             (Some(b), Some(a)) => Some((b + a) / 2.0),
             (b, a) => b.or(a),
         };
+        // A spread or a profit: its value now, and the level it waits for, in its own unit.
+        let measure = alert.source.is_measure() && alert.condition.needs_level();
+        let current = match &alert.source {
+            crate::alerts::Source::Spread { pip } => bid
+                .zip(ask)
+                .map(|(bid, ask)| crate::alerts::eval::spread_pips(bid, ask, *pip)),
+            crate::alerts::Source::Pnl { scope } => profits
+                .get_or_insert_with(|| account.profits())
+                .of(scope, symbol),
+            _ => None,
+        };
+        let measure_unit = match &alert.source {
+            crate::alerts::Source::Spread { .. } => " pips",
+            _ => "",
+        };
         let cells = AlertCol::ALL
             .iter()
             .map(|col| match col {
+                AlertCol::Symbol if !alert.source.has_symbol() => Cell::text("Account"),
                 AlertCol::Symbol => Cell::text(alert.symbol.clone()),
                 AlertCol::Condition => Cell::text(described.clone()).tone(Tone::Muted),
                 AlertCol::Price if on_price => {
                     Cell::num(format!("{:.*}", digits as usize, alert.price), alert.price)
                 }
+                AlertCol::Price if measure => Cell::num(
+                    format!("{}{measure_unit}", alert.level_text(digits)),
+                    alert.price,
+                ),
                 AlertCol::Price => Cell::dash(),
+                AlertCol::Distance if measure => match current {
+                    Some(now) => {
+                        let gap = alert.price - now;
+                        let decimals = alert.source.decimals(digits) as usize;
+                        Cell::num(format!("{gap:+.decimals$}{measure_unit}"), gap).tone(Tone::Muted)
+                    }
+                    None => Cell::dash(),
+                },
                 AlertCol::Distance if !on_price => Cell::dash(),
                 AlertCol::Distance => match market {
                     Some(m) => {
@@ -986,6 +1023,70 @@ fn alerts(ctx: &Ctx) -> Table {
         });
     }
     finish(ctx, Tab::Alerts, &prefs.alerts, rows, unfiltered, None)
+}
+
+/// The times alerts fired, newest first.
+fn alert_log(ctx: &Ctx) -> Table {
+    let account = ctx.account;
+    let mut rows = Vec::new();
+    let mut unfiltered = 0;
+    for (n, firing) in ctx.alerts.book().history.iter().enumerate() {
+        unfiltered += 1;
+        let symbol = firing.symbol_id;
+        if !ctx.keeps(
+            symbol,
+            None,
+            &[
+                &firing.symbol,
+                &firing.watched,
+                &firing.condition,
+                &firing.text,
+            ],
+        ) {
+            continue;
+        }
+        let digits = if symbol > 0 {
+            ctx.alerts
+                .digits
+                .get(&symbol)
+                .copied()
+                .unwrap_or(account.book.contract(symbol).digits)
+        } else {
+            5
+        };
+        let cells = AlertLogCol::ALL
+            .iter()
+            .map(|col| match col {
+                AlertLogCol::Time => Cell::num(ctx.time(firing.at), firing.at as f64),
+                AlertLogCol::Symbol => Cell::text(firing.symbol.clone()),
+                AlertLogCol::Watched if firing.watched.is_empty() => Cell::dash(),
+                AlertLogCol::Watched => Cell::text(firing.watched.clone()).tone(Tone::Muted),
+                AlertLogCol::Condition if firing.condition.is_empty() => Cell::dash(),
+                AlertLogCol::Condition => Cell::text(firing.condition.clone()).tone(Tone::Muted),
+                AlertLogCol::Value => {
+                    Cell::opt(firing.value, |v| format!("{v:.*}", digits as usize))
+                }
+                AlertLogCol::Message => Cell::text(firing.text.clone()).tone(Tone::Muted),
+            })
+            .collect();
+        rows.push(Row {
+            key: format!("firing-{n}-{}", firing.at),
+            symbol: (symbol > 0).then_some(symbol),
+            profit: None,
+            kind: RowKind::Firing {
+                alert: firing.alert,
+            },
+            cells,
+        });
+    }
+    finish(
+        ctx,
+        Tab::AlertLog,
+        &ctx.prefs.alert_log,
+        rows,
+        unfiltered,
+        None,
+    )
 }
 
 /// A word with its first letter capital.

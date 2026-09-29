@@ -49,9 +49,11 @@ pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
         let keep = dialog.clone();
         modal::open(
             dialog,
-            modal::Options::new(900.0, 700.0).on_dismiss(move |_window, cx| {
-                keep.update(cx, |d, _| d.persist());
-            }),
+            modal::Options::new(900.0, 700.0)
+                .label("Export the chart")
+                .on_dismiss(move |_window, cx| {
+                    keep.update(cx, |d, _| d.persist());
+                }),
             window,
             cx,
         );

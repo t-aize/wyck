@@ -122,7 +122,12 @@ pub fn open(
             digits,
             chart,
         });
-        modal::open(tree, modal::Options::new(600.0, 560.0), window, cx);
+        modal::open(
+            tree,
+            modal::Options::new(600.0, 560.0).label("Objects on the chart"),
+            window,
+            cx,
+        );
     });
 }
 

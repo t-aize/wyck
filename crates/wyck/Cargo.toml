@@ -38,6 +38,7 @@ generate-desktop-entry = true
 
 [package.metadata.packager.deb]
 depends = [
+    "libasound2 | libasound2t64",
     "libc6",
     "libfontconfig1",
     "libssl3 | libssl3t64",
@@ -70,6 +71,8 @@ tiny-skia.workspace = true
 ab_glyph.workspace = true
 lsp-types.workspace = true
 anyhow.workspace = true
+notify-rust.workspace = true
+rodio.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

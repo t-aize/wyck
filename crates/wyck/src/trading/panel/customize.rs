@@ -79,7 +79,12 @@ pub fn open(panel: Entity<AccountPanel>, window: &mut Window, cx: &mut App) {
                 table,
             }
         });
-        modal::open(editor, modal::Options::new(760.0, 600.0), window, cx);
+        modal::open(
+            editor,
+            modal::Options::new(760.0, 600.0).label("Customize the account panel"),
+            window,
+            cx,
+        );
     });
 }
 

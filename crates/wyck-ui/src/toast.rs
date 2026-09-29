@@ -193,7 +193,17 @@ impl Toast {
             .autohide(!stays)
             .content(move |_note, _window, cx| {
                 let this = cx.entity();
+                // A notice appears without being asked for: a screen reader is told when it does.
+                let spoken = [Some(&title), Some(&message), hint.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .map(|part| part.to_string())
+                    .collect::<Vec<_>>()
+                    .join(". ");
                 let mut column = div()
+                    .id("toast-content")
+                    .role(gpui::Role::Alert)
+                    .aria_label(SharedString::from(spoken))
                     .flex()
                     .flex_col()
                     .gap_1()

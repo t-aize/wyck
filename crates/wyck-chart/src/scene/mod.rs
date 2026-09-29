@@ -19,9 +19,9 @@ mod series;
 mod studies;
 mod tpo;
 
-pub use self::cmd::{Align, Cmd, FONT, LINE, P, hsla, rgb_alpha, with_alpha};
+pub use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
 use self::color::{Hsla, Rgba, rgb, transparent_black};
-pub use self::geometry::{AXIS_H, AXIS_W, Band, Geometry};
+pub use self::geometry::{Band, Geometry, axis_h, axis_w};
 pub use self::price::PriceMap;
 use super::axis;
 use super::data::Series;
@@ -40,7 +40,9 @@ use super::view::{PriceScale, View, padded_range};
 const GRID_ALPHA: f32 = 0.3;
 
 /// The size of the text of the watermark.
-const WATERMARK_SIZE: f32 = 46.0;
+fn watermark_size() -> f32 {
+    crate::text_scale::scaled(46.0)
+}
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
 pub const TPO_MARKS: u32 = 0x7f93b2;
@@ -531,8 +533,8 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         plot.push(Cmd::Text {
             text: text.clone(),
             x: ox + plot_w as f32 / 2.0,
-            y: oy + (main.top + main.h / 2.0) as f32 - WATERMARK_SIZE * 0.65,
-            size: WATERMARK_SIZE,
+            y: oy + (main.top + main.h / 2.0) as f32 - watermark_size() * 0.65,
+            size: watermark_size(),
             color: with_alpha(p.text_strong, 0.07),
             align: Align::Center,
             bold: true,
@@ -696,8 +698,8 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let text = |text: String, y: f32| Cmd::Text {
         text,
         x: axis_x,
-        y: y - LINE / 2.0,
-        size: FONT,
+        y: y - line_height() / 2.0,
+        size: font(),
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
@@ -757,7 +759,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             text: label.text.clone(),
             x: cx.x(label.index),
             y: oy + plot_h as f32 + 8.0,
-            size: FONT,
+            size: font(),
             color: if label.major {
                 hsla(p.text_strong)
             } else {
@@ -776,9 +778,9 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     }
     cmds.push(Cmd::Text {
         text: corner,
-        x: ox + plot_w as f32 + AXIS_W / 2.0,
+        x: ox + plot_w as f32 + axis_w() / 2.0,
         y: oy + plot_h as f32 + 8.0,
-        size: FONT,
+        size: font(),
         color: hsla(p.text),
         align: Align::Center,
         bold: false,
@@ -983,9 +985,9 @@ fn draw_axis_tags(
         bg,
         fg,
         align: Align::Left,
-        fixed_width: Some(AXIS_W - 2.0),
+        fixed_width: Some(axis_w() - 2.0),
         within: None,
-        size: FONT,
+        size: font(),
         bold: false,
         face: Default::default(),
     };
@@ -1030,9 +1032,9 @@ fn draw_axis_tags(
                     bg: shade(cx.up_color(last_is_up(cx.f.raw)), 0.72),
                     fg: hsla(p.bg),
                     align: Align::Left,
-                    fixed_width: Some(AXIS_W - 2.0),
+                    fixed_width: Some(axis_w() - 2.0),
                     within: None,
-                    size: FONT,
+                    size: font(),
                     bold: false,
                     face: Default::default(),
                 });
@@ -1083,7 +1085,7 @@ fn draw_axis_tags(
                 align: Align::Center,
                 fixed_width: None,
                 within: Some((cx.ox, cx.ox + cx.plot_w as f32)),
-                size: FONT,
+                size: font(),
                 bold: false,
                 face: Default::default(),
             });

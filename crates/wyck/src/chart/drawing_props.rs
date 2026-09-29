@@ -64,6 +64,7 @@ pub fn open(
         modal::open(
             editor,
             modal::Options::new(820.0, 640.0)
+                .label("Drawing settings")
                 .on_dismiss(move |_window, cx| keep.update(cx, |e, cx| e.finish(true, cx))),
             window,
             cx,

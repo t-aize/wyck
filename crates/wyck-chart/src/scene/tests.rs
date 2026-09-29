@@ -329,7 +329,7 @@ fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
         align: Align::Left,
         fixed_width: Some(10.0),
         within: None,
-        size: FONT,
+        size: font(),
         bold: false,
         face: Default::default(),
     };

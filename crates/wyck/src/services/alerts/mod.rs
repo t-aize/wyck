@@ -33,6 +33,7 @@ use crate::{chart::now_ms, runtime};
 
 pub mod eval;
 pub mod model;
+pub mod sound;
 
 use self::eval::{Judged, Reading};
 pub use self::model::{Alert, AlertBook, Condition, Source, Trigger};
@@ -51,6 +52,31 @@ pub enum AlertsEvent {
     Expired(Box<Alert>),
 }
 
+/// What the account makes or loses right now, in its money: the numbers a profit alert reads.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Profits {
+    /// Everything open; `None` until the account is read.
+    pub account: Option<f64>,
+    /// The sum of the positions of each symbol.
+    pub symbols: HashMap<i64, f64>,
+    /// Each open position.
+    pub positions: HashMap<i64, f64>,
+}
+
+impl Profits {
+    /// The profit an alert follows. A symbol with nothing open makes nothing; a position that is
+    /// closed has no profit to read, so its alert waits.
+    pub fn of(&self, scope: &model::PnlScope, symbol_id: i64) -> Option<f64> {
+        match scope {
+            model::PnlScope::Account => self.account,
+            model::PnlScope::Symbol => self
+                .account
+                .map(|_| self.symbols.get(&symbol_id).copied().unwrap_or(0.0)),
+            model::PnlScope::Position { id } => self.positions.get(id).copied(),
+        }
+    }
+}
+
 /// The bars of one symbol and timeframe, as last read.
 struct Fetched {
     bars: Vec<Bar>,
@@ -66,6 +92,8 @@ pub struct Alerts {
     drawings: Entity<Drawings>,
     /// Decimals of each symbol, for the texts.
     pub digits: HashMap<i64, u32>,
+    /// The size of a pip of each symbol, for the alerts on a spread.
+    pips: HashMap<i64, f64>,
     /// The last bid and ask of each symbol, real.
     quotes: HashMap<i64, (Option<f64>, Option<f64>)>,
     /// What each alert saw last, to tell a crossing. Not saved.
@@ -108,6 +136,7 @@ impl Alerts {
             session,
             drawings,
             digits: HashMap::new(),
+            pips: HashMap::new(),
             quotes: HashMap::new(),
             last: HashMap::new(),
             moves: HashMap::new(),
@@ -130,6 +159,46 @@ impl Alerts {
 
     fn digits_of(&self, symbol_id: i64) -> u32 {
         self.digits.get(&symbol_id).copied().unwrap_or(5)
+    }
+
+    /// The size of a pip of a symbol: the one read from its contract, or worked out from its
+    /// decimals until then.
+    pub fn pip_of(&self, symbol_id: i64) -> f64 {
+        self.pips
+            .get(&symbol_id)
+            .copied()
+            .unwrap_or_else(|| model::pip_from_digits(self.digits_of(symbol_id)))
+    }
+
+    /// Every symbol an alert is on, watching or not: the ones whose decimals the alerts need.
+    pub fn symbols(&self) -> Vec<i64> {
+        let mut ids: Vec<i64> = self
+            .book
+            .alerts
+            .iter()
+            .map(|a| a.symbol_id)
+            .filter(|id| *id > 0)
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    }
+
+    /// Learns how a symbol is written and how big its pip is, from its contract. Alerts are saved
+    /// without them, so a symbol nobody opened since the start would show five decimals.
+    /// Returns whether anything changed.
+    pub fn learn(&mut self, symbol_id: i64, digits: u32, pip: f64, cx: &mut Context<Self>) -> bool {
+        let changed = self.digits.insert(symbol_id, digits) != Some(digits)
+            || self.pips.insert(symbol_id, pip) != Some(pip);
+        if changed {
+            cx.notify();
+        }
+        changed
+    }
+
+    /// Sets the pip of a symbol the alert editor shows.
+    pub fn set_pip(&mut self, symbol_id: i64, pip: f64) {
+        self.pips.insert(symbol_id, pip);
     }
 
     /// Changes the alerts, saves them and tells the views.
@@ -190,10 +259,14 @@ impl Alerts {
             .collect();
         let mut hits: Vec<(u64, f64, Option<i64>)> = Vec::new();
         for alert in candidates {
-            let Source::Price { price } = &alert.source else {
-                continue;
+            let value = match &alert.source {
+                Source::Price { price } => price.of(bid, ask),
+                Source::Spread { pip } => bid
+                    .zip(ask)
+                    .map(|(bid, ask)| eval::spread_pips(bid, ask, *pip)),
+                _ => None,
             };
-            let Some(value) = price.of(bid, ask) else {
+            let Some(value) = value else {
                 continue;
             };
             let Some((level, upper)) = self.level_of(&alert, bid, ask, now, cx) else {
@@ -204,24 +277,75 @@ impl Alerts {
                 level,
                 upper: upper.filter(|_| alert.condition.is_zone()),
             };
-            let before = self.last.insert(alert.id, reading);
-            let bar = Timeframe::from_code(&alert.timeframe)
-                .and_then(Timeframe::bar_ms)
-                .map(|ms| now.div_euclid(ms) * ms);
-            let hit = if alert.condition == Condition::MovesBy {
-                let history = self.moves.entry(alert.id).or_default();
-                history.push((now, value));
-                let window = i64::from(alert.minutes.max(1)) * 60_000;
-                history.retain(|(at, _)| now - at <= window);
-                eval::moved(history, window, alert.amount)
-            } else {
-                before.is_some_and(|before| eval::fired(alert.condition, &before, &reading))
-            };
-            let by_bar =
-                alert.trigger == Trigger::OncePerBar && bar.is_some() && alert.bar_key == bar;
-            if hit && !by_bar {
+            if let Some(bar) = self.judge(&alert, reading, now) {
                 hits.push((alert.id, value, bar));
-                self.moves.remove(&alert.id);
+            }
+        }
+        for (id, value, bar) in hits {
+            self.fire(id, value, bar, cx);
+        }
+    }
+
+    /// Judges an alert on a new reading of its value. `Some(bar)` when it fires, with the bar
+    /// (its start time) it fired on, for the triggers by bar.
+    fn judge(&mut self, alert: &Alert, reading: Reading, now: i64) -> Option<Option<i64>> {
+        let before = self.last.insert(alert.id, reading);
+        let bar = Timeframe::from_code(&alert.timeframe)
+            .and_then(Timeframe::bar_ms)
+            .map(|ms| now.div_euclid(ms) * ms);
+        let hit = if alert.condition == Condition::MovesBy {
+            let history = self.moves.entry(alert.id).or_default();
+            history.push((now, reading.value));
+            let window = i64::from(alert.minutes.max(1)) * 60_000;
+            history.retain(|(at, _)| now - at <= window);
+            eval::moved(history, window, alert.amount)
+        } else {
+            before.is_some_and(|before| eval::fired(alert.condition, &before, &reading))
+        };
+        let by_bar = alert.trigger == Trigger::OncePerBar && bar.is_some() && alert.bar_key == bar;
+        if hit && !by_bar {
+            self.moves.remove(&alert.id);
+            Some(bar)
+        } else {
+            None
+        }
+    }
+
+    // ---- profits ----
+
+    /// Whether an alert waits for a profit, so the account need not be read for nothing.
+    pub fn watches_profit(&self) -> bool {
+        self.book
+            .alerts
+            .iter()
+            .any(|a| a.active && matches!(a.source, Source::Pnl { .. }))
+    }
+
+    /// The profits of the account changed: judges the alerts on a profit.
+    pub fn on_profit(&mut self, profits: &Profits, cx: &mut Context<Self>) {
+        let now = now_ms();
+        let candidates: Vec<Alert> = self
+            .book
+            .alerts
+            .iter()
+            .filter(|a| matches!(a.source, Source::Pnl { .. }) && Self::live(a, now))
+            .cloned()
+            .collect();
+        let mut hits: Vec<(u64, f64, Option<i64>)> = Vec::new();
+        for alert in candidates {
+            let Source::Pnl { scope } = &alert.source else {
+                continue;
+            };
+            let Some(value) = profits.of(scope, alert.symbol_id) else {
+                continue;
+            };
+            let reading = Reading {
+                value,
+                level: alert.price,
+                upper: alert.condition.is_zone().then_some(alert.upper),
+            };
+            if let Some(bar) = self.judge(&alert, reading, now) {
+                hits.push((alert.id, value, bar));
             }
         }
         for (id, value, bar) in hits {
@@ -243,7 +367,7 @@ impl Alerts {
             None => Some((alert.price, Some(alert.upper))),
             Some(Source::Price { price }) => price.of(bid, ask).map(|p| (p, None)),
             Some(Source::Drawing { id }) => self.drawing_level(alert, *id, now, cx),
-            Some(Source::Indicator { .. }) => None,
+            Some(Source::Indicator { .. } | Source::Spread { .. } | Source::Pnl { .. }) => None,
         }
     }
 
@@ -361,6 +485,8 @@ impl Alerts {
                     })
                     .collect(),
             ),
+            // Judged on every tick or on every reading of the account, never on bars.
+            Source::Spread { .. } | Source::Pnl { .. } => None,
         }
     }
 
@@ -437,7 +563,7 @@ impl Alerts {
         let digits = self.digits_of(alert.symbol_id);
         let text = alert.render(Some(value), digits);
         let now = now_ms();
-        let Some(mut alert) = self.book.fire(id, text.clone(), now) else {
+        let Some(mut alert) = self.book.fire(id, text.clone(), Some(value), digits, now) else {
             return;
         };
         if let Some(stored) = self.book.get_mut(id) {

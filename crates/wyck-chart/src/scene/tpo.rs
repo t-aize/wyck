@@ -27,11 +27,15 @@ const MAX_BLOCKS: usize = 20_000;
 /// Most rows on screen before the sessions are drawn as bars.
 const MAX_ROWS: usize = 12_000;
 /// The room kept on the right of a profile for the prices of its levels.
-const LABEL_W: f32 = 56.0;
+fn label_w() -> f32 {
+    crate::text_scale::scaled(56.0)
+}
 /// The narrowest slot that has that room.
 const LABEL_SLOT: f32 = 130.0;
 /// The size of the text of the levels.
-const LABEL_SIZE: f32 = 9.0;
+fn label_size() -> f32 {
+    crate::text_scale::scaled(9.0)
+}
 
 /// Draws the profiles of `first..last`.
 pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &mut Vec<Cmd>) {
@@ -47,7 +51,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
     let slot = cx.f.view.bar_px as f32;
     let pad = slot * 0.04;
     let labels = settings.labels && slot >= LABEL_SLOT;
-    let usable = slot - 2.0 * pad - if labels { LABEL_W } else { 0.0 };
+    let usable = slot - 2.0 * pad - if labels { label_w() } else { 0.0 };
     // One column width for all, so the profiles compare.
     let widest = visible
         .iter()
@@ -342,13 +346,13 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
         let mut written: Vec<f32> = Vec::new();
         let mut put = |y: f32, text: String, color: Hsla| {
             // Levels that are close would write over each other: the first one stays.
-            if written.iter().all(|w| (w - y).abs() >= LABEL_SIZE + 2.0) {
+            if written.iter().all(|w| (w - y).abs() >= label_size() + 2.0) {
                 written.push(y);
                 out.push(Cmd::Text {
                     text,
                     x,
-                    y: y - LABEL_SIZE * 0.65,
-                    size: LABEL_SIZE,
+                    y: y - label_size() * 0.65,
+                    size: label_size(),
                     color,
                     align: Align::Left,
                     bold: false,

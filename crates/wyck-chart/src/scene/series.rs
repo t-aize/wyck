@@ -6,7 +6,7 @@ use wyck_openapi::market::Bar;
 
 use super::super::data::Series;
 use super::super::settings::ChartKind;
-use super::cmd::{Align, Cmd, FONT, LINE, P, hsla, with_alpha};
+use super::cmd::{Align, Cmd, P, font, hsla, line_height, with_alpha};
 use super::{Ctx, columns, ellipse_points};
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
@@ -254,12 +254,12 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
         } else {
             out.push(cx.rect(x0, top, x1 - x0, height, c));
         }
-        if settings.labels && body_w >= 26.0 && wick_top - LINE - 2.0 >= top_edge {
+        if settings.labels && body_w >= 26.0 && wick_top - line_height() - 2.0 >= top_edge {
             out.push(Cmd::Text {
                 text: compact(bar.volume),
                 x,
-                y: wick_top - LINE - 2.0,
-                size: FONT - 1.0,
+                y: wick_top - line_height() - 2.0,
+                size: font() - 1.0,
                 color: label_ink,
                 align: Align::Center,
                 bold: false,

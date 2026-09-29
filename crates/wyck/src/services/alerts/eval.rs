@@ -53,6 +53,16 @@ pub fn fired(condition: Condition, before: &Reading, now: &Reading) -> bool {
     }
 }
 
+/// The spread between a bid and an ask, in pips of `pip` (the size of one in price). An ask under
+/// the bid (a stale side of the quote) counts as no spread.
+pub fn spread_pips(bid: f64, ask: f64, pip: f64) -> f64 {
+    if pip > 0.0 && bid.is_finite() && ask.is_finite() {
+        ((ask - bid) / pip).max(0.0)
+    } else {
+        0.0
+    }
+}
+
 /// Whether the value moved by `pct` percent of what it was, within `window_ms`. `history` holds
 /// the values seen, as (time, value), oldest first, the newest being `now`.
 pub fn moved(history: &[(i64, f64)], window_ms: i64, pct: f64) -> bool {
@@ -194,6 +204,30 @@ pub fn is_alert_tool(tool: Tool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_spread_is_counted_in_pips_and_never_negative() {
+        assert!((spread_pips(1.10000, 1.10015, 0.0001) - 1.5).abs() < 1e-9);
+        assert!((spread_pips(151.200, 151.213, 0.01) - 1.3).abs() < 1e-9);
+        assert_eq!(spread_pips(1.1002, 1.1000, 0.0001), 0.0);
+        assert_eq!(spread_pips(1.1, 1.2, 0.0), 0.0);
+        assert_eq!(spread_pips(f64::NAN, 1.2, 0.0001), 0.0);
+    }
+
+    #[test]
+    fn a_spread_that_widens_or_a_loss_that_deepens_fires_once() {
+        // The same rules as a price: 1.8 pips to 2.6 pips crosses a level of 2 going up.
+        assert!(fired(Condition::Above, &r(1.8, 2.0), &r(2.6, 2.0)));
+        assert!(!fired(Condition::Above, &r(2.6, 2.0), &r(2.9, 2.0)));
+        // A profit going from -40 to -120 falls below a level of -100.
+        assert!(fired(
+            Condition::Below,
+            &r(-40.0, -100.0),
+            &r(-120.0, -100.0)
+        ));
+        // And a level of 0 is the break of a gain into a loss.
+        assert!(fired(Condition::CrossingDown, &r(3.0, 0.0), &r(-1.0, 0.0)));
+    }
 
     fn r(value: f64, level: f64) -> Reading {
         Reading {

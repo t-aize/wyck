@@ -93,7 +93,12 @@ pub fn open(ticket: Entity<OrderTicket>, window: &mut Window, cx: &mut App) {
     // Opened once the click that asked for it is done with the ticket.
     window.defer(cx, move |window, cx| {
         let editor = cx.new(|cx| Customizer::new(ticket, window, cx));
-        modal::open(editor, modal::Options::new(760.0, 600.0), window, cx);
+        modal::open(
+            editor,
+            modal::Options::new(760.0, 600.0).label("Customize the order ticket"),
+            window,
+            cx,
+        );
     });
 }
 
