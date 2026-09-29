@@ -41,6 +41,8 @@ const REVERSE_FINAL_WAIT: Duration = Duration::from_secs(20);
 /// How long a trading call may stay unanswered before the account says it cannot tell whether it
 /// went through.
 const CALL_TIMEOUT: Duration = Duration::from_secs(15);
+/// How long a time stop waits before it tries again to close a position it could not.
+const TIME_STOP_RETRY: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Status {
@@ -175,6 +177,8 @@ pub struct Account {
     /// Orders sent by this app today, as (day, count).
     sent_today: (i64, u32),
     reversals: ReverseTracker,
+    /// When a time stop last tried to close each position, so a refusal is not retried at once.
+    time_stops: HashMap<i64, Instant>,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
     conversions: HashMap<i64, Conversion>,
@@ -221,6 +225,7 @@ impl Account {
                 let alive = this.update(cx, |this, cx| {
                     if this.status == Status::Ready && !this.book.positions.is_empty() {
                         this.refresh_pnl(cx);
+                        this.enforce_time_stops(cx);
                     }
                 });
                 if alive.is_err() {
@@ -245,6 +250,7 @@ impl Account {
             duplicates: DuplicateGuard::default(),
             sent_today: (0, 0),
             reversals: ReverseTracker::default(),
+            time_stops: HashMap::new(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
             focus: None,
@@ -1203,6 +1209,59 @@ impl Account {
                 let take_profit = self.book.positions.get(&id).and_then(|p| p.take_profit);
                 self.protect_position(id, Some(stop), take_profit, cx);
             }
+        }
+    }
+
+    /// Closes the positions whose time stop is up (see [`super::plan::TimeStop`]). It runs with
+    /// every reading of the profit, so a time that ran out while the app was closed is caught at
+    /// the next start. Closing is never held back by the safety limits: they are for new orders.
+    fn enforce_time_stops(&mut self, cx: &mut Context<Self>) {
+        use super::plan::Label;
+        // While a call is unanswered the account is not known well enough to close on its own.
+        if self.status != Status::Ready || self.uncertain {
+            return;
+        }
+        let now = crate::chart::now_ms();
+        self.time_stops
+            .retain(|id, _| self.book.positions.contains_key(id));
+        let mut due = Vec::new();
+        for position in self.book.positions.values() {
+            let id = position.position_id;
+            let Some(rule) = position
+                .trade_data
+                .label
+                .as_deref()
+                .and_then(Label::decode)
+                .and_then(|l| l.time_stop)
+            else {
+                continue;
+            };
+            let Some(opened) = position.trade_data.open_timestamp else {
+                continue;
+            };
+            let retry = self
+                .time_stops
+                .get(&id)
+                .is_none_or(|at| at.elapsed() >= TIME_STOP_RETRY);
+            if retry
+                && !self.is_busy(Busy::Closing(id))
+                && rule.due(opened, now, self.net_profit(id))
+            {
+                due.push((id, rule, position.trade_data.symbol_id));
+            }
+        }
+        for (id, rule, symbol) in due {
+            self.time_stops.insert(id, Instant::now());
+            let name = self.book.name(symbol);
+            self.tell(
+                Notice::new(
+                    Tone::Info,
+                    "Time stop",
+                    format!("Closing {name}, {}.", rule.describe()),
+                ),
+                cx,
+            );
+            self.close_position(id, None, cx);
         }
     }
 

@@ -51,6 +51,7 @@ use wyck_chart::study::atr_stop::AtrStop;
 
 pub mod customize;
 pub mod prefs;
+mod templates;
 mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
@@ -186,6 +187,12 @@ pub struct OrderTicket {
     leg_inputs: Vec<(Entity<InputState>, Entity<InputState>)>,
     be_offset: Entity<InputState>,
     oco_pips: Entity<InputState>,
+    /// Closing the position after a time, and the number typed for it.
+    time_stop: prefs::TimeStopPrefs,
+    time_stop_amount: Entity<InputState>,
+    /// The setups saved under a name, and the name being typed for the next one.
+    plans: Vec<prefs::PlanTemplate>,
+    plan_name: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -315,6 +322,28 @@ impl OrderTicket {
                 }
             }));
         }
+        let time_stop_amount = cx.new(|cx| {
+            number::state(number::Kind::Count, prefs.time_stop.amount, window, cx)
+                .min(1.0)
+                .max(f64::from(plan::MAX_TIME_STOP_MINUTES))
+        });
+        subscriptions.push(cx.subscribe(
+            &time_stop_amount,
+            |this, _state, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.settings_changed(cx);
+                    cx.notify();
+                }
+            },
+        ));
+        let plan_name = cx.new(|cx| InputState::new(window, cx).placeholder("Name of this setup"));
+        subscriptions.push(
+            cx.subscribe(&plan_name, |_this, _state, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    cx.notify();
+                }
+            }),
+        );
         let atr_seeded = prefs.stop_atr || prefs.atr != AtrStop::default();
         let mut ticket = Self {
             account,
@@ -358,6 +387,10 @@ impl OrderTicket {
             leg_inputs,
             be_offset,
             oco_pips,
+            time_stop: prefs.time_stop,
+            time_stop_amount,
+            plans: prefs.plans.clone(),
+            plan_name,
             _subscriptions: subscriptions,
         };
         // A stop loss sizing the order by risk cannot depend on the volume.
@@ -409,6 +442,8 @@ impl OrderTicket {
             target_unit,
             layout: self.layout.clone(),
             exits: self.exits_now(cx),
+            time_stop: self.time_stop_now(cx),
+            plans: self.plans.clone(),
         }
     }
 
@@ -1679,8 +1714,24 @@ impl OrderTicket {
     /// opposites when an OCO pair is asked for. The orders of a plan carry a label that says
     /// which plan and leg they are (see [`plan::Label`]).
     fn orders(&self, plan: &Plan, cx: &App) -> Result<Vec<NewOrderReq>, String> {
+        let time_stop = self.time_stop_now(cx).rule();
         if !self.exits.on {
-            return Ok(vec![self.order(plan, cx)?]);
+            let mut order = self.order(plan, cx)?;
+            // A time stop needs the label to travel with the position.
+            if time_stop.is_some() {
+                order.label = Some(
+                    plan::Label {
+                        group: plan::new_group(now_ms()),
+                        leg: 1,
+                        of: 1,
+                        break_even: None,
+                        oco: false,
+                        time_stop,
+                    }
+                    .encode(),
+                );
+            }
+            return Ok(vec![order]);
         }
         if let Some(problem) = &plan.problem {
             return Err(problem.clone());
@@ -1754,6 +1805,7 @@ impl OrderTicket {
                         of: kept.len() as u8,
                         break_even,
                         oco,
+                        time_stop,
                     }
                     .encode(),
                 );
@@ -1928,6 +1980,9 @@ impl OrderTicket {
         let (bid, ask) = self.quote(cx);
         if let Some((bid, ask)) = bid.zip(ask) {
             row("Spread", format!("{:.1} pips", contract.pips(ask - bid)));
+        }
+        if let Some(rule) = self.time_stop_now(cx).rule() {
+            row("Time stop", format!("Close {}", rule.describe()));
         }
         Details {
             rows,

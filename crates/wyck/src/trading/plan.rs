@@ -181,6 +181,82 @@ pub struct Label {
     pub break_even: Option<(u8, u32)>,
     /// One order of an OCO pair.
     pub oco: bool,
+    /// Close the position after a time (see [`TimeStop`]).
+    pub time_stop: Option<TimeStop>,
+}
+
+/// Closing a position once it has been open for a while.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimeStop {
+    /// How long the position may stay open, in minutes, counted from when it opened.
+    pub minutes: u32,
+    pub only: Only,
+}
+
+/// Which positions a time stop closes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Only {
+    /// Whatever the position makes.
+    #[default]
+    Always,
+    /// Only one that is in profit; a losing one is left to its stop loss.
+    Winning,
+    /// Only one that is losing; a winning one is left to run.
+    Losing,
+}
+
+impl Only {
+    pub const ALL: [Self; 3] = [Self::Always, Self::Winning, Self::Losing];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Always => "Always",
+            Self::Winning => "If in profit",
+            Self::Losing => "If in loss",
+        }
+    }
+
+    /// The letter the label carries for it.
+    fn letter(self) -> &'static str {
+        match self {
+            Self::Always => "",
+            Self::Winning => "w",
+            Self::Losing => "l",
+        }
+    }
+}
+
+/// The longest a time stop can be: a year.
+pub const MAX_TIME_STOP_MINUTES: u32 = 525_600;
+
+impl TimeStop {
+    /// Whether the position must be closed now. `opened` is when it opened and `profit` what it
+    /// makes now, after costs, when that is known. A rule that depends on the profit waits for it.
+    pub fn due(self, opened_ms: i64, now_ms: i64, profit: Option<f64>) -> bool {
+        if now_ms < opened_ms.saturating_add(i64::from(self.minutes) * 60_000) {
+            return false;
+        }
+        match (self.only, profit) {
+            (Only::Always, _) => true,
+            (Only::Winning, Some(p)) => p > 0.0,
+            (Only::Losing, Some(p)) => p < 0.0,
+            (_, None) => false,
+        }
+    }
+
+    /// The rule in words: `after 90 min`, `after 4 h if in profit`.
+    pub fn describe(self) -> String {
+        let after = match self.minutes {
+            m if m % 1_440 == 0 => format!("{} d", m / 1_440),
+            m if m % 60 == 0 => format!("{} h", m / 60),
+            m => format!("{m} min"),
+        };
+        match self.only {
+            Only::Always => format!("after {after}"),
+            only => format!("after {after} {}", only.label().to_lowercase()),
+        }
+    }
 }
 
 impl Label {
@@ -192,6 +268,9 @@ impl Label {
         }
         if self.oco {
             text.push_str(":oco");
+        }
+        if let Some(stop) = self.time_stop {
+            text.push_str(&format!(":t{}{}", stop.minutes, stop.only.letter()));
         }
         text
     }
@@ -210,10 +289,22 @@ impl Label {
             of,
             break_even: None,
             oco: false,
+            time_stop: None,
         };
         for part in parts {
             if part == "oco" {
                 label.oco = true;
+            } else if let Some(rule) = part.strip_prefix('t') {
+                let (digits, only) = match rule.char_indices().last() {
+                    Some((at, 'w')) => (&rule[..at], Only::Winning),
+                    Some((at, 'l')) => (&rule[..at], Only::Losing),
+                    _ => (rule, Only::Always),
+                };
+                let minutes: u32 = digits.parse().ok()?;
+                if minutes == 0 || minutes > MAX_TIME_STOP_MINUTES {
+                    return None;
+                }
+                label.time_stop = Some(TimeStop { minutes, only });
             } else if let Some(rule) = part.strip_prefix('b') {
                 let (after, tenths) = rule.split_once(',')?;
                 label.break_even = Some((after.parse().ok()?, tenths.parse().ok()?));
@@ -452,6 +543,7 @@ mod tests {
             of: 3,
             break_even: Some((1, 25)),
             oco: false,
+            time_stop: None,
         };
         let text = label.encode();
         assert_eq!(text, "wyck:k3j9x2:2/3:b1,25");
@@ -465,6 +557,74 @@ mod tests {
         assert_eq!(new_group(1_700_000_000_000).len(), 8);
     }
 
+    #[test]
+    fn a_time_stop_is_written_in_the_label_and_read_back() {
+        let mut label = Label::decode("wyck:k3j9x2:1/2:b1,0:oco").unwrap();
+        assert_eq!(label.time_stop, None);
+        for (only, tail) in [
+            (Only::Always, ":t90"),
+            (Only::Winning, ":t90w"),
+            (Only::Losing, ":t90l"),
+        ] {
+            label.time_stop = Some(TimeStop { minutes: 90, only });
+            let text = label.encode();
+            assert!(text.ends_with(tail), "{text}");
+            assert!(text.len() < 100);
+            assert_eq!(Label::decode(&text), Some(label.clone()));
+        }
+        // A time stop alone, on a single order.
+        let single = Label {
+            group: "abc".into(),
+            leg: 1,
+            of: 1,
+            break_even: None,
+            oco: false,
+            time_stop: Some(TimeStop {
+                minutes: 1_440,
+                only: Only::Always,
+            }),
+        };
+        assert_eq!(single.encode(), "wyck:abc:1/1:t1440");
+        assert_eq!(Label::decode("wyck:abc:1/1:t1440"), Some(single));
+        // What is not a time is not read as one.
+        for bad in [
+            "wyck:abc:1/1:t",
+            "wyck:abc:1/1:t0",
+            "wyck:abc:1/1:tx",
+            "wyck:abc:1/1:t999999999",
+        ] {
+            assert_eq!(Label::decode(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_time_stop_is_due_once_the_time_has_passed_and_the_profit_agrees() {
+        let minute = 60_000;
+        let rule = |only| TimeStop { minutes: 60, only };
+        let opened = 1_000_000;
+        let at = |m: i64| opened + m * minute;
+        assert!(!rule(Only::Always).due(opened, at(59), None));
+        assert!(rule(Only::Always).due(opened, at(60), None));
+        assert!(rule(Only::Always).due(opened, at(600), Some(-3.0)));
+        // A rule on the profit waits for the profit to be known.
+        assert!(!rule(Only::Winning).due(opened, at(90), None));
+        assert!(rule(Only::Winning).due(opened, at(90), Some(0.5)));
+        assert!(!rule(Only::Winning).due(opened, at(90), Some(-0.5)));
+        assert!(!rule(Only::Winning).due(opened, at(90), Some(0.0)));
+        assert!(rule(Only::Losing).due(opened, at(90), Some(-0.5)));
+        assert!(!rule(Only::Losing).due(opened, at(90), Some(0.5)));
+        // Nothing overflows.
+        assert!(!rule(Only::Always).due(i64::MAX, 0, None));
+    }
+
+    #[test]
+    fn a_time_stop_reads_in_words() {
+        let words = |minutes, only| TimeStop { minutes, only }.describe();
+        assert_eq!(words(90, Only::Always), "after 90 min");
+        assert_eq!(words(240, Only::Winning), "after 4 h if in profit");
+        assert_eq!(words(2_880, Only::Losing), "after 2 d if in loss");
+    }
+
     fn open(position: i64, leg: u8, buy: bool, entry: f64, sl: Option<f64>) -> Open {
         Open {
             position,
@@ -474,6 +634,7 @@ mod tests {
                 of: 3,
                 break_even: Some((1, 0)),
                 oco: false,
+                time_stop: None,
             },
             buy,
             entry,
@@ -535,6 +696,7 @@ mod tests {
             of: 1,
             break_even: None,
             oco,
+            time_stop: None,
         };
         let working = [
             (10, label("a", true), false),
@@ -559,6 +721,7 @@ mod tests {
                 of: 3,
                 break_even: Some((1, 0)),
                 oco,
+                time_stop: None,
             },
             buy,
             filled,
@@ -623,6 +786,7 @@ mod tests {
             of: 1,
             break_even: None,
             oco,
+            time_stop: None,
         };
         let working = [(10, label(true), false), (11, label(true), true)];
         let mut filled = past(5, 1, true, true, true);
