@@ -2,10 +2,15 @@
 //! plot between them cut into horizontal bands, the prices on top and one band per indicator pane
 //! under them, sized by their weights.
 
-/// Width of the price axis on the right.
-pub const AXIS_W: f32 = 76.0;
+/// Width of the price axis on the right: it grows with the text it holds.
+pub fn axis_w() -> f32 {
+    crate::text_scale::scaled(76.0)
+}
+
 /// Height of the time axis at the bottom.
-pub const AXIS_H: f32 = 28.0;
+pub fn axis_h() -> f32 {
+    crate::text_scale::scaled(28.0)
+}
 /// The least height a pane is given when there is room for it.
 pub const MIN_BAND: f64 = 36.0;
 /// How close (in pixels) the pointer must be to the line between two panes to drag it.
@@ -39,7 +44,7 @@ pub struct Geometry {
 impl Geometry {
     /// Cuts a chart of `w` by `h` into bands of the given weights (the prices' weight first).
     pub fn new(w: f64, h: f64, weights: &[f32]) -> Self {
-        let plot_h = (h - f64::from(AXIS_H)).max(1.0);
+        let plot_h = (h - f64::from(axis_h())).max(1.0);
         let weights: Vec<f64> = if weights.is_empty() {
             vec![1.0]
         } else {
@@ -82,12 +87,12 @@ impl Geometry {
     }
 
     pub fn plot_w(&self) -> f64 {
-        (self.w - f64::from(AXIS_W)).max(1.0)
+        (self.w - f64::from(axis_w())).max(1.0)
     }
 
     /// The height of the whole plot, every band together.
     pub fn plot_h(&self) -> f64 {
-        (self.h - f64::from(AXIS_H)).max(1.0)
+        (self.h - f64::from(axis_h())).max(1.0)
     }
 
     pub fn main(&self) -> Band {

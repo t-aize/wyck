@@ -15,6 +15,7 @@ pub mod projection;
 pub mod scene;
 pub mod settings;
 pub mod study;
+pub mod text_scale;
 pub mod timeframe;
 pub mod tpo;
 pub mod transform;

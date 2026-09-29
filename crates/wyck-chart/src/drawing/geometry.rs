@@ -183,7 +183,9 @@ pub enum Part {
 }
 
 /// The size of the words a drawing writes by itself (prices, ratios).
-pub const LABEL_SIZE: f32 = 11.0;
+pub fn label_size() -> f32 {
+    crate::text_scale::scaled(11.0)
+}
 
 /// How far the words of a board are from its edge.
 const BOARD_PAD_X: f32 = 8.0;
@@ -328,6 +330,21 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
 /// The shapes of a drawing (without grips). `selected` says whether it is the one selected: a
 /// position can keep its stats for then.
 pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
+    prims_at(drawing, proj, selected, crate::text_scale::factor())
+}
+
+/// [`prims_with`] with the text at `factor` times its size. The text of a drawing follows the
+/// scale of the text (see [`crate::text_scale`]); the size that is saved does not change.
+fn prims_at(drawing: &Drawing, proj: &dyn Projection, selected: bool, factor: f32) -> Vec<Prim> {
+    if (factor - 1.0).abs() > f32::EPSILON {
+        let mut scaled = drawing.clone();
+        scaled.style.text_size *= factor;
+        return shapes_of(&scaled, proj, selected);
+    }
+    shapes_of(drawing, proj, selected)
+}
+
+fn shapes_of(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
     let Some(pts) = anchors(drawing, proj) else {
         return Vec::new();
     };
@@ -365,7 +382,7 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
                     color: 0x0a0a0a,
                     background: Some((color, 1.0)),
                     anchor: Anchor::Right,
-                    size: LABEL_SIZE,
+                    size: label_size(),
                     bold: false,
                     face: Default::default(),
                 });
@@ -1785,6 +1802,25 @@ pub(super) mod tests {
             s,
             Prim::Label { size, bold: true, color: 0x00ff00, .. } if *size == 20.0
         )));
+    }
+
+    #[test]
+    fn the_text_of_a_drawing_follows_the_scale_of_the_text_and_the_saved_size_stays() {
+        let mut styled = drawing(Tool::Measure, &[(0, 100.0), (600, 150.0)]);
+        styled.style.text_size = 20.0;
+        let sizes = |factor: f32| -> Vec<f32> {
+            prims_at(&styled, &Linear, true, factor)
+                .into_iter()
+                .filter_map(|p| match p {
+                    Prim::Label { size, .. } => Some(size),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert!(sizes(1.0).iter().any(|s| *s == 20.0));
+        assert!(sizes(1.5).iter().any(|s| (*s - 30.0).abs() < 1e-4));
+        assert!(sizes(0.8).iter().any(|s| (*s - 16.0).abs() < 1e-4));
+        assert_eq!(styled.style.text_size, 20.0, "what is saved is not touched");
     }
 
     #[test]

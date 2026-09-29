@@ -90,10 +90,15 @@ pub enum Cmd {
     },
 }
 
-/// The size of the text of the chart.
-pub const FONT: f32 = 11.0;
+/// The size of the text of the chart, at the scale of the text (see [`crate::text_scale`]).
+pub fn font() -> f32 {
+    crate::text_scale::scaled(11.0)
+}
+
 /// The line height of that text.
-pub const LINE: f32 = FONT * 1.3;
+pub fn line_height() -> f32 {
+    font() * 1.3
+}
 
 /// Finds the largest readable font size that fits a label inside its drawing.
 pub fn fitted_size(

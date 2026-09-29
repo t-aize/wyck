@@ -559,6 +559,8 @@ fn put_in_force(cx: &mut App) {
     };
     wyck_ui::anim::set_enabled(animations);
     wyck_ui::tokens::set_scale(scale);
+    // The text drawn on the charts follows it, as the widgets do.
+    wyck_chart::text_scale::set(scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {
         let _ = window.update(cx, |_, window, _| {

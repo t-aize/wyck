@@ -12,7 +12,7 @@ use wyck_openapi::market::format_price;
 
 use super::data::Series;
 use super::lines::to_real;
-use super::scene::{AXIS_H, AXIS_W, Geometry, price};
+use super::scene::{Geometry, axis_h, axis_w, price};
 use super::settings::ChartKind;
 use super::study::{Placement, PlotKind, ValueFormat};
 use super::zone::Zone;
@@ -594,7 +594,7 @@ impl Chart {
         let index = self.shown_index();
         // The legend wraps before the toolbar at the top right (or the price axis, when the
         // toolbar is hidden).
-        let right = AXIS_W + if self.shows_toolbar() { 196.0 } else { 8.0 };
+        let right = axis_w() + if self.shows_toolbar() { 196.0 } else { 8.0 };
         let mut main = div()
             .absolute()
             .top(px(6.))
@@ -665,7 +665,7 @@ impl Chart {
             div()
                 .absolute()
                 .left_0()
-                .right(px(AXIS_W))
+                .right(px(axis_w()))
                 .bottom(px(bottom))
                 .flex()
                 .justify_center()
@@ -1024,7 +1024,7 @@ impl Chart {
                 .id(SharedString::from(format!("line-{id:?}")))
                 .absolute()
                 .top(px(y - 10.0))
-                .right(px(AXIS_W + 8.0))
+                .right(px(axis_w() + 8.0))
                 .h(px(tokens::height::tiny()))
                 .flex()
                 .flex_row()
@@ -1111,7 +1111,7 @@ impl Chart {
         let positioned = div()
             .absolute()
             .right(px(4.))
-            .bottom(px(AXIS_H + 4.0))
+            .bottom(px(axis_h() + 4.0))
             .child(card);
         Some(
             deferred(
@@ -1224,7 +1224,7 @@ impl Chart {
                 div()
                     .absolute()
                     .left(px(12.))
-                    .bottom(px(AXIS_H + 8.0))
+                    .bottom(px(axis_h() + 8.0))
                     .flex()
                     .flex_row()
                     .items_center()
