@@ -226,16 +226,7 @@ fn source(kind: SoundKind, custom: Option<&Path>) -> Option<Source> {
         SoundKind::System => system_files()
             .into_iter()
             .find(|f| f.is_file())
-            .and_then(|file| {
-                #[cfg(target_os = "macos")]
-                {
-                    Some(Source::System(file))
-                }
-                #[cfg(not(target_os = "macos"))]
-                {
-                    std::fs::read(file).ok().map(Source::Bytes)
-                }
-            })
+            .and_then(system_source)
             .or_else(|| builtin("ping.wav")),
         SoundKind::Custom => custom
             .and_then(|path| read_custom(path).ok())
@@ -243,6 +234,19 @@ fn source(kind: SoundKind, custom: Option<&Path>) -> Option<Source> {
             .or_else(|| builtin("ping.wav")),
         other => other.asset().and_then(builtin),
     }
+}
+
+/// What plays a file of the system: macOS keeps its sounds as `.aiff`, which the audio library does
+/// not decode, so `afplay` plays them.
+#[cfg(target_os = "macos")]
+fn system_source(file: PathBuf) -> Option<Source> {
+    Some(Source::System(file))
+}
+
+/// What plays a file of the system: the audio library, from the bytes of the file.
+#[cfg(not(target_os = "macos"))]
+fn system_source(file: PathBuf) -> Option<Source> {
+    std::fs::read(file).ok().map(Source::Bytes)
 }
 
 /// Reads a file the user chose, refusing what is too big.
