@@ -6,9 +6,7 @@ use std::sync::Arc;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-use wyck_config::{
-    AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig, sealed,
-};
+use wyck_config::{AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig};
 
 fn passphrase(text: &str) -> SecretString {
     SecretString::from(text.to_owned())
@@ -328,22 +326,12 @@ fn many_threads_saving_one_document_never_tear_it() {
 /// a passphrase, opened on another install, and restored. This is how an app makes an encrypted
 /// export out of the pieces of the crate.
 #[test]
-fn a_sealed_backup_moves_every_document_to_another_install() {
-    #[derive(Serialize, Deserialize)]
-    struct Entry {
-        /// Empty for the documents shared by every account.
-        scope: String,
-        name: String,
-        content: String,
-    }
-    #[derive(Serialize, Deserialize)]
-    struct Bundle {
-        files: Vec<Entry>,
-    }
+fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
+    use wyck_config::backup::{self, Backup};
 
     let (from, to) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let source = AppPaths::at(from.path());
-    let global = DocumentStore::global(&source);
+    let global = source.documents();
     global
         .save(
             "layout",
@@ -353,62 +341,132 @@ fn a_sealed_backup_moves_every_document_to_another_install() {
             },
         )
         .unwrap();
-    let account = DocumentStore::scoped(&source, "demo-1");
+    let account = source.scope("demo-1");
     account.save("layout", &Layout::default()).unwrap();
     account
         .save_text("notes", "# kept as written\nx = 1\n")
         .unwrap();
+    source
+        .scripts()
+        .write("Trend/Average", "plot(\"a\", close);")
+        .unwrap();
 
-    // Collect.
-    let mut files = Vec::new();
-    for name in global.list().unwrap() {
-        files.push(Entry {
-            scope: String::new(),
-            content: global.load_text(&name).unwrap().unwrap(),
-            name,
-        });
-    }
-    for scope in DocumentStore::list_scopes(&source).unwrap() {
-        let store = DocumentStore::scoped(&source, &scope);
-        for name in store.list().unwrap() {
-            files.push(Entry {
-                scope: scope.clone(),
-                content: store.load_text(&name).unwrap().unwrap(),
-                name,
-            });
-        }
-    }
-    let text = toml::to_string(&Bundle { files }).unwrap();
-    let file = sealed::seal_text(&passphrase("carry-me"), "wyck-backup", &text).unwrap();
-    assert!(!file.contains("kept as written") && !file.contains("demo-1"));
+    // Export, sealed, to a file that can be put anywhere.
+    let file = to.path().join("carried").join("backup.toml");
+    let made = backup::export_to_file(
+        &source,
+        Some(&source.scripts()),
+        &file,
+        Some(&passphrase("carry-me")),
+        "1.0",
+        "2026-09-29T10:00:00Z",
+    )
+    .unwrap();
+    assert_eq!(made.contents().documents(), 3);
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(!text.contains("kept as written") && !text.contains("demo-1"));
 
-    // Restore, elsewhere.
-    assert!(sealed::open_text(&passphrase("wrong"), "wyck-backup", &file).is_err());
-    let opened = sealed::open_text(&passphrase("carry-me"), "wyck-backup", &file).unwrap();
-    let bundle: Bundle = toml::from_str(&opened).unwrap();
-    let target = AppPaths::at(to.path());
-    for entry in bundle.files {
-        let store = if entry.scope.is_empty() {
-            DocumentStore::global(&target)
-        } else {
-            wyck_config::names::validate_name(&entry.scope).unwrap();
-            DocumentStore::scoped(&target, &entry.scope)
-        };
-        store.save_text(&entry.name, &entry.content).unwrap();
-    }
+    // Import, elsewhere: checked and staged, applied at the next start.
+    let target = AppPaths::at(to.path().join("other"));
+    assert!(matches!(
+        backup::stage_import_file(&target, &file, None),
+        Err(wyck_config::ConfigError::PassphraseRequired)
+    ));
+    assert!(matches!(
+        backup::stage_import_file(&target, &file, Some(&passphrase("wrong"))),
+        Err(wyck_config::ConfigError::WrongPassphrase)
+    ));
+    let staged = backup::stage_import_file(&target, &file, Some(&passphrase("carry-me"))).unwrap();
+    assert_eq!(staged, made);
+    assert!(backup::import_pending(&target));
+    assert_eq!(target.scope("demo-1").load_text("notes").unwrap(), None);
 
-    let restored = DocumentStore::scoped(&target, "demo-1");
+    let applied = backup::apply_pending(&target, "2026-09-29T10:05:00Z").unwrap();
+    assert_eq!(applied.imported, Some(4));
     assert_eq!(
-        restored.load_text("notes").unwrap().as_deref(),
+        target
+            .scope("demo-1")
+            .load_text("notes")
+            .unwrap()
+            .as_deref(),
         Some("# kept as written\nx = 1\n"),
         "text comes back byte for byte, comments included"
     );
     assert_eq!(
-        DocumentStore::global(&target)
+        target
+            .documents()
             .load::<Layout>("layout")
             .unwrap()
             .unwrap()
             .zoom,
         2.0
     );
+    assert_eq!(
+        target.scripts().read("Trend/Average").unwrap().as_deref(),
+        Some("plot(\"a\", close);")
+    );
+    assert!(!Backup::collect(&target, None, "1", "t").unwrap().is_empty());
+}
+
+#[test]
+fn the_copies_an_install_keeps_can_be_listed_restored_and_pruned() {
+    use wyck_config::backup::{self, AutoPolicy, BackupKind};
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = WyckConfig::builder()
+        .portable(dir.path())
+        .encrypted_file(passphrase("pw"))
+        .build()
+        .unwrap();
+    config.add_profile("Demo", "ctrader-openapi").unwrap();
+    config
+        .documents()
+        .save_text("preferences", "magnet = true\n")
+        .unwrap();
+
+    // One automatic copy, and not a second one right after.
+    let policy = AutoPolicy::default();
+    let store = config.backups();
+    let auto = store
+        .auto_snapshot(
+            Some(&config.scripts()),
+            "1.0",
+            "2026-09-29T10:00:00Z",
+            policy,
+        )
+        .unwrap()
+        .unwrap();
+    assert!(
+        store
+            .auto_snapshot(None, "1.0", "later", policy)
+            .unwrap()
+            .is_none()
+    );
+
+    // The user changes their mind: a reset, then the copy brings everything back.
+    config
+        .documents()
+        .save_text("preferences", "magnet = false\n")
+        .unwrap();
+    backup::stage_reset(config.paths()).unwrap();
+    let applied = backup::apply_pending(config.paths(), "2026-09-29T11:00:00Z").unwrap();
+    assert!(applied.reset);
+    assert_eq!(config.documents().load_text("preferences").unwrap(), None);
+
+    let kinds: Vec<_> = store.list().unwrap().iter().map(|e| e.kind).collect();
+    assert!(kinds.contains(&BackupKind::BeforeReset), "{kinds:?}");
+    store.restore(&auto.id, None).unwrap();
+    backup::apply_pending(config.paths(), "2026-09-29T11:05:00Z").unwrap();
+    assert_eq!(
+        config
+            .documents()
+            .load_text("preferences")
+            .unwrap()
+            .as_deref(),
+        Some("magnet = true\n")
+    );
+
+    // Neither a reset nor a restore touches the profiles: the sign-in stays.
+    assert_eq!(config.profiles().len(), 1);
+    assert!(store.prune(BackupKind::BeforeReset, 0).unwrap() >= 1);
 }

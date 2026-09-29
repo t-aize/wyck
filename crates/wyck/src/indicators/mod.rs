@@ -55,7 +55,7 @@ impl Global for Service {}
 /// temporary folder and nothing is remembered.
 pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
     let (default_dir, store) = match paths {
-        Some(paths) => (paths.indicators_dir(), Some(DocumentStore::global(paths))),
+        Some(paths) => (paths.indicators_dir(), Some(paths.documents())),
         None => (std::env::temp_dir().join("wyck-indicators"), None),
     };
     let mut prefs = store

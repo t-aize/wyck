@@ -4,6 +4,7 @@
 #   scripts/check-config.sh           format, lints, tests, docs
 #   scripts/check-config.sh doctor    look over the config of this machine (changes nothing)
 #   scripts/check-config.sh doctor --dir ./wyck-data
+#   scripts/check-config.sh backup list     list, save, export, import or restore backups
 #
 # The tests never touch the real config: they work in temporary folders.
 set -euo pipefail
@@ -23,8 +24,12 @@ case "${1:-check}" in
     shift
     cargo run -q -p "$CRATE" --example config_doctor -- "$@"
     ;;
+  backup)
+    shift
+    cargo run -q -p "$CRATE" --example config_backup -- "$@"
+    ;;
   *)
-    echo "usage: $0 [check | doctor [--dir <folder>]]" >&2
+    echo "usage: $0 [check | doctor [--dir <folder>] | backup <command>]" >&2
     exit 2
     ;;
 esac

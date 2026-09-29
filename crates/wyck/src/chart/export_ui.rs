@@ -264,7 +264,7 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let store = crate::app_paths().map(DocumentStore::global);
+        let store = crate::app_paths().map(wyck_config::AppPaths::documents);
         let saved = store.as_ref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.
@@ -591,7 +591,7 @@ impl ExportDialog {
                     let source = snapshot.source();
                     let table = export::table(&source, &options, None);
                     let text = export::render(&table, &options, source.digits, source.zone);
-                    std::fs::write(&target, text.as_bytes())
+                    wyck_config::atomic_write(&target, text.as_bytes())
                         .map(|()| (table.total_rows, text.len()))
                 })
                 .await;

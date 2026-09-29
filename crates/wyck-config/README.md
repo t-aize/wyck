@@ -15,7 +15,8 @@ reusable.
 - [Where the files go](#where-the-files-go)
 - [Security model](#security-model)
 - [Guarantees](#guarantees)
-- [Backups and export](#backups-and-export)
+- [Backups, export and import](#backups-export-and-import)
+- [Indicator scripts](#indicator-scripts)
 - [Checking an install](#checking-an-install)
 - [File formats](#file-formats)
 - [Errors](#errors)
@@ -29,6 +30,8 @@ reusable.
 | Which profiles exist, which one is active | `WyckConfig`, `AppConfig`, `ProfileConfig` | `config.toml` (plain TOML) |
 | Tokens, client secrets, OAuth pairs | `SecretStore`: `KeyringSecretStore` or `EncryptedFileSecretStore` | the OS keyring, or one encrypted file per secret |
 | Anything else the app remembers (layouts, favorites, drawings) | `DocumentStore` | one TOML file per document |
+| Indicator scripts (plain text files) | `scripts::ScriptStore` | one `.rhai` file per indicator |
+| A backup of everything, to export, import, keep or restore | `backup::Backup`, `backup::BackupStore` | one TOML file, in `backups/` or wherever the user puts it |
 | Text to carry to another machine, unreadable without a passphrase | `sealed::seal_text`, `sealed::open_text` | a small TOML document |
 | Files written without ever leaving half a file | `atomic_write` | any path |
 | Names that can never leave their folder | `names::validate_name`, `names::sanitize` | none |
@@ -64,11 +67,21 @@ let config = WyckConfig::builder()
     .build()?;
 ```
 
+Every store is one call away, from `WyckConfig` or from `AppPaths` (which is what code that
+starts before the config is loaded, or has no profiles, holds):
+
+```rust
+config.documents();        // paths.documents():   shared by every account
+config.scope("demo-4242"); // paths.scope(..):     one folder per account
+config.scripts();          // paths.scripts():     the indicator scripts
+config.backups();          // paths.backups():     the copies kept in backups/
+```
+
 Documents are typed, and the crate never looks inside them:
 
 ```rust
-let store = DocumentStore::global(config.paths());                // shared by every account
-let account = DocumentStore::scoped(config.paths(), "demo-4242"); // one folder per account
+let store = config.documents();                  // = DocumentStore::global(config.paths())
+let account = config.scope("demo-4242");         // = DocumentStore::scoped(config.paths(), ..)
 
 store.save("layout", &my_layout)?;                   // atomic
 let layout: MyLayout = store.load_or_default("layout"); // never fails
@@ -97,7 +110,10 @@ starts from `Default`: a corrupt file costs the user that document, never the ap
   config.toml            profiles, active profile, last symbol
   state/                 documents shared by every account      (DocumentStore::global)
   scopes/<scope>/        documents of one account               (DocumentStore::scoped)
-  indicators/            scripted indicators (owned by wyck-chart)
+  indicators/            indicator scripts, one .rhai file each  (scripts::ScriptStore)
+  backups/               saved copies, one file each             (backup::BackupStore)
+  pending-import.toml    a checked import waiting for the next start (temporary)
+  reset-pending          a reset waiting for the next start           (temporary)
 <data>/
   secrets/               encrypted envelopes, only with EncryptedFileSecretStore
 ```
@@ -145,36 +161,102 @@ The crate does not lock files: one process should own a config at a time.
   wrong and written back without what this version does not know.
 - **Names cannot leave their folder.** Names of documents, scopes and named credentials are 1 to
   100 characters of `A-Z a-z 0-9 - _`. No dot, no separator: two different names never share a
-  file.
+  file. Script ids follow the rule of `scripts::clean_id`, and a backup is refused whole when one
+  name in it breaks either rule.
+- **A restore or a reset can be undone.** What it replaces is saved as a copy first, and when that
+  fails nothing is touched.
 
-## Backups and export
+## Backups, export and import
 
-The crate gives the pieces; the app decides what goes in a backup.
+A backup is **one TOML file** with the text of every document (global and per account) and every
+indicator script, as they are on disk. It never holds credentials or `config.toml`, so it is safe
+in a cloud folder; add a passphrase and it is unreadable there too. The whole life of a backup is
+in `wyck_config::backup`:
 
 ```rust
-// Collect the text of every document, as it is on disk (comments and all).
-for name in store.list()? {
-    let text = store.load_text(&name)?.unwrap();
-    // ...
-}
-for scope in DocumentStore::list_scopes(&paths)? { /* the same, per account */ }
+use wyck_config::backup::{self, AutoPolicy, Backup, BackupKind};
 
-// Seal it with a passphrase to carry it somewhere it must not be readable.
-let file = wyck_config::sealed::seal_text(&passphrase, "wyck-backup", &text)?;
-let text = wyck_config::sealed::open_text(&passphrase, "wyck-backup", &file)?;
+// Export: one call. `None` for a plain file, `Some(&passphrase)` to seal it.
+backup::export_to_file(config.paths(), Some(&config.scripts()), &dest, None, "1.0", &now)?;
 
-// Restore: the text is checked to be TOML, then written atomically.
-store.save_text(&name, &text)?;
+// Import: checked, then staged. Nothing is written until the app starts again.
+let what: Backup = backup::stage_import_file(config.paths(), &file, None)?;
+println!("{}", what.contents().documents());   // what it holds, to show before the restart
+
+// At the start of the app, before anything reads a document:
+let applied = backup::apply_pending(config.paths(), &now)?;
 ```
 
-- `sealed::is_sealed(text)` tells whether a file needs a passphrase, before asking for one.
-- The label (`"wyck-backup"`) is signed into the file: a sealed backup cannot be passed off as
-  another kind of document.
-- `open_text` tells a **wrong passphrase** (`ConfigError::WrongPassphrase`) from a **damaged or
-  foreign file** (`ConfigError::Sealed`).
-- Credentials are never part of a backup: they stay in the keyring or in `secrets/`.
+**The copies the app keeps** are in `backups/`, behind `BackupStore` (`config.backups()`):
 
-`tests/lifecycle.rs` holds a complete example (collect, seal, open elsewhere, restore).
+```rust
+let store = config.backups();
+
+store.create(&Backup::collect(config.paths(), Some(&config.scripts()), "1.0", &now)?)?;
+store.auto_snapshot(Some(&config.scripts()), "1.0", &now, AutoPolicy::default())?; // 1 a day, last 7
+
+for entry in store.list()? {                       // newest first
+    println!("{} {:?} {} bytes sealed={}", entry.id, entry.kind, entry.bytes, entry.sealed);
+}
+store.restore(&id, None)?;                         // staged, like an import
+store.export(&id, &somewhere)?;                    // carry a copy away as it is
+store.remove(&id)?;
+store.prune(BackupKind::Automatic, 5)?;
+```
+
+| Kind | Made by | Name |
+|---|---|---|
+| `Manual` | `create`, or a file dropped in the folder | `backup-<date>` |
+| `Automatic` | `auto_snapshot` (at most one per interval; the oldest go) | `auto-<date>` |
+| `BeforeImport` | an import, right before it replaces a document or a script that differs | `before-import-<date>` |
+| `BeforeReset` | a reset, right before it removes the documents | `before-reset-<date>` |
+
+**Restoring never writes over a running app.** `stage_import` checks the backup and puts it aside
+(`pending-import.toml`); `stage_reset` leaves a marker. The next start calls `apply_pending`,
+before anything is loaded. It first saves what it is about to replace as a `BeforeImport` or
+`BeforeReset` copy, so an import or a reset can itself be undone with `restore`. When that copy
+cannot be saved, nothing is touched and the error comes back. An import that cannot be read is
+set aside as `.bad`, and the last one asked for wins (a reset cancels a waiting import and the
+other way round). A reset leaves `config.toml`, the credentials and the scripts alone.
+
+- A backup is checked whole before anything is staged: the format and version (a newer one is
+  refused, `BackupTooNew`), every document and script name (they are paths: `..`, separators and
+  device names are refused), duplicates, sizes and counts, and that every document is valid TOML.
+- `Backup::read` opens a plain or a sealed file: `PassphraseRequired` when a sealed one gets no
+  passphrase, `WrongPassphrase` when it does not open, `NotABackup`/`BackupDamaged` otherwise.
+- The label of a sealed backup (`"wyck-backup"`) is signed into it: a backup cannot be passed off as
+  another kind of sealed document, and the other way round.
+- `Backup::contents()` says what is inside by name (`Contents`), so a front end can phrase it
+  ("Drawings for 2 accounts") without this crate knowing what a drawing is.
+- `sealed::seal_text` and `sealed::open_text` are still there for any other text.
+
+From the command line, on this machine or a portable install (`--dir`):
+
+```sh
+cargo run -p wyck-config --example config_backup -- list
+cargo run -p wyck-config --example config_backup -- export ./my-backup.toml
+WYCK_BACKUP_PASSPHRASE=... cargo run -p wyck-config --example config_backup -- export ./locked.toml
+cargo run -p wyck-config --example config_backup -- import ./my-backup.toml   # then start the app
+```
+
+`tests/lifecycle.rs` holds complete examples (export sealed, import elsewhere, undo a reset).
+
+## Indicator scripts
+
+An indicator is a text file `<id>.rhai`. Its id is its path from the scripts folder without the
+extension (`trend/my average`), which is what a chart saves to remember its indicators.
+`scripts::ScriptStore` (`config.scripts()` for the default folder, `ScriptStore::new(dir)` for a
+folder the user chose) owns what has to be the same everywhere the files are touched:
+
+- the rule for names (`clean_id`: letters, digits, spaces and `- _ . ( ) % + , &`, 64 characters a
+  part, at most 3 folders deep, no dot at either end, no Windows device names) and the limits
+  (256 KB a script, 500 scripts);
+- `scan`, `ids`, `read_all`, `read`: hidden files, the `.trash` folder, links and files of another
+  kind are not scripts, and a file that is too big or not text is left out of a copy;
+- `write`: atomic, and the id and size are checked; `export_all` copies the whole folder.
+
+It does not know the language: compiling and running scripts is `wyck-chart`, which reads and
+writes its library through this type. The backup takes the scripts from here too.
 
 ## Checking an install
 
@@ -249,6 +331,10 @@ Every fallible call returns `wyck_config::Result<T>`. `ConfigError` says what fa
 | `UnknownProfile` | an id that is not configured | refresh the list |
 | `InvalidName` | a name that could leave its folder | reject the input |
 | `SecretStore` | the OS keyring failed | suggest `EncryptedFileSecretStore` |
+| `NotABackup`, `BackupDamaged` | a file is not a backup, or a part of it is wrong | say so, change nothing |
+| `BackupTooNew` | made by a newer version | tell the user to update |
+| `PassphraseRequired` | a sealed backup and no passphrase | ask for one |
+| `BackupNotFound` | an id that is not in `backups/` | refresh the list |
 
 ## Development
 

@@ -54,7 +54,7 @@ The workspace crates are:
 | Crate | Owns |
 |---|---|
 | `wyck-openapi` | cTrader Open API SDK: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
-| `wyck-config` | Native settings, documents and credential storage |
+| `wyck-config` | Native settings, documents, backups, indicator files and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
 | `wyck-ui` | Widget kit, theme and sizes shared by every screen |
 | `wyck` | GPUI desktop application, saved workspace and bundled assets |

@@ -16,10 +16,11 @@ use super::appearance::{self, ColorField, Mode};
 use super::build_info::{BuildMode, VERSION};
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
+use super::updates;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
-use super::{backup, updates};
 use wyck_chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use wyck_chart::settings::MAX_STUDIES;
+use wyck_config::backup::{self, BackupEntry};
 use wyck_ui::{
     button, confirm, controls,
     font_picker::{FontChosen, FontPicker},
@@ -144,6 +145,8 @@ struct SettingsHub {
     notice: Option<Notice>,
     /// What the backup waiting to be applied holds, once one was chosen.
     waiting: Option<Vec<String>>,
+    /// The copies kept in the backups folder, newest first, as last listed.
+    copies: Vec<BackupEntry>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -211,7 +214,7 @@ impl SettingsHub {
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| crate::app_paths().is_some_and(backup::pending));
+            .filter(|_| crate::app_paths().is_some_and(backup::import_pending));
         Self {
             workspace,
             multi,
@@ -228,6 +231,7 @@ impl SettingsHub {
             _font_subscription: None,
             notice: None,
             waiting,
+            copies: data::list_copies(),
             _subscriptions: subscriptions,
         }
     }

@@ -829,8 +829,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         let written = cx
             .background_executor()
             .spawn(async move {
-                std::fs::create_dir_all(&folder)?;
-                std::fs::write(&path, png)?;
+                wyck_config::atomic_write(&path, &png)?;
                 Ok::<_, std::io::Error>(path)
             })
             .await;

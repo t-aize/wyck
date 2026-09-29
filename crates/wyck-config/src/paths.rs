@@ -129,7 +129,8 @@ impl AppPaths {
         self.config_dir.join("scopes")
     }
 
-    /// The folder where the app keeps a copy of what an import or a reset replaced.
+    /// The folder of the backups the app keeps (see [`crate::backup::BackupStore`]): the automatic
+    /// ones, and a copy of what an import or a reset replaced.
     pub fn backups_dir(&self) -> PathBuf {
         self.config_dir.join("backups")
     }
@@ -137,6 +138,26 @@ impl AppPaths {
     /// The folder the scripted indicators are read from unless the user chose another.
     pub fn indicators_dir(&self) -> PathBuf {
         self.config_dir.join("indicators")
+    }
+
+    /// The documents shared by every account: [`crate::DocumentStore::global`].
+    pub fn documents(&self) -> crate::DocumentStore {
+        crate::DocumentStore::global(self)
+    }
+
+    /// The documents of one scope (an account): [`crate::DocumentStore::scoped`].
+    pub fn scope(&self, scope: &str) -> crate::DocumentStore {
+        crate::DocumentStore::scoped(self, scope)
+    }
+
+    /// The indicator scripts of the default folder: [`crate::scripts::ScriptStore::in_config`].
+    pub fn scripts(&self) -> crate::scripts::ScriptStore {
+        crate::scripts::ScriptStore::in_config(self)
+    }
+
+    /// The copies kept in [`Self::backups_dir`]: [`crate::backup::BackupStore::new`].
+    pub fn backups(&self) -> crate::backup::BackupStore {
+        crate::backup::BackupStore::new(self)
     }
 
     /// The user's pictures folder, or the home folder when the system has none: where the app puts
