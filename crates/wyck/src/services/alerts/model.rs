@@ -211,6 +211,18 @@ pub struct Firing {
     pub at: i64,
     /// What it said.
     pub text: String,
+    /// The symbol, for showing its chart. 0 in a history written before this field existed.
+    #[serde(default)]
+    pub symbol_id: i64,
+    /// What the alert watched (`Price`, an indicator name, ...) and its condition, as they read
+    /// when it fired: the alert may have been edited or deleted since.
+    #[serde(default)]
+    pub watched: String,
+    #[serde(default)]
+    pub condition: String,
+    /// The value that made it fire.
+    #[serde(default)]
+    pub value: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -253,6 +265,9 @@ pub struct Alert {
     /// The notice stays until it is closed.
     #[serde(default)]
     pub sticky: bool,
+    /// The sound of this alert, when it is not the one every alert makes.
+    #[serde(default)]
+    pub sound: Option<super::sound::SoundKind>,
     /// Only for files that came before triggers: it repeats.
     #[serde(default, skip_serializing)]
     pub repeat: bool,
@@ -300,6 +315,7 @@ impl Alert {
             message: String::new(),
             tag: String::new(),
             sticky: false,
+            sound: None,
             repeat: false,
             active: true,
             fired_at: None,
@@ -564,7 +580,13 @@ impl AlertBook {
 
     /// Records that an alert fired: when, how many times, and in the history. A one-time alert
     /// stops watching. Returns the alert as it is now.
-    pub fn fire(&mut self, id: u64, text: String, now_ms: i64) -> Option<Alert> {
+    pub fn fire(
+        &mut self,
+        id: u64,
+        text: String,
+        value: Option<f64>,
+        now_ms: i64,
+    ) -> Option<Alert> {
         let alert = self.get_mut(id)?;
         alert.fired_at = Some(now_ms);
         alert.fired_count = alert.fired_count.saturating_add(1);
@@ -576,6 +598,10 @@ impl AlertBook {
             symbol: alert.symbol.clone(),
             at: now_ms,
             text,
+            symbol_id: alert.symbol_id,
+            watched: alert.source.label(),
+            condition: alert.condition.label().to_owned(),
+            value,
         };
         let alert = alert.clone();
         self.history.insert(0, firing);
@@ -722,14 +748,20 @@ mod tests {
         let once = book.add(7, "EURUSD", 1.1, Condition::Crossing, 0).unwrap();
         let again = book.add(7, "EURUSD", 1.2, Condition::Crossing, 0).unwrap();
         book.get_mut(again).unwrap().trigger = Trigger::EveryTime;
-        let fired = book.fire(once, "one".into(), 10).unwrap();
+        let fired = book.fire(once, "one".into(), Some(1.1), 10).unwrap();
         assert!(!fired.active && fired.fired_count == 1);
-        assert!(book.fire(again, "two".into(), 11).unwrap().active);
+        assert!(book.fire(again, "two".into(), None, 11).unwrap().active);
         assert_eq!(book.history[0].text, "two");
+        let first = &book.history[1];
+        assert_eq!(
+            (first.symbol_id, first.watched.as_str(), first.value),
+            (7, "Bid", Some(1.1))
+        );
+        assert_eq!(first.condition, "Crossing");
         assert_eq!(book.firings(once).count(), 1);
         assert_eq!(book.watched(), vec![7]);
         for n in 0..(MAX_HISTORY + 20) {
-            book.fire(again, n.to_string(), 20 + n as i64);
+            book.fire(again, n.to_string(), None, 20 + n as i64);
         }
         assert_eq!(book.history.len(), MAX_HISTORY);
     }
@@ -747,5 +779,22 @@ mod tests {
         assert!(book.expire(99).is_empty());
         assert_eq!(book.expire(100), vec![id]);
         assert!(book.watched().is_empty());
+    }
+
+    #[test]
+    fn a_history_written_before_the_log_columns_still_loads() {
+        let old = r#"
+            schema_version = 2
+            next_id = 1
+            [[history]]
+            alert = 3
+            symbol = "EURUSD"
+            at = 1000
+            text = "EURUSD crossed 1.1"
+        "#;
+        let book: AlertBook = toml::from_str(old).unwrap();
+        let firing = &book.history[0];
+        assert_eq!(firing.symbol_id, 0);
+        assert!(firing.watched.is_empty() && firing.value.is_none());
     }
 }

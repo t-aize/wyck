@@ -32,6 +32,7 @@ use wyck_ui::{
 };
 
 mod about;
+mod alerts;
 mod behaviour;
 mod charts;
 mod data;
@@ -70,17 +71,19 @@ pub enum Page {
     Charts,
     Indicators,
     Behaviour,
+    Alerts,
     Safety,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
+        Self::Alerts,
         Self::Safety,
         Self::Data,
         Self::About,
@@ -92,6 +95,7 @@ impl Page {
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
+            Self::Alerts => ("Alerts", IconName::Bell),
             Self::Safety => ("Safety", IconName::ShieldCheck),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
@@ -337,6 +341,7 @@ impl Render for SettingsHub {
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
+            Page::Alerts => self.alerts_page(cx),
             Page::Safety => self.safety_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(cx),

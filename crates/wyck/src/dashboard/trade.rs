@@ -351,6 +351,7 @@ impl Dashboard {
                     toast = toast.hint(format!("Tag: {}", alert.tag));
                 }
                 toast.show(cx);
+                self.alert_output(alert, title, text, cx);
             }
             alerts::AlertsEvent::Expired(alert) => {
                 let digits = self
@@ -363,6 +364,21 @@ impl Dashboard {
                 toast::Toast::info("Alert expired", alert.describe(digits)).show(cx);
             }
             alerts::AlertsEvent::Changed => {}
+        }
+    }
+
+    /// The sound and the desktop notification of an alert that fired, as the user set them.
+    fn alert_output(&self, alert: &alerts::Alert, title: &str, text: &str, cx: &mut Context<Self>) {
+        let output = self.workspace.read(cx).preferences().alert_output.clone();
+        // No window of the app is active when the user is elsewhere.
+        let in_use = cx.active_window().is_some();
+        let plan = alerts::sound::plan(&output, alert.sound, in_use);
+        let speaker = alerts::sound::speaker();
+        if let Some(kind) = plan.sound {
+            speaker.play(kind, output.custom.as_deref(), output.volume);
+        }
+        if plan.notification {
+            speaker.notify(&format!("{title}: {}", alert.symbol), text);
         }
     }
 

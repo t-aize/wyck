@@ -33,6 +33,7 @@ use crate::{chart::now_ms, runtime};
 
 pub mod eval;
 pub mod model;
+pub mod sound;
 
 use self::eval::{Judged, Reading};
 pub use self::model::{Alert, AlertBook, Condition, Source, Trigger};
@@ -437,7 +438,7 @@ impl Alerts {
         let digits = self.digits_of(alert.symbol_id);
         let text = alert.render(Some(value), digits);
         let now = now_ms();
-        let Some(mut alert) = self.book.fire(id, text.clone(), now) else {
+        let Some(mut alert) = self.book.fire(id, text.clone(), Some(value), now) else {
             return;
         };
         if let Some(stored) = self.book.get_mut(id) {

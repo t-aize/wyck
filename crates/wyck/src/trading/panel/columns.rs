@@ -171,6 +171,18 @@ columns! {
     }
 }
 
+columns! {
+    /// The columns of the log of alerts that fired.
+    AlertLogCol {
+        Time => ("Time", WIDE, false, true),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Watched => ("Watched", NUMBER, false, true),
+        Condition => ("Condition", WIDE, false, true),
+        Value => ("Value", NUMBER, true, true),
+        Message => ("Message", TEXT, false, true),
+    }
+}
+
 /// One column of a table as the user arranged it.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Col<C> {

@@ -7,7 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::columns::{AlertCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs};
+use super::columns::{
+    AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs,
+};
 use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
 use wyck_ui::tokens;
 
@@ -21,6 +23,8 @@ pub enum Tab {
     History,
     Exposure,
     Alerts,
+    /// The times alerts fired (`History` is the closed trades).
+    AlertLog,
 }
 
 impl Slot for Tab {
@@ -30,6 +34,7 @@ impl Slot for Tab {
         Self::History,
         Self::Exposure,
         Self::Alerts,
+        Self::AlertLog,
     ];
 
     fn label(self) -> &'static str {
@@ -39,6 +44,7 @@ impl Slot for Tab {
             Self::History => "History",
             Self::Exposure => "Exposure",
             Self::Alerts => "Alerts",
+            Self::AlertLog => "Alert log",
         }
     }
 }
@@ -288,6 +294,7 @@ pub struct PanelPrefs {
     pub history: TablePrefs<DealCol>,
     pub exposure: TablePrefs<ExposureCol>,
     pub alerts: TablePrefs<AlertCol>,
+    pub alert_log: TablePrefs<AlertLogCol>,
     pub actions: Vec<Placed<RowAction>>,
     pub density: RowDensity,
     /// A tint on every other row.
@@ -327,6 +334,7 @@ impl Default for PanelPrefs {
             history: TablePrefs::default(),
             exposure: TablePrefs::default(),
             alerts: TablePrefs::default(),
+            alert_log: TablePrefs::default(),
             actions: default_list(),
             density: RowDensity::Comfortable,
             zebra: false,
@@ -370,6 +378,7 @@ impl PanelPrefs {
         self.history = self.history.normalized();
         self.exposure = self.exposure.normalized();
         self.alerts = self.alerts.normalized();
+        self.alert_log = self.alert_log.normalized();
         self
     }
 
@@ -401,6 +410,7 @@ impl PanelPrefs {
             Tab::History => sort!(self.history),
             Tab::Exposure => sort!(self.exposure),
             Tab::Alerts => sort!(self.alerts),
+            Tab::AlertLog => sort!(self.alert_log),
         }
     }
 
@@ -412,6 +422,7 @@ impl PanelPrefs {
             Tab::History => self.history.set_width(slot, width),
             Tab::Exposure => self.exposure.set_width(slot, width),
             Tab::Alerts => self.alerts.set_width(slot, width),
+            Tab::AlertLog => self.alert_log.set_width(slot, width),
         }
     }
 
@@ -423,6 +434,7 @@ impl PanelPrefs {
             Tab::History => self.history.toggle(slot),
             Tab::Exposure => self.exposure.toggle(slot),
             Tab::Alerts => self.alerts.toggle(slot),
+            Tab::AlertLog => self.alert_log.toggle(slot),
         }
     }
 
@@ -434,6 +446,7 @@ impl PanelPrefs {
             Tab::History => self.history.shift(slot, delta),
             Tab::Exposure => self.exposure.shift(slot, delta),
             Tab::Alerts => self.alerts.shift(slot, delta),
+            Tab::AlertLog => self.alert_log.shift(slot, delta),
         }
     }
 
@@ -445,6 +458,7 @@ impl PanelPrefs {
             Tab::History => self.history = TablePrefs::default(),
             Tab::Exposure => self.exposure = TablePrefs::default(),
             Tab::Alerts => self.alerts = TablePrefs::default(),
+            Tab::AlertLog => self.alert_log = TablePrefs::default(),
         }
     }
 
@@ -463,6 +477,7 @@ impl PanelPrefs {
             Tab::History => list(&self.history),
             Tab::Exposure => list(&self.exposure),
             Tab::Alerts => list(&self.alerts),
+            Tab::AlertLog => list(&self.alert_log),
         }
     }
 }
@@ -506,7 +521,13 @@ mod tests {
         assert!(old.zebra);
         assert_eq!(old.density, RowDensity::Compact);
         assert_eq!(old.positions, TablePrefs::default());
+        assert_eq!(old.alert_log, TablePrefs::default());
         assert!(old.confirm_close);
+        // A saved list of tabs from before the alert log gets it added, showing.
+        let saved: PanelPrefs =
+            toml::from_str("[[tabs]]\nitem = \"positions\"\nshown = true\n").unwrap();
+        let mended = saved.normalized();
+        assert!(mended.visible_tabs().any(|t| t == Tab::AlertLog));
     }
 
     #[test]

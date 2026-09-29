@@ -464,6 +464,27 @@ impl AccountPanel {
                 let (reset, custom) = (this.clone(), this.clone());
                 let text = data::to_csv(table);
                 items.push(Item::Separator);
+                if tab == Tab::AlertLog {
+                    let alerts = self.alerts.clone();
+                    let clear = ask(
+                        confirm_on,
+                        "Clear the alert log?",
+                        "Every recorded time an alert fired is removed. The alerts stay."
+                            .to_owned(),
+                        move |cx| {
+                            alerts.update(cx, |alerts, cx| {
+                                alerts.edit(cx, |book| book.history.clear())
+                            });
+                        },
+                    );
+                    items.push(
+                        Entry::new("Clear the log")
+                            .icon(IconName::Trash)
+                            .danger()
+                            .on_click(move |w, cx| clear(w, cx))
+                            .into(),
+                    );
+                }
                 items.push(
                     Entry::new("Reset the columns")
                         .icon(IconName::RotateCcw)
@@ -676,6 +697,20 @@ impl AccountPanel {
                                     .icon(IconName::X)
                                     .danger()
                                     .on_click(move |w, cx| action(w, cx))
+                                    .into(),
+                            );
+                        }
+                    }
+                    RowKind::Firing { alert } => {
+                        let alert = *alert;
+                        if self.alerts.read(cx).book().get(alert).is_some() {
+                            let edit = self.alerts.clone();
+                            items.push(
+                                Entry::new("Open the alert...")
+                                    .icon(IconName::Pencil)
+                                    .on_click(move |window, cx| {
+                                        open_alert(edit.clone(), alert, window, cx)
+                                    })
                                     .into(),
                             );
                         }
@@ -1036,7 +1071,7 @@ impl AccountPanel {
                     .into_any_element(),
                 );
             }
-            RowKind::Deal | RowKind::Exposure => {}
+            RowKind::Deal | RowKind::Exposure | RowKind::Firing { .. } => {}
         }
         let width = buttons.len() as f32 * tokens::scaled(BUTTON_W);
         (buttons, width)
@@ -1279,6 +1314,7 @@ impl AccountPanel {
                     Tab::Alerts => {
                         "No alert. Right click a chart, or press Alt+A, to add one at a price."
                     }
+                    Tab::AlertLog => "No alert has fired yet.",
                 }
             };
             div()
@@ -1293,7 +1329,7 @@ impl AccountPanel {
                 .text_color(theme::muted_fg())
                 .child(icon::tinted(
                     match tab {
-                        Tab::Alerts => IconName::Bell,
+                        Tab::Alerts | Tab::AlertLog => IconName::Bell,
                         _ => IconName::Inbox,
                     },
                     20.,
@@ -1389,13 +1425,13 @@ impl Render for AccountPanel {
             Tab::Positions => positions,
             Tab::Orders => orders,
             Tab::Alerts => alerts,
-            Tab::History | Tab::Exposure => 0,
+            Tab::History | Tab::Exposure | Tab::AlertLog => 0,
         };
         let menu = popup::Menu::new("panel-context-menu", window, cx);
         let bulk = popup::Menu::new("panel-bulk-menu", window, cx);
 
         // The alerts do not depend on the account, so they show while it loads or failed.
-        let ready = status == Status::Ready || prefs.tab == Tab::Alerts;
+        let ready = status == Status::Ready || matches!(prefs.tab, Tab::Alerts | Tab::AlertLog);
         let table = ready.then(|| {
             let ctx = Ctx {
                 account: self.account.read(cx),

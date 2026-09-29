@@ -8,6 +8,7 @@ use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputState};
 
 use crate::alerts::model::PriceKind;
+use crate::alerts::sound::SoundKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::trading::account::Account;
 use wyck_chart::study::{StudyConfig, StudyKind};
@@ -653,6 +654,31 @@ impl Render for AlertEditor {
                     cx.notify();
                 });
             }),
+        ));
+
+        // "Default" is the sound chosen in the settings, then one entry for each sound.
+        let sound_this = cx.entity();
+        let mut sound_labels = vec!["Default"];
+        sound_labels.extend(SoundKind::ALL.iter().map(|k| k.label()));
+        let sound_at = self
+            .draft
+            .sound
+            .and_then(|own| SoundKind::ALL.iter().position(|k| *k == own))
+            .map_or(0, |i| i + 1);
+        often.push(form::field(
+            "Sound",
+            Some("Default is the one of the settings"),
+            controls::chips(
+                "alert-sound",
+                &sound_labels,
+                &[sound_at],
+                move |index, _w, cx| {
+                    sound_this.update(cx, |e, cx| {
+                        e.draft.sound = index.checked_sub(1).map(|i| SoundKind::ALL[i]);
+                        cx.notify();
+                    });
+                },
+            ),
         ));
 
         let message = vec![
