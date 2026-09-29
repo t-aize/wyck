@@ -19,6 +19,12 @@
 //! While a pending price or a protection is set, it shows on the chart as a line that can be
 //! dragged; the ticket follows the line (see [`OrderTicket::lines`]).
 //!
+//! An order taken from a long or short position drawing (see [`PositionLink`]) follows that drawing
+//! until it is sent. When the drawing sets its stop loss as a multiple of the ATR and its take
+//! profit as a multiple of the risk, the ticket is set the same way, so the stop moves with the ATR
+//! and with the entry while nothing is sent. The levels are then read-only in the ticket: they are
+//! changed on the drawing, or with "Unlink" to take them over.
+//!
 //! An order is sent after a confirmation, unless one-click trading is on; then the buy and sell
 //! buttons send at once.
 //!
@@ -37,7 +43,7 @@ use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 use super::account::Account;
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
-use crate::chart::{ChartLine, LineId, now_ms};
+use crate::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms};
 use crate::multichart::SymbolRef;
 use crate::runtime;
 use wyck_chart::drawing::model::Dash;
@@ -71,6 +77,39 @@ struct Margin {
     volume: i64,
     lot: (f64, f64),
     order: (f64, f64),
+}
+
+/// A long or short position drawing the ticket follows until its order is sent. The drawing sets
+/// the side, the entry, and the stop loss and take profit (as an ATR stop and a multiple of the
+/// risk when it is set that way); the ticket keeps the size, the kind of order and the options.
+struct Link {
+    /// The drawing as the ticket last read it.
+    plan: PositionPlan,
+    /// How the ticket was set before, put back once the order is sent.
+    before: Before,
+    /// The kind of a pending order (limit or stop) follows the entry against the market.
+    follow_kind: bool,
+}
+
+/// The settings of the protections a drawing takes over.
+#[derive(Debug, Clone)]
+struct Before {
+    stop_atr: bool,
+    atr: AtrStop,
+    stop_unit: Offset,
+    target_unit: Offset,
+}
+
+/// Whether two readings of a drawing ask the ticket for something different. The stop loss of an
+/// ATR stop and the take profit of a multiple of the risk are worked out by the ticket itself, so
+/// they do not count.
+fn same_shape(a: &PositionPlan, b: &PositionPlan) -> bool {
+    a.buy == b.buy
+        && a.entry == b.entry
+        && a.atr == b.atr
+        && a.rr == b.rr
+        && (a.atr.is_some() || a.stop_loss == b.stop_loss)
+        && (a.rr.is_some() || a.take_profit == b.take_profit)
 }
 
 /// The order worked out from the fields.
@@ -131,6 +170,11 @@ pub struct OrderTicket {
     margin_asked: Option<(i64, i64)>,
     /// Bumped per margin request, so an old answer is ignored.
     margin_epoch: u64,
+    /// The position drawing this ticket follows.
+    link: Option<Link>,
+    /// Whether the settings of the ATR stop show, and the block of the options.
+    atr_open: bool,
+    options_open: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -266,6 +310,9 @@ impl OrderTicket {
             margin: None,
             margin_asked: None,
             margin_epoch: 0,
+            link: None,
+            atr_open: false,
+            options_open: false,
             _subscriptions: subscriptions,
         };
         // A stop loss sizing the order by risk cannot depend on the volume.
@@ -291,15 +338,30 @@ impl OrderTicket {
         &self.layout
     }
 
-    /// How the ticket sizes orders and looks now, to be remembered.
+    /// How the ticket sizes orders and looks now, to be remembered. What a followed drawing sets
+    /// is not: it lasts as long as the link.
     pub fn prefs(&self, cx: &App) -> TicketPrefs {
+        let (stop_atr, atr, stop_unit, target_unit) = match &self.link {
+            Some(link) => (
+                link.before.stop_atr,
+                link.before.atr.clone(),
+                link.before.stop_unit,
+                link.before.target_unit,
+            ),
+            None => (
+                self.stop_atr,
+                self.atr.clone(),
+                self.stop_unit,
+                self.target_unit,
+            ),
+        };
         TicketPrefs {
             size_mode: self.size_mode,
             size: Self::read(&self.size, cx).unwrap_or(0.0),
-            stop_unit: self.stop_unit,
-            stop_atr: self.stop_atr,
-            atr: self.atr.clone(),
-            target_unit: self.target_unit,
+            stop_unit,
+            stop_atr,
+            atr,
+            target_unit,
             layout: self.layout.clone(),
         }
     }
@@ -361,6 +423,8 @@ impl OrderTicket {
         self.symbol = symbol;
         let id = self.symbol.as_ref().map(|s| s.id);
         self.account.update(cx, |account, cx| account.focus(id, cx));
+        // A drawing belongs to a symbol: the ticket lets go of it, and of what it set.
+        self.release_link(true, window, cx);
         self.start_over();
         self.margin = None;
         self.margin_asked = None;
@@ -397,16 +461,38 @@ impl OrderTicket {
     }
 
     /// Fills the ticket from the chart: a side, a price (a pending order, limit or stop by where
-    /// it is), and protection.
+    /// it is), and protection. From a position drawing (`link`) it also follows the drawing.
+    #[allow(clippy::too_many_arguments)]
     pub fn prefill(
         &mut self,
         buy: bool,
         entry: Option<f64>,
         stop_loss: Option<f64>,
         take_profit: Option<f64>,
+        link: Option<PositionLink>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let (Some(link), Some(entry), Some(stop_loss), Some(take_profit)) =
+            (link, entry, stop_loss, take_profit)
+        {
+            self.begin_link(
+                PositionPlan {
+                    drawing: link.drawing,
+                    buy,
+                    entry,
+                    stop_loss,
+                    take_profit,
+                    atr: link.atr,
+                    rr: link.rr,
+                },
+                window,
+                cx,
+            );
+            return;
+        }
+        // Values of the chart's own: nothing set by an earlier drawing stays.
+        self.release_link(true, window, cx);
         self.buy = buy;
         match entry {
             Some(price) => {
@@ -439,6 +525,175 @@ impl OrderTicket {
         cx.notify();
     }
 
+    /// Starts following a position drawing: the ticket takes its side, its entry and its
+    /// protection, set the way the drawing sets them, and keeps up with it until the order is
+    /// sent or the link is cut.
+    fn begin_link(&mut self, plan: PositionPlan, window: &mut Window, cx: &mut Context<Self>) {
+        // A second drawing takes over from the first: what the ticket was before stays.
+        let before = match self.link.take() {
+            Some(link) => link.before,
+            None => Before {
+                stop_atr: self.stop_atr,
+                atr: self.atr.clone(),
+                stop_unit: self.stop_unit,
+                target_unit: self.target_unit,
+            },
+        };
+        self.start_over();
+        self.link = Some(Link {
+            plan: plan.clone(),
+            before,
+            follow_kind: true,
+        });
+        self.apply_link(&plan, window, cx);
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
+    }
+
+    /// Writes what a drawing asks into the fields.
+    fn apply_link(&mut self, plan: &PositionPlan, window: &mut Window, cx: &mut Context<Self>) {
+        self.buy = plan.buy;
+        self.autofill = false;
+        self.stop_on = true;
+        match &plan.atr {
+            Some(atr) => {
+                self.atr = atr.clone();
+                self.atr_seeded = true;
+                self.stop_atr = true;
+                self.write(
+                    &self.atr_length.clone(),
+                    self.atr.length.to_string(),
+                    window,
+                    cx,
+                );
+                self.write(
+                    &self.atr_multiplier.clone(),
+                    number::format(self.atr.multiplier, 4),
+                    window,
+                    cx,
+                );
+                self.request_atr(cx);
+            }
+            None => {
+                self.stop_atr = false;
+                self.stop_unit = Offset::Price;
+                let text = self.contract(cx).format_price(plan.stop_loss);
+                self.write(&self.stop_loss.clone(), text, window, cx);
+            }
+        }
+        self.target_on = true;
+        match plan.rr {
+            Some(rr) => {
+                self.target_unit = Offset::Ratio;
+                self.write(&self.take_profit.clone(), number::format(rr, 4), window, cx);
+            }
+            None => {
+                self.target_unit = Offset::Price;
+                let text = self.contract(cx).format_price(plan.take_profit);
+                self.write(&self.take_profit.clone(), text, window, cx);
+            }
+        }
+        let text = self.contract(cx).format_price(plan.entry);
+        self.write(&self.price.clone(), text, window, cx);
+        self.refresh_kind(cx);
+        self.apply_steps(window, cx);
+    }
+
+    /// A pending order at the entry of the drawing is a limit or a stop by where the market is.
+    fn refresh_kind(&mut self, cx: &App) {
+        let Some(link) = &self.link else { return };
+        if !link.follow_kind {
+            return;
+        }
+        let (bid, ask) = self.quote(cx);
+        let kind = match math::pending_kind(link.plan.buy, link.plan.entry, bid, ask) {
+            Pending::Limit => Kind::Limit,
+            Pending::Stop if self.kind == Kind::StopLimit => Kind::StopLimit,
+            Pending::Stop => Kind::Stop,
+        };
+        self.kind = kind;
+    }
+
+    /// Keeps up with the drawing: what it asks now is written in the ticket, and a drawing that
+    /// was deleted lets the ticket go.
+    fn sync_link(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(id), Some(chart), Some(symbol)) = (
+            self.link.as_ref().map(|link| link.plan.drawing),
+            self.chart.clone(),
+            self.symbol.as_ref().map(|s| s.name.to_string()),
+        ) else {
+            return;
+        };
+        match chart.read(cx).position_plan(id, &symbol, cx) {
+            PlanState::Waiting => {}
+            PlanState::Gone => {
+                self.release_link(true, window, cx);
+                wyck_ui::toast::show(
+                    cx,
+                    wyck_ui::toast::Kind::Info,
+                    "Drawing removed",
+                    "The ticket is free again and back to your own settings.",
+                );
+            }
+            PlanState::Ready(plan) => {
+                let changed = self
+                    .link
+                    .as_ref()
+                    .is_some_and(|link| !same_shape(&plan, &link.plan));
+                if changed {
+                    self.apply_link(&plan, window, cx);
+                    cx.emit(TicketEvent::LinesChanged);
+                }
+                if let Some(link) = &mut self.link {
+                    link.plan = plan;
+                }
+                self.refresh_kind(cx);
+            }
+        }
+    }
+
+    /// Lets go of the drawing. With `restore`, the ticket goes back to what it was before the
+    /// drawing set it (after the order is sent, or when the drawing is gone); without, the values
+    /// stay for the user to change (the "Unlink" button).
+    fn release_link(&mut self, restore: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(link) = self.link.take() else {
+            return;
+        };
+        if restore {
+            let before = link.before;
+            self.stop_atr = before.stop_atr;
+            self.atr = before.atr;
+            self.stop_unit = before.stop_unit;
+            self.target_unit = before.target_unit;
+            self.write(
+                &self.atr_length.clone(),
+                self.atr.length.to_string(),
+                window,
+                cx,
+            );
+            self.write(
+                &self.atr_multiplier.clone(),
+                number::format(self.atr.multiplier, 4),
+                window,
+                cx,
+            );
+            self.start_over();
+            for state in [&self.price, &self.stop_loss, &self.take_profit] {
+                state.update(cx, |s, cx| s.set_value("", window, cx));
+            }
+            self.apply_steps(window, cx);
+        } else {
+            self.settings_changed(cx);
+        }
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
+    }
+
+    /// The "Unlink" button: the values stay, and can be changed.
+    fn unlink(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.release_link(false, window, cx);
+    }
+
     /// A line of the ticket was dragged on the chart.
     pub fn line_moved(
         &mut self,
@@ -447,6 +702,10 @@ impl OrderTicket {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The drawing carries the levels while it is followed; its own lines are the ones to drag.
+        if self.link.is_some() {
+            return;
+        }
         match line {
             LINE_ENTRY => {
                 let value = self.contract(cx).format_price(price);
@@ -526,16 +785,28 @@ impl OrderTicket {
         self.write(&state, text, window, cx);
     }
 
+    /// Whether a side can be picked: a followed drawing is a long or a short, not both.
+    fn side_allowed(&self, buy: bool) -> bool {
+        self.link.as_ref().is_none_or(|link| link.plan.buy == buy)
+    }
+
     fn set_side(&mut self, buy: bool, _window: &mut Window, cx: &mut Context<Self>) {
+        if !self.side_allowed(buy) {
+            return;
+        }
         self.buy = buy;
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();
     }
 
-    /// Picks the kind of order. A pending one starts at the market price of its side.
+    /// Picks the kind of order. A pending one starts at the market price of its side, or at the
+    /// entry of the drawing that is followed.
     fn set_kind(&mut self, kind: Kind, window: &mut Window, cx: &mut Context<Self>) {
         self.kind = kind;
-        if kind.is_pending() && Self::read(&self.price, cx).is_none() {
+        if let Some(link) = &mut self.link {
+            link.follow_kind = kind.is_pending();
+            self.refresh_kind(cx);
+        } else if kind.is_pending() && Self::read(&self.price, cx).is_none() {
             self.price_at_market(window, cx);
         }
         cx.emit(TicketEvent::LinesChanged);
@@ -555,6 +826,9 @@ impl OrderTicket {
     /// the defaults: some pips from the entry for a stop loss, and a multiple of the risk (or of
     /// those pips) for a take profit.
     fn toggle_protection(&mut self, stop: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.link.is_some() {
+            return;
+        }
         let on = if stop {
             self.stop_on = !self.stop_on;
             self.stop_on
@@ -617,6 +891,9 @@ impl OrderTicket {
 
     /// Gives a protection in another unit, keeping its price.
     fn set_unit(&mut self, stop: bool, unit: Offset, window: &mut Window, cx: &mut Context<Self>) {
+        if self.link.is_some() {
+            return;
+        }
         let plan = self.plan(cx);
         let price = if stop { plan.stop } else { plan.target };
         if stop {
@@ -643,6 +920,9 @@ impl OrderTicket {
     }
 
     fn set_atr_stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.link.is_some() {
+            return;
+        }
         if !self.atr_seeded
             && let Some(chart) = &self.chart
             && let Some(study) = chart
@@ -678,6 +958,42 @@ impl OrderTicket {
         self.settings_changed(cx);
         cx.emit(TicketEvent::LinesChanged);
         cx.notify();
+    }
+
+    /// Gives the take profit as a multiple of the risk, turning the stop loss on if it is off
+    /// (a multiple of nothing is no price).
+    fn set_target_ratio(&mut self, ratio: f64, window: &mut Window, cx: &mut Context<Self>) {
+        if self.link.is_some() {
+            return;
+        }
+        if !self.stop_on {
+            self.toggle_protection(true, window, cx);
+        }
+        self.target_on = true;
+        self.target_unit = Offset::Ratio;
+        self.write(
+            &self.take_profit.clone(),
+            number::format(ratio, 2),
+            window,
+            cx,
+        );
+        self.apply_steps(window, cx);
+        self.settings_changed(cx);
+        cx.emit(TicketEvent::LinesChanged);
+        cx.notify();
+    }
+
+    /// Sets how many ATRs away the ATR stop sits.
+    fn set_atr_multiplier(&mut self, multiplier: f64, window: &mut Window, cx: &mut Context<Self>) {
+        if self.link.is_some() {
+            return;
+        }
+        self.write(
+            &self.atr_multiplier.clone(),
+            number::format(multiplier, 2),
+            window,
+            cx,
+        );
     }
 
     /// Sizes the volume another way, keeping the volume where it can.
@@ -977,7 +1293,8 @@ impl OrderTicket {
 
     /// The lines the ticket shows on the chart of its symbol.
     pub fn lines(&self, cx: &App) -> Vec<ChartLine> {
-        if self.symbol.is_none() {
+        // A followed drawing already shows the entry and the levels.
+        if self.symbol.is_none() || self.link.is_some() {
             return Vec::new();
         }
         let plan = self.plan(cx);
@@ -1108,9 +1425,12 @@ impl OrderTicket {
             Kind::Market => {
                 let mut order = NewOrderReq::market(symbol.id, side, volume);
                 // A market order's protection is a distance from where it fills.
-                order.relative_stop_loss = plan.stop.map(|sl| math::relative_distance(entry - sl));
-                order.relative_take_profit =
-                    plan.target.map(|tp| math::relative_distance(tp - entry));
+                order.relative_stop_loss = plan
+                    .stop
+                    .map(|sl| math::relative_distance(entry - sl, contract.digits));
+                order.relative_take_profit = plan
+                    .target
+                    .map(|tp| math::relative_distance(tp - entry, contract.digits));
                 order
             }
             Kind::Limit => NewOrderReq::limit(symbol.id, side, volume, round(entry))
@@ -1183,6 +1503,9 @@ impl OrderTicket {
     /// Sends the order on a side, at once: what the buy and sell buttons do with one-click
     /// trading.
     fn send_side(&mut self, buy: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.side_allowed(buy) {
+            return;
+        }
         self.buy = buy;
         cx.emit(TicketEvent::LinesChanged);
         self.send(window, cx);
@@ -1193,16 +1516,22 @@ impl OrderTicket {
         let order = match self.order(&plan, cx) {
             Ok(order) => order,
             Err(message) => {
-                wyck_ui::toast::show(cx, wyck_ui::toast::Kind::Warning, "Order not sent", message);
+                wyck_ui::toast::Toast::warning("The order is not ready", message)
+                    .hint("Fix it in the ticket, then send again.")
+                    .sticky(false)
+                    .show(cx);
                 return;
             }
         };
         if self.one_click {
             self.account
                 .update(cx, |account, cx| account.place(order, cx));
+            // The order is on its way: the drawing has done its part.
+            self.release_link(true, window, cx);
             return;
         }
         let account = self.account.clone();
+        let this = cx.entity();
         let mut text = self.describe(&plan, cx);
         let currency = self.account.read(cx).book.currency.clone();
         if let Some(risk) = plan.risk {
@@ -1211,8 +1540,9 @@ impl OrderTicket {
                 math::format_money(risk, &currency)
             ));
         }
-        confirm(window, cx, "Send this order?", text, move |_window, cx| {
+        confirm(window, cx, "Send this order?", text, move |window, cx| {
             account.update(cx, |account, cx| account.place(order.clone(), cx));
+            this.update(cx, |ticket, cx| ticket.release_link(true, window, cx));
         });
     }
 }
@@ -1311,6 +1641,65 @@ mod tests {
         };
         assert_eq!(slippage_points(3.0, &yen), 30);
         assert_eq!(slippage_points(-1.0, &yen), 0);
+    }
+
+    fn plan(atr: Option<AtrStop>, rr: Option<f64>, stop: f64, target: f64) -> PositionPlan {
+        PositionPlan {
+            drawing: 7,
+            buy: true,
+            entry: 100.0,
+            stop_loss: stop,
+            take_profit: target,
+            atr,
+            rr,
+        }
+    }
+
+    #[test]
+    fn a_drawing_asks_for_a_change_only_when_its_own_values_move() {
+        let fixed = plan(None, None, 98.0, 104.0);
+        assert!(same_shape(&fixed, &fixed.clone()));
+        assert!(
+            !same_shape(&fixed, &plan(None, None, 97.0, 104.0)),
+            "a dragged stop"
+        );
+        assert!(
+            !same_shape(&fixed, &plan(None, None, 98.0, 105.0)),
+            "a dragged target"
+        );
+        let mut flipped = fixed.clone();
+        flipped.buy = false;
+        assert!(!same_shape(&fixed, &flipped));
+        let mut moved = fixed.clone();
+        moved.entry = 101.0;
+        assert!(!same_shape(&fixed, &moved));
+    }
+
+    #[test]
+    fn the_levels_the_ticket_works_out_are_not_read_as_moves() {
+        // The stop of an ATR stop changes with every bar, the target of a multiple of the
+        // risk with the stop: the ticket works both out, so neither is a change to write.
+        let atr = Some(AtrStop::default());
+        let before = plan(atr.clone(), Some(2.0), 98.0, 104.0);
+        let after = plan(atr.clone(), Some(2.0), 97.5, 105.0);
+        assert!(same_shape(&before, &after));
+        // The settings of the ATR and the multiple are.
+        let wider = AtrStop {
+            multiplier: 3.0,
+            ..AtrStop::default()
+        };
+        assert!(!same_shape(
+            &before,
+            &plan(Some(wider), Some(2.0), 98.0, 104.0)
+        ));
+        assert!(!same_shape(
+            &before,
+            &plan(atr.clone(), Some(3.0), 98.0, 104.0)
+        ));
+        // An ATR stop with a fixed target: the target still counts.
+        let half = plan(atr.clone(), None, 98.0, 104.0);
+        assert!(same_shape(&half, &plan(atr.clone(), None, 97.0, 104.0)));
+        assert!(!same_shape(&half, &plan(atr, None, 98.0, 106.0)));
     }
 
     #[test]

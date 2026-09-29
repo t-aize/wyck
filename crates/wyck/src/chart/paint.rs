@@ -94,8 +94,30 @@ impl Chart {
     /// A PNG picture of the chart as it is on screen, at twice its size, with the symbol and
     /// timeframe written at the top left. Also returns a file name for it.
     pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), String> {
+        let (pixmap, _) = self.picture_pixels(cx)?;
+        let png = pixmap.encode_png().map_err(|e| e.to_string())?;
+        let symbol = self
+            .symbol
+            .as_ref()
+            .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
+        let when = super::axis::full_time(super::now_ms(), self.settings.zone, false, false);
+        let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let name = format!(
+            "wyck-{}-{}-{stamp}.png",
+            symbol.replace(|c: char| !c.is_ascii_alphanumeric(), ""),
+            self.timeframe.code()
+        );
+        Ok((png, name))
+    }
+
+    /// The pixels of [`Self::picture`], for a picture of several charts, with the background color
+    /// of the chart. The scale is [`super::raster::PICTURE_SCALE`].
+    pub fn picture_pixels(
+        &self,
+        cx: &App,
+    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), String> {
         let (w, h) = self.size();
-        let scale = 2.0;
+        let scale = super::raster::PICTURE_SCALE;
         let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));
         // No crosshair in a picture: it is drawn for the pointer, which is not in it.
         let cmds = self.scene(cx, bounds, scale, false);
@@ -123,21 +145,16 @@ impl Chart {
                 bold: false,
             },
         ];
-        let png = super::raster::render_png(
+        let background = scene::hsla(palette.bg);
+        let pixmap = super::raster::render_pixmap(
             &cmds,
             w as f32,
             h as f32,
-            scale,
-            scene::hsla(palette.bg),
+            super::raster::PICTURE_SCALE,
+            background,
             &captions,
         )?;
-        let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
-        let name = format!(
-            "wyck-{}-{}-{stamp}.png",
-            symbol.replace(|c: char| !c.is_ascii_alphanumeric(), ""),
-            self.timeframe.code()
-        );
-        Ok((png, name))
+        Ok((pixmap, background))
     }
 }
 

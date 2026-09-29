@@ -41,6 +41,37 @@ pub struct Notice {
     pub title: String,
     /// The details.
     pub message: String,
+    /// What to do about it, when there is something.
+    pub hint: Option<String>,
+    /// The exact words of the server or of the error, for a bug report.
+    pub details: Option<String>,
+}
+
+impl Notice {
+    /// A notice with a tone, a headline and a message, and nothing else.
+    pub fn new(tone: Tone, title: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            tone,
+            title: title.into(),
+            message: message.into(),
+            hint: None,
+            details: None,
+        }
+    }
+
+    /// Adds what to do about it.
+    #[must_use]
+    pub fn hint(mut self, hint: Option<String>) -> Self {
+        self.hint = hint;
+        self
+    }
+
+    /// Adds the exact words behind it.
+    #[must_use]
+    pub fn details(mut self, details: impl Into<String>) -> Self {
+        self.details = Some(details.into());
+        self
+    }
 }
 
 /// What an execution event changed, beyond the positions and orders themselves.
@@ -208,11 +239,7 @@ impl AccountBook {
             applied.balance_changed = true;
         }
         let text = order_text.unwrap_or_default();
-        let notice = |tone: Tone, title: &str, message: String| Notice {
-            tone,
-            title: title.to_owned(),
-            message,
-        };
+        let notice = |tone: Tone, title: &str, message: String| Notice::new(tone, title, message);
         applied.notice = match event.kind() {
             Some(ExecutionType::OrderFilled) => {
                 let price = event
@@ -252,20 +279,23 @@ impl AccountBook {
             }
             Some(ExecutionType::OrderExpired) => Some(notice(Tone::Warning, "Order expired", text)),
             Some(ExecutionType::OrderRejected | ExecutionType::OrderCancelRejected) => {
-                Some(notice(
-                    Tone::Error,
-                    "Order refused",
-                    format!(
-                        "{text}{}{}",
-                        if text.is_empty() { "" } else { ": " },
-                        explain(
-                            event
-                                .error_code
-                                .as_deref()
-                                .unwrap_or("refused by the server")
-                        )
-                    ),
-                ))
+                let code = event
+                    .error_code
+                    .as_deref()
+                    .unwrap_or("refused by the server");
+                Some(
+                    notice(
+                        Tone::Error,
+                        "Order refused",
+                        format!(
+                            "{text}{}{}",
+                            if text.is_empty() { "" } else { ": " },
+                            explain(code)
+                        ),
+                    )
+                    .hint(refusal(code, None).hint)
+                    .details(code),
+                )
             }
             Some(ExecutionType::DepositWithdraw | ExecutionType::BonusDepositWithdraw) => {
                 applied.balance_changed = true;
@@ -397,10 +427,186 @@ pub fn explain(code: &str) -> String {
     }
 }
 
+/// A refusal or a failure in words a trader can act on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reason {
+    /// What went wrong, as a sentence.
+    pub message: String,
+    /// What to do about it, when there is something to do.
+    pub hint: Option<String>,
+}
+
+/// A text as a sentence: its first letter in capital, and a full stop at the end.
+fn sentence(text: &str) -> String {
+    let text = text.trim().trim_end_matches('.');
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}.", first.to_uppercase(), chars.as_str()),
+        None => String::new(),
+    }
+}
+
+/// A server refusal, from its code and the words it gave, as a sentence with what to do.
+///
+/// The server's own words are the most exact when the code is a general one (`INVALID_REQUEST`),
+/// so a description that names a known problem is put in words first, then the code, then the
+/// description as it came.
+pub fn refusal(code: &str, description: Option<&str>) -> Reason {
+    let reason = |message: &str, hint: &str| Reason {
+        message: message.to_owned(),
+        hint: Some(hint.to_owned()),
+    };
+    let described = description.map(str::trim).filter(|d| !d.is_empty());
+    if let Some(text) = described {
+        let lower = text.to_lowercase();
+        if lower.contains("precision") {
+            let what = ["stop loss", "take profit", "price", "volume"]
+                .into_iter()
+                .find(|what| lower.contains(what))
+                .unwrap_or("value");
+            return reason(
+                &format!("The {what} has more decimals than this symbol allows."),
+                "Round it to the price step of the symbol and send again.",
+            );
+        }
+    }
+    match code {
+        "NOT_ENOUGH_MONEY" => reason(
+            "Not enough free margin for this order.",
+            "Lower the size, or close a position to free some margin.",
+        ),
+        "TRADING_BAD_VOLUME" => reason(
+            "The broker does not accept this volume.",
+            "Check the least, the most and the step of the volume for this symbol.",
+        ),
+        "TRADING_BAD_STOPS" => reason(
+            "The stop loss or take profit is not allowed there.",
+            "A buy has its stop loss under the price and its take profit over it; a sell the other way round.",
+        ),
+        "PROTECTION_IS_TOO_CLOSE_TO_MARKET" => reason(
+            "The stop loss or take profit is too close to the price.",
+            "Move it farther away: the broker asks for a least distance.",
+        ),
+        "TRADING_BAD_PRICES" => reason(
+            "The price of the order is not valid.",
+            "A buy limit goes under the ask and a buy stop over it; a sell the other way round.",
+        ),
+        "TRADING_BAD_EXPIRATION_DATE" => reason(
+            "The expiry is not valid.",
+            "Pick a time that has not passed.",
+        ),
+        "TRADING_DISABLED" => reason(
+            "Trading is disabled for this symbol or account.",
+            "Ask the broker if it is not expected.",
+        ),
+        "MARKET_CLOSED" => reason("The market is closed.", "Try again when it opens."),
+        "POSITION_NOT_FOUND" => reason(
+            "The position is already closed.",
+            "The lists of the account catch up in a moment.",
+        ),
+        "ORDER_NOT_FOUND" => reason(
+            "The order no longer exists.",
+            "It was filled, cancelled or expired.",
+        ),
+        "MAX_EXPOSURE_REACHED" => reason(
+            "The most this account may hold is reached.",
+            "Close a position before opening another.",
+        ),
+        "SYMBOL_NOT_FOUND" | "UNKNOWN_SYMBOL" => reason(
+            "The broker does not know this symbol.",
+            "Pick it again from the list.",
+        ),
+        "ACCOUNT_NOT_AUTHORIZED" | "CH_ACCESS_TOKEN_INVALID" | "OA_AUTH_TOKEN_EXPIRED" => reason(
+            "This sign-in has no trading permission.",
+            "Disconnect and sign in again.",
+        ),
+        "REQUEST_FREQUENCY_EXCEEDED" => reason(
+            "Too many requests in a short time.",
+            "Wait a moment and try again.",
+        ),
+        "SERVER_IS_UNDER_MAINTENANCE" => {
+            reason("The server is under maintenance.", "Try again in a while.")
+        }
+        other => Reason {
+            message: match described {
+                Some(text) => sentence(text),
+                None => sentence(&explain(other)),
+            },
+            hint: None,
+        },
+    }
+}
+
+/// Any failure of a request, in words a trader can act on.
+pub fn describe(error: &crate::Error) -> Reason {
+    use crate::Error;
+    let reason = |message: &str, hint: &str| Reason {
+        message: message.to_owned(),
+        hint: Some(hint.to_owned()),
+    };
+    match error {
+        Error::Server {
+            code, description, ..
+        } => refusal(code, description.as_deref()),
+        Error::Timeout { .. } => reason(
+            "The server did not answer in time.",
+            "The request may have gone through: look at the account before sending it again.",
+        ),
+        Error::Closed => reason(
+            "The connection is closed.",
+            "Wait for it to come back, then try again.",
+        ),
+        Error::Transport(_) => reason("The connection failed.", "Check the network and try again."),
+        Error::Auth(_) => reason("Signing in failed.", "Disconnect and sign in again."),
+        Error::Protocol(_) => Reason {
+            message: "The server sent something that could not be read.".to_owned(),
+            hint: None,
+        },
+        other => Reason {
+            message: sentence(&other.to_string()),
+            hint: None,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_general_refusal_is_put_in_words_from_what_the_server_says() {
+        let reason = refusal(
+            "INVALID_REQUEST",
+            Some("Relative stop loss has invalid precision"),
+        );
+        assert_eq!(
+            reason.message,
+            "The stop loss has more decimals than this symbol allows."
+        );
+        assert!(reason.hint.is_some());
+        // A code with words of its own wins over a description that says nothing new.
+        assert_eq!(
+            refusal("NOT_ENOUGH_MONEY", Some("no")).message,
+            "Not enough free margin for this order."
+        );
+        // An unknown code with a description keeps the description, as a sentence.
+        assert_eq!(
+            refusal("SOMETHING_NEW", Some("the thing is off")).message,
+            "The thing is off."
+        );
+        assert_eq!(refusal("SOMETHING_NEW", None).message, "Something new.");
+    }
+
+    #[test]
+    fn a_failure_that_is_not_a_refusal_says_what_to_do() {
+        let timeout = describe(&crate::Error::Timeout {
+            operation: "an order",
+        });
+        assert!(timeout.hint.unwrap().contains("account"));
+        let server = describe(&crate::Error::server("MARKET_CLOSED", None, None, None));
+        assert_eq!(server.message, "The market is closed.");
+    }
 
     fn position(id: i64, symbol: i64, side: i64, price: f64, status: i64) -> Position {
         serde_json::from_value(json!({

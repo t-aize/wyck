@@ -260,6 +260,7 @@ impl Chart {
                 entry,
                 stop_loss: None,
                 take_profit: None,
+                link: None,
             };
             items.extend([
                 Entry::new(format!(
@@ -339,6 +340,12 @@ impl Chart {
                 .icon(IconName::Camera)
                 .hint("Ctrl+Shift+S")
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
+                .into(),
+            Entry::new("Take a picture of all the charts")
+                .icon(IconName::Images)
+                .hint("Ctrl+Alt+Shift+S")
+                .disabled(self.layout_charts < 2)
+                .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
                 .into(),
             Entry::new("Export the data...")
                 .icon(IconName::Download)

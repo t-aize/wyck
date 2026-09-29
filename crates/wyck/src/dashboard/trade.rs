@@ -13,7 +13,7 @@ use super::Dashboard;
 use wyck_openapi::market::PRICE_SCALE;
 
 use crate::alerts;
-use crate::chart::{ChartAction, LineId, now_ms};
+use crate::chart::{ChartAction, LineId, PositionLink, now_ms};
 use crate::multichart::SymbolRef;
 use crate::trading::panel::{PanelEvent, Tab};
 use crate::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
@@ -30,6 +30,7 @@ pub(super) enum Pending {
         entry: Option<f64>,
         stop_loss: Option<f64>,
         take_profit: Option<f64>,
+        link: Option<PositionLink>,
     },
     /// A line of the ticket was dragged.
     TicketLine(u8, f64),
@@ -111,12 +112,13 @@ impl Dashboard {
                 entry,
                 stop_loss,
                 take_profit,
+                link,
             } => {
                 self.set_ticket_open(true, cx);
                 if let Some(ticket) = &self.ticket {
                     ticket.update(cx, |t, cx| {
                         t.set_symbol(Some(symbol), window, cx);
-                        t.prefill(buy, entry, stop_loss, take_profit, window, cx);
+                        t.prefill(buy, entry, stop_loss, take_profit, link, window, cx);
                     });
                 }
             }
@@ -241,6 +243,7 @@ impl Dashboard {
                 entry,
                 stop_loss,
                 take_profit,
+                link,
             } => {
                 self.pending.push(Pending::Ticket {
                     symbol: symbol.clone(),
@@ -248,6 +251,7 @@ impl Dashboard {
                     entry: *entry,
                     stop_loss: *stop_loss,
                     take_profit: *take_profit,
+                    link: link.clone(),
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
@@ -431,7 +435,7 @@ impl Dashboard {
                     div()
                         .id("ticket-scroll")
                         .h_full()
-                        .overflow_y_scroll()
+                        .overflow_hidden()
                         .child(ticket),
                 );
             let column = div().flex_none().w(px(width)).h_full().flex().flex_row();

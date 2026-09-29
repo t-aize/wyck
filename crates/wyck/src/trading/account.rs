@@ -22,7 +22,7 @@ use wyck_openapi::session::Session;
 use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
 use wyck_openapi::{Error as ApiError, Event, Result as ApiResult};
 
-use super::book::{AccountBook, Notice, Tone, explain, is_buy};
+use super::book::{AccountBook, Notice, Tone, describe, is_buy, refusal};
 use super::math::{self, Contract, Link, Summary};
 use crate::chart::LiveHub;
 use crate::chart::live::{ACCOUNT_OWNER, Wish};
@@ -361,7 +361,10 @@ impl Account {
             Tone::Error => toast::Kind::Error,
             _ => toast::Kind::Info,
         };
-        toast::show(cx, kind, notice.title, notice.message);
+        toast::Toast::new(kind, notice.title, notice.message)
+            .hint_opt(notice.hint)
+            .details_opt(notice.details)
+            .show(cx);
     }
 
     fn watch_reverse(&mut self, position_id: i64, started: Instant, cx: &mut Context<Self>) {
@@ -369,10 +372,10 @@ impl Account {
             cx.background_executor().timer(REVERSE_RECHECK).await;
             let _ = this.update(cx, |this, cx| {
                 if this
-                        .reversals
-                        .0
-                        .get(&position_id)
-                        .is_some_and(|pending| pending.started == started)
+                    .reversals
+                    .0
+                    .get(&position_id)
+                    .is_some_and(|pending| pending.started == started)
                 {
                     this.on_ready(cx);
                 }
@@ -387,11 +390,12 @@ impl Account {
                 {
                     this.reversals.0.remove(&position_id);
                     this.tell(
-                        Notice {
-                            tone: Tone::Warning,
-                            title: "Reverse stopped".into(),
-                            message: "The position's closure was not confirmed. Check the account before trying again.".into(),
-                        },
+                        Notice::new(
+                            Tone::Warning,
+                            "Reverse stopped",
+                            "The position's closure was not confirmed.",
+                        )
+                        .hint(Some("Check the account before trying again.".to_owned())),
                         cx,
                     );
                     cx.notify();
@@ -640,15 +644,14 @@ impl Account {
             Event::OrderError(error) => {
                 self.reversals
                     .cancel_related(error.position_id, error.order_id);
+                let reason = refusal(&error.error_code, error.description.as_deref());
                 self.tell(
-                    Notice {
-                        tone: Tone::Error,
-                        title: "Order refused".into(),
-                        message: error
-                            .description
-                            .clone()
-                            .unwrap_or_else(|| explain(&error.error_code)),
-                    },
+                    Notice::new(Tone::Error, "Order refused", reason.message)
+                        .hint(reason.hint)
+                        .details(match &error.description {
+                            Some(text) => format!("{}: {text}", error.error_code),
+                            None => error.error_code.clone(),
+                        }),
                     cx,
                 );
             }
@@ -730,16 +733,17 @@ impl Account {
                         if let Busy::Closing(id) = busy {
                             this.reversals.0.remove(&id);
                         }
-                        let message = match error.code() {
-                            Some(code) => explain(code),
-                            None => error.to_string(),
+                        let reason = describe(&error);
+                        let title = match busy {
+                            Busy::Placing => "The order was not sent",
+                            Busy::Closing(_) => "The position was not closed",
+                            Busy::Cancelling(_) => "The order was not cancelled",
+                            Busy::Amending(_) => "The change was not applied",
                         };
                         this.tell(
-                            Notice {
-                                tone: Tone::Error,
-                                title: "The order did not go through".into(),
-                                message,
-                            },
+                            Notice::new(Tone::Error, title, reason.message)
+                                .hint(reason.hint)
+                                .details(error.to_string()),
                             cx,
                         );
                         this.on_ready(cx);
@@ -756,11 +760,7 @@ impl Account {
         order.label = Some("wyck".into());
         if let Err(error) = order.validate() {
             self.tell(
-                Notice {
-                    tone: Tone::Error,
-                    title: "The order is not complete".into(),
-                    message: error.to_string(),
-                },
+                Notice::new(Tone::Error, "The order is not complete", error.to_string()),
                 cx,
             );
             return;

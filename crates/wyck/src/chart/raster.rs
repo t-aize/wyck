@@ -453,6 +453,9 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
     }
 }
 
+/// Device pixels per logical pixel in a picture: twice the screen, for a crisp image.
+pub const PICTURE_SCALE: f32 = 2.0;
+
 /// A line of text over the picture: what it says, its size and color, and whether it is bold.
 pub struct Caption {
     pub text: String,
@@ -464,6 +467,7 @@ pub struct Caption {
 /// Paints `cmds` (for a chart of `w` by `h` logical pixels, drawn from the origin) at `scale`
 /// device pixels per logical pixel on `background`, with `captions` stacked at the top left, and
 /// encodes the result as PNG.
+#[cfg(test)]
 pub fn render_png(
     cmds: &[Cmd],
     w: f32,
@@ -472,6 +476,21 @@ pub fn render_png(
     background: Hsla,
     captions: &[Caption],
 ) -> Result<Vec<u8>, String> {
+    render_pixmap(cmds, w, h, scale, background, captions)?
+        .encode_png()
+        .map_err(|e| e.to_string())
+}
+
+/// [`render_png`] without the encoding: the pixels, to be put in a larger picture (see
+/// [`compose_png`]).
+pub fn render_pixmap(
+    cmds: &[Cmd],
+    w: f32,
+    h: f32,
+    scale: f32,
+    background: Hsla,
+    captions: &[Caption],
+) -> Result<Pixmap, String> {
     let font = FontRef::try_from_slice(assets::FONT).map_err(|e| e.to_string())?;
     let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
     let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
@@ -503,12 +522,72 @@ pub fn render_png(
         );
         y += caption.size * 1.45;
     }
-    canvas.pixmap.encode_png().map_err(|e| e.to_string())
+    Ok(canvas.pixmap)
+}
+
+/// Puts pictures side by side in one: a picture of `w` by `h` logical pixels at `scale` on
+/// `background`, with each tile drawn at its own top left corner (in logical pixels), and encodes
+/// it as PNG. What a tile does not cover shows the background; a tile that reaches past the edge
+/// is cut.
+pub fn compose_png(
+    w: f32,
+    h: f32,
+    scale: f32,
+    background: Hsla,
+    tiles: &[(f32, f32, Pixmap)],
+) -> Result<Vec<u8>, String> {
+    let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
+    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
+    pixmap.fill(color(background));
+    for (x, y, tile) in tiles {
+        pixmap.draw_pixmap(
+            (x * scale).round() as i32,
+            (y * scale).round() as i32,
+            tile.as_ref(),
+            &tiny_skia::PixmapPaint::default(),
+            Transform::identity(),
+            None,
+        );
+    }
+    pixmap.encode_png().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A tile of one flat color.
+    fn tile(w: u32, h: u32, red: u8) -> Pixmap {
+        let mut pixmap = Pixmap::new(w, h).unwrap();
+        pixmap.fill(tiny_skia::Color::from_rgba8(red, 0, 0, 255));
+        pixmap
+    }
+
+    #[test]
+    fn tiles_are_put_where_they_say_in_a_picture_of_their_own_size() {
+        let background = crate::chart::scene::rgb_alpha(0x000000, 1.0);
+        // Two tiles of 20 by 10 logical pixels side by side, at twice the size.
+        let tiles = vec![
+            (0.0, 0.0, tile(40, 20, 200)),
+            (20.0, 0.0, tile(40, 20, 100)),
+        ];
+        let png = compose_png(40.0, 10.0, 2.0, background, &tiles).unwrap();
+        let picture = Pixmap::decode_png(&png).unwrap();
+        assert_eq!((picture.width(), picture.height()), (80, 20));
+        assert_eq!(picture.pixel(5, 5).unwrap().red(), 200);
+        assert_eq!(picture.pixel(60, 5).unwrap().red(), 100);
+    }
+
+    #[test]
+    fn a_tile_past_the_edge_is_cut_and_a_gap_shows_the_background() {
+        let background = crate::chart::scene::rgb_alpha(0x000000, 1.0);
+        let tiles = vec![(10.0, 0.0, tile(40, 20, 255))];
+        let png = compose_png(20.0, 10.0, 2.0, background, &tiles).unwrap();
+        let picture = Pixmap::decode_png(&png).unwrap();
+        assert_eq!((picture.width(), picture.height()), (40, 20));
+        assert_eq!(picture.pixel(2, 5).unwrap().red(), 0, "the gap");
+        assert_eq!(picture.pixel(39, 5).unwrap().red(), 255, "the cut tile");
+    }
     use crate::chart::scene::{FONT, rgb_alpha};
 
     #[test]

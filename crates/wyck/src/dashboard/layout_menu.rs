@@ -149,6 +149,33 @@ impl Dashboard {
                 this.multi.update(cx, |multi, cx| multi.reset_splits(cx));
             }))
             .child("Make the charts equal again (or double click a line between them)");
+        let several = self.multi.read(cx).chart_count() > 1;
+        let picture = several.then(|| {
+            div()
+                .id("layout-picture-all")
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .px_1()
+                .py_1()
+                .rounded_md()
+                .cursor_pointer()
+                .text_size(px(tokens::text::BODY))
+                .text_color(theme::muted_fg())
+                .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
+                .on_click(cx.listener(|this, _event, _window, cx| {
+                    this.layout_menu_open = false;
+                    this.multi.update(cx, |multi, cx| multi.picture_all(cx));
+                    cx.notify();
+                }))
+                .child(wyck_ui::icon::tinted(
+                    gpui_kit::assets::IconName::Images,
+                    14.,
+                    theme::muted_fg(),
+                ))
+                .child("Take a picture of all the charts")
+        });
         let mut links_section = div()
             .flex()
             .flex_col()
@@ -164,6 +191,7 @@ impl Dashboard {
             .overflow_y_scroll()
             .child(arrangements)
             .child(reset)
+            .children(picture)
             .child(links_section);
 
         menu::below(card, tokens::height::CONTROL, 1)

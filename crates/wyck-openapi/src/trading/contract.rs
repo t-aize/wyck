@@ -124,9 +124,18 @@ pub fn format_lots(lots: f64) -> String {
 
 /// A price distance in the server's relative units (a stop loss or take profit of a market
 /// order is given as a distance from where it fills).
-pub fn relative_distance(distance: f64) -> i64 {
-    (distance.abs() * PRICE_SCALE as f64).round() as i64
+///
+/// The server takes only multiples of the smallest step of the symbol's price, so the distance
+/// is rounded to `digits` decimals: on a three digit symbol the units go by hundreds. A distance
+/// is never rounded down to nothing.
+pub fn relative_distance(distance: f64, digits: u32) -> i64 {
+    let step = 10i64.pow(PRICE_DIGITS.saturating_sub(digits.min(PRICE_DIGITS)));
+    let units = (distance.abs() * PRICE_SCALE as f64 / step as f64).round() as i64;
+    units.max(1) * step
 }
+
+/// The decimals of the server's price scale (`PRICE_SCALE` is ten to this).
+const PRICE_DIGITS: u32 = 5;
 
 /// Which pending order a price makes for a side, given the market.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -443,8 +452,16 @@ mod tests {
 
     #[test]
     fn a_distance_is_counted_in_the_servers_units() {
-        assert_eq!(relative_distance(0.0025), 250);
-        assert_eq!(relative_distance(-0.0025), 250);
+        assert_eq!(relative_distance(0.0025, 5), 250);
+        assert_eq!(relative_distance(-0.0025, 5), 250);
+        // A three digit symbol takes multiples of a hundred units (a thousandth).
+        assert_eq!(relative_distance(0.1234, 3), 12_300);
+        assert_eq!(relative_distance(0.12351, 3), 12_400);
+        // A two digit symbol: multiples of a thousand units (a hundredth).
+        assert_eq!(relative_distance(0.2549, 2), 25_000);
+        // Never nothing, and more digits than the scale has change nothing.
+        assert_eq!(relative_distance(0.00001, 2), 1_000);
+        assert_eq!(relative_distance(0.00012, 7), 12);
     }
 
     #[test]

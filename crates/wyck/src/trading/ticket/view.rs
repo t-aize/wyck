@@ -1,10 +1,14 @@
-//! How the order ticket looks: its blocks in the order the user chose, the menus that pick the
-//! units, the quick values and the summary of what the order risks.
+//! How the order ticket looks: a header that stays on top, the blocks in the order the user
+//! chose (each a card, like the groups of the settings panels), and a footer that stays at the
+//! bottom with what stops the order and the button that sends it.
+//!
+//! Every size comes from [`wyck_ui::tokens`]. The density only changes the space between and
+//! inside the cards, never the size of a text or of a control.
 
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, SharedString, Window, div, px};
+use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, NumberInput};
@@ -18,7 +22,7 @@ use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
 use wyck_ui::{
     confirm::confirm,
-    controls, icon,
+    controls, form, icon,
     menu::{self as popup, Entry, Item},
     number, theme, tokens,
 };
@@ -31,14 +35,15 @@ mod protection;
 /// What a button of a position row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
-/// Sizes that follow the density chosen for the panel.
+/// The space the density gives the panel. Text and controls do not change with it.
 #[derive(Debug, Clone, Copy)]
 struct Metrics {
+    /// Between two cards.
     gap: f32,
+    /// Around the cards, at the edge of the panel.
     pad: f32,
-    text: f32,
-    small: f32,
-    side_pad: f32,
+    /// Between the rows of a card, and half of what surrounds them.
+    inner: f32,
     compact: bool,
 }
 
@@ -48,17 +53,13 @@ impl Metrics {
             Density::Comfortable => Self {
                 gap: 12.,
                 pad: 12.,
-                text: tokens::text::BODY,
-                small: tokens::text::SMALL,
-                side_pad: 8.,
+                inner: 8.,
                 compact: false,
             },
             Density::Compact => Self {
                 gap: 8.,
                 pad: 8.,
-                text: tokens::text::SMALL,
-                small: tokens::text::CAPTION,
-                side_pad: 4.,
+                inner: 6.,
                 compact: true,
             },
         }
@@ -83,6 +84,8 @@ struct Frame {
     units: Option<f64>,
     /// The margin of the order, when the server has said it for this volume.
     margin: Option<f64>,
+    /// The ATR the stop loss is set from, when it is one.
+    atr: Option<f64>,
 }
 
 impl Frame {
@@ -102,6 +105,82 @@ impl Frame {
     fn price(&self, price: Option<f64>) -> String {
         price.map_or_else(|| "-".to_owned(), |p| self.contract.format_price(p))
     }
+}
+
+/// A card of the ticket: what the groups of the settings panels are, made for a narrow column.
+fn card(m: Metrics) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(px(m.inner))
+        .p(px(m.inner + 4.))
+        .rounded_lg()
+        .border_1()
+        .border_color(theme::border_subtle())
+        .bg(theme::fg_alpha(0.025))
+}
+
+/// The title of a card, with what sits at its right (a switch, a count, a menu).
+fn card_head(title: impl Into<SharedString>, right: Option<AnyElement>) -> Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .h(px(tokens::height::COMPACT))
+        .child(
+            div()
+                .text_size(px(tokens::text::BODY))
+                .font_semibold()
+                .text_color(theme::muted_fg())
+                .child(title.into()),
+        )
+        .children(right)
+}
+
+/// A label with its control at the right, on one row.
+fn line(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .min_h(px(tokens::height::COMPACT))
+        .child(
+            div()
+                .text_size(px(tokens::text::BODY))
+                .text_color(theme::muted_fg())
+                .child(label.into()),
+        )
+        .child(control)
+}
+
+/// A line of secondary text.
+fn hint(text: impl Into<SharedString>) -> Div {
+    div()
+        .text_size(px(tokens::text::SMALL))
+        .text_color(theme::muted_fg())
+        .child(text.into())
+}
+
+/// A small text button: an action that is not the point of the block.
+fn text_button(id: &'static str, text: &'static str) -> gpui::Stateful<Div> {
+    div()
+        .id(id)
+        .cursor_pointer()
+        .text_size(px(tokens::text::BODY))
+        .text_color(theme::accent())
+        .hover(|s| s.underline())
+        .child(text)
+}
+
+/// The tint of a color, for the background of a warning or of a side.
+fn tint(color: gpui::Rgba, alpha: f32) -> gpui::Hsla {
+    let mut hsla: gpui::Hsla = color.into();
+    hsla.a = alpha;
+    hsla
 }
 
 impl OrderTicket {
@@ -135,16 +214,56 @@ impl OrderTicket {
             .zip(plan.reward)
             .filter(|(r, _)| *r > 0.0)
             .map(|(r, w)| format!("1 : {:.2}", w / r));
-        let mut card = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .rounded_md()
-            .bg(theme::surface())
-            .text_size(px(f.m.text));
-        for line in self.layout.visible_lines() {
-            let text = match line {
+        let mut card = card(f.m).child(card_head("Summary", None));
+        // What is risked against what may be won, drawn to scale.
+        if let Some((risk, reward)) = plan
+            .risk
+            .zip(plan.reward)
+            .filter(|(r, w)| *r > 0.0 && *w > 0.0)
+        {
+            card = card.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap_0p5()
+                            .h(px(6.))
+                            .rounded_full()
+                            .overflow_hidden()
+                            .child(
+                                div()
+                                    .h_full()
+                                    .w(gpui::relative((risk / (risk + reward)) as f32))
+                                    .bg(theme::chart_down()),
+                            )
+                            .child(div().h_full().flex_1().bg(theme::chart_up())),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .justify_between()
+                            .text_size(px(tokens::text::SMALL))
+                            .child(
+                                div()
+                                    .text_color(theme::chart_down())
+                                    .child(format!("Risk {}", f.money(risk))),
+                            )
+                            .child(
+                                div()
+                                    .text_color(theme::chart_up())
+                                    .child(format!("Reward {}", f.money(reward))),
+                            ),
+                    ),
+            );
+        }
+        let mut rows = div().flex().flex_col().gap_1();
+        for shown in self.layout.visible_lines() {
+            let text = match shown {
                 Line::Volume => f.lots.zip(f.units).map_or_else(
                     || "-".into(),
                     |(l, u)| format!("{} lots, {} units", math::format_lots(l), format_units(u)),
@@ -175,9 +294,9 @@ impl OrderTicket {
                     .zip(plan.rate)
                     .map_or_else(|| "-".into(), |(((b, a), u), r)| f.money((a - b) * u * r)),
             };
-            card = card.child(summary_row(line.label(), text));
+            rows = rows.child(summary_row(shown.label(), text));
         }
-        card.into_any_element()
+        card.child(rows).into_any_element()
     }
 
     /// The warnings that do not stop the order, then what does.
@@ -228,10 +347,60 @@ impl OrderTicket {
             .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
             .into_any_element()
     }
+
+    /// The bottom of the panel, which does not scroll: what is wrong with the order, the button
+    /// that sends it and the switch of one-click trading.
+    fn footer(
+        &self,
+        f: &Frame,
+        warnings: &[String],
+        with_send: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .p(px(f.m.pad))
+            .border_t_1()
+            .border_color(theme::border_hairline())
+            .bg(theme::bg())
+            .children(warning_rows(warnings))
+            .when(with_send, |el| el.child(self.send_button(f, cx)))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_0p5()
+                    .child(
+                        controls::switch("ticket-one-click", self.one_click)
+                            .label("One-click trading")
+                            .on_click(cx.listener(|this, checked: &bool, _, cx| {
+                                this.one_click = *checked;
+                                cx.emit(TicketEvent::LinesChanged);
+                                cx.notify();
+                            })),
+                    )
+                    .when(self.one_click, |el| {
+                        el.child(
+                            div()
+                                .text_size(px(tokens::text::SMALL))
+                                .text_color(theme::amber())
+                                .child(
+                                    "Orders are sent without asking. Buy and Sell send at once.",
+                                ),
+                        )
+                    }),
+            )
+            .into_any_element()
+    }
 }
 
 impl Render for OrderTicket {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // A followed drawing is read first: everything below works from what it asks.
+        self.sync_link(window, cx);
         self.request_atr(cx);
         let contract = self.contract(cx);
         let mut plan = self.plan(cx);
@@ -264,6 +433,11 @@ impl Render for OrderTicket {
             .margin
             .filter(|m| Some(m.volume) == plan.sized.map(|s| s.volume))
             .map(|m| side_of(m.order, self.buy));
+        let atr = self
+            .chart
+            .as_ref()
+            .filter(|_| self.stop_atr)
+            .and_then(|chart| chart.read(cx).atr_value(&self.atr));
         let frame = Frame {
             m: Metrics::of(self.layout.density),
             spread: bid
@@ -286,55 +460,62 @@ impl Render for OrderTicket {
             currency,
             quote_currency,
             margin,
+            atr,
         };
         let m = frame.m;
-        let warnings = self.warnings(&frame);
+        let has_symbol = self.symbol.is_some();
+        let warnings = if has_symbol {
+            self.warnings(&frame)
+        } else {
+            Vec::new()
+        };
 
         let mut blocks: Vec<AnyElement> = Vec::new();
-        for section in self.layout.clone().visible_sections() {
-            blocks.push(match section {
-                Section::Sides => self.sides(&frame, cx),
-                Section::Order => self.order_block(&frame, cx),
-                Section::Size => self.size_block(&frame, window, cx),
-                Section::StopLoss => self.protection(true, &frame, window, cx),
-                Section::TakeProfit => self.protection(false, &frame, window, cx),
-                Section::Options => self.options(&frame, window, cx),
-                Section::Positions => self.positions(&frame, cx),
-                Section::Summary => self.summary(&frame),
-                Section::Send => {
-                    // The warnings sit over the button that sends, or at the end without one.
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .children(warning_rows(&warnings))
-                        .child(self.send_button(&frame, cx))
-                        .into_any_element()
-                }
-            });
+        if has_symbol {
+            for section in self.layout.clone().visible_sections() {
+                blocks.push(match section {
+                    Section::Sides => self.sides(&frame, cx),
+                    Section::Order => self.order_block(&frame, cx),
+                    Section::Size => self.size_block(&frame, window, cx),
+                    Section::StopLoss => self.protection(true, &frame, window, cx),
+                    Section::TakeProfit => self.protection(false, &frame, window, cx),
+                    Section::Options => self.options(&frame, window, cx),
+                    Section::Positions => self.positions(&frame, cx),
+                    Section::Summary => self.summary(&frame),
+                    // The button has a place of its own, at the bottom.
+                    Section::Send => continue,
+                });
+            }
         }
-        let has_send = self.layout.shows(Section::Send);
+        let with_send = self.layout.shows(Section::Send);
 
         div()
             .id("order-ticket")
             .flex()
             .flex_col()
-            .gap(px(m.gap))
-            .p(px(m.pad))
-            .h_full()
-            .overflow_y_scroll()
+            .size_full()
             .child(self.header(&frame, cx))
-            .children(blocks)
-            .when(!has_send, |el| el.children(warning_rows(&warnings)))
             .child(
-                controls::switch("ticket-one-click", self.one_click)
-                    .label("One-click trading (no confirmation)")
-                    .on_click(cx.listener(|this, checked: &bool, _, cx| {
-                        this.one_click = *checked;
-                        cx.emit(TicketEvent::LinesChanged);
-                        cx.notify();
-                    })),
+                div()
+                    .id("ticket-body")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .gap(px(m.gap))
+                    .p(px(m.pad))
+                    .children(blocks)
+                    .when(!has_symbol, |el| {
+                        el.child(form::empty(
+                            IconName::Info,
+                            "Pick a symbol on a chart to trade it.",
+                        ))
+                    }),
             )
+            .when(has_symbol, |el| {
+                el.child(self.footer(&frame, &warnings, with_send, cx))
+            })
     }
 }
 
@@ -345,12 +526,19 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
             div()
                 .flex()
                 .flex_row()
-                .items_center()
+                .items_start()
                 .gap_2()
+                .p_2()
+                .rounded_md()
+                .bg(theme::amber_bg())
                 .text_size(px(tokens::text::BODY))
                 .text_color(theme::amber())
-                .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber()))
-                .child(message.clone())
+                .child(div().flex_none().pt(px(1.)).child(icon::tinted(
+                    IconName::TriangleAlert,
+                    13.,
+                    theme::amber(),
+                )))
+                .child(div().flex_1().min_w_0().child(message.clone()))
                 .into_any_element()
         })
         .collect()
@@ -370,6 +558,8 @@ fn summary_row(label: &'static str, value: String) -> impl IntoElement {
         .flex()
         .flex_row()
         .justify_between()
+        .gap_2()
+        .text_size(px(tokens::text::BODY))
         .child(div().text_color(theme::muted_fg()).child(label))
         .child(div().text_color(theme::fg()).child(value))
 }

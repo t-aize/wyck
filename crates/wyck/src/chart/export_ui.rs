@@ -604,12 +604,13 @@ impl ExportDialog {
                         "Exported",
                         format!("{rows} rows, {}, to {}", human_bytes(bytes), path.display()),
                     ),
-                    Err(error) => toast::show(
-                        cx,
-                        Kind::Error,
-                        "Export failed",
-                        format!("{}: {error}", path.display()),
-                    ),
+                    Err(error) => toast::Toast::error(
+                        "The export failed",
+                        format!("Nothing was written to {}.", path.display()),
+                    )
+                    .hint("Check that the folder exists and can be written to.")
+                    .details(error.to_string())
+                    .show(cx),
                 }
                 cx.notify();
             });

@@ -170,10 +170,6 @@ impl Slot for Section {
             Self::Send => "Send button",
         }
     }
-
-    fn shown_by_default(self) -> bool {
-        self != Self::Options
-    }
 }
 
 impl Slot for Line {
@@ -509,7 +505,7 @@ mod tests {
         let layout = Layout::default();
         assert_eq!(layout.sections.len(), Section::ALL.len());
         assert!(layout.shows(Section::Send));
-        assert!(!layout.shows(Section::Options));
+        assert!(layout.shows(Section::Options));
         assert_eq!(layout, layout.clone().normalized());
     }
 

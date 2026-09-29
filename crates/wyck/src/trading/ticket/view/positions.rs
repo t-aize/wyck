@@ -128,7 +128,7 @@ impl OrderTicket {
                             .flex_row()
                             .items_center()
                             .justify_between()
-                            .text_size(px(f.m.text))
+                            .text_size(px(tokens::text::BODY))
                             .child(
                                 div()
                                     .flex()
@@ -165,7 +165,7 @@ impl OrderTicket {
                             .justify_between()
                             .child(
                                 div()
-                                    .text_size(px(f.m.small))
+                                    .text_size(px(tokens::text::SMALL))
                                     .text_color(theme::muted_fg())
                                     .child(format!(
                                         "SL {}  TP {}{}",
@@ -248,7 +248,7 @@ impl OrderTicket {
                     .items_center()
                     .justify_between()
                     .px_2()
-                    .text_size(px(f.m.small))
+                    .text_size(px(tokens::text::SMALL))
                     .text_color(theme::muted_fg())
                     .child(format!(
                         "{} {} {} @ {}",
@@ -272,55 +272,32 @@ impl OrderTicket {
         }
         let close_all = self.account.clone();
         let text = format!("Every position of {} is closed at the market.", f.name);
-        div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .text_size(px(f.m.small))
-                    .text_color(theme::muted_fg())
-                    .child(format!("OPEN ON {}", f.name.to_uppercase()))
-                    .when(count > 1, |el| {
-                        el.child(
-                            div()
-                                .id("ticket-close-all")
-                                .cursor_pointer()
-                                .text_color(theme::accent())
-                                .hover(|s| s.underline())
-                                .on_click(move |_, window, cx| {
-                                    let account = close_all.clone();
-                                    let run = move |cx: &mut App| {
-                                        account.update(cx, |a, cx| a.close_all(Some(symbol), cx));
-                                    };
-                                    if one_click {
-                                        run(cx);
-                                    } else {
-                                        confirm(
-                                            window,
-                                            cx,
-                                            "Close every position on this symbol?",
-                                            text.clone(),
-                                            move |_, cx| run(cx),
-                                        );
-                                    }
-                                })
-                                .child("Close all"),
-                        )
-                    }),
-            )
+        let close_all_button = (count > 1).then(|| {
+            text_button("ticket-close-all", "Close all")
+                .on_click(move |_, window, cx| {
+                    let account = close_all.clone();
+                    let run = move |cx: &mut App| {
+                        account.update(cx, |a, cx| a.close_all(Some(symbol), cx));
+                    };
+                    if one_click {
+                        run(cx);
+                    } else {
+                        confirm(
+                            window,
+                            cx,
+                            "Close every position on this symbol?",
+                            text.clone(),
+                            move |_, cx| run(cx),
+                        );
+                    }
+                })
+                .into_any_element()
+        });
+        card(f.m)
+            .child(card_head(format!("Open on {}", f.name), close_all_button))
             .children(rows)
             .when(count == 0, |el| {
-                el.child(
-                    div()
-                        .text_size(px(f.m.small))
-                        .text_color(theme::muted_fg())
-                        .child("Nothing open on this symbol."),
-                )
+                el.child(hint("Nothing open on this symbol."))
             })
             .into_any_element()
     }

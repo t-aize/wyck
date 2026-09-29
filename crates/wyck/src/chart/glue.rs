@@ -8,7 +8,10 @@ use wyck_openapi::market::PRICE_SCALE;
 use super::drawing::Drawings;
 use super::projection::ChartProjection;
 use super::study::StudyKind;
-use super::{Chart, ChartAction, ChartEvent, drawing_props, object_tree};
+use super::{
+    Chart, ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan, drawing_props,
+    object_tree,
+};
 use wyck_chart::drawing::book::{Book, Order, Press};
 use wyck_chart::drawing::model::Tool;
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
@@ -418,19 +421,52 @@ impl Chart {
         }
     }
 
+    /// The position drawing `id` of `symbol` as it stands now.
+    pub fn position_plan(&self, id: u64, symbol: &str, cx: &App) -> PlanState {
+        let (Some(drawings), Some(own)) = (self.drawings.as_ref(), self.symbol_name()) else {
+            return PlanState::Waiting;
+        };
+        // Drawings belong to a symbol: another chart says nothing about this one.
+        if own != symbol {
+            return PlanState::Waiting;
+        }
+        let Some(raw) = drawings.read(cx).book().get(&own, id) else {
+            return PlanState::Gone;
+        };
+        if !raw.tool.is_position() || raw.points.len() < 3 {
+            return PlanState::Gone;
+        }
+        let Some(drawing) = self.resolved_position(raw) else {
+            return PlanState::Waiting;
+        };
+        let real = |raw: f64| raw / PRICE_SCALE as f64;
+        PlanState::Ready(PositionPlan {
+            drawing: id,
+            buy: drawing.tool == Tool::LongPosition,
+            entry: real(drawing.points[0].p),
+            stop_loss: real(drawing.points[1].p),
+            take_profit: real(drawing.points[2].p),
+            atr: raw.style.position.atr_stop.clone(),
+            rr: raw.style.position.target_rr,
+        })
+    }
+
     /// The order a long or short position drawing stands for, for the ticket.
     pub fn position_order(&self, id: u64, cx: &App) -> Option<ChartAction> {
-        let (drawings, symbol) = (self.drawings.as_ref()?, self.symbol_name()?);
-        let drawing = self.resolved_position(drawings.read(cx).book().get(&symbol, id)?)?;
-        if !drawing.tool.is_position() || drawing.points.len() < 3 {
+        let symbol = self.symbol_name()?;
+        let PlanState::Ready(plan) = self.position_plan(id, &symbol, cx) else {
             return None;
-        }
-        let real = |raw: f64| raw / PRICE_SCALE as f64;
+        };
         Some(ChartAction::Ticket {
-            buy: drawing.tool == Tool::LongPosition,
-            entry: Some(real(drawing.points[0].p)),
-            stop_loss: Some(real(drawing.points[1].p)),
-            take_profit: Some(real(drawing.points[2].p)),
+            buy: plan.buy,
+            entry: Some(plan.entry),
+            stop_loss: Some(plan.stop_loss),
+            take_profit: Some(plan.take_profit),
+            link: Some(PositionLink {
+                drawing: id,
+                atr: plan.atr,
+                rr: plan.rr,
+            }),
         })
     }
 
@@ -445,12 +481,13 @@ impl Chart {
                 .get(&symbol, id)
                 .is_some_and(|drawing| drawing.style.position.atr_stop.is_some())
         {
-            wyck_ui::toast::show(
-                cx,
-                wyck_ui::toast::Kind::Warning,
+            wyck_ui::toast::Toast::warning(
                 "ATR unavailable",
                 "The selected chart has no current ATR value for this drawing.",
-            );
+            )
+            .hint("Wait for the bars to load, or give the drawing an ATR timeframe with data.")
+            .sticky(false)
+            .show(cx);
         }
     }
 }

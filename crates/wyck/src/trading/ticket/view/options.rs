@@ -1,5 +1,5 @@
 //! The options block of the order ticket: the expiry, the slippage, the stop loss options and
-//! the comment.
+//! the comment, folded away until they are wanted.
 
 use super::*;
 
@@ -12,6 +12,44 @@ impl OrderTicket {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let open = self.options_open;
+        let fold = cx.entity();
+        let head = div()
+            .id("ticket-options-fold")
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_between()
+            .h(px(tokens::height::COMPACT))
+            .cursor_pointer()
+            .text_color(theme::muted_fg())
+            .hover(|s| s.text_color(theme::fg()))
+            .on_click(move |_, _, cx| {
+                fold.update(cx, |t, cx| {
+                    t.options_open = !t.options_open;
+                    cx.notify();
+                });
+            })
+            .child(
+                div()
+                    .text_size(px(tokens::text::BODY))
+                    .font_semibold()
+                    .child("More options"),
+            )
+            .child(icon::tinted(
+                if open {
+                    IconName::ChevronDown
+                } else {
+                    IconName::ChevronRight
+                },
+                13.,
+                theme::muted_fg(),
+            ));
+        let card = card(f.m).child(head);
+        if !open {
+            return card.into_any_element();
+        }
+
         let this = cx.entity();
         let span_this = cx.entity();
         let span = self.expiry_span;
@@ -58,95 +96,71 @@ impl OrderTicket {
         };
         let tif_this = cx.entity();
         let tif_index = usize::from(self.tif == Tif::GoodTillDate);
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .when(self.kind.is_pending(), |el| {
-                el.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
+        card.when(self.kind.is_pending(), |el| {
+            el.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(hint("Expires"))
+                    .child(controls::segmented_fill(
+                        "ticket-tif",
+                        &["Until cancelled", "Good till date"],
+                        tif_index,
+                        move |choice, _, cx| {
+                            tif_this.update(cx, |t, cx| {
+                                t.tif = if choice == 1 {
+                                    Tif::GoodTillDate
+                                } else {
+                                    Tif::GoodTillCancel
+                                };
+                                cx.notify();
+                            });
+                        },
+                    ))
+                    .when(self.tif == Tif::GoodTillDate, |el| {
+                        el.child(
                             div()
-                                .text_size(px(f.m.text))
-                                .text_color(theme::muted_fg())
-                                .child("Expires"),
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_1()
+                                .child(div().flex_1().child(NumberInput::new(&self.expiry).small()))
+                                .child(span_menu),
                         )
-                        .child(controls::segmented_fill(
-                            "ticket-tif",
-                            &["Until cancelled", "Good till date"],
-                            tif_index,
-                            move |choice, _, cx| {
-                                tif_this.update(cx, |t, cx| {
-                                    t.tif = if choice == 1 {
-                                        Tif::GoodTillDate
-                                    } else {
-                                        Tif::GoodTillCancel
-                                    };
-                                    cx.notify();
-                                });
-                            },
-                        ))
-                        .when(self.tif == Tif::GoodTillDate, |el| {
-                            el.child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .gap_1()
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .child(NumberInput::new(&self.expiry).small()),
-                                    )
-                                    .child(span_menu),
-                            )
-                        }),
-                )
-            })
-            .when(self.kind == Kind::Market, |el| {
-                el.child(switch(
-                    "ticket-slippage",
-                    "Limit the slippage",
-                    self.slippage_on,
-                    true,
+                    }),
+            )
+        })
+        .when(self.kind == Kind::Market, |el| {
+            el.child(switch(
+                "ticket-slippage",
+                "Limit the slippage",
+                self.slippage_on,
+                true,
+            ))
+            .when(self.slippage_on, |el| {
+                el.child(line(
+                    "Pips at most",
+                    number::field(&self.slippage, tokens::field::NARROW),
                 ))
-                .when(self.slippage_on, |el| {
-                    el.child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .child(NumberInput::new(&self.slippage).small()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(f.m.small))
-                                    .text_color(theme::muted_fg())
-                                    .child("pips at most"),
-                            ),
-                    )
-                })
             })
-            .child(switch(
-                "ticket-trailing",
-                "Trailing stop",
-                self.trailing,
-                stop_on,
-            ))
-            .child(switch(
-                "ticket-guaranteed",
-                "Guaranteed stop loss",
-                self.guaranteed,
-                stop_on,
-            ))
-            .child(Input::new(&self.comment).small())
-            .into_any_element()
+        })
+        .child(switch(
+            "ticket-trailing",
+            "Trailing stop",
+            self.trailing,
+            stop_on,
+        ))
+        .child(switch(
+            "ticket-guaranteed",
+            "Guaranteed stop loss",
+            self.guaranteed,
+            stop_on,
+        ))
+        .when(!stop_on, |el| {
+            el.child(hint("Turn the stop loss on to use these."))
+        })
+        .child(Input::new(&self.comment).small())
+        .into_any_element()
     }
 }

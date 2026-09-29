@@ -197,6 +197,7 @@ gpui::actions!(
         RedoDrawing,
         DuplicateDrawing,
         ChartScreenshot,
+        ChartScreenshotAll,
         ChartAddAlert,
         ChartCopyIndicators,
         ChartCopySettings,
@@ -249,6 +250,11 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-y", RedoDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-d", DuplicateDrawing, Some("Dashboard")),
         KeyBinding::new("secondary-shift-s", ChartScreenshot, Some("Dashboard")),
+        KeyBinding::new(
+            "secondary-alt-shift-s",
+            ChartScreenshotAll,
+            Some("Dashboard"),
+        ),
         KeyBinding::new("alt-a", ChartAddAlert, Some("Dashboard")),
         KeyBinding::new("secondary-c", ChartCopyIndicators, Some("Dashboard")),
         KeyBinding::new("secondary-shift-c", ChartCopySettings, Some("Dashboard")),
@@ -351,6 +357,8 @@ pub enum ChartEvent {
     LineClosed(LineId),
     /// A picture of the chart was asked for.
     Screenshot,
+    /// A picture of every chart of the layout, in one image, was asked for.
+    ScreenshotAll,
     /// The user asked for the editor of the indicator scripts.
     IndicatorEditor(EditorRequest),
 }
@@ -376,8 +384,44 @@ pub enum ChartAction {
         entry: Option<f64>,
         stop_loss: Option<f64>,
         take_profit: Option<f64>,
+        /// The position drawing the values come from, when the ticket is to follow it.
+        link: Option<PositionLink>,
     },
     AddAlert(f64),
+}
+
+/// What a long or short position drawing gives the ticket besides its prices: which drawing it is
+/// and how its stop loss and take profit are set, so the ticket can be set the same way and follow
+/// the drawing until the order is sent.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PositionLink {
+    pub drawing: u64,
+    /// The stop loss is this many ATRs from the entry.
+    pub atr: Option<wyck_chart::study::atr_stop::AtrStop>,
+    /// The take profit is this multiple of the risk from the entry.
+    pub rr: Option<f64>,
+}
+
+/// A position drawing as it stands now, with its ATR stop and reward multiple worked out.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PositionPlan {
+    pub drawing: u64,
+    pub buy: bool,
+    pub entry: f64,
+    pub stop_loss: f64,
+    pub take_profit: f64,
+    pub atr: Option<wyck_chart::study::atr_stop::AtrStop>,
+    pub rr: Option<f64>,
+}
+
+/// What became of a position drawing a ticket follows.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlanState {
+    /// The drawing is gone, or is no longer a position.
+    Gone,
+    /// It cannot be read yet: this chart is not the one of its symbol, or the ATR is not loaded.
+    Waiting,
+    Ready(PositionPlan),
 }
 
 impl EventEmitter<ChartEvent> for Chart {}
@@ -439,6 +483,8 @@ pub struct Chart {
     /// The drawings shared by the charts, and the subscription that redraws this chart when
     /// they change.
     drawings: Option<Entity<Drawings>>,
+    /// How many charts the layout holds, for what only makes sense with several.
+    layout_charts: usize,
     _drawings_observe: Option<gpui::Subscription>,
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
@@ -523,6 +569,7 @@ impl Chart {
             pending_focus: None,
             drag: None,
             drawings: None,
+            layout_charts: 1,
             _drawings_observe: None,
             drawing_drag: false,
             over_drawing: None,
@@ -595,6 +642,14 @@ impl Chart {
     /// Where the market of the chart's symbol stands now, when its hours are known.
     pub fn market_status(&self) -> Option<wyck_openapi::market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(now_ms()))
+    }
+
+    /// Tells the chart how many charts the layout holds.
+    pub fn set_layout_charts(&mut self, count: usize, cx: &mut Context<Self>) {
+        if self.layout_charts != count {
+            self.layout_charts = count;
+            cx.notify();
+        }
     }
 
     pub fn set_symbol(

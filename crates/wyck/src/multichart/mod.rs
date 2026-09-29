@@ -214,7 +214,17 @@ impl MultiChart {
             multi.add_chart(prefs.chart(index), cx);
         }
         multi.active = multi.active.min(multi.slots.len() - 1);
+        multi.tell_layout_size(cx);
         multi
+    }
+
+    /// Tells every chart how many charts the layout holds.
+    fn tell_layout_size(&self, cx: &mut Context<Self>) {
+        let count = self.slots.len();
+        for slot in &self.slots {
+            slot.chart
+                .update(cx, |chart, cx| chart.set_layout_charts(count, cx));
+        }
     }
 
     /// Writes the layout, what each chart keeps, the links and the line positions to the
@@ -259,6 +269,11 @@ impl MultiChart {
     }
 
     /// The chart the header's timeframe buttons and the keys act on.
+    /// How many charts the layout holds.
+    pub fn chart_count(&self) -> usize {
+        self.slots.len()
+    }
+
     pub fn active_chart(&self) -> &Entity<Chart> {
         &self.slots[self.active].chart
     }
@@ -651,6 +666,7 @@ impl MultiChart {
         }
         self.active = self.active.min(self.slots.len() - 1);
         self.key = key;
+        self.tell_layout_size(cx);
         let prefs = self.workspace.read(cx).preferences().clone();
         self.tree = tree_for(key, &prefs);
         self.persist(cx);
@@ -919,6 +935,53 @@ impl MultiChart {
         }
     }
 
+    /// Takes a picture of every chart of the layout, in one image laid out as on screen.
+    pub fn picture_all(&mut self, cx: &mut Context<Self>) {
+        if self.slots.len() < 2 {
+            self.picture(cx);
+            return;
+        }
+        use super::chart::raster::PICTURE_SCALE;
+        let (rects, _) = self.tree.place(self.slots.len());
+        let mut tiles = Vec::new();
+        let mut background = None;
+        let (mut width, mut height) = self.area.get().map_or((0.0, 0.0), |a| {
+            (f32::from(a.size.width), f32::from(a.size.height))
+        });
+        for (slot, rect) in self.slots.iter().zip(&rects) {
+            let chart = slot.chart.read(cx);
+            let (pixmap, bg) = match chart.picture_pixels(cx) {
+                Ok(done) => done,
+                Err(error) => {
+                    cx.emit(MultiChartEvent::PictureFailed(error));
+                    return;
+                }
+            };
+            background.get_or_insert(bg);
+            let (tile_w, tile_h) = (
+                pixmap.width() as f32 / PICTURE_SCALE,
+                pixmap.height() as f32 / PICTURE_SCALE,
+            );
+            // The area was not measured yet (nothing was drawn): the charts say how big it is.
+            width = width.max(tile_w / rect.w.max(f32::EPSILON));
+            height = height.max(tile_h / rect.h.max(f32::EPSILON));
+            tiles.push((rect.x, rect.y, pixmap));
+        }
+        let tiles: Vec<_> = tiles
+            .into_iter()
+            .map(|(x, y, pixmap)| (x * width, y * height, pixmap))
+            .collect();
+        let Some(background) = background else { return };
+        match super::chart::raster::compose_png(width, height, PICTURE_SCALE, background, &tiles) {
+            Ok(png) => {
+                let stamp = super::chart::now_ms();
+                let name = format!("wyck-layout-{}-charts-{stamp}.png", self.slots.len());
+                cx.emit(MultiChartEvent::Picture(png, name));
+            }
+            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error)),
+        }
+    }
+
     // ---- the links ----
 
     fn on_chart_event(
@@ -984,6 +1047,10 @@ impl MultiChart {
             ChartEvent::Screenshot => {
                 self.activate(from, cx);
                 self.picture(cx);
+            }
+            ChartEvent::ScreenshotAll => {
+                self.activate(from, cx);
+                self.picture_all(cx);
             }
         }
     }

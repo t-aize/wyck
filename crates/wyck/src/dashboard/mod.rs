@@ -686,12 +686,13 @@ impl Dashboard {
             MultiChartEvent::ActiveChanged => self.refresh_active(cx),
             MultiChartEvent::Picture(png, name) => save_picture(png.clone(), name.clone(), cx),
             MultiChartEvent::PictureFailed(error) => {
-                toast::show(
-                    cx,
-                    toast::Kind::Error,
+                toast::Toast::error(
                     "Could not take the picture",
-                    error.clone(),
-                );
+                    "The chart could not be turned into an image.",
+                )
+                .hint("Try again. If it keeps failing, copy the details into a bug report.")
+                .details(error.clone())
+                .show(cx);
             }
             MultiChartEvent::Action(symbol, action) => self.on_chart_action(symbol, action, cx),
             MultiChartEvent::LineMoved(id, price) => self.on_line_moved(*id, *price, cx),
@@ -1018,6 +1019,11 @@ impl Render for Dashboard {
         .on_action(
             cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
                 this.multi.update(cx, |multi, cx| multi.picture(cx));
+            }),
+        )
+        .on_action(
+            cx.listener(|this, _: &chart::ChartScreenshotAll, _window, cx| {
+                this.multi.update(cx, |multi, cx| multi.picture_all(cx));
             }),
         )
         .on_action(
