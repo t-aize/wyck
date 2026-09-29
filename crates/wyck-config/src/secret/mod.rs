@@ -40,13 +40,6 @@ impl SecretKey {
         Self(format!("{namespace}:{name}"))
     }
 
-    /// The canonical key for a [`crate::ProfileConfig`]'s credential, namespaced under
-    /// `"profile"` so it can never collide with a key a different call site builds
-    /// directly via [`Self::new`].
-    pub fn for_profile(profile_id: &crate::ProfileId) -> Self {
-        Self::new("profile", profile_id.as_str())
-    }
-
     /// The raw key string, as passed to the backend (e.g. as the keyring "username"
     /// field, or hashed into a filename).
     pub fn as_str(&self) -> &str {

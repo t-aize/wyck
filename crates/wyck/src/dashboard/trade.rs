@@ -444,6 +444,7 @@ impl Dashboard {
         };
         div()
             .id("trading-layout")
+            .relative()
             .flex_1()
             .min_h_0()
             .flex()
@@ -463,7 +464,7 @@ impl Dashboard {
                     )
             })
             .when(editor_dragging, |el| {
-                el.cursor_row_resize()
+                el.cursor_col_resize()
                     .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
                         this.drag_editor(event, cx);
                     }))
@@ -500,7 +501,6 @@ impl Dashboard {
                     .child(charts)
                     .children(after),
             )
-            .children(editor_panel)
             .children(panel.map(|panel| {
                 div()
                     .relative()
@@ -532,6 +532,8 @@ impl Dashboard {
                     )
                     .child(div().flex_1().min_h_0().child(panel))
             }))
+            // Last, so it is drawn over everything else of the layout.
+            .children(editor_panel)
     }
 
     /// The edge of the ticket is being dragged: its width follows the pointer, from where the

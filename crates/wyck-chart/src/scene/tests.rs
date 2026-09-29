@@ -331,6 +331,7 @@ fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
         within: None,
         size: FONT,
         bold: false,
+        face: Default::default(),
     };
     let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
     spread_tags(&mut tags, &Geometry::single(1_000.0, 528.0), 0.0);

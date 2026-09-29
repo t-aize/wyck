@@ -536,6 +536,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             color: with_alpha(p.text_strong, 0.07),
             align: Align::Center,
             bold: true,
+            face: Default::default(),
         });
     }
     let (grid_h, grid_v) = (
@@ -700,6 +701,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         color: hsla(p.text),
         align: Align::Left,
         bold: false,
+        face: Default::default(),
     };
     let in_band = |band: &Band, y: f32| {
         y >= oy + band.top as f32 + 6.0 && y <= oy + band.bottom() as f32 - 6.0
@@ -763,6 +765,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             },
             align: Align::Center,
             bold: label.major,
+            face: Default::default(),
         });
     }
     // The zone the times are in, in the corner between the axes, and the scale mode.
@@ -779,6 +782,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         color: hsla(p.text),
         align: Align::Center,
         bold: false,
+        face: Default::default(),
     });
     cmds.extend(tags);
     cmds.extend(pointer_tags);
@@ -983,6 +987,7 @@ fn draw_axis_tags(
         within: None,
         size: FONT,
         bold: false,
+        face: Default::default(),
     };
     for mark in cx.f.marks.iter().filter(|m| m.axis_tag) {
         let y = cx.y(mark.price);
@@ -1029,6 +1034,7 @@ fn draw_axis_tags(
                     within: None,
                     size: FONT,
                     bold: false,
+                    face: Default::default(),
                 });
             }
         }
@@ -1079,6 +1085,7 @@ fn draw_axis_tags(
                 within: Some((cx.ox, cx.ox + cx.plot_w as f32)),
                 size: FONT,
                 bold: false,
+                face: Default::default(),
             });
         }
     }
@@ -1316,6 +1323,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             bg: (bg, bg_alpha),
             size,
             bold,
+            face,
         } => {
             let (w, h) = shapes::board_size(&rows, size);
             let (row, pad_x, pad_y) = shapes::board_metrics();
@@ -1338,6 +1346,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                     color: rgb_alpha(fg, 1.0),
                     align: Align::Left,
                     bold,
+                    face,
                 });
             }
         }
@@ -1349,6 +1358,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             anchor,
             size,
             bold,
+            face,
         } => {
             let (x, y) = at(position);
             let align = match anchor {
@@ -1370,6 +1380,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                     within: None,
                     size,
                     bold,
+                    face,
                 },
                 None => Cmd::Text {
                     text,
@@ -1379,6 +1390,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                     color: rgb_alpha(color, 1.0),
                     align,
                     bold,
+                    face,
                 },
             });
         }
@@ -1391,6 +1403,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
             valign,
             size,
             bold,
+            face,
         } => {
             out.push(Cmd::FittedText {
                 text,
@@ -1408,6 +1421,7 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                 },
                 valign,
                 bold,
+                face,
             });
         }
         Prim::Handle { at: position } => {

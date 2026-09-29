@@ -1,6 +1,7 @@
-//! The editor of the indicator scripts as a panel under the charts, and the button in the header
-//! that opens it. The panel is made the first time it is asked for (it needs the window), and is
-//! resized by dragging its top edge, like the account panel.
+//! The editor of the indicator scripts as a drawer on the right, over the charts, and the button in
+//! the header that opens it. The drawer floats above the charts and the ticket without moving
+//! them; it covers three quarters of the width at first, and its left edge is dragged to make it
+//! wider or narrower. It is made the first time it is asked for (it needs the window).
 
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
@@ -15,18 +16,19 @@ use wyck_ui::{
     theme, tokens,
 };
 
-/// The least and the most height of the panel that is not maximized.
-const DOCK_MIN: f32 = 220.0;
-const DOCK_MAX: f32 = 900.0;
-pub(super) const DOCK_DEFAULT: f32 = 420.0;
-
-/// What is left of the window for the charts when the editor is maximized.
-const MAXIMIZED_MARGIN: f32 = 190.0;
+/// The share of the window the drawer covers at first, and the least and the most it can cover.
+pub(super) const SHARE_DEFAULT: f32 = 0.75;
+const SHARE_MIN: f32 = 0.35;
+const SHARE_MAX: f32 = 0.98;
+/// The narrowest the drawer gets, in pixels, whatever the share says: the explorer and the code
+/// need room.
+const WIDTH_MIN: f32 = 640.0;
 
 impl Dashboard {
     /// Makes the editor (it needs the window) once it is wanted.
     pub(super) fn editor_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.viewport_height = f32::from(window.viewport_size().height);
+        self.viewport_width = f32::from(window.viewport_size().width);
         if !self.editor_open || self.editor.is_some() {
             return;
         }
@@ -75,52 +77,77 @@ impl Dashboard {
         cx.notify();
     }
 
-    /// The height the panel has now.
-    fn dock_height(&self, cx: &gpui::App) -> f32 {
+    /// The width the drawer has now, in pixels.
+    fn dock_width(&self, cx: &gpui::App) -> f32 {
         let maximized = self
             .editor
             .as_ref()
             .is_some_and(|e| e.read(cx).is_maximized());
-        if maximized {
-            (self.viewport_height - MAXIMIZED_MARGIN).max(DOCK_MIN)
-        } else {
-            self.editor_height
-        }
+        let share = if maximized { 1.0 } else { self.editor_share };
+        (share * self.viewport_width)
+            .max(WIDTH_MIN)
+            .min(self.viewport_width.max(WIDTH_MIN))
     }
 
-    /// The panel, when the editor is open: its top edge to drag, and the editor.
+    /// The drawer, when the editor is open: laid over the right of the charts, with its left edge
+    /// to drag and the editor.
     pub(super) fn editor_dock(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
         let editor = self.editor.clone().filter(|_| self.editor_open)?;
         let dragging = self.editor_drag.is_some();
         Some(
             div()
-                .flex_none()
-                .h(px(self.dock_height(cx)))
+                .id("editor-drawer")
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .right_0()
+                .w(px(self.dock_width(cx)))
+                .max_w_full()
                 .flex()
-                .flex_col()
+                .flex_row()
+                // It sits over the charts: nothing under it hears the pointer.
+                .occlude()
+                // Being over it, the pointer never reaches the layout behind, which follows the
+                // drag elsewhere: the drawer follows it here.
+                .when(dragging, |el| {
+                    el.on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _window, cx| {
+                        this.drag_editor(event, cx);
+                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_editor_drag(cx)),
+                    )
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_editor_drag(cx)),
+                    )
+                })
+                .bg(theme::bg())
+                .border_l_1()
+                .border_color(theme::border_subtle())
+                .shadow_lg()
                 .child(
                     div()
                         .id("editor-resize")
                         .flex_none()
-                        .h(px(5.))
-                        .w_full()
-                        .cursor_row_resize()
-                        .border_t_1()
-                        .border_color(if dragging {
-                            theme::accent()
+                        .w(px(5.))
+                        .h_full()
+                        .cursor_col_resize()
+                        .bg(if dragging {
+                            theme::accent_alpha(0.5)
                         } else {
-                            theme::border_hairline()
+                            gpui::rgba(0x00000000)
                         })
-                        .hover(|s| s.border_color(theme::accent()))
+                        .hover(|s| s.bg(theme::accent_alpha(0.5)))
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                                this.editor_drag = Some(f32::from(event.position.y));
+                                this.editor_drag = Some(f32::from(event.position.x));
                                 cx.notify();
                             }),
                         ),
                 )
-                .child(div().flex_1().min_h_0().child(editor))
+                .child(div().flex_1().min_w_0().h_full().child(editor))
                 .into_any_element(),
         )
     }
@@ -134,10 +161,12 @@ impl Dashboard {
             cx.notify();
             return;
         }
-        let y = f32::from(event.position.y);
-        let room = (self.viewport_height - MAXIMIZED_MARGIN).max(DOCK_MIN);
-        self.editor_height = (self.editor_height - (y - last)).clamp(DOCK_MIN, DOCK_MAX.min(room));
-        self.editor_drag = Some(y);
+        let x = f32::from(event.position.x);
+        let width = self.viewport_width.max(1.0);
+        // Dragging the left edge to the left makes the drawer wider.
+        let least = (WIDTH_MIN / width).clamp(SHARE_MIN, SHARE_MAX);
+        self.editor_share = (self.editor_share - (x - last) / width).clamp(least, SHARE_MAX);
+        self.editor_drag = Some(x);
         cx.notify();
     }
 

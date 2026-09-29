@@ -21,6 +21,7 @@ use tracing::{debug, warn};
 
 use crate::error::{ConfigError, Result};
 use crate::fs_util::atomic_write;
+use crate::names::{is_valid_name, sanitize};
 use crate::paths::AppPaths;
 
 /// A directory of TOML documents. Cheap to clone and safe to hand to another thread: it holds
@@ -34,24 +35,79 @@ impl DocumentStore {
     /// The documents shared by every profile.
     pub fn global(paths: &AppPaths) -> Self {
         Self {
-            dir: paths.config_dir().join("state"),
+            dir: paths.state_dir(),
         }
     }
 
     /// The documents of one scope, such as `demo-45970491`. Whatever the name holds, the
-    /// directory stays inside the config directory.
+    /// directory stays inside the config directory (the name is cleaned with
+    /// [`crate::names::sanitize`]; check it with [`crate::names::validate_name`] first where two
+    /// different names must never share a folder).
     pub fn scoped(paths: &AppPaths, scope: &str) -> Self {
         Self {
-            dir: paths
-                .config_dir()
-                .join("scopes")
-                .join(safe_component(scope)),
+            dir: paths.scopes_dir().join(sanitize(scope)),
         }
+    }
+
+    /// The names of every scope that has a folder, sorted: the accounts whose documents are kept.
+    /// Folders whose name is not a valid name are left out.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Read`] on an I/O failure other than "not found" (no scope yet gives an empty
+    /// list).
+    pub fn list_scopes(paths: &AppPaths) -> Result<Vec<String>> {
+        let dir = paths.scopes_dir();
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(source) => return Err(ConfigError::Read { path: dir, source }),
+        };
+        let mut names: Vec<String> = entries
+            .filter_map(std::result::Result::ok)
+            .filter(|entry| entry.path().is_dir())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| is_valid_name(name))
+            .collect();
+        names.sort();
+        Ok(names)
+    }
+
+    /// The names of the documents in the store, sorted: the `.toml` files whose name is a valid
+    /// name. Temporary files of a write in progress, `.bad` files and anything else are not
+    /// listed.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Read`] on an I/O failure other than "not found" (an empty or missing folder
+    /// gives an empty list).
+    pub fn list(&self) -> Result<Vec<String>> {
+        let entries = match std::fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(source) => {
+                return Err(ConfigError::Read {
+                    path: self.dir.clone(),
+                    source,
+                });
+            }
+        };
+        let mut names: Vec<String> = entries
+            .filter_map(std::result::Result::ok)
+            .filter(|entry| entry.path().is_file())
+            .filter_map(|entry| {
+                let file_name = entry.file_name().into_string().ok()?;
+                let stem = file_name.strip_suffix(".toml")?;
+                is_valid_name(stem).then(|| stem.to_owned())
+            })
+            .collect();
+        names.sort();
+        Ok(names)
     }
 
     /// Where the document `name` lives.
     pub fn path(&self, name: &str) -> PathBuf {
-        self.dir.join(format!("{}.toml", safe_component(name)))
+        self.dir.join(format!("{}.toml", sanitize(name)))
     }
 
     /// The directory the documents are in.
@@ -125,6 +181,38 @@ impl DocumentStore {
         }
     }
 
+    /// The text of a document as it is on disk, or `None` when it was never written: for moving
+    /// documents around (a backup) without knowing their shape.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Read`] on an I/O failure other than "not found".
+    pub fn load_text(&self, name: &str) -> Result<Option<String>> {
+        let path = self.path(name);
+        match std::fs::read_to_string(&path) {
+            Ok(text) => Ok(Some(text)),
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(source) => Err(ConfigError::Read { path, source }),
+        }
+    }
+
+    /// Writes the text of a document as it is, atomically, after checking that it is valid TOML
+    /// (so a bad restore cannot put a file in place that the app then has to set aside).
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Parse`] if `text` is not TOML, [`ConfigError::Write`] on an I/O failure.
+    pub fn save_text(&self, name: &str, text: &str) -> Result<()> {
+        let path = self.path(name);
+        toml::from_str::<toml::Table>(text).map_err(|source| ConfigError::Parse {
+            path: path.clone(),
+            source: Box::new(source),
+        })?;
+        atomic_write(&path, text.as_bytes())?;
+        debug!(path = %path.display(), bytes = text.len(), "saved the text of a document");
+        Ok(())
+    }
+
     fn set_aside(&self, name: &str) {
         let path = self.path(name);
         let mut bad = path.clone().into_os_string();
@@ -132,27 +220,6 @@ impl DocumentStore {
         if let Err(error) = std::fs::rename(&path, PathBuf::from(&bad)) {
             warn!(%error, path = %path.display(), "could not set the damaged document aside");
         }
-    }
-}
-
-/// A file or directory name made of what was given, with anything that could point elsewhere
-/// (separators, dots at the start, control characters) replaced, so a name from outside can
-/// never leave the store.
-fn safe_component(name: &str) -> String {
-    let cleaned: String = name
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if cleaned.is_empty() {
-        "_".to_owned()
-    } else {
-        cleaned
     }
 }
 
@@ -296,6 +363,66 @@ mod tests {
         .unwrap();
         assert_eq!(b.load::<Sample>("w").unwrap(), None);
         assert_ne!(a.dir(), DocumentStore::global(&paths).dir());
+    }
+
+    #[test]
+    fn the_documents_of_a_store_and_the_scopes_are_listed_without_the_noise() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(dir.path());
+        let global = DocumentStore::global(&paths);
+        assert_eq!(
+            global.list().unwrap(),
+            Vec::<String>::new(),
+            "no folder yet"
+        );
+        assert_eq!(
+            DocumentStore::list_scopes(&paths).unwrap(),
+            Vec::<String>::new()
+        );
+
+        global.save("preferences", &Sample::default()).unwrap();
+        global.save("appearance", &Sample::default()).unwrap();
+        // Not documents: a set-aside copy, a temporary file, a note, a folder, a strange name.
+        std::fs::write(global.dir().join("preferences.toml.bad"), b"x").unwrap();
+        std::fs::write(global.dir().join(".preferences.toml.tmp-1"), b"x").unwrap();
+        std::fs::write(global.dir().join("notes.txt"), b"x").unwrap();
+        std::fs::write(global.dir().join("has space.toml"), b"x").unwrap();
+        std::fs::create_dir(global.dir().join("folder.toml")).unwrap();
+        assert_eq!(global.list().unwrap(), ["appearance", "preferences"]);
+
+        DocumentStore::scoped(&paths, "live-2")
+            .save("drawings", &Sample::default())
+            .unwrap();
+        DocumentStore::scoped(&paths, "demo-1")
+            .save("drawings", &Sample::default())
+            .unwrap();
+        std::fs::create_dir_all(paths.scopes_dir().join("not a scope")).unwrap();
+        std::fs::write(paths.scopes_dir().join("stray_file"), b"x").unwrap();
+        assert_eq!(
+            DocumentStore::list_scopes(&paths).unwrap(),
+            ["demo-1", "live-2"]
+        );
+    }
+
+    #[test]
+    fn the_text_of_a_document_moves_as_it_is_and_only_if_it_is_toml() {
+        let (_dir, store) = store();
+        assert_eq!(store.load_text("t").unwrap(), None);
+
+        let text = "# a comment that a parse and save would lose\ntitle = \"kept\"\n";
+        store.save_text("t", text).unwrap();
+        assert_eq!(store.load_text("t").unwrap().as_deref(), Some(text));
+        assert_eq!(store.load::<Sample>("t").unwrap().unwrap().title, "kept");
+
+        assert!(matches!(
+            store.save_text("t", "title = [broken"),
+            Err(ConfigError::Parse { .. })
+        ));
+        assert_eq!(
+            store.load_text("t").unwrap().as_deref(),
+            Some(text),
+            "a refused text leaves the document as it was"
+        );
     }
 
     #[test]

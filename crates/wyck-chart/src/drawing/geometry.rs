@@ -9,7 +9,7 @@
 use super::decor;
 use super::extras;
 use super::figures;
-use super::look::{LabelSide, LevelText};
+use super::look::{Face, LabelSide, LevelText};
 use super::model::{Dash, Drawing, Level, Point, Style, Tool};
 
 pub type P = (f32, f32);
@@ -131,6 +131,7 @@ pub enum Prim {
         bg: (u32, f32),
         size: f32,
         bold: bool,
+        face: Face,
     },
     Label {
         at: P,
@@ -142,6 +143,7 @@ pub enum Prim {
         /// The size of the text, in points.
         size: f32,
         bold: bool,
+        face: Face,
     },
     FittedLabel {
         bounds: Rect,
@@ -152,6 +154,7 @@ pub enum Prim {
         valign: super::look::VAlign,
         size: f32,
         bold: bool,
+        face: Face,
     },
     /// A grip at a point of a selected drawing.
     Handle {
@@ -364,6 +367,7 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
                     anchor: Anchor::Right,
                     size: LABEL_SIZE,
                     bold: false,
+                    face: Default::default(),
                 });
             }
         }
@@ -540,6 +544,7 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
                     anchor: Anchor::Left,
                     size: style.text_size,
                     bold: style.bold,
+                    face: style.face(),
                 });
             }
         }
@@ -551,6 +556,7 @@ pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> V
             anchor: Anchor::Left,
             size: style.text_size,
             bold: style.bold,
+            face: style.face(),
         }),
         Tool::Unknown => {}
         _ => {
@@ -736,6 +742,7 @@ pub(super) fn label(at: P, text: String, color: u32, anchor: Anchor, style: &Sty
         anchor,
         size: style.text_size,
         bold: style.bold,
+        face: style.face(),
     }
 }
 
@@ -796,6 +803,7 @@ fn measure_prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut 
         anchor: Anchor::Center,
         size: style.text_size,
         bold: style.bold,
+        face: style.face(),
     });
 }
 
@@ -937,7 +945,7 @@ fn position_prims(
         parts.join(" ")
     };
     let ink = style.text_color;
-    let (size, bold) = (style.text_size, style.bold);
+    let (size, bold, face) = (style.text_size, style.bold, style.face());
     let middle = (left + right) / 2.0;
 
     out.push(Prim::Label {
@@ -951,6 +959,7 @@ fn position_prims(
         anchor: Anchor::Center,
         size,
         bold,
+        face,
     });
     out.push(Prim::Label {
         at: (middle, y_stop + if y_stop < y_entry { -12.0 } else { 12.0 }),
@@ -960,6 +969,7 @@ fn position_prims(
         anchor: Anchor::Center,
         size,
         bold,
+        face,
     });
 
     let name = if long { "Long" } else { "Short" };
@@ -1007,6 +1017,7 @@ fn position_prims(
         anchor: Anchor::Center,
         size,
         bold,
+        face,
     });
 }
 

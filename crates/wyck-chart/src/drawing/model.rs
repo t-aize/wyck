@@ -9,7 +9,9 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::look::{Caps, LabelSide, LevelText, MeasureLook, ProfileLook, TextLayout, is_default};
+use super::look::{
+    Caps, Face, LabelSide, LevelText, MeasureLook, ProfileLook, TextLayout, is_default,
+};
 use super::position::PositionSettings;
 
 const SCHEMA_VERSION: u32 = 1;
@@ -921,6 +923,13 @@ pub struct Style {
     pub text_color: Option<u32>,
     #[serde(default)]
     pub bold: bool,
+    /// Whether the words lean.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub italic: bool,
+    /// The font of the words, by the name the system knows it under; the font of the interface
+    /// when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<String>,
     /// Whether the levels and prices are written.
     #[serde(default = "crate::defaults::yes")]
     pub labels: bool,
@@ -985,6 +994,20 @@ fn default_text_size() -> f32 {
     12.0
 }
 
+impl Style {
+    /// The letterforms of the words.
+    pub fn face(&self) -> Face {
+        Face {
+            italic: self.italic,
+            family: self
+                .font
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+                .map(|name| crate::study::intern::name(name.trim())),
+        }
+    }
+}
+
 impl Default for Style {
     fn default() -> Self {
         Self {
@@ -1000,6 +1023,8 @@ impl Default for Style {
             text_size: default_text_size(),
             text_color: None,
             bold: false,
+            italic: false,
+            font: None,
             labels: true,
             middle: true,
             position: PositionSettings::default(),

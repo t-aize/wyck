@@ -224,59 +224,96 @@ impl IndicatorEditor {
     }
 
     fn empty(&self, cx: &mut Context<Self>) -> AnyElement {
-        let (new, folder) = (cx.entity(), cx.entity());
+        let folder = cx.entity();
+        let mut cards = div().flex().flex_row().flex_wrap().justify_center().gap_3();
+        for (index, template) in TEMPLATES.iter().enumerate() {
+            let pick = cx.entity();
+            let blank = index < 2;
+            cards = cards.child(
+                div()
+                    .id(("editor-template", index))
+                    .w(px(210.))
+                    .p_3()
+                    .flex()
+                    .flex_col()
+                    .gap_1p5()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(theme::border_subtle())
+                    .bg(theme::fg_alpha(0.025))
+                    .cursor_pointer()
+                    .hover(|s| s.border_color(theme::accent()).bg(theme::surface_hover()))
+                    .on_click(move |_, window, cx| {
+                        pick.update(cx, |e, cx| e.ask_new(index, window, cx));
+                    })
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .child(icon::tinted(
+                                if blank {
+                                    IconName::FilePlus
+                                } else {
+                                    IconName::ChartLine
+                                },
+                                15.,
+                                theme::accent(),
+                            ))
+                            .child(
+                                div()
+                                    .text_size(px(tokens::text::EMPHASIS))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(theme::fg())
+                                    .child(template.name),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(tokens::text::SMALL))
+                            .text_color(theme::muted_fg())
+                            .child(template.description),
+                    ),
+            );
+        }
         div()
             .flex_1()
+            .min_h_0()
             .flex()
             .flex_col()
             .items_center()
             .justify_center()
-            .gap_3()
+            .gap_4()
+            .p_6()
             .child(icon::tinted(IconName::CodeXml, 32., theme::muted_fg()))
             .child(
                 div()
-                    .text_size(px(tokens::text::EMPHASIS))
+                    .text_size(px(tokens::text::TITLE))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child("Write your own indicators"),
             )
             .child(
                 div()
-                    .max_w(px(420.))
+                    .max_w(px(460.))
                     .text_center()
                     .text_size(px(tokens::text::BODY))
                     .text_color(theme::muted_fg())
-                    .child("Pick a script on the left, or start from a template. A saved script shows up in the list of indicators, on every chart."),
+                    .child("Pick a script in the list, or start from one of these. A saved script shows up in the list of indicators, on every chart. The Reference button on the top right explains every function."),
             )
+            .child(cards.max_w(px(690.)))
             .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap_2()
-                    .child(
-                        Button::new("editor-empty-new")
-                            .primary()
-                            .xsmall()
-                            .compact()
-                            .icon(IconName::FilePlus)
-                            .label("New script")
-                            .cursor_pointer()
-                            .on_click(move |_, window, cx| {
-                                new.update(cx, |e, cx| e.ask_new(0, window, cx));
-                            }),
-                    )
-                    .child(
-                        Button::new("editor-empty-folder")
-                            .ghost()
-                            .xsmall()
-                            .compact()
-                            .icon(IconName::FolderOpen)
-                            .label("Open the folder")
-                            .cursor_pointer()
-                            .on_click(move |_, _window, cx| {
-                                folder.update(cx, |_, cx| indicators::open_folder(cx));
-                            }),
-                    ),
+                Button::new("editor-empty-folder")
+                    .ghost()
+                    .xsmall()
+                    .compact()
+                    .icon(IconName::FolderOpen)
+                    .label("Open the folder")
+                    .cursor_pointer()
+                    .on_click(move |_, _window, cx| {
+                        folder.update(cx, |_, cx| indicators::open_folder(cx));
+                    }),
             )
             .into_any_element()
     }
@@ -404,6 +441,7 @@ impl Render for IndicatorEditor {
         let console = self.console(cx);
         let reference = self.reference_open.then(|| self.reference(cx));
         let status = self.status_bar(cx);
+        let prompt = self.prompt_row(cx);
         let _ = controls::child_id;
         div()
             .key_context(CONTEXT)
@@ -482,6 +520,7 @@ impl Render for IndicatorEditor {
                     )
                     .child(
                         div()
+                            .relative()
                             .flex_1()
                             .min_w_0()
                             .h_full()
@@ -490,7 +529,8 @@ impl Render for IndicatorEditor {
                             .child(tabs)
                             .children(banner)
                             .child(center)
-                            .child(console),
+                            .child(console)
+                            .children(prompt),
                     )
                     .children(reference.map(|reference| {
                         div()

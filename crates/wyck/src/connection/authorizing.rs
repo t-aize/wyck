@@ -124,25 +124,27 @@ impl ConnectionFlow {
 
         let display_name = super::rules::account_label(account);
 
-        let id =
-            self.config
-                .add_profile(display_name.clone(), service_tag(environment), None, None)?;
+        let id = self
+            .config
+            .add_profile(display_name.clone(), service_tag(environment))?;
         self.config.set_openapi_profile(
             &id,
             credentials.client_id.clone(),
             CALLBACK_PORT,
             account.ctid_trader_account_id,
         )?;
-        self.config
-            .set_profile_secret(&id, "client-secret", &credentials.client_secret)?;
-        self.config.save_openapi_tokens(
+        self.config.set_profile_secret(
             &id,
-            &OpenApiTokens {
+            wyck_config::CLIENT_SECRET,
+            &credentials.client_secret,
+        )?;
+        self.config
+            .openapi_token_storage(&id)
+            .save(&OpenApiTokens {
                 access_token: tokens.access_token.clone(),
                 refresh_token: tokens.refresh_token.clone(),
                 expires_at: tokens.expires_at(),
-            },
-        )?;
+            })?;
         self.config.set_active_profile(Some(id.clone()))?;
         Ok((id, display_name))
     }

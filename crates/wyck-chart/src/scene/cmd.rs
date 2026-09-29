@@ -5,7 +5,7 @@
 //! Building them is plain arithmetic, so it is tested without a window.
 
 use super::color::{Hsla, Rgba, rgb};
-use crate::drawing::look::VAlign;
+use crate::drawing::look::{Face, VAlign};
 
 pub type P = (f32, f32);
 
@@ -46,6 +46,7 @@ pub enum Cmd {
         color: Hsla,
         align: Align,
         bold: bool,
+        face: Face,
     },
     /// A label fitted inside a drawing's bounds using the renderer's font metrics.
     FittedText {
@@ -60,6 +61,7 @@ pub enum Cmd {
         align: Align,
         valign: VAlign,
         bold: bool,
+        face: Face,
     },
     /// Text on a filled, rounded tag sized to the text (or to `fixed_width`).
     Tag {
@@ -76,6 +78,7 @@ pub enum Cmd {
         within: Option<(f32, f32)>,
         size: f32,
         bold: bool,
+        face: Face,
     },
     /// Commands drawn only inside a rectangle.
     Clip {

@@ -8,21 +8,19 @@ use crate::fs_util::atomic_write;
 use crate::paths::AppPaths;
 use crate::profile::{ProfileConfig, ProfileId};
 
-const CURRENT_SCHEMA_VERSION: u32 = 1;
+/// The version of the layout this build writes, and the newest it reads.
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
 /// [`crate::secret`] for where those live instead.
 ///
-/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is
-/// bumped whenever a breaking change to this shape ships, so a future version of this
-/// crate can detect and migrate an older config file instead of failing to parse it
-/// silently wrong.
+/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is required
+/// and is bumped whenever a breaking change to this shape ships; a file with a version this build
+/// does not know is refused (see [`AppConfig::load`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AppConfig {
-    /// Bumped whenever a breaking change to this shape ships, to detect and migrate an
-    /// older config file instead of failing to parse it silently wrong.
-    #[serde(default = "current_schema_version")]
+    /// The version of this layout. Required: a file without it is not a config file of this app.
     pub schema_version: u32,
     /// The profile to connect with by default, if one is set and still exists.
     #[serde(default)]
@@ -33,10 +31,6 @@ pub struct AppConfig {
     /// The symbol the user was on when the application last ran, so the next start opens on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_symbol: Option<String>,
-}
-
-fn current_schema_version() -> u32 {
-    CURRENT_SCHEMA_VERSION
 }
 
 impl Default for AppConfig {
@@ -59,7 +53,7 @@ impl AppConfig {
     ///
     /// [`ConfigError::Read`] on any I/O failure other than "file not found";
     /// [`ConfigError::Parse`] if the file exists but isn't valid TOML matching this
-    /// shape.
+    /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         let path = paths.config_file();
         let text = match std::fs::read_to_string(&path) {
@@ -73,13 +67,28 @@ impl AppConfig {
                 return Err(ConfigError::Read { path, source });
             }
         };
-        let config = toml::from_str(&text).map_err(|source| {
+        let config: Self = toml::from_str(&text).map_err(|source| {
             warn!(path = %path.display(), error = %source, "the config file could not be parsed");
             ConfigError::Parse {
                 path: path.clone(),
                 source: Box::new(source),
             }
         })?;
+        // A file from the future is left alone: reading it with what this version knows and
+        // writing it back would drop what this version does not.
+        if config.schema_version > CURRENT_SCHEMA_VERSION {
+            warn!(
+                path = %path.display(),
+                found = config.schema_version,
+                supported = CURRENT_SCHEMA_VERSION,
+                "the config file was written by a newer version"
+            );
+            return Err(ConfigError::UnsupportedSchema {
+                path,
+                found: config.schema_version,
+                supported: CURRENT_SCHEMA_VERSION,
+            });
+        }
         debug!(path = %path.display(), "loaded the config file");
         Ok(config)
     }
@@ -129,11 +138,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let paths = AppPaths::at(temp_dir.path());
         let mut config = AppConfig::default();
-        let profile = ProfileConfig::new(
-            "Demo",
-            "ctrader-remote",
-            Some("https://mcp.ctrader.com/trading/mcp".to_owned()),
-        );
+        let profile = ProfileConfig::new("Demo", "ctrader-openapi");
         config.active_profile = Some(profile.id.clone());
         config.profiles.push(profile);
 
@@ -165,20 +170,36 @@ mod tests {
     }
 
     #[test]
-    fn a_0_1_config_fixture_keeps_its_profile_and_selection() {
-        let text = include_str!("../tests/fixtures/app-config-0.1.toml");
-        let config: AppConfig = toml::from_str(text).unwrap();
+    fn a_config_from_a_newer_version_is_refused_and_left_untouched() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        let future = "schema_version = 99\nfrom_the_future = true\n";
+        std::fs::write(paths.config_file(), future).unwrap();
 
-        assert_eq!(config.schema_version, 1);
-        assert_eq!(config.last_symbol.as_deref(), Some("XAUUSD"));
-        let active = config.active_profile().unwrap();
-        assert_eq!(active.display_name, "Demo account");
-        assert_eq!(active.client_id.as_deref(), Some("legacy-client"));
-        assert_eq!(active.callback_port, Some(52123));
-        assert_eq!(active.account_id, Some(12345678));
+        let result = AppConfig::load(&paths);
 
-        let saved = toml::to_string_pretty(&config).unwrap();
-        let reloaded: AppConfig = toml::from_str(&saved).unwrap();
-        assert_eq!(reloaded, config);
+        assert!(matches!(
+            result,
+            Err(ConfigError::UnsupportedSchema {
+                found: 99,
+                supported: 1,
+                ..
+            })
+        ));
+        assert_eq!(
+            std::fs::read_to_string(paths.config_file()).unwrap(),
+            future
+        );
+    }
+
+    #[test]
+    fn a_config_without_a_version_is_refused() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        std::fs::write(paths.config_file(), "last_symbol = \"EURUSD\"\n").unwrap();
+        assert!(matches!(
+            AppConfig::load(&paths),
+            Err(ConfigError::Parse { .. })
+        ));
     }
 }

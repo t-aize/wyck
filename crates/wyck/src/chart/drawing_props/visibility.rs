@@ -1,6 +1,7 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
 use super::*;
+use wyck_ui::field;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
@@ -23,7 +24,7 @@ impl DrawingProps {
                 form::field(
                     "Name",
                     Some("As shown in the list of drawings"),
-                    div().w(px(220.)).child(Input::new(&self.name).small()),
+                    field::text(&self.name),
                 ),
             ],
         ));
@@ -36,6 +37,37 @@ impl DrawingProps {
             }),
         )];
         if !all {
+            let here = self
+                .chart
+                .as_ref()
+                .map(|chart| chart.read(cx).timeframe.code());
+            let labels = ["Intraday", "Daily and above", "This timeframe", "None"];
+            let preset_this = this.clone();
+            rows.push(form::block(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1p5()
+                    .child(form::note("Quick choices"))
+                    .child(controls::chips(
+                        "props-tf-presets",
+                        &labels,
+                        &[],
+                        move |index, _window, cx| {
+                            let here = here.clone();
+                            preset_this.update(cx, |e, cx| {
+                                e.change(cx, |d| {
+                                    d.timeframes = Some(match index {
+                                        0 => timeframes_where(|ms| ms < DAY_MS),
+                                        1 => timeframes_where(|ms| ms >= DAY_MS),
+                                        2 => here.into_iter().collect(),
+                                        _ => Vec::new(),
+                                    });
+                                });
+                            });
+                        },
+                    )),
+            ));
             let shown: Vec<String> = drawing.timeframes.clone().unwrap_or_default();
             for (group, frames) in GROUPS {
                 let codes: Vec<String> = frames.iter().map(|f| f.code()).collect();
@@ -79,5 +111,32 @@ impl DrawingProps {
         }
         page = page.child(form::group(IconName::Clock, "Timeframes", rows));
         page.into_any_element()
+    }
+}
+
+/// One day, in milliseconds.
+const DAY_MS: i64 = 86_400_000;
+
+/// The codes of the timeframes whose bar lasts `keep` milliseconds (ticks count as no time at all).
+fn timeframes_where(keep: impl Fn(i64) -> bool) -> Vec<String> {
+    GROUPS
+        .iter()
+        .flat_map(|(_, frames)| frames.iter())
+        .filter(|frame| keep(frame.bar_ms().unwrap_or(0)))
+        .map(|frame| frame.code())
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_quick_choices_split_the_timeframes_at_the_day() {
+        let intraday = timeframes_where(|ms| ms < DAY_MS);
+        let daily = timeframes_where(|ms| ms >= DAY_MS);
+        assert!(intraday.contains(&"M5".to_owned()) && !intraday.contains(&"D1".to_owned()));
+        assert!(daily.contains(&"D1".to_owned()) && !daily.contains(&"M5".to_owned()));
+        assert_eq!(intraday.len() + daily.len(), every_timeframe().len());
     }
 }

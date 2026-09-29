@@ -153,6 +153,7 @@ fn stat(style: &Style, at: P, text: String, color: u32, anchor: Anchor) -> Prim 
         anchor,
         size: style.text_size,
         bold: style.bold,
+        face: style.face(),
     }
 }
 
@@ -1426,6 +1427,7 @@ fn board(drawing: &Drawing, tl: P, rows: Vec<String>) -> Prim {
         bg: (style.color, 0.92),
         size: style.text_size,
         bold: style.bold,
+        face: style.face(),
     }
 }
 
@@ -1657,6 +1659,7 @@ fn table(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
                 anchor: Anchor::Left,
                 size,
                 bold: style.bold || r == 0,
+                face: style.face(),
             });
         }
         x += w;

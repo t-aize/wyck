@@ -132,7 +132,6 @@ impl IndicatorEditor {
         }
 
         let menu_items = self.file_menu_items(&file_menu, cx);
-        let prompt = self.prompt_row(cx);
         div()
             .flex_none()
             .w(px(self.explorer_width))
@@ -151,7 +150,6 @@ impl IndicatorEditor {
                         theme::muted_fg(),
                     ))),
             )
-            .children(prompt)
             .child(list)
             .children(file_menu.popup(menu_items, Placement::Cursor, window, cx))
             .into_any_element()
@@ -290,7 +288,8 @@ impl IndicatorEditor {
         ]
     }
 
-    /// The row where a name is typed, for a new script or a rename.
+    /// The card where a name is typed, for a new script or a rename: centered over the code, with
+    /// a veil behind it so the rest waits.
     pub(super) fn prompt_row(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let prompt = self.prompt.as_ref()?;
         let title = match &prompt.ask {
@@ -302,60 +301,69 @@ impl IndicatorEditor {
             Ask::Rename(_) => None,
         };
         let (ok, cancel) = (cx.entity(), cx.entity());
+        let card = div()
+            .w(px(380.))
+            .p_4()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .rounded_xl()
+            .border_1()
+            .border_color(theme::border_subtle())
+            .bg(theme::surface())
+            .shadow_lg()
+            .child(
+                div()
+                    .text_size(px(tokens::text::TITLE))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme::fg())
+                    .child(title),
+            )
+            .children(description.map(|text| {
+                div()
+                    .text_size(px(tokens::text::SMALL))
+                    .text_color(theme::muted_fg())
+                    .child(text)
+            }))
+            .child(Input::new(&prompt.input).small())
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .justify_end()
+                    .gap_1()
+                    .child(
+                        Button::new("editor-prompt-cancel")
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .label("Cancel")
+                            .cursor_pointer()
+                            .on_click(move |_, _window, cx| {
+                                cancel.update(cx, |e, cx| e.cancel_prompt(cx));
+                            }),
+                    )
+                    .child(
+                        Button::new("editor-prompt-ok")
+                            .primary()
+                            .xsmall()
+                            .compact()
+                            .label("OK")
+                            .cursor_pointer()
+                            .on_click(move |_, window, cx| {
+                                ok.update(cx, |e, cx| e.commit_prompt(window, cx));
+                            }),
+                    ),
+            );
         Some(
             div()
-                .mx_2()
-                .mb_2()
-                .p_2()
+                .absolute()
+                .inset_0()
                 .flex()
-                .flex_col()
-                .gap_1p5()
-                .rounded_lg()
-                .border_1()
-                .border_color(theme::accent())
-                .bg(theme::surface())
-                .child(
-                    div()
-                        .text_size(px(tokens::text::SMALL))
-                        .text_color(theme::muted_fg())
-                        .child(title),
-                )
-                .children(description.map(|text| {
-                    div()
-                        .text_size(px(tokens::text::SMALL))
-                        .text_color(theme::muted_fg())
-                        .child(text)
-                }))
-                .child(Input::new(&prompt.input).xsmall())
-                .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .justify_end()
-                        .gap_1()
-                        .child(
-                            Button::new("editor-prompt-cancel")
-                                .ghost()
-                                .xsmall()
-                                .compact()
-                                .label("Cancel")
-                                .cursor_pointer()
-                                .on_click(move |_, _window, cx| {
-                                    cancel.update(cx, |e, cx| e.cancel_prompt(cx));
-                                }),
-                        )
-                        .child(
-                            Button::new("editor-prompt-ok")
-                                .primary()
-                                .xsmall()
-                                .compact()
-                                .label("OK")
-                                .cursor_pointer()
-                                .on_click(move |_, window, cx| {
-                                    ok.update(cx, |e, cx| e.commit_prompt(window, cx));
-                                }),
-                        ),
-                )
+                .items_center()
+                .justify_center()
+                .bg(theme::veil())
+                .child(card)
                 .into_any_element(),
         )
     }

@@ -7,7 +7,6 @@
 //! What the export contains is decided in [`wyck_chart::export`]; this is only the window on it.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
 use gpui::prelude::*;
 use gpui::{
@@ -29,6 +28,7 @@ use wyck_chart::export::{
     self, ColumnKey, Content, Decimal, Delimiter, Empty, ExportOptions, ExportZone, Format,
     HeaderCase, LineEnding, Order, PREVIEW_ROWS, PriceDigits, Quote, RangeKind, Source, TimeFormat,
 };
+use wyck_config::DocumentStore;
 use wyck_ui::{
     button, controls, form,
     form::Head,
@@ -199,7 +199,8 @@ struct Inputs {
 struct ExportDialog {
     snapshot: Snapshot,
     saved: Saved,
-    dir: Option<PathBuf>,
+    /// Where the presets are kept; `None` when the settings folder could not be found.
+    store: Option<DocumentStore>,
     options: ExportOptions,
     page: Page,
     inputs: Inputs,
@@ -263,8 +264,8 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let dir = crate::config_dir();
-        let saved = dir.as_deref().map(store::read).unwrap_or_default();
+        let store = crate::app_paths().map(DocumentStore::global);
+        let saved = store.as_ref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.
         if !snapshot.display.is_derived() {
@@ -391,7 +392,7 @@ impl ExportDialog {
         let mut dialog = Self {
             snapshot,
             saved,
-            dir,
+            store,
             options,
             page: Page::Data,
             inputs,
@@ -407,8 +408,8 @@ impl ExportDialog {
     /// Keeps the options for the next time the panel opens.
     fn persist(&mut self) {
         self.saved.last = self.options.clone().normalized();
-        if let Some(dir) = &self.dir {
-            let _ = store::write(dir, &self.saved);
+        if let Some(store) = &self.store {
+            let _ = store::write(store, &self.saved);
         }
     }
 

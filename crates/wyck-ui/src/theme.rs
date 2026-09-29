@@ -129,6 +129,20 @@ pub fn set_colors(colors: Colors) {
     *store().write().unwrap_or_else(|e| e.into_inner()) = colors;
 }
 
+fn font_store() -> &'static RwLock<Option<String>> {
+    static FONT: RwLock<Option<String>> = RwLock::new(None);
+    &FONT
+}
+
+/// Sets the font of the interface. `None` or a blank name leaves the system's. The screens read it
+/// on their next paint: refresh the windows (see [`apply`]) to make that now.
+pub fn set_font(name: Option<&str>) {
+    *font_store().write().unwrap_or_else(|e| e.into_inner()) = name
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
+}
+
 /// `color` at the opacity `alpha`.
 fn with_alpha(color: u32, alpha: f32) -> Rgba {
     Rgba {
@@ -398,6 +412,14 @@ pub fn apply(cx: &mut gpui::App) {
     // Components read a second, derived copy of the palette; rebuild it from the edited colors.
     let theme = Theme::global_mut(cx);
     theme.tokens = theme.colors.into();
+    // The root of every window sets its text in the font of the theme.
+    if let Some(name) = font_store()
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+    {
+        theme.font_family = name.into();
+    }
     // Colors are read as they are painted, not through a binding, so no view knows its colors
     // went stale: every window has to paint again, from scratch.
     cx.refresh_windows();

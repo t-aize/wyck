@@ -38,11 +38,11 @@ fn main() {
             gpui_kit::init(cx);
             updates::init(cx);
             // The saved look is in force before a window opens, so the first frame is the right one.
-            match wyck_config::AppPaths::discover() {
-                Ok(paths) => {
+            match app_paths() {
+                Some(paths) => {
                     // An import the user asked for waits for this moment, before anything reads the
                     // documents it replaces.
-                    match backup::apply_pending_reset(paths.config_dir()) {
+                    match backup::apply_pending_reset(paths) {
                         Ok(true) => tracing::info!(
                             "reset the look, layout, charts and every account's data"
                         ),
@@ -50,15 +50,15 @@ fn main() {
                         Err(error) => tracing::warn!(%error, "could not apply the pending reset"),
                     }
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match backup::apply_pending(paths.config_dir(), &stamp) {
+                    match backup::apply_pending(paths, &stamp) {
                         Ok(Some(applied)) => tracing::info!(?applied, "restored a backup"),
                         Ok(None) => {}
                         Err(error) => tracing::warn!(%error, "could not restore the backup"),
                     }
-                    appearance::init(wyck_config::DocumentStore::global(&paths), cx);
-                    indicators::init(Some(&paths), cx);
+                    appearance::init(wyck_config::DocumentStore::global(paths), cx);
+                    indicators::init(Some(paths), cx);
                 }
-                Err(_) => {
+                None => {
                     wyck_ui::theme::apply(cx);
                     indicators::init(None, cx);
                 }
@@ -118,11 +118,13 @@ fn main() {
         });
 }
 
-/// The settings folder, or `None` when the system gives the app none.
-fn config_dir() -> Option<std::path::PathBuf> {
-    wyck_config::AppPaths::discover()
-        .ok()
-        .map(|paths| paths.config_dir().to_path_buf())
+/// The folders of the app, resolved once: `None` when the system gives it none. Everything that
+/// needs a path of the app asks here, so there is one answer for the whole run.
+fn app_paths() -> Option<&'static wyck_config::AppPaths> {
+    static PATHS: std::sync::OnceLock<Option<wyck_config::AppPaths>> = std::sync::OnceLock::new();
+    PATHS
+        .get_or_init(|| wyck_config::AppPaths::discover().ok())
+        .as_ref()
 }
 
 /// Installs a `tracing` subscriber so the events `wyck_config` and `wyck_openapi` emit (and

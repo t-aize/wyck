@@ -8,8 +8,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px, rgb};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::scroll::ScrollableElement as _;
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
@@ -22,8 +21,13 @@ use super::{backup, updates};
 use wyck_chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use wyck_chart::settings::MAX_STUDIES;
 use wyck_ui::{
-    button, confirm, controls, form, form::Head, icon, modal, number, theme, theme::Colors, toast,
-    tokens,
+    button, confirm, controls,
+    font_picker::{FontChosen, FontPicker},
+    form,
+    form::Head,
+    icon, modal, number, theme,
+    theme::Colors,
+    toast, tokens,
 };
 
 mod about;
@@ -115,9 +119,6 @@ const ACCENTS: [u32; 10] = [
     0xa855f7,
 ];
 
-/// How many fonts the list shows at once.
-const FONTS_SHOWN: usize = 60;
-
 /// What a backup step last said.
 struct Notice {
     ok: bool,
@@ -133,12 +134,13 @@ struct SettingsHub {
     editing: Option<String>,
     new_theme: Entity<InputState>,
     rename: Entity<InputState>,
-    font_filter: Entity<InputState>,
     study_limit: Entity<InputState>,
     alert_limit: Entity<InputState>,
     drawing_limit: Entity<InputState>,
-    fonts: Vec<String>,
-    fonts_open: bool,
+    /// The list of fonts, once it was opened.
+    font_picker: Option<Entity<FontPicker>>,
+    font_open: bool,
+    _font_subscription: Option<Subscription>,
     notice: Option<Notice>,
     /// What the backup waiting to be applied holds, once one was chosen.
     waiting: Option<Vec<String>>,
@@ -157,7 +159,6 @@ impl SettingsHub {
         let new_theme =
             cx.new(|cx| InputState::new(window, cx).placeholder("Name of the new theme"));
         let rename = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
-        let font_filter = cx.new(|cx| InputState::new(window, cx).placeholder("Search the fonts"));
         let study_limit = cx.new(|cx| {
             number::state(
                 number::Kind::Count,
@@ -187,9 +188,6 @@ impl SettingsHub {
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
             updates::observe(cx, |_this: &mut Self, cx| cx.notify()),
-            cx.subscribe(&font_filter, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify();
-            }),
             cx.subscribe(&rename, |this, state, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur)
                     && let Some(id) = this.editing.clone()
@@ -210,14 +208,10 @@ impl SettingsHub {
         subscriptions.push(number::watch(&drawing_limit, cx, |this, value, cx| {
             this.set_usage_limit(UsageLimitKind::Drawings, value, cx);
         }));
-        let mut fonts = cx.text_system().all_font_names();
-        fonts.retain(|name| !name.starts_with('.') && !name.starts_with('@'));
-        fonts.sort_by_key(|name| name.to_lowercase());
-        fonts.dedup();
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| crate::config_dir().is_some_and(|dir| backup::pending(&dir)));
+            .filter(|_| crate::app_paths().is_some_and(backup::pending));
         Self {
             workspace,
             multi,
@@ -226,12 +220,12 @@ impl SettingsHub {
             editing: None,
             new_theme,
             rename,
-            font_filter,
             study_limit,
             alert_limit,
             drawing_limit,
-            fonts,
-            fonts_open: false,
+            font_picker: None,
+            font_open: false,
+            _font_subscription: None,
             notice: None,
             waiting,
             _subscriptions: subscriptions,

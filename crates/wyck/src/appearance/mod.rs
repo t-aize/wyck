@@ -13,11 +13,11 @@
 
 pub mod presets;
 
-use std::time::Duration;
-
-use gpui::{App, Global, SharedString, Task};
+use gpui::{App, Global, SharedString};
 use serde::{Deserialize, Serialize};
 use wyck_config::DocumentStore;
+
+use crate::workspace::Saver;
 
 use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
 use wyck_ui::theme::{self, Colors};
@@ -28,9 +28,6 @@ pub const DOCUMENT: &str = "appearance";
 pub const MAX_CUSTOM_THEMES: usize = 30;
 /// The font the app ships with.
 pub const DEFAULT_FONT: &str = "Inter";
-/// How long a change waits for another before it is written.
-const SAVE_DELAY: Duration = Duration::from_millis(400);
-
 /// Which theme is in force.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -435,10 +432,8 @@ impl Appearance {
 struct State {
     appearance: Appearance,
     system_dark: bool,
-    store: Option<DocumentStore>,
-    /// Counts the changes, so a write that waited knows whether a newer change is coming.
-    revision: u64,
-    _save: Option<Task<()>>,
+    /// Writes the look a moment after the last change, and when the app closes.
+    saver: Saver<Appearance>,
 }
 
 impl Global for State {}
@@ -451,10 +446,14 @@ pub fn init(store: DocumentStore, cx: &mut App) {
     cx.set_global(State {
         appearance,
         system_dark,
-        store: Some(store),
-        revision: 0,
-        _save: None,
+        saver: Saver::new(store, DOCUMENT),
     });
+    // A change made in the last moments is written when the app closes.
+    cx.on_app_quit(|cx| {
+        save_now(cx);
+        async {}
+    })
+    .detach();
     put_in_force(cx);
 }
 
@@ -499,10 +498,9 @@ pub fn update(cx: &mut App, change: impl FnOnce(&mut Appearance)) {
     if next == state.appearance {
         return;
     }
+    state.saver.schedule(next.clone());
     state.appearance = next;
-    state.revision += 1;
     put_in_force(cx);
-    schedule_save(cx);
 }
 
 /// The system went from dark to light or back: with the mode on System, the theme follows.
@@ -527,41 +525,24 @@ pub fn refresh_system(cx: &mut App) {
 }
 
 fn put_in_force(cx: &mut App) {
-    let (colors, animations) = {
+    let (colors, animations, font) = {
         let state = cx.global::<State>();
         (
             state.appearance.resolve(state.system_dark),
             state.appearance.animations,
+            state.appearance.font.clone(),
         )
     };
     wyck_ui::anim::set_enabled(animations);
+    theme::set_font(Some(&font));
     theme::set_colors(colors);
     theme::apply(cx);
 }
 
-fn schedule_save(cx: &mut App) {
-    let revision = cx.global::<State>().revision;
-    let task = cx.spawn(async move |cx| {
-        cx.background_executor().timer(SAVE_DELAY).await;
-        cx.update(|cx| {
-            if cx.has_global::<State>() && cx.global::<State>().revision == revision {
-                save_now(cx);
-            }
-        });
-    });
-    cx.global_mut::<State>()._save = Some(task);
-}
-
 /// Writes the settings now, for what is about to read the file (a backup).
 pub fn save_now(cx: &mut App) {
-    let Some(state) = cx.try_global::<State>() else {
-        return;
-    };
-    let Some(store) = state.store.clone() else {
-        return;
-    };
-    if let Err(error) = store.save(DOCUMENT, &state.appearance) {
-        tracing::warn!(%error, "could not save the appearance");
+    if let Some(state) = cx.try_global::<State>() {
+        state.saver.flush();
     }
 }
 

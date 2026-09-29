@@ -7,8 +7,7 @@
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::Sizable;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
 
 use super::Chart;
 use super::study::custom::library::registry;
@@ -1133,7 +1132,7 @@ impl StudyEditor {
         rows.push(form::field(
             "Name",
             Some("Leave empty to use the indicator name"),
-            div().w(px(220.)).child(Input::new(&self.name).small()),
+            wyck_ui::field::text(&self.name),
         ));
         let axis = self.target.clone();
         rows.push(form::field(

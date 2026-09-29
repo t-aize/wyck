@@ -1,4 +1,4 @@
-//! The two blank scripts a new indicator can start from.
+//! The scripts a new indicator can start from: two blank ones and three small working examples.
 
 /// A script to start from.
 #[derive(Debug, Clone, Copy)]
@@ -18,6 +18,21 @@ pub const TEMPLATES: &[Template] = &[
         name: "My oscillator",
         description: "An indicator in a pane of its own, with levels.",
         source: include_str!("starters/blank_pane.rhai"),
+    },
+    Template {
+        name: "Average cross",
+        description: "Two moving averages on the prices, shaded between.",
+        source: include_str!("starters/ma_cross.rhai"),
+    },
+    Template {
+        name: "Price bands",
+        description: "A basis line with an upper and a lower band.",
+        source: include_str!("starters/bands.rhai"),
+    },
+    Template {
+        name: "Momentum",
+        description: "MACD in a pane: two lines and a histogram.",
+        source: include_str!("starters/momentum.rhai"),
     },
 ];
 

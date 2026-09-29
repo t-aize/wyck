@@ -25,6 +25,8 @@ use wyck_chart::drawing::model::{
     DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Point, Tool, wave_label,
 };
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
+use wyck_ui::field::{SliderField, ValueChanged};
+use wyck_ui::font_picker::{FontChosen, FontPicker};
 use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
 
 mod coordinates;
@@ -120,9 +122,9 @@ struct DrawingProps {
     digits: u32,
     swatch: Option<Swatch>,
     /// The opacity of the fill, in percent.
-    opacity: Entity<InputState>,
+    opacity: Entity<SliderField>,
     /// The opacity of the lines, in percent.
-    line_opacity: Entity<InputState>,
+    line_opacity: Entity<SliderField>,
     /// The width of the lines, in pixels, typed for any value the presets do not have.
     width: Entity<InputState>,
     /// The size of a marker, in percent of its usual size.
@@ -133,6 +135,12 @@ struct DrawingProps {
     /// The name a look is about to be saved under.
     template_name: Entity<InputState>,
     text_size: Entity<InputState>,
+    /// The opacity of the tag behind the words, in percent.
+    tag_opacity: Entity<SliderField>,
+    /// The list of fonts of the Text tab, made when it is first opened.
+    font_picker: Option<Entity<FontPicker>>,
+    font_open: bool,
+    _font_subscription: Option<Subscription>,
     text: Entity<TextareaState>,
     /// The number fields of a long or short position, when the drawing is one.
     pos: Option<PositionFields>,
@@ -192,17 +200,21 @@ impl DrawingProps {
         let before = drawings.read(cx).book().drawings(&symbol).to_vec();
         let style = &drawing.style;
         let opacity = cx.new(|cx| {
-            number::state(
+            SliderField::new(
                 number::Kind::Share,
                 f64::from(style.fill_opacity) * 100.0,
+                "%",
                 window,
                 cx,
             )
         });
         let line_opacity = cx.new(|cx| {
-            number::state(
+            SliderField::within(
                 number::Kind::Share,
+                f64::from(MIN_LINE_OPACITY) * 100.0,
+                100.0,
                 f64::from(style.opacity) * 100.0,
+                "%",
                 window,
                 cx,
             )
@@ -211,6 +223,17 @@ impl DrawingProps {
             number::state(number::Kind::Count, f64::from(style.text_size), window, cx)
                 .min(6.0)
                 .max(48.0)
+        });
+        let tag_opacity = cx.new(|cx| {
+            SliderField::within(
+                number::Kind::Share,
+                5.0,
+                100.0,
+                f64::from(style.text_layout.tag_opacity()) * 100.0,
+                "%",
+                window,
+                cx,
+            )
         });
         let width =
             cx.new(|cx| number::state(number::Kind::LineWidth, f64::from(style.width), window, cx));
@@ -251,16 +274,24 @@ impl DrawingProps {
         });
         let mut subscriptions = vec![
             cx.observe(&drawings, |_this, _drawings, cx| cx.notify()),
-            number::watch(&opacity, cx, |this, value, cx| {
+            cx.subscribe(&opacity, |this, _, event: &ValueChanged, cx| {
+                let value = event.0;
                 this.change(cx, |d| d.style.fill_opacity = (value / 100.0) as f32);
             }),
-            number::watch(&line_opacity, cx, |this, value, cx| {
+            cx.subscribe(&line_opacity, |this, _, event: &ValueChanged, cx| {
+                let value = event.0;
                 this.change(cx, |d| {
                     d.style.opacity = (value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0) as f32
                 });
             }),
             number::watch(&text_size, cx, |this, value, cx| {
                 this.change(cx, |d| d.style.text_size = value as f32);
+            }),
+            cx.subscribe(&tag_opacity, |this, _, event: &ValueChanged, cx| {
+                let value = event.0;
+                this.change(cx, |d| {
+                    d.style.text_layout.background_opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                });
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -461,6 +492,10 @@ impl DrawingProps {
             profile_area,
             template_name,
             text_size,
+            tag_opacity,
+            font_picker: None,
+            font_open: false,
+            _font_subscription: None,
             text,
             pos,
             atr_seed,
@@ -526,6 +561,25 @@ impl DrawingProps {
             .book()
             .get(&self.symbol, self.id)
             .cloned()
+    }
+
+    /// What a row's reset button does: puts one part of the look back to the tool's built-in
+    /// value. `restore` copies that part from the built-in style into the drawing's.
+    fn restore(
+        &self,
+        cx: &mut Context<Self>,
+        restore: fn(&mut Drawing, &wyck_chart::drawing::model::Style),
+    ) -> impl Fn(&mut Window, &mut App) + 'static + use<> {
+        let this = cx.entity();
+        move |window, cx| {
+            this.update(cx, |e, cx| {
+                e.change(cx, |d| {
+                    let built_in = d.tool.default_style();
+                    restore(d, &built_in);
+                });
+                e.set_fields(window, cx);
+            });
+        }
     }
 
     fn has_template(&self, cx: &App) -> bool {
@@ -606,13 +660,12 @@ impl DrawingProps {
         let Some(drawing) = self.current(cx) else {
             return;
         };
-        let opacity = number::format(f64::from(drawing.style.fill_opacity) * 100.0, 0);
+        let opacity = f64::from(drawing.style.fill_opacity) * 100.0;
         let size = number::format(f64::from(drawing.style.text_size), 0);
-        let line = number::format(f64::from(drawing.style.opacity) * 100.0, 0);
-        self.opacity
-            .update(cx, |s, cx| s.set_value(opacity, window, cx));
+        let line = f64::from(drawing.style.opacity) * 100.0;
+        self.opacity.update(cx, |s, cx| s.show(opacity, window, cx));
         self.line_opacity
-            .update(cx, |s, cx| s.set_value(line, window, cx));
+            .update(cx, |s, cx| s.show(line, window, cx));
         let numbers = [
             (
                 &self.width,
@@ -636,6 +689,8 @@ impl DrawingProps {
         }
         self.text_size
             .update(cx, |s, cx| s.set_value(size, window, cx));
+        let tag = f64::from(drawing.style.text_layout.tag_opacity()) * 100.0;
+        self.tag_opacity.update(cx, |s, cx| s.show(tag, window, cx));
         if let Some(pos) = &self.pos {
             let p = &drawing.style.position;
             let texts = [

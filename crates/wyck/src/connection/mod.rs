@@ -25,7 +25,7 @@ use gpui::{
     div,
 };
 use secrecy::ExposeSecret;
-use wyck_config::{AppPaths, KeyringSecretStore, ProfileId, WyckConfig};
+use wyck_config::{DocumentStore, ProfileId, Severity, WyckConfig};
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::session::{Session, SessionConfig, TokenStore};
@@ -106,7 +106,10 @@ impl ConnectionFlow {
         let client_id = profile.client_id.clone()?;
         let account_id = profile.account_id?;
 
-        let secret = match self.config.profile_secret(&profile.id, "client-secret") {
+        let secret = match self
+            .config
+            .profile_secret(&profile.id, wyck_config::CLIENT_SECRET)
+        {
             Ok(Some(secret)) => secret,
             Ok(None) => return None,
             Err(error) => {
@@ -114,7 +117,7 @@ impl ConnectionFlow {
                 return None;
             }
         };
-        let tokens = match self.config.openapi_tokens(&profile.id) {
+        let tokens = match self.config.openapi_token_storage(&profile.id).load() {
             Ok(Some(tokens)) => tokens,
             Ok(None) => return None,
             Err(error) => {
@@ -171,8 +174,8 @@ impl ConnectionFlow {
         // the watchlists where they were.
         let scope = rules::document_scope(environment, account_id);
         let documents = Documents {
-            global: self.config.global_documents(),
-            account: self.config.scoped_documents(&scope),
+            global: DocumentStore::global(self.config.paths()),
+            account: DocumentStore::scoped(self.config.paths(), &scope),
         };
         let dashboard =
             cx.new(|cx| Dashboard::new(session, account, initial_symbol, documents, cx));
@@ -301,11 +304,21 @@ impl Render for ConnectionFlow {
     }
 }
 
-/// Loads the on-disk config, falling back to the OS keyring for secret storage. This is the one
-/// place the app decides where its state lives; every screen goes through `self.config` instead
-/// of touching [`wyck_config`] directly.
+/// Loads the on-disk config, with the OS keyring for secret storage. This is the one place the app
+/// decides where its state lives; every screen goes through `self.config` instead of touching
+/// [`wyck_config`] directly. A config that has something to report (a missing secret, a folder
+/// other users can read) says so in the log.
 fn load_config() -> WyckConfig {
-    let paths = AppPaths::discover().expect("could not resolve the app's config directories");
-    WyckConfig::load(paths, Box::new(KeyringSecretStore::default()))
-        .expect("could not load or initialize the app config")
+    let paths = crate::app_paths()
+        .expect("could not resolve the app's config directories")
+        .clone();
+    let config = WyckConfig::builder()
+        .paths(paths)
+        .build()
+        .expect("could not load or initialize the app config");
+    let report = config.diagnose();
+    if report.worst() >= Some(Severity::Warning) {
+        tracing::warn!("the config has something to report:\n{report}");
+    }
+    config
 }

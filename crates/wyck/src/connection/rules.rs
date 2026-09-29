@@ -82,7 +82,6 @@ mod tests {
             id: ProfileId::new_random(),
             display_name: service.to_owned(),
             service: service.to_owned(),
-            endpoint: None,
             client_id: Some("client".into()),
             callback_port: Some(8765),
             account_id: Some(7),

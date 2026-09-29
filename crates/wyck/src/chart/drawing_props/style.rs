@@ -1,6 +1,8 @@
 //! The Style tab of the drawing settings: lines, caps, fill, the measure and profile options, and the saved templates.
 
 use super::*;
+use wyck_ui::field;
+use wyck_ui::form::Row;
 
 impl DrawingProps {
     /// A choice of what ends a line, for `set` to apply.
@@ -31,27 +33,33 @@ impl DrawingProps {
             .iter()
             .position(|w| (w - drawing.style.width).abs() < 0.01);
         let this = cx.entity();
-        form::field(
-            "Width",
-            Some("Pick one, or type any width in pixels"),
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(controls::width_picker(
-                    "props-width",
-                    &widths,
-                    index,
-                    move |choice, window, cx| {
-                        this.update(cx, |e, cx| {
-                            e.change(cx, |d| d.style.width = tool.widths()[choice]);
-                            e.set_fields(window, cx);
-                        });
-                    },
-                ))
-                .child(number::field(&self.width, tokens::field::NARROW)),
-        )
+        let default = tool.default_style().width;
+        Row::new("Width")
+            .hint("Pick one, or type any thickness in pixels")
+            .help("How thick the line is drawn. A thin line is precise, a thick one stands out.")
+            .reset(
+                (drawing.style.width - default).abs() > 0.01,
+                self.restore(cx, |d, built_in| d.style.width = built_in.width),
+            )
+            .control(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .child(controls::width_picker(
+                        "props-width",
+                        &widths,
+                        index,
+                        move |choice, window, cx| {
+                            this.update(cx, |e, cx| {
+                                e.change(cx, |d| d.style.width = tool.widths()[choice]);
+                                e.set_fields(window, cx);
+                            });
+                        },
+                    ))
+                    .child(field::unit(&self.width, "px", tokens::field::NUMBER)),
+            )
     }
 
     /// The caps of a line, for the tools that have some.
@@ -316,17 +324,24 @@ impl DrawingProps {
         let tool = drawing.tool;
         let style = &drawing.style;
         let this = cx.entity();
-        let mut rows: Vec<AnyElement> = vec![form::field(
-            "Color",
-            Some("Opacity in percent"),
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(self.swatch(Swatch::Line, style.color, "props-line-color", cx))
-                .child(number::field(&self.line_opacity, tokens::field::NUMBER)),
-        )];
+        let built_in = tool.default_style();
+        let mut rows: Vec<AnyElement> = vec![
+            Row::new("Color")
+                .hint("The color of the line")
+                .reset(
+                    style.color != built_in.color,
+                    self.restore(cx, |d, built_in| d.style.color = built_in.color),
+                )
+                .control(self.swatch(Swatch::Line, style.color, "props-line-color", cx)),
+            Row::new("Opacity")
+                .hint("How solid the line is")
+                .help("100% is fully visible. Lower it to let the chart show through.")
+                .reset(
+                    (style.opacity - built_in.opacity).abs() > 0.005,
+                    self.restore(cx, |d, built_in| d.style.opacity = built_in.opacity),
+                )
+                .control(self.line_opacity.clone()),
+        ];
         if tool.has_width() {
             rows.push(self.width_row(drawing, cx));
         }
@@ -464,11 +479,17 @@ impl DrawingProps {
                     self.swatch(Swatch::Fill, style.fill_color(), "props-fill-color", cx),
                 ));
             }
-            rows.push(form::field(
-                "Fill opacity",
-                Some("In percent"),
-                number::field(&self.opacity, tokens::field::NUMBER),
-            ));
+            rows.push(
+                Row::new("Fill opacity")
+                    .hint("How solid the colored area is")
+                    .reset(
+                        (style.fill_opacity - tool.default_style().fill_opacity).abs() > 0.005,
+                        self.restore(cx, |d, built_in| {
+                            d.style.fill_opacity = built_in.fill_opacity;
+                        }),
+                    )
+                    .control(self.opacity.clone()),
+            );
             page = page.child(form::group(IconName::PaintBucket, "Background", rows));
         }
         page.child(self.templates_group(drawing, cx))
