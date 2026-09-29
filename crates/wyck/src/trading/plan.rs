@@ -290,6 +290,74 @@ pub fn oco_siblings(filled: &Label, filled_buy: bool, orders: &[(i64, Label, boo
         .collect()
 }
 
+/// An order of the account's recent history that carries a label of the app.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Past {
+    pub label: Label,
+    pub buy: bool,
+    /// The order was filled (an OCO order that only expired or was cancelled proves nothing).
+    pub filled: bool,
+    /// The position the fill opened.
+    pub position: Option<i64>,
+    /// The size of a pip of its symbol.
+    pub pip: f64,
+}
+
+/// What the app must still do after being offline.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Catch {
+    /// Move the stop loss of an open position.
+    Stop { position: i64, stop: f64 },
+    /// Cancel a working order.
+    Cancel { order: i64 },
+}
+
+/// The moves the app missed while it was closed or disconnected, from what is open now and the
+/// recent orders. A leg of a plan that closed in profit moves the stops of its siblings (see
+/// [`break_even_moves`]); a filled OCO order cancels the other side (see [`oco_siblings`]).
+///
+/// `profits` is what each closed position made, after costs. Doing it twice changes nothing: a
+/// stop already at the entry, or an order already gone, gives no move. The one thing it cannot
+/// know is a stop the user loosened by hand after a break-even that had run: it would tighten it
+/// again once, at the next connection.
+pub fn catch_up(
+    past: &[Past],
+    profits: &std::collections::HashMap<i64, f64>,
+    open: &[Open],
+    working: &[(i64, Label, bool)],
+) -> Vec<Catch> {
+    let mut moves: Vec<Catch> = Vec::new();
+    for old in past.iter().filter(|p| p.filled) {
+        if old.label.oco {
+            for order in oco_siblings(&old.label, old.buy, working) {
+                let cancel = Catch::Cancel { order };
+                if !moves.contains(&cancel) {
+                    moves.push(cancel);
+                }
+            }
+        }
+        let Some(position) = old.position else {
+            continue;
+        };
+        // A position still open is not a leg that closed.
+        if open.iter().any(|o| o.position == position) {
+            continue;
+        }
+        let Some(&profit) = profits.get(&position) else {
+            continue;
+        };
+        for (id, stop) in break_even_moves(&old.label, profit, open, old.pip) {
+            let done = moves
+                .iter()
+                .any(|m| matches!(m, Catch::Stop { position, .. } if *position == id));
+            if !done {
+                moves.push(Catch::Stop { position: id, stop });
+            }
+        }
+    }
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -481,5 +549,94 @@ mod tests {
             vec![10, 11]
         );
         assert!(oco_siblings(&label("a", false), true, &working).is_empty());
+    }
+
+    fn past(position: i64, leg: u8, oco: bool, buy: bool, filled: bool) -> Past {
+        Past {
+            label: Label {
+                group: "g".into(),
+                leg,
+                of: 3,
+                break_even: Some((1, 0)),
+                oco,
+            },
+            buy,
+            filled,
+            position: Some(position),
+            pip: 0.0001,
+        }
+    }
+
+    #[test]
+    fn a_break_even_missed_offline_is_caught_up_once() {
+        let open = [
+            open(2, 2, true, 1.1000, Some(1.0950)),
+            open(3, 3, true, 1.1000, Some(1.0950)),
+        ];
+        let history = [past(1, 1, false, true, true)];
+        let profits = std::collections::HashMap::from([(1, 12.0)]);
+        let moves = catch_up(&history, &profits, &open, &[]);
+        assert_eq!(
+            moves,
+            vec![
+                Catch::Stop {
+                    position: 2,
+                    stop: 1.1000
+                },
+                Catch::Stop {
+                    position: 3,
+                    stop: 1.1000
+                },
+            ]
+        );
+        // Once the stops are at the entry, a second pass finds nothing to do.
+        let done = [open_at(2, 2, Some(1.1000)), open_at(3, 3, Some(1.1000))];
+        assert!(catch_up(&history, &profits, &done, &[]).is_empty());
+    }
+
+    fn open_at(position: i64, leg: u8, sl: Option<f64>) -> Open {
+        open(position, leg, true, 1.1000, sl)
+    }
+
+    #[test]
+    fn a_leg_that_lost_or_is_still_open_moves_nothing() {
+        let open = [open_at(2, 2, Some(1.0950))];
+        let history = [past(1, 1, false, true, true)];
+        let loss = std::collections::HashMap::from([(1, -4.0)]);
+        assert!(catch_up(&history, &loss, &open, &[]).is_empty());
+        // No closing deal known for the position: nothing is assumed.
+        assert!(catch_up(&history, &std::collections::HashMap::new(), &open, &[]).is_empty());
+        // The leg is still open (only part of it closed): it is not a leg that closed.
+        let still = [open_at(1, 1, Some(1.0950)), open_at(2, 2, Some(1.0950))];
+        let profit = std::collections::HashMap::from([(1, 9.0)]);
+        assert!(catch_up(&history, &profit, &still, &[]).is_empty());
+        // An order that never filled proves nothing.
+        let unfilled = [past(1, 1, false, true, false)];
+        assert!(catch_up(&unfilled, &profit, &open, &[]).is_empty());
+    }
+
+    #[test]
+    fn an_oco_fill_missed_offline_cancels_the_other_side() {
+        let label = |oco: bool| Label {
+            group: "g".into(),
+            leg: 1,
+            of: 1,
+            break_even: None,
+            oco,
+        };
+        let working = [(10, label(true), false), (11, label(true), true)];
+        let mut filled = past(5, 1, true, true, true);
+        filled.label = label(true);
+        let moves = catch_up(
+            &[filled.clone(), filled],
+            &std::collections::HashMap::new(),
+            &[],
+            &working,
+        );
+        assert_eq!(
+            moves,
+            vec![Catch::Cancel { order: 10 }],
+            "the same order is cancelled once"
+        );
     }
 }

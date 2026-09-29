@@ -596,6 +596,7 @@ impl Account {
                     .await
                     .map(|(deals, _)| deals)
                     .unwrap_or_default();
+                let missed = missed_exits(&account, &positions, &orders, &deals, now).await;
                 let currency = match trader.deposit_asset_id {
                     Some(asset) => account
                         .market()
@@ -611,7 +612,7 @@ impl Account {
                         .unwrap_or_default(),
                     None => String::new(),
                 };
-                Ok::<_, ApiError>((trader, positions, orders, deals, currency))
+                Ok::<_, ApiError>((trader, positions, orders, deals, currency, missed))
             })
             .await;
             let _ = this.update(cx, |this, cx| {
@@ -619,7 +620,7 @@ impl Account {
                     return;
                 }
                 match flatten(loaded) {
-                    Ok((trader, positions, orders, mut deals, currency)) => {
+                    Ok((trader, positions, orders, mut deals, currency, missed)) => {
                         this.book.trader = Some(trader);
                         this.book.currency = currency;
                         this.book.reconcile(positions, orders);
@@ -650,6 +651,7 @@ impl Account {
                         }
                         this.refresh_pnl(cx);
                         this.changed(cx);
+                        this.catch_up(missed, cx);
                         for order in reverse_orders {
                             this.market(order.symbol, order.buy, order.volume, cx);
                         }
@@ -1184,6 +1186,55 @@ impl Account {
         }
     }
 
+    /// Does what a plan asked while the app was closed or cut off (see [`super::plan::catch_up`]),
+    /// and says so once.
+    fn catch_up(&mut self, missed: Vec<super::plan::Catch>, cx: &mut Context<Self>) {
+        use super::plan::Catch;
+        let (mut stops, mut cancels) = (0, 0);
+        for step in missed {
+            match step {
+                Catch::Stop { position, stop } => {
+                    let Some(open) = self.book.positions.get(&position) else {
+                        continue;
+                    };
+                    let take_profit = open.take_profit;
+                    stops += 1;
+                    self.protect_position(position, Some(stop), take_profit, cx);
+                }
+                Catch::Cancel { order } => {
+                    if self.book.orders.contains_key(&order) {
+                        cancels += 1;
+                        self.cancel_order(order, cx);
+                    }
+                }
+            }
+        }
+        if stops + cancels == 0 {
+            return;
+        }
+        let mut parts = Vec::new();
+        if stops > 0 {
+            parts.push(format!(
+                "{stops} stop loss{} moved to the entry",
+                if stops == 1 { "" } else { "es" }
+            ));
+        }
+        if cancels > 0 {
+            parts.push(format!(
+                "{cancels} order{} of an OCO pair cancelled",
+                if cancels == 1 { "" } else { "s" }
+            ));
+        }
+        self.tell(
+            Notice::new(
+                Tone::Info,
+                "Plan caught up",
+                format!("While the app was away: {}.", parts.join(", ")),
+            ),
+            cx,
+        );
+    }
+
     /// Moves the stop loss of a position to its entry price, keeping the take profit.
     pub fn break_even(&mut self, position_id: i64, cx: &mut Context<Self>) {
         let Some(position) = self.book.positions.get(&position_id) else {
@@ -1354,6 +1405,117 @@ impl Account {
             trading.amend_position_sl_tp(request).await
         });
     }
+}
+
+/// What the plans of the account missed while the app was away, read from the broker. It asks
+/// for the recent orders only when something open belongs to a plan with a rule to keep, and
+/// gives nothing when any call fails: the next connection tries again.
+async fn missed_exits(
+    account: &wyck_openapi::AccountClient,
+    positions: &[wyck_openapi::account::Position],
+    orders: &[wyck_openapi::account::Order],
+    deals: &[wyck_openapi::account::Deal],
+    now: i64,
+) -> Vec<super::plan::Catch> {
+    use super::plan::{self, Label, Open, Past};
+    use wyck_openapi::account::OrderStatus;
+    let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
+    let rules = positions
+        .iter()
+        .filter_map(|p| label_of(&p.trade_data.label))
+        .any(|l| l.break_even.is_some())
+        || orders
+            .iter()
+            .filter_map(|o| label_of(&o.trade_data.label))
+            .any(|l| l.oco);
+    if !rules {
+        return Vec::new();
+    }
+    let Ok((history, _)) = account
+        .account_data()
+        .orders(now - HISTORY_DAYS * 86_400_000, now)
+        .await
+    else {
+        return Vec::new();
+    };
+    let mut past: Vec<Past> = history
+        .iter()
+        .filter(|o| o.status() == Some(OrderStatus::Filled))
+        .filter_map(|o| {
+            let label = label_of(&o.trade_data.label)?;
+            (label.oco || label.break_even.is_some()).then(|| Past {
+                label,
+                buy: is_buy(o.trade_data.trade_side),
+                filled: true,
+                position: o.position_id,
+                pip: 0.0,
+            })
+        })
+        .collect();
+    if past.is_empty() {
+        return Vec::new();
+    }
+    let symbols: Vec<i64> = {
+        let mut ids: Vec<i64> = history
+            .iter()
+            .filter(|o| {
+                o.position_id
+                    .is_some_and(|id| past.iter().any(|p| p.position == Some(id)))
+            })
+            .map(|o| o.trade_data.symbol_id)
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    };
+    let Ok(details) = account.market().symbol_details(&symbols).await else {
+        return Vec::new();
+    };
+    let pip_of = |symbol: i64| {
+        details
+            .iter()
+            .find(|s| s.symbol_id == symbol)
+            .map(|s| Contract::from_symbol(s).pip())
+    };
+    for old in &mut past {
+        let symbol = history
+            .iter()
+            .find(|o| o.position_id == old.position && old.position.is_some())
+            .map(|o| o.trade_data.symbol_id);
+        old.pip = symbol.and_then(pip_of).unwrap_or(0.0);
+    }
+    // A pip we could not read would put the offset and the tolerance at zero: leave those out.
+    past.retain(|p| p.pip > 0.0);
+    let mut profits: HashMap<i64, f64> = HashMap::new();
+    for deal in deals {
+        if let Some(profit) = deal.realized_pnl() {
+            *profits.entry(deal.position_id).or_default() += profit;
+        }
+    }
+    let open: Vec<Open> = positions
+        .iter()
+        .filter_map(|p| {
+            Some(Open {
+                position: p.position_id,
+                label: label_of(&p.trade_data.label)?,
+                buy: is_buy(p.trade_data.trade_side),
+                entry: p.price?,
+                stop_loss: p.stop_loss,
+            })
+        })
+        .collect();
+    let working: Vec<(i64, Label, bool)> = orders
+        .iter()
+        .filter(|o| o.status() == Some(OrderStatus::Accepted))
+        .filter_map(|o| {
+            Some((
+                o.order_id,
+                label_of(&o.trade_data.label)?,
+                is_buy(o.trade_data.trade_side),
+            ))
+        })
+        .collect();
+    plan::catch_up(&past, &profits, &open, &working)
 }
 
 #[cfg(test)]
