@@ -26,15 +26,22 @@ pub fn confirm(
     text: impl Into<SharedString>,
     then: impl Fn(&mut Window, &mut App) + 'static,
 ) {
+    let title: SharedString = title.into();
+    let label = title.clone();
     let view = cx.new(|_| Confirm {
-        title: title.into(),
+        title,
         text: text.into(),
         details: Vec::new(),
         warnings: Vec::new(),
         label: "Confirm",
         then: Rc::new(then),
     });
-    modal::open(view, modal::Options::new(WIDTH, HEIGHT), window, cx);
+    modal::open(
+        view,
+        modal::Options::new(WIDTH, HEIGHT).label(label),
+        window,
+        cx,
+    );
 }
 
 /// What a detailed confirmation shows besides its headline.
@@ -65,8 +72,10 @@ pub fn confirm_details(
         Some(badge) => format!("[{badge}] {}", text.into()).into(),
         None => text.into(),
     };
+    let title: SharedString = title.into();
+    let label = title.clone();
     let view = cx.new(|_| Confirm {
-        title: title.into(),
+        title,
         text,
         label: details.label.unwrap_or("Confirm"),
         details: details.rows,
@@ -75,7 +84,7 @@ pub fn confirm_details(
     });
     modal::open(
         view,
-        modal::Options::new(WIDTH, height.min(640.0)),
+        modal::Options::new(WIDTH, height.min(640.0)).label(label),
         window,
         cx,
     );

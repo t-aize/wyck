@@ -61,7 +61,12 @@ pub fn open_at(
     // Opened once whatever asked is done updating.
     window.defer(cx, move |window, cx| {
         let hub = cx.new(|cx| SettingsHub::new(workspace, multi, page, window, cx));
-        modal::open(hub, modal::Options::new(920.0, 700.0), window, cx);
+        modal::open(
+            hub,
+            modal::Options::new(920.0, 700.0).label("Settings"),
+            window,
+            cx,
+        );
     });
 }
 

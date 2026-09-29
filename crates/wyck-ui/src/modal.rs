@@ -9,6 +9,11 @@
 //!
 //! Only one modal is open at a time: opening another replaces the first at once.
 //!
+//! For the keyboard: Tab and Shift+Tab cycle inside the panel and never reach what is behind it
+//! (a focus trap), and on opening the focus moves to the first control of the panel, unless the
+//! panel already took it (a search field, for instance). For a screen reader the panel is a
+//! dialog, with the name the caller gave it in [`Options::label`].
+//!
 //! Every absolute box here is anchored to the corner with `top_0` and `left_0`: without an offset it
 //! would sit where it would have been in the flow, which for the panel is below the veil, off the
 //! window.
@@ -22,9 +27,10 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Entity, FocusHandle, Global,
-    KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Window, actions, div, point, px,
-    relative,
+    KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window, actions,
+    div, point, px, relative,
 };
+use gpui_kit::component::FocusTrapElement as _;
 
 use crate::anim::{self, ease_out_cubic};
 
@@ -49,6 +55,11 @@ const MAX_HEIGHT_SHARE: f32 = 0.92;
 const KEEP_VISIBLE: f32 = 80.0;
 const KEEP_HEADER: f32 = 56.0;
 
+/// How long after opening the first control gets the focus: the panel is drawn by then.
+const FOCUS_AFTER: Duration = Duration::from_millis(60);
+/// The most controls looked at to find the first one inside the panel.
+const MAX_TAB_WALK: usize = 200;
+
 /// What a panel is told when it is dismissed.
 type DismissFn = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -62,6 +73,8 @@ pub struct Options {
     pub on_dismiss: Option<DismissFn>,
     /// Whether a click on the veil dismisses it.
     pub dismiss_on_veil: bool,
+    /// What a screen reader calls the panel.
+    pub label: SharedString,
 }
 
 impl Options {
@@ -71,7 +84,15 @@ impl Options {
             height,
             on_dismiss: None,
             dismiss_on_veil: false,
+            label: "Dialog".into(),
         }
+    }
+
+    /// Names the panel for a screen reader: `Settings`, `Edit alert`.
+    #[must_use]
+    pub fn label(mut self, label: impl Into<SharedString>) -> Self {
+        self.label = label.into();
+        self
     }
 
     #[must_use]
@@ -172,7 +193,45 @@ impl ModalHost {
             previous_focus,
         });
         window.focus(&self.focus, cx);
+        self.focus_first_control(self.next_id, window, cx);
         cx.notify();
+    }
+
+    /// Once the panel has been drawn (its controls are known only then), moves the focus to its
+    /// first control, unless the panel or the user already put it somewhere inside.
+    fn focus_first_control(&self, id: u64, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(FOCUS_AFTER).await;
+            this.update_in(cx, |this, window, cx| {
+                let still_this = this
+                    .shown
+                    .as_ref()
+                    .is_some_and(|s| s.id == id && !s.leaving);
+                // Only when the focus is still on the host itself.
+                if still_this && this.focus.is_focused(window) {
+                    this.focus_into_panel(window, cx);
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Moves the focus to the next control that is inside the panel. Controls behind it are
+    /// skipped; the walk is bounded, so a panel with nothing to focus does no harm.
+    fn focus_into_panel(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let start = window.focused(cx);
+        for _ in 0..MAX_TAB_WALK {
+            window.focus_next(cx);
+            if self.focus.within_focused(window, cx) {
+                return;
+            }
+            if window.focused(cx) == start {
+                break;
+            }
+        }
+        // Nothing to reach: the host keeps the focus, so Escape still works.
+        window.focus(&self.focus, cx);
     }
 
     fn begin_drag(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
@@ -294,7 +353,14 @@ impl Render for ModalHost {
             .max_h(relative(MAX_HEIGHT_SHARE))
             // The panel takes its clicks: the veil behind it must not.
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(shown.view.clone())
+            .child(
+                div()
+                    .id("wyck-modal-dialog")
+                    .role(Role::Dialog)
+                    .aria_label(shown.options.label.clone())
+                    .size_full()
+                    .child(shown.view.clone()),
+            )
             .with_animation(
                 ("modal-panel", phase),
                 Animation::new(duration),
@@ -309,7 +375,6 @@ impl Render for ModalHost {
 
         div()
             .key_context("Modal")
-            .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &CloseModal, window, cx| this.dismiss(window, cx)))
             .absolute()
             .top_0()
@@ -358,6 +423,8 @@ impl Render for ModalHost {
                         .cursor_grabbing(),
                 )
             })
+            // Tab stays inside the panel: it is the one thing that can be operated.
+            .focus_trap("wyck-modal-trap", &self.focus)
             .into_any_element()
     }
 }

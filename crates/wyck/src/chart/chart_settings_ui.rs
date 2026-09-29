@@ -51,7 +51,12 @@ fn open_at(chart: Entity<Chart>, page: Page, window: &mut Window, cx: &mut App) 
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
     window.defer(cx, move |window, cx| {
         let editor = cx.new(|cx| ChartSettingsEditor::new(chart, page, window, cx));
-        modal::open(editor, modal::Options::new(820.0, 640.0), window, cx);
+        modal::open(
+            editor,
+            modal::Options::new(820.0, 640.0).label("Chart settings"),
+            window,
+            cx,
+        );
     });
 }
 

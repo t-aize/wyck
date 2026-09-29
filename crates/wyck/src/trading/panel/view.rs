@@ -7,12 +7,12 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, FontWeight, MouseButton, MouseDownEvent,
-    MouseMoveEvent, SharedString, Window, div, px,
+    MouseMoveEvent, Role, SharedString, Window, div, px,
 };
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
+use gpui_kit::component::{Disableable, ElementExt as _, Selectable, Sizable, StyledExt as _};
 
 use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
@@ -196,6 +196,9 @@ impl AccountPanel {
         div()
             .id(SharedString::from(format!("panel-tab-{tab:?}")))
             .keyboard()
+            .role(Role::Tab)
+            .aria_label(SharedString::from(label.clone()))
+            .aria_selected(chosen)
             .h_full()
             .px_3()
             .flex()
@@ -1140,6 +1143,8 @@ impl AccountPanel {
         let header_this = this.clone();
         let mut header = div()
             .id("panel-header")
+            .role(Role::Row)
+            .aria_row_index(1)
             .flex_none()
             .flex()
             .flex_row()
@@ -1157,9 +1162,18 @@ impl AccountPanel {
             });
         for col in &table.columns {
             let (slot, start_width) = (col.slot, col.width);
+            let sorted = match col.sorted {
+                Some(true) => ", sorted descending",
+                Some(false) => ", sorted ascending",
+                None => "",
+            };
             header = header.child(
                 div()
                     .id(SharedString::from(format!("panel-col-{}", col.slot)))
+                    .keyboard()
+                    .role(Role::ColumnHeader)
+                    .aria_label(SharedString::from(format!("{}{sorted}", col.label)))
+                    .aria_column_index(col.slot + 1)
                     .relative()
                     .w(px(tokens::scaled(col.width)))
                     .flex_none()
@@ -1235,6 +1249,7 @@ impl AccountPanel {
         }
 
         let click_shows = prefs.click_shows_symbol;
+        let current = self.current_index();
         let mut rows: Vec<AnyElement> = Vec::new();
         for (index, row) in table.rows.iter().enumerate() {
             let (mut buttons, _) = self.row_buttons(row);
@@ -1261,8 +1276,18 @@ impl AccountPanel {
             }
             let symbol = row.symbol;
             let active_symbol = symbol.is_some() && symbol == self.symbol;
+            let summary: String = table
+                .columns
+                .iter()
+                .map(|col| format!("{}: {}", col.label, row.cells[col.index].text))
+                .collect::<Vec<_>>()
+                .join(", ");
             let mut el = div()
                 .id(SharedString::from(row.key.clone()))
+                .role(Role::Row)
+                .aria_label(SharedString::from(summary))
+                .aria_row_index(index + 2)
+                .aria_selected(active_symbol)
                 .flex_none()
                 .flex()
                 .flex_row()
@@ -1301,6 +1326,36 @@ impl AccountPanel {
                         .bg(theme::accent()),
                 );
             }
+            // The keyboard: the row is a stop of Tab only when it is the current one, and the
+            // arrows move among the rows.
+            if let Some(handle) = self.row_focus.get(index) {
+                let is_current = index == current;
+                let handle = handle.clone().tab_index(0).tab_stop(is_current);
+                let (key_this, key_menu) = (this.clone(), menu.clone());
+                let (focus_this, focus_key) = (this.clone(), row.key.clone());
+                el = el
+                    .track_focus(&handle)
+                    .focus_visible(|style| {
+                        style
+                            .border_color(theme::accent())
+                            .bg(theme::accent_alpha(0.22))
+                    })
+                    .on_key_down(move |event, window, cx| {
+                        key_this.update(cx, |panel, cx| {
+                            panel.row_key(index, event, &key_menu, window, cx);
+                        });
+                    })
+                    // A click puts the keyboard where the mouse is.
+                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                        focus_this.update(cx, |panel, _| {
+                            panel.current_row = Some(focus_key.clone());
+                        });
+                    });
+                if is_current {
+                    let bounds = self.row_bounds.clone();
+                    el = el.on_prepaint(move |b, _, _| bounds.set(Some(b)));
+                }
+            }
             if click_shows && let Some(symbol) = symbol {
                 el = el
                     .cursor_pointer()
@@ -1312,6 +1367,10 @@ impl AccountPanel {
                 let cell: &Cell = &row.cells[col.index];
                 el = el.child(
                     div()
+                        .id(SharedString::from(format!("{}-c{}", row.key, col.slot)))
+                        .role(Role::Cell)
+                        .aria_label(SharedString::from(cell.text.to_string()))
+                        .aria_column_index(col.slot + 1)
                         .w(px(tokens::scaled(col.width)))
                         .flex_none()
                         .truncate()
@@ -1410,6 +1469,10 @@ impl AccountPanel {
 
         div()
             .id("panel-scroll-x")
+            .role(Role::Table)
+            .aria_label(SharedString::from(format!("{} table", tab.label())))
+            .aria_row_count(table.rows.len() + 1)
+            .aria_column_count(table.columns.len())
             .flex_1()
             .min_h_0()
             .overflow_x_scroll()
@@ -1476,6 +1539,12 @@ impl Render for AccountPanel {
             };
             data::build(&ctx, prefs.tab)
         });
+        // The rows on screen get their focus handles, and the tab that was left forgets its row.
+        let keys: Vec<String> = table
+            .as_ref()
+            .map(|t| t.rows.iter().map(|r| r.key.clone()).collect())
+            .unwrap_or_default();
+        self.set_rows(keys, cx);
 
         let context_items = match (&table, menu.is_open(cx)) {
             (Some(table), true) => self.menu_items(table, cx),
@@ -1573,6 +1642,9 @@ impl Render for AccountPanel {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
+                            .id("panel-tabs")
+                            .role(Role::TabList)
+                            .aria_label("Account panel")
                             .flex_none()
                             .h_full()
                             .flex()

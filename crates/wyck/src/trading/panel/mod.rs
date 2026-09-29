@@ -13,11 +13,15 @@ pub mod columns;
 mod customize;
 mod data;
 mod dialogs;
+mod nav;
 pub mod prefs;
 mod stats;
 mod view;
 
-use gpui::{Context, Entity, EventEmitter, Subscription};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, Subscription};
 use gpui_kit::component::input::InputState;
 
 use super::account::Account;
@@ -76,6 +80,15 @@ pub struct AccountPanel {
     query: String,
     menu_target: Option<MenuTarget>,
     resize: Option<Resize>,
+    /// One focus handle for each row of the table on screen, made as rows appear. Only the current
+    /// row is a stop of the Tab key: the arrows move within the table.
+    row_focus: Vec<FocusHandle>,
+    /// The keys of the rows on screen, as drawn last.
+    row_keys: Vec<String>,
+    /// The row that had the focus last (by its key), the one Tab arrives on.
+    current_row: Option<String>,
+    /// Where the current row is on screen, for a menu the keyboard opens.
+    row_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -101,6 +114,10 @@ impl AccountPanel {
             query: String::new(),
             menu_target: None,
             resize: None,
+            row_focus: Vec::new(),
+            row_keys: Vec::new(),
+            current_row: None,
+            row_bounds: Rc::new(Cell::new(None)),
             _subscriptions: subscriptions,
         }
     }
@@ -144,6 +161,52 @@ impl AccountPanel {
             if self.prefs.only_symbol {
                 cx.notify();
             }
+        }
+    }
+
+    /// Has a focus handle for each of `keys`, and remembers them as the rows on screen.
+    fn set_rows(&mut self, keys: Vec<String>, cx: &mut Context<Self>) {
+        while self.row_focus.len() < keys.len() {
+            self.row_focus.push(cx.focus_handle());
+        }
+        self.row_keys = keys;
+    }
+
+    /// The row of the table that keeps the focus for Tab.
+    fn current_index(&self) -> usize {
+        nav::current(&self.row_keys, self.current_row.as_deref())
+    }
+
+    /// A key pressed on row `index`: the arrows and their kin move the focus, and the menu key
+    /// opens the menu of the row.
+    fn row_key(
+        &mut self,
+        index: usize,
+        event: &gpui::KeyDownEvent,
+        menu: &wyck_ui::menu::Menu,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        let key = event.keystroke.key.as_str();
+        if let Some(step) = nav::step_for(key) {
+            let to = nav::target(index, self.row_keys.len(), step);
+            if let (Some(handle), Some(row)) = (self.row_focus.get(to), self.row_keys.get(to)) {
+                self.current_row = Some(row.clone());
+                window.focus(handle, cx);
+                cx.notify();
+            }
+            cx.stop_propagation();
+        } else if nav::asks_for_menu(key, event.keystroke.modifiers.shift)
+            && let Some(row) = self.row_keys.get(index)
+        {
+            self.menu_target = Some(MenuTarget::Row(row.clone()));
+            // Under the left part of the row, where the eye of a keyboard user is.
+            let at = self
+                .row_bounds
+                .get()
+                .map(|b| gpui::point(b.origin.x + gpui::px(24.0), b.origin.y + b.size.height));
+            menu.open(at, cx);
+            cx.stop_propagation();
         }
     }
 

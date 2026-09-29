@@ -77,7 +77,12 @@ pub fn open_protection(
                 .placeholder("None")
         }),
     });
-    modal::open(editor, modal::Options::new(420.0, 400.0), window, cx);
+    modal::open(
+        editor,
+        modal::Options::new(420.0, 400.0).label("Edit the stop loss and take profit"),
+        window,
+        cx,
+    );
 }
 
 impl ProtectionEditor {
@@ -250,7 +255,12 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
         }),
         draft: alert,
     });
-    modal::open(editor, modal::Options::new(520.0, 680.0), window, cx);
+    modal::open(
+        editor,
+        modal::Options::new(520.0, 680.0).label("Edit the alert"),
+        window,
+        cx,
+    );
 }
 
 impl AlertEditor {

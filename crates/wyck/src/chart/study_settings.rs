@@ -34,7 +34,12 @@ pub fn open(chart: Entity<Chart>, index: usize, window: &mut Window, cx: &mut Ap
             return;
         };
         let editor = cx.new(|cx| StudyEditor::new(chart, index, config, window, cx));
-        modal::open(editor, modal::Options::new(780.0, 600.0), window, cx);
+        modal::open(
+            editor,
+            modal::Options::new(780.0, 600.0).label("Indicator settings"),
+            window,
+            cx,
+        );
     });
 }
 
