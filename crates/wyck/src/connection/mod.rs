@@ -284,9 +284,13 @@ impl Render for ConnectionFlow {
             .font_family(super::appearance::font(cx))
             .child(title_bar::render(window))
             .child(anim::enter(
+                // `min_h_0`: without it this box never gets shorter than what the screen inside
+                // asks for, and a tall bottom panel pushes the dashboard out of the window.
                 div()
                     .flex()
                     .flex_1()
+                    .min_h_0()
+                    .overflow_hidden()
                     .child(self.render_active_screen(window, cx)),
                 ("screen", epoch),
                 0,

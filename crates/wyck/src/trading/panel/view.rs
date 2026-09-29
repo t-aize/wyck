@@ -34,7 +34,7 @@ use wyck_ui::{
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
 /// The width of one button of a row.
-const BUTTON_W: f32 = 24.0;
+const BUTTON_W: f32 = tokens::height::COMPACT;
 
 fn tone_color(tone: Tone) -> gpui::Rgba {
     match tone {
@@ -689,7 +689,6 @@ impl AccountPanel {
                 });
             })
         };
-        let csv = data::to_csv(table);
         let shown = table.rows.len();
         let _ = window;
         div()
@@ -698,13 +697,13 @@ impl AccountPanel {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(32.))
+            .h(px(tokens::height::LARGE))
             .px_3()
             .border_b_1()
             .border_color(theme::border_hairline())
             .children(self.search.as_ref().map(|search| {
                 div()
-                    .w(px(200.))
+                    .w(px(tokens::field::TEXT))
                     .child(Input::new(search).small().cleanable(true))
             }))
             .child(only)
@@ -723,15 +722,6 @@ impl AccountPanel {
                     } else {
                         format!("{shown} of {} rows", table.unfiltered)
                     }),
-            )
-            .child(
-                Button::new("panel-copy-csv")
-                    .cursor_pointer()
-                    .ghost()
-                    .xsmall()
-                    .icon(IconName::Copy)
-                    .tooltip("Copy the table as CSV")
-                    .on_click(move |_, _, cx| copy(cx, "Table copied", csv.clone())),
             )
             .into_any_element()
     }
@@ -993,10 +983,10 @@ impl AccountPanel {
         let height = prefs.density.height();
         let text = prefs.density.text();
         // The width the buttons of the rows take, from the first row that has some.
-        let buttons_w = table
-            .rows
-            .first()
-            .map_or(0.0, |row| self.row_buttons(row).1);
+        let has_more = |row: &Row| matches!(row.kind, RowKind::Position(_) | RowKind::Order { .. });
+        let buttons_w = table.rows.first().map_or(0.0, |row| {
+            self.row_buttons(row).1 + if has_more(row) { BUTTON_W } else { 0.0 }
+        });
         let content_w: f32 =
             table.columns.iter().map(|c| c.width + 8.0).sum::<f32>() + buttons_w + 24.0;
 
@@ -1102,8 +1092,28 @@ impl AccountPanel {
         let click_shows = prefs.click_shows_symbol;
         let mut rows: Vec<AnyElement> = Vec::new();
         for (index, row) in table.rows.iter().enumerate() {
-            let (buttons, _) = self.row_buttons(row);
+            let (mut buttons, _) = self.row_buttons(row);
             let (row_menu, row_this, key) = (menu.clone(), this.clone(), row.key.clone());
+            // What the row has no button for is in its menu, as it is under a right click.
+            if has_more(row) {
+                let (more_menu, more_this, more_key) =
+                    (row_menu.clone(), row_this.clone(), key.clone());
+                buttons.push(
+                    button::icon(
+                        SharedString::from(format!("{key}-more")),
+                        IconName::Ellipsis,
+                        "More",
+                    )
+                    .xsmall()
+                    .on_click(move |event, _, cx| {
+                        more_this.update(cx, |p, _| {
+                            p.menu_target = Some(MenuTarget::Row(more_key.clone()));
+                        });
+                        more_menu.open(Some(event.position()), cx);
+                    })
+                    .into_any_element(),
+                );
+            }
             let symbol = row.symbol;
             let active_symbol = symbol.is_some() && symbol == self.symbol;
             let mut el = div()
@@ -1196,11 +1206,23 @@ impl AccountPanel {
                 }
             };
             div()
+                .flex_1()
                 .py_6()
                 .flex()
+                .flex_col()
+                .items_center()
                 .justify_center()
+                .gap_2()
                 .text_size(px(tokens::text::BODY))
                 .text_color(theme::muted_fg())
+                .child(icon::tinted(
+                    match tab {
+                        Tab::Alerts => IconName::Bell,
+                        _ => IconName::Inbox,
+                    },
+                    20.,
+                    theme::fg_alpha(0.35),
+                ))
                 .child(text)
                 .into_any_element()
         } else {
@@ -1364,6 +1386,7 @@ impl Render for AccountPanel {
             .map(|tab| self.tab_button(tab, count(tab), cx).into_any_element())
             .collect();
         let this = cx.entity();
+        let more_menu = menu.clone();
         let resizing = self.resize.is_some();
         div()
             .relative()
@@ -1394,7 +1417,7 @@ impl Render for AccountPanel {
             .child(
                 div()
                     .flex_none()
-                    .h(px(36.))
+                    .h(px(tokens::height::LARGE))
                     .flex()
                     .flex_row()
                     .items_center()
@@ -1450,24 +1473,25 @@ impl Render for AccountPanel {
                                         cx,
                                     )),
                             )
+                            // One menu for what is about the table: its columns, a copy as CSV,
+                            // and the settings of the panel.
                             .child(
-                                Button::new("panel-customize")
-                                    .cursor_pointer()
-                                    .ghost()
-                                    .xsmall()
-                                    .icon(IconName::SlidersHorizontal)
-                                    .tooltip("Customize the panel")
-                                    .on_click(move |_, window, cx| {
-                                        customize::open(this.clone(), window, cx);
-                                    }),
+                                button::icon(
+                                    "panel-more",
+                                    IconName::Ellipsis,
+                                    "Columns and settings",
+                                )
+                                .xsmall()
+                                .on_click(move |event, _, cx| {
+                                    this.update(cx, |p, _| {
+                                        p.menu_target = Some(MenuTarget::Header)
+                                    });
+                                    more_menu.open(Some(event.position()), cx);
+                                }),
                             )
                             .child(
-                                Button::new("panel-hide")
-                                    .cursor_pointer()
-                                    .ghost()
+                                button::icon("panel-hide", IconName::PanelBottom, "Hide the panel")
                                     .xsmall()
-                                    .icon(IconName::ChevronDown)
-                                    .tooltip("Hide the panel")
                                     .on_click(cx.listener(|_this, _, _, cx| {
                                         cx.emit(PanelEvent::Hide);
                                     })),

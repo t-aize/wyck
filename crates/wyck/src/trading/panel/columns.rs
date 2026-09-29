@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
+use wyck_ui::tokens;
 
 /// A column of a table.
 pub trait Column: Slot + Serialize + for<'de> Deserialize<'de> {
@@ -64,101 +65,108 @@ macro_rules! columns {
     };
 }
 
+// Widths come from the sizes every screen shares, so a column of one table is as wide as the
+// same kind of column of the others.
+const SHORT: f32 = tokens::field::NARROW;
+const NUMBER: f32 = tokens::field::NUMBER;
+const WIDE: f32 = tokens::field::WIDE;
+const TEXT: f32 = tokens::field::TEXT;
+
 columns! {
     /// The columns of the open positions.
     PositionCol {
-        Symbol => ("Symbol", 110., false, true),
-        Side => ("Side", 56., false, true),
-        Lots => ("Lots", 80., true, true),
-        Entry => ("Entry", 92., true, true),
-        Price => ("Price", 92., true, true),
-        StopLoss => ("Stop loss", 92., true, true),
-        TakeProfit => ("Take profit", 92., true, true),
-        SlPips => ("To stop (pips)", 100., true, false),
-        TpPips => ("To target (pips)", 110., true, false),
-        Pips => ("Pips", 72., true, false),
-        Swap => ("Swap", 80., true, true),
-        Commission => ("Commission", 96., true, false),
-        Margin => ("Margin", 96., true, false),
-        Risk => ("Risk at stop", 100., true, false),
-        Profit => ("Profit", 150., true, true),
-        ProfitPercent => ("Profit %", 84., true, false),
-        RMultiple => ("R", 64., true, false),
-        Opened => ("Opened", 140., false, false),
-        Age => ("Open for", 90., true, false),
-        Id => ("Id", 90., true, false),
-        Comment => ("Comment", 140., false, false),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Side => ("Side", SHORT, false, true),
+        Lots => ("Lots", SHORT, true, true),
+        Entry => ("Entry", NUMBER, true, true),
+        Price => ("Price", NUMBER, true, true),
+        StopLoss => ("Stop loss", NUMBER, true, true),
+        TakeProfit => ("Take profit", NUMBER, true, true),
+        SlPips => ("To stop (pips)", NUMBER, true, false),
+        TpPips => ("To target (pips)", NUMBER, true, false),
+        Pips => ("Pips", SHORT, true, false),
+        Swap => ("Swap", SHORT, true, false),
+        Commission => ("Commission", NUMBER, true, false),
+        Margin => ("Margin", NUMBER, true, false),
+        Risk => ("Risk at stop", NUMBER, true, false),
+        Profit => ("Profit", WIDE, true, true),
+        ProfitPercent => ("Profit %", SHORT, true, false),
+        RMultiple => ("R", SHORT, true, false),
+        Opened => ("Opened", WIDE, false, false),
+        Age => ("Open for", SHORT, true, false),
+        Id => ("Id", SHORT, true, false),
+        Comment => ("Comment", TEXT, false, false),
     }
 }
 
 columns! {
     /// The columns of the working orders.
     OrderCol {
-        Symbol => ("Symbol", 110., false, true),
-        Side => ("Side", 56., false, true),
-        Kind => ("Type", 100., false, true),
-        Lots => ("Lots", 80., true, true),
-        Price => ("Price", 92., true, true),
-        Distance => ("Distance", 92., true, true),
-        StopLoss => ("Stop loss", 92., true, true),
-        TakeProfit => ("Take profit", 92., true, true),
-        Expires => ("Expires", 140., false, false),
-        Created => ("Placed", 140., false, false),
-        Id => ("Id", 90., true, false),
-        Comment => ("Comment", 140., false, false),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Side => ("Side", SHORT, false, true),
+        Kind => ("Type", NUMBER, false, true),
+        Lots => ("Lots", SHORT, true, true),
+        Price => ("Price", NUMBER, true, true),
+        Distance => ("Distance", NUMBER, true, true),
+        StopLoss => ("Stop loss", NUMBER, true, true),
+        TakeProfit => ("Take profit", NUMBER, true, true),
+        Expires => ("Expires", WIDE, false, false),
+        Created => ("Placed", WIDE, false, false),
+        Id => ("Id", SHORT, true, false),
+        Comment => ("Comment", TEXT, false, false),
     }
 }
 
 columns! {
     /// The columns of the recent deals.
     DealCol {
-        Time => ("Time", 150., false, true),
-        Symbol => ("Symbol", 110., false, true),
-        Side => ("Side", 56., false, true),
-        Kind => ("Kind", 64., false, false),
-        Lots => ("Lots", 80., true, true),
-        Entry => ("Entry", 92., true, false),
-        Price => ("Price", 92., true, true),
-        Pips => ("Pips", 72., true, false),
-        Commission => ("Commission", 96., true, true),
-        Swap => ("Swap", 80., true, false),
-        Gross => ("Gross", 96., true, false),
-        Profit => ("Profit", 150., true, true),
-        Balance => ("Balance", 110., true, false),
-        Id => ("Deal", 90., true, false),
-        Order => ("Order", 90., true, false),
-        Position => ("Position", 90., true, false),
+        Time => ("Time", WIDE, false, true),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Side => ("Side", SHORT, false, true),
+        Kind => ("Kind", SHORT, false, false),
+        Lots => ("Lots", SHORT, true, true),
+        Entry => ("Entry", NUMBER, true, false),
+        Price => ("Price", NUMBER, true, true),
+        Pips => ("Pips", SHORT, true, false),
+        Commission => ("Commission", NUMBER, true, true),
+        Swap => ("Swap", SHORT, true, false),
+        Gross => ("Gross", NUMBER, true, false),
+        Profit => ("Profit", WIDE, true, true),
+        Balance => ("Balance", NUMBER, true, false),
+        Id => ("Deal", SHORT, true, false),
+        Order => ("Order", SHORT, true, false),
+        Position => ("Position", SHORT, true, false),
     }
 }
 
 columns! {
     /// The columns of the exposure by symbol.
     ExposureCol {
-        Symbol => ("Symbol", 110., false, true),
-        Net => ("Net lots", 90., true, true),
-        Long => ("Long", 80., true, true),
-        Short => ("Short", 80., true, true),
-        Positions => ("Positions", 84., true, true),
-        Orders => ("Orders", 70., true, false),
-        Entry => ("Average entry", 110., true, true),
-        Price => ("Price", 92., true, false),
-        Margin => ("Margin", 96., true, false),
-        Profit => ("Profit", 130., true, true),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Net => ("Net lots", SHORT, true, true),
+        Long => ("Long", SHORT, true, true),
+        Short => ("Short", SHORT, true, true),
+        Positions => ("Positions", SHORT, true, true),
+        Orders => ("Orders", SHORT, true, false),
+        Entry => ("Average entry", NUMBER, true, true),
+        Price => ("Price", NUMBER, true, false),
+        Margin => ("Margin", NUMBER, true, false),
+        Profit => ("Profit", WIDE, true, true),
     }
 }
 
 columns! {
     /// The columns of the price alerts.
     AlertCol {
-        Symbol => ("Symbol", 110., false, true),
-        Condition => ("Condition", 130., false, true),
-        Price => ("Price", 92., true, true),
-        Distance => ("Distance", 100., true, false),
-        State => ("State", 140., false, true),
-        Message => ("Message", 220., false, true),
-        Repeats => ("Repeats", 80., false, false),
-        Created => ("Created", 140., false, false),
-        Fired => ("Last fired", 140., false, false),
+        Symbol => ("Symbol", NUMBER, false, true),
+        Condition => ("Condition", WIDE, false, true),
+        Price => ("Price", NUMBER, true, true),
+        Distance => ("Distance", NUMBER, true, false),
+        State => ("State", WIDE, false, true),
+        Message => ("Message", TEXT, false, true),
+        Repeats => ("Repeats", SHORT, false, false),
+        Created => ("Created", WIDE, false, false),
+        Fired => ("Last fired", WIDE, false, false),
     }
 }
 

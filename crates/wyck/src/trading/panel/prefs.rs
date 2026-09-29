@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::columns::{AlertCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs};
 use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
+use wyck_ui::tokens;
 
 /// A tab of the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -79,7 +80,10 @@ impl Slot for Stat {
     }
 
     fn shown_by_default(self) -> bool {
-        self != Self::ProfitPercent
+        matches!(
+            self,
+            Self::Balance | Self::Equity | Self::FreeMargin | Self::Profit
+        )
     }
 }
 
@@ -123,7 +127,7 @@ impl Slot for RowAction {
     }
 
     fn shown_by_default(self) -> bool {
-        matches!(self, Self::Edit | Self::Reverse | Self::Close)
+        matches!(self, Self::Edit | Self::Close)
     }
 }
 
@@ -151,17 +155,17 @@ impl RowDensity {
     /// The height of a row, in pixels.
     pub fn height(self) -> f32 {
         match self {
-            Self::Compact => 24.0,
-            Self::Comfortable => 30.0,
-            Self::Roomy => 38.0,
+            Self::Compact => tokens::height::COMPACT,
+            Self::Comfortable => tokens::height::CONTROL,
+            Self::Roomy => tokens::height::LARGE,
         }
     }
 
     /// The size of the text, in pixels.
     pub fn text(self) -> f32 {
         match self {
-            Self::Compact => 11.0,
-            Self::Comfortable | Self::Roomy => 12.0,
+            Self::Compact => tokens::text::SMALL,
+            Self::Comfortable | Self::Roomy => tokens::text::BODY,
         }
     }
 }

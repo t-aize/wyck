@@ -1049,6 +1049,7 @@ impl Render for Dashboard {
         .flex()
         .flex_col()
         .flex_1()
+        .min_h_0()
         .w_full()
         .h_full()
         .bg(theme::bg())

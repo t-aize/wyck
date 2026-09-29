@@ -44,6 +44,10 @@ pub(super) enum Pending {
 /// The least height of the account panel.
 const PANEL_MIN: f32 = 120.0;
 
+/// What the charts keep when the panel grows, and what the bars above them take.
+const CHARTS_MIN: f32 = 240.0;
+const BARS: f32 = 96.0;
+
 impl Dashboard {
     /// Creates the ticket (which needs the window) and runs what waited for it.
     pub(super) fn trading_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -505,7 +509,7 @@ impl Dashboard {
                 div()
                     .relative()
                     .flex_none()
-                    .h(px(self.panel_height))
+                    .h(px(self.panel_height_now()))
                     .flex()
                     .flex_col()
                     .child(
@@ -567,6 +571,16 @@ impl Dashboard {
         }
     }
 
+    /// The tallest the panel can be in this window: the charts keep their least height.
+    fn panel_room(&self) -> f32 {
+        (self.viewport_height - BARS - CHARTS_MIN).clamp(PANEL_MIN, 900.0)
+    }
+
+    /// The height the panel has now: the one the user chose, or less in a short window.
+    fn panel_height_now(&self) -> f32 {
+        self.panel_height.clamp(PANEL_MIN, self.panel_room())
+    }
+
     fn drag_panel(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
         let Some(last) = self.panel_drag else { return };
         if event.pressed_button != Some(MouseButton::Left) {
@@ -574,7 +588,9 @@ impl Dashboard {
             return;
         }
         let y = f32::from(event.position.y);
-        self.panel_height = (self.panel_height - (y - last)).clamp(PANEL_MIN, 900.0);
+        // Start from the height shown, so a panel held down by a short window follows the pointer.
+        let room = self.panel_room();
+        self.panel_height = (self.panel_height_now() - (y - last)).clamp(PANEL_MIN, room);
         self.panel_drag = Some(y);
         cx.notify();
     }
