@@ -61,6 +61,8 @@ gpui::actions!(
         PickerPageDown,
         PickerConfirm,
         ToggleIndicatorEditor,
+        CloseAllPositions,
+        ToggleKillSwitch,
     ]
 );
 
@@ -74,6 +76,8 @@ pub fn init(cx: &mut App) {
             ToggleIndicatorEditor,
             Some("Dashboard"),
         ),
+        KeyBinding::new("secondary-shift-x", CloseAllPositions, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-k", ToggleKillSwitch, Some("Dashboard")),
         KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
         KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
         KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
@@ -237,11 +241,16 @@ impl Dashboard {
             cx,
         );
         // The header shows the favorite timeframes, so it follows the workspace.
-        cx.observe(&workspace, |_this, _workspace, cx| cx.notify())
-            .detach();
+        cx.observe(&workspace, |this, _workspace, cx| {
+            this.sync_risk(cx);
+            cx.notify();
+        })
+        .detach();
         let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
         let hub = Rc::new(LiveHub::new(session.clone()));
         let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
+        let is_live = account.is_live;
+        trading.update(cx, |trading, _| trading.set_live(is_live));
         let alerts = cx.new(|cx| Alerts::new(documents.account.clone(), hub.clone(), cx));
         let panel_prefs = workspace.read(cx).preferences().account_panel.clone();
         let panel =
@@ -905,6 +914,12 @@ impl Render for Dashboard {
         }))
         .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
             this.toggle_editor(cx);
+        }))
+        .on_action(cx.listener(|this, _: &CloseAllPositions, window, cx| {
+            this.ask_close_all(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleKillSwitch, _window, cx| {
+            this.toggle_kill_switch(cx);
         }))
         .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
             this.open_picker(window, cx);

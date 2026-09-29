@@ -10,7 +10,7 @@
 //! the non-idempotency notes of [`wyck_openapi::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -22,7 +22,10 @@ use wyck_openapi::session::Session;
 use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
 use wyck_openapi::{Error as ApiError, Event, Result as ApiResult};
 
-use super::book::{AccountBook, Notice, Tone, describe, is_buy, refusal};
+use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
+use super::guard::{
+    self, DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
+};
 use super::math::{self, Contract, Link, Summary};
 use crate::chart::LiveHub;
 use crate::chart::live::{ACCOUNT_OWNER, Wish};
@@ -35,6 +38,9 @@ const HISTORY_DAYS: i64 = 7;
 const PNL_EVERY: Duration = Duration::from_secs(2);
 const REVERSE_RECHECK: Duration = Duration::from_secs(10);
 const REVERSE_FINAL_WAIT: Duration = Duration::from_secs(20);
+/// How long a trading call may stay unanswered before the account says it cannot tell whether it
+/// went through.
+const CALL_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Status {
@@ -153,6 +159,21 @@ pub struct Account {
     quotes: HashMap<i64, (Option<i64>, Option<i64>)>,
     pub status: Status,
     busy: HashSet<Busy>,
+    /// The call in flight for each kind of busy, so a late answer is not taken for a newer one.
+    calls: HashMap<Busy, u64>,
+    call_seq: u64,
+    /// A call got no answer in time: what the server did with it is not known until the account
+    /// is read again.
+    uncertain: bool,
+    live: bool,
+    /// Orders of a plan waiting for the one before them to be answered.
+    queue: VecDeque<NewOrderReq>,
+    /// The limits that keep the account safe, and the zone the day is counted in.
+    risk: RiskPrefs,
+    zone: wyck_chart::Zone,
+    duplicates: DuplicateGuard,
+    /// Orders sent by this app today, as (day, count).
+    sent_today: (i64, u32),
     reversals: ReverseTracker,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
@@ -172,6 +193,20 @@ enum Conversion {
     /// Through these symbols, at their live prices.
     Chain(Vec<Link>),
     Failed,
+}
+
+/// What makes an order the same as another one sent again.
+fn fingerprint(order: &NewOrderReq) -> Fingerprint {
+    Fingerprint {
+        symbol: order.symbol_id,
+        buy: order.trade_side == TradeSide::Buy.number(),
+        volume: order.volume,
+        kind: i64::from(order.order_type),
+        price: order
+            .limit_price
+            .or(order.stop_price)
+            .map_or(0, |p| (p * PRICE_SCALE as f64).round() as i64),
+    }
 }
 
 fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
@@ -200,6 +235,15 @@ impl Account {
             quotes: HashMap::new(),
             status: Status::Loading,
             busy: HashSet::new(),
+            calls: HashMap::new(),
+            call_seq: 0,
+            uncertain: false,
+            live: false,
+            queue: VecDeque::new(),
+            risk: RiskPrefs::default(),
+            zone: wyck_chart::Zone::default(),
+            duplicates: DuplicateGuard::default(),
+            sent_today: (0, 0),
             reversals: ReverseTracker::default(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
@@ -216,6 +260,108 @@ impl Account {
     pub fn is_busy(&self, what: Busy) -> bool {
         self.busy.contains(&what)
             || matches!(what, Busy::Closing(id) if self.reversals.0.contains_key(&id))
+    }
+
+    /// Whether this is a live account (real money) rather than a demo one.
+    pub fn is_live(&self) -> bool {
+        self.live
+    }
+
+    pub fn set_live(&mut self, live: bool) {
+        self.live = live;
+    }
+
+    /// Whether a call got no answer in time and the account has not been read again since.
+    pub fn is_uncertain(&self) -> bool {
+        self.uncertain
+    }
+
+    pub fn risk(&self) -> &RiskPrefs {
+        &self.risk
+    }
+
+    /// Sets the safety limits and the zone the day is counted in.
+    pub fn set_risk(&mut self, risk: RiskPrefs, zone: wyck_chart::Zone, cx: &mut Context<Self>) {
+        if self.risk != risk || self.zone != zone {
+            self.risk = risk;
+            self.zone = zone;
+            cx.notify();
+        }
+    }
+
+    /// Where the account stands today: what the day made or lost, the orders sent, the last loss.
+    pub fn standing(&self) -> Standing {
+        let now = crate::chart::now_ms();
+        let today = self.zone.day(now);
+        let (mut realized, mut opened) = (0.0, 0u32);
+        let mut last_loss: Option<i64> = None;
+        for deal in &self.book.deals {
+            let pnl = deal.realized_pnl();
+            if pnl.is_some_and(|p| p < 0.0) {
+                last_loss = last_loss.max(Some(deal.execution_timestamp));
+            }
+            if self.zone.day(deal.execution_timestamp) != today {
+                continue;
+            }
+            match pnl {
+                Some(p) => realized += p,
+                None => opened += 1,
+            }
+        }
+        let summary = self.summary();
+        let sent = if self.sent_today.0 == today {
+            self.sent_today.1
+        } else {
+            0
+        };
+        Standing {
+            open_positions: self.book.positions.len(),
+            trades_today: opened.max(sent),
+            day_pnl: realized + summary.unrealized,
+            day_start_balance: summary.balance - realized,
+            last_loss_at: last_loss,
+            now,
+        }
+    }
+
+    /// What stops new orders now, if anything.
+    pub fn lock(&self) -> Option<Lock> {
+        guard::lock(&self.risk, &self.standing())
+    }
+
+    /// Writes an amount in the account's money.
+    pub fn money(&self, amount: f64) -> String {
+        math::format_money(amount, &self.book.currency)
+    }
+
+    /// What the safety checks say about a new order.
+    pub fn assess(&self, order: &NewOrderReq, one_click: bool) -> Verdict {
+        let contract = self.book.contract(order.symbol_id);
+        let (bid, ask) = self.quote(order.symbol_id);
+        let mid = math::mid(bid, ask);
+        let symbol_lots: f64 = self
+            .book
+            .positions
+            .values()
+            .filter(|p| p.trade_data.symbol_id == order.symbol_id)
+            .map(|p| contract.lots_of_volume(p.trade_data.volume))
+            .sum();
+        let away_pct = order
+            .limit_price
+            .or(order.stop_price)
+            .zip(mid)
+            .filter(|(_, mid)| *mid > 0.0)
+            .map(|(price, mid)| (price - mid).abs() / mid * 100.0);
+        let facts = OrderFacts {
+            lots: contract.lots_of_volume(order.volume),
+            symbol_lots,
+            has_stop: order.stop_loss.is_some() || order.relative_stop_loss.is_some(),
+            away_pct,
+            spread_pips: bid.zip(ask).map(|(b, a)| contract.pips(a - b)),
+            one_click,
+            reduces: false,
+        };
+        guard::check(&self.risk, &self.standing(), &facts, &|m| self.money(m))
     }
 
     /// The real bid and ask of a symbol.
@@ -361,10 +507,31 @@ impl Account {
             Tone::Error => toast::Kind::Error,
             _ => toast::Kind::Info,
         };
-        toast::Toast::new(kind, notice.title, notice.message)
+        let has_actions = !notice.actions.is_empty();
+        let mut toast = toast::Toast::new(kind, notice.title, notice.message)
             .hint_opt(notice.hint)
-            .details_opt(notice.details)
-            .show(cx);
+            .details_opt(notice.details);
+        let account = cx.entity();
+        for action in notice.actions {
+            let account = account.clone();
+            toast = match action {
+                NoticeAction::ClosePosition(id) => toast.action("Close position", move |_, cx| {
+                    account.update(cx, |a, cx| a.close_position(id, None, cx));
+                }),
+                NoticeAction::BreakEven(id) => toast.action("Stop to entry", move |_, cx| {
+                    account.update(cx, |a, cx| a.break_even(id, cx));
+                }),
+                NoticeAction::CancelOrder(id) => toast.action("Cancel order", move |_, cx| {
+                    account.update(cx, |a, cx| a.cancel_order(id, cx));
+                }),
+                _ => toast,
+            };
+        }
+        // A fill with buttons goes away by itself: the panel keeps the same buttons.
+        if has_actions && notice.tone == Tone::Success {
+            toast = toast.sticky(false);
+        }
+        toast.show(cx);
     }
 
     fn watch_reverse(&mut self, position_id: i64, started: Instant, cx: &mut Context<Self>) {
@@ -470,6 +637,8 @@ impl Account {
                         deals.sort_by_key(|d| std::cmp::Reverse(d.execution_timestamp));
                         this.book.deals = deals;
                         this.status = Status::Ready;
+                        // The account was read again: whatever a silent call did is in it now.
+                        this.uncertain = false;
                         for symbol in this.book.symbols() {
                             this.ensure_contract(symbol, cx);
                         }
@@ -617,6 +786,7 @@ impl Account {
                     );
                 }
                 let applied = self.book.apply(execution);
+                self.manage(execution, cx);
                 let reverse_order = if execution.kind() == Some(ExecutionType::OrderFilled) {
                     execution.position.as_ref().and_then(|position| {
                         (position.status() == Some(PositionStatus::Closed))
@@ -697,7 +867,38 @@ impl Account {
         if !self.busy.insert(busy) {
             return;
         }
+        self.call_seq += 1;
+        let seq = self.call_seq;
+        self.calls.insert(busy, seq);
         cx.notify();
+        // No answer in time: the button is free again, but the account cannot tell what became of
+        // the call, so it says so and reads the account.
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(CALL_TIMEOUT).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.calls.get(&busy) == Some(&seq) {
+                    this.calls.remove(&busy);
+                    this.busy.remove(&busy);
+                    this.uncertain = true;
+                    this.queue.clear();
+                    this.tell(
+                        Notice::new(
+                            Tone::Warning,
+                            "No answer from the server",
+                            "The request may or may not have gone through. Do not send it again yet.",
+                        )
+                        .hint(Some(
+                            "Check the positions and orders of the account, then try again if it is not there."
+                                .to_owned(),
+                        )),
+                        cx,
+                    );
+                    this.on_ready(cx);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
         let session = self.session.clone();
         cx.spawn(async move |this, cx| {
             let result = runtime::spawn(async move {
@@ -706,7 +907,11 @@ impl Account {
             })
             .await;
             let _ = this.update(cx, |this, cx| {
-                this.busy.remove(&busy);
+                // A call that was given up on has nothing to release: a newer one may hold it.
+                if this.calls.get(&busy) == Some(&seq) {
+                    this.calls.remove(&busy);
+                    this.busy.remove(&busy);
+                }
                 match flatten(result) {
                     // The first execution event answers the request and goes only to it; the
                     // ones after it (a fill after the acceptance) come on the event stream.
@@ -728,10 +933,16 @@ impl Account {
                         {
                             this.watch_reverse(id, pending.started, cx);
                         }
+                        if busy == Busy::Placing {
+                            this.send_next(cx);
+                        }
                     }
                     Err(error) => {
                         if let Busy::Closing(id) = busy {
                             this.reversals.0.remove(&id);
+                        }
+                        if busy == Busy::Placing {
+                            this.drop_queue(cx);
                         }
                         let reason = describe(&error);
                         let title = match busy {
@@ -756,8 +967,15 @@ impl Account {
     }
 
     /// Sends a new order.
-    pub fn place(&mut self, mut order: NewOrderReq, cx: &mut Context<Self>) {
-        order.label = Some("wyck".into());
+    pub fn place(&mut self, order: NewOrderReq, cx: &mut Context<Self>) {
+        self.place_with(order, false, cx);
+    }
+
+    /// Sends a new order. `one_click` says it was sent without a confirmation, which the safety
+    /// limits treat more strictly. The order is refused when a hard limit says so, and dropped
+    /// when it repeats the one just sent.
+    pub fn place_with(&mut self, mut order: NewOrderReq, one_click: bool, cx: &mut Context<Self>) {
+        order.label.get_or_insert_with(|| "wyck".into());
         if let Err(error) = order.validate() {
             self.tell(
                 Notice::new(Tone::Error, "The order is not complete", error.to_string()),
@@ -765,9 +983,215 @@ impl Account {
             );
             return;
         }
+        if let Verdict::Block(reason) = self.assess(&order, one_click) {
+            self.tell(
+                Notice::new(Tone::Warning, "Blocked by your safety settings", reason)
+                    .hint(Some("Change the limits in Settings, Safety.".to_owned())),
+                cx,
+            );
+            return;
+        }
+        let now = crate::chart::now_ms();
+        let fingerprint = fingerprint(&order);
+        if self.busy.contains(&Busy::Placing) || self.duplicates.is_repeat(fingerprint, now) {
+            self.tell(
+                Notice::new(
+                    Tone::Info,
+                    "Order not sent again",
+                    "The same order was sent a moment ago.",
+                ),
+                cx,
+            );
+            return;
+        }
+        let today = self.zone.day(now);
+        if self.sent_today.0 != today {
+            self.sent_today = (today, 0);
+        }
+        self.sent_today.1 += 1;
         self.trade(Busy::Placing, cx, move |trading| async move {
             trading.new_order(order).await
         });
+    }
+
+    /// What the safety checks say about the orders of a plan together: the side that sends the
+    /// most is checked with its volumes added up (an OCO pair fills on one side only).
+    pub fn assess_batch(&self, orders: &[NewOrderReq], one_click: bool) -> Verdict {
+        let mut totals: Vec<(i32, i64, usize)> = Vec::new();
+        for (index, order) in orders.iter().enumerate() {
+            match totals
+                .iter_mut()
+                .find(|(side, _, _)| *side == order.trade_side)
+            {
+                Some(entry) => entry.1 += order.volume,
+                None => totals.push((order.trade_side, order.volume, index)),
+            }
+        }
+        let Some(&(_, volume, first)) = totals.iter().max_by_key(|(_, volume, _)| *volume) else {
+            return Verdict::Ok;
+        };
+        let mut probe = orders[first].clone();
+        probe.volume = volume;
+        self.assess(&probe, one_click)
+    }
+
+    /// Sends the orders of a plan one after the other, each once the one before it was answered.
+    /// They are checked and counted as one order. If one fails, the ones after it are not sent.
+    pub fn place_batch(
+        &mut self,
+        orders: Vec<NewOrderReq>,
+        one_click: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if orders.len() <= 1 {
+            if let Some(order) = orders.into_iter().next() {
+                self.place_with(order, one_click, cx);
+            }
+            return;
+        }
+        for order in &orders {
+            if let Err(error) = order.validate() {
+                self.tell(
+                    Notice::new(Tone::Error, "The order is not complete", error.to_string()),
+                    cx,
+                );
+                return;
+            }
+        }
+        if let Verdict::Block(reason) = self.assess_batch(&orders, one_click) {
+            self.tell(
+                Notice::new(Tone::Warning, "Blocked by your safety settings", reason)
+                    .hint(Some("Change the limits in Settings, Safety.".to_owned())),
+                cx,
+            );
+            return;
+        }
+        let now = crate::chart::now_ms();
+        if self.busy.contains(&Busy::Placing)
+            || !self.queue.is_empty()
+            || self.duplicates.is_repeat(fingerprint(&orders[0]), now)
+        {
+            self.tell(
+                Notice::new(
+                    Tone::Info,
+                    "Order not sent again",
+                    "The same order was sent a moment ago.",
+                ),
+                cx,
+            );
+            return;
+        }
+        let today = self.zone.day(now);
+        if self.sent_today.0 != today {
+            self.sent_today = (today, 0);
+        }
+        self.sent_today.1 += 1;
+        for mut order in orders {
+            order.label.get_or_insert_with(|| "wyck".into());
+            self.queue.push_back(order);
+        }
+        self.send_next(cx);
+    }
+
+    /// Sends the next order of a plan, when none is in flight.
+    fn send_next(&mut self, cx: &mut Context<Self>) {
+        if self.busy.contains(&Busy::Placing) {
+            return;
+        }
+        if let Some(order) = self.queue.pop_front() {
+            self.trade(Busy::Placing, cx, move |trading| async move {
+                trading.new_order(order).await
+            });
+        }
+    }
+
+    /// Drops the orders of a plan that were waiting, and says so.
+    fn drop_queue(&mut self, cx: &mut Context<Self>) {
+        let left = self.queue.len();
+        self.queue.clear();
+        if left > 0 {
+            self.tell(
+                Notice::new(
+                    Tone::Warning,
+                    "The rest of the plan was not sent",
+                    format!("{left} order(s) of the plan were left out."),
+                )
+                .hint(Some(
+                    "Check what is open before sending it again.".to_owned(),
+                )),
+                cx,
+            );
+        }
+    }
+
+    /// What the app adds to the orders of a plan (see [`super::plan`]): an OCO pair whose one
+    /// side filled loses the other, and a leg that closed in profit moves the stops of the legs
+    /// left to their entry.
+    fn manage(
+        &mut self,
+        execution: &wyck_openapi::trading::ExecutionEvent,
+        cx: &mut Context<Self>,
+    ) {
+        use super::plan::{self, Label, Open};
+        if execution.kind() != Some(ExecutionType::OrderFilled) {
+            return;
+        }
+        if let Some(order) = &execution.order
+            && let Some(label) = order.trade_data.label.as_deref().and_then(Label::decode)
+            && label.oco
+        {
+            let buy = is_buy(order.trade_data.trade_side);
+            let working: Vec<(i64, Label, bool)> = self
+                .book
+                .orders
+                .values()
+                .filter_map(|o| {
+                    Some((
+                        o.order_id,
+                        Label::decode(o.trade_data.label.as_deref()?)?,
+                        is_buy(o.trade_data.trade_side),
+                    ))
+                })
+                .collect();
+            for id in plan::oco_siblings(&label, buy, &working) {
+                self.cancel_order(id, cx);
+            }
+        }
+        if let (Some(position), Some(deal)) = (&execution.position, &execution.deal)
+            && position.status() == Some(PositionStatus::Closed)
+            && let Some(profit) = deal.realized_pnl()
+            && let Some(label) = position.trade_data.label.as_deref().and_then(Label::decode)
+        {
+            let pip = self.book.contract(position.trade_data.symbol_id).pip();
+            let open: Vec<Open> = self
+                .book
+                .positions
+                .values()
+                .filter_map(|p| {
+                    Some(Open {
+                        position: p.position_id,
+                        label: Label::decode(p.trade_data.label.as_deref()?)?,
+                        buy: is_buy(p.trade_data.trade_side),
+                        entry: p.price?,
+                        stop_loss: p.stop_loss,
+                    })
+                })
+                .collect();
+            for (id, stop) in plan::break_even_moves(&label, profit, &open, pip) {
+                let take_profit = self.book.positions.get(&id).and_then(|p| p.take_profit);
+                self.protect_position(id, Some(stop), take_profit, cx);
+            }
+        }
+    }
+
+    /// Moves the stop loss of a position to its entry price, keeping the take profit.
+    pub fn break_even(&mut self, position_id: i64, cx: &mut Context<Self>) {
+        let Some(position) = self.book.positions.get(&position_id) else {
+            return;
+        };
+        let Some(entry) = position.price else { return };
+        let take_profit = position.take_profit;
+        self.protect_position(position_id, Some(entry), take_profit, cx);
     }
 
     /// A market order of `volume` on a side.
@@ -816,6 +1240,23 @@ impl Account {
         };
         let buy = !is_buy(position.trade_data.trade_side);
         let (symbol, volume) = (position.trade_data.symbol_id, position.trade_data.volume);
+        // The position closes first: if the order that opens the other way would be refused, it is
+        // better to know before anything is closed.
+        let side = if buy { TradeSide::Buy } else { TradeSide::Sell };
+        if let Verdict::Block(reason) =
+            self.assess(&NewOrderReq::market(symbol, side, volume), false)
+        {
+            self.tell(
+                Notice::new(
+                    Tone::Warning,
+                    "Reverse blocked by your safety settings",
+                    reason,
+                )
+                .hint(Some("Nothing was closed.".to_owned())),
+                cx,
+            );
+            return;
+        }
         if !self.reversals.start(
             position_id,
             ReverseOrder {

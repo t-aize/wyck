@@ -223,6 +223,37 @@ impl AccountPanel {
     }
 
     /// The figures of the account the user chose, in the order chosen.
+    /// A chip in the header when the safety limits hold something back: locked, no answer from the
+    /// server, or the kill switch.
+    fn safety_chip(&self, cx: &App) -> Option<AnyElement> {
+        let account = self.account.read(cx);
+        let (text, color, back) = if let Some(lock) = account.lock() {
+            let text = match lock {
+                crate::trading::guard::Lock::KillSwitch => "KILL SWITCH",
+                crate::trading::guard::Lock::DailyLoss { .. } => "DAILY LOSS LIMIT",
+                crate::trading::guard::Lock::Cooldown { .. } => "COOLING DOWN",
+            };
+            (text, theme::destructive(), theme::destructive_bg())
+        } else if account.is_uncertain() {
+            ("CHECK ACCOUNT", theme::amber(), theme::amber_bg())
+        } else {
+            return None;
+        };
+        Some(
+            div()
+                .flex_none()
+                .px_2()
+                .py_0p5()
+                .rounded_full()
+                .bg(back)
+                .text_size(px(tokens::text::CAPTION))
+                .font_semibold()
+                .text_color(color)
+                .child(text)
+                .into_any_element(),
+        )
+    }
+
     fn stats_row(&self, cx: &App) -> AnyElement {
         let account = self.account.read(cx);
         let currency = account.book.currency.clone();
@@ -1442,6 +1473,7 @@ impl Render for AccountPanel {
                             .items_center()
                             .justify_end()
                             .gap_3()
+                            .children(self.safety_chip(cx))
                             // When the panel is narrow the figures give way from the left, where
                             // the least needed are.
                             .child(

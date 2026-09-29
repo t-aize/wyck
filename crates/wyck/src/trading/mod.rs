@@ -7,9 +7,11 @@
 //! stands for.
 
 pub mod account;
+pub mod guard;
 pub use wyck_openapi::account::book;
 pub mod math;
 pub mod panel;
+pub mod plan;
 pub mod ticket;
 
 use std::collections::HashMap;

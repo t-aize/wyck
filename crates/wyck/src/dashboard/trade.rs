@@ -55,8 +55,12 @@ impl Dashboard {
         if self.ticket.is_none() {
             let prefs = self.workspace.read(cx).preferences().clone();
             let account = self.trading.clone();
-            let ticket =
-                cx.new(|cx| OrderTicket::new(account, prefs.ticket, prefs.one_click, window, cx));
+            let ticket = cx.new(|cx| OrderTicket::new(account, prefs.ticket, false, window, cx));
+            // One-click trading starts off at every launch, whatever it was left at.
+            self.workspace.update(cx, |workspace, cx| {
+                workspace.edit_preferences(cx, |prefs| prefs.one_click = false);
+            });
+            self.sync_risk(cx);
             cx.subscribe(
                 &ticket,
                 |this, ticket, event: &TicketEvent, cx| match event {
@@ -189,6 +193,62 @@ impl Dashboard {
         }
         self.multi
             .update(cx, |multi, cx| multi.set_lines(lines, cx));
+    }
+
+    /// The panic button: asks, then closes every open position. Working orders stay.
+    pub(super) fn ask_close_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let count = self.trading.read(cx).book.positions.len();
+        if count == 0 {
+            toast::show(
+                cx,
+                toast::Kind::Info,
+                "Nothing to close",
+                "No position is open.",
+            );
+            return;
+        }
+        let account = self.trading.clone();
+        confirm(
+            window,
+            cx,
+            "Close every position?",
+            format!("{count} open position(s) will be closed at market."),
+            move |_, cx| account.update(cx, |a, cx| a.close_all(None, cx)),
+        );
+    }
+
+    /// Turns the kill switch on or off: while it is on, no new order can be sent.
+    pub(super) fn toggle_kill_switch(&mut self, cx: &mut Context<Self>) {
+        let on = !self.workspace.read(cx).preferences().risk.kill_switch;
+        self.workspace.update(cx, |workspace, cx| {
+            workspace.edit_preferences(cx, |prefs| prefs.risk.kill_switch = on);
+        });
+        toast::show(
+            cx,
+            if on {
+                toast::Kind::Warning
+            } else {
+                toast::Kind::Info
+            },
+            if on {
+                "Kill switch on"
+            } else {
+                "Kill switch off"
+            },
+            if on {
+                "No new order can be sent. Closing still works."
+            } else {
+                "New orders can be sent again."
+            },
+        );
+    }
+
+    /// Hands the safety limits and the zone the day is counted in to the account.
+    pub(super) fn sync_risk(&mut self, cx: &mut Context<Self>) {
+        let prefs = self.workspace.read(cx).preferences();
+        let (risk, zone) = (prefs.risk.clone(), prefs.zone);
+        self.trading
+            .update(cx, |account, cx| account.set_risk(risk, zone, cx));
     }
 
     pub(super) fn set_ticket_open(&mut self, open: bool, cx: &mut Context<Self>) {
