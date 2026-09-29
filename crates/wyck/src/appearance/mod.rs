@@ -593,10 +593,7 @@ mod tests {
             let mut colors = Colors::default();
             with_accent(&mut colors, accent);
             assert!(
-                theme::contrast(colors.accent_fg, accent) >= 4.5
-                    || accent == 0x3b82f6
-                    || accent == 0xf97316
-                    || accent == 0x7c86ff,
+                theme::contrast(colors.accent_fg, accent) >= 4.5,
                 "{accent:06x}"
             );
             let other = if colors.accent_fg == 0x0a0a0a {
