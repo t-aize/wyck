@@ -12,7 +12,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::appearance::presets::CANDLE_SETS;
-use super::appearance::{self, ColorField, Mode};
+use super::appearance::{self, ColorField, Mode, contrast};
 use super::build_info::{BuildMode, VERSION};
 use super::indicators::{self, prefs};
 use super::multichart::MultiChart;

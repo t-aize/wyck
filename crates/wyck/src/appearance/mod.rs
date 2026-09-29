@@ -11,6 +11,7 @@
 //! [`resolve`](Appearance::resolve) is the whole decision, with no window in it, so it is tested
 //! on its own; [`update`] puts the result in force and saves it.
 
+pub mod contrast;
 pub mod presets;
 
 use gpui::{App, Global, SharedString};
@@ -422,6 +423,15 @@ impl Appearance {
                 true
             }
             _ => false,
+        }
+    }
+
+    /// Puts the colors of a theme of the user's right where they do not meet the contrast rules
+    /// (see [`contrast`]). Returns how many colors moved.
+    pub fn fix_theme_contrast(&mut self, id: &str) -> usize {
+        match self.custom_themes.iter_mut().find(|t| t.id == id) {
+            Some(theme) => contrast::fix(&mut theme.colors).len(),
+            None => 0,
         }
     }
 
