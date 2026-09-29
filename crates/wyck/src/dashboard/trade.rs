@@ -277,16 +277,72 @@ impl Dashboard {
                     workspace.edit_preferences(cx, |prefs| prefs.account_panel = settings);
                 });
             }
-            PanelEvent::ShowSymbol(id) => {
-                let entry = match &self.catalog {
-                    super::Load::Ready(catalog) => catalog.by_id(*id).cloned(),
-                    _ => None,
+            PanelEvent::ShowSymbol(id) => self.show_symbol(*id, cx),
+        }
+    }
+
+    /// Puts a symbol on the active chart.
+    pub(super) fn show_symbol(&mut self, id: i64, cx: &mut Context<Self>) {
+        let entry = match &self.catalog {
+            super::Load::Ready(catalog) => catalog.by_id(id).cloned(),
+            _ => None,
+        };
+        if let Some(entry) = entry {
+            self.picker_target = None;
+            self.select(entry, false, cx);
+        }
+    }
+
+    /// An alert fired or ran out: says so, with the buttons that help.
+    pub(super) fn on_alert_event(&mut self, event: &alerts::AlertsEvent, cx: &mut Context<Self>) {
+        match event {
+            alerts::AlertsEvent::Fired(alert, text) => {
+                let title = if alert.source.is_indicator() {
+                    "Indicator alert"
+                } else if alert.drawing().is_some() {
+                    "Drawing alert"
+                } else {
+                    "Price alert"
                 };
-                if let Some(entry) = entry {
-                    self.picker_target = None;
-                    self.select(entry, false, cx);
+                let (id, symbol) = (alert.id, alert.symbol_id);
+                let dashboard = cx.entity();
+                let snooze = self.alerts.clone();
+                let mut toast = toast::Toast::warning(title, text.clone())
+                    .sticky(alert.sticky)
+                    .action("Show chart", move |_, cx| {
+                        dashboard.update(cx, |d, cx| d.show_symbol(symbol, cx));
+                    })
+                    .action("Snooze 1 h", move |_, cx| {
+                        snooze.update(cx, |a, cx| a.snooze(id, now_ms() + 3_600_000, cx));
+                    });
+                if alert.repeats() {
+                    let off = self.alerts.clone();
+                    toast = toast.action("Turn off", move |_, cx| {
+                        off.update(cx, |a, cx| {
+                            a.edit(cx, |book| {
+                                if let Some(alert) = book.get_mut(id) {
+                                    alert.active = false;
+                                }
+                            })
+                        });
+                    });
                 }
+                if !alert.tag.is_empty() {
+                    toast = toast.hint(format!("Tag: {}", alert.tag));
+                }
+                toast.show(cx);
             }
+            alerts::AlertsEvent::Expired(alert) => {
+                let digits = self
+                    .alerts
+                    .read(cx)
+                    .digits
+                    .get(&alert.symbol_id)
+                    .copied()
+                    .unwrap_or(5);
+                toast::Toast::info("Alert expired", alert.describe(digits)).show(cx);
+            }
+            alerts::AlertsEvent::Changed => {}
         }
     }
 
@@ -315,6 +371,7 @@ impl Dashboard {
                 });
             }
             ChartAction::AddAlert(price) => self.add_alert(symbol, *price, cx),
+            ChartAction::AddAlertOn(seed) => self.add_alert_on(symbol, seed, cx),
         }
         cx.notify();
     }
@@ -340,6 +397,73 @@ impl Dashboard {
         match added {
             Some(alert) => {
                 self.pending.push(Pending::EditAlert(alert));
+                if let Some(panel) = &self.panel {
+                    panel.update(cx, |panel, cx| panel.show_tab(Tab::Alerts, cx));
+                }
+            }
+            None => toast::show(
+                cx,
+                toast::Kind::Warning,
+                "No alert added",
+                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+            ),
+        }
+        cx.notify();
+    }
+
+    /// Adds an alert on an indicator or a drawing and opens it, so its condition can be set.
+    pub(super) fn add_alert_on(
+        &mut self,
+        symbol: &SymbolRef,
+        seed: &crate::chart::AlertSeed,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::alerts::{Alert, Condition, Source};
+        let limit = self.workspace.read(cx).preferences().limits.alerts;
+        let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
+        match seed {
+            crate::chart::AlertSeed::Indicator { study, timeframe } => {
+                alert.timeframe = timeframe.clone();
+                let spec = study.kind.spec();
+                if matches!(spec.format, wyck_chart::study::ValueFormat::Price) {
+                    // An average or a band on the prices: the price crosses it.
+                    alert.versus = Some(Source::Indicator {
+                        study: study.clone(),
+                        plot: 0,
+                    });
+                } else {
+                    // An oscillator: its value crosses a level, a high one to start with.
+                    alert.source = Source::Indicator {
+                        study: study.clone(),
+                        plot: 0,
+                    };
+                    alert.price = spec
+                        .range
+                        .map_or(0.0, |(low, high)| low + (high - low) * 0.7);
+                }
+            }
+            crate::chart::AlertSeed::Drawing {
+                id,
+                zone,
+                timeframe,
+            } => {
+                alert.timeframe = timeframe.clone();
+                alert.versus = Some(Source::Drawing { id: *id });
+                alert.condition = if *zone {
+                    Condition::EntersZone
+                } else {
+                    Condition::Crossing
+                };
+            }
+        }
+        let digits = symbol.digits;
+        let added = self.alerts.update(cx, |alerts, cx| {
+            alerts.digits.insert(symbol.id, digits);
+            alerts.edit(cx, |book| book.insert(alert, limit))
+        });
+        match added {
+            Some(id) => {
+                self.pending.push(Pending::EditAlert(id));
                 if let Some(panel) = &self.panel {
                     panel.update(cx, |panel, cx| panel.show_tab(Tab::Alerts, cx));
                 }

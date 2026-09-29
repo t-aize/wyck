@@ -251,7 +251,19 @@ impl Dashboard {
         let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
         let is_live = account.is_live;
         trading.update(cx, |trading, _| trading.set_live(is_live));
-        let alerts = cx.new(|cx| Alerts::new(documents.account.clone(), hub.clone(), cx));
+        let alerts = cx.new(|cx| {
+            Alerts::new(
+                documents.account.clone(),
+                hub.clone(),
+                session.clone(),
+                drawings.clone(),
+                cx,
+            )
+        });
+        cx.subscribe(&alerts, |this, _alerts, event, cx| {
+            this.on_alert_event(event, cx)
+        })
+        .detach();
         let panel_prefs = workspace.read(cx).preferences().account_panel.clone();
         let panel =
             cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), panel_prefs, cx));
@@ -458,7 +470,7 @@ impl Dashboard {
             SessionEvent::Data(Event::Spot(spot)) => {
                 self.multi.update(cx, |multi, cx| multi.on_spot(&spot, cx));
                 self.alerts.update(cx, |alerts, cx| {
-                    alerts.on_spot(spot.symbol_id, spot.bid, cx)
+                    alerts.on_spot(spot.symbol_id, spot.bid, spot.ask, cx)
                 });
                 self.trading.update(cx, |account, cx| {
                     account.on_event(&Event::Spot(spot.clone()), cx)

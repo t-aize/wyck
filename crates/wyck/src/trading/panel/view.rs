@@ -583,13 +583,45 @@ impl AccountPanel {
                     }
                     RowKind::Alert { id, active } => {
                         let id = *id;
-                        let (edit, toggle, remove) = (
+                        let (edit, toggle, remove, snooze, copy) = (
+                            self.alerts.clone(),
+                            self.alerts.clone(),
                             self.alerts.clone(),
                             self.alerts.clone(),
                             self.alerts.clone(),
                         );
                         let active = *active;
                         items.extend([
+                            Entry::new("Snooze for an hour")
+                                .icon(IconName::Timer)
+                                .disabled(!active)
+                                .on_click(move |_, cx| {
+                                    snooze.update(cx, |alerts, cx| {
+                                        alerts.snooze(id, crate::chart::now_ms() + 3_600_000, cx)
+                                    });
+                                })
+                                .into(),
+                            Entry::new("Duplicate")
+                                .icon(IconName::Copy)
+                                .on_click(move |_, cx| {
+                                    copy.update(cx, |alerts, cx| {
+                                        alerts.edit(cx, |book| {
+                                            if let Some(mut alert) = book.get(id).cloned() {
+                                                alert.active = true;
+                                                alert.fired_at = None;
+                                                alert.fired_count = 0;
+                                                alert.snoozed_until = None;
+                                                alert.bar_key = None;
+                                                alert.created_at = crate::chart::now_ms();
+                                                book.insert(
+                                                    alert,
+                                                    crate::workspace::MAX_SAVED_ALERTS,
+                                                );
+                                            }
+                                        });
+                                    });
+                                })
+                                .into(),
                             Entry::new("Edit the alert...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |window, cx| {

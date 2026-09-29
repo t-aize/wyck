@@ -164,7 +164,7 @@ columns! {
         Distance => ("Distance", NUMBER, true, false),
         State => ("State", WIDE, false, true),
         Message => ("Message", TEXT, false, true),
-        Repeats => ("Repeats", SHORT, false, false),
+        Repeats => ("Trigger", SHORT, false, false),
         Created => ("Created", WIDE, false, false),
         Fired => ("Last fired", WIDE, false, false),
     }

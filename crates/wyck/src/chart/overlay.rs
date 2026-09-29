@@ -183,6 +183,22 @@ impl Chart {
                 .into(),
             );
         }
+        if crate::alerts::eval::is_alert_tool(drawing.tool) {
+            let seed = ChartAction::AddAlertOn(super::AlertSeed::Drawing {
+                id,
+                zone: crate::alerts::eval::is_zone_tool(drawing.tool),
+                timeframe: self.timeframe.code(),
+            });
+            let alert = chart.clone();
+            items.push(
+                Entry::new("Add alert on this drawing...")
+                    .icon(IconName::BellPlus)
+                    .on_click(move |_, cx| {
+                        alert.update(cx, |_, cx| cx.emit(ChartEvent::Action(seed.clone())));
+                    })
+                    .into(),
+            );
+        }
         items.extend([
             Entry::new("Duplicate")
                 .icon(IconName::Copy)
@@ -287,8 +303,30 @@ impl Chart {
                     .hint("Alt+A")
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
-                Item::Separator,
             ]);
+            // An alert on each indicator the chart shows.
+            for study in self
+                .settings()
+                .studies
+                .iter()
+                .filter(|s| {
+                    s.visible
+                        && !s.is_script()
+                        && s.kind != wyck_chart::study::StudyKind::VolumeProfile
+                })
+                .take(6)
+            {
+                items.push(
+                    Entry::new(format!("Add alert on {}...", study.title()))
+                        .icon(IconName::BellPlus)
+                        .on_click(emit(ChartAction::AddAlertOn(super::AlertSeed::Indicator {
+                            study: Box::new(study.clone()),
+                            timeframe: self.timeframe.code(),
+                        })))
+                        .into(),
+                );
+            }
+            items.push(Item::Separator);
         }
         let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
             let chart = chart.clone();

@@ -1,6 +1,6 @@
 //! Entry point for the `wyck` desktop application: the window and the connection flow.
 
-#[path = "services/alerts.rs"]
+#[path = "services/alerts/mod.rs"]
 mod alerts;
 mod appearance;
 mod assets;

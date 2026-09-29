@@ -156,7 +156,14 @@ pub fn lines(
             ));
         }
     }
-    for alert in alerts.alerts.iter().filter(|a| a.active) {
+    // Only an alert on a price at a level of its own has a line: the others are in indicator
+    // units, or follow a drawing that is shown already.
+    for alert in alerts.alerts.iter().filter(|a| {
+        a.active
+            && a.versus.is_none()
+            && matches!(a.source, crate::alerts::Source::Price { .. })
+            && a.condition.needs_level()
+    }) {
         out.entry(alert.symbol_id).or_default().push(line(
             LineId::Alert(alert.id),
             alert.price,
