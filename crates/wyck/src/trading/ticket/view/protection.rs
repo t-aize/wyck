@@ -34,7 +34,7 @@ impl OrderTicket {
             .items_center()
             .justify_between()
             .gap_2()
-            .h(px(tokens::height::COMPACT))
+            .h(px(tokens::height::compact()))
             .child(
                 controls::switch(SharedString::from(format!("ticket-{label}")), on)
                     .label(label)
@@ -73,7 +73,7 @@ impl OrderTicket {
             .flex_row()
             .justify_between()
             .gap_2()
-            .text_size(px(tokens::text::SMALL))
+            .text_size(px(tokens::text::small()))
             .text_color(theme::muted_fg())
             .child(detail.unwrap_or_default())
             .children(amount.map(|a| {
@@ -160,7 +160,7 @@ impl OrderTicket {
             .gap_0p5()
             .child(
                 div()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::fg())
                     .child(text),
             )
@@ -254,7 +254,7 @@ impl OrderTicket {
             .gap(px(f.m.inner))
             .child(line(
                 "Times the ATR",
-                number::field(&self.atr_multiplier, tokens::field::NARROW),
+                number::field(&self.atr_multiplier, tokens::field::narrow()),
             ))
             .child(chips)
             .child(hint(atr_now))
@@ -266,7 +266,7 @@ impl OrderTicket {
                     .items_center()
                     .gap_1()
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .hover(|s| s.text_color(theme::fg()))
                     .on_click(move |_, _, cx| {
@@ -377,7 +377,7 @@ impl OrderTicket {
             .gap_1()
             .child(line(
                 "Length",
-                number::field(&self.atr_length, tokens::field::NARROW),
+                number::field(&self.atr_length, tokens::field::narrow()),
             ))
             .child(line("Smoothing", smoothing_menu))
             .child(line("Timeframe", timeframe_menu))

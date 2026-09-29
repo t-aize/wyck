@@ -13,7 +13,7 @@ impl DrawingProps {
         }
         let head = |text: SharedString, width: Option<f32>| {
             let cell = div()
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg());
             match width {
                 Some(width) => cell.w(px(width)).child(text),
@@ -47,7 +47,7 @@ impl DrawingProps {
                     .child(
                         div()
                             .w(px(110.))
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::fg())
                             .child(point_name(drawing.tool, index)),
                     )

@@ -304,7 +304,7 @@ impl Customizer {
                     form::field(
                         "Width",
                         Some("Also dragged from the edge of the panel"),
-                        number::field(&self.width, tokens::field::WIDE),
+                        number::field(&self.width, tokens::field::wide()),
                     ),
                     form::field(
                         "Spacing",

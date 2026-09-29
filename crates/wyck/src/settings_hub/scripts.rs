@@ -19,19 +19,19 @@ impl SettingsHub {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::fg())
                             .child("Indicators folder"),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(if using_default {
                                 "The default folder, inside the settings folder."
@@ -98,7 +98,7 @@ impl SettingsHub {
                 div()
                     .max_w(px(360.))
                     .truncate()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(default_dir.display().to_string()),
             ),
@@ -113,7 +113,7 @@ impl SettingsHub {
                     "The ones with problems are marked in the editor and cannot be added"
                 }),
                 div()
-                    .text_size(px(tokens::text::EMPHASIS))
+                    .text_size(px(tokens::text::emphasis()))
                     .text_color(if broken == 0 {
                         theme::fg()
                     } else {
@@ -179,7 +179,7 @@ impl SettingsHub {
                 .gap_2()
                 .child(
                     div()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::fg())
                         .child(prefs.favorites.len().to_string()),
                 )

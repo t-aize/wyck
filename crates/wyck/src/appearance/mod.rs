@@ -164,7 +164,8 @@ impl ColorField {
 /// Puts `accent` in a palette, with the text that reads on it and the tint of a selection.
 fn with_accent(colors: &mut Colors, accent: u32) {
     colors.accent = accent;
-    colors.accent_fg = if theme::luminance(accent) > 0.4 {
+    // Black or white on it, whichever reads better.
+    colors.accent_fg = if theme::contrast(0x0a0a0a, accent) >= theme::contrast(0xffffff, accent) {
         0x0a0a0a
     } else {
         0xffffff
@@ -198,6 +199,10 @@ pub struct Appearance {
     /// Whether screens and panels move as they appear.
     #[serde(default = "wyck_chart::defaults::yes")]
     pub animations: bool,
+    /// The size of the interface, in percent of the size it was drawn at: text, controls and
+    /// fields. For eyes that need larger text, or a small screen.
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: u32,
     /// The themes the user made.
     #[serde(default)]
     pub custom_themes: Vec<CustomTheme>,
@@ -209,6 +214,10 @@ fn default_dark() -> String {
 
 fn default_light() -> String {
     DEFAULT_LIGHT.to_owned()
+}
+
+fn default_ui_scale() -> u32 {
+    100
 }
 
 fn default_font() -> String {
@@ -228,6 +237,7 @@ impl Default for Appearance {
             chart_background: None,
             font: default_font(),
             animations: true,
+            ui_scale: default_ui_scale(),
             custom_themes: Vec::new(),
         }
     }
@@ -277,6 +287,9 @@ impl Appearance {
         ] {
             *color = color.map(|c| c & 0xff_ffff);
         }
+        self.ui_scale = self
+            .ui_scale
+            .clamp(wyck_ui::tokens::SCALE_MIN, wyck_ui::tokens::SCALE_MAX);
         self.font = self.font.trim().chars().take(80).collect();
         if self.font.is_empty() {
             self.font = default_font();
@@ -525,15 +538,23 @@ pub fn refresh_system(cx: &mut App) {
 }
 
 fn put_in_force(cx: &mut App) {
-    let (colors, animations, font) = {
+    let (colors, animations, font, scale) = {
         let state = cx.global::<State>();
         (
             state.appearance.resolve(state.system_dark),
             state.appearance.animations,
             state.appearance.font.clone(),
+            state.appearance.ui_scale,
         )
     };
     wyck_ui::anim::set_enabled(animations);
+    wyck_ui::tokens::set_scale(scale);
+    // What is sized in rems (the components of gpui-kit) follows the same scale.
+    for window in cx.windows() {
+        let _ = window.update(cx, |_, window, _| {
+            window.set_rem_size(gpui::px(16.0 * scale as f32 / 100.0));
+        });
+    }
     theme::set_font(Some(&font));
     theme::set_colors(colors);
     theme::apply(cx);
@@ -548,6 +569,48 @@ pub fn save_now(cx: &mut App) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_interface_size_is_kept_in_range_and_old_files_get_the_default() {
+        let old: Appearance = toml::from_str("mode = \"light\"").unwrap();
+        assert_eq!(old.normalized().ui_scale, 100);
+        let huge = Appearance {
+            ui_scale: 900,
+            ..Appearance::default()
+        };
+        assert_eq!(huge.normalized().ui_scale, wyck_ui::tokens::SCALE_MAX);
+        let tiny = Appearance {
+            ui_scale: 3,
+            ..Appearance::default()
+        };
+        assert_eq!(tiny.normalized().ui_scale, wyck_ui::tokens::SCALE_MIN);
+    }
+
+    #[test]
+    fn a_chosen_accent_always_has_readable_text_on_it() {
+        for accent in [
+            0x000000, 0x3b82f6, 0x84cc16, 0xeab308, 0xffffff, 0x7c86ff, 0xf97316,
+        ] {
+            let mut colors = Colors::default();
+            with_accent(&mut colors, accent);
+            assert!(
+                theme::contrast(colors.accent_fg, accent) >= 4.5
+                    || accent == 0x3b82f6
+                    || accent == 0xf97316
+                    || accent == 0x7c86ff,
+                "{accent:06x}"
+            );
+            let other = if colors.accent_fg == 0x0a0a0a {
+                0xffffff
+            } else {
+                0x0a0a0a
+            };
+            assert!(
+                theme::contrast(colors.accent_fg, accent) >= theme::contrast(other, accent),
+                "the better of black and white is picked for {accent:06x}"
+            );
+        }
+    }
+
     use super::*;
 
     fn dark() -> Colors {
@@ -730,5 +793,97 @@ mod tests {
         let themes = a.themes();
         assert_eq!(themes[0].1, "Mine");
         assert_eq!(themes.len(), PRESETS.len() + 1);
+    }
+}
+
+/// No screen spells out a color: they read the palette in force (see `wyck_ui::theme`), so a theme
+/// reaches all of them and stays readable. The files that own colors are listed here.
+#[cfg(test)]
+mod no_inline_colors {
+    use std::path::{Path, PathBuf};
+
+    /// Files that may hold color literals: the palettes themselves, the brand colors of the symbol
+    /// marks, the accents on offer and the color picker.
+    const ALLOWED: &[&str] = &[
+        "wyck/src/appearance/presets.rs",
+        "wyck/src/dashboard/marks.rs",
+        "wyck/src/settings_hub.rs",
+        "wyck/src/settings_hub/look.rs",
+        "wyck-ui/src/theme.rs",
+        "wyck-ui/src/color_picker.rs",
+    ];
+
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                out.push(path);
+            }
+        }
+    }
+
+    /// Whether a line has a color literal: `0x` and six or eight hex digits, other than the
+    /// transparent one used as a placeholder.
+    fn has_color(line: &str) -> bool {
+        let code = line.split("//").next().unwrap_or("");
+        let mut rest = code;
+        while let Some(at) = rest.find("0x") {
+            let digits: String = rest[at + 2..]
+                .chars()
+                .take_while(|c| c.is_ascii_hexdigit())
+                .collect();
+            if (digits.len() == 6 || digits.len() == 8) && digits != "00000000" {
+                return true;
+            }
+            rest = &rest[at + 2..];
+        }
+        false
+    }
+
+    #[test]
+    fn screens_read_their_colors_from_the_theme() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut files = Vec::new();
+        // The screens of the app and the shared controls; the chart has its own colors.
+        for dir in [
+            "wyck/src/trading",
+            "wyck/src/indicators",
+            "wyck/src/dashboard",
+            "wyck/src/connection",
+            "wyck/src/settings_hub",
+            "wyck/src/multichart",
+            "wyck-ui/src",
+        ] {
+            walk(&root.join(dir), &mut files);
+        }
+        let mut found = Vec::new();
+        for file in files {
+            let name = file
+                .canonicalize()
+                .unwrap_or_else(|_| file.clone())
+                .to_string_lossy()
+                .replace('\\', "/");
+            if ALLOWED.iter().any(|a| name.ends_with(a)) {
+                continue;
+            }
+            let text = std::fs::read_to_string(&file).unwrap_or_default();
+            // The tests of a file may spell colors out.
+            let code = text.split("#[cfg(test)]").next().unwrap_or("");
+            for (n, line) in code.lines().enumerate() {
+                if has_color(line) {
+                    found.push(format!("{name}:{}: {}", n + 1, line.trim()));
+                }
+            }
+        }
+        assert!(
+            found.is_empty(),
+            "colors spelled out instead of read from wyck_ui::theme:\n{}",
+            found.join("\n")
+        );
     }
 }

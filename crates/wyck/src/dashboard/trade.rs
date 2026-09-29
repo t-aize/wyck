@@ -195,6 +195,26 @@ impl Dashboard {
             .update(cx, |multi, cx| multi.set_lines(lines, cx));
     }
 
+    /// The keyboard shortcuts of the ticket: Alt+B and Alt+S pick a side, Ctrl+Enter sends the
+    /// order the way the send button does (with its confirmation, unless one-click is on).
+    pub(super) fn ticket_key(
+        &mut self,
+        side: Option<bool>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.ticket_open {
+            return;
+        }
+        let Some(ticket) = self.ticket.clone() else {
+            return;
+        };
+        ticket.update(cx, |t, cx| match side {
+            Some(buy) => t.choose_side(buy, window, cx),
+            None => t.send_now(window, cx),
+        });
+    }
+
     /// The panic button: asks, then closes every open position. Working orders stay.
     pub(super) fn ask_close_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let count = self.trading.read(cx).book.positions.len();

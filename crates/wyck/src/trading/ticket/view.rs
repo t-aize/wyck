@@ -22,7 +22,9 @@ use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
 use wyck_ui::{
     confirm::confirm,
-    controls, form, icon,
+    controls,
+    focus::Keyboard,
+    form, icon,
     menu::{self as popup, Entry, Item},
     number, theme, tokens,
 };
@@ -129,10 +131,10 @@ fn card_head(title: impl Into<SharedString>, right: Option<AnyElement>) -> Div {
         .items_center()
         .justify_between()
         .gap_2()
-        .h(px(tokens::height::COMPACT))
+        .h(px(tokens::height::compact()))
         .child(
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .font_semibold()
                 .text_color(theme::muted_fg())
                 .child(title.into()),
@@ -148,10 +150,10 @@ fn line(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
         .items_center()
         .justify_between()
         .gap_2()
-        .min_h(px(tokens::height::COMPACT))
+        .min_h(px(tokens::height::compact()))
         .child(
             div()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(label.into()),
         )
@@ -161,7 +163,7 @@ fn line(label: impl Into<SharedString>, control: impl IntoElement) -> Div {
 /// A line of secondary text.
 fn hint(text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(tokens::text::SMALL))
+        .text_size(px(tokens::text::small()))
         .text_color(theme::muted_fg())
         .child(text.into())
 }
@@ -170,8 +172,9 @@ fn hint(text: impl Into<SharedString>) -> Div {
 fn text_button(id: &'static str, text: &'static str) -> gpui::Stateful<Div> {
     div()
         .id(id)
+        .keyboard()
         .cursor_pointer()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .text_color(theme::accent())
         .hover(|s| s.underline())
         .child(text)
@@ -248,7 +251,7 @@ impl OrderTicket {
                             .flex()
                             .flex_row()
                             .justify_between()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .child(
                                 div()
                                     .text_color(theme::chart_down())
@@ -372,7 +375,7 @@ impl OrderTicket {
                             .flex_row()
                             .items_start()
                             .gap_2()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::destructive())
                             .child(div().flex_none().pt(px(1.)).child(icon::tinted(
                                 IconName::ShieldAlert,
@@ -412,7 +415,7 @@ impl OrderTicket {
                     .p_2()
                     .rounded_md()
                     .bg(theme::amber_bg())
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::amber())
                     .child("A request got no answer. It may have gone through: check the positions before sending again.")
                     .child(text_button("ticket-uncertain-refresh", "Check the account").on_click(
@@ -441,7 +444,7 @@ impl OrderTicket {
                             .flex()
                             .flex_row()
                             .justify_between()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("Daily loss")
                             .child(format!(
@@ -552,7 +555,7 @@ impl OrderTicket {
                     .when(self.one_click, |el| {
                         el.child(
                             div()
-                                .text_size(px(tokens::text::SMALL))
+                                .text_size(px(tokens::text::small()))
                                 .text_color(theme::amber())
                                 .child(
                                     "Orders are sent without asking. Buy and Sell send at once.",
@@ -699,7 +702,7 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .p_2()
                 .rounded_md()
                 .bg(theme::amber_bg())
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::amber())
                 .child(div().flex_none().pt(px(1.)).child(icon::tinted(
                     IconName::TriangleAlert,
@@ -727,7 +730,7 @@ fn summary_row(label: &'static str, value: String) -> impl IntoElement {
         .flex_row()
         .justify_between()
         .gap_2()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .child(div().text_color(theme::muted_fg()).child(label))
         .child(div().text_color(theme::fg()).child(value))
 }

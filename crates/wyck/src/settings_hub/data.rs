@@ -134,14 +134,14 @@ impl SettingsHub {
             let mut waiting = div().flex().flex_col().gap_1();
             waiting = waiting.child(
                 div()
-                    .text_size(px(tokens::text::EMPHASIS))
+                    .text_size(px(tokens::text::emphasis()))
                     .text_color(theme::amber())
                     .child("A backup is waiting to be applied when wyck starts again:"),
             );
             for line in lines {
                 waiting = waiting.child(
                     div()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())
                         .child(format!("- {line}")),
                 );
@@ -199,7 +199,7 @@ impl SettingsHub {
                     .child(
                         div()
                             .flex_1()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(notice.text.clone()),
                     ),

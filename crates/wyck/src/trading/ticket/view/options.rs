@@ -20,7 +20,7 @@ impl OrderTicket {
             .flex_row()
             .items_center()
             .justify_between()
-            .h(px(tokens::height::COMPACT))
+            .h(px(tokens::height::compact()))
             .cursor_pointer()
             .text_color(theme::muted_fg())
             .hover(|s| s.text_color(theme::fg()))
@@ -32,7 +32,7 @@ impl OrderTicket {
             })
             .child(
                 div()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .font_semibold()
                     .child("More options"),
             )
@@ -141,7 +141,7 @@ impl OrderTicket {
             .when(self.slippage_on, |el| {
                 el.child(line(
                     "Pips at most",
-                    number::field(&self.slippage, tokens::field::NARROW),
+                    number::field(&self.slippage, tokens::field::narrow()),
                 ))
             })
         })

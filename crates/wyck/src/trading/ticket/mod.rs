@@ -40,7 +40,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use wyck_openapi::account::TradeSide;
 use wyck_openapi::trading::{NewOrderReq, NewOrderType};
 
-use super::account::Account;
+use super::account::{Account, Busy};
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
 use crate::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms};
@@ -920,6 +920,20 @@ impl OrderTicket {
     /// Whether a side can be picked: a followed drawing is a long or a short, not both.
     fn side_allowed(&self, buy: bool) -> bool {
         self.link.as_ref().is_none_or(|link| link.plan.buy == buy)
+    }
+
+    /// Picks a side from the keyboard.
+    pub fn choose_side(&mut self, buy: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_side(buy, window, cx);
+    }
+
+    /// Sends from the keyboard, as the send button does. A second press while the first order is
+    /// in flight does nothing.
+    pub fn send_now(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.account.read(cx).is_busy(Busy::Placing) {
+            return;
+        }
+        self.send(window, cx);
     }
 
     fn set_side(&mut self, buy: bool, _window: &mut Window, cx: &mut Context<Self>) {

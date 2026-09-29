@@ -63,6 +63,9 @@ gpui::actions!(
         ToggleIndicatorEditor,
         CloseAllPositions,
         ToggleKillSwitch,
+        TicketBuy,
+        TicketSell,
+        TicketSend,
     ]
 );
 
@@ -78,6 +81,9 @@ pub fn init(cx: &mut App) {
         ),
         KeyBinding::new("secondary-shift-x", CloseAllPositions, Some("Dashboard")),
         KeyBinding::new("secondary-shift-k", ToggleKillSwitch, Some("Dashboard")),
+        KeyBinding::new("alt-b", TicketBuy, Some("Dashboard")),
+        KeyBinding::new("alt-s", TicketSell, Some("Dashboard")),
+        KeyBinding::new("secondary-enter", TicketSend, Some("Dashboard")),
         KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
         KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
         KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
@@ -802,7 +808,7 @@ impl Dashboard {
                 ))
                 .child(
                     div()
-                        .text_size(px(tokens::text::HEADING))
+                        .text_size(px(tokens::text::heading()))
                         .text_color(theme::fg())
                         .child("The connection to cTrader ended"),
                 )
@@ -810,7 +816,7 @@ impl Dashboard {
                     div()
                         .max_w(px(460.))
                         .text_center()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())
                         .child(message.clone()),
                 )
@@ -932,6 +938,15 @@ impl Render for Dashboard {
         }))
         .on_action(cx.listener(|this, _: &ToggleKillSwitch, _window, cx| {
             this.toggle_kill_switch(cx);
+        }))
+        .on_action(cx.listener(|this, _: &TicketBuy, window, cx| {
+            this.ticket_key(Some(true), window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &TicketSell, window, cx| {
+            this.ticket_key(Some(false), window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &TicketSend, window, cx| {
+            this.ticket_key(None, window, cx);
         }))
         .on_action(cx.listener(|this, _: &OpenPicker, window, cx| {
             this.open_picker(window, cx);

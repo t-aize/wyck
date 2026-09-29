@@ -63,7 +63,7 @@ impl Dashboard {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .px_2()
                     .rounded_md()
                     .cursor_pointer()
@@ -128,7 +128,7 @@ impl Dashboard {
                     .child(
                         div()
                             .w(px(20.))
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(count.to_string()),
                     )
@@ -142,7 +142,7 @@ impl Dashboard {
             .py_1()
             .rounded_md()
             .cursor_pointer()
-            .text_size(px(tokens::text::BODY))
+            .text_size(px(tokens::text::body()))
             .text_color(theme::muted_fg())
             .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
             .on_click(cx.listener(|this, _event, _window, cx| {
@@ -161,7 +161,7 @@ impl Dashboard {
                 .py_1()
                 .rounded_md()
                 .cursor_pointer()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
                 .on_click(cx.listener(|this, _event, _window, cx| {
@@ -194,7 +194,7 @@ impl Dashboard {
             .children(picture)
             .child(links_section);
 
-        menu::below(card, tokens::height::CONTROL, 1)
+        menu::below(card, tokens::height::control(), 1)
     }
 }
 
@@ -236,13 +236,13 @@ fn link_row(
                 .flex_col()
                 .child(
                     div()
-                        .text_size(px(tokens::text::EMPHASIS))
+                        .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::fg())
                         .child(title.to_owned()),
                 )
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(hint.to_owned()),
                 ),

@@ -47,11 +47,11 @@ fn tool(
         .flex_row()
         .items_center()
         .gap_1p5()
-        .h(px(tokens::height::COMPACT))
+        .h(px(tokens::height::compact()))
         .px_1p5()
         .rounded_md()
         .cursor_pointer()
-        .text_size(px(tokens::text::BODY))
+        .text_size(px(tokens::text::body()))
         .font_weight(FontWeight::MEDIUM)
         .text_color(ink)
         .hover(|s| s.bg(theme::surface_hover()).text_color(theme::fg()))
@@ -311,7 +311,7 @@ impl Chart {
             )
             .children(kind_menu.popup(
                 kind_items,
-                Placement::Below(tokens::height::COMPACT),
+                Placement::Below(tokens::height::compact()),
                 window,
                 cx,
             ));
@@ -369,7 +369,7 @@ impl Chart {
                         )
                         .children(studies_menu.popup(
                             studies_items,
-                            Placement::Below(tokens::height::COMPACT),
+                            Placement::Below(tokens::height::compact()),
                             window,
                             cx,
                         )),
@@ -400,7 +400,7 @@ impl Chart {
                         )
                         .children(scale_menu.popup(
                             scale_items,
-                            Placement::Below(tokens::height::COMPACT),
+                            Placement::Below(tokens::height::compact()),
                             window,
                             cx,
                         )),
@@ -461,7 +461,7 @@ impl Chart {
                     )
                     .children(more_menu.popup(
                         more_items,
-                        Placement::Below(tokens::height::COMPACT),
+                        Placement::Below(tokens::height::compact()),
                         window,
                         cx,
                     )),

@@ -11,6 +11,7 @@ use crate::alerts::model::PriceKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::trading::account::Account;
 use wyck_chart::study::{StudyConfig, StudyKind};
+use wyck_ui::focus::Keyboard;
 use wyck_ui::menu::{self as popup, Entry, Item};
 use wyck_ui::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
 
@@ -120,18 +121,18 @@ impl Render for ProtectionEditor {
             rows.push(form::field(
                 "Price",
                 None,
-                form::text_field(&self.price, tokens::field::TEXT),
+                form::text_field(&self.price, tokens::field::text()),
             ));
         }
         rows.push(form::field(
             "Stop loss",
             Some("Leave it empty to remove it"),
-            form::text_field(&self.stop_loss, tokens::field::TEXT),
+            form::text_field(&self.stop_loss, tokens::field::text()),
         ));
         rows.push(form::field(
             "Take profit",
             Some("Leave it empty to remove it"),
-            form::text_field(&self.take_profit, tokens::field::TEXT),
+            form::text_field(&self.take_profit, tokens::field::text()),
         ));
         let body = form::page()
             .child(form::group(IconName::Target, "Levels", rows))
@@ -338,13 +339,14 @@ impl AlertEditor {
             .child(
                 div()
                     .id(key)
+                    .keyboard()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_1()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .px_2()
-                    .min_w(px(tokens::field::NUMBER))
+                    .min_w(px(tokens::field::number()))
                     .rounded_md()
                     .border_1()
                     .border_color(if open {
@@ -353,7 +355,7 @@ impl AlertEditor {
                         theme::border_subtle()
                     })
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::fg())
                     .hover(|s| s.bg(theme::surface_hover()))
                     .on_click(move |_, _, cx| toggle.toggle(cx))
@@ -362,7 +364,7 @@ impl AlertEditor {
             )
             .children(menu.popup(
                 if open { items } else { Vec::new() },
-                popup::Placement::Below(tokens::height::CONTROL),
+                popup::Placement::Below(tokens::height::control()),
                 window,
                 cx,
             ))
@@ -466,7 +468,7 @@ impl Render for AlertEditor {
                     watch.push(form::field(
                         "Period",
                         None,
-                        number::field(&self.period, tokens::field::NARROW),
+                        number::field(&self.period, tokens::field::narrow()),
                     ));
                 }
             }
@@ -552,13 +554,13 @@ impl Render for AlertEditor {
                         "Level"
                     },
                     None,
-                    form::text_field(&self.price, tokens::field::TEXT),
+                    form::text_field(&self.price, tokens::field::text()),
                 ));
                 if condition.is_zone() {
                     when.push(form::field(
                         "Zone to",
                         None,
-                        form::text_field(&self.upper, tokens::field::TEXT),
+                        form::text_field(&self.upper, tokens::field::text()),
                     ));
                 }
             }
@@ -567,12 +569,12 @@ impl Render for AlertEditor {
             when.push(form::field(
                 "Move (percent)",
                 None,
-                number::field(&self.amount, tokens::field::NARROW),
+                number::field(&self.amount, tokens::field::narrow()),
             ));
             when.push(form::field(
                 "Within (minutes)",
                 None,
-                number::field(&self.minutes, tokens::field::NARROW),
+                number::field(&self.minutes, tokens::field::narrow()),
             ));
         }
 
@@ -640,7 +642,7 @@ impl Render for AlertEditor {
         often.push(form::field(
             "Expires in (hours)",
             Some("It stops watching by itself. Empty is never"),
-            number::field(&self.expiry, tokens::field::NARROW),
+            number::field(&self.expiry, tokens::field::narrow()),
         ));
         often.push(form::field(
             "Keep the notice on screen",
@@ -672,7 +674,7 @@ impl Render for AlertEditor {
                         .flex()
                         .flex_row()
                         .gap_2()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(wyck_chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
                         .child(div().text_color(theme::fg()).child(f.text.clone())),

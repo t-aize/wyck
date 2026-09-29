@@ -71,7 +71,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 .flex_col()
                 .child(
                     div()
-                        .text_size(px(crate::tokens::text::TITLE))
+                        .text_size(px(crate::tokens::text::title()))
                         .font_semibold()
                         .text_color(theme::fg())
                         .truncate()
@@ -79,7 +79,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 )
                 .child(
                     div()
-                        .text_size(px(crate::tokens::text::SMALL))
+                        .text_size(px(crate::tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .truncate()
                         .child(head.subtitle),
@@ -143,11 +143,11 @@ pub fn frame(
                 .flex_row()
                 .items_center()
                 .gap_2p5()
-                .h(px(crate::tokens::height::LARGE))
+                .h(px(crate::tokens::height::large()))
                 .px_2p5()
                 .rounded_md()
                 .cursor_pointer()
-                .text_size(px(crate::tokens::text::EMPHASIS))
+                .text_size(px(crate::tokens::text::emphasis()))
                 .text_color(ink(chosen))
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -249,7 +249,7 @@ pub fn group_with(
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(crate::tokens::height::LARGE))
+                .h(px(crate::tokens::height::large()))
                 .px_3()
                 .border_b_1()
                 .border_color(theme::border_hairline())
@@ -257,7 +257,7 @@ pub fn group_with(
                 .child(
                     div()
                         .flex_1()
-                        .text_size(px(crate::tokens::text::BODY))
+                        .text_size(px(crate::tokens::text::body()))
                         .font_semibold()
                         .text_color(theme::muted_fg())
                         .child(title.into()),
@@ -306,7 +306,7 @@ type OnReset = Rc<dyn Fn(&mut Window, &mut App)>;
 /// ```ignore
 /// Row::new("Width").hint("In pixels").help("How thick the line is drawn.")
 ///     .reset(width != default, move |w, cx| reset(w, cx))
-///     .control(number::field(&state, tokens::field::NARROW))
+///     .control(number::field(&state, tokens::field::narrow()))
 /// ```
 pub struct Row {
     label: SharedString,
@@ -356,7 +356,7 @@ impl Row {
             .gap_1p5()
             .child(
                 div()
-                    .text_size(px(crate::tokens::text::EMPHASIS))
+                    .text_size(px(crate::tokens::text::emphasis()))
                     .text_color(theme::fg())
                     .child(self.label),
             )
@@ -382,7 +382,7 @@ impl Row {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(crate::tokens::height::COMPACT))
+                .size(px(crate::tokens::height::compact()))
                 .rounded_md()
                 .cursor_pointer()
                 .hover(|s| s.bg(theme::surface_hover()))
@@ -407,7 +407,7 @@ impl Row {
                     .child(title)
                     .children(self.hint.map(|hint| {
                         div()
-                            .text_size(px(crate::tokens::text::SMALL))
+                            .text_size(px(crate::tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(hint)
                     })),
@@ -439,7 +439,7 @@ pub fn text_field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
 /// A line of muted text, for a note under a group or a state with nothing to show.
 pub fn note(text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(crate::tokens::text::BODY))
+        .text_size(px(crate::tokens::text::body()))
         .text_color(theme::muted_fg())
         .child(text.into())
 }

@@ -392,7 +392,7 @@ impl Menu {
             .children(entry.hint.clone().map(|hint| {
                 div()
                     .pl_3()
-                    .text_size(px(text::SMALL))
+                    .text_size(px(text::small()))
                     .text_color(theme::muted_fg())
                     .child(hint)
             }))
@@ -471,10 +471,10 @@ fn row_base() -> Div {
         .flex_row()
         .items_center()
         .gap_2()
-        .h(px(crate::tokens::height::CONTROL))
+        .h(px(crate::tokens::height::control()))
         .px_2()
         .rounded_md()
-        .text_size(px(text::BODY))
+        .text_size(px(text::body()))
 }
 
 /// A row of a list placed in a [`card`] by hand, in the look of a [`Menu`] entry: an optional
@@ -501,7 +501,7 @@ pub fn section_title(title: impl Into<SharedString>) -> Div {
         .px_2()
         .pt_1p5()
         .pb_0p5()
-        .text_size(px(text::CAPTION))
+        .text_size(px(text::caption()))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme::muted_fg())
         .child(title.into().to_uppercase())

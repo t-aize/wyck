@@ -144,10 +144,10 @@ impl FontPicker {
             .flex_row()
             .items_center()
             .justify_between()
-            .h(px(tokens::height::CONTROL))
+            .h(px(tokens::height::control()))
             .px_2()
             .cursor_pointer()
-            .text_size(px(tokens::text::EMPHASIS));
+            .text_size(px(tokens::text::emphasis()));
         if row == 0 {
             let chosen = self.current.is_none();
             return base
@@ -243,7 +243,7 @@ impl Render for FontPicker {
                     .flex()
                     .flex_row()
                     .justify_between()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(SharedString::from(summary))
                     .children(

@@ -34,7 +34,7 @@ impl DrawingProps {
         };
         let value = |text: String| {
             div()
-                .text_size(px(tokens::text::EMPHASIS))
+                .text_size(px(tokens::text::emphasis()))
                 .text_color(theme::fg())
                 .child(text)
         };
@@ -76,17 +76,17 @@ impl DrawingProps {
                 form::field(
                     "Account size",
                     Some("The balance the position is sized for"),
-                    number::field(&pos.account, tokens::field::WIDE),
+                    number::field(&pos.account, tokens::field::wide()),
                 ),
                 form::field(
                     "Currency",
                     Some("Written after the amounts. Empty writes none"),
-                    field::text(&pos.currency).w(px(tokens::field::WIDE)),
+                    field::text(&pos.currency).w(px(tokens::field::wide())),
                 ),
                 form::field(
                     "Leverage",
                     Some("Caps the quantity at account x leverage / entry price"),
-                    number::field(&pos.leverage, tokens::field::WIDE),
+                    number::field(&pos.leverage, tokens::field::wide()),
                 ),
             ],
         );
@@ -104,7 +104,7 @@ impl DrawingProps {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .child(number::field(&pos.risk, tokens::field::NUMBER))
+                        .child(number::field(&pos.risk, tokens::field::number()))
                         .child(controls::segmented(
                             "props-risk-mode",
                             &["%", "Amount"],
@@ -124,19 +124,19 @@ impl DrawingProps {
                 form::field(
                     "Lot size",
                     Some("The step the quantity is rounded down to"),
-                    number::field(&pos.lot_size, tokens::field::WIDE),
+                    number::field(&pos.lot_size, tokens::field::wide()),
                 ),
                 form::field(
                     "Quantity decimals",
                     None,
-                    number::field(&pos.qty_precision, tokens::field::WIDE),
+                    number::field(&pos.qty_precision, tokens::field::wide()),
                 ),
                 form::field(
                     "Point value",
                     Some(
                         "What one unit gains per 1.0 of price, in the account currency. 1 when the symbol is quoted in it",
                     ),
-                    number::field(&pos.point_value, tokens::field::WIDE),
+                    number::field(&pos.point_value, tokens::field::wide()),
                 ),
             ],
         );
@@ -188,12 +188,12 @@ impl DrawingProps {
             levels.push(form::field(
                 "ATR length",
                 None,
-                number::field(&pos.atr_length, tokens::field::NUMBER),
+                number::field(&pos.atr_length, tokens::field::number()),
             ));
             levels.push(form::field(
                 "ATR multiplier",
                 None,
-                number::field(&pos.atr_multiplier, tokens::field::NUMBER),
+                number::field(&pos.atr_multiplier, tokens::field::number()),
             ));
             levels.push(form::field(
                 "ATR smoothing",
@@ -245,7 +245,7 @@ impl DrawingProps {
             levels.push(form::field(
                 "Risk multiple",
                 None,
-                number::field(&pos.rr, tokens::field::NUMBER),
+                number::field(&pos.rr, tokens::field::number()),
             ));
         }
         let levels = form::group(IconName::ChartNoAxesCombined, "Protection levels", levels);
@@ -442,7 +442,7 @@ impl DrawingProps {
                 form::field(
                     "Text size",
                     None,
-                    number::field(&self.text_size, tokens::field::NUMBER),
+                    number::field(&self.text_size, tokens::field::number()),
                 ),
                 form::field(
                     "Bold",

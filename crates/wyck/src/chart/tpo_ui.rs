@@ -121,7 +121,7 @@ pub(super) fn groups(chart: &Entity<Chart>, inputs: &Inputs, t: &TpoSettings) ->
     profile.push(form::field(
         "Session starts at",
         Some("In the time zone of the chart, as 09:30"),
-        form::text_field(&inputs.session_start, tokens::field::NUMBER),
+        form::text_field(&inputs.session_start, tokens::field::number()),
     ));
     profile.push(number(
         "Period of a letter (minutes)",

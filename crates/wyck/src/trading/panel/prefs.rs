@@ -155,17 +155,17 @@ impl RowDensity {
     /// The height of a row, in pixels.
     pub fn height(self) -> f32 {
         match self {
-            Self::Compact => tokens::height::COMPACT,
-            Self::Comfortable => tokens::height::CONTROL,
-            Self::Roomy => tokens::height::LARGE,
+            Self::Compact => tokens::height::compact(),
+            Self::Comfortable => tokens::height::control(),
+            Self::Roomy => tokens::height::large(),
         }
     }
 
     /// The size of the text, in pixels.
     pub fn text(self) -> f32 {
         match self {
-            Self::Compact => tokens::text::SMALL,
-            Self::Comfortable | Self::Roomy => tokens::text::BODY,
+            Self::Compact => tokens::text::small(),
+            Self::Comfortable | Self::Roomy => tokens::text::body(),
         }
     }
 }

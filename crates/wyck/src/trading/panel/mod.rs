@@ -137,7 +137,9 @@ impl AccountPanel {
     /// A column is being dragged wider or narrower.
     fn drag_column(&mut self, x: f32, cx: &mut Context<Self>) {
         let Some(resize) = self.resize else { return };
-        let width = resize.start_width + (x - resize.start_x);
+        // The pointer moves in scaled pixels; the width is kept at the base size.
+        let width = resize.start_width
+            + (x - resize.start_x) * 100.0 / wyck_ui::tokens::scale_percent() as f32;
         self.edit_prefs(cx, |prefs| prefs.set_width(resize.tab, resize.slot, width));
     }
 }

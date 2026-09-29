@@ -588,7 +588,7 @@ fn marker(size: f32, fill: u32) -> gpui::Div {
 
 fn small_label(text: &'static str) -> gpui::Div {
     div()
-        .text_size(px(crate::tokens::text::SMALL))
+        .text_size(px(crate::tokens::text::small()))
         .text_color(theme::muted_fg())
         .child(text)
 }
@@ -649,7 +649,7 @@ impl ColorPanel {
                         .w(px(34.))
                         .flex()
                         .justify_end()
-                        .text_size(px(crate::tokens::text::SMALL))
+                        .text_size(px(crate::tokens::text::small()))
                         .text_color(theme::fg())
                         .child(format!("{}%", (value * 100.0).round() as u32)),
                 ),
@@ -733,7 +733,7 @@ impl Render for ColorPanel {
             .flex()
             .flex_row()
             .w(px(44.))
-            .h(px(crate::tokens::height::CONTROL))
+            .h(px(crate::tokens::height::control()))
             .rounded_md()
             .overflow_hidden()
             .border_1()
@@ -868,7 +868,7 @@ impl Render for ColorPanel {
                             .h(px(CELL))
                             .flex()
                             .items_center()
-                            .text_size(px(crate::tokens::text::BODY))
+                            .text_size(px(crate::tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child("Colors you save show here")
                     } else {

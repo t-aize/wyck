@@ -96,7 +96,7 @@ impl SettingsHub {
 
     fn risk_input(&self, field: RiskField) -> AnyElement {
         match self.risk_inputs.iter().find(|(f, _)| *f == field) {
-            Some((_, state)) => number::field(state, tokens::field::NUMBER).into_any_element(),
+            Some((_, state)) => number::field(state, tokens::field::number()).into_any_element(),
             None => div().into_any_element(),
         }
     }

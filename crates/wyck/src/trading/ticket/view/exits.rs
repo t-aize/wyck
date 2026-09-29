@@ -40,7 +40,7 @@ impl OrderTicket {
                 .flex_row()
                 .items_center()
                 .gap_1()
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg())
                 .child(div().w(px(34.)))
                 .child(div().flex_1().child("Share (%)"))
@@ -58,7 +58,7 @@ impl OrderTicket {
                     .child(
                         div()
                             .w(px(34.))
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(format!("TP{}", index + 1)),
                     )
@@ -66,7 +66,7 @@ impl OrderTicket {
                     .child(
                         div()
                             .w(px(10.))
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("%"),
                     )
@@ -74,7 +74,7 @@ impl OrderTicket {
                     .child(
                         div()
                             .w(px(10.))
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("R"),
                     ),
@@ -123,13 +123,13 @@ impl OrderTicket {
             .when(be.on, |el| {
                 el.child(line("After", be_leg)).child(line(
                     "Plus (pips)",
-                    number::field(&self.be_offset, tokens::field::NARROW),
+                    number::field(&self.be_offset, tokens::field::narrow()),
                 ))
             })
             .child(trail)
             .child(line(
                 "OCO: opposite side (pips away)",
-                number::field(&self.oco_pips, tokens::field::NARROW),
+                number::field(&self.oco_pips, tokens::field::narrow()),
             ))
             .child(hint(
                 "OCO needs a limit or stop order, 0 is off. When one side fills, the other is cancelled.",

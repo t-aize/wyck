@@ -199,21 +199,21 @@ impl Toast {
                     .gap_1()
                     .child(
                         div()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .font_semibold()
                             .text_color(theme::fg())
                             .child(title.clone()),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(message.clone()),
                     );
                 if let Some(hint) = &hint {
                     column = column.child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(hint.clone()),
                     );

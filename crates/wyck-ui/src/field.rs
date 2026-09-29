@@ -167,7 +167,7 @@ impl Render for SliderField {
             .items_center()
             .gap_3()
             .child(div().w(px(SLIDER_WIDTH)).child(Slider::new(&self.slider)))
-            .child(unit(&self.input, &self.unit, tokens::field::NUMBER))
+            .child(unit(&self.input, &self.unit, tokens::field::number()))
     }
 }
 
@@ -185,7 +185,7 @@ pub fn unit(state: &Entity<InputState>, unit: &str, width: f32) -> Div {
         row.child(
             div()
                 .w(px(18.))
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(SharedString::from(unit.to_owned())),
         )
@@ -195,7 +195,7 @@ pub fn unit(state: &Entity<InputState>, unit: &str, width: f32) -> Div {
 /// A text field of the standard width.
 pub fn text(state: &Entity<InputState>) -> Div {
     div()
-        .w(px(tokens::field::TEXT))
+        .w(px(tokens::field::text()))
         .child(Input::new(state).small())
 }
 
@@ -227,7 +227,7 @@ pub fn icon_choice(
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(tokens::height::COMPACT))
+                .size(px(tokens::height::compact()))
                 .rounded_sm()
                 .cursor_pointer()
                 .when(chosen, |el| el.bg(theme::accent_selected()))

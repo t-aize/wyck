@@ -262,7 +262,7 @@ impl DrawingProps {
                                 });
                             },
                         ))
-                        .child(field::unit(&self.text_size, "pt", tokens::field::NUMBER)),
+                        .child(field::unit(&self.text_size, "pt", tokens::field::number())),
                 ),
         );
         rows.push(form::field(

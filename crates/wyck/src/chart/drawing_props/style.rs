@@ -58,7 +58,7 @@ impl DrawingProps {
                             });
                         },
                     ))
-                    .child(field::unit(&self.width, "px", tokens::field::NUMBER)),
+                    .child(field::unit(&self.width, "px", tokens::field::number())),
             )
     }
 
@@ -156,7 +156,7 @@ impl DrawingProps {
             [form::field(
                 "Size",
                 Some("In percent of its usual size"),
-                number::field(&self.scale, tokens::field::NUMBER),
+                number::field(&self.scale, tokens::field::number()),
             )],
         )
     }
@@ -170,12 +170,12 @@ impl DrawingProps {
                 form::field(
                     "Rows",
                     Some("0 lets the height on the screen decide"),
-                    number::field(&self.profile_rows, tokens::field::NUMBER),
+                    number::field(&self.profile_rows, tokens::field::number()),
                 ),
                 form::field(
                     "Value area",
                     Some("The share of the volume it holds, in percent"),
-                    number::field(&self.profile_area, tokens::field::NUMBER),
+                    number::field(&self.profile_area, tokens::field::number()),
                 ),
             ],
         )

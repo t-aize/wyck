@@ -144,7 +144,7 @@ impl MultiChart {
         if favorites.is_empty() {
             bar = bar.child(
                 div()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child("Star a tool in the list of its family to pin it here."),
             );
@@ -196,11 +196,11 @@ impl MultiChart {
                     .flex_row()
                     .items_center()
                     .gap_1p5()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .px_2()
                     .rounded_full()
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if selected {
                         theme::fg()
                     } else {

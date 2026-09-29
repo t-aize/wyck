@@ -13,10 +13,10 @@ impl IndicatorEditor {
                 .flex_row()
                 .items_center()
                 .gap_1p5()
-                .h(px(tokens::height::COMPACT))
+                .h(px(tokens::height::compact()))
                 .px_2p5()
                 .cursor_pointer()
-                .text_size(px(tokens::text::BODY))
+                .text_size(px(tokens::text::body()))
                 .border_b_2()
                 .border_color(if chosen {
                     theme::accent()
@@ -34,7 +34,7 @@ impl IndicatorEditor {
                         .px_1p5()
                         .rounded_full()
                         .bg(theme::destructive_bg())
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::destructive())
                         .child(c.to_string())
                 }))
@@ -159,7 +159,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())
                         .child(icon::tinted(IconName::Check, 14., theme::emerald()))
                         .child(text),
@@ -202,14 +202,14 @@ impl IndicatorEditor {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(problem.message.clone()),
                     )
                     .children((line > 0).then(|| {
                         div()
                             .flex_none()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(format!("line {line}, column {column}"))
                     })),
@@ -253,14 +253,14 @@ impl IndicatorEditor {
                 }
                 list = list.child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(line),
                 );
                 if let Some(problem) = report.problems.first() {
                     list = list.child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::destructive())
                             .child(problem.message.clone()),
                     );
@@ -274,7 +274,7 @@ impl IndicatorEditor {
                     list = list.child(
                         div()
                             .font_family(mono())
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(text),
                     );

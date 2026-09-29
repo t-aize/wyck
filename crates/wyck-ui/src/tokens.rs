@@ -5,49 +5,116 @@
 //! `rounded_lg` for a card, a menu or a popover, `rounded_xl` for a dialog, `rounded_full` for a
 //! pill or a dot. The edge of a card, a menu or a popover is `theme::border_subtle`; a line
 //! between two parts of one surface is `theme::border_hairline`.
+//!
+//! Text, heights and widths follow the size of the interface the user chose (see [`set_scale`]):
+//! they are functions that give the base size times that scale, so the whole app grows or shrinks
+//! together and a person who needs larger text gets it everywhere.
+
+use std::sync::atomic::{AtomicU32, Ordering};
+
+/// The scale in force, in percent.
+static SCALE: AtomicU32 = AtomicU32::new(100);
+
+/// The least and the most the interface can be scaled to, in percent.
+pub const SCALE_MIN: u32 = 80;
+pub const SCALE_MAX: u32 = 160;
+
+/// Sets the size of the interface, in percent (100 is the size the app was drawn at). It is kept
+/// between [`SCALE_MIN`] and [`SCALE_MAX`]. Screens read it as they paint.
+pub fn set_scale(percent: u32) {
+    SCALE.store(percent.clamp(SCALE_MIN, SCALE_MAX), Ordering::Relaxed);
+}
+
+/// The size of the interface, in percent.
+pub fn scale_percent() -> u32 {
+    SCALE.load(Ordering::Relaxed)
+}
+
+/// A base size at the scale in force.
+pub fn scaled(base: f32) -> f32 {
+    base * scale_percent() as f32 / 100.0
+}
 
 /// Text sizes, in pixels.
 pub mod text {
+    use super::scaled;
+
     /// Badges, keys, the headings of a menu.
-    pub const CAPTION: f32 = 10.0;
+    pub fn caption() -> f32 {
+        scaled(10.0)
+    }
     /// Secondary text: hints, labels under a value, timestamps.
-    pub const SMALL: f32 = 11.0;
+    pub fn small() -> f32 {
+        scaled(11.0)
+    }
     /// The text of controls, menus and lists.
-    pub const BODY: f32 = 12.0;
+    pub fn body() -> f32 {
+        scaled(12.0)
+    }
     /// The label of a field, the text of a dialog.
-    pub const EMPHASIS: f32 = 13.0;
+    pub fn emphasis() -> f32 {
+        scaled(13.0)
+    }
     /// The title of a panel or of a card.
-    pub const TITLE: f32 = 14.0;
+    pub fn title() -> f32 {
+        scaled(14.0)
+    }
     /// The head of a block: the symbol of the order ticket, a price, a notice.
-    pub const HEADING: f32 = 16.0;
+    pub fn heading() -> f32 {
+        scaled(16.0)
+    }
     /// The title of a screen, a large figure.
-    pub const DISPLAY: f32 = 20.0;
+    pub fn display() -> f32 {
+        scaled(20.0)
+    }
     /// The title of the welcome screen.
-    pub const HERO: f32 = 26.0;
+    pub fn hero() -> f32 {
+        scaled(26.0)
+    }
 }
 
 /// Heights of controls and rows, in pixels.
 pub mod height {
+    use super::scaled;
+
     /// The smallest button (gpui-kit's `xsmall`): a tool in a panel's own bar.
-    pub const TINY: f32 = 20.0;
+    pub fn tiny() -> f32 {
+        scaled(20.0)
+    }
     /// A control in a dense strip: a toolbar, the order ticket.
-    pub const COMPACT: f32 = 24.0;
+    pub fn compact() -> f32 {
+        scaled(24.0)
+    }
     /// A button, a field, a row of a menu or of a list.
-    pub const CONTROL: f32 = 28.0;
+    pub fn control() -> f32 {
+        scaled(28.0)
+    }
     /// A tab of a rail, the head of a group.
-    pub const LARGE: f32 = 34.0;
+    pub fn large() -> f32 {
+        scaled(34.0)
+    }
 }
 
 /// Widths of fields, in pixels.
 pub mod field {
+    use super::scaled;
+
     /// A short number: a count, a width, a percent.
-    pub const NARROW: f32 = 84.0;
+    pub fn narrow() -> f32 {
+        scaled(84.0)
+    }
     /// A number with decimals: a price, a level, an amount.
-    pub const NUMBER: f32 = 110.0;
+    pub fn number() -> f32 {
+        scaled(110.0)
+    }
     /// A long number.
-    pub const WIDE: f32 = 130.0;
+    pub fn wide() -> f32 {
+        scaled(130.0)
+    }
     /// A line of text: a name, a comment, a path.
-    pub const TEXT: f32 = 220.0;
+    pub fn text() -> f32 {
+        scaled(220.0)
+    }
 }
 
 /// Menus and popovers.
@@ -66,4 +133,24 @@ pub mod menu {
     pub const MARGIN: f32 = 8.0;
     /// The tallest a card grows before it scrolls.
     pub const MAX_HEIGHT: f32 = 520.0;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sizes_follow_the_scale_and_the_scale_stays_in_range() {
+        // The scale is one for the whole process: this test is the only one that sets it.
+        set_scale(100);
+        assert_eq!(text::body(), 12.0);
+        set_scale(150);
+        assert_eq!(text::body(), 18.0);
+        assert_eq!(height::control(), 42.0);
+        set_scale(10_000);
+        assert_eq!(scale_percent(), SCALE_MAX);
+        set_scale(1);
+        assert_eq!(scale_percent(), SCALE_MIN);
+        set_scale(100);
+    }
 }

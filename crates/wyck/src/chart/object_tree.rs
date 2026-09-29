@@ -182,7 +182,7 @@ impl ObjectTree {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(tokens::height::LARGE))
+            .h(px(tokens::height::large()))
             .px_2()
             .rounded_md()
             .when(selected, |el| el.bg(theme::accent_selected()))
@@ -210,7 +210,7 @@ impl ObjectTree {
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .text_size(px(tokens::text::EMPHASIS))
+                    .text_size(px(tokens::text::emphasis()))
                     .text_color(if hidden {
                         theme::muted_fg()
                     } else {
@@ -221,7 +221,7 @@ impl ObjectTree {
             .when(restricted, |el| {
                 el.child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child("Some timeframes"),
                 )

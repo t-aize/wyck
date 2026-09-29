@@ -42,7 +42,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(if query.is_empty() {
                                 "No script yet. Make one with New, or drop .rhai files in the folder."
@@ -52,7 +52,7 @@ impl IndicatorEditor {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(dir.display().to_string()),
                     ),
@@ -70,7 +70,7 @@ impl IndicatorEditor {
                         .flex_row()
                         .items_center()
                         .gap_1p5()
-                        .h(px(tokens::height::COMPACT))
+                        .h(px(tokens::height::compact()))
                         .px_2()
                         .mt_1()
                         .cursor_pointer()
@@ -97,7 +97,7 @@ impl IndicatorEditor {
                         .child(
                             div()
                                 .flex_1()
-                                .text_size(px(tokens::text::BODY))
+                                .text_size(px(tokens::text::body()))
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(theme::muted_fg())
                                 .truncate()
@@ -105,7 +105,7 @@ impl IndicatorEditor {
                         )
                         .child(
                             div()
-                                .text_size(px(tokens::text::SMALL))
+                                .text_size(px(tokens::text::small()))
                                 .text_color(theme::muted_fg())
                                 .child(entries.len().to_string()),
                         ),
@@ -177,7 +177,7 @@ impl IndicatorEditor {
             .flex_row()
             .items_center()
             .gap_1p5()
-            .h(px(tokens::height::CONTROL))
+            .h(px(tokens::height::control()))
             .pl(px(if indented { 24. } else { 8. }))
             .pr_2()
             .mx_1()
@@ -217,7 +217,7 @@ impl IndicatorEditor {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if active {
                         theme::fg()
                     } else {
@@ -314,14 +314,14 @@ impl IndicatorEditor {
             .shadow_lg()
             .child(
                 div()
-                    .text_size(px(tokens::text::TITLE))
+                    .text_size(px(tokens::text::title()))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(theme::fg())
                     .child(title),
             )
             .children(description.map(|text| {
                 div()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(text)
             }))

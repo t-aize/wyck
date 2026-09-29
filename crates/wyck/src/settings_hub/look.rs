@@ -93,7 +93,7 @@ impl SettingsHub {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(name.to_owned()),
                     )
@@ -193,6 +193,28 @@ impl SettingsHub {
             )],
         );
 
+        // The size of the text and the controls.
+        const SCALES: [u32; 6] = [90, 100, 115, 130, 150, 160];
+        let labels: Vec<String> = SCALES.iter().map(|s| format!("{s}%")).collect();
+        let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let scale_index = SCALES.iter().position(|s| *s == a.ui_scale).unwrap_or(1);
+        let size = form::group(
+            IconName::Type,
+            "Size of the interface",
+            [form::field(
+                "Text and controls",
+                Some("Makes everything larger or smaller together. Chart text keeps its own size"),
+                controls::segmented(
+                    "settings-ui-scale",
+                    &label_refs,
+                    scale_index,
+                    |choice, _window, cx| {
+                        appearance::update(cx, |a| a.ui_scale = SCALES[choice]);
+                    },
+                ),
+            )],
+        );
+
         let reset = Button::new("settings-reset-look")
             .cursor_pointer()
             .ghost()
@@ -216,6 +238,7 @@ impl SettingsHub {
             .child(accent_group)
             .child(themes_group)
             .child(font_group)
+            .child(size)
             .child(motion)
             .child(div().flex().flex_row().child(reset))
             .into_any_element()
@@ -234,7 +257,7 @@ impl SettingsHub {
             .flex()
             .items_center()
             .justify_center()
-            .size(px(tokens::height::COMPACT))
+            .size(px(tokens::height::compact()))
             .rounded_full()
             .border_2()
             .border_color(if chosen {
@@ -291,13 +314,13 @@ impl SettingsHub {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::fg())
                             .child(name.clone()),
                     )
                     .children(used.then(|| {
                         div()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::accent())
                             .child("In use")
                     }))
@@ -386,18 +409,18 @@ impl SettingsHub {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(tokens::height::LARGE))
+                .h(px(tokens::height::large()))
                 .child(
                     div()
                         .w(px(150.))
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())
                         .child("Name"),
                 )
                 .child(field::text(&self.rename))
                 .child(
                     div()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child("Enter to rename"),
                 ),
@@ -411,11 +434,11 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(tokens::height::LARGE))
+                    .h(px(tokens::height::large()))
                     .child(
                         div()
                             .w(px(150.))
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(field.label()),
                     )

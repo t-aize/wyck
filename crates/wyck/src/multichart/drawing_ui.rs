@@ -291,10 +291,10 @@ impl MultiChart {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(tokens::height::CONTROL))
+                    .h(px(tokens::height::control()))
                     .pl_2()
                     .cursor_pointer()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if selected {
                         theme::fg()
                     } else {
@@ -318,7 +318,7 @@ impl MultiChart {
                         div()
                             .flex_none()
                             .pr_1()
-                            .text_size(px(tokens::text::CAPTION))
+                            .text_size(px(tokens::text::caption()))
                             .text_color(theme::muted_fg())
                             .child(keys)
                     })),
@@ -330,7 +330,7 @@ impl MultiChart {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(tokens::height::CONTROL))
+                    .size(px(tokens::height::control()))
                     .cursor_pointer()
                     .tooltip(controls::tooltip(if starred {
                         "Unpin from the favorites"
@@ -405,7 +405,7 @@ impl MultiChart {
                     div()
                         .px_2()
                         .py_1p5()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(format!("Type to search the {} tools.", Tool::ALL.len())),
                 );
@@ -423,7 +423,7 @@ impl MultiChart {
                         div()
                             .px_2()
                             .py_1p5()
-                            .text_size(px(tokens::text::SMALL))
+                            .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("No tool by that name."),
                     );
@@ -520,7 +520,7 @@ impl MultiChart {
             .child(
                 div()
                     .px_2()
-                    .text_size(px(tokens::text::SMALL))
+                    .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())
                     .child(bar_label),
             )
@@ -570,7 +570,7 @@ impl MultiChart {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .size(px(tokens::height::COMPACT))
+                        .size(px(tokens::height::compact()))
                         .rounded_full()
                         .cursor_pointer()
                         .when(selected, |el| el.border_1().border_color(theme::fg()))
@@ -594,7 +594,7 @@ impl MultiChart {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .size(px(tokens::height::COMPACT))
+                        .size(px(tokens::height::compact()))
                         .rounded_full()
                         .cursor_pointer()
                         .tooltip(controls::tooltip(format!("#{color:06x}")))
@@ -812,7 +812,7 @@ impl MultiChart {
                         .min_w(px(22.))
                         .flex()
                         .justify_center()
-                        .text_size(px(tokens::text::SMALL))
+                        .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(format!("{}", size.round() as u32)),
                 )
@@ -1000,7 +1000,7 @@ impl MultiChart {
                     )
                     .children(menu.popup(
                         items,
-                        popup::Placement::Below(tokens::height::COMPACT),
+                        popup::Placement::Below(tokens::height::compact()),
                         window,
                         cx,
                     )),

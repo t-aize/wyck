@@ -20,7 +20,7 @@ impl DrawingProps {
         };
         let glyph: AnyElement = match current {
             None => div()
-                .text_size(px(tokens::text::SMALL))
+                .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg())
                 .child("Auto")
                 .into_any_element(),
@@ -34,7 +34,7 @@ impl DrawingProps {
             .items_center()
             .justify_center()
             .w(px(44.))
-            .h(px(tokens::height::CONTROL))
+            .h(px(tokens::height::control()))
             .rounded_md()
             .border_1()
             .border_color(theme::border_subtle())
@@ -122,7 +122,7 @@ impl DrawingProps {
                             }
                         },
                     ))
-                    .child(number::field(field, tokens::field::NUMBER))
+                    .child(number::field(field, tokens::field::number()))
                     .child(self.swatch(
                         Swatch::Level(index),
                         level.color,
@@ -132,7 +132,7 @@ impl DrawingProps {
                     .children(
                         self.level_widths
                             .get(index)
-                            .map(|width| number::field(width, tokens::field::NARROW)),
+                            .map(|width| number::field(width, tokens::field::narrow())),
                     )
                     .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())

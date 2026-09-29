@@ -22,11 +22,6 @@ use wyck_chart::drawing::model::Dash;
 
 use self::book::{AccountBook, is_buy};
 
-/// The color of an alert's line. The other lines take theirs from the palette in force: a
-/// position the chart's line color, an order the amber, a stop loss the falling candle and a take
-/// profit the rising one.
-pub const ALERT_COLOR: u32 = 0xff9800;
-
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`
 /// the account's.
@@ -167,7 +162,7 @@ pub fn lines(
         out.entry(alert.symbol_id).or_default().push(line(
             LineId::Alert(alert.id),
             alert.price,
-            ALERT_COLOR,
+            palette.amber,
             "Alert".into(),
             Dash::Dotted,
             true,

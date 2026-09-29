@@ -100,7 +100,7 @@ impl Render for Confirm {
         };
         let mut body = div().flex().flex_col().gap_2().child(
             div()
-                .text_size(px(crate::tokens::text::TITLE))
+                .text_size(px(crate::tokens::text::title()))
                 .text_color(theme::fg())
                 .child(self.text.clone()),
         );
@@ -121,7 +121,7 @@ impl Render for Confirm {
                         .flex_row()
                         .justify_between()
                         .gap_2()
-                        .text_size(px(crate::tokens::text::BODY))
+                        .text_size(px(crate::tokens::text::body()))
                         .child(div().text_color(theme::muted_fg()).child(label.clone()))
                         .child(div().text_color(theme::fg()).child(value.clone())),
                 );
@@ -136,7 +136,7 @@ impl Render for Confirm {
                     .bg(theme::amber_bg())
                     .border_1()
                     .border_color(theme::amber())
-                    .text_size(px(crate::tokens::text::BODY))
+                    .text_size(px(crate::tokens::text::body()))
                     .text_color(theme::fg())
                     .child(warning.clone()),
             );

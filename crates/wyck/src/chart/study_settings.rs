@@ -524,7 +524,9 @@ impl StudyEditor {
                     .fields
                     .iter()
                     .find(|(k, _)| *k == key)
-                    .map(|(_, state)| number::field(state, tokens::field::WIDE).into_any_element()),
+                    .map(|(_, state)| {
+                        number::field(state, tokens::field::wide()).into_any_element()
+                    }),
                 InputKind::Source => {
                     let target = target.clone();
                     Some(
@@ -637,7 +639,7 @@ impl StudyEditor {
                     div()
                         .max_w(px(200.))
                         .truncate()
-                        .text_size(px(tokens::text::BODY))
+                        .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())
                         .child(about),
                 )
@@ -684,7 +686,7 @@ impl StudyEditor {
                     .flex_row()
                     .gap_2()
                     .items_start()
-                    .text_size(px(tokens::text::BODY))
+                    .text_size(px(tokens::text::body()))
                     .text_color(if error {
                         theme::destructive()
                     } else {
@@ -761,7 +763,7 @@ impl StudyEditor {
                 .opacity
                 .iter()
                 .find(|(k, _)| *k == key)
-                .map(|(_, state)| number::field(state, tokens::field::NUMBER));
+                .map(|(_, state)| number::field(state, tokens::field::number()));
             let mut rows = vec![form::field(
                 "Color",
                 Some("Opacity in percent"),
@@ -822,7 +824,7 @@ impl StudyEditor {
                     self.widths
                         .iter()
                         .find(|(k, _)| *k == key)
-                        .map(|(_, state)| number::field(state, tokens::field::NARROW)),
+                        .map(|(_, state)| number::field(state, tokens::field::narrow())),
                 );
             if config.kind == StudyKind::VolumeProfile {
                 if key == "poc" {
@@ -917,7 +919,7 @@ impl StudyEditor {
                             rows.push(form::field(
                                 "Column width (%)",
                                 None,
-                                number::field(state, tokens::field::NUMBER),
+                                number::field(state, tokens::field::number()),
                             ));
                         }
                     }
@@ -961,14 +963,14 @@ impl StudyEditor {
                     form::field(
                         "Value",
                         Some("Overrides the calculated level"),
-                        number::field(state, tokens::field::WIDE),
+                        number::field(state, tokens::field::wide()),
                     )
                     .into_any_element(),
                 );
             }
             if let Some((_, state)) = self.level_widths.iter().find(|(i, _)| *i == index) {
                 rows.push(
-                    form::field("Width", None, number::field(state, tokens::field::NUMBER))
+                    form::field("Width", None, number::field(state, tokens::field::number()))
                         .into_any_element(),
                 );
             }
@@ -977,7 +979,7 @@ impl StudyEditor {
                     form::field(
                         "Opacity (%)",
                         None,
-                        number::field(state, tokens::field::NUMBER),
+                        number::field(state, tokens::field::number()),
                     )
                     .into_any_element(),
                 );
@@ -1065,7 +1067,7 @@ impl StudyEditor {
                     form::field(
                         "Opacity (%)",
                         None,
-                        number::field(state, tokens::field::NUMBER),
+                        number::field(state, tokens::field::number()),
                     )
                     .into_any_element(),
                 );
@@ -1104,7 +1106,7 @@ impl StudyEditor {
                     form::field(
                         "Opacity (%)",
                         None,
-                        number::field(state, tokens::field::NUMBER),
+                        number::field(state, tokens::field::number()),
                     )
                     .into_any_element(),
                 );
@@ -1174,7 +1176,7 @@ impl StudyEditor {
             rows.push(form::field(
                 "Decimal places",
                 None,
-                number::field(&self.precision, tokens::field::NUMBER),
+                number::field(&self.precision, tokens::field::number()),
             ));
         }
         if config.spec().placement == Placement::Pane {

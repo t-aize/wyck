@@ -94,13 +94,13 @@ impl ConnectionFlow {
                                     .gap_1()
                                     .child(
                                         div()
-                                            .text_size(px(tokens::text::DISPLAY))
+                                            .text_size(px(tokens::text::display()))
                                             .text_color(theme::fg())
                                             .child("Application credentials"),
                                     )
                                     .child(
                                         div()
-                                            .text_size(px(tokens::text::EMPHASIS))
+                                            .text_size(px(tokens::text::emphasis()))
                                             .text_color(theme::muted_fg())
                                             .child(
                                                 "From your own application on cTrader Connect. \
@@ -142,14 +142,14 @@ impl ConnectionFlow {
                             .bg(theme::bg())
                             .border_1()
                             .border_color(theme::border_subtle())
-                            .text_size(px(tokens::text::EMPHASIS))
+                            .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::muted_fg())
                             .child(div().flex_1().truncate().child(redirect_uri.clone()))
                             .child(copy_button(redirect_uri, copied, epoch, cx)),
                     ))
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(
                                 "Add this exact URI to your application's redirect list on \
@@ -410,9 +410,9 @@ fn environment_option(
         .items_center()
         .justify_center()
         .gap_2()
-        .h(px(tokens::height::LARGE))
+        .h(px(tokens::height::large()))
         .rounded_md()
-        .text_size(px(tokens::text::EMPHASIS))
+        .text_size(px(tokens::text::emphasis()))
         .text_color(if selected {
             theme::fg()
         } else {

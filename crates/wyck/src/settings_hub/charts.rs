@@ -17,7 +17,7 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(tokens::height::LARGE))
+                    .h(px(tokens::height::large()))
                     .px_2p5()
                     .rounded_md()
                     .border_1()
@@ -38,7 +38,7 @@ impl SettingsHub {
                     .child(div().size(px(12.)).rounded_sm().bg(rgb(down)))
                     .child(
                         div()
-                            .text_size(px(tokens::text::BODY))
+                            .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
                             .child(name),
                     ),

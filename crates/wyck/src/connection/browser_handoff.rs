@@ -247,13 +247,13 @@ impl ConnectionFlow {
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::DISPLAY))
+                            .text_size(px(tokens::text::display()))
                             .text_color(theme::fg())
                             .child("Finish this in your browser"),
                     )
                     .child(
                         div()
-                            .text_size(px(tokens::text::TITLE))
+                            .text_size(px(tokens::text::title()))
                             .text_color(theme::muted_fg())
                             .text_center()
                             .child(
@@ -267,7 +267,7 @@ impl ConnectionFlow {
                                 .flex()
                                 .items_center()
                                 .gap_2()
-                                .text_size(px(tokens::text::EMPHASIS))
+                                .text_size(px(tokens::text::emphasis()))
                                 .text_color(theme::accent())
                                 .child(icon::tinted(IconName::Radio, 14., theme::accent()))
                                 .child("Waiting for cTrader..."),
