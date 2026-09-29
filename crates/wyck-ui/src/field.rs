@@ -3,7 +3,7 @@
 //!
 //! * [`SliderField`]: a slider with its number field beside it, for a value with a range that
 //!   is felt more than typed (an opacity, a width, a size).
-//! * [`unit`]: a number field with its unit written after it ("px", "%", "pt").
+//! * [`unit()`](unit()): a number field with its unit written after it ("px", "%", "pt").
 //! * [`icon_choice`]: one choice among a few, each an icon with a tooltip (an alignment).
 //! * [`check`]: a checkbox with its label.
 //! * [`text`]: a text field of the standard width.

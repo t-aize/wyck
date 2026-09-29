@@ -481,7 +481,7 @@ pub fn render_png(
         .map_err(|e| e.to_string())
 }
 
-/// [`render_png`] without the encoding: the pixels, to be put in a larger picture (see
+/// `render_png` without the encoding: the pixels, to be put in a larger picture (see
 /// [`compose_png`]).
 pub fn render_pixmap(
     cmds: &[Cmd],
