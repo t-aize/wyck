@@ -778,6 +778,49 @@ impl Chart {
         ))
     }
 
+    /// The button that folds the lines of the indicators away, or brings them back. Folded, it
+    /// says how many there are. It sets the same option as "Indicator names" in the settings.
+    fn legend_toggle(&self, hover: gpui::Rgba, cx: &mut Context<Self>) -> impl IntoElement {
+        let shown = self.settings.status.indicators;
+        let count = self.settings.studies.len();
+        let tip = if shown {
+            "Hide the indicator names".to_owned()
+        } else if count == 1 {
+            "Show the indicator name".to_owned()
+        } else {
+            format!("Show the {count} indicator names")
+        };
+        div()
+            .id(("legend-toggle", self.id))
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_0p5()
+            .h(px(tokens::height::TINY))
+            .px_1()
+            .rounded_sm()
+            .cursor_pointer()
+            .hover(move |s| s.bg(hover))
+            .text_size(px(tokens::text::SMALL))
+            .text_color(theme::chart_muted())
+            // The press is the button's, not the chart's under it.
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.edit_settings(cx, |s| s.status.indicators = !s.status.indicators);
+            }))
+            .tooltip(controls::tooltip(SharedString::from(tip)))
+            .child(icon::tinted(
+                if shown {
+                    IconName::ChevronUp
+                } else {
+                    IconName::ChevronDown
+                },
+                13.,
+                theme::chart_muted(),
+            ))
+            .when(!shown, |el| el.child(count.to_string()))
+    }
+
     /// The first line of the legend: the symbol (a button that changes it), the timeframe and
     /// type, and the prices of the point under the pointer.
     fn headline(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
@@ -839,6 +882,9 @@ impl Chart {
                     .then(|| self.market_dot())
                     .flatten(),
             );
+        if !compact && !self.settings.studies.is_empty() {
+            row = row.child(self.legend_toggle(hover, cx));
+        }
         if self.flow_busy() {
             row = row.child(
                 div()
