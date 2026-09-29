@@ -1817,7 +1817,7 @@ pub(super) mod tests {
                 })
                 .collect()
         };
-        assert!(sizes(1.0).iter().any(|s| *s == 20.0));
+        assert!(sizes(1.0).contains(&20.0));
         assert!(sizes(1.5).iter().any(|s| (*s - 30.0).abs() < 1e-4));
         assert!(sizes(0.8).iter().any(|s| (*s - 16.0).abs() < 1e-4));
         assert_eq!(styled.style.text_size, 20.0, "what is saved is not touched");
