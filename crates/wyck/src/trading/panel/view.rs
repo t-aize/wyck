@@ -18,7 +18,7 @@ use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
 use super::prefs::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use super::stats::HistoryStats;
-use super::{AccountPanel, MenuTarget, PanelEvent, Resize, customize};
+use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
@@ -540,10 +540,23 @@ impl AccountPanel {
                             acts.reverse.clone(),
                             acts.close.clone(),
                         );
+                        let alert = this.clone();
+                        let (position_id, symbol_id) = (position.id, row.symbol.unwrap_or(0));
                         items.extend([
                             Entry::new("Modify stop loss and take profit...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |w, cx| edit(w, cx))
+                                .into(),
+                            Entry::new("Alert on its profit...")
+                                .icon(IconName::BellRing)
+                                .on_click(move |_, cx| {
+                                    alert.update(cx, |_, cx| {
+                                        cx.emit(PanelEvent::NewAlert(NewAlert::Position {
+                                            id: position_id,
+                                            symbol_id,
+                                        }));
+                                    });
+                                })
                                 .into(),
                             Entry::new("Move the stop loss to the entry")
                                 .icon(IconName::ShieldCheck)
@@ -814,6 +827,27 @@ impl AccountPanel {
             )
             .when(tab == Tab::History, |el| el.child(range))
             .child(div().flex_1())
+            .when(tab == Tab::Alerts, |el| {
+                let (spread, profit) = (this.clone(), this.clone());
+                el.child(button::action(
+                    "panel-new-spread-alert",
+                    "Spread alert",
+                    Some(IconName::Plus),
+                    false,
+                    move |_, cx| {
+                        spread.update(cx, |_, cx| cx.emit(PanelEvent::NewAlert(NewAlert::Spread)));
+                    },
+                ))
+                .child(button::action(
+                    "panel-new-profit-alert",
+                    "Profit alert",
+                    Some(IconName::Plus),
+                    false,
+                    move |_, cx| {
+                        profit.update(cx, |_, cx| cx.emit(PanelEvent::NewAlert(NewAlert::Profit)));
+                    },
+                ))
+            })
             .child(
                 div()
                     .text_size(px(tokens::text::small()))

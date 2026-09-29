@@ -26,9 +26,22 @@ use crate::alerts::Alerts;
 pub use self::dialogs::open_alert;
 pub use self::prefs::{PanelPrefs, Tab};
 
+/// An alert the panel asks for, that is not on a price.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum NewAlert {
+    /// On the spread of the symbol of the active chart.
+    Spread,
+    /// On the profit of the whole account.
+    Profit,
+    /// On the profit of one position.
+    Position { id: i64, symbol_id: i64 },
+}
+
 pub enum PanelEvent {
     /// Show this symbol on the active chart.
     ShowSymbol(i64),
+    /// Make an alert on a spread or a profit and open it.
+    NewAlert(NewAlert),
     /// Fold the panel away.
     Hide,
     /// How the panel is arranged changed, to be remembered.

@@ -7,7 +7,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputState};
 
-use crate::alerts::model::PriceKind;
+use crate::alerts::model::{PnlScope, PriceKind};
 use crate::alerts::sound::SoundKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::trading::account::Account;
@@ -196,11 +196,13 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
         Source::Indicator { study, .. } => study.input("length"),
         _ => 0.0,
     };
+    let measure = alert.source.is_measure();
+    let decimals = alert.source.decimals(digits);
     let level = |value: f64| {
-        if value == 0.0 {
+        if value == 0.0 && !measure {
             String::new()
         } else {
-            format!("{:.*}", digits as usize, value)
+            format!("{:.*}", decimals as usize, value)
         }
     };
     let editor = cx.new(|cx| AlertEditor {
@@ -261,6 +263,7 @@ impl AlertEditor {
         Condition::ALL
             .into_iter()
             .filter(|c| match (&self.draft.source, &self.draft.versus) {
+                (source, _) if source.is_measure() => source.allows(*c),
                 (Source::Indicator { .. }, _) => *c != Condition::MovesBy,
                 (_, Some(Source::Drawing { .. })) => {
                     !matches!(c, Condition::MovesBy | Condition::ChangesDirection)
@@ -268,6 +271,62 @@ impl AlertEditor {
                 _ => *c != Condition::ChangesDirection,
             })
             .collect()
+    }
+
+    /// The position a profit alert on one position follows.
+    fn id_of_position(&self) -> i64 {
+        match &self.draft.source {
+            Source::Pnl {
+                scope: PnlScope::Position { id },
+            } => *id,
+            _ => 0,
+        }
+    }
+
+    /// The watch has changed to the choice at `choice` of the strip: price, indicator, spread or
+    /// profit. The level is set to something that fits the new unit when the old one does not.
+    fn choose_source(&mut self, choice: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let (source, level) = match choice {
+            1 => (
+                Source::Indicator {
+                    study: Box::new(StudyConfig::new(StudyKind::Rsi)),
+                    plot: 0,
+                },
+                Some(70.0),
+            ),
+            2 => {
+                let pip = self.alerts.read(cx).pip_of(self.draft.symbol_id);
+                (Source::Spread { pip }, Some(2.0))
+            }
+            3 => (
+                Source::Pnl {
+                    scope: if self.draft.symbol_id > 0 {
+                        PnlScope::Symbol
+                    } else {
+                        PnlScope::Account
+                    },
+                },
+                Some(0.0),
+            ),
+            _ => (
+                Source::Price {
+                    price: PriceKind::Bid,
+                },
+                None,
+            ),
+        };
+        let was_price = matches!(self.draft.source, Source::Price { .. });
+        self.draft.source = source;
+        // A price level means nothing for another unit, and the other way round.
+        if let Some(level) = level
+            && (was_price || self.draft.price <= 1.0 || self.draft.source.is_measure())
+        {
+            self.draft.price = level;
+            let text = number::format(level, 2);
+            self.price.update(cx, |s, cx| s.set_value(text, window, cx));
+        }
+        self.mend();
+        cx.notify();
     }
 
     /// Puts the draft back in a shape that means something after what it watches changed.
@@ -278,12 +337,18 @@ impl AlertEditor {
         if self.draft.source.is_indicator() && self.draft.trigger == Trigger::OncePerBar {
             self.draft.trigger = Trigger::EveryTime;
         }
+        if self.draft.source.is_measure() {
+            self.draft.versus = None;
+            if self.draft.trigger == Trigger::OncePerBarClose {
+                self.draft.trigger = Trigger::EveryTime;
+            }
+        }
     }
 
     fn save(&self, cx: &mut App) {
         let mut alert = self.draft.clone();
         if let Some(price) = self.read(&self.price, cx)
-            && (price > 0.0 || alert.source.is_indicator())
+            && (price > 0.0 || alert.source.is_indicator() || alert.source.is_measure())
         {
             alert.price = price;
         }
@@ -375,8 +440,19 @@ impl AlertEditor {
 
 impl Render for AlertEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let symbol = self.draft.symbol.clone();
+        let symbol = if self.draft.source.has_symbol() {
+            self.draft.symbol.clone()
+        } else {
+            "the account".to_owned()
+        };
         let is_indicator = self.draft.source.is_indicator();
+        let measure = self.draft.source.is_measure();
+        let source_index = match &self.draft.source {
+            Source::Indicator { .. } => 1,
+            Source::Spread { .. } => 2,
+            Source::Pnl { .. } => 3,
+            _ => 0,
+        };
         let drawing = self.draft.drawing();
         let condition = self.draft.condition;
         let (save, kind_this) = (cx.entity(), cx.entity());
@@ -393,26 +469,11 @@ impl Render for AlertEditor {
             None,
             controls::segmented(
                 "alert-source",
-                &["Price", "Indicator"],
-                usize::from(is_indicator),
+                &["Price", "Indicator", "Spread", "Profit"],
+                source_index,
                 move |choice, window, cx| {
                     source_this.update(cx, |e, cx| {
-                        e.draft.source = if choice == 1 {
-                            Source::Indicator {
-                                study: Box::new(StudyConfig::new(StudyKind::Rsi)),
-                                plot: 0,
-                            }
-                        } else {
-                            Source::Price {
-                                price: PriceKind::Bid,
-                            }
-                        };
-                        if choice == 1 && e.draft.price <= 1.0 {
-                            e.draft.price = 70.0;
-                            e.price.update(cx, |s, cx| s.set_value("70", window, cx));
-                        }
-                        e.mend();
-                        cx.notify();
+                        e.choose_source(choice, window, cx);
                     });
                 },
             ),
@@ -494,6 +555,41 @@ impl Render for AlertEditor {
                     ),
                 ));
             }
+            Source::Spread { .. } => {}
+            Source::Pnl { scope } => {
+                // The choices: the whole account, the symbol, and the one position this alert
+                // was made for (it cannot be chosen here, only kept).
+                let mut labels = vec!["Account"];
+                if self.draft.symbol_id > 0 {
+                    labels.push("This symbol");
+                }
+                let position = format!("Position {}", self.id_of_position());
+                if matches!(scope, PnlScope::Position { .. }) {
+                    labels.push(&position);
+                }
+                let at = match scope {
+                    PnlScope::Account => 0,
+                    PnlScope::Symbol => 1,
+                    PnlScope::Position { .. } => labels.len() - 1,
+                };
+                let scope_this = cx.entity();
+                watch.push(form::field(
+                    "Profit of",
+                    Some("In the money of the account, net of swap and commission"),
+                    controls::segmented("alert-scope", &labels, at, move |choice, _w, cx| {
+                        scope_this.update(cx, |e, cx| {
+                            if let Source::Pnl { scope } = &mut e.draft.source {
+                                match choice {
+                                    0 => *scope = PnlScope::Account,
+                                    1 => *scope = PnlScope::Symbol,
+                                    _ => {}
+                                }
+                            }
+                            cx.notify();
+                        });
+                    }),
+                ));
+            }
             Source::Drawing { .. } => {}
         }
 
@@ -548,13 +644,18 @@ impl Render for AlertEditor {
                 ));
                 let _ = id;
             } else {
+                let unit = match &self.draft.source {
+                    Source::Spread { .. } => Some("In pips"),
+                    Source::Pnl { .. } => Some("In the money of the account. A loss is negative"),
+                    _ => None,
+                };
                 when.push(form::field(
                     if condition.is_zone() {
                         "Zone from"
                     } else {
                         "Level"
                     },
-                    None,
+                    unit,
                     form::text_field(&self.price, tokens::field::text()),
                 ));
                 if condition.is_zone() {
@@ -585,6 +686,7 @@ impl Render for AlertEditor {
         let trig_items: Vec<Item> = Trigger::ALL
             .iter()
             .filter(|t| !(is_indicator && **t == Trigger::OncePerBar))
+            .filter(|t| !(measure && **t == Trigger::OncePerBarClose))
             .map(|t| {
                 let (this, t) = (trig_this.clone(), *t);
                 Entry::new(t.label())

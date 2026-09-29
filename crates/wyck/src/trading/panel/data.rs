@@ -906,6 +906,8 @@ fn alerts(ctx: &Ctx) -> Table {
     let book = ctx.alerts.book();
     let mut rows = Vec::new();
     let mut unfiltered = 0;
+    // Read from the account once, and only when an alert on a profit needs it.
+    let mut profits: Option<crate::alerts::Profits> = None;
     for alert in &book.alerts {
         unfiltered += 1;
         let symbol = alert.symbol_id;
@@ -942,15 +944,43 @@ fn alerts(ctx: &Ctx) -> Table {
             (Some(b), Some(a)) => Some((b + a) / 2.0),
             (b, a) => b.or(a),
         };
+        // A spread or a profit: its value now, and the level it waits for, in its own unit.
+        let measure = alert.source.is_measure() && alert.condition.needs_level();
+        let current = match &alert.source {
+            crate::alerts::Source::Spread { pip } => bid
+                .zip(ask)
+                .map(|(bid, ask)| crate::alerts::eval::spread_pips(bid, ask, *pip)),
+            crate::alerts::Source::Pnl { scope } => profits
+                .get_or_insert_with(|| account.profits())
+                .of(scope, symbol),
+            _ => None,
+        };
+        let measure_unit = match &alert.source {
+            crate::alerts::Source::Spread { .. } => " pips",
+            _ => "",
+        };
         let cells = AlertCol::ALL
             .iter()
             .map(|col| match col {
+                AlertCol::Symbol if !alert.source.has_symbol() => Cell::text("Account"),
                 AlertCol::Symbol => Cell::text(alert.symbol.clone()),
                 AlertCol::Condition => Cell::text(described.clone()).tone(Tone::Muted),
                 AlertCol::Price if on_price => {
                     Cell::num(format!("{:.*}", digits as usize, alert.price), alert.price)
                 }
+                AlertCol::Price if measure => Cell::num(
+                    format!("{}{measure_unit}", alert.level_text(digits)),
+                    alert.price,
+                ),
                 AlertCol::Price => Cell::dash(),
+                AlertCol::Distance if measure => match current {
+                    Some(now) => {
+                        let gap = alert.price - now;
+                        let decimals = alert.source.decimals(digits) as usize;
+                        Cell::num(format!("{gap:+.decimals$}{measure_unit}"), gap).tone(Tone::Muted)
+                    }
+                    None => Cell::dash(),
+                },
                 AlertCol::Distance if !on_price => Cell::dash(),
                 AlertCol::Distance => match market {
                     Some(m) => {

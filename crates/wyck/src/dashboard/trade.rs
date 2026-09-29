@@ -298,7 +298,85 @@ impl Dashboard {
                 });
             }
             PanelEvent::ShowSymbol(id) => self.show_symbol(*id, cx),
+            PanelEvent::NewAlert(kind) => self.add_measure_alert(*kind, cx),
         }
+    }
+
+    /// Makes an alert on a spread or a profit, with a level that fits what it sees now, and
+    /// opens it so the level and the condition can be set straight away.
+    fn add_measure_alert(&mut self, kind: crate::trading::panel::NewAlert, cx: &mut Context<Self>) {
+        use crate::alerts::model::PnlScope;
+        use crate::trading::panel::NewAlert;
+        let now = now_ms();
+        let (alert, digits) = match kind {
+            NewAlert::Spread => {
+                let Some(symbol) = self.multi.read(cx).active_symbol(cx) else {
+                    toast::show(
+                        cx,
+                        toast::Kind::Info,
+                        "No symbol",
+                        "Open a chart to watch the spread of its symbol.",
+                    );
+                    return;
+                };
+                let pip = self.alerts.read(cx).pip_of(symbol.id);
+                let (bid, ask) = self.trading.read(cx).quote(symbol.id);
+                // Twice the spread it has now, a round number, as a first level.
+                let level = bid.zip(ask).map_or(2.0, |(bid, ask)| {
+                    alerts::eval::spread_pips(bid, ask, pip) * 2.0
+                });
+                let level = (level.max(1.0) * 10.0).round() / 10.0;
+                (
+                    alerts::Alert::spread(0, symbol.id, &symbol.name, pip, level, now),
+                    symbol.digits,
+                )
+            }
+            NewAlert::Profit => {
+                // One percent of the balance lost, to start with.
+                let balance = self.trading.read(cx).summary().balance;
+                let level = -(balance * 0.01).round().max(1.0);
+                (
+                    alerts::Alert::pnl(0, 0, "", PnlScope::Account, level, now),
+                    5,
+                )
+            }
+            NewAlert::Position { id, symbol_id } => {
+                let name = self.trading.read(cx).book.name(symbol_id);
+                let digits = self.trading.read(cx).book.contract(symbol_id).digits;
+                (
+                    alerts::Alert::pnl(0, symbol_id, &name, PnlScope::Position { id }, 0.0, now),
+                    digits,
+                )
+            }
+        };
+        self.insert_alert(alert, digits, cx);
+    }
+
+    /// Adds an alert made here and opens it, or says the limit is reached.
+    fn insert_alert(&mut self, alert: alerts::Alert, digits: u32, cx: &mut Context<Self>) {
+        let limit = self.workspace.read(cx).preferences().limits.alerts;
+        let symbol_id = alert.symbol_id;
+        let added = self.alerts.update(cx, |alerts, cx| {
+            if symbol_id > 0 {
+                alerts.digits.entry(symbol_id).or_insert(digits);
+            }
+            alerts.edit(cx, |book| book.insert(alert, limit))
+        });
+        match added {
+            Some(id) => {
+                self.pending.push(Pending::EditAlert(id));
+                if let Some(panel) = &self.panel {
+                    panel.update(cx, |panel, cx| panel.show_tab(Tab::Alerts, cx));
+                }
+            }
+            None => toast::show(
+                cx,
+                toast::Kind::Warning,
+                "No alert added",
+                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+            ),
+        }
+        cx.notify();
     }
 
     /// Puts a symbol on the active chart.
@@ -310,6 +388,32 @@ impl Dashboard {
         if let Some(entry) = entry {
             self.picker_target = None;
             self.select(entry, false, cx);
+        }
+    }
+
+    /// Gives the alerts what they read from the account: how the symbols they watch are written
+    /// (from the contracts, which are asked for when they are not known yet) and, for the ones on
+    /// a profit, what the positions make now.
+    pub(super) fn feed_alerts(&mut self, cx: &mut Context<Self>) {
+        let symbols = self.alerts.read(cx).symbols();
+        for id in symbols {
+            self.trading
+                .update(cx, |account, cx| account.ensure_contract(id, cx));
+            let contract = self.trading.read(cx).book.contracts.get(&id).cloned();
+            // Before the answer a contract is a placeholder: it must not hide what is known.
+            let Some(contract) =
+                contract.filter(|c| *c != crate::trading::math::Contract::default())
+            else {
+                continue;
+            };
+            let (digits, pip) = (contract.digits, contract.pip());
+            self.alerts
+                .update(cx, |alerts, cx| alerts.learn(id, digits, pip, cx));
+        }
+        if self.alerts.read(cx).watches_profit() {
+            let profits = self.trading.read(cx).profits();
+            self.alerts
+                .update(cx, |alerts, cx| alerts.on_profit(&profits, cx));
         }
     }
 
@@ -417,8 +521,13 @@ impl Dashboard {
     pub(super) fn add_alert(&mut self, symbol: &SymbolRef, price: f64, cx: &mut Context<Self>) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
+        let pip = symbol.pip_position.map_or_else(
+            || alerts::model::pip_from_digits(digits),
+            wyck_openapi::market::pip_size,
+        );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
+            alerts.set_pip(id, pip);
             alerts.edit(cx, |book| {
                 book.add_with_limit(
                     id,
@@ -493,8 +602,13 @@ impl Dashboard {
             }
         }
         let digits = symbol.digits;
+        let pip = symbol.pip_position.map_or_else(
+            || alerts::model::pip_from_digits(digits),
+            wyck_openapi::market::pip_size,
+        );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);
+            alerts.set_pip(symbol.id, pip);
             alerts.edit(cx, |book| book.insert(alert, limit))
         });
         match added {

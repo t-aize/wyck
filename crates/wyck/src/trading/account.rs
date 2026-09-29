@@ -379,6 +379,26 @@ impl Account {
         self.book.net_profit(position_id, &|id| self.quote(id))
     }
 
+    /// What the open positions make or lose now, for the alerts on a profit. Empty until the
+    /// account is read.
+    pub fn profits(&self) -> crate::alerts::Profits {
+        let mut profits = crate::alerts::Profits::default();
+        if self.status != Status::Ready {
+            return profits;
+        }
+        profits.account = Some(self.summary().unrealized);
+        for position in self.book.positions.values() {
+            if let Some(net) = self.net_profit(position.position_id) {
+                profits.positions.insert(position.position_id, net);
+                *profits
+                    .symbols
+                    .entry(position.trade_data.symbol_id)
+                    .or_default() += net;
+            }
+        }
+        profits
+    }
+
     /// The broker's names of the symbols (for the lists), the currency each is quoted in (for
     /// the profit between the server's answers) and the id of that currency's asset (for the
     /// rate that converts it into the deposit currency).

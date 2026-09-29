@@ -59,6 +59,44 @@ pub enum Source {
     },
     /// A drawing of the symbol: the level of a line at the time, or the two sides of a zone.
     Drawing { id: u64 },
+    /// The spread of the symbol (ask minus bid), in pips. `pip` is the size of one pip in price,
+    /// kept with the alert because the alerts do not read the contracts of the symbols.
+    Spread {
+        #[serde(default = "default_pip")]
+        pip: f64,
+    },
+    /// What the account, a symbol or a position makes or loses, in the money of the account.
+    Pnl { scope: PnlScope },
+}
+
+/// Which profit a profit alert follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "scope", rename_all = "snake_case")]
+pub enum PnlScope {
+    /// Everything open on the account.
+    Account,
+    /// The positions of the alert's symbol.
+    Symbol,
+    /// One position.
+    Position { id: i64 },
+}
+
+/// The size of a pip of a forex pair with five decimals.
+fn default_pip() -> f64 {
+    0.0001
+}
+
+/// The size of one pip for a symbol with `digits` decimals, when its contract is not at hand:
+/// the fourth decimal for a forex pair, the second for a pair with two or three (JPY). Other
+/// symbols have their own pip: the alert then uses the one read from the contract.
+pub fn pip_from_digits(digits: u32) -> f64 {
+    match digits {
+        0 => 1.0,
+        1 => 0.1,
+        2 | 3 => 0.01,
+        4 | 5 => 0.0001,
+        d => 10f64.powi(1 - i32::try_from(d.min(12)).unwrap_or(5)),
+    }
 }
 
 impl Default for Source {
@@ -88,6 +126,49 @@ impl Source {
                 }
             }
             Self::Drawing { id } => format!("drawing {id}"),
+            Self::Spread { .. } => "spread".to_owned(),
+            Self::Pnl { scope } => match scope {
+                PnlScope::Account => "account profit".to_owned(),
+                PnlScope::Symbol => "profit".to_owned(),
+                PnlScope::Position { id } => format!("profit of position {id}"),
+            },
+        }
+    }
+
+    /// Whether the value is a plain number of the alert's own (a spread, a profit), not a price
+    /// or the plot of an indicator: no drawing, no other value to compare with.
+    pub fn is_measure(&self) -> bool {
+        matches!(self, Self::Spread { .. } | Self::Pnl { .. })
+    }
+
+    /// Whether the alert belongs to a symbol. The profit of the whole account does not.
+    pub fn has_symbol(&self) -> bool {
+        !matches!(
+            self,
+            Self::Pnl {
+                scope: PnlScope::Account
+            }
+        )
+    }
+
+    /// The decimals to write a value of this source with: `digits` for a price.
+    pub fn decimals(&self, digits: u32) -> u32 {
+        match self {
+            Self::Spread { .. } => 1,
+            Self::Pnl { .. } => 2,
+            _ => digits,
+        }
+    }
+
+    /// Whether a condition makes sense for the value: a profit has no direction to change, a
+    /// number that is not a price does not move by a share of itself.
+    pub fn allows(&self, condition: Condition) -> bool {
+        match self {
+            Self::Spread { .. } => condition != Condition::ChangesDirection,
+            Self::Pnl { .. } => {
+                !matches!(condition, Condition::ChangesDirection | Condition::MovesBy)
+            }
+            _ => true,
         }
     }
 }
@@ -220,9 +301,12 @@ pub struct Firing {
     pub watched: String,
     #[serde(default)]
     pub condition: String,
-    /// The value that made it fire.
+    /// The value that made it fire, and it written the way the alert writes it (a price with the
+    /// decimals of the symbol, a spread in pips, a profit in money).
     #[serde(default)]
     pub value: Option<f64>,
+    #[serde(default)]
+    pub value_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -327,7 +411,40 @@ impl Alert {
         }
     }
 
-    /// Whether it keeps watching after it fires.
+    /// An alert on the spread of a symbol: it fires when the spread, in pips, meets the condition
+    /// with `level`. `pip` is the size of a pip in price.
+    pub fn spread(
+        id: u64,
+        symbol_id: i64,
+        symbol: &str,
+        pip: f64,
+        level: f64,
+        now_ms: i64,
+    ) -> Self {
+        let mut alert = Self::price(id, symbol_id, symbol, level, now_ms);
+        alert.source = Source::Spread { pip };
+        alert.condition = Condition::Above;
+        alert.trigger = Trigger::OncePerBar;
+        alert
+    }
+
+    /// An alert on a profit: it fires when the profit of `scope`, in the money of the account,
+    /// meets the condition with `level`. `symbol_id` is 0 for the whole account.
+    pub fn pnl(
+        id: u64,
+        symbol_id: i64,
+        symbol: &str,
+        scope: PnlScope,
+        level: f64,
+        now_ms: i64,
+    ) -> Self {
+        let mut alert = Self::price(id, symbol_id, symbol, level, now_ms);
+        alert.source = Source::Pnl { scope };
+        alert.condition = Condition::Below;
+        alert
+    }
+
+    /// Whether it repeats after it fires.
     pub fn repeats(&self) -> bool {
         self.trigger != Trigger::Once
     }
@@ -371,7 +488,12 @@ impl Alert {
         };
         let what = match &self.source {
             Source::Price { .. } => self.symbol.clone(),
+            other if !other.has_symbol() => other.label(),
             other => format!("{} {}", self.symbol, other.label()),
+        };
+        let unit = match &self.source {
+            Source::Spread { .. } if self.versus.is_none() => " pips",
+            _ => "",
         };
         match self.condition {
             Condition::MovesBy => format!(
@@ -380,7 +502,7 @@ impl Alert {
                 self.minutes
             ),
             Condition::ChangesDirection => format!("{what} changes direction"),
-            condition => format!("{what} {} {level}", condition.label().to_lowercase()),
+            condition => format!("{what} {} {level}{unit}", condition.label().to_lowercase()),
         }
     }
 
@@ -395,8 +517,17 @@ impl Alert {
             {
                 trim_number(self.price)
             }
+            Source::Spread { .. } | Source::Pnl { .. } => {
+                let decimals = self.source.decimals(digits) as usize;
+                format!("{:.*}", decimals, self.price)
+            }
             _ => format!("{:.*}", digits as usize, self.price),
         }
+    }
+
+    /// A value of what the alert watches, written the way the alert writes its level.
+    pub fn value_text(&self, value: f64, digits: u32) -> String {
+        format!("{value:.*}", self.source.decimals(digits) as usize)
     }
 
     /// What the user is told when it fires, without a value.
@@ -410,7 +541,7 @@ impl Alert {
         if self.message.trim().is_empty() {
             return self.describe(digits);
         }
-        let value_text = value.map_or_else(String::new, |v| format!("{v:.*}", digits as usize));
+        let value_text = value.map_or_else(String::new, |v| self.value_text(v, digits));
         self.message
             .replace("{symbol}", &self.symbol)
             .replace("{value}", &value_text)
@@ -463,15 +594,32 @@ impl AlertBook {
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
         self.alerts.retain(|a| {
-            a.symbol_id > 0
+            (a.symbol_id > 0 || !a.source.has_symbol())
                 && if a.condition.needs_level() && a.versus.is_none() {
-                    a.price.is_finite() && (a.price > 0.0 || a.source.is_indicator())
+                    // A profit can be a loss, and a level of 0 means something for it.
+                    a.price.is_finite()
+                        && (a.price > 0.0 || a.source.is_indicator() || a.source.is_measure())
                 } else {
                     true
                 }
         });
         self.alerts.truncate(MAX_ALERTS);
         for alert in &mut self.alerts {
+            if alert.source.is_measure() {
+                // Nothing else to compare a spread or a profit with, and no bars to judge.
+                alert.versus = None;
+                if !alert.source.allows(alert.condition) {
+                    alert.condition = Condition::Crossing;
+                }
+                if alert.trigger == Trigger::OncePerBarClose {
+                    alert.trigger = Trigger::EveryTime;
+                }
+            }
+            if let Source::Spread { pip } = &mut alert.source
+                && !(pip.is_finite() && *pip > 0.0)
+            {
+                *pip = default_pip();
+            }
             if alert.repeat && alert.trigger == Trigger::Once {
                 alert.trigger = Trigger::EveryTime;
             }
@@ -570,7 +718,8 @@ impl AlertBook {
         let mut ids: Vec<i64> = self
             .alerts
             .iter()
-            .filter(|a| a.active)
+            // A profit is read from the account, which follows the prices it needs itself.
+            .filter(|a| a.active && a.symbol_id > 0 && !matches!(a.source, Source::Pnl { .. }))
             .map(|a| a.symbol_id)
             .collect();
         ids.sort_unstable();
@@ -585,6 +734,7 @@ impl AlertBook {
         id: u64,
         text: String,
         value: Option<f64>,
+        digits: u32,
         now_ms: i64,
     ) -> Option<Alert> {
         let alert = self.get_mut(id)?;
@@ -602,6 +752,7 @@ impl AlertBook {
             watched: alert.source.label(),
             condition: alert.condition.label().to_owned(),
             value,
+            value_text: value.map_or_else(String::new, |v| alert.value_text(v, digits)),
         };
         let alert = alert.clone();
         self.history.insert(0, firing);
@@ -748,9 +899,9 @@ mod tests {
         let once = book.add(7, "EURUSD", 1.1, Condition::Crossing, 0).unwrap();
         let again = book.add(7, "EURUSD", 1.2, Condition::Crossing, 0).unwrap();
         book.get_mut(again).unwrap().trigger = Trigger::EveryTime;
-        let fired = book.fire(once, "one".into(), Some(1.1), 10).unwrap();
+        let fired = book.fire(once, "one".into(), Some(1.1), 5, 10).unwrap();
         assert!(!fired.active && fired.fired_count == 1);
-        assert!(book.fire(again, "two".into(), None, 11).unwrap().active);
+        assert!(book.fire(again, "two".into(), None, 5, 11).unwrap().active);
         assert_eq!(book.history[0].text, "two");
         let first = &book.history[1];
         assert_eq!(
@@ -761,7 +912,7 @@ mod tests {
         assert_eq!(book.firings(once).count(), 1);
         assert_eq!(book.watched(), vec![7]);
         for n in 0..(MAX_HISTORY + 20) {
-            book.fire(again, n.to_string(), None, 20 + n as i64);
+            book.fire(again, n.to_string(), None, 5, 20 + n as i64);
         }
         assert_eq!(book.history.len(), MAX_HISTORY);
     }
@@ -779,6 +930,85 @@ mod tests {
         assert!(book.expire(99).is_empty());
         assert_eq!(book.expire(100), vec![id]);
         assert!(book.watched().is_empty());
+    }
+
+    #[test]
+    fn a_spread_alert_reads_in_pips_and_a_profit_alert_in_money() {
+        let spread = Alert::spread(1, 7, "EURUSD", 0.0001, 2.5, 0);
+        assert_eq!(
+            spread.describe(5),
+            "EURUSD spread becomes greater than 2.5 pips"
+        );
+        assert_eq!(spread.value_text(3.04, 5), "3.0");
+        let mut profit = Alert::pnl(2, 0, "", PnlScope::Account, -100.0, 0);
+        assert_eq!(
+            profit.describe(5),
+            "account profit becomes smaller than -100.00"
+        );
+        assert_eq!(profit.value_text(-100.456, 5), "-100.46");
+        profit.symbol = "GBPUSD".into();
+        profit.source = Source::Pnl {
+            scope: PnlScope::Symbol,
+        };
+        profit.symbol_id = 9;
+        assert_eq!(
+            profit.describe(5),
+            "GBPUSD profit becomes smaller than -100.00"
+        );
+        profit.message = "{symbol}: {value} ({level})".into();
+        assert_eq!(profit.render(Some(-101.0), 5), "GBPUSD: -101.00 (-100.00)");
+    }
+
+    #[test]
+    fn spread_and_profit_alerts_survive_a_round_trip_and_a_repair() {
+        let mut book = AlertBook::default();
+        let spread = Alert::spread(0, 7, "EURUSD", 0.0001, 2.0, 0);
+        let account = Alert::pnl(0, 0, "", PnlScope::Account, -50.0, 0);
+        let position = Alert::pnl(0, 7, "EURUSD", PnlScope::Position { id: 41 }, 0.0, 0);
+        for alert in [spread, account, position] {
+            book.insert(alert, 100).unwrap();
+        }
+        let text = toml::to_string_pretty(&book).unwrap();
+        let back: AlertBook = toml::from_str(&text).unwrap();
+        assert_eq!(back.normalized(), book);
+
+        // What cannot mean anything is put right: no direction for a profit, no bars for a
+        // spread, a pip that is not a size.
+        let mut wild = book.clone();
+        wild.alerts[0].source = Source::Spread { pip: f64::NAN };
+        wild.alerts[0].condition = Condition::ChangesDirection;
+        wild.alerts[0].trigger = Trigger::OncePerBarClose;
+        wild.alerts[1].condition = Condition::MovesBy;
+        wild.alerts[1].versus = Some(Source::default());
+        let wild = wild.normalized();
+        assert_eq!(wild.alerts[0].condition, Condition::Crossing);
+        assert_eq!(wild.alerts[0].trigger, Trigger::EveryTime);
+        assert!(matches!(wild.alerts[0].source, Source::Spread { pip } if pip == 0.0001));
+        assert_eq!(wild.alerts[1].condition, Condition::Crossing);
+        assert!(wild.alerts[1].versus.is_none());
+        assert_eq!(
+            wild.alerts.len(),
+            3,
+            "a level of 0 and no symbol are fine for a profit"
+        );
+    }
+
+    #[test]
+    fn only_alerts_on_prices_and_spreads_ask_for_a_symbol_feed() {
+        let mut book = AlertBook::default();
+        book.insert(Alert::spread(0, 7, "EURUSD", 0.0001, 2.0, 0), 100);
+        book.insert(Alert::pnl(0, 8, "GBPUSD", PnlScope::Symbol, 5.0, 0), 100);
+        book.insert(Alert::pnl(0, 0, "", PnlScope::Account, 5.0, 0), 100);
+        assert_eq!(book.watched(), vec![7]);
+    }
+
+    #[test]
+    fn a_pip_is_worked_out_from_the_decimals_when_the_contract_is_not_known() {
+        assert!((pip_from_digits(5) - 0.0001).abs() < 1e-12);
+        assert!((pip_from_digits(4) - 0.0001).abs() < 1e-12);
+        assert!((pip_from_digits(3) - 0.01).abs() < 1e-12);
+        assert!((pip_from_digits(2) - 0.01).abs() < 1e-12);
+        assert!((pip_from_digits(0) - 1.0).abs() < 1e-12);
     }
 
     #[test]

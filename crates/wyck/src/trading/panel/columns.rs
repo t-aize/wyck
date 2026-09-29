@@ -157,11 +157,11 @@ columns! {
 }
 
 columns! {
-    /// The columns of the price alerts.
+    /// The columns of the alerts.
     AlertCol {
         Symbol => ("Symbol", NUMBER, false, true),
         Condition => ("Condition", WIDE, false, true),
-        Price => ("Price", NUMBER, true, true),
+        Price => ("Level", NUMBER, true, true),
         Distance => ("Distance", NUMBER, true, false),
         State => ("State", WIDE, false, true),
         Message => ("Message", TEXT, false, true),
