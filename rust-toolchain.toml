@@ -1,0 +1,5 @@
+# Follows stable so rustup fetches a toolchain that meets `rust-version` in Cargo.toml.
+[toolchain]
+channel = "stable"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
