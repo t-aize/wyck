@@ -25,8 +25,8 @@
 //! and with the entry while nothing is sent. The levels are then read-only in the ticket: they are
 //! changed on the drawing, or with "Unlink" to take them over.
 //!
-//! An order is sent after a confirmation, unless one-click trading is on; then the buy and sell
-//! buttons send at once.
+//! An order is sent after a confirmation, unless one-click trading is on; then the send button
+//! sends at once. The buy and sell buttons only pick the side.
 //!
 //! Everything about the panel can be changed (see [`prefs`] and [`customize`]): its side and
 //! width, which blocks show and in what order, the size shortcuts and what a new order starts
@@ -1847,17 +1847,6 @@ impl OrderTicket {
             Kind::Stop => format!("{side} {what} stop at {}", price()),
             Kind::StopLimit => format!("{side} {what} stop limit at {}", price()),
         }
-    }
-
-    /// Sends the order on a side, at once: what the buy and sell buttons do with one-click
-    /// trading.
-    fn send_side(&mut self, buy: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.side_allowed(buy) {
-            return;
-        }
-        self.buy = buy;
-        cx.emit(TicketEvent::LinesChanged);
-        self.send(window, cx);
     }
 
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
