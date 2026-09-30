@@ -559,7 +559,7 @@ impl OrderTicket {
                                 .text_size(px(tokens::text::small()))
                                 .text_color(theme::amber())
                                 .child(
-                                    "Orders are sent without asking. Buy and Sell send at once.",
+                                    "Orders are sent without asking. The send button sends at once.",
                                 ),
                         )
                     }),

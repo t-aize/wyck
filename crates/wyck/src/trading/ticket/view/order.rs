@@ -372,7 +372,6 @@ impl OrderTicket {
 
     pub(super) fn sides(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let layout = &self.layout;
-        let one_click = self.one_click;
         let button = |buy: bool| {
             let chosen = self.buy == buy;
             let allowed = self.side_allowed(buy);
@@ -408,13 +407,7 @@ impl OrderTicket {
                     el.cursor_pointer()
                         .hover(|s| s.border_color(color))
                         .on_click(move |_, window, cx| {
-                            this.update(cx, |t, cx| {
-                                if t.one_click {
-                                    t.send_side(buy, window, cx);
-                                } else {
-                                    t.set_side(buy, window, cx);
-                                }
-                            });
+                            this.update(cx, |t, cx| t.set_side(buy, window, cx));
                         })
                 })
                 .when(!allowed, |el| el.cursor_not_allowed().opacity(0.4))
@@ -436,14 +429,6 @@ impl OrderTicket {
                             .font_semibold()
                             .text_color(theme::fg())
                             .child(f.price(price)),
-                    )
-                })
-                .when(one_click && allowed, |el| {
-                    el.child(
-                        div()
-                            .text_size(px(tokens::text::caption()))
-                            .text_color(theme::muted_fg())
-                            .child("click to send"),
                     )
                 })
         };
