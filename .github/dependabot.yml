@@ -35,7 +35,7 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
-    # Major releases stay one pull request per crate: they are the ones that break things.
+    # Major releases stay one pull request per dependency: they are the ones that break things.
 
   - package-ecosystem: github-actions
     directory: /

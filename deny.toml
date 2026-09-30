@@ -7,34 +7,25 @@ all-features = true
 [advisories]
 # Known vulnerabilities and yanked crates fail the check.
 yanked = "deny"
-# Unmaintained notices are only enforced for direct dependencies. The ones in the graph today
-# (instant, paste, rustls-pemfile, rustybuzz, ttf-parser) are pulled in by gpui and cannot be
-# swapped from here.
+# Unmaintained notices are only enforced for direct dependencies.
 unmaintained = "workspace"
 
 [licenses]
 confidence-threshold = 0.9
 allow = [
-  "0BSD",
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
-  "BSD-3-Clause",
   "BSL-1.0",
-  "CC0-1.0",
-  "ISC",
   "MIT",
-  "MIT-0",
   "MPL-2.0",
   "Unicode-3.0",
   "Unlicense",
   "Zlib",
-  "bzip2-1.0.6",
 ]
 
 [bans]
-# Several graphics and windowing crates pull in two majors of the same crate; that is not
-# something this project can fix, so it is reported and not denied.
+# Two majors of the same crate can come from dependencies this project does not control, so it
+# is reported and not denied.
 multiple-versions = "warn"
 wildcards = "deny"
 
