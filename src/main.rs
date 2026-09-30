@@ -1,16 +1,8 @@
-#![allow(dead_code, unused_imports)]
-
-mod config;
-mod openapi;
-mod session_tokens;
-mod trading;
-mod tui;
-
 use std::path::PathBuf;
 
 use clap::Parser;
 
-use crate::config::AppPaths;
+use wyck::config::AppPaths;
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -29,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         None => AppPaths::discover()?,
     };
     let _log = init_logging(&paths)?;
-    tui::run(paths, args.reset).await
+    wyck::tui::run(paths, args.reset).await
 }
 
 fn init_logging(paths: &AppPaths) -> anyhow::Result<tracing_appender::non_blocking::WorkerGuard> {

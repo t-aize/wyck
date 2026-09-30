@@ -78,10 +78,12 @@ document of the account (see below); with none set, only the price collar applie
 
 | Path | Owns |
 |---|---|
+| `src/lib.rs`, `src/main.rs` | the library and the `wyck` binary |
 | `src/openapi` | cTrader Open API: messages, WebSocket client, OAuth, reconnecting session, account book |
 | `src/config` | profiles, documents, credential storage (keyring or encrypted files) |
 | `src/trading` | lot and money math, trade plans, risk guard |
 | `src/tui` | the terminal interface |
+| `tests` | integration tests against mock servers, and the ignored live tests |
 
 ## Requirements
 
@@ -103,7 +105,7 @@ cargo test
 Fill in `.env` from [.env.example](.env.example), then:
 
 ```sh
-cargo test openapi::tests::live -- --ignored --nocapture
+cargo test --test live -- --ignored --nocapture
 ```
 
 ## Checks

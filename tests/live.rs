@@ -59,16 +59,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::openapi::AccountClient;
-use crate::openapi::TraderAccount;
-use crate::openapi::auth::TokenSet;
-use crate::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-use crate::openapi::market::symbols::{LightSymbol, Symbol};
-use crate::openapi::market::to_price;
-use crate::openapi::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
-use crate::openapi::trading::{ExecutionType, NewOrderReq};
-use crate::openapi::{Client, Event};
 use secrecy::SecretString;
+use wyck::openapi::AccountClient;
+use wyck::openapi::TraderAccount;
+use wyck::openapi::auth::TokenSet;
+use wyck::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
+use wyck::openapi::market::symbols::{LightSymbol, Symbol};
+use wyck::openapi::market::to_price;
+use wyck::openapi::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
+use wyck::openapi::trading::{ExecutionType, NewOrderReq};
+use wyck::openapi::{Client, Event};
 
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
@@ -120,7 +120,7 @@ async fn wait_for_execution(
     events: &mut tokio::sync::broadcast::Receiver<Event>,
     position_id: i64,
     wanted: ExecutionType,
-) -> crate::openapi::trading::ExecutionEvent {
+) -> wyck::openapi::trading::ExecutionEvent {
     let matched = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             match events.recv().await.expect("event stream") {
@@ -529,7 +529,7 @@ async fn a_session_connects_subscribes_and_stops_against_the_real_server() {
     session.stop().await;
     assert!(matches!(
         *session.state().borrow(),
-        crate::openapi::session::SessionState::Stopped
+        wyck::openapi::session::SessionState::Stopped
     ));
 }
 
@@ -569,7 +569,7 @@ async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
     let mut events = client.events();
     let request = NewOrderReq::market(
         details.symbol_id,
-        crate::openapi::account::TradeSide::Buy,
+        wyck::openapi::account::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
@@ -654,7 +654,7 @@ async fn amend_and_cancel_a_pending_order_on_a_demo_account() {
 
     let request = NewOrderReq::limit(
         details.symbol_id,
-        crate::openapi::account::TradeSide::Buy,
+        wyck::openapi::account::TradeSide::Buy,
         min_volume,
         far_price,
     )
@@ -675,7 +675,7 @@ async fn amend_and_cancel_a_pending_order_on_a_demo_account() {
     println!("order {order_id} pending");
 
     let amended_price = round_to_digits(far_price * 0.99, details.digits);
-    let mut amend = crate::openapi::trading::AmendOrderReq::new(order_id);
+    let mut amend = wyck::openapi::trading::AmendOrderReq::new(order_id);
     amend.limit_price = Some(amended_price);
     let amended = trading.amend_order(amend).await.expect("amend order");
     println!("amend execution: {:?}", amended.kind());
@@ -726,7 +726,7 @@ async fn amend_stop_loss_and_take_profit_on_a_demo_account() {
 
     let request = NewOrderReq::market(
         details.symbol_id,
-        crate::openapi::account::TradeSide::Buy,
+        wyck::openapi::account::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
@@ -753,7 +753,7 @@ async fn amend_stop_loss_and_take_profit_on_a_demo_account() {
     let stop_loss = round_to_digits(entry * 0.98, details.digits);
     let take_profit = round_to_digits(entry * 1.02, details.digits);
     println!("setting stop loss {stop_loss} and take profit {take_profit}");
-    let mut protect = crate::openapi::trading::AmendPositionSlTpReq::new(position_id);
+    let mut protect = wyck::openapi::trading::AmendPositionSlTpReq::new(position_id);
     protect.stop_loss = Some(stop_loss);
     protect.take_profit = Some(take_profit);
     let protected = trading
@@ -902,7 +902,7 @@ async fn a_session_reconnects_after_a_real_connection_drop() {
     println!("severed the proxied connection to the real server");
 
     tokio::time::timeout(Duration::from_secs(5), async {
-        while *state.borrow() == crate::openapi::session::SessionState::Ready {
+        while *state.borrow() == wyck::openapi::session::SessionState::Ready {
             state.changed().await.expect("state stream");
         }
     })
@@ -925,7 +925,7 @@ async fn a_session_reconnects_after_a_real_connection_drop() {
     session.stop().await;
     assert!(matches!(
         *session.state().borrow(),
-        crate::openapi::session::SessionState::Stopped
+        wyck::openapi::session::SessionState::Stopped
     ));
 }
 
@@ -941,7 +941,7 @@ fn round_to_digits(value: f64, digits: i64) -> f64 {
 /// so callers that already placed one do not need this).
 async fn latest_bid(
     client: &Client,
-    market: &crate::openapi::market::MarketClient,
+    market: &wyck::openapi::market::MarketClient,
     symbol_id: i64,
 ) -> f64 {
     let mut events = client.events();

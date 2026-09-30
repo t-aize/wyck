@@ -4,17 +4,19 @@
 //! faster than a reader can take them, the peer vanishes without a goodbye, and hundreds of
 //! requests fly at once. None of that may hang the client, panic it, or mix up answers.
 
+mod support;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use super::support::{MockServer, Reply, answers, config, connect};
-use crate::openapi::config::ConnectionConfig;
-use crate::openapi::transport::wire::payload;
-use crate::openapi::{Client, DisconnectReason, Error, ErrorKind, Event};
 use futures_util::StreamExt;
 use serde_json::json;
+use support::{MockServer, Reply, answers, config, connect};
 use tokio::sync::broadcast::error::RecvError;
+use wyck::openapi::config::ConnectionConfig;
+use wyck::openapi::transport::wire::payload;
+use wyck::openapi::{Client, DisconnectReason, Error, ErrorKind, Event};
 
 fn version_answers() -> Vec<(u32, u32, serde_json::Value)> {
     vec![(
@@ -257,7 +259,7 @@ async fn every_clone_shares_one_connection() {
     other.close().await;
     let mut state = client.state();
     state
-        .wait_for(|s| matches!(s, crate::openapi::ConnectionState::Closed(_)))
+        .wait_for(|s| matches!(s, wyck::openapi::ConnectionState::Closed(_)))
         .await
         .unwrap();
     assert!(
@@ -277,7 +279,7 @@ async fn dropping_every_clone_without_closing_still_ends_the_connection() {
     drop(client);
     tokio::time::timeout(
         Duration::from_secs(2),
-        state.wait_for(|s| matches!(s, crate::openapi::ConnectionState::Closed(_))),
+        state.wait_for(|s| matches!(s, wyck::openapi::ConnectionState::Closed(_))),
     )
     .await
     .expect("the connection did not close on its own once every clone was gone")

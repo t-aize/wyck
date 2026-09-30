@@ -5,14 +5,14 @@
 
 use std::time::Duration;
 
-use crate::openapi::event::event_from;
-use crate::openapi::market::{
-    DepthBook, DepthEvent, DepthQuote, SpotEvent, SpotTracker, format_price, from_price, to_price,
-};
-use crate::openapi::session::Backoff;
-use crate::openapi::transport::wire::{Envelope, flex, payload};
 use proptest::prelude::*;
 use serde_json::{Value, json};
+use wyck::openapi::event::event_from;
+use wyck::openapi::market::{
+    DepthBook, DepthEvent, DepthQuote, SpotEvent, SpotTracker, format_price, from_price, to_price,
+};
+use wyck::openapi::session::Backoff;
+use wyck::openapi::transport::wire::{Envelope, flex, payload};
 
 proptest! {
     // ---- prices ----

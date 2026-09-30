@@ -21,11 +21,11 @@ use self::dashboard::{Dashboard, Loaded, Outcome};
 use self::form::{Field, Form, FormAction, centered};
 use self::login::{Saved, SignedIn};
 use crate::config::{AppPaths, KeyringSecretStore, SecretKey, SecretStore, Severity, WyckConfig};
+use crate::openapi::ClientCredentials;
 use crate::openapi::account::{PositionUnrealizedPnL, Trader};
 use crate::openapi::config::{ConnectionConfig, Environment};
 use crate::openapi::market::Symbol;
 use crate::openapi::session::{Session, SessionConfig, SessionEvent, TokenStore};
-use crate::openapi::{ClientCredentials, TraderAccount};
 use crate::session_tokens::ConfigTokenStore;
 
 const TICK: Duration = Duration::from_millis(250);

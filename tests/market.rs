@@ -1,12 +1,14 @@
 //! `MarketClient` against a scripted local server: symbols, subscriptions and price events.
 
+mod support;
+
 use std::time::Duration;
 
-use super::support::{MockServer, answers, connect};
-use crate::openapi::market::MarketClient;
-use crate::openapi::transport::wire::payload;
-use crate::openapi::{Client, Event};
 use serde_json::json;
+use support::{MockServer, answers, connect};
+use wyck::openapi::Event;
+use wyck::openapi::market::MarketClient;
+use wyck::openapi::transport::wire::payload;
 
 async fn market(server: &MockServer) -> MarketClient {
     connect(server).await.account(1).market()
@@ -171,5 +173,5 @@ async fn a_bad_symbol_subscription_is_a_rejection() {
     .await;
     let market = market(&server).await;
     let refused = market.subscribe_spots(&[999]).await.unwrap_err();
-    assert_eq!(refused.kind(), crate::openapi::ErrorKind::Rejected);
+    assert_eq!(refused.kind(), wyck::openapi::ErrorKind::Rejected);
 }

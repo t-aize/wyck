@@ -1,14 +1,16 @@
 //! Trading (order placement, amend, cancel, position close) against the scripted server: what is
 //! sent, the execution events that come back, and the error paths a trading call can hit.
 
+mod support;
+
 use std::time::Duration;
 
-use super::support::{MockServer, answers, connect};
-use crate::openapi::ErrorKind;
-use crate::openapi::account::TradeSide;
-use crate::openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use crate::openapi::transport::wire::payload;
 use serde_json::json;
+use support::{MockServer, answers, connect};
+use wyck::openapi::ErrorKind;
+use wyck::openapi::account::TradeSide;
+use wyck::openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
+use wyck::openapi::transport::wire::payload;
 
 #[tokio::test]
 async fn a_market_order_is_sent_and_its_execution_is_read() {
@@ -188,7 +190,7 @@ async fn an_unsolicited_execution_event_arrives_on_the_event_stream() {
         .unwrap()
         .unwrap();
     match event {
-        crate::openapi::Event::Execution(e) => {
+        wyck::openapi::Event::Execution(e) => {
             assert_eq!(e.kind(), Some(ExecutionType::Swap));
             assert_eq!(e.is_server_event, Some(true));
         }
@@ -212,7 +214,7 @@ async fn an_order_error_event_and_a_trailing_stop_change_arrive_as_events() {
         .unwrap();
     assert!(matches!(
         event,
-        crate::openapi::Event::OrderError(e) if e.error_code == "POSITION_NOT_FOUND" && e.position_id == Some(5)
+        wyck::openapi::Event::OrderError(e) if e.error_code == "POSITION_NOT_FOUND" && e.position_id == Some(5)
     ));
 
     server.push(
@@ -225,6 +227,6 @@ async fn an_order_error_event_and_a_trailing_stop_change_arrive_as_events() {
         .unwrap();
     assert!(matches!(
         event,
-        crate::openapi::Event::TrailingSlChanged(e) if e.stop_price == 1.09
+        wyck::openapi::Event::TrailingSlChanged(e) if e.stop_price == 1.09
     ));
 }

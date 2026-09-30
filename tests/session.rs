@@ -1,22 +1,24 @@
 //! The session against the scripted server: it must come up, stay up across dropped connections,
 //! restore what the program subscribed to, renew the tokens, and stop cleanly.
 
+mod support;
+
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use super::support::http::{TokenServer, token_server_sequence, tokens_body};
-use super::support::{Handler, MockServer, Reply, answers};
-use crate::openapi::auth::{TokenSet, parse_token_response};
-use crate::openapi::config::{ClientCredentials, ConnectionConfig};
-use crate::openapi::session::{
-    Backoff, MemoryTokenStore, Session, SessionConfig, SessionEvent, SessionState, TokenStore,
-};
-use crate::openapi::transport::wire::payload;
-use crate::openapi::{Error, ErrorKind, Event};
 use secrecy::ExposeSecret;
 use serde_json::{Value, json};
+use support::http::{TokenServer, token_server_sequence, tokens_body};
+use support::{Handler, MockServer, Reply, answers};
 use tokio::sync::Notify;
 use tokio::sync::broadcast::Receiver;
+use wyck::openapi::auth::{TokenSet, parse_token_response};
+use wyck::openapi::config::{ClientCredentials, ConnectionConfig};
+use wyck::openapi::session::{
+    Backoff, MemoryTokenStore, Session, SessionConfig, SessionEvent, SessionState, TokenStore,
+};
+use wyck::openapi::transport::wire::payload;
+use wyck::openapi::{Error, ErrorKind, Event};
 
 const ACCOUNT: i64 = 48_332_955;
 
@@ -92,11 +94,11 @@ struct DelayedTokenStore {
 
 #[async_trait::async_trait]
 impl TokenStore for DelayedTokenStore {
-    async fn load(&self) -> crate::openapi::Result<Option<TokenSet>> {
+    async fn load(&self) -> wyck::openapi::Result<Option<TokenSet>> {
         self.inner.load().await
     }
 
-    async fn save(&self, tokens: &TokenSet) -> crate::openapi::Result<()> {
+    async fn save(&self, tokens: &TokenSet) -> wyck::openapi::Result<()> {
         self.saving.notify_one();
         self.release.notified().await;
         self.inner.save(tokens).await

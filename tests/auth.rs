@@ -6,12 +6,12 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::openapi::Error;
-use crate::openapi::auth::OAuthClient;
-use crate::openapi::config::ClientCredentials;
 use secrecy::ExposeSecret;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use wyck::openapi::Error;
+use wyck::openapi::auth::OAuthClient;
+use wyck::openapi::config::ClientCredentials;
 
 /// A one-answer HTTP server: it records the request line and replies with `status` and `body`.
 async fn token_server(status: &str, body: &str) -> (String, Arc<Mutex<Vec<String>>>) {

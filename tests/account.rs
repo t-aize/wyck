@@ -2,15 +2,17 @@
 //! an account produces. The reference catalogs (assets, asset classes, symbol categories) are
 //! `MarketClient` calls and live in `tests/market.rs`.
 
+mod support;
+
 use std::time::Duration;
 
-use super::support::{MockServer, answers, connect};
-use crate::openapi::account::{
+use serde_json::json;
+use support::{MockServer, answers, connect};
+use wyck::openapi::account::{
     AccessRights, AccountType, DealStatus, OrderStatus, OrderType, PositionStatus, TradeSide,
 };
-use crate::openapi::transport::wire::payload;
-use crate::openapi::{ErrorKind, Event};
-use serde_json::json;
+use wyck::openapi::transport::wire::payload;
+use wyck::openapi::{ErrorKind, Event};
 
 #[tokio::test]
 async fn the_account_details_are_read_and_converted() {

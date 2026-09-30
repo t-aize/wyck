@@ -3,11 +3,11 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::config::{
-    AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig,
-};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
+use wyck::config::{
+    AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig,
+};
 
 fn passphrase(text: &str) -> SecretString {
     SecretString::from(text.to_owned())
@@ -320,5 +320,5 @@ fn many_threads_saving_one_document_never_tear_it() {
     for thread in threads {
         thread.join().unwrap();
     }
-    assert!(crate::config::stale_temp_files(store.dir()).is_empty());
+    assert!(wyck::config::stale_temp_files(store.dir()).is_empty());
 }

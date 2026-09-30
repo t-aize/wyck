@@ -1,13 +1,15 @@
 //! Margin calls against the scripted server: expected margin, margin call thresholds, dynamic
 //! leverage.
 
+mod support;
+
 use std::time::Duration;
 
-use super::support::{MockServer, answers, connect};
-use crate::openapi::margin::{MarginCall, MarginCallType};
-use crate::openapi::transport::wire::payload;
-use crate::openapi::{ErrorKind, Event};
 use serde_json::json;
+use support::{MockServer, answers, connect};
+use wyck::openapi::margin::{MarginCall, MarginCallType};
+use wyck::openapi::transport::wire::payload;
+use wyck::openapi::{ErrorKind, Event};
 
 #[tokio::test]
 async fn expected_margin_is_read_for_every_volume_asked() {

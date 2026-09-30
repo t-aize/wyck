@@ -1,8 +1,10 @@
 //! `AccountClient`: routes to the four sub-clients, each carrying its own bound account.
 
-use super::support::{MockServer, answers, connect};
-use crate::openapi::transport::wire::payload;
+mod support;
+
 use serde_json::json;
+use support::{MockServer, answers, connect};
+use wyck::openapi::transport::wire::payload;
 
 #[tokio::test]
 async fn every_sub_client_carries_the_bound_account() {
@@ -88,9 +90,9 @@ async fn the_trading_sub_client_overwrites_the_account_on_its_requests() {
     )]))
     .await;
     let account = connect(&server).await.account(7);
-    let request = crate::openapi::trading::NewOrderReq::market(
+    let request = wyck::openapi::trading::NewOrderReq::market(
         1,
-        crate::openapi::account::TradeSide::Buy,
+        wyck::openapi::account::TradeSide::Buy,
         10_000,
     );
     account.trading().new_order(request).await.unwrap();

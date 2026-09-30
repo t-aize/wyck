@@ -698,6 +698,3 @@ mod tests {
         assert!(text.contains("set aside"), "{text}");
     }
 }
-
-#[cfg(test)]
-mod lifecycle;
