@@ -88,7 +88,9 @@ app reads on its own. The header has a button for the folder and for a full edit
 
 ## Requirements
 
-- A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`).
+- A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`, currently 1.98).
+  `rust-toolchain.toml` makes rustup pick stable and install it if needed; run `rustup update` if
+  your stable is older than the minimum.
 - Linux only: the development packages of fontconfig, Wayland, OpenSSL, X11 and xkbcommon, for example on Debian and Ubuntu
   `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev`.
   The last one is for the alert sounds.
