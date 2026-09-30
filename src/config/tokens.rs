@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::config::error::{ConfigError, Result};
-use crate::config::secret::{SecretKey, SecretStore};
+use crate::config::secrets::{SecretKey, SecretStore};
 
 /// One OAuth token pair kept under a single credential-store key.
 #[derive(Debug, Clone)]
@@ -81,7 +81,7 @@ impl OpenApiTokenStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::secret::EncryptedFileSecretStore;
+    use crate::config::secrets::EncryptedFileSecretStore;
 
     fn storage(dir: &std::path::Path) -> OpenApiTokenStorage {
         OpenApiTokenStorage {

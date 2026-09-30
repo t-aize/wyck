@@ -41,7 +41,7 @@ pub enum ConfigError {
     #[error("failed to serialize config to TOML: {0}")]
     Serialize(#[from] toml::ser::Error),
 
-    /// A `crate::config::secret::SecretStore` backend failed.
+    /// A `crate::config::secrets::SecretStore` backend failed.
     #[error("credential store error for key `{key}`: {message}")]
     SecretStore { key: String, message: String },
 
@@ -51,7 +51,7 @@ pub enum ConfigError {
     #[error("key derivation failed: {0}")]
     KeyDerivation(String),
 
-    /// AEAD encryption or decryption failed in `crate::config::secret::EncryptedFileSecretStore`.
+    /// AEAD encryption or decryption failed in `crate::config::secrets::EncryptedFileSecretStore`.
     #[error("encryption/decryption failed for key `{key}`: {message}")]
     Crypto { key: String, message: String },
 
@@ -63,23 +63,6 @@ pub enum ConfigError {
     #[error("no profile with id `{0}` is configured")]
     UnknownProfile(String),
 
-    /// A name (of a document, a scope or a named credential) cannot be used as given: it is
-    /// empty, too long, or holds characters that could point outside the folder it belongs in.
-    #[error("`{name}` cannot be used as a name: {reason}")]
-    InvalidName { name: String, reason: &'static str },
-
-    /// The config file was written by a newer version of the app than this one, so it is left
-    /// alone instead of being read wrong and written back without what this version does not
-    /// know.
-    #[error(
-        "`{path}` uses config format {found}, but this version only understands up to {supported}"
-    )]
-    UnsupportedSchema {
-        path: PathBuf,
-        found: u32,
-        supported: u32,
-    },
-
     #[error("failed to generate random bytes: {0}")]
     Random(#[from] getrandom::Error),
 }
@@ -90,9 +73,7 @@ impl From<ConfigError> for std::io::Error {
     fn from(error: ConfigError) -> Self {
         let kind = match &error {
             ConfigError::Read { source, .. } | ConfigError::Write { source, .. } => source.kind(),
-            ConfigError::Parse { .. }
-            | ConfigError::InvalidName { .. }
-            | ConfigError::UnsupportedSchema { .. } => std::io::ErrorKind::InvalidData,
+            ConfigError::Parse { .. } => std::io::ErrorKind::InvalidData,
             _ => std::io::ErrorKind::Other,
         };
         Self::new(kind, error)

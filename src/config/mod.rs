@@ -1,45 +1,35 @@
 //! Profiles, documents and credential storage (OS keyring or encrypted files).
 
-mod app_config;
-mod crypto;
-mod doctor;
 mod documents;
 mod error;
 mod fs_util;
-pub mod names;
 mod paths;
 mod profile;
-pub mod secret;
+mod secrets;
 mod tokens;
 
-pub use app_config::{AppConfig, CURRENT_SCHEMA_VERSION};
-pub use doctor::{Finding, Report, Severity};
 pub use documents::DocumentStore;
 pub use error::{ConfigError, Result};
-pub use fs_util::{atomic_write, stale_temp_files};
+pub use fs_util::stale_temp_files;
 pub use paths::{AppPaths, CONFIG_DIR_ENV, DATA_DIR_ENV};
-pub use profile::{ProfileConfig, ProfileId};
-pub use secret::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, SecretStore};
+pub use profile::{AppConfig, ProfileConfig, ProfileId};
+pub use secrets::{EncryptedFileSecretStore, KeyringSecretStore, SecretKey, SecretStore};
 pub use tokens::{OpenApiTokenStorage, OpenApiTokens};
 
-use secrecy::SecretString;
-use std::path::PathBuf;
 use std::sync::Arc;
+
+use secrecy::SecretString;
 use tracing::{debug, info, warn};
 
 /// The name under which a profile's Open API application secret is stored.
 pub const CLIENT_SECRET: &str = "client-secret";
-/// The name under which a profile's OAuth token pair is stored.
-pub const OAUTH_TOKENS: &str = "oauth-token-set";
+const OAUTH_TOKENS: &str = "oauth-token-set";
 
-/// The credential a profile's named secret lives under.
 fn profile_secret_key(id: &ProfileId, name: &str) -> SecretKey {
     SecretKey::new("profile-field", &format!("{}:{name}", id.as_str()))
 }
 
-/// The top-level entry point: `AppPaths` plus a loaded `AppConfig` plus a chosen `SecretStore`
-/// backend, combined into the single type a front end actually imports and holds for the lifetime
-/// of the app.
+/// The folders, the profiles and the credential store, held for the life of the app.
 pub struct WyckConfig {
     paths: AppPaths,
     app_config: AppConfig,
@@ -47,20 +37,20 @@ pub struct WyckConfig {
 }
 
 impl WyckConfig {
-    /// Loads the config from the standard folders of the operating system (or where
-    /// `CONFIG_DIR_ENV` says), with the OS keyring as the credential store.
-    pub fn open() -> Result<Self> {
-        Self::builder().build()
+    /// Loads the config at `paths`. Credentials go to the OS keyring, or to encrypted files
+    /// locked by `passphrase` when one is given.
+    pub fn open(paths: AppPaths, passphrase: Option<SecretString>) -> Result<Self> {
+        let secrets: Box<dyn SecretStore> = match passphrase {
+            Some(passphrase) => Box::new(EncryptedFileSecretStore::new(
+                paths.secrets_dir(),
+                passphrase,
+            )),
+            None => Box::new(KeyringSecretStore::default()),
+        };
+        Self::load(paths, secrets)
     }
 
-    /// Starts a `ConfigBuilder`.
-    #[must_use]
-    pub fn builder() -> ConfigBuilder {
-        ConfigBuilder::default()
-    }
-
-    /// Loads (or, on first run, initializes) the app config at `paths`, paired with `secrets` as
-    /// the credential backend for every profile this instance manages.
+    /// Loads (or, on first run, initializes) the config at `paths` with the given credential store.
     pub fn load(paths: AppPaths, secrets: Box<dyn SecretStore>) -> Result<Self> {
         let app_config = AppConfig::load(&paths)?;
         info!(
@@ -92,27 +82,15 @@ impl WyckConfig {
         }
     }
 
-    /// The resolved config/data directories this instance reads and writes.
-    pub fn paths(&self) -> &AppPaths {
-        &self.paths
-    }
-
-    /// Every configured profile.
     pub fn profiles(&self) -> &[ProfileConfig] {
         &self.app_config.profiles
     }
 
-    /// The currently active profile, if any is set and it still exists.
     pub fn active_profile(&self) -> Option<&ProfileConfig> {
         self.app_config.active_profile()
     }
 
-    /// Looks up a profile by id.
-    pub fn profile(&self, id: &ProfileId) -> Option<&ProfileConfig> {
-        self.app_config.profile(id)
-    }
-
-    /// Adds a new, empty profile and persists the updated `AppConfig` to disk.
+    /// Adds a new, empty profile and saves the config.
     pub fn add_profile(
         &mut self,
         display_name: impl Into<String>,
@@ -128,14 +106,9 @@ impl WyckConfig {
         Ok(id)
     }
 
-    /// Removes a profile: deletes its stored credentials, removes it from the config, clears
-    /// `active_profile` if it pointed at this one, and persists the change.
+    /// Deletes the profile's stored credentials, then removes it from the config.
     pub fn remove_profile(&mut self, id: &ProfileId) -> Result<()> {
-        if self.app_config.profile(id).is_none() {
-            warn!(%id, "cannot remove an unknown profile");
-            return Err(ConfigError::UnknownProfile(id.to_string()));
-        }
-
+        self.require_profile(id)?;
         for name in [CLIENT_SECRET, OAUTH_TOKENS] {
             self.secrets.delete(&profile_secret_key(id, name))?;
         }
@@ -150,8 +123,7 @@ impl WyckConfig {
         Ok(())
     }
 
-    /// Stores a named credential for a profile, apart from its main token: the Open API client
-    /// secret (`CLIENT_SECRET`), for instance.
+    /// Stores a named credential of a profile, such as `CLIENT_SECRET`.
     pub fn set_profile_secret(
         &self,
         id: &ProfileId,
@@ -159,27 +131,16 @@ impl WyckConfig {
         secret: &SecretString,
     ) -> Result<()> {
         self.require_profile(id)?;
-        names::validate_name(name)?;
         self.secrets.store(&profile_secret_key(id, name), secret)
     }
 
-    /// Reads a named credential for a profile.
     pub fn profile_secret(&self, id: &ProfileId, name: &str) -> Result<Option<SecretString>> {
         self.require_profile(id)?;
-        names::validate_name(name)?;
         self.secrets.retrieve(&profile_secret_key(id, name))
     }
 
-    /// Deletes a named credential of a profile.
-    pub fn delete_profile_secret(&self, id: &ProfileId, name: &str) -> Result<()> {
-        self.require_profile(id)?;
-        names::validate_name(name)?;
-        self.secrets.delete(&profile_secret_key(id, name))
-    }
-
-    /// Where a profile's OAuth token pair is kept: load it, save it (both halves in one
-    /// credential-store write, so a rotated refresh token is never saved apart from its access
-    /// token), or clear it.
+    /// Where a profile's OAuth token pair is kept (both halves in one write, so a rotated refresh
+    /// token is never saved apart from its access token).
     pub fn openapi_token_storage(&self, id: &ProfileId) -> OpenApiTokenStorage {
         OpenApiTokenStorage {
             secrets: Arc::clone(&self.secrets),
@@ -187,7 +148,7 @@ impl WyckConfig {
         }
     }
 
-    /// Records public Open API settings for a profile after OAuth account selection.
+    /// Records the public Open API settings of a profile after the account was picked.
     pub fn set_openapi_profile(
         &mut self,
         id: &ProfileId,
@@ -210,7 +171,7 @@ impl WyckConfig {
         Ok(())
     }
 
-    /// Sets (or, with `None`, clears) the active profile, and persists the change.
+    /// Sets (or, with `None`, clears) the active profile.
     pub fn set_active_profile(&mut self, id: Option<ProfileId>) -> Result<()> {
         if let Some(id) = &id
             && self.app_config.profile(id).is_none()
@@ -226,115 +187,9 @@ impl WyckConfig {
         Ok(())
     }
 
-    /// The symbol the user was last on, if one was remembered.
-    pub fn last_symbol(&self) -> Option<&str> {
-        self.app_config.last_symbol.as_deref()
-    }
-
-    /// Remembers (or with `None` forgets) the symbol the user is on, and persists the change.
-    pub fn set_last_symbol(&mut self, symbol: Option<String>) -> Result<()> {
-        let symbol = symbol
-            .map(|s| s.trim().to_owned())
-            .filter(|s| !s.is_empty());
-        self.commit(|config| {
-            config.last_symbol = symbol;
-            Ok(())
-        })?;
-        debug!(symbol = ?self.app_config.last_symbol, "remembered the last symbol");
-        Ok(())
-    }
-
-    /// The documents shared by every account (see `DocumentStore::global`).
-    pub fn documents(&self) -> DocumentStore {
-        self.paths.documents()
-    }
-
-    /// The documents of one scope, such as an account (see `DocumentStore::scoped`).
+    /// The documents of one scope, such as an account (`demo-45970491`).
     pub fn scope(&self, scope: &str) -> DocumentStore {
-        self.paths.scope(scope)
-    }
-
-    /// Looks the whole config over and reports what is wrong or odd: missing or unreadable
-    /// credentials, a dangling active profile, permissions that are too open, unfinished writes
-    /// and documents that had to be set aside.
-    pub fn diagnose(&self) -> Report {
-        doctor::run(&self.paths, &self.app_config, self.secrets.as_ref())
-    }
-}
-
-/// Where a `ConfigBuilder` keeps credentials.
-enum Backend {
-    Keyring(String),
-    EncryptedFile(SecretString),
-    Custom(Box<dyn SecretStore>),
-}
-
-/// Builds a `WyckConfig` with the folders and the credential store that are wanted.
-pub struct ConfigBuilder {
-    paths: Option<AppPaths>,
-    backend: Backend,
-}
-
-impl Default for ConfigBuilder {
-    fn default() -> Self {
-        Self {
-            paths: None,
-            backend: Backend::Keyring("wyck".to_owned()),
-        }
-    }
-}
-
-impl ConfigBuilder {
-    /// Uses these folders instead of the standard ones.
-    #[must_use]
-    pub fn paths(mut self, paths: AppPaths) -> Self {
-        self.paths = Some(paths);
-        self
-    }
-
-    /// Keeps everything in one folder (see `AppPaths::at`): a portable install, or a test.
-    #[must_use]
-    pub fn portable(self, dir: impl Into<PathBuf>) -> Self {
-        self.paths(AppPaths::at(dir))
-    }
-
-    /// Stores credentials in the OS keyring under `service` (the default, with `"wyck"`).
-    #[must_use]
-    pub fn keyring_service(mut self, service: impl Into<String>) -> Self {
-        self.backend = Backend::Keyring(service.into());
-        self
-    }
-
-    /// Stores credentials in encrypted files under the data folder, locked by `passphrase`: for
-    /// machines with no keyring.
-    #[must_use]
-    pub fn encrypted_file(mut self, passphrase: SecretString) -> Self {
-        self.backend = Backend::EncryptedFile(passphrase);
-        self
-    }
-
-    /// Stores credentials in a store of your own.
-    #[must_use]
-    pub fn secret_store(mut self, store: Box<dyn SecretStore>) -> Self {
-        self.backend = Backend::Custom(store);
-        self
-    }
-
-    /// Loads the config.
-    pub fn build(self) -> Result<WyckConfig> {
-        let paths = match self.paths {
-            Some(paths) => paths,
-            None => AppPaths::discover()?,
-        };
-        let secrets: Box<dyn SecretStore> = match self.backend {
-            Backend::Keyring(service) => Box::new(KeyringSecretStore::new(service)),
-            Backend::EncryptedFile(passphrase) => Box::new(EncryptedFileSecretStore::new(
-                paths.secrets_dir(),
-                passphrase,
-            )),
-            Backend::Custom(store) => store,
-        };
-        WyckConfig::load(paths, secrets)
+        DocumentStore::scoped(&self.paths, scope)
     }
 }
 
@@ -345,39 +200,12 @@ mod tests {
     use std::time::{Duration, UNIX_EPOCH};
 
     fn config_in(dir: &std::path::Path) -> WyckConfig {
-        WyckConfig::builder()
-            .portable(dir)
-            .encrypted_file(SecretString::from("test-passphrase".to_owned()))
-            .build()
-            .unwrap()
+        let passphrase = SecretString::from("test-passphrase".to_owned());
+        WyckConfig::open(AppPaths::at(dir), Some(passphrase)).unwrap()
     }
 
     fn secret(text: &str) -> SecretString {
         SecretString::from(text.to_owned())
-    }
-
-    #[test]
-    fn the_last_symbol_survives_a_restart_and_a_config_without_one_still_loads() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let mut config = config_in(temp_dir.path());
-        assert_eq!(config.last_symbol(), None, "a first run remembers nothing");
-
-        config
-            .set_last_symbol(Some("  XAUUSD ".to_owned()))
-            .unwrap();
-        assert_eq!(config.last_symbol(), Some("XAUUSD"));
-        drop(config);
-        let mut again = config_in(temp_dir.path());
-        assert_eq!(again.last_symbol(), Some("XAUUSD"));
-
-        again.set_last_symbol(Some("   ".to_owned())).unwrap();
-        assert_eq!(again.last_symbol(), None, "a blank name forgets it");
-        assert!(
-            !std::fs::read_to_string(AppPaths::at(temp_dir.path()).config_file())
-                .unwrap()
-                .contains("last_symbol"),
-            "nothing is written for a forgotten symbol"
-        );
     }
 
     #[test]
@@ -391,7 +219,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(config.profiles().len(), 1);
-        assert_eq!(config.profile(&id).unwrap().display_name, "Demo");
+        assert_eq!(config.profiles()[0].display_name, "Demo");
 
         // Re-load fresh from disk to prove persistence, not just in-memory state.
         let reloaded = config_in(temp_dir.path());
@@ -470,7 +298,7 @@ mod tests {
         drop(config);
 
         let config = config_in(dir.path());
-        let profile = config.profile(&id).unwrap();
+        let profile = &config.profiles()[0];
         assert_eq!(profile.client_id.as_deref(), Some("client-id"));
         assert_eq!(profile.callback_port, Some(8765));
         assert_eq!(profile.account_id, Some(42));
@@ -490,7 +318,7 @@ mod tests {
             Some(UNIX_EPOCH + Duration::from_secs(1_800_000_000))
         );
         assert!(
-            !std::fs::read_to_string(config.paths().config_file())
+            !std::fs::read_to_string(AppPaths::at(dir.path()).config_file())
                 .unwrap()
                 .contains("secret")
         );
@@ -522,27 +350,6 @@ mod tests {
             config.profile_secret(&ghost, CLIENT_SECRET),
             Err(ConfigError::UnknownProfile(_))
         ));
-    }
-
-    #[test]
-    fn a_credential_name_cannot_be_a_path() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let mut config = config_in(temp_dir.path());
-        let id = config.add_profile("P", "s").unwrap();
-        for bad in ["", "../x", "a/b", "a:b", "with space"] {
-            assert!(
-                matches!(
-                    config.set_profile_secret(&id, bad, &secret("x")),
-                    Err(ConfigError::InvalidName { .. })
-                ),
-                "{bad:?}"
-            );
-        }
-        config
-            .set_profile_secret(&id, "api-key_2", &secret("ok"))
-            .unwrap();
-        config.delete_profile_secret(&id, "api-key_2").unwrap();
-        assert!(config.profile_secret(&id, "api-key_2").unwrap().is_none());
     }
 
     /// A store that fails on demand, to see what a failure leaves behind.
@@ -632,13 +439,12 @@ mod tests {
         let kept = config.add_profile("Kept", "s").unwrap();
 
         // The config file can no longer be replaced: a directory sits where it goes.
-        let file = config.paths().config_file();
+        let file = AppPaths::at(dir.path()).config_file();
         std::fs::remove_file(&file).unwrap();
         std::fs::create_dir(&file).unwrap();
 
         assert!(config.add_profile("Lost", "s").is_err());
         assert!(config.set_active_profile(Some(kept.clone())).is_err());
-        assert!(config.set_last_symbol(Some("EURUSD".into())).is_err());
         assert!(config.set_openapi_profile(&kept, "c".into(), 1, 2).is_err());
 
         assert_eq!(config.profiles().len(), 1, "no profile was kept in memory");
@@ -646,55 +452,6 @@ mod tests {
             config.active_profile().is_none(),
             "no change was kept in memory"
         );
-        assert_eq!(config.last_symbol(), None);
-        assert_eq!(config.profile(&kept).unwrap().client_id, None);
-    }
-
-    #[test]
-    fn the_builder_defaults_are_the_os_keyring_and_the_standard_folders() {
-        // Nothing is read until `build`, and a portable folder is honored.
-        let dir = tempfile::tempdir().unwrap();
-        let config = WyckConfig::builder()
-            .portable(dir.path())
-            .secret_store(Box::new(EncryptedFileSecretStore::new(
-                dir.path().join("s"),
-                secret("pw"),
-            )))
-            .build()
-            .unwrap();
-        assert_eq!(config.paths().config_dir(), dir.path());
-        assert!(config.profiles().is_empty());
-    }
-
-    #[test]
-    fn a_healthy_config_has_nothing_to_report_and_a_broken_one_says_what() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut config = config_in(dir.path());
-        let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
-        assert!(config.diagnose().is_healthy());
-
-        // An Open API profile with no application secret stored.
-        config
-            .set_openapi_profile(&id, "client".into(), 8765, 1)
-            .unwrap();
-        let report = config.diagnose();
-        assert!(
-            report.is_healthy(),
-            "a missing secret is a warning, not an error"
-        );
-        assert_eq!(report.worst(), Some(Severity::Warning));
-        assert!(
-            report.to_string().contains("no application secret"),
-            "{report}"
-        );
-
-        // A crash left a temporary file, and a document was set aside.
-        std::fs::write(config.paths().config_dir().join(".config.toml.tmp-1"), b"x").unwrap();
-        let state = DocumentStore::global(config.paths());
-        std::fs::create_dir_all(state.dir()).unwrap();
-        std::fs::write(state.dir().join("prefs.toml.bad"), b"junk").unwrap();
-        let text = config.diagnose().to_string();
-        assert!(text.contains("unfinished write"), "{text}");
-        assert!(text.contains("set aside"), "{text}");
+        assert_eq!(config.profiles()[0].client_id, None);
     }
 }

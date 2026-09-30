@@ -20,7 +20,7 @@ use tokio::task::JoinHandle;
 use self::dashboard::{Dashboard, Loaded, Outcome};
 use self::form::{Field, Form, FormAction, centered};
 use self::login::{Saved, SignedIn};
-use crate::config::{AppPaths, KeyringSecretStore, SecretKey, SecretStore, Severity, WyckConfig};
+use crate::config::{AppPaths, KeyringSecretStore, SecretKey, SecretStore, WyckConfig};
 use crate::openapi::ClientCredentials;
 use crate::openapi::account::{PositionUnrealizedPnL, Trader};
 use crate::openapi::config::{ConnectionConfig, Environment};
@@ -151,18 +151,10 @@ impl App {
     }
 
     fn open_config(&mut self, passphrase: Option<SecretString>) {
-        let mut builder = WyckConfig::builder().paths(self.paths.clone());
-        if let Some(passphrase) = passphrase {
-            builder = builder.encrypted_file(passphrase);
-        }
-        let mut config = match builder.build() {
+        let mut config = match WyckConfig::open(self.paths.clone(), passphrase) {
             Ok(config) => config,
             Err(error) => return self.fail_config(error.to_string()),
         };
-        let report = config.diagnose();
-        if report.worst() >= Some(Severity::Warning) {
-            tracing::warn!("the config has something to report:\n{report}");
-        }
         if self.reset
             && let Err(error) = login::forget_connections(&mut config)
         {

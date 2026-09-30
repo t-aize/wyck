@@ -1,7 +1,11 @@
-//! A configured connection profile: the non-secret half of an account (display name, service and
-//! optional Open API settings).
+//! The profiles of the app and the plain config file that lists them.
 
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
+
+use crate::config::error::{ConfigError, Result};
+use crate::config::fs_util::atomic_write;
+use crate::config::paths::AppPaths;
 
 /// A stable, opaque identifier for one `ProfileConfig`, generated once when the profile is
 /// created and never reused.
@@ -55,6 +59,53 @@ impl ProfileConfig {
     }
 }
 
+/// The plain, human-editable part of the config: which profiles exist and which one is active.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct AppConfig {
+    #[serde(default)]
+    pub active_profile: Option<ProfileId>,
+    #[serde(default)]
+    pub profiles: Vec<ProfileConfig>,
+}
+
+impl AppConfig {
+    pub fn load(paths: &AppPaths) -> Result<Self> {
+        let path = paths.config_file();
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                debug!(path = %path.display(), "no config file yet, starting from defaults");
+                return Ok(Self::default());
+            }
+            Err(source) => {
+                warn!(path = %path.display(), error = %source, "could not read the config file");
+                return Err(ConfigError::Read { path, source });
+            }
+        };
+        toml::from_str(&text).map_err(|source| {
+            warn!(path = %path.display(), error = %source, "the config file could not be parsed");
+            ConfigError::Parse {
+                path,
+                source: Box::new(source),
+            }
+        })
+    }
+
+    pub fn save(&self, paths: &AppPaths) -> Result<()> {
+        let text = toml::to_string_pretty(self).map_err(ConfigError::Serialize)?;
+        atomic_write(&paths.config_file(), text.as_bytes())
+    }
+
+    pub fn profile(&self, id: &ProfileId) -> Option<&ProfileConfig> {
+        self.profiles.iter().find(|profile| &profile.id == id)
+    }
+
+    /// The active profile, if one is set and it still exists.
+    pub fn active_profile(&self) -> Option<&ProfileConfig> {
+        self.active_profile.as_ref().and_then(|id| self.profile(id))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,5 +136,51 @@ mod tests {
         for key in ["client_id", "callback_port", "account_id"] {
             assert!(value.get(key).is_none(), "`{key}` in:\n{toml_text}");
         }
+    }
+
+    #[test]
+    fn load_returns_default_when_no_file_exists_yet() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+
+        let config = AppConfig::load(&paths).unwrap();
+
+        assert_eq!(config, AppConfig::default());
+    }
+
+    #[test]
+    fn save_then_load_round_trips() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        let mut config = AppConfig::default();
+        let profile = ProfileConfig::new("Demo", "ctrader-openapi");
+        config.active_profile = Some(profile.id.clone());
+        config.profiles.push(profile);
+
+        config.save(&paths).unwrap();
+        let reloaded = AppConfig::load(&paths).unwrap();
+
+        assert_eq!(reloaded, config);
+    }
+
+    #[test]
+    fn active_profile_resolves_to_none_if_the_id_was_removed() {
+        let config = AppConfig {
+            active_profile: Some(ProfileId::new_random()),
+            ..AppConfig::default()
+        };
+
+        assert!(config.active_profile().is_none());
+    }
+
+    #[test]
+    fn rejects_malformed_toml_with_a_parse_error() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        std::fs::write(paths.config_file(), b"not = [valid").unwrap();
+
+        let result = AppConfig::load(&paths);
+
+        assert!(matches!(result, Err(ConfigError::Parse { .. })));
     }
 }

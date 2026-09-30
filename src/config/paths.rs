@@ -21,9 +21,9 @@ const APPLICATION: &str = "wyck";
 
 /// The directories this crate reads and writes: a config directory for
 /// `crate::config::AppConfig`'s TOML file, and a data directory for anything a
-/// `crate::config::secret::SecretStore` backend needs to persist on disk (currently only
-/// `crate::config::secret::EncryptedFileSecretStore`: the default
-/// `crate::config::secret::KeyringSecretStore` backend stores nothing here, the OS credential
+/// `crate::config::secrets::SecretStore` backend needs to persist on disk (currently only
+/// `crate::config::secrets::EncryptedFileSecretStore`: the default
+/// `crate::config::secrets::KeyringSecretStore` backend stores nothing here, the OS credential
 /// store owns that).
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -88,57 +88,22 @@ impl AppPaths {
         self.config_dir.join("config.toml")
     }
 
-    /// The directory an on-disk `crate::config::secret::SecretStore` backend may persist files
+    /// The directory an on-disk `crate::config::secrets::SecretStore` backend may persist files
     /// in.
     pub fn data_dir(&self) -> &Path {
         &self.data_dir
     }
 
-    /// The subdirectory `crate::config::secret::EncryptedFileSecretStore` persists its per-secret
+    /// The subdirectory `crate::config::secrets::EncryptedFileSecretStore` persists its per-secret
     /// envelope files in.
     pub fn secrets_dir(&self) -> PathBuf {
         self.data_dir.join("secrets")
-    }
-
-    /// The folder of the documents shared by every account (see
-    /// `crate::config::DocumentStore::global`).
-    pub fn state_dir(&self) -> PathBuf {
-        self.config_dir.join("state")
     }
 
     /// The folder that holds one folder of documents per scope (see
     /// `crate::config::DocumentStore::scoped`).
     pub fn scopes_dir(&self) -> PathBuf {
         self.config_dir.join("scopes")
-    }
-
-    /// The documents shared by every account: `crate::config::DocumentStore::global`.
-    pub fn documents(&self) -> crate::config::DocumentStore {
-        crate::config::DocumentStore::global(self)
-    }
-
-    /// The documents of one scope (an account): `crate::config::DocumentStore::scoped`.
-    pub fn scope(&self, scope: &str) -> crate::config::DocumentStore {
-        crate::config::DocumentStore::scoped(self, scope)
-    }
-
-    /// The user's pictures folder, or the home folder when the system has none: where the app
-    /// puts a picture it saves.
-    pub fn pictures_dir() -> Option<PathBuf> {
-        let dirs = directories::UserDirs::new()?;
-        Some(
-            dirs.picture_dir()
-                .unwrap_or_else(|| dirs.home_dir())
-                .to_path_buf(),
-        )
-    }
-
-    /// The user's documents folder, where a file dialog starts: the temporary folder when the
-    /// system has none.
-    pub fn documents_dir() -> PathBuf {
-        directories::UserDirs::new()
-            .and_then(|dirs| dirs.document_dir().map(Path::to_path_buf))
-            .unwrap_or_else(std::env::temp_dir)
     }
 }
 
@@ -153,7 +118,6 @@ mod tests {
         assert_eq!(paths.data_dir(), Path::new("/tmp/example"));
         assert_eq!(paths.config_file(), Path::new("/tmp/example/config.toml"));
         assert_eq!(paths.secrets_dir(), Path::new("/tmp/example/secrets"));
-        assert_eq!(paths.state_dir(), Path::new("/tmp/example/state"));
         assert_eq!(paths.scopes_dir(), Path::new("/tmp/example/scopes"));
     }
 

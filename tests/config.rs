@@ -14,10 +14,7 @@ fn passphrase(text: &str) -> SecretString {
 }
 
 fn open(dir: &Path) -> WyckConfig {
-    WyckConfig::builder()
-        .portable(dir)
-        .encrypted_file(passphrase("install-passphrase"))
-        .build()
+    WyckConfig::open(AppPaths::at(dir), Some(passphrase("install-passphrase")))
         .expect("the install opens")
 }
 
@@ -71,9 +68,8 @@ fn a_first_run_a_working_session_and_a_restart() {
             })
             .unwrap();
         config.set_active_profile(Some(id.clone())).unwrap();
-        config.set_last_symbol(Some("EURUSD".into())).unwrap();
 
-        DocumentStore::global(config.paths())
+        DocumentStore::scoped(&AppPaths::at(dir.path()), "shared")
             .save(
                 "layout",
                 &Layout {
@@ -82,7 +78,7 @@ fn a_first_run_a_working_session_and_a_restart() {
                 },
             )
             .unwrap();
-        DocumentStore::scoped(config.paths(), "demo-4242")
+        DocumentStore::scoped(&AppPaths::at(dir.path()), "demo-4242")
             .save(
                 "layout",
                 &Layout {
@@ -98,7 +94,6 @@ fn a_first_run_a_working_session_and_a_restart() {
     let config = open(dir.path());
     assert_eq!(config.active_profile().unwrap().id, account);
     assert_eq!(config.active_profile().unwrap().account_id, Some(4242));
-    assert_eq!(config.last_symbol(), Some("EURUSD"));
     assert_eq!(
         config
             .profile_secret(&account, CLIENT_SECRET)
@@ -118,7 +113,7 @@ fn a_first_run_a_working_session_and_a_restart() {
         "REFRESH-TOKEN-VALUE"
     );
     assert_eq!(
-        DocumentStore::global(config.paths())
+        DocumentStore::scoped(&AppPaths::at(dir.path()), "shared")
             .load::<Layout>("layout")
             .unwrap()
             .unwrap()
@@ -126,14 +121,13 @@ fn a_first_run_a_working_session_and_a_restart() {
         1.25
     );
     assert_eq!(
-        DocumentStore::scoped(config.paths(), "demo-4242")
+        DocumentStore::scoped(&AppPaths::at(dir.path()), "demo-4242")
             .load::<Layout>("layout")
             .unwrap()
             .unwrap()
             .columns,
         ["pnl"]
     );
-    assert!(config.diagnose().is_healthy(), "{}", config.diagnose());
 
     // No secret is anywhere on disk in the clear, in any file.
     for path in every_file(dir.path()) {
@@ -183,11 +177,7 @@ fn a_wrong_passphrase_is_reported_as_such_and_changes_nothing() {
         .unwrap();
     drop(config);
 
-    let intruder = WyckConfig::builder()
-        .portable(dir.path())
-        .encrypted_file(passphrase("guess"))
-        .build()
-        .unwrap();
+    let intruder = WyckConfig::open(AppPaths::at(dir.path()), Some(passphrase("guess"))).unwrap();
     let error = intruder.profile_secret(&id, CLIENT_SECRET).unwrap_err();
     assert!(matches!(error, ConfigError::Crypto { .. }), "{error:?}");
     assert!(
@@ -211,21 +201,18 @@ fn a_damaged_config_is_reported_and_never_overwritten_and_damaged_documents_are_
     let dir = tempfile::tempdir().unwrap();
     let mut config = open(dir.path());
     config.add_profile("Demo", "s").unwrap();
-    DocumentStore::global(config.paths())
+    DocumentStore::scoped(&AppPaths::at(dir.path()), "shared")
         .save("layout", &Layout::default())
         .unwrap();
     drop(config);
 
     let paths = AppPaths::at(dir.path());
     std::fs::write(paths.config_file(), "profiles = [[[").unwrap();
-    let store = DocumentStore::global(&paths);
+    let store = DocumentStore::scoped(&paths, "shared");
     std::fs::write(store.path("layout"), "columns = 12 ==").unwrap();
 
     // The config refuses to load, so nothing can save over the file the user may want to repair.
-    let result = WyckConfig::builder()
-        .portable(dir.path())
-        .encrypted_file(passphrase("install-passphrase"))
-        .build();
+    let result = WyckConfig::open(paths.clone(), Some(passphrase("install-passphrase")));
     assert!(matches!(result, Err(ConfigError::Parse { .. })));
     assert_eq!(
         std::fs::read_to_string(paths.config_file()).unwrap(),
@@ -238,38 +225,11 @@ fn a_damaged_config_is_reported_and_never_overwritten_and_damaged_documents_are_
 }
 
 #[test]
-fn a_config_written_by_a_newer_version_is_refused_untouched() {
+fn a_secret_file_of_another_version_is_refused_not_migrated() {
     let dir = tempfile::tempdir().unwrap();
     let paths = AppPaths::at(dir.path());
-    let future = "schema_version = 7\nsomething_new = \"kept\"\n";
-    std::fs::write(paths.config_file(), future).unwrap();
-
-    let result = WyckConfig::builder().portable(dir.path()).build();
-
-    assert!(matches!(
-        result,
-        Err(ConfigError::UnsupportedSchema { found: 7, .. })
-    ));
-    assert_eq!(
-        std::fs::read_to_string(paths.config_file()).unwrap(),
-        future
-    );
-}
-
-#[test]
-fn files_in_a_format_this_build_does_not_write_are_refused_not_migrated() {
-    let dir = tempfile::tempdir().unwrap();
-    let paths = AppPaths::at(dir.path());
-
-    // A config with no version, as an earlier layout would have it.
-    std::fs::write(paths.config_file(), "last_symbol = \"EURUSD\"\n").unwrap();
-    assert!(matches!(
-        WyckConfig::builder().portable(dir.path()).build(),
-        Err(ConfigError::Parse { .. })
-    ));
 
     // A secret envelope of another version.
-    std::fs::remove_file(paths.config_file()).unwrap();
     let mut config = open(dir.path());
     let id = config.add_profile("Demo", "s").unwrap();
     config
@@ -297,7 +257,7 @@ fn two_installs_share_nothing() {
 #[test]
 fn many_threads_saving_one_document_never_tear_it() {
     let dir = tempfile::tempdir().unwrap();
-    let store = Arc::new(DocumentStore::global(&AppPaths::at(dir.path())));
+    let store = Arc::new(DocumentStore::scoped(&AppPaths::at(dir.path()), "shared"));
     let threads: Vec<_> = (0..6)
         .map(|n| {
             let store = store.clone();
