@@ -1,41 +1,4 @@
 //! The connection to the Open API: one WebSocket, kept alive, with request matching.
-//!
-//! A [`Client`] owns one WebSocket to `demo` or `live`. A background task reads it, keeps it alive
-//! with heartbeats, matches answers to requests, and broadcasts everything else as [`Event`]s.
-//! The client itself is cheap to clone: every clone talks to the same connection.
-//!
-//! [`Client`] only covers the connection itself: opening it, identifying the application, listing
-//! and authorizing accounts, refreshing tokens, the proxy version and the cTrader ID profile.
-//! Everything that needs an authorized account is reached through [`Client::account`], which
-//! returns an [`crate::openapi::AccountClient`] with a named sub-client per domain (market data, account
-//! data, trading, margin).
-//!
-//! # A session, step by step
-//!
-//! 1. [`Client::connect`] opens the socket (or [`ClientBuilder`] for connecting and identifying the
-//!    application in one step).
-//! 2. [`Client::authenticate_application`] identifies the application (client id and secret).
-//! 3. [`Client::accounts`] lists the trading accounts an access token covers, and
-//!    [`Client::account`] plus [`crate::openapi::AccountClient::authorize`] authorizes one on this
-//!    connection.
-//! 4. Then the sub-clients: [`crate::openapi::AccountClient::market`], [`crate::openapi::AccountClient::account_data`],
-//!    [`crate::openapi::AccountClient::trading`], [`crate::openapi::AccountClient::margin`].
-//!
-//! # How requests work
-//!
-//! Every request gets a unique `clientMsgId`; the answer carries it back, so many requests can be
-//! in flight at once and answers may come in any order. A request waits for its turn at the
-//! [rate limiter](crate::openapi::transport::rate_limit::RateLimiter) (50 per second, 5 for history), then
-//! for its answer up to the configured timeout. A server error becomes an
-//! [`Error::Server`].
-//!
-//! # When the connection ends
-//!
-//! Every waiting request fails with [`Error::Closed`], an [`Event::Disconnected`] is
-//! broadcast, and [`Client::state`] turns to [`ConnectionState::Closed`]. **The client does not
-//! reconnect by itself**: after a reconnect the application and the accounts must be authorized
-//! again and the subscriptions renewed, which is the caller's business (see [`crate::openapi::session`] for
-//! a client that does this by itself). Build a new [`Client`] and repeat the steps.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -77,9 +40,7 @@ pub(crate) enum RateClass {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ConnectionState {
-    /// The socket is open.
     Connected,
-    /// The socket is closed, for this reason. It never opens again: build a new client.
     Closed(DisconnectReason),
 }
 
@@ -101,9 +62,6 @@ struct Shared {
     request_timeout: Duration,
     rate_limit_retries: u32,
     max_retry_wait: Duration,
-    /// How many live [`Client`] values point at this connection, `run` itself excluded (it holds
-    /// an `Arc<Shared>` of its own, which would otherwise hide the last external clone going away
-    /// from `outgoing`'s sender count). See the [`Drop`] impl below.
     handles: AtomicUsize,
 }
 
@@ -154,7 +112,7 @@ impl Shared {
     }
 
     /// Ends the connection for everyone: fails the waiting requests, publishes the state and the
-    /// last event. Safe to call more than once; only the first call has an effect.
+    /// last event.
     fn finish(&self, reason: DisconnectReason) {
         if self.closed.swap(true, Ordering::SeqCst) {
             return;
@@ -171,25 +129,6 @@ impl Shared {
 
 /// A connection to the cTrader Open API: one WebSocket, shared by every account and sub-client
 /// built from it.
-///
-/// ```no_run
-/// # async fn demo() -> crate::openapi::Result<()> {
-/// use crate::openapi::{ClientBuilder, ClientCredentials, Environment};
-///
-/// let client = ClientBuilder::new(Environment::Demo)
-///     .credentials(ClientCredentials::new("client-id", "client-secret"))
-///     .connect()
-///     .await?;
-/// println!("server {}", client.version().await?);
-/// client.close().await;
-/// # Ok(()) }
-/// ```
-///
-/// Cheap to clone: every clone (and every sub-client built from one, such as
-/// [`AccountClient`](crate::openapi::AccountClient)) shares the same background task and socket. Calling
-/// [`Client::close`] is still the right way to end a connection on purpose, but dropping every
-/// clone without it does not leak the task or the socket either: the last clone going away closes
-/// the connection as a fallback (see the `Drop` impl below), the same as an explicit `close()`.
 pub struct Client {
     shared: Arc<Shared>,
 }
@@ -226,14 +165,7 @@ impl std::fmt::Debug for Client {
 }
 
 impl Client {
-    /// Opens the connection. No message is sent yet: authenticate the application next (or use
-    /// [`ClientBuilder`] to do both in one call).
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Config`] for unusable settings, [`Error::Timeout`] when the connection
-    /// takes longer than `connect_timeout`, [`Error::Transport`] when it fails (address, TLS,
-    /// handshake).
+    /// Opens the connection.
     pub async fn connect(config: &ConnectionConfig) -> Result<Self> {
         config.validate()?;
         debug!(url = %config.url, "opening the Open API connection");
@@ -281,17 +213,15 @@ impl Client {
         Ok(Self { shared })
     }
 
-    /// Starts a [`ClientBuilder`] for `environment`, the friendliest way to connect and (with
-    /// [`ClientBuilder::credentials`]) identify the application in one step.
+    /// Starts a `ClientBuilder` for `environment`, the friendliest way to connect and (with
+    /// `ClientBuilder::credentials`) identify the application in one step.
     #[must_use]
     pub fn builder(environment: Environment) -> ClientBuilder {
         ClientBuilder::new(environment)
     }
 
     /// The events the server sends: prices, order book changes, account and token notices, and
-    /// finally [`Event::Disconnected`]. Each call gives an independent reader that sees the events
-    /// from now on. A reader that falls more than `event_capacity` events behind loses the oldest
-    /// ones (the receiver reports how many).
+    /// finally `Event::Disconnected`.
     #[must_use]
     pub fn events(&self) -> broadcast::Receiver<Event> {
         self.shared.events.subscribe()
@@ -309,8 +239,7 @@ impl Client {
         self.shared.closed.load(Ordering::SeqCst)
     }
 
-    /// Closes the connection. Requests still waiting fail with [`Error::Closed`]. Calling it
-    /// again, or on a closed client, does nothing.
+    /// Closes the connection.
     pub async fn close(&self) {
         if self.is_closed() {
             return;
@@ -474,12 +403,7 @@ impl Client {
 
     // ---- sign in ----
 
-    /// Identifies the application to the server. Must come first on a connection.
-    ///
-    /// # Errors
-    ///
-    /// The server refuses unknown or unapproved credentials (`CH_CLIENT_AUTH_FAILURE`,
-    /// `CH_OA_CLIENT_NOT_FOUND`), or the connection fails.
+    /// Identifies the application to the server.
     pub async fn authenticate_application(&self, credentials: &ClientCredentials) -> Result<()> {
         let request = ApplicationAuthReq {
             client_id: credentials.client_id.clone(),
@@ -498,10 +422,6 @@ impl Client {
     }
 
     /// The trading accounts an access token covers, with the permission it grants.
-    ///
-    /// # Errors
-    ///
-    /// `CH_ACCESS_TOKEN_INVALID` or `OA_AUTH_TOKEN_EXPIRED` for a bad token.
     pub async fn accounts(&self, access_token: &str) -> Result<AccountsRes> {
         self.call(
             payload::GET_ACCOUNTS_BY_ACCESS_TOKEN_REQ,
@@ -515,14 +435,7 @@ impl Client {
         .await
     }
 
-    /// Authorizes a trading account on this connection. Reached only through
-    /// [`crate::openapi::AccountClient::authorize`], which is how every other call ends up bound to the
-    /// right account.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED`, or a token error. A demo account cannot be authorized on a live
-    /// connection, and the other way round.
+    /// Authorizes a trading account on this connection.
     pub(crate) async fn authorize_account(
         &self,
         account_id: i64,
@@ -543,13 +456,7 @@ impl Client {
         Ok(response.ctid_trader_account_id)
     }
 
-    /// Exchanges a refresh token for a new pair of tokens, over the connection. The old refresh
-    /// token stops working: store the new one before doing anything else. The HTTP route in
-    /// [`crate::openapi::auth`] does the same without a connection.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the refresh token is unknown or already used.
+    /// Exchanges a refresh token for a new pair of tokens, over the connection.
     pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<RefreshTokenRes> {
         self.call(
             payload::REFRESH_TOKEN_REQ,
@@ -564,10 +471,6 @@ impl Client {
     }
 
     /// The version of the proxy the connection goes through.
-    ///
-    /// # Errors
-    ///
-    /// Only connection errors.
     pub async fn version(&self) -> Result<String> {
         let response: VersionRes = self
             .call(
@@ -581,12 +484,7 @@ impl Client {
         Ok(response.version)
     }
 
-    /// The profile of the cTrader ID an access token belongs to. Needs only an access token, no
-    /// authorized account.
-    ///
-    /// # Errors
-    ///
-    /// A token error for a bad or expired token.
+    /// The profile of the cTrader ID an access token belongs to.
     pub async fn ctid_profile(&self, access_token: &str) -> Result<CtidProfile> {
         let response: CtidProfileRes = self
             .call(
@@ -603,20 +501,8 @@ impl Client {
     }
 }
 
-/// Builds a [`Client`]: the friendliest entry point for a newcomer, connecting and (optionally)
-/// identifying the application in one call. Skip it and call [`Client::connect`] directly when the
-/// two steps are better kept apart (for example to report progress between them).
-///
-/// ```no_run
-/// use crate::openapi::{ClientBuilder, ClientCredentials, Environment};
-///
-/// # async fn demo() -> crate::openapi::Result<()> {
-/// let client = ClientBuilder::new(Environment::Demo)
-///     .credentials(ClientCredentials::new("my-client-id", "my-client-secret"))
-///     .connect()
-///     .await?;
-/// # let _ = client; Ok(()) }
-/// ```
+/// Builds a `Client`: the friendliest entry point for a newcomer, connecting and (optionally)
+/// identifying the application in one call.
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
     config: ConnectionConfig,
@@ -633,19 +519,14 @@ impl ClientBuilder {
         }
     }
 
-    /// Identifies the application once connected. Without this, [`ClientBuilder::connect`] only
-    /// opens the socket, same as [`Client::connect`].
+    /// Identifies the application once connected.
     #[must_use]
     pub fn credentials(mut self, credentials: ClientCredentials) -> Self {
         self.credentials = Some(credentials);
         self
     }
 
-    /// Connects, and identifies the application when [`ClientBuilder::credentials`] were given.
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Client::connect`] and [`Client::authenticate_application`] return.
+    /// Connects, and identifies the application when `ClientBuilder::credentials` were given.
     pub async fn connect(self) -> Result<Client> {
         let client = Client::connect(&self.config).await?;
         if let Some(credentials) = &self.credentials {
@@ -741,8 +622,7 @@ async fn run<S>(
     shared.finish(reason);
 }
 
-/// Reads one text frame from the server. Returns the reason when the server announced that it is
-/// ending the connection, which is more telling than the socket closing after it.
+/// Reads one text frame from the server.
 fn handle_text(shared: &Shared, text: &str) -> Option<DisconnectReason> {
     let envelope = match Envelope::from_text(text) {
         Ok(envelope) => envelope,

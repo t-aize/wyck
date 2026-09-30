@@ -1,22 +1,4 @@
 //! A client bound to one trading account: a router to the four domain sub-clients.
-//!
-//! Almost every call in this crate needs an authorized account. [`AccountClient`] holds a
-//! [`Client`] and an account id and hands out one small, `Clone` sub-client per domain, each still
-//! carrying the [`Client`] and the account id (no lifetime, so trivial to keep across an `.await`
-//! or move into a task):
-//!
-//! ```no_run
-//! # async fn demo(client: crate::openapi::Client, account_id: i64) -> crate::openapi::Result<()> {
-//! let account = client.account(account_id);
-//! account.authorize("access-token").await?;
-//!
-//! let market = account.market();
-//! let symbols = market.symbols().await?;
-//! market.subscribe_spots(&[symbols[0].symbol_id]).await?;
-//!
-//! let balance = account.account_data().trader().await?.balance_amount();
-//! # let _ = balance; Ok(()) }
-//! ```
 
 use crate::openapi::account::AccountDataClient;
 use crate::openapi::error::Result;
@@ -28,8 +10,7 @@ use crate::openapi::transport::messages::AccountReq;
 use crate::openapi::transport::wire::payload;
 
 impl Client {
-    /// The client bound to `account_id`. The account must still be authorized on the connection
-    /// (see [`AccountClient::authorize`]).
+    /// The client bound to `account_id`.
     #[must_use]
     pub fn account(&self, account_id: i64) -> AccountClient {
         AccountClient {
@@ -39,7 +20,7 @@ impl Client {
     }
 }
 
-/// A [`Client`] and one account id. Cheap to clone. Made by [`Client::account`].
+/// A `Client` and one account id.
 #[derive(Debug, Clone)]
 pub struct AccountClient {
     client: Client,
@@ -59,13 +40,7 @@ impl AccountClient {
         &self.client
     }
 
-    /// Logs the account in on the connection with `access_token`. Data calls for the account need
-    /// it.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED`, or a token error. A demo account cannot be authorized on a live
-    /// connection, and the other way round.
+    /// Logs the account in on the connection with `access_token`.
     pub async fn authorize(&self, access_token: &str) -> Result<()> {
         self.client
             .authorize_account(self.account_id, access_token)
@@ -73,12 +48,7 @@ impl AccountClient {
             .map(|_| ())
     }
 
-    /// Logs the account out of this connection. Its subscriptions end; authorize it again to use it
-    /// again.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
+    /// Logs the account out of this connection.
     pub async fn logout(&self) -> Result<()> {
         let _: serde_json::Value = self
             .client
@@ -101,8 +71,7 @@ impl AccountClient {
         MarketClient::new(self.client.clone(), self.account_id)
     }
 
-    /// The account's own data: balance, positions, orders, deals. Named `account_data` rather than
-    /// `account` to avoid confusion with [`AccountClient`] itself and with [`Client::account`].
+    /// The account's own data: balance, positions, orders, deals.
     #[must_use]
     pub fn account_data(&self) -> AccountDataClient {
         AccountDataClient::new(self.client.clone(), self.account_id)

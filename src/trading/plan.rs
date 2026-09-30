@@ -1,19 +1,4 @@
 //! Trade plans: an order cut into several exits, with a break-even and an OCO pair.
-//!
-//! The broker has no such orders, so the app builds them from plain ones. A plan with three exits
-//! sends three orders, each with its own stop loss and take profit, which the broker keeps and
-//! runs on its own: if the app is closed, every leg stays protected. What the app adds while it
-//! runs is what the broker cannot do:
-//!
-//! - **Break-even**: when the leg named in the plan closes in profit, the stop loss of the legs
-//!   still open moves to their entry price (plus or minus a few pips).
-//! - **OCO**: two pending orders of one pair; when one fills, the other is cancelled.
-//!
-//! Nothing here is kept in a file. Every order carries a label that says which plan it belongs to,
-//! which leg it is and what the break-even rule is (see [`Label`]), so after a restart the account
-//! finds its plans again by reading the labels of what is open.
-//!
-//! This module is plain data and arithmetic, tested without a window or a broker.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,8 +13,6 @@ const PREFIX: &str = "wyck:";
 pub struct Leg {
     /// The share of the volume, in percent.
     pub share: f64,
-    /// The take profit, in multiples of the risk (R). 0 leaves the leg with no take profit: it
-    /// runs until the stop loss, the trailing stop or the user closes it.
     pub target_r: f64,
 }
 
@@ -37,7 +20,6 @@ pub struct Leg {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct BreakEven {
     pub on: bool,
-    /// The leg (counted from 1) whose closing in profit triggers it.
     pub after_leg: u8,
     /// How far past the entry the stop goes, in pips: a few pips lock in a small gain.
     pub offset_pips: f64,
@@ -47,11 +29,9 @@ pub struct BreakEven {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExitPlan {
-    /// Whether the ticket sends its order as a plan.
     pub on: bool,
     pub legs: Vec<Leg>,
     pub break_even: BreakEven,
-    /// The last leg has a trailing stop loss (the broker moves it with the price).
     pub trail_last: bool,
     /// Also place the opposite side of a pending order, this many pips from its price, as an OCO
     /// pair: 0 is off.
@@ -88,8 +68,8 @@ impl Default for ExitPlan {
 }
 
 impl ExitPlan {
-    /// The plan put back in range: one to [`MAX_LEGS`] legs with positive shares, a break-even
-    /// that names a leg that exists.
+    /// The plan put back in range: one to `MAX_LEGS` legs with positive shares, a break-even that
+    /// names a leg that exists.
     #[must_use]
     pub fn normalized(mut self) -> Self {
         let clean = |v: f64, most: f64| {
@@ -136,11 +116,7 @@ impl ExitPlan {
     }
 }
 
-/// Cuts a volume between legs by their shares. The volumes are multiples of `step`; the part that
-/// does not divide goes to the first leg. A leg under `min` is dropped and its share goes to a
-/// neighbor, so the answer can have fewer legs than shares. It gives the volumes and, for each,
-/// the index of the leg (in `shares`) it stands for. The volumes add up to the volume given, cut to
-/// a multiple of `step`.
+/// Cuts a volume between legs by their shares.
 pub fn split_volume(total: i64, shares: &[f64], min: i64, step: i64) -> (Vec<i64>, Vec<usize>) {
     let step = step.max(1);
     let total = total - total % step;
@@ -172,16 +148,12 @@ pub fn split_volume(total: i64, shares: &[f64], min: i64, step: i64) -> (Vec<i64
 /// What a label of the app says about an order or a position.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Label {
-    /// The plan, as a short id shared by its orders.
     pub group: String,
-    /// The leg, counted from 1, and how many there are.
     pub leg: u8,
     pub of: u8,
     /// The break-even rule: the leg that triggers it and the offset in tenths of a pip.
     pub break_even: Option<(u8, u32)>,
-    /// One order of an OCO pair.
     pub oco: bool,
-    /// Close the position after a time (see [`TimeStop`]).
     pub time_stop: Option<TimeStop>,
 }
 
@@ -197,12 +169,9 @@ pub struct TimeStop {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Only {
-    /// Whatever the position makes.
     #[default]
     Always,
-    /// Only one that is in profit; a losing one is left to its stop loss.
     Winning,
-    /// Only one that is losing; a winning one is left to run.
     Losing,
 }
 
@@ -231,8 +200,7 @@ impl Only {
 pub const MAX_TIME_STOP_MINUTES: u32 = 525_600;
 
 impl TimeStop {
-    /// Whether the position must be closed now. `opened` is when it opened and `profit` what it
-    /// makes now, after costs, when that is known. A rule that depends on the profit waits for it.
+    /// Whether the position must be closed now.
     pub fn due(self, opened_ms: i64, now_ms: i64, profit: Option<f64>) -> bool {
         if now_ms < opened_ms.saturating_add(i64::from(self.minutes) * 60_000) {
             return false;
@@ -339,8 +307,7 @@ pub struct Open {
 
 /// The stop losses to move after the leg `closed` of a plan closed with `profit`: the legs of the
 /// same plan that are still open go to their entry, plus `offset` in price on the side of the
-/// trade. A stop loss already at or past that level is left alone (the rule only tightens).
-/// Returns the position and its new stop loss.
+/// trade.
 pub fn break_even_moves(closed: &Label, profit: f64, open: &[Open], pip: f64) -> Vec<(i64, f64)> {
     let Some((after, tenths)) = closed.break_even else {
         return Vec::new();
@@ -367,9 +334,8 @@ pub fn break_even_moves(closed: &Label, profit: f64, open: &[Open], pip: f64) ->
         .collect()
 }
 
-/// The working orders to cancel when an order of an OCO pair filled: the orders of the same group,
-/// marked as OCO, on the other side. The legs of the side that filled stay: they are its exits.
-/// `orders` are working orders as (id, label, is a buy).
+/// The working orders to cancel when an order of an OCO pair filled: the orders of the same
+/// group, marked as OCO, on the other side.
 pub fn oco_siblings(filled: &Label, filled_buy: bool, orders: &[(i64, Label, bool)]) -> Vec<i64> {
     if !filled.oco {
         return Vec::new();
@@ -386,9 +352,7 @@ pub fn oco_siblings(filled: &Label, filled_buy: bool, orders: &[(i64, Label, boo
 pub struct Past {
     pub label: Label,
     pub buy: bool,
-    /// The order was filled (an OCO order that only expired or was cancelled proves nothing).
     pub filled: bool,
-    /// The position the fill opened.
     pub position: Option<i64>,
     /// The size of a pip of its symbol.
     pub pip: f64,
@@ -397,20 +361,12 @@ pub struct Past {
 /// What the app must still do after being offline.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Catch {
-    /// Move the stop loss of an open position.
     Stop { position: i64, stop: f64 },
-    /// Cancel a working order.
     Cancel { order: i64 },
 }
 
 /// The moves the app missed while it was closed or disconnected, from what is open now and the
-/// recent orders. A leg of a plan that closed in profit moves the stops of its siblings (see
-/// [`break_even_moves`]); a filled OCO order cancels the other side (see [`oco_siblings`]).
-///
-/// `profits` is what each closed position made, after costs. Doing it twice changes nothing: a
-/// stop already at the entry, or an order already gone, gives no move. The one thing it cannot
-/// know is a stop the user loosened by hand after a break-even that had run: it would tighten it
-/// again once, at the next connection.
+/// recent orders.
 pub fn catch_up(
     past: &[Past],
     profits: &std::collections::HashMap<i64, f64>,

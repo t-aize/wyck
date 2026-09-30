@@ -1,12 +1,4 @@
 //! What the server tells the client without being asked.
-//!
-//! A connection carries two kinds of traffic: answers to requests (matched by `clientMsgId`, see
-//! [`crate::openapi::Client`]) and **events**, which the server sends on its own: a new price, a change of
-//! the order book, an account logged out, tokens invalidated. Events are broadcast to every reader
-//! of [`crate::openapi::Client::events`], already decoded.
-//!
-//! The end of the connection is also an event ([`Event::Disconnected`]), so a task that only reads
-//! events learns about it without polling the client.
 
 use serde_json::Value;
 use tracing::{debug, warn};
@@ -25,13 +17,9 @@ use crate::openapi::transport::wire::{Envelope, payload};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DisconnectReason {
-    /// [`crate::openapi::Client::close`] was called.
     ClosedByClient,
-    /// The server closed the WebSocket.
     ClosedByServer,
-    /// The server announced it was ending the connection (`ProtoOAClientDisconnectEvent`).
     ServerAnnounced(Option<String>),
-    /// The connection failed: the text says how.
     Failed(String),
 }
 
@@ -39,50 +27,29 @@ pub enum DisconnectReason {
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Event {
-    /// A new price, or the first one after a subscription. It may also carry live bars.
     Spot(SpotEvent),
-    /// A change of the order book.
     Depth(DepthEvent),
-    /// The account changed (a balance moved, for example).
     TraderUpdated(TraderUpdatedEvent),
-    /// Tokens stopped working: refresh them, or sign in again.
     TokensInvalidated(AccountsTokenInvalidatedEvent),
-    /// An account was logged out of this connection: authorize it again to keep using it.
     AccountDisconnected(AccountDisconnectEvent),
-    /// The server says it is ending the connection.
     ServerDisconnecting(ClientDisconnectEvent),
-    /// A trading request was accepted, filled, replaced, cancelled, expired or rejected, or a
-    /// deposit, withdrawal or swap took place. Also the direct answer to every call in
-    /// [`crate::openapi::trading`]. Boxed: it is by far the largest variant (it can carry a position, an
-    /// order and a deal at once) and this keeps [`Event`] itself small.
     Execution(Box<ExecutionEvent>),
-    /// A trading request failed with no execution event to carry the error.
     OrderError(OrderErrorEvent),
-    /// A trailing stop loss moved with the price.
     TrailingSlChanged(TrailingSlChangedEvent),
-    /// The margin used by a position changed.
     MarginChanged(MarginChangedEvent),
-    /// The account's margin level reached a margin call threshold.
     MarginCallTriggered(MarginCallTriggerEvent),
-    /// A margin call threshold was changed.
     MarginCallUpdated(MarginCallUpdateEvent),
-    /// The broker changed one or more symbols (trading hours, volume rules, ...).
     SymbolChanged(SymbolChangedEvent),
-    /// An error with no request to attach it to.
     ServerError(Error),
-    /// A message this client does not know. Its type and raw payload are kept.
+    /// A message this client does not know.
     Other {
-        /// The payload type number.
         payload_type: u32,
-        /// The payload, as sent.
         payload: Value,
     },
-    /// The connection ended. This is always the last event.
     Disconnected(DisconnectReason),
 }
 
-/// Turns an unsolicited message into an [`Event`]. Heartbeats give `None`: they are only for the
-/// connection's own upkeep.
+/// Turns an unsolicited message into an `Event`.
 #[must_use]
 #[doc(hidden)]
 pub fn event_from(envelope: &Envelope) -> Option<Event> {
@@ -162,8 +129,8 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
     })
 }
 
-/// The error an error message describes: an [`Error::Server`] with its code and advice, or
-/// an [`Error::Protocol`] when the message cannot be read.
+/// The error an error message describes: an `Error::Server` with its code and advice, or an
+/// `Error::Protocol` when the message cannot be read.
 #[must_use]
 pub(crate) fn error_of(envelope: &Envelope) -> Error {
     match envelope.decode::<ErrorRes>() {
@@ -178,8 +145,8 @@ pub(crate) fn error_of(envelope: &Envelope) -> Error {
 }
 
 /// The error a `ProtoOAOrderErrorEvent` describes, for a trading request the server refused this
-/// way instead of with a `ProtoOAErrorRes`: an [`Error::Server`] with its code and advice,
-/// or an [`Error::Protocol`] when the message cannot be read.
+/// way instead of with a `ProtoOAErrorRes`: an `Error::Server` with its code and advice, or an
+/// `Error::Protocol` when the message cannot be read.
 #[must_use]
 pub(crate) fn order_error_of(envelope: &Envelope) -> Error {
     match envelope.decode::<OrderErrorEvent>() {

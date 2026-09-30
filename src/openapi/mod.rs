@@ -11,8 +11,7 @@ pub mod market;
 pub mod prelude;
 pub mod session;
 pub mod trading;
-/// The wire format and the connection machinery. Public only for this crate's own tests: not
-/// part of the stable API, and it may change in any release.
+/// The wire format and the connection machinery.
 #[doc(hidden)]
 pub mod transport;
 

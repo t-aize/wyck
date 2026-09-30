@@ -1,17 +1,5 @@
 //! Typed TOML documents next to the app config: the place for anything a front end wants to
 //! remember between runs (layouts, favorites, drawings) without this crate knowing what it is.
-//!
-//! A [`DocumentStore`] is a directory. Each document is one TOML file named after the document,
-//! read and written whole through serde, so the schema lives with the code that owns the data and
-//! this module only provides what must be right in one place: where the files go, that a write
-//! is atomic, and that a file that can no longer be read never takes the app down.
-//!
-//! There are two kinds of store. [`DocumentStore::global`] is shared by everything (how the user
-//! likes to work), and [`DocumentStore::scoped`] belongs to one named scope, chosen by the caller
-//! (things named by the broker behind an account, such as symbols, that mean nothing under
-//! another). The caller picks a scope that outlives a sign-in, such as the account number, so that
-//! signing out and in again finds everything where it was. Neither ever holds a secret: those
-//! stay in [`crate::config::secret`].
 
 use std::path::{Path, PathBuf};
 
@@ -24,8 +12,7 @@ use crate::config::fs_util::atomic_write;
 use crate::config::names::{is_valid_name, sanitize};
 use crate::config::paths::AppPaths;
 
-/// A directory of TOML documents. Cheap to clone and safe to hand to another thread: it holds
-/// only a path, and every call goes to the file system.
+/// A directory of TOML documents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentStore {
     dir: PathBuf,
@@ -39,10 +26,7 @@ impl DocumentStore {
         }
     }
 
-    /// The documents of one scope, such as `demo-45970491`. Whatever the name holds, the
-    /// directory stays inside the config directory (the name is cleaned with
-    /// [`crate::config::names::sanitize`]; check it with [`crate::config::names::validate_name`] first where two
-    /// different names must never share a folder).
+    /// The documents of one scope, such as `demo-45970491`.
     pub fn scoped(paths: &AppPaths, scope: &str) -> Self {
         Self {
             dir: paths.scopes_dir().join(sanitize(scope)),
@@ -50,12 +34,6 @@ impl DocumentStore {
     }
 
     /// The names of every scope that has a folder, sorted: the accounts whose documents are kept.
-    /// Folders whose name is not a valid name are left out.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] on an I/O failure other than "not found" (no scope yet gives an empty
-    /// list).
     pub fn list_scopes(paths: &AppPaths) -> Result<Vec<String>> {
         let dir = paths.scopes_dir();
         let entries = match std::fs::read_dir(&dir) {
@@ -74,13 +52,7 @@ impl DocumentStore {
     }
 
     /// The names of the documents in the store, sorted: the `.toml` files whose name is a valid
-    /// name. Temporary files of a write in progress, `.bad` files and anything else are not
-    /// listed.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] on an I/O failure other than "not found" (an empty or missing folder
-    /// gives an empty list).
+    /// name.
     pub fn list(&self) -> Result<Vec<String>> {
         let entries = match std::fs::read_dir(&self.dir) {
             Ok(entries) => entries,
@@ -116,11 +88,6 @@ impl DocumentStore {
     }
 
     /// Reads a document, or `None` when it was never written.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] on an I/O failure other than "not found", and
-    /// [`ConfigError::Parse`] if the file is not valid TOML for `T`.
     pub fn load<T: DeserializeOwned>(&self, name: &str) -> Result<Option<T>> {
         let path = self.path(name);
         let text = match std::fs::read_to_string(&path) {
@@ -138,8 +105,7 @@ impl DocumentStore {
 
     /// Reads a document, and never fails: a document that was never written gives the default,
     /// and one that cannot be read or parsed is set aside next to itself (as `name.toml.bad`,
-    /// replacing an older one) and gives the default too. The user loses that document's
-    /// contents but not the app, and the damaged file stays there to be recovered by hand.
+    /// replacing an older one) and gives the default too.
     pub fn load_or_default<T: DeserializeOwned + Default>(&self, name: &str) -> T {
         match self.load(name) {
             Ok(Some(value)) => value,
@@ -154,11 +120,6 @@ impl DocumentStore {
 
     /// Writes a document, atomically: a crash halfway leaves the old file, never half of a new
     /// one.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Serialize`] if `value` cannot be written as TOML, and
-    /// [`ConfigError::Write`] on an I/O failure.
     pub fn save<T: Serialize>(&self, name: &str, value: &T) -> Result<()> {
         let text = toml::to_string_pretty(value).map_err(ConfigError::Serialize)?;
         let path = self.path(name);
@@ -167,11 +128,7 @@ impl DocumentStore {
         Ok(())
     }
 
-    /// Deletes a document. Missing is fine.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Write`] if the file exists and cannot be removed.
+    /// Deletes a document.
     pub fn remove(&self, name: &str) -> Result<()> {
         let path = self.path(name);
         match std::fs::remove_file(&path) {
@@ -183,10 +140,6 @@ impl DocumentStore {
 
     /// The text of a document as it is on disk, or `None` when it was never written: for moving
     /// documents around (a backup) without knowing their shape.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] on an I/O failure other than "not found".
     pub fn load_text(&self, name: &str) -> Result<Option<String>> {
         let path = self.path(name);
         match std::fs::read_to_string(&path) {
@@ -198,10 +151,6 @@ impl DocumentStore {
 
     /// Writes the text of a document as it is, atomically, after checking that it is valid TOML
     /// (so a bad restore cannot put a file in place that the app then has to set aside).
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Parse`] if `text` is not TOML, [`ConfigError::Write`] on an I/O failure.
     pub fn save_text(&self, name: &str, text: &str) -> Result<()> {
         let path = self.path(name);
         toml::from_str::<toml::Table>(text).map_err(|source| ConfigError::Parse {

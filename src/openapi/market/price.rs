@@ -1,49 +1,25 @@
 //! Converting between the server's integer prices and real numbers, and formatting them for
 //! display.
-//!
-//! Prices travel as integers scaled by [`PRICE_SCALE`] (100 000): the price `1.08501` is `108501`
-//! on the wire. Keep the integer for exact work and comparisons; the `f64` from [`to_price`] is for
-//! display and arithmetic that can tolerate floating point error.
 
 /// The factor between the server's integer prices and real prices.
 pub const PRICE_SCALE: i64 = 100_000;
 
-/// The number of raw price units in a price of 1.0 (an alias for [`PRICE_SCALE`], kept next to
-/// [`format_price`] for callers that think in terms of formatting rather than decoding).
+/// The number of raw price units in a price of 1.0 (an alias for `PRICE_SCALE`, kept next to
+/// `format_price` for callers that think in terms of formatting rather than decoding).
 pub const UNITS_PER_PRICE: i64 = PRICE_SCALE;
 
 /// The raw price `raw` as a real price.
-///
-/// ```
-/// assert_eq!(crate::openapi::market::to_price(108_501), 1.08501);
-/// ```
 #[must_use]
 pub fn to_price(raw: i64) -> f64 {
     raw as f64 / PRICE_SCALE as f64
 }
 
 /// A real price as the server's integer, rounded to the nearest unit.
-///
-/// ```
-/// assert_eq!(crate::openapi::market::from_price(1.08501), 108_501);
-/// ```
 #[must_use]
 pub fn from_price(price: f64) -> i64 {
     (price * PRICE_SCALE as f64).round() as i64
 }
 
-/// ```
-/// use crate::openapi::market::format_price;
-///
-/// assert_eq!(format_price(114_880, 5), "1.14880");
-/// assert_eq!(format_price(114_886, 4), "1.1489"); // rounded to the decimals asked for
-/// assert_eq!(format_price(15_676_800, 3), "156.768");
-/// ```
-///
-/// A raw price as text with `digits` decimals, as the symbol quotes it (`114880` with 5 digits is
-/// `1.14880`, with 3 digits `1.149`). The price is rounded to the decimals asked for.
-///
-/// `digits` above 5 is treated as 5: the server's integers only carry five decimals.
 #[must_use]
 pub fn format_price(raw: i64, digits: u32) -> String {
     let digits = digits.min(5);
@@ -70,8 +46,7 @@ pub fn format_price(raw: i64, digits: u32) -> String {
 }
 
 /// The size of one pip in price for a symbol whose pip sits at `pip_position` decimals: `4` gives
-/// `0.0001`. A position the server should never send (below 0, past 12) is read as 4, the usual
-/// one for a currency pair.
+/// `0.0001`.
 #[must_use]
 pub fn pip_size(pip_position: i64) -> f64 {
     let position = if (0..=12).contains(&pip_position) {

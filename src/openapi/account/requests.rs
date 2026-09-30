@@ -1,5 +1,5 @@
-//! The request and response messages of the account calls: what an the account client
-//! sends and reads, and the event that reports a balance change.
+//! The request and response messages of the account calls: what an the account client sends and
+//! reads, and the event that reports a balance change.
 
 use serde::{Deserialize, Serialize};
 
@@ -12,9 +12,7 @@ use crate::openapi::transport::wire::flex;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReconcileReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// Also return the protective orders (stop loss, take profit) of the positions.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_protection_orders: Option<bool>,
 }
@@ -23,7 +21,6 @@ pub struct ReconcileReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DealListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -31,7 +28,6 @@ pub struct DealListReq {
     /// End of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub to_timestamp: Option<i64>,
-    /// The most rows to return.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_rows: Option<i32>,
 }
@@ -40,7 +36,6 @@ pub struct DealListReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,9 +49,8 @@ pub struct OrderListReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CashFlowHistoryListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// Start of the range, in Unix milliseconds. The range may span at most one week.
+    /// Start of the range, in Unix milliseconds.
     pub from_timestamp: i64,
     /// End of the range, in Unix milliseconds.
     pub to_timestamp: i64,
@@ -66,9 +60,7 @@ pub struct CashFlowHistoryListReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DealListByPositionIdReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position.
     pub position_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -82,11 +74,9 @@ pub struct DealListByPositionIdReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderListByPositionIdReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position.
     pub position_id: i64,
-    /// Start of the range, in Unix milliseconds. Filters by the order's last update.
+    /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from_timestamp: Option<i64>,
     /// End of the range, in Unix milliseconds.
@@ -98,9 +88,7 @@ pub struct OrderListByPositionIdReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderDetailsReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The order.
     pub order_id: i64,
 }
 
@@ -108,9 +96,7 @@ pub struct OrderDetailsReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DealOffsetListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The deal.
     pub deal_id: i64,
 }
 
@@ -119,7 +105,6 @@ pub struct DealOffsetListReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TraderRes {
-    /// The account.
     pub trader: Trader,
 }
 
@@ -128,10 +113,8 @@ pub struct TraderRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ReconcileRes {
-    /// The open positions.
     #[serde(default)]
     pub position: Vec<Position>,
-    /// The working orders.
     #[serde(default)]
     pub order: Vec<Order>,
 }
@@ -141,10 +124,8 @@ pub struct ReconcileRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealListRes {
-    /// The deals.
     #[serde(default)]
     pub deal: Vec<Deal>,
-    /// Whether more deals exist in the range than were returned.
     #[serde(default)]
     pub has_more: bool,
 }
@@ -154,10 +135,8 @@ pub struct DealListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderListRes {
-    /// The orders.
     #[serde(default)]
     pub order: Vec<Order>,
-    /// Whether more orders exist in the range than were returned.
     #[serde(default)]
     pub has_more: bool,
 }
@@ -167,7 +146,6 @@ pub struct OrderListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TraderUpdatedEvent {
-    /// The account after the change.
     pub trader: Trader,
 }
 
@@ -176,7 +154,6 @@ pub struct TraderUpdatedEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CashFlowHistoryListRes {
-    /// The deposits and withdrawals of the range.
     #[serde(default)]
     pub deposit_withdraw: Vec<DepositWithdraw>,
 }
@@ -186,10 +163,8 @@ pub struct CashFlowHistoryListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealListByPositionIdRes {
-    /// The deals of the position.
     #[serde(default)]
     pub deal: Vec<Deal>,
-    /// Whether more deals exist in the range than were returned.
     #[serde(default)]
     pub has_more: bool,
 }
@@ -199,10 +174,8 @@ pub struct DealListByPositionIdRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderListByPositionIdRes {
-    /// The orders of the position, newest first.
     #[serde(default)]
     pub order: Vec<Order>,
-    /// Whether more orders exist in the range than were returned.
     #[serde(default)]
     pub has_more: bool,
 }
@@ -212,9 +185,7 @@ pub struct OrderListByPositionIdRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderDetailsRes {
-    /// The order.
     pub order: Order,
-    /// Every deal that filled it.
     #[serde(default)]
     pub deal: Vec<Deal>,
 }
@@ -224,10 +195,8 @@ pub struct OrderDetailsRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealOffsetListRes {
-    /// Deals that closed the one asked about.
     #[serde(default)]
     pub offset_by: Vec<DealOffset>,
-    /// Deals that the one asked about closed.
     #[serde(default)]
     pub offsetting: Vec<DealOffset>,
 }
@@ -237,9 +206,6 @@ pub struct DealOffsetListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct PositionUnrealizedPnLRes {
-    /// The unrealized profit or loss of every open position. Renamed explicitly: the server's
-    /// field is `positionUnrealizedPnL` (capital `L`), which plain camelCase would not reproduce
-    /// from this name.
     #[serde(default, rename = "positionUnrealizedPnL")]
     pub position_unrealized_pnl: Vec<PositionUnrealizedPnL>,
     /// Decimals of the money amounts.

@@ -1,25 +1,16 @@
 //! Where to connect, and with which credentials.
-//!
-//! The Open API has two separate worlds, **demo** and **live**, each behind its own host. An
-//! application (and so a connection) works in one of them: accounts of the other kind cannot be
-//! authorized on it, and an app that needs both opens two connections.
-//!
-//! This crate speaks **JSON over a WebSocket** (port `5036`). It needs no code generation and no
-//! `.proto` files, and the messages are the same ones as in Protobuf (see [`crate::openapi::transport::wire`]).
 
 use std::time::Duration;
 
 use secrecy::SecretString;
 
-/// The port of the JSON endpoint. TCP and WebSocket both work on it; this crate uses WebSocket.
+/// The port of the JSON endpoint.
 pub const JSON_PORT: u16 = 5036;
 
 /// Demo or live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Environment {
-    /// Demo accounts: `demo.ctraderapi.com`.
     Demo,
-    /// Live accounts: `live.ctraderapi.com`.
     Live,
 }
 
@@ -40,34 +31,21 @@ impl Environment {
     }
 }
 
-/// How the connection behaves. [`ConnectionConfig::new`] gives the settings the documentation
-/// asks for; every field can be changed.
+/// How the connection behaves.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ConnectionConfig {
-    /// The WebSocket address to connect to (`wss://...`, or `ws://...` for a local test server).
     pub url: String,
-    /// How long the connection attempt may take.
     pub connect_timeout: Duration,
-    /// How long a request waits for its answer.
     pub request_timeout: Duration,
-    /// How often a heartbeat is sent. The server drops a connection that is silent for more
-    /// than 10 seconds, so keep it well under that.
+    /// How often a heartbeat is sent.
     pub heartbeat_interval: Duration,
-    /// How many events may wait unread before the slowest reader starts to lose the oldest.
     pub event_capacity: usize,
-    /// Requests per second for everything but history. The documented limit is 50; the default is
-    /// 40, a margin under it so that requests spaced evenly cannot add up to more than 50 inside a
-    /// window the server counts differently.
+    /// Requests per second for everything but history.
     pub standard_rate: u32,
-    /// Requests per second for history. The documented limit is 5; the default is 4, for the same
-    /// reason, and because a live run got a tick request blocked (`BLOCKED_PAYLOAD_TYPE`) after a
-    /// burst of tick pages spaced at 5 per second.
+    /// Requests per second for history.
     pub historical_rate: u32,
-    /// How many times a request refused for its rate is sent again, after the wait the server asks
-    /// for. 0 turns it off: the error is then returned at once.
     pub rate_limit_retries: u32,
-    /// The longest wait before such a retry, whatever the server asks for.
     pub max_retry_wait: Duration,
 }
 
@@ -94,12 +72,8 @@ impl ConnectionConfig {
         }
     }
 
-    /// Checks the settings, so a mistake shows at connect time and not as a strange failure later.
-    ///
-    /// # Errors
-    ///
-    /// [`crate::openapi::Error::Config`] when the address is not a WebSocket URL, a rate is zero,
-    /// or the heartbeat is not under the server's 10 second silence limit.
+    /// Checks the settings, so a mistake shows at connect time and not as a strange failure
+    /// later.
     pub fn validate(&self) -> crate::openapi::Result<()> {
         let bad = |what: &str| Err(crate::openapi::Error::Config(what.to_owned()));
         if !(self.url.starts_with("wss://") || self.url.starts_with("ws://")) {
@@ -125,14 +99,9 @@ impl ConnectionConfig {
 }
 
 /// The credentials of a registered application: what the user gets from the Open API portal.
-///
-/// The secret is a [`SecretString`]: it is never shown by `Debug` and is wiped from memory when
-/// dropped. Keep it out of files, logs and the repository.
 #[derive(Debug, Clone)]
 pub struct ClientCredentials {
-    /// The application's client id.
     pub client_id: String,
-    /// The application's client secret.
     pub client_secret: SecretString,
 }
 

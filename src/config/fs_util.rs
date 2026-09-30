@@ -14,26 +14,6 @@ const TEMP_MARKER: &str = ".tmp-";
 
 /// Writes `contents` to `path` so that a reader, or the next start after a crash or a power cut,
 /// finds either the old complete file or the new complete file, never half of one.
-///
-/// The steps are the ones a database takes:
-///
-/// 1. The parent directory is created when it is missing (readable by the owner only on Unix).
-/// 2. The contents go to a uniquely named temporary file in the same directory, created with `0600`
-///    permissions on Unix before anything is written to it, since some callers write ciphertext
-///    or references to secrets.
-/// 3. The temporary file is flushed to the disk (`fsync`), not only to the cache of the system:
-///    without it, a rename that survives a crash can point at a file with no contents.
-/// 4. It is renamed over the target, which is atomic on the same file system on every platform
-///    this crate targets.
-/// 5. The directory is flushed too (Unix), so the rename itself survives a power cut.
-///
-/// A failure removes the temporary file and leaves the target as it was. Every file the app
-/// writes goes through this function. A caller that returns `io::Result` can use `?` on it
-/// directly (see the `From<ConfigError>` impl of `std::io::Error`).
-///
-/// # Errors
-///
-/// [`ConfigError::Write`], with the path.
 pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
     write_atomically(path, contents).map_err(|source| ConfigError::Write {
         path: path.to_path_buf(),
@@ -66,8 +46,8 @@ fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
-/// The temporary files [`atomic_write`] left in `dir` because the program stopped in the
-/// middle of a write. They are harmless (nothing reads them) and safe to delete.
+/// The temporary files `atomic_write` left in `dir` because the program stopped in the middle of
+/// a write.
 #[must_use]
 pub fn stale_temp_files(dir: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(dir) else {
@@ -86,8 +66,7 @@ pub fn stale_temp_files(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
-/// Creates `dir` and the folders above it that are missing. On Unix the ones created are for the
-/// owner only (`0700`); the ones that exist keep their permissions.
+/// Creates `dir` and the folders above it that are missing.
 pub(crate) fn create_private_dir_all(dir: &Path) -> std::io::Result<()> {
     #[cfg(unix)]
     {
@@ -130,8 +109,7 @@ fn write_synced(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     file.sync_all()
 }
 
-/// Flushes a directory so a rename in it survives a power cut. Best effort: a directory cannot be
-/// opened for this on Windows, and a failure here does not undo a write that succeeded.
+/// Flushes a directory so a rename in it survives a power cut.
 fn sync_dir(dir: &Path) {
     #[cfg(unix)]
     if let Ok(handle) = fs::File::open(dir) {

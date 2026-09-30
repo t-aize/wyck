@@ -11,24 +11,15 @@ use crate::config::profile::{ProfileConfig, ProfileId};
 /// The version of the layout this build writes, and the newest it reads.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
-/// The plaintext, human-editable part of `wyck`'s configuration: which
-/// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
-/// [`crate::config::secret`] for where those live instead.
-///
-/// Round-trips through TOML at [`crate::config::AppPaths::config_file`]. `schema_version` is required
-/// and is bumped whenever a breaking change to this shape ships; a file with a version this build
-/// does not know is refused (see [`AppConfig::load`]).
+/// The plaintext, human-editable part of `wyck`'s configuration: which `ProfileConfig`s exist and
+/// which one is active.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AppConfig {
-    /// The version of this layout. Required: a file without it is not a config file of this app.
     pub schema_version: u32,
-    /// The profile to connect with by default, if one is set and still exists.
     #[serde(default)]
     pub active_profile: Option<ProfileId>,
-    /// Every configured profile.
     #[serde(default)]
     pub profiles: Vec<ProfileConfig>,
-    /// The symbol the user was on when the application last ran, so the next start opens on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_symbol: Option<String>,
 }
@@ -45,15 +36,7 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
-    /// Loads the config from `paths.config_file()`. Returns [`AppConfig::default`]
-    /// (empty, no profiles) if the file doesn't exist yet: a fresh install is not an
-    /// error condition.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Read`] on any I/O failure other than "file not found";
-    /// [`ConfigError::Parse`] if the file exists but isn't valid TOML matching this
-    /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
+    /// Loads the config from `paths.config_file()`.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         let path = paths.config_file();
         let text = match std::fs::read_to_string(&path) {
@@ -112,8 +95,8 @@ impl AppConfig {
         self.profiles.iter().find(|profile| &profile.id == id)
     }
 
-    /// The active profile, resolved from `active_profile`, if any is set and it still
-    /// exists in `profiles`.
+    /// The active profile, resolved from `active_profile`, if any is set and it still exists in
+    /// `profiles`.
     pub fn active_profile(&self) -> Option<&ProfileConfig> {
         self.active_profile.as_ref().and_then(|id| self.profile(id))
     }

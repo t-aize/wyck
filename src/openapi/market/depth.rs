@@ -1,4 +1,4 @@
-//! The order book: [`DepthBook`] keeps it up to date from the server's additions and removals and
+//! The order book: `DepthBook` keeps it up to date from the server's additions and removals and
 //! reads it back sorted, best price first on each side.
 
 use std::collections::BTreeMap;
@@ -11,16 +11,13 @@ use crate::openapi::transport::wire::flex;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthQuote {
-    /// The entry id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub id: Option<i64>,
     /// The size, in hundredths of a unit.
     #[serde(default, deserialize_with = "flex::opt")]
     pub size: Option<i64>,
-    /// The price, for a bid entry.
     #[serde(default, deserialize_with = "flex::opt")]
     pub bid: Option<i64>,
-    /// The price, for an ask entry.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ask: Option<i64>,
 }
@@ -29,13 +26,10 @@ pub struct DepthQuote {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthEvent {
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
-    /// Entries that were added or changed.
     #[serde(default)]
     pub new_quotes: Vec<DepthQuote>,
-    /// Ids of the entries that were removed.
     #[serde(default, deserialize_with = "flex::list")]
     pub deleted_quotes: Vec<i64>,
 }
@@ -43,16 +37,12 @@ pub struct DepthEvent {
 /// One price level of the book: the total size of the entries at that price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DepthLevel {
-    /// The raw price (see [`crate::openapi::market::to_price`]).
     pub price: i64,
-    /// The size in hundredths of a unit (see [`crate::openapi::account::volume_units`]).
+    /// The size in hundredths of a unit (see `crate::openapi::account::volume_units`).
     pub size: i64,
 }
 
-/// The order book of one symbol, kept up to date from [`DepthEvent`]s.
-///
-/// The server sends the entries that were added or changed and the ids of the ones removed; this
-/// keeps the entries by id and reads them back sorted.
+/// The order book of one symbol, kept up to date from `DepthEvent`s.
 #[derive(Debug, Clone, Default)]
 pub struct DepthBook {
     bids: BTreeMap<i64, DepthLevel>,
@@ -67,7 +57,7 @@ impl DepthBook {
     }
 
     /// Applies one event: entries are added or replaced by id, removed ids are dropped from both
-    /// sides. An entry without a price or without an id is ignored.
+    /// sides.
     pub fn apply(&mut self, event: &DepthEvent) {
         for id in &event.deleted_quotes {
             self.bids.remove(id);
@@ -89,8 +79,7 @@ impl DepthBook {
         }
     }
 
-    /// The bid side as price levels, best (highest price) first. Entries at the same price are added
-    /// into one level, as in any order book.
+    /// The bid side as price levels, best (highest price) first.
     #[must_use]
     pub fn bids(&self) -> Vec<DepthLevel> {
         let mut levels = levels_of(&self.bids);
@@ -98,8 +87,7 @@ impl DepthBook {
         levels
     }
 
-    /// The ask side as price levels, best (lowest price) first. Entries at the same price are added
-    /// into one level.
+    /// The ask side as price levels, best (lowest price) first.
     #[must_use]
     pub fn asks(&self) -> Vec<DepthLevel> {
         levels_of(&self.asks)
@@ -117,7 +105,7 @@ impl DepthBook {
         self.asks().first().copied()
     }
 
-    /// The gap between the best ask and the best bid, when both exist. Negative in a crossed book.
+    /// The gap between the best ask and the best bid, when both exist.
     #[must_use]
     pub fn spread(&self) -> Option<i64> {
         Some(self.best_ask()?.price - self.best_bid()?.price)

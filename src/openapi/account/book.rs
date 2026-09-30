@@ -1,9 +1,5 @@
 //! What the account holds, kept current from the server's answers and events: the balance, the
 //! open positions, the working orders, the recent deals, and each position's profit.
-//!
-//! It is plain data: a reconcile answer, an execution event or a profit answer comes in, the
-//! state changes, and a [`Notice`] says what the user should be told. The gpui entity around it
-//! (the account client) only fetches and forwards.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -22,13 +18,9 @@ const MAX_DEALS: usize = 500;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Tone {
-    /// Worth knowing.
     Info,
-    /// Something went through.
     Success,
-    /// Something went through, but not quite as asked.
     Warning,
-    /// Something was refused or failed.
     Error,
 }
 
@@ -36,28 +28,19 @@ pub enum Tone {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NoticeAction {
-    /// Close this position.
     ClosePosition(i64),
-    /// Move the stop loss of this position to its entry price.
     BreakEven(i64),
-    /// Cancel this working order.
     CancelOrder(i64),
 }
 
 /// Something to tell the user about what happened to their orders.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Notice {
-    /// How serious it is.
     pub tone: Tone,
-    /// A short headline.
     pub title: String,
-    /// The details.
     pub message: String,
-    /// What to do about it, when there is something.
     pub hint: Option<String>,
-    /// The exact words of the server or of the error, for a bug report.
     pub details: Option<String>,
-    /// What can be done about it from the notice itself.
     pub actions: Vec<NoticeAction>,
 }
 
@@ -99,51 +82,21 @@ impl Notice {
 /// What an execution event changed, beyond the positions and orders themselves.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Applied {
-    /// What to tell the user, if anything.
     pub notice: Option<Notice>,
-    /// The balance may have changed: ask for the account again.
     pub balance_changed: bool,
 }
 
 /// The account's state, rebuilt from a reconcile answer and kept current by execution events.
-///
-/// ```no_run
-/// # async fn demo(account: crate::openapi::AccountClient) -> crate::openapi::Result<()> {
-/// use crate::openapi::Event;
-/// use crate::openapi::account::book::AccountBook;
-///
-/// let mut book = AccountBook::default();
-/// let mut events = account.client().events();
-/// let (positions, orders) = account.account_data().open_positions_and_orders(false).await?;
-/// book.reconcile(positions, orders);
-/// while let Ok(event) = events.recv().await {
-///     if let Event::Execution(execution) = event {
-///         if let Some(notice) = book.apply(&execution).notice {
-///             println!("{}: {}", notice.title, notice.message);
-///         }
-///     }
-/// }
-/// # Ok(()) }
-/// ```
 #[derive(Debug, Clone, Default)]
 pub struct AccountBook {
-    /// The account itself, once the server sent it.
     pub trader: Option<Trader>,
-    /// The deposit currency, when known: `USD`.
     pub currency: String,
-    /// The open positions, by id.
     pub positions: BTreeMap<i64, Position>,
-    /// The working orders, by id.
     pub orders: BTreeMap<i64, Order>,
-    /// The server's last word on each position's profit.
     pub marks: HashMap<i64, PnlMark>,
-    /// Recent deals, newest first.
     pub deals: Vec<Deal>,
-    /// How each symbol trades, once the broker said.
     pub contracts: HashMap<i64, Contract>,
-    /// The broker's name of each symbol.
     pub names: HashMap<i64, String>,
-    /// The currency each symbol is quoted in, by name.
     pub quote_currency: HashMap<i64, String>,
 }
 
@@ -463,9 +416,7 @@ pub fn explain(code: &str) -> String {
 /// A refusal or a failure in words a trader can act on.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reason {
-    /// What went wrong, as a sentence.
     pub message: String,
-    /// What to do about it, when there is something to do.
     pub hint: Option<String>,
 }
 
@@ -480,10 +431,6 @@ fn sentence(text: &str) -> String {
 }
 
 /// A server refusal, from its code and the words it gave, as a sentence with what to do.
-///
-/// The server's own words are the most exact when the code is a general one (`INVALID_REQUEST`),
-/// so a description that names a known problem is put in words first, then the code, then the
-/// description as it came.
 pub fn refusal(code: &str, description: Option<&str>) -> Reason {
     let reason = |message: &str, hint: &str| Reason {
         message: message.to_owned(),

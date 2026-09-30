@@ -1,29 +1,9 @@
 //! The arithmetic of trading: lots and volumes, pips, which pending order a price makes, the
 //! profit of a position between two answers of the server, and the account's totals.
-//!
-//! # Units
-//!
-//! - A **volume** is what the server counts: hundredths of a unit of the base asset.
-//! - A **lot** is `lot_size` of those (100 000 units of a currency pair, for example).
-//! - **Prices** here are real (1.08412), like the prices of positions and orders on the wire.
-//! - **Money** is in the account's deposit currency, as real numbers.
 
 use crate::openapi::market::PRICE_SCALE;
 
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
-///
-/// ```
-/// use crate::openapi::trading::contract::{Contract, lots_for_risk};
-///
-/// // A forex pair: 100 000 units a lot, steps of 0.01 lot, pips at the fourth decimal.
-/// let eurusd = Contract::default();
-/// assert_eq!(eurusd.volume_of_lots(0.5), 5_000_000);
-/// assert!((eurusd.pips(0.0020) - 20.0).abs() < 1e-9);
-///
-/// // Risk 100 of the deposit currency over a 20 pip stop, quote currency = deposit currency.
-/// let lots = lots_for_risk(100.0, 0.0020, 1.0, &eurusd).unwrap();
-/// assert_eq!(eurusd.volume_of_lots(lots), 5_000_000);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Contract {
     /// Decimals of the symbol's prices.
@@ -32,11 +12,8 @@ pub struct Contract {
     pub pip_position: i64,
     /// Hundredths of a unit per lot.
     pub lot_size: i64,
-    /// The smallest volume the broker accepts.
     pub min_volume: i64,
-    /// The largest volume the broker accepts.
     pub max_volume: i64,
-    /// The volumes accepted are multiples of this one.
     pub step_volume: i64,
 }
 
@@ -122,12 +99,8 @@ pub fn format_lots(lots: f64) -> String {
     text
 }
 
-/// A price distance in the server's relative units (a stop loss or take profit of a market
-/// order is given as a distance from where it fills).
-///
-/// The server takes only multiples of the smallest step of the symbol's price, so the distance
-/// is rounded to `digits` decimals: on a three digit symbol the units go by hundreds. A distance
-/// is never rounded down to nothing.
+/// A price distance in the server's relative units (a stop loss or take profit of a market order
+/// is given as a distance from where it fills).
 pub fn relative_distance(distance: f64, digits: u32) -> i64 {
     let step = 10i64.pow(PRICE_DIGITS.saturating_sub(digits.min(PRICE_DIGITS)));
     let units = (distance.abs() * PRICE_SCALE as f64 / step as f64).round() as i64;
@@ -140,9 +113,7 @@ const PRICE_DIGITS: u32 = 5;
 /// Which pending order a price makes for a side, given the market.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pending {
-    /// Waits for the price to come to it.
     Limit,
-    /// Waits for the price to go through it.
     Stop,
 }
 
@@ -162,11 +133,8 @@ pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum TicketProblem {
-    /// A pending order without a price.
     NoPrice,
-    /// The stop loss is on the profit side of the entry.
     StopLossWrongSide,
-    /// The take profit is on the loss side of the entry.
     TakeProfitWrongSide,
 }
 
@@ -180,8 +148,8 @@ impl std::fmt::Display for TicketProblem {
     }
 }
 
-/// Checks that the protection sits on the right side of the entry: under it for a buy's stop
-/// loss and over it for its take profit, the other way round for a sell.
+/// Checks that the protection sits on the right side of the entry: under it for a buy's stop loss
+/// and over it for its take profit, the other way round for a sell.
 pub fn check_protection(
     buy: bool,
     entry: f64,
@@ -214,17 +182,13 @@ pub fn quote_profit(buy: bool, entry: f64, close: f64, units: f64) -> f64 {
 /// currency into the deposit currency, so the profit can follow the price until the next answer.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PnlMark {
-    /// Before and after commission and swap, in the deposit currency.
     pub gross: f64,
-    /// See [`PnlMark::gross`].
     pub net: f64,
-    /// Deposit currency per unit of quote currency, when it is known.
     pub rate: Option<f64>,
 }
 
 /// The rate a server answer implies: its gross profit over the profit in the quote currency
-/// computed here at about the same time. Only a move of at least `least` (a pip's worth) is
-/// trusted, since the two are not taken at the same instant.
+/// computed here at about the same time.
 pub fn implied_rate(gross: f64, quote: f64, least: f64) -> Option<f64> {
     if quote.abs() < least.max(1e-9) {
         return None;
@@ -234,8 +198,7 @@ pub fn implied_rate(gross: f64, quote: f64, least: f64) -> Option<f64> {
 }
 
 /// The profit of a position now: the profit in the quote currency at the current market,
-/// converted at the mark's rate, less the costs the server counted. Without a rate, the
-/// server's answer as it is.
+/// converted at the mark's rate, less the costs the server counted.
 pub fn live_net(mark: &PnlMark, quote_now: f64) -> f64 {
     match mark.rate {
         Some(rate) => quote_now * rate + (mark.net - mark.gross),
@@ -249,7 +212,7 @@ pub fn protection_side(buy: bool, stop: bool) -> f64 {
 }
 
 /// The lots whose loss over `stop_distance` is `risk` in the deposit currency, before they are
-/// stepped. `rate` is the deposit currency per unit of quote currency.
+/// stepped.
 pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contract) -> Option<f64> {
     let units_per_lot = contract.lot_size as f64 / 100.0;
     let loss_per_lot = stop_distance * rate * units_per_lot;
@@ -259,18 +222,14 @@ pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contra
 /// A volume chosen by the ticket, and whether the broker's limits changed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Stepped {
-    /// The volume to send.
     pub volume: i64,
-    /// The limit that changed it, if one did.
     pub limit: Option<Limit>,
 }
 
 /// A limit of the broker the wanted volume ran into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Limit {
-    /// Raised to the least volume the broker takes.
     Min,
-    /// Lowered to the most it takes.
     Max,
 }
 
@@ -319,17 +278,13 @@ impl Contract {
 /// A symbol of a conversion chain, with the assets it trades.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Link {
-    /// The symbol.
     pub symbol_id: i64,
-    /// The asset it prices.
     pub base: i64,
-    /// The asset it is priced in.
     pub quote: i64,
 }
 
-/// How much of asset `to` one unit of asset `from` is worth, walking the chain the server gave
-/// at the middle prices of its symbols. `None` while a price is missing or the chain does not
-/// lead from one to the other.
+/// How much of asset `to` one unit of asset `from` is worth, walking the chain the server gave at
+/// the middle prices of its symbols.
 pub fn chain_rate(
     from: i64,
     to: i64,
@@ -364,17 +319,12 @@ pub fn mid(bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
 /// The totals of an account.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Summary {
-    /// The balance, without the open positions.
     pub balance: f64,
-    /// The balance with the open positions' profit.
     pub equity: f64,
-    /// The margin the open positions use.
     pub margin: f64,
-    /// The equity left over the margin in use.
     pub free_margin: f64,
     /// Equity over used margin, in percent; `None` without margin in use.
     pub margin_level: Option<f64>,
-    /// The open positions' profit or loss.
     pub unrealized: f64,
 }
 

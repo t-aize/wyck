@@ -1,31 +1,9 @@
 //! What an account holds: balance, positions, orders, deals, and their enumerations.
-//!
-//! These are the read-only account messages of the Open API (`ProtoOATrader`, `ProtoOAPosition`,
-//! `ProtoOAOrder`, `ProtoOADeal`, ...). Reading them needs no trading permission: a token of the
-//! `accounts` scope is enough.
-//!
-//! # Units
-//!
-//! - **Money** (balance, swap, commission, used margin) is an integer scaled by `10^moneyDigits`,
-//!   where `moneyDigits` comes with the message (2 when absent). [`money`] converts.
-//! - **Volume** is an integer in hundredths of a unit ([`volume_units`] converts).
-//! - **Prices of positions and orders** are ordinary decimals (`double` in the `.proto`), unlike
-//!   the integer prices of ticks and bars.
-//! - **Times** are Unix milliseconds.
-//!
-//! # Enumerations
-//!
-//! Enumerations arrive as numbers. Each one here has a `from_number` that gives `None` for a
-//! number it does not know, so a server that adds a value later shows up as a missing label and not
-//! as a crash. The structs keep the raw number next to a method that decodes it.
 
 use serde::Deserialize;
 
 use crate::openapi::transport::wire::flex;
 
-/// Defines an enumeration that maps to server numbers and back. Reachable as
-/// `crate::openapi::number_enum` so [`crate::openapi::trading`] and [`crate::openapi::margin`] can
-/// build their own enumerations with it; it is not meant to be used outside this module.
 #[doc(hidden)]
 macro_rules! number_enum {
     (
@@ -70,9 +48,7 @@ pub(crate) use number_enum;
 number_enum! {
     /// Buy or sell.
     TradeSide {
-        /// A purchase.
         Buy = 1 => "buy",
-        /// A sale.
         Sell = 2 => "sell",
     }
 }
@@ -80,17 +56,11 @@ number_enum! {
 number_enum! {
     /// The kind of an order.
     OrderType {
-        /// At the market price.
         Market = 1 => "market",
-        /// At a limit price or better.
         Limit = 2 => "limit",
-        /// When a stop price is reached.
         Stop = 3 => "stop",
-        /// The protective order of a position.
         StopLossTakeProfit = 4 => "stop loss / take profit",
-        /// At the market within a price range.
         MarketRange = 5 => "market range",
-        /// A stop that becomes a limit order.
         StopLimit = 6 => "stop limit",
     }
 }
@@ -98,15 +68,10 @@ number_enum! {
 number_enum! {
     /// Where an order stands.
     OrderStatus {
-        /// Accepted and working.
         Accepted = 1 => "accepted",
-        /// Fully executed.
         Filled = 2 => "filled",
-        /// Refused.
         Rejected = 3 => "rejected",
-        /// Ran out of time.
         Expired = 4 => "expired",
-        /// Cancelled.
         Cancelled = 5 => "cancelled",
     }
 }
@@ -114,13 +79,9 @@ number_enum! {
 number_enum! {
     /// Where a position stands.
     PositionStatus {
-        /// Open.
         Open = 1 => "open",
-        /// Closed.
         Closed = 2 => "closed",
-        /// Being created.
         Created = 3 => "created",
-        /// In error.
         Error = 4 => "error",
     }
 }
@@ -128,17 +89,11 @@ number_enum! {
 number_enum! {
     /// How a deal ended.
     DealStatus {
-        /// Fully filled.
         Filled = 2 => "filled",
-        /// Partly filled.
         PartiallyFilled = 3 => "partially filled",
-        /// Refused by the server.
         Rejected = 4 => "rejected",
-        /// Refused inside the platform.
         InternallyRejected = 5 => "internally rejected",
-        /// Failed.
         Error = 6 => "error",
-        /// Missed.
         Missed = 7 => "missed",
     }
 }
@@ -146,11 +101,8 @@ number_enum! {
 number_enum! {
     /// How the account books positions.
     AccountType {
-        /// Several positions per symbol, each on its own.
         Hedged = 0 => "hedged",
-        /// One net position per symbol.
         Netted = 1 => "netted",
-        /// Spread betting.
         SpreadBetting = 2 => "spread betting",
     }
 }
@@ -158,15 +110,10 @@ number_enum! {
 number_enum! {
     /// How long an order stays working (`ProtoOATimeInForce`).
     TimeInForce {
-        /// Cancelled at `expiration_timestamp` if not filled.
         GoodTillDate = 1 => "good till date",
-        /// Stays until it is filled or cancelled.
         GoodTillCancel = 2 => "good till cancel",
-        /// Filled at once, in full or in part; the rest is cancelled.
         ImmediateOrCancel = 3 => "immediate or cancel",
-        /// Filled in full at once, or not at all.
         FillOrKill = 4 => "fill or kill",
-        /// Held until the market next opens.
         MarketOnOpen = 5 => "market on open",
     }
 }
@@ -174,13 +121,11 @@ number_enum! {
 number_enum! {
     /// What triggers a stop order or a stop loss (`ProtoOAOrderTriggerMethod`).
     OrderTriggerMethod {
-        /// A buy triggers on the ask, a sell on the bid (a stop loss the other way round).
         Trade = 1 => "trade",
-        /// The opposite side of [`Self::Trade`].
         Opposite = 2 => "opposite",
-        /// Like [`Self::Trade`], but only after a second consecutive tick confirms it.
+        /// Like `Self::Trade`, but only after a second consecutive tick confirms it.
         DoubleTrade = 3 => "double trade",
-        /// Like [`Self::Opposite`], but only after a second consecutive tick confirms it.
+        /// Like `Self::Opposite`, but only after a second consecutive tick confirms it.
         DoubleOpposite = 4 => "double opposite",
     }
 }
@@ -188,26 +133,13 @@ number_enum! {
 number_enum! {
     /// What the account may do.
     AccessRights {
-        /// Everything.
         FullAccess = 0 => "full access",
-        /// Positions may only be closed.
         CloseOnly = 1 => "close only",
-        /// No trading.
         NoTrading = 2 => "no trading",
-        /// No login.
         NoLogin = 3 => "no login",
     }
 }
 
-/// ```
-/// use crate::openapi::account::money;
-///
-/// assert_eq!(money(1_000_050, Some(2)), 10_000.5);
-/// assert_eq!(money(500, None), 5.0); // two digits when the server did not say
-/// ```
-///
-/// An integer amount of money as a real number, given the account's `money_digits` (2 when the
-/// server did not say).
 #[must_use]
 pub fn money(raw: i64, money_digits: Option<u32>) -> f64 {
     raw as f64 / 10f64.powi(i32::try_from(money_digits.unwrap_or(2)).unwrap_or(2))
@@ -224,34 +156,26 @@ pub fn volume_units(raw: i64) -> f64 {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Trader {
-    /// The trading account id.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
-    /// The balance, scaled by `10^moneyDigits` (see [`money`]).
+    /// The balance, scaled by `10^moneyDigits` (see `money`).
     #[serde(deserialize_with = "flex::int")]
     pub balance: i64,
-    /// The asset the account is held in: see the asset list.
     #[serde(default, deserialize_with = "flex::opt")]
     pub deposit_asset_id: Option<i64>,
-    /// What the account may do, as its number (see [`Trader::rights`]).
     #[serde(default, deserialize_with = "flex::opt")]
     pub access_rights: Option<i64>,
-    /// Whether the account pays no swap.
     #[serde(default)]
     pub swap_free: Option<bool>,
     /// The leverage in hundredths (10000 is 1:100).
     #[serde(default, deserialize_with = "flex::opt")]
     pub leverage_in_cents: Option<i64>,
-    /// The highest leverage the account may use.
     #[serde(default, deserialize_with = "flex::opt")]
     pub max_leverage: Option<i64>,
-    /// The login number shown in the platform. For display only.
     #[serde(default, deserialize_with = "flex::opt")]
     pub trader_login: Option<i64>,
-    /// How the account books positions, as its number (see [`Trader::kind`]).
     #[serde(default, deserialize_with = "flex::opt")]
     pub account_type: Option<i64>,
-    /// The broker's name.
     #[serde(default)]
     pub broker_name: Option<String>,
     /// When the account was registered, in Unix milliseconds.
@@ -299,22 +223,18 @@ impl Trader {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TradeData {
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
-    /// The volume in hundredths of a unit (see [`volume_units`]).
+    /// The volume in hundredths of a unit (see `volume_units`).
     #[serde(deserialize_with = "flex::int")]
     pub volume: i64,
-    /// Buy or sell, as its number (see [`TradeData::side`]).
     #[serde(deserialize_with = "flex::int")]
     pub trade_side: i64,
     /// When it opened, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub open_timestamp: Option<i64>,
-    /// The label the order was sent with.
     #[serde(default)]
     pub label: Option<String>,
-    /// A comment.
     #[serde(default)]
     pub comment: Option<String>,
     /// When it closed, in Unix milliseconds.
@@ -341,24 +261,18 @@ impl TradeData {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Position {
-    /// The position id.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
-    /// Symbol, volume, side, times.
     pub trade_data: TradeData,
-    /// Open, closed, ..., as its number (see [`Position::status`]).
     #[serde(deserialize_with = "flex::int")]
     pub position_status: i64,
     /// The swap charged so far, scaled by `10^moneyDigits`.
     #[serde(default, deserialize_with = "flex::opt")]
     pub swap: Option<i64>,
-    /// The entry price.
     #[serde(default)]
     pub price: Option<f64>,
-    /// The stop loss price.
     #[serde(default)]
     pub stop_loss: Option<f64>,
-    /// The take profit price.
     #[serde(default)]
     pub take_profit: Option<f64>,
     /// The last update, in Unix milliseconds.
@@ -373,7 +287,6 @@ pub struct Position {
     /// Decimals of the money amounts of this position.
     #[serde(default, deserialize_with = "flex::opt")]
     pub money_digits: Option<i64>,
-    /// Whether the stop loss trails the price.
     #[serde(default)]
     pub trailing_stop_loss: Option<bool>,
 }
@@ -391,42 +304,31 @@ impl Position {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Order {
-    /// The order id.
     #[serde(deserialize_with = "flex::int")]
     pub order_id: i64,
-    /// Symbol, volume, side, times.
     pub trade_data: TradeData,
-    /// The kind, as its number (see [`Order::kind`]).
     #[serde(deserialize_with = "flex::int")]
     pub order_type: i64,
-    /// Where it stands, as its number (see [`Order::status`]).
     #[serde(deserialize_with = "flex::int")]
     pub order_status: i64,
     /// When it expires, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub expiration_timestamp: Option<i64>,
-    /// The price it was executed at.
     #[serde(default)]
     pub execution_price: Option<f64>,
     /// The volume executed, in hundredths of a unit.
     #[serde(default, deserialize_with = "flex::opt")]
     pub executed_volume: Option<i64>,
-    /// The limit price, for limit orders.
     #[serde(default)]
     pub limit_price: Option<f64>,
-    /// The stop price, for stop orders.
     #[serde(default)]
     pub stop_price: Option<f64>,
-    /// The stop loss price.
     #[serde(default)]
     pub stop_loss: Option<f64>,
-    /// The take profit price.
     #[serde(default)]
     pub take_profit: Option<f64>,
-    /// The client's own id for the order.
     #[serde(default)]
     pub client_order_id: Option<String>,
-    /// The position the order belongs to.
     #[serde(default, deserialize_with = "flex::opt")]
     pub position_id: Option<i64>,
     /// The last update, in Unix milliseconds.
@@ -453,13 +355,10 @@ impl Order {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Deal {
-    /// The deal id.
     #[serde(deserialize_with = "flex::int")]
     pub deal_id: i64,
-    /// The order it fills.
     #[serde(deserialize_with = "flex::int")]
     pub order_id: i64,
-    /// The position it belongs to.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// The volume asked, in hundredths of a unit.
@@ -468,7 +367,6 @@ pub struct Deal {
     /// The volume filled, in hundredths of a unit.
     #[serde(deserialize_with = "flex::int")]
     pub filled_volume: i64,
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// When the deal was created, in Unix milliseconds.
@@ -477,13 +375,10 @@ pub struct Deal {
     /// When it was executed, in Unix milliseconds.
     #[serde(deserialize_with = "flex::int")]
     pub execution_timestamp: i64,
-    /// The execution price.
     #[serde(default)]
     pub execution_price: Option<f64>,
-    /// Buy or sell, as its number (see [`Deal::side`]).
     #[serde(deserialize_with = "flex::int")]
     pub trade_side: i64,
-    /// How it ended, as its number (see [`Deal::status`]).
     #[serde(deserialize_with = "flex::int")]
     pub deal_status: i64,
     /// The commission, scaled by `10^moneyDigits`.
@@ -492,7 +387,6 @@ pub struct Deal {
     /// Decimals of the money amounts of this deal.
     #[serde(default, deserialize_with = "flex::opt")]
     pub money_digits: Option<i64>,
-    /// The details of a closing deal (profit, swap, ...), kept as the server sent them.
     #[serde(default)]
     pub close_position_detail: Option<serde_json::Value>,
 }
@@ -510,8 +404,7 @@ impl Deal {
         DealStatus::from_number(self.deal_status)
     }
 
-    /// What a closing deal made or lost after swap and commission, in the account's money. `None`
-    /// for a deal that opened a position (it has no closing details).
+    /// What a closing deal made or lost after swap and commission, in the account's money.
     #[must_use]
     pub fn realized_pnl(&self) -> Option<f64> {
         let detail = self.close_position_detail.as_ref()?;
@@ -531,18 +424,13 @@ impl Deal {
     }
 }
 
-/// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`). `operation_type`
-/// is kept as the server's raw number: `ProtoOAChangeBalanceType` has about thirty values (swaps,
-/// commissions, rebates, transfers, ...) and this crate does not give each one a name.
+/// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DepositWithdraw {
-    /// The kind of operation, as `ProtoOAChangeBalanceType`'s number (0 deposit, 1 withdrawal, and
-    /// about thirty more for swaps, commissions, rebates, transfers and the rest).
     #[serde(deserialize_with = "flex::int")]
     pub operation_type: i64,
-    /// The unique id of the operation.
     #[serde(deserialize_with = "flex::int")]
     pub balance_history_id: i64,
     /// The balance after the operation, scaled by `10^moneyDigits`.
@@ -554,7 +442,6 @@ pub struct DepositWithdraw {
     /// When it happened, in Unix milliseconds.
     #[serde(deserialize_with = "flex::int")]
     pub change_balance_timestamp: i64,
-    /// A note visible to the trader.
     #[serde(default)]
     pub external_note: Option<String>,
     /// Decimals of the money amounts of this operation.
@@ -581,7 +468,6 @@ impl DepositWithdraw {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealOffset {
-    /// The deal id.
     #[serde(deserialize_with = "flex::int")]
     pub deal_id: i64,
     /// The matched volume, in hundredths of a unit.
@@ -590,7 +476,6 @@ pub struct DealOffset {
     /// When it executed, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub execution_timestamp: Option<i64>,
-    /// The execution price.
     #[serde(default)]
     pub execution_price: Option<f64>,
 }
@@ -600,15 +485,13 @@ pub struct DealOffset {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct PositionUnrealizedPnL {
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
-    /// Gross unrealized profit or loss, scaled by `10^moneyDigits`. Renamed explicitly: the
-    /// server's field is `grossUnrealizedPnL` (capital `L`).
+    /// Gross unrealized profit or loss, scaled by `10^moneyDigits`.
     #[serde(deserialize_with = "flex::int", rename = "grossUnrealizedPnL")]
     pub gross_unrealized_pnl: i64,
-    /// Net unrealized profit or loss (closing commission not included), scaled by `10^moneyDigits`.
-    /// Renamed explicitly: the server's field is `netUnrealizedPnL` (capital `L`).
+    /// Net unrealized profit or loss (closing commission not included), scaled by
+    /// `10^moneyDigits`.
     #[serde(deserialize_with = "flex::int", rename = "netUnrealizedPnL")]
     pub net_unrealized_pnl: i64,
 }

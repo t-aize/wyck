@@ -15,43 +15,16 @@ use crate::config::secret::{SecretKey, SecretStore};
 /// The version of the envelope layout: the only one written and the only one read.
 const ENVELOPE_VERSION: u8 = 1;
 
-/// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
-/// use where no OS credential store is available: headless Linux boxes, some
-/// containers/CI environments. Prefer [`crate::config::secret::KeyringSecretStore`] whenever an
-/// OS keyring is actually available; this backend exists specifically for when it isn't.
-///
-/// # Design
-///
-/// Each call to [`Self::store`] draws a fresh random salt and nonce, derives a 32-byte key from
-/// the passphrase with Argon2id (see the crate-private `crypto` module for the cost and the
-/// reasons), and encrypts the secret. The salt, the nonce, the ciphertext and the cost are
-/// hex-encoded into a small versioned TOML envelope, written atomically to
-/// `{dir}/{key}-{fingerprint}.toml` with `0600` permissions on Unix.
-///
-/// The key of the secret is part of what the cipher signs (its *associated data*): copying the
-/// envelope of one secret over another's file makes opening fail, instead of quietly giving the
-/// first secret's value for the second key.
-///
-/// A failed authentication (wrong passphrase, or a tampered file) surfaces as
-/// [`ConfigError::Crypto`] with a message that says so, and not as a generic I/O or parse error,
-/// since "wrong passphrase" is the overwhelmingly common real-world cause and the caller can
-/// present that specific message.
-///
-/// A store is meant to be owned by one process at a time. Two processes storing the same key at
-/// once both write a complete envelope (the last rename wins), but nothing coordinates them.
+/// A secret encrypted at rest with ChaCha20-Poly1305, one file per `SecretKey`, for use where no
+/// OS credential store is available: headless Linux boxes, some containers/CI environments.
 pub struct EncryptedFileSecretStore {
     dir: PathBuf,
     passphrase: SecretString,
 }
 
 impl EncryptedFileSecretStore {
-    /// Creates a store rooted at `dir` (typically [`crate::config::AppPaths::secrets_dir`]),
+    /// Creates a store rooted at `dir` (typically `crate::config::AppPaths::secrets_dir`),
     /// encrypting/decrypting under `passphrase`.
-    ///
-    /// This crate does not prompt for the passphrase itself: reading one from a
-    /// terminal, an OS secure-prompt dialog, or an environment variable is a UI/app
-    /// concern, deliberately kept out of this crate so it stays usable from a GUI or
-    /// a headless engine alike.
     pub fn new(dir: impl Into<PathBuf>, passphrase: SecretString) -> Self {
         Self {
             dir: dir.into(),
@@ -195,9 +168,7 @@ impl SecretStore for EncryptedFileSecretStore {
     }
 }
 
-/// The on-disk envelope for one encrypted secret. All byte fields are hex-encoded so the file
-/// stays plain ASCII TOML (easy to `cat` and diff without special tooling: only the plaintext
-/// they decode to is sensitive, and that never touches disk). Every field is required.
+/// The on-disk envelope for one encrypted secret.
 #[derive(Debug, Serialize, Deserialize)]
 struct Envelope {
     version: u8,
@@ -209,8 +180,8 @@ struct Envelope {
     ciphertext: String,
 }
 
-/// Maps a [`SecretKey`]'s raw string to a readable, file-system-safe stem: every character
-/// outside `[A-Za-z0-9._-]` becomes `_`.
+/// Maps a `SecretKey`'s raw string to a readable, file-system-safe stem: every character outside
+/// `[A-Za-z0-9._-]` becomes `_`.
 fn sanitize_filename(raw: &str) -> String {
     raw.chars()
         .map(|c| {
@@ -224,15 +195,13 @@ fn sanitize_filename(raw: &str) -> String {
 }
 
 /// The stem of the file of a key: the readable part (kept short), then 16 hex digits of a
-/// fingerprint of the whole key. Different keys give different stems even when their
-/// readable parts are the same.
+/// fingerprint of the whole key.
 fn file_stem(key: &SecretKey) -> String {
     let readable: String = sanitize_filename(key.as_str()).chars().take(80).collect();
     format!("{readable}-{}", fingerprint(key.as_str()))
 }
 
-/// A stable 64-bit fingerprint (FNV-1a), as 16 hex digits. It only has to tell apart the few keys
-/// of one app on one machine; it protects nothing, so a fast non-cryptographic hash is right.
+/// A stable 64-bit fingerprint (FNV-1a), as 16 hex digits.
 fn fingerprint(text: &str) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     for byte in text.bytes() {

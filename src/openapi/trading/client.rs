@@ -1,25 +1,11 @@
-//! [`TradingClient`]: the calls themselves.
+//! `TradingClient`: the calls themselves.
 
 use super::*;
 use crate::openapi::error::{Error, Result};
 use crate::openapi::transport::connection::{Client, RateClass};
 use crate::openapi::transport::wire::payload;
 
-/// Trading bound to one account: places, amends and cancels orders, closes positions. See
-/// [`crate::openapi::AccountClient::trading`] and the [module docs](crate::openapi::trading) for the non-idempotency caveat.
-///
-/// ```no_run
-/// # async fn demo(account: crate::openapi::AccountClient) -> crate::openapi::Result<()> {
-/// use crate::openapi::account::TradeSide;
-/// use crate::openapi::trading::NewOrderReq;
-///
-/// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.
-/// let order = NewOrderReq::market(1, TradeSide::Buy, 100_000)
-///     .with_protection(Some(1.0750), Some(1.0950));
-/// let execution = account.trading().new_order(order).await?;
-/// println!("{:?}", execution.kind());
-/// # Ok(()) }
-/// ```
+/// Trading bound to one account: places, amends and cancels orders, closes positions.
 #[derive(Debug, Clone)]
 pub struct TradingClient {
     client: Client,
@@ -43,23 +29,7 @@ impl TradingClient {
         &self.client
     }
 
-    /// Places a new order. `request`'s `ctid_trader_account_id` is overwritten with this account.
-    /// See the [module docs](crate::openapi::trading) for the non-idempotency caveat: on a timeout, check
-    /// [`crate::openapi::account::AccountDataClient::open_positions_and_orders`] or
-    /// [`crate::openapi::account::AccountDataClient::deals`] before retrying.
-    ///
-    /// The answer is a [`crate::openapi::Event::Execution`], not a return value of this call: the server may
-    /// accept the order (`ORDER_ACCEPTED`) and only fill it (`ORDER_FILLED`, `ORDER_PARTIAL_FILL`)
-    /// moments later, both as separate execution events on [`Client::events`]. This call only
-    /// confirms the request was sent and matched by `clientMsgId`; it returns the first
-    /// [`ExecutionEvent`], which for a market order is usually the fill.
-    ///
-    /// # Errors
-    ///
-    /// `TRADING_BAD_VOLUME`, `TRADING_BAD_STOPS`, `TRADING_DISABLED`, `NOT_ENOUGH_MONEY`,
-    /// `MAX_EXPOSURE_REACHED`, `SHORT_SELLING_NOT_ALLOWED`, and the usual account errors. A token of
-    /// the `accounts` scope gets `ACCOUNT_NOT_AUTHORIZED` or a similar refusal: trading needs the
-    /// `trading` [`crate::openapi::auth::Scope`].
+    /// Places a new order.
     pub async fn new_order(&self, mut request: NewOrderReq) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
         request.validate()?;
@@ -75,10 +45,6 @@ impl TradingClient {
     }
 
     /// Cancels a pending order.
-    ///
-    /// # Errors
-    ///
-    /// `ORDER_NOT_FOUND`, `UNABLE_TO_CANCEL_ORDER`, and the usual account errors.
     pub async fn cancel_order(&self, order_id: i64) -> Result<ExecutionEvent> {
         if order_id <= 0 {
             return Err(Error::Config("order id must be positive".into()));
@@ -97,13 +63,7 @@ impl TradingClient {
             .await
     }
 
-    /// Amends a pending order: only the fields set on `request` change. `request`'s
-    /// `ctid_trader_account_id` is overwritten with this account.
-    ///
-    /// # Errors
-    ///
-    /// `ORDER_NOT_FOUND`, `UNABLE_TO_AMEND_ORDER`, `TRADING_BAD_STOPS`, `PENDING_EXECUTION` (the
-    /// order is already being filled), and the usual account errors.
+    /// Amends a pending order: only the fields set on `request` change.
     pub async fn amend_order(&self, mut request: AmendOrderReq) -> Result<ExecutionEvent> {
         request.ctid_trader_account_id = self.account_id;
         if request.order_id <= 0 {
@@ -126,13 +86,7 @@ impl TradingClient {
             .await
     }
 
-    /// Closes a position in full or in part. See the [module docs](crate::openapi::trading) for the non-idempotency
-    /// caveat.
-    ///
-    /// # Errors
-    ///
-    /// `POSITION_NOT_FOUND`, `POSITION_NOT_OPEN`, `POSITION_LOCKED`, `TRADING_BAD_VOLUME` for a
-    /// close volume larger than the position, and the usual account errors.
+    /// Closes a position in full or in part.
     pub async fn close_position(&self, position_id: i64, volume: i64) -> Result<ExecutionEvent> {
         if position_id <= 0 || volume <= 0 {
             return Err(Error::Config(
@@ -155,12 +109,7 @@ impl TradingClient {
     }
 
     /// Amends the stop loss and take profit of an open position: only the fields set on `request`
-    /// change. `request`'s `ctid_trader_account_id` is overwritten with this account.
-    ///
-    /// # Errors
-    ///
-    /// `PROTECTION_IS_TOO_CLOSE_TO_MARKET`, `TRADING_BAD_STOPS`, `WORSE_GSL_NOT_ALLOWED`, and the
-    /// usual account errors.
+    /// change.
     pub async fn amend_position_sl_tp(
         &self,
         mut request: AmendPositionSlTpReq,

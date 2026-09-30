@@ -1,27 +1,4 @@
 //! Signing a user in with OAuth 2, and keeping the tokens fresh.
-//!
-//! The Open API does not take a user name and password. The user grants an **application**
-//! access to their cTrader ID in the browser; the application then holds tokens. The steps:
-//!
-//! 1. The application is registered on the Open API portal, which gives it a **client id**, a
-//!    **client secret** and lets it register **redirect URIs** (see [`crate::openapi::config::ClientCredentials`]).
-//! 2. [`authorization_url`] builds the address of the consent page. The user opens it, picks the
-//!    accounts and the [`Scope`], and is sent back to the redirect URI with a `code` in the query.
-//!    [`crate::openapi::auth::CallbackListener`] catches that on `localhost`.
-//! 3. [`OAuthClient::exchange_code`] trades the code (valid **one minute**) for a [`TokenSet`]: an
-//!    access token (about 30 days) and a refresh token.
-//! 4. Before the access token expires, [`OAuthClient::refresh`] trades the refresh token for a new
-//!    pair. **The old refresh token stops working**: store the new pair before using it.
-//! 5. The access token goes to the connection: [`crate::openapi::Client::accounts`], then
-//!    [`crate::openapi::AccountClient::authorize`].
-//!
-//! Errors are told apart on purpose: a refusal by the server (a bad code, a revoked refresh token) is
-//! [`Error::Auth`] and will not get better by trying again, while a failure to reach the endpoint
-//! is [`Error::Transport`] and may. The session relies on that difference.
-//!
-//! The token endpoint is a plain HTTPS `GET` with the secret in the query string. That is how the
-//! server wants it, and it is why errors from the HTTP layer are stripped of their URL here: a
-//! message that included it would put the client secret and the code in a log.
 
 use std::time::{Duration, SystemTime};
 
@@ -43,9 +20,7 @@ pub const TOKEN_URL: &str = "https://openapi.ctrader.com/apps/token";
 /// How much the user grants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
-    /// View only: account data and market data, no orders. Enough for charts.
     Accounts,
-    /// Full access, orders included.
     Trading,
 }
 
@@ -68,9 +43,6 @@ pub fn new_state() -> String {
 }
 
 /// The address of the consent page for an application, a redirect URI and a scope.
-///
-/// `redirect_uri` must be one of the URIs registered for the application, character for
-/// character. `state` is echoed back on the redirect (see [`new_state`]).
 #[must_use]
 pub fn authorization_url(client_id: &str, redirect_uri: &str, scope: Scope, state: &str) -> String {
     let mut url = Url::parse(AUTHORIZE_URL).expect("the consent page address is a valid URL");
@@ -84,20 +56,12 @@ pub fn authorization_url(client_id: &str, redirect_uri: &str, scope: Scope, stat
 }
 
 /// The tokens of a signed in user.
-///
-/// Both tokens are secrets: `Debug` shows them redacted, and they are wiped from memory when
-/// dropped. Store them in the OS keyring or an encrypted file, never in plain text.
 #[derive(Debug, Clone)]
 pub struct TokenSet {
-    /// The token that opens the connection to an account.
     pub access_token: SecretString,
-    /// The token that gets a new pair.
     pub refresh_token: SecretString,
-    /// The token type the server reported (`bearer`).
     pub token_type: Option<String>,
-    /// How long the access token lasts, from `obtained_at`.
     pub expires_in: Option<Duration>,
-    /// When the pair was received.
     pub obtained_at: SystemTime,
 }
 
@@ -109,9 +73,7 @@ impl TokenSet {
             .and_then(|d| self.obtained_at.checked_add(d))
     }
 
-    /// Whether the access token is expired, or will be within `margin`. Refresh a token that
-    /// answers `true`. Without a known lifetime it is never reported expired: rely on the server's
-    /// `OA_AUTH_TOKEN_EXPIRED` then.
+    /// Whether the access token is expired, or will be within `margin`.
     #[must_use]
     pub fn expires_within(&self, now: SystemTime, margin: Duration) -> bool {
         self.expires_at()
@@ -119,7 +81,7 @@ impl TokenSet {
     }
 }
 
-/// The token endpoint's answer. It reports failures inside a normal answer, with `errorCode`.
+/// The token endpoint's answer.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TokenResponse {
@@ -137,12 +99,7 @@ struct TokenResponse {
     description: Option<String>,
 }
 
-/// Reads the token endpoint's answer into a [`TokenSet`].
-///
-/// # Errors
-///
-/// [`Error::Auth`] when the answer holds an error, or lacks a token. The text names the
-/// server's error code and description, never a token.
+/// Reads the token endpoint's answer into a `TokenSet`.
 pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
     let response: TokenResponse = serde_json::from_slice(body)
         .map_err(|_| Error::Auth("the token endpoint sent an unreadable answer".into()))?;
@@ -174,17 +131,6 @@ pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
 }
 
 /// Talks to the token endpoint for one application.
-///
-/// ```no_run
-/// # async fn demo(refresh_token: &str) -> crate::openapi::Result<()> {
-/// use crate::openapi::ClientCredentials;
-/// use crate::openapi::auth::OAuthClient;
-///
-/// let oauth = OAuthClient::new(ClientCredentials::new("client-id", "client-secret"))?;
-/// let tokens = oauth.refresh(refresh_token).await?;
-/// println!("valid until {:?}", tokens.expires_at());
-/// # Ok(()) }
-/// ```
 #[derive(Debug, Clone)]
 pub struct OAuthClient {
     http: reqwest::Client,
@@ -194,10 +140,6 @@ pub struct OAuthClient {
 
 impl OAuthClient {
     /// A client for `credentials`, using the real token endpoint.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Config`] when the HTTP client cannot be built (no TLS backend, for one).
     pub fn new(credentials: ClientCredentials) -> Result<Self> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
@@ -219,14 +161,7 @@ impl OAuthClient {
         self
     }
 
-    /// Trades an authorization code for tokens. The code lives one minute and works once.
-    ///
-    /// `redirect_uri` must be the one the consent page was opened with.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Auth`] for a refused, expired or reused code, or when the endpoint cannot
-    /// be reached.
+    /// Trades an authorization code for tokens.
     pub async fn exchange_code(&self, code: &str, redirect_uri: &str) -> Result<TokenSet> {
         self.request_tokens(&[
             ("grant_type", "authorization_code"),
@@ -236,13 +171,7 @@ impl OAuthClient {
         .await
     }
 
-    /// Trades a refresh token for a new pair. The old refresh token stops working, so store the
-    /// result before anything else.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Auth`] when the refresh token is unknown, already used, or revoked: the user
-    /// has to sign in again.
+    /// Trades a refresh token for a new pair.
     pub async fn refresh(&self, refresh_token: &str) -> Result<TokenSet> {
         self.request_tokens(&[
             ("grant_type", "refresh_token"),

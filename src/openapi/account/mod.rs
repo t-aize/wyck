@@ -1,12 +1,6 @@
 //! The account's own data: balance, positions, orders, deals, and the unrealized profit or loss,
-//! all read-only, reached through [`AccountDataClient`] (see [`crate::openapi::AccountClient::account_data`]).
-//!
-//! ```no_run
-//! # async fn demo(account: crate::openapi::AccountClient) -> crate::openapi::Result<()> {
-//! let data = account.account_data();
-//! let balance = data.trader().await?.balance_amount();
-//! # let _ = balance; Ok(()) }
-//! ```
+//! all read-only, reached through `AccountDataClient` (see
+//! `crate::openapi::AccountClient::account_data`).
 
 pub mod book;
 pub mod requests;

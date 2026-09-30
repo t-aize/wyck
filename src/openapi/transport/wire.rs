@@ -1,20 +1,5 @@
 //! The message envelope, the payload type numbers, and reading integers the server sends loosely
 //! typed.
-//!
-//! Every message, in both directions, is wrapped in the same envelope. In JSON it looks like
-//!
-//! ```text
-//! {"clientMsgId": "...", "payloadType": 2100, "payload": {...}}
-//! ```
-//!
-//! `payloadType` says what the payload is (the numbers are in [`payload`], from the official
-//! `ProtoOAPayloadType` enum). `clientMsgId` is chosen by the client on a request and echoed on
-//! its answer, which is how answers are matched to requests. Messages the server sends by itself
-//! (events) carry no `clientMsgId`.
-//!
-//! Numbers in JSON may be written as numbers or as strings (a 64 bit id or a price is often sent
-//! as text by protobuf's JSON mapping), so every integer field across this crate's messages
-//! accepts both (see [`flex`]).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -211,8 +196,7 @@ pub mod payload {
     pub const MARGIN_CALL_UPDATE_EVENT: u32 = 2171;
     /// `ProtoOAMarginCallTriggerEvent`.
     pub const MARGIN_CALL_TRIGGER_EVENT: u32 = 2172;
-    /// `ProtoOAGetDynamicLeverageByIDReq`. The enum constant itself is named without "ById"
-    /// (`PROTO_OA_GET_DYNAMIC_LEVERAGE_REQ`); the message it carries is `ProtoOAGetDynamicLeverageByIDReq`.
+    /// `ProtoOAGetDynamicLeverageByIDReq`.
     pub const GET_DYNAMIC_LEVERAGE_REQ: u32 = 2177;
     /// `ProtoOAGetDynamicLeverageByIDRes`.
     pub const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
@@ -246,28 +230,16 @@ pub mod flex {
     }
 
     /// A required integer.
-    ///
-    /// # Errors
-    ///
-    /// When the value is neither a whole number nor text holding one.
     pub fn int<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
         to_i64(Num::deserialize(d)?)
     }
 
     /// An optional integer (absent or null gives `None`).
-    ///
-    /// # Errors
-    ///
-    /// When the value is present but is not a whole number.
     pub fn opt<'de, D: Deserializer<'de>>(d: D) -> Result<Option<i64>, D::Error> {
         Option::<Num>::deserialize(d)?.map(to_i64).transpose()
     }
 
     /// A list of integers.
-    ///
-    /// # Errors
-    ///
-    /// When an element is not a whole number.
     pub fn list<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<i64>, D::Error> {
         Vec::<Num>::deserialize(d)?
             .into_iter()
@@ -280,12 +252,9 @@ pub mod flex {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Envelope {
-    /// Chosen by the client on a request; echoed on the answer; absent on events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_msg_id: Option<String>,
-    /// What the payload is: a value from [`payload`].
     pub payload_type: u32,
-    /// The message itself. An empty object when the message has no fields.
     #[serde(default = "empty_object")]
     pub payload: Value,
 }
@@ -296,10 +265,6 @@ fn empty_object() -> Value {
 
 impl Envelope {
     /// A request of `payload_type` with `payload`, tagged `id`.
-    ///
-    /// # Errors
-    ///
-    /// [`crate::openapi::Error::Protocol`] when the payload cannot be turned into JSON.
     pub fn request<T: Serialize>(
         payload_type: u32,
         id: impl Into<String>,
@@ -325,10 +290,6 @@ impl Envelope {
     }
 
     /// Reads the payload as `T`.
-    ///
-    /// # Errors
-    ///
-    /// [`crate::openapi::Error::Protocol`] when the payload does not have the shape of `T`.
     pub fn decode<T: serde::de::DeserializeOwned>(&self) -> crate::openapi::Result<T> {
         serde_json::from_value(self.payload.clone()).map_err(|e| {
             crate::openapi::Error::Protocol(format!(
@@ -343,20 +304,12 @@ impl Envelope {
     }
 
     /// The text to send.
-    ///
-    /// # Errors
-    ///
-    /// [`crate::openapi::Error::Protocol`] when it cannot be serialized.
     pub fn to_text(&self) -> crate::openapi::Result<String> {
         serde_json::to_string(self)
             .map_err(|e| crate::openapi::Error::Protocol(format!("cannot encode a message: {e}")))
     }
 
     /// Reads a text frame.
-    ///
-    /// # Errors
-    ///
-    /// [`crate::openapi::Error::Protocol`] when it is not a valid envelope.
     pub fn from_text(text: &str) -> crate::openapi::Result<Self> {
         serde_json::from_str(text)
             .map_err(|e| crate::openapi::Error::Protocol(format!("not a valid message: {e}")))

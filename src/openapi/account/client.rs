@@ -1,4 +1,4 @@
-//! [`AccountDataClient`]: the calls themselves.
+//! `AccountDataClient`: the calls themselves.
 
 use super::requests::{
     CashFlowHistoryListReq as CashFlowReq, DealListByPositionIdReq as DealsByPositionReq,
@@ -13,8 +13,7 @@ use crate::openapi::transport::connection::{Client, RateClass};
 use crate::openapi::transport::messages::AccountReq;
 use crate::openapi::transport::wire::payload;
 
-/// An account's own data, read-only: balance, positions, orders, deals. See
-/// [`crate::openapi::AccountClient::account_data`].
+/// An account's own data, read-only: balance, positions, orders, deals.
 #[derive(Debug, Clone)]
 pub struct AccountDataClient {
     client: Client,
@@ -39,10 +38,6 @@ impl AccountDataClient {
     }
 
     /// The account itself: balance, leverage, access rights, broker.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn trader(&self) -> Result<Trader> {
         let response: TraderRes = self
             .client
@@ -59,13 +54,7 @@ impl AccountDataClient {
         Ok(response.trader)
     }
 
-    /// What the account holds right now: the open positions and the working orders. With
-    /// `with_protection_orders` the protective orders (stop loss, take profit) of the positions are
-    /// listed too.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
+    /// What the account holds right now: the open positions and the working orders.
     pub async fn open_positions_and_orders(
         &self,
         with_protection_orders: bool,
@@ -86,12 +75,8 @@ impl AccountDataClient {
         Ok((response.position, response.order))
     }
 
-    /// The deals (executions) of the account in `[from_ms, to_ms]`, at most `max_rows` of them, and
-    /// whether more exist in the range.
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range the server refuses, and the usual account errors.
+    /// The deals (executions) of the account in `[from_ms, to_ms]`, at most `max_rows` of them,
+    /// and whether more exist in the range.
     pub async fn deals(
         &self,
         from_ms: i64,
@@ -117,10 +102,6 @@ impl AccountDataClient {
     }
 
     /// The orders of the account in `[from_ms, to_ms]`, and whether more exist in the range.
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range the server refuses, and the usual account errors.
     pub async fn orders(&self, from_ms: i64, to_ms: i64) -> Result<(Vec<Order>, bool)> {
         let response: OrderListRes = self
             .client
@@ -140,10 +121,6 @@ impl AccountDataClient {
     }
 
     /// The deposits and withdrawals of the account in `[from_ms, to_ms]`, at most one week.
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range over one week, and the usual account errors.
     pub async fn cash_flow_history(
         &self,
         from_ms: i64,
@@ -167,10 +144,6 @@ impl AccountDataClient {
     }
 
     /// The deals of one position in `[from_ms, to_ms]`, and whether more exist in the range.
-    ///
-    /// # Errors
-    ///
-    /// `POSITION_NOT_FOUND`, and the usual account errors.
     pub async fn deals_by_position(
         &self,
         position_id: i64,
@@ -196,10 +169,6 @@ impl AccountDataClient {
     }
 
     /// The orders of one position in `[from_ms, to_ms]`, newest first, and whether more exist.
-    ///
-    /// # Errors
-    ///
-    /// `POSITION_NOT_FOUND`, and the usual account errors.
     pub async fn orders_by_position(
         &self,
         position_id: i64,
@@ -225,10 +194,6 @@ impl AccountDataClient {
     }
 
     /// One order and every deal that filled it.
-    ///
-    /// # Errors
-    ///
-    /// `ORDER_NOT_FOUND`, and the usual account errors.
     pub async fn order_details(&self, order_id: i64) -> Result<(Order, Vec<Deal>)> {
         let response: OrderDetailsRes = self
             .client
@@ -247,10 +212,6 @@ impl AccountDataClient {
     }
 
     /// The deals that offset a deal, and the deals it offsets in turn.
-    ///
-    /// # Errors
-    ///
-    /// The usual account errors.
     pub async fn deal_offsets(&self, deal_id: i64) -> Result<(Vec<DealOffset>, Vec<DealOffset>)> {
         let response: DealOffsetListRes = self
             .client
@@ -269,20 +230,12 @@ impl AccountDataClient {
     }
 
     /// The unrealized profit or loss of every open position of the account.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn position_unrealized_pnl(&self) -> Result<Vec<PositionUnrealizedPnL>> {
         Ok(self.unrealized_pnl().await?.position_unrealized_pnl)
     }
 
     /// The whole answer about the unrealized profit or loss of the open positions, with the
-    /// number of decimals of its amounts (see [`money`]).
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
+    /// number of decimals of its amounts (see `money`).
     pub async fn unrealized_pnl(&self) -> Result<PositionUnrealizedPnLRes> {
         self.client
             .call(

@@ -1,12 +1,6 @@
 //! The messages of the connection itself: signing the application and an account in, listing
 //! accounts, refreshing tokens, the version, the cTrader ID profile, and the notices that end a
 //! connection or an account's place on it.
-//!
-//! One struct per message, with the names and meaning of the official `.proto` files
-//! (`OpenApiMessages.proto`, `OpenApiModelMessages.proto`), in camelCase as JSON wants. Only the
-//! fields the client uses are kept; the server may send more and they are ignored.
-//!
-//! The requests that carry a secret do not implement `Debug`, so a stray `{:?}` cannot log one.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,9 +10,7 @@ use super::wire::flex;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplicationAuthReq {
-    /// The client id.
     pub client_id: String,
-    /// The client secret.
     pub client_secret: String,
 }
 
@@ -26,9 +18,7 @@ pub struct ApplicationAuthReq {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountAuthReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// A valid access token that covers the account.
     pub access_token: String,
 }
 
@@ -37,7 +27,6 @@ pub struct AccountAuthReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AccountAuthRes {
-    /// The account that was authorized.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
 }
@@ -46,7 +35,6 @@ pub struct AccountAuthRes {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountsByAccessTokenReq {
-    /// The access token.
     pub access_token: String,
 }
 
@@ -55,16 +43,12 @@ pub struct GetAccountsByAccessTokenReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TraderAccount {
-    /// The id to pass as `ctidTraderAccountId`.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
-    /// Live (true) or demo (false).
     #[serde(default)]
     pub is_live: Option<bool>,
-    /// The login number shown in the platform. For display only.
     #[serde(default, deserialize_with = "flex::opt")]
     pub trader_login: Option<i64>,
-    /// The broker's short name.
     #[serde(default)]
     pub broker_title_short: Option<String>,
 }
@@ -74,10 +58,8 @@ pub struct TraderAccount {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AccountsRes {
-    /// The permission of the token: 0 view, 1 trade.
     #[serde(default, deserialize_with = "flex::opt")]
     pub permission_scope: Option<i64>,
-    /// The accounts the token covers.
     #[serde(default)]
     pub ctid_trader_account: Vec<TraderAccount>,
 }
@@ -86,7 +68,6 @@ pub struct AccountsRes {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshTokenReq {
-    /// The refresh token.
     pub refresh_token: String,
 }
 
@@ -95,19 +76,16 @@ pub struct RefreshTokenReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct RefreshTokenRes {
-    /// The new access token.
     pub access_token: String,
-    /// The token type (`bearer`).
     #[serde(default)]
     pub token_type: Option<String>,
     /// Seconds the access token stays valid.
     #[serde(default, deserialize_with = "flex::opt")]
     pub expires_in: Option<i64>,
-    /// The new refresh token; the old one no longer works.
     pub refresh_token: String,
 }
 
-/// `ProtoOAVersionReq`. Carries nothing.
+/// `ProtoOAVersionReq`.
 #[derive(Serialize)]
 pub struct VersionReq {}
 
@@ -116,7 +94,6 @@ pub struct VersionReq {}
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct VersionRes {
-    /// The proxy's version.
     pub version: String,
 }
 
@@ -124,7 +101,6 @@ pub struct VersionRes {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CtidProfileReq {
-    /// The access token.
     pub access_token: String,
 }
 
@@ -133,7 +109,6 @@ pub struct CtidProfileReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CtidProfile {
-    /// The user id.
     #[serde(deserialize_with = "flex::int")]
     pub user_id: i64,
 }
@@ -143,7 +118,6 @@ pub struct CtidProfile {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CtidProfileRes {
-    /// The profile.
     pub profile: CtidProfile,
 }
 
@@ -152,7 +126,6 @@ pub struct CtidProfileRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
 }
 
@@ -161,19 +134,16 @@ pub struct AccountReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ErrorRes {
-    /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The error code, for example `REQUEST_FREQUENCY_EXCEEDED`.
     pub error_code: String,
-    /// The explanation.
     #[serde(default)]
     pub description: Option<String>,
     /// When maintenance ends, as a Unix time in seconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub maintenance_end_timestamp: Option<i64>,
-    /// How long to wait before trying again, in seconds (with `BLOCKED_PAYLOAD_TYPE`, the time until
-    /// that type of request is unblocked).
+    /// How long to wait before trying again, in seconds (with `BLOCKED_PAYLOAD_TYPE`, the time
+    /// until that type of request is unblocked).
     #[serde(default, deserialize_with = "flex::opt")]
     pub retry_after: Option<i64>,
 }
@@ -183,10 +153,8 @@ pub struct ErrorRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AccountsTokenInvalidatedEvent {
-    /// The accounts whose tokens were invalidated.
     #[serde(default, deserialize_with = "flex::list")]
     pub ctid_trader_account_ids: Vec<i64>,
-    /// Why.
     #[serde(default)]
     pub reason: Option<String>,
 }
@@ -196,7 +164,6 @@ pub struct AccountsTokenInvalidatedEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ClientDisconnectEvent {
-    /// Why.
     #[serde(default)]
     pub reason: Option<String>,
 }
@@ -206,7 +173,6 @@ pub struct ClientDisconnectEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AccountDisconnectEvent {
-    /// The account.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
 }

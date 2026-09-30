@@ -1,14 +1,4 @@
 //! The rule for names that become part of a path: documents, scopes and named credentials.
-//!
-//! A name is 1 to [`MAX_NAME_LEN`] characters out of ASCII letters, digits, `-` and `_`. Nothing
-//! else: no dot, no separator, no space, so a name can never point outside the folder it is put
-//! in, on any file system, and two different names never end up as the same file (which
-//! sanitizing, replacing what is not allowed, cannot promise).
-//!
-//! Names that come from the code of the app are checked with [`validate_name`]. Names that come
-//! from outside (a scope built from an account number, a file in a backup someone hands over) are
-//! either checked the same way or cleaned with [`sanitize`], depending on whether refusing them
-//! is better than keeping them usable.
 
 use crate::config::error::{ConfigError, Result};
 
@@ -31,25 +21,12 @@ fn why_not(name: &str) -> Option<&'static str> {
 }
 
 /// Whether `name` follows the rule of this module.
-///
-/// ```
-/// use crate::config::names::is_valid_name;
-///
-/// assert!(is_valid_name("preferences"));
-/// assert!(is_valid_name("demo-45970491"));
-/// assert!(!is_valid_name("../secrets"));
-/// assert!(!is_valid_name(""));
-/// ```
 #[must_use]
 pub fn is_valid_name(name: &str) -> bool {
     why_not(name).is_none()
 }
 
 /// Checks `name` against the rule of this module.
-///
-/// # Errors
-///
-/// [`ConfigError::InvalidName`], saying why.
 pub fn validate_name(name: &str) -> Result<()> {
     match why_not(name) {
         None => Ok(()),
@@ -61,19 +38,7 @@ pub fn validate_name(name: &str) -> Result<()> {
 }
 
 /// `name` made into a valid one: every character the rule does not allow becomes `_`, and an
-/// empty or overlong name becomes `_` or is cut. A valid name comes back unchanged, so
-/// sanitizing twice is the same as once.
-///
-/// Different names can give the same result (`a/b` and `a_b`): use [`validate_name`] where that
-/// matters.
-///
-/// ```
-/// use crate::config::names::sanitize;
-///
-/// assert_eq!(sanitize("../../elsewhere"), "______elsewhere");
-/// assert_eq!(sanitize("demo-1"), "demo-1");
-/// assert_eq!(sanitize(""), "_");
-/// ```
+/// empty or overlong name becomes `_` or is cut.
 #[must_use]
 pub fn sanitize(name: &str) -> String {
     let cleaned: String = name

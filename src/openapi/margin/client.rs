@@ -1,4 +1,4 @@
-//! [`MarginClient`]: the calls themselves.
+//! `MarginClient`: the calls themselves.
 
 use super::requests::{ExpectedMarginReq as MarginReq, GetDynamicLeverageReq as LeverageReq};
 use super::*;
@@ -8,16 +8,7 @@ use crate::openapi::transport::connection::{Client, RateClass};
 use crate::openapi::transport::messages::AccountReq;
 use crate::openapi::transport::wire::payload;
 
-/// Margin bound to one account: expected margin, margin call thresholds, dynamic leverage. See
-/// [`crate::openapi::AccountClient::margin`].
-///
-/// ```no_run
-/// # async fn demo(account: crate::openapi::AccountClient) -> crate::openapi::Result<()> {
-/// for call in account.margin().margin_calls().await? {
-///     println!("{:?} at {}%", call.kind(), call.margin_level_threshold);
-/// }
-/// # Ok(()) }
-/// ```
+/// Margin bound to one account: expected margin, margin call thresholds, dynamic leverage.
 #[derive(Debug, Clone)]
 pub struct MarginClient {
     client: Client,
@@ -41,13 +32,7 @@ impl MarginClient {
         &self.client
     }
 
-    /// The margin a buy and a sell of each of `volumes` would use on `symbol_id`. Does not cover
-    /// the `ACCORDING_TO_GSL` margin calculation type: with a guaranteed stop loss the margin is
-    /// simply `(entry price - GSL price) * volume`, in the deposit currency.
-    ///
-    /// # Errors
-    ///
-    /// `SYMBOL_NOT_FOUND`, and the usual account errors.
+    /// The margin a buy and a sell of each of `volumes` would use on `symbol_id`.
     pub async fn expected_margin(
         &self,
         symbol_id: i64,
@@ -71,10 +56,6 @@ impl MarginClient {
     }
 
     /// The account's three margin call thresholds.
-    ///
-    /// # Errors
-    ///
-    /// The usual account errors.
     pub async fn margin_calls(&self) -> Result<Vec<MarginCall>> {
         let response: MarginCallListRes = self
             .client
@@ -92,11 +73,6 @@ impl MarginClient {
     }
 
     /// Changes the level of one margin call threshold.
-    ///
-    /// # Errors
-    ///
-    /// A server error for an out of range threshold, and the usual account errors. Needs a token of
-    /// the `trading` [`crate::openapi::auth::Scope`].
     pub async fn update_margin_call(&self, margin_call: MarginCall) -> Result<()> {
         let _: serde_json::Value = self
             .client
@@ -115,10 +91,6 @@ impl MarginClient {
     }
 
     /// The dynamic leverage schedule `leverage_id` (see `Symbol::leverage_id`).
-    ///
-    /// # Errors
-    ///
-    /// A server error for an unknown `leverage_id`, and the usual account errors.
     pub async fn dynamic_leverage(&self, leverage_id: i64) -> Result<DynamicLeverage> {
         let response: GetDynamicLeverageRes = self
             .client

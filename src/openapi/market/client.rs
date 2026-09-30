@@ -1,4 +1,4 @@
-//! [`MarketClient`]: symbol lookup, live price and order book subscriptions for one account.
+//! `MarketClient`: symbol lookup, live price and order book subscriptions for one account.
 
 use serde::Serialize;
 
@@ -22,8 +22,7 @@ struct SymbolsReq {
     symbol_id: Vec<i64>,
 }
 
-/// Market data bound to one account: symbols, live prices and the order book. See
-/// [`crate::openapi::AccountClient::market`].
+/// Market data bound to one account: symbols, live prices and the order book.
 #[derive(Debug, Clone)]
 pub struct MarketClient {
     client: Client,
@@ -50,19 +49,11 @@ impl MarketClient {
     // ---- symbols ----
 
     /// The symbols of the account, archived ones left out.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn symbols(&self) -> Result<Vec<LightSymbol>> {
         self.symbols_list(false).await
     }
 
     /// Every symbol of the account, archived ones included.
-    ///
-    /// # Errors
-    ///
-    /// See [`MarketClient::symbols`].
     pub async fn symbols_including_archived(&self) -> Result<Vec<LightSymbol>> {
         self.symbols_list(true).await
     }
@@ -85,10 +76,6 @@ impl MarketClient {
     }
 
     /// The details of some symbols: decimals, pip position, volume rules.
-    ///
-    /// # Errors
-    ///
-    /// `SYMBOL_NOT_FOUND` for an unknown id.
     pub async fn symbol_details(&self, symbol_ids: &[i64]) -> Result<Vec<Symbol>> {
         let response: SymbolByIdRes = self
             .client
@@ -108,10 +95,6 @@ impl MarketClient {
 
     /// The chain of symbols that converts `first_asset_id` into `last_asset_id` when no symbol
     /// quotes them directly (for example EUR/USD, USD/JPY to convert EUR into JPY).
-    ///
-    /// # Errors
-    ///
-    /// A server error when no conversion chain exists between the two assets.
     pub async fn symbols_for_conversion(
         &self,
         first_asset_id: i64,
@@ -137,10 +120,6 @@ impl MarketClient {
     // ---- reference catalogs ----
 
     /// The assets (currencies and other units) of the broker.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn assets(&self) -> Result<Vec<Asset>> {
         let response: AssetListRes = self
             .client
@@ -158,10 +137,6 @@ impl MarketClient {
     }
 
     /// The asset classes (forex, indices, metals, ...).
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn asset_classes(&self) -> Result<Vec<AssetClass>> {
         let response: AssetClassListRes = self
             .client
@@ -179,10 +154,6 @@ impl MarketClient {
     }
 
     /// The symbol categories (major pairs, cryptos, ...), each pointing to an asset class.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn symbol_categories(&self) -> Result<Vec<SymbolCategory>> {
         let response: SymbolCategoryListRes = self
             .client
@@ -201,13 +172,7 @@ impl MarketClient {
 
     // ---- live data ----
 
-    /// Follows the prices of some symbols, with the server's timestamp on each event. The first
-    /// [`crate::openapi::Event::Spot`] of each carries the latest price even when the market is closed; then
-    /// one arrives at every change of bid or ask.
-    ///
-    /// # Errors
-    ///
-    /// `ALREADY_SUBSCRIBED` or `SYMBOL_NOT_FOUND` for a bad id.
+    /// Follows the prices of some symbols, with the server's timestamp on each event.
     pub async fn subscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client
@@ -227,10 +192,6 @@ impl MarketClient {
     }
 
     /// Stops following the prices of some symbols.
-    ///
-    /// # Errors
-    ///
-    /// `NOT_SUBSCRIBED_TO_SPOTS` when there was no subscription.
     pub async fn unsubscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client
@@ -248,11 +209,7 @@ impl MarketClient {
         Ok(())
     }
 
-    /// Follows the order book of some symbols ([`crate::openapi::Event::Depth`]). Not every broker offers it.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the broker has no depth for the symbol.
+    /// Follows the order book of some symbols (`crate::openapi::Event::Depth`).
     pub async fn subscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client
@@ -271,10 +228,6 @@ impl MarketClient {
     }
 
     /// Stops following the order book of some symbols.
-    ///
-    /// # Errors
-    ///
-    /// A server error when there was no such subscription.
     pub async fn unsubscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client

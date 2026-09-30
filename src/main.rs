@@ -15,10 +15,8 @@ use crate::config::AppPaths;
 #[derive(Parser)]
 #[command(version, about)]
 struct Args {
-    /// Keep the config and the data in this folder instead of the standard ones.
     #[arg(long)]
     config_dir: Option<PathBuf>,
-    /// Forget the saved connection and sign in again.
     #[arg(long)]
     reset: bool,
 }

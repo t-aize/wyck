@@ -11,11 +11,8 @@ use crate::config::secret::{SecretKey, SecretStore};
 /// One OAuth token pair kept under a single credential-store key.
 #[derive(Debug, Clone)]
 pub struct OpenApiTokens {
-    /// The bearer token used on the connection.
     pub access_token: SecretString,
-    /// Exchanged for a new access token once it expires.
     pub refresh_token: SecretString,
-    /// When `access_token` expires, if known.
     pub expires_at: Option<SystemTime>,
 }
 
@@ -28,11 +25,7 @@ struct StoredOpenApiTokens {
 }
 
 /// Where one profile's OAuth token pair lives in the credential store: a cheap, cloneable handle
-/// from [`crate::config::WyckConfig::openapi_token_storage`]. Both halves of the pair are written in one
-/// store entry, so a rotated refresh token is never saved apart from its access token.
-///
-/// The handle owns a share of the store, not a borrow of the config, so a long-running session
-/// can keep it on another thread and save the tokens it renews on its own.
+/// from `crate::config::WyckConfig::openapi_token_storage`.
 #[derive(Clone)]
 pub struct OpenApiTokenStorage {
     pub(crate) secrets: Arc<dyn SecretStore>,
@@ -41,10 +34,6 @@ pub struct OpenApiTokenStorage {
 
 impl OpenApiTokenStorage {
     /// Saves the pair, replacing what was there.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
     pub fn save(&self, tokens: &OpenApiTokens) -> Result<()> {
         let record = StoredOpenApiTokens {
             access_token: tokens.access_token.expose_secret().to_owned(),
@@ -63,11 +52,6 @@ impl OpenApiTokenStorage {
     }
 
     /// The stored pair, if there is one.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store, and [`ConfigError::MalformedEnvelope`] when what is
-    /// stored is not a token pair.
     pub fn load(&self) -> Result<Option<OpenApiTokens>> {
         let Some(secret) = self.secrets.retrieve(&self.key)? else {
             return Ok(None);
@@ -88,11 +72,7 @@ impl OpenApiTokenStorage {
         }))
     }
 
-    /// Deletes the stored pair. Nothing stored is fine.
-    ///
-    /// # Errors
-    ///
-    /// Any error of the credential store.
+    /// Deletes the stored pair.
     pub fn clear(&self) -> Result<()> {
         self.secrets.delete(&self.key)
     }

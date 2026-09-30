@@ -9,9 +9,7 @@ use crate::openapi::transport::wire::flex;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpectedMarginReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbol.
     pub symbol_id: i64,
     /// The volumes to estimate, in hundredths of a unit.
     pub volume: Vec<i64>,
@@ -21,9 +19,7 @@ pub struct ExpectedMarginReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetDynamicLeverageReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The leverage schedule id (`Symbol::leverage_id`).
     pub leverage_id: i64,
 }
 
@@ -31,9 +27,7 @@ pub struct GetDynamicLeverageReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginCallUpdateReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The threshold to change (its `margin_call_type` says which of the three).
     pub margin_call: MarginCall,
 }
 
@@ -42,7 +36,6 @@ pub struct MarginCallUpdateReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ExpectedMarginRes {
-    /// One estimate per volume asked about.
     #[serde(default)]
     pub margin: Vec<ExpectedMargin>,
     /// Decimals of the money amounts.
@@ -55,7 +48,6 @@ pub struct ExpectedMarginRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCallListRes {
-    /// The three thresholds of the account.
     #[serde(default)]
     pub margin_call: Vec<MarginCall>,
 }
@@ -65,7 +57,6 @@ pub struct MarginCallListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct GetDynamicLeverageRes {
-    /// The schedule asked for.
     pub leverage: DynamicLeverage,
 }
 

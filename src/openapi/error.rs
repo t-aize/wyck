@@ -1,10 +1,4 @@
 //! The errors of this crate, and how to react to each.
-//!
-//! Everything that can go wrong is an [`Error`]. Most callers do not need the variants:
-//! [`Error::kind`] sorts them into a short list of [`ErrorKind`]s, and
-//! [`Error::is_retryable`] says whether trying again later can work. The error codes are
-//! the strings the server sends in `ProtoOAErrorRes.errorCode`, taken from the official
-//! `ProtoOAErrorCode` list.
 
 use std::time::Duration;
 
@@ -15,98 +9,55 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ErrorKind {
-    /// The request rate was exceeded, or the server is otherwise asking for less load right now
-    /// (`CONNECTIONS_LIMIT_EXCEEDED`, `CHANNEL_IS_BLOCKED`). Wait and try again.
     RateLimited,
-    /// The server is under maintenance. Try again after the announced end.
     Maintenance,
-    /// The access token is expired or was invalidated: refresh it, or sign in again.
     TokenInvalid,
-    /// The application or the account is not (or no longer) authorized on this connection.
     NotAuthorized,
-    /// The server understood the request and refused it (a bad symbol, a bad range, ...).
     Rejected,
-    /// The connection could not be made or dropped, or the server reported its own
-    /// infrastructure unreachable (`CH_SERVER_NOT_REACHABLE`).
     Transport,
-    /// No answer came in time.
     Timeout,
-    /// The server sent something this client cannot read, or the sign in exchange failed.
     Protocol,
-    /// The client was already closed.
     Closed,
-    /// The configuration is unusable.
     Config,
 }
 
 /// Every failure of the Open API client.
-///
-/// Match on [`Error::kind`] rather than on the variants: new variants may come in a minor
-/// release, the kinds are the stable way to decide what to do.
-///
-/// ```no_run
-/// # async fn demo(account: crate::openapi::AccountClient) {
-/// use crate::openapi::ErrorKind;
-///
-/// match account.account_data().trader().await {
-///     Ok(trader) => println!("balance {}", trader.balance_amount()),
-///     Err(error) if error.kind() == ErrorKind::TokenInvalid => { /* refresh, then retry */ }
-///     Err(error) if error.is_retryable() => {
-///         let wait = error.retry_after().unwrap_or(std::time::Duration::from_secs(1));
-///         println!("try again in {wait:?}");
-///     }
-///     Err(error) => eprintln!("{error}"),
-/// }
-/// # }
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// The configuration cannot be used (an address that is not a WebSocket URL, and so on).
     #[error("invalid configuration: {0}")]
     Config(String),
 
-    /// The connection failed: the address, TLS, or the WebSocket handshake.
     #[error("connection failed: {0}")]
     Transport(String),
 
-    /// The connection ended, or the client was closed, before the answer came.
     #[error("the connection is closed")]
     Closed,
 
     /// No answer arrived within the request timeout.
     #[error("timed out waiting for {operation}")]
-    Timeout {
-        /// What was being waited for.
-        operation: &'static str,
-    },
+    Timeout { operation: &'static str },
 
     /// The server answered with an error (`ProtoOAErrorRes`).
     #[error("the server refused the request: {code}{}", description.as_deref().map(|d| format!(" ({d})")).unwrap_or_default())]
     Server {
-        /// The `errorCode` string, for example `REQUEST_FREQUENCY_EXCEEDED`.
         code: String,
-        /// The server's explanation, when it gives one.
         description: Option<String>,
-        /// How long to wait before trying again, when the server says (it sends seconds). With
-        /// `BLOCKED_PAYLOAD_TYPE` it is the time until that type of request is unblocked.
+        /// How long to wait before trying again, when the server says (it sends seconds).
         retry_after: Option<Duration>,
         /// When maintenance ends, as a Unix time in seconds, when the server says.
         maintenance_end: Option<i64>,
     },
 
-    /// A message could not be read, or was not the one expected.
     #[error("unexpected message: {0}")]
     Protocol(String),
 
-    /// The OAuth exchange (token endpoint or callback) failed. The text never holds a secret.
     #[error("sign in failed: {0}")]
     Auth(String),
 }
 
 impl Error {
-    /// A server error from the fields of `ProtoOAErrorRes`. `retry_after_secs` is in seconds and
-    /// `maintenance_end` is a Unix time in seconds, both as the server sends them.
+    /// A server error from the fields of `ProtoOAErrorRes`.
     #[must_use]
     pub fn server(
         code: impl Into<String>,
@@ -133,7 +84,7 @@ impl Error {
         }
     }
 
-    /// Sorts the error into an [`ErrorKind`].
+    /// Sorts the error into an `ErrorKind`.
     #[must_use]
     pub fn kind(&self) -> ErrorKind {
         match self {

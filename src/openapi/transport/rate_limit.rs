@@ -1,16 +1,5 @@
-//! Keeping under the request limits.
-//!
-//! The server allows 50 requests per second per connection, and only 5 per second for historical
-//! data (bars and ticks); beyond that it answers `REQUEST_FREQUENCY_EXCEEDED`. It may also block one type
-//! of request for a while (`BLOCKED_PAYLOAD_TYPE`, seen on tick history in a live run) and says for how
-//! many seconds. The client is configured a little under both limits and retries such a refusal (see
-//! [`crate::openapi::config::ConnectionConfig`]). A [`RateLimiter`]
-//! spaces requests evenly so the limit is never reached: a caller that asks faster is made to wait
-//! its turn (in order) instead of getting an error.
-//!
-//! The spacing is `1 / rate` seconds between requests, with a small burst allowance of one second's
-//! worth so a quiet client can send a few requests at once. Time comes from `tokio::time`, so tests
-//! can drive it with paused time.
+//! Keeping under the request limits: the server allows 50 requests per second per connection (5
+//! for history) and answers `REQUEST_FREQUENCY_EXCEEDED` beyond that.
 
 use std::time::Duration;
 
@@ -18,19 +7,16 @@ use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tracing::trace;
 
-/// An even-spacing rate limiter. Share one per class of request.
+/// An even-spacing rate limiter.
 #[derive(Debug)]
 pub struct RateLimiter {
-    /// The gap between two requests.
     interval: Duration,
-    /// How far ahead of the clock the schedule may run: the burst allowance.
     burst: Duration,
-    /// When the next request may go.
     next: Mutex<Instant>,
 }
 
 impl RateLimiter {
-    /// A limiter of `per_second` requests per second. A rate of 0 is treated as 1.
+    /// A limiter of `per_second` requests per second.
     #[must_use]
     pub fn new(per_second: u32) -> Self {
         let rate = per_second.max(1);
@@ -49,8 +35,7 @@ impl RateLimiter {
         self.interval
     }
 
-    /// Waits until the next request may be sent, then reserves that slot. Waiters are served in
-    /// the order they asked.
+    /// Waits until the next request may be sent, then reserves that slot.
     pub async fn acquire(&self) {
         let wait_until = {
             let mut next = self.next.lock().await;

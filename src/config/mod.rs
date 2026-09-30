@@ -1,96 +1,4 @@
-//! # wyck-config
-//!
-//! Configuration, encrypted credentials and portable backups for Wyck: the one place the app
-//! decides where its files live, how they are written, and how anything secret is kept.
-//!
-//! ## Kinds of state, kept apart on purpose
-//!
-//! | What | Where | Type |
-//! |---|---|---|
-//! | Which profiles exist, which is active | `config.toml`, plain TOML | [`AppConfig`], [`ProfileConfig`] |
-//! | Tokens and secrets | the OS keyring, or encrypted files | [`SecretStore`] |
-//! | Everything else the app remembers (layouts, drawings, favorites) | one TOML file per document | [`DocumentStore`] |
-//! | Indicator scripts | one `.rhai` file each | [`scripts::ScriptStore`] |
-//! | A backup of everything, to export, import, keep or restore | one TOML file | [`backup::Backup`], [`backup::BackupStore`] |
-//! | Text to carry elsewhere, unreadable without a passphrase | a small TOML document | [`sealed`] |
-//!
-//! **A token never appears in `config.toml`.** The file only holds a profile's public settings;
-//! a [`SecretKey`] derived from the profile's id says *where* the secret is looked up.
-//! Secrets are held in memory as [`secrecy::SecretString`] (wiped on drop, never printed by
-//! `Debug`).
-//!
-//! ## Getting started
-//!
-//! Most programs need [`WyckConfig`]. [`WyckConfig::open`] uses the standard folders of the
-//! operating system and its keyring; the [builder](WyckConfig::builder) changes either:
-//!
-//! ```no_run
-//! use secrecy::SecretString;
-//! use crate::config::{CLIENT_SECRET, WyckConfig};
-//!
-//! # fn main() -> crate::config::Result<()> {
-//! let mut config = WyckConfig::open()?;
-//!
-//! let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
-//! config.set_profile_secret(&id, CLIENT_SECRET, &SecretString::from("the-secret".to_owned()))?;
-//! config.set_active_profile(Some(id.clone()))?;
-//!
-//! if let Some(secret) = config.profile_secret(&id, CLIENT_SECRET)? {
-//!     // hand `secret` to the client that needs it
-//! }
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! A portable install, or a headless machine with no keyring:
-//!
-//! ```no_run
-//! use secrecy::SecretString;
-//! use crate::config::WyckConfig;
-//!
-//! # fn main() -> crate::config::Result<()> {
-//! let config = WyckConfig::builder()
-//!     .portable("./wyck-data")
-//!     .encrypted_file(SecretString::from(std::env::var("WYCK_PASSPHRASE").unwrap_or_default()))
-//!     .build()?;
-//! # let _ = config;
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! ## Guarantees
-//!
-//! * **Writes are atomic and durable.** Every file goes through [`atomic_write`]: a crash or a
-//!   power cut leaves the old file or the new one, never half of one.
-//! * **The memory never gets ahead of the disk.** Every change of [`WyckConfig`] is saved before it
-//!   is kept: when the save fails the change did not happen.
-//! * **A file that cannot be read never takes the app down.** [`DocumentStore::load_or_default`]
-//!   sets a damaged document aside as `.bad` and starts from the defaults.
-//! * **A file from a newer version is left alone.** The config refuses to load rather than being
-//!   read wrong and written back without what it did not know.
-//! * **Names cannot leave their folder.** See [`names`].
-//! * **Secrets stay secret.** Errors and logs carry the [`SecretKey`], never the value. See
-//!   [`secret::EncryptedFileSecretStore`] for the encryption.
-//!
-//! ## Backups
-//!
-//! [`backup`] owns the whole life of a backup: [`backup::export_to_file`] and
-//! [`backup::stage_import_file`] for the export and import buttons, [`backup::BackupStore`]
-//! (`config.backups()`) for the copies kept in `backups/` (automatic ones included), and
-//! [`backup::apply_pending`] to run at the start of the app, so a restore never writes over a
-//! running app and can itself be undone.
-//!
-//! ## Checking it
-//!
-//! [`WyckConfig::diagnose`] looks over the whole config (missing secrets, permissions, files a
-//! crash left behind) and returns a [`Report`]. The `config_doctor` example prints it.
-//!
-//! ## Where the files go
-//!
-//! See [`AppPaths`]. `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move them.
-
-#![forbid(unsafe_code)]
-#![warn(missing_docs)]
+//! Profiles, documents and credential storage (OS keyring or encrypted files).
 
 mod app_config;
 mod crypto;
@@ -129,17 +37,9 @@ fn profile_secret_key(id: &ProfileId, name: &str) -> SecretKey {
     SecretKey::new("profile-field", &format!("{}:{name}", id.as_str()))
 }
 
-/// The top-level entry point: [`AppPaths`] plus a loaded [`AppConfig`] plus a chosen
-/// [`SecretStore`] backend, combined into the single type a front end actually imports
-/// and holds for the lifetime of the app.
-///
-/// Every mutating method persists [`AppConfig`] to disk before returning `Ok`, and keeps the
-/// change in memory only if that save worked: the in-memory state and the on-disk state never
-/// drift, and a caller never needs to remember to call an explicit `save`.
-///
-/// A `WyckConfig` is meant to be owned by one place in one process. It does no locking of its own;
-/// two processes changing the same config file at once each write a complete file (the last one
-/// wins) but do not merge.
+/// The top-level entry point: `AppPaths` plus a loaded `AppConfig` plus a chosen `SecretStore`
+/// backend, combined into the single type a front end actually imports and holds for the lifetime
+/// of the app.
 pub struct WyckConfig {
     paths: AppPaths,
     app_config: AppConfig,
@@ -148,30 +48,19 @@ pub struct WyckConfig {
 
 impl WyckConfig {
     /// Loads the config from the standard folders of the operating system (or where
-    /// [`CONFIG_DIR_ENV`] says), with the OS keyring as the credential store. The shortest way to
-    /// get a config; use [`Self::builder`] to change either.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::NoProjectDirs`] when there is no folder to use, and whatever
-    /// [`Self::load`] returns.
+    /// `CONFIG_DIR_ENV` says), with the OS keyring as the credential store.
     pub fn open() -> Result<Self> {
         Self::builder().build()
     }
 
-    /// Starts a [`ConfigBuilder`].
+    /// Starts a `ConfigBuilder`.
     #[must_use]
     pub fn builder() -> ConfigBuilder {
         ConfigBuilder::default()
     }
 
-    /// Loads (or, on first run, initializes) the app config at `paths`, paired with
-    /// `secrets` as the credential backend for every profile this instance manages.
-    ///
-    /// # Errors
-    ///
-    /// Propagates [`AppConfig::load`]'s errors (I/O or parse failures on an existing,
-    /// but corrupt or unreadable, config file, or a file from a newer version).
+    /// Loads (or, on first run, initializes) the app config at `paths`, paired with `secrets` as
+    /// the credential backend for every profile this instance manages.
     pub fn load(paths: AppPaths, secrets: Box<dyn SecretStore>) -> Result<Self> {
         let app_config = AppConfig::load(&paths)?;
         info!(
@@ -186,8 +75,7 @@ impl WyckConfig {
         })
     }
 
-    /// Applies `change` to a copy of the config, saves the copy, and only then keeps it. When the
-    /// change or the save fails, nothing happened.
+    /// Applies `change` to a copy of the config, saves the copy, and only then keeps it.
     fn commit<T>(&mut self, change: impl FnOnce(&mut AppConfig) -> Result<T>) -> Result<T> {
         let mut next = self.app_config.clone();
         let result = change(&mut next)?;
@@ -224,12 +112,7 @@ impl WyckConfig {
         self.app_config.profile(id)
     }
 
-    /// Adds a new, empty profile and persists the updated [`AppConfig`] to disk. Its credentials
-    /// are stored afterwards with [`Self::set_profile_secret`] and [`Self::openapi_token_storage`].
-    ///
-    /// # Errors
-    ///
-    /// Any error of [`AppConfig::save`]; the profile is then not added.
+    /// Adds a new, empty profile and persists the updated `AppConfig` to disk.
     pub fn add_profile(
         &mut self,
         display_name: impl Into<String>,
@@ -245,18 +128,8 @@ impl WyckConfig {
         Ok(id)
     }
 
-    /// Removes a profile: deletes its stored credentials, removes it from the config,
-    /// clears `active_profile` if it pointed at this one, and persists the change.
-    ///
-    /// The credentials go first. If one cannot be deleted the profile stays, and the call can be
-    /// repeated (deleting what is already gone is fine). Credentials stored under other names
-    /// with [`Self::set_profile_secret`] are not known here: delete them with
-    /// [`Self::delete_profile_secret`] first.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`] if `id` doesn't name a configured profile;
-    /// otherwise any error the [`SecretStore`] backend or [`AppConfig::save`] returns.
+    /// Removes a profile: deletes its stored credentials, removes it from the config, clears
+    /// `active_profile` if it pointed at this one, and persists the change.
     pub fn remove_profile(&mut self, id: &ProfileId) -> Result<()> {
         if self.app_config.profile(id).is_none() {
             warn!(%id, "cannot remove an unknown profile");
@@ -278,12 +151,7 @@ impl WyckConfig {
     }
 
     /// Stores a named credential for a profile, apart from its main token: the Open API client
-    /// secret ([`CLIENT_SECRET`]), for instance. `name` follows the rule of [`names`].
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], [`ConfigError::InvalidName`], or any error of the
-    /// credential store.
+    /// secret (`CLIENT_SECRET`), for instance.
     pub fn set_profile_secret(
         &self,
         id: &ProfileId,
@@ -296,23 +164,13 @@ impl WyckConfig {
     }
 
     /// Reads a named credential for a profile.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], [`ConfigError::InvalidName`], or any error of the
-    /// credential store.
     pub fn profile_secret(&self, id: &ProfileId, name: &str) -> Result<Option<SecretString>> {
         self.require_profile(id)?;
         names::validate_name(name)?;
         self.secrets.retrieve(&profile_secret_key(id, name))
     }
 
-    /// Deletes a named credential of a profile. Nothing stored is fine.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], [`ConfigError::InvalidName`], or any error of the
-    /// credential store.
+    /// Deletes a named credential of a profile.
     pub fn delete_profile_secret(&self, id: &ProfileId, name: &str) -> Result<()> {
         self.require_profile(id)?;
         names::validate_name(name)?;
@@ -321,9 +179,7 @@ impl WyckConfig {
 
     /// Where a profile's OAuth token pair is kept: load it, save it (both halves in one
     /// credential-store write, so a rotated refresh token is never saved apart from its access
-    /// token), or clear it. The handle can outlive this borrow of the config and move to another
-    /// thread, so a long-running session can save the tokens it renews on its own, without going
-    /// through the `WyckConfig` the UI owns.
+    /// token), or clear it.
     pub fn openapi_token_storage(&self, id: &ProfileId) -> OpenApiTokenStorage {
         OpenApiTokenStorage {
             secrets: Arc::clone(&self.secrets),
@@ -332,10 +188,6 @@ impl WyckConfig {
     }
 
     /// Records public Open API settings for a profile after OAuth account selection.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`], or any error of [`AppConfig::save`].
     pub fn set_openapi_profile(
         &mut self,
         id: &ProfileId,
@@ -359,10 +211,6 @@ impl WyckConfig {
     }
 
     /// Sets (or, with `None`, clears) the active profile, and persists the change.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::UnknownProfile`] if `Some(id)` doesn't name a configured profile.
     pub fn set_active_profile(&mut self, id: Option<ProfileId>) -> Result<()> {
         if let Some(id) = &id
             && self.app_config.profile(id).is_none()
@@ -383,12 +231,7 @@ impl WyckConfig {
         self.app_config.last_symbol.as_deref()
     }
 
-    /// Remembers (or with `None` forgets) the symbol the user is on, and persists the change. A
-    /// blank name forgets it.
-    ///
-    /// # Errors
-    ///
-    /// Any error of [`AppConfig::save`].
+    /// Remembers (or with `None` forgets) the symbol the user is on, and persists the change.
     pub fn set_last_symbol(&mut self, symbol: Option<String>) -> Result<()> {
         let symbol = symbol
             .map(|s| s.trim().to_owned())
@@ -401,36 +244,32 @@ impl WyckConfig {
         Ok(())
     }
 
-    /// The documents shared by every account (see [`DocumentStore::global`]).
+    /// The documents shared by every account (see `DocumentStore::global`).
     pub fn documents(&self) -> DocumentStore {
         self.paths.documents()
     }
 
-    /// The documents of one scope, such as an account (see [`DocumentStore::scoped`]).
+    /// The documents of one scope, such as an account (see `DocumentStore::scoped`).
     pub fn scope(&self, scope: &str) -> DocumentStore {
         self.paths.scope(scope)
     }
 
     /// Looks the whole config over and reports what is wrong or odd: missing or unreadable
     /// credentials, a dangling active profile, permissions that are too open, unfinished writes
-    /// and documents that had to be set aside. Changes nothing.
+    /// and documents that had to be set aside.
     pub fn diagnose(&self) -> Report {
         doctor::run(&self.paths, &self.app_config, self.secrets.as_ref())
     }
 }
 
-/// Where a [`ConfigBuilder`] keeps credentials.
+/// Where a `ConfigBuilder` keeps credentials.
 enum Backend {
     Keyring(String),
     EncryptedFile(SecretString),
     Custom(Box<dyn SecretStore>),
 }
 
-/// Builds a [`WyckConfig`] with the folders and the credential store that are wanted. Start with
-/// [`WyckConfig::builder`]; nothing is read until [`Self::build`].
-///
-/// Without any setting it is [`WyckConfig::open`]: the standard folders and the OS keyring under
-/// the service name `wyck`.
+/// Builds a `WyckConfig` with the folders and the credential store that are wanted.
 pub struct ConfigBuilder {
     paths: Option<AppPaths>,
     backend: Backend,
@@ -453,7 +292,7 @@ impl ConfigBuilder {
         self
     }
 
-    /// Keeps everything in one folder (see [`AppPaths::at`]): a portable install, or a test.
+    /// Keeps everything in one folder (see `AppPaths::at`): a portable install, or a test.
     #[must_use]
     pub fn portable(self, dir: impl Into<PathBuf>) -> Self {
         self.paths(AppPaths::at(dir))
@@ -467,7 +306,7 @@ impl ConfigBuilder {
     }
 
     /// Stores credentials in encrypted files under the data folder, locked by `passphrase`: for
-    /// machines with no keyring. See [`EncryptedFileSecretStore`].
+    /// machines with no keyring.
     #[must_use]
     pub fn encrypted_file(mut self, passphrase: SecretString) -> Self {
         self.backend = Backend::EncryptedFile(passphrase);
@@ -482,11 +321,6 @@ impl ConfigBuilder {
     }
 
     /// Loads the config.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::NoProjectDirs`] when no folders were given and the system has none, and
-    /// whatever [`WyckConfig::load`] returns.
     pub fn build(self) -> Result<WyckConfig> {
         let paths = match self.paths {
             Some(paths) => paths,

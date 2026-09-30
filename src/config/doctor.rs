@@ -1,9 +1,4 @@
 //! A check-up of the config: what is wrong, what is odd, and what could be tidied.
-//!
-//! [`crate::config::WyckConfig::diagnose`] looks at the config file, the profiles, the credentials they
-//! need, the folders and their permissions, and the files that a crash or a failed read left
-//! behind. It changes nothing. The report says what it found in words a person reads, so a front
-//! end can show it as it is, and a script can look at [`Report::is_healthy`].
 
 use std::fmt;
 use std::path::Path;
@@ -20,11 +15,8 @@ use crate::config::{CLIENT_SECRET, ProfileConfig};
 /// How much a finding matters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Severity {
-    /// Worth knowing, nothing to do.
     Info,
-    /// Something is off and worth fixing; the app still works.
     Warning,
-    /// Something does not work.
     Error,
 }
 
@@ -41,11 +33,8 @@ impl fmt::Display for Severity {
 /// One thing the check-up found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
-    /// How much it matters.
     pub severity: Severity,
-    /// What it is about: `config`, `profile Demo`, `secrets`...
     pub area: String,
-    /// What was found, and what to do about it when there is something to do.
     pub message: String,
 }
 

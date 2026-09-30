@@ -10,27 +10,16 @@ use crate::openapi::transport::wire::flex;
 number_enum! {
     /// What an execution event reports (`ProtoOAExecutionType`).
     ExecutionType {
-        /// The order passed validation and is working.
         OrderAccepted = 2 => "order accepted",
-        /// The order is fully filled.
         OrderFilled = 3 => "order filled",
-        /// A pending order was replaced with a new one (an amend).
         OrderReplaced = 4 => "order replaced",
-        /// The order was cancelled.
         OrderCancelled = 5 => "order cancelled",
-        /// A good-till-date order ran out of time.
         OrderExpired = 6 => "order expired",
-        /// The order was rejected.
         OrderRejected = 7 => "order rejected",
-        /// A cancel request was itself rejected.
         OrderCancelRejected = 8 => "order cancel rejected",
-        /// A swap was charged.
         Swap = 9 => "swap",
-        /// A deposit or a withdrawal took place.
         DepositWithdraw = 10 => "deposit or withdrawal",
-        /// The order was partially filled.
         OrderPartialFill = 11 => "order partially filled",
-        /// A bonus deposit or withdrawal took place.
         BonusDepositWithdraw = 12 => "bonus deposit or withdrawal",
     }
 }
@@ -41,26 +30,18 @@ number_enum! {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ExecutionEvent {
-    /// The account the execution belongs to.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// What happened, as [`ExecutionType`]'s number.
     #[serde(deserialize_with = "flex::int")]
     pub execution_type: i64,
-    /// The position the execution affected.
     #[serde(default)]
     pub position: Option<Position>,
-    /// The order the execution answers.
     #[serde(default)]
     pub order: Option<Order>,
-    /// The fill this execution reports.
     #[serde(default)]
     pub deal: Option<Deal>,
-    /// The server's error code, for `ORDER_REJECTED` and `ORDER_CANCEL_REJECTED`.
     #[serde(default)]
     pub error_code: Option<String>,
-    /// Whether the server generated this event by itself (for example a stop out), rather than
-    /// answering a request.
     #[serde(default)]
     pub is_server_event: Option<bool>,
 }
@@ -79,18 +60,13 @@ impl ExecutionEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderErrorEvent {
-    /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The error code, for example `NOT_ENOUGH_MONEY`.
     pub error_code: String,
-    /// The order it concerns, when there is one yet.
     #[serde(default, deserialize_with = "flex::opt")]
     pub order_id: Option<i64>,
-    /// The position it concerns, when there is one.
     #[serde(default, deserialize_with = "flex::opt")]
     pub position_id: Option<i64>,
-    /// The server's explanation.
     #[serde(default)]
     pub description: Option<String>,
 }
@@ -100,16 +76,12 @@ pub struct OrderErrorEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TrailingSlChangedEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
-    /// The protective order.
     #[serde(deserialize_with = "flex::int")]
     pub order_id: i64,
-    /// The new stop price.
     pub stop_price: f64,
     /// When it moved, in Unix milliseconds.
     #[serde(deserialize_with = "flex::int")]

@@ -1,31 +1,4 @@
 //! Catching the redirect of the consent page on `localhost`.
-//!
-//! When the user grants access, the browser is sent to the application's redirect URI with the
-//! authorization code in the query. A desktop application has no web server, so it opens a tiny one
-//! for the occasion: a [`CallbackListener`] bound to the loopback address, which lives until the
-//! code arrives (or a timeout passes) and then closes.
-//!
-//! ```text
-//! let listener = CallbackListener::bind(8765).await?;
-//! let uri = listener.redirect_uri();                       // http://localhost:8765
-//! let state = auth::new_state();
-//! open_in_browser(&auth::authorization_url(id, &uri, Scope::Accounts, &state));
-//! let code = listener.wait(&state, Duration::from_secs(300)).await?;
-//! let tokens = oauth.exchange_code(code.code(), &uri).await?;   // within a minute
-//! ```
-//!
-//! The redirect URI must be registered for the application exactly as given, port included, so the
-//! port is a setting and not a random choice (port `0` is available for tests). The listener only
-//! binds `127.0.0.1`: nothing outside the machine can reach it.
-//!
-//! # What it accepts
-//!
-//! It answers the first request that carries a `code` (or an `error`) and ignores others (the
-//! browser's request for `/favicon.ico`, a port scan) with a 404, then keeps waiting. A request
-//! whose `state` does not match the expected one is rejected the same way: it did not come from the
-//! consent page this call opened. If the redirect carries no `state` at all it is accepted and
-//! [`AuthorizationCode::state_echoed`] is `false`, because the server's documentation does not say
-//! that it echoes the parameter; a caller that wants to be strict can refuse such a code.
 
 use std::time::Duration;
 
@@ -52,7 +25,7 @@ const FAILURE_PAGE: &str = "<!doctype html><html><head><meta charset=\"utf-8\"><
 <body style=\"font-family:sans-serif;text-align:center;margin-top:20vh\">\
 <h2>Not signed in</h2><p>Go back to the application and try again.</p></body></html>";
 
-/// The authorization code the redirect brought. It is a secret for the minute it lives.
+/// The authorization code the redirect brought.
 #[derive(Debug, Clone)]
 pub struct AuthorizationCode {
     code: SecretString,
@@ -66,15 +39,14 @@ impl AuthorizationCode {
         self.code.expose_secret()
     }
 
-    /// Whether the redirect carried the `state` back, and it matched. `false` when the redirect had
-    /// no `state` at all.
+    /// Whether the redirect carried the `state` back, and it matched.
     #[must_use]
     pub fn state_echoed(&self) -> bool {
         self.state_echoed
     }
 }
 
-/// A one-shot web server on the loopback address. See the [module docs](self).
+/// A one-shot web server on the loopback address.
 #[derive(Debug)]
 pub struct CallbackListener {
     listener: TcpListener,
@@ -82,13 +54,7 @@ pub struct CallbackListener {
 }
 
 impl CallbackListener {
-    /// Starts listening on `127.0.0.1:port`. With port `0` the system picks a free port (see
-    /// [`CallbackListener::port`]).
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Transport`] when the port cannot be used, usually because another program
-    /// holds it: the text says so, since the user can act on it.
+    /// Starts listening on `127.0.0.1:port`.
     pub async fn bind(port: u16) -> Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| {
             warn!(port, error = %e, "cannot listen for the sign in redirect");
@@ -110,19 +76,13 @@ impl CallbackListener {
         self.port
     }
 
-    /// The redirect URI to register and to pass to the consent page. It uses the name `localhost`,
-    /// the form the portal documents for desktop applications.
+    /// The redirect URI to register and to pass to the consent page.
     #[must_use]
     pub fn redirect_uri(&self) -> String {
         format!("http://localhost:{}", self.port)
     }
 
     /// Waits for the redirect, up to `timeout`, and returns the code.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Timeout`] when nothing valid arrives in time, and [`Error::Auth`]
-    /// when the user refused (the redirect carried an `error`).
     pub async fn wait(self, expected_state: &str, timeout: Duration) -> Result<AuthorizationCode> {
         tokio::time::timeout(timeout, self.accept_until_code(expected_state))
             .await
@@ -201,15 +161,12 @@ async fn respond(stream: &mut TcpStream, status: &str, page: &str) {
 /// What one request to the listener means.
 #[derive(Debug)]
 enum Redirect {
-    /// The consent page's answer, with a code.
     Code(AuthorizationCode),
-    /// The user refused, or the server reported an error.
     Denied(String),
-    /// Anything else.
     Ignore,
 }
 
-/// Reads a request head as a redirect. Pure, so the rules are tested without a socket.
+/// Reads a request head as a redirect.
 fn parse_redirect(head: &str, expected_state: &str) -> Redirect {
     let Some(line) = head.lines().next() else {
         return Redirect::Ignore;

@@ -1,20 +1,12 @@
-//! Trading safety: the limits the user sets and the checks every new order goes through before
-//! it is sent.
-//!
-//! The rules are plain data and pure functions, so they are tested without a window or a broker.
-//! [`super::account::Account::place`] is the one funnel for new orders (the ticket, one-click, the
-//! chart and a reversal all end there), so the checks cannot be skipped by another way in. An
-//! order that only reduces what is open is never blocked: closing must always work.
-//!
-//! Some limits are hard and refuse the order ([`Verdict::Block`]); the others only warn
-//! ([`Verdict::Warn`]) and can be sent anyway from the confirmation.
+//! Trading safety: the limits the user sets and the checks every new order goes through before it
+//! is sent.
 
 use serde::{Deserialize, Serialize};
 
 /// The most a limit can be set to, so a typo cannot turn a limit into no limit.
 const HUGE: f64 = 1e9;
 
-/// What the user set to keep an account safe. A number limit of 0 is off.
+/// What the user set to keep an account safe.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RiskPrefs {
     /// The most lots one order may have.
@@ -23,16 +15,13 @@ pub struct RiskPrefs {
     /// The most lots that may be open on one symbol, counting the new order.
     #[serde(default)]
     pub max_lots_per_symbol: f64,
-    /// The most positions open at once.
     #[serde(default)]
     pub max_open_positions: u32,
-    /// The most the account may lose in a day, in its money (realized plus open).
     #[serde(default)]
     pub max_daily_loss: f64,
     /// The same, as a share of the balance the day started with, in percent.
     #[serde(default)]
     pub max_daily_loss_pct: f64,
-    /// The most orders that may be sent in a day.
     #[serde(default)]
     pub max_daily_trades: u32,
     /// A spread wider than this, in pips, warns.
@@ -42,7 +31,6 @@ pub struct RiskPrefs {
     /// misplaced decimal point.
     #[serde(default = "default_collar")]
     pub price_collar_pct: f64,
-    /// An order with no stop loss is refused.
     #[serde(default)]
     pub require_stop_loss: bool,
     /// After a losing trade closes, no new order for this many minutes.
@@ -51,7 +39,6 @@ pub struct RiskPrefs {
     /// The most lots an order may have when sent by one click.
     #[serde(default)]
     pub one_click_max_lots: f64,
-    /// Nothing new can be sent while this is on.
     #[serde(default)]
     pub kill_switch: bool,
 }
@@ -136,14 +123,9 @@ impl RiskPrefs {
 /// Where the account stands today, worked out by the account from what it holds and its deals.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Standing {
-    /// Positions open now.
     pub open_positions: usize,
-    /// Orders sent today.
     pub trades_today: u32,
-    /// What the day made or lost so far: closed trades after costs plus what is open. Negative
-    /// is a loss.
     pub day_pnl: f64,
-    /// The balance the day started with (now, less what closed trades made today).
     pub day_start_balance: f64,
     /// When the last losing trade closed, in Unix milliseconds.
     pub last_loss_at: Option<i64>,
@@ -167,7 +149,7 @@ pub enum Lock {
 }
 
 impl Lock {
-    /// The reason, as a sentence for a banner. `money` writes an amount with its currency.
+    /// The reason, as a sentence for a banner.
     pub fn text(&self, money: &dyn Fn(f64) -> String, now: i64) -> String {
         match *self {
             Self::KillSwitch => "Kill switch is on: no new orders can be sent.".to_owned(),
@@ -184,8 +166,7 @@ impl Lock {
     }
 }
 
-/// The lock in force, if any. The kill switch and the daily loss come first: they last longer
-/// than a cooldown.
+/// The lock in force, if any.
 pub fn lock(prefs: &RiskPrefs, standing: &Standing) -> Option<Lock> {
     if prefs.kill_switch {
         return Some(Lock::KillSwitch);
@@ -213,24 +194,19 @@ pub struct OrderFacts {
     pub lots: f64,
     /// The lots already open on this symbol.
     pub symbol_lots: f64,
-    /// A stop loss or take profit is set, and a stop loss in particular.
     pub has_stop: bool,
     /// How far a pending order is priced from the market, in percent.
     pub away_pct: Option<f64>,
     /// The spread of the symbol now, in pips.
     pub spread_pips: Option<f64>,
-    /// Sent without a confirmation.
     pub one_click: bool,
-    /// The order only closes or reduces what is open.
     pub reduces: bool,
 }
 
 /// What the checks say about an order.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Verdict {
-    /// Send it.
     Ok,
-    /// Refuse it, with the reason.
     Block(String),
     /// Ask first: these things are worth a second look.
     Warn(Vec<String>),
@@ -334,7 +310,6 @@ pub struct Fingerprint {
     pub buy: bool,
     pub volume: i64,
     pub kind: i64,
-    /// The price in points, 0 for a market order.
     pub price: i64,
 }
 
@@ -348,7 +323,7 @@ pub struct DuplicateGuard {
 }
 
 impl DuplicateGuard {
-    /// Whether `order` at `now` repeats the last one. When it does not, it becomes the last.
+    /// Whether `order` at `now` repeats the last one.
     pub fn is_repeat(&mut self, order: Fingerprint, now: i64) -> bool {
         if let Some((last, at)) = self.last
             && last == order

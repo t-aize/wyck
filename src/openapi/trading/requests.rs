@@ -1,9 +1,5 @@
 //! The request messages of the trading calls: placing, amending and cancelling orders, closing
 //! positions, and amending a position's protection.
-//!
-//! `ctid_trader_account_id` is a public field of every request here (serde needs it), initialized
-//! to `0` by the constructors below: `TradingClient` always overwrites it with the account
-//! it is bound to before sending, so a caller building one of these directly never has to set it.
 
 use serde::Serialize;
 
@@ -12,97 +8,71 @@ use crate::openapi::number_enum;
 
 number_enum! {
     /// The kind of an order request (`ProtoOAOrderType`, the subset a caller chooses between when
-    /// placing one; `crate::openapi::account::OrderType` decodes any order the server sends back, including
-    /// `StopLossTakeProfit`, which a caller never asks for directly).
+    /// placing one; `crate::openapi::account::OrderType` decodes any order the server sends back,
+    /// including `StopLossTakeProfit`, which a caller never asks for directly).
     NewOrderType {
-        /// At the current market price.
         Market = 1 => "market",
-        /// At `limit_price` or better.
         Limit = 2 => "limit",
-        /// Becomes a market order once `stop_price` is reached.
         Stop = 3 => "stop",
-        /// At the market, within `slippage_in_points` of `base_slippage_price`.
         MarketRange = 5 => "market range",
-        /// Becomes a limit order once `stop_price` is reached.
         StopLimit = 6 => "stop limit",
     }
 }
 
-/// `ProtoOANewOrderReq`. Build with [`NewOrderReq::market`], [`NewOrderReq::limit`],
-/// [`NewOrderReq::stop`] or [`NewOrderReq::stop_limit`], then set the optional fields.
+/// `ProtoOANewOrderReq`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewOrderReq {
-    /// The trading account id. Always overwritten by `TradingClient::new_order` with the
-    /// account it is bound to.
     pub ctid_trader_account_id: i64,
-    /// The symbol.
     pub symbol_id: i64,
-    /// Market, limit, stop, market range or stop limit.
     pub order_type: i32,
-    /// Buy or sell, as [`TradeSide`]'s number.
     pub trade_side: i32,
     /// The volume, in hundredths of a unit.
     pub volume: i64,
-    /// The limit price. Only for [`NewOrderType::Limit`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit_price: Option<f64>,
-    /// The stop price. Only for [`NewOrderType::Stop`] and [`NewOrderType::StopLimit`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
-    /// How long the order stays working, as [`crate::openapi::account::TimeInForce`]'s number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<i32>,
     /// When a good-till-date order expires, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_timestamp: Option<i64>,
-    /// The absolute stop loss price. Not for market orders.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_loss: Option<f64>,
-    /// The absolute take profit price. Not for market orders.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub take_profit: Option<f64>,
     /// A comment, at most 512 characters.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
-    /// The base price for a market range order's slippage.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_slippage_price: Option<f64>,
-    /// The slippage, in points, for a market range or stop limit order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
     /// A label, at most 100 characters, to recognize the order later (in a deal list or a
-    /// reconcile answer), which matters for the non-idempotency caveat in the [module docs](self).
+    /// reconcile answer), which matters for the non-idempotency caveat in the [module
+    /// docs](self).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// The position this order should modify (for example a closing order).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position_id: Option<i64>,
     /// Your own id for the order, at most 50 characters (like FIX `ClOrdID`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_order_id: Option<String>,
-    /// A stop loss relative to the entry price, in [`crate::openapi::market::PRICE_SCALE`] units, instead of
-    /// the absolute `stop_loss`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A take profit relative to the entry price, in [`crate::openapi::market::PRICE_SCALE`] units, instead
-    /// of the absolute `take_profit`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
-    /// Whether the stop loss is guaranteed. Required on a limited risk account.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guaranteed_stop_loss: Option<bool>,
-    /// Whether the stop loss trails the price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trailing_stop_loss: Option<bool>,
-    /// What triggers a stop or stop limit order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_trigger_method: Option<i32>,
 }
 
 impl NewOrderReq {
     /// Checks values that would otherwise encode incorrectly or produce a known refusal.
-    /// The server still decides whether the symbol, account and price are tradable.
     pub fn validate(&self) -> crate::openapi::Result<()> {
         let bad = |message: &str| Err(crate::openapi::Error::Config(message.to_owned()));
         if self.symbol_id <= 0 || self.volume <= 0 {
@@ -253,54 +223,40 @@ impl NewOrderReq {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The pending order to cancel.
     pub order_id: i64,
 }
 
-/// `ProtoOAAmendOrderReq`. Every field but the ids is optional: only the ones set are changed.
+/// `ProtoOAAmendOrderReq`.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderReq {
-    /// The trading account id. Always overwritten by `TradingClient::amend_order`.
     pub ctid_trader_account_id: i64,
-    /// The pending order to amend.
     pub order_id: i64,
     /// A new volume, in hundredths of a unit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub volume: Option<i64>,
-    /// A new limit price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit_price: Option<f64>,
-    /// A new stop price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
     /// A new expiration, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_timestamp: Option<i64>,
-    /// A new absolute stop loss price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_loss: Option<f64>,
-    /// A new absolute take profit price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub take_profit: Option<f64>,
-    /// A new slippage, in points.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
-    /// A new relative stop loss, in [`crate::openapi::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A new relative take profit, in [`crate::openapi::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
-    /// A new guaranteed stop loss setting.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guaranteed_stop_loss: Option<bool>,
-    /// A new trailing stop loss setting.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trailing_stop_loss: Option<bool>,
-    /// A new stop trigger method.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_trigger_method: Option<i32>,
 }
@@ -316,42 +272,30 @@ impl AmendOrderReq {
     }
 }
 
-/// `ProtoOAClosePositionReq`. Volume equal to the position's own closes it in full; less closes it
-/// in part.
+/// `ProtoOAClosePositionReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClosePositionReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position to close.
     pub position_id: i64,
     /// The volume to close, in hundredths of a unit.
     pub volume: i64,
 }
 
-/// `ProtoOAAmendPositionSLTPReq`. Every field but the ids is optional: only the ones set are
-/// changed.
+/// `ProtoOAAmendPositionSLTPReq`.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendPositionSlTpReq {
-    /// The trading account id. Always overwritten by
-    /// `TradingClient::amend_position_sl_tp`.
     pub ctid_trader_account_id: i64,
-    /// The position to amend.
     pub position_id: i64,
-    /// The new absolute stop loss price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_loss: Option<f64>,
-    /// The new absolute take profit price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub take_profit: Option<f64>,
-    /// Whether the stop loss is guaranteed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guaranteed_stop_loss: Option<bool>,
-    /// Whether the stop loss trails the price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trailing_stop_loss: Option<bool>,
-    /// What triggers the stop loss or take profit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_loss_trigger_method: Option<i32>,
 }

@@ -1,12 +1,10 @@
-//! A configured connection profile: the non-secret half of an account (display name,
-//! service and optional Open API settings). Secret credentials never live here; see
-//! [`crate::config::secret`].
+//! A configured connection profile: the non-secret half of an account (display name, service and
+//! optional Open API settings).
 
 use serde::{Deserialize, Serialize};
 
-/// A stable, opaque identifier for one [`ProfileConfig`], generated once when the
-/// profile is created and never reused. The credentials of a profile are stored under keys built
-/// from it, so a profile and its credentials are always found by the same identifier.
+/// A stable, opaque identifier for one `ProfileConfig`, generated once when the profile is
+/// created and never reused.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProfileId(String);
@@ -30,37 +28,21 @@ impl std::fmt::Display for ProfileId {
 }
 
 /// A configured connection profile: public connection settings, never secrets.
-///
-/// `service` is deliberately a free-form string rather than an enum owned by this
-/// module: this crate has no knowledge of cTrader, or of any other specific
-/// broker/API, on purpose. A caller using `wyck-openapi` might use
-/// `"ctrader-openapi"`; a future module for a different broker or a different kind of
-/// API key entirely reuses the exact same struct with its own tag. This is what makes
-/// the module genuinely shared infrastructure rather than cTrader-specific config
-/// wearing a generic name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProfileConfig {
-    /// Stable identifier assigned when the profile is created.
     pub id: ProfileId,
-    /// User-facing label shown in the UI (e.g. `"Live: FTMO 100k"`,
-    /// `"Demo: scalping"`).
     pub display_name: String,
-    /// Free-form tag identifying which client/service this profile authenticates
-    /// against. Not validated or interpreted by this crate.
     pub service: String,
-    /// Public Open API application ID, if this profile uses Open API.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_id: Option<String>,
-    /// OAuth callback port on localhost, if this profile uses Open API.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub callback_port: Option<u16>,
-    /// Selected cTrader account ID, if this profile uses Open API.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<i64>,
 }
 
 impl ProfileConfig {
-    /// Creates a new profile with a freshly generated [`ProfileId`].
+    /// Creates a new profile with a freshly generated `ProfileId`.
     pub fn new(display_name: impl Into<String>, service: impl Into<String>) -> Self {
         Self {
             id: ProfileId::new_random(),

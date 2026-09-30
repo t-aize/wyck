@@ -1,71 +1,5 @@
 //! A session that stays up: it reconnects, signs in again, renews the tokens and restores the
 //! subscriptions by itself.
-//!
-//! A [`Client`] is one connection and never reconnects (see its docs). A program that wants live
-//! data for days needs the rest: notice the connection ended, wait a growing delay, connect,
-//! identify the application, authorize the account, subscribe again, and meanwhile renew the access
-//! token before its 30 days run out. [`Session`] does exactly that, in one background task, and
-//! gives the program a single stream of [`SessionEvent`]s that survives every reconnect.
-//!
-//! ```no_run
-//! use std::sync::Arc;
-//! use crate::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-//! use crate::openapi::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
-//! # async fn demo(tokens: crate::openapi::auth::TokenSet) -> crate::openapi::Result<()> {
-//! let config = SessionConfig::new(
-//!     ConnectionConfig::new(Environment::Demo),
-//!     ClientCredentials::new("client-id", "client-secret"),
-//!     48332955,
-//! );
-//! let session = Session::start(config, tokens, Arc::new(MemoryTokenStore::default()))?;
-//! let mut events = session.events();
-//! session.subscribe_spots(&[1]).await?;          // kept, and restored after every reconnect
-//! while let Ok(event) = events.recv().await {
-//!     match event {
-//!         SessionEvent::Data(data) => println!("{data:?}"),
-//!         SessionEvent::Failed(error) => { eprintln!("needs attention: {error}"); break; }
-//!         _ => {}
-//!     }
-//! }
-//! # Ok(()) }
-//! ```
-//!
-//! # What it does
-//!
-//! - **Connects** and authenticates the application and the account. Until that succeeds it retries
-//!   with a delay that doubles from [`Backoff::initial`] up to [`Backoff::max`] (with a little
-//!   jitter, so many programs do not come back in step), or gives up after
-//!   [`SessionConfig::max_reconnect_attempts`].
-//! - **Restores the subscriptions** (prices, live bars, order book) that the program asked for,
-//!   after every reconnect. They are kept in a registry: subscribing while the connection is down
-//!   only records it.
-//! - **Renews the tokens.** When the access token expires within [`SessionConfig::refresh_margin`]
-//!   it is refreshed first; the new pair goes to the [`TokenStore`] before it is used, because the
-//!   old refresh token stops working. A server notice that the tokens were invalidated forces a
-//!   refresh and a reconnect.
-//! - **Reacts to the server's own disconnect notices**, not just a dropped socket: a
-//!   `ProtoOAAccountDisconnectEvent` for this account re-sends the account auth on the same
-//!   connection (the documented recovery: the account's session was torn down server-side, but
-//!   the connection itself is still good), and a `ProtoOAClientDisconnectEvent` (the server ending
-//!   every session on the connection) triggers a full reconnect, both without waiting for the
-//!   socket to actually close.
-//! - **Tells failures that will pass from those that will not.** A dropped connection, a timeout,
-//!   maintenance or a rate limit are retried. A refused refresh token, an account that is not
-//!   authorized, or a bad configuration end the session with [`SessionEvent::Failed`]: only the
-//!   user can fix those (by signing in again).
-//!
-//! # What it does not do
-//!
-//! It does not replay requests that were in flight when the connection dropped (they fail with
-//! [`Error::Closed`]; the caller may repeat them), and it does not keep data: events that
-//! arrive while a reader is not listening are lost, as with any broadcast channel.
-//!
-//! # Why it stays flat
-//!
-//! [`Session`] keeps its own plain methods (`subscribe_spots`, `subscribe_depth`) rather than adopting the [`MarketClient`](crate::openapi::market::MarketClient)-style
-//! sub-client split the rest of the crate uses: its subscriptions have a different semantics
-//! (recorded in a registry and replayed after every reconnect), and forcing the same split here
-//! would not add anything real.
 
 mod backoff;
 mod token_store;
@@ -90,24 +24,16 @@ use crate::openapi::error::{Error, ErrorKind, Result};
 use crate::openapi::event::Event;
 use crate::openapi::transport::connection::Client;
 
-/// The settings of a [`Session`].
+/// The settings of a `Session`.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SessionConfig {
-    /// The connection settings (demo or live, timeouts, limits).
     pub connection: ConnectionConfig,
-    /// The application credentials.
     pub credentials: ClientCredentials,
-    /// The trading account to authorize.
     pub account_id: i64,
-    /// Refresh the access token when it expires within this long. The default is one day.
     pub refresh_margin: Duration,
-    /// The wait between attempts to connect.
     pub backoff: Backoff,
-    /// Give up after this many failed attempts in a row. `None` (the default) never gives up on
-    /// failures that may pass.
     pub max_reconnect_attempts: Option<u32>,
-    /// Use another token endpoint, for a test server.
     pub token_url: Option<String>,
 }
 
@@ -137,19 +63,14 @@ impl SessionConfig {
 pub enum SessionState {
     /// Connecting (the attempt number, starting at 1).
     Connecting {
-        /// Which attempt this is in a row.
         attempt: u32,
     },
-    /// Connected, signed in, subscriptions restored.
     Ready,
     /// Waiting before the next attempt.
     Waiting {
-        /// The attempt that failed.
         attempt: u32,
     },
-    /// Ended on purpose ([`Session::stop`]).
     Stopped,
-    /// Ended by a failure that will not pass. The text says why.
     Failed(String),
 }
 
@@ -157,32 +78,21 @@ pub enum SessionState {
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum SessionEvent {
-    /// Connected and signed in, subscriptions restored. Sent again after each reconnect.
     Ready,
-    /// Something the server sent: a price, an order book change, an account notice. The
-    /// connection's own end ([`Event::Disconnected`]) is reported as `Reconnecting` instead.
     Data(Event),
-    /// The tokens were renewed and saved.
     TokensRefreshed,
     /// The connection is down; the session will try again after `retry_in`.
     Reconnecting {
-        /// The attempt that failed, starting at 1.
         attempt: u32,
-        /// How long until the next attempt.
         retry_in: Duration,
-        /// Why the connection is down.
         reason: String,
     },
-    /// A subscription could not be restored. The session carries on without it.
+    /// A subscription could not be restored.
     SubscriptionFailed {
-        /// What was being subscribed to.
         what: String,
-        /// Why the server refused it.
         error: Error,
     },
-    /// The session ended by a failure that will not pass; the user has to act (sign in again).
     Failed(Error),
-    /// The session was stopped. This is always the last event.
     Stopped,
 }
 
@@ -201,7 +111,6 @@ struct Shared {
     registry: Mutex<Registry>,
     tokens: Mutex<TokenSet>,
     stop: watch::Sender<bool>,
-    /// How many live [`Session`] values share this supervisor. See its [`Drop`] impl.
     handles: AtomicUsize,
 }
 
@@ -236,13 +145,7 @@ impl Shared {
     }
 }
 
-/// A session that stays up. See the [module docs](self).
-///
-/// Cheap to clone: every clone shares the same background task. Calling [`Session::stop`] is
-/// still the right way to end a session on purpose (it also waits for the background task to
-/// finish), but dropping every clone without it does not leak the task either: the last clone
-/// going away asks the task to stop as a fallback (see the `Drop` impl below), the same signal
-/// `stop()` sends, just without waiting for it to finish.
+/// A session that stays up.
 pub struct Session {
     shared: Arc<Shared>,
     task: Arc<Mutex<Option<JoinHandle<()>>>>,
@@ -283,12 +186,7 @@ impl std::fmt::Debug for Session {
 }
 
 impl Session {
-    /// Starts the session in the background with the tokens the user signed in with. The tokens
-    /// are saved to `store` when they are refreshed.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Config`] for unusable settings.
+    /// Starts the session in the background with the tokens the user signed in with.
     pub fn start(
         config: SessionConfig,
         tokens: TokenSet,
@@ -319,8 +217,7 @@ impl Session {
         })
     }
 
-    /// What the session reports: data, reconnections, failures. Each call gives an independent
-    /// reader that sees the events from now on.
+    /// What the session reports: data, reconnections, failures.
     #[must_use]
     pub fn events(&self) -> broadcast::Receiver<SessionEvent> {
         self.shared.events.subscribe()
@@ -333,8 +230,7 @@ impl Session {
     }
 
     /// The connection in use right now, for the calls the session does not wrap (history, account
-    /// data). `None` while it is down. It may end at any moment: a failed call is worth repeating
-    /// with the next client.
+    /// data).
     #[must_use]
     pub fn client(&self) -> Option<Client> {
         self.shared.client()
@@ -353,11 +249,6 @@ impl Session {
     }
 
     /// Waits until the session is ready and returns its connection.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Timeout`] when it is not ready in time, and [`Error::Closed`] when the
-    /// session has stopped or failed.
     pub async fn wait_ready(&self, timeout: Duration) -> Result<Client> {
         let mut state = self.state();
         let waited = tokio::time::timeout(
@@ -381,8 +272,7 @@ impl Session {
         }
     }
 
-    /// Ends the session: closes the connection and stops the background task. A last
-    /// [`SessionEvent::Stopped`] is sent. Calling it again does nothing.
+    /// Ends the session: closes the connection and stops the background task.
     pub async fn stop(&self) {
         self.shared.stop.send_replace(true);
         let task = lock(&self.task).take();
@@ -393,13 +283,7 @@ impl Session {
 
     // ---- subscriptions ----
 
-    /// Follows the prices of some symbols, now and after every reconnect. While the connection is
-    /// down the request is only recorded and applied when it is back.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses the subscription (an
-    /// unknown symbol); the symbols are then not kept.
+    /// Follows the prices of some symbols, now and after every reconnect.
     pub async fn subscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
         let fresh: Vec<i64> = {
             let mut registry = lock(&self.shared.registry);
@@ -430,10 +314,6 @@ impl Session {
 
     /// Stops following the prices of some symbols and forgets them, so a reconnect does not bring
     /// them back.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses.
     pub async fn unsubscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
         let gone: Vec<i64> = {
             let mut registry = lock(&self.shared.registry);
@@ -456,10 +336,6 @@ impl Session {
     }
 
     /// Follows the order book of some symbols, now and after every reconnect.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses.
     pub async fn subscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
         let fresh: Vec<i64> = {
             let mut registry = lock(&self.shared.registry);
@@ -489,10 +365,6 @@ impl Session {
     }
 
     /// Stops following the order book of some symbols and forgets them.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses.
     pub async fn unsubscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
         let gone: Vec<i64> = {
             let mut registry = lock(&self.shared.registry);
@@ -514,9 +386,8 @@ impl Session {
         }
     }
 
-    /// Keeps a subscription that the server refused out of the registry (it would be refused again
-    /// after every reconnect), and passes the error on. A subscription that only failed because the
-    /// connection dropped stays: the reconnect restores it.
+    /// Keeps a subscription that the server refused out of the registry (it would be refused
+    /// again after every reconnect), and passes the error on.
     fn settle(&self, result: Result<()>, undo: impl FnOnce(&mut Registry)) -> Result<()> {
         match result {
             // Already following it is what was asked for (a reconnect may have restored it a
@@ -546,11 +417,8 @@ fn error_is_transient(error: &Error) -> bool {
 /// What to do after a connection attempt or a connection ended.
 #[derive(Debug, PartialEq, Eq)]
 enum Next {
-    /// Try again after a wait.
     Retry,
-    /// Refresh the tokens, then try again at once.
     RefreshThenRetry,
-    /// End the session: only the user can fix this.
     Fail,
 }
 
@@ -575,9 +443,8 @@ fn noise() -> u32 {
         .map_or(0, |d| d.subsec_nanos())
 }
 
-/// Runs `future` unless the session is asked to stop first, which gives `None` and drops the future.
-/// Every long step of the supervisor goes through it, so a stop is never held up by a connection
-/// attempt or a token request that is still waiting for its timeout.
+/// Runs `future` unless the session is asked to stop first, which gives `None` and drops the
+/// future.
 async fn or_stop<T>(
     stop: &mut watch::Receiver<bool>,
     future: impl Future<Output = T>,
@@ -602,7 +469,8 @@ async fn sleep_or_stop(duration: Duration, stop: &mut watch::Receiver<bool>) -> 
     }
 }
 
-/// The supervisor: connect, serve, and start over until told to stop or something unfixable happens.
+/// The supervisor: connect, serve, and start over until told to stop or something unfixable
+/// happens.
 async fn supervise(
     config: SessionConfig,
     shared: Arc<Shared>,
@@ -738,15 +606,13 @@ async fn supervise(
 
 /// How the served connection ended.
 enum Served {
-    /// The session was asked to stop.
     Stopped,
-    /// The server said the tokens are no longer valid.
     TokensInvalid,
-    /// The connection ended.
     Disconnected(String),
 }
 
-/// Forwards the connection's events until it ends, the tokens are invalidated, or a stop is asked.
+/// Forwards the connection's events until it ends, the tokens are invalidated, or a stop is
+/// asked.
 async fn serve(
     client: &Client,
     events: &mut broadcast::Receiver<Event>,
@@ -805,8 +671,7 @@ async fn serve(
 }
 
 /// Re-sends the account auth after the server ends just this account's session
-/// (`Event::AccountDisconnected`), and restores its subscriptions on success. `false` means the
-/// current tokens no longer open the account either, and the connection should be replaced.
+/// (`Event::AccountDisconnected`), and restores its subscriptions on success.
 async fn reauthorize_account(client: &Client, shared: &Shared) -> bool {
     let access_token = lock(&shared.tokens).access_token.clone();
     match client
@@ -853,8 +718,7 @@ async fn connect(config: &SessionConfig, tokens: &TokenSet) -> Result<Client> {
     }
 }
 
-/// Subscribes again to everything in the registry. A refusal is reported and skipped: one bad
-/// symbol must not stop the others, or the session.
+/// Subscribes again to everything in the registry.
 async fn restore_subscriptions(client: &Client, shared: &Shared) {
     let registry = lock(&shared.registry).clone();
     let market = client.account(shared.account_id).market();
@@ -906,8 +770,7 @@ fn classify_refresh_error(error: &Error) -> Next {
     }
 }
 
-/// Announces the failed attempt and waits before the next one. Returns `Some(end)` when the session
-/// must end instead: `Some(None)` for a stop, `Some(Some(error))` for giving up.
+/// Announces the failed attempt and waits before the next one.
 async fn wait_after_failure(
     config: &SessionConfig,
     shared: &Shared,

@@ -1,19 +1,4 @@
 //! The encryption both the secret files and the sealed documents are made of, in one place.
-//!
-//! A passphrase becomes a 256-bit key with Argon2id, and the data is encrypted with
-//! ChaCha20-Poly1305, an authenticated cipher: a wrong passphrase, or a single changed bit, makes
-//! opening fail instead of giving back garbage.
-//!
-//! * Every seal draws a fresh 16-byte salt and a fresh 12-byte nonce from the operating system, so
-//!   the same passphrase never gives the same key twice and a nonce is never used twice under one
-//!   key (the one mistake that breaks this kind of cipher).
-//! * The Argon2id cost is written next to the data ([`KdfParams`]), so it can be raised later
-//!   without a new format, and a file cannot ask for more than
-//!   [`KdfParams::validated`] allows (a hostile file must not make the app allocate gigabytes).
-//! * The *associated data* ties the ciphertext to what it is for: the key it was stored under, or
-//!   the label of the document. Copying the file of one secret over another, or a backup over a
-//!   different kind of document, then fails to open. Without it the cipher would accept the swap.
-//! * Keys and decrypted bytes live in [`Zeroizing`] buffers, wiped when dropped.
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, Payload};
@@ -28,32 +13,24 @@ const KEY_LEN: usize = 32;
 /// What can go wrong, before it is put in the words of the caller.
 #[derive(Debug)]
 pub(crate) enum CryptoError {
-    /// Argon2 refused its parameters or its input.
     Kdf(String),
     /// The system could not give random bytes.
     Random(getrandom::Error),
-    /// The cipher failed to encrypt.
     Encrypt,
-    /// The tag did not verify: wrong passphrase, or changed data.
     Decrypt,
-    /// The salt, nonce or parameters have the wrong size or are out of bounds.
     Shape(String),
 }
 
 /// The cost of turning a passphrase into a key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KdfParams {
-    /// Memory, in KiB.
     pub memory_kib: u32,
-    /// Passes over that memory.
     pub iterations: u32,
-    /// Lanes computed in parallel.
     pub parallelism: u32,
 }
 
 impl KdfParams {
-    /// What data is sealed with: 19 MiB, 2 passes, 1 lane. This is the minimum the OWASP
-    /// Password Storage Cheat Sheet gives for Argon2id.
+    /// What data is sealed with: 19 MiB, 2 passes, 1 lane.
     pub(crate) const CURRENT: Self = Self {
         memory_kib: 19_456,
         iterations: 2,
@@ -64,8 +41,8 @@ impl KdfParams {
     const MAX_ITERATIONS: u32 = 10;
     const MAX_PARALLELISM: u32 = 8;
 
-    /// These parameters, if they are within what this crate will run: at least what Argon2
-    /// itself needs, at most a memory and time a hostile file cannot abuse.
+    /// These parameters, if they are within what this crate will run: at least what Argon2 itself
+    /// needs, at most a memory and time a hostile file cannot abuse.
     pub(crate) fn validated(self) -> Result<Self, CryptoError> {
         let ok = self.parallelism >= 1
             && self.parallelism <= Self::MAX_PARALLELISM
@@ -178,8 +155,7 @@ pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     text
 }
 
-/// The bytes of a hexadecimal text (either case). Works on bytes, never on slices of the text, so
-/// a multi-byte character in a damaged file is an error and not a panic.
+/// The bytes of a hexadecimal text (either case).
 pub(crate) fn hex_decode(text: &str) -> Result<Vec<u8>, String> {
     let bytes = text.as_bytes();
     if !bytes.len().is_multiple_of(2) {

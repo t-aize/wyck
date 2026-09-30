@@ -1,4 +1,4 @@
-//! Where [`crate::openapi::session::Session`] keeps the tokens between runs.
+//! Where `crate::openapi::session::Session` keeps the tokens between runs.
 
 use std::sync::Mutex;
 
@@ -9,29 +9,18 @@ use crate::openapi::error::Result;
 
 /// Where the tokens are kept between runs.
 ///
-/// The session calls [`TokenStore::save`] every time it gets a new pair, **before** using it (the
-/// old refresh token stops working the moment the new pair is issued, so a pair lost to a crash is
-/// a lost sign in). Implement it on top of the OS keyring or an encrypted file; never store tokens
-/// in plain text.
+/// The session saves every new pair before using it: the old refresh token stops working as soon
+/// as the new pair is issued, so a pair lost to a crash is a lost sign in.
 #[async_trait]
 pub trait TokenStore: Send + Sync + 'static {
     /// The stored tokens, if any.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the storage reports.
     async fn load(&self) -> Result<Option<TokenSet>>;
 
     /// Stores the tokens, replacing what was there.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the storage reports. A failure to save ends the session: continuing would risk
-    /// losing the only valid refresh token.
     async fn save(&self, tokens: &TokenSet) -> Result<()>;
 }
 
-/// A [`TokenStore`] that keeps the tokens in memory only. For tests and short lived programs.
+/// A `TokenStore` that keeps the tokens in memory only.
 #[derive(Debug, Default)]
 pub struct MemoryTokenStore {
     tokens: Mutex<Option<TokenSet>>,

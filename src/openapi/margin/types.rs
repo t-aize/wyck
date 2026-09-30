@@ -9,22 +9,21 @@ use crate::openapi::transport::wire::flex;
 number_enum! {
     /// Which of the three supported margin call thresholds this is (`ProtoOANotificationType`).
     MarginCallType {
-        /// The first threshold.
         First = 61 => "margin level threshold 1",
         /// The second threshold.
         Second = 62 => "margin level threshold 2",
-        /// The third threshold.
         Third = 63 => "margin level threshold 3",
     }
 }
 
-/// One tier of a dynamic leverage schedule (`ProtoOADynamicLeverageTier`): the leverage applied up
-/// to a volume; the last tier also covers everything above its volume.
+/// One tier of a dynamic leverage schedule (`ProtoOADynamicLeverageTier`): the leverage applied
+/// up to a volume; the last tier also covers everything above its volume.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DynamicLeverageTier {
-    /// The largest open volume, per side, this tier's leverage applies to, in hundredths of a unit.
+    /// The largest open volume, per side, this tier's leverage applies to, in hundredths of a
+    /// unit.
     #[serde(deserialize_with = "flex::int")]
     pub volume: i64,
     /// The leverage applied up to `volume` (100 means 1:100).
@@ -37,10 +36,8 @@ pub struct DynamicLeverageTier {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DynamicLeverage {
-    /// The id `Symbol::leverage_id` points to.
     #[serde(deserialize_with = "flex::int")]
     pub leverage_id: i64,
-    /// The tiers, sorted by volume.
     #[serde(default)]
     pub tiers: Vec<DynamicLeverageTier>,
 }
@@ -61,13 +58,11 @@ pub struct ExpectedMargin {
     pub sell_margin: i64,
 }
 
-/// A margin call threshold (`ProtoOAMarginCall`). Three exist per account, told apart by
-/// `margin_call_type`.
+/// A margin call threshold (`ProtoOAMarginCall`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCall {
-    /// Which of the three thresholds this is, as [`MarginCallType`]'s number.
     #[serde(deserialize_with = "flex::int")]
     pub margin_call_type: i64,
     /// The margin level (equity over used margin, in percent) that triggers it.
@@ -82,14 +77,7 @@ pub struct MarginCall {
 }
 
 impl MarginCall {
-    /// A threshold to send with [`crate::openapi::margin::MarginClient::update_margin_call`].
-    ///
-    /// ```
-    /// use crate::openapi::margin::{MarginCall, MarginCallType};
-    ///
-    /// let call = MarginCall::new(MarginCallType::First, 120.0);
-    /// assert_eq!(call.kind(), Some(MarginCallType::First));
-    /// ```
+    /// A threshold to send with `crate::openapi::margin::MarginClient::update_margin_call`.
     #[must_use]
     pub fn new(kind: MarginCallType, margin_level_threshold: f64) -> Self {
         Self {
@@ -111,10 +99,8 @@ impl MarginCall {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginChangedEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// The new margin used, scaled by `10^moneyDigits`.
@@ -125,29 +111,24 @@ pub struct MarginChangedEvent {
     pub money_digits: Option<i64>,
 }
 
-/// `ProtoOAMarginCallUpdateEvent`: a margin call threshold was changed (by this call, or elsewhere,
-/// for example the cTrader platform).
+/// `ProtoOAMarginCallUpdateEvent`: a margin call threshold was changed (by this call, or
+/// elsewhere, for example the cTrader platform).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCallUpdateEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The threshold, after the change.
     pub margin_call: MarginCall,
 }
 
-/// `ProtoOAMarginCallTriggerEvent`: the account's margin level reached a threshold. Sent at most
-/// once every ten minutes per threshold.
+/// `ProtoOAMarginCallTriggerEvent`: the account's margin level reached a threshold.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCallTriggerEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The threshold that triggered.
     pub margin_call: MarginCall,
 }
 

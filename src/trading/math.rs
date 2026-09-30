@@ -1,5 +1,5 @@
-//! The ticket's own arithmetic on top of [`crate::openapi::trading::contract`]: how an order's
-//! size and its stop loss and take profit are typed, and how money is written.
+//! The ticket's own arithmetic on top of `crate::openapi::trading::contract`: how an order's size
+//! and its stop loss and take profit are typed, and how money is written.
 
 pub use crate::openapi::trading::contract::*;
 
@@ -10,15 +10,10 @@ pub enum SizeMode {
     /// Lots, as typed.
     #[default]
     Lots,
-    /// Units of the base asset, as typed.
     Units,
-    /// A share of the balance lost if the stop loss is hit.
     RiskBalance,
-    /// A share of the equity lost if the stop loss is hit.
     RiskEquity,
-    /// An amount of the deposit currency lost if the stop loss is hit.
     RiskMoney,
-    /// A share of the free margin the order may use.
     FreeMargin,
 }
 
@@ -38,8 +33,8 @@ impl SizeMode {
     }
 }
 
-/// How a stop loss or take profit is given: as a price, or as a distance from the entry in
-/// pips, in money, in percent of the balance, or in multiples of the risk (a take profit only).
+/// How a stop loss or take profit is given: as a price, or as a distance from the entry in pips,
+/// in money, in percent of the balance, or in multiples of the risk (a take profit only).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Offset {
@@ -63,12 +58,8 @@ impl Offset {
 pub struct Scale {
     /// The size of a pip in price.
     pub pip: f64,
-    /// What a move of 1.0 in price is worth in the deposit currency, for the volume of the
-    /// order: its units times the rate of the quote currency. `None` until the rate is known.
     pub money_per_price: Option<f64>,
     pub balance: f64,
-    /// The distance from the entry to the stop loss, for a take profit given in multiples of
-    /// the risk.
     pub stop_distance: Option<f64>,
 }
 

@@ -1,9 +1,5 @@
 //! When a symbol trades: its weekly sessions, its holidays and its trading mode, read from the
 //! symbol's details, and whether the market is open at a given moment.
-//!
-//! The Open API gives each session as seconds from Sunday 00:00 in the schedule's time zone
-//! (start included, end excluded), and each holiday as a day (days since 1970-01-01), optionally
-//! limited to part of it by seconds from the start of that day.
 
 use chrono::{Datelike, TimeZone, Timelike};
 use chrono_tz::Tz;
@@ -33,13 +29,11 @@ pub struct Interval {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Holiday {
-    /// What the holiday is called.
     #[serde(default)]
     pub name: Option<String>,
     /// Days since 1970-01-01.
     #[serde(deserialize_with = "flex::int")]
     pub holiday_date: i64,
-    /// Whether it comes back every year on the same day.
     #[serde(default)]
     pub is_recurring: bool,
     /// Seconds from the start of the day; the whole day when absent.
@@ -62,12 +56,9 @@ pub enum MarketStatus {
     Closed {
         /// When the next session starts, in Unix milliseconds.
         opens_at: Option<i64>,
-        /// The holiday the market is closed for, if that is why.
         holiday: Option<String>,
     },
-    /// Positions can only be closed.
     CloseOnly,
-    /// The broker disabled trading on the symbol.
     Disabled,
 }
 
@@ -88,7 +79,7 @@ pub struct TradingHours {
 }
 
 impl TradingHours {
-    /// The hours in a symbol's details. A symbol with no schedule trades all week.
+    /// The hours in a symbol's details.
     pub fn from_symbol(symbol: &Symbol) -> Self {
         let zone = symbol
             .schedule_time_zone

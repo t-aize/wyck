@@ -1,6 +1,6 @@
-//! Symbols and the reference catalogs around them: [`SymbolTable`] for looking one up by id or by
-//! name, the wire types for the symbol list and its details, and the catalogs a symbol's ids point
-//! into (assets, asset classes, symbol categories).
+//! Symbols and the reference catalogs around them: `SymbolTable` for looking one up by id or by
+//! name, the wire types for the symbol list and its details, and the catalogs a symbol's ids
+//! point into (assets, asset classes, symbol categories).
 
 use std::collections::HashMap;
 
@@ -13,25 +13,18 @@ use crate::openapi::transport::wire::flex;
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct LightSymbol {
-    /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
-    /// The ticker the broker uses.
     #[serde(default)]
     pub symbol_name: Option<String>,
-    /// Whether the symbol is enabled for the account.
     #[serde(default)]
     pub enabled: Option<bool>,
-    /// The broker's description.
     #[serde(default)]
     pub description: Option<String>,
-    /// The asset the symbol is bought in.
     #[serde(default, deserialize_with = "flex::opt")]
     pub base_asset_id: Option<i64>,
-    /// The asset the symbol is priced in.
     #[serde(default, deserialize_with = "flex::opt")]
     pub quote_asset_id: Option<i64>,
-    /// The symbol's category.
     #[serde(default, deserialize_with = "flex::opt")]
     pub symbol_category_id: Option<i64>,
 }
@@ -41,7 +34,6 @@ pub struct LightSymbol {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Symbol {
-    /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// Decimals the symbol is quoted with.
@@ -50,7 +42,6 @@ pub struct Symbol {
     /// Where the pip sits: a pip is 10 to the power of minus this.
     #[serde(deserialize_with = "flex::int")]
     pub pip_position: i64,
-    /// Contract size, in the base asset's smallest unit.
     #[serde(default, deserialize_with = "flex::opt")]
     pub lot_size: Option<i64>,
     /// Smallest volume, in hundredths of a unit.
@@ -62,17 +53,12 @@ pub struct Symbol {
     /// Volume step, in hundredths of a unit.
     #[serde(default, deserialize_with = "flex::opt")]
     pub step_volume: Option<i64>,
-    /// Time zone of the trading schedule.
     #[serde(default)]
     pub schedule_time_zone: Option<String>,
-    /// When the symbol trades each week (`schedule`).
     #[serde(default)]
     pub schedule: Vec<super::hours::Interval>,
-    /// Days the symbol does not trade (`holiday`).
     #[serde(default)]
     pub holiday: Vec<super::hours::Holiday>,
-    /// Whether trading is allowed (`ProtoOATradingMode`: 0 enabled, 1 and 2 disabled, 3 close
-    /// only).
     #[serde(default, deserialize_with = "flex::opt")]
     pub trading_mode: Option<i64>,
 }
@@ -82,12 +68,9 @@ pub struct Symbol {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Asset {
-    /// The asset id.
     #[serde(deserialize_with = "flex::int")]
     pub asset_id: i64,
-    /// The short name (`EUR`).
     pub name: String,
-    /// The display name.
     #[serde(default)]
     pub display_name: Option<String>,
     /// Decimals of an amount of the asset.
@@ -100,13 +83,10 @@ pub struct Asset {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AssetClass {
-    /// The class id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub id: Option<i64>,
-    /// The class name.
     #[serde(default)]
     pub name: Option<String>,
-    /// Where it sorts in the platform.
     #[serde(default)]
     pub sorting_number: Option<f64>,
 }
@@ -116,29 +96,23 @@ pub struct AssetClass {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolCategory {
-    /// The category id (what `LightSymbol::symbol_category_id` points to).
     #[serde(deserialize_with = "flex::int")]
     pub id: i64,
-    /// The asset class it belongs to.
     #[serde(deserialize_with = "flex::int")]
     pub asset_class_id: i64,
-    /// The category name.
     pub name: String,
-    /// Where it sorts in the platform.
     #[serde(default)]
     pub sorting_number: Option<f64>,
 }
 
 /// `ProtoOASymbolChangedEvent`: the broker changed one or more symbols (trading hours, volume
-/// rules, ...). Ask `MarketClient::symbol_details` again for the ones named here.
+/// rules, ...).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolChangedEvent {
-    /// The account the changed symbols belong to.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The symbols that changed.
     #[serde(default, deserialize_with = "flex::list")]
     pub symbol_id: Vec<i64>,
 }
@@ -147,9 +121,7 @@ pub struct SymbolChangedEvent {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolsListReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// Whether archived symbols are wanted too.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include_archived_symbols: Option<bool>,
 }
@@ -159,7 +131,6 @@ pub struct SymbolsListReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolsListRes {
-    /// The symbols of the account.
     #[serde(default)]
     pub symbol: Vec<LightSymbol>,
 }
@@ -168,9 +139,7 @@ pub struct SymbolsListRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolByIdReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbols asked about.
     pub symbol_id: Vec<i64>,
 }
 
@@ -179,7 +148,6 @@ pub struct SymbolByIdReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolByIdRes {
-    /// The details asked for.
     #[serde(default)]
     pub symbol: Vec<Symbol>,
 }
@@ -188,11 +156,8 @@ pub struct SymbolByIdRes {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolsForConversionReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The asset converted from.
     pub first_asset_id: i64,
-    /// The asset converted to.
     pub last_asset_id: i64,
 }
 
@@ -202,7 +167,6 @@ pub struct SymbolsForConversionReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolsForConversionRes {
-    /// The chain, in order.
     #[serde(default)]
     pub symbol: Vec<LightSymbol>,
 }
@@ -212,7 +176,6 @@ pub struct SymbolsForConversionRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AssetListRes {
-    /// The assets.
     #[serde(default)]
     pub asset: Vec<Asset>,
 }
@@ -222,7 +185,6 @@ pub struct AssetListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AssetClassListRes {
-    /// The classes.
     #[serde(default)]
     pub asset_class: Vec<AssetClass>,
 }
@@ -232,15 +194,11 @@ pub struct AssetClassListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolCategoryListRes {
-    /// The categories.
     #[serde(default)]
     pub symbol_category: Vec<SymbolCategory>,
 }
 
 /// A symbol list indexed by id and by name.
-///
-/// Names are matched without regard to case (`eurusd` finds `EURUSD`). A name that appears twice
-/// keeps the first symbol.
 #[derive(Debug, Clone, Default)]
 pub struct SymbolTable {
     symbols: Vec<LightSymbol>,
@@ -286,14 +244,6 @@ impl SymbolTable {
     }
 
     /// The symbol with this name, in any case.
-    ///
-    /// ```
-    /// use crate::openapi::market::{LightSymbol, SymbolTable};
-    ///
-    /// let symbol: LightSymbol = serde_json::from_str(r#"{"symbolId": 1, "symbolName": "EURUSD"}"#).unwrap();
-    /// let table = SymbolTable::new([symbol]);
-    /// assert_eq!(table.id_of("eurusd"), Some(1));
-    /// ```
     #[must_use]
     pub fn find(&self, name: &str) -> Option<&LightSymbol> {
         self.by_name

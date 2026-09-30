@@ -1,7 +1,5 @@
-//! Live prices: the two-sided [`Spot`], the wire [`SpotEvent`] that only carries the side that
-//! changed, and [`SpotTracker`], which carries the other side forward into a full quote.
-//!
-//! None of this does I/O. Feed it the events of `Client::events` and read it back.
+//! Live prices: the two-sided `Spot`, the wire `SpotEvent` that only carries the side that
+//! changed, and `SpotTracker`, which carries the other side forward into a full quote.
 
 use std::collections::HashMap;
 
@@ -12,11 +10,8 @@ use crate::openapi::transport::wire::flex;
 /// A live price change: what one `ProtoOASpotEvent` says about a symbol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Spot {
-    /// The symbol.
     pub symbol_id: i64,
-    /// The bid, when this event changed it.
     pub bid: Option<i64>,
-    /// The ask, when this event changed it.
     pub ask: Option<i64>,
     /// The server's time in Unix milliseconds, when it was asked to give one.
     pub time_ms: Option<i64>,
@@ -37,19 +32,14 @@ impl From<&SpotEvent> for Spot {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotEvent {
-    /// The trading account id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
-    /// The new bid, when it changed.
     #[serde(default, deserialize_with = "flex::opt")]
     pub bid: Option<i64>,
-    /// The new ask, when it changed.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ask: Option<i64>,
-    /// The close price of the last session.
     #[serde(default, deserialize_with = "flex::opt")]
     pub session_close: Option<i64>,
     /// When the server made the event, in Unix milliseconds, if it was asked to say.
@@ -61,19 +51,13 @@ pub struct SpotEvent {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeSpotsReq {
-    /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbols to follow.
     pub symbol_id: Vec<i64>,
-    /// Ask for the server time of each spot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscribe_to_spot_timestamp: Option<bool>,
 }
 
 /// Keeps the latest bid and ask of every symbol seen.
-///
-/// A [`SpotEvent`] carries the side that changed, so a program that wants a full quote has to carry
-/// the other side forward. [`SpotTracker::apply`] does that and returns the complete [`Spot`].
 #[derive(Debug, Clone, Default)]
 pub struct SpotTracker {
     latest: HashMap<i64, Spot>,
@@ -87,7 +71,7 @@ impl SpotTracker {
     }
 
     /// Folds one event in and returns the symbol's quote after it: the sides that changed, the
-    /// others as last seen. Its time is the event's when it has one, else the previous one.
+    /// others as last seen.
     pub fn apply(&mut self, event: &SpotEvent) -> Spot {
         let entry = self.latest.entry(event.symbol_id).or_insert(Spot {
             symbol_id: event.symbol_id,
@@ -124,8 +108,8 @@ impl SpotTracker {
         self.latest.remove(&symbol_id);
     }
 
-    /// Forgets everything, after a reconnect (the first event after a new subscription carries the
-    /// latest prices again).
+    /// Forgets everything, after a reconnect (the first event after a new subscription carries
+    /// the latest prices again).
     pub fn clear(&mut self) {
         self.latest.clear();
     }

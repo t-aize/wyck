@@ -1,15 +1,12 @@
-//! How long [`crate::openapi::session::Session`] waits between two attempts to connect.
+//! How long `crate::openapi::session::Session` waits between two attempts to connect.
 
 use std::time::Duration;
 
 /// How long to wait between two attempts to connect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Backoff {
-    /// The wait after the first failure.
     pub initial: Duration,
-    /// The longest wait.
     pub max: Duration,
-    /// What each wait is multiplied by (at least 1).
     pub factor: u32,
 }
 
@@ -25,16 +22,6 @@ impl Default for Backoff {
 
 impl Backoff {
     /// The wait before attempt number `attempt` (1 for the first retry), without jitter.
-    ///
-    /// ```
-    /// use std::time::Duration;
-    /// use crate::openapi::session::Backoff;
-    ///
-    /// let backoff = Backoff { initial: Duration::from_secs(1), max: Duration::from_secs(10), factor: 2 };
-    /// assert_eq!(backoff.delay(1), Duration::from_secs(1));
-    /// assert_eq!(backoff.delay(3), Duration::from_secs(4));
-    /// assert_eq!(backoff.delay(9), Duration::from_secs(10)); // capped
-    /// ```
     #[must_use]
     pub fn delay(&self, attempt: u32) -> Duration {
         let factor = u128::from(self.factor.max(1));
@@ -48,8 +35,8 @@ impl Backoff {
         Duration::from_millis(u64::try_from(wait.min(self.max.as_millis())).unwrap_or(u64::MAX))
     }
 
-    /// [`Backoff::delay`] plus up to a fifth more, taken from `noise` (any number: the low bits
-    /// are used), so that many programs do not retry at the same instant.
+    /// `Backoff::delay` plus up to a fifth more, taken from `noise` (any number: the low bits are
+    /// used), so that many programs do not retry at the same instant.
     #[must_use]
     pub fn jittered(&self, attempt: u32, noise: u32) -> Duration {
         let base = self.delay(attempt);

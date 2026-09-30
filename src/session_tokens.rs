@@ -19,9 +19,7 @@ impl ConfigTokenStore {
     }
 }
 
-/// The session's view of a stored token pair. The store keeps the moment the access token
-/// expires; the session wants how long it lasts and when it was received, so the pair is treated
-/// as received now.
+/// The session's view of a stored token pair.
 pub fn to_token_set(stored: OpenApiTokens) -> TokenSet {
     let now = SystemTime::now();
     TokenSet {
