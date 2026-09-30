@@ -1,6 +1,5 @@
 # Build output
 /target/
-/dist/
 
 # Env
 .env
