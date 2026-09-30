@@ -569,7 +569,12 @@ impl OrderTicket {
         cx: &mut Context<Self>,
     ) {
         if self.symbol.as_ref().map(|s| s.id) == symbol.as_ref().map(|s| s.id) {
-            self.symbol = symbol;
+            // The same symbol, maybe with the decimals the broker just gave.
+            if self.symbol != symbol {
+                self.symbol = symbol;
+                self.apply_steps(window, cx);
+                cx.notify();
+            }
             return;
         }
         self.symbol = symbol;

@@ -88,8 +88,9 @@ impl Dashboard {
         // The ticket is for the active chart's symbol.
         let symbol = self.multi.read(cx).active_symbol(cx);
         let symbol_id = symbol.as_ref().map(|s| s.id);
+        // Also when only the decimals changed: the broker's answer can come after the symbol.
         if let Some(ticket) = &self.ticket
-            && ticket.read(cx).symbol().map(|s| s.id) != symbol_id
+            && ticket.read(cx).symbol() != symbol.as_ref()
         {
             ticket.update(cx, |t, cx| t.set_symbol(symbol, window, cx));
         }
