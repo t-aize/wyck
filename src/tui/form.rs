@@ -1,21 +1,25 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Clear, Paragraph, Wrap};
+
+use super::{input::Input, theme};
 
 pub struct Field {
     pub label: &'static str,
-    pub value: String,
+    pub input: Input,
     pub secret: bool,
 }
 
 impl Field {
     pub fn new(label: &'static str, value: &str, secret: bool) -> Self {
+        let mut input = Input::default();
+        input.set(value);
         Self {
             label,
-            value: value.to_owned(),
+            input,
             secret,
         }
     }
@@ -35,6 +39,7 @@ pub struct Form {
     pub error: Option<String>,
     pub warning: Option<String>,
     pub busy: bool,
+    pub busy_label: &'static str,
     pub live: Option<bool>,
 }
 
@@ -48,12 +53,20 @@ impl Form {
             error: None,
             warning: None,
             busy: false,
+            busy_label: "Working...",
             live: None,
         }
     }
 
     pub fn value(&self, index: usize) -> &str {
-        self.fields[index].value.trim()
+        self.fields[index].input.text().trim()
+    }
+
+    pub fn paste(&mut self, text: &str) {
+        if !self.busy {
+            self.warning = None;
+            self.fields[self.focus].input.insert(text);
+        }
     }
 
     pub fn key(&mut self, key: KeyEvent) -> FormAction {
@@ -70,92 +83,93 @@ impl Form {
                 self.focus = (self.focus + self.fields.len() - 1) % self.fields.len();
             }
             KeyCode::Enter => return FormAction::Submit,
-            KeyCode::Backspace => {
-                self.fields[self.focus].value.pop();
+            _ => {
+                let before = self.fields[self.focus].input.text().to_owned();
+                self.fields[self.focus].input.key(key);
+                if before != self.fields[self.focus].input.text() {
+                    self.warning = None;
+                    self.error = None;
+                }
             }
-            KeyCode::Char(c) if !ctrl && !key.modifiers.contains(KeyModifiers::ALT) => {
-                self.warning = None;
-                self.fields[self.focus].value.push(c);
-            }
-            _ => {}
         }
         FormAction::None
     }
 
     pub fn render(&self, frame: &mut Frame, area: Rect, width: u16) {
-        let mut lines = vec![Line::raw("")];
-        for (index, field) in self.fields.iter().enumerate() {
-            let shown = if field.secret {
-                "*".repeat(field.value.chars().count())
-            } else {
-                field.value.clone()
-            };
-            let focused = index == self.focus && !self.busy;
-            let cursor = if focused { "_" } else { "" };
-            let style = if focused {
-                Style::default().add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!(" {:<14}", field.label),
-                    Style::default().fg(Color::Gray),
-                ),
-                Span::styled(format!("{shown}{cursor}"), style),
-            ]));
-        }
+        let mut lines = Vec::new();
         if let Some(live) = self.live {
             let (text, color) = if live {
-                ("LIVE (real money)", Color::Red)
+                ("LIVE (real money)", theme::RED)
             } else {
-                ("Demo", Color::Green)
+                ("Demo", theme::GREEN)
             };
-            lines.push(Line::raw(""));
             lines.push(Line::from(vec![
-                Span::styled(" Environment   ", Style::default().fg(Color::Gray)),
-                Span::styled(
-                    text,
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled("  (Ctrl+E to switch)", Style::default().fg(Color::DarkGray)),
+                Span::styled(text, theme::bold(color)),
+                Span::styled("  Ctrl+E", Style::default().fg(theme::MUTED)),
             ]));
         }
         lines.push(Line::raw(""));
         if self.busy {
             lines.push(Line::styled(
-                " Working...",
-                Style::default().fg(Color::Yellow),
+                self.busy_label,
+                Style::default().fg(theme::YELLOW),
             ));
         }
         if let Some(error) = &self.error {
-            lines.push(Line::styled(
-                format!(" {error}"),
-                Style::default().fg(Color::Red),
-            ));
+            lines.push(Line::styled(error.clone(), Style::default().fg(theme::RED)));
         }
         if let Some(warning) = &self.warning {
             lines.push(Line::styled(
-                format!(" {warning}"),
-                Style::default().fg(Color::Yellow),
+                warning.clone(),
+                Style::default().fg(theme::YELLOW),
             ));
         }
-        lines.push(Line::styled(
-            format!(" {}", self.hint),
-            Style::default().fg(Color::DarkGray),
-        ));
+        lines.push(Line::styled(self.hint, Style::default().fg(theme::MUTED)));
 
-        let height = u16::try_from(lines.len() + 2).unwrap_or(u16::MAX);
+        let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
+        let message_height = paragraph.line_count(width.min(area.width).saturating_sub(4));
+        let height = u16::try_from(self.fields.len() * 3 + message_height + 3).unwrap_or(u16::MAX);
         let rect = centered(area, width, height);
         frame.render_widget(Clear, rect);
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" {} ", self.title));
+        let block = theme::popup(format!(" {} ", self.title));
+        let mut inner = block.inner(rect);
+        frame.render_widget(block, rect);
+        inner.x = inner.x.saturating_add(1);
+        inner.width = inner.width.saturating_sub(2);
+        for (index, field) in self.fields.iter().enumerate() {
+            let offset = u16::try_from(index * 3).unwrap_or(u16::MAX);
+            if offset + 1 >= inner.height {
+                break;
+            }
+            let label = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+            frame.render_widget(
+                Paragraph::new(field.label).style(Style::default().fg(if index == self.focus {
+                    theme::ACCENT
+                } else {
+                    theme::MUTED
+                })),
+                label,
+            );
+            let input = Rect::new(inner.x, inner.y + offset + 1, inner.width, 1);
+            field.input.render(
+                frame,
+                input,
+                index == self.focus && !self.busy,
+                field.secret,
+                "",
+            );
+        }
+        let offset = u16::try_from(self.fields.len() * 3)
+            .unwrap_or(u16::MAX)
+            .min(inner.height);
         frame.render_widget(
-            Paragraph::new(lines)
-                .block(block)
-                .wrap(ratatui::widgets::Wrap { trim: false }),
-            rect,
+            paragraph,
+            Rect::new(
+                inner.x,
+                inner.y + offset,
+                inner.width,
+                inner.height - offset,
+            ),
         );
     }
 }

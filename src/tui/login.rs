@@ -8,7 +8,9 @@ use crate::config::{CLIENT_SECRET, ConfigError, ProfileConfig, ProfileId, WyckCo
 use crate::openapi::auth::{
     CallbackListener, OAuthClient, Scope, TokenSet, authorization_url, new_state,
 };
-use crate::openapi::{Client, ClientBuilder, ClientCredentials, Environment, TraderAccount};
+use crate::openapi::{
+    Client, ClientCredentials, ConnectionConfig, Environment, Error, TraderAccount,
+};
 use crate::session_tokens::{to_stored, to_token_set};
 
 pub const CALLBACK_PORT: u16 = 8765;
@@ -146,6 +148,32 @@ pub struct SignedIn {
     pub accounts: Vec<TraderAccount>,
 }
 
+fn connection_error(environment: Environment, error: &Error) -> String {
+    let endpoint = format!(
+        "{}:{}",
+        environment.host(),
+        crate::openapi::config::JSON_PORT
+    );
+    match error {
+        Error::Timeout { .. } => format!(
+            "Connection to {endpoint} timed out before authentication. \
+             Check your network, VPN or firewall, then retry."
+        ),
+        _ => format!("Could not connect to {endpoint}: {error}"),
+    }
+}
+
+fn application_error(error: &Error) -> String {
+    match error {
+        Error::Timeout { .. } => {
+            "Connected to cTrader, but application authentication timed out. Retry sign in."
+                .to_owned()
+        }
+        Error::Server { .. } => format!("cTrader refused application authentication: {error}"),
+        _ => format!("Application authentication could not complete: {error}"),
+    }
+}
+
 pub async fn sign_in(
     credentials: ClientCredentials,
     environment: Environment,
@@ -154,11 +182,14 @@ pub async fn sign_in(
     let listener = CallbackListener::bind(CALLBACK_PORT)
         .await
         .map_err(|e| format!("could not listen on port {CALLBACK_PORT}: {e}"))?;
-    let client = ClientBuilder::new(environment)
-        .credentials(credentials.clone())
-        .connect()
+    let client = Client::connect(&ConnectionConfig::new(environment))
         .await
-        .map_err(|e| format!("cTrader rejected the client id or secret: {e}"))?;
+        .map_err(|e| connection_error(environment, &e))?;
+    let _ = tx.send(Msg::LoginProgress("Authenticating application..."));
+    client
+        .authenticate_application(&credentials)
+        .await
+        .map_err(|e| application_error(&e))?;
 
     let redirect = listener.redirect_uri();
     let state = new_state();
@@ -261,5 +292,37 @@ mod tests {
     fn documents_are_kept_per_environment_and_account() {
         assert_eq!(document_scope(Environment::Live, 42), "live-42");
         assert_eq!(document_scope(Environment::Demo, 42), "demo-42");
+    }
+
+    #[test]
+    fn a_connection_timeout_does_not_claim_credentials_were_refused() {
+        let message = connection_error(
+            Environment::Demo,
+            &Error::Timeout {
+                operation: "the connection",
+            },
+        );
+        assert!(message.contains("demo.ctraderapi.com:5036"));
+        assert!(message.contains("before authentication"));
+        assert!(!message.contains("rejected"));
+        assert!(!message.contains("secret"));
+        let timeout = application_error(&Error::Timeout {
+            operation: "the application sign in",
+        });
+        assert!(timeout.contains("Connected to cTrader"));
+        assert!(!timeout.contains("refused"));
+    }
+
+    #[test]
+    fn only_a_server_answer_is_presented_as_an_authentication_refusal() {
+        let message = application_error(&Error::server("CH_CLIENT_AUTH_FAILURE", None, None, None));
+        assert!(message.contains("refused application authentication"));
+        assert!(message.contains("CH_CLIENT_AUTH_FAILURE"));
+        let transport = connection_error(
+            Environment::Live,
+            &Error::Transport("TLS handshake failed".into()),
+        );
+        assert!(transport.contains("live.ctraderapi.com:5036"));
+        assert!(!transport.contains("refused"));
     }
 }

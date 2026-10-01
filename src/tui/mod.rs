@@ -1,23 +1,31 @@
+mod commands;
+mod console;
 mod dashboard;
 mod form;
+mod header;
+mod input;
 mod login;
+mod sessions;
+mod theme;
+mod ticket;
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event::{
-    Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+    DisableBracketedPaste, EnableBracketedPaste, Event as TermEvent, EventStream, KeyCode,
+    KeyEvent, KeyEventKind, KeyModifiers,
 };
 use futures_util::StreamExt;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::style::Style;
+use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 use secrecy::SecretString;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::task::JoinHandle;
 
-use self::dashboard::{Dashboard, Loaded, Outcome};
+use self::dashboard::{Dashboard, Loaded, Outcome, Sender};
 use self::form::{Field, Form, FormAction, centered};
 use self::login::{Saved, SignedIn};
 use crate::config::{AppPaths, KeyringSecretStore, SecretKey, SecretStore, WyckConfig};
@@ -31,15 +39,17 @@ use crate::session_tokens::ConfigTokenStore;
 const TICK: Duration = Duration::from_millis(250);
 
 pub enum Msg {
+    LoginProgress(&'static str),
     Url(String),
     SignedIn(Result<SignedIn, String>),
     Authorized(Result<(), String>),
     Session(SessionEvent),
-    Loaded(Box<Result<Loaded, String>>),
+    Loaded(u64, Box<Result<Loaded, String>>),
     Trader(Trader),
     Pnl(Vec<PositionUnrealizedPnL>),
     Done(Result<String, String>),
     Added(Result<(Symbol, String), String>),
+    Scoped(u64, Box<Msg>),
 }
 
 enum Screen {
@@ -62,17 +72,41 @@ struct App {
     reset: bool,
     encrypted: bool,
     tick: u64,
+    generation: u64,
     quit: bool,
     tx: UnboundedSender<Msg>,
 }
 
 pub async fn run(paths: AppPaths, reset: bool) -> anyhow::Result<()> {
+    run_app(paths, reset, false).await
+}
+
+pub async fn preview(paths: AppPaths) -> anyhow::Result<()> {
+    run_app(paths, false, true).await
+}
+
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = crossterm::execute!(std::io::stdout(), DisableBracketedPaste);
+        ratatui::restore();
+    }
+}
+
+async fn run_app(paths: AppPaths, reset: bool, preview: bool) -> anyhow::Result<()> {
     let (tx, mut rx) = unbounded_channel();
     let mut app = App::new(paths, reset, tx);
     let mut terminal = ratatui::init();
-    app.start();
+    let guard = TerminalGuard;
+    crossterm::execute!(std::io::stdout(), EnableBracketedPaste)?;
+    if preview {
+        app.screen = Screen::Dashboard(Box::new(Dashboard::preview(app.tx.clone())));
+    } else {
+        app.start();
+    }
     let result = event_loop(&mut terminal, &mut app, &mut rx).await;
-    ratatui::restore();
+    drop(guard);
     app.shutdown().await;
     result
 }
@@ -89,6 +123,7 @@ async fn event_loop(
         tokio::select! {
             event = events.next() => match event {
                 Some(Ok(TermEvent::Key(key))) if key.kind == KeyEventKind::Press => app.on_key(key),
+                Some(Ok(TermEvent::Paste(text))) => app.on_paste(&text),
                 Some(Err(error)) => return Err(error.into()),
                 None => break,
                 _ => {}
@@ -136,6 +171,7 @@ impl App {
             reset,
             encrypted: false,
             tick: 0,
+            generation: 0,
             quit: false,
             tx,
         }
@@ -206,12 +242,16 @@ impl App {
             }
         };
         let mut events = session.events();
-        let tx = self.tx.clone();
+        self.generation = self.generation.wrapping_add(1);
+        let tx = Sender::new(self.tx.clone(), self.generation);
+        let dashboard_tx = tx.clone();
         tokio::spawn(async move {
             loop {
                 match events.recv().await {
                     Ok(event) => {
-                        if tx.send(Msg::Session(event)).is_err() {
+                        let ended =
+                            matches!(event, SessionEvent::Stopped | SessionEvent::Failed(_));
+                        if tx.send(Msg::Session(event)).is_err() || ended {
                             break;
                         }
                     }
@@ -226,7 +266,7 @@ impl App {
             saved.environment,
             session,
             docs,
-            self.tx.clone(),
+            dashboard_tx,
         )));
     }
 
@@ -250,6 +290,11 @@ impl App {
 
     fn on_msg(&mut self, msg: Msg) {
         match msg {
+            Msg::LoginProgress(label)
+                if matches!(self.screen, Screen::Login) && self.login.busy =>
+            {
+                self.login.busy_label = label;
+            }
             Msg::Url(url) => {
                 if matches!(self.screen, Screen::Login) {
                     self.screen = Screen::Waiting(url);
@@ -272,11 +317,11 @@ impl App {
             }
             Msg::Authorized(Ok(())) => self.finish_sign_in(),
             Msg::Authorized(Err(error)) => self.back_to_login(error),
-            other => {
+            Msg::Scoped(generation, msg) if generation == self.generation => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    match other {
+                    match *msg {
                         Msg::Session(event) => dashboard.on_session(event),
-                        Msg::Loaded(loaded) => dashboard.on_loaded(*loaded),
+                        Msg::Loaded(id, loaded) => dashboard.on_loaded(id, *loaded),
                         Msg::Trader(trader) => dashboard.on_trader(trader),
                         Msg::Pnl(answer) => dashboard.on_pnl(answer),
                         Msg::Done(result) => dashboard.on_done(result),
@@ -285,10 +330,14 @@ impl App {
                     }
                 }
             }
+            _ => {}
         }
     }
 
     fn back_to_login(&mut self, error: String) {
+        if let Some(task) = self.sign_in.take() {
+            task.abort();
+        }
         self.pending = None;
         self.login.busy = false;
         self.login.error = Some(error);
@@ -310,14 +359,15 @@ impl App {
         if let Some(pending) = self.pending.as_mut() {
             pending.accounts.swap(0, index);
         }
-        tokio::spawn(async move {
+        self.sign_in = Some(tokio::spawn(async move {
             let _ = tx.send(Msg::Authorized(
                 login::authorize(client, account_id, tokens).await,
             ));
-        });
+        }));
     }
 
     fn finish_sign_in(&mut self) {
+        self.sign_in = None;
         let (Some(pending), Some(config)) = (self.pending.take(), self.config.as_mut()) else {
             return;
         };
@@ -342,6 +392,11 @@ impl App {
 
     fn on_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            if let Screen::Dashboard(dashboard) = &mut self.screen
+                && dashboard.cancel_input()
+            {
+                return;
+            }
             self.quit = true;
             return;
         }
@@ -388,15 +443,19 @@ impl App {
             Screen::Dashboard(dashboard) => {
                 if key.code == KeyCode::Char('q') && dashboard.is_idle() {
                     self.quit = true;
-                } else if let Outcome::SignOut = dashboard.on_key(key) {
-                    self.sign_out();
+                } else {
+                    match dashboard.on_key(key) {
+                        Outcome::SignOut => self.sign_out(),
+                        Outcome::Quit => self.quit = true,
+                        Outcome::None => {}
+                    }
                 }
             }
         }
     }
 
     fn submit_passphrase(&mut self) {
-        let text = self.passphrase.fields[0].value.clone();
+        let text = self.passphrase.fields[0].input.text().to_owned();
         if text.is_empty() {
             self.passphrase.error = Some("A passphrase is required".to_owned());
             return;
@@ -414,6 +473,7 @@ impl App {
         }
         self.login.error = None;
         self.login.busy = true;
+        self.login.busy_label = "Connecting to cTrader...";
         let environment = if self.login.live == Some(true) {
             Environment::Live
         } else {
@@ -428,8 +488,9 @@ impl App {
     }
 
     fn sign_out(&mut self) {
-        if let Screen::Dashboard(dashboard) = &self.screen {
-            let session = dashboard.session();
+        if let Screen::Dashboard(dashboard) = &self.screen
+            && let Some(session) = dashboard.session()
+        {
             tokio::spawn(async move { session.stop().await });
         }
         if let Some(config) = self.config.as_mut()
@@ -437,7 +498,7 @@ impl App {
         {
             tracing::warn!(%error, "could not forget the saved connection");
         }
-        self.login.fields[1].value.clear();
+        self.login.fields[1].input.clear();
         self.login.busy = false;
         self.screen = Screen::Login;
     }
@@ -446,6 +507,36 @@ impl App {
 
     fn draw(&self, frame: &mut Frame) {
         let area = frame.area();
+        frame.render_widget(Block::default().style(theme::base()), area);
+        if let Screen::Dashboard(dashboard) = &self.screen {
+            dashboard.draw(frame);
+            return;
+        }
+        let [banner, area] =
+            Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
+        let status = match self.screen {
+            Screen::Passphrase => "Locked",
+            Screen::Login if self.login.busy => self.login.busy_label,
+            Screen::Login => "Sign in",
+            Screen::Waiting(_) => "Awaiting approval",
+            Screen::Accounts(_) => "Select account",
+            Screen::Starting(text) => text,
+            Screen::Dashboard(_) => unreachable!(),
+        };
+        header::Header {
+            context: "cTrader Open API",
+            environment: self.login.live.map(|live| {
+                if live {
+                    Environment::Live
+                } else {
+                    Environment::Demo
+                }
+            }),
+            status,
+            market: None,
+            balance: None,
+        }
+        .render(frame, banner);
         match &self.screen {
             Screen::Passphrase => {
                 intro(
@@ -477,7 +568,7 @@ impl App {
                 frame.render_widget(
                     Paragraph::new(text)
                         .wrap(Wrap { trim: false })
-                        .block(Block::default().borders(Borders::ALL).title(" Sign in ")),
+                        .block(theme::popup(" Sign in ".to_owned())),
                     rect,
                 );
             }
@@ -491,19 +582,16 @@ impl App {
                 let height = u16::try_from(items.len() + 2).unwrap_or(10);
                 let rect = centered(area, 60, height.max(4));
                 let list = List::new(items)
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title(" Pick an account "),
-                    )
-                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+                    .block(theme::popup(" Pick an account ".to_owned()))
+                    .highlight_style(Style::default().bg(theme::SELECTED))
+                    .highlight_symbol("> ");
                 let mut state = ListState::default().with_selected(Some(*selected));
                 frame.render_stateful_widget(list, rect, &mut state);
             }
             Screen::Starting(text) => {
                 let rect = centered(area, 50, 3);
                 frame.render_widget(
-                    Paragraph::new(*text).block(Block::default().borders(Borders::ALL)),
+                    Paragraph::new(*text).block(theme::popup(" wyck ".to_owned())),
                     rect,
                 );
             }
@@ -512,12 +600,59 @@ impl App {
     }
 }
 
+impl App {
+    fn on_paste(&mut self, text: &str) {
+        match &mut self.screen {
+            Screen::Passphrase => self.passphrase.paste(text),
+            Screen::Login => self.login.paste(text),
+            Screen::Dashboard(dashboard) => dashboard.paste(text),
+            _ => {}
+        }
+    }
+}
+
 fn intro(frame: &mut Frame, area: Rect, text: &str) {
     let [top, _] = Layout::vertical([Constraint::Length(4), Constraint::Min(0)]).areas(area);
     frame.render_widget(
-        Paragraph::new(format!("wyck\n{text}"))
+        Paragraph::new(format!("\n {text}"))
             .wrap(Wrap { trim: false })
-            .style(Style::default().fg(Color::Gray)),
+            .style(Style::default().fg(theme::MUTED)),
         top,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn header(app: &App) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+        terminal.draw(|frame| app.draw(frame)).unwrap();
+        (0..100)
+            .map(|x| terminal.backend().buffer()[(x, 0)].symbol())
+            .collect()
+    }
+
+    #[test]
+    fn messages_from_a_previous_session_are_ignored() {
+        let (tx, _) = unbounded_channel();
+        let mut app = App::new(
+            AppPaths::at(std::env::temp_dir().join("wyck-tui-unused")),
+            false,
+            tx.clone(),
+        );
+        app.screen = Screen::Dashboard(Box::new(Dashboard::preview(tx)));
+        app.generation = 2;
+        app.on_msg(Msg::Scoped(
+            1,
+            Box::new(Msg::Session(SessionEvent::Stopped)),
+        ));
+        assert!(header(&app).contains("PREVIEW"));
+        app.on_msg(Msg::Scoped(
+            2,
+            Box::new(Msg::Session(SessionEvent::Stopped)),
+        ));
+        assert!(header(&app).contains("OFFLINE"));
+    }
 }

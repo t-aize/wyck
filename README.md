@@ -46,18 +46,62 @@ session), wyck asks for a passphrase at every start and keeps them in encrypted 
 `wyck --reset` forgets the saved connection. `wyck --config-dir <folder>` keeps everything in one
 folder.
 
+`wyck --preview` opens the interface with sample prices, positions and orders. It does not
+connect, open the keyring or write configuration files.
+
 ## Keys
 
 | Key | Action |
 |---|---|
-| `1` `2` `3`, `Tab` | watchlist, positions, orders |
-| `j` `k`, arrows | move |
-| `a`, `d` | add or remove a symbol (watchlist) |
-| `b`, `s` | buy or sell the selected symbol at market (watchlist) |
-| `x` | close the selected position |
-| `c` | cancel the selected order |
-| `o` | sign out and forget the connection |
-| `q` | quit |
+| `F1` to `F4` | watchlist, positions, orders, console |
+| `Shift+Tab`, `F6` | switch between command input and tables |
+| `/` (tables) | focus command input |
+| `Tab` (input) | complete a command name |
+| Up / Down (input) | command history, then restore the draft |
+| Left / Right, Home / End | move the input cursor |
+| `Ctrl+A` / `Ctrl+E`, `Ctrl+U` / `Ctrl+K`, `Ctrl+W` | move to start/end, erase before/after cursor, erase a word |
+| `PgUp` / `PgDn` | scroll the activity log |
+| `Esc` | clear input, switch focus when empty, or cancel a popup |
+| `Ctrl+C` | cancel a popup or clear input, then quit when empty |
+| `1` to `4`, `Tab` (tables) | switch views |
+| `j` / `k`, arrows (tables) | select a row |
+| `a` / `d`, `b` / `s` (watchlist) | add/remove a symbol, open buy/sell ticket |
+| `x` (positions), `c` (orders) | confirm a close or cancellation |
+| `o`, `q` (tables) | confirm sign out, quit |
+
+## Commands
+
+The command input starts focused. Commands work with or without a leading `/`. Results and
+server events stay in the activity log; the Console view gives the log the full workspace.
+
+```text
+/help
+/add EURUSD
+/watchlist
+/positions
+/orders
+/buy EURUSD 0.01 --sl 1.08000 --tp 1.09500
+/sell EURUSD 0.01 --sl 1.09500 --tp 1.08000
+/close 1042
+/cancel 2084
+/remove EURUSD
+/refresh
+/console
+/clear
+/logout
+/quit
+```
+
+Add a symbol to the watchlist before trading it. Buy and sell open an editable ticket, close
+and cancel open a confirmation. Lots must match the broker's limits and volume step. SL/TP
+arguments are prices; market orders send their distance from the current ask (buy) or bid
+(sell), so their final levels follow the actual fill. Pasting text never submits it.
+
+The one-line header follows the original OpenTUI layout: symbol, bid/ask, spread and price
+history, then connection, balance, Paris clock and market sessions. Session and ICT windows
+use each city's time zone and local weekdays. They are time windows, not the broker's trading
+schedule. Wider spreads turn red relative to recent quotes; XAUUSD also keeps its original
+absolute threshold of 1 in price units. Narrow terminals omit secondary header information.
 
 Orders pass through the risk guard in `src/trading/guard.rs`. Limits are read from the `risk`
 document of the account (see below); with none set, only the price collar applies.

@@ -1,24 +1,19 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Display;
 use std::time::Duration;
 
-use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Row, Table, TableState, Tabs};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::Msg;
 use super::form::{Field, Form, FormAction, centered};
+use super::{console::Console, theme};
 use crate::config::DocumentStore;
 use crate::openapi::account::book::{AccountBook, Tone, describe, is_buy};
 use crate::openapi::account::{Order, Position, PositionUnrealizedPnL, TradeSide, Trader};
 use crate::openapi::market::{LightSymbol, SpotTracker, Symbol, to_price};
 use crate::openapi::session::{Session, SessionEvent};
-use crate::openapi::trading::NewOrderReq;
 use crate::openapi::trading::contract::{Contract, format_lots};
 use crate::openapi::{Environment, Event};
 use crate::trading::guard::{self, OrderFacts, RiskPrefs, Standing, Verdict};
@@ -27,6 +22,10 @@ use crate::trading::math::format_money;
 const WATCHLIST: &str = "watchlist";
 const RISK: &str = "risk";
 const PNL_EVERY_TICKS: u64 = 20;
+
+mod command;
+mod preview;
+mod view;
 
 #[derive(Default, Serialize, Deserialize)]
 struct Watchlist {
@@ -49,9 +48,10 @@ enum Tab {
     Watchlist,
     Positions,
     Orders,
+    Console,
 }
 
-const TABS: [Tab; 3] = [Tab::Watchlist, Tab::Positions, Tab::Orders];
+const TABS: [Tab; 4] = [Tab::Watchlist, Tab::Positions, Tab::Orders, Tab::Console];
 
 #[derive(Clone, Copy)]
 enum Confirm {
@@ -77,25 +77,49 @@ enum Popup {
 pub enum Outcome {
     None,
     SignOut,
+    Quit,
+}
+
+#[derive(Clone)]
+pub(super) struct Sender {
+    tx: UnboundedSender<Msg>,
+    generation: u64,
+}
+
+impl Sender {
+    pub(super) fn new(tx: UnboundedSender<Msg>, generation: u64) -> Self {
+        Self { tx, generation }
+    }
+
+    pub(super) fn send(&self, msg: Msg) -> Result<(), ()> {
+        self.tx
+            .send(Msg::Scoped(self.generation, Box::new(msg)))
+            .map_err(|_| ())
+    }
 }
 
 pub struct Dashboard {
     label: String,
     environment: Environment,
-    session: Session,
-    docs: DocumentStore,
+    session: Option<Session>,
+    docs: Option<DocumentStore>,
     risk: RiskPrefs,
     status: String,
     symbols: Vec<LightSymbol>,
     book: AccountBook,
     quotes: SpotTracker,
+    price_history: BTreeMap<i64, VecDeque<i64>>,
+    spread_history: BTreeMap<i64, VecDeque<i64>>,
     watch: Vec<i64>,
     wanted: Vec<String>,
     tab: Tab,
-    selected: [usize; 3],
+    selected: [usize; 4],
     popup: Popup,
-    notice: Option<(Tone, String)>,
-    tx: UnboundedSender<Msg>,
+    console: Console,
+    loading: bool,
+    load_id: u64,
+    busy: bool,
+    tx: Sender,
 }
 
 fn err(error: impl Display) -> String {
@@ -114,48 +138,77 @@ impl Dashboard {
         environment: Environment,
         session: Session,
         docs: DocumentStore,
-        tx: UnboundedSender<Msg>,
+        tx: Sender,
     ) -> Self {
         let wanted = docs.load_or_default::<Watchlist>(WATCHLIST).symbols;
         let risk = docs.load_or_default::<RiskPrefs>(RISK).normalized();
         Self {
             label,
             environment,
-            session,
-            docs,
+            session: Some(session),
+            docs: Some(docs),
             risk,
             status: "Connecting...".to_owned(),
             symbols: Vec::new(),
             book: AccountBook::default(),
             quotes: SpotTracker::new(),
+            price_history: BTreeMap::new(),
+            spread_history: BTreeMap::new(),
             watch: Vec::new(),
             wanted,
             tab: Tab::Watchlist,
-            selected: [0; 3],
+            selected: [0; 4],
             popup: Popup::None,
-            notice: None,
+            console: Console::default(),
+            loading: false,
+            load_id: 0,
+            busy: false,
             tx,
         }
     }
 
     pub async fn stop(&self) {
-        self.session.stop().await;
+        if let Some(session) = &self.session {
+            session.stop().await;
+        }
     }
 
-    pub fn session(&self) -> Session {
+    pub fn session(&self) -> Option<Session> {
         self.session.clone()
     }
 
     pub fn is_idle(&self) -> bool {
-        matches!(self.popup, Popup::None)
+        matches!(self.popup, Popup::None) && !self.console.focused
+    }
+
+    pub fn cancel_input(&mut self) -> bool {
+        if !matches!(self.popup, Popup::None) {
+            self.popup = Popup::None;
+            return true;
+        }
+        if !self.console.input.text().is_empty() {
+            self.console.input.clear();
+            return true;
+        }
+        false
+    }
+
+    pub fn paste(&mut self, text: &str) {
+        match &mut self.popup {
+            Popup::Add(form) => form.paste(text),
+            Popup::Ticket(ticket) => ticket.form.paste(text),
+            Popup::None => self.console.paste(text),
+            Popup::Confirm(_) => {}
+        }
     }
 
     fn account(&self) -> Option<crate::openapi::AccountClient> {
-        Some(self.session.client()?.account(self.session.account_id()))
+        let session = self.session.as_ref()?;
+        Some(session.client()?.account(session.account_id()))
     }
 
     fn notify(&mut self, tone: Tone, text: impl Into<String>) {
-        self.notice = Some((tone, text.into()));
+        self.console.push(tone, text);
     }
 
     fn quote_fn(&self) -> impl Fn(i64) -> (Option<f64>, Option<f64>) + '_ {
@@ -174,20 +227,33 @@ impl Dashboard {
 
     // ---- loading ----
 
-    fn spawn_load(&self) {
-        let session = self.session.clone();
+    fn spawn_load(&mut self) {
+        if self.loading {
+            return;
+        }
+        let Some(session) = self.session.clone() else {
+            return;
+        };
+        self.loading = true;
+        self.load_id = self.load_id.wrapping_add(1);
+        let load_id = self.load_id;
         let wanted = self.wanted.clone();
         let tx = self.tx.clone();
         tokio::spawn(async move {
-            let _ = tx.send(Msg::Loaded(Box::new(load(session, wanted).await)));
+            let _ = tx.send(Msg::Loaded(load_id, Box::new(load(session, wanted).await)));
         });
     }
 
-    pub fn on_loaded(&mut self, loaded: Result<Loaded, String>) {
+    pub fn on_loaded(&mut self, id: u64, loaded: Result<Loaded, String>) {
+        if id != self.load_id {
+            return;
+        }
+        self.loading = false;
         let loaded = match loaded {
             Ok(loaded) => loaded,
             Err(error) => {
                 self.notify(Tone::Error, format!("Could not load the account: {error}"));
+                self.status = "Load failed".to_owned();
                 return;
             }
         };
@@ -257,6 +323,7 @@ impl Dashboard {
     }
 
     pub fn on_done(&mut self, result: Result<String, String>) {
+        self.busy = false;
         match result {
             Ok(text) => self.notify(Tone::Success, text),
             Err(text) => self.notify(Tone::Error, text),
@@ -264,6 +331,7 @@ impl Dashboard {
     }
 
     pub fn on_added(&mut self, result: Result<(Symbol, String), String>) {
+        self.busy = false;
         match result {
             Ok((symbol, name)) => {
                 self.book
@@ -282,8 +350,13 @@ impl Dashboard {
     fn save_watchlist(&mut self) {
         let symbols: Vec<String> = self.watch.iter().map(|id| self.book.name(*id)).collect();
         self.wanted.clone_from(&symbols);
-        if let Err(error) = self.docs.save(WATCHLIST, &Watchlist { symbols }) {
-            tracing::warn!(%error, "could not save the watchlist");
+        if let Some(docs) = &self.docs
+            && let Err(error) = docs.save(WATCHLIST, &Watchlist { symbols })
+        {
+            self.notify(
+                Tone::Warning,
+                format!("Could not save the watchlist: {error}"),
+            );
         }
     }
 
@@ -292,12 +365,20 @@ impl Dashboard {
     pub fn on_session(&mut self, event: SessionEvent) {
         match event {
             SessionEvent::Ready => {
+                self.quotes.clear();
+                self.price_history.clear();
+                self.spread_history.clear();
                 self.status = "Loading...".to_owned();
                 self.spawn_load();
             }
             SessionEvent::Reconnecting {
                 attempt, retry_in, ..
             } => {
+                self.loading = false;
+                self.load_id = self.load_id.wrapping_add(1);
+                self.quotes.clear();
+                self.price_history.clear();
+                self.spread_history.clear();
                 self.status = format!(
                     "Reconnecting (attempt {attempt}, in {}s)",
                     retry_in.as_secs()
@@ -310,7 +391,7 @@ impl Dashboard {
                 self.status = "Disconnected".to_owned();
                 self.notify(
                     Tone::Error,
-                    format!("Session ended: {error}. Sign out (o) and sign in again."),
+                    format!("Session ended: {error}. Use /logout and sign in again."),
                 );
             }
             SessionEvent::Stopped => self.status = "Stopped".to_owned(),
@@ -322,7 +403,23 @@ impl Dashboard {
     fn on_event(&mut self, event: Event) {
         match event {
             Event::Spot(spot) => {
-                self.quotes.apply(&spot);
+                let quote = self.quotes.apply(&spot);
+                if let Some(bid) = quote.bid {
+                    let history = self.price_history.entry(quote.symbol_id).or_default();
+                    if history.back() != Some(&bid) {
+                        history.push_back(bid);
+                    }
+                    if history.len() > 20 {
+                        history.pop_front();
+                    }
+                }
+                if let (Some(bid), Some(ask)) = (quote.bid, quote.ask) {
+                    let history = self.spread_history.entry(quote.symbol_id).or_default();
+                    history.push_back(ask.saturating_sub(bid));
+                    if history.len() > 20 {
+                        history.pop_front();
+                    }
+                }
             }
             Event::Execution(execution) => {
                 let applied = self.book.apply(&execution);
@@ -369,11 +466,45 @@ impl Dashboard {
     }
 
     fn key_main(&mut self, key: KeyEvent) -> Outcome {
-        self.notice = None;
+        if key.code == KeyCode::F(6) || key.code == KeyCode::BackTab {
+            self.console.focused = !self.console.focused;
+            return Outcome::None;
+        }
+        if key.code == KeyCode::Esc {
+            if self.console.input.text().is_empty() {
+                self.console.focused = !self.console.focused;
+            } else {
+                self.console.input.clear();
+            }
+            return Outcome::None;
+        }
+        if matches!(key.code, KeyCode::F(1..=4)) {
+            if let KeyCode::F(n) = key.code {
+                self.tab = TABS[usize::from(n - 1)];
+            }
+            return Outcome::None;
+        }
+        if self.console.focused || matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
+            if let Some(text) = self.console.key(key) {
+                return self.execute_command(&text);
+            }
+            return Outcome::None;
+        }
+        if key
+            .modifiers
+            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+        {
+            return Outcome::None;
+        }
         match key.code {
             KeyCode::Char('1') => self.tab = Tab::Watchlist,
             KeyCode::Char('2') => self.tab = Tab::Positions,
             KeyCode::Char('3') => self.tab = Tab::Orders,
+            KeyCode::Char('4') => self.tab = Tab::Console,
+            KeyCode::Char('/') => {
+                self.console.focused = true;
+                self.console.input.set("/");
+            }
             KeyCode::Tab => self.shift_tab(1),
             KeyCode::BackTab => self.shift_tab(TABS.len() - 1),
             KeyCode::Down | KeyCode::Char('j') => self.move_selection(1),
@@ -419,6 +550,7 @@ impl Dashboard {
             Tab::Watchlist => self.watch.len(),
             Tab::Positions => self.book.positions.len(),
             Tab::Orders => self.book.orders.len(),
+            Tab::Console => 0,
         }
     }
 
@@ -439,12 +571,17 @@ impl Dashboard {
                 Tab::Watchlist => self.watch.len(),
                 Tab::Positions => self.book.positions.len(),
                 Tab::Orders => self.book.orders.len(),
+                Tab::Console => 0,
             };
             self.selected[index] = self.selected[index].min(count.saturating_sub(1));
         }
     }
 
     fn remove_selected(&mut self) {
+        if self.loading || self.busy {
+            self.notify(Tone::Warning, "Wait for the current operation to finish");
+            return;
+        }
         let index = self.selected[0];
         if index >= self.watch.len() {
             return;
@@ -452,7 +589,15 @@ impl Dashboard {
         let id = self.watch.remove(index);
         self.save_watchlist();
         self.clamp();
-        let session = self.session.clone();
+        if self.book.symbols().contains(&id) {
+            return;
+        }
+        self.quotes.forget(id);
+        self.price_history.remove(&id);
+        self.spread_history.remove(&id);
+        let Some(session) = self.session.clone() else {
+            return;
+        };
         tokio::spawn(async move {
             let _ = session.unsubscribe_spots(&[id]).await;
         });
@@ -463,6 +608,11 @@ impl Dashboard {
             FormAction::Cancel => {}
             FormAction::None => self.popup = Popup::Add(form),
             FormAction::Submit => {
+                if self.busy || self.loading {
+                    form.error = Some("Wait for the current operation to finish".to_owned());
+                    self.popup = Popup::Add(form);
+                    return;
+                }
                 let wanted = form.value(0).to_owned();
                 let found = self.symbols.iter().find(|s| {
                     s.symbol_name
@@ -476,7 +626,15 @@ impl Dashboard {
                 };
                 let id = symbol.symbol_id;
                 let name = symbol.symbol_name.clone().unwrap_or_default();
-                let session = self.session.clone();
+                if self.watch.contains(&id) {
+                    self.notify(Tone::Info, format!("{name} is already in the watchlist"));
+                    return;
+                }
+                let Some(session) = self.session.clone() else {
+                    self.notify(Tone::Info, "Preview: symbols are sample data");
+                    return;
+                };
+                self.busy = true;
                 let tx = self.tx.clone();
                 tokio::spawn(async move {
                     let _ = tx.send(Msg::Added(add_symbol(session, id, name).await));
@@ -539,6 +697,15 @@ impl Dashboard {
     }
 
     fn submit_ticket(&mut self, ticket: &mut Ticket) -> Result<bool, String> {
+        if self.session.is_none() {
+            return Err("Preview: trading is disabled".to_owned());
+        }
+        if self.busy {
+            return Err("Wait for the current operation to finish".to_owned());
+        }
+        if self.status != "Connected" {
+            return Err("Wait for the account to connect and load".to_owned());
+        }
         let lots: f64 = ticket
             .form
             .value(0)
@@ -552,16 +719,30 @@ impl Dashboard {
                 return Ok(None);
             }
             text.parse::<f64>()
+                .ok()
+                .filter(|p| p.is_finite() && *p > 0.0)
                 .map(Some)
-                .map_err(|_| format!("{what} must be a price"))
+                .ok_or_else(|| format!("{what} must be a finite price above zero"))
         };
         let stop_loss = price(ticket.form.value(1), "Stop loss")?;
         let take_profit = price(ticket.form.value(2), "Take profit")?;
 
         let id = ticket.symbol_id;
         let contract = self.book.contract(id);
-        let stepped = contract.volume_near(lots);
-        let volume = stepped.volume;
+        let quote = self.quotes.get(id);
+        let request = super::ticket::MarketDraft {
+            symbol_id: id,
+            side: ticket.side,
+            lots,
+            stop_loss,
+            take_profit,
+        }
+        .request(
+            contract,
+            quote.and_then(|s| s.bid).map(to_price),
+            quote.and_then(|s| s.ask).map(to_price),
+        )?;
+        let volume = request.volume;
         let held: f64 = self
             .book
             .positions
@@ -599,11 +780,10 @@ impl Dashboard {
         }
 
         let Some(account) = self.account() else {
-            return Err("Not connected".to_owned());
+            return Err("Preview: trading is disabled".to_owned());
         };
-        let request = NewOrderReq::market(id, ticket.side, volume)
-            .with_protection(stop_loss, take_profit)
-            .with_label("wyck");
+        self.busy = true;
+        self.notify(Tone::Info, "Sending order...");
         let tx = self.tx.clone();
         let name = self.book.name(id);
         tokio::spawn(async move {
@@ -619,10 +799,35 @@ impl Dashboard {
     }
 
     fn key_confirm(&mut self, confirm: Confirm, key: KeyEvent) -> Outcome {
+        if matches!(key.code, KeyCode::Esc | KeyCode::Char('n' | 'N')) {
+            return Outcome::None;
+        }
         if !matches!(key.code, KeyCode::Char('y' | 'Y') | KeyCode::Enter) {
+            self.popup = Popup::Confirm(confirm);
+            return Outcome::None;
+        }
+        if matches!(confirm, Confirm::SignOut) {
+            if self.session.is_none() {
+                self.notify(Tone::Info, "Preview: no saved connection");
+                return Outcome::None;
+            }
+            return Outcome::SignOut;
+        }
+        if self.session.is_none() {
+            self.notify(Tone::Error, "Preview: trading is disabled");
+            return Outcome::None;
+        }
+        if self.busy || self.status != "Connected" {
+            self.notify(Tone::Warning, "Wait for the account and current operation");
+            self.popup = Popup::Confirm(confirm);
             return Outcome::None;
         }
         let account = self.account();
+        if account.is_none() {
+            self.notify(Tone::Error, "Preview: trading is disabled");
+            return Outcome::None;
+        }
+        self.busy = true;
         let tx = self.tx.clone();
         match confirm {
             Confirm::SignOut => return Outcome::SignOut,
@@ -654,238 +859,6 @@ impl Dashboard {
             }
         }
         Outcome::None
-    }
-
-    // ---- drawing ----
-
-    pub fn draw(&self, frame: &mut Frame) {
-        let area = frame.area();
-        let [header, tabs, body, notice, footer] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(3),
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .areas(area);
-
-        frame.render_widget(Paragraph::new(self.header_line()), header);
-        let titles = ["1 Watchlist", "2 Positions", "3 Orders"];
-        frame.render_widget(
-            Tabs::new(titles)
-                .select(self.tab_index())
-                .highlight_style(Style::default().add_modifier(Modifier::REVERSED)),
-            tabs,
-        );
-        match self.tab {
-            Tab::Watchlist => self.draw_watchlist(frame, body),
-            Tab::Positions => self.draw_positions(frame, body),
-            Tab::Orders => self.draw_orders(frame, body),
-        }
-        if let Some((tone, text)) = &self.notice {
-            let color = match tone {
-                Tone::Success => Color::Green,
-                Tone::Warning => Color::Yellow,
-                Tone::Error => Color::Red,
-                _ => Color::Cyan,
-            };
-            frame.render_widget(
-                Paragraph::new(text.as_str()).style(Style::default().fg(color)),
-                notice,
-            );
-        }
-        let hints = match self.tab {
-            Tab::Watchlist => "a add  d remove  b buy  s sell  o sign out  q quit",
-            Tab::Positions => "x close  o sign out  q quit",
-            Tab::Orders => "c cancel  o sign out  q quit",
-        };
-        frame.render_widget(
-            Paragraph::new(format!("{hints}   Tab/1-3 switch  j/k move"))
-                .style(Style::default().fg(Color::DarkGray)),
-            footer,
-        );
-        self.draw_popup(frame, area);
-    }
-
-    fn header_line(&self) -> Line<'static> {
-        let (env, color) = match self.environment {
-            Environment::Live => ("LIVE", Color::Red),
-            Environment::Demo => ("DEMO", Color::Green),
-        };
-        let mut spans = vec![
-            Span::styled(
-                format!(" {env} "),
-                Style::default().fg(Color::Black).bg(color),
-            ),
-            Span::raw(format!(" {}  ", self.label)),
-            Span::styled(self.status.clone(), Style::default().fg(Color::Gray)),
-        ];
-        if self.book.trader.is_some() {
-            let summary = self.book.summary(&self.quote_fn());
-            spans.push(Span::raw(format!(
-                "   Balance {}   Equity {}   Margin {}",
-                self.money(summary.balance),
-                self.money(summary.equity),
-                self.money(summary.margin),
-            )));
-        }
-        Line::from(spans)
-    }
-
-    fn table<'a>(
-        &self,
-        rows: Vec<Row<'a>>,
-        widths: &[u16],
-        header: Vec<&'a str>,
-        title: &'a str,
-        selected: usize,
-    ) -> (Table<'a>, TableState) {
-        let table = Table::new(rows, widths.iter().map(|w| Constraint::Length(*w)))
-            .header(
-                Row::new(header)
-                    .style(Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED)),
-            )
-            .block(Block::default().borders(Borders::ALL).title(title))
-            .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
-        (table, TableState::default().with_selected(Some(selected)))
-    }
-
-    fn draw_watchlist(&self, frame: &mut Frame, area: Rect) {
-        if self.watch.is_empty() {
-            frame.render_widget(
-                Paragraph::new("No symbol yet. Press a to add one (for example EURUSD).")
-                    .block(Block::default().borders(Borders::ALL).title(" Watchlist ")),
-                area,
-            );
-            return;
-        }
-        let rows: Vec<Row> = self
-            .watch
-            .iter()
-            .map(|id| {
-                let contract = self.book.contract(*id);
-                let spot = self.quotes.get(*id);
-                let price = |raw: Option<i64>| {
-                    raw.map_or_else(|| "-".to_owned(), |v| contract.format_price(to_price(v)))
-                };
-                let spread = spot
-                    .and_then(|s| Some((s.ask? - s.bid?) as f64 * to_price(1) / contract.pip()))
-                    .map_or_else(|| "-".to_owned(), |p| format!("{p:.1}"));
-                Row::new(vec![
-                    self.book.name(*id),
-                    price(spot.and_then(|s| s.bid)),
-                    price(spot.and_then(|s| s.ask)),
-                    spread,
-                ])
-            })
-            .collect();
-        let (table, mut state) = self.table(
-            rows,
-            &[14, 14, 14, 10],
-            vec!["Symbol", "Bid", "Ask", "Spread"],
-            " Watchlist ",
-            self.selected[0],
-        );
-        frame.render_stateful_widget(table, area, &mut state);
-    }
-
-    fn draw_positions(&self, frame: &mut Frame, area: Rect) {
-        let quotes = self.quote_fn();
-        let rows: Vec<Row> = self
-            .book
-            .positions
-            .values()
-            .map(|p| {
-                let contract = self.book.contract(p.trade_data.symbol_id);
-                let buy = is_buy(p.trade_data.trade_side);
-                let price =
-                    |v: Option<f64>| v.map_or_else(|| "-".to_owned(), |v| contract.format_price(v));
-                let profit = self.book.net_profit(p.position_id, &quotes);
-                let profit_text = profit.map_or_else(|| "-".to_owned(), |v| self.money(v));
-                let color = match profit {
-                    Some(v) if v > 0.0 => Color::Green,
-                    Some(v) if v < 0.0 => Color::Red,
-                    _ => Color::Reset,
-                };
-                Row::new(vec![
-                    p.position_id.to_string(),
-                    self.book.name(p.trade_data.symbol_id),
-                    if buy { "Buy" } else { "Sell" }.to_owned(),
-                    format_lots(contract.lots_of_volume(p.trade_data.volume)),
-                    price(p.price),
-                    price(p.stop_loss),
-                    price(p.take_profit),
-                    profit_text,
-                ])
-                .style(Style::default().fg(color))
-            })
-            .collect();
-        let header = vec!["Id", "Symbol", "Side", "Lots", "Entry", "SL", "TP", "P/L"];
-        let (table, mut state) = self.table(
-            rows,
-            &[12, 12, 6, 8, 12, 12, 12, 16],
-            header,
-            " Positions ",
-            self.selected[1],
-        );
-        frame.render_stateful_widget(table, area, &mut state);
-    }
-
-    fn draw_orders(&self, frame: &mut Frame, area: Rect) {
-        let rows: Vec<Row> = self
-            .book
-            .orders
-            .values()
-            .map(|o| {
-                let contract = self.book.contract(o.trade_data.symbol_id);
-                let price = o.limit_price.or(o.stop_price);
-                Row::new(vec![
-                    o.order_id.to_string(),
-                    self.book.name(o.trade_data.symbol_id),
-                    if is_buy(o.trade_data.trade_side) {
-                        "Buy"
-                    } else {
-                        "Sell"
-                    }
-                    .to_owned(),
-                    o.kind().map_or("order", |k| k.label()).to_owned(),
-                    format_lots(contract.lots_of_volume(o.trade_data.volume)),
-                    price.map_or_else(|| "-".to_owned(), |p| contract.format_price(p)),
-                ])
-            })
-            .collect();
-        let header = vec!["Id", "Symbol", "Side", "Type", "Lots", "Price"];
-        let (table, mut state) = self.table(
-            rows,
-            &[12, 12, 6, 14, 8, 12],
-            header,
-            " Orders ",
-            self.selected[2],
-        );
-        frame.render_stateful_widget(table, area, &mut state);
-    }
-
-    fn draw_popup(&self, frame: &mut Frame, area: Rect) {
-        match &self.popup {
-            Popup::None => {}
-            Popup::Add(form) => form.render(frame, area, 50),
-            Popup::Ticket(ticket) => ticket.form.render(frame, area, 60),
-            Popup::Confirm(confirm) => {
-                let text = match confirm {
-                    Confirm::Close(id, _) => format!("Close position {id}? (y/n)"),
-                    Confirm::Cancel(id) => format!("Cancel order {id}? (y/n)"),
-                    Confirm::SignOut => {
-                        "Sign out and forget the saved connection? (y/n)".to_owned()
-                    }
-                };
-                let rect = centered(area, 56, 3);
-                frame.render_widget(Clear, rect);
-                frame.render_widget(
-                    Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
-                    rect,
-                );
-            }
-        }
     }
 }
 

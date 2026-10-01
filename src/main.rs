@@ -11,6 +11,9 @@ struct Args {
     config_dir: Option<PathBuf>,
     #[arg(long)]
     reset: bool,
+    /// Show the terminal interface with sample data, without connecting or saving anything.
+    #[arg(long, conflicts_with = "reset")]
+    preview: bool,
 }
 
 #[tokio::main]
@@ -20,6 +23,9 @@ async fn main() -> anyhow::Result<()> {
         Some(dir) => AppPaths::at(dir),
         None => AppPaths::discover()?,
     };
+    if args.preview {
+        return wyck::tui::preview(paths).await;
+    }
     let _log = init_logging(&paths)?;
     wyck::tui::run(paths, args.reset).await
 }
