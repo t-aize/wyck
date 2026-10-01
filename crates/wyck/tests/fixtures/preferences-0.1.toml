@@ -1,0 +1,39 @@
+schema_version = 1
+favorite_timeframes = ["M5", "M5", "H1"]
+custom_timeframes = ["M7"]
+active_chart = 2
+magnet = true
+keep_drawing = false
+panel_open = true
+panel_height = 280.0
+ticket_open = true
+one_click = false
+saved_colors = [16711680, 65280]
+
+[layout]
+count = 4
+variant = 0
+
+[links]
+symbol = true
+interval = true
+crosshair = false
+time = true
+range = false
+
+[[charts]]
+timeframe = "M5"
+kind = "candles"
+
+[[charts]]
+timeframe = "M15"
+kind = "hollow"
+symbol = "XAUUSD"
+
+[[charts]]
+timeframe = "H1"
+kind = "line"
+
+[[charts]]
+timeframe = "H4"
+kind = "candles"

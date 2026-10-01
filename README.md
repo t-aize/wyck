@@ -20,136 +20,101 @@ The software is provided "as is", without warranty of any kind, as stated in the
 its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
-cTrader or Spotware Systems**. cTrader is a trademark of its owner.
+cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
+marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, shown only to identify the
+instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
+next to it).
 
 ## Install
 
-Download the archive for your system from the
-[latest release](https://github.com/t-aize/wyck/releases/latest), unpack it and run `wyck`.
-The files are `wyck_<version>_<platform>.tar.gz` (Linux, macOS) or `.zip` (Windows), next to a
-`SHA256SUMS` file and a GitHub artifact attestation. The binaries are not signed for macOS
-Gatekeeper or Windows SmartScreen, which may warn on first run. Or build it yourself, see below.
+Download the files for your system from the [latest Wyck release](https://github.com/t-aize/wyck/releases/latest):
 
-## First start
-
-1. Create an application on the cTrader Open API portal and register
-   `http://localhost:8765` as its redirect address.
-2. Run `wyck`. Type the client ID and the client secret of the application, pick Demo or Live
-   (`Ctrl+E`), and press Enter.
-3. Approve the access in the browser. If no browser opens, open the address shown in the terminal.
-4. Pick the trading account. The connection is saved: the next start goes straight to the
-   dashboard.
-
-The client secret and the tokens go to the OS keyring. When there is none (a server, an SSH
-session), wyck asks for a passphrase at every start and keeps them in encrypted files instead.
-
-`wyck --reset` forgets the saved connection. `wyck --config-dir <folder>` keeps everything in one
-folder.
-
-`wyck --preview` opens the interface with sample prices, positions and orders. It does not
-connect, open the keyring or write configuration files.
-
-## Keys
-
-| Key | Action |
+| System | File |
 |---|---|
-| `F1` to `F4` | watchlist, positions, orders, console |
-| `Shift+Tab`, `F6` | switch between command input and tables |
-| `/` (tables) | focus command input |
-| `Tab` (input) | complete a command name |
-| Up / Down (input) | command history, then restore the draft |
-| Left / Right, Home / End | move the input cursor |
-| `Ctrl+A` / `Ctrl+E`, `Ctrl+U` / `Ctrl+K`, `Ctrl+W` | move to start/end, erase before/after cursor, erase a word |
-| `PgUp` / `PgDn` | scroll the activity log |
-| `Esc` | clear input, switch focus when empty, or cancel a popup |
-| `Ctrl+C` | cancel a popup or clear input, then quit when empty |
-| `1` to `4`, `Tab` (tables) | switch views |
-| `j` / `k`, arrows (tables) | select a row |
-| `a` / `d`, `b` / `s` (watchlist) | add/remove a symbol, open buy/sell ticket |
-| `x` (positions), `c` (orders) | confirm a close or cancellation |
-| `o`, `q` (tables) | confirm sign out, quit |
+| Windows x86_64 | `Wyck_<version>_windows-x86_64-setup.exe` |
+| macOS Intel | `Wyck_<version>_macos-x86_64.dmg` |
+| macOS Apple Silicon | `Wyck_<version>_macos-aarch64.dmg` |
+| Linux x86_64 | `Wyck_<version>_linux-x86_64.AppImage` or `.deb` |
 
-## Commands
+The first releases are not signed with Authenticode or Apple Developer ID. Windows SmartScreen
+and macOS Gatekeeper can therefore show a warning. Check `SHA256SUMS` and the GitHub artifact
+attestation before running a download. The updater uses a separate committed public key and
+refuses an update whose cargo-packager signature is invalid.
 
-The command input starts focused. Commands work with or without a leading `/`. Results and
-server events stay in the activity log; the Console view gives the log the full workspace.
-
-```text
-/help
-/add EURUSD
-/watchlist
-/positions
-/orders
-/buy EURUSD 0.01 --sl 1.08000 --tp 1.09500
-/sell EURUSD 0.01 --sl 1.09500 --tp 1.08000
-/close 1042
-/cancel 2084
-/remove EURUSD
-/refresh
-/console
-/clear
-/logout
-/quit
-```
-
-Add a symbol to the watchlist before trading it. Buy and sell open an editable ticket, close
-and cancel open a confirmation. Lots must match the broker's limits and volume step. SL/TP
-arguments are prices; market orders send their distance from the current ask (buy) or bid
-(sell), so their final levels follow the actual fill. Pasting text never submits it.
-
-The one-line header follows the original OpenTUI layout: symbol, bid/ask, spread and price
-history, then connection, balance, Paris clock and market sessions. Session and ICT windows
-use each city's time zone and local weekdays. They are time windows, not the broker's trading
-schedule. Wider spreads turn red relative to recent quotes; XAUUSD also keeps its original
-absolute threshold of 1 in price units. Narrow terminals omit secondary header information.
-
-Orders pass through the risk guard in `src/trading/guard.rs`. Limits are read from the `risk`
-document of the account (see below); with none set, only the price collar applies.
-
-## Where the files go
-
-| OS | Config folder |
-|---|---|
-| Linux | `~/.config/wyck` |
-| macOS | `~/Library/Application Support/sh.wyck.wyck` |
-| Windows | `%APPDATA%\wyck\config` |
-
-`WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move them. `config.toml` holds the profiles,
-`scopes/<demo|live>-<account>/` holds the documents of an account (`watchlist.toml`,
-`risk.toml`), and `wyck.log` in the data folder is the log.
+Production builds check the latest stable release once at startup. Open Settings with `Ctrl+,`,
+then select About to check again or install an available update. The AppImage, macOS bundle and
+Windows installer can update in place. A `.deb` installation opens the release page so the system
+package remains managed by the package manager.
 
 ## Layout
 
-| Path | Owns |
+The root manifest only configures the workspace. `cargo run` starts the desktop crate `wyck`.
+The workspace crates are:
+
+| Crate | Owns |
 |---|---|
-| `src/lib.rs`, `src/main.rs` | the library and the `wyck` binary |
-| `src/openapi` | cTrader Open API: messages, WebSocket client, OAuth, reconnecting session, account book |
-| `src/config` | profiles, documents, credential storage (keyring or encrypted files) |
-| `src/trading` | lot and money math, trade plans, risk guard |
-| `src/tui` | the terminal interface |
-| `tests` | integration tests against mock servers, and the ignored live tests |
+| `wyck-openapi` | cTrader Open API SDK: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
+| `wyck-config` | Native settings, documents, backups, indicator files and credential storage |
+| `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
+| `wyck-ui` | Widget kit, theme and sizes shared by every screen |
+| `wyck` | GPUI desktop application, saved workspace and bundled assets |
+
+Each crate's modules sit directly under its `src` directory. `crates/wyck/src` owns GPUI
+views and connects the crates to the desktop; its native services are in
+`crates/wyck/src/services`. Every control, menu, dialog and color comes from `wyck-ui`.
+The Open API guide is in the `wyck-openapi` crate documentation.
+
+## Your own indicators
+
+Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
+app reads on its own. The header has a button for the folder and for a full editor.
+
+## Accessibility
+
+- **Keyboard.** Tab reaches the controls. In the account panel, the current row is the one stop
+  of Tab: the arrows, Home, End, Page Up and Page Down move among the rows, Enter or Space does
+  what a click does, and the menu key (or Shift+F10) opens the menu of the row. Modal windows
+  keep Tab inside themselves and give the focus back when they close.
+- **Screen readers.** The app exposes roles and names through AccessKit (Windows UI Automation,
+  macOS, and AT-SPI on Linux): tables with rows, column headers and cells, tabs, dialogs, menus,
+  toggles and notices. This has been built from the AccessKit documentation and covered by unit
+  tests of what can be tested without a screen, but not yet tried with NVDA, VoiceOver or Orca.
+  Reports from people who use them are the most useful thing you can send.
+- **Size.** The interface scale in Settings (80 to 160 percent) also scales the text drawn on the
+  charts.
+- **Colors.** Every theme that comes with the app meets WCAG 2.2 contrast (4.5:1 for text, 3:1
+  for the accent and the chart). The editor of your own themes shows what falls short and can fix
+  it; it never refuses a color.
 
 ## Requirements
 
 - A recent stable Rust toolchain (the minimum is `rust-version` in `Cargo.toml`, currently 1.98).
-  `rust-toolchain.toml` makes rustup pick stable; run `rustup update` if yours is older.
-- Linux only: `pkg-config` and the OpenSSL headers (`libssl-dev` on Debian and Ubuntu).
+  `rust-toolchain.toml` makes rustup pick stable and install it if needed; run `rustup update` if
+  your stable is older than the minimum.
+- Linux only: the development packages of fontconfig, Wayland, OpenSSL, X11 and xkbcommon, for example on Debian and Ubuntu
+  `pkg-config libfontconfig-dev libwayland-dev libssl-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev`.
+  The last one is for the alert sounds.
 
 ## Build and test
 
 ```sh
-cargo run
-cargo test
+cargo build
+cargo test --workspace
 ```
 
-`cargo test` never touches the network: it is mock servers and unit tests.
+`cargo test` never touches the network: it is entirely mock servers and unit tests.
+
+The first build is slow because the dependency graph is large and dependencies are compiled
+with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
+Later builds only rebuild the changed crates.
 
 ## Test against a real demo account
 
+Testing `openapi` against a real cTrader demo account, end to end, is a separate opt-in step.
 Fill in `.env` from [.env.example](.env.example), then:
 
 ```sh
-cargo test --test live -- --ignored --nocapture
+cargo test -p wyck-openapi --test live -- --ignored --nocapture
 ```
 
 ## Checks
@@ -158,19 +123,19 @@ The same checks run in CI on Linux, Windows and macOS:
 
 ```sh
 cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 ```
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
 (`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.
 
-Releases are described in [RELEASING.md](RELEASING.md).
+Release builds and signing are described in [RELEASING.md](RELEASING.md).
 
 ## Contributing
 
-Pull requests are not accepted yet, but issues are welcome. Read
+Pull requests are not accepted yet, but issues are welcome. This will change later. Read
 [CONTRIBUTING.md](CONTRIBUTING.md) first. AI tools are allowed but must be disclosed.
 
 | File                                       | What it covers                              |

@@ -1,0 +1,81 @@
+[package]
+name = "wyck"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+readme = "../../README.md"
+keywords = ["ctrader", "trading", "forex", "gpui", "openapi"]
+categories = ["finance", "gui"]
+description = "Desktop trading terminal for cTrader."
+default-run = "wyck"
+
+[package.metadata.packager]
+product-name = "Wyck"
+identifier = "sh.wyck.wyck"
+category = "finance"
+description = "Desktop trading terminal for cTrader."
+long-description = "Wyck is a native desktop trading terminal for cTrader."
+homepage = "https://github.com/t-aize/wyck"
+license-file = "../../LICENSE"
+icons = ["assets/app-icon.png"]
+out-dir = "../../dist"
+formats = ["default"]
+binaries = [{ path = "wyck", main = true }]
+
+[package.metadata.packager.nsis]
+install-mode = "currentUser"
+languages = ["English"]
+
+[package.metadata.packager.windows]
+allow-downgrades = false
+
+[package.metadata.packager.linux]
+generate-desktop-entry = true
+
+[package.metadata.packager.deb]
+depends = [
+    "libasound2 | libasound2t64",
+    "libc6",
+    "libfontconfig1",
+    "libssl3 | libssl3t64",
+    "libwayland-client0",
+    "libxcb1",
+    "libxkbcommon0",
+    "libxkbcommon-x11-0",
+]
+
+[dependencies]
+wyck-config.workspace = true
+wyck-openapi = { workspace = true, features = ["client"] }
+wyck-chart.workspace = true
+wyck-ui.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+gpui-kit.workspace = true
+rust-embed.workspace = true
+gpui.workspace = true
+toml.workspace = true
+secrecy.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+cargo-packager-updater.workspace = true
+tiny-skia.workspace = true
+ab_glyph.workspace = true
+lsp-types.workspace = true
+anyhow.workspace = true
+notify-rust.workspace = true
+rodio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

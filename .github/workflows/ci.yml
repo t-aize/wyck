@@ -29,7 +29,9 @@ env:
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
   RUST_BACKTRACE: 1
-  # Nothing in CI runs under a debugger: no debug info keeps builds and caches small.
+  # Nothing in CI is run under a debugger. Debug info is the biggest part of a dev target
+  # directory: dropping it makes builds faster, the cache smaller, and avoids running out of
+  # disk on the Windows runner.
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
 
@@ -72,7 +74,9 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
 
       - uses: dtolnay/rust-toolchain@v1
         with:
@@ -85,12 +89,14 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo test --locked
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --workspace --all-features
+      # The SDK without its client feature: types and calculations only, no network.
+      - run: cargo clippy --locked -p wyck-openapi --no-default-features --lib -- -D warnings
 
       # Docs are platform independent: build them once.
       - if: runner.os == 'Linux'
-        run: cargo doc --locked --no-deps
+        run: cargo doc --locked --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
 
@@ -112,7 +118,9 @@ jobs:
 
       - run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libfontconfig-dev libwayland-dev libssl-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libasound2-dev
 
       - uses: dtolnay/rust-toolchain@v1
         with:
