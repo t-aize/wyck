@@ -578,4 +578,320 @@ mod tests {
         assert_eq!(mid(Some(1.0), Some(1.2)), Some(1.1));
         assert_eq!(mid(None, Some(1.2)), Some(1.2));
     }
+
+    // The tests below pin the behavior at the edges so a move of this code can be checked.
+
+    fn symbol(json: serde_json::Value) -> crate::market::Symbol {
+        serde_json::from_value(json).expect("a symbol")
+    }
+
+    #[test]
+    fn the_default_contract_is_a_forex_pair() {
+        assert_eq!(
+            Contract::default(),
+            Contract {
+                digits: 5,
+                pip_position: 4,
+                lot_size: 10_000_000,
+                min_volume: 100_000,
+                max_volume: 10_000_000_000,
+                step_volume: 100_000,
+            }
+        );
+    }
+
+    #[test]
+    fn a_contract_takes_the_symbols_values_and_forex_ones_for_what_is_missing() {
+        let full = Contract::from_symbol(&symbol(serde_json::json!({
+            "symbolId": 1, "digits": 3, "pipPosition": 2, "lotSize": 10_000_000,
+            "minVolume": 100_000, "maxVolume": 50_000_000, "stepVolume": 100_000,
+        })));
+        assert_eq!(
+            full,
+            Contract {
+                digits: 3,
+                pip_position: 2,
+                lot_size: 10_000_000,
+                min_volume: 100_000,
+                max_volume: 50_000_000,
+                step_volume: 100_000,
+            }
+        );
+        // Zero counts as missing; the fallbacks follow the lot size.
+        let sparse = Contract::from_symbol(&symbol(serde_json::json!({
+            "symbolId": 1, "digits": 5, "pipPosition": 4, "lotSize": 0, "minVolume": 0,
+        })));
+        assert_eq!(sparse, Contract::default());
+        let metal = Contract::from_symbol(&symbol(serde_json::json!({
+            "symbolId": 2, "digits": 2, "pipPosition": 2, "lotSize": 10_000,
+        })));
+        assert_eq!(metal.min_volume, 100);
+        assert_eq!(metal.step_volume, 100);
+        assert_eq!(metal.max_volume, 10_000_000);
+        // Digits that make no sense fall back to five.
+        let odd = Contract::from_symbol(&symbol(serde_json::json!({
+            "symbolId": 3, "digits": -1, "pipPosition": 4,
+        })));
+        assert_eq!(odd.digits, 5);
+    }
+
+    #[test]
+    fn volumes_round_to_the_step_and_stay_inside_the_limits() {
+        let c = Contract::default();
+        // Half a step goes up, whatever the sign of the error.
+        assert_eq!(c.volume_of_lots(0.015), 200_000);
+        assert_eq!(c.volume_of_lots(0.014), 100_000);
+        assert_eq!(c.volume_of_lots(-1.0), c.min_volume);
+        assert_eq!(c.volume_of_lots(f64::INFINITY), c.min_volume);
+        // A coarse step.
+        let coarse = Contract {
+            step_volume: 1_000_000,
+            min_volume: 1_000_000,
+            ..c
+        };
+        assert_eq!(coarse.volume_of_lots(0.26), 3_000_000);
+        // A step of zero is read as one.
+        let free = Contract {
+            step_volume: 0,
+            ..c
+        };
+        assert_eq!(free.volume_of_lots(0.123456), 1_234_560);
+        // A maximum under the minimum never lets the volume under the minimum.
+        let odd = Contract {
+            min_volume: 500,
+            max_volume: 100,
+            step_volume: 1,
+            ..c
+        };
+        assert_eq!(odd.volume_of_lots(5.0), 500);
+        assert_eq!(c.lots_of_volume(5_000_000), 0.5);
+        let no_lot = Contract { lot_size: 0, ..c };
+        assert_eq!(no_lot.lots_of_volume(300), 300.0);
+    }
+
+    #[test]
+    fn volume_near_flags_a_limit_only_when_it_changed_the_volume() {
+        let c = Contract::default();
+        assert_eq!(c.volume_near(0.01).limit, None);
+        assert_eq!(c.volume_near(0.01).volume, 100_000);
+        assert_eq!(
+            c.volume_near(0.0099),
+            Stepped {
+                volume: 100_000,
+                limit: Some(Limit::Min)
+            }
+        );
+        assert_eq!(c.volume_near(1000.0).limit, None);
+        assert_eq!(
+            c.volume_near(1000.1),
+            Stepped {
+                volume: 10_000_000_000,
+                limit: Some(Limit::Max)
+            }
+        );
+        // Not a number: the least volume, and no limit named.
+        assert_eq!(
+            c.volume_near(f64::NAN),
+            Stepped {
+                volume: 100_000,
+                limit: None
+            }
+        );
+    }
+
+    #[test]
+    fn volume_at_most_never_rounds_up() {
+        let c = Contract::default();
+        assert_eq!(c.volume_at_most(0.01).limit, None);
+        assert_eq!(c.volume_at_most(0.01).volume, 100_000);
+        assert_eq!(
+            c.volume_at_most(0.0099),
+            Stepped {
+                volume: 100_000,
+                limit: Some(Limit::Min)
+            }
+        );
+        assert_eq!(c.volume_at_most(f64::NAN).limit, Some(Limit::Min));
+        assert_eq!(c.volume_at_most(-3.0).limit, Some(Limit::Min));
+        assert_eq!(
+            c.volume_at_most(5_000.0),
+            Stepped {
+                volume: 10_000_000_000,
+                limit: Some(Limit::Max)
+            }
+        );
+        // The float error of 0.1 + 0.2 does not cost a step; a real shortfall does.
+        assert_eq!(c.volume_at_most(0.1 + 0.2).volume, 3_000_000);
+        assert_eq!(c.volume_at_most(0.299_999).volume, 2_900_000);
+        // A maximum under the minimum: the minimum is the ceiling too.
+        let odd = Contract {
+            min_volume: 500,
+            max_volume: 100,
+            step_volume: 1,
+            ..c
+        };
+        assert_eq!(
+            odd.volume_at_most(5.0),
+            Stepped {
+                volume: 500,
+                limit: Some(Limit::Max)
+            }
+        );
+    }
+
+    #[test]
+    fn prices_are_rounded_and_written_with_the_symbols_decimals() {
+        let c = Contract::default();
+        assert!(close(c.round_price(-1.084_126), -1.08413));
+        let index = Contract { digits: 0, ..c };
+        assert!(close(index.round_price(15_432.5), 15_433.0));
+        assert_eq!(index.format_price(15_432.4), "15432");
+        assert_eq!(c.format_price(1.1), "1.10000");
+    }
+
+    #[test]
+    fn lots_are_written_without_trailing_zeros() {
+        assert_eq!(format_lots(0.5), "0.5");
+        assert_eq!(format_lots(10.0), "10");
+        assert_eq!(format_lots(100.0), "100");
+        assert_eq!(format_lots(1.234), "1.23");
+        assert_eq!(format_lots(0.004), "0");
+        assert_eq!(format_lots(-0.001), "0");
+        assert_eq!(format_lots(-1.5), "-1.5");
+    }
+
+    #[test]
+    fn a_relative_distance_is_never_nothing() {
+        assert_eq!(relative_distance(f64::NAN, 5), 1);
+        assert_eq!(relative_distance(0.0, 5), 1);
+        assert_eq!(relative_distance(0.0, 2), 1_000);
+        assert_eq!(relative_distance(0.0025, 4), 250);
+        // No decimals at all: whole units of price, as the server counts them.
+        assert_eq!(relative_distance(0.5, 0), 100_000);
+        assert_eq!(relative_distance(2.0, 0), 200_000);
+    }
+
+    #[test]
+    fn a_price_on_the_market_makes_a_stop() {
+        let (bid, ask) = (Some(1.1000), Some(1.1002));
+        assert_eq!(pending_kind(true, 1.1002, bid, ask), Pending::Stop);
+        assert_eq!(pending_kind(false, 1.1000, bid, ask), Pending::Stop);
+        // Only the side's own price counts: a buy reads the ask, a sell the bid.
+        assert_eq!(pending_kind(true, 2.0, None, ask), Pending::Stop);
+        assert_eq!(pending_kind(false, 0.5, bid, None), Pending::Stop);
+        // Without that price it is a limit, wherever the price is.
+        assert_eq!(pending_kind(true, 2.0, bid, None), Pending::Limit);
+        assert_eq!(pending_kind(false, 0.5, None, ask), Pending::Limit);
+    }
+
+    #[test]
+    fn protection_on_the_entry_is_on_the_wrong_side() {
+        assert_eq!(
+            check_protection(true, 1.1, Some(1.1), None),
+            Err(TicketProblem::StopLossWrongSide)
+        );
+        assert_eq!(
+            check_protection(false, 1.1, Some(1.1), None),
+            Err(TicketProblem::StopLossWrongSide)
+        );
+        assert_eq!(
+            check_protection(true, 1.1, None, Some(1.1)),
+            Err(TicketProblem::TakeProfitWrongSide)
+        );
+        assert_eq!(
+            check_protection(false, 1.1, None, Some(1.1)),
+            Err(TicketProblem::TakeProfitWrongSide)
+        );
+        // Both wrong: the stop loss is the one named.
+        assert_eq!(
+            check_protection(true, 1.1, Some(1.2), Some(1.0)),
+            Err(TicketProblem::StopLossWrongSide)
+        );
+        assert_eq!(protection_side(true, true), -1.0);
+        assert_eq!(protection_side(true, false), 1.0);
+        assert_eq!(protection_side(false, true), 1.0);
+        assert_eq!(protection_side(false, false), -1.0);
+    }
+
+    #[test]
+    fn a_risk_that_cannot_be_sized_gives_no_lots() {
+        let c = Contract::default();
+        assert_eq!(lots_for_risk(f64::NAN, 0.002, 1.0, &c), None);
+        assert_eq!(lots_for_risk(100.0, f64::INFINITY, 1.0, &c), None);
+        assert_eq!(lots_for_risk(100.0, 0.002, -1.0, &c), None);
+        assert_eq!(lots_for_risk(100.0, 0.002, 0.0, &c), None);
+        assert_eq!(lots_for_risk(-5.0, 0.002, 1.0, &c), None);
+    }
+
+    #[test]
+    fn a_yen_pair_is_sized_through_the_rate_of_its_quote_currency() {
+        // USDJPY: 100 000 units a lot, quote currency JPY worth 1/150 USD.
+        let jpy = Contract {
+            digits: 3,
+            pip_position: 2,
+            ..Contract::default()
+        };
+        // 50 pips of 0.01 is a 0.5 yen move: 50 000 yen a lot, 333.33 USD.
+        let lots = lots_for_risk(100.0, 0.5, 1.0 / 150.0, &jpy).unwrap();
+        assert!((lots - 0.3).abs() < 1e-9);
+        assert_eq!(jpy.volume_at_most(lots).volume, 3_000_000);
+    }
+
+    #[test]
+    fn a_rate_is_trusted_only_when_the_move_is_big_enough() {
+        // A move of exactly the least is trusted, one under it is not.
+        assert_eq!(implied_rate(5.0, 2.0, 2.0), Some(2.5));
+        assert_eq!(implied_rate(5.0, 1.99, 2.0), None);
+        // A loss over a loss gives a rate; zero never does.
+        assert_eq!(implied_rate(-10.0, -20.0, 1.0), Some(0.5));
+        assert_eq!(implied_rate(0.0, 20.0, 1.0), None);
+        assert_eq!(implied_rate(1.0, 0.0, 0.0), None);
+        assert_eq!(implied_rate(f64::NAN, 20.0, 1.0), None);
+    }
+
+    #[test]
+    fn the_costs_stay_in_the_profit_when_a_rate_is_known() {
+        let mark = PnlMark {
+            gross: 10.0,
+            net: 7.5,
+            rate: Some(0.5),
+        };
+        // Quote profit 40 at 0.5 is 20, less the 2.5 of commission and swap.
+        assert!(close(live_net(&mark, 40.0), 17.5));
+        let flat = PnlMark { rate: None, ..mark };
+        assert!(close(live_net(&flat, 40.0), 7.5));
+    }
+
+    #[test]
+    fn a_chain_with_a_bad_price_or_a_wrong_start_gives_no_rate() {
+        let prices = |id: i64| match id {
+            1 => Some(2.0),
+            2 => Some(0.0),
+            3 => Some(-1.0),
+            _ => None,
+        };
+        let link = |symbol_id, base, quote| Link {
+            symbol_id,
+            base,
+            quote,
+        };
+        assert_eq!(chain_rate(10, 20, &[link(1, 10, 20)], &prices), Some(2.0));
+        assert_eq!(chain_rate(20, 10, &[link(1, 10, 20)], &prices), Some(0.5));
+        assert_eq!(chain_rate(10, 20, &[link(2, 10, 20)], &prices), None);
+        assert_eq!(chain_rate(10, 20, &[link(3, 10, 20)], &prices), None);
+        assert_eq!(chain_rate(30, 20, &[link(1, 10, 20)], &prices), None);
+        assert_eq!(chain_rate(10, 10, &[], &prices), Some(1.0));
+        assert_eq!(chain_rate(10, 20, &[], &prices), None);
+        assert_eq!(mid(None, None), None);
+    }
+
+    #[test]
+    fn an_account_below_its_margin_has_a_negative_free_margin() {
+        let s = summary(1_000.0, -700.0, 400.0);
+        assert!(close(s.equity, 300.0));
+        assert!(close(s.free_margin, -100.0));
+        assert!(close(s.margin_level.unwrap(), 75.0));
+        assert!(close(s.unrealized, -700.0));
+        assert_eq!(Summary::default().margin_level, None);
+    }
 }
