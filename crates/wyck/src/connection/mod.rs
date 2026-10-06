@@ -312,6 +312,10 @@ impl Render for ConnectionFlow {
 /// decides where its state lives; every screen goes through `self.config` instead of touching
 /// [`wyck_config`] directly. A config that has something to report (a missing secret, a folder
 /// other users can read) says so in the log.
+#[allow(
+    clippy::expect_used,
+    reason = "start-up: nothing can run without its config, and the message says which step failed"
+)]
 fn load_config() -> WyckConfig {
     let paths = crate::app_paths()
         .expect("could not resolve the app's config directories")

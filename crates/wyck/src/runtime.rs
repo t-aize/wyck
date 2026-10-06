@@ -20,6 +20,10 @@ use tokio::task::JoinHandle;
 static RUNTIME: OnceLock<Handle> = OnceLock::new();
 
 /// The shared tokio [`Handle`], starting the background runtime thread on first use.
+#[allow(
+    clippy::expect_used,
+    reason = "start-up: without the background runtime there is no network, and nothing to fall back to"
+)]
 pub fn handle() -> Handle {
     RUNTIME
         .get_or_init(|| {

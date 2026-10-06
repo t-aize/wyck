@@ -621,6 +621,10 @@ impl gpui::Element for TextElement {
         }
     }
 
+    #[allow(
+        clippy::unwrap_used,
+        reason = "prepaint always sets the line, and a paint failure means the text system is gone"
+    )]
     fn paint(
         &mut self,
         _id: Option<&GlobalElementId>,

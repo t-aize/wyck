@@ -387,6 +387,10 @@ impl Installed {
         Self
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "`new` installs the run and only `finish` takes it out"
+    )]
     fn finish(self) -> Run {
         let run = RUN
             .with(|cell| cell.borrow_mut().take())

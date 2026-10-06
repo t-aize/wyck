@@ -27,6 +27,10 @@ use gpui::{App, Bounds, WindowBounds, px, size};
 use gpui_kit::component::{Root, TitleBar};
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
+#[allow(
+    clippy::expect_used,
+    reason = "start-up: the app cannot run without its font and its window, and the message says which"
+)]
 fn main() {
     init_tracing();
 

@@ -72,6 +72,10 @@ pub fn new_state() -> String {
 /// `redirect_uri` must be one of the URIs registered for the application, character for
 /// character. `state` is echoed back on the redirect (see [`new_state`]).
 #[must_use]
+#[allow(
+    clippy::expect_used,
+    reason = "AUTHORIZE_URL is a constant and a test builds a URL from it"
+)]
 pub fn authorization_url(client_id: &str, redirect_uri: &str, scope: Scope, state: &str) -> String {
     let mut url = Url::parse(AUTHORIZE_URL).expect("the consent page address is a valid URL");
     url.query_pairs_mut()
