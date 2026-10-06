@@ -159,7 +159,7 @@ pub(super) fn groups(
                 mode_index,
                 move |choice, _window, cx| {
                     edit(&mode_chart, cx, |s| {
-                        s.footprint.mode = CellMode::ALL[choice]
+                        s.footprint.mode = CellMode::ALL[choice];
                     });
                 },
             ),

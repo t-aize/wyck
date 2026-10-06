@@ -56,7 +56,7 @@ impl OrderTicket {
                     span_at,
                     move |choice, _, cx| {
                         span_this.update(cx, |t, cx| {
-                            t.edit_time_stop(cx, |s| s.span = prefs::Span::ALL[choice])
+                            t.edit_time_stop(cx, |s| s.span = prefs::Span::ALL[choice]);
                         });
                     },
                 )),

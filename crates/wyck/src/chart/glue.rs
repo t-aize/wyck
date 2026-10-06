@@ -340,7 +340,7 @@ impl Chart {
 
     /// Removes every drawing of the symbol that is not locked, as one undo step.
     pub fn clear_drawings(&mut self, cx: &mut Context<Self>) {
-        self.edit_drawings(cx, |book, symbol| book.clear(symbol));
+        self.edit_drawings(cx, wyck_chart::drawing::book::Book::clear);
     }
 
     /// Selects a drawing, as a click on it would.

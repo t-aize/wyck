@@ -285,7 +285,7 @@ impl MultiChart {
     /// Ctrl+C: copies the selected drawings, or else the indicators of the chart.
     pub fn copy_active_indicators(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        if chart.update(cx, |chart, cx| chart.copy_selected_drawings(cx)) {
+        if chart.update(cx, super::chart::Chart::copy_selected_drawings) {
             // What was copied last is what Ctrl+V pastes.
             self.clipboard = None;
             return;
@@ -301,7 +301,7 @@ impl MultiChart {
     pub fn paste_active(&mut self, cx: &mut Context<Self>) {
         if self.clipboard.is_none() {
             let chart = self.active_chart().clone();
-            if chart.update(cx, |chart, cx| chart.paste_drawings(cx)) {
+            if chart.update(cx, super::chart::Chart::paste_drawings) {
                 return;
             }
         }
@@ -311,7 +311,7 @@ impl MultiChart {
     /// Ctrl+A on the charts: selects every drawing of the symbol.
     pub fn select_all_drawings(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        chart.update(cx, |chart, cx| chart.select_all_drawings(cx));
+        chart.update(cx, super::chart::Chart::select_all_drawings);
     }
 
     /// An arrow key: moves the selected drawings. Returns whether there were any to move.
@@ -369,7 +369,7 @@ impl MultiChart {
                     return;
                 }
                 chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |settings| settings.studies = studies)
+                    chart.edit_settings(cx, |settings| settings.studies = studies);
                 });
             }
             ChartClipboard::Settings(settings) => {
@@ -378,7 +378,7 @@ impl MultiChart {
                         let studies = std::mem::take(&mut target.studies);
                         *target = *settings;
                         target.studies = studies;
-                    })
+                    });
                 });
             }
         }
@@ -398,7 +398,7 @@ impl MultiChart {
             if index != from {
                 let studies = studies.clone();
                 slot.chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |s| s.studies = studies)
+                    chart.edit_settings(cx, |s| s.studies = studies);
                 });
             }
         }
@@ -570,7 +570,7 @@ impl MultiChart {
     ) {
         for slot in &self.slots {
             slot.chart.update(cx, |chart, cx| {
-                chart.set_quote_details(id, digits, pip_position, cx)
+                chart.set_quote_details(id, digits, pip_position, cx);
             });
         }
     }
@@ -597,7 +597,7 @@ impl MultiChart {
     pub fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.tracker.clear();
         for slot in &self.slots {
-            slot.chart.update(cx, |chart, cx| chart.on_ready(cx));
+            slot.chart.update(cx, super::chart::Chart::on_ready);
         }
     }
 
@@ -729,7 +729,7 @@ impl MultiChart {
         }
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| {
-                book.set_drawing_limit(limits.drawings_per_symbol)
+                book.set_drawing_limit(limits.drawings_per_symbol);
             });
         });
         cx.notify();
@@ -752,7 +752,7 @@ impl MultiChart {
             self.recent_tools.truncate(MAX_RECENT_TOOLS);
         }
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_tool(tool))
+            drawings.edit(cx, |book| book.set_tool(tool));
         });
         cx.notify();
     }
@@ -770,7 +770,7 @@ impl MultiChart {
     pub(crate) fn toggle_magnet(&mut self, cx: &mut Context<Self>) {
         let magnet = !self.drawings.read(cx).book().magnet();
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_magnet(magnet))
+            drawings.edit(cx, |book| book.set_magnet(magnet));
         });
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.magnet = magnet);
@@ -780,7 +780,7 @@ impl MultiChart {
     pub(crate) fn toggle_keep_drawing(&mut self, cx: &mut Context<Self>) {
         let keep = !self.drawings.read(cx).book().keep_tool();
         self.drawings.update(cx, |drawings, cx| {
-            drawings.edit(cx, |book| book.set_keep_tool(keep))
+            drawings.edit(cx, |book| book.set_keep_tool(keep));
         });
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| prefs.keep_drawing = keep);
@@ -800,8 +800,9 @@ impl MultiChart {
 
     /// Enter: ends an arrow path with the points it has. Returns whether it did.
     pub fn finish_drawing(&mut self, cx: &mut Context<Self>) -> bool {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.finish()))
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_chart::drawing::book::Book::finish)
+        })
     }
 
     /// Escape: gives up what the drawing tools have in progress. Returns whether there was any.
@@ -810,8 +811,9 @@ impl MultiChart {
             cx.notify();
             return true;
         }
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.cancel()))
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_chart::drawing::book::Book::cancel)
+        })
     }
 
     /// Opens the order ticket filled from a position drawing of the active chart.
@@ -852,22 +854,24 @@ impl MultiChart {
     }
 
     pub fn undo_drawing(&mut self, cx: &mut Context<Self>) {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.undo()));
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_chart::drawing::book::Book::undo)
+        });
     }
 
     pub fn redo_drawing(&mut self, cx: &mut Context<Self>) {
-        self.drawings
-            .update(cx, |drawings, cx| drawings.edit(cx, |book| book.redo()));
+        self.drawings.update(cx, |drawings, cx| {
+            drawings.edit(cx, wyck_chart::drawing::book::Book::redo)
+        });
     }
 
     pub fn duplicate_drawing(&mut self, cx: &mut Context<Self>) {
         let chart = self.active_chart().clone();
-        chart.update(cx, |chart, cx| chart.duplicate_selected(cx));
+        chart.update(cx, super::chart::Chart::duplicate_selected);
     }
 
     pub(crate) fn clear_drawings(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.clear(symbol));
+        self.edit_book(cx, wyck_chart::drawing::book::Book::clear);
     }
 
     pub(crate) fn set_drawing_color(&mut self, color: u32, cx: &mut Context<Self>) {
@@ -894,11 +898,11 @@ impl MultiChart {
     }
 
     pub(crate) fn toggle_drawing_fill(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.toggle_fill(symbol));
+        self.edit_book(cx, wyck_chart::drawing::book::Book::toggle_fill);
     }
 
     pub(crate) fn toggle_drawing_lock(&mut self, cx: &mut Context<Self>) {
-        self.edit_book(cx, |book, symbol| book.toggle_lock(symbol));
+        self.edit_book(cx, wyck_chart::drawing::book::Book::toggle_lock);
     }
 
     /// The words field changed: the selected text drawing says what it says.
@@ -1116,7 +1120,7 @@ impl Render for MultiChart {
         // A text drawing that was just made takes the keyboard, so its words can be typed.
         if self.drawings.read(cx).book().wants_text_focus() {
             self.drawings.update(cx, |drawings, cx| {
-                drawings.edit(cx, |book| book.take_text_focus());
+                drawings.edit(cx, wyck_chart::drawing::book::Book::take_text_focus);
             });
             window.focus(&gpui::Focusable::focus_handle(&self.text_input, cx), cx);
         }

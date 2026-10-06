@@ -53,11 +53,13 @@ impl IndicatorEditor {
             Entry::new("This script...")
                 .icon(IconName::FileDown)
                 .disabled(!has_doc)
-                .on_click(move |_, cx| one.update(cx, |e, cx| e.export_current(cx)))
+                .on_click(move |_, cx| {
+                    one.update(cx, super::super::IndicatorEditor::export_current);
+                })
                 .into(),
             Entry::new("Every script to a folder...")
                 .icon(IconName::FolderDown)
-                .on_click(move |_, cx| all.update(cx, |e, cx| e.export_all(cx)))
+                .on_click(move |_, cx| all.update(cx, super::super::IndicatorEditor::export_all))
                 .into(),
         ];
 
@@ -186,7 +188,7 @@ impl IndicatorEditor {
                     has_doc,
                 )
                 .on_click(move |_, _window, cx| {
-                    reveal.update(cx, |e, cx| e.reveal_current(cx));
+                    reveal.update(cx, super::super::IndicatorEditor::reveal_current);
                 }),
             )
             .child(div().flex_1())

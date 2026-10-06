@@ -171,7 +171,7 @@ impl SettingsHub {
                             .small()
                             .label("Cancel the import")
                             .on_click(move |_, _window, cx| {
-                                cancel.update(cx, |e, cx| e.cancel_import(cx));
+                                cancel.update(cx, super::SettingsHub::cancel_import);
                             }),
                     ),
             );
@@ -220,7 +220,7 @@ impl SettingsHub {
                 .label("Save a copy")
                 .on_click({
                     let this = cx.entity();
-                    move |_, _window, cx| this.update(cx, |hub, cx| hub.save_copy(cx))
+                    move |_, _window, cx| this.update(cx, super::SettingsHub::save_copy)
                 }),
         )];
         for (index, entry) in self.copies.iter().take(LISTED_COPIES).enumerate() {
@@ -338,7 +338,7 @@ impl SettingsHub {
                             "Reset everything?",
                             "This puts the appearance, layout, charts, drawings, watchlists, favorites and alerts of every account back to how they are on a fresh install. A copy of what is removed is kept in the backups folder. Wyck restarts right after. Your indicator scripts and your sign-in stay exactly as they are.",
                             move |_window, cx| {
-                                reset.update(cx, |hub, cx| hub.reset_all(cx));
+                                reset.update(cx, super::SettingsHub::reset_all);
                             },
                         );
                     }),

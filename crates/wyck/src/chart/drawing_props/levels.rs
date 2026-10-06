@@ -69,7 +69,7 @@ impl DrawingProps {
             .child(
                 Button::new("props-level-add")
                     .cursor_pointer()
-                    .when(full, |button| button.cursor_not_allowed())
+                    .when(full, gpui::Styled::cursor_not_allowed)
                     .ghost()
                     .xsmall()
                     .icon(IconName::Plus)

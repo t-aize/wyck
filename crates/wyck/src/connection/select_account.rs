@@ -108,7 +108,7 @@ impl ConnectionFlow {
                             "connect-selected-account",
                             "Connect this account",
                             cx.listener(|this, _event, _window, cx| {
-                                this.authorize_selected_account(cx)
+                                this.authorize_selected_account(cx);
                             }),
                         )
                         .icon(IconName::PlugZap),
@@ -152,8 +152,7 @@ fn account_row(
     let is_live = account.is_live.unwrap_or(false);
     let login = account
         .trader_login
-        .map(|login| login.to_string())
-        .unwrap_or_else(|| "-".into());
+        .map_or_else(|| "-".into(), |login| login.to_string());
 
     // The check inside the radio pops in each time this row becomes the selected one; the id
     // includes `selected` so unselecting and reselecting replays it.

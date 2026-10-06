@@ -156,7 +156,7 @@ impl DrawingProps {
                         mode_this.update(cx, |editor, cx| {
                             editor.change(cx, |d| {
                                 d.style.position.atr_stop = (choice == 1).then(|| atr_seed.clone());
-                            })
+                            });
                         });
                     },
                 ),
@@ -172,7 +172,7 @@ impl DrawingProps {
                         target_this.update(cx, |editor, cx| {
                             editor.change(cx, |d| {
                                 d.style.position.target_rr = (choice == 1).then_some(2.0);
-                            })
+                            });
                         });
                     },
                 ),
@@ -208,7 +208,7 @@ impl DrawingProps {
                                 if let Some(atr) = &mut d.style.position.atr_stop {
                                     atr.smoothing = Smoothing::ALL[choice];
                                 }
-                            })
+                            });
                         });
                     },
                 ),
@@ -235,7 +235,7 @@ impl DrawingProps {
                                 if let Some(atr) = &mut d.style.position.atr_stop {
                                     atr.current_bar = choice == 1;
                                 }
-                            })
+                            });
                         });
                     },
                 ),
@@ -386,7 +386,7 @@ impl DrawingProps {
                             dash_index,
                             move |choice, _w, cx| {
                                 dash_this.update(cx, |e, cx| {
-                                    e.change(cx, |d| d.style.dash = DASHES[choice])
+                                    e.change(cx, |d| d.style.dash = DASHES[choice]);
                                 });
                             },
                         ))
@@ -426,7 +426,7 @@ impl DrawingProps {
                     "Show the tags",
                     Some("The words on the levels"),
                     self.switch("props-labels", style.labels, cx, |d, on| {
-                        d.style.labels = on
+                        d.style.labels = on;
                     }),
                 ),
                 form::field(

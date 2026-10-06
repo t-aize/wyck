@@ -221,7 +221,7 @@ impl IndicatorEditor {
             cx.new(|cx| InputState::new(window, cx).placeholder("Search the reference"));
         let subscriptions = vec![
             cx.subscribe(&filter, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify()
+                cx.notify();
             }),
             cx.subscribe(
                 &reference_filter,

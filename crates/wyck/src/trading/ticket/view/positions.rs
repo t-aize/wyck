@@ -19,7 +19,7 @@ impl OrderTicket {
                            run: Action| {
             Button::new(id)
                 .cursor_pointer()
-                .when(!enabled, |button| button.cursor_not_allowed())
+                .when(!enabled, gpui::Styled::cursor_not_allowed)
                 .ghost()
                 .xsmall()
                 .icon(icon)

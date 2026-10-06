@@ -21,7 +21,7 @@ impl SettingsHub {
                         Some("Keep the tool picked after a drawing, to draw several in a row"),
                         controls::toggle("behaviour-keep", prefs.keep_drawing, move |on, _w, cx| {
                             if on != prefs.keep_drawing {
-                                keep.update(cx, |m, cx| m.toggle_keep_drawing(cx));
+                                keep.update(cx, super::super::multichart::MultiChart::toggle_keep_drawing);
                             }
                         }),
                     ),
@@ -30,7 +30,7 @@ impl SettingsHub {
                         Some("Drawings snap to the open, high, low and close of the nearest bar"),
                         controls::toggle("behaviour-magnet", prefs.magnet, move |on, _w, cx| {
                             if on != prefs.magnet {
-                                magnet.update(cx, |m, cx| m.toggle_magnet(cx));
+                                magnet.update(cx, super::super::multichart::MultiChart::toggle_magnet);
                             }
                         }),
                     ),
@@ -39,7 +39,7 @@ impl SettingsHub {
                         Some("The drawing tools you pinned, over the charts"),
                         controls::toggle("behaviour-bar", prefs.favorites_bar, move |on, _w, cx| {
                             if on != prefs.favorites_bar {
-                                bar.update(cx, |m, cx| m.toggle_favorites_bar(cx));
+                                bar.update(cx, super::super::multichart::MultiChart::toggle_favorites_bar);
                             }
                         }),
                     ),
@@ -51,7 +51,7 @@ impl SettingsHub {
                             prefs.favorites_labels,
                             move |on, _w, cx| {
                                 if on != prefs.favorites_labels {
-                                    names.update(cx, |m, cx| m.toggle_favorite_names(cx));
+                                    names.update(cx, super::super::multichart::MultiChart::toggle_favorite_names);
                                 }
                             },
                         ),

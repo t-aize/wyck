@@ -400,7 +400,7 @@ impl Dashboard {
         for id in symbols {
             self.trading
                 .update(cx, |account, cx| account.ensure_contract(id, cx));
-            let contract = self.trading.read(cx).book.contracts.get(&id).cloned();
+            let contract = self.trading.read(cx).book.contracts.get(&id).copied();
             // Before the answer a contract is a placeholder: it must not hide what is known.
             let Some(contract) =
                 contract.filter(|c| *c != crate::trading::math::Contract::default())
@@ -448,7 +448,7 @@ impl Dashboard {
                                 if let Some(alert) = book.get_mut(id) {
                                     alert.active = false;
                                 }
-                            })
+                            });
                         });
                     });
                 }
@@ -672,7 +672,7 @@ impl Dashboard {
                     .get(&position)
                     .and_then(|p| p.take_profit);
                 account.update(cx, |a, cx| {
-                    a.protect_position(position, Some(price), tp, cx)
+                    a.protect_position(position, Some(price), tp, cx);
                 });
             }
             LineId::TakeProfit(position) => {
@@ -683,7 +683,7 @@ impl Dashboard {
                     .get(&position)
                     .and_then(|p| p.stop_loss);
                 account.update(cx, |a, cx| {
-                    a.protect_position(position, sl, Some(price), cx)
+                    a.protect_position(position, sl, Some(price), cx);
                 });
             }
             LineId::Position(_) => {}

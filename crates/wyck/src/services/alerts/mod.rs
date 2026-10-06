@@ -124,7 +124,7 @@ impl Alerts {
         let poll = cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(POLL).await;
-                if this.update(cx, |this, cx| this.poll(cx)).is_err() {
+                if this.update(cx, Alerts::poll).is_err() {
                     break;
                 }
             }

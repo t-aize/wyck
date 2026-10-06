@@ -1910,7 +1910,7 @@ impl OrderTicket {
             details,
             move |window, cx| {
                 account.update(cx, |account, cx| {
-                    account.place_batch(orders.clone(), one_click, cx)
+                    account.place_batch(orders.clone(), one_click, cx);
                 });
                 this.update(cx, |ticket, cx| ticket.release_link(true, window, cx));
             },

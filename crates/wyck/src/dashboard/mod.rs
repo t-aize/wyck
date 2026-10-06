@@ -267,14 +267,14 @@ impl Dashboard {
             )
         });
         cx.subscribe(&alerts, |this, _alerts, event, cx| {
-            this.on_alert_event(event, cx)
+            this.on_alert_event(event, cx);
         })
         .detach();
         let panel_prefs = workspace.read(cx).preferences().account_panel.clone();
         let panel =
             cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), panel_prefs, cx));
         cx.subscribe(&panel, |this, _panel, event, cx| {
-            this.on_panel_event(event, cx)
+            this.on_panel_event(event, cx);
         })
         .detach();
         // The lines on the charts follow the account and the alerts.
@@ -371,7 +371,7 @@ impl Dashboard {
             cx.listener(|this, _: &chart::SelectAllDrawings, window, cx| {
                 if this.multi.read(cx).has_chart_focus(window) {
                     this.multi
-                        .update(cx, |multi, cx| multi.select_all_drawings(cx));
+                        .update(cx, super::multichart::MultiChart::select_all_drawings);
                 } else {
                     cx.propagate();
                 }
@@ -403,7 +403,7 @@ impl Dashboard {
         }))
         .on_action(cx.listener(|this, _: &chart::ToolHorizontal, _window, cx| {
             this.multi.update(cx, |multi, cx| {
-                multi.pick_tool_key(Tool::HorizontalLine, cx)
+                multi.pick_tool_key(Tool::HorizontalLine, cx);
             });
         }))
         .on_action(cx.listener(|this, _: &chart::ToolVertical, _window, cx| {
@@ -412,7 +412,7 @@ impl Dashboard {
         }))
         .on_action(cx.listener(|this, _: &chart::ToolFib, _window, cx| {
             this.multi.update(cx, |multi, cx| {
-                multi.pick_tool_key(Tool::FibRetracement, cx)
+                multi.pick_tool_key(Tool::FibRetracement, cx);
             });
         }))
         .on_action(cx.listener(|this, _: &chart::ToolRectangle, _window, cx| {
@@ -479,10 +479,10 @@ impl Dashboard {
             SessionEvent::Data(Event::Spot(spot)) => {
                 self.multi.update(cx, |multi, cx| multi.on_spot(&spot, cx));
                 self.alerts.update(cx, |alerts, cx| {
-                    alerts.on_spot(spot.symbol_id, spot.bid, spot.ask, cx)
+                    alerts.on_spot(spot.symbol_id, spot.bid, spot.ask, cx);
                 });
                 self.trading.update(cx, |account, cx| {
-                    account.on_event(&Event::Spot(spot.clone()), cx)
+                    account.on_event(&Event::Spot(spot.clone()), cx);
                 });
                 self.apply_spot(Spot::from(&spot), cx);
             }
@@ -506,8 +506,10 @@ impl Dashboard {
 
     fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.conn = Conn::Ready;
-        self.multi.update(cx, |multi, cx| multi.on_ready(cx));
-        self.trading.update(cx, |account, cx| account.on_ready(cx));
+        self.multi
+            .update(cx, super::multichart::MultiChart::on_ready);
+        self.trading
+            .update(cx, super::trading::account::Account::on_ready);
         if !self.catalog_requested {
             self.catalog_requested = true;
             self.load_catalog(cx);
@@ -571,7 +573,7 @@ impl Dashboard {
             .filter_map(|e| Some((e.id, e.quote_asset?)))
             .collect();
         self.trading.update(cx, |account, cx| {
-            account.set_symbols(names, quotes, quote_assets, cx)
+            account.set_symbols(names, quotes, quote_assets, cx);
         });
         // Each chart gets the symbol it was saved with, or the one to start on.
         let wanted = self.multi.read(cx).wanted_symbols(cx);
@@ -656,7 +658,7 @@ impl Dashboard {
                         .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                     this.details.insert(id, details::Detail::Ready(symbol));
                     this.multi.update(cx, |multi, cx| {
-                        multi.set_quote_details(id, digits, pip_position, cx)
+                        multi.set_quote_details(id, digits, pip_position, cx);
                     });
                     this.refresh_active(cx);
                 }
@@ -960,7 +962,11 @@ impl Render for Dashboard {
                 && !this.menu_open
                 && !this.tf_menu_open
                 && !this.layout_menu_open;
-            if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
+            if nothing_open
+                && this
+                    .multi
+                    .update(cx, super::multichart::MultiChart::cancel_drawing)
+            {
                 // The field that had the keyboard may be gone with the selection.
                 window.focus(&this.focus_handle, cx);
                 return;
@@ -968,12 +974,16 @@ impl Render for Dashboard {
             this.close_overlays(window, cx);
         }))
         .on_action(cx.listener(|this, _: &chart::DeleteDrawing, window, cx| {
-            this.multi.update(cx, |multi, cx| multi.delete_drawing(cx));
+            this.multi
+                .update(cx, super::multichart::MultiChart::delete_drawing);
             window.focus(&this.focus_handle, cx);
         }))
         .on_action(cx.listener(|this, _: &chart::FinishDrawing, _window, cx| {
             // Only an arrow path ends on Enter: for anything else the key goes on.
-            if !this.multi.update(cx, |multi, cx| multi.finish_drawing(cx)) {
+            if !this
+                .multi
+                .update(cx, super::multichart::MultiChart::finish_drawing)
+            {
                 cx.propagate();
             }
         }))
@@ -1015,15 +1025,17 @@ impl Render for Dashboard {
                 .update(cx, |multi, cx| multi.pick_favorite(8, cx));
         }))
         .on_action(cx.listener(|this, _: &chart::UndoDrawing, _window, cx| {
-            this.multi.update(cx, |multi, cx| multi.undo_drawing(cx));
+            this.multi
+                .update(cx, super::multichart::MultiChart::undo_drawing);
         }))
         .on_action(cx.listener(|this, _: &chart::RedoDrawing, _window, cx| {
-            this.multi.update(cx, |multi, cx| multi.redo_drawing(cx));
+            this.multi
+                .update(cx, super::multichart::MultiChart::redo_drawing);
         }))
         .on_action(
             cx.listener(|this, _: &chart::DuplicateDrawing, _window, cx| {
                 this.multi
-                    .update(cx, |multi, cx| multi.duplicate_drawing(cx));
+                    .update(cx, super::multichart::MultiChart::duplicate_drawing);
             }),
         )
         .on_action(cx.listener(|this, _: &chart::ChartPanBack, window, cx| {
@@ -1051,11 +1063,11 @@ impl Render for Dashboard {
             this.on_active_chart(cx, |chart, cx| chart.zoom_keys(false, cx));
         }))
         .on_action(cx.listener(|this, _: &chart::ChartLatest, _window, cx| {
-            this.on_active_chart(cx, |chart, cx| chart.jump_to_latest(cx));
+            this.on_active_chart(cx, super::chart::Chart::jump_to_latest);
         }))
         .on_action(
             cx.listener(|this, _: &chart::ChartResetScale, _window, cx| {
-                this.on_active_chart(cx, |chart, cx| chart.reset_price_scale(cx));
+                this.on_active_chart(cx, super::chart::Chart::reset_price_scale);
             }),
         )
         .on_action(cx.listener(|this, _: &chart::ChartAddAlert, _window, cx| {
@@ -1063,12 +1075,14 @@ impl Render for Dashboard {
         }))
         .on_action(
             cx.listener(|this, _: &chart::ChartScreenshot, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.picture(cx));
+                this.multi
+                    .update(cx, super::multichart::MultiChart::picture);
             }),
         )
         .on_action(
             cx.listener(|this, _: &chart::ChartScreenshotAll, _window, cx| {
-                this.multi.update(cx, |multi, cx| multi.picture_all(cx));
+                this.multi
+                    .update(cx, super::multichart::MultiChart::picture_all);
             }),
         )
         .on_action(

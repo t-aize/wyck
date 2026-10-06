@@ -743,8 +743,8 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text =
-                wyck_chart::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
+            let text = wyck_chart::Timeframe::from_code(&current)
+                .map_or(current.clone(), wyck_chart::Timeframe::label);
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),

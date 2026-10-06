@@ -166,8 +166,7 @@ fn system_files() -> Vec<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         let root = std::env::var_os("SystemRoot")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+            .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from);
         let media = root.join("Media");
         [
             "Windows Notify System Generic.wav",

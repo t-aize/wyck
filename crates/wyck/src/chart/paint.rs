@@ -101,7 +101,7 @@ impl Chart {
             .as_ref()
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
         let when = super::axis::full_time(super::now_ms(), self.settings.zone, false, false);
-        let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let stamp: String = when.chars().filter(char::is_ascii_alphanumeric).collect();
         let name = format!(
             "wyck-{}-{}-{stamp}.png",
             symbol.replace(|c: char| !c.is_ascii_alphanumeric(), ""),
@@ -445,7 +445,7 @@ fn listen(entity: &Entity<Chart>, bounds: Bounds<Pixels>, hitbox: Hitbox, window
         {
             return;
         }
-        if e.update(cx, |chart, cx| chart.abort_drawing(cx)) {
+        if e.update(cx, super::Chart::abort_drawing) {
             cx.stop_propagation();
         }
     });

@@ -130,7 +130,7 @@ impl IndicatorEditor {
                             } else {
                                 theme::muted_fg()
                             })
-                            .when(doc.gone, |el| el.line_through())
+                            .when(doc.gone, gpui::Styled::line_through)
                             .child(stem(&doc.id).to_owned()),
                     )
                     .child(
@@ -216,7 +216,7 @@ impl IndicatorEditor {
                         .label("Keep mine")
                         .cursor_pointer()
                         .on_click(move |_, _window, cx| {
-                            keep.update(cx, |e, cx| e.keep_mine(cx));
+                            keep.update(cx, super::IndicatorEditor::keep_mine);
                         })
                 }))
                 .into_any_element(),

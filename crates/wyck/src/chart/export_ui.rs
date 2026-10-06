@@ -1411,7 +1411,7 @@ impl Render for ExportDialog {
                     false,
                     move |_window, cx| {
                         if ready {
-                            copy.update(cx, |d, cx| d.copy(cx));
+                            copy.update(cx, ExportDialog::copy);
                         }
                     },
                 )
@@ -1423,7 +1423,7 @@ impl Render for ExportDialog {
                     true,
                     move |_window, cx| {
                         if ready {
-                            write.update(cx, |d, cx| d.export(cx));
+                            write.update(cx, ExportDialog::export);
                         }
                     },
                 )

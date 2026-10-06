@@ -434,12 +434,12 @@ pub fn icon_for(ticker: &str, class: Class, base: Option<&str>, quote: Option<&s
         Class::Metals => metal(ticker).map_or_else(fallback, |m| Icon::with(m, quote_flag())),
         Class::Crypto => Icon::with(crypto(ticker), quote_flag()),
         Class::Shares => Icon::with(share(ticker), quote_flag()),
-        Class::Indices => index_flag(ticker)
-            .map(|code| Icon::single(Mark::Flag(code)))
-            .unwrap_or_else(fallback),
-        Class::Energies | Class::Commodities => commodity(ticker)
-            .map(|(_, mark)| Icon::single(mark))
-            .unwrap_or_else(fallback),
+        Class::Indices => {
+            index_flag(ticker).map_or_else(fallback, |code| Icon::single(Mark::Flag(code)))
+        }
+        Class::Energies | Class::Commodities => {
+            commodity(ticker).map_or_else(fallback, |(_, mark)| Icon::single(mark))
+        }
         Class::Bonds | Class::Other => fallback(),
     }
 }

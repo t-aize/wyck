@@ -229,7 +229,7 @@ impl Dashboard {
                 None,
                 |d, window, cx| {
                     d.with_editor(window, cx, |editor, window, cx| {
-                        editor.ask_new(0, window, cx)
+                        editor.ask_new(0, window, cx);
                     });
                 },
             ),
@@ -238,7 +238,11 @@ impl Dashboard {
                 IconName::FileUp,
                 None,
                 |d, window, cx| {
-                    d.with_editor(window, cx, |editor, window, cx| editor.import(window, cx));
+                    d.with_editor(
+                        window,
+                        cx,
+                        super::super::indicators::editor::IndicatorEditor::import,
+                    );
                 },
             ),
             run(

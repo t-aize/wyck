@@ -84,8 +84,7 @@ pub fn init(cx: &mut App) {
 
 pub fn state(cx: &App) -> UpdateState {
     cx.try_global::<Service>()
-        .map(|service| service.state.clone())
-        .unwrap_or(UpdateState::Disabled)
+        .map_or(UpdateState::Disabled, |service| service.state.clone())
 }
 
 pub fn observe<T: 'static>(

@@ -238,7 +238,7 @@ impl Customizer {
 
     /// Puts everything back as it was first, fields included.
     fn reset(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.ticket.update(cx, |t, cx| t.reset_layout(cx));
+        self.ticket.update(cx, super::OrderTicket::reset_layout);
         let layout = self.ticket.read(cx).layout().clone();
         self.width.update(cx, |s, cx| {
             s.set_value(number::format(f64::from(layout.width), 0), window, cx);

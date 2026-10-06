@@ -338,13 +338,13 @@ impl Chart {
             Entry::new("Indicators...")
                 .icon(IconName::ChartSpline)
                 .on_click(on(|_, window, cx| {
-                    indicator_picker::open(cx.entity(), window, cx)
+                    indicator_picker::open(cx.entity(), window, cx);
                 }))
                 .into(),
             Entry::new("Chart settings...")
                 .icon(IconName::Settings2)
                 .on_click(on(|_, window, cx| {
-                    chart_settings_ui::open(cx.entity(), window, cx)
+                    chart_settings_ui::open(cx.entity(), window, cx);
                 }))
                 .into(),
             Entry::new("Copy indicators")
@@ -788,7 +788,11 @@ impl Chart {
     /// The volume, the delta and what each side traded in the bar that opens at `time_ms`, added to
     /// the legend of a footprint.
     fn flow_values(&self, time_ms: i64, row: gpui::Div) -> gpui::Div {
-        let Some((sell, buy)) = self.flow.bar(time_ms).map(|b| b.totals()) else {
+        let Some((sell, buy)) = self
+            .flow
+            .bar(time_ms)
+            .map(wyck_chart::flow::BarFlow::totals)
+        else {
             return row;
         };
         let delta = buy as i64 - sell as i64;

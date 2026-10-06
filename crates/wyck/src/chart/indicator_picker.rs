@@ -68,7 +68,7 @@ impl Picker {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search indicators"));
         let subscriptions = vec![
             cx.subscribe(&search, |_this, _input, _event: &InputEvent, cx| {
-                cx.notify()
+                cx.notify();
             }),
             cx.observe(&chart, |_this, _chart, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),

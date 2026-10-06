@@ -140,7 +140,7 @@ impl SettingsHub {
                     move |on, _w, cx| {
                         background.update(cx, |w, cx| {
                             w.edit_preferences(cx, |p| {
-                                p.alert_output.notify_in_background_only = on
+                                p.alert_output.notify_in_background_only = on;
                             });
                         });
                     },
@@ -205,7 +205,7 @@ fn choose_file(workspace: Entity<Workspace>, cx: &mut App) {
                 preview(&workspace, SoundKind::Custom, cx);
             }
             Err(message) => {
-                toast::show(cx, toast::Kind::Error, "This sound cannot be used", message)
+                toast::show(cx, toast::Kind::Error, "This sound cannot be used", message);
             }
         });
     })

@@ -143,7 +143,7 @@ fn icon_button(
 ) -> impl IntoElement {
     button::icon(id, icon, tip)
         .xsmall()
-        .when(!enabled, |button| button.cursor_not_allowed())
+        .when(!enabled, gpui::Styled::cursor_not_allowed)
         .selected(on)
         .disabled(!enabled)
         .on_click(move |_, window, cx| run(window, cx))
@@ -476,7 +476,7 @@ impl AccountPanel {
                             .to_owned(),
                         move |cx| {
                             alerts.update(cx, |alerts, cx| {
-                                alerts.edit(cx, |book| book.history.clear())
+                                alerts.edit(cx, |book| book.history.clear());
                             });
                         },
                     );
@@ -494,7 +494,7 @@ impl AccountPanel {
                         .keep_open()
                         .on_click(move |_, cx| {
                             reset.update(cx, |p, cx| {
-                                p.edit_prefs(cx, |prefs| prefs.reset_columns(tab))
+                                p.edit_prefs(cx, |prefs| prefs.reset_columns(tab));
                             });
                         })
                         .into(),
@@ -637,7 +637,7 @@ impl AccountPanel {
                                 .disabled(!active)
                                 .on_click(move |_, cx| {
                                     snooze.update(cx, |alerts, cx| {
-                                        alerts.snooze(id, crate::chart::now_ms() + 3_600_000, cx)
+                                        alerts.snooze(id, crate::chart::now_ms() + 3_600_000, cx);
                                     });
                                 })
                                 .into(),
@@ -665,7 +665,7 @@ impl AccountPanel {
                             Entry::new("Edit the alert...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |window, cx| {
-                                    open_alert(edit.clone(), id, window, cx)
+                                    open_alert(edit.clone(), id, window, cx);
                                 })
                                 .into(),
                             Entry::new(if active { "Pause" } else { "Watch again" })
@@ -725,7 +725,7 @@ impl AccountPanel {
                                 Entry::new("Open the alert...")
                                     .icon(IconName::Pencil)
                                     .on_click(move |window, cx| {
-                                        open_alert(edit.clone(), alert, window, cx)
+                                        open_alert(edit.clone(), alert, window, cx);
                                     })
                                     .into(),
                             );
@@ -775,7 +775,7 @@ impl AccountPanel {
                 on,
                 Rc::new(move |_, cx| {
                     this.update(cx, |p, cx| {
-                        p.edit_prefs(cx, |prefs| prefs.only_symbol = !on)
+                        p.edit_prefs(cx, |prefs| prefs.only_symbol = !on);
                     });
                 }),
             )
@@ -1183,7 +1183,7 @@ impl AccountPanel {
                     .items_center()
                     .gap_1()
                     .cursor_pointer()
-                    .when(col.right, |el| el.justify_end())
+                    .when(col.right, gpui::Styled::justify_end)
                     .hover(|s| s.text_color(theme::fg()))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.edit_prefs(cx, |prefs| prefs.cycle_sort(tab, slot));
@@ -1310,7 +1310,7 @@ impl AccountPanel {
                 .hover(|s| s.bg(theme::surface_hover()))
                 .on_mouse_down(MouseButton::Right, move |event, _, cx| {
                     row_this.update(cx, |p, _| {
-                        p.menu_target = Some(MenuTarget::Row(key.clone()))
+                        p.menu_target = Some(MenuTarget::Row(key.clone()));
                     });
                     row_menu.open(Some(event.position), cx);
                 });
@@ -1369,13 +1369,13 @@ impl AccountPanel {
                     div()
                         .id(SharedString::from(format!("{}-c{}", row.key, col.slot)))
                         .role(Role::Cell)
-                        .aria_label(SharedString::from(cell.text.to_string()))
+                        .aria_label(SharedString::from(cell.text.clone()))
                         .aria_column_index(col.slot + 1)
                         .w(px(tokens::scaled(col.width)))
                         .flex_none()
                         .truncate()
                         .text_color(tone_color(cell.tone))
-                        .when(col.right, |el| el.text_right())
+                        .when(col.right, gpui::Styled::text_right)
                         .child(cell.text.clone()),
                 );
             }
@@ -1457,7 +1457,7 @@ impl AccountPanel {
                         .flex_none()
                         .truncate()
                         .text_color(theme::fg())
-                        .when(col.right, |el| el.text_right())
+                        .when(col.right, gpui::Styled::text_right)
                         .child(total.clone()),
                 );
             }
@@ -1703,7 +1703,7 @@ impl Render for AccountPanel {
                                 .xsmall()
                                 .on_click(move |event, _, cx| {
                                     this.update(cx, |p, _| {
-                                        p.menu_target = Some(MenuTarget::Header)
+                                        p.menu_target = Some(MenuTarget::Header);
                                     });
                                     more_menu.open(Some(event.position()), cx);
                                 }),

@@ -282,7 +282,8 @@ impl DrawingProps {
             cx.subscribe(&line_opacity, |this, _, event: &ValueChanged, cx| {
                 let value = event.0;
                 this.change(cx, |d| {
-                    d.style.opacity = (value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0) as f32
+                    d.style.opacity =
+                        (value / 100.0).clamp(f64::from(MIN_LINE_OPACITY), 1.0) as f32;
                 });
             }),
             number::watch(&text_size, cx, |this, value, cx| {
@@ -291,7 +292,8 @@ impl DrawingProps {
             cx.subscribe(&tag_opacity, |this, _, event: &ValueChanged, cx| {
                 let value = event.0;
                 this.change(cx, |d| {
-                    d.style.text_layout.background_opacity = (value / 100.0).clamp(0.05, 1.0) as f32
+                    d.style.text_layout.background_opacity =
+                        (value / 100.0).clamp(0.05, 1.0) as f32;
                 });
             }),
             cx.subscribe(&text, |this, state, event: &InputEvent, cx| {
@@ -399,7 +401,7 @@ impl DrawingProps {
             }));
             subscriptions.push(number::watch(&leverage, cx, |this, value, cx| {
                 this.change(cx, |d| {
-                    d.style.position.leverage = value.clamp(1.0, 10_000.0)
+                    d.style.position.leverage = value.clamp(1.0, 10_000.0);
                 });
             }));
             subscriptions.push(number::watch(&point_value, cx, |this, value, cx| {
@@ -407,7 +409,7 @@ impl DrawingProps {
             }));
             subscriptions.push(number::watch(&qty_precision, cx, |this, value, cx| {
                 this.change(cx, |d| {
-                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8
+                    d.style.position.qty_precision = value.clamp(0.0, 8.0) as u8;
                 });
             }));
             subscriptions.push(
@@ -847,7 +849,7 @@ impl DrawingProps {
                     "Save as default",
                     Some(IconName::Save),
                     false,
-                    move |_window, cx| template.update(cx, |e, cx| e.save_template(cx)),
+                    move |_window, cx| template.update(cx, DrawingProps::save_template),
                 )
                 .tooltip("New drawings of this tool start with this look")
                 .into_any_element(),

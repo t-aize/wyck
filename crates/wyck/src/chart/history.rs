@@ -20,8 +20,7 @@ impl Chart {
         let timeframe = settings
             .timeframe
             .as_deref()
-            .map(Timeframe::from_code)
-            .unwrap_or(Some(self.timeframe))?;
+            .map_or(Some(self.timeframe), Timeframe::from_code)?;
         let bars = if timeframe == self.timeframe {
             match &self.series {
                 Series::Bars(bars) => bars,

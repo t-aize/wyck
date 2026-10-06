@@ -199,7 +199,7 @@ impl MultiChart {
                 .toggled(some_hidden)
                 .disabled(!has_any)
                 .cursor_pointer()
-                .when(!has_any, |button| button.cursor_not_allowed())
+                .when(!has_any, gpui::Styled::cursor_not_allowed)
                 .on_click(cx.listener(move |this, _event, _window, cx| {
                     this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
                 })),
@@ -236,7 +236,7 @@ impl MultiChart {
                 .tooltip("Undo (Ctrl+Z)")
                 .disabled(!can_undo)
                 .cursor_pointer()
-                .when(!can_undo, |button| button.cursor_not_allowed())
+                .when(!can_undo, gpui::Styled::cursor_not_allowed)
                 .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
         )
         .child(
@@ -247,7 +247,7 @@ impl MultiChart {
                 .tooltip("Redo (Ctrl+Shift+Z)")
                 .disabled(!can_redo)
                 .cursor_pointer()
-                .when(!can_redo, |button| button.cursor_not_allowed())
+                .when(!can_redo, gpui::Styled::cursor_not_allowed)
                 .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
         )
         .child(
@@ -258,7 +258,7 @@ impl MultiChart {
                 .tooltip("Remove all drawings of this symbol")
                 .disabled(!has_any)
                 .cursor_pointer()
-                .when(!has_any, |button| button.cursor_not_allowed())
+                .when(!has_any, gpui::Styled::cursor_not_allowed)
                 .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
         )
     }
@@ -1077,7 +1077,7 @@ impl MultiChart {
                     .tooltip("Delete (Del)")
                     .disabled(locked)
                     .cursor_pointer()
-                    .when(locked, |button| button.cursor_not_allowed())
+                    .when(locked, gpui::Styled::cursor_not_allowed)
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );
         bar

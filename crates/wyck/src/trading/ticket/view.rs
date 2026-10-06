@@ -177,7 +177,7 @@ fn text_button(id: &'static str, text: &'static str) -> gpui::Stateful<Div> {
         .cursor_pointer()
         .text_size(px(tokens::text::body()))
         .text_color(theme::accent())
-        .hover(|s| s.underline())
+        .hover(gpui::Styled::underline)
         .child(text)
 }
 
@@ -396,7 +396,7 @@ impl OrderTicket {
                                         "Close every position?",
                                         "All open positions are closed at market.",
                                         move |_, cx| {
-                                            close.update(cx, |a, cx| a.close_all(None, cx))
+                                            close.update(cx, |a, cx| a.close_all(None, cx));
                                         },
                                     );
                                 },
@@ -420,7 +420,7 @@ impl OrderTicket {
                     .text_color(theme::amber())
                     .child("A request got no answer. It may have gone through: check the positions before sending again.")
                     .child(text_button("ticket-uncertain-refresh", "Check the account").on_click(
-                        move |_, _, cx| refresh.update(cx, |a, cx| a.on_ready(cx)),
+                        move |_, _, cx| refresh.update(cx, super::super::account::Account::on_ready),
                     ))
                     .into_any_element(),
             );
@@ -479,7 +479,7 @@ impl OrderTicket {
         let blocked = f.plan.problem.is_some() || f.busy || locked;
         Button::new("ticket-send")
             .cursor_pointer()
-            .when(blocked, |button| button.cursor_not_allowed())
+            .when(blocked, gpui::Styled::cursor_not_allowed)
             .label(self.describe(&f.plan, cx))
             .with_size(gpui_kit::component::Size::Large)
             .disabled(blocked)

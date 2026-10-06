@@ -74,7 +74,7 @@ impl IndicatorEditor {
                 let this = cx.entity();
                 let snippet = format!("\"{name}\"");
                 list = list.child(reference_row(row_number, name, label, move |window, cx| {
-                    this.update(cx, |e, cx| e.insert(&snippet, window, cx))
+                    this.update(cx, |e, cx| e.insert(&snippet, window, cx));
                 }));
             }
         }

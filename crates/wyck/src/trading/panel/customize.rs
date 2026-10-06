@@ -309,7 +309,7 @@ impl Customizer {
                         "A click on a row shows its symbol",
                         Some("On the active chart"),
                         self.flag("panel-click-shows", prefs.click_shows_symbol, cx, |p, v| {
-                            p.click_shows_symbol = v
+                            p.click_shows_symbol = v;
                         }),
                     ),
                     form::field(
@@ -506,7 +506,7 @@ impl Render for Customizer {
                         "Reset everything",
                         Some(IconName::RotateCcw),
                         false,
-                        move |_, cx| panel.update(cx, |p, cx| p.reset_prefs(cx)),
+                        move |_, cx| panel.update(cx, super::AccountPanel::reset_prefs),
                     )
                     .into_any_element(),
                 ],

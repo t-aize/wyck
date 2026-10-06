@@ -844,7 +844,7 @@ mod no_inline_colors {
         while let Some(at) = rest.find("0x") {
             let digits: String = rest[at + 2..]
                 .chars()
-                .take_while(|c| c.is_ascii_hexdigit())
+                .take_while(char::is_ascii_hexdigit)
                 .collect();
             if (digits.len() == 6 || digits.len() == 8) && digits != "00000000" {
                 return true;

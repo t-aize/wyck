@@ -257,7 +257,12 @@ impl IndicatorEditor {
         };
         vec![
             Item::Title(stem(&id).to_owned().into()),
-            action("Open", IconName::FileCode, |e, id, w, cx| e.open(id, w, cx)).into(),
+            action(
+                "Open",
+                IconName::FileCode,
+                super::super::IndicatorEditor::open,
+            )
+            .into(),
             action("Add to chart", IconName::Play, |e, id, w, cx| {
                 e.open(id, w, cx);
                 e.add_to_chart(w, cx);
@@ -266,11 +271,11 @@ impl IndicatorEditor {
             .into(),
             Item::Separator,
             action("Rename...", IconName::Pencil, |e, id, w, cx| {
-                e.ask_rename(id, w, cx)
+                e.ask_rename(id, w, cx);
             })
             .into(),
             action("Duplicate", IconName::Copy, |e, id, w, cx| {
-                e.duplicate(id, w, cx)
+                e.duplicate(id, w, cx);
             })
             .into(),
             action("Show in folder", IconName::FolderOpen, |_, id, _, cx| {
@@ -281,7 +286,7 @@ impl IndicatorEditor {
             .into(),
             Item::Separator,
             action("Delete...", IconName::Trash, |e, id, w, cx| {
-                e.delete(id, w, cx)
+                e.delete(id, w, cx);
             })
             .danger()
             .into(),
@@ -343,7 +348,7 @@ impl IndicatorEditor {
                             .label("Cancel")
                             .cursor_pointer()
                             .on_click(move |_, _window, cx| {
-                                cancel.update(cx, |e, cx| e.cancel_prompt(cx));
+                                cancel.update(cx, super::super::IndicatorEditor::cancel_prompt);
                             }),
                     )
                     .child(
@@ -371,11 +376,11 @@ impl IndicatorEditor {
                 // is asked, and a click outside the card closes it.
                 .occlude()
                 .on_mouse_down(gpui::MouseButton::Left, move |_, _, cx| {
-                    outside.update(cx, |e, cx| e.cancel_prompt(cx));
+                    outside.update(cx, super::super::IndicatorEditor::cancel_prompt);
                 })
                 .on_key_down(move |event, _, cx| {
                     if event.keystroke.key == "escape" {
-                        escape.update(cx, |e, cx| e.cancel_prompt(cx));
+                        escape.update(cx, super::super::IndicatorEditor::cancel_prompt);
                     }
                 })
                 .child(card)

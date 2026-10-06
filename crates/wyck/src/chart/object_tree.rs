@@ -257,10 +257,7 @@ impl ObjectTree {
                     },
                     if hidden { "Show" } else { "Hide" },
                 )
-                .on_click(act(
-                    |book, symbol, id, flag| book.set_hidden(symbol, id, flag),
-                    !hidden,
-                )),
+                .on_click(act(wyck_chart::drawing::book::Book::set_hidden, !hidden)),
             )
             .child(
                 button(
@@ -272,10 +269,7 @@ impl ObjectTree {
                     },
                     if locked { "Unlock" } else { "Lock" },
                 )
-                .on_click(act(
-                    |book, symbol, id, flag| book.set_locked(symbol, id, flag),
-                    !locked,
-                )),
+                .on_click(act(wyck_chart::drawing::book::Book::set_locked, !locked)),
             )
             .child(
                 button("tree-settings", IconName::Settings2, "Settings").on_click(
@@ -376,7 +370,7 @@ impl Render for ObjectTree {
                     false,
                     move |_window, cx| {
                         clear.update(cx, |tree, cx| {
-                            tree.edit(cx, |book, symbol| book.clear(symbol));
+                            tree.edit(cx, wyck_chart::drawing::book::Book::clear);
                         });
                     },
                 )

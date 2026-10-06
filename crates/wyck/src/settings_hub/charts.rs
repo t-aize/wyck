@@ -80,7 +80,7 @@ impl SettingsHub {
                             a.candle_up = Some(c);
                         }),
                         reset("settings-up-reset", a.candle_up.is_some(), |a| {
-                            a.candle_up = None
+                            a.candle_up = None;
                         }),
                     ),
                 ),

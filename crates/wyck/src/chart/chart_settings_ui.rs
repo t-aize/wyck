@@ -792,7 +792,7 @@ impl ChartSettingsEditor {
                 |s, on| s.price_lines.countdown = on,
             ),
             self.switch_row("lines-ask", "Line at the ask", None, p.ask_line, |s, on| {
-                s.price_lines.ask_line = on
+                s.price_lines.ask_line = on;
             }),
             self.switch_row(
                 "lines-previous",
@@ -811,7 +811,7 @@ impl ChartSettingsEditor {
         ];
         let grid = vec![
             self.switch_row("grid-show", "Grid", None, settings.grid, |s, on| {
-                s.grid = on
+                s.grid = on;
             }),
             self.switch_row(
                 "grid-horizontal",
@@ -871,7 +871,7 @@ impl ChartSettingsEditor {
                     Some(IconName::RotateCcw),
                     false,
                     move |_window, cx| {
-                        edit_chart(&chart, cx, |s| s.colors = ChartColors::default())
+                        edit_chart(&chart, cx, |s| s.colors = ChartColors::default());
                     },
                 ),
             ));
@@ -965,7 +965,7 @@ impl ChartSettingsEditor {
                 |s, on| s.trading.protection = on,
             ),
             self.switch_row("trading-alerts", "Price alerts", None, t.alerts, |s, on| {
-                s.trading.alerts = on
+                s.trading.alerts = on;
             }),
         ];
         let mut page = form::page().child(form::group(
@@ -1234,7 +1234,7 @@ impl Render for ChartSettingsEditor {
                 })
                 .into_any_element(),
                 button::action("chart-ok", "OK", None, true, |window, cx| {
-                    modal::close(window, cx)
+                    modal::close(window, cx);
                 })
                 .into_any_element(),
             ],

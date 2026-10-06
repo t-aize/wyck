@@ -80,7 +80,7 @@ impl DrawingProps {
                 "End of the line",
                 None,
                 self.cap_picker("props-cap-end", caps.end, cx, |d, cap| {
-                    d.style.caps.end = cap
+                    d.style.caps.end = cap;
                 }),
             ));
         }
@@ -378,7 +378,7 @@ impl DrawingProps {
                 label,
                 None,
                 self.switch("props-middle", style.middle, cx, |d, on| {
-                    d.style.middle = on
+                    d.style.middle = on;
                 }),
             ));
         }
@@ -387,7 +387,7 @@ impl DrawingProps {
                 label,
                 None,
                 self.switch("props-labels", style.labels, cx, |d, on| {
-                    d.style.labels = on
+                    d.style.labels = on;
                 }),
             ));
         }

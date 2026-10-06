@@ -177,7 +177,7 @@ impl ConnectionFlow {
                             }),
                         )
                         .loading(state.connecting)
-                        .when(state.connecting, |button| button.cursor_not_allowed()),
+                        .when(state.connecting, gpui::Styled::cursor_not_allowed),
                     ),
             )
             .child(button::back(

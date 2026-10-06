@@ -595,7 +595,7 @@ impl SettingsHub {
         )];
         if let Some(picker) = self.font_picker.as_ref().filter(|_| self.font_open) {
             picker.update(cx, |picker, cx| {
-                picker.set_current(Some(a.font.clone()), cx)
+                picker.set_current(Some(a.font.clone()), cx);
             });
             rows.push(form::block(picker.clone()));
         }

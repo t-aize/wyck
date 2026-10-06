@@ -130,7 +130,7 @@ impl DrawingProps {
                 "Background",
                 Some("Puts the words on a filled tag"),
                 self.switch("label-background", layout.background, cx, |d, on| {
-                    d.style.text_layout.background = on
+                    d.style.text_layout.background = on;
                 }),
             ),
         ];
@@ -279,7 +279,7 @@ impl DrawingProps {
             "Italic",
             None,
             self.switch("props-italic", style.italic, cx, |d, on| {
-                d.style.italic = on
+                d.style.italic = on;
             }),
         ));
         rows.push(form::block(self.font_preview(drawing)));

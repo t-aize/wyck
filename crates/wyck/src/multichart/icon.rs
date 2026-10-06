@@ -33,6 +33,6 @@ pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> 
         .w(px(width))
         .h(px(height))
         .rounded(px(3.))
-        .when_some(paper, |el, paper| el.bg(paper))
+        .when_some(paper, gpui::Styled::bg)
         .children(cells)
 }

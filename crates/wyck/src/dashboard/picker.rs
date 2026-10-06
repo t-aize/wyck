@@ -300,7 +300,7 @@ impl Dashboard {
                     this.commit_list_editor(window, cx);
                     return;
                 }
-                let row = this.picker.as_ref().map(|p| p.highlighted).unwrap_or(0);
+                let row = this.picker.as_ref().map_or(0, |p| p.highlighted);
                 this.choose(row, window, cx);
             }))
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
