@@ -36,7 +36,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
 
 - [ ] T-004 | M0 | Complete the baseline | M
   Goal: fill the "not measured" cells of `audit/00-baseline.md`.
-  Steps: 1) `cargo test --workspace` and note failures. 2) `cargo build --release` time. 3) `cargo machete --with-metadata`, `cargo +nightly udeps --workspace --all-features`. 4) `cargo dupes report`, `jscpd --min-lines 8 crates/`. 5) `tokei crates/`. 6) `rg -n "mod (utils|common|helpers)" crates`. 7) Set the duplication threshold.
+  Steps: 1) `cargo test --workspace` and note failures. 2) Skip the release build (the maintainer asked not to run it; CI covers it). 3) `cargo machete --with-metadata`, `cargo +nightly udeps --workspace --all-features`. 4) `cargo dupes report`, `jscpd --min-lines 8 crates/`. 5) `tokei crates/`. 6) `rg -n "mod (utils|common|helpers)" crates`. 7) Set the duplication threshold.
   Verify: the baseline file has no "not measured" left.
   Depends on: T-003. Risk: low.
 

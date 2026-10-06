@@ -7,6 +7,10 @@ Measured on 2026-10-06 at commit `c805e65` (branch `main`, clean working tree), 
 - Branch `main`, up to date with `origin/main`. Tags `v0.1.0` to `v0.1.8` exist. No `pre-refactor` tag yet (T-001).
 - Remote branches: `claude/sharp-cori-dlknwx`, `dependabot/cargo/gpui-kit-0.7.0`.
 
+## Audit tools (installed in T-003)
+
+`cargo-machete` 0.9.2, `cargo-dupes` 0.2.1, `tokei` 15.0.0, `cargo-udeps` 0.1.61 (needs `+nightly`, rustc 1.101.0-nightly ea137335b 2026-10-05), `jscpd` 5.4.0, `cargo-deny` (already installed).
+
 ## Build and lint
 
 | Command | Result |
@@ -14,11 +18,10 @@ Measured on 2026-10-06 at commit `c805e65` (branch `main`, clean working tree), 
 | `cargo check --workspace --all-targets` | 1 min 37 s, 0 warnings |
 | `cargo clippy --workspace --all-targets -- -W clippy::pedantic` | 1949 warnings |
 | `cargo tree --workspace -d` | 56 crates present in more than one version, mostly pulled by gpui (see `deny.toml` comment on `multiple-versions`) |
-| `cargo test --workspace` | not measured (T-004) |
-| `cargo build --release` | not measured (T-004) |
-| `cargo machete`, `cargo udeps` | tools not installed (T-003) |
-| `cargo dupes`, `jscpd` | tools not installed (T-003) |
-| `tokei` | not installed; line counts below come from `wc -l` |
+| `cargo test --workspace` | 1,201 passed, 0 failed, 16 ignored (12 live tests in `wyck-openapi/tests/live.rs`, 1 `chart::raster::tests::indicator_families_preview`, 3 doctests), 30 s once built. One run only; flakiness check is T-009. `tmp_fvg_script` from the old project notes no longer exists in the code |
+| `cargo build --release` | not measured on purpose (maintainer request; fat LTO build is slow, CI builds it on main) |
+| `cargo machete`, `cargo udeps` | see "Unused dependencies" below |
+| `cargo dupes`, `jscpd`, `tokei` | see "Unused dependencies, duplication" below |
 | `cargo deny` | installed, not run in this audit |
 
 Top pedantic lints: 326 `long literal lacking separators`, 318 plus 237 missing `#[must_use]`, 184 `i64` to `f64` casts, 116 `f64` to `f32`, 83 `usize` to `f64`, 55 `assert!(x.is_empty())` style, 55 manual `midpoint`, 46 `usize` to `i64`, 35 strict float comparison.
@@ -56,7 +59,7 @@ Lines starting with `//` (including `///` and `//!`) over all lines: wyck 3110 o
 
 ## Tests
 
-`#[test]` counts: app 247, wyck-chart 517, wyck-ui 21, wyck-config about 130. `wyck-openapi`: unit tests in most modules, integration tests in `tests/{client,session,robustness,market,trading,account,margin,auth,handle}.rs` against a scripted local WebSocket server, 16 proptest properties in `tests/properties.rs`, and 13 `#[ignore]` live tests in `tests/live.rs`. No `#[gpui::test]` anywhere.
+Passed tests per binary (from the run above): wyck 246 (+1 ignored), wyck-chart 517, wyck-ui 21 (+ doctests), wyck-config 93 unit + 10 in `tests/lifecycle.rs`, wyck-openapi 160 unit plus integration `account` 7, `auth` 7, `client` 21, `handle` 2, `margin` 5, `market` 13, `properties` 16, `robustness` 13, `session` 31, `trading` 9, `live` 12 ignored. `wyck-openapi`: unit tests in most modules, integration tests in `tests/{client,session,robustness,market,trading,account,margin,auth,handle}.rs` against a scripted local WebSocket server, 16 proptest properties in `tests/properties.rs`, and 13 `#[ignore]` live tests in `tests/live.rs`. No `#[gpui::test]` anywhere.
 
 ## CI (`.github/workflows/ci.yml`)
 
@@ -66,10 +69,25 @@ Lines starting with `//` (including `///` and `//!`) over all lines: wyck 3110 o
 
 `AGENTS.md` (git attribution rule and writing style only), `CLAUDE.md` (`@AGENTS.md`), `CONTRIBUTING.md`, `README.md`, `RELEASING.md`, `SECURITY.md`, `SUPPORT.md`, `deny.toml`, `rust-toolchain.toml` (stable), `scripts/` (one shell, three python release helpers). No `docs/`, no `.claude/`, no `xtask`.
 
-## To fill in M0
+## Unused dependencies, duplication, catch-all modules (T-004, partial)
 
-- Test run and known failures (T-004, T-009).
-- Release build time (T-004).
-- Unused dependencies (T-004), avoidable duplicate versions (T-013).
-- Duplication report and the chosen threshold (T-004).
-- `utils`, `common`, `helpers` modules (T-004).
+- `cargo machete --with-metadata`: `chrono-tz` unused in `crates/wyck/Cargo.toml`. Nothing else reported.
+- `cargo +nightly udeps --workspace --all-features` (4 min 12 s): "All deps seem to have been used". It misses `chrono-tz` in `wyck`; `rg "chrono_tz|chrono-tz" crates/wyck` finds only the `Cargo.toml` line (`:68`), so the dependency is unused and `machete` is right. T-013 removes it.
+- Catch-all modules: `rg "mod (utils|common|helpers)"` finds none. Hypothesis H7 is wrong on this point.
+- `tokei crates`: Rust 275 files, 105,899 code lines, 1,305 `//` comment lines, 7,294 blank lines (doc comments `///` and `//!` are counted by tokei as 8,356 Markdown lines inside Rust).
+- `cargo dupes stats` (AST units, 97,752 lines): 5,484 units, 234 exact groups (679 units, 3,289 lines, 3.4 %) and 72 near groups (150 units, 1,176 lines, 1.2 %). Most exact groups are one-line accessors (group 1: 25 `len`, `is_empty`, `dir` style getters), so the raw percentage overstates the problem. The groups worth acting on:
+  - 19 near identical `fn label(&self)` enum matches (`wyck/src/appearance/mod.rs:46`, `trading/panel/prefs.rs:153,221,243`, `wyck-chart/src/export.rs:184,273,324,379`, `footprint.rs:37`, `options.rs:136`, `tpo.rs:82`, `volume.rs:41,78,124`...); a small macro or derive removes them.
+  - `ColorField::{label,get}` (`wyck/src/appearance/mod.rs:102-140`) vs `ColorKey::{label,get}` (`wyck/src/chart/chart_settings_ui.rs:121-161`): near copies (94 and 97 % similar), plus `Period::label` (`wyck-openapi/src/market/bars.rs:110`).
+  - `Session::subscribe_spots` vs `subscribe_depth` (`session/mod.rs:406-432`, `518-544`) and the matching `unsubscribe_*` pair (`:440-459`, `:551-570`).
+  - `TradingClient::amend_order` vs `amend_position_sl_tp` (`trading/client.rs:107-127`, `164-182`); `AccountDataClient::deals_by_position` vs `orders_by_position` (`account/client.rs:174-225`); `cash_flow_history` vs `symbols_for_conversion`.
+  - `ColumnKey::code` vs `default_name` (`wyck-chart/src/export.rs:735-772`, `821-858`, 99 % similar, 38 lines); `ChartKind::label` vs `code` (`settings.rs:76-119`).
+  - Test helpers repeated in `wyck-openapi/tests/{session,margin,trading}.rs`.
+- `jscpd --min-lines 8 --min-tokens 70` (Rust only, `tests/` excluded): 255 files, 118,117 lines, 38 clones, 492 duplicated lines (0.42 %). Largest: `trading/account.rs:1024-1039` vs `:1100-1116` (place and batch), `trading/panel/customize.rs:489` vs `trading/ticket/customize.rs:593`, `panel/dialogs.rs:425` vs `ticket/view/order.rs:33` (the two local `select` copies), `panel/view.rs:266` vs `:869`, `multichart/drawing_ui.rs:575` vs `:600` (swatch rows).
+- Duplication threshold proposed for `xtask`: fail on more than 3.5 % exact AST duplication at the start, lower it after M2 and M6. Re-measure then.
+- Both tools show that the real redundancy is local boilerplate and a few UI blocks, not copies across crates. H1 stays "partial".
+
+## Still open
+
+- Flakiness check by repeated runs (T-009).
+- Avoidable duplicate dependency versions (T-013).
+- Release build time: skipped on purpose.

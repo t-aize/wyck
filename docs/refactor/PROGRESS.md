@@ -13,11 +13,15 @@ M0 Safety net. Nothing in the project has been changed yet. Only `docs/refactor/
 - `cargo clippy --workspace --all-targets -W clippy::pedantic`: 1949 warnings (counts in `audit/00-baseline.md`).
 - Plan approved with four decisions (see top of `PLAN.md`).
 
+- T-001: tag `pre-refactor` on `c805e65`, branch `refactor/workspace-v2` (not pushed).
+- T-002: documents committed (`6dc01cd`).
+
+- T-003: tools installed (`cargo-machete`, `cargo-dupes`, `tokei`, `cargo-udeps` + nightly, `jscpd`).
+- T-004: baseline measured. 1,201 tests pass, 3.4 % exact AST duplication, `chrono-tz` unused in `wyck`, no catch-all modules. Release build skipped on purpose.
+
 ## Next
 
-1. T-001 tag and branch (needs the maintainer's go-ahead).
-2. T-002 commit these documents.
-3. T-003 to T-009 finish the baseline and the safety net.
+1. T-005 study snapshots, T-006 sizing tests, T-007 capture list, T-008 gpui test check, T-009 flakiness runs.
 
 ## Decisions log
 
