@@ -93,6 +93,23 @@ Passed tests per binary (from the run above): wyck 246 (+1 ignored), wyck-chart 
 - Avoidable duplicate dependency versions (T-013).
 - Release build time: skipped on purpose.
 
+## Pedantic lints: what is on and what is off (T-012)
+
+Complete pedantic run after the clippy fix (every crate linted, lib and test targets, so the counts below include some doubling): 859 `unreadable_literal`, 555 `must_use_candidate`, 454 `cast_precision_loss`, 347 `cast_possible_truncation`, 109 `semicolon_if_nothing_returned`, 106 `too_many_lines`, 96 `cast_sign_loss`, 90 `assert_is_empty`, 88 `redundant_closure_for_method_calls`, 62 `cast_possible_wrap`, 58 `manual_midpoint`, 46 `unused_self`, 40 `float_cmp`, 32 `match_same_arms`, 31 `assigning_clones`, 24 `default_trait_access`, 23 `map_unwrap_or`, then a tail of 40 lints under 20 each.
+
+Turned on in `[workspace.lints.clippy]` (warn, so `-D warnings` fails on them): `semicolon_if_nothing_returned`, `redundant_closure_for_method_calls`, `map_unwrap_or`, `manual_let_else`, `implicit_clone`, `cloned_instead_of_copied`, `unnested_or_patterns`. All are mechanical and behavior preserving; `cargo clippy --fix` did most of the 65 files, two `let...else` were rewritten by hand.
+
+Left off, with the reason:
+
+| Lint or group | Count | Reason |
+|---|---|---|
+| `cast_*`, `float_cmp` | about 1,000 | A charting and trading app converts between `i64`, `usize` and `f64` everywhere; fixing them means a typed numeric layer (M3, `Price`/`Volume` newtypes), not annotations |
+| `unreadable_literal`, `must_use_candidate`, `too_many_lines` | about 1,500 | Noise here; file and function size is handled by the splitting tasks instead |
+| `assert_is_empty`, `manual_midpoint` | about 150 | Style churn in tests; `midpoint` could change float results by an ulp, and the snapshot tests would flag it |
+| `assigning_clones` | 31 | Rewrites such as `"0".clone_into(&mut text)` read worse than the original |
+| `needless_pass_by_value` | 16 | Would change public API (for example `WyckConfig::set_active_profile(Option<ProfileId>)`) for little gain |
+| `match_same_arms`, `unused_self`, `similar_names`, `struct_excessive_bools` and the rest | under 50 each | Judgment calls; revisit per module during M2 and M6 |
+
 ## Duplicate dependency versions (T-013)
 
 `cargo tree --workspace -d` lists 118 package entries with more than one version (56 distinct crates counted earlier by name), nearly all inside the gpui, rustls, rustcrypto and image stacks. Checked which ones have a workspace crate as a direct dependent:

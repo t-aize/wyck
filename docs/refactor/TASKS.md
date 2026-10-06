@@ -89,7 +89,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: default check.
   Depends on: T-010. Risk: low.
 
-- [ ] T-012 | M1 | Choose the pedantic subset | M
+- [x] T-012 | M1 | Choose the pedantic subset | M
   Goal: a justified list of pedantic lints.
   Steps: 1) From `audit/00-baseline.md`, accept cheap and useful ones (`needless_pass_by_value`, `redundant_closure_for_method_calls`, `semicolon_if_nothing_returned`, `manual_midpoint`, `match_same_arms`). 2) Reject noisy ones with a one-line reason in `docs/CONVENTIONS.md` later (`must_use_candidate`, cast lints, `unreadable_literal`). 3) Fix the accepted ones crate by crate in separate commits.
   Verify: default check; pedantic count for accepted lints is 0.
@@ -101,7 +101,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: `cargo machete --with-metadata` prints nothing; default check.
   Depends on: T-004. Risk: low.
 
-- [ ] T-014 | M1 | Useful `AGENTS.md` v1 | M
+- [x] T-014 | M1 | Useful `AGENTS.md` v1 | M
   Goal: an agent knows the commands, the target layers and the hard rules.
   Files: `AGENTS.md`, `CLAUDE.md`.
   Steps: keep the two existing sections verbatim. Add: commands (`cargo run -p wyck`, `cargo xtask check`, `cargo test -p <crate>`), a 15 line architecture summary linking `docs/refactor/PLAN.md` for now, hard rules (domain crates have no gpui or tokio; orders only through `Account::trade`; UI uses `wyck-ui`; no unwrap outside tests; never log secrets; default account is demo), traps (gpui pinned, tokio task cancelled when its GPUI task is dropped, cTrader limits). Under 200 lines. `CLAUDE.md` stays `@AGENTS.md` plus a short Claude Code section.
@@ -448,6 +448,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: `/context` shows the files load; `/doctor` reports sizes fine. Depends on: T-110 to T-118.
 
 - [ ] T-120 | M8 | `xtask docs-check` | S
+  Also: replace the perl one-liner of `AGENTS.md` for forbidden characters (it aborts on tracked binaries such as `crates/wyck/assets/app-icon.png`, `sounds/*.wav`); a text-only check, for example `git grep -nIP '(*UTF8)[\x{2013}\x{2014}\x{2018}\x{2019}\x{201C}\x{201D}\x{2026}\x{2190}-\x{2193}\x{2212}\x{D7}\x{2248}\x{200B}\x{FEFF}]'`, works today and finds nothing.
   Steps: fail when `AGENTS.md` or `CLAUDE.md` exceed 200 lines, an internal Markdown link is broken, or a crate has no README of at most 15 lines.
   Verify: `cargo xtask docs-check`. Depends on: T-117.
 

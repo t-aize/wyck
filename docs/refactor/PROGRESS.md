@@ -25,12 +25,14 @@ M0 Safety net. Nothing in the project has been changed yet. Only `docs/refactor/
 - T-010: clippy error fixed (`6c9ca6b`, same f32 value bit for bit), `xtask` crate with `cargo xtask check` (`b55d8e8`), CI check job calls it (`8ec4b8e`, not yet run on GitHub). `cargo xtask check` passes locally in 1 min 21 s with 1,222 tests.
 - T-011: `unwrap_used`, `expect_used`, `dbg_macro`, `todo` as warnings in `[workspace.lints.clippy]`, `clippy.toml` allowing them in tests; 6 production functions keep an `expect` or `unwrap` with an `allow` and a reason; integration tests allow them at file level (`ccb17e9`, `dd6a1ec`, `6a27092`).
 - T-013: `chrono-tz` removed from `wyck`; `machete` clean; duplicate versions analysed, nothing avoidable worth changing (`audit/00-baseline.md`).
+- T-012: seven pedantic lints enabled (`322055f` and the per-crate style commits), the rest documented as off with reasons in `audit/00-baseline.md`; 67 files rewritten mechanically, one site fixed by hand after a `--fix` side effect.
+- T-014: `AGENTS.md` v1 (123 lines) and a Claude Code section in `CLAUDE.md` (`667d38e`). Note: the one-liner in `AGENTS.md` for forbidden characters aborts on tracked binary files (png, wav); use `git grep -nIP` instead (see `docs-check`, T-120).
 
-M0 is complete except the before captures, which only the maintainer can take (T-007). M1 has T-012 (pedantic subset) and T-014 (`AGENTS.md`) left.
+M0 and M1 are complete except the before captures (T-007, the maintainer takes them). Next milestone: M2.
 
 ## Next
 
-1. M1: T-012 pedantic subset, T-014 `AGENTS.md` v1.
+1. M2 cleanup (T-020 onward). Start with T-020 (`#[path]` modules) and T-033 (Windows file replace retry).
    Push the branch and watch the first CI run when the maintainer agrees (it checks the `xtask` step and the clippy fix on all 3 OS).
 2. Before M8: decide the `.claude/` git-ignore question (`PLAN.md` section 9).
 
