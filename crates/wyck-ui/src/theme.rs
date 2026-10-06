@@ -120,13 +120,17 @@ fn store() -> &'static RwLock<Colors> {
 /// The palette in force.
 pub fn colors() -> Colors {
     // A poisoned lock only means a thread panicked while writing a Copy value: the value is fine.
-    *store().read().unwrap_or_else(|e| e.into_inner())
+    *store()
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Puts a palette in force. The screens read it on their next paint: refresh the windows (see
 /// [`apply`]) to make that now.
 pub fn set_colors(colors: Colors) {
-    *store().write().unwrap_or_else(|e| e.into_inner()) = colors;
+    *store()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = colors;
 }
 
 fn font_store() -> &'static RwLock<Option<String>> {
@@ -137,7 +141,9 @@ fn font_store() -> &'static RwLock<Option<String>> {
 /// Sets the font of the interface. `None` or a blank name leaves the system's. The screens read it
 /// on their next paint: refresh the windows (see [`apply`]) to make that now.
 pub fn set_font(name: Option<&str>) {
-    *font_store().write().unwrap_or_else(|e| e.into_inner()) = name
+    *font_store()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = name
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .map(str::to_owned);
@@ -417,7 +423,7 @@ pub fn apply(cx: &mut gpui::App) {
     // The root of every window sets its text in the font of the theme.
     if let Some(name) = font_store()
         .read()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
     {
         theme.font_family = name.into();

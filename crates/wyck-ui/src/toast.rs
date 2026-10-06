@@ -197,7 +197,7 @@ impl Toast {
                 let spoken = [Some(&title), Some(&message), hint.as_ref()]
                     .into_iter()
                     .flatten()
-                    .map(|part| part.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>()
                     .join(". ");
                 let mut column = div()

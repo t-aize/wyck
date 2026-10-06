@@ -508,7 +508,7 @@ pub fn panel_with_opacity(
         panel
     });
     panel.update(cx, |panel, _| {
-        panel.attach(color, open, on_change, on_close, opacity)
+        panel.attach(color, open, on_change, on_close, opacity);
     });
     panel
 }
@@ -861,7 +861,7 @@ impl Render for ColorPanel {
                                     .label("Save this color")
                                     .disabled(!can_save)
                                     .cursor_pointer()
-                                    .when(!can_save, |button| button.cursor_not_allowed())
+                                    .when(!can_save, gpui::Styled::cursor_not_allowed)
                                     .on_click(move |_, _window, cx| {
                                         save_this.update(cx, |panel, cx| panel.save_current(cx));
                                     }),
