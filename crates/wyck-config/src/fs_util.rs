@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "second\n");
         let leftover_temp_files = std::fs::read_dir(temp_dir.path())
             .unwrap()
-            .filter_map(|entry| entry.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
             .count();
         assert_eq!(leftover_temp_files, 0);
