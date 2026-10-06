@@ -17,7 +17,7 @@ Evidence rule: every claim cites `path:line` and a symbol. "Not verified" means 
 
 The brief assumed a messy workspace with no virtual manifest, no `AGENTS.md` and a protobuf client. The audit found the plumbing already healthy: virtual manifest, `[workspace.dependencies]`, CI on 3 OS with `clippy -D warnings`, `deny.toml`, `unsafe` forbidden, about 9 runtime `unwrap/expect/panic!`, close to 900 tests. The weak point is where code lives.
 
-Measured state: 5 crates, 123,721 lines of Rust (`wyck` 56,217, `wyck-chart` 37,252, `wyck-openapi` 17,540, `wyck-config` 6,756, `wyck-ui` 5,956). `cargo check --workspace --all-targets` takes 1 min 37 s with 0 warnings. `cargo clippy -W clippy::pedantic` reports 1949 warnings.
+Measured state: 5 crates, 123,721 lines of Rust (`wyck` 56,217, `wyck-chart` 37,252, `wyck-openapi` 17,540, `wyck-config` 6,756, `wyck-ui` 5,956). `cargo check --workspace --all-targets` takes 1 min 37 s with 0 warnings. Default clippy with `-D warnings` currently fails on the stable toolchain 1.99.0: `clippy::approx_constant` at `wyck-chart/src/drawing/extras.rs:594` (`1.618_034` should be the golden ratio constant), so CI is red on a floating `stable` (T-010 fixes it first). Pedantic output (1949 warnings) is partial: clippy stopped at `wyck-chart`, so `wyck` and `wyck-ui` were not linted; redo it after the fix (T-012).
 
 Five proven major problems:
 
@@ -264,7 +264,7 @@ Acceptance (end of M9): `cargo xtask check` green locally and in CI; arch-check 
 | Crates | 5 | 8 plus `xtask` |
 | Rust lines | 123,721 | at most +3 % |
 | Files over 800 lines (non-test) | app 22, chart and ui 17, openapi and config 4 | 0 except justified, under 10 over 600 |
-| Clippy (default, CI `-D warnings`) | not re-run locally; pedantic 1949 | default 0; chosen pedantic subset 0 |
+| Clippy (default, `-D warnings`) | fails: 1 error (`approx_constant`, `extras.rs:594`); pedantic count partial (1949 before the stop) | default 0 errors and warnings; chosen pedantic subset 0 |
 | Crates with several versions (`cargo tree -d`) | 56 (mostly gpui) | not worse; avoidable ones listed in M1 |
 | Unused dependencies | not measured | 0 |
 | AST and text duplication | not measured | threshold set in M0, then falling |

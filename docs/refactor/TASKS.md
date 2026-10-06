@@ -15,32 +15,32 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
 
 ## M0 Safety net
 
-- [ ] T-001 | M0 | Tag and refactor branch | S
+- [x] T-001 | M0 | Tag and refactor branch | S
   Goal: freeze a rollback point. Needs the maintainer's go-ahead (git action).
   Steps: 1) `git tag pre-refactor` on the current `main` commit. 2) `git switch -c refactor/workspace-v2`. 3) Do not push unless asked.
   Verify: `git tag --list pre-refactor` and `git branch --show-current`.
   Depends on: none. Risk: low. Fallback: delete the tag and branch.
 
-- [ ] T-002 | M0 | Commit the refactor documents | S
+- [x] T-002 | M0 | Commit the refactor documents | S
   Goal: this folder is in git.
   Files: `docs/refactor/**`.
   Steps: 1) Run the ASCII one-liner on `docs/refactor`. 2) Commit as `docs(refactor): add restructuring plan and audit`.
   Verify: one-liner prints nothing.
   Depends on: T-001. Risk: low.
 
-- [ ] T-003 | M0 | Install audit tools | S
+- [x] T-003 | M0 | Install audit tools | S
   Goal: tools named in the plan exist and their versions are recorded.
   Steps: 1) `cargo install cargo-machete cargo-dupes tokei` (check crate names with `cargo search` first). 2) `rustup toolchain install nightly --profile minimal`, `cargo install cargo-udeps`. 3) `npm i -g jscpd`. 4) Record versions in `audit/00-baseline.md`.
   Verify: each tool prints its version.
   Depends on: none. Risk: low.
 
-- [ ] T-004 | M0 | Complete the baseline | M
+- [x] T-004 | M0 | Complete the baseline | M
   Goal: fill the "not measured" cells of `audit/00-baseline.md`.
   Steps: 1) `cargo test --workspace` and note failures. 2) Skip the release build (the maintainer asked not to run it; CI covers it). 3) `cargo machete --with-metadata`, `cargo +nightly udeps --workspace --all-features`. 4) `cargo dupes report`, `jscpd --min-lines 8 crates/`. 5) `tokei crates/`. 6) `rg -n "mod (utils|common|helpers)" crates`. 7) Set the duplication threshold.
   Verify: the baseline file has no "not measured" left.
   Depends on: T-003. Risk: low.
 
-- [ ] T-005 | M0 | Snapshot all study outputs | M
+- [x] T-005 | M0 | Snapshot all study outputs | M
   Goal: freeze the numeric output of the 50 `StudyKind` before anything moves.
   Files: new `crates/wyck-chart/tests/study_snapshots.rs`, fixture bars in `crates/wyck-chart/tests/fixtures/`.
   Steps: 1) Build a deterministic bar set (about 500 bars, include a gap and a large bar). 2) For each `StudyKind::ALL`, run `study::compute` with default config and serialize `StudyOutput` rounded to 9 decimals. 3) Store as text snapshots, compare in the test. 4) Add an update switch through an env var.
@@ -78,7 +78,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
 - [ ] T-010 | M1 | Create `xtask` with `check` | M
   Goal: one command for fmt, clippy `-D warnings` and tests.
   Files: new `xtask/` crate, `Cargo.toml` (`members = ["crates/*", "xtask"]`), `.cargo/config.toml` (`[alias] xtask = "run --package xtask --"`), `.github/workflows/ci.yml`.
-  Steps: 1) Add a small binary without extra deps (use `std::process::Command`). 2) `check` runs the three commands in order and stops at the first failure. 3) CI jobs call `cargo xtask check` where they ran the raw commands, keeping the 3 OS matrix and the `--no-default-features` openapi clippy line.
+  Steps: 0) First fix the clippy error that makes `-D warnings` fail today: `crates/wyck-chart/src/drawing/extras.rs:594` `let golden: f32 = 1.618_034;` -> `std::f32::consts::GOLDEN_RATIO` if stable under `rust-version = 1.98`, otherwise a justified `#[allow(clippy::approx_constant)]` with the reason; one commit, `fix(chart): ...`. 1) Add a small binary without extra deps (use `std::process::Command`). 2) `check` runs the three commands in order and stops at the first failure. 3) CI jobs call `cargo xtask check` where they ran the raw commands, keeping the 3 OS matrix and the `--no-default-features` openapi clippy line.
   Verify: `cargo xtask check` passes locally; CI green on a draft PR.
   Depends on: T-004. Risk: low.
 

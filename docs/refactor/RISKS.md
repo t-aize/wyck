@@ -13,3 +13,4 @@
 | Duplication and unused deps not yet measured | certain | low | T-003 and T-004 | None |
 | Solo maintainer time | high | medium | Milestones of 1 to 3 weeks, S and M tasks, every milestone shippable | Stop after M4: the main gain is already in |
 | Stricter live confirmation annoys during demo use | medium | low | Demo behavior unchanged (T-063) | Make the live rule a setting |
+| CI red on a floating `stable` toolchain (clippy lint `approx_constant` already fails on 1.99.0, `extras.rs:594`) | certain | medium | Fix first in T-010; consider pinning the toolchain in `rust-toolchain.toml` and bumping it on purpose | Pin to 1.98.1 until the fix lands |
