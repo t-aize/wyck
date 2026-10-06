@@ -715,9 +715,8 @@ async fn run<S>(
                 Some(Err(error)) => break DisconnectReason::Failed(error.to_string()),
             },
             _ = beat.tick() => {
-                let text = match Envelope::heartbeat().to_text() {
-                    Ok(text) => text,
-                    Err(_) => continue,
+                let Ok(text) = Envelope::heartbeat().to_text() else {
+                    continue;
                 };
                 let sent = tokio::select! {
                     _ = shutdown.changed() => break DisconnectReason::ClosedByClient,

@@ -177,7 +177,7 @@ impl AccountBook {
 
     /// Decimals of the account's money.
     pub fn money_digits(&self) -> Option<u32> {
-        self.trader.as_ref().and_then(|t| t.digits())
+        self.trader.as_ref().and_then(super::types::Trader::digits)
     }
 
     /// The balance in the deposit currency, `0.0` before the account is known.

@@ -154,7 +154,7 @@ proptest! {
             })
             .collect();
         let bars = decode_bars(&wire);
-        prop_assert!(bars.iter().all(|b| b.is_sane()));
+        prop_assert!(bars.iter().all(wyck_openapi::market::Bar::is_sane));
         prop_assert!(bars.windows(2).all(|w| w[0].time_ms < w[1].time_ms));
         prop_assert!(bars.len() <= wire.len());
     }

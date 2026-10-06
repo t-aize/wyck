@@ -230,7 +230,7 @@ async fn serve(
                         }
                     }
                 }
-                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                Some(Ok(Message::Close(_)) | Err(_)) | None => break,
                 Some(Ok(_)) => {}
             },
             command = command_rx.recv() => match command {

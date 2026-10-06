@@ -303,7 +303,7 @@ impl OAuthClient {
                 "the token endpoint answered with a fresh token pair"
             ),
             Err(error) => {
-                warn!(grant_type, %status, %error, "the token endpoint refused the request")
+                warn!(grant_type, %status, %error, "the token endpoint refused the request");
             }
         }
         result

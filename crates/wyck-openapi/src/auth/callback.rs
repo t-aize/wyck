@@ -136,12 +136,10 @@ impl CallbackListener {
             let Ok((mut stream, _)) = self.listener.accept().await else {
                 continue;
             };
-            let head = match tokio::time::timeout(READ_TIMEOUT, read_head(&mut stream)).await {
-                Ok(Some(head)) => head,
-                _ => {
-                    respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
-                    continue;
-                }
+            let Ok(Some(head)) = tokio::time::timeout(READ_TIMEOUT, read_head(&mut stream)).await
+            else {
+                respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await;
+                continue;
             };
             match parse_redirect(&head, expected_state) {
                 Redirect::Code(code) => {
@@ -291,7 +289,7 @@ mod tests {
             "s1",
         ) {
             Redirect::Denied(text) => {
-                assert!(text.contains("access_denied") && text.contains("No"))
+                assert!(text.contains("access_denied") && text.contains("No"));
             }
             other => panic!("{other:?}"),
         }

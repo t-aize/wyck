@@ -96,58 +96,43 @@ pub fn event_from(envelope: &Envelope) -> Option<Event> {
     };
     Some(match envelope.payload_type {
         payload::HEARTBEAT_EVENT => return None,
-        payload::SPOT_EVENT => envelope
-            .decode()
-            .map(Event::Spot)
-            .unwrap_or_else(decode_failed),
-        payload::DEPTH_EVENT => envelope
-            .decode()
-            .map(Event::Depth)
-            .unwrap_or_else(decode_failed),
+        payload::SPOT_EVENT => envelope.decode().map_or_else(decode_failed, Event::Spot),
+        payload::DEPTH_EVENT => envelope.decode().map_or_else(decode_failed, Event::Depth),
         payload::TRADER_UPDATE_EVENT => envelope
             .decode()
-            .map(Event::TraderUpdated)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::TraderUpdated),
         payload::ACCOUNTS_TOKEN_INVALIDATED_EVENT => envelope
             .decode()
-            .map(Event::TokensInvalidated)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::TokensInvalidated),
         payload::ACCOUNT_DISCONNECT_EVENT => envelope
             .decode()
-            .map(Event::AccountDisconnected)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::AccountDisconnected),
         payload::CLIENT_DISCONNECT_EVENT => envelope
             .decode()
-            .map(Event::ServerDisconnecting)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::ServerDisconnecting),
         payload::EXECUTION_EVENT => envelope
             .decode()
-            .map(|e: ExecutionEvent| Event::Execution(Box::new(e)))
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, |e: ExecutionEvent| {
+                Event::Execution(Box::new(e))
+            }),
         payload::ORDER_ERROR_EVENT => envelope
             .decode()
-            .map(Event::OrderError)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::OrderError),
         payload::TRAILING_SL_CHANGED_EVENT => envelope
             .decode()
-            .map(Event::TrailingSlChanged)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::TrailingSlChanged),
         payload::MARGIN_CHANGED_EVENT => envelope
             .decode()
-            .map(Event::MarginChanged)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::MarginChanged),
         payload::MARGIN_CALL_TRIGGER_EVENT => envelope
             .decode()
-            .map(Event::MarginCallTriggered)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::MarginCallTriggered),
         payload::MARGIN_CALL_UPDATE_EVENT => envelope
             .decode()
-            .map(Event::MarginCallUpdated)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::MarginCallUpdated),
         payload::SYMBOL_CHANGED_EVENT => envelope
             .decode()
-            .map(Event::SymbolChanged)
-            .unwrap_or_else(decode_failed),
+            .map_or_else(decode_failed, Event::SymbolChanged),
         payload::ERROR_RES | payload::PROXY_ERROR_RES => Event::ServerError(error_of(envelope)),
         other => {
             debug!(
