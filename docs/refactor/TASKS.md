@@ -82,7 +82,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: `cargo xtask check` passes locally; CI green on a draft PR.
   Depends on: T-004. Risk: low.
 
-- [ ] T-011 | M1 | Extend workspace lints | S
+- [x] T-011 | M1 | Extend workspace lints | S
   Goal: lints enforced everywhere.
   Files: `Cargo.toml` `[workspace.lints]`, every crate `Cargo.toml` (`[lints] workspace = true`; `wyck` and `wyck-openapi` must be checked, `wyck-config`, `wyck-chart`, `wyck-ui` have it).
   Steps: add `clippy::unwrap_used`, `expect_used`, `dbg_macro`, `todo` as warn; allow in tests via `clippy.toml` (`allow-unwrap-in-tests = true`, `allow-expect-in-tests = true`). Fix or justify the 9 runtime cases.
@@ -95,7 +95,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: default check; pedantic count for accepted lints is 0.
   Depends on: T-011. Risk: low.
 
-- [ ] T-013 | M1 | Remove unused dependencies | S
+- [x] T-013 | M1 | Remove unused dependencies | S
   Goal: 0 unused deps.
   Steps: act on `machete` and `udeps` output; keep false positives with a `[package.metadata.cargo-machete] ignored` entry and a comment saying why. List avoidable duplicate versions from `cargo tree -d` in `audit/00-baseline.md`.
   Verify: `cargo machete --with-metadata` prints nothing; default check.

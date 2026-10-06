@@ -93,6 +93,20 @@ Passed tests per binary (from the run above): wyck 246 (+1 ignored), wyck-chart 
 - Avoidable duplicate dependency versions (T-013).
 - Release build time: skipped on purpose.
 
+## Duplicate dependency versions (T-013)
+
+`cargo tree --workspace -d` lists 118 package entries with more than one version (56 distinct crates counted earlier by name), nearly all inside the gpui, rustls, rustcrypto and image stacks. Checked which ones have a workspace crate as a direct dependent:
+
+| Package | Why it is duplicated | Avoidable here |
+|---|---|---|
+| `tiny-skia` 0.12.0 (ours, `wyck`) next to 0.11.4 (gpui's SVG stack) | `wyck` declares 0.12 | possible by using 0.11.4, only if the raster code has the same API; low value, not done |
+| `getrandom` 0.4.3 (`wyck-config`, `uuid`, `rand` 0.10, `argon2` stack) next to 0.2 and 0.3 | The RustCrypto 0.1x generation needs 0.4 | no |
+| `thiserror` 2.0.21 (ours) next to 1.0.69 (other dependencies) | 1.x comes from third parties | no |
+| `serde` 1.0.229 listed twice | same version, different feature sets, not two versions | no |
+| `reqwest` 0.13.5 (ours) next to 0.12.28 (gpui's http client), `toml` 1.1.6 (ours) next to 0.8.23, `base64`, `bitflags` 1 and 2, `rand` 0.8 to 0.10 | third party stacks | no |
+
+Result: nothing worth changing. `deny.toml` already sets `multiple-versions = "warn"`. The unused `chrono-tz` in `wyck` was removed (T-013); `cargo machete --with-metadata` now reports nothing.
+
 ## Flakiness check (T-009)
 
 Four full `cargo test --workspace` runs (one in T-004, three in T-009) at `c805e65` plus the new tests of T-005 and T-006:
