@@ -62,6 +62,16 @@ unwrap_used = "warn"
 expect_used = "warn"
 dbg_macro = "warn"
 todo = "warn"
+# A chosen subset of pedantic: mechanical, behavior-preserving rewrites. The rest of pedantic is
+# left off on purpose (see docs/refactor/audit/00-baseline.md): the numeric casts, literal
+# separators and must_use candidates are noise in a charting app, and the others touch public API.
+semicolon_if_nothing_returned = "warn"
+redundant_closure_for_method_calls = "warn"
+map_unwrap_or = "warn"
+manual_let_else = "warn"
+implicit_clone = "warn"
+cloned_instead_of_copied = "warn"
+unnested_or_patterns = "warn"
 
 [profile.release]
 lto = true
