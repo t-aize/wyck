@@ -54,6 +54,7 @@ Strategy: move before rewriting. Extract three pure crates (`wyck-core`, `wyck-t
 - `Box::leak` capped at 4 MB for script specs (`study/custom/intern.rs:34-47`); global `REGISTRY: RwLock` in a model crate (`library.rs:84`).
 - `Result<_, String>` in 10 places of the app; unbounded `std::sync::mpsc` (`services/alerts/sound.rs:302`).
 - `transport` is `pub` (doc-hidden) only for integration tests; about 15 `pub` openapi items unused elsewhere (`UNITS_PER_PRICE`, a second `Contract::format_price`).
+- Transient Windows `PermissionDenied` when two threads replace or read one config document: `wyck-config` `many_threads_saving_one_document_never_tear_it` failed in 1 of 4 full runs and 5 of 120 stress runs (`fs_util.rs:44-67` rename, `DocumentStore::load`). The data is not torn but a save can return an error (T-033).
 - Orphan comment about "MCP servers" in `bars.rs:15`.
 - The project memory mentions a failing test (`tmp_fvg_script`) and a flaky one; re-measure in M0.
 
@@ -188,8 +189,8 @@ Out of scope: protobuf, raw TCP, third-party cTrader crates.
 - Migration order: `multichart/drawing_ui.rs` (27 direct buttons), `dashboard/header.rs` and `picker.rs`, `settings_hub`, the four chart settings dialogs, `trading/panel`, `trading/ticket`, `indicators/editor`, `chart/overlay.rs`. Done means `ui-check` green plus before and after captures.
 - `xtask ui-check` fails on `use gpui_kit::` outside `wyck-ui` (except `IconName`), literal `px(..)` in `wyck/src/**` outside a justified exception list, and color constructors outside `wyck-ui` and the chart palette. It replaces and extends `no_inline_colors`.
 - GPUI fixes: no state mutation in `render` (`ticket/view.rs:574`, `panel/view.rs:1534`, `multichart/mod.rs:1117`), one quote cache, one `Event::Spot` dispatch (`dashboard/mod.rs:479-487`).
-- Pinning: `gpui-pre 0.3.5` and `gpui-kit 0.6.6` already pinned in `[workspace.dependencies]`. Dependabot proposes 0.7.0; do not bump during the milestones. Write the bump procedure (skill `bump-gpui`).
-- GPUI test support: check `#[gpui::test]` in `gpui-pre 0.3.5` before promising UI tests (T-008). Otherwise extract logic out of entities, which M3 and M4 do anyway.
+- Pinning: `gpui-pre` (requirement `0.3.5`, locked at `0.3.6`) and `gpui-kit 0.6.6` are already declared in `[workspace.dependencies]`; the lock file does the real pinning. Dependabot proposes 0.7.0; do not bump during the milestones. Write the bump procedure (skill `bump-gpui`).
+- GPUI test support: verified in T-008. `#[gpui::test]` and `TestAppContext` work when `gpui` is a dev-dependency with `features = ["test-support"]`; the macro is always exported but the test context is not. So entity logic that needs a window can be tested, which lowers the pressure to extract every bit of logic (still the aim of M3 and M4). Cost: one more feature build of gpui and 2 locked crates (`convert_case`, `proptest-macro`).
 
 ### 4.3 Indicators and inputs
 

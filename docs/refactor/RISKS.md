@@ -14,3 +14,4 @@
 | Solo maintainer time | high | medium | Milestones of 1 to 3 weeks, S and M tasks, every milestone shippable | Stop after M4: the main gain is already in |
 | Stricter live confirmation annoys during demo use | medium | low | Demo behavior unchanged (T-063) | Make the live rule a setting |
 | CI red on a floating `stable` toolchain (clippy lint `approx_constant` already fails on 1.99.0, `extras.rs:594`) | certain | medium | Fix first in T-010; consider pinning the toolchain in `rust-toolchain.toml` and bumping it on purpose | Pin to 1.98.1 until the fix lands |
+| Transient `PermissionDenied` on Windows when two threads replace or read the same config document (`fs_util.rs` rename), about 4 % of stress runs | medium | medium | T-033 retries on Windows only; the data is never torn, only a save or load returns an error | Revert the retry |

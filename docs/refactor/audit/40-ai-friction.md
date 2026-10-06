@@ -22,7 +22,7 @@ Other traps: the unit of `Bar` and order prices (scaled `i64` vs `f64`) is not v
 - No single verification command. CI runs fmt, clippy, test and doc separately; `scripts/check-config.sh` covers one crate only.
 - No written architecture rule. `wyck-ui/src/lib.rs:5` states "Screens never configure a gpui-kit component" but 30 app files do.
 - `AGENTS.md` holds only the git attribution rule and the writing style; `CONTRIBUTING.md` says "issues only" and has an empty code style section.
-- No GPUI test support in use: `Account` needs a gpui `Context` and a concrete `Session`, so an agent cannot verify entity logic. Whether `#[gpui::test]` works with `gpui-pre 0.3.5` is open (T-008).
+- No GPUI test support in use: `Account` needs a gpui `Context` and a concrete `Session`, so an agent cannot verify entity logic. T-008 showed that `#[gpui::test]` with `TestAppContext` works in `gpui-pre` 0.3.6 once `gpui` is a dev-dependency with `features = ["test-support"]`, so the tooling exists but nobody uses it yet; `Account` also needs a concrete `Session`, which a trait (T-060) would fix.
 - Comments that mislead: `bars.rs:15` mentions "MCP servers" that do not exist in the repo; `profile.rs:34-40` says the profile knows nothing about cTrader but the struct holds `client_id`, `callback_port`, `account_id`.
 - Central types without docs: `Timeframe` (`timeframe.rs:17`), `Series` (`data.rs:18`), `InputSpec` (`study/mod.rs:128`), `PlotSpec`, `AtrStop`.
 

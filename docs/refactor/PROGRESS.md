@@ -20,10 +20,15 @@ M0 Safety net. Nothing in the project has been changed yet. Only `docs/refactor/
 - T-005: snapshot test `crates/wyck-chart/tests/study_snapshots.rs` pins all 50 studies (147 line snapshot, regenerate with `UPDATE_SNAPSHOTS=1`). Checked that a one-digit change in the snapshot fails the test.
 - T-006: 26 contract tests (edge cases of sizing, rounding, protection, rates, chain, summary) in `wyck-openapi/src/trading/contract.rs`.
 - T-007: capture checklist in `audit/20-ui.md`; captures themselves still to be taken by the maintainer. `docs/refactor/shots/` is git-ignored.
+- T-008: `#[gpui::test]` works with `gpui-pre` 0.3.6 (locked) when `gpui` is a dev-dependency with `features = ["test-support"]`. Verified with a throwaway test in `wyck-ui`, since reverted.
+- T-009: four full test runs. One failure, in `wyck-config` `many_threads_saving_one_document_never_tear_it`; reproduced under CPU load (5 of 120), cause is a transient Windows `PermissionDenied` on file replace and read. Task T-033 added to M2. See `audit/00-baseline.md`.
+
+M0 is complete except the before captures, which only the maintainer can take (T-007).
 
 ## Next
 
-1. T-008 gpui test check, T-009 flakiness runs, then M1 (T-010 starts with the clippy fix).
+1. M1: T-010 starts with the clippy fix, then `xtask check`, lints, unused deps, `AGENTS.md`.
+2. Before M8: decide the `.claude/` git-ignore question (`PLAN.md` section 9).
 
 ## Decisions log
 

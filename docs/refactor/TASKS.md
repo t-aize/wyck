@@ -61,13 +61,13 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: every listed screen has a file.
   Depends on: none. Risk: low.
 
-- [ ] T-008 | M0 | Check GPUI test support | S
+- [x] T-008 | M0 | Check GPUI test support | S
   Goal: know whether `#[gpui::test]` works with `gpui-pre 0.3.5`.
   Steps: 1) Find the test feature in the vendored gpui sources under `~/.cargo/registry/src/*/gpui-pre-0.3.5`. 2) Try a throwaway test in a scratch crate or an ignored test. 3) Record the result in `audit/40-ai-friction.md`.
   Verify: written conclusion with the exact feature name or "unsupported".
   Depends on: none. Risk: low.
 
-- [ ] T-009 | M0 | Re-measure flaky tests | S
+- [x] T-009 | M0 | Re-measure flaky tests | S
   Goal: confirm the baseline of known flaky tests.
   Steps: run `cargo test --workspace` 3 times; run the two known tests alone; record results.
   Verify: table in `audit/00-baseline.md`.
@@ -175,6 +175,14 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Files: `crates/wyck-config/src/backup.rs` into `backup/{format,store,pending}.rs`.
   Steps: move only; no behavior change; keep the public API.
   Verify: default check. Risk: low.
+
+- [ ] T-033 | M2 | Retry transient `PermissionDenied` on Windows file replace and read | S
+  Goal: no failed save or load when two threads touch the same document at once.
+  Evidence: `audit/00-baseline.md` (T-009). `many_threads_saving_one_document_never_tear_it` fails about 4 % of runs under CPU load with OS error 5 in `atomic_write` (`crates/wyck-config/src/fs_util.rs:44-67`, the `fs::rename`) or in `DocumentStore::load`.
+  Files: `crates/wyck-config/src/fs_util.rs`, `crates/wyck-config/src/documents.rs`.
+  Steps: 1) On Windows only, retry `fs::rename` and the document read a few times (for example 5 tries, 2 ms then doubling) when the error kind is `PermissionDenied`; other errors stay immediate. 2) Keep the "old file or new file, never torn" guarantee and the cleanup of the temp file on failure. 3) Add a comment saying why. 4) Rerun the stress loop of T-009 (8 processes x 15 runs of the lifecycle test).
+  Verify: the stress loop gives 0 failures out of 120; default check.
+  Depends on: none. Risk: low. Fallback: revert.
 
 ## M3 Domain extraction
 

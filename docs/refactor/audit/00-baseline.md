@@ -92,3 +92,17 @@ Passed tests per binary (from the run above): wyck 246 (+1 ignored), wyck-chart 
 - Flakiness check by repeated runs (T-009).
 - Avoidable duplicate dependency versions (T-013).
 - Release build time: skipped on purpose.
+
+## Flakiness check (T-009)
+
+Four full `cargo test --workspace` runs (one in T-004, three in T-009) at `c805e65` plus the new tests of T-005 and T-006:
+
+| Run | Result |
+|---|---|
+| T-004 | 1,201 passed, 0 failed |
+| T-009 run 1 | **1 failed**: `wyck-config` `tests/lifecycle.rs` `many_threads_saving_one_document_never_tear_it`; cargo stopped before the later test binaries (867 tests ran) |
+| T-009 run 2 and 3 | 1,219 passed, 0 failed, 16 ignored |
+
+Cause, reproduced: the test alone passes 40 of 40 times, but 8 processes in parallel (CPU load) failed 5 of 120 runs, always with `PermissionDenied` ("Acces refuse", OS error 5) on `layout.toml`, either in `DocumentStore::save` (`atomic_write`, `fs_util.rs:44-67`, the `fs::rename` over an existing file) or in `DocumentStore::load` (a read during another thread's rename). On Windows a rename over a file that another thread is replacing or reading can fail transiently. The data is not torn (the test's invariant held), but a save returns an error. This is a real Windows race in production code, not only in the test; tracked as T-033.
+
+`a_chart_computes_a_script_it_holds_through_the_config` (listed as flaky in the old project notes) did not fail in these four runs. Not reproduced; keep the note until a longer run says otherwise.
