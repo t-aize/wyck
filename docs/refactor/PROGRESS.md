@@ -18,10 +18,12 @@ M0 Safety net. Nothing in the project has been changed yet. Only `docs/refactor/
 - T-003: tools installed (`cargo-machete`, `cargo-dupes`, `tokei`, `cargo-udeps` + nightly, `jscpd`).
 - T-004: baseline measured. 1,201 tests pass, 3.4 % exact AST duplication, `chrono-tz` unused in `wyck`, no catch-all modules. Release build skipped on purpose (maintainer request).
 - T-005: snapshot test `crates/wyck-chart/tests/study_snapshots.rs` pins all 50 studies (147 line snapshot, regenerate with `UPDATE_SNAPSHOTS=1`). Checked that a one-digit change in the snapshot fails the test.
+- T-006: 26 contract tests (edge cases of sizing, rounding, protection, rates, chain, summary) in `wyck-openapi/src/trading/contract.rs`.
+- T-007: capture checklist in `audit/20-ui.md`; captures themselves still to be taken by the maintainer. `docs/refactor/shots/` is git-ignored.
 
 ## Next
 
-1. T-006 sizing tests, T-007 capture list, T-008 gpui test check, T-009 flakiness runs.
+1. T-008 gpui test check, T-009 flakiness runs, then M1 (T-010 starts with the clippy fix).
 
 ## Decisions log
 

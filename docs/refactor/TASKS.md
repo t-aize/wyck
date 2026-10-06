@@ -47,14 +47,14 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Verify: `cargo test -p wyck-chart study_snapshots`.
   Depends on: none. Risk: low.
 
-- [ ] T-006 | M0 | Characterize sizing and PnL math | S
+- [x] T-006 | M0 | Characterize sizing and PnL math | S
   Goal: pin `Contract`, `lots_for_risk`, `live_net` at the edges.
   Files: `crates/wyck-openapi/src/trading/contract.rs` tests.
   Steps: add cases for lot step, min and max volume, `digits` 0, 3 and 5, JPY style pip, rounding never going up past requested risk.
   Verify: `cargo test -p wyck-openapi contract`.
   Depends on: none. Risk: low.
 
-- [ ] T-007 | M0 | Capture list and before screenshots | S
+- [x] T-007 | M0 | Capture list and before screenshots | S
   Goal: a checklist of screens to capture before and after M6.
   Files: `docs/refactor/audit/20-ui.md` (list), screenshots stored outside git or under `docs/refactor/shots/` (maintainer decides).
   Steps: list every screen in `audit/20-ui.md`, capture each at default scale and at 125 percent, name `before-<screen>.png`.
@@ -435,6 +435,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
   Each of T-110 to T-118: write in English, ASCII, link do not copy, run the one-liner. Verify: `cargo xtask docs-check` once T-120 exists, otherwise manual link check.
 
 - [ ] T-119 | M8 | Rules, nested files, skills, hooks | M
+  Note: `.gitignore` ignores `.claude/` today. Ask the maintainer first; the proposed change is to ignore only `.claude/settings.local.json` and local state, and to version `.claude/rules/`, `.claude/skills/` and `.claude/settings.json` (see `PLAN.md` section 9).
   Files: `.claude/rules/{domain,ui,ctrader,tests,docs}.md` (each under 60 lines, with `paths:`), `crates/wyck-openapi/CLAUDE.md`, `crates/wyck-ui/CLAUDE.md`, `.claude/skills/{add-ui-component,add-panel,bump-gpui,new-crate}/SKILL.md`, `.claude/settings.json` hooks (fmt after `.rs` edits, reminder to run `cargo xtask check`).
   Verify: `/context` shows the files load; `/doctor` reports sizes fine. Depends on: T-110 to T-118.
 

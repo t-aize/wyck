@@ -290,3 +290,7 @@ Acceptance (end of M9): `cargo xtask check` green locally and in CI; arch-check 
 ## 8. Limits of the audit
 
 Not done: `cargo test`, release build, machete, udeps, dupes, jscpd, tokei (not installed), item-level `pub` usage, leaked `Subscription` analysis, visual rendering of screens, online cTrader docs (no rewrite planned). Raw `unwrap` counts in the first pass included tests; the "outside tests" figures come from the sub-agent audit (counted up to the first `#[cfg(test)]`).
+
+## 9. Late finding: `.claude/` is git-ignored
+
+`.gitignore` ignores `.agents/` and `.claude/` ("AI agent tool state (not project content)"). Section 4.7 and task T-119 put rules, skills and hooks under `.claude/`, which would never be committed. Decision needed before T-119: keep `.claude/` ignored and put the shared rules elsewhere, or narrow the ignore (for example ignore `.claude/*` but keep `.claude/rules/`, `.claude/skills/` and `.claude/settings.json`, and ignore `.claude/settings.local.json`). Default proposed: narrow the ignore, since rules and skills are project content. Ask the maintainer at the start of M8.

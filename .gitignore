@@ -12,6 +12,9 @@
 Thumbs.db
 desktop.ini
 
+# Refactor screenshots (taken by hand, kept local)
+docs/refactor/shots/
+
 # Jetbrains folder
 .idea
 
