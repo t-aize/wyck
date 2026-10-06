@@ -1,0 +1,147 @@
+[sma] plots=1 fills=0 drawings=0 levels=[] band=None
+  ma kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.349933e7 wsum=1.392786e10 at=[0:nan 60:1.102457e5 120:1.114194e5 249:1.107627e5 250:1.107339e5 301:1.118400e5 420:1.119649e5 499:1.121872e5]
+[ema] plots=1 fills=0 drawings=0 levels=[] band=None
+  ma kind=Line offset=0 len=500 finite=451 first=Some(49) ups=None sum=5.016822e7 wsum=1.381032e10 at=[0:nan 60:1.106075e5 120:1.112611e5 249:1.110279e5 250:1.110040e5 301:1.115218e5 420:1.118164e5 499:1.118733e5]
+[wma] plots=1 fills=0 drawings=0 levels=[] band=None
+  ma kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.350236e7 wsum=1.392942e10 at=[0:nan 60:1.102450e5 120:1.113108e5 249:1.106909e5 250:1.106580e5 301:1.119493e5 420:1.118733e5 499:1.122942e5]
+[hma] plots=1 fills=0 drawings=0 levels=[] band=None
+  ma kind=Line offset=0 len=500 finite=476 first=Some(24) ups=None sum=5.295343e7 wsum=1.392008e10 at=[0:nan 60:1.102591e5 120:1.111362e5 249:1.105614e5 250:1.105319e5 301:1.121397e5 420:1.117104e5 499:1.124971e5]
+[vwap] plots=5 fills=2 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.06
+  fill a=3 b=4 alpha=0.04
+  vwap kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=5.559250e7 wsum=1.393863e10 at=[0:1.115055e5 60:1.107060e5 120:1.113234e5 249:1.110919e5 250:1.110865e5 301:1.114157e5 420:1.114552e5 499:1.114701e5]
+  upper_1 kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=5.585207e7 wsum=1.401702e10 at=[0:1.115055e5 60:1.111368e5 120:1.114695e5 249:1.115428e5 250:1.115391e5 301:1.122749e5 420:1.122009e5 499:1.121723e5]
+  lower_1 kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=5.533293e7 wsum=1.386024e10 at=[0:1.115055e5 60:1.102753e5 120:1.111774e5 249:1.106410e5 250:1.106339e5 301:1.105565e5 420:1.107095e5 499:1.107679e5]
+  upper_2 kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=5.611165e7 wsum=1.409542e10 at=[0:1.115055e5 60:1.115675e5 120:1.116155e5 249:1.119937e5 250:1.119916e5 301:1.131341e5 420:1.129466e5 499:1.128745e5]
+  lower_2 kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=5.507336e7 wsum=1.378185e10 at=[0:1.115055e5 60:1.098445e5 120:1.110313e5 249:1.101900e5 250:1.101814e5 301:1.096972e5 420:1.099638e5 499:1.100658e5]
+[bollinger] plots=3 fills=1 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.08
+  basis kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.349933e7 wsum=1.392786e10 at=[0:nan 60:1.102457e5 120:1.114194e5 249:1.107627e5 250:1.107339e5 301:1.118400e5 420:1.119649e5 499:1.121872e5]
+  upper kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.367085e7 wsum=1.397230e10 at=[0:nan 60:1.104620e5 120:1.118403e5 249:1.110599e5 250:1.110476e5 301:1.122722e5 420:1.123226e5 499:1.126046e5]
+  lower kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.332782e7 wsum=1.388341e10 at=[0:nan 60:1.100294e5 120:1.109985e5 249:1.104654e5 250:1.104203e5 301:1.114078e5 420:1.116072e5 499:1.117697e5]
+[keltner] plots=3 fills=1 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.06
+  basis kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.350138e7 wsum=1.392842e10 at=[0:nan 60:1.103038e5 120:1.113253e5 249:1.107805e5 250:1.107459e5 301:1.118435e5 420:1.118892e5 499:1.121888e5]
+  upper kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.381170e7 wsum=1.400831e10 at=[0:nan 60:1.109997e5 120:1.119465e5 249:1.114970e5 250:1.114284e5 301:1.131055e5 420:1.124020e5 499:1.128666e5]
+  lower kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.319105e7 wsum=1.384852e10 at=[0:nan 60:1.096079e5 120:1.107040e5 249:1.100639e5 250:1.100634e5 301:1.105815e5 420:1.113765e5 499:1.115110e5]
+[donchian] plots=3 fills=1 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.06
+  basis kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.353706e7 wsum=1.393948e10 at=[0:nan 60:1.102071e5 120:1.114515e5 249:1.107947e5 250:1.107826e5 301:1.137299e5 420:1.119807e5 499:1.122435e5]
+  upper kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.381578e7 wsum=1.401387e10 at=[0:nan 60:1.105484e5 120:1.120123e5 249:1.112042e5 250:1.111800e5 301:1.161575e5 420:1.124163e5 499:1.127398e5]
+  lower kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.325834e7 wsum=1.386509e10 at=[0:nan 60:1.098658e5 120:1.108906e5 249:1.103851e5 250:1.103851e5 301:1.113023e5 420:1.115452e5 499:1.117472e5]
+[ichimoku] plots=5 fills=1 drawings=0 levels=[] band=None
+  fill a=3 b=4 alpha=0.12
+  conversion kind=Line offset=0 len=500 finite=492 first=Some(8) ups=None sum=5.474363e7 wsum=1.395255e10 at=[0:nan 60:1.102071e5 120:1.112220e5 249:1.107188e5 250:1.107188e5 301:1.139538e5 420:1.118319e5 499:1.123370e5]
+  base kind=Line offset=0 len=500 finite=475 first=Some(25) ups=None sum=5.288082e7 wsum=1.392729e10 at=[0:nan 60:1.103904e5 120:1.114515e5 249:1.108938e5 250:1.108938e5 301:1.136485e5 420:1.120606e5 499:1.120697e5]
+  lagging kind=Line offset=-25 len=500 finite=500 first=Some(0) ups=None sum=5.562399e7 wsum=1.395410e10 at=[0:1.114916e5 60:1.103999e5 120:1.110051e5 249:1.105135e5 250:1.104174e5 301:1.121073e5 420:1.116583e5 499:1.124500e5]
+  span_a kind=Line offset=25 len=500 finite=475 first=Some(25) ups=None sum=5.286732e7 wsum=1.392386e10 at=[0:nan 60:1.102988e5 120:1.113367e5 249:1.108063e5 250:1.108063e5 301:1.138011e5 420:1.119462e5 499:1.122034e5]
+  span_b kind=Line offset=25 len=500 finite=449 first=Some(51) ups=None sum=5.004298e7 wsum=1.383108e10 at=[0:nan 60:1.107097e5 120:1.112202e5 249:1.113178e5 250:1.113178e5 301:1.132132e5 420:1.117870e5 499:1.117212e5]
+[parabolic_sar] plots=1 fills=0 drawings=0 levels=[] band=None
+  sar kind=Dots offset=0 len=500 finite=499 first=Some(1) ups=None sum=5.553322e7 wsum=1.395635e10 at=[0:nan 60:1.099314e5 120:1.113969e5 249:1.110391e5 250:1.110260e5 301:1.119441e5 420:1.119846e5 499:1.120523e5]
+[volume_profile] plots=0 fills=0 drawings=0 levels=[] band=None
+[volume] plots=2 fills=0 drawings=0 levels=[] band=None
+  volume kind=Histogram offset=0 len=500 finite=500 first=Some(0) ups=Some(251) sum=5.335100e4 wsum=1.331307e7 at=[0:1.370000e2 60:1.180000e2 120:8.500000e1 249:1.190000e2 250:1.310000e2 301:7.800000e1 420:9.800000e1 499:1.410000e2]
+  ma kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.142265e4 wsum=1.331056e7 at=[0:nan 60:1.116500e2 120:1.109500e2 249:9.275000e1 250:9.240000e1 301:2.312500e2 420:9.925000e1 499:9.890000e1]
+[rsi] plots=1 fills=0 drawings=0 levels=["7.000000e1", "5.000000e1", "3.000000e1"] band=Some(("3.000000e1", "7.000000e1"))
+  rsi kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=2.458641e4 wsum=6.477572e6 at=[0:nan 60:5.134149e1 120:3.564913e1 249:3.664469e1 250:3.413420e1 301:6.410373e1 420:3.796036e1 499:6.370943e1]
+[macd] plots=3 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  histogram kind=Histogram offset=0 len=500 finite=467 first=Some(33) ups=Some(266) sum=1.700893e3 wsum=4.387345e5 at=[0:nan 60:4.459613e1 120:-6.309600e1 249:3.396474e-1 250:-6.008627e0 301:2.100208e-1 420:-5.334948e1 499:2.128190e-1]
+  macd kind=Line offset=0 len=500 finite=475 first=Some(25) ups=None sum=4.123803e3 wsum=2.479540e6 at=[0:nan 60:-7.723487e1 120:-7.032777e1 249:-1.741989e2 250:-1.820493e2 301:2.116858e2 420:-6.161731e1 499:2.129352e2]
+  signal kind=Line offset=0 len=500 finite=467 first=Some(33) ups=None sum=4.115321e3 wsum=2.090658e6 at=[0:nan 60:-1.218310e2 120:-7.231771e0 249:-1.745385e2 250:-1.760407e2 301:2.114758e2 420:-8.267822e0 499:2.127224e2]
+[stochastic] plots=2 fills=0 drawings=0 levels=["8.000000e1", "2.000000e1"] band=Some(("2.000000e1", "8.000000e1"))
+  k kind=Line offset=0 len=500 finite=485 first=Some(15) ups=None sum=2.473608e4 wsum=6.560334e6 at=[0:nan 60:6.399379e1 120:2.476067e1 249:2.234683e1 250:1.873736e1 301:3.537514e1 420:1.647604e1 499:6.770639e1]
+  d kind=Line offset=0 len=500 finite=483 first=Some(17) ups=None sum=2.463823e4 wsum=6.550255e6 at=[0:nan 60:6.094875e1 120:2.868626e1 249:2.389879e1 250:2.219283e1 301:5.553373e1 420:1.691487e1 499:6.962576e1]
+[atr] plots=3 fills=0 drawings=0 levels=[] band=None
+  atr kind=Line offset=0 len=500 finite=487 first=Some(13) ups=None sum=1.569993e5 wsum=3.999673e7 at=[0:nan 60:3.481827e2 120:3.123648e2 249:3.516858e2 250:3.399817e2 301:5.458858e2 420:2.662322e2 499:3.307687e2]
+  signal kind=Line offset=0 len=500 finite=474 first=Some(26) ups=None sum=1.528757e5 wsum=3.991566e7 at=[0:nan 60:3.497224e2 120:3.098002e2 249:3.322652e2 250:3.348505e2 301:3.442310e2 420:2.860561e2 499:3.130360e2]
+  tr kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=1.612993e5 wsum=4.008302e7 at=[0:2.298001e2 60:3.928758e2 120:2.553686e2 249:3.729627e2 250:1.878276e2 301:2.971860e2 420:1.986794e2 499:4.928052e2]
+[cci] plots=1 fills=0 drawings=0 levels=["1.000000e2", "0.000000e0", "-1.000000e2"] band=Some(("-1.000000e2", "1.000000e2"))
+  cci kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=3.858194e3 wsum=1.889387e6 at=[0:nan 60:7.869100e1 120:-1.462158e2 249:-1.034819e2 250:-1.625029e2 301:7.413827e1 420:-1.297670e2 499:9.179920e1]
+[williams_r] plots=1 fills=0 drawings=0 levels=["-2.000000e1", "-8.000000e1"] band=Some(("-8.000000e1", "-2.000000e1"))
+  r kind=Line offset=0 len=500 finite=487 first=Some(13) ups=None sum=-2.386151e4 wsum=-5.945884e6 at=[0:nan 60:-2.176263e1 120:-8.556805e1 249:-8.384715e1 250:-9.516448e1 301:-8.698159e1 420:-8.550684e1 499:-2.918933e1]
+[momentum] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  mom kind=Line offset=0 len=500 finite=490 first=Some(10) ups=None sum=9.605914e3 wsum=5.586906e6 at=[0:nan 60:1.950040e2 120:-3.041296e2 249:-3.528155e2 250:-2.927744e2 301:2.181372e2 420:-2.767602e2 499:2.402364e2]
+[obv] plots=1 fills=0 drawings=0 levels=[] band=None
+  obv kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=2.829000e5 wsum=1.516991e8 at=[0:0.000000e0 60:-1.121000e3 120:-4.570000e2 249:-1.159000e3 250:-1.290000e3 301:2.613000e3 420:2.270000e3 499:2.420000e3]
+[dmi] plots=3 fills=0 drawings=0 levels=["2.500000e1"] band=None
+  adx kind=Line offset=0 len=500 finite=473 first=Some(27) ups=None sum=1.291641e4 wsum=3.690259e6 at=[0:nan 60:1.263929e1 120:3.657783e1 249:3.850103e1 250:3.767058e1 301:4.091849e1 420:2.531628e1 499:1.693849e1]
+  plus kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=7.652369e3 wsum=2.093335e6 at=[0:nan 60:1.155975e1 120:7.530253e0 249:1.003566e1 250:9.639638e0 301:5.825315e1 420:1.456885e1 499:1.365399e1]
+  minus kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=7.277197e3 wsum=1.786145e6 at=[0:nan 60:1.240207e1 120:2.587118e1 249:1.641469e1 250:1.672510e1 301:4.687923e0 420:1.427513e1 499:1.665404e1]
+[rma] plots=1 fills=0 drawings=0 levels=[] band=None
+  rma kind=Line offset=0 len=500 finite=487 first=Some(13) ups=None sum=5.416683e7 wsum=1.393837e10 at=[0:nan 60:1.103530e5 120:1.113326e5 249:1.108627e5 250:1.108309e5 301:1.117435e5 420:1.118951e5 499:1.120889e5]
+[supertrend] plots=2 fills=0 drawings=0 levels=[] band=None
+  up kind=Line offset=0 len=500 finite=233 first=Some(9) ups=None sum=2.583483e7 wsum=6.201766e9 at=[0:nan 60:nan 120:1.109449e5 249:nan 250:nan 301:1.120465e5 420:1.114828e5 499:1.114891e5]
+  down kind=Line offset=0 len=500 finite=258 first=Some(37) ups=None sum=2.879911e7 wsum=7.751594e9 at=[0:nan 60:1.111236e5 120:nan 249:1.115711e5 250:1.115320e5 301:nan 420:nan 499:nan]
+[aroon] plots=2 fills=0 drawings=0 levels=["7.000000e1", "3.000000e1"] band=None
+  up kind=Line offset=0 len=500 finite=475 first=Some(25) ups=None sum=2.424800e4 wsum=6.726948e6 at=[0:nan 60:4.000000e0 120:3.200000e1 249:4.000000e0 250:0.000000e0 301:9.600000e1 420:2.000000e1 499:8.800000e1]
+  down kind=Line offset=0 len=500 finite=475 first=Some(25) ups=None sum=2.298800e4 wsum=5.667308e6 at=[0:nan 60:6.800000e1 120:8.800000e1 249:9.600000e1 250:9.200000e1 301:1.200000e1 420:9.600000e1 499:4.000000e0]
+[alligator] plots=3 fills=0 drawings=0 levels=[] band=None
+  jaw kind=Line offset=8 len=500 finite=488 first=Some(12) ups=None sum=5.427991e7 wsum=1.394034e10 at=[0:nan 60:1.103514e5 120:1.113414e5 249:1.108650e5 250:1.108375e5 301:1.118988e5 420:1.119112e5 499:1.121074e5]
+  teeth kind=Line offset=5 len=500 finite=493 first=Some(7) ups=None sum=5.483935e7 wsum=1.394757e10 at=[0:nan 60:1.102889e5 120:1.113048e5 249:1.107513e5 250:1.107209e5 301:1.121322e5 420:1.118813e5 499:1.122639e5]
+  lips kind=Line offset=3 len=500 finite=496 first=Some(4) ups=None sum=5.517575e7 wsum=1.395093e10 at=[0:nan 60:1.102792e5 120:1.112328e5 249:1.106878e5 250:1.106519e5 301:1.123353e5 420:1.118180e5 499:1.123621e5]
+[envelopes] plots=3 fills=1 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.06
+  basis kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.349933e7 wsum=1.392786e10 at=[0:nan 60:1.102457e5 120:1.114194e5 249:1.107627e5 250:1.107339e5 301:1.118400e5 420:1.119649e5 499:1.121872e5]
+  upper kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.456932e7 wsum=1.420641e10 at=[0:nan 60:1.124506e5 120:1.136478e5 249:1.129779e5 250:1.129486e5 301:1.140768e5 420:1.142042e5 499:1.144309e5]
+  lower kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=5.242935e7 wsum=1.364930e10 at=[0:nan 60:1.080408e5 120:1.091910e5 249:1.085474e5 250:1.085193e5 301:1.096032e5 420:1.097256e5 499:1.099434e5]
+[linear_regression] plots=3 fills=1 drawings=0 levels=[] band=None
+  fill a=1 b=2 alpha=0.06
+  basis kind=Line offset=0 len=500 finite=401 first=Some(99) ups=None sum=4.464986e7 wsum=1.340145e10 at=[0:nan 60:nan 120:1.115491e5 249:1.112547e5 250:1.112071e5 301:1.114131e5 420:1.120935e5 499:1.117439e5]
+  upper kind=Line offset=0 len=500 finite=401 first=Some(99) ups=None sum=4.494749e7 wsum=1.349030e10 at=[0:nan 60:nan 120:1.121723e5 249:1.121499e5 250:1.121011e5 301:1.123297e5 420:1.127006e5 499:1.126274e5]
+  lower kind=Line offset=0 len=500 finite=401 first=Some(99) ups=None sum=4.435224e7 wsum=1.331261e10 at=[0:nan 60:nan 120:1.109260e5 249:1.103594e5 250:1.103130e5 301:1.104965e5 420:1.114865e5 499:1.108604e5]
+[pivot_points] plots=7 fills=0 drawings=0 levels=[] band=None
+  p kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.368808e7 wsum=1.328118e10 at=[0:nan 60:nan 120:1.111656e5 249:1.111656e5 250:1.111656e5 301:1.111656e5 420:1.111656e5 499:1.111656e5]
+  r1 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.419891e7 wsum=1.343647e10 at=[0:nan 60:nan 120:1.124654e5 249:1.124654e5 250:1.124654e5 301:1.124654e5 420:1.124654e5 499:1.124654e5]
+  s1 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.335531e7 wsum=1.318001e10 at=[0:nan 60:nan 120:1.103188e5 249:1.103188e5 250:1.103188e5 301:1.103188e5 420:1.103188e5 499:1.103188e5]
+  r2 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.453168e7 wsum=1.353763e10 at=[0:nan 60:nan 120:1.133122e5 249:1.133122e5 250:1.133122e5 301:1.133122e5 420:1.133122e5 499:1.133122e5]
+  s2 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.284447e7 wsum=1.302472e10 at=[0:nan 60:nan 120:1.090190e5 249:1.090190e5 250:1.090190e5 301:1.090190e5 420:1.090190e5 499:1.090190e5]
+  r3 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.504251e7 wsum=1.369292e10 at=[0:nan 60:nan 120:1.146120e5 249:1.146120e5 250:1.146120e5 301:1.146120e5 420:1.146120e5 499:1.146120e5]
+  s3 kind=Line offset=0 len=500 finite=393 first=Some(107) ups=None sum=4.251170e7 wsum=1.292356e10 at=[0:nan 60:nan 120:1.081723e5 249:1.081723e5 250:1.081723e5 301:1.081723e5 420:1.081723e5 499:1.081723e5]
+[fractals] plots=2 fills=0 drawings=0 levels=[] band=None
+  high kind=Dots offset=0 len=500 finite=91 first=Some(3) ups=None sum=1.015411e7 wsum=2.696623e9 at=[0:nan 60:nan 120:nan 249:1.108330e5 250:nan 301:nan 420:nan 499:nan]
+  low kind=Dots offset=0 len=500 finite=84 first=Some(3) ups=None sum=9.316161e6 wsum=2.283735e9 at=[0:nan 60:1.100924e5 120:nan 249:nan 250:nan 301:nan 420:nan 499:nan]
+[stochastic_rsi] plots=2 fills=0 drawings=0 levels=["8.000000e1", "2.000000e1"] band=Some(("2.000000e1", "8.000000e1"))
+  k kind=Line offset=0 len=500 finite=471 first=Some(29) ups=None sum=2.462031e4 wsum=6.540110e6 at=[0:nan 60:8.781244e1 120:4.337116e0 249:4.774060e1 250:4.382765e1 301:5.424111e1 420:1.086538e-13 499:3.342400e1]
+  d kind=Line offset=0 len=500 finite=469 first=Some(31) ups=None sum=2.454668e4 wsum=6.544290e6 at=[0:nan 60:8.521800e1 120:4.905949e0 249:4.380510e1 250:4.677673e1 301:4.322242e1 420:8.756270e-1 499:4.700323e1]
+[roc] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  roc kind=Line offset=0 len=500 finite=488 first=Some(12) ups=None sum=1.060928e1 wsum=5.922182e3 at=[0:nan 60:1.286091e-1 120:-4.906126e-1 249:-2.331435e-1 250:-2.823459e-1 301:2.976723e-1 420:-2.479971e-1 499:2.190362e-1]
+[awesome_oscillator] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  ao kind=Histogram offset=0 len=500 finite=467 first=Some(33) ups=Some(258) sum=1.673932e4 wsum=6.433890e6 at=[0:nan 60:-8.575889e1 120:-2.940240e2 249:-3.199069e2 250:-3.574756e2 301:8.077880e2 420:-2.740646e2 499:5.109570e2]
+[accelerator_oscillator] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  ac kind=Histogram offset=0 len=500 finite=463 first=Some(37) ups=Some(236) sum=1.916879e3 wsum=5.316721e5 at=[0:nan 60:5.362886e1 120:-6.749345e1 249:1.626038e1 250:-2.627305e1 301:1.756247e2 420:-5.453844e1 499:-2.738281e1]
+[dpo] plots=1 fills=0 drawings=0 levels=[] band=None
+  dpo kind=Line offset=0 len=500 finite=470 first=Some(30) ups=None sum=2.429228e4 wsum=9.662118e6 at=[0:nan 60:-1.968552e-1 120:-5.824913e2 249:-5.749636e2 250:-6.406516e2 301:6.503488e2 420:-4.751784e2 499:6.381911e2]
+[trix] plots=2 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  trix kind=Line offset=0 len=500 finite=457 first=Some(43) ups=None sum=8.291435e-1 wsum=2.839935e2 at=[0:nan 60:-1.592989e-2 120:-7.503908e-4 249:-2.376513e-2 250:-2.387929e-2 301:2.825107e-2 420:-9.972601e-4 499:2.840539e-2]
+  signal kind=Line offset=0 len=500 finite=449 first=Some(51) ups=None sum=8.205965e-1 wsum=2.375708e2 at=[0:nan 60:-1.980021e-2 120:6.975082e-3 249:-2.318028e-2 250:-2.332008e-2 301:2.704921e-2 420:6.195808e-3 499:2.692509e-2]
+[ultimate_oscillator] plots=1 fills=0 drawings=0 levels=["7.000000e1", "3.000000e1"] band=None
+  uo kind=Line offset=0 len=500 finite=473 first=Some(27) ups=None sum=2.369738e4 wsum=6.289632e6 at=[0:nan 60:4.783801e1 120:4.954205e1 249:3.944776e1 250:3.450814e1 301:1.999528e1 420:4.093464e1 499:5.043024e1]
+[relative_vigor_index] plots=2 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  rvi kind=Line offset=0 len=500 finite=488 first=Some(12) ups=None sum=3.013538e0 wsum=1.745244e3 at=[0:nan 60:1.768636e-2 120:-9.630736e-2 249:-6.118172e-2 250:-6.228683e-2 301:7.442845e-2 420:-1.049427e-1 499:7.700434e-2]
+  signal kind=Line offset=0 len=500 finite=485 first=Some(15) ups=None sum=3.016988e0 wsum=1.686557e3 at=[0:nan 60:1.657954e-2 120:-1.066601e-1 249:-6.638274e-2 250:-6.652309e-2 301:9.046418e-2 420:-8.986016e-2 499:1.011982e-1]
+[de_marker] plots=1 fills=0 drawings=0 levels=["7.000000e-1", "3.000000e-1"] band=None
+  dem kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=2.424906e2 wsum=6.427255e4 at=[0:nan 60:4.488448e-1 120:2.138842e-1 249:4.385745e-1 250:3.292125e-1 301:9.170940e-1 420:3.945092e-1 499:5.212680e-1]
+[standard_deviation] plots=1 fills=0 drawings=0 levels=[] band=None
+  dev kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=8.575573e4 wsum=2.222387e7 at=[0:nan 60:1.081568e2 120:2.104473e2 249:1.486246e2 250:1.568393e2 301:2.161009e2 420:1.788653e2 499:2.087407e2]
+[true_range] plots=1 fills=0 drawings=0 levels=[] band=None
+  tr kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=1.612993e5 wsum=4.008302e7 at=[0:2.298001e2 60:3.928758e2 120:2.553686e2 249:3.729627e2 250:1.878276e2 301:2.971860e2 420:1.986794e2 499:4.928052e2]
+[historical_volatility] plots=1 fills=0 drawings=0 levels=[] band=None
+  hv kind=Line offset=0 len=500 finite=480 first=Some(20) ups=None sum=7.993703e2 wsum=2.055342e5 at=[0:nan 60:2.194380e0 120:1.432693e0 249:1.499490e0 250:1.458570e0 301:1.659746e0 420:1.360781e0 499:1.553827e0]
+[chaikin_volatility] plots=1 fills=0 drawings=0 levels=[] band=None
+  cv kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=1.431392e3 wsum=4.085895e5 at=[0:nan 60:1.327784e1 120:4.095152e0 249:1.275853e1 250:7.834237e-1 301:1.446946e2 420:-2.679004e1 499:1.410872e1]
+[choppiness_index] plots=1 fills=0 drawings=0 levels=[] band=None
+  chop kind=Line offset=0 len=500 finite=487 first=Some(13) ups=None sum=3.001780e4 wsum=7.617727e6 at=[0:nan 60:7.591989e1 120:6.391407e1 249:7.192617e1 250:7.749574e1 301:2.087030e1 420:5.939848e1 499:6.119072e1]
+[money_flow_index] plots=1 fills=0 drawings=0 levels=["8.000000e1", "2.000000e1"] band=None
+  mfi kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=2.638777e4 wsum=6.990177e6 at=[0:nan 60:4.959016e1 120:3.048854e1 249:4.716638e1 250:3.852628e1 301:8.621511e1 420:5.095963e1 499:6.511510e1]
+[chaikin_money_flow] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  cmf kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=-1.080833e1 wsum=-2.094746e3 at=[0:nan 60:-8.684079e-2 120:-1.358500e-1 249:-1.596316e-1 250:-1.796038e-1 301:-4.496377e-1 420:-2.123493e-1 499:1.660711e-4]
+[accumulation_distribution] plots=1 fills=0 drawings=0 levels=[] band=None
+  ad kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=-6.694675e5 wsum=-2.377801e8 at=[0:-2.487114e1 60:-5.917354e2 120:-5.729244e2 249:-8.793937e2 250:-1.006246e3 301:-2.475752e3 420:-2.884847e3 499:-2.640099e3]
+[price_volume_trend] plots=1 fills=0 drawings=0 levels=[] band=None
+  pvt kind=Line offset=0 len=500 finite=500 first=Some(0) ups=None sum=3.974782e2 wsum=1.881317e5 at=[0:0.000000e0 60:-8.527543e-1 120:-2.515182e-1 249:-1.135202e0 250:-1.249153e0 301:3.078091e0 420:2.498969e0 499:3.362607e0]
+[force_index] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  force kind=Line offset=0 len=500 finite=487 first=Some(13) ups=None sum=3.655197e5 wsum=1.353238e8 at=[0:nan 60:3.640007e3 120:-4.427934e3 249:-4.461913e3 250:-5.623522e3 301:4.119705e4 420:-3.477418e3 499:3.372493e3]
+[volume_oscillator] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  osc kind=Line offset=0 len=500 finite=481 first=Some(19) ups=None sum=-4.976965e2 wsum=-1.769500e5 at=[0:nan 60:7.642234e-1 120:-3.467123e0 249:-3.758158e0 250:7.888820e0 301:1.078343e2 420:5.378557e0 499:9.247476e0]
+[ease_of_movement] plots=1 fills=0 drawings=0 levels=["0.000000e0"] band=None
+  emv kind=Line offset=0 len=500 finite=486 first=Some(14) ups=None sum=-7.965853e7 wsum=-1.030611e10 at=[0:nan 60:7.025942e4 120:-1.999423e6 249:-7.426582e5 250:-1.310813e6 301:-1.338279e6 420:-1.253455e6 499:8.573878e5]
