@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "xtask"]
 default-members = ["crates/wyck"]
 resolver = "3"
 
