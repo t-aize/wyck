@@ -89,10 +89,10 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --locked --workspace --all-features
-      # The SDK without its client feature: types and calculations only, no network.
-      - run: cargo clippy --locked -p wyck-openapi --no-default-features --lib -- -D warnings
+      # Clippy on the workspace and on the SDK without its client feature (types and
+      # calculations only, no network), then the tests. The format check is the `fmt` job.
+      # xtask adds --locked itself when CI is set.
+      - run: cargo xtask check --no-fmt
 
       # Docs are platform independent: build them once.
       - if: runner.os == 'Linux'
