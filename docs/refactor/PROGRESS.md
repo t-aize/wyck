@@ -22,12 +22,14 @@ M0 Safety net. Nothing in the project has been changed yet. Only `docs/refactor/
 - T-007: capture checklist in `audit/20-ui.md`; captures themselves still to be taken by the maintainer. `docs/refactor/shots/` is git-ignored.
 - T-008: `#[gpui::test]` works with `gpui-pre` 0.3.6 (locked) when `gpui` is a dev-dependency with `features = ["test-support"]`. Verified with a throwaway test in `wyck-ui`, since reverted.
 - T-009: four full test runs. One failure, in `wyck-config` `many_threads_saving_one_document_never_tear_it`; reproduced under CPU load (5 of 120), cause is a transient Windows `PermissionDenied` on file replace and read. Task T-033 added to M2. See `audit/00-baseline.md`.
+- T-010: clippy error fixed (`6c9ca6b`, same f32 value bit for bit), `xtask` crate with `cargo xtask check` (`b55d8e8`), CI check job calls it (`8ec4b8e`, not yet run on GitHub). `cargo xtask check` passes locally in 1 min 21 s with 1,222 tests.
 
 M0 is complete except the before captures, which only the maintainer can take (T-007).
 
 ## Next
 
-1. M1: T-010 starts with the clippy fix, then `xtask check`, lints, unused deps, `AGENTS.md`.
+1. M1: T-011 workspace lints, T-012 pedantic subset, T-013 unused deps (`chrono-tz` in `wyck`), T-014 `AGENTS.md` v1.
+   Push the branch and watch the first CI run when the maintainer agrees (it checks the `xtask` step and the clippy fix on all 3 OS).
 2. Before M8: decide the `.claude/` git-ignore question (`PLAN.md` section 9).
 
 ## Decisions log

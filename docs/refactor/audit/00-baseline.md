@@ -16,7 +16,7 @@ Measured on 2026-10-06 at commit `c805e65` (branch `main`, clean working tree), 
 | Command | Result |
 |---|---|
 | `cargo check --workspace --all-targets` | 1 min 37 s, 0 warnings |
-| `cargo clippy --workspace --all-targets -- -D warnings` (toolchain 1.99.0) | **fails** on a clean checkout of `c805e65`: `error: approximate value of f64::consts::GOLDEN_RATIO found` at `crates/wyck-chart/src/drawing/extras.rs:594` (`let golden: f32 = 1.618_034;`), a deny-by-default lint. CI uses a floating `stable`, so it breaks as soon as the runner has 1.99. Fix in T-010 |
+| `cargo clippy --workspace --all-targets -- -D warnings` (toolchain 1.99.0) | **fails at `c805e65`, fixed in `6c9ca6b` (T-010)**; at `c805e65` it failed on: `error: approximate value of f64::consts::GOLDEN_RATIO found` at `crates/wyck-chart/src/drawing/extras.rs:594` (`let golden: f32 = 1.618_034;`), a deny-by-default lint. CI uses a floating `stable`, so it breaks as soon as the runner has 1.99. Fix in T-010 |
 | `cargo clippy --workspace --all-targets -- -W clippy::pedantic` | 1949 warnings, **partial**: the `wyck-chart` lib failed to compile under clippy because of the error above, so `wyck` and `wyck-ui` were never linted. Redo after the fix (T-012) |
 | `cargo tree --workspace -d` | 56 crates present in more than one version, mostly pulled by gpui (see `deny.toml` comment on `multiple-versions`) |
 | `cargo test --workspace` | 1,201 passed, 0 failed, 16 ignored (12 live tests in `wyck-openapi/tests/live.rs`, 1 `chart::raster::tests::indicator_families_preview`, 3 doctests), 30 s once built. One run only; flakiness check is T-009. `tmp_fvg_script` from the old project notes no longer exists in the code |

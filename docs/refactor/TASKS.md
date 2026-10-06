@@ -75,7 +75,7 @@ Paths are relative to the repo root. Line numbers come from the audit at `c805e6
 
 ## M1 Workspace hygiene
 
-- [ ] T-010 | M1 | Create `xtask` with `check` | M
+- [x] T-010 | M1 | Create `xtask` with `check` | M
   Goal: one command for fmt, clippy `-D warnings` and tests.
   Files: new `xtask/` crate, `Cargo.toml` (`members = ["crates/*", "xtask"]`), `.cargo/config.toml` (`[alias] xtask = "run --package xtask --"`), `.github/workflows/ci.yml`.
   Steps: 0) First fix the clippy error that makes `-D warnings` fail today: `crates/wyck-chart/src/drawing/extras.rs:594` `let golden: f32 = 1.618_034;` -> `std::f32::consts::GOLDEN_RATIO` if stable under `rust-version = 1.98`, otherwise a justified `#[allow(clippy::approx_constant)]` with the reason; one commit, `fix(chart): ...`. 1) Add a small binary without extra deps (use `std::process::Command`). 2) `check` runs the three commands in order and stops at the first failure. 3) CI jobs call `cargo xtask check` where they ran the raw commands, keeping the 3 OS matrix and the `--no-default-features` openapi clippy line.
