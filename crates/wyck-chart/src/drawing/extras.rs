@@ -591,7 +591,7 @@ fn fib_spiral(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let start = sub(through, center).1.atan2(sub(through, center).0);
     let turn = if drawing.reverse { -1.0 } else { 1.0 };
     // A golden spiral grows by the golden ratio every quarter turn, and ends at the second point.
-    let golden: f32 = 1.618_034;
+    let golden = std::f32::consts::GOLDEN_RATIO;
     let spiral = sample(240, |t| {
         let theta = -4.0 * PI * (1.0 - t);
         let radius = base * golden.powf(theta / FRAC_PI_2);
