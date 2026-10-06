@@ -267,7 +267,7 @@ fn inputs_of_every_kind_are_declared_and_read() {
         .declaration
         .inputs
         .iter()
-        .map(|i| i.input_kind())
+        .map(super::run::InputDecl::input_kind)
         .collect();
     assert!(matches!(kinds[0], InputKind::Int));
     assert!(matches!(kinds[1], InputKind::Float));

@@ -200,7 +200,7 @@ pub fn texts(cmds: &[Cmd]) -> Vec<String> {
     for cmd in cmds {
         match cmd {
             Cmd::Text { text, .. } | Cmd::Tag { text, .. } | Cmd::FittedText { text, .. } => {
-                out.push(text.clone())
+                out.push(text.clone());
             }
             Cmd::Clip { inner, .. } => out.extend(texts(inner)),
             _ => {}

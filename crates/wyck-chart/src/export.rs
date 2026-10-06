@@ -1019,11 +1019,10 @@ impl Source<'_> {
     pub fn column_name(&self, key: ColumnKey) -> String {
         match key {
             ColumnKey::Study { study, plot } => {
-                let title = self
-                    .settings
-                    .studies
-                    .get(study)
-                    .map_or_else(|| format!("Study {}", study + 1), |c| c.title());
+                let title = self.settings.studies.get(study).map_or_else(
+                    || format!("Study {}", study + 1),
+                    super::study::StudyConfig::title,
+                );
                 let line = self
                     .display
                     .studies

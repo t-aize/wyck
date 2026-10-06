@@ -145,12 +145,10 @@ fn month_name(month: u8) -> &'static str {
 fn bucket(unit: Unit, time_ms: i64) -> i64 {
     match unit {
         Unit::Fixed(ms) => time_ms.div_euclid(ms),
-        Unit::Months(n) => civil(time_ms)
-            .map(|c| (i64::from(c.year) * 12 + i64::from(c.month) - 1).div_euclid(n))
-            .unwrap_or(0),
-        Unit::Years(n) => civil(time_ms)
-            .map(|c| i64::from(c.year).div_euclid(n))
-            .unwrap_or(0),
+        Unit::Months(n) => civil(time_ms).map_or(0, |c| {
+            (i64::from(c.year) * 12 + i64::from(c.month) - 1).div_euclid(n)
+        }),
+        Unit::Years(n) => civil(time_ms).map_or(0, |c| i64::from(c.year).div_euclid(n)),
     }
 }
 
