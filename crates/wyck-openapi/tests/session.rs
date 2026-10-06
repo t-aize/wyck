@@ -1,5 +1,10 @@
 //! The session against the scripted server: it must come up, stay up across dropped connections,
 //! restore what the program subscribed to, renew the tokens, and stop cleanly.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

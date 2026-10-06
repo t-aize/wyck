@@ -3,6 +3,11 @@
 //!
 //! After an intended change, regenerate with
 //! `UPDATE_SNAPSHOTS=1 cargo test -p wyck-chart --test study_snapshots` and review the diff.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 use std::fmt::Write as _;
 use std::path::PathBuf;

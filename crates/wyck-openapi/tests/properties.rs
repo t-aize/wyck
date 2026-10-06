@@ -3,6 +3,11 @@
 //! The fixed tests next to the code pin down examples. These pin down the rules: encoding then
 //! decoding gives the original back, windows cover a range without holes, nothing panics on
 //! garbage. A failing case is shrunk to the smallest input that still fails.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 use std::time::Duration;
 

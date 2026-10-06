@@ -1,5 +1,10 @@
 //! `MarketClient` against a scripted local server: symbols, subscriptions, price events, and
 //! history (one page and a whole range paged).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

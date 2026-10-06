@@ -1,5 +1,10 @@
 //! Margin calls against the scripted server: expected margin, margin call thresholds, dynamic
 //! leverage.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

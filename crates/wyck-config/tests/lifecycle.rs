@@ -1,5 +1,10 @@
 //! The crate used the way an app uses it, through its public API only: an install is created,
 //! used, closed and opened again, damaged, upgraded and backed up.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 use std::path::Path;
 use std::sync::Arc;

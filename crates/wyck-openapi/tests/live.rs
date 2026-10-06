@@ -55,6 +55,11 @@
 //!
 //! Never put real values anywhere but `.env` (already covered by `.gitignore`), and never commit
 //! that file. Every test here refuses a live account.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 use std::sync::Arc;
 use std::time::Duration;

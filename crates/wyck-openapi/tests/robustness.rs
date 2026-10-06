@@ -3,6 +3,11 @@
 //! A connection to a real server lives for days. Frames arrive that make no sense, bursts arrive
 //! faster than a reader can take them, the peer vanishes without a goodbye, and hundreds of
 //! requests fly at once. None of that may hang the client, panic it, or mix up answers.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

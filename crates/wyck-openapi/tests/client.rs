@@ -1,5 +1,10 @@
 //! The connection against a scripted local server: sign in, requests, answers, errors, events, the
 //! end of the connection, and rate limit refusals. Market data calls are in `tests/market.rs`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

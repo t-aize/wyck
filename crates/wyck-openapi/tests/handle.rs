@@ -1,4 +1,9 @@
 //! `AccountClient`: routes to the four sub-clients, each carrying its own bound account.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

@@ -1,6 +1,11 @@
 //! `AccountDataClient` against the scripted server: what is sent, what comes back, and the events
 //! an account produces. The reference catalogs (assets, asset classes, symbol categories) are
 //! `MarketClient` calls and live in `tests/market.rs`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

@@ -1,5 +1,10 @@
 //! Trading (order placement, amend, cancel, position close) against the scripted server: what is
 //! sent, the execution events that come back, and the error paths a trading call can hit.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 mod support;
 

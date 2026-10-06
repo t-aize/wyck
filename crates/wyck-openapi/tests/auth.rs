@@ -2,6 +2,11 @@
 //!
 //! The endpoint takes the client secret and the code in the query string of a `GET`, so the tests
 //! also check that no error message repeats them.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: a panic is the failure report"
+)]
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
