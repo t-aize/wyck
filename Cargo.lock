@@ -9660,7 +9660,6 @@ dependencies = [
  "async-trait",
  "cargo-packager-updater",
  "chrono",
- "chrono-tz",
  "gpui-kit",
  "gpui-pre",
  "lsp-types",

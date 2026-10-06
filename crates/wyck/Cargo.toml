@@ -65,7 +65,6 @@ toml.workspace = true
 secrecy.workspace = true
 tracing-subscriber.workspace = true
 chrono.workspace = true
-chrono-tz.workspace = true
 cargo-packager-updater.workspace = true
 tiny-skia.workspace = true
 ab_glyph.workspace = true
