@@ -1,14 +1,14 @@
 //! `MarketClient` against a scripted local server: symbols, subscriptions, price events, and
 //! history (one page and a whole range paged).
 
-
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use serde_json::{Value, json};
 use crate::support::{MockServer, answers, connect};
-use wyck::infra::ctrader::market::{MarketClient, Period, QuoteType};
+use serde_json::{Value, json};
+use wyck::domain::market::{Period, QuoteType};
+use wyck::infra::ctrader::market::MarketClient;
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{Client, Event};
 

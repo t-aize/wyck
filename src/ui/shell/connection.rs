@@ -19,11 +19,11 @@ mod welcome;
 
 use std::sync::Arc;
 
-use crate::infra::ctrader::auth::TokenSet;
-use crate::infra::ctrader::config::ClientCredentials;
-use crate::infra::ctrader::session::{Session, SessionConfig, TokenStore};
-use crate::infra::ctrader::{ConnectionConfig, Environment};
-use crate::infra::storage::{ProfileId, Severity, WyckConfig};
+use crate::app::broker::auth::TokenSet;
+use crate::app::broker::config::ClientCredentials;
+use crate::app::broker::session::{Session, SessionConfig, TokenStore};
+use crate::app::broker::{ConnectionConfig, Environment};
+use crate::app::storage::{ProfileId, Severity, WyckConfig};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, SharedString, Subscription, Window,
@@ -33,9 +33,9 @@ use secrecy::ExposeSecret;
 
 use gpui_kit::component::Root;
 
+use crate::app::system::runtime;
 use crate::app::token_store::{ConfigTokenStore, to_token_set};
 use crate::app::workspace::Documents;
-use crate::infra::platform::runtime;
 use crate::ui::shell::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 
 enum Screen {
@@ -108,7 +108,7 @@ impl ConnectionFlow {
 
         let secret = match self
             .config
-            .profile_secret(&profile.id, crate::infra::storage::CLIENT_SECRET)
+            .profile_secret(&profile.id, crate::app::storage::CLIENT_SECRET)
         {
             Ok(Some(secret)) => secret,
             Ok(None) => return None,

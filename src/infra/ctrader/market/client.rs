@@ -3,15 +3,17 @@
 
 use serde::Serialize;
 
-use super::bars::{Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, decode_bars};
 use super::history;
-use super::quotes::SubscribeSpotsReq;
-use super::symbols::{
+use crate::domain::market::bars::{
+    Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, decode_bars,
+};
+use crate::domain::market::quotes::SubscribeSpotsReq;
+use crate::domain::market::symbols::{
     Asset, AssetClass, AssetClassListRes, AssetListRes, LightSymbol, Symbol, SymbolByIdReq,
     SymbolByIdRes, SymbolCategory, SymbolCategoryListRes, SymbolsForConversionReq,
     SymbolsForConversionRes, SymbolsListReq, SymbolsListRes,
 };
-use super::ticks::{GetTickDataReq, GetTickDataRes, QuoteType, Tick, decode_ticks};
+use crate::domain::market::ticks::{GetTickDataReq, GetTickDataRes, QuoteType, Tick, decode_ticks};
 use crate::infra::ctrader::error::Result;
 use crate::infra::ctrader::transport::connection::{Client, RateClass};
 use crate::infra::ctrader::transport::messages::AccountReq;

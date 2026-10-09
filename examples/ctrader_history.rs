@@ -11,7 +11,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use wyck::infra::ctrader::market::{Period, to_price};
+use wyck::domain::market::{Period, to_price};
 use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 
 fn var(name: &str) -> String {

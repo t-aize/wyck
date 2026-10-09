@@ -22,7 +22,7 @@
 //! Each output element keeps the time of the price that made it, so drawings anchored to times
 //! still land near the right place and the time axis still reads.
 
-use crate::infra::ctrader::market::Bar;
+use crate::domain::market::Bar;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::indicators::math;
@@ -142,7 +142,7 @@ impl BoxSize {
                         ((hi - lo) / 20.0).max(unit as f64)
                     })
             }
-            Self::Fixed { price } => price * crate::infra::ctrader::market::PRICE_SCALE as f64,
+            Self::Fixed { price } => price * crate::domain::market::PRICE_SCALE as f64,
             Self::Percent { percent } => {
                 bars.last().map_or(0.0, |b| b.close as f64) * percent / 100.0
             }

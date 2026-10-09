@@ -30,9 +30,9 @@ use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use tracing::{debug, warn};
 
+use crate::domain::flex;
 use crate::infra::ctrader::config::ClientCredentials;
 use crate::infra::ctrader::error::{Error, Result};
-use crate::infra::ctrader::transport::wire::flex;
 
 /// The consent page, where the user grants access.
 pub const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";

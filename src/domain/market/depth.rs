@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// One order book entry (`ProtoOADepthQuote`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -43,9 +43,9 @@ pub struct DepthEvent {
 /// One price level of the book: the total size of the entries at that price.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DepthLevel {
-    /// The raw price (see [`crate::infra::ctrader::market::to_price`]).
+    /// The raw price (see [`crate::domain::market::to_price`]).
     pub price: i64,
-    /// The size in hundredths of a unit (see [`crate::infra::ctrader::account::volume_units`]).
+    /// The size in hundredths of a unit (see [`crate::domain::trading::volume_units`]).
     pub size: i64,
 }
 

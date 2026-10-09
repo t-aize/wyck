@@ -599,7 +599,7 @@ mod tests {
         use crate::domain::chart::view::View;
         use crate::domain::chart::{ChartSettings, Timeframe};
         use crate::domain::indicators::{StudyConfig, StudyKind};
-        use crate::infra::ctrader::market::Bar;
+        use crate::domain::market::Bar;
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {

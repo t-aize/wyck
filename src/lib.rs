@@ -14,8 +14,8 @@ use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
 use app::appearance;
+use app::updates;
 use infra::platform::build_info::{self, BuildMode};
-use infra::platform::updates;
 use ui::assets;
 use ui::features::{chart, indicators};
 use ui::shell::{connection, dashboard};

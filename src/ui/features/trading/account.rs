@@ -7,21 +7,20 @@
 //! [`super::math::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
-//! the non-idempotency notes of [`crate::infra::ctrader::trading`]), so after a failed call the account is
+//! the non-idempotency notes of [`crate::app::broker::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use crate::infra::ctrader::account::PositionStatus;
-use crate::infra::ctrader::account::TradeSide;
-use crate::infra::ctrader::market::PRICE_SCALE;
-use crate::infra::ctrader::session::Session;
-use crate::infra::ctrader::trading::{
-    AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq,
-};
-use crate::infra::ctrader::{Error as ApiError, Event, Result as ApiResult};
+use crate::app::broker::session::Session;
+use crate::app::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
+use crate::app::broker::{Error as ApiError, Event, Result as ApiResult};
+use crate::domain::market::PRICE_SCALE;
+use crate::domain::trading::ExecutionType;
+use crate::domain::trading::PositionStatus;
+use crate::domain::trading::TradeSide;
 use gpui::{Context, EventEmitter};
 
 use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
@@ -29,9 +28,9 @@ use super::guard::{
     self, DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
 };
 use super::math::{self, Contract, Link, Summary};
-use crate::infra::platform::runtime;
-use crate::ui::features::chart::LiveHub;
-use crate::ui::features::chart::live::{ACCOUNT_OWNER, Wish};
+use crate::app::market_data::live::LiveHub;
+use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
+use crate::app::system::runtime;
 use crate::ui::kit::toast;
 
 /// How long the recent history reaches back.
@@ -304,7 +303,7 @@ impl Account {
 
     /// Where the account stands today: what the day made or lost, the orders sent, the last loss.
     pub fn standing(&self) -> Standing {
-        let now = crate::ui::features::chart::now_ms();
+        let now = crate::app::market_data::now_ms();
         let today = self.zone.day(now);
         let (mut realized, mut opened) = (0.0, 0u32);
         let mut last_loss: Option<i64> = None;
@@ -621,7 +620,7 @@ impl Account {
                 let data = account.account_data();
                 let trader = data.trader().await?;
                 let (positions, orders) = data.open_positions_and_orders(false).await?;
-                let now = crate::ui::features::chart::now_ms();
+                let now = crate::app::market_data::now_ms();
                 let deals = data
                     .deals(now - HISTORY_DAYS * 86_400_000, now, Some(500))
                     .await
@@ -892,8 +891,8 @@ impl Account {
     /// reached the server even so).
     fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
-        F: FnOnce(crate::infra::ctrader::trading::TradingClient) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = ApiResult<crate::infra::ctrader::trading::ExecutionEvent>>
+        F: FnOnce(crate::app::broker::trading::TradingClient) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ApiResult<crate::domain::trading::ExecutionEvent>>
             + Send
             + 'static,
     {
@@ -1024,7 +1023,7 @@ impl Account {
             );
             return;
         }
-        let now = crate::ui::features::chart::now_ms();
+        let now = crate::app::market_data::now_ms();
         let fingerprint = fingerprint(&order);
         if self.busy.contains(&Busy::Placing) || self.duplicates.is_repeat(fingerprint, now) {
             self.tell(
@@ -1099,7 +1098,7 @@ impl Account {
             );
             return;
         }
-        let now = crate::ui::features::chart::now_ms();
+        let now = crate::app::market_data::now_ms();
         if self.busy.contains(&Busy::Placing)
             || !self.queue.is_empty()
             || self.duplicates.is_repeat(fingerprint(&orders[0]), now)
@@ -1162,7 +1161,7 @@ impl Account {
     /// left to their entry.
     fn manage(
         &mut self,
-        execution: &crate::infra::ctrader::trading::ExecutionEvent,
+        execution: &crate::domain::trading::ExecutionEvent,
         cx: &mut Context<Self>,
     ) {
         use super::plan::{self, Label, Open};
@@ -1226,7 +1225,7 @@ impl Account {
         if self.status != Status::Ready || self.uncertain {
             return;
         }
-        let now = crate::ui::features::chart::now_ms();
+        let now = crate::app::market_data::now_ms();
         self.time_stops
             .retain(|id, _| self.book.positions.contains_key(id));
         let mut due = Vec::new();
@@ -1495,14 +1494,14 @@ impl Account {
 /// for the recent orders only when something open belongs to a plan with a rule to keep, and
 /// gives nothing when any call fails: the next connection tries again.
 async fn missed_exits(
-    account: &crate::infra::ctrader::AccountClient,
-    positions: &[crate::infra::ctrader::account::Position],
-    orders: &[crate::infra::ctrader::account::Order],
-    deals: &[crate::infra::ctrader::account::Deal],
+    account: &crate::app::broker::AccountClient,
+    positions: &[crate::domain::trading::Position],
+    orders: &[crate::domain::trading::Order],
+    deals: &[crate::domain::trading::Deal],
     now: i64,
 ) -> Vec<super::plan::Catch> {
     use super::plan::{self, Label, Open, Past};
-    use crate::infra::ctrader::account::OrderStatus;
+    use crate::domain::trading::OrderStatus;
     let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
     let rules = positions
         .iter()
@@ -1605,7 +1604,7 @@ async fn missed_exits(
 #[cfg(test)]
 mod tests {
     use super::{ReverseOrder, ReverseTracker};
-    use crate::infra::ctrader::trading::ExecutionType;
+    use crate::domain::trading::ExecutionType;
 
     fn order() -> ReverseOrder {
         ReverseOrder {

@@ -21,15 +21,12 @@
 //! # Units
 //!
 //! Volumes are hundredths of a unit, like the read-only account calls (see
-//! [`crate::infra::ctrader::account::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
-//! decimals, like the prices on [`crate::infra::ctrader::account::Position`] and [`crate::infra::ctrader::account::Order`], unlike
-//! the integer, [`crate::infra::ctrader::market::PRICE_SCALE`] prices of ticks and bars.
+//! [`crate::domain::trading::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
+//! decimals, like the prices on [`crate::domain::trading::Position`] and [`crate::domain::trading::Order`], unlike
+//! the integer, [`crate::domain::market::PRICE_SCALE`] prices of ticks and bars.
 
-pub mod contract;
-pub mod events;
 pub mod requests;
 
-pub use events::{ExecutionEvent, ExecutionType, OrderErrorEvent, TrailingSlChangedEvent};
 pub use requests::{
     AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionReq, NewOrderReq,
     NewOrderType,

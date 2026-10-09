@@ -1,7 +1,7 @@
-//! The ticket's own arithmetic on top of [`crate::infra::ctrader::trading::contract`]: how an order's
+//! The ticket's own arithmetic on top of [`crate::domain::trading::contract`]: how an order's
 //! size and its stop loss and take profit are typed, and how money is written.
 
-pub use crate::infra::ctrader::trading::contract::*;
+pub use crate::domain::trading::contract::*;
 
 /// How the volume of an order is chosen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]

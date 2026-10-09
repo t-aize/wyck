@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// The period of a bar. The numbers are those of the official `ProtoOATrendbarPeriod` enum.
 ///
@@ -127,7 +127,7 @@ impl Period {
     }
 }
 
-/// A bar with real values. Prices are the server's raw integers, see [`crate::infra::ctrader::market::to_price`].
+/// A bar with real values. Prices are the server's raw integers, see [`crate::domain::market::to_price`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bar {
     /// When the bar opens, in Unix milliseconds.

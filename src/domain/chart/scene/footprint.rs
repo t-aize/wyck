@@ -9,7 +9,7 @@
 //! has not loaded yet are candles too, so a bar is never missing.
 
 use super::color::{Hsla, Rgba, rgb, transparent_black};
-use crate::infra::ctrader::market::Bar;
+use crate::domain::market::Bar;
 
 use super::super::flow::Flow;
 use super::super::footprint::{self as model, Analysis, CellMode, HeatScope};

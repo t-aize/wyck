@@ -22,10 +22,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::app::broker::session::{Session, SessionEvent, SessionState};
+use crate::app::broker::{Error as ApiError, Event};
 use crate::domain::drawings::model::Tool;
-use crate::infra::ctrader::market::{PRICE_SCALE, Spot, format_price};
-use crate::infra::ctrader::session::{Session, SessionEvent, SessionState};
-use crate::infra::ctrader::{Error as ApiError, Event};
+use crate::domain::market::{PRICE_SCALE, Spot, format_price};
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
@@ -37,12 +37,13 @@ use tokio::sync::broadcast::error::RecvError;
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
 use crate::app::alerts::Alerts;
+use crate::app::market_data::live::LiveHub;
+use crate::app::market_data::live::{PEEK_OWNER, Wish};
+use crate::app::system::runtime;
 use crate::app::workspace::{Documents, Workspace};
-use crate::infra::platform::runtime;
 use crate::ui::features::chart;
+use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::drawing::Drawings;
-use crate::ui::features::chart::live::{PEEK_OWNER, Wish};
-use crate::ui::features::chart::{Chart, LiveHub};
 use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent, SymbolRef};
 use crate::ui::features::trading::account::Account;
@@ -652,7 +653,7 @@ impl Dashboard {
                 Ok(Ok(symbol)) => {
                     let digits = u32::try_from(symbol.digits).unwrap_or(5);
                     let pip_position = symbol.pip_position;
-                    let hours = crate::infra::ctrader::market::TradingHours::from_symbol(&symbol);
+                    let hours = crate::domain::market::TradingHours::from_symbol(&symbol);
                     this.multi
                         .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                     this.details.insert(id, details::Detail::Ready(symbol));
@@ -846,7 +847,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         gpui::ImageFormat::Png,
         png.clone(),
     )));
-    let folder = crate::infra::storage::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
+    let folder = crate::app::storage::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
     let Some(folder) = folder else {
         toast::show(
             cx,
@@ -861,7 +862,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         let written = cx
             .background_executor()
             .spawn(async move {
-                crate::infra::storage::atomic_write(&path, &png)?;
+                crate::app::storage::atomic_write(&path, &png)?;
                 Ok::<_, std::io::Error>(path)
             })
             .await;
@@ -1125,7 +1126,7 @@ fn quote_text(quote: Quote, digits: u32, pip_position: i64) -> Option<details::L
     let spread = quote.ask.map(|ask| {
         let pips = (ask - bid) as f64
             / PRICE_SCALE as f64
-            / crate::infra::ctrader::market::price::pip_size(pip_position);
+            / crate::domain::market::price::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

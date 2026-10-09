@@ -3,5 +3,10 @@
 
 pub mod alerts;
 pub mod appearance;
+pub mod broker;
+pub mod market_data;
+pub mod storage;
+pub mod system;
 pub mod token_store;
+pub mod updates;
 pub mod workspace;

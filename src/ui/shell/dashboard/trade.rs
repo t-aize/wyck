@@ -10,10 +10,11 @@ use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
 
 use super::Dashboard;
-use crate::infra::ctrader::market::PRICE_SCALE;
+use crate::domain::market::PRICE_SCALE;
 
 use crate::app::alerts;
-use crate::ui::features::chart::{ChartAction, LineId, PositionLink, now_ms};
+use crate::app::market_data::now_ms;
+use crate::ui::features::chart::{ChartAction, LineId, PositionLink};
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::math;
@@ -534,7 +535,7 @@ impl Dashboard {
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let pip = symbol.pip_position.map_or_else(
             || alerts::model::pip_from_digits(digits),
-            crate::infra::ctrader::market::pip_size,
+            crate::domain::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
@@ -615,7 +616,7 @@ impl Dashboard {
         let digits = symbol.digits;
         let pip = symbol.pip_position.map_or_else(
             || alerts::model::pip_from_digits(digits),
-            crate::infra::ctrader::market::pip_size,
+            crate::domain::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);

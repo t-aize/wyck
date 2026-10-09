@@ -2,7 +2,7 @@
 //! the chart types with their own marks (Kagi lines, point and figure boxes).
 
 use super::color::transparent_black;
-use crate::infra::ctrader::market::Bar;
+use crate::domain::market::Bar;
 
 use super::super::data::Series;
 use super::super::settings::ChartKind;

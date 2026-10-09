@@ -11,13 +11,11 @@
 use serde_json::Value;
 use tracing::{debug, warn};
 
+use crate::domain::market::{DepthEvent, SpotEvent, SymbolChangedEvent};
+use crate::domain::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
+use crate::domain::trading::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
 use crate::infra::ctrader::account::TraderUpdatedEvent;
 use crate::infra::ctrader::error::Error;
-use crate::infra::ctrader::margin::{
-    MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent,
-};
-use crate::infra::ctrader::market::{DepthEvent, SpotEvent, SymbolChangedEvent};
-use crate::infra::ctrader::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
 use crate::infra::ctrader::transport::messages::{
     AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, ErrorRes,
 };

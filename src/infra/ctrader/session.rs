@@ -85,11 +85,11 @@ use tokio::sync::{broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 
+use crate::domain::market::Period;
 use crate::infra::ctrader::auth::{OAuthClient, TokenSet};
 use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use crate::infra::ctrader::error::{Error, ErrorKind, Result};
 use crate::infra::ctrader::event::Event;
-use crate::infra::ctrader::market::Period;
 use crate::infra::ctrader::transport::connection::Client;
 
 /// The settings of a [`Session`].

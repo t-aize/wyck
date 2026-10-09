@@ -3,9 +3,9 @@
 
 use std::time::Duration;
 
-use crate::infra::ctrader::auth::CallbackListener;
-use crate::infra::ctrader::config::ClientCredentials;
-use crate::infra::ctrader::{ClientBuilder, Environment};
+use crate::app::broker::auth::CallbackListener;
+use crate::app::broker::config::ClientCredentials;
+use crate::app::broker::{ClientBuilder, Environment};
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt, ClickEvent, Context, Entity, SharedString, Window, div, px, relative,
@@ -13,7 +13,7 @@ use gpui::{
 use gpui_kit::assets::IconName;
 
 use super::{ConnectionFlow, Screen};
-use crate::infra::platform::runtime;
+use crate::app::system::runtime;
 use crate::ui::kit::{anim, button, icon, layout, text_input::TextInput, theme, tokens};
 
 /// The local port the OAuth redirect listener binds. Must match a redirect URI

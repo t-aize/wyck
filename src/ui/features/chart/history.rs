@@ -3,16 +3,19 @@
 
 use std::time::{Duration, Instant};
 
-use crate::infra::ctrader::Result as ApiResult;
-use crate::infra::ctrader::market::Tick;
+use crate::app::broker::Result as ApiResult;
+use crate::domain::market::Tick;
 use gpui::Context;
 
 use super::data::{self, MAX_BARS, MAX_TICKS, Series};
-use super::live::{LiveUpdate, Wish};
-use super::load::{self, Loaded};
 use super::view::View;
-use super::{Chart, Load, Older, Timeframe, empty_series, flatten, now_ms};
-use crate::infra::platform::runtime;
+use super::{Chart, Load, Older, empty_series, flatten};
+use crate::app::market_data::live::{LiveUpdate, Wish};
+use crate::app::market_data::load;
+use crate::app::market_data::load::Loaded;
+use crate::app::market_data::now_ms;
+use crate::app::system::runtime;
+use crate::domain::chart::timeframe::Timeframe;
 
 impl Chart {
     /// ATR for this chart's symbol and the selected chart or dedicated timeframe.

@@ -3,10 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::types::{
+use crate::domain::flex;
+use crate::domain::trading::types::{
     Deal, DealOffset, DepositWithdraw, Order, Position, PositionUnrealizedPnL, Trader,
 };
-use crate::infra::ctrader::transport::wire::flex;
 
 /// `ProtoOAReconcileReq`: what the account holds right now.
 #[derive(Debug, Serialize)]

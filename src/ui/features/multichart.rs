@@ -21,8 +21,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::infra::ctrader::market::{LiveBarTracker, SpotEvent};
-use crate::infra::ctrader::session::Session;
+use crate::app::broker::session::Session;
+use crate::domain::market::{LiveBarTracker, SpotEvent};
 use gpui::prelude::*;
 use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
@@ -32,15 +32,16 @@ use gpui::{
 use self::layouts::{LayoutKey, layout};
 use self::links::{Follow, Link, Links};
 use self::split::{Divider, Node};
+use crate::app::market_data::live::{LiveHub, LiveUpdate};
 use crate::app::workspace::{
     ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace,
 };
+use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::drawings::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
 use crate::domain::indicators::StudyConfig;
 use crate::ui::features::chart::drawing::Drawings;
 use crate::ui::features::chart::{
-    Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId, LiveHub,
-    LiveUpdate, Timeframe,
+    Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId,
 };
 use crate::ui::kit::{text_input::TextInput, theme};
 
@@ -105,7 +106,7 @@ pub struct MultiChart {
     /// Corrects the live bars of the price events before the charts see them.
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
-    hours: HashMap<i64, std::sync::Arc<crate::infra::ctrader::market::TradingHours>>,
+    hours: HashMap<i64, std::sync::Arc<crate::domain::market::TradingHours>>,
     next_id: u64,
     key: LayoutKey,
     tree: Node,
@@ -544,7 +545,7 @@ impl MultiChart {
     pub fn set_hours(
         &mut self,
         id: i64,
-        hours: crate::infra::ctrader::market::TradingHours,
+        hours: crate::domain::market::TradingHours,
         cx: &mut Context<Self>,
     ) {
         self.hours.insert(id, std::sync::Arc::new(hours));
@@ -982,7 +983,7 @@ impl MultiChart {
             &tiles,
         ) {
             Ok(png) => {
-                let stamp = crate::ui::features::chart::now_ms();
+                let stamp = crate::app::market_data::now_ms();
                 let name = format!("wyck-layout-{}-charts-{stamp}.png", self.slots.len());
                 cx.emit(MultiChartEvent::Picture(png, name));
             }

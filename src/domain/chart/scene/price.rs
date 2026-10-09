@@ -5,7 +5,7 @@
 //! same height at any price), or evenly but labelled as a percentage change or an index of 100
 //! from the first bar on screen. The scale can also be turned upside down.
 
-use crate::infra::ctrader::market::format_price;
+use crate::domain::market::format_price;
 
 use crate::domain::chart::format;
 

@@ -7,12 +7,12 @@
 
 use serde::Serialize;
 
-use crate::infra::ctrader::account::TradeSide;
-use crate::infra::ctrader::number_enum;
+use crate::domain::trading::TradeSide;
+use crate::domain::trading::types::number_enum;
 
 number_enum! {
     /// The kind of an order request (`ProtoOAOrderType`, the subset a caller chooses between when
-    /// placing one; `crate::infra::ctrader::account::OrderType` decodes any order the server sends back, including
+    /// placing one; `crate::domain::trading::OrderType` decodes any order the server sends back, including
     /// `StopLossTakeProfit`, which a caller never asks for directly).
     NewOrderType {
         /// At the current market price.
@@ -50,7 +50,7 @@ pub struct NewOrderReq {
     /// The stop price. Only for [`NewOrderType::Stop`] and [`NewOrderType::StopLimit`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
-    /// How long the order stays working, as [`crate::infra::ctrader::account::TimeInForce`]'s number.
+    /// How long the order stays working, as [`crate::domain::trading::TimeInForce`]'s number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<i32>,
     /// When a good-till-date order expires, in Unix milliseconds.
@@ -81,11 +81,11 @@ pub struct NewOrderReq {
     /// Your own id for the order, at most 50 characters (like FIX `ClOrdID`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_order_id: Option<String>,
-    /// A stop loss relative to the entry price, in [`crate::infra::ctrader::market::PRICE_SCALE`] units, instead of
+    /// A stop loss relative to the entry price, in [`crate::domain::market::PRICE_SCALE`] units, instead of
     /// the absolute `stop_loss`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A take profit relative to the entry price, in [`crate::infra::ctrader::market::PRICE_SCALE`] units, instead
+    /// A take profit relative to the entry price, in [`crate::domain::market::PRICE_SCALE`] units, instead
     /// of the absolute `take_profit`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
@@ -288,10 +288,10 @@ pub struct AmendOrderReq {
     /// A new slippage, in points.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
-    /// A new relative stop loss, in [`crate::infra::ctrader::market::PRICE_SCALE`] units.
+    /// A new relative stop loss, in [`crate::domain::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A new relative take profit, in [`crate::infra::ctrader::market::PRICE_SCALE`] units.
+    /// A new relative take profit, in [`crate::domain::market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
     /// A new guaranteed stop loss setting.

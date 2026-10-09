@@ -69,8 +69,6 @@ mod history;
 mod indicator_picker;
 mod input;
 pub mod lines;
-pub mod live;
-pub(crate) mod load;
 pub mod object_tree;
 use crate::domain::chart::options;
 mod overlay;
@@ -95,10 +93,11 @@ use crate::domain::chart::zone;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
-use crate::infra::ctrader::session::Session;
-use crate::infra::ctrader::{Error as ApiError, Result as ApiResult};
+use crate::app::broker::session::Session;
+use crate::app::broker::{Error as ApiError, Result as ApiResult};
+use crate::app::market_data::now_ms;
 use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 
 use self::data::Series;
@@ -108,12 +107,12 @@ use self::flow::Flow;
 use self::flow_sync::{FlowLoad, HeldQuote};
 pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
-pub use self::live::{LiveHub, LiveUpdate};
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
 use self::study::StudyConfig;
 pub use self::timeframe::{GROUPS, Timeframe, Unit};
 use self::view::View;
+use crate::app::market_data::live::LiveHub;
 
 fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
     let mut base = scene::Palette::new();
@@ -451,7 +450,7 @@ pub struct Chart {
     id: u64,
     symbol: Option<Symbol>,
     /// When the symbol trades, once its details are known.
-    hours: Option<std::sync::Arc<crate::infra::ctrader::market::TradingHours>>,
+    hours: Option<std::sync::Arc<crate::domain::market::TradingHours>>,
     /// Whether this is the chart the user works on; only that one shows its toolbar when there
     /// are several.
     selected: bool,
@@ -463,7 +462,7 @@ pub struct Chart {
     max_studies: usize,
     /// The prices, as held.
     series: Series,
-    atr_history: HashMap<(i64, Timeframe), (Vec<crate::infra::ctrader::market::Bar>, i64)>,
+    atr_history: HashMap<(i64, Timeframe), (Vec<crate::domain::market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
     /// What is drawn from them.
     display: Display,
@@ -491,7 +490,7 @@ pub struct Chart {
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     /// The server bars of the newest bar of a grouped timeframe, which live bars join.
-    group_tail: Vec<crate::infra::ctrader::market::Bar>,
+    group_tail: Vec<crate::domain::market::Bar>,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
@@ -623,7 +622,7 @@ impl Chart {
     pub fn set_hours(
         &mut self,
         id: i64,
-        hours: Option<std::sync::Arc<crate::infra::ctrader::market::TradingHours>>,
+        hours: Option<std::sync::Arc<crate::domain::market::TradingHours>>,
         cx: &mut Context<Self>,
     ) {
         let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
@@ -658,7 +657,7 @@ impl Chart {
     }
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub fn market_status(&self) -> Option<crate::infra::ctrader::market::MarketStatus> {
+    pub fn market_status(&self) -> Option<crate::domain::market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(now_ms()))
     }
 
@@ -944,11 +943,4 @@ fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult
         Ok(inner) => inner,
         Err(_) => Err(ApiError::Closed),
     }
-}
-
-/// The current time in Unix milliseconds.
-pub fn now_ms() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(0))
 }

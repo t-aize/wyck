@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use crate::infra::ctrader::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
+use crate::domain::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
 use gpui_kit::assets::IconName;
 
 use super::marks::{self, Icon};

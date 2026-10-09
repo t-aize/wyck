@@ -19,7 +19,7 @@
 //!
 //! Everything here is plain data, so the rules are unit tested without a window.
 
-use crate::infra::ctrader::market::Quote;
+use crate::domain::market::Quote;
 
 /// The most bars of flow kept. Older ones are dropped as new ones arrive.
 pub const MAX_FLOW_BARS: usize = 3_000;

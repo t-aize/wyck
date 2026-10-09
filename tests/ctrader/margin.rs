@@ -1,12 +1,11 @@
 //! Margin calls against the scripted server: expected margin, margin call thresholds, dynamic
 //! leverage.
 
-
 use std::time::Duration;
 
-use serde_json::json;
 use crate::support::{MockServer, answers, connect};
-use wyck::infra::ctrader::margin::{MarginCall, MarginCallType};
+use serde_json::json;
+use wyck::domain::trading::{MarginCall, MarginCallType};
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{ErrorKind, Event};
 

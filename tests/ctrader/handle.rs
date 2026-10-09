@@ -1,9 +1,8 @@
 //! `AccountClient`: routes to the four sub-clients, each carrying its own bound account.
 
-
-use serde_json::json;
 use crate::support::{MockServer, answers, connect};
-use wyck::infra::ctrader::market::{Period, QuoteType};
+use serde_json::json;
+use wyck::domain::market::{Period, QuoteType};
 use wyck::infra::ctrader::transport::wire::payload;
 
 #[tokio::test]
@@ -106,7 +105,7 @@ async fn the_trading_sub_client_overwrites_the_account_on_its_requests() {
     let account = connect(&server).await.account(7);
     let request = wyck::infra::ctrader::trading::NewOrderReq::market(
         1,
-        wyck::infra::ctrader::account::TradeSide::Buy,
+        wyck::domain::trading::TradeSide::Buy,
         10_000,
     );
     account.trading().new_order(request).await.unwrap();

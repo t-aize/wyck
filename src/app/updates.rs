@@ -17,7 +17,7 @@ use crate::ui::kit::toast;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
 pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
-const UPDATE_PUBLIC_KEY: &str = include_str!("../../../assets/update.pubkey");
+const UPDATE_PUBLIC_KEY: &str = include_str!("../../assets/update.pubkey");
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// What the application currently knows or is doing about updates.

@@ -7,6 +7,9 @@ use super::requests::{
     ReconcileReq as PortfolioReq,
 };
 use super::*;
+use crate::domain::trading::{
+    Deal, DealOffset, DepositWithdraw, Order, Position, PositionUnrealizedPnL, Trader,
+};
 
 use crate::infra::ctrader::error::Result;
 use crate::infra::ctrader::transport::connection::{Client, RateClass};

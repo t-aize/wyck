@@ -162,7 +162,6 @@ pub mod trading;
 #[doc(hidden)]
 pub mod transport;
 
-pub(crate) use account::types::number_enum;
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};

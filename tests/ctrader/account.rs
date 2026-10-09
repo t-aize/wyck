@@ -2,12 +2,11 @@
 //! an account produces. The reference catalogs (assets, asset classes, symbol categories) are
 //! `MarketClient` calls and live in `tests/market.rs`.
 
-
 use std::time::Duration;
 
-use serde_json::json;
 use crate::support::{MockServer, answers, connect};
-use wyck::infra::ctrader::account::{
+use serde_json::json;
+use wyck::domain::trading::{
     AccessRights, AccountType, DealStatus, OrderStatus, OrderType, PositionStatus, TradeSide,
 };
 use wyck::infra::ctrader::transport::wire::payload;

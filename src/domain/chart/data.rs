@@ -4,7 +4,7 @@
 //! (which bar a tick belongs to, how a page of older history joins, what a reconnect refill
 //! replaces) are unit tested without a window.
 
-use crate::infra::ctrader::market::{Bar, Tick};
+use crate::domain::market::{Bar, Tick};
 
 use super::timeframe::Timeframe;
 

@@ -682,7 +682,7 @@ fn dedup_keep_order(items: &mut Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::ctrader::market::Period;
+    use crate::domain::market::Period;
 
     #[test]
     fn an_empty_file_gives_the_defaults() {

@@ -6,7 +6,7 @@
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
-use crate::infra::ctrader::market::PRICE_SCALE;
+use crate::domain::market::PRICE_SCALE;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
@@ -892,7 +892,7 @@ impl ChartSettingsEditor {
     }
 
     fn time_page(&self, settings: &ChartSettings) -> AnyElement {
-        let now = super::now_ms();
+        let now = crate::app::market_data::now_ms();
         let mut zones = div()
             .id("settings-zone-list")
             .flex()

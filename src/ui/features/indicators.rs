@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::infra::storage::{AppPaths, DocumentStore};
+use crate::app::storage::{AppPaths, DocumentStore};
 use gpui::{App, BorrowAppContext as _, Global, Task};
 
 use crate::domain::indicators::custom::library::{Changes, Library, LibraryError};

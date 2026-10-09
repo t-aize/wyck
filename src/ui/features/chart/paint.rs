@@ -100,7 +100,12 @@ impl Chart {
             .symbol
             .as_ref()
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
-        let when = super::axis::full_time(super::now_ms(), self.settings.zone, false, false);
+        let when = super::axis::full_time(
+            crate::app::market_data::now_ms(),
+            self.settings.zone,
+            false,
+            false,
+        );
         let stamp: String = when.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
         let name = format!(
             "wyck-{}-{}-{stamp}.png",
@@ -130,7 +135,12 @@ impl Chart {
         if self.settings.kind != super::ChartKind::Candles {
             title.push_str(&format!("  {}", self.settings.kind.label()));
         }
-        let when = super::axis::full_time(super::now_ms(), self.settings.zone, false, false);
+        let when = super::axis::full_time(
+            crate::app::market_data::now_ms(),
+            self.settings.zone,
+            false,
+            false,
+        );
         let captions = [
             super::raster::Caption {
                 text: title,
@@ -139,7 +149,10 @@ impl Chart {
                 bold: true,
             },
             super::raster::Caption {
-                text: format!("{when}  {}", self.settings.zone.label(super::now_ms())),
+                text: format!(
+                    "{when}  {}",
+                    self.settings.zone.label(crate::app::market_data::now_ms())
+                ),
                 size: 11.0,
                 color: scene::hsla(palette.text),
                 bold: false,

@@ -6,7 +6,7 @@
 //! work of a frame stays bounded by the screen, like the other chart types.
 
 use super::color::{Hsla, color_hsla, transparent_black};
-use crate::infra::ctrader::market::Bar;
+use crate::domain::market::Bar;
 
 use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use super::cmd::{Align, Cmd, hsla, with_alpha};

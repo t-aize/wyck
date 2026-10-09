@@ -7,13 +7,13 @@
 //! the differences one after the other, always aiming at the latest wish.
 //!
 //! Price events then come back through the session; [`LiveUpdate`] carries one to the charts with
-//! its live bars already corrected (see [`crate::infra::ctrader::market::LiveBarTracker`]).
+//! its live bars already corrected (see [`crate::domain::market::LiveBarTracker`]).
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
-use crate::infra::ctrader::market::{Bar, Period, SpotEvent};
-use crate::infra::ctrader::session::Session;
+use crate::app::broker::session::Session;
+use crate::domain::market::{Bar, Period, SpotEvent};
 use tokio::sync::watch;
 
 use crate::infra::platform::runtime;

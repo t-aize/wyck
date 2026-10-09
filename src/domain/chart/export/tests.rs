@@ -1,4 +1,4 @@
-use crate::infra::ctrader::market::{Bar, Tick};
+use crate::domain::market::{Bar, Tick};
 
 use super::*;
 use crate::domain::chart::transform::BoxSize;

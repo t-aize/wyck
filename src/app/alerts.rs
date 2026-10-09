@@ -21,18 +21,18 @@ use crate::domain::chart::Timeframe;
 use crate::domain::chart::data::Series;
 use crate::domain::indicators as study;
 use crate::domain::indicators::ValueFormat;
-use crate::infra::ctrader::market::{Bar, PRICE_SCALE};
+use crate::domain::market::{Bar, PRICE_SCALE};
 use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;
 use gpui::{App, Context, Entity, EventEmitter};
 
+use crate::app::market_data::live::{LiveHub, Wish};
+use crate::app::market_data::load;
+use crate::app::market_data::load::Loaded;
+use crate::app::market_data::now_ms;
 use crate::app::workspace::Saver;
 use crate::infra::platform::runtime;
 use crate::ui::features::chart::drawing::Drawings;
-use crate::ui::features::chart::live::{LiveHub, Wish};
-use crate::ui::features::chart::load;
-use crate::ui::features::chart::load::Loaded;
-use crate::ui::features::chart::now_ms;
 
 pub mod eval;
 pub mod model;

@@ -7,14 +7,14 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::infra::ctrader::account::{
+use crate::domain::trading::{
     Deal, Order, OrderStatus, OrderType, Position, PositionStatus, PositionUnrealizedPnL,
     TradeSide, Trader, money,
 };
-use crate::infra::ctrader::trading::{ExecutionEvent, ExecutionType};
+use crate::domain::trading::{ExecutionEvent, ExecutionType};
 
-use crate::infra::ctrader::trading::contract as math;
-use crate::infra::ctrader::trading::contract::{Contract, PnlMark, Summary};
+use crate::domain::trading::contract as math;
+use crate::domain::trading::contract::{Contract, PnlMark, Summary};
 
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;
@@ -111,7 +111,7 @@ pub struct Applied {
 /// ```no_run
 /// # async fn demo(account: wyck::infra::ctrader::AccountClient) -> wyck::infra::ctrader::Result<()> {
 /// use wyck::infra::ctrader::Event;
-/// use wyck::infra::ctrader::account::book::AccountBook;
+/// use wyck::domain::trading::book::AccountBook;
 ///
 /// let mut book = AccountBook::default();
 /// let mut events = account.client().events();

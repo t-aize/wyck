@@ -2,6 +2,7 @@
 
 use super::requests::{ExpectedMarginReq as MarginReq, GetDynamicLeverageReq as LeverageReq};
 use super::*;
+use crate::domain::trading::{DynamicLeverage, ExpectedMargin, MarginCall};
 
 use crate::infra::ctrader::error::Result;
 use crate::infra::ctrader::transport::connection::{Client, RateClass};

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::bars::{Bar, Period, WireTrendbar, decode_bar};
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// A live price change: what one `ProtoOASpotEvent` says about a symbol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,7 +67,7 @@ impl SpotEvent {
     /// `MarketClient::subscribe_live_bars`.
     ///
     /// These are the bars exactly as sent, and the server's close of a live bar is wrong (it
-    /// equals the low). Use [`crate::infra::ctrader::market::LiveBarTracker`] to get the real close.
+    /// equals the low). Use [`crate::domain::market::LiveBarTracker`] to get the real close.
     #[must_use]
     pub fn live_bars(&self) -> Vec<(Period, Bar)> {
         self.trendbar.iter().filter_map(live_bar).collect()

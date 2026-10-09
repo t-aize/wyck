@@ -94,6 +94,7 @@
 
 mod app_config;
 pub mod backup;
+pub mod chart_export;
 mod crypto;
 mod doctor;
 mod documents;

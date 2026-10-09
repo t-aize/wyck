@@ -1,5 +1,5 @@
 use super::color::rgb;
-use crate::infra::ctrader::market::{Bar, Period, Quote, Tick};
+use crate::domain::market::{Bar, Period, Quote, Tick};
 
 use super::cmd::{count, rect_widths, texts};
 use super::*;

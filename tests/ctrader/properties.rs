@@ -8,14 +8,15 @@ use std::time::Duration;
 
 use proptest::prelude::*;
 use serde_json::{Value, json};
-use wyck::infra::ctrader::event::event_from;
-use wyck::infra::ctrader::market::{
-    DepthBook, DepthEvent, DepthQuote, MAX_TICK_RANGE_MS, Period, SpotEvent, SpotTracker, Tick,
-    WireTick, WireTrendbar, continuation, decode_bars, decode_ticks, format_price, from_price,
-    merge_sides, tick_windows, to_price,
+use wyck::domain::flex;
+use wyck::domain::market::{
+    DepthBook, DepthEvent, DepthQuote, Period, SpotEvent, SpotTracker, Tick, WireTick,
+    WireTrendbar, decode_bars, decode_ticks, format_price, from_price, merge_sides, to_price,
 };
+use wyck::infra::ctrader::event::event_from;
+use wyck::infra::ctrader::market::{MAX_TICK_RANGE_MS, continuation, tick_windows};
 use wyck::infra::ctrader::session::Backoff;
-use wyck::infra::ctrader::transport::wire::{Envelope, flex, payload};
+use wyck::infra::ctrader::transport::wire::{Envelope, payload};
 
 /// Encodes ticks (oldest first) the way the server sends them: newest first, the first tick
 /// absolute, every other one as a difference from the tick before it in the list.

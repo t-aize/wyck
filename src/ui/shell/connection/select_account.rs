@@ -1,10 +1,10 @@
 //! Screen 9: picking which of the authorized trading accounts to connect to.
 
-use crate::infra::ctrader::Client;
-use crate::infra::ctrader::Environment;
-use crate::infra::ctrader::TraderAccount;
-use crate::infra::ctrader::auth::TokenSet;
-use crate::infra::ctrader::config::ClientCredentials;
+use crate::app::broker::Client;
+use crate::app::broker::Environment;
+use crate::app::broker::TraderAccount;
+use crate::app::broker::auth::TokenSet;
+use crate::app::broker::config::ClientCredentials;
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
 use gpui_kit::assets::IconName;

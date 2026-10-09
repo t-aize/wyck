@@ -1,16 +1,14 @@
 //! Trading (order placement, amend, cancel, position close) against the scripted server: what is
 //! sent, the execution events that come back, and the error paths a trading call can hit.
 
-
 use std::time::Duration;
 
-use serde_json::json;
 use crate::support::{MockServer, answers, connect};
+use serde_json::json;
+use wyck::domain::trading::ExecutionType;
+use wyck::domain::trading::TradeSide;
 use wyck::infra::ctrader::ErrorKind;
-use wyck::infra::ctrader::account::TradeSide;
-use wyck::infra::ctrader::trading::{
-    AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq,
-};
+use wyck::infra::ctrader::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
 use wyck::infra::ctrader::transport::wire::payload;
 
 #[tokio::test]

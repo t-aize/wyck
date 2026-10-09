@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::wire::flex;
+use crate::domain::flex;
 
 /// `ProtoOAApplicationAuthReq`: identifies the application.
 #[derive(Serialize)]

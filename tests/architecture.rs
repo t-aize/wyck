@@ -33,7 +33,10 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
 fn module_of(rel: &str) -> Vec<String> {
     let trimmed = rel.trim_end_matches(".rs");
     let mut parts: Vec<String> = trimmed.split('/').map(str::to_owned).collect();
-    if parts.last().is_some_and(|last| last == "lib" || last == "main" || last == "mod") {
+    if parts
+        .last()
+        .is_some_and(|last| last == "lib" || last == "main" || last == "mod")
+    {
         parts.pop();
     }
     parts
@@ -93,7 +96,13 @@ fn banned_external(zone: &str, path: &[String]) -> Option<String> {
         "infra" => &["gpui", "gpui_kit"],
         "app" => &["gpui_kit"],
         "ui::kit" => &["tokio", "reqwest", "tokio_tungstenite", "keyring"],
-        z if z.starts_with("ui::") => &["gpui_kit", "tokio", "reqwest", "tokio_tungstenite", "keyring"],
+        z if z.starts_with("ui::") => &[
+            "gpui_kit",
+            "tokio",
+            "reqwest",
+            "tokio_tungstenite",
+            "keyring",
+        ],
         _ => &[],
     };
     if banned.contains(&first) {
@@ -214,7 +223,11 @@ impl<'ast> Visit<'ast> for Scan<'_> {
             return;
         }
         if has_attr(&node.attrs, "path") {
-            self.note("style", "path attribute on a module".into(), node.span().start().line);
+            self.note(
+                "style",
+                "path attribute on a module".into(),
+                node.span().start().line,
+            );
         }
         if node.content.is_some() {
             self.depth += 1;
@@ -248,12 +261,11 @@ impl<'ast> Visit<'ast> for Scan<'_> {
             }
             self.record(&leaf, line);
         }
-        if let syn::UseTree::Path(p) = &node.tree {
-            if p.ident == "super" {
-                if let syn::UseTree::Glob(_) = *p.tree {
-                    self.note("style", "use super::*".into(), line);
-                }
-            }
+        if let syn::UseTree::Path(p) = &node.tree
+            && p.ident == "super"
+            && let syn::UseTree::Glob(_) = *p.tree
+        {
+            self.note("style", "use super::*".into(), line);
         }
     }
 
@@ -330,13 +342,20 @@ fn layers_stay_apart() {
             example: example.clone(),
         })
         .collect();
-    let stale: Vec<&String> = baseline.iter().filter(|key| !found.contains_key(*key)).collect();
+    let stale: Vec<&String> = baseline
+        .iter()
+        .filter(|key| !found.contains_key(*key))
+        .collect();
 
     let mut message = String::new();
     if !new.is_empty() {
         message.push_str("new architecture violations (see docs/architecture.md):\n");
         for v in &new {
-            message.push_str(&format!("  {} (first at {})\n", v.key.replace('\t', " | "), v.example));
+            message.push_str(&format!(
+                "  {} (first at {})\n",
+                v.key.replace('\t', " | "),
+                v.example
+            ));
         }
     }
     if !stale.is_empty() {

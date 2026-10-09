@@ -8,9 +8,7 @@
 //! # let _ = balance; Ok(()) }
 //! ```
 
-pub mod book;
 pub mod requests;
-pub mod types;
 
 pub use requests::{
     CashFlowHistoryListReq, CashFlowHistoryListRes, DealListByPositionIdReq,
@@ -18,11 +16,6 @@ pub use requests::{
     OrderDetailsReq, OrderDetailsRes, OrderListByPositionIdReq, OrderListByPositionIdRes,
     OrderListReq, OrderListRes, PositionUnrealizedPnLRes, ReconcileReq, ReconcileRes, TraderRes,
     TraderUpdatedEvent,
-};
-pub use types::{
-    AccessRights, AccountType, Deal, DealOffset, DealStatus, DepositWithdraw, Order, OrderStatus,
-    OrderTriggerMethod, OrderType, Position, PositionStatus, PositionUnrealizedPnL, TimeInForce,
-    TradeData, TradeSide, Trader, money, volume_units,
 };
 
 mod client;

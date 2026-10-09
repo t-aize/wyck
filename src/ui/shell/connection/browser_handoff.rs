@@ -5,10 +5,10 @@
 
 use std::time::Duration;
 
-use crate::infra::ctrader::Client;
-use crate::infra::ctrader::Environment;
-use crate::infra::ctrader::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
-use crate::infra::ctrader::config::ClientCredentials;
+use crate::app::broker::Client;
+use crate::app::broker::Environment;
+use crate::app::broker::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
+use crate::app::broker::config::ClientCredentials;
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
@@ -16,7 +16,7 @@ use secrecy::ExposeSecret;
 
 use super::select_account::SelectAccountState;
 use super::{ConnectionFlow, Screen};
-use crate::infra::platform::runtime;
+use crate::app::system::runtime;
 use crate::ui::kit::{anim, button, icon, layout, theme, tokens};
 
 /// How long to wait for the user to finish signing in on cTrader's page before giving up.

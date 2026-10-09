@@ -2,7 +2,7 @@
 //! with this chart's projection, so a drawing made here shows at once on every chart of the
 //! symbol.
 
-use crate::infra::ctrader::market::PRICE_SCALE;
+use crate::domain::market::PRICE_SCALE;
 use gpui::{App, Context, Entity, Window};
 
 use super::drawing::Drawings;

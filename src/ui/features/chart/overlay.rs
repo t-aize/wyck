@@ -2,7 +2,7 @@
 //! the indicators with their buttons), the toolbar, its menus, the labels of the order and alert
 //! lines, the right-click menu, and the loading, failed and empty states.
 
-use crate::infra::ctrader::market::format_price;
+use crate::domain::market::format_price;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, MouseButton, SharedString, Window, deferred, div,
@@ -707,9 +707,9 @@ impl Chart {
 
     /// A dot that says whether the symbol's market is open, with when it opens or closes.
     fn market_dot(&self) -> Option<AnyElement> {
-        use crate::infra::ctrader::market::MarketStatus;
+        use crate::domain::market::MarketStatus;
         let status = self.market_status()?;
-        let now = super::now_ms();
+        let now = crate::app::market_data::now_ms();
         let within =
             |at: Option<i64>| at.map(|t| crate::domain::drawings::geometry::duration_text(t - now));
         let (color, text) = match &status {
@@ -1079,7 +1079,7 @@ impl Chart {
         let menu = self.menu?;
         let card = match menu {
             Menu::Zone => {
-                let now = super::now_ms();
+                let now = crate::app::market_data::now_ms();
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(

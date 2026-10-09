@@ -639,7 +639,7 @@ impl AccountPanel {
                                     snooze.update(cx, |alerts, cx| {
                                         alerts.snooze(
                                             id,
-                                            crate::ui::features::chart::now_ms() + 3_600_000,
+                                            crate::app::market_data::now_ms() + 3_600_000,
                                             cx,
                                         )
                                     });
@@ -657,7 +657,7 @@ impl AccountPanel {
                                                 alert.snoozed_until = None;
                                                 alert.bar_key = None;
                                                 alert.created_at =
-                                                    crate::ui::features::chart::now_ms();
+                                                    crate::app::market_data::now_ms();
                                                 book.insert(
                                                     alert,
                                                     crate::app::workspace::MAX_SAVED_ALERTS,

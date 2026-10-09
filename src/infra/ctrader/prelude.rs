@@ -5,9 +5,9 @@
 //! use wyck::infra::ctrader::prelude::*;
 //! ```
 
-pub use crate::infra::ctrader::account::TradeSide;
+pub use crate::domain::market::{Period, QuoteType};
+pub use crate::domain::trading::TradeSide;
 pub use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig, Environment};
-pub use crate::infra::ctrader::market::{Period, QuoteType};
 pub use crate::infra::ctrader::session::{Session, SessionConfig, SessionEvent};
 pub use crate::infra::ctrader::trading::NewOrderReq;
 pub use crate::infra::ctrader::{

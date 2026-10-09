@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::ctrader::number_enum;
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
+use crate::domain::trading::types::number_enum;
 
 number_enum! {
     /// Which of the three supported margin call thresholds this is (`ProtoOANotificationType`).

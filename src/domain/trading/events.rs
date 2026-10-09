@@ -3,9 +3,9 @@
 
 use serde::Deserialize;
 
-use crate::infra::ctrader::account::{Deal, Order, Position};
-use crate::infra::ctrader::number_enum;
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
+use crate::domain::trading::types::number_enum;
+use crate::domain::trading::{Deal, Order, Position};
 
 number_enum! {
     /// What an execution event reports (`ProtoOAExecutionType`).

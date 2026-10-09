@@ -8,19 +8,20 @@
 
 use std::time::{Duration, Instant};
 
-use crate::infra::ctrader::Result as ApiResult;
-use crate::infra::ctrader::market::{Quote, QuoteType, merge_sides};
-use crate::infra::ctrader::session::Session;
+use crate::app::broker::Result as ApiResult;
+use crate::app::broker::session::Session;
+use crate::domain::market::{Quote, QuoteType, merge_sides};
 use gpui::Context;
 
 use super::data::Series;
 use super::flow::{self, Flow};
 use super::footprint;
-use super::live::LiveUpdate;
-use super::load;
 use super::settings::ChartKind;
-use super::{Chart, Load, flatten, now_ms};
-use crate::infra::platform::runtime;
+use super::{Chart, Load, flatten};
+use crate::app::market_data::live::LiveUpdate;
+use crate::app::market_data::load;
+use crate::app::market_data::now_ms;
+use crate::app::system::runtime;
 
 /// About how much time one request covers, in bars of the timeframe (at most [`MAX_CHUNK_BARS`]).
 const CHUNK_MS: i64 = 6 * 3_600_000;

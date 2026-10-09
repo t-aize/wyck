@@ -10,14 +10,13 @@
 
 use std::future::Future;
 
-use crate::infra::ctrader::market::{
-    Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteType, Tick,
-};
-use crate::infra::ctrader::session::Session;
-use crate::infra::ctrader::{Error as ApiError, Result};
+use crate::app::broker::market::{MAX_TICK_RANGE_MS, MarketClient};
+use crate::app::broker::session::Session;
+use crate::app::broker::{Error as ApiError, Result};
+use crate::domain::market::{Bar, Period, QuoteType, Tick};
 
-use super::data::{aggregate_ticks, bucket_start, group_bars, last_group};
-use super::timeframe::Timeframe;
+use crate::domain::chart::data::{aggregate_ticks, bucket_start, group_bars, last_group};
+use crate::domain::chart::timeframe::Timeframe;
 
 /// Bars in one request. Under the range limit the server sets for every period.
 const CHUNK_BARS: i64 = 1_500;
@@ -105,7 +104,7 @@ impl History for MarketClient {
     }
 }
 
-pub(super) fn market(session: &Session) -> Result<MarketClient> {
+pub(crate) fn market(session: &Session) -> Result<MarketClient> {
     let client = session.client().ok_or(ApiError::Closed)?;
     Ok(client.account(session.account_id()).market())
 }

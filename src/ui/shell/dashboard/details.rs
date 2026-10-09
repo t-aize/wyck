@@ -2,7 +2,7 @@
 //! under the highlight, a live price when it is the symbol being followed, and the reason when the
 //! details could not be loaded.
 
-use crate::infra::ctrader::market::Symbol;
+use crate::domain::market::Symbol;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 use gpui_kit::assets::IconName;

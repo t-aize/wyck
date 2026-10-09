@@ -21,10 +21,10 @@
 
 use serde::Deserialize;
 
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// Defines an enumeration that maps to server numbers and back. Reachable as
-/// `crate::infra::ctrader::number_enum` so [`crate::infra::ctrader::trading`] and [`crate::infra::ctrader::margin`] can
+/// `crate::domain::trading::types::number_enum` so [`crate::infra::ctrader::trading`] and [`crate::infra::ctrader::margin`] can
 /// build their own enumerations with it; it is not meant to be used outside this module.
 #[doc(hidden)]
 macro_rules! number_enum {
@@ -200,7 +200,7 @@ number_enum! {
 }
 
 /// ```
-/// use wyck::infra::ctrader::account::money;
+/// use wyck::domain::trading::money;
 ///
 /// assert_eq!(money(1_000_050, Some(2)), 10_000.5);
 /// assert_eq!(money(500, None), 5.0); // two digits when the server did not say

@@ -1,14 +1,13 @@
 //! The session against the scripted server: it must come up, stay up across dropped connections,
 //! restore what the program subscribed to, renew the tokens, and stop cleanly.
 
-
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use secrecy::ExposeSecret;
-use serde_json::{Value, json};
 use crate::support::http::{TokenServer, token_server_sequence, tokens_body};
 use crate::support::{Handler, MockServer, Reply, answers};
+use secrecy::ExposeSecret;
+use serde_json::{Value, json};
 use tokio::sync::Notify;
 use tokio::sync::broadcast::Receiver;
 use wyck::infra::ctrader::auth::{TokenSet, parse_token_response};
@@ -181,7 +180,7 @@ async fn subscriptions_made_before_the_connection_is_up_are_applied_when_it_is()
     // Recorded at once; the connection is not up yet.
     session.subscribe_spots(&[1, 2]).await.unwrap();
     session
-        .subscribe_live_bars(1, wyck::infra::ctrader::market::Period::M5)
+        .subscribe_live_bars(1, wyck::domain::market::Period::M5)
         .await
         .unwrap();
     session.subscribe_depth(&[3]).await.unwrap();

@@ -1,12 +1,12 @@
 //! Screen 10: the last automatic step, authorizing the chosen account on the connection and
 //! saving everything to disk.
 
-use crate::infra::ctrader::Client;
-use crate::infra::ctrader::Environment;
-use crate::infra::ctrader::TraderAccount;
-use crate::infra::ctrader::auth::TokenSet;
-use crate::infra::ctrader::config::ClientCredentials;
-use crate::infra::storage::{OpenApiTokens, ProfileId};
+use crate::app::broker::Client;
+use crate::app::broker::Environment;
+use crate::app::broker::TraderAccount;
+use crate::app::broker::auth::TokenSet;
+use crate::app::broker::config::ClientCredentials;
+use crate::app::storage::{OpenApiTokens, ProfileId};
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
@@ -14,7 +14,7 @@ use secrecy::ExposeSecret;
 
 use super::credentials::CALLBACK_PORT;
 use super::{ConnectionFlow, SavedConnection, Screen, service_tag};
-use crate::infra::platform::runtime;
+use crate::app::system::runtime;
 use crate::ui::kit::{anim, button, icon, layout, theme, tokens};
 
 pub(super) struct AuthorizingState {
@@ -110,7 +110,7 @@ impl ConnectionFlow {
         environment: Environment,
         account: &TraderAccount,
         tokens: &TokenSet,
-    ) -> crate::infra::storage::Result<(ProfileId, String)> {
+    ) -> crate::app::storage::Result<(ProfileId, String)> {
         let stale: Vec<ProfileId> = self
             .config
             .profiles()
@@ -135,7 +135,7 @@ impl ConnectionFlow {
         )?;
         self.config.set_profile_secret(
             &id,
-            crate::infra::storage::CLIENT_SECRET,
+            crate::app::storage::CLIENT_SECRET,
             &credentials.client_secret,
         )?;
         self.config

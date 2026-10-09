@@ -60,14 +60,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use secrecy::SecretString;
+use wyck::domain::market::symbols::{LightSymbol, Symbol};
+use wyck::domain::market::{Period, QuoteType, merge_sides, to_price};
+use wyck::domain::trading::ExecutionType;
 use wyck::infra::ctrader::AccountClient;
 use wyck::infra::ctrader::TraderAccount;
 use wyck::infra::ctrader::auth::TokenSet;
 use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig, Environment};
-use wyck::infra::ctrader::market::symbols::{LightSymbol, Symbol};
-use wyck::infra::ctrader::market::{Period, QuoteType, merge_sides, to_price};
 use wyck::infra::ctrader::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
-use wyck::infra::ctrader::trading::{ExecutionType, NewOrderReq};
+use wyck::infra::ctrader::trading::NewOrderReq;
 use wyck::infra::ctrader::{Client, Event};
 
 fn init_tracing() {
@@ -120,7 +121,7 @@ async fn wait_for_execution(
     events: &mut tokio::sync::broadcast::Receiver<Event>,
     position_id: i64,
     wanted: ExecutionType,
-) -> wyck::infra::ctrader::trading::ExecutionEvent {
+) -> wyck::domain::trading::ExecutionEvent {
     let matched = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             match events.recv().await.expect("event stream") {
@@ -806,7 +807,7 @@ async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
     let mut events = client.events();
     let request = NewOrderReq::market(
         details.symbol_id,
-        wyck::infra::ctrader::account::TradeSide::Buy,
+        wyck::domain::trading::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
@@ -891,7 +892,7 @@ async fn amend_and_cancel_a_pending_order_on_a_demo_account() {
 
     let request = NewOrderReq::limit(
         details.symbol_id,
-        wyck::infra::ctrader::account::TradeSide::Buy,
+        wyck::domain::trading::TradeSide::Buy,
         min_volume,
         far_price,
     )
@@ -963,7 +964,7 @@ async fn amend_stop_loss_and_take_profit_on_a_demo_account() {
 
     let request = NewOrderReq::market(
         details.symbol_id,
-        wyck::infra::ctrader::account::TradeSide::Buy,
+        wyck::domain::trading::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");

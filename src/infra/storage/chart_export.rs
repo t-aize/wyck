@@ -7,7 +7,7 @@
 use crate::infra::storage::{DocumentStore, Result};
 use serde::{Deserialize, Serialize};
 
-use super::{ExportOptions, Preset};
+use crate::domain::chart::export::{ExportOptions, Preset};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "export";
@@ -15,11 +15,13 @@ pub const DOCUMENT: &str = "export";
 const MAX_PRESETS: usize = 100;
 const MAX_NAME: usize = 60;
 
+/// What the export dialog remembers between sessions.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Saved {
     /// The options of the last export.
     #[serde(default)]
     pub last: ExportOptions,
+    /// The presets the user named.
     #[serde(default)]
     pub presets: Vec<Preset>,
 }

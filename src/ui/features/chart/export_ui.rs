@@ -23,14 +23,14 @@ use super::display::Display;
 use super::settings::{ChartKind, ChartSettings};
 use super::settings_rows::named;
 use super::zone::Zone;
+use crate::app::storage::DocumentStore;
+use crate::app::storage::chart_export as store;
+use crate::app::storage::chart_export::Saved;
 use crate::domain::chart::export;
-use crate::domain::chart::export::store;
-use crate::domain::chart::export::store::Saved;
 use crate::domain::chart::export::{
     ColumnKey, Content, Decimal, Delimiter, Empty, ExportOptions, ExportZone, Format, HeaderCase,
     LineEnding, Order, PREVIEW_ROWS, PriceDigits, Quote, RangeKind, Source, TimeFormat,
 };
-use crate::infra::storage::DocumentStore;
 use crate::ui::kit::{
     button, controls, form,
     form::Head,
@@ -118,7 +118,7 @@ impl Snapshot {
             display: chart.display.clone(),
             settings: chart.settings.clone(),
             visible: chart.view.visible(shown, plot_w),
-            now_ms: super::now_ms(),
+            now_ms: crate::app::market_data::now_ms(),
         }
     }
 
@@ -268,7 +268,7 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let store = crate::app_paths().map(crate::infra::storage::AppPaths::documents);
+        let store = crate::app_paths().map(crate::app::storage::AppPaths::documents);
         let saved = store.as_ref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.
@@ -575,7 +575,7 @@ impl ExportDialog {
         let options = self.options.clone().normalized();
         let snapshot = self.snapshot.clone();
         let picked = cx.prompt_for_new_path(
-            &crate::infra::storage::AppPaths::documents_dir(),
+            &crate::app::storage::AppPaths::documents_dir(),
             Some(&self.preview.file_name),
         );
         self.busy = true;
@@ -595,7 +595,7 @@ impl ExportDialog {
                     let source = snapshot.source();
                     let table = export::table(&source, &options, None);
                     let text = export::render(&table, &options, source.digits, source.zone);
-                    crate::infra::storage::atomic_write(&target, text.as_bytes())
+                    crate::app::storage::atomic_write(&target, text.as_bytes())
                         .map(|()| (table.total_rows, text.len()))
                 })
                 .await;

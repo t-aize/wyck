@@ -1,6 +1,7 @@
 //! [`TradingClient`]: the calls themselves.
 
 use super::*;
+use crate::domain::trading::ExecutionEvent;
 use crate::infra::ctrader::error::{Error, Result};
 use crate::infra::ctrader::transport::connection::{Client, RateClass};
 use crate::infra::ctrader::transport::wire::payload;
@@ -10,7 +11,7 @@ use crate::infra::ctrader::transport::wire::payload;
 ///
 /// ```no_run
 /// # async fn demo(account: wyck::infra::ctrader::AccountClient) -> wyck::infra::ctrader::Result<()> {
-/// use wyck::infra::ctrader::account::TradeSide;
+/// use wyck::domain::trading::TradeSide;
 /// use wyck::infra::ctrader::trading::NewOrderReq;
 ///
 /// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.

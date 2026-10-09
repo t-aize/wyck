@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::types::{DynamicLeverage, ExpectedMargin, MarginCall};
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
+use crate::domain::trading::margin::{DynamicLeverage, ExpectedMargin, MarginCall};
 
 /// `ProtoOAExpectedMarginReq`.
 #[derive(Debug, Serialize)]

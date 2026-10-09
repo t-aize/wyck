@@ -1,6 +1,6 @@
 //! How a chart maps times and prices to screen positions, for the drawings.
 
-use crate::infra::ctrader::market::{PRICE_SCALE, format_price};
+use crate::domain::market::{PRICE_SCALE, format_price};
 
 use super::data::Series;
 use super::scene::PriceMap;
@@ -132,7 +132,7 @@ impl Projection for ChartProjection<'_> {
 
     fn pip(&self) -> f64 {
         self.pip_position
-            .map_or(0.0, crate::infra::ctrader::market::pip_size)
+            .map_or(0.0, crate::domain::market::pip_size)
     }
 }
 
@@ -142,7 +142,7 @@ mod tests {
     use crate::domain::chart::display::Display;
     use crate::domain::chart::scene::{Geometry, main_map};
     use crate::domain::chart::settings::ChartSettings;
-    use crate::infra::ctrader::market::Bar;
+    use crate::domain::market::Bar;
 
     fn bars() -> Series {
         Series::Bars(

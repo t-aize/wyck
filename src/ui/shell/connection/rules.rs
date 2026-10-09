@@ -2,10 +2,10 @@
 //! environment it is for, what an account is called, where its documents live, what permission
 //! the sign-in asks for. Kept apart so they are tested on their own.
 
-use crate::infra::ctrader::Environment;
-use crate::infra::ctrader::TraderAccount;
-use crate::infra::ctrader::auth::Scope;
-use crate::infra::storage::ProfileConfig;
+use crate::app::broker::Environment;
+use crate::app::broker::TraderAccount;
+use crate::app::broker::auth::Scope;
+use crate::app::storage::ProfileConfig;
 
 /// The permission the sign-in asks for. Trading includes reading, and the app places orders.
 pub const SIGN_IN_SCOPE: Scope = Scope::Trading;
@@ -75,7 +75,7 @@ pub fn redirect_uri(port: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::storage::ProfileId;
+    use crate::app::storage::ProfileId;
 
     fn profile(service: &str) -> ProfileConfig {
         ProfileConfig {

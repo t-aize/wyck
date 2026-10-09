@@ -1870,7 +1870,5 @@ pub fn builtin_presets() -> Vec<Preset> {
     ]
 }
 
-pub mod store;
-
 #[cfg(test)]
 mod tests;

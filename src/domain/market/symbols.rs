@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// A symbol in the list of an account (`ProtoOALightSymbol`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]

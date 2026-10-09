@@ -8,7 +8,7 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-use crate::infra::ctrader::account::{OrderType, Position, money};
+use crate::domain::trading::{OrderType, Position, money};
 use serde_json::Value;
 
 use super::columns::{
@@ -17,8 +17,8 @@ use super::columns::{
 use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use super::stats::{self, HistoryStats};
 use crate::app::alerts::Alerts;
+use crate::app::market_data::now_ms;
 use crate::domain::chart::zone::Zone;
-use crate::ui::features::chart::now_ms;
 use crate::ui::features::trading::account::{Account, Busy};
 use crate::ui::features::trading::book::is_buy;
 use crate::ui::features::trading::math;
@@ -919,7 +919,7 @@ fn alerts(ctx: &Ctx) -> Table {
             .get(&symbol)
             .copied()
             .unwrap_or(contract.digits);
-        let now = crate::ui::features::chart::now_ms();
+        let now = crate::app::market_data::now_ms();
         let state = match (alert.active, alert.fired_at) {
             (true, _) if alert.is_snoozed(now) => "Snoozed",
             (true, _) if alert.repeats() => "Watching (repeats)",

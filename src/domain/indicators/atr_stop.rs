@@ -1,6 +1,6 @@
 //! ATR settings and price levels used before an order is sent.
 
-use crate::infra::ctrader::market::{Bar, PRICE_SCALE};
+use crate::domain::market::{Bar, PRICE_SCALE};
 use serde::{Deserialize, Serialize};
 
 use super::math;

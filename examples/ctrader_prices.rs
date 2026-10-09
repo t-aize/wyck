@@ -6,7 +6,7 @@
 //! cargo run --example ctrader_prices -- EURUSD
 //! ```
 
-use wyck::infra::ctrader::market::format_price;
+use wyck::domain::market::format_price;
 use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error, Event};
 
 fn var(name: &str) -> String {

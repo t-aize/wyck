@@ -34,21 +34,20 @@
 
 use std::time::Duration;
 
-use crate::infra::ctrader::account::TradeSide;
-use crate::infra::ctrader::trading::{NewOrderReq, NewOrderType};
+use crate::app::broker::trading::{NewOrderReq, NewOrderType};
+use crate::domain::trading::TradeSide;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 
 use super::account::{Account, Busy};
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
+use crate::app::market_data::now_ms;
+use crate::app::system::runtime;
 use crate::domain::drawings::model::Dash;
 use crate::domain::indicators::atr_stop::AtrStop;
-use crate::infra::platform::runtime;
 use crate::ui::features::chart::Chart;
-use crate::ui::features::chart::{
-    ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms,
-};
+use crate::ui::features::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
 
 pub mod customize;
@@ -1596,9 +1595,7 @@ impl OrderTicket {
                 return;
             }
             let answer = runtime::spawn(async move {
-                let client = session
-                    .client()
-                    .ok_or(crate::infra::ctrader::Error::Closed)?;
+                let client = session.client().ok_or(crate::app::broker::Error::Closed)?;
                 client
                     .account(session.account_id())
                     .margin()
@@ -1610,10 +1607,10 @@ impl OrderTicket {
                 if this.margin_epoch != epoch {
                     return;
                 }
-                let money = |m: &crate::infra::ctrader::margin::ExpectedMargin| {
+                let money = |m: &crate::domain::trading::ExpectedMargin| {
                     (
-                        crate::infra::ctrader::account::money(m.buy_margin, digits),
-                        crate::infra::ctrader::account::money(m.sell_margin, digits),
+                        crate::domain::trading::money(m.buy_margin, digits),
+                        crate::domain::trading::money(m.sell_margin, digits),
                     )
                 };
                 match answer.ok().and_then(Result::ok) {

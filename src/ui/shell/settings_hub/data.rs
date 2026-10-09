@@ -1,10 +1,10 @@
 //! The Data page of the settings: exporting and importing a backup of everything the user made, and
-//! the copies the app keeps of it. The work itself is done by `crate::infra::storage::backup`; this page asks
+//! the copies the app keeps of it. The work itself is done by `crate::app::storage::backup`; this page asks
 //! for it and says what happened.
 
 use super::*;
-use crate::infra::storage::backup::{BackupStore, Contents};
-use crate::infra::storage::scripts::ScriptStore;
+use crate::app::storage::backup::{BackupStore, Contents};
+use crate::app::storage::scripts::ScriptStore;
 
 /// The most copies the page lists.
 const LISTED_COPIES: usize = 8;
@@ -367,7 +367,7 @@ impl SettingsHub {
         appearance::save_now(cx);
         let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
         let name = format!("wyck-backup-{stamp}.toml");
-        let start = crate::infra::storage::AppPaths::documents_dir();
+        let start = crate::app::storage::AppPaths::documents_dir();
         let scripts_dir = indicators::dir(cx);
         let picked = cx.prompt_for_new_path(&start, Some(&name));
         cx.spawn(async move |this, cx| {

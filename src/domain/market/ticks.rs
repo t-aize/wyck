@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::ctrader::transport::wire::flex;
+use crate::domain::flex;
 
 /// Which side of the market a tick history is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,7 +31,7 @@ impl QuoteType {
 pub struct Tick {
     /// When the tick happened, in Unix milliseconds.
     pub time_ms: i64,
-    /// The raw price, see [`crate::infra::ctrader::market::to_price`].
+    /// The raw price, see [`crate::domain::market::to_price`].
     pub price: i64,
 }
 

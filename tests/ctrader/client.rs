@@ -1,13 +1,12 @@
 //! The connection against a scripted local server: sign in, requests, answers, errors, events, the
 //! end of the connection, and rate limit refusals. Market data calls are in `tests/market.rs`.
 
-
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use serde_json::json;
 use crate::support::{MockServer, Reply, answers, config, connect};
+use serde_json::json;
 use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};

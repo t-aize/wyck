@@ -8,7 +8,7 @@
 
 pub mod account;
 pub mod guard;
-pub use crate::infra::ctrader::account::book;
+pub use crate::domain::trading::book;
 pub mod math;
 pub mod panel;
 pub mod plan;
@@ -114,7 +114,7 @@ pub fn lines(
         };
         let kind = order
             .kind()
-            .map_or("order", crate::infra::ctrader::account::OrderType::label);
+            .map_or("order", crate::domain::trading::OrderType::label);
         let lots = math::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = order.limit_price.or(order.stop_price) {
@@ -176,7 +176,7 @@ pub fn lines(
 mod tests {
     use super::*;
     use crate::app::alerts::Condition;
-    use crate::infra::ctrader::account::{Order, Position};
+    use crate::domain::trading::{Order, Position};
     use serde_json::json;
 
     #[test]

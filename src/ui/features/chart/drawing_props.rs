@@ -4,7 +4,7 @@
 //! Every change shows on the charts at once. OK keeps the changes as one undo step, Cancel puts
 //! the drawing back as it was, and Escape or the close button keep them.
 
-use crate::infra::ctrader::market::PRICE_SCALE;
+use crate::domain::market::PRICE_SCALE;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;

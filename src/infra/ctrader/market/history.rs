@@ -11,7 +11,7 @@
 //! A tick request may span at most one week, so a longer range is cut into windows of just under a
 //! week ([`tick_windows`]). Inside a window the server returns the **newest** ticks first, so when
 //! `hasMore` is set the next request asks for the part before the oldest tick received. Bid and ask
-//! ticks are separate requests; [`crate::infra::ctrader::market::merge_sides`] joins them into quotes.
+//! ticks are separate requests; [`crate::domain::market::merge_sides`] joins them into quotes.
 //!
 //! # Bars
 //!
@@ -21,9 +21,9 @@
 //! full size bar requests are chained, so a caller filling a long history should ask in modest
 //! ranges and check the seams.
 
-use super::bars::{Bar, Period};
 use super::client::MarketClient;
-use super::ticks::{QuoteType, Tick};
+use crate::domain::market::bars::{Bar, Period};
+use crate::domain::market::ticks::{QuoteType, Tick};
 use crate::infra::ctrader::error::{Error, Result};
 
 /// The longest range of one tick request: one week.
