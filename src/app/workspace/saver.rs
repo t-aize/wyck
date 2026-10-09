@@ -119,7 +119,11 @@ mod tests {
             store.load::<Doc>("doc").unwrap().is_none(),
             "nothing is written during the quiet time"
         );
-        std::thread::sleep(Duration::from_millis(400));
+        // The writer thread can be slow to run on a loaded machine: wait for it, up to a limit.
+        let limit = std::time::Instant::now() + Duration::from_secs(10);
+        while store.load::<Doc>("doc").unwrap().is_none() && std::time::Instant::now() < limit {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         assert_eq!(store.load::<Doc>("doc").unwrap(), Some(Doc { n: 5 }));
     }
 

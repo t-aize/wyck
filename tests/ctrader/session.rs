@@ -103,6 +103,20 @@ impl TokenStore for DelayedTokenStore {
     }
 }
 
+/// A store that refuses every save.
+struct FullTokenStore;
+
+#[async_trait::async_trait]
+impl TokenStore for FullTokenStore {
+    async fn load(&self) -> wyck::infra::ctrader::Result<Option<TokenSet>> {
+        Ok(None)
+    }
+
+    async fn save(&self, _tokens: &TokenSet) -> wyck::infra::ctrader::Result<()> {
+        Err(Error::Config("the disk is full".into()))
+    }
+}
+
 /// Waits for the first event the predicate accepts, skipping the others.
 async fn next_event<F>(events: &mut Receiver<SessionEvent>, mut accept: F) -> SessionEvent
 where
@@ -260,6 +274,73 @@ async fn the_session_survives_several_drops_in_a_row() {
         reconnected(&mut events).await;
         assert_eq!(server.connections(), round);
     }
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn drops_right_after_connecting_keep_the_wait_growing() {
+    let server = MockServer::start(answers(healthy())).await;
+    let (session, _) = start(config(&server.url), tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+    let mut attempts = Vec::new();
+    for _ in 0..3 {
+        server.close();
+        let drop = next_event(&mut events, |e| {
+            matches!(e, SessionEvent::Reconnecting { .. })
+        })
+        .await;
+        if let SessionEvent::Reconnecting { attempt, .. } = drop {
+            attempts.push(attempt);
+        }
+        next_event(&mut events, is_ready).await;
+    }
+    assert_eq!(attempts, vec![1, 2, 3]);
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn a_connection_that_held_starts_the_wait_over() {
+    let server = MockServer::start(answers(healthy())).await;
+    let mut config = config(&server.url);
+    config.stable_after = Duration::ZERO;
+    let (session, _) = start(config, tokens("AT-1", "RT-1", 2_592_000));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+    for _ in 0..3 {
+        server.close();
+        let drop = next_event(&mut events, |e| {
+            matches!(e, SessionEvent::Reconnecting { .. })
+        })
+        .await;
+        assert!(
+            matches!(drop, SessionEvent::Reconnecting { attempt: 1, .. }),
+            "{drop:?}"
+        );
+        next_event(&mut events, is_ready).await;
+    }
+    session.stop().await;
+}
+
+#[tokio::test]
+async fn tokens_about_to_expire_are_renewed_without_dropping_the_connection() {
+    let server = MockServer::start(answers(healthy())).await;
+    let token_server =
+        token_server_sequence(vec![("200 OK", tokens_body("AT-2", "RT-2", 2_592_000))]).await;
+    let mut config = config(&server.url);
+    config.token_url = Some(token_server.url.clone());
+    config.min_refresh_wait = Duration::from_millis(100);
+    // Still good for a second beyond the margin, so the connection opens without a refresh.
+    let (session, store) = start(config, tokens("AT-1", "RT-1", 24 * 3600 + 1));
+    let mut events = session.events();
+    session.wait_ready(Duration::from_secs(5)).await.unwrap();
+    assert!(token_server.requests().is_empty());
+
+    next_event(&mut events, |e| matches!(e, SessionEvent::TokensRefreshed)).await;
+    assert_eq!(token_server.requests().len(), 1);
+    assert_eq!(server.connections(), 1, "the connection was kept");
+    assert_eq!(session.tokens().refresh_token.expose_secret(), "RT-2");
+    assert!(store.load().await.unwrap().is_some());
     session.stop().await;
 }
 
@@ -759,6 +840,32 @@ async fn a_refusal_from_the_token_endpoint_ends_the_session() {
     })
     .await;
     assert!(matches!(end, SessionEvent::Failed(_)), "{end:?}");
+}
+
+#[tokio::test]
+async fn a_token_store_that_fails_does_not_end_the_session() {
+    let server = MockServer::start(answers(healthy())).await;
+    let token_server =
+        token_server_sequence(vec![("200 OK", tokens_body("AT-2", "RT-2", 2_592_000))]).await;
+    let mut config = config(&server.url);
+    config.token_url = Some(token_server.url.clone());
+    let session = Session::start(
+        config,
+        tokens("AT-1", "RT-1", 100),
+        Arc::new(FullTokenStore),
+    )
+    .unwrap();
+    let mut events = session.events();
+    next_event(&mut events, |e| {
+        matches!(e, SessionEvent::TokensNotSaved(_))
+    })
+    .await;
+    next_event(&mut events, is_ready).await;
+    assert_eq!(
+        session.tokens().refresh_token.expose_secret(),
+        "RT-2",
+        "the new pair is kept in memory"
+    );
 }
 
 // ---- failing ----

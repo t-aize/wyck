@@ -106,6 +106,13 @@ pub struct SessionConfig {
     pub refresh_margin: Duration,
     /// The wait between attempts to connect.
     pub backoff: Backoff,
+    /// The shortest wait between two renewals of the tokens on a live connection, and a fifth of
+    /// the wait after one that failed. The default is one minute.
+    pub min_refresh_wait: Duration,
+    /// A connection that lived this long counts as good: the next drop starts the backoff over.
+    /// A shorter one keeps the wait growing, so a server that accepts and drops at once is not
+    /// hammered. The default is 30 seconds.
+    pub stable_after: Duration,
     /// Give up after this many failed attempts in a row. `None` (the default) never gives up on
     /// failures that may pass.
     pub max_reconnect_attempts: Option<u32>,
@@ -127,6 +134,8 @@ impl SessionConfig {
             account_id,
             refresh_margin: Duration::from_secs(24 * 3600),
             backoff: Backoff::default(),
+            min_refresh_wait: Duration::from_secs(60),
+            stable_after: Duration::from_secs(30),
             max_reconnect_attempts: None,
             token_url: None,
         }
@@ -166,6 +175,9 @@ pub enum SessionEvent {
     Data(Event),
     /// The tokens were renewed and saved.
     TokensRefreshed,
+    /// The tokens were renewed but could not be saved. The session carries on with the new pair in
+    /// memory; after a restart the user has to sign in again.
+    TokensNotSaved(String),
     /// The connection is down; the session will try again after `retry_in`.
     Reconnecting {
         /// The attempt that failed, starting at 1.
@@ -752,7 +764,26 @@ async fn supervise(
         shared.emit(SessionEvent::Ready);
         info!(account = shared.account_id, "the Open API session is ready");
 
-        let ended = serve(&client, &mut events, &shared, &mut stop).await;
+        let connected_at = Instant::now();
+        let mut refresh_in = refresh_delay(&tokens, &config);
+        let ended = loop {
+            let ended = serve(&client, &mut events, &shared, &mut stop, refresh_in).await;
+            if !matches!(ended, Served::RefreshDue) {
+                break ended;
+            }
+            // The connection stays up: the access token is only checked when signing in, so
+            // renewing it now is what keeps the next reconnect from starting with a stale pair.
+            match refresh(&oauth, &store, &shared, &tokens).await {
+                Ok(fresh) => {
+                    tokens = fresh;
+                    refresh_in = refresh_delay(&tokens, &config);
+                }
+                Err(error) => {
+                    warn!(%error, "the tokens could not be renewed ahead of time");
+                    refresh_in = Some(config.min_refresh_wait * 5);
+                }
+            }
+        };
         shared.set_client(None);
         match ended {
             Served::Stopped => {
@@ -765,8 +796,14 @@ async fn supervise(
                 // Not a failure of the connection: reconnect at once with fresh tokens.
                 attempt = 0;
             }
+            // Never returned by the loop above; reconnecting is the harmless reading.
+            Served::RefreshDue => {}
             Served::Disconnected(reason) => {
-                attempt = 1;
+                // A connection that held for a while was a good one: start the backoff over. A
+                // short one keeps the wait growing.
+                if connected_at.elapsed() >= config.stable_after {
+                    attempt = 1;
+                }
                 let error = Error::Transport(reason.clone());
                 if let Some(end) =
                     wait_after_failure(&config, &shared, &mut stop, attempt, &error).await
@@ -797,6 +834,8 @@ enum Served {
     Stopped,
     /// The server said the tokens are no longer valid.
     TokensInvalid,
+    /// The access token is about to expire: renew it while the connection is up.
+    RefreshDue,
     /// The connection ended.
     Disconnected(String),
 }
@@ -807,10 +846,19 @@ async fn serve(
     events: &mut broadcast::Receiver<Event>,
     shared: &Shared,
     stop: &mut watch::Receiver<bool>,
+    refresh_in: Option<Duration>,
 ) -> Served {
+    let refresh_due = async {
+        match refresh_in {
+            Some(wait) => tokio::time::sleep(wait).await,
+            None => std::future::pending().await,
+        }
+    };
+    tokio::pin!(refresh_due);
     loop {
         tokio::select! {
             _ = stop.changed() => return Served::Stopped,
+            () = &mut refresh_due => return Served::RefreshDue,
             received = events.recv() => match received {
                 Ok(Event::Disconnected(reason)) => return Served::Disconnected(format!("{reason:?}")),
                 Ok(Event::TokensInvalidated(notice)) => {
@@ -938,6 +986,17 @@ async fn restore_subscriptions(client: &Client, shared: &Shared) {
     }
 }
 
+/// How long to wait before renewing a pair that is still good, or `None` when it never expires.
+/// Never less than `min_refresh_wait`, so a pair that is already inside the margin cannot make a busy loop.
+fn refresh_delay(tokens: &TokenSet, config: &SessionConfig) -> Option<Duration> {
+    let expires_at = tokens.expires_at()?;
+    let due = expires_at
+        .checked_sub(config.refresh_margin)
+        .and_then(|at| at.duration_since(SystemTime::now()).ok())
+        .unwrap_or_default();
+    Some(due.max(config.min_refresh_wait))
+}
+
 /// Refreshes the tokens and saves the new pair before returning it.
 async fn refresh(
     oauth: &OAuthClient,
@@ -946,14 +1005,22 @@ async fn refresh(
     tokens: &TokenSet,
 ) -> Result<TokenSet> {
     let fresh = oauth.refresh(tokens.refresh_token.expose_secret()).await?;
-    // Keep the only valid pair accessible even if the durable store fails. The caller
-    // must still fix that failure before starting a new session.
+    // The endpoint has already retired the old refresh token, so the new pair is kept in memory
+    // whatever the store does. A store that fails costs a sign-in after a restart, not the
+    // running session.
     *lock(&shared.tokens) = fresh.clone();
-    tokio::time::timeout(Duration::from_secs(30), store.save(&fresh))
-        .await
-        .map_err(|_| Error::Auth("saving the new tokens timed out".into()))?
-        .map_err(|error| Error::Auth(format!("the new tokens could not be saved: {error}")))?;
-    shared.emit(SessionEvent::TokensRefreshed);
+    let saved = match tokio::time::timeout(Duration::from_secs(30), store.save(&fresh)).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(_) => Err("saving the new tokens timed out".to_owned()),
+    };
+    match saved {
+        Ok(()) => shared.emit(SessionEvent::TokensRefreshed),
+        Err(reason) => {
+            warn!(%reason, "the refreshed tokens could not be saved");
+            shared.emit(SessionEvent::TokensNotSaved(reason));
+        }
+    }
     debug!("the Open API tokens were refreshed");
     Ok(fresh)
 }

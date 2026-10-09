@@ -134,7 +134,8 @@ async fn an_error_status_with_an_error_body_keeps_both() {
 async fn an_unreadable_body_is_an_error_not_a_panic() {
     let (url, _) = token_server("502 Bad Gateway", "<html>oops</html>").await;
     let error = client(&url).refresh("x").await.unwrap_err();
-    assert!(matches!(error, Error::Auth(_)));
+    // A gateway error is a failure to reach the endpoint, not a refusal.
+    assert!(matches!(error, Error::Transport(_)));
     assert!(error.to_string().contains("502"), "{error}");
 }
 
