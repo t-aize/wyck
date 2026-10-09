@@ -17,7 +17,7 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 | 4 | Merge `wyck-config` (now `src/infra/storage`) | done |
 | 5 | Merge `wyck-openapi` (now `src/openapi`), drop the `client` feature | done |
 | 6 | One manifest, no workspace (checkpoint A) | done |
-| 7 | Native window title bar | todo |
+| 7 | Native window title bar | done |
 | 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | todo |
 | 9 | Cut dependency cycles, enforce layers (checkpoint B) | todo |
 | 10 | Design system and screen migration | todo |
@@ -40,3 +40,14 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 ## Decisions
 
 See `docs/decisions/`. Open questions are listed in the restructuring plan, section 11.
+
+## To verify by hand after phase 7 [a verifier]
+
+- Windows 11, macOS, X11, GNOME Wayland: the system title bar shows "Wyck" ("Wyck (dev)" in debug
+  builds), the buttons work, the window can be dragged and cannot go below 900 x 600.
+- On a Wayland desktop without server-side decorations, `ui::kit::window_bar::fallback` draws a
+  minimal bar.
+- The dashboard bars changed height by the removed 34 px bar: `BARS` in `dashboard/trade.rs`,
+  the layout menu (`layout_menu.rs`) and the symbol picker (`picker.rs`) were re-tuned by hand.
+- Windows shows a generic icon until the executable carries an icon resource (needs a build
+  script with a resource crate, left for a build that can update `Cargo.lock`).

@@ -47,7 +47,7 @@ const PANEL_MIN: f32 = 120.0;
 
 /// What the charts keep when the panel grows, and what the bars above them take.
 const CHARTS_MIN: f32 = 240.0;
-const BARS: f32 = 96.0;
+const BARS: f32 = 62.0;
 
 impl Dashboard {
     /// Creates the ticket (which needs the window) and runs what waited for it.

@@ -141,7 +141,7 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
         // As tall as the window allows, with a margin above and below.
-        let height = (f32::from(window.viewport_size().height) - 48.0).clamp(320.0, 820.0);
+        let height = (f32::from(window.viewport_size().height) - 14.0).clamp(320.0, 820.0);
         let Load::Ready(catalog) = &self.catalog else {
             return None;
         };

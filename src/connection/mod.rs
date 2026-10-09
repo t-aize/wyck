@@ -36,7 +36,7 @@ use gpui_kit::component::Root;
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use super::token_store::{ConfigTokenStore, to_token_set};
 use super::workspace::Documents;
-use super::{runtime, title_bar};
+use super::runtime;
 
 enum Screen {
     Welcome,
@@ -282,7 +282,9 @@ impl Render for ConnectionFlow {
             .bg(theme::bg())
             .text_color(theme::fg())
             .font_family(super::appearance::font(cx))
-            .child(title_bar::render(window))
+            // Only where the system draws no title bar (a Wayland desktop without server-side
+            // decorations): there the window would have no title and no buttons.
+            .children(crate::ui::kit::window_bar::fallback(window))
             .child(anim::enter(
                 // `min_h_0`: without it this box never gets shorter than what the screen inside
                 // asks for, and a tall bottom panel pushes the dashboard out of the window.

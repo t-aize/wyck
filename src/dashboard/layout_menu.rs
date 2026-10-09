@@ -92,7 +92,7 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         // As tall as the window allows, so the links at the bottom are never cut off.
-        let max_height = (f32::from(window.viewport_size().height) - 112.0).max(240.0);
+        let max_height = (f32::from(window.viewport_size().height) - 78.0).max(240.0);
         let links = self.multi.read(cx).sync();
 
         let mut arrangements = div().flex().flex_col();

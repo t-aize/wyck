@@ -17,7 +17,6 @@ mod multichart;
 pub mod openapi;
 mod runtime;
 mod settings_hub;
-mod title_bar;
 #[path = "services/token_store.rs"]
 mod token_store;
 mod trading;
@@ -30,8 +29,16 @@ mod workspace;
 use std::borrow::Cow;
 
 use gpui::prelude::*;
-use gpui::{App, Bounds, WindowBounds, px, size};
-use gpui_kit::component::{Root, TitleBar};
+use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
+use gpui_kit::component::Root;
+
+use build_info::BuildMode;
+
+/// The smallest the window can be made: below this the dashboard has no room for its bars.
+const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
+
+/// The identifier desktops use to group the windows of the app and find its icon.
+const APP_ID: &str = "sh.wyck.wyck";
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
@@ -94,15 +101,23 @@ pub fn run() {
                 (screen.1 * 0.9).clamp(800.0, 1500.0),
             );
             let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
-            let mut options = TitleBar::window_options();
-            options.window_bounds = Some(WindowBounds::Windowed(bounds));
-            if let Some(titlebar) = options.titlebar.as_mut() {
-                titlebar.title = Some("Wyck".into());
-            }
-            #[cfg(target_os = "linux")]
-            {
-                options.window_decorations = Some(gpui::WindowDecorations::Client);
-            }
+            // The system draws the title bar and its buttons.
+            let title = if BuildMode::CURRENT == BuildMode::Development {
+                "Wyck (dev)"
+            } else {
+                "Wyck"
+            };
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some(title.into()),
+                    appears_transparent: false,
+                    traffic_light_position: None,
+                }),
+                window_min_size: Some(size(px(MIN_WINDOW.0), px(MIN_WINDOW.1))),
+                app_id: Some(APP_ID.to_owned()),
+                ..Default::default()
+            };
             cx.open_window(options, |window, cx| {
                 // The size of the interface the user chose, for what is sized in rems.
                 window.set_rem_size(gpui::px(16.0 * appearance::get(cx).ui_scale as f32 / 100.0));
