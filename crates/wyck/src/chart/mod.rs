@@ -260,7 +260,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("secondary-shift-c", ChartCopySettings, Some("Dashboard")),
         KeyBinding::new("secondary-v", ChartPaste, Some("Dashboard")),
         KeyBinding::new("secondary-a", SelectAllDrawings, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-k", FindTool, Some("Dashboard")),
+        KeyBinding::new("secondary-shift-f", FindTool, Some("Dashboard")),
         // With drawings selected the arrows move them: one bar or a little price, ten times that
         // with Shift. With none selected the keys go on to the chart.
         KeyBinding::new("up", NudgeUp, Some("Dashboard")),
@@ -274,7 +274,7 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("alt-h", ToolHorizontal, Some("Dashboard")),
         KeyBinding::new("alt-v", ToolVertical, Some("Dashboard")),
         KeyBinding::new("alt-f", ToolFib, Some("Dashboard")),
-        KeyBinding::new("alt-b", ToolRectangle, Some("Dashboard")),
+        KeyBinding::new("alt-x", ToolRectangle, Some("Dashboard")),
         KeyBinding::new("alt-n", ToolText, Some("Dashboard")),
         KeyBinding::new("alt-m", ToolMeasure, Some("Dashboard")),
         KeyBinding::new("alt-p", ToolBrush, Some("Dashboard")),

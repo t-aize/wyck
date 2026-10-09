@@ -560,7 +560,7 @@ impl Tool {
             Self::HorizontalLine => Some("Alt+H"),
             Self::VerticalLine => Some("Alt+V"),
             Self::FibRetracement => Some("Alt+F"),
-            Self::Rectangle => Some("Alt+B"),
+            Self::Rectangle => Some("Alt+X"),
             Self::Text => Some("Alt+N"),
             Self::Measure => Some("Alt+M"),
             Self::Brush => Some("Alt+P"),

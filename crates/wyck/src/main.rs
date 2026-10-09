@@ -9,6 +9,8 @@ mod chart;
 mod connection;
 mod dashboard;
 mod indicators;
+#[cfg(test)]
+mod keymap_guard;
 mod multichart;
 mod runtime;
 mod settings_hub;

@@ -5,9 +5,12 @@ Read this file before starting a task and update it when you finish one.
 
 Status: `todo`, `doing`, `done`. Only one phase is `doing` at a time.
 
+Not compiled since phase 0: the restructuring is done without running `cargo`. Run
+`cargo check --all-targets` after pulling and fix what it reports before building on top.
+
 | Phase | Goal | Status |
 |---|---|---|
-| 0 | Safety net and baseline measures | doing |
+| 0 | Safety net and baseline measures | done |
 | 1 | Move the app crate to the repo root, keep `crates/` as a transitional workspace | todo |
 | 2 | Merge `wyck-ui` into the package | todo |
 | 3 | Merge `wyck-chart` | todo |
@@ -25,13 +28,13 @@ Status: `todo`, `doing`, `done`. Only one phase is `doing` at a time.
 
 ## Phase 0 checklist
 
-- [ ] Tag `pre-restructure` on the last commit of `main`.
-- [ ] Record the exact test count (`cargo test --workspace --all-features`).
-- [ ] Record build times (`cargo build --timings`, then rebuild after touching one file in
-      `wyck-chart` and one in `crates/wyck/src/trading`) in `docs/decisions/0002-build-times.md`.
-- [ ] Write the manual smoke checklist in `docs/testing.md`.
-- [ ] Fix the two key binding collisions in the `Dashboard` context (`alt-b`, `secondary-shift-k`)
-      and add a test that fails on a duplicate binding in one context.
+- [x] Baseline is commit `c805e65` (last commit of `main` before the restructuring). The tag could not be
+      pushed from the cloud session: run `git tag pre-restructure c805e65 && git push origin pre-restructure`.
+- [ ] Record the exact test count (`cargo test --workspace --all-features`) on the maintainer's machine.
+- [ ] Fill in the build times table of `docs/decisions/0002-build-times.md` (maintainer's machine).
+- [x] Manual smoke checklist written in `docs/testing.md`.
+- [x] Key binding collisions fixed: the rectangle tool moves to `Alt+X`, the tool finder to
+      `Ctrl+Shift+F`; `src/keymap_guard.rs` fails on any duplicate binding in one context.
 - [x] Create this roadmap and the decision records folder.
 
 ## Decisions

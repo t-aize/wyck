@@ -92,7 +92,7 @@ impl MultiChart {
                 .ghost()
                 .compact()
                 .icon(IconName::Search)
-                .tooltip("Find a tool (Ctrl+Shift+K)")
+                .tooltip("Find a tool (Ctrl+Shift+F)")
                 .toggled(searching)
                 .cursor_pointer()
                 .on_click(cx.listener(|this, _event, window, cx| {
