@@ -12,9 +12,9 @@
 //! | Module | Role |
 //! |---|---|
 //! | [`client`] | [`MarketClient`] itself: one method per call |
-//! | [`crate::domain::market::symbols`] | [`crate::domain::market::SymbolTable`], the symbol list and its details, the reference catalogs |
-//! | [`crate::domain::market::quotes`] | [`crate::domain::market::SpotTracker`], [`crate::domain::market::Spot`], the live price event |
-//! | [`crate::domain::market::depth`] | [`crate::domain::market::DepthBook`], the order book event |
+//! | [`crate::domain::market::symbols`] | the symbol list and its details, the reference catalogs |
+//! | [`crate::domain::market::quotes`] | [`crate::domain::market::Spot`], the live price event |
+//! | [`crate::domain::market::depth`] | the order book event |
 //! | [`crate::domain::market::bars`] | [`crate::domain::market::Period`], [`crate::domain::market::Bar`], decoding the low-plus-offsets wire form |
 //! | [`crate::domain::market::ticks`] | [`crate::domain::market::Tick`], [`crate::domain::market::QuoteType`], decoding the delta-encoded wire form |
 //! | [`crate::domain::market::price`] | [`crate::domain::market::PRICE_SCALE`], [`crate::domain::market::to_price`], [`crate::domain::market::from_price`], [`crate::domain::market::format_price`] |

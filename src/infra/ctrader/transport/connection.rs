@@ -55,8 +55,7 @@ use crate::infra::ctrader::error::{Error, ErrorKind, Result};
 use crate::infra::ctrader::event::{DisconnectReason, Event, error_of, event_from, order_error_of};
 use crate::infra::ctrader::transport::messages::{
     AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
-    CtidProfileRes, GetAccountsByAccessTokenReq, RefreshTokenReq, RefreshTokenRes, VersionReq,
-    VersionRes,
+    CtidProfileRes, GetAccountsByAccessTokenReq, VersionReq, VersionRes,
 };
 use crate::infra::ctrader::transport::rate_limit::RateLimiter;
 use crate::infra::ctrader::transport::wire::{Envelope, payload};
@@ -543,26 +542,6 @@ impl Client {
             )
             .await?;
         Ok(response.ctid_trader_account_id)
-    }
-
-    /// Exchanges a refresh token for a new pair of tokens, over the connection. The old refresh
-    /// token stops working: store the new one before doing anything else. The HTTP route in
-    /// [`crate::infra::ctrader::auth`] does the same without a connection.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the refresh token is unknown or already used.
-    pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<RefreshTokenRes> {
-        self.call(
-            payload::REFRESH_TOKEN_REQ,
-            payload::REFRESH_TOKEN_RES,
-            &RefreshTokenReq {
-                refresh_token: refresh_token.to_owned(),
-            },
-            RateClass::Standard,
-            "the token refresh",
-        )
-        .await
     }
 
     /// The version of the proxy the connection goes through.

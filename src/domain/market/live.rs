@@ -11,8 +11,7 @@
 //! same bar. A bar seen for the first time without a bid has just opened, so its close is its
 //! open. The high and low are then stretched to hold the close, so the bar stays sane.
 //!
-//! Like [`crate::domain::market::SpotTracker`], it does no I/O: feed it the price events and read
-//! the corrected bars back.
+//! It does no I/O: feed it the price events and read the corrected bars back.
 
 use std::collections::HashMap;
 

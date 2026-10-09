@@ -82,31 +82,6 @@ pub struct AccountsRes {
     pub ctid_trader_account: Vec<TraderAccount>,
 }
 
-/// `ProtoOARefreshTokenReq`.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RefreshTokenReq {
-    /// The refresh token.
-    pub refresh_token: String,
-}
-
-/// `ProtoOARefreshTokenRes`.
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[non_exhaustive]
-pub struct RefreshTokenRes {
-    /// The new access token.
-    pub access_token: String,
-    /// The token type (`bearer`).
-    #[serde(default)]
-    pub token_type: Option<String>,
-    /// Seconds the access token stays valid.
-    #[serde(default, deserialize_with = "flex::opt")]
-    pub expires_in: Option<i64>,
-    /// The new refresh token; the old one no longer works.
-    pub refresh_token: String,
-}
-
 /// `ProtoOAVersionReq`. Carries nothing.
 #[derive(Serialize)]
 pub struct VersionReq {}

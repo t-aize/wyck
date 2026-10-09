@@ -10,8 +10,8 @@ use proptest::prelude::*;
 use serde_json::{Value, json};
 use wyck::domain::flex;
 use wyck::domain::market::{
-    DepthBook, DepthEvent, DepthQuote, Period, SpotEvent, SpotTracker, Tick, WireTick,
-    WireTrendbar, decode_bars, decode_ticks, format_price, from_price, merge_sides, to_price,
+    Period, Tick, WireTick, WireTrendbar, decode_bars, decode_ticks, format_price, from_price,
+    merge_sides, to_price,
 };
 use wyck::infra::ctrader::event::event_from;
 use wyck::infra::ctrader::market::{MAX_TICK_RANGE_MS, continuation, tick_windows};
@@ -233,58 +233,6 @@ proptest! {
     }
 
     // ---- the market helpers ----
-
-    #[test]
-    fn the_tracker_always_holds_the_last_side_seen(events in prop::collection::vec(
-        (0i64..3, prop::option::of(1i64..1000), prop::option::of(1i64..1000)),
-        0..80,
-    )) {
-        let mut tracker = SpotTracker::new();
-        let mut expected: std::collections::HashMap<i64, (Option<i64>, Option<i64>)> = Default::default();
-        for (symbol, bid, ask) in events {
-            let quote = tracker.apply(&SpotEvent {
-                ctid_trader_account_id: None, symbol_id: symbol, bid, ask,
-                trendbar: vec![], session_close: None, timestamp: None,
-            });
-            let entry = expected.entry(symbol).or_default();
-            entry.0 = bid.or(entry.0);
-            entry.1 = ask.or(entry.1);
-            prop_assert_eq!((quote.bid, quote.ask), *entry);
-        }
-        for (symbol, (bid, ask)) in expected {
-            let held = tracker.get(symbol).unwrap();
-            prop_assert_eq!((held.bid, held.ask), (bid, ask));
-        }
-    }
-
-    #[test]
-    fn the_book_is_always_sorted_and_an_entry_lives_on_one_side_only(steps in prop::collection::vec(
-        (prop::collection::vec((1i64..12, 1i64..500, any::<bool>(), 90i64..110), 0..6), prop::collection::vec(1i64..12, 0..4)),
-        0..30,
-    )) {
-        let mut book = DepthBook::new();
-        for (added, deleted) in steps {
-            let new_quotes = added
-                .into_iter()
-                .map(|(id, size, is_bid, price)| DepthQuote {
-                    id: Some(id),
-                    size: Some(size),
-                    bid: is_bid.then_some(price),
-                    ask: (!is_bid).then_some(price),
-                })
-                .collect();
-            book.apply(&DepthEvent { symbol_id: 1, new_quotes, deleted_quotes: deleted });
-
-            let bids = book.bids();
-            let asks = book.asks();
-            prop_assert!(bids.windows(2).all(|w| w[0].price >= w[1].price));
-            prop_assert!(asks.windows(2).all(|w| w[0].price <= w[1].price));
-            prop_assert_eq!(bids.iter().map(|l| l.size).sum::<i64>(), book.bid_size());
-            prop_assert_eq!(asks.iter().map(|l| l.size).sum::<i64>(), book.ask_size());
-            prop_assert_eq!(book.best_bid(), bids.first().copied());
-            prop_assert_eq!(book.best_ask(), asks.first().copied());
-        }
-    }
 
     // ---- reconnection delays ----
 

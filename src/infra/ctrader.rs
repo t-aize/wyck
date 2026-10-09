@@ -167,4 +167,4 @@ pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};
 pub use handle::AccountClient;
 pub use transport::connection::{Client, ClientBuilder, ConnectionState};
-pub use transport::messages::{AccountsRes, CtidProfile, RefreshTokenRes, TraderAccount};
+pub use transport::messages::{AccountsRes, CtidProfile, TraderAccount};
