@@ -206,8 +206,9 @@ pub mod measure {
 
 /// Menus and popovers.
 pub mod menu {
-    /// A menu opened by a right click.
-    pub const CONTEXT_WIDTH: f32 = 240.0;
+    /// The least width of a menu opened by a right click; it grows to fit its longest entry and
+    /// its shortcut, so no label wraps.
+    pub const CONTEXT_WIDTH: f32 = 280.0;
     /// A list that opens beside a rail, longer names than a context menu.
     pub const FLYOUT_WIDTH: f32 = 280.0;
     /// The least width of a menu opened by a button; it grows to fit its entries.

@@ -342,7 +342,7 @@ impl Menu {
             .role(gpui::Role::Menu)
             .aria_label("Menu")
             .when(matches!(placement, Placement::Cursor), |card| {
-                card.w(px(size::CONTEXT_WIDTH))
+                card.min_w(px(size::CONTEXT_WIDTH))
             })
             .when(matches!(placement, Placement::Below(_)), |card| {
                 card.min_w(px(size::DROPDOWN_WIDTH))
@@ -398,10 +398,17 @@ impl Menu {
                     })
             })
             .children(entry.icon.map(|icon| icon::tinted(icon, 15., tone)))
-            .child(div().flex_1().min_w_0().child(entry.label.clone()))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .whitespace_nowrap()
+                    .child(entry.label.clone()),
+            )
             .children(entry.hint.clone().map(|hint| {
                 div()
-                    .pl_3()
+                    .pl_6()
+                    .whitespace_nowrap()
                     .text_size(px(text::small()))
                     .text_color(theme::muted_fg())
                     .child(hint)
@@ -445,7 +452,7 @@ pub fn below(content: impl IntoElement, button: f32, priority: usize) -> AnyElem
 /// menu of the app is the same card.
 pub fn card() -> Div {
     div()
-        .p_1()
+        .p_1p5()
         .flex()
         .flex_col()
         .gap_0p5()
@@ -480,9 +487,10 @@ fn row_base() -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap_2()
-        .h(px(crate::ui::kit::tokens::height::control()))
-        .px_2()
+        .gap_2p5()
+        .min_h(px(crate::ui::kit::tokens::height::control()))
+        .py_1()
+        .px_3()
         .rounded_md()
         .text_size(px(text::body()))
 }
@@ -501,7 +509,13 @@ pub fn row(
         .text_color(theme::fg())
         .hover(|s| s.bg(theme::surface_hover()))
         .children(glyph.map(|glyph| icon::tinted(glyph, 15., theme::fg())))
-        .child(div().flex_1().min_w_0().child(label.into()))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .whitespace_nowrap()
+                .child(label.into()),
+        )
         .children(checked.then(|| icon::tinted(IconName::Check, 13., theme::accent())))
 }
 
