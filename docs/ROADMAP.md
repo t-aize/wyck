@@ -5,8 +5,9 @@ Read this file before starting a task and update it when you finish one.
 
 Status: `todo`, `doing`, `done`. Only one phase is `doing` at a time.
 
-Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, integration, doc) and
-`cargo doc` after phase 9's first half. No release build was made.
+Checked with `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib,
+integration, doc) and `cargo doc` (with `-D warnings`) after every phase. No release build was made
+and the app was never run: everything marked "to verify by hand" below is untested on a screen.
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -19,12 +20,12 @@ Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, int
 | 6 | One manifest, no workspace (checkpoint A) | done |
 | 7 | Native window title bar | done |
 | 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | done |
-| 9 | Cut dependency cycles, enforce layers (checkpoint B) | done, 46 listed exceptions remain |
-| 10 | Design system and screen migration | done for buttons, fields and tokens; spacing classes, menus and modals still to unify |
+| 9 | Cut dependency cycles, enforce layers (checkpoint B) | done, the baseline is empty |
+| 10 | Design system and screen migration | done for buttons, fields, tokens, shortcut hints and confirmations over panels; see "Left for later" |
 | 11 | Sign-in modal | done, to try by hand |
 | 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
 | 13 | Domain and cTrader client hardening | done, see the notes below for what was left out |
-| 14 | Documentation pass | doing |
+| 14 | Documentation pass | done |
 
 ## Phase 0 checklist
 
@@ -65,6 +66,21 @@ Left out, on purpose:
 - The remaining `Result<_, String>` are texts shown to the user as they are (ticket, raster,
   paint, library import, updates); typing them is a refactor with little gain.
 - DTO to domain mapping (`infra::ctrader::mapping`) and typed `Side` for positions: not started.
+
+## Left for later
+
+- Spacing is still written as gpui classes (`gap_2`, `px_3`) in screens; `tokens::space` exists
+  and is used by the kit and the sign-in modal. 121 pixel literals remain in 37 screens (theme
+  previews, one-off layout sizes); `tests/design-baseline.txt` only lets that number go down.
+- Menus still close in three ways (a flag per menu, `Popover`, the chart zone menu). One
+  `OpenMenu` state in the kit would replace them.
+- A typed domain model behind a mapping layer in `infra::ctrader` (phase 13 point 1), and one
+  risk sizing shared by the ticket and the position tool.
+- The user text of order notices is still built in `domain::trading::book`; only the failure
+  wording moved to `app::account`.
+- A Windows icon resource (needs a build script and a crate that can update `Cargo.lock`).
+- Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
+  the maintainer's machine (phase 0).
 
 ## Decisions
 

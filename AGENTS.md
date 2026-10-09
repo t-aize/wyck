@@ -7,9 +7,9 @@ recipes are in `docs/`.
 ## Layout
 
 - `src/lib.rs` declares the modules and `run()`; `src/main.rs` only calls `wyck::run()`.
-- The code is being regrouped into four layers (`domain`, `infra`, `app`, `ui`), see
-  `docs/ROADMAP.md` for the current state. A lower layer never imports a higher one:
-  `domain` (pure, no I/O, no gpui) < `infra` (files, network, OS) < `app` (state, use cases) < `ui`.
+- Four layers: `domain` (pure, no I/O, no gpui) < `infra` (files, network, OS) < `app` (state,
+  use cases) < `ui`. A lower layer never imports a higher one; `tests/architecture.rs` fails
+  on it, and its baseline is empty. Each layer folder has a short `AGENTS.md` with its rules.
 - Screens take every control, size and color from `src/ui/kit`. Never configure a gpui-kit
   component or spell out a pixel size or a color in a screen.
 - Key bindings live in the modules that own the actions; `src/keymap_guard.rs` fails when two
