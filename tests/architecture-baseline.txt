@@ -35,7 +35,6 @@ src/ui/features/trading/ticket/view/order.rs	style	use super::*
 src/ui/features/trading/ticket/view/plans.rs	style	use super::*
 src/ui/features/trading/ticket/view/positions.rs	style	use super::*
 src/ui/features/trading/ticket/view/protection.rs	style	use super::*
-src/ui/shell/connection.rs	extern	ui::shell uses gpui_kit
 src/ui/shell/dashboard.rs	extern	ui::shell uses tokio
 src/ui/shell/settings_hub/about.rs	style	use super::*
 src/ui/shell/settings_hub/alerts.rs	style	use super::*

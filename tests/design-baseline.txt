@@ -23,12 +23,6 @@ src/ui/features/trading/panel/view.rs	3
 src/ui/features/trading/ticket/customize.rs	1
 src/ui/features/trading/ticket/view.rs	4
 src/ui/features/trading/ticket/view/exits.rs	6
-src/ui/shell/connection/authorizing.rs	3
-src/ui/shell/connection/browser_handoff.rs	4
-src/ui/shell/connection/credentials.rs	2
-src/ui/shell/connection/select_account.rs	4
-src/ui/shell/connection/stepper.rs	4
-src/ui/shell/connection/welcome.rs	2
 src/ui/shell/dashboard.rs	2
 src/ui/shell/dashboard/details.rs	1
 src/ui/shell/dashboard/editor_dock.rs	4

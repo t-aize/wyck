@@ -19,9 +19,9 @@ Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, int
 | 6 | One manifest, no workspace (checkpoint A) | done |
 | 7 | Native window title bar | done |
 | 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | done |
-| 9 | Cut dependency cycles, enforce layers (checkpoint B) | todo |
-| 10 | Design system and screen migration | todo |
-| 11 | Sign-in modal | todo |
+| 9 | Cut dependency cycles, enforce layers (checkpoint B) | done, 46 listed exceptions remain |
+| 10 | Design system and screen migration | done for buttons, fields and tokens; spacing classes, menus and modals still to unify |
+| 11 | Sign-in modal | done, to try by hand |
 | 12 | Indicator inputs v2 (checkpoint C) | todo |
 | 13 | Domain and cTrader client hardening | todo |
 | 14 | Documentation pass | todo |

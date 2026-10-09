@@ -22,7 +22,8 @@ use app::updates;
 use infra::platform::build_info::{self, BuildMode};
 use ui::assets;
 use ui::features::{chart, indicators};
-use ui::shell::{connection, dashboard};
+use ui::shell::app_view::AppView;
+use ui::shell::{dashboard, sign_in_gate};
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -63,6 +64,7 @@ pub fn run() {
             }
             crate::ui::kit::text_input::init(cx);
             dashboard::init(cx);
+            sign_in_gate::init(cx);
             chart::init(cx);
             indicators::editor::init(cx);
             crate::ui::kit::modal::init(cx);
@@ -115,8 +117,8 @@ pub fn run() {
                 window
                     .observe_window_appearance(|_window, cx| appearance::refresh_system(cx))
                     .detach();
-                let flow = cx.new(connection::ConnectionFlow::new);
-                cx.new(|cx| Root::new(flow, window, cx))
+                let shell = cx.new(|cx| AppView::new(window, cx));
+                cx.new(|cx| Root::new(shell, window, cx))
             })
             .expect("failed to open the main window");
 

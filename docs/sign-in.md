@@ -1,11 +1,12 @@
 # Sign-in
 
-This is the design of the sign-in modal (phase 11 of `docs/ROADMAP.md`).
+This is the sign-in modal (phase 11 of `docs/ROADMAP.md`). The code is in `src/app/sign_in*` (state machine, steps, saving) and `src/ui/shell/sign_in_gate.rs` (the card).
 
 ## Principle
 
-At launch the app shows the real dashboard frame without data, softened by a veil, with a modal
-on top that cannot be closed until there is a session. The background is inert: no clicks, no
+At launch the app shows the frame of the dashboard drawn as soft blocks (`ui::shell::locked_frame`,
+no data, no behavior), under a veil, with a modal on top that cannot be closed until there is a
+session. The real dashboard needs a session to exist, so the frame is a drawing of it. The background is inert: no clicks, no
 shortcuts, no focus. One modal with states replaces the old welcome, credentials, browser,
 account and authorizing screens. The same modal returns, prefilled, when a session is no longer
 valid.
@@ -55,4 +56,13 @@ unavailable (fallback: session in memory with a warning).
 
 ## Code
 
-The state machine is a pure enum in `app` with unit tests. The view is in `ui::shell`.
+- `app::sign_in::state`: the phases and failures as a pure state machine, with unit tests.
+- `app::sign_in`: the `SignIn` entity runs the network steps, saves the profile, and emits
+  `SignInEvent::Connected`. A cancel bumps an attempt number and aborts the wait for the redirect,
+  so the port is free at once.
+- `ui::shell::sign_in_gate`: the card. Escape is the `Dismiss` action of the `SignInGate` context.
+- `ui::shell::app_view`: the window root; opens the session and the dashboard, and brings the
+  modal back when the session ends. A settings folder that cannot be opened shows a card with a
+  Quit button instead of a panic.
+- The saved session is read after the first frame, on the UI thread. Moving the keyring read off
+  the thread needs `WyckConfig` to be shareable: not done yet.

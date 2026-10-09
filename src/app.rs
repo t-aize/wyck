@@ -8,6 +8,7 @@ pub mod broker;
 pub mod market_data;
 pub mod prefs;
 pub mod scripts;
+pub mod sign_in;
 pub mod storage;
 pub mod system;
 pub mod token_store;

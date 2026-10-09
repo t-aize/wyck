@@ -1,11 +1,11 @@
-//! The decisions of the connection flow that need no window: which saved profile to reopen, which
+//! The decisions of the sign-in that need no window: which saved profile to reopen, which
 //! environment it is for, what an account is called, where its documents live, what permission
 //! the sign-in asks for. Kept apart so they are tested on their own.
 
-use crate::app::broker::Environment;
-use crate::app::broker::TraderAccount;
-use crate::app::broker::auth::Scope;
 use crate::app::storage::ProfileConfig;
+use crate::infra::ctrader::Environment;
+use crate::infra::ctrader::TraderAccount;
+use crate::infra::ctrader::auth::Scope;
 
 /// The permission the sign-in asks for. Trading includes reading, and the app places orders.
 pub const SIGN_IN_SCOPE: Scope = Scope::Trading;

@@ -312,6 +312,18 @@ pub fn veil() -> Rgba {
     rgba(if is_light() { 0x0000_0055 } else { 0x0000_0099 })
 }
 
+/// The veil over a locked app: strong enough that the frame behind reads as soft shapes and not
+/// as content, which is the closest GPUI allows to a blur.
+pub fn lock_veil() -> Rgba {
+    let c = bg();
+    Rgba {
+        r: c.r,
+        g: c.g,
+        b: c.b,
+        a: 0.78,
+    }
+}
+
 /// Whether the palette in force is a light one.
 pub fn is_light() -> bool {
     colors().is_light()
