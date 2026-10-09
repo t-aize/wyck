@@ -66,6 +66,12 @@ impl Target {
         });
     }
 
+    fn set_text(&self, key: &'static str, value: String, cx: &mut App) {
+        self.edit(cx, |study| {
+            study.texts.insert(key.to_owned(), value);
+        });
+    }
+
     fn set_input(&self, key: &'static str, value: f64, cx: &mut App) {
         self.edit(cx, |study| {
             study.inputs.insert(key.to_owned(), value);
@@ -142,6 +148,8 @@ struct StudyEditor {
     page: Page,
     /// The number fields of the inputs.
     fields: Vec<(&'static str, Entity<InputState>)>,
+    /// The text fields of the inputs that are text: symbols, timeframes, sessions, free text.
+    texts: Vec<(&'static str, Entity<InputState>)>,
     /// The opacity field of each plot, in percent.
     opacity: Vec<(&'static str, Entity<InputState>)>,
     /// The width field of each plot, in pixels: any width, beside the presets.
@@ -202,6 +210,34 @@ impl StudyEditor {
                 this.target.clone().set_input(key, value, cx);
             }));
             fields.push((key, state));
+        }
+        let mut texts = Vec::new();
+        for input in config.spec().inputs {
+            if !input.kind.is_text() {
+                continue;
+            }
+            let placeholder = match input.kind {
+                InputKind::Symbol => "The symbol of the chart",
+                InputKind::Timeframe => "The timeframe of the chart, or e.g. 4h",
+                InputKind::Session => "e.g. 0930-1600",
+                _ => "",
+            };
+            let value = config.text(input.key);
+            let state = cx.new(|cx| {
+                InputState::new(window, cx)
+                    .placeholder(placeholder)
+                    .default_value(value)
+            });
+            let key = input.key;
+            subscriptions.push(
+                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        let value = state.read(cx).value().trim().to_owned();
+                        this.target.clone().set_text(key, value, cx);
+                    }
+                }),
+            );
+            texts.push((key, state));
         }
         let mut opacity = Vec::new();
         for plot in config.spec().plots {
@@ -367,6 +403,7 @@ impl StudyEditor {
             original: config,
             page: Page::Inputs,
             fields,
+            texts,
             opacity,
             widths,
             bar_widths,
@@ -501,6 +538,7 @@ impl StudyEditor {
     ) -> Vec<AnyElement> {
         let target = &self.target;
         let mut rows = Vec::new();
+        let mut last_group = "";
         let script = config.script.as_deref().and_then(registry::get);
         for input in config.spec().inputs {
             let script_style = script
@@ -558,6 +596,28 @@ impl StudyEditor {
                         .into_any_element(),
                     )
                 }
+                InputKind::Symbol | InputKind::Timeframe | InputKind::Session | InputKind::Text => {
+                    self.texts
+                        .iter()
+                        .find(|(k, _)| *k == key)
+                        .map(|(_, state)| {
+                            let field = div()
+                                .w(px(tokens::field::text()))
+                                .child(crate::ui::kit::input::text(state));
+                            if input.kind == InputKind::Timeframe {
+                                timeframe_picks(
+                                    key,
+                                    target.clone(),
+                                    state.clone(),
+                                    config.text(key),
+                                )
+                                .child(field)
+                                .into_any_element()
+                            } else {
+                                field.into_any_element()
+                            }
+                        })
+                }
                 InputKind::Toggle => {
                     let target = target.clone();
                     Some(
@@ -594,7 +654,12 @@ impl StudyEditor {
                 }
             };
             if let Some(control) = control {
-                rows.push(form::field(input.label, None, control));
+                if !input.group.is_empty() && last_group != input.group {
+                    last_group = input.group;
+                    rows.push(group_heading(input.group));
+                }
+                let hint = (!input.tooltip.is_empty()).then_some(input.tooltip);
+                rows.push(form::field(input.label, hint, control));
             }
         }
         rows
@@ -1340,4 +1405,51 @@ impl Render for StudyEditor {
         )
         .into_any_element()
     }
+}
+
+/// The heading of a group of inputs.
+fn group_heading(name: &str) -> AnyElement {
+    div()
+        .pt_2()
+        .text_size(px(tokens::text::small()))
+        .text_color(crate::ui::kit::theme::muted_fg())
+        .child(name.to_uppercase())
+        .into_any_element()
+}
+
+/// The timeframes offered beside a timeframe input; the first one is the chart's own.
+const TIMEFRAME_PICKS: [(&str, &str); 8] = [
+    ("Chart", ""),
+    ("1m", "1m"),
+    ("5m", "5m"),
+    ("15m", "15m"),
+    ("1h", "1h"),
+    ("4h", "4h"),
+    ("1D", "1D"),
+    ("1W", "1W"),
+];
+
+/// A row of quick picks above the text field of a timeframe input.
+fn timeframe_picks(
+    key: &'static str,
+    target: Target,
+    field: Entity<InputState>,
+    current: String,
+) -> gpui::Div {
+    let labels: Vec<&str> = TIMEFRAME_PICKS.iter().map(|(label, _)| *label).collect();
+    let chosen = TIMEFRAME_PICKS
+        .iter()
+        .position(|(_, code)| *code == current)
+        .unwrap_or(usize::MAX);
+    div().flex().flex_col().gap_2().child(controls::segmented(
+        SharedString::from(format!("timeframe-{key}")),
+        &labels,
+        chosen,
+        move |index, window, cx| {
+            let code = TIMEFRAME_PICKS[index].1;
+            // Setting a field's value does not announce a change, so the study is told here.
+            target.set_text(key, code.to_owned(), cx);
+            field.update(cx, |state, cx| state.set_value(code, window, cx));
+        },
+    ))
 }

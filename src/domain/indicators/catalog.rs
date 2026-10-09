@@ -89,6 +89,10 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
             "An average that weighs each price by how recent it is.",
         ),
         StudyKind::Hma => ("Trend", "A fast average with very little lag."),
+        StudyKind::MtfMa => (
+            "Trend",
+            "A moving average of a higher timeframe, drawn on this chart.",
+        ),
         StudyKind::Vwap => (
             "Volume",
             "The average price weighted by tick volume, with a calendar anchor.",

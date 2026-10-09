@@ -235,6 +235,9 @@ pub fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
             min: i.min,
             max: i.max,
             step: i.step,
+            group: i.group.as_deref().map_or("", intern::name),
+            tooltip: i.tooltip.as_deref().map_or("", intern::name),
+            text: intern::name(&i.text),
         })
         .collect();
     let plots: Vec<PlotSpec> = declaration

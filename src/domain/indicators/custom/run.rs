@@ -100,6 +100,10 @@ pub enum InputType {
     Source,
     Choice,
     Color,
+    Symbol,
+    Timeframe,
+    Session,
+    Text,
 }
 
 /// An input a script asked for.
@@ -116,6 +120,12 @@ pub struct InputDecl {
     pub options: Vec<String>,
     /// The settings tab requested by the script, when set.
     pub section: Option<InputSection>,
+    /// The default of a text input; empty otherwise.
+    pub text: String,
+    /// The heading the input sits under, when the script gave one.
+    pub group: Option<String>,
+    /// A sentence shown beside the label, when the script gave one.
+    pub tooltip: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,6 +167,10 @@ impl InputDecl {
             InputType::Source => InputKind::Source,
             InputType::Choice => InputKind::Choice(intern::list(&self.options)),
             InputType::Color => InputKind::Color,
+            InputType::Symbol => InputKind::Symbol,
+            InputType::Timeframe => InputKind::Timeframe,
+            InputType::Session => InputKind::Session,
+            InputType::Text => InputKind::Text,
         }
     }
 }
@@ -234,6 +248,7 @@ pub struct Columns {
     pub hl2: Series,
     pub hlc3: Series,
     pub ohlc4: Series,
+    pub hlcc4: Series,
     pub bar_index: Series,
     pub day: Arc<Vec<i64>>,
 }
@@ -253,6 +268,7 @@ impl Columns {
             hl2: Series::new(input.source(4.0)),
             hlc3: Series::new(input.source(5.0)),
             ohlc4: Series::new(input.source(6.0)),
+            hlcc4: Series::new(input.source(7.0)),
             bar_index: Series::new((0..n).map(|i| i as f64).collect()),
             day: Arc::new(input.day.clone()),
         }
@@ -267,6 +283,7 @@ impl Columns {
             4 => self.hl2.clone(),
             5 => self.hlc3.clone(),
             6 => self.ohlc4.clone(),
+            7 => self.hlcc4.clone(),
             _ => self.close.clone(),
         }
     }
@@ -305,6 +322,8 @@ pub struct Run {
     pub columns: Columns,
     /// The values the user chose, by input key.
     pub values: BTreeMap<String, f64>,
+    /// The text the user chose for the inputs that are text, by input key.
+    pub texts: BTreeMap<String, String>,
     pub declaration: Declaration,
     pub plots: Vec<PlotResult>,
     pub fills: Vec<FillResult>,
@@ -341,6 +360,7 @@ impl Run {
             mode,
             columns,
             values,
+            texts: BTreeMap::new(),
             declaration: Declaration::default(),
             plots: Vec::new(),
             fills: Vec::new(),
@@ -482,6 +502,7 @@ fn globals(columns: &Columns, constant: bool) -> Scope<'static> {
     put("hl2", Dynamic::from(columns.hl2.clone()));
     put("hlc3", Dynamic::from(columns.hlc3.clone()));
     put("ohlc4", Dynamic::from(columns.ohlc4.clone()));
+    put("hlcc4", Dynamic::from(columns.hlcc4.clone()));
     put("bar_index", Dynamic::from(columns.bar_index.clone()));
     put("n", Dynamic::from(columns.len as i64));
     put("na", Dynamic::from(f64::NAN));
@@ -585,9 +606,26 @@ impl Script {
         limits: Limits,
         cancel: Option<Arc<AtomicBool>>,
     ) -> Result<Computed, Vec<Problem>> {
+        self.compute_with_texts(input, values, &BTreeMap::new(), limits, cancel)
+    }
+
+    /// [`Self::compute`] with the text the user chose for the inputs that are text.
+    ///
+    /// # Errors
+    ///
+    /// The problem that stopped it: a mistake of the script, or the limits.
+    pub fn compute_with_texts(
+        &self,
+        input: &StudyInput,
+        values: &BTreeMap<String, f64>,
+        texts: &BTreeMap<String, String>,
+        limits: Limits,
+        cancel: Option<Arc<AtomicBool>>,
+    ) -> Result<Computed, Vec<Problem>> {
         let columns = Columns::from_input(input);
         let mut scope = globals(&columns, true);
         let mut run = Run::new(Mode::Compute, columns, values.clone(), limits);
+        run.texts = texts.clone();
         run.cancel = cancel;
         let started = Instant::now();
         let installed = Installed::new(run);
@@ -690,6 +728,9 @@ mod tests {
             step: 1.0,
             options: Vec::new(),
             section: None,
+            text: String::new(),
+            group: None,
+            tooltip: None,
         };
         assert!(input.in_style());
         input.section = Some(InputSection::Inputs);

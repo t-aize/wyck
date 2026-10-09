@@ -56,6 +56,9 @@ const fn choice(
         min: 0.0,
         max: (names.len() - 1) as f64,
         step: 1.0,
+        group: "",
+        tooltip: "",
+        text: "",
     }
 }
 

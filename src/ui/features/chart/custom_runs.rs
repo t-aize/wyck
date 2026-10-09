@@ -31,6 +31,7 @@ struct Fingerprint {
     /// Which version of the script.
     stamp: u64,
     inputs: BTreeMap<String, f64>,
+    texts: BTreeMap<String, String>,
     /// Which state of the data and the settings.
     wanted: u64,
 }
@@ -233,6 +234,7 @@ impl Chart {
             let print = Fingerprint {
                 stamp: entry.stamp,
                 inputs: config.inputs.clone(),
+                texts: config.texts.clone(),
                 wanted: self.custom.wanted,
             };
             if slot.running.is_some() {
@@ -251,13 +253,16 @@ impl Chart {
                 })
                 .clone();
             let cancel = Arc::new(AtomicBool::new(false));
-            let (flag, values) = (cancel.clone(), config.inputs.clone());
+            let (flag, values, texts) =
+                (cancel.clone(), config.inputs.clone(), config.texts.clone());
             let task = cx.spawn({
                 let print = print.clone();
                 async move |this, cx| {
                     let result = cx
                         .background_executor()
-                        .spawn(async move { script.compute(&bars, &values, limits, Some(flag)) })
+                        .spawn(async move {
+                            script.compute_with_texts(&bars, &values, &texts, limits, Some(flag))
+                        })
                         .await;
                     let _ = this.update(cx, |this, cx| {
                         this.custom_done(serial, print, result, cx);
@@ -418,6 +423,7 @@ mod tests {
         custom.slots[0].computed = Some(Fingerprint {
             stamp: 1,
             inputs: BTreeMap::new(),
+            texts: BTreeMap::new(),
             wanted: custom.wanted,
         });
 

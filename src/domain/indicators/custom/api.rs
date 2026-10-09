@@ -661,6 +661,30 @@ fn describing(engine: &mut Engine) {
             input_choice(key, default, options, opts)
         },
     );
+    engine.register_fn("input_symbol", |key: &str, default: &str| {
+        input_text(InputType::Symbol, key, default, Map::new())
+    });
+    engine.register_fn("input_symbol", |key: &str, default: &str, opts: Map| {
+        input_text(InputType::Symbol, key, default, opts)
+    });
+    engine.register_fn("input_timeframe", |key: &str, default: &str| {
+        input_text(InputType::Timeframe, key, default, Map::new())
+    });
+    engine.register_fn("input_timeframe", |key: &str, default: &str, opts: Map| {
+        input_text(InputType::Timeframe, key, default, opts)
+    });
+    engine.register_fn("input_session", |key: &str, default: &str| {
+        input_text(InputType::Session, key, default, Map::new())
+    });
+    engine.register_fn("input_session", |key: &str, default: &str, opts: Map| {
+        input_text(InputType::Session, key, default, opts)
+    });
+    engine.register_fn("input_text", |key: &str, default: &str| {
+        input_text(InputType::Text, key, default, Map::new())
+    });
+    engine.register_fn("input_text", |key: &str, default: &str, opts: Map| {
+        input_text(InputType::Text, key, default, opts)
+    });
     engine.register_fn("input_color", |key: &str, default: &str| {
         input_color(key, default, Map::new())
     });
@@ -801,7 +825,13 @@ fn input_section(options: &Options<'_>) -> Fallible<Option<InputSection>> {
 }
 
 fn input_number(kind: InputType, key: &str, default: f64, opts: Map) -> Fallible<f64> {
-    let options = Options::new("input", opts, &["label", "min", "max", "step", "section"])?;
+    let options = Options::new(
+        "input",
+        opts,
+        &[
+            "label", "min", "max", "step", "section", "group", "tooltip", "inline",
+        ],
+    )?;
     let (low, high) = match kind {
         InputType::Bool => (0.0, 1.0),
         _ => (
@@ -828,11 +858,18 @@ fn input_number(kind: InputType, key: &str, default: f64, opts: Map) -> Fallible
             }),
         options: Vec::new(),
         section: input_section(&options)?,
+        text: String::new(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
     })
 }
 
 fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Series> {
-    let options = Options::new("input_source", opts, &["label", "section"])?;
+    let options = Options::new(
+        "input_source",
+        opts,
+        &["label", "section", "group", "tooltip", "inline"],
+    )?;
     let index = source_index(default).ok_or_else(|| {
         format!(
             "input_source: \"{default}\" is not a price (the prices are {})",
@@ -849,12 +886,19 @@ fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Series> {
         step: 1.0,
         options: Vec::new(),
         section: input_section(&options)?,
+        text: String::new(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
     })?;
     with_run(|run| run.columns.source(chosen as usize))
 }
 
 fn input_choice(key: &str, default: &str, choices: Array, opts: Map) -> Fallible<String> {
-    let options = Options::new("input_choice", opts, &["label", "section"])?;
+    let options = Options::new(
+        "input_choice",
+        opts,
+        &["label", "section", "group", "tooltip", "inline"],
+    )?;
     let names: Vec<String> = choices
         .into_iter()
         .map(|c| {
@@ -878,12 +922,111 @@ fn input_choice(key: &str, default: &str, choices: Array, opts: Map) -> Fallible
         step: 1.0,
         options: names.clone(),
         section: input_section(&options)?,
+        text: String::new(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
     })?;
     Ok(names[chosen as usize].clone())
 }
 
+/// The longest text an input may hold.
+const MAX_TEXT: usize = 200;
+
+/// Whether `text` is a session such as `0930-1600` (or empty, for none).
+fn is_session(text: &str) -> bool {
+    if text.is_empty() {
+        return true;
+    }
+    let Some((from, to)) = text.split_once('-') else {
+        return false;
+    };
+    let clock = |part: &str| {
+        part.len() == 4
+            && part.bytes().all(|b| b.is_ascii_digit())
+            && part[..2].parse::<u32>().is_ok_and(|h| h < 24)
+            && part[2..].parse::<u32>().is_ok_and(|m| m < 60)
+    };
+    clock(from) && clock(to)
+}
+
+/// An input whose value is text: a symbol, a timeframe, a session or free text.
+fn input_text(kind: InputType, key: &str, default: &str, opts: Map) -> Fallible<String> {
+    let name = match kind {
+        InputType::Symbol => "input_symbol",
+        InputType::Timeframe => "input_timeframe",
+        InputType::Session => "input_session",
+        _ => "input_text",
+    };
+    let options = Options::new(
+        name,
+        opts,
+        &["label", "section", "group", "tooltip", "inline"],
+    )?;
+    let default = default.trim();
+    if default.chars().count() > MAX_TEXT {
+        return Err(format!("{name}: the default is over {MAX_TEXT} characters").into());
+    }
+    match kind {
+        InputType::Timeframe if !default.is_empty() => {
+            if crate::domain::chart::timeframe::Timeframe::from_code(default).is_none() {
+                return Err(format!(
+                    "{name}: \"{default}\" is not a timeframe (try 15m, 4h or 1D)"
+                )
+                .into());
+            }
+        }
+        InputType::Session if !is_session(default) => {
+            return Err(format!("{name}: \"{default}\" is not a session (write 0930-1600)").into());
+        }
+        _ => {}
+    }
+    let decl = InputDecl {
+        key: key.to_owned(),
+        label: options.text("label")?.unwrap_or_else(|| title_of(key)),
+        kind,
+        default: 0.0,
+        min: 0.0,
+        max: 0.0,
+        step: 1.0,
+        options: Vec::new(),
+        section: input_section(&options)?,
+        text: default.to_owned(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
+    };
+    check_key("input", &decl.key)?;
+    with_run(|run| {
+        if run.declaration.inputs.iter().any(|i| i.key == decl.key) {
+            return Err(format!("the input \"{}\" is declared twice", decl.key).into());
+        }
+        if run.declaration.inputs.len() >= MAX_INPUTS {
+            return Err(format!("an indicator has at most {MAX_INPUTS} inputs").into());
+        }
+        let chosen = match run.mode {
+            Mode::Compute => run.texts.get(&decl.key).cloned(),
+            Mode::Declare => None,
+        }
+        .map(|t| t.trim().to_owned())
+        .filter(|t| t.chars().count() <= MAX_TEXT)
+        .filter(|t| match kind {
+            InputType::Timeframe => {
+                t.is_empty() || crate::domain::chart::timeframe::Timeframe::from_code(t).is_some()
+            }
+            InputType::Session => is_session(t),
+            _ => true,
+        })
+        .unwrap_or_else(|| decl.text.clone());
+        run.declaration.inputs.push(decl);
+        Ok(chosen)
+    })?
+}
+
 fn input_color(key: &str, default: &str, opts: Map) -> Fallible<String> {
-    let options = Options::new("input_color", opts, &["label", "section"])?;
+    let options = Options::new(
+        "input_color",
+        opts,
+        &["label", "section", "group", "tooltip", "inline"],
+    )?;
     let color =
         parse_color(default).ok_or_else(|| format!("input_color: \"{default}\" is not a color"))?;
     let chosen = declare_input(InputDecl {
@@ -896,6 +1039,9 @@ fn input_color(key: &str, default: &str, opts: Map) -> Fallible<String> {
         step: 1.0,
         options: Vec::new(),
         section: input_section(&options)?,
+        text: String::new(),
+        group: options.text("group")?,
+        tooltip: options.text("tooltip")?,
     })?;
     Ok(color_text(chosen as u32))
 }

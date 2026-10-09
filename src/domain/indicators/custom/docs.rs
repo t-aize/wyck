@@ -139,7 +139,7 @@ pub const FUNCTIONS: &[Doc] = &[
         Declare,
         "input_source",
         "input_source(key, default, options?) -> series",
-        "Which price the indicator reads: Open, High, Low, Close, HL2, HLC3 or OHLC4. Gives that price as a series. Options: label, section (\"inputs\" or \"style\").",
+        "Which price the indicator reads: Open, High, Low, Close, HL2, HLC3, OHLC4 or HLCC4. Gives that price as a series. Options: label, section (\"inputs\" or \"style\"), group, tooltip.",
         "let src = input_source(\"source\", \"close\");",
     ),
     doc(
@@ -155,6 +155,34 @@ pub const FUNCTIONS: &[Doc] = &[
         "input_color(key, default, options?) -> text",
         "A color the user can change. Gives it as text (#rrggbb), which plot takes as its color. Goes to Style by default. Options: label, section (\"inputs\" or \"style\").",
         "let up = input_color(\"up\", \"#26a69a\");",
+    ),
+    doc(
+        Declare,
+        "input_symbol",
+        "input_symbol(key, default, options?) -> text",
+        "The name of a symbol the user can change; empty means the symbol of the chart. Gives the text. The script reads the name; it does not get that symbol's prices. Options: label, section, group, tooltip.",
+        "let other = input_symbol(\"other\", \"\");",
+    ),
+    doc(
+        Declare,
+        "input_timeframe",
+        "input_timeframe(key, default, options?) -> text",
+        "A timeframe the user can change, such as 15m, 4h or 1D; empty means the chart's own. Gives the text. Options: label, section, group, tooltip.",
+        "let tf = input_timeframe(\"tf\", \"4h\");",
+    ),
+    doc(
+        Declare,
+        "input_session",
+        "input_session(key, default, options?) -> text",
+        "A trading session written HHMM-HHMM, such as 0930-1600; empty means none. Gives the text. Options: label, section, group, tooltip.",
+        "let hours = input_session(\"hours\", \"0930-1600\");",
+    ),
+    doc(
+        Declare,
+        "input_text",
+        "input_text(key, default, options?) -> text",
+        "Free text the user can change, up to 200 characters. Gives the text. Options: label, section, group, tooltip.",
+        "let note = input_text(\"note\", \"\");",
     ),
     doc(
         Declare,
@@ -675,6 +703,10 @@ pub const GLOBALS: &[Name] = &[
     Name {
         name: "ohlc4",
         summary: "(open + high + low + close) / 4 of every bar (a series).",
+    },
+    Name {
+        name: "hlcc4",
+        summary: "(high + low + close + close) / 4 of every bar (a series).",
     },
     Name {
         name: "bar_index",

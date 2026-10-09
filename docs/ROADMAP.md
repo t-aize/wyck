@@ -22,7 +22,7 @@ Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, int
 | 9 | Cut dependency cycles, enforce layers (checkpoint B) | done, 46 listed exceptions remain |
 | 10 | Design system and screen migration | done for buttons, fields and tokens; spacing classes, menus and modals still to unify |
 | 11 | Sign-in modal | done, to try by hand |
-| 12 | Indicator inputs v2 (checkpoint C) | todo |
+| 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
 | 13 | Domain and cTrader client hardening | todo |
 | 14 | Documentation pass | todo |
 

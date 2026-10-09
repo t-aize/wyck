@@ -14,6 +14,7 @@ pub mod atr_stop;
 pub mod catalog;
 pub mod custom;
 mod extended;
+pub mod higher;
 pub mod intern;
 pub mod math;
 pub mod profile;
@@ -32,6 +33,7 @@ pub enum StudyKind {
     Ema,
     Wma,
     Hma,
+    MtfMa,
     Vwap,
     Bollinger,
     Keltner,
@@ -122,6 +124,24 @@ pub enum InputKind {
     Toggle,
     /// A color, stored as its number `0xRRGGBB`.
     Color,
+    /// The name of a symbol, kept as text. Empty means the symbol of the chart.
+    Symbol,
+    /// A timeframe code such as `15m` or `4h`, kept as text. Empty means the chart's own.
+    Timeframe,
+    /// A trading session such as `0930-1600`, kept as text.
+    Session,
+    /// Free text.
+    Text,
+}
+
+impl InputKind {
+    /// Whether the value is text, kept in [`StudyConfig::texts`], rather than a number.
+    pub const fn is_text(self) -> bool {
+        matches!(
+            self,
+            Self::Symbol | Self::Timeframe | Self::Session | Self::Text
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -133,6 +153,12 @@ pub struct InputSpec {
     pub min: f64,
     pub max: f64,
     pub step: f64,
+    /// The heading this input sits under in the settings; empty for none.
+    pub group: &'static str,
+    /// A sentence shown beside the label; empty for none.
+    pub tooltip: &'static str,
+    /// The default of a text input (a symbol, a timeframe, a session); empty otherwise.
+    pub text: &'static str,
 }
 
 const fn int(
@@ -150,6 +176,9 @@ const fn int(
         min,
         max,
         step: 1.0,
+        group: "",
+        tooltip: "",
+        text: "",
     }
 }
 
@@ -169,6 +198,9 @@ const fn float(
         min,
         max,
         step,
+        group: "",
+        tooltip: "",
+        text: "",
     }
 }
 
@@ -186,6 +218,9 @@ const fn choice(
         min: 0.0,
         max: (options.len() - 1) as f64,
         step: 1.0,
+        group: "",
+        tooltip: "",
+        text: "",
     }
 }
 
@@ -195,8 +230,11 @@ const SOURCE: InputSpec = InputSpec {
     kind: InputKind::Source,
     default: 3.0,
     min: 0.0,
-    max: 6.0,
+    max: 7.0,
     step: 1.0,
+    group: "",
+    tooltip: "",
+    text: "",
 };
 
 const OFFSET: InputSpec = int("offset", "Offset", 0.0, -500.0, 500.0);
@@ -259,7 +297,62 @@ pub struct Spec {
 }
 
 /// The prices a source can read, in the order of [`InputKind::Source`] values.
-pub const SOURCES: [&str; 7] = ["Open", "High", "Low", "Close", "HL2", "HLC3", "OHLC4"];
+/// The kinds of moving average an indicator can offer, in the order of its `method` input.
+pub const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
+
+/// A moving average of `values`, by its position in [`MA_METHODS`].
+pub fn moving_average(values: &[f64], length: usize, method: usize) -> Vec<f64> {
+    match method {
+        1 => math::ema(values, length),
+        2 => math::wma(values, length),
+        3 => math::rma(values, length),
+        4 => math::hma(values, length),
+        _ => math::sma(values, length),
+    }
+}
+
+/// The average at grouped bar `at` as it is while that bar is still forming: its source so far is
+/// `now`, and the bars before it are final. `src` and `average` are the source and its average
+/// over the finished grouped bars.
+fn forming_average(
+    src: &[f64],
+    average: &[f64],
+    at: usize,
+    now: f64,
+    length: usize,
+    method: usize,
+) -> f64 {
+    let before = at.checked_sub(1);
+    match method {
+        // The exponential kinds only need the average one bar back.
+        1 | 3 => {
+            let alpha = if method == 1 {
+                2.0 / (length as f64 + 1.0)
+            } else {
+                1.0 / length as f64
+            };
+            match before.map(|b| average[b]) {
+                Some(prev) if prev.is_finite() => alpha * now + (1.0 - alpha) * prev,
+                _ => f64::NAN,
+            }
+        }
+        // The others read a window: the bars before, then this one.
+        _ => {
+            let reach = length + (length as f64).sqrt() as usize + 2;
+            let start = at.saturating_sub(reach);
+            let mut window: Vec<f64> = src[start..at].to_vec();
+            window.push(now);
+            moving_average(&window, length, method)
+                .last()
+                .copied()
+                .unwrap_or(f64::NAN)
+        }
+    }
+}
+
+pub const SOURCES: [&str; 8] = [
+    "Open", "High", "Low", "Close", "HL2", "HLC3", "OHLC4", "HLCC4",
+];
 
 const UP: u32 = 0x26a69a;
 const DOWN: u32 = 0xef5350;
@@ -272,11 +365,12 @@ const GRAY: u32 = 0x787b86;
 
 impl StudyKind {
     /// Every indicator a user can add, in menu order.
-    pub const ALL: [Self; 50] = [
+    pub const ALL: [Self; 51] = [
         Self::Sma,
         Self::Ema,
         Self::Wma,
         Self::Hma,
+        Self::MtfMa,
         Self::Vwap,
         Self::Bollinger,
         Self::Keltner,
@@ -376,6 +470,47 @@ impl StudyKind {
                         format: ValueFormat::Price,
                         inputs: &[int("length", "Length", 21.0, 2.0, 1000.0), SOURCE, OFFSET],
                         plots: &[line("ma", "Average", TEAL, 1.5)],
+                        range: None,
+                    }
+                }
+            }
+            Self::MtfMa => {
+                const {
+                    Spec {
+                        label: "Moving average on a timeframe",
+                        short: "MA",
+                        placement: Overlay,
+                        format: ValueFormat::Price,
+                        inputs: &[
+                            InputSpec {
+                                kind: InputKind::Timeframe,
+                                key: "timeframe",
+                                label: "Timeframe",
+                                default: 0.0,
+                                min: 0.0,
+                                max: 0.0,
+                                step: 1.0,
+                                group: "",
+                                tooltip: "The average is computed on bars of this timeframe, built from the chart's bars. Empty uses the chart's own.",
+                                text: "4h",
+                            },
+                            int("length", "Length", 20.0, 1.0, 1000.0),
+                            choice("method", "Method", &MA_METHODS, 0.0),
+                            SOURCE,
+                            InputSpec {
+                                kind: InputKind::Toggle,
+                                key: "confirmed",
+                                label: "Wait for the bar to close",
+                                default: 1.0,
+                                min: 0.0,
+                                max: 1.0,
+                                step: 1.0,
+                                group: "",
+                                tooltip: "On: the line only shows what was known when each bar closed. Off: it follows the higher bar still forming and can change.",
+                                text: "",
+                            },
+                        ],
+                        plots: &[line("ma", "Average", ORANGE, 1.5)],
                         range: None,
                     }
                 }
@@ -547,6 +682,9 @@ impl StudyKind {
                                 min: 0.0,
                                 max: 1.0,
                                 step: 1.0,
+                                group: "",
+                                tooltip: "",
+                                text: "",
                             },
                             InputSpec {
                                 key: "highlight",
@@ -556,6 +694,9 @@ impl StudyKind {
                                 min: 0.0,
                                 max: 1.0,
                                 step: 1.0,
+                                group: "",
+                                tooltip: "",
+                                text: "",
                             },
                             float(
                                 "area_opacity",
@@ -699,6 +840,9 @@ impl StudyKind {
                                 min: 0.0,
                                 max: 3.0,
                                 step: 1.0,
+                                group: "",
+                                tooltip: "",
+                                text: "",
                             },
                             InputSpec {
                                 key: "unit",
@@ -708,6 +852,9 @@ impl StudyKind {
                                 min: 0.0,
                                 max: 1.0,
                                 step: 1.0,
+                                group: "",
+                                tooltip: "",
+                                text: "",
                             },
                             int("percent_decimals", "Percent decimals", 2.0, 0.0, 6.0),
                             int("signal_length", "Signal length", 14.0, 1.0, 1000.0),
@@ -719,6 +866,9 @@ impl StudyKind {
                                 min: 0.0,
                                 max: 3.0,
                                 step: 1.0,
+                                group: "",
+                                tooltip: "",
+                                text: "",
                             },
                         ],
                         plots: &[
@@ -924,6 +1074,9 @@ pub struct StudyConfig {
     pub script: Option<String>,
     #[serde(default)]
     pub inputs: BTreeMap<String, f64>,
+    /// The inputs that are text: symbols, timeframes, sessions, free text.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub texts: BTreeMap<String, String>,
     #[serde(default)]
     pub plots: BTreeMap<String, PlotStyle>,
     #[serde(default = "crate::domain::chart::defaults::yes")]
@@ -1033,6 +1186,7 @@ impl StudyConfig {
             kind,
             script: None,
             inputs: BTreeMap::new(),
+            texts: BTreeMap::new(),
             plots: BTreeMap::new(),
             visible: true,
             weight: pane_weight(),
@@ -1053,6 +1207,7 @@ impl StudyConfig {
             kind: StudyKind::Custom,
             script: Some(id.to_owned()),
             inputs: BTreeMap::new(),
+            texts: BTreeMap::new(),
             plots: BTreeMap::new(),
             visible: true,
             weight: pane_weight(),
@@ -1234,6 +1389,22 @@ impl StudyConfig {
         }
     }
 
+    /// A text input's value (its default if it was never set).
+    pub fn text(&self, key: &str) -> String {
+        self.texts.get(key).cloned().unwrap_or_else(|| {
+            self.spec()
+                .inputs
+                .iter()
+                .find(|i| i.key == key)
+                .map_or_else(String::new, |i| i.text.to_owned())
+        })
+    }
+
+    /// Sets a text input.
+    pub fn set_text(&mut self, key: &str, value: impl Into<String>) {
+        self.texts.insert(key.to_owned(), value.into());
+    }
+
     /// An input's value (its default if it is somehow missing).
     pub fn input(&self, key: &str) -> f64 {
         self.inputs.get(key).copied().unwrap_or_else(|| {
@@ -1306,7 +1477,17 @@ impl StudyConfig {
                 InputKind::Source => {
                     parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
                 }
-                InputKind::Choice(_) | InputKind::Toggle | InputKind::Color => {}
+                InputKind::Symbol | InputKind::Timeframe => {
+                    let text = self.text(input.key);
+                    if !text.is_empty() {
+                        parts.push(text);
+                    }
+                }
+                InputKind::Choice(_)
+                | InputKind::Toggle
+                | InputKind::Color
+                | InputKind::Session
+                | InputKind::Text => {}
             }
             if input.key == "offset" && value == 0.0 {
                 parts.pop();
@@ -1318,7 +1499,7 @@ impl StudyConfig {
 
 /// The bars an indicator reads, as columns of numbers. Prices are raw (the server's integers as
 /// real numbers), so an overlay shares the price scale of the chart.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StudyInput {
     pub time: Vec<i64>,
     pub open: Vec<f64>,
@@ -1352,6 +1533,9 @@ impl StudyInput {
                 .collect(),
             6 => (0..n)
                 .map(|i| (self.open[i] + self.high[i] + self.low[i] + self.close[i]) / 4.0)
+                .collect(),
+            7 => (0..n)
+                .map(|i| (self.high[i] + self.low[i] + 2.0 * self.close[i]) / 4.0)
                 .collect(),
             _ => self.close.clone(),
         }
@@ -1435,6 +1619,42 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 StudyKind::Ema => math::ema(&src, length),
                 StudyKind::Wma => math::wma(&src, length),
                 _ => math::hma(&src, length),
+            };
+            out.plots.push(PlotOut {
+                offset,
+                ..plot("ma", values)
+            });
+        }
+        StudyKind::MtfMa => {
+            let length = config.length("length");
+            let method = config.input("method") as usize;
+            let timeframe =
+                crate::domain::chart::timeframe::Timeframe::from_code(&config.text("timeframe"));
+            let values = match timeframe.and_then(|tf| higher::higher(input, tf)) {
+                Some(grouped) => {
+                    let which = config.input("source");
+                    let src = grouped.input.source(which);
+                    let average = moving_average(&src, length, method);
+                    if config.input("confirmed") != 0.0 {
+                        higher::carry_back(&average, &grouped.of, true)
+                    } else {
+                        let live = grouped.forming.source(which);
+                        (0..n)
+                            .map(|i| {
+                                forming_average(
+                                    &src,
+                                    &average,
+                                    grouped.of[i],
+                                    live[i],
+                                    length,
+                                    method,
+                                )
+                            })
+                            .collect()
+                    }
+                }
+                // No timeframe, or one that is not higher than the chart's: the chart's own bars.
+                None => moving_average(&source(), length, method),
             };
             out.plots.push(PlotOut {
                 offset,
@@ -1783,7 +2003,11 @@ mod tests {
                     "{kind:?}: plot {} has no spec",
                     plot.key
                 );
-                if !matches!(kind, StudyKind::Supertrend | StudyKind::Fractals) {
+                // The average on a timeframe has nothing to show until that timeframe has history.
+                if !matches!(
+                    kind,
+                    StudyKind::Supertrend | StudyKind::Fractals | StudyKind::MtfMa
+                ) {
                     assert!(
                         plot.values.iter().rev().take(5).all(|v| v.is_finite()),
                         "{kind:?} {}: the newest values are defined",
@@ -2049,5 +2273,67 @@ width = 2.0
             },
         );
         assert_eq!(config.normalized().plot_style(key).opacity, 1.0);
+    }
+
+    #[test]
+    fn the_average_on_a_timeframe_reads_the_closed_bars_of_that_timeframe() {
+        let bars = input(60);
+        let mut config = StudyConfig::new(StudyKind::MtfMa);
+        config.set_text("timeframe", "5m");
+        config.inputs.insert("length".to_owned(), 2.0);
+        config.inputs.insert("method".to_owned(), 0.0);
+        let out = compute(&config, &bars);
+        let values = &out.plots[0].values;
+        // The two five minute bars before minute 15 are minutes 5..10 and 10..15.
+        let closes = [bars.close[9], bars.close[14]];
+        let expected = (closes[0] + closes[1]) / 2.0;
+        assert!(
+            (values[15] - expected).abs() < 1e-9,
+            "{} vs {expected}",
+            values[15]
+        );
+        // Until two bars have closed there is nothing to show.
+        assert!(values[..10].iter().all(|v| v.is_nan()));
+        // The value holds for the whole of the bar that follows.
+        assert_eq!(values[15], values[19]);
+    }
+
+    #[test]
+    fn without_waiting_the_average_follows_the_bar_still_forming() {
+        let bars = input(30);
+        let mut config = StudyConfig::new(StudyKind::MtfMa);
+        config.set_text("timeframe", "5m");
+        config.inputs.insert("length".to_owned(), 1.0);
+        config.inputs.insert("confirmed".to_owned(), 0.0);
+        let out = compute(&config, &bars);
+        // A one bar average of the forming bar is its close so far.
+        assert!((out.plots[0].values[7] - bars.close[7]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_chart_s_own_timeframe_gives_the_plain_average() {
+        let bars = input(40);
+        let mut config = StudyConfig::new(StudyKind::MtfMa);
+        config.set_text("timeframe", "");
+        config.inputs.insert("length".to_owned(), 5.0);
+        let plain = math::sma(&bars.source(3.0), 5);
+        let out = compute(&config, &bars);
+        for (a, b) in out.plots[0].values.iter().zip(&plain) {
+            assert!((a.is_nan() && b.is_nan()) || (a - b).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn text_inputs_survive_saving_and_default_when_absent() {
+        let mut config = StudyConfig::new(StudyKind::MtfMa);
+        assert_eq!(config.text("timeframe"), "4h");
+        config.set_text("timeframe", "1D");
+        let saved = serde_json::to_string(&config).unwrap();
+        let back: StudyConfig = serde_json::from_str(&saved).unwrap();
+        assert_eq!(back.text("timeframe"), "1D");
+        // An older save has no texts at all.
+        let older: StudyConfig =
+            serde_json::from_str(r#"{"kind":"sma","inputs":{"length":9.0}}"#).unwrap();
+        assert!(older.texts.is_empty());
     }
 }

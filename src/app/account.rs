@@ -4,7 +4,7 @@
 //! On every (re)connection it asks what the account holds (balance, positions, orders, recent
 //! deals); after that the server's execution events keep it current. The profit of the positions
 //! is asked every two seconds while any are open, and follows the prices in between (see
-//! [`super::math::live_net`]).
+//! [`crate::domain::trading::math::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
 //! the non-idempotency notes of [`crate::app::broker::trading`]), so after a failed call the account is

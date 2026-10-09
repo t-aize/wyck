@@ -412,3 +412,82 @@ fn a_script_sees_an_empty_chart_and_a_long_one_alike() {
         assert_eq!(plot(&done, "r").len(), n);
     }
 }
+
+#[test]
+fn text_inputs_are_declared_read_and_checked() {
+    let source = "let sym = input_symbol(\"other\", \"EURUSD\");\n\
+        let tf = input_timeframe(\"tf\", \"4h\", #{ group: \"Data\", tooltip: \"The timeframe to read\" });\n\
+        let hours = input_session(\"hours\", \"0930-1600\");\n\
+        let note = input_text(\"note\", \"hello\");\n\
+        print(`${sym} ${tf} ${hours} ${note}`);\n\
+        plot(\"p\", close);";
+    let script = Script::compile(source).unwrap();
+    let kinds: Vec<_> = script
+        .declaration
+        .inputs
+        .iter()
+        .map(|i| i.input_kind())
+        .collect();
+    assert!(matches!(
+        kinds[..],
+        [
+            InputKind::Symbol,
+            InputKind::Timeframe,
+            InputKind::Session,
+            InputKind::Text
+        ]
+    ));
+    assert_eq!(script.declaration.inputs[1].group.as_deref(), Some("Data"));
+    assert_eq!(
+        script.declaration.inputs[1].tooltip.as_deref(),
+        Some("The timeframe to read")
+    );
+
+    let input = bars(5);
+    let defaults = run_with(source, &input, &[]);
+    assert_eq!(defaults.log[0], "EURUSD 4h 0930-1600 hello");
+
+    let mut texts = BTreeMap::new();
+    texts.insert("other".to_owned(), "GBPUSD".to_owned());
+    texts.insert("tf".to_owned(), "15m".to_owned());
+    // A timeframe that is not one and a session that is not one fall back to the defaults.
+    texts.insert("hours".to_owned(), "later".to_owned());
+    let chosen = script
+        .compute_with_texts(&input, &BTreeMap::new(), &texts, Limits::default(), None)
+        .unwrap();
+    assert_eq!(chosen.log[0], "GBPUSD 15m 0930-1600 hello");
+    texts.insert("tf".to_owned(), "nonsense".to_owned());
+    let fallback = script
+        .compute_with_texts(&input, &BTreeMap::new(), &texts, Limits::default(), None)
+        .unwrap();
+    assert_eq!(fallback.log[0], "GBPUSD 4h 0930-1600 hello");
+}
+
+#[test]
+fn a_bad_default_for_a_text_input_is_a_mistake_of_the_script() {
+    let timeframe = problems("let t = input_timeframe(\"tf\", \"soon\");");
+    assert!(
+        timeframe.iter().any(|m| m.contains("not a timeframe")),
+        "{timeframe:?}"
+    );
+    let session = problems("let s = input_session(\"s\", \"9-5\");");
+    assert!(
+        session.iter().any(|m| m.contains("not a session")),
+        "{session:?}"
+    );
+}
+
+#[test]
+fn hlcc4_is_a_source_and_a_name_in_scripts() {
+    let input = bars(6);
+    let done = run_with(
+        "plot(\"a\", hlcc4);\nlet s = input_source(\"source\", \"hlcc4\");\nplot(\"b\", s);",
+        &input,
+        &[],
+    );
+    for i in 0..6 {
+        let expected = (input.high[i] + input.low[i] + 2.0 * input.close[i]) / 4.0;
+        assert!((plot(&done, "a")[i] - expected).abs() < 1e-9);
+        assert!((plot(&done, "b")[i] - expected).abs() < 1e-9);
+    }
+}
