@@ -11,7 +11,7 @@
 //! length always gets the same code (120 minutes is `H2`), so a custom one typed twice is one.
 
 use chrono::{Datelike, TimeZone, Utc};
-use wyck_openapi::market::Period;
+use crate::openapi::market::Period;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Timeframe {

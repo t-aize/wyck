@@ -11,7 +11,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::switch::Switch;
 use gpui_kit::component::{Disableable, Sizable};
-use wyck_openapi::market::PRICE_SCALE;
+use crate::openapi::market::PRICE_SCALE;
 
 use super::Chart;
 use super::drawing::Drawings;

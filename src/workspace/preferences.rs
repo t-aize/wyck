@@ -680,7 +680,7 @@ fn dedup_keep_order(items: &mut Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_openapi::market::Period;
+    use crate::openapi::market::Period;
 
     #[test]
     fn an_empty_file_gives_the_defaults() {

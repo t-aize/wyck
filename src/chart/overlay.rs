@@ -8,7 +8,7 @@ use gpui::{
     px,
 };
 use gpui_kit::assets::IconName;
-use wyck_openapi::market::format_price;
+use crate::openapi::market::format_price;
 
 use super::data::Series;
 use super::lines::to_real;
@@ -707,7 +707,7 @@ impl Chart {
 
     /// A dot that says whether the symbol's market is open, with when it opens or closes.
     fn market_dot(&self) -> Option<AnyElement> {
-        use wyck_openapi::market::MarketStatus;
+        use crate::openapi::market::MarketStatus;
         let status = self.market_status()?;
         let now = super::now_ms();
         let within =

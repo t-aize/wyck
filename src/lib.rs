@@ -14,6 +14,7 @@ mod indicators;
 #[cfg(test)]
 mod keymap_guard;
 mod multichart;
+pub mod openapi;
 mod runtime;
 mod settings_hub;
 mod title_bar;
@@ -151,7 +152,7 @@ fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
         .as_ref()
 }
 
-/// Installs a `tracing` subscriber so the events `wyck::infra::storage` and `wyck_openapi` emit (and
+/// Installs a `tracing` subscriber so the events `infra::storage` and `openapi` emit (and
 /// the app's own) show up on stderr; the library only emits them, it never installs a subscriber
 /// itself. Reads `RUST_LOG`, defaulting to `debug` for `wyck` and `warn` for everything else.
 fn init_tracing() {

@@ -8,9 +8,9 @@ use gpui::{
     Animation, AnimationExt, ClickEvent, Context, Entity, SharedString, Window, div, px, relative,
 };
 use gpui_kit::assets::IconName;
-use wyck_openapi::auth::CallbackListener;
-use wyck_openapi::config::ClientCredentials;
-use wyck_openapi::{ClientBuilder, Environment};
+use crate::openapi::auth::CallbackListener;
+use crate::openapi::config::ClientCredentials;
+use crate::openapi::{ClientBuilder, Environment};
 
 use super::{ConnectionFlow, Screen};
 use crate::runtime;

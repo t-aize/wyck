@@ -98,8 +98,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
-use wyck_openapi::session::Session;
-use wyck_openapi::{Error as ApiError, Result as ApiResult};
+use crate::openapi::session::Session;
+use crate::openapi::{Error as ApiError, Result as ApiResult};
 
 use self::data::Series;
 use self::display::Display;
@@ -451,7 +451,7 @@ pub struct Chart {
     id: u64,
     symbol: Option<Symbol>,
     /// When the symbol trades, once its details are known.
-    hours: Option<std::sync::Arc<wyck_openapi::market::TradingHours>>,
+    hours: Option<std::sync::Arc<crate::openapi::market::TradingHours>>,
     /// Whether this is the chart the user works on; only that one shows its toolbar when there
     /// are several.
     selected: bool,
@@ -463,7 +463,7 @@ pub struct Chart {
     max_studies: usize,
     /// The prices, as held.
     series: Series,
-    atr_history: HashMap<(i64, Timeframe), (Vec<wyck_openapi::market::Bar>, i64)>,
+    atr_history: HashMap<(i64, Timeframe), (Vec<crate::openapi::market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
     /// What is drawn from them.
     display: Display,
@@ -491,7 +491,7 @@ pub struct Chart {
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     /// The server bars of the newest bar of a grouped timeframe, which live bars join.
-    group_tail: Vec<wyck_openapi::market::Bar>,
+    group_tail: Vec<crate::openapi::market::Bar>,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,
@@ -623,7 +623,7 @@ impl Chart {
     pub fn set_hours(
         &mut self,
         id: i64,
-        hours: Option<std::sync::Arc<wyck_openapi::market::TradingHours>>,
+        hours: Option<std::sync::Arc<crate::openapi::market::TradingHours>>,
         cx: &mut Context<Self>,
     ) {
         let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
@@ -658,7 +658,7 @@ impl Chart {
     }
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub fn market_status(&self) -> Option<wyck_openapi::market::MarketStatus> {
+    pub fn market_status(&self) -> Option<crate::openapi::market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(now_ms()))
     }
 

@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use gpui_kit::assets::IconName;
-use wyck_openapi::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
+use crate::openapi::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
 
 use super::marks::{self, Icon};
 

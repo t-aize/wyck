@@ -3,9 +3,9 @@
 //! the sign-in asks for. Kept apart so they are tested on their own.
 
 use crate::infra::storage::ProfileConfig;
-use wyck_openapi::Environment;
-use wyck_openapi::TraderAccount;
-use wyck_openapi::auth::Scope;
+use crate::openapi::Environment;
+use crate::openapi::TraderAccount;
+use crate::openapi::auth::Scope;
 
 /// The permission the sign-in asks for. Trading includes reading, and the app places orders.
 pub const SIGN_IN_SCOPE: Scope = Scope::Trading;

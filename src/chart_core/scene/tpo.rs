@@ -6,7 +6,7 @@
 //! work of a frame stays bounded by the screen, like the other chart types.
 
 use super::color::{Hsla, color_hsla, transparent_black};
-use wyck_openapi::market::Bar;
+use crate::openapi::market::Bar;
 
 use super::super::study::ValueFormat;
 use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};

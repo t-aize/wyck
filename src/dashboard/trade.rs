@@ -10,7 +10,7 @@ use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
 
 use super::Dashboard;
-use wyck_openapi::market::PRICE_SCALE;
+use crate::openapi::market::PRICE_SCALE;
 
 use crate::alerts;
 use crate::chart::{ChartAction, LineId, PositionLink, now_ms};
@@ -524,7 +524,7 @@ impl Dashboard {
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let pip = symbol.pip_position.map_or_else(
             || alerts::model::pip_from_digits(digits),
-            wyck_openapi::market::pip_size,
+            crate::openapi::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
@@ -605,7 +605,7 @@ impl Dashboard {
         let digits = symbol.digits;
         let pip = symbol.pip_position.map_or_else(
             || alerts::model::pip_from_digits(digits),
-            wyck_openapi::market::pip_size,
+            crate::openapi::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);

@@ -33,7 +33,7 @@ impl std::fmt::Display for ProfileId {
 ///
 /// `service` is deliberately a free-form string rather than an enum owned by this
 /// module: this crate has no knowledge of cTrader, or of any other specific
-/// broker/API, on purpose. A caller using `wyck-openapi` might use
+/// broker/API, on purpose. A caller using the cTrader client might use
 /// `"ctrader-openapi"`; a future module for a different broker or a different kind of
 /// API key entirely reuses the exact same struct with its own tag. This is what makes
 /// the module genuinely shared infrastructure rather than cTrader-specific config

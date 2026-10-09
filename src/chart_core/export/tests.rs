@@ -1,4 +1,4 @@
-use wyck_openapi::market::{Bar, Tick};
+use crate::openapi::market::{Bar, Tick};
 
 use super::*;
 use crate::chart_core::study::{StudyConfig, StudyKind};

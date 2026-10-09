@@ -10,9 +10,9 @@
 
 use std::future::Future;
 
-use wyck_openapi::market::{Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteType, Tick};
-use wyck_openapi::session::Session;
-use wyck_openapi::{Error as ApiError, Result};
+use crate::openapi::market::{Bar, MAX_TICK_RANGE_MS, MarketClient, Period, QuoteType, Tick};
+use crate::openapi::session::Session;
+use crate::openapi::{Error as ApiError, Result};
 
 use super::data::{aggregate_ticks, bucket_start, group_bars, last_group};
 use super::timeframe::Timeframe;

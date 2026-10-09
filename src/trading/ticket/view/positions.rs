@@ -255,7 +255,7 @@ impl OrderTicket {
                         if buy { "Buy" } else { "Sell" },
                         order
                             .kind()
-                            .map_or("order", wyck_openapi::account::OrderType::label),
+                            .map_or("order", crate::openapi::account::OrderType::label),
                         math::format_lots(f.contract.lots_of_volume(order.trade_data.volume)),
                         f.price(price)
                     ))

@@ -9,9 +9,9 @@
 use std::time::{Duration, Instant};
 
 use gpui::Context;
-use wyck_openapi::Result as ApiResult;
-use wyck_openapi::market::{Quote, QuoteType, merge_sides};
-use wyck_openapi::session::Session;
+use crate::openapi::Result as ApiResult;
+use crate::openapi::market::{Quote, QuoteType, merge_sides};
+use crate::openapi::session::Session;
 
 use super::data::Series;
 use super::flow::{self, Flow};

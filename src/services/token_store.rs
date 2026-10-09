@@ -5,9 +5,9 @@ use std::time::{Duration, SystemTime};
 
 use async_trait::async_trait;
 use crate::infra::storage::{OpenApiTokenStorage, OpenApiTokens};
-use wyck_openapi::Error as ApiError;
-use wyck_openapi::auth::TokenSet;
-use wyck_openapi::session::TokenStore;
+use crate::openapi::Error as ApiError;
+use crate::openapi::auth::TokenSet;
+use crate::openapi::session::TokenStore;
 
 pub struct ConfigTokenStore {
     storage: OpenApiTokenStorage,
@@ -45,14 +45,14 @@ pub fn to_stored(tokens: &TokenSet) -> OpenApiTokens {
 
 #[async_trait]
 impl TokenStore for ConfigTokenStore {
-    async fn load(&self) -> wyck_openapi::Result<Option<TokenSet>> {
+    async fn load(&self) -> crate::openapi::Result<Option<TokenSet>> {
         self.storage
             .load()
             .map(|stored| stored.map(to_token_set))
             .map_err(|error| ApiError::Config(format!("could not read the tokens: {error}")))
     }
 
-    async fn save(&self, tokens: &TokenSet) -> wyck_openapi::Result<()> {
+    async fn save(&self, tokens: &TokenSet) -> crate::openapi::Result<()> {
         self.storage
             .save(&to_stored(tokens))
             .map_err(|error| ApiError::Config(format!("could not save the tokens: {error}")))

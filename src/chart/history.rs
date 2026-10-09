@@ -4,8 +4,8 @@
 use std::time::{Duration, Instant};
 
 use gpui::Context;
-use wyck_openapi::Result as ApiResult;
-use wyck_openapi::market::Tick;
+use crate::openapi::Result as ApiResult;
+use crate::openapi::market::Tick;
 
 use super::data::{self, MAX_BARS, MAX_TICKS, Series};
 use super::live::{LiveUpdate, Wish};

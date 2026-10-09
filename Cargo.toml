@@ -22,62 +22,6 @@ name = "wyck"
 path = "src/main.rs"
 doc = false
 
-# Transitional: the crates below are merged into this package one by one (see docs/ROADMAP.md).
-[workspace]
-members = ["crates/wyck-openapi"]
-resolver = "3"
-
-[workspace.package]
-version = "0.2.0"
-edition = "2024"
-rust-version = "1.98"
-license = "Apache-2.0"
-authors = ["t-aize"]
-repository = "https://github.com/t-aize/wyck"
-publish = false
-
-[workspace.dependencies]
-wyck-openapi = { path = "crates/wyck-openapi", version = "0.2.0", default-features = false }
-ab_glyph = "0.2.32"
-anyhow = "1"
-argon2 = "0.6.0"
-async-trait = "0.1.92"
-chacha20poly1305 = "0.11.0"
-chrono = "0.4.45"
-chrono-tz = "0.10.4"
-cargo-packager-updater = "0.2.3"
-directories = "6.0.0"
-dotenvy = "0.15.7"
-futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
-getrandom = "0.4.3"
-gpui = { package = "gpui-pre", version = "0.3.5" }
-gpui-kit = "0.6.6"
-keyring = "4.2.0"
-lsp-types = "0.97"
-notify-rust = "4.18"
-proptest = "1.11.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
-rodio = { version = "0.22", default-features = false, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
-rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
-rust-embed = { version = "8", features = ["debug-embed"] }
-secrecy = { version = "0.10.3", features = ["serde"] }
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-tempfile = "3.27.0"
-thiserror = "2.0.20"
-tiny-skia = "0.12.0"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "test-util"] }
-tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
-toml = "1.1.6"
-tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-unicode-segmentation = "1.13.3"
-uuid = { version = "1.18.1", features = ["v4"] }
-zeroize = "1.9.0"
-
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
 [package.metadata.packager]
 product-name = "Wyck"
 identifier = "sh.wyck.wyck"
@@ -114,44 +58,48 @@ depends = [
 ]
 
 [dependencies]
-wyck-openapi = { workspace = true, features = ["client"] }
-async-trait.workspace = true
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-tracing.workspace = true
-gpui-kit.workspace = true
-rust-embed.workspace = true
-gpui.workspace = true
-toml.workspace = true
-secrecy.workspace = true
-tracing-subscriber.workspace = true
-chrono.workspace = true
-chrono-tz.workspace = true
-cargo-packager-updater.workspace = true
-tiny-skia.workspace = true
-ab_glyph.workspace = true
-lsp-types.workspace = true
-anyhow.workspace = true
-notify-rust.workspace = true
-rodio.workspace = true
-unicode-segmentation.workspace = true
-rhai.workspace = true
-thiserror.workspace = true
-argon2.workspace = true
-chacha20poly1305.workspace = true
-directories.workspace = true
-getrandom.workspace = true
-keyring.workspace = true
-uuid.workspace = true
-zeroize.workspace = true
+ab_glyph = "0.2.32"
+anyhow = "1"
+argon2 = "0.6.0"
+async-trait = "0.1.92"
+cargo-packager-updater = "0.2.3"
+chacha20poly1305 = "0.11.0"
+chrono = "0.4.45"
+chrono-tz = "0.10.4"
+directories = "6.0.0"
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+getrandom = "0.4.3"
+gpui = { package = "gpui-pre", version = "0.3.5" }
+gpui-kit = "0.6.6"
+keyring = "4.2.0"
+lsp-types = "0.97"
+notify-rust = "4.18"
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
+rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+rodio = { version = "0.22", default-features = false, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
+rust-embed = { version = "8", features = ["debug-embed"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.20"
+tiny-skia = "0.12.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+toml = "1.1.6"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+unicode-segmentation = "1.13.3"
+uuid = { version = "1.18.1", features = ["v4"] }
+zeroize = "1.9.0"
 
 [dev-dependencies]
-proptest.workspace = true
-tempfile.workspace = true
+dotenvy = "0.15.7"
+proptest = "1.11.0"
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["test-util"] }
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "forbid"
 
 [profile.release]
 lto = true

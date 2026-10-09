@@ -13,7 +13,7 @@
 //!   by their length, since the bar does not say when the price was where.
 
 use serde::{Deserialize, Serialize};
-use wyck_openapi::market::Bar;
+use crate::openapi::market::Bar;
 
 use super::transform::PricePath;
 

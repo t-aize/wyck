@@ -26,10 +26,10 @@ use gpui::{
 };
 use secrecy::ExposeSecret;
 use crate::infra::storage::{ProfileId, Severity, WyckConfig};
-use wyck_openapi::auth::TokenSet;
-use wyck_openapi::config::ClientCredentials;
-use wyck_openapi::session::{Session, SessionConfig, TokenStore};
-use wyck_openapi::{ConnectionConfig, Environment};
+use crate::openapi::auth::TokenSet;
+use crate::openapi::config::ClientCredentials;
+use crate::openapi::session::{Session, SessionConfig, TokenStore};
+use crate::openapi::{ConnectionConfig, Environment};
 
 use gpui_kit::component::Root;
 

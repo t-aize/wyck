@@ -22,8 +22,8 @@ use crate::chart_core::Timeframe;
 use crate::chart_core::data::Series;
 use crate::chart_core::study::{self, ValueFormat};
 use crate::infra::storage::DocumentStore;
-use wyck_openapi::market::{Bar, PRICE_SCALE};
-use wyck_openapi::session::Session;
+use crate::openapi::market::{Bar, PRICE_SCALE};
+use crate::openapi::session::Session;
 
 use crate::chart::drawing::Drawings;
 use crate::chart::live::{LiveHub, Wish};

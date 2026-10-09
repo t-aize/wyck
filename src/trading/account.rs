@@ -7,7 +7,7 @@
 //! [`super::math::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
-//! the non-idempotency notes of [`wyck_openapi::trading`]), so after a failed call the account is
+//! the non-idempotency notes of [`crate::openapi::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -15,12 +15,12 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{Context, EventEmitter};
-use wyck_openapi::account::PositionStatus;
-use wyck_openapi::account::TradeSide;
-use wyck_openapi::market::PRICE_SCALE;
-use wyck_openapi::session::Session;
-use wyck_openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use wyck_openapi::{Error as ApiError, Event, Result as ApiResult};
+use crate::openapi::account::PositionStatus;
+use crate::openapi::account::TradeSide;
+use crate::openapi::market::PRICE_SCALE;
+use crate::openapi::session::Session;
+use crate::openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
+use crate::openapi::{Error as ApiError, Event, Result as ApiResult};
 
 use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
 use super::guard::{
@@ -887,8 +887,8 @@ impl Account {
     /// reached the server even so).
     fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
-        F: FnOnce(wyck_openapi::trading::TradingClient) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = ApiResult<wyck_openapi::trading::ExecutionEvent>>
+        F: FnOnce(crate::openapi::trading::TradingClient) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ApiResult<crate::openapi::trading::ExecutionEvent>>
             + Send
             + 'static,
     {
@@ -1157,7 +1157,7 @@ impl Account {
     /// left to their entry.
     fn manage(
         &mut self,
-        execution: &wyck_openapi::trading::ExecutionEvent,
+        execution: &crate::openapi::trading::ExecutionEvent,
         cx: &mut Context<Self>,
     ) {
         use super::plan::{self, Label, Open};
@@ -1490,14 +1490,14 @@ impl Account {
 /// for the recent orders only when something open belongs to a plan with a rule to keep, and
 /// gives nothing when any call fails: the next connection tries again.
 async fn missed_exits(
-    account: &wyck_openapi::AccountClient,
-    positions: &[wyck_openapi::account::Position],
-    orders: &[wyck_openapi::account::Order],
-    deals: &[wyck_openapi::account::Deal],
+    account: &crate::openapi::AccountClient,
+    positions: &[crate::openapi::account::Position],
+    orders: &[crate::openapi::account::Order],
+    deals: &[crate::openapi::account::Deal],
     now: i64,
 ) -> Vec<super::plan::Catch> {
     use super::plan::{self, Label, Open, Past};
-    use wyck_openapi::account::OrderStatus;
+    use crate::openapi::account::OrderStatus;
     let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
     let rules = positions
         .iter()
@@ -1600,7 +1600,7 @@ async fn missed_exits(
 #[cfg(test)]
 mod tests {
     use super::{ReverseOrder, ReverseTracker};
-    use wyck_openapi::trading::ExecutionType;
+    use crate::openapi::trading::ExecutionType;
 
     fn order() -> ReverseOrder {
         ReverseOrder {

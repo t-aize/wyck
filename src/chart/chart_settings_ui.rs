@@ -11,7 +11,7 @@ use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window,
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::InputState;
-use wyck_openapi::market::PRICE_SCALE;
+use crate::openapi::market::PRICE_SCALE;
 
 use super::options::{ChartColors, CrosshairStyle, ScaleMargin};
 use super::settings::{ChartKind, ChartSettings, ScaleMode};

@@ -7,7 +7,7 @@
 //! [`super::ChartEvent::LineMoved`] and [`super::ChartEvent::LineClosed`]. What that means (amend
 //! an order, move a stop, delete an alert) is decided by whoever made the lines.
 
-use wyck_openapi::market::PRICE_SCALE;
+use crate::openapi::market::PRICE_SCALE;
 
 use super::scene::PriceMark;
 use crate::chart_core::drawing::model::Dash;

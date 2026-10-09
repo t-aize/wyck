@@ -1,7 +1,7 @@
 //! A dedicated tokio runtime for a GPUI app.
 //!
 //! GPUI has its own async executor (backed by `smol`), not tokio: `cx.spawn` and
-//! `cx.background_spawn` run futures on it. But [`wyck_openapi`] and its OAuth flow are built on
+//! `cx.background_spawn` run futures on it. But [`crate::openapi`] and its OAuth flow are built on
 //! tokio directly (`tokio-tungstenite`, `reqwest`, `tokio::net` for the local redirect listener),
 //! and those types panic without a live tokio runtime underneath them.
 //!

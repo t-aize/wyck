@@ -599,7 +599,7 @@ mod tests {
         use crate::chart_core::study::{StudyConfig, StudyKind};
         use crate::chart_core::view::View;
         use crate::chart_core::{ChartSettings, Timeframe};
-        use wyck_openapi::market::Bar;
+        use crate::openapi::market::Bar;
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {

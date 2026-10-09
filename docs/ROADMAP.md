@@ -15,8 +15,8 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 | 2 | Merge `wyck-ui` into the package (now `src/ui/kit`), split `lib.rs` and `main.rs` | done |
 | 3 | Merge `wyck-chart` (now `src/chart_core`, split in phase 8) | done |
 | 4 | Merge `wyck-config` (now `src/infra/storage`) | done |
-| 5 | Merge `wyck-openapi`, drop the `client` feature, add `src/lib.rs` | todo |
-| 6 | One manifest, no workspace (checkpoint A) | todo |
+| 5 | Merge `wyck-openapi` (now `src/openapi`), drop the `client` feature | done |
+| 6 | One manifest, no workspace (checkpoint A) | done |
 | 7 | Native window title bar | todo |
 | 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | todo |
 | 9 | Cut dependency cycles, enforce layers (checkpoint B) | todo |

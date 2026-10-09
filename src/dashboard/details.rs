@@ -5,7 +5,7 @@
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 use gpui_kit::assets::IconName;
-use wyck_openapi::market::Symbol;
+use crate::openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;

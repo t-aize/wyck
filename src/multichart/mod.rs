@@ -26,8 +26,8 @@ use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
     Subscription, Window, canvas, div, px, relative,
 };
-use wyck_openapi::market::{LiveBarTracker, SpotEvent};
-use wyck_openapi::session::Session;
+use crate::openapi::market::{LiveBarTracker, SpotEvent};
+use crate::openapi::session::Session;
 
 use self::layouts::{LayoutKey, layout};
 use self::links::{Follow, Link, Links};
@@ -103,7 +103,7 @@ pub struct MultiChart {
     /// Corrects the live bars of the price events before the charts see them.
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
-    hours: HashMap<i64, std::sync::Arc<wyck_openapi::market::TradingHours>>,
+    hours: HashMap<i64, std::sync::Arc<crate::openapi::market::TradingHours>>,
     next_id: u64,
     key: LayoutKey,
     tree: Node,
@@ -542,7 +542,7 @@ impl MultiChart {
     pub fn set_hours(
         &mut self,
         id: i64,
-        hours: wyck_openapi::market::TradingHours,
+        hours: crate::openapi::market::TradingHours,
         cx: &mut Context<Self>,
     ) {
         self.hours.insert(id, std::sync::Arc::new(hours));

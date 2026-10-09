@@ -3,7 +3,7 @@
 //! symbol.
 
 use gpui::{App, Context, Entity, Window};
-use wyck_openapi::market::PRICE_SCALE;
+use crate::openapi::market::PRICE_SCALE;
 
 use super::drawing::Drawings;
 use super::projection::ChartProjection;

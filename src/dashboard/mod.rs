@@ -30,9 +30,9 @@ use gpui::{
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
 use crate::chart_core::drawing::model::Tool;
-use wyck_openapi::market::{PRICE_SCALE, Spot, format_price};
-use wyck_openapi::session::{Session, SessionEvent, SessionState};
-use wyck_openapi::{Error as ApiError, Event};
+use crate::openapi::market::{PRICE_SCALE, Spot, format_price};
+use crate::openapi::session::{Session, SessionEvent, SessionState};
+use crate::openapi::{Error as ApiError, Event};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
@@ -651,7 +651,7 @@ impl Dashboard {
                 Ok(Ok(symbol)) => {
                     let digits = u32::try_from(symbol.digits).unwrap_or(5);
                     let pip_position = symbol.pip_position;
-                    let hours = wyck_openapi::market::TradingHours::from_symbol(&symbol);
+                    let hours = crate::openapi::market::TradingHours::from_symbol(&symbol);
                     this.multi
                         .update(cx, |multi, cx| multi.set_hours(id, hours, cx));
                     this.details.insert(id, details::Detail::Ready(symbol));
@@ -1119,7 +1119,7 @@ fn quote_text(quote: Quote, digits: u32, pip_position: i64) -> Option<details::L
     let spread = quote.ask.map(|ask| {
         let pips = (ask - bid) as f64
             / PRICE_SCALE as f64
-            / wyck_openapi::market::price::pip_size(pip_position);
+            / crate::openapi::market::price::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

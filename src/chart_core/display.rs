@@ -5,7 +5,7 @@
 //! It is computed once per change of the prices or of the settings, not once per frame: a frame
 //! only reads it. The chart owns the prices; [`Display`] owns what is derived from them.
 
-use wyck_openapi::market::{Bar, Tick};
+use crate::openapi::market::{Bar, Tick};
 
 use super::data::Series;
 use super::settings::{ChartKind, ChartSettings};

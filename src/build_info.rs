@@ -27,7 +27,7 @@ impl BuildMode {
     }
 }
 
-/// The version shared by every crate in the workspace.
+/// The version of the package.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]

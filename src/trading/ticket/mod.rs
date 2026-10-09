@@ -37,8 +37,8 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
-use wyck_openapi::account::TradeSide;
-use wyck_openapi::trading::{NewOrderReq, NewOrderType};
+use crate::openapi::account::TradeSide;
+use crate::openapi::trading::{NewOrderReq, NewOrderType};
 
 use super::account::{Account, Busy};
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
@@ -1594,7 +1594,7 @@ impl OrderTicket {
                 return;
             }
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(wyck_openapi::Error::Closed)?;
+                let client = session.client().ok_or(crate::openapi::Error::Closed)?;
                 client
                     .account(session.account_id())
                     .margin()
@@ -1606,10 +1606,10 @@ impl OrderTicket {
                 if this.margin_epoch != epoch {
                     return;
                 }
-                let money = |m: &wyck_openapi::margin::ExpectedMargin| {
+                let money = |m: &crate::openapi::margin::ExpectedMargin| {
                     (
-                        wyck_openapi::account::money(m.buy_margin, digits),
-                        wyck_openapi::account::money(m.sell_margin, digits),
+                        crate::openapi::account::money(m.buy_margin, digits),
+                        crate::openapi::account::money(m.sell_margin, digits),
                     )
                 };
                 match answer.ok().and_then(Result::ok) {

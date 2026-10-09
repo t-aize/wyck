@@ -48,17 +48,19 @@ package remains managed by the package manager.
 
 ## Layout
 
-The root package `wyck` is the desktop application: `cargo run` starts it. Its `src/` holds the
-GPUI views and connects the helper crates below, which are being merged into it (see
-`docs/ROADMAP.md`). The helper crates are:
+One Cargo package, `wyck`: `src/lib.rs` holds the app, `src/main.rs` only starts it. Modules, by
+role (they are being regrouped into four layers, see `docs/ROADMAP.md`):
 
-| Crate | Owns |
+| Module | Owns |
 |---|---|
-| `wyck-openapi` | cTrader Open API SDK: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
+| `src/openapi` | cTrader Open API client: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
+| `src/infra/storage` | Native settings, documents, backups, indicator files and credential storage |
+| `src/chart_core` | Chart data, calculations, studies, drawings and scene commands |
+| `src/ui/kit` | Widget kit, theme and sizes shared by every screen |
+| the other `src/*` modules | GPUI screens and the app's own services (`src/services`) |
 
-Its native services are in `src/services`. Every control, menu, dialog and color comes from
-the widget kit in `src/ui/kit`.
-The Open API guide is in the `wyck-openapi` crate documentation.
+Every control, menu, dialog and color comes from the widget kit. The Open API guide is in the
+documentation of the `openapi` module (`cargo doc --open`).
 
 ## Your own indicators
 
@@ -106,11 +108,11 @@ Later builds only rebuild the changed crates.
 
 ## Test against a real demo account
 
-Testing `openapi` against a real cTrader demo account, end to end, is a separate opt-in step.
+Testing the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
 Fill in `.env` from [.env.example](.env.example), then:
 
 ```sh
-cargo test -p wyck-openapi --test live -- --ignored --nocapture
+cargo test --test openapi_live -- --ignored --nocapture
 ```
 
 ## Checks

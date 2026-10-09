@@ -2,7 +2,7 @@
 //! the chart types with their own marks (Kagi lines, point and figure boxes).
 
 use super::color::transparent_black;
-use wyck_openapi::market::Bar;
+use crate::openapi::market::Bar;
 
 use super::super::data::Series;
 use super::super::settings::ChartKind;

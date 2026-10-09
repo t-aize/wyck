@@ -339,8 +339,8 @@ Every fallible call returns `wyck::infra::storage::Result<T>`. `ConfigError` say
 ## Development
 
 ```sh
-cargo test --test storage_lifecycle
-cargo test --test storage_lifecycle        # unit tests, end-to-end tests, doc tests
+cargo test infra::storage                  # unit tests
+cargo test --test storage_lifecycle        # end-to-end tests
 ```
 
 - `src/**` unit tests sit next to the code they test; `tests/lifecycle.rs` uses the public API

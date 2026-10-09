@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use serde_json::Value;
-use wyck_openapi::account::{OrderType, Position, money};
+use crate::openapi::account::{OrderType, Position, money};
 
 use super::columns::{
     AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs,

@@ -8,7 +8,7 @@
 
 pub mod account;
 pub mod guard;
-pub use wyck_openapi::account::book;
+pub use crate::openapi::account::book;
 pub mod math;
 pub mod panel;
 pub mod plan;
@@ -114,7 +114,7 @@ pub fn lines(
         };
         let kind = order
             .kind()
-            .map_or("order", wyck_openapi::account::OrderType::label);
+            .map_or("order", crate::openapi::account::OrderType::label);
         let lots = math::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = order.limit_price.or(order.stop_price) {
@@ -177,7 +177,7 @@ mod tests {
     use super::*;
     use crate::alerts::Condition;
     use serde_json::json;
-    use wyck_openapi::account::{Order, Position};
+    use crate::openapi::account::{Order, Position};
 
     #[test]
     fn every_position_order_and_alert_gets_its_lines() {

@@ -26,7 +26,7 @@ use super::lists::{self, ListEditor, Scope};
 use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::runtime;
-use wyck_openapi::Error as ApiError;
+use crate::openapi::Error as ApiError;
 use crate::ui::kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
 const ROW_HEIGHT: f32 = 52.;

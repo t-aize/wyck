@@ -9,10 +9,10 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
-use wyck_openapi::Client;
-use wyck_openapi::Environment;
-use wyck_openapi::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
-use wyck_openapi::config::ClientCredentials;
+use crate::openapi::Client;
+use crate::openapi::Environment;
+use crate::openapi::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
+use crate::openapi::config::ClientCredentials;
 
 use super::select_account::SelectAccountState;
 use super::{ConnectionFlow, Screen};
