@@ -1,5 +1,4 @@
 # Pixel sizes written as numbers, per file. Only goes down.
-src/app/appearance.rs	1
 src/ui/features/chart/chart_settings_ui.rs	4
 src/ui/features/chart/drawing_props/coordinates.rs	3
 src/ui/features/chart/drawing_props/levels.rs	2

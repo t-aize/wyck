@@ -53,7 +53,7 @@ pub fn run() {
                         Ok(_) => {}
                         Err(error) => tracing::warn!(%error, "could not apply what was waiting"),
                     }
-                    appearance::init(paths.documents(), cx);
+                    appearance::init(paths.documents(), ui::kit::theme::put_in_force, cx);
                     scripts::init(Some(paths), cx);
                     keep_a_daily_copy(paths, cx);
                 }

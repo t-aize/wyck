@@ -37,7 +37,7 @@
 //!   fetched when the user scrolls near the oldest point held.
 //! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
 //!   it keeps one subscription per symbol and period however many charts show it.
-//! - Drawings ([`drawing`]) are anchored to times and prices, so they follow the chart when it
+//! - Drawings ([`crate::app::drawings`]) are anchored to times and prices, so they follow the chart when it
 //!   moves and show on every timeframe of their symbol.
 //!
 //! # Where the data comes from

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app::workspace::Saver;
 
-use crate::ui::kit::theme::{self, Colors};
+use crate::domain::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN, contrast as contrast_ratio};
 use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
 
 /// The name of the document.
@@ -166,7 +166,7 @@ impl ColorField {
 fn with_accent(colors: &mut Colors, accent: u32) {
     colors.accent = accent;
     // Black or white on it, whichever reads better.
-    colors.accent_fg = if theme::contrast(0x0a0a0a, accent) >= theme::contrast(0xffffff, accent) {
+    colors.accent_fg = if contrast_ratio(0x0a0a0a, accent) >= contrast_ratio(0xffffff, accent) {
         0x0a0a0a
     } else {
         0xffffff
@@ -288,10 +288,7 @@ impl Appearance {
         ] {
             *color = color.map(|c| c & 0xff_ffff);
         }
-        self.ui_scale = self.ui_scale.clamp(
-            crate::ui::kit::tokens::SCALE_MIN,
-            crate::ui::kit::tokens::SCALE_MAX,
-        );
+        self.ui_scale = self.ui_scale.clamp(SCALE_MIN, SCALE_MAX);
         self.font = self.font.trim().chars().take(80).collect();
         if self.font.is_empty() {
             self.font = default_font();
@@ -452,6 +449,8 @@ impl Appearance {
 }
 
 struct State {
+    /// Puts a look in force on screen; given by the UI at startup.
+    apply: fn(&Look, &mut App),
     appearance: Appearance,
     system_dark: bool,
     /// Writes the look a moment after the last change, and when the app closes.
@@ -462,10 +461,11 @@ impl Global for State {}
 
 /// Loads the saved look and puts it in force. Call once at startup, before a window opens, so the
 /// first frame is already the right one.
-pub fn init(store: DocumentStore, cx: &mut App) {
+pub fn init(store: DocumentStore, apply: fn(&Look, &mut App), cx: &mut App) {
     let appearance = store.load_or_default::<Appearance>(DOCUMENT).normalized();
     let system_dark = system_is_dark(cx);
     cx.set_global(State {
+        apply,
         appearance,
         system_dark,
         saver: Saver::new(store, DOCUMENT),
@@ -547,28 +547,19 @@ pub fn refresh_system(cx: &mut App) {
 }
 
 fn put_in_force(cx: &mut App) {
-    let (colors, animations, font, scale) = {
+    let (look, apply) = {
         let state = cx.global::<State>();
         (
-            state.appearance.resolve(state.system_dark),
-            state.appearance.animations,
-            state.appearance.font.clone(),
-            state.appearance.ui_scale,
+            Look {
+                colors: state.appearance.resolve(state.system_dark),
+                animations: state.appearance.animations,
+                font: state.appearance.font.clone(),
+                scale: state.appearance.ui_scale,
+            },
+            state.apply,
         )
     };
-    crate::ui::kit::anim::set_enabled(animations);
-    crate::ui::kit::tokens::set_scale(scale);
-    // The text drawn on the charts follows it, as the widgets do.
-    crate::domain::chart::text_scale::set(scale);
-    // What is sized in rems (the components of gpui-kit) follows the same scale.
-    for window in cx.windows() {
-        let _ = window.update(cx, |_, window, _| {
-            window.set_rem_size(gpui::px(16.0 * scale as f32 / 100.0));
-        });
-    }
-    theme::set_font(Some(&font));
-    theme::set_colors(colors);
-    theme::apply(cx);
+    apply(&look, cx);
 }
 
 /// Writes the settings now, for what is about to read the file (a backup).
@@ -588,18 +579,12 @@ mod tests {
             ui_scale: 900,
             ..Appearance::default()
         };
-        assert_eq!(
-            huge.normalized().ui_scale,
-            crate::ui::kit::tokens::SCALE_MAX
-        );
+        assert_eq!(huge.normalized().ui_scale, SCALE_MAX);
         let tiny = Appearance {
             ui_scale: 3,
             ..Appearance::default()
         };
-        assert_eq!(
-            tiny.normalized().ui_scale,
-            crate::ui::kit::tokens::SCALE_MIN
-        );
+        assert_eq!(tiny.normalized().ui_scale, SCALE_MIN);
     }
 
     #[test]
@@ -610,7 +595,7 @@ mod tests {
             let mut colors = Colors::default();
             with_accent(&mut colors, accent);
             assert!(
-                theme::contrast(colors.accent_fg, accent) >= 4.5,
+                contrast_ratio(colors.accent_fg, accent) >= 4.5,
                 "{accent:06x}"
             );
             let other = if colors.accent_fg == 0x0a0a0a {
@@ -619,7 +604,7 @@ mod tests {
                 0x0a0a0a
             };
             assert!(
-                theme::contrast(colors.accent_fg, accent) >= theme::contrast(other, accent),
+                contrast_ratio(colors.accent_fg, accent) >= contrast_ratio(other, accent),
                 "the better of black and white is picked for {accent:06x}"
             );
         }

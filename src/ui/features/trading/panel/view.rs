@@ -18,7 +18,9 @@ use super::dialogs::{Target, open_alert, open_protection};
 use super::stats::HistoryStats;
 use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
 use crate::app::account::{Account, Status};
-use crate::app::prefs::panel::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
+use crate::app::prefs::panel::{
+    HistoryRange, PanelPrefs, RowAction, RowDensity, SideFilter, Stat, Tab,
+};
 use crate::app::prefs::ticket::Slot;
 use crate::domain::trading::math::format_money;
 use crate::ui::kit::{
@@ -1121,8 +1123,8 @@ impl AccountPanel {
     fn table_view(&self, table: &Table, menu: &popup::Menu, cx: &mut Context<Self>) -> AnyElement {
         let prefs: &PanelPrefs = &self.prefs;
         let tab = table.tab;
-        let height = tokens::scaled(prefs.density.height());
-        let text = tokens::scaled(prefs.density.text());
+        let height = tokens::scaled(density_height(prefs.density));
+        let text = tokens::scaled(density_text(prefs.density));
         // The width the buttons of the rows take, from the first row that has some.
         let has_more = |row: &Row| matches!(row.kind, RowKind::Position(_) | RowKind::Order { .. });
         let buttons_w = table.rows.first().map_or(0.0, |row| {
@@ -1722,5 +1724,22 @@ impl Render for AccountPanel {
             )
             .child(body)
             .children(menu.popup(context_items, popup::Placement::Cursor, window, cx))
+    }
+}
+
+/// The height of a row at a density, in pixels.
+fn density_height(density: RowDensity) -> f32 {
+    match density {
+        RowDensity::Compact => tokens::height::compact(),
+        RowDensity::Comfortable => tokens::height::control(),
+        RowDensity::Roomy => tokens::height::large(),
+    }
+}
+
+/// The size of the text of a row at a density, in pixels.
+fn density_text(density: RowDensity) -> f32 {
+    match density {
+        RowDensity::Compact => tokens::text::small(),
+        RowDensity::Comfortable | RowDensity::Roomy => tokens::text::body(),
     }
 }

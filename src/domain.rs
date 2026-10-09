@@ -2,6 +2,7 @@
 //!
 //! Pure code. Nothing here reads a file, opens a socket or draws a pixel: a layer above does.
 
+pub mod appearance;
 pub mod chart;
 pub mod drawings;
 pub mod flex;

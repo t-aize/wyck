@@ -15,9 +15,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 /// The scale in force, in percent.
 static SCALE: AtomicU32 = AtomicU32::new(100);
 
-/// The least and the most the interface can be scaled to, in percent.
-pub const SCALE_MIN: u32 = 80;
-pub const SCALE_MAX: u32 = 160;
+pub use crate::domain::appearance::{SCALE_MAX, SCALE_MIN};
 
 /// Sets the size of the interface, in percent (100 is the size the app was drawn at). It is kept
 /// between [`SCALE_MIN`] and [`SCALE_MAX`]. Screens read it as they paint.

@@ -67,7 +67,7 @@ fn allowed(from: &str, to: &str) -> bool {
         "domain" => false,
         "infra" => to == "domain",
         "app" => matches!(to, "domain" | "infra"),
-        "ui::kit" => false,
+        "ui::kit" => to == "domain",
         "ui::shell" => {
             matches!(to, "domain" | "app" | "ui::kit") || to.starts_with("ui::features::")
         }

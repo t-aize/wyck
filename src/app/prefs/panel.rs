@@ -11,7 +11,6 @@ use super::columns::{
     AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs,
 };
 use crate::app::prefs::ticket::{Placed, Slot, default_list, mend};
-use crate::ui::kit::tokens;
 
 /// A tab of the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -155,23 +154,6 @@ impl RowDensity {
             Self::Compact => "Compact",
             Self::Comfortable => "Comfortable",
             Self::Roomy => "Roomy",
-        }
-    }
-
-    /// The height of a row, in pixels.
-    pub fn height(self) -> f32 {
-        match self {
-            Self::Compact => tokens::height::compact(),
-            Self::Comfortable => tokens::height::control(),
-            Self::Roomy => tokens::height::large(),
-        }
-    }
-
-    /// The size of the text, in pixels.
-    pub fn text(self) -> f32 {
-        match self {
-            Self::Compact => tokens::text::small(),
-            Self::Comfortable | Self::Roomy => tokens::text::body(),
         }
     }
 }
