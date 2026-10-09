@@ -388,7 +388,9 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+                crate::ui::kit::shortcut::text(&format!(
+                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
+                )),
             ),
         }
         cx.notify();
@@ -565,7 +567,9 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+                crate::ui::kit::shortcut::text(&format!(
+                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
+                )),
             ),
         }
         cx.notify();
@@ -637,7 +641,9 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                format!("The limit is {limit} alerts. Change it in Settings (Ctrl+,)."),
+                crate::ui::kit::shortcut::text(&format!(
+                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
+                )),
             ),
         }
         cx.notify();

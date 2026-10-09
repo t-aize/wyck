@@ -193,7 +193,7 @@ impl Dashboard {
         let run =
             |label: &'static str,
              icon: IconName,
-             hint: Option<&'static str>,
+             hint: Option<gpui::SharedString>,
              action: fn(&mut Dashboard, &mut Window, &mut Context<Dashboard>)| {
                 let (entity, menu) = (entity.clone(), menu.clone());
                 let mut entry = Entry::new(label).icon(icon).on_click(move |window, cx| {
@@ -218,7 +218,7 @@ impl Dashboard {
             run(
                 "Indicator editor",
                 IconName::CodeXml,
-                Some("Ctrl+Shift+E"),
+                Some(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
                 |d, _, cx| {
                     d.toggle_editor(cx);
                 },

@@ -778,10 +778,10 @@ impl Chart {
                 cx,
                 crate::ui::kit::toast::Kind::Warning,
                 "Indicator limit reached",
-                format!(
+                crate::ui::kit::shortcut::text(&format!(
                     "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",
                     self.max_studies
-                ),
+                )),
             );
             return;
         }

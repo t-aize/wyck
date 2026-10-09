@@ -762,7 +762,7 @@ impl Dashboard {
                 crate::ui::kit::button::outlined("open-settings")
                     .w_full()
                     .icon(IconName::Settings)
-                    .label("Settings  (Ctrl+,)")
+                    .label(crate::ui::kit::shortcut::text("Settings  (Ctrl+,)"))
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.menu_open = false;
                         cx.notify();

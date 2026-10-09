@@ -9,7 +9,7 @@ impl IndicatorEditor {
         id: &'static str,
         icon: IconName,
         label: Option<&'static str>,
-        tip: &'static str,
+        tip: impl Into<SharedString>,
         enabled: bool,
     ) -> Button {
         let button = crate::ui::kit::button::dense(id)
@@ -122,7 +122,7 @@ impl IndicatorEditor {
                     "editor-save",
                     IconName::Save,
                     Some("Save"),
-                    "Save (Ctrl+S)",
+                    crate::ui::kit::shortcut::text("Save (Ctrl+S)"),
                     has_doc && dirty,
                 )
                 .on_click(move |_, window, cx| {
@@ -134,7 +134,9 @@ impl IndicatorEditor {
                     "editor-add",
                     IconName::Play,
                     Some("Add to chart"),
-                    "Save, and put it on the active chart (Ctrl+Enter or F5)",
+                    crate::ui::kit::shortcut::text(
+                        "Save, and put it on the active chart (Ctrl+Enter or F5)",
+                    ),
                     has_doc,
                 )
                 .on_click(move |_, window, cx| {
@@ -192,7 +194,7 @@ impl IndicatorEditor {
                     "editor-reference",
                     IconName::BookOpen,
                     Some("Reference"),
-                    "Every function of the language (Ctrl+Alt+R)",
+                    crate::ui::kit::shortcut::text("Every function of the language (Ctrl+Alt+R)"),
                     true,
                 )
                 .toggled(reference_open)

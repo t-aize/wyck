@@ -150,7 +150,9 @@ impl Chart {
                 cx,
                 crate::ui::kit::toast::Kind::Warning,
                 "Drawing limit reached",
-                "Change the drawings per symbol limit in Settings (Ctrl+,).",
+                crate::ui::kit::shortcut::text(
+                    "Change the drawings per symbol limit in Settings (Ctrl+,).",
+                ),
             );
             return true;
         }

@@ -11,4 +11,5 @@ gpui rendering. Read the layer table in `docs/architecture.md` and `docs/ui-desi
 - `shell` assembles features: the window root, the dashboard, the sign-in modal, the settings.
 - Key bindings sit next to the actions they bind; `src/keymap_guard.rs` fails on a duplicate in
   one context.
-- A shortcut hint is read from the binding, not typed as "Ctrl+...".
+- Bindings use `secondary` (Cmd on macOS, Ctrl elsewhere). A hint is written with "Ctrl" and
+  passed through `ui::kit::shortcut::text`, which says "Cmd" on a Mac.

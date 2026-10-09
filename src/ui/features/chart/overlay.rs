@@ -349,17 +349,17 @@ impl Chart {
                 .into(),
             Entry::new("Copy indicators")
                 .icon(IconName::Copy)
-                .hint("Ctrl/Cmd+C")
+                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+C"))
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
                 .into(),
             Entry::new("Copy chart settings")
                 .icon(IconName::Copy)
-                .hint("Ctrl/Cmd+Shift+C")
+                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+Shift+C"))
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
                 .into(),
             Entry::new("Paste on this chart")
                 .icon(IconName::ClipboardPaste)
-                .hint("Ctrl/Cmd+V")
+                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+V"))
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
                 .into(),
             Item::Separator,
@@ -376,12 +376,12 @@ impl Chart {
                 .into(),
             Entry::new("Take a picture of the chart")
                 .icon(IconName::Camera)
-                .hint("Ctrl+Shift+S")
+                .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+S"))
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
                 .into(),
             Entry::new("Take a picture of all the charts")
                 .icon(IconName::Images)
-                .hint("Ctrl+Alt+Shift+S")
+                .hint(crate::ui::kit::shortcut::text("Ctrl+Alt+Shift+S"))
                 .disabled(self.layout_charts < 2)
                 .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
                 .into(),

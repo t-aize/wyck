@@ -32,7 +32,7 @@ fn tool(
     id: impl Into<SharedString>,
     icon: IconName,
     label: Option<String>,
-    tip: &'static str,
+    tip: impl Into<SharedString>,
     active: bool,
 ) -> gpui::Stateful<gpui::Div> {
     let ink = if active {
@@ -217,7 +217,7 @@ impl Chart {
                 menu,
                 Entry::new("Indicator editor")
                     .icon(IconName::CodeXml)
-                    .hint("Ctrl+Shift+E"),
+                    .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
                 |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::Open)),
                 cx,
             ),
@@ -434,7 +434,7 @@ impl Chart {
                     "chart-picture",
                     IconName::Camera,
                     None,
-                    "Take a picture (Ctrl+Shift+S)",
+                    crate::ui::kit::shortcut::text("Take a picture (Ctrl+Shift+S)"),
                     false,
                 )
                 .on_click(cx.listener(|_, _, _, cx| cx.emit(ChartEvent::Screenshot))),

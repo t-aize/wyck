@@ -86,7 +86,7 @@ impl MultiChart {
         rail = rail.child(
             crate::ui::kit::button::quiet("draw-search")
                 .icon(IconName::Search)
-                .tooltip("Find a tool (Ctrl+Shift+F)")
+                .tooltip(crate::ui::kit::shortcut::text("Find a tool (Ctrl+Shift+F)"))
                 .toggled(searching)
                 .on_click(cx.listener(|this, _event, window, cx| {
                     if this.tool_search {
@@ -210,7 +210,7 @@ impl MultiChart {
         .child(
             crate::ui::kit::button::quiet("draw-undo")
                 .icon(IconName::Undo2)
-                .tooltip("Undo (Ctrl+Z)")
+                .tooltip(crate::ui::kit::shortcut::text("Undo (Ctrl+Z)"))
                 .disabled(!can_undo)
                 .when(!can_undo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
@@ -218,7 +218,7 @@ impl MultiChart {
         .child(
             crate::ui::kit::button::quiet("draw-redo")
                 .icon(IconName::Redo2)
-                .tooltip("Redo (Ctrl+Shift+Z)")
+                .tooltip(crate::ui::kit::shortcut::text("Redo (Ctrl+Shift+Z)"))
                 .disabled(!can_redo)
                 .when(!can_redo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
@@ -991,7 +991,7 @@ impl MultiChart {
             .child(
                 crate::ui::kit::button::quiet("draw-copy")
                     .icon(IconName::Copy)
-                    .tooltip("Duplicate (Ctrl+D)")
+                    .tooltip(crate::ui::kit::shortcut::text("Duplicate (Ctrl+D)"))
                     .on_click(cx.listener(|this, _event, _window, cx| this.duplicate_drawing(cx))),
             )
             .child(
