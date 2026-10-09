@@ -1,15 +1,14 @@
 //! The session against the scripted server: it must come up, stay up across dropped connections,
 //! restore what the program subscribed to, renew the tokens, and stop cleanly.
 
-mod support;
 
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use secrecy::ExposeSecret;
 use serde_json::{Value, json};
-use support::http::{TokenServer, token_server_sequence, tokens_body};
-use support::{Handler, MockServer, Reply, answers};
+use crate::support::http::{TokenServer, token_server_sequence, tokens_body};
+use crate::support::{Handler, MockServer, Reply, answers};
 use tokio::sync::Notify;
 use tokio::sync::broadcast::Receiver;
 use wyck::infra::ctrader::auth::{TokenSet, parse_token_response};

@@ -1,14 +1,13 @@
 //! The connection against a scripted local server: sign in, requests, answers, errors, events, the
 //! end of the connection, and rate limit refusals. Market data calls are in `tests/market.rs`.
 
-mod support;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use support::{MockServer, Reply, answers, config, connect};
+use crate::support::{MockServer, Reply, answers, config, connect};
 use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
@@ -393,10 +392,10 @@ async fn unusable_settings_are_refused_before_connecting() {
 
 // ---- rate limit refusals ----
 
-fn blocked_then_ok(blocked_times: usize) -> (Arc<AtomicUsize>, support::Handler) {
+fn blocked_then_ok(blocked_times: usize) -> (Arc<AtomicUsize>, crate::support::Handler) {
     let seen = Arc::new(AtomicUsize::new(0));
     let counter = seen.clone();
-    let handler: support::Handler = Arc::new(move |request| {
+    let handler: crate::support::Handler = Arc::new(move |request| {
         if request.payload_type != payload::VERSION_REQ {
             return vec![];
         }

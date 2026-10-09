@@ -33,7 +33,7 @@
 //! ```sh
 //! cp .env.example .env
 //! # Fill in the client credentials, demo account id and OAuth tokens.
-//! cargo test --test openapi_live -- --ignored --nocapture
+//! cargo test --test ctrader live -- --ignored --nocapture
 //! ```
 //!
 //! `.env` is loaded once, through `dotenvy`,

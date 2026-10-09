@@ -19,7 +19,7 @@ recipes are in `docs/`.
 
 - `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`, `cargo test`,
   `cargo fmt`, `cargo doc --no-deps` (with `RUSTDOCFLAGS=-D warnings`), `cargo deny check`.
-- `cargo test --test openapi_live -- --ignored` talks to a real demo account (needs `.env`).
+- `cargo test --test ctrader live -- --ignored` talks to a real demo account (needs `.env`).
 
 ## Never
 

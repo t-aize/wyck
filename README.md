@@ -112,7 +112,7 @@ Testing the cTrader client against a real cTrader demo account, end to end, is a
 Fill in `.env` from [.env.example](.env.example), then:
 
 ```sh
-cargo test --test openapi_live -- --ignored --nocapture
+cargo test --test ctrader live -- --ignored --nocapture
 ```
 
 ## Checks

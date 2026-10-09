@@ -1,14 +1,13 @@
 //! `MarketClient` against a scripted local server: symbols, subscriptions, price events, and
 //! history (one page and a whole range paged).
 
-mod support;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use support::{MockServer, answers, connect};
+use crate::support::{MockServer, answers, connect};
 use wyck::infra::ctrader::market::{MarketClient, Period, QuoteType};
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{Client, Event};
@@ -222,7 +221,7 @@ async fn a_long_tick_range_is_fetched_backwards_page_by_page() {
         } else {
             json!({"tickData": [{"timestamp": 3999, "tick": 1}, {"timestamp": -500, "tick": 0}], "hasMore": false})
         };
-        vec![support::Reply::Answer(payload::GET_TICK_DATA_RES, body)]
+        vec![crate::support::Reply::Answer(payload::GET_TICK_DATA_RES, body)]
     }))
     .await;
     let market = market(&server).await;
@@ -297,7 +296,7 @@ async fn a_truncated_bar_answer_is_continued_from_the_missing_side() {
             .iter()
             .map(|i| json!({"volume": 1, "low": 100, "deltaOpen": 1, "deltaClose": 1, "deltaHigh": 2, "utcTimestampInMinutes": minute(*i)}))
             .collect();
-        vec![support::Reply::Answer(
+        vec![crate::support::Reply::Answer(
             payload::GET_TRENDBARS_RES,
             json!({"trendbar": bars, "hasMore": page == 0}),
         )]
@@ -332,7 +331,7 @@ async fn history_requests_are_spread_to_the_configured_rate() {
         json!({"tickData": [], "hasMore": false}),
     )]))
     .await;
-    let mut config = support::config(&server);
+    let mut config = crate::support::config(&server);
     config.historical_rate = 2;
     let client = Client::connect(&config).await.unwrap();
     let market = client.account(1).market();

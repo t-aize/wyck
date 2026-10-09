@@ -4,7 +4,6 @@
 //! faster than a reader can take them, the peer vanishes without a goodbye, and hundreds of
 //! requests fly at once. None of that may hang the client, panic it, or mix up answers.
 
-mod support;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -12,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use serde_json::json;
-use support::{MockServer, Reply, answers, config, connect};
+use crate::support::{MockServer, Reply, answers, config, connect};
 use tokio::sync::broadcast::error::RecvError;
 use wyck::infra::ctrader::config::ConnectionConfig;
 use wyck::infra::ctrader::transport::wire::payload;
