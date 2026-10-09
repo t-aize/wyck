@@ -23,8 +23,8 @@ Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, int
 | 10 | Design system and screen migration | done for buttons, fields and tokens; spacing classes, menus and modals still to unify |
 | 11 | Sign-in modal | done, to try by hand |
 | 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
-| 13 | Domain and cTrader client hardening | todo |
-| 14 | Documentation pass | todo |
+| 13 | Domain and cTrader client hardening | done, see the notes below for what was left out |
+| 14 | Documentation pass | doing |
 
 ## Phase 0 checklist
 
@@ -36,6 +36,35 @@ Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, int
 - [x] Key binding collisions fixed: the rectangle tool moves to `Alt+X`, the tool finder to
       `Ctrl+Shift+F`; `src/keymap_guard.rs` fails on any duplicate binding in one context.
 - [x] Create this roadmap and the decision records folder.
+
+## Phase 13 notes
+
+Done:
+
+- A connection that says nothing for `silence_timeout` (30 s) is dropped and replaced; the
+  transport pings on every heartbeat.
+- A token endpoint answering 5xx, 429 or 408 is retried; only an explicit refusal ends the session.
+- A token store that fails to save a refreshed pair no longer ends the session
+  (`SessionEvent::TokensNotSaved`).
+- The backoff starts over only after a connection that lasted `stable_after` (30 s).
+- Tokens are renewed on a live connection when they come within `refresh_margin` of expiry.
+- A refused sign in has its own `ErrorKind::SignIn`; the callback listener no longer spins on
+  `accept` errors.
+- Order time in force is built from `TimeInForce` (`NewOrderReq::with_time_in_force`).
+- Dead code removed: `SymbolTable`, `SpotTracker`, `DepthBook`, `Client::refresh_tokens`.
+- `SoundError` and `LoadConfigError` replace two `Result<_, String>`; `ConfigError` is
+  `non_exhaustive`.
+
+Left out, on purpose:
+
+- The OAuth `state` stays optional in the redirect: the portal's documentation does not say it
+  echoes the parameter, and a mandatory check could lock every user out. Make it mandatory after
+  a live sign in confirms the echo (`auth/callback.rs`, `parse_redirect`).
+- The alert pip fallback from decimals (`alerts::model::pip_from_digits`) stays for the moment
+  before a contract is read; every other pip comes from `domain::market::pip_size`.
+- The remaining `Result<_, String>` are texts shown to the user as they are (ticket, raster,
+  paint, library import, updates); typing them is a refactor with little gain.
+- DTO to domain mapping (`infra::ctrader::mapping`) and typed `Side` for positions: not started.
 
 ## Decisions
 
