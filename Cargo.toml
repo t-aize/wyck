@@ -13,6 +13,15 @@ categories = ["finance", "gui"]
 description = "Desktop trading terminal for cTrader."
 default-run = "wyck"
 
+[lib]
+name = "wyck"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wyck"
+path = "src/main.rs"
+doc = false
+
 # Transitional: the crates below are merged into this package one by one (see docs/ROADMAP.md).
 [workspace]
 members = ["crates/wyck-chart", "crates/wyck-config", "crates/wyck-openapi", "crates/wyck-ui"]
