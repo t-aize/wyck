@@ -26,13 +26,13 @@ use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;
 use gpui::{App, Context, Entity, EventEmitter};
 
+use crate::app::drawings::Drawings;
 use crate::app::market_data::live::{LiveHub, Wish};
 use crate::app::market_data::load;
 use crate::app::market_data::load::Loaded;
 use crate::app::market_data::now_ms;
 use crate::app::workspace::Saver;
 use crate::infra::platform::runtime;
-use crate::ui::features::chart::drawing::Drawings;
 
 pub mod eval;
 pub mod model;

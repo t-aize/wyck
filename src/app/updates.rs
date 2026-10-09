@@ -7,13 +7,11 @@ use cargo_packager_updater::semver::Version;
 use cargo_packager_updater::{
     Config, Update, UpdaterBuilder, WindowsConfig, WindowsUpdateInstallMode,
 };
-use gpui::{App, BorrowAppContext, Entity, Global, Subscription};
+use gpui::{App, BorrowAppContext, Global, Subscription};
 
 use crate::app::appearance;
 use crate::infra::platform::build_info::{BuildMode, VERSION};
 use crate::infra::platform::runtime;
-use crate::ui::features::multichart::MultiChart;
-use crate::ui::kit::toast;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
 pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
@@ -105,8 +103,9 @@ fn set(state: UpdateState, update: Option<Update>, cx: &mut App) {
     }
 }
 
-/// Checks the stable release manifest. Startup checks only announce an available update.
-pub fn check(cx: &mut App, announce_available: bool) {
+/// Checks the stable release manifest. With `announce`, an available update is announced through
+/// it (it gets the version); without, the new state is only recorded.
+pub fn check(cx: &mut App, announce: Option<fn(&str, &mut App)>) {
     if !BuildMode::CURRENT.is_production()
         || cx
             .try_global::<Service>()
@@ -131,13 +130,8 @@ pub fn check(cx: &mut App, announce_available: bool) {
                     Some(update),
                     cx,
                 );
-                if announce_available {
-                    toast::show(
-                        cx,
-                        toast::Kind::Info,
-                        "Wyck update available",
-                        format!("Version {version} can be installed from Settings > About."),
-                    );
+                if let Some(announce) = announce {
+                    announce(&version, cx);
                 }
             }
             Ok(None) => set(UpdateState::UpToDate, None, cx),
@@ -173,7 +167,8 @@ fn stable_newer(current: &Version, candidate: &Version) -> bool {
 }
 
 /// Downloads, verifies and installs the update kept by the last successful check.
-pub fn install(multi: Entity<MultiChart>, cx: &mut App) {
+/// `before_install` runs once the download is verified, to save what the app keeps in memory.
+pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
     let Some(update) = cx
         .try_global::<Service>()
         .and_then(|service| service.update.clone())
@@ -205,7 +200,7 @@ pub fn install(multi: Entity<MultiChart>, cx: &mut App) {
         };
 
         cx.update(|cx| {
-            multi.read(cx).flush_documents(cx);
+            before_install(cx);
             appearance::save_now(cx);
             set(
                 UpdateState::Installing {

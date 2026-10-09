@@ -33,6 +33,17 @@ use crate::ui::kit::{
 };
 
 mod about;
+
+/// Tells the user an update can be installed from the settings.
+pub fn announce_update(version: &str, cx: &mut App) {
+    crate::ui::kit::toast::show(
+        cx,
+        crate::ui::kit::toast::Kind::Info,
+        "Wyck update available",
+        format!("Version {version} can be installed from Settings > About."),
+    );
+}
+
 mod alerts;
 mod behaviour;
 mod charts;

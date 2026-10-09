@@ -1,7 +1,7 @@
 //! The drawing tools of the multichart: the rail of tools on the left, the list of tools of a
 //! family that opens beside it, and the bar of options over a selected drawing.
 //!
-//! What a drawing is and how the pointer makes one lives in [`crate::ui::features::chart::drawing`]; this
+//! What a drawing is and how the pointer makes one lives in [`crate::domain::drawings`]; this
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
 use crate::ui::kit::icon::IconName;

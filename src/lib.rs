@@ -122,7 +122,7 @@ pub fn run() {
             })
             .expect("failed to open the main window");
 
-            updates::check(cx, true);
+            updates::check(cx, Some(ui::shell::settings_hub::announce_update));
 
             cx.activate(true);
         });

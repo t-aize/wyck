@@ -5,6 +5,7 @@ pub mod account;
 pub mod alerts;
 pub mod appearance;
 pub mod broker;
+pub mod drawings;
 pub mod market_data;
 pub mod prefs;
 pub mod scripts;

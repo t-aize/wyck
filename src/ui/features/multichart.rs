@@ -32,6 +32,7 @@ use gpui::{
 use self::layouts::{LayoutKey, layout};
 use self::links::{Follow, Link, Links};
 use self::split::{Divider, Node};
+use crate::app::drawings::Drawings;
 use crate::app::market_data::live::{LiveHub, LiveUpdate};
 use crate::app::workspace::{
     ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace,
@@ -39,7 +40,6 @@ use crate::app::workspace::{
 use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::drawings::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
 use crate::domain::indicators::StudyConfig;
-use crate::ui::features::chart::drawing::Drawings;
 use crate::ui::features::chart::{
     Chart, ChartAction, ChartEvent, ChartLine, ChartSettings, EditorRequest, LineId,
 };

@@ -5,13 +5,13 @@
 use crate::domain::market::PRICE_SCALE;
 use gpui::{App, Context, Entity, Window};
 
-use super::drawing::Drawings;
 use super::projection::ChartProjection;
 use super::study::StudyKind;
 use super::{
     Chart, ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan, drawing_props,
     object_tree,
 };
+use crate::app::drawings::Drawings;
 use crate::domain::drawings::book::{Book, Order, Press};
 use crate::domain::drawings::model::Tool;
 use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};

@@ -56,7 +56,6 @@ mod construction_ui;
 mod custom_runs;
 use crate::domain::chart::data;
 use crate::domain::chart::display;
-pub mod drawing;
 pub mod drawing_props;
 mod export_ui;
 use crate::domain::chart::flow;
@@ -102,7 +101,6 @@ use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, Share
 
 use self::data::Series;
 use self::display::Display;
-use self::drawing::Drawings;
 use self::flow::Flow;
 use self::flow_sync::{FlowLoad, HeldQuote};
 pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
@@ -112,6 +110,7 @@ pub use self::settings::{ChartKind, ChartSettings};
 use self::study::StudyConfig;
 pub use self::timeframe::{GROUPS, Timeframe, Unit};
 use self::view::View;
+use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
 
 fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {

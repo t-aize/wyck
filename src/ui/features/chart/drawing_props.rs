@@ -12,10 +12,10 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 
 use super::Chart;
-use super::drawing::Drawings;
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
+use crate::app::drawings::Drawings;
 use crate::domain::drawings::extras::{ICONS, icon_key};
 use crate::domain::drawings::figures::wave_names;
 use crate::domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};

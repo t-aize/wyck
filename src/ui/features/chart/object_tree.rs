@@ -6,9 +6,9 @@ use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 
-use super::drawing::Drawings;
 use super::drawing_props;
 use super::zone::Zone;
+use crate::app::drawings::Drawings;
 use crate::domain::drawings::book::{Book, Order};
 use crate::domain::drawings::model::{Drawing, Tool};
 use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};

@@ -75,7 +75,10 @@ impl SettingsHub {
                                 cx,
                                 "Update and restart?",
                                 "Wyck will close after saving pending workspace and appearance changes. The downloaded update is installed only after its signature is verified.",
-                                move |_window, cx| updates::install(multi.clone(), cx),
+                                move |_window, cx| {
+                                    let multi = multi.clone();
+                                    updates::install(move |cx| multi.read(cx).flush_documents(cx), cx);
+                                },
                             );
                         },
                     )
@@ -102,7 +105,7 @@ impl SettingsHub {
                     "Check again",
                     Some(IconName::RefreshCw),
                     false,
-                    |_window, cx| updates::check(cx, true),
+                    |_window, cx| updates::check(cx, Some(super::announce_update)),
                 )
                 .into_any_element(),
             ),
