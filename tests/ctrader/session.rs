@@ -723,9 +723,9 @@ async fn a_refused_refresh_ends_the_session_without_ever_connecting() {
 }
 
 #[tokio::test]
-async fn an_unreadable_refusal_from_the_token_endpoint_ends_the_session() {
+async fn a_failing_token_endpoint_is_retried_not_taken_as_a_refusal() {
     let server = MockServer::start(answers(healthy())).await;
-    // A gateway error with a page instead of a token answer: the endpoint answered, and refused.
+    // A gateway error with a page instead of a token answer says nothing about the token.
     let token_server = token_server_sequence(vec![
         ("502 Bad Gateway", "<html>down</html>".to_owned()),
         ("200 OK", tokens_body("AT-2", "RT-2", 2_592_000)),
@@ -735,8 +735,25 @@ async fn an_unreadable_refusal_from_the_token_endpoint_ends_the_session() {
     config.token_url = Some(token_server.url.clone());
     let (session, _) = start(config, tokens("AT-1", "RT-1", 100));
     let mut events = session.events();
-    // The endpoint was reached, so this is not a failure to reach it: the session ends (only a
-    // failure to reach the endpoint is retried).
+    let end = next_event(&mut events, |e| {
+        matches!(e, SessionEvent::Failed(_) | SessionEvent::Ready)
+    })
+    .await;
+    assert!(matches!(end, SessionEvent::Ready), "{end:?}");
+}
+
+#[tokio::test]
+async fn a_refusal_from_the_token_endpoint_ends_the_session() {
+    let server = MockServer::start(answers(healthy())).await;
+    let token_server = token_server_sequence(vec![(
+        "400 Bad Request",
+        r#"{"errorCode":"INVALID_REQUEST","description":"refresh token expired"}"#.to_owned(),
+    )])
+    .await;
+    let mut config = config(&server.url);
+    config.token_url = Some(token_server.url.clone());
+    let (session, _) = start(config, tokens("AT-1", "RT-1", 100));
+    let mut events = session.events();
     let end = next_event(&mut events, |e| {
         matches!(e, SessionEvent::Failed(_) | SessionEvent::Ready)
     })

@@ -282,6 +282,13 @@ impl OAuthClient {
             warn!(grant_type, %status, %error, "the token answer could not be read");
             Error::Transport(format!("the token answer could not be read: {error}"))
         })?;
+        // A busy or failing endpoint says nothing about the token: it is retried, not a refusal.
+        if is_transient(status) {
+            warn!(grant_type, %status, "the token endpoint is unavailable");
+            return Err(Error::Transport(format!(
+                "the token endpoint answered {status}"
+            )));
+        }
         let result = match parse_token_response(&body, SystemTime::now()) {
             Ok(tokens) if status.is_success() => Ok(tokens),
             Ok(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
@@ -304,6 +311,13 @@ impl OAuthClient {
         }
         result
     }
+}
+
+/// Statuses that mean "try again later" rather than "the token is bad".
+fn is_transient(status: reqwest::StatusCode) -> bool {
+    status.is_server_error()
+        || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+        || status == reqwest::StatusCode::REQUEST_TIMEOUT
 }
 
 #[cfg(test)]
@@ -329,6 +343,22 @@ mod tests {
         assert_eq!(pairs["product"], "web");
         assert_eq!(pairs["state"], "st4te");
         assert!(!url.contains(' '), "spaces are encoded");
+    }
+
+    #[test]
+    fn only_busy_statuses_are_transient() {
+        use reqwest::StatusCode as S;
+        for status in [
+            S::BAD_GATEWAY,
+            S::INTERNAL_SERVER_ERROR,
+            S::TOO_MANY_REQUESTS,
+            S::REQUEST_TIMEOUT,
+        ] {
+            assert!(is_transient(status), "{status}");
+        }
+        for status in [S::OK, S::BAD_REQUEST, S::UNAUTHORIZED, S::FORBIDDEN] {
+            assert!(!is_transient(status), "{status}");
+        }
     }
 
     #[test]
