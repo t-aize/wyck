@@ -12,6 +12,7 @@ use crate::domain::trading::{OrderType, Position, money};
 use serde_json::Value;
 
 use super::stats::{self, HistoryStats};
+use crate::app::account::{Account, Busy};
 use crate::app::alerts::Alerts;
 use crate::app::market_data::now_ms;
 use crate::app::prefs::columns::{
@@ -20,10 +21,9 @@ use crate::app::prefs::columns::{
 use crate::app::prefs::panel::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use crate::app::prefs::ticket::Slot;
 use crate::domain::chart::zone::Zone;
+use crate::domain::trading::book::is_buy;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, format_money};
-use crate::ui::features::trading::account::{Account, Busy};
-use crate::ui::features::trading::book::is_buy;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -18,10 +18,10 @@ use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
 use super::stats::HistoryStats;
 use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
+use crate::app::account::{Account, Status};
 use crate::app::prefs::panel::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use crate::app::prefs::ticket::Slot;
 use crate::domain::trading::math::format_money;
-use crate::ui::features::trading::account::{Account, Status};
 use crate::ui::kit::{
     button,
     confirm::confirm,
@@ -357,7 +357,7 @@ impl AccountPanel {
                 Some(p) if p < 0.0 => losers.push(id),
                 _ => {}
             }
-            if crate::ui::features::trading::book::is_buy(position.trade_data.trade_side) {
+            if crate::domain::trading::book::is_buy(position.trade_data.trade_side) {
                 buys.push(id);
             } else {
                 sells.push(id);

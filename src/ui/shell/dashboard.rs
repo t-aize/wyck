@@ -36,6 +36,7 @@ use tokio::sync::broadcast::error::RecvError;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
+use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{PEEK_OWNER, Wish};
@@ -46,7 +47,6 @@ use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::drawing::Drawings;
 use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent, SymbolRef};
-use crate::ui::features::trading::account::Account;
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::ticket::OrderTicket;
 use crate::ui::kit::{button, icon, theme, toast, tokens};

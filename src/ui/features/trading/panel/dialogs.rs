@@ -7,11 +7,11 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputState};
 
+use crate::app::account::Account;
 use crate::app::alerts::model::{PnlScope, PriceKind};
 use crate::app::alerts::sound::SoundKind;
 use crate::app::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::domain::indicators::{StudyConfig, StudyKind};
-use crate::ui::features::trading::account::Account;
 use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::menu::{self as popup, Entry, Item};
 use crate::ui::kit::{button, controls, form, form::Head, icon, modal, number, theme, tokens};

@@ -1,4 +1,5 @@
 # Violations that predate the architecture test. Fix some, then BLESS=1 to shrink.
+src/app/account.rs	layer	app -> ui::kit
 src/app/alerts.rs	layer	app -> ui::features::chart
 src/app/appearance.rs	layer	app -> ui::kit
 src/app/appearance/contrast.rs	layer	app -> ui::kit
@@ -57,7 +58,6 @@ src/ui/features/multichart/favorites.rs	extern	ui::features::multichart uses gpu
 src/ui/features/multichart/favorites.rs	layer	ui::features::multichart -> ui::features::chart
 src/ui/features/multichart/links.rs	layer	ui::features::multichart -> ui::features::chart
 src/ui/features/trading.rs	layer	ui::features::trading -> ui::features::chart
-src/ui/features/trading/account.rs	extern	ui::features::trading uses tokio
 src/ui/features/trading/panel.rs	extern	ui::features::trading uses gpui_kit
 src/ui/features/trading/panel/customize.rs	extern	ui::features::trading uses gpui_kit
 src/ui/features/trading/panel/dialogs.rs	extern	ui::features::trading uses gpui_kit

@@ -6,7 +6,7 @@
 //! ticket's pending prices show as lines ([`lines`] builds them); dragging one moves what it
 //! stands for.
 
-pub mod account;
+pub use crate::app::account;
 pub use crate::domain::trading::book;
 use crate::domain::trading::math;
 pub mod panel;

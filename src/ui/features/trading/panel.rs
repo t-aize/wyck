@@ -24,7 +24,7 @@ use std::rc::Rc;
 use gpui::{Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, Subscription};
 use gpui_kit::component::input::InputState;
 
-use super::account::Account;
+use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 
 pub use self::dialogs::open_alert;

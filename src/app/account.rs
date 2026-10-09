@@ -23,10 +23,12 @@ use crate::domain::trading::PositionStatus;
 use crate::domain::trading::TradeSide;
 use gpui::{Context, EventEmitter};
 
-use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
 use crate::app::system::runtime;
+use crate::domain::trading::book::{
+    AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal,
+};
 use crate::domain::trading::guard;
 use crate::domain::trading::guard::{
     DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,

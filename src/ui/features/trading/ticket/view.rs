@@ -15,12 +15,12 @@ use gpui_kit::component::input::{Input, NumberInput};
 use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop_limit_price};
+use crate::app::account::Busy;
 use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
 use crate::domain::indicators::atr_stop::Smoothing;
+use crate::domain::trading::book::is_buy;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, Limit, Offset, SizeMode};
-use crate::ui::features::trading::account::Busy;
-use crate::ui::features::trading::book::is_buy;
 use crate::ui::kit::{
     confirm::confirm,
     controls,

@@ -2,7 +2,7 @@
 //! it is sent.
 //!
 //! The rules are plain data and pure functions, so they are tested without a window or a broker.
-//! [`crate::ui::features::trading::account::Account::place`] is the one funnel for new orders (the ticket, one-click, the
+//! [`crate::app::account::Account::place`] is the one funnel for new orders (the ticket, one-click, the
 //! chart and a reversal all end there), so the checks cannot be skipped by another way in. An
 //! order that only reduces what is open is never blocked: closing must always work.
 //!

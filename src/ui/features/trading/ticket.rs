@@ -40,7 +40,7 @@ use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 
-use super::account::{Account, Busy};
+use crate::app::account::{Account, Busy};
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
 use crate::domain::drawings::model::Dash;
