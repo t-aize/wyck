@@ -1,12 +1,12 @@
 //! The live copy of the drawings: a gpui entity every chart reads and edits, so a drawing made on
 //! one chart shows at once on the others that show the same symbol.
 
-use gpui::Context;
 use crate::infra::storage::DocumentStore;
+use gpui::Context;
 
-use crate::workspace::Saver;
 use crate::chart_core::drawing::book::Book;
 use crate::chart_core::drawing::model::DrawingsDoc;
+use crate::workspace::Saver;
 
 const DOCUMENT: &str = "drawings";
 

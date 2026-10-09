@@ -311,7 +311,10 @@ fn plots_take_their_style_from_the_script() {
         (plots[0].color, plots[0].width, plots[0].label.as_str()),
         (0x0012_3456, 3.0, "My line")
     );
-    assert_eq!(plots[0].dash, crate::chart_core::drawing::model::Dash::Dashed);
+    assert_eq!(
+        plots[0].dash,
+        crate::chart_core::drawing::model::Dash::Dashed
+    );
     assert_eq!(plots[1].kind, PlotKind::Histogram);
     assert_eq!(plots[2].kind, PlotKind::Dots);
     assert_ne!(

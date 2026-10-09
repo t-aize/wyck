@@ -34,20 +34,20 @@
 
 use std::time::Duration;
 
+use crate::openapi::account::TradeSide;
+use crate::openapi::trading::{NewOrderReq, NewOrderType};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
-use crate::openapi::account::TradeSide;
-use crate::openapi::trading::{NewOrderReq, NewOrderType};
 
 use super::account::{Account, Busy};
 use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::chart::Chart;
 use crate::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms};
-use crate::multichart::SymbolRef;
-use crate::runtime;
 use crate::chart_core::drawing::model::Dash;
 use crate::chart_core::study::atr_stop::AtrStop;
+use crate::multichart::SymbolRef;
+use crate::runtime;
 
 pub mod customize;
 pub mod prefs;

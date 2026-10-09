@@ -860,7 +860,10 @@ fn a_tpo_chart_makes_one_element_for_each_session() {
 
 #[test]
 fn profiles_are_written_in_letters_with_their_levels() {
-    let f = tpo_fixture(|s| s.tpo.display = crate::chart_core::tpo::TpoDisplay::Letters, 200.0);
+    let f = tpo_fixture(
+        |s| s.tpo.display = crate::chart_core::tpo::TpoDisplay::Letters,
+        200.0,
+    );
     let text = texts(&build(&f.frame()));
     assert!(text.iter().any(|t| t == "A"), "{text:?}");
     assert!(text.iter().any(|t| t == "B"), "{text:?}");

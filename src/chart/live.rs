@@ -12,9 +12,9 @@
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
-use tokio::sync::watch;
 use crate::openapi::market::{Bar, Period, SpotEvent};
 use crate::openapi::session::Session;
+use tokio::sync::watch;
 
 use crate::runtime;
 

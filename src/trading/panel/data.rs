@@ -8,8 +8,8 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-use serde_json::Value;
 use crate::openapi::account::{OrderType, Position, money};
+use serde_json::Value;
 
 use super::columns::{
     AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs,
@@ -18,11 +18,11 @@ use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use super::stats::{self, HistoryStats};
 use crate::alerts::Alerts;
 use crate::chart::now_ms;
+use crate::chart_core::zone::Zone;
 use crate::trading::account::{Account, Busy};
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, format_money};
 use crate::trading::ticket::prefs::Slot;
-use crate::chart_core::zone::Zone;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

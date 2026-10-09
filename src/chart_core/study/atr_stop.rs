@@ -1,7 +1,7 @@
 //! ATR settings and price levels used before an order is sent.
 
-use serde::{Deserialize, Serialize};
 use crate::openapi::market::{Bar, PRICE_SCALE};
+use serde::{Deserialize, Serialize};
 
 use super::math;
 

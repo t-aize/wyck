@@ -12,8 +12,8 @@
 //!   every time the volume set is used up. A bar's volume is spread over the legs of its path
 //!   by their length, since the bar does not say when the price was where.
 
-use serde::{Deserialize, Serialize};
 use crate::openapi::market::Bar;
+use serde::{Deserialize, Serialize};
 
 use super::transform::PricePath;
 

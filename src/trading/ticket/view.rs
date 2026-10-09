@@ -16,10 +16,10 @@ use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::prefs::{Density, Kind, Line, Section, Slot, Span, Tif};
 use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop_limit_price};
+use crate::chart_core::study::atr_stop::Smoothing;
 use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
-use crate::chart_core::study::atr_stop::Smoothing;
 use crate::ui::kit::{
     confirm::confirm,
     controls,

@@ -13,8 +13,8 @@ use gpui::{
 use gpui_kit::assets::IconName;
 
 use super::Dashboard;
-use crate::workspace::{NameError, Watchlists};
 use crate::ui::kit::{button, controls, icon, text_input::TextInput, theme, tokens};
+use crate::workspace::{NameError, Watchlists};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

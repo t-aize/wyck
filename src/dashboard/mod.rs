@@ -22,6 +22,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::chart_core::drawing::model::Tool;
+use crate::openapi::market::{PRICE_SCALE, Spot, format_price};
+use crate::openapi::session::{Session, SessionEvent, SessionState};
+use crate::openapi::{Error as ApiError, Event};
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
@@ -29,10 +33,6 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
-use crate::chart_core::drawing::model::Tool;
-use crate::openapi::market::{PRICE_SCALE, Spot, format_price};
-use crate::openapi::session::{Session, SessionEvent, SessionState};
-use crate::openapi::{Error as ApiError, Event};
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;

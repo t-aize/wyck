@@ -15,12 +15,12 @@ use super::{
     AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
-use crate::indicators;
 use crate::chart_core::drawing::model::Tool;
 use crate::chart_core::study::custom::docs::{self, Group};
 use crate::chart_core::study::custom::library::{Entry as Script, registry};
 use crate::chart_core::study::custom::templates::TEMPLATES;
 use crate::chart_core::study::custom::{Problem, Severity};
+use crate::indicators;
 use crate::ui::kit::{
     controls, icon, layout, menu,
     menu::{Entry, Item, Placement},

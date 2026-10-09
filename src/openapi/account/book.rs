@@ -637,7 +637,12 @@ mod tests {
             operation: "an order",
         });
         assert!(timeout.hint.unwrap().contains("account"));
-        let server = describe(&crate::openapi::Error::server("MARKET_CLOSED", None, None, None));
+        let server = describe(&crate::openapi::Error::server(
+            "MARKET_CLOSED",
+            None,
+            None,
+            None,
+        ));
         assert_eq!(server.message, "The market is closed.");
     }
 

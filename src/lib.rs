@@ -9,8 +9,8 @@ mod chart;
 pub mod chart_core;
 mod connection;
 mod dashboard;
-pub mod infra;
 mod indicators;
+pub mod infra;
 #[cfg(test)]
 mod keymap_guard;
 mod multichart;
@@ -161,7 +161,8 @@ fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut A
 /// The folders of the app, resolved once: `None` when the system gives it none. Everything that
 /// needs a path of the app asks here, so there is one answer for the whole run.
 fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
-    static PATHS: std::sync::OnceLock<Option<crate::infra::storage::AppPaths>> = std::sync::OnceLock::new();
+    static PATHS: std::sync::OnceLock<Option<crate::infra::storage::AppPaths>> =
+        std::sync::OnceLock::new();
     PATHS
         .get_or_init(|| crate::infra::storage::AppPaths::discover().ok())
         .as_ref()

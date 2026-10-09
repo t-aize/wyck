@@ -18,12 +18,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use gpui::{App, BorrowAppContext as _, Global, Task};
 use crate::infra::storage::{AppPaths, DocumentStore};
+use gpui::{App, BorrowAppContext as _, Global, Task};
 
-use prefs::{DOCUMENT, Prefs};
 use crate::chart_core::study::custom::library::{Changes, Library, LibraryError};
 use crate::chart_core::study::custom::{Limits, library};
+use prefs::{DOCUMENT, Prefs};
 
 /// How often the folder is read again.
 const POLL: Duration = Duration::from_millis(1500);

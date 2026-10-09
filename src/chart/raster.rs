@@ -661,8 +661,8 @@ mod tests {
         };
         let cmds = build(&frame);
         let png = render_png(&cmds, 1_400.0, 900.0, 1.0, rgb_alpha(0x0a0a0a, 1.0), &[]).unwrap();
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("target/indicator-families.png");
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/indicator-families.png");
         std::fs::write(path, png).unwrap();
     }
 

@@ -2,13 +2,13 @@
 //! the indicators with their buttons), the toolbar, its menus, the labels of the order and alert
 //! lines, the right-click menu, and the loading, failed and empty states.
 
+use crate::openapi::market::format_price;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, MouseButton, SharedString, Window, deferred, div,
     px,
 };
 use gpui_kit::assets::IconName;
-use crate::openapi::market::format_price;
 
 use super::data::Series;
 use super::lines::to_real;
@@ -710,8 +710,9 @@ impl Chart {
         use crate::openapi::market::MarketStatus;
         let status = self.market_status()?;
         let now = super::now_ms();
-        let within =
-            |at: Option<i64>| at.map(|t| crate::chart_core::drawing::geometry::duration_text(t - now));
+        let within = |at: Option<i64>| {
+            at.map(|t| crate::chart_core::drawing::geometry::duration_text(t - now))
+        };
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (
                 theme::emerald(),

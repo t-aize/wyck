@@ -3,14 +3,14 @@
 
 use std::time::Duration;
 
+use crate::openapi::auth::CallbackListener;
+use crate::openapi::config::ClientCredentials;
+use crate::openapi::{ClientBuilder, Environment};
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt, ClickEvent, Context, Entity, SharedString, Window, div, px, relative,
 };
 use gpui_kit::assets::IconName;
-use crate::openapi::auth::CallbackListener;
-use crate::openapi::config::ClientCredentials;
-use crate::openapi::{ClientBuilder, Environment};
 
 use super::{ConnectionFlow, Screen};
 use crate::runtime;

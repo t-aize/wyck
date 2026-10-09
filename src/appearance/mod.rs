@@ -14,14 +14,14 @@
 pub mod contrast;
 pub mod presets;
 
+use crate::infra::storage::DocumentStore;
 use gpui::{App, Global, SharedString};
 use serde::{Deserialize, Serialize};
-use crate::infra::storage::DocumentStore;
 
 use crate::workspace::Saver;
 
-use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
 use crate::ui::kit::theme::{self, Colors};
+use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "appearance";
@@ -288,9 +288,10 @@ impl Appearance {
         ] {
             *color = color.map(|c| c & 0xff_ffff);
         }
-        self.ui_scale = self
-            .ui_scale
-            .clamp(crate::ui::kit::tokens::SCALE_MIN, crate::ui::kit::tokens::SCALE_MAX);
+        self.ui_scale = self.ui_scale.clamp(
+            crate::ui::kit::tokens::SCALE_MIN,
+            crate::ui::kit::tokens::SCALE_MAX,
+        );
         self.font = self.font.trim().chars().take(80).collect();
         if self.font.is_empty() {
             self.font = default_font();
@@ -589,12 +590,18 @@ mod tests {
             ui_scale: 900,
             ..Appearance::default()
         };
-        assert_eq!(huge.normalized().ui_scale, crate::ui::kit::tokens::SCALE_MAX);
+        assert_eq!(
+            huge.normalized().ui_scale,
+            crate::ui::kit::tokens::SCALE_MAX
+        );
         let tiny = Appearance {
             ui_scale: 3,
             ..Appearance::default()
         };
-        assert_eq!(tiny.normalized().ui_scale, crate::ui::kit::tokens::SCALE_MIN);
+        assert_eq!(
+            tiny.normalized().ui_scale,
+            crate::ui::kit::tokens::SCALE_MIN
+        );
     }
 
     #[test]

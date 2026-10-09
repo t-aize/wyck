@@ -330,7 +330,12 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
 /// The shapes of a drawing (without grips). `selected` says whether it is the one selected: a
 /// position can keep its stats for then.
 pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
-    prims_at(drawing, proj, selected, crate::chart_core::text_scale::factor())
+    prims_at(
+        drawing,
+        proj,
+        selected,
+        crate::chart_core::text_scale::factor(),
+    )
 }
 
 /// [`prims_with`] with the text at `factor` times its size. The text of a drawing follows the

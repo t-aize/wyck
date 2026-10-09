@@ -10,8 +10,8 @@
 //! A timeframe is saved as a short code: `T`, `S15`, `M45`, `H2`, `D3`, `W2`, `MN3`. The same
 //! length always gets the same code (120 minutes is `H2`), so a custom one typed twice is one.
 
-use chrono::{Datelike, TimeZone, Utc};
 use crate::openapi::market::Period;
+use chrono::{Datelike, TimeZone, Utc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Timeframe {

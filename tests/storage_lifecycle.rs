@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-use wyck::infra::storage::{AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig};
+use wyck::infra::storage::{
+    AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig,
+};
 
 fn passphrase(text: &str) -> SecretString {
     SecretString::from(text.to_owned())

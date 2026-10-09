@@ -6,12 +6,12 @@
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
+use crate::openapi::market::PRICE_SCALE;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::InputState;
-use crate::openapi::market::PRICE_SCALE;
 
 use super::options::{ChartColors, CrosshairStyle, ScaleMargin};
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
@@ -22,7 +22,9 @@ use super::{
     Chart, construction_ui, footprint_ui, indicator_picker, overlay, study_settings, tpo_ui,
     volume_ui,
 };
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
+use crate::ui::kit::{
+    button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens,
+};
 
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[

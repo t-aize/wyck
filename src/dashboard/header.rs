@@ -11,8 +11,8 @@ use gpui_kit::component::{Selectable, Sizable};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
-use crate::{chart, trading};
 use crate::ui::kit::{anim, button, controls, icon, layout, menu, theme, tokens};
+use crate::{chart, trading};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;

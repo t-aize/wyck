@@ -61,7 +61,10 @@ fn parse_binding(body: &str) -> Option<(String, String, String)> {
 #[test]
 fn no_two_actions_share_keys_in_one_context() {
     let mut files = Vec::new();
-    rust_files(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+    rust_files(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut files,
+    );
 
     let mut seen: HashMap<(String, String), (String, PathBuf)> = HashMap::new();
     let mut clashes = Vec::new();
@@ -76,9 +79,10 @@ fn no_two_actions_share_keys_in_one_context() {
             else {
                 continue;
             };
-            if let Some((other, other_file)) =
-                seen.insert((keys.clone(), context.clone()), (action.clone(), file.clone()))
-            {
+            if let Some((other, other_file)) = seen.insert(
+                (keys.clone(), context.clone()),
+                (action.clone(), file.clone()),
+            ) {
                 clashes.push(format!(
                     "{keys} in {context}: {other} ({}) and {action} ({})",
                     other_file.display(),
@@ -87,5 +91,9 @@ fn no_two_actions_share_keys_in_one_context() {
             }
         }
     }
-    assert!(clashes.is_empty(), "key binding clashes:\n{}", clashes.join("\n"));
+    assert!(
+        clashes.is_empty(),
+        "key binding clashes:\n{}",
+        clashes.join("\n")
+    );
 }

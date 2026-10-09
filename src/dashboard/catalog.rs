@@ -8,8 +8,8 @@
 
 use std::collections::HashMap;
 
-use gpui_kit::assets::IconName;
 use crate::openapi::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
+use gpui_kit::assets::IconName;
 
 use super::marks::{self, Icon};
 

@@ -3,9 +3,9 @@
 
 use std::time::{Duration, Instant};
 
-use gpui::Context;
 use crate::openapi::Result as ApiResult;
 use crate::openapi::market::Tick;
+use gpui::Context;
 
 use super::data::{self, MAX_BARS, MAX_TICKS, Series};
 use super::live::{LiveUpdate, Wish};

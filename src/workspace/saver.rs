@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use serde::Serialize;
 use crate::infra::storage::DocumentStore;
+use serde::Serialize;
 
 use crate::runtime;
 
@@ -94,8 +94,8 @@ impl<T: Serialize + Send + 'static> Drop for Saver<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::Deserialize;
     use crate::infra::storage::AppPaths;
+    use serde::Deserialize;
 
     #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
     struct Doc {

@@ -16,7 +16,9 @@ use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
 use crate::indicators;
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens};
+use crate::ui::kit::{
+    button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
+};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {

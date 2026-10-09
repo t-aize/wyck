@@ -24,9 +24,9 @@
 //! are the session's), so the time axis, the crosshair and the drawings work like they do for the
 //! other chart types that lay out their own elements.
 
+use crate::openapi::market::Bar;
 use chrono::DateTime;
 use serde::{Deserialize, Serialize};
-use crate::openapi::market::Bar;
 
 use super::zone::Zone;
 

@@ -2,10 +2,10 @@
 //! under the highlight, a live price when it is the symbol being followed, and the reason when the
 //! details could not be loaded.
 
+use crate::openapi::market::Symbol;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 use gpui_kit::assets::IconName;
-use crate::openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
@@ -28,7 +28,11 @@ fn units(hundredths: i64) -> String {
     if rest == 0 {
         crate::chart_core::format::grouped(whole)
     } else {
-        format!("{}.{:02}", crate::chart_core::format::grouped(whole), rest.abs())
+        format!(
+            "{}.{:02}",
+            crate::chart_core::format::grouped(whole),
+            rest.abs()
+        )
     }
 }
 

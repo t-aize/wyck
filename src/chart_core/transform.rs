@@ -22,8 +22,8 @@
 //! Each output element keeps the time of the price that made it, so drawings anchored to times
 //! still land near the right place and the time axis still reads.
 
-use serde::{Deserialize, Serialize};
 use crate::openapi::market::Bar;
+use serde::{Deserialize, Serialize};
 
 use super::study::math;
 

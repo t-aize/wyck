@@ -14,13 +14,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use gpui::{Context, EventEmitter};
 use crate::openapi::account::PositionStatus;
 use crate::openapi::account::TradeSide;
 use crate::openapi::market::PRICE_SCALE;
 use crate::openapi::session::Session;
 use crate::openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
 use crate::openapi::{Error as ApiError, Event, Result as ApiResult};
+use gpui::{Context, EventEmitter};
 
 use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
 use super::guard::{
@@ -287,7 +287,12 @@ impl Account {
     }
 
     /// Sets the safety limits and the zone the day is counted in.
-    pub fn set_risk(&mut self, risk: RiskPrefs, zone: crate::chart_core::Zone, cx: &mut Context<Self>) {
+    pub fn set_risk(
+        &mut self,
+        risk: RiskPrefs,
+        zone: crate::chart_core::Zone,
+        cx: &mut Context<Self>,
+    ) {
         if self.risk != risk || self.zone != zone {
             self.risk = risk;
             self.zone = zone;
@@ -531,7 +536,6 @@ impl Account {
             Tone::Success => toast::Kind::Success,
             Tone::Warning => toast::Kind::Warning,
             Tone::Error => toast::Kind::Error,
-            _ => toast::Kind::Info,
         };
         let has_actions = !notice.actions.is_empty();
         let mut toast = toast::Toast::new(kind, notice.title, notice.message)
@@ -550,7 +554,6 @@ impl Account {
                 NoticeAction::CancelOrder(id) => toast.action("Cancel order", move |_, cx| {
                     account.update(cx, |a, cx| a.cancel_order(id, cx));
                 }),
-                _ => toast,
             };
         }
         // A fill with buttons goes away by itself: the panel keeps the same buttons.

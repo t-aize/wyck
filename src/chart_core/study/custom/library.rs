@@ -703,7 +703,10 @@ impl Library {
         let target = ScriptStore::new(dest);
         let mut count = 0;
         for entry in self.known.values().map(|k| &k.entry) {
-            crate::infra::storage::atomic_write(&target.path_of(&entry.id), entry.source.as_bytes())?;
+            crate::infra::storage::atomic_write(
+                &target.path_of(&entry.id),
+                entry.source.as_bytes(),
+            )?;
             count += 1;
         }
         Ok(count)

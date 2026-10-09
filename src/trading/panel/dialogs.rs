@@ -10,8 +10,8 @@ use gpui_kit::component::input::{Input, InputState};
 use crate::alerts::model::{PnlScope, PriceKind};
 use crate::alerts::sound::SoundKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
-use crate::trading::account::Account;
 use crate::chart_core::study::{StudyConfig, StudyKind};
+use crate::trading::account::Account;
 use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::menu::{self as popup, Entry, Item};
 use crate::ui::kit::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
@@ -743,8 +743,8 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text =
-                crate::chart_core::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
+            let text = crate::chart_core::Timeframe::from_code(&current)
+                .map_or(current.clone(), |t| t.label());
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),

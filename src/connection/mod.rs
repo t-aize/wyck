@@ -19,24 +19,24 @@ mod welcome;
 
 use std::sync::Arc;
 
+use crate::infra::storage::{ProfileId, Severity, WyckConfig};
+use crate::openapi::auth::TokenSet;
+use crate::openapi::config::ClientCredentials;
+use crate::openapi::session::{Session, SessionConfig, TokenStore};
+use crate::openapi::{ConnectionConfig, Environment};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, SharedString, Subscription, Window,
     div,
 };
 use secrecy::ExposeSecret;
-use crate::infra::storage::{ProfileId, Severity, WyckConfig};
-use crate::openapi::auth::TokenSet;
-use crate::openapi::config::ClientCredentials;
-use crate::openapi::session::{Session, SessionConfig, TokenStore};
-use crate::openapi::{ConnectionConfig, Environment};
 
 use gpui_kit::component::Root;
 
 use super::dashboard::{AccountInfo, Dashboard, DashboardEvent};
+use super::runtime;
 use super::token_store::{ConfigTokenStore, to_token_set};
 use super::workspace::Documents;
-use super::runtime;
 
 enum Screen {
     Welcome,

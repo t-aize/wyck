@@ -1,16 +1,16 @@
 //! Screen 10: the last automatic step, authorizing the chosen account on the connection and
 //! saving everything to disk.
 
-use gpui::prelude::*;
-use gpui::{Context, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
-use secrecy::ExposeSecret;
 use crate::infra::storage::{OpenApiTokens, ProfileId};
 use crate::openapi::Client;
 use crate::openapi::Environment;
 use crate::openapi::TraderAccount;
 use crate::openapi::auth::TokenSet;
 use crate::openapi::config::ClientCredentials;
+use gpui::prelude::*;
+use gpui::{Context, SharedString, Window, div, px};
+use gpui_kit::assets::IconName;
+use secrecy::ExposeSecret;
 
 use super::credentials::CALLBACK_PORT;
 use super::{ConnectionFlow, SavedConnection, Screen, service_tag};

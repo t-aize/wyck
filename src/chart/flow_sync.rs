@@ -8,10 +8,10 @@
 
 use std::time::{Duration, Instant};
 
-use gpui::Context;
 use crate::openapi::Result as ApiResult;
 use crate::openapi::market::{Quote, QuoteType, merge_sides};
 use crate::openapi::session::Session;
+use gpui::Context;
 
 use super::data::Series;
 use super::flow::{self, Flow};

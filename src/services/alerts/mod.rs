@@ -17,13 +17,13 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{App, Context, Entity, EventEmitter};
 use crate::chart_core::Timeframe;
 use crate::chart_core::data::Series;
 use crate::chart_core::study::{self, ValueFormat};
 use crate::infra::storage::DocumentStore;
 use crate::openapi::market::{Bar, PRICE_SCALE};
 use crate::openapi::session::Session;
+use gpui::{App, Context, Entity, EventEmitter};
 
 use crate::chart::drawing::Drawings;
 use crate::chart::live::{LiveHub, Wish};
@@ -450,8 +450,10 @@ impl Alerts {
         if config.is_script() || config.kind == study::StudyKind::VolumeProfile {
             return None;
         }
-        let input =
-            crate::chart_core::display::study_input(&Series::Bars(bars.to_vec()), crate::chart_core::Zone::Utc);
+        let input = crate::chart_core::display::study_input(
+            &Series::Bars(bars.to_vec()),
+            crate::chart_core::Zone::Utc,
+        );
         let output = study::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {

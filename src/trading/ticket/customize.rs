@@ -6,13 +6,13 @@
 //! confirm. The numbers are read as they are typed, and a value that is not a number leaves the
 //! setting as it was.
 
+use crate::ui::kit::field;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 use gpui_kit::component::{Disableable, Sizable};
-use crate::ui::kit::field;
 
 use super::OrderTicket;
 use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};

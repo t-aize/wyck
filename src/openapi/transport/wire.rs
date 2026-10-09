@@ -308,8 +308,9 @@ impl Envelope {
         Ok(Self {
             client_msg_id: Some(id.into()),
             payload_type,
-            payload: serde_json::to_value(payload)
-                .map_err(|e| crate::openapi::Error::Protocol(format!("cannot encode a request: {e}")))?,
+            payload: serde_json::to_value(payload).map_err(|e| {
+                crate::openapi::Error::Protocol(format!("cannot encode a request: {e}"))
+            })?,
         })
     }
 

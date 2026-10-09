@@ -97,9 +97,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 use crate::openapi::session::Session;
 use crate::openapi::{Error as ApiError, Result as ApiResult};
+use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 
 use self::data::Series;
 use self::display::Display;

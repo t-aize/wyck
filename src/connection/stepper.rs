@@ -4,10 +4,10 @@
 
 use std::time::Duration;
 
+use crate::ui::kit::{anim, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Animation, AnimationExt, div, px, relative};
 use gpui_kit::assets::IconName;
-use crate::ui::kit::{anim, icon, theme, tokens};
 
 const STEPS: [&str; 4] = ["Credentials", "Sign in", "Account", "Connect"];
 

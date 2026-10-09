@@ -2,8 +2,8 @@
 //! (a level, a drawing, another indicator), the condition that fires it, how often it may fire,
 //! and when it stops. Saved per account, and old files (a price and a crossing) still load.
 
-use serde::{Deserialize, Serialize};
 use crate::chart_core::study::StudyConfig;
+use serde::{Deserialize, Serialize};
 
 use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 

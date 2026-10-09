@@ -3,11 +3,11 @@
 
 use std::time::{Duration, SystemTime};
 
-use async_trait::async_trait;
 use crate::infra::storage::{OpenApiTokenStorage, OpenApiTokens};
 use crate::openapi::Error as ApiError;
 use crate::openapi::auth::TokenSet;
 use crate::openapi::session::TokenStore;
+use async_trait::async_trait;
 
 pub struct ConfigTokenStore {
     storage: OpenApiTokenStorage,

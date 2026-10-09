@@ -1,11 +1,13 @@
 //! Saved preferences and watchlists.
 
 use super::layouts::{self, LayoutKey};
-use crate::trading::{guard::RiskPrefs, panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
-use serde::{Deserialize, Serialize};
-use crate::chart_core::drawing::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
+use crate::chart_core::drawing::model::{
+    DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool,
+};
 use crate::chart_core::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use crate::chart_core::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
+use crate::trading::{guard::RiskPrefs, panel::prefs::PanelPrefs, ticket::prefs::TicketPrefs};
+use serde::{Deserialize, Serialize};
 
 const SCHEMA_VERSION: u32 = 1;
 

@@ -1,13 +1,13 @@
 //! Screen 9: picking which of the authorized trading accounts to connect to.
 
-use gpui::prelude::*;
-use gpui::{Context, Window, div, px};
-use gpui_kit::assets::IconName;
 use crate::openapi::Client;
 use crate::openapi::Environment;
 use crate::openapi::TraderAccount;
 use crate::openapi::auth::TokenSet;
 use crate::openapi::config::ClientCredentials;
+use gpui::prelude::*;
+use gpui::{Context, Window, div, px};
+use gpui_kit::assets::IconName;
 
 use super::{ConnectionFlow, Screen};
 use crate::ui::kit::{anim, button, icon, layout, theme, tokens};

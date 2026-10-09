@@ -4,8 +4,8 @@
 //! missing or that cannot be read gives the defaults (the damaged one is set aside by the store),
 //! so it never keeps the panel from opening. Writing is atomic.
 
-use serde::{Deserialize, Serialize};
 use crate::infra::storage::{DocumentStore, Result};
+use serde::{Deserialize, Serialize};
 
 use super::{ExportOptions, Preset};
 

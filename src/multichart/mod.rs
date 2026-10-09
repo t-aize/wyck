@@ -21,13 +21,13 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::openapi::market::{LiveBarTracker, SpotEvent};
+use crate::openapi::session::Session;
 use gpui::prelude::*;
 use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
     Subscription, Window, canvas, div, px, relative,
 };
-use crate::openapi::market::{LiveBarTracker, SpotEvent};
-use crate::openapi::session::Session;
 
 use self::layouts::{LayoutKey, layout};
 use self::links::{Follow, Link, Links};

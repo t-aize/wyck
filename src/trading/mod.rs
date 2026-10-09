@@ -176,8 +176,8 @@ pub fn lines(
 mod tests {
     use super::*;
     use crate::alerts::Condition;
-    use serde_json::json;
     use crate::openapi::account::{Order, Position};
+    use serde_json::json;
 
     #[test]
     fn every_position_order_and_alert_gets_its_lines() {
