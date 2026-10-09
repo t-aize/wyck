@@ -1,4 +1,5 @@
 //! The scripts a new indicator can start from: two blank ones and three small working examples.
+//! The files are in `assets/starters` and are compiled into the app.
 
 /// A script to start from.
 #[derive(Debug, Clone, Copy)]
@@ -12,27 +13,27 @@ pub const TEMPLATES: &[Template] = &[
     Template {
         name: "My overlay",
         description: "An indicator drawn on the prices, with one input and one line.",
-        source: include_str!("starters/blank_overlay.rhai"),
+        source: include_str!("../../../../assets/starters/blank_overlay.rhai"),
     },
     Template {
         name: "My oscillator",
         description: "An indicator in a pane of its own, with levels.",
-        source: include_str!("starters/blank_pane.rhai"),
+        source: include_str!("../../../../assets/starters/blank_pane.rhai"),
     },
     Template {
         name: "Average cross",
         description: "Two moving averages on the prices, shaded between.",
-        source: include_str!("starters/ma_cross.rhai"),
+        source: include_str!("../../../../assets/starters/ma_cross.rhai"),
     },
     Template {
         name: "Price bands",
         description: "A basis line with an upper and a lower band.",
-        source: include_str!("starters/bands.rhai"),
+        source: include_str!("../../../../assets/starters/bands.rhai"),
     },
     Template {
         name: "Momentum",
         description: "MACD in a pane: two lines and a histogram.",
-        source: include_str!("starters/momentum.rhai"),
+        source: include_str!("../../../../assets/starters/momentum.rhai"),
     },
 ];
 
