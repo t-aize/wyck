@@ -278,7 +278,7 @@ From the command line:
 cargo run --example config_doctor                    # this machine
 cargo run --example config_doctor -- --dir ./data    # a portable install
 WYCK_PASSPHRASE=... cargo run --example config_doctor -- --dir ./data
-scripts/check-config.sh doctor                                      # the same, from the repo root
+cargo run --example config_doctor                                  # the same
 ```
 
 The exit code is 0 (healthy), 1 (an error was found) or 2 (the config could not be opened).
@@ -339,7 +339,7 @@ Every fallible call returns `wyck::infra::storage::Result<T>`. `ConfigError` say
 ## Development
 
 ```sh
-scripts/check-config.sh          # fmt, clippy -D warnings, tests, docs -D warnings
+cargo test --test storage_lifecycle
 cargo test --test storage_lifecycle        # unit tests, end-to-end tests, doc tests
 ```
 
