@@ -78,7 +78,6 @@ Left out, on purpose:
   risk sizing shared by the ticket and the position tool.
 - The user text of order notices is still built in `domain::trading::book`; only the failure
   wording moved to `app::account`.
-- A Windows icon resource (needs a build script and a crate that can update `Cargo.lock`).
 - Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
   the maintainer's machine (phase 0).
 
@@ -94,5 +93,6 @@ See `docs/decisions/`. Open questions are listed in the restructuring plan, sect
   minimal bar.
 - The dashboard bars changed height by the removed 34 px bar: `BARS` in `dashboard/trade.rs`,
   the layout menu (`layout_menu.rs`) and the symbol picker (`picker.rs`) were re-tuned by hand.
-- Windows shows a generic icon until the executable carries an icon resource (needs a build
-  script with a resource crate, left for a build that can update `Cargo.lock`).
+- Windows: the executable carries `assets/app-icon.ico` through `build.rs` (the `winresource`
+  crate, Windows hosts only). Check Explorer and the taskbar. The `.ico` is made from
+  `app-icon.png` (16 to 256 px); remake it when the icon changes.
