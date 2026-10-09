@@ -7,8 +7,8 @@
 
 use serde::Serialize;
 
-use crate::domain::trading::TradeSide;
 use crate::domain::trading::types::number_enum;
+use crate::domain::trading::{TimeInForce, TradeSide};
 
 number_enum! {
     /// The kind of an order request (`ProtoOAOrderType`, the subset a caller chooses between when
@@ -148,7 +148,9 @@ impl NewOrderReq {
         {
             return bad("stop limit orders need a stop and a limit price");
         }
-        if self.time_in_force == Some(1) && self.expiration_timestamp.is_none() {
+        if self.time_in_force == Some(TimeInForce::GoodTillDate.number())
+            && self.expiration_timestamp.is_none()
+        {
             return bad("good till date orders need an expiration timestamp");
         }
         if self
@@ -238,6 +240,20 @@ impl NewOrderReq {
     pub fn with_protection(mut self, stop_loss: Option<f64>, take_profit: Option<f64>) -> Self {
         self.stop_loss = stop_loss;
         self.take_profit = take_profit;
+        self
+    }
+
+    /// Keeps the order working until `time_in_force` ends it. `expires_at` (Unix milliseconds) is
+    /// only read for [`TimeInForce::GoodTillDate`].
+    #[must_use]
+    pub fn with_time_in_force(
+        mut self,
+        time_in_force: TimeInForce,
+        expires_at: Option<i64>,
+    ) -> Self {
+        self.time_in_force = Some(time_in_force.number());
+        self.expiration_timestamp =
+            expires_at.filter(|_| time_in_force == TimeInForce::GoodTillDate);
         self
     }
 
@@ -371,6 +387,22 @@ impl AmendPositionSlTpReq {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_time_in_force_is_sent_by_its_number_and_only_good_till_date_keeps_an_expiry() {
+        let gtd = NewOrderReq::limit(2, TradeSide::Buy, 500, 1.1)
+            .with_time_in_force(TimeInForce::GoodTillDate, Some(99));
+        assert_eq!(
+            (gtd.time_in_force, gtd.expiration_timestamp),
+            (Some(1), Some(99))
+        );
+        let gtc = NewOrderReq::limit(2, TradeSide::Buy, 500, 1.1)
+            .with_time_in_force(TimeInForce::GoodTillCancel, Some(99));
+        assert_eq!(
+            (gtc.time_in_force, gtc.expiration_timestamp),
+            (Some(2), None)
+        );
+    }
 
     #[test]
     fn every_new_order_constructor_carries_the_right_fields() {

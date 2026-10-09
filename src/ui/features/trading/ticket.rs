@@ -35,7 +35,7 @@
 use std::time::Duration;
 
 use crate::app::broker::trading::{NewOrderReq, NewOrderType};
-use crate::domain::trading::TradeSide;
+use crate::domain::trading::{TimeInForce, TradeSide};
 use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
@@ -1699,13 +1699,12 @@ impl OrderTicket {
             }
         };
         if kind.is_pending() {
-            match self.tif {
-                Tif::GoodTillCancel => order.time_in_force = Some(2),
+            order = match self.tif {
+                Tif::GoodTillCancel => order.with_time_in_force(TimeInForce::GoodTillCancel, None),
                 Tif::GoodTillDate => {
-                    order.time_in_force = Some(1);
-                    order.expiration_timestamp = self.expires_at(cx);
+                    order.with_time_in_force(TimeInForce::GoodTillDate, self.expires_at(cx))
                 }
-            }
+            };
         }
         if plan.stop.is_some() {
             order.trailing_stop_loss = self.trailing.then_some(true);
