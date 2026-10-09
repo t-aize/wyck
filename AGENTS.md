@@ -1,5 +1,33 @@
 # AGENTS.md
 
+Wyck is a desktop trading terminal for cTrader: Rust 2024, GPUI, one Cargo package at the repo
+root. Read `docs/ROADMAP.md` before a task and update it when you finish one. Architecture and
+recipes are in `docs/`.
+
+## Layout
+
+- `src/lib.rs` declares the modules and `run()`; `src/main.rs` only calls `wyck::run()`.
+- Four layers: `domain` (pure, no I/O, no gpui) < `infra` (files, network, OS) < `app` (state,
+  use cases) < `ui`. A lower layer never imports a higher one; `tests/architecture.rs` fails
+  on it, and its baseline is empty. Each layer folder has a short `AGENTS.md` with its rules.
+- Screens take every control, size and color from `src/ui/kit`. Never configure a gpui-kit
+  component or spell out a pixel size or a color in a screen.
+- Key bindings live in the modules that own the actions; `src/keymap_guard.rs` fails when two
+  actions share keys in one context.
+
+## Commands
+
+- `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`, `cargo test`,
+  `cargo fmt`, `cargo doc --no-deps` (with `RUSTDOCFLAGS=-D warnings`), `cargo deny check`.
+- `cargo test --test ctrader live -- --ignored` talks to a real demo account (needs `.env`).
+
+## Never
+
+- Add a dependency without saying why in the commit message.
+- Put credentials or tokens in code, logs or tests, or commit `.env`.
+- Skip, disable or delete a test to get a green build.
+- Add `unwrap` or `expect` outside tests, or `Result<_, String>` for a new error.
+
 ## Git commits
 
 Do not add a `Co-Authored-By` line, a session/agent identifier line, or any other AI

@@ -1,9 +1,5 @@
-[workspace]
-members = ["crates/*"]
-default-members = ["crates/wyck"]
-resolver = "3"
-
-[workspace.package]
+[package]
+name = "wyck"
 version = "0.2.0"
 edition = "2024"
 rust-version = "1.98"
@@ -11,22 +7,66 @@ license = "Apache-2.0"
 authors = ["t-aize"]
 repository = "https://github.com/t-aize/wyck"
 publish = false
+readme = "README.md"
+keywords = ["ctrader", "trading", "forex", "gpui", "openapi"]
+categories = ["finance", "gui"]
+description = "Desktop trading terminal for cTrader."
+default-run = "wyck"
 
-[workspace.dependencies]
-wyck-chart = { path = "crates/wyck-chart", version = "0.2.0" }
-wyck-config = { path = "crates/wyck-config", version = "0.2.0" }
-wyck-openapi = { path = "crates/wyck-openapi", version = "0.2.0", default-features = false }
-wyck-ui = { path = "crates/wyck-ui", version = "0.2.0" }
+[lib]
+name = "wyck"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wyck"
+path = "src/main.rs"
+doc = false
+
+[package.metadata.packager]
+product-name = "Wyck"
+identifier = "sh.wyck.wyck"
+category = "finance"
+description = "Desktop trading terminal for cTrader."
+long-description = "Wyck is a native desktop trading terminal for cTrader."
+homepage = "https://github.com/t-aize/wyck"
+license-file = "LICENSE"
+icons = ["assets/app-icon.png", "assets/app-icon.ico", "assets/app-icon.icns"]
+out-dir = "dist"
+formats = ["default"]
+binaries = [{ path = "wyck", main = true }]
+
+[package.metadata.packager.nsis]
+install-mode = "currentUser"
+languages = ["English"]
+
+[package.metadata.packager.windows]
+allow-downgrades = false
+
+[package.metadata.packager.linux]
+generate-desktop-entry = true
+
+[package.metadata.packager.deb]
+depends = [
+    "libasound2 | libasound2t64",
+    "libc6",
+    "libfontconfig1",
+    "libssl3 | libssl3t64",
+    "libwayland-client0",
+    "libxcb1",
+    "libxkbcommon0",
+    "libxkbcommon-x11-0",
+]
+
+[dependencies]
 ab_glyph = "0.2.32"
 anyhow = "1"
 argon2 = "0.6.0"
 async-trait = "0.1.92"
+cargo-packager-updater = "0.2.3"
 chacha20poly1305 = "0.11.0"
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
-cargo-packager-updater = "0.2.3"
 directories = "6.0.0"
-dotenvy = "0.15.7"
 futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
 getrandom = "0.4.3"
 gpui = { package = "gpui-pre", version = "0.3.5" }
@@ -34,18 +74,16 @@ gpui-kit = "0.6.6"
 keyring = "4.2.0"
 lsp-types = "0.97"
 notify-rust = "4.18"
-proptest = "1.11.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
-rodio = { version = "0.22", default-features = false, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
 rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
+rodio = { version = "0.22", default-features = false, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
 rust-embed = { version = "8", features = ["debug-embed"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-tempfile = "3.27.0"
 thiserror = "2.0.20"
 tiny-skia = "0.12.0"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "test-util"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
 tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
 toml = "1.1.6"
 tracing = "0.1.44"
@@ -54,7 +92,18 @@ unicode-segmentation = "1.13.3"
 uuid = { version = "1.18.1", features = ["v4"] }
 zeroize = "1.9.0"
 
-[workspace.lints.rust]
+[dev-dependencies]
+dotenvy = "0.15.7"
+proc-macro2 = { version = "1", features = ["span-locations"] }
+proptest = "1.11.0"
+syn = { version = "2", features = ["full", "visit"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["test-util"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[lints.rust]
 unsafe_code = "forbid"
 
 [profile.release]
@@ -63,7 +112,13 @@ codegen-units = 1
 strip = true
 panic = "unwind"
 
+# Line tables are enough to read a backtrace, and they keep the many test binaries (each links the
+# whole library) from filling the disk.
+[profile.dev]
+debug = "line-tables-only"
+
 # gpui paints every quad and glyph through generic code that is very slow unoptimized. Building
 # the dependencies with optimizations keeps `cargo run` smooth; our own crate stays debuggable.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false

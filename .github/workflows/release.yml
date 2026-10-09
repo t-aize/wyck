@@ -36,7 +36,7 @@ jobs:
           toolchain: stable
 
       - id: version
-        name: Validate tag and workspace versions
+        name: Validate tag and package version
         shell: bash
         run: |
           set -euo pipefail
@@ -47,8 +47,8 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           mapfile -t versions < <(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[].version' | sort -u)
           if [[ "${#versions[@]}" -ne 1 || "${versions[0]}" != "$version" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match every workspace package version." >&2
-            printf 'Workspace versions: %s\n' "${versions[*]}" >&2
+            echo "Tag $GITHUB_REF_NAME does not match the package version." >&2
+            printf 'Package version: %s\n' "${versions[*]}" >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"

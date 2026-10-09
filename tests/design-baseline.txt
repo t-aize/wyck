@@ -1,0 +1,1 @@
+# Pixel sizes written as numbers, per file. Only goes down.

@@ -1,0 +1,1 @@
+# Violations that predate the architecture test. Fix some, then BLESS=1 to shrink.

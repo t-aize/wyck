@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the alert sounds of the app to crates/wyck/assets/sounds.
+"""Writes the alert sounds of the app to assets/sounds.
 
 The sounds are synthesized here (sine partials with an envelope), so they belong to this project
 and carry no third party license. Run it again to rebuild them; the output is deterministic.

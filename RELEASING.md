@@ -1,7 +1,7 @@
 # Releasing Wyck
 
 Stable releases are built by GitHub Actions from tags named `vX.Y.Z`. The workflow rejects a tag
-unless every workspace crate has the same `X.Y.Z` version. The first release made by this system
+unless the package version in `Cargo.toml` is the same `X.Y.Z`. The first release made by this system
 is `v0.3.0`; the existing `v0.2.0` tag is not changed.
 
 ## One-time repository setup
@@ -12,7 +12,7 @@ The updater signing pair is generated with:
 cargo packager signer generate
 ```
 
-Commit only the public key in `crates/wyck/assets/update.pubkey`. Store the encoded private key
+Commit only the public key in `assets/update.pubkey`. Store the encoded private key
 and its password as these GitHub Actions secrets:
 
 - `CARGO_PACKAGER_SIGN_PRIVATE_KEY`
@@ -28,8 +28,8 @@ a draft, uploads and attests all assets, and only then publishes it. This follow
 
 ## Create a release
 
-1. Change `[workspace.package].version` and every internal dependency version in `Cargo.toml`.
-2. Run `cargo check --workspace` so `Cargo.lock` records the new workspace versions.
+1. Change `version` in the `[package]` table of `Cargo.toml`.
+2. Run `cargo check` so `Cargo.lock` records the new version.
 3. Run the checks below and inspect the About page in both debug and release builds.
 4. Commit and push the version change.
 5. Create and push the matching tag, for example `git tag -s v0.3.0` followed by
@@ -41,8 +41,8 @@ Required checks:
 
 ```sh
 cargo fmt --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-features
 cargo deny check
 cargo build --release --locked
 ```

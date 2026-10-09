@@ -89,14 +89,12 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-      - run: cargo test --locked --workspace --all-features
-      # The SDK without its client feature: types and calculations only, no network.
-      - run: cargo clippy --locked -p wyck-openapi --no-default-features --lib -- -D warnings
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --all-features
 
       # Docs are platform independent: build them once.
       - if: runner.os == 'Linux'
-        run: cargo doc --locked --workspace --no-deps
+        run: cargo doc --locked --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
 
