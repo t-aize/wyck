@@ -31,3 +31,10 @@ Run it after every phase that touches startup, windows, or the UI, on a demo acc
 - A confirmation opened from a settings panel (reset, delete) shows over the panel, and the panel
   is back after Cancel (phase 10).
 - Shortcut hints read `Cmd` and `Option` on a Mac.
+- Buttons: the account menu (Settings, Disconnect), the sign-in modal and the ticket line up with
+  the sizes in `docs/ui-design-system.md`. Disconnect asks for a confirmation.
+- One menu at a time in the dashboard header (account, timeframes, layouts); Escape closes the
+  chart's time zone menu.
+- Dividers, splitters and the swatches were moved to tokens: nothing should have moved by more
+  than a pixel. Field widths now follow the interface scale.
+- Windows: Explorer and the taskbar show the app icon.
