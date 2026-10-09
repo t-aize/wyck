@@ -23,7 +23,6 @@ use gpui::{
     linear_gradient, px, rgb,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
@@ -848,9 +847,7 @@ impl Render for ColorPanel {
                             .justify_between()
                             .child(small_label("SAVED"))
                             .child(
-                                Button::new("color-save")
-                                    .ghost()
-                                    .xsmall()
+                                crate::ui::kit::button::dense("color-save")
                                     .icon(IconName::Plus)
                                     .label("Save this color")
                                     .disabled(!can_save)

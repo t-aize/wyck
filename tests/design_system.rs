@@ -1,6 +1,8 @@
 //! Keeps screens on the design system. See `docs/ui-design-system.md`.
 //!
 //! - No `Button::new` outside `src/ui/kit`: screens take a button from `ui::kit::button`.
+//! - No gpui-kit size method (`.xsmall()`, `.small()`, `.medium()`, `.large()`, `.compact()`) outside
+//!   `src/ui/kit`: a button or field gets its size from the kit constructor it comes from.
 //! - Pixel sizes written as numbers (`px(12.0)`) outside the kit are counted per file. The count
 //!   may not grow; fixing some means running `BLESS=1 cargo test --test design_system`.
 
@@ -56,6 +58,7 @@ fn screens_use_the_design_system() {
     rust_files(&root.join("src"), &mut files);
 
     let mut buttons = Vec::new();
+    let mut sizes = Vec::new();
     let mut pixels: BTreeMap<String, usize> = BTreeMap::new();
     for path in files {
         let rel = path
@@ -70,6 +73,12 @@ fn screens_use_the_design_system() {
         if code.contains("Button::new(") {
             buttons.push(rel.clone());
         }
+        if [".xsmall()", ".small()", ".medium()", ".large()", ".compact()"]
+            .iter()
+            .any(|method| code.contains(method))
+        {
+            sizes.push(rel.clone());
+        }
         let count = literal_pixels(&code);
         if count > 0 {
             pixels.insert(rel, count);
@@ -80,6 +89,12 @@ fn screens_use_the_design_system() {
         buttons.is_empty(),
         "Button::new outside the kit, use a constructor of ui::kit::button:\n  {}",
         buttons.join("\n  ")
+    );
+
+    assert!(
+        sizes.is_empty(),
+        "a size method outside the kit, take the size from a constructor of ui::kit:\n  {}",
+        sizes.join("\n  ")
     );
 
     let baseline_path = root.join(BASELINE);

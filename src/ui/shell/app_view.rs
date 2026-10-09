@@ -202,7 +202,7 @@ impl AppView {
                             .text_color(theme::muted_fg())
                             .child(message.to_owned()),
                     )
-                    .child(button::primary(
+                    .child(button::hero(
                         "startup-quit",
                         "Quit Wyck",
                         |_, _window, cx| cx.quit(),

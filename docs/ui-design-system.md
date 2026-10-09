@@ -8,7 +8,7 @@ size or a color. A screen builds its UI from the kit and reads colors from `them
 | Family | Where | Values |
 |---|---|---|
 | Text | `tokens::text` | caption 10, small 11, body 12, emphasis 13, title 14, heading 16, display 20, hero 26 |
-| Control heights | `tokens::height` | tiny 20, compact 24, control 28, large 34 |
+| Control heights | `tokens::height` | tiny 20, compact 24, control 28, large 34 (for custom rows; buttons and fields use the sizes below) |
 | Field widths | `tokens::field` | narrow 84, number 110, wide 130, text 220 |
 | Spacing | `tokens::space` | xs 4, sm 8, md 12, lg 16, xl 24 |
 | Radius | `tokens::radius` | sm, md (controls), lg (cards), xl (dialogs), full (pills) |
@@ -18,22 +18,27 @@ Every size scales with the interface scale (80 to 160 percent) set in the settin
 
 ## Buttons
 
-One default size. A different size needs a reason written in the component.
+Three sizes, set in one place (`ui::kit::button::Size`). A screen takes a button from a kit
+constructor and never calls a size method.
 
-| Role | Size |
-|---|---|
-| Forms, dialogs, menus, modal footers | medium (28) |
-| Dense toolbars and table rows | small (24) |
-| Buy and Sell in the ticket, the main button of the sign-in modal | large (34) |
+| Size | Height | Constructors | Where |
+|---|---|---|---|
+| `Sm` | 20 | `dense`, `icon_dense` | a dense strip or a table row |
+| `Md` | 24 | `primary`, `accent`, `danger`, `outlined`, `standard`, `quiet`, `action`, `icon`, `wide_danger` | forms, dialogs, menus, panels, footers; the default |
+| `Lg` | 32 | `hero`, `trade` | the main button of the sign-in modal; Buy and Sell in the ticket |
 
-Variants: primary, secondary, ghost, icon. A clickable element that is not a button still gets a
-tab stop and answers Enter and Space.
+The kit's fields are 24 high too, so a button next to a field lines up. A wide button that sits
+in a card or a menu (`primary`, `wide_danger`, `outlined(..).w_full()`) is `Md`: only the sign-in
+modal and the ticket use `Lg`.
+
+Variants: primary, outlined, ghost, danger, icon. A clickable element that is not a button still
+gets a tab stop and answers Enter and Space.
 
 ## Rules the architecture test enforces
 
 - `gpui_kit` is named only inside `ui::kit`.
-- No `Button::new` and no `px(<literal>)` outside the kit (the count in the baseline only goes
-  down).
+- No `Button::new` and no size method (`.small()`, `.large()`...) outside the kit.
+- No `px(<literal>)` outside the kit (the count in the baseline only goes down).
 
 ## Shortcut hints
 

@@ -351,7 +351,7 @@ impl SignInGate {
                     )
             }))
             .child(
-                button::primary(
+                button::hero(
                     "gate-submit",
                     submit_label,
                     cx.listener(|this, _, _window, cx| this.submit(cx)),
@@ -455,7 +455,7 @@ impl SignInGate {
             ))
             .child(div().flex().flex_col().gap_2().children(rows))
             .child(
-                button::primary(
+                button::hero(
                     "gate-connect-account",
                     "Connect this account",
                     cx.listener(|this, _, _window, cx| {

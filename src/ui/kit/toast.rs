@@ -17,9 +17,8 @@ use std::rc::Rc;
 
 use gpui::prelude::*;
 use gpui::{App, ClipboardItem, SharedString, Window, div, px};
-use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::notification::{Notification, NotificationType};
-use gpui_kit::component::{Sizable, StyledExt as _, WindowExt};
+use gpui_kit::component::{StyledExt as _, WindowExt};
 
 use crate::ui::kit::{theme, tokens};
 
@@ -239,10 +238,8 @@ impl Toast {
                     for (index, (label, run)) in actions.iter().enumerate() {
                         let (run, this) = (run.clone(), this.clone());
                         row = row.child(
-                            Button::new(("toast-action", index))
-                                .cursor_pointer()
+                            crate::ui::kit::button::dense(("toast-action", index))
                                 .outline()
-                                .xsmall()
                                 .label(label.clone())
                                 .on_click(move |_, window, cx| {
                                     run(window, cx);
@@ -254,10 +251,7 @@ impl Toast {
                         let (details, copied) = (details.clone(), copied.clone());
                         let done = copied.get();
                         row = row.child(
-                            Button::new("toast-copy")
-                                .cursor_pointer()
-                                .ghost()
-                                .xsmall()
+                            crate::ui::kit::button::dense("toast-copy")
                                 .label(if done { "Copied" } else { "Copy details" })
                                 .on_click(move |_, window, cx| {
                                     cx.write_to_clipboard(ClipboardItem::new_string(

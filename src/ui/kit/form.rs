@@ -11,7 +11,6 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Div, Entity, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::{Sizable, StyledExt as _};
 
@@ -87,12 +86,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 ),
         )
         .child(
-            Button::new("settings-close")
-                .cursor_pointer()
-                .ghost()
-                .compact()
-                .icon(IconName::X)
-                .tooltip("Close (Esc)")
+            crate::ui::kit::button::icon("settings-close", IconName::X, "Close (Esc)")
                 .on_click(move |_, window, cx| on_close(window, cx)),
         )
 }

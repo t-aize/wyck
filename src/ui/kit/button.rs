@@ -1,8 +1,18 @@
 //! Buttons. They are gpui-kit's, restyled through [`crate::ui::kit::theme::apply`], so every button of
 //! the app takes one of these shapes instead of configuring a `Button` itself.
+//!
+//! There are three sizes and a screen never picks a gpui one by hand:
+//!
+//! | [`Size`] | Height | Where |
+//! |---|---|---|
+//! | `Sm` | 20 | a dense strip or a table row (the editor toolbar, a list row) |
+//! | `Md` | 24 | everything else: forms, dialogs, menus, panels, footers |
+//! | `Lg` | 32 | buy and sell in the ticket, the main button of the sign-in modal |
+//!
+//! The fields of the kit are `Md` high too, so a button and a field side by side line up.
 
 use gpui::prelude::*;
-use gpui::{App, ClickEvent, ElementId, SharedString, Window, div};
+use gpui::{App, ClickEvent, ElementId, SharedString, Window};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 pub use gpui_kit::component::button::Button;
@@ -10,59 +20,47 @@ use gpui_kit::component::button::ButtonVariants;
 
 use crate::ui::kit::theme;
 
-/// The "Back" button in the top-left corner of a [`crate::ui::kit::layout::screen`].
-pub fn back(
-    id: impl Into<gpui::ElementId>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    div().absolute().top_5().left_5().child(
-        Button::new(id)
-            .ghost()
-            .icon(IconName::ArrowLeft)
-            .label("Back")
-            .cursor_pointer()
-            .tooltip("Go back")
-            .on_click(on_click),
-    )
+/// How big a button is. See the module docs for what each is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Size {
+    /// Dense strips and table rows.
+    Sm,
+    /// The default.
+    Md,
+    /// The one action of a screen.
+    Lg,
 }
 
-/// The filled, accent-colored call-to-action button.
+/// `button` at `size`: the one place that maps a size to gpui-kit's.
+fn sized(button: Button, size: Size) -> Button {
+    match size {
+        Size::Sm => button.xsmall().compact(),
+        Size::Md => button.small(),
+        Size::Lg => button.large(),
+    }
+}
+
+/// The filled, accent-colored button that fills the width it is given: the one action of a small
+/// panel ("Try again", "Sign in again").
 pub fn primary(
-    id: impl Into<gpui::ElementId>,
+    id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Button {
-    Button::new(id)
-        .primary()
-        .large()
+    sized(Button::new(id).primary(), Size::Md)
         .w_full()
         .label(label)
         .cursor_pointer()
         .on_click(on_click)
 }
 
-/// A borderless, muted text button (e.g. "Cancel", "Use a different cTrader ID").
-pub fn ghost(
-    id: impl Into<gpui::ElementId>,
+/// [`primary`] at the large size: the main button of the sign-in modal, nothing else.
+pub fn hero(
+    id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Button {
-    Button::new(id)
-        .ghost()
-        .label(label)
-        .cursor_pointer()
-        .on_click(on_click)
-}
-
-/// An outlined, secondary button (e.g. "Disconnect").
-pub fn secondary(
-    id: impl Into<gpui::ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    Button::new(id)
-        .outline()
-        .large()
+    sized(Button::new(id).primary(), Size::Lg)
         .w_full()
         .label(label)
         .cursor_pointer()
@@ -77,9 +75,8 @@ pub fn action(
     primary: bool,
     on_click: impl Fn(&mut Window, &mut App) + 'static,
 ) -> Button {
-    let button = Button::new(id)
+    let button = sized(Button::new(id), Size::Md)
         .cursor_pointer()
-        .small()
         .label(label)
         .on_click(move |_, window, cx| on_click(window, cx));
     let button = if primary {
@@ -93,53 +90,50 @@ pub fn action(
     }
 }
 
-/// A button that is only an icon, with `tip` as its tooltip and its name for a screen reader. It
-/// is small; a dense strip makes it `.xsmall()`.
+/// A button that is only an icon, with `tip` as its tooltip and its name for a screen reader.
+/// [`icon_dense`] is the one for a dense strip.
 pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {
-    Button::new(id)
-        .ghost()
-        .small()
+    sized(Button::new(id).ghost(), Size::Md)
         .icon(glyph)
         .tooltip(tip)
         .accessibility_label(tip)
         .cursor_pointer()
 }
 
-/// A ghost button in the standard small size: a tool in a bar, a text button of a panel. Chain
-/// `.icon(..)`, `.label(..)`, `.tooltip(..)` and `.on_click(..)` on it.
+/// A ghost button: a tool in a bar, a text button of a panel. Chain `.icon(..)`, `.label(..)`,
+/// `.tooltip(..)` and `.on_click(..)` on it.
 pub fn quiet(id: impl Into<ElementId>) -> Button {
-    Button::new(id).ghost().small().cursor_pointer()
+    sized(Button::new(id).ghost(), Size::Md).cursor_pointer()
 }
 
 /// A ghost button for a dense strip or a table row (the editor toolbar, a list row).
 pub fn dense(id: impl Into<ElementId>) -> Button {
-    Button::new(id).ghost().xsmall().compact().cursor_pointer()
+    sized(Button::new(id).ghost(), Size::Sm).cursor_pointer()
 }
 
-/// The filled button that confirms, in the standard small size.
+/// The filled button that confirms.
 pub fn accent(id: impl Into<ElementId>) -> Button {
-    Button::new(id).primary().small().cursor_pointer()
+    sized(Button::new(id).primary(), Size::Md).cursor_pointer()
 }
 
-/// A button that destroys something, in the standard small size.
+/// A button that destroys something.
 pub fn danger(id: impl Into<ElementId>) -> Button {
-    Button::new(id).danger().small().cursor_pointer()
+    sized(Button::new(id).danger(), Size::Md).cursor_pointer()
 }
 
-/// An outlined button in the standard small size.
+/// An outlined button.
 pub fn outlined(id: impl Into<ElementId>) -> Button {
-    Button::new(id).outline().small().cursor_pointer()
+    sized(Button::new(id).outline(), Size::Md).cursor_pointer()
 }
 
-/// A button with the kit's default look in the standard small size.
+/// A button with the kit's default look.
 pub fn standard(id: impl Into<ElementId>) -> Button {
-    Button::new(id).small().cursor_pointer()
+    sized(Button::new(id), Size::Md).cursor_pointer()
 }
 
 /// The large button that sends an order: green for a buy, red for a sell.
 pub fn trade(id: impl Into<ElementId>, buy: bool) -> Button {
-    Button::new(id)
-        .large()
+    sized(Button::new(id), Size::Lg)
         .cursor_pointer()
         .bg(if buy {
             theme::chart_up()
@@ -151,12 +145,16 @@ pub fn trade(id: impl Into<ElementId>, buy: bool) -> Button {
 
 /// The icon-only button of a dense strip or a panel's own bar.
 pub fn icon_dense(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {
-    icon(id, glyph, tip).xsmall()
+    sized(Button::new(id).ghost(), Size::Sm)
+        .icon(glyph)
+        .tooltip(tip)
+        .accessibility_label(tip)
+        .cursor_pointer()
 }
 
 /// A wide button that disconnects or deletes: [`primary`] in the danger color.
 pub fn wide_danger(
-    id: impl Into<gpui::ElementId>,
+    id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Button {
