@@ -9,6 +9,11 @@ use super::{
 };
 use gpui::prelude::*;
 
+/// The width of the index column of the exits grid.
+const INDEX_WIDTH: f32 = 34.0;
+/// The width of the unit column of the exits grid.
+const UNIT_WIDTH: f32 = 10.0;
+
 impl OrderTicket {
     pub(super) fn exits_block(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let exits = &self.exits;
@@ -47,11 +52,11 @@ impl OrderTicket {
                 .gap_1()
                 .text_size(px(tokens::text::small()))
                 .text_color(theme::muted_fg())
-                .child(div().w(px(34.)))
+                .child(div().w(px(INDEX_WIDTH)))
                 .child(div().flex_1().child("Share (%)"))
-                .child(div().w(px(10.)))
+                .child(div().w(px(UNIT_WIDTH)))
                 .child(div().flex_1().child("Take profit (R)"))
-                .child(div().w(px(10.))),
+                .child(div().w(px(UNIT_WIDTH))),
         );
         for (index, (share, target)) in self.leg_inputs.iter().take(count).enumerate() {
             rows = rows.child(
@@ -62,7 +67,7 @@ impl OrderTicket {
                     .gap_1()
                     .child(
                         div()
-                            .w(px(34.))
+                            .w(px(INDEX_WIDTH))
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child(format!("TP{}", index + 1)),
@@ -70,7 +75,7 @@ impl OrderTicket {
                     .child(div().flex_1().child(crate::ui::kit::input::number(share)))
                     .child(
                         div()
-                            .w(px(10.))
+                            .w(px(UNIT_WIDTH))
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("%"),
@@ -78,7 +83,7 @@ impl OrderTicket {
                     .child(div().flex_1().child(crate::ui::kit::input::number(target)))
                     .child(
                         div()
-                            .w(px(10.))
+                            .w(px(UNIT_WIDTH))
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("R"),

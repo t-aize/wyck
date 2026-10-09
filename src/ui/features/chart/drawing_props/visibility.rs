@@ -51,7 +51,7 @@ impl DrawingProps {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_1p5()
+                    .gap_2()
                     .child(form::note("Quick choices"))
                     .child(controls::chips(
                         "props-tf-presets",
@@ -89,7 +89,7 @@ impl DrawingProps {
                     div()
                         .flex()
                         .flex_col()
-                        .gap_1p5()
+                        .gap_2()
                         .child(form::note(group))
                         .child(controls::chips(
                             SharedString::from(format!("props-tf-{group}")),

@@ -27,6 +27,11 @@ use crate::ui::kit::{
     number, theme, tokens,
 };
 
+/// The height of the bar that shows how a total is shared.
+const METER_HEIGHT: f32 = 6.0;
+/// The height of a thin progress bar.
+const THIN_METER_HEIGHT: f32 = 4.0;
+
 mod exits;
 mod options;
 mod order;
@@ -231,8 +236,8 @@ impl OrderTicket {
                         div()
                             .flex()
                             .flex_row()
-                            .gap_0p5()
-                            .h(px(6.))
+                            .gap_1()
+                            .h(px(METER_HEIGHT))
                             .rounded_full()
                             .overflow_hidden()
                             .child(
@@ -374,11 +379,16 @@ impl OrderTicket {
                             .gap_2()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::destructive())
-                            .child(div().flex_none().pt(px(1.)).child(icon::tinted(
-                                IconName::ShieldAlert,
-                                13.,
-                                theme::destructive(),
-                            )))
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .pt(px(crate::ui::kit::tokens::HAIRLINE))
+                                    .child(icon::tinted(
+                                        IconName::ShieldAlert,
+                                        13.,
+                                        theme::destructive(),
+                                    )),
+                            )
                             .child(div().flex_1().min_w_0().child(text)),
                     )
                     .when(positions > 0, |el| {
@@ -452,7 +462,7 @@ impl OrderTicket {
                     )
                     .child(
                         div()
-                            .h(px(4.))
+                            .h(px(THIN_METER_HEIGHT))
                             .w_full()
                             .rounded_full()
                             .bg(theme::fg_alpha(0.12))
@@ -507,7 +517,7 @@ impl OrderTicket {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_0p5()
+                    .gap_1()
                     .child(
                         controls::switch("ticket-one-click", self.one_click)
                             .label("One-click trading")
@@ -695,11 +705,12 @@ fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .bg(theme::amber_bg())
                 .text_size(px(tokens::text::body()))
                 .text_color(theme::amber())
-                .child(div().flex_none().pt(px(1.)).child(icon::tinted(
-                    IconName::TriangleAlert,
-                    13.,
-                    theme::amber(),
-                )))
+                .child(
+                    div()
+                        .flex_none()
+                        .pt(px(crate::ui::kit::tokens::HAIRLINE))
+                        .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber())),
+                )
                 .child(div().flex_1().min_w_0().child(message.clone()))
                 .into_any_element()
         })

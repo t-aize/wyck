@@ -13,6 +13,13 @@ use super::{Conn, Dashboard, DashboardEvent, MenuKind, Tick};
 use crate::ui::features::{chart, trading};
 use crate::ui::kit::{anim, button, controls, icon, layout, menu, theme, tokens};
 
+/// The widest the subtitle of the symbol grows before it is cut.
+const SUBTITLE_MAX: f32 = 170.0;
+/// The width kept for the arrow that shows the last price move.
+const TICK_WIDTH: f32 = 14.0;
+/// The width of the field where a custom timeframe is typed.
+const CUSTOM_TIMEFRAME_WIDTH: f32 = 78.0;
+
 /// Which parts of the bar the window is wide enough for.
 #[derive(Clone, Copy)]
 struct Fit {
@@ -103,8 +110,8 @@ impl Dashboard {
             .flex()
             .flex_row()
             .items_center()
-            .gap_2p5()
-            .pl(px(8.))
+            .gap_3()
+            .pl(px(crate::ui::kit::tokens::space::sm()))
             .pr_3()
             .border_r_1()
             .border_color(theme::border_hairline())
@@ -117,7 +124,7 @@ impl Dashboard {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_0p5()
+                    .gap_1()
                     .child(
                         div()
                             .text_size(px(tokens::text::title()))
@@ -128,7 +135,7 @@ impl Dashboard {
                     .when(!subtitle.is_empty(), |el| {
                         el.child(
                             div()
-                                .max_w(px(170.))
+                                .max_w(px(SUBTITLE_MAX))
                                 .truncate()
                                 .text_size(px(tokens::text::small()))
                                 .text_color(theme::muted_fg())
@@ -188,7 +195,7 @@ impl Dashboard {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_0p5()
+                    .gap_1()
                     .child(
                         div()
                             .w(px(bid_w))
@@ -198,16 +205,21 @@ impl Dashboard {
                             .text_color(tone)
                             .child(bid),
                     )
-                    .child(div().flex_none().w(px(14.)).children(self.tick.map(|tick| {
-                        icon::tinted(
-                            match tick {
-                                Tick::Up => IconName::ArrowUp,
-                                Tick::Down => IconName::ArrowDown,
-                            },
-                            13.,
-                            tone,
-                        )
-                    }))),
+                    .child(
+                        div()
+                            .flex_none()
+                            .w(px(TICK_WIDTH))
+                            .children(self.tick.map(|tick| {
+                                icon::tinted(
+                                    match tick {
+                                        Tick::Up => IconName::ArrowUp,
+                                        Tick::Down => IconName::ArrowDown,
+                                    },
+                                    13.,
+                                    tone,
+                                )
+                            })),
+                    ),
             )
             .when(fit.ask, |el| {
                 el.child(
@@ -281,7 +293,7 @@ impl Dashboard {
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
+            .gap_1()
             .children(quick)
             .child(
                 div().relative().flex_none().child(more).children(
@@ -422,7 +434,7 @@ impl Dashboard {
             div()
                 .flex()
                 .flex_col()
-                .gap_1p5()
+                .gap_2()
                 .child(menu::section_title(title).px_0())
                 .child(div().flex().flex_row().flex_wrap().gap_1().children(chips))
         };
@@ -448,7 +460,7 @@ impl Dashboard {
                     .into_any_element()
             })
             .collect();
-        let mut units = div().flex().flex_row().gap_0p5();
+        let mut units = div().flex().flex_row().gap_1();
         for unit in chart::Unit::ALL {
             let chosen = unit == self.tf_unit;
             units = units.child(
@@ -481,12 +493,12 @@ impl Dashboard {
             .flex()
             .flex_row()
             .items_center()
-            .gap_1p5()
-            .children(
-                self.tf_custom
-                    .as_ref()
-                    .map(|state| div().w(px(78.)).child(crate::ui::kit::input::text(state))),
-            )
+            .gap_2()
+            .children(self.tf_custom.as_ref().map(|state| {
+                div()
+                    .w(px(CUSTOM_TIMEFRAME_WIDTH))
+                    .child(crate::ui::kit::input::text(state))
+            }))
             .child(units)
             .child(
                 crate::ui::kit::button::accent("tf-add")
@@ -499,7 +511,7 @@ impl Dashboard {
             div()
                 .flex()
                 .flex_col()
-                .gap_1p5()
+                .gap_2()
                 .child(menu::section_title("Custom").px_0())
                 .when(!customs.is_empty(), |el| {
                     el.child(
@@ -536,7 +548,7 @@ impl Dashboard {
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
+            .gap_1()
             .child(
                 crate::ui::kit::button::quiet("toggle-panel")
                     .selected(self.panel_open)
@@ -611,12 +623,12 @@ impl Dashboard {
         div()
             .id("account-pill")
             .flex_none()
-            .h(px(32.))
+            .h(px(crate::ui::kit::tokens::height::large()))
             .flex()
             .flex_row()
             .items_center()
-            .gap_2p5()
-            .px_2p5()
+            .gap_3()
+            .px_3()
             .rounded_lg()
             .border_1()
             .border_color(if open {

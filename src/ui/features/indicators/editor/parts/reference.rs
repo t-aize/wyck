@@ -29,7 +29,7 @@ impl IndicatorEditor {
             .filter(|g| matches(&format!("{} {}", g.name, g.summary)))
             .collect();
         if !globals.is_empty() {
-            list = list.child(menu::section_title("Names you start with").px_3().pt_2p5());
+            list = list.child(menu::section_title("Names you start with").px_3().pt_3());
             for global in globals {
                 row_number += 1;
                 let this = cx.entity();
@@ -51,7 +51,7 @@ impl IndicatorEditor {
             if items.is_empty() {
                 continue;
             }
-            list = list.child(menu::section_title(group.label()).px_3().pt_2p5());
+            list = list.child(menu::section_title(group.label()).px_3().pt_3());
             for doc in items {
                 row_number += 1;
                 let this = cx.entity();
@@ -72,7 +72,7 @@ impl IndicatorEditor {
             })
             .collect();
         if !tools.is_empty() {
-            list = list.child(menu::section_title("Drawing tool names").px_3().pt_2p5());
+            list = list.child(menu::section_title("Drawing tool names").px_3().pt_3());
             for (name, label) in tools {
                 row_number += 1;
                 let this = cx.entity();
@@ -97,7 +97,7 @@ impl IndicatorEditor {
                     .p_2()
                     .flex()
                     .flex_col()
-                    .gap_1p5()
+                    .gap_2()
                     .child(
                         div()
                             .px_1()
@@ -119,7 +119,7 @@ impl IndicatorEditor {
                 div()
                     .flex_none()
                     .px_3()
-                    .py_1p5()
+                    .py_2()
                     .border_t_1()
                     .border_color(theme::border_hairline())
                     .text_size(px(tokens::text::small()))

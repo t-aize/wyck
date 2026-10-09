@@ -16,9 +16,9 @@ impl IndicatorEditor {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap_1p5()
+                .gap_2()
                 .h(px(tokens::height::compact()))
-                .px_2p5()
+                .px_3()
                 .cursor_pointer()
                 .text_size(px(tokens::text::body()))
                 .border_b_2()
@@ -35,7 +35,7 @@ impl IndicatorEditor {
                 .child(label)
                 .children(count.filter(|c| *c > 0).map(|c| {
                     div()
-                        .px_1p5()
+                        .px_2()
                         .rounded_full()
                         .bg(theme::destructive_bg())
                         .text_size(px(tokens::text::small()))
@@ -146,7 +146,7 @@ impl IndicatorEditor {
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
-            .p_1p5()
+            .p_2()
             .flex()
             .flex_col();
         if problems.is_empty() {
@@ -231,7 +231,7 @@ impl IndicatorEditor {
             .p_2()
             .flex()
             .flex_col()
-            .gap_0p5();
+            .gap_1();
         let Some(doc) = self.current() else {
             return list
                 .child(note("Open a script to see what it prints."))

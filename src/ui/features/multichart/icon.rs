@@ -6,6 +6,11 @@ use gpui::{div, px};
 use super::layouts::Layout;
 use crate::ui::kit::theme;
 
+/// The corner of one chart in the icon of a layout.
+const CELL_RADIUS: f32 = 1.5;
+/// The corner of the icon of a layout.
+const ICON_RADIUS: f32 = 3.0;
+
 /// A layout drawn as its cells. A selected one is filled, so it stands out in the picker.
 pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> impl IntoElement {
     let (cols, rows) = (layout.cols as f32, layout.rows as f32);
@@ -25,14 +30,14 @@ pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> 
             .h(px(cell.h as f32 * cell_h - 2.0))
             .border_1()
             .border_color(ink)
-            .rounded(px(1.5))
+            .rounded(px(CELL_RADIUS))
     });
     div()
         .relative()
         .flex_none()
         .w(px(width))
         .h(px(height))
-        .rounded(px(3.))
+        .rounded(px(ICON_RADIUS))
         .when_some(paper, |el, paper| el.bg(paper))
         .children(cells)
 }

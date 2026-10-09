@@ -836,10 +836,10 @@ impl ExportDialog {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .py_1p5()
+                    .py_2()
                     .child(
                         div()
-                            .w(px(150.))
+                            .w(px(crate::ui::kit::tokens::field::select()))
                             .flex_none()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::muted_fg())
@@ -896,7 +896,7 @@ impl ExportDialog {
                     .into_any_element(),
             );
         }
-        let mut wrap = div().flex().flex_row().flex_wrap().gap_1p5();
+        let mut wrap = div().flex().flex_row().flex_wrap().gap_2();
         for key in self
             .available()
             .into_iter()
@@ -909,7 +909,7 @@ impl ExportDialog {
                     .h(px(tokens::height::control()))
                     .flex()
                     .items_center()
-                    .px_2p5()
+                    .px_3()
                     .rounded_md()
                     .border_1()
                     .border_color(theme::border_subtle())
@@ -1175,7 +1175,7 @@ impl ExportDialog {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .py_1p5()
+                .py_2()
                 .child(
                     div()
                         .flex_1()
@@ -1272,7 +1272,7 @@ impl ExportDialog {
 
     fn preview_page(&self) -> AnyElement {
         let p = &self.preview;
-        let mut column = div().flex().flex_col().gap_0p5();
+        let mut column = div().flex().flex_col().gap_1();
         for line in &p.lines {
             column = column.child(div().whitespace_nowrap().child(if line.is_empty() {
                 SharedString::from(" ")
@@ -1313,7 +1313,7 @@ impl ExportDialog {
         if !p.problems.is_empty() {
             let rows = p.problems.iter().map(|text| {
                 div()
-                    .py_1p5()
+                    .py_2()
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::destructive())
                     .child(text.clone())

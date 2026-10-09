@@ -372,7 +372,7 @@ impl MultiChart {
                 list = list.child(
                     div()
                         .px_2()
-                        .py_1p5()
+                        .py_2()
                         .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .child(format!("Type to search the {} tools.", Tool::ALL.len())),
@@ -390,7 +390,7 @@ impl MultiChart {
                     list = list.child(
                         div()
                             .px_2()
-                            .py_1p5()
+                            .py_2()
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child("No tool by that name."),
@@ -545,7 +545,12 @@ impl MultiChart {
                         .on_click(cx.listener(move |this, _event, _window, cx| {
                             this.set_drawing_color(color, cx);
                         }))
-                        .child(div().size(px(14.)).rounded_full().bg(swatch_color(color))),
+                        .child(
+                            div()
+                                .size(px(crate::ui::kit::tokens::swatch::medium()))
+                                .rounded_full()
+                                .bg(swatch_color(color)),
+                        ),
                 );
             }
             // The colors set last that the palette does not hold, one click to use again.
@@ -570,7 +575,12 @@ impl MultiChart {
                         .on_click(cx.listener(move |this, _event, _window, cx| {
                             this.set_drawing_color(color, cx);
                         }))
-                        .child(div().size(px(14.)).rounded_full().bg(swatch_color(color))),
+                        .child(
+                            div()
+                                .size(px(crate::ui::kit::tokens::swatch::medium()))
+                                .rounded_full()
+                                .bg(swatch_color(color)),
+                        ),
                 );
             }
             // Any other color: the panel with the square, the hue bar and the typed values.
@@ -759,7 +769,7 @@ impl MultiChart {
                 )
                 .child(
                     div()
-                        .min_w(px(22.))
+                        .min_w(px(crate::ui::kit::tokens::height::tiny()))
                         .flex()
                         .justify_center()
                         .text_size(px(tokens::text::small()))

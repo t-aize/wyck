@@ -110,7 +110,7 @@ fn tile(label: &'static str, value: String) -> Div {
     div()
         .flex_1()
         .min_w_0()
-        .px_2p5()
+        .px_3()
         .py_2()
         .rounded_lg()
         .bg(theme::surface())
@@ -175,7 +175,7 @@ pub(super) struct Sheet<'a> {
 pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
     let pane = div()
         .flex_none()
-        .w(px(380.))
+        .w(px(crate::ui::kit::tokens::measure::card()))
         .h_full()
         .flex()
         .flex_col()
@@ -204,7 +204,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 .min_w_0()
                 .flex()
                 .flex_col()
-                .gap_0p5()
+                .gap_1()
                 .child(
                     div()
                         .truncate()
@@ -221,7 +221,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 ),
         );
 
-    let mut badges = div().flex().flex_row().flex_wrap().gap_1p5().mt_3();
+    let mut badges = div().flex().flex_row().flex_wrap().gap_2().mt_3();
     badges = badges.child(layout::badge(
         entry.class.label(),
         theme::muted_fg(),
@@ -355,7 +355,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
-            .p_5()
+            .p_4()
             .child(header)
             .child(badges)
             .children(live)
@@ -367,7 +367,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
     .children(
         sheet
             .action
-            .map(|button| div().flex_none().px_5().pb_4().child(button)),
+            .map(|button| div().flex_none().px_4().pb_4().child(button)),
     )
 }
 

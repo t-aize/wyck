@@ -257,7 +257,7 @@ impl SignInGate {
         div()
             .flex()
             .flex_col()
-            .gap_5()
+            .gap_4()
             .child(self.heading_with(
                 layout::brand_mark(52.).into_any_element(),
                 "Sign in to cTrader",
@@ -383,7 +383,7 @@ impl SignInGate {
         div()
             .flex()
             .flex_col()
-            .gap_5()
+            .gap_4()
             .child(self.heading(
                 IconName::Globe,
                 "Finish this in your browser",
@@ -452,7 +452,7 @@ impl SignInGate {
         div()
             .flex()
             .flex_col()
-            .gap_5()
+            .gap_4()
             .child(self.heading(
                 IconName::Wallet,
                 "Choose a trading account",

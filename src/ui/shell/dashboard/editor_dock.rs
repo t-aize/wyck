@@ -205,60 +205,70 @@ impl Dashboard {
                 }
                 Item::from(entry)
             };
-        let items = vec![
-            run(
-                "Open the indicators folder",
-                IconName::FolderOpen,
-                None,
-                |_, _, cx| {
-                    indicators::open_folder(cx);
-                },
+        let items = crate::ui::kit::menu::sections([
+            crate::ui::kit::menu::Section::new(
+                "Editor",
+                vec![
+                    run(
+                        "Indicator editor",
+                        IconName::CodeXml,
+                        Some(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
+                        |d, _, cx| {
+                            d.toggle_editor(cx);
+                        },
+                    ),
+                    run(
+                        "New indicator...",
+                        IconName::FilePlus,
+                        None,
+                        |d, window, cx| {
+                            d.with_editor(window, cx, |editor, window, cx| {
+                                editor.ask_new(0, window, cx)
+                            });
+                        },
+                    ),
+                ],
             ),
-            Item::Separator,
-            run(
-                "Indicator editor",
-                IconName::CodeXml,
-                Some(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
-                |d, _, cx| {
-                    d.toggle_editor(cx);
-                },
+            crate::ui::kit::menu::Section::new(
+                "Files",
+                vec![
+                    run(
+                        "Import indicators...",
+                        IconName::FileUp,
+                        None,
+                        |d, window, cx| {
+                            d.with_editor(window, cx, |editor, window, cx| {
+                                editor.import(window, cx)
+                            });
+                        },
+                    ),
+                    run(
+                        "Export every indicator...",
+                        IconName::FileDown,
+                        None,
+                        |d, window, cx| {
+                            d.with_editor(window, cx, |editor, _, cx| editor.export_all(cx));
+                        },
+                    ),
+                    run(
+                        "Open the indicators folder",
+                        IconName::FolderOpen,
+                        None,
+                        |_, _, cx| {
+                            indicators::open_folder(cx);
+                        },
+                    ),
+                    run(
+                        "Read the folder again",
+                        IconName::RefreshCw,
+                        None,
+                        |_, _, cx| {
+                            indicators::reload(cx).detach();
+                        },
+                    ),
+                ],
             ),
-            run(
-                "New indicator...",
-                IconName::FilePlus,
-                None,
-                |d, window, cx| {
-                    d.with_editor(window, cx, |editor, window, cx| {
-                        editor.ask_new(0, window, cx)
-                    });
-                },
-            ),
-            run(
-                "Import indicators...",
-                IconName::FileUp,
-                None,
-                |d, window, cx| {
-                    d.with_editor(window, cx, |editor, window, cx| editor.import(window, cx));
-                },
-            ),
-            run(
-                "Export every indicator...",
-                IconName::FileDown,
-                None,
-                |d, window, cx| {
-                    d.with_editor(window, cx, |editor, _, cx| editor.export_all(cx));
-                },
-            ),
-            Item::Separator,
-            run(
-                "Read the folder again",
-                IconName::RefreshCw,
-                None,
-                |_, _, cx| {
-                    indicators::reload(cx).detach();
-                },
-            ),
-            run(
+            crate::ui::kit::menu::Section::untitled(vec![run(
                 "Indicator settings...",
                 IconName::Settings2,
                 None,
@@ -269,8 +279,8 @@ impl Dashboard {
                         cx,
                     );
                 },
-            ),
-        ];
+            )]),
+        ]);
         div()
             .relative()
             .flex_none()
@@ -284,8 +294,8 @@ impl Dashboard {
             .children(unsaved.then(|| {
                 div()
                     .absolute()
-                    .top(px(4.))
-                    .right(px(4.))
+                    .top(px(crate::ui::kit::tokens::space::xs()))
+                    .right(px(crate::ui::kit::tokens::space::xs()))
                     .size(px(crate::ui::kit::tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())

@@ -51,7 +51,7 @@ impl SettingsHub {
                 div()
                     .flex()
                     .flex_row()
-                    .gap_1p5()
+                    .gap_2()
                     .child(button::action(
                         "indicators-choose",
                         "Choose...",
@@ -101,7 +101,7 @@ impl SettingsHub {
                 "Its default place",
                 None,
                 div()
-                    .max_w(px(360.))
+                    .max_w(px(crate::ui::kit::tokens::measure::note()))
                     .truncate()
                     .text_size(px(tokens::text::small()))
                     .text_color(theme::muted_fg())

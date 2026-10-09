@@ -249,7 +249,11 @@ pub(super) fn list_chips(
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .child(div().w(px(200.)).child(editor.input.clone()))
+                .child(
+                    div()
+                        .w(px(crate::ui::kit::tokens::field::text()))
+                        .child(editor.input.clone()),
+                )
                 .child(
                     div()
                         .text_size(px(tokens::text::small()))

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Wyck" width="120">
+</p>
+
 # wyck
 
 [![CI](https://github.com/t-aize/wyck/actions/workflows/ci.yml/badge.svg)](https://github.com/t-aize/wyck/actions/workflows/ci.yml)

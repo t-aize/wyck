@@ -106,7 +106,7 @@ impl Dashboard {
                 icons.push(
                     div()
                         .id(("layout-option", count * 100 + variant))
-                        .p(px(2.))
+                        .p_1()
                         .rounded_md()
                         .cursor_pointer()
                         .hover(|style| style.bg(theme::surface_hover()))

@@ -338,7 +338,7 @@ impl Render for ObjectTree {
             )
             .into_any_element()
         } else {
-            let mut rows = div().flex().flex_col().gap_0p5();
+            let mut rows = div().flex().flex_col().gap_1();
             for (position, drawing) in list.iter().enumerate().rev() {
                 let is_selected = selected == Some(drawing.id);
                 rows = rows.child(self.row(drawing, position, count, is_selected, &this));

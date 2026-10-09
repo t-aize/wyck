@@ -163,7 +163,7 @@ impl OrderTicket {
         div()
             .flex()
             .flex_col()
-            .gap_0p5()
+            .gap_1()
             .child(
                 div()
                     .text_size(px(tokens::text::body()))

@@ -29,6 +29,11 @@ use crate::app::broker::Error as ApiError;
 use crate::app::system::runtime;
 use crate::ui::kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
+/// The width of the symbol picker.
+const PICKER_WIDTH: f32 = 1160.0;
+/// The width of a column of the results of the picker.
+const RESULT_COLUMN_WIDTH: f32 = 120.0;
+
 const ROW_HEIGHT: f32 = 52.;
 /// How many rows a page key moves.
 const PAGE: isize = 8;
@@ -304,7 +309,7 @@ impl Dashboard {
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
                 cx.stop_propagation();
             })
-            .w(px(1160.))
+            .w(px(PICKER_WIDTH))
             .max_w(relative(0.96))
             .h(px(height))
             .flex()
@@ -371,7 +376,7 @@ impl Dashboard {
             .flex()
             .justify_center()
             .items_center()
-            .py(px(24.))
+            .py(px(crate::ui::kit::tokens::space::xl()))
             .bg(theme::veil())
             .occlude()
             .on_mouse_down(
@@ -467,7 +472,7 @@ fn symbol_row(
         ))
         .child(
             div()
-                .w(px(120.))
+                .w(px(RESULT_COLUMN_WIDTH))
                 .flex_none()
                 .truncate()
                 .text_size(px(tokens::text::title()))
@@ -498,7 +503,7 @@ fn symbol_row(
         )
         .child(
             div()
-                .w(px(16.))
+                .w(px(crate::ui::kit::tokens::space::lg()))
                 .flex_none()
                 .children(active.then(|| icon::tinted(IconName::Check, 16., theme::accent()))),
         );
@@ -605,9 +610,9 @@ fn key_cap(content: impl IntoElement) -> gpui::Div {
         .flex_none()
         .items_center()
         .justify_center()
-        .min_w(px(22.))
+        .min_w(px(crate::ui::kit::tokens::height::tiny()))
         .h(px(tokens::height::tiny()))
-        .px_1p5()
+        .px_2()
         .rounded_md()
         .border_1()
         .border_color(theme::border_subtle())
@@ -622,7 +627,7 @@ fn key_hint(caps: Vec<gpui::AnyElement>, label: &'static str) -> gpui::Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap_1p5()
+        .gap_2()
         .children(caps)
         .child(
             div()
@@ -647,7 +652,7 @@ fn footer(shown: usize, total: usize) -> gpui::Div {
         .items_center()
         .justify_between()
         .h(px(crate::ui::kit::tokens::height::row()))
-        .px_5()
+        .px_4()
         .border_t_1()
         .border_color(theme::border_hairline())
         .child(

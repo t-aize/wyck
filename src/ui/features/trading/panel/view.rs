@@ -33,6 +33,13 @@ use crate::ui::kit::{
     theme, tokens,
 };
 
+/// The width of the strip that grabs a column edge.
+const RESIZE_HANDLE: f32 = 9.0;
+/// The height of the grip of a column edge while the pointer is over it.
+const RESIZE_GRIP_HOVER: f32 = 22.0;
+/// The width of the mark at the left of the selected row.
+const ROW_MARKER_WIDTH: f32 = 2.0;
+
 /// What a button or a menu entry of a row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -249,7 +256,7 @@ impl AccountPanel {
             div()
                 .flex_none()
                 .px_2()
-                .py_0p5()
+                .py_1()
                 .rounded_full()
                 .bg(back)
                 .text_size(px(tokens::text::caption()))
@@ -270,7 +277,7 @@ impl AccountPanel {
                 .flex()
                 .flex_row()
                 .items_baseline()
-                .gap_1p5()
+                .gap_2()
                 .child(
                     div()
                         .text_size(px(tokens::text::small()))
@@ -414,29 +421,39 @@ impl AccountPanel {
                 .disabled(n == 0)
                 .on_click(move |window, cx| action(window, cx))
         };
-        vec![
-            close(all, "Close all positions", "Every open position".into()),
-            Item::Separator,
-            close(
-                winners,
-                "Close winning positions",
-                "Every position in profit".into(),
+        popup::sections([
+            popup::Section::new(
+                "Positions",
+                vec![close(
+                    all,
+                    "Close all positions",
+                    "Every open position".into(),
+                )],
             ),
-            close(
-                losers,
-                "Close losing positions",
-                "Every position in loss".into(),
+            popup::Section::new(
+                "Close some",
+                vec![
+                    close(
+                        winners,
+                        "Close winning positions",
+                        "Every position in profit".into(),
+                    ),
+                    close(
+                        losers,
+                        "Close losing positions",
+                        "Every position in loss".into(),
+                    ),
+                    close(buys, "Close buys", "Every buy".into()),
+                    close(sells, "Close sells", "Every sell".into()),
+                    close(
+                        here,
+                        "Close this symbol",
+                        format!("Every position on {symbol_name}"),
+                    ),
+                ],
             ),
-            close(buys, "Close buys", "Every buy".into()),
-            close(sells, "Close sells", "Every sell".into()),
-            close(
-                here,
-                "Close this symbol",
-                format!("Every position on {symbol_name}"),
-            ),
-            Item::Separator,
-            cancel.into(),
-        ]
+            popup::Section::new("Orders", vec![cancel.into()]),
+        ])
     }
 
     /// What a right click on a row or a header offers.
@@ -449,10 +466,10 @@ impl AccountPanel {
         let confirm_on = self.prefs.confirm_close;
         match target {
             MenuTarget::Header => {
-                let mut items = vec![Item::Title("Columns".into())];
+                let mut columns = Vec::new();
                 for (slot, (label, shown)) in self.prefs.column_list(tab).into_iter().enumerate() {
                     let this = this.clone();
-                    items.push(
+                    columns.push(
                         Entry::new(label)
                             .checked(shown)
                             .keep_open()
@@ -466,7 +483,7 @@ impl AccountPanel {
                 }
                 let (reset, custom) = (this.clone(), this.clone());
                 let text = data::to_csv(table);
-                items.push(Item::Separator);
+                let mut log = Vec::new();
                 if tab == Tab::AlertLog {
                     let alerts = self.alerts.clone();
                     let clear = ask(
@@ -480,7 +497,7 @@ impl AccountPanel {
                             });
                         },
                     );
-                    items.push(
+                    log.push(
                         Entry::new("Clear the log")
                             .icon(IconName::Trash)
                             .danger()
@@ -488,7 +505,8 @@ impl AccountPanel {
                             .into(),
                     );
                 }
-                items.push(
+                let mut table_items = Vec::new();
+                table_items.push(
                     Entry::new("Reset the columns")
                         .icon(IconName::RotateCcw)
                         .keep_open()
@@ -499,37 +517,40 @@ impl AccountPanel {
                         })
                         .into(),
                 );
-                items.push(
+                table_items.push(
                     Entry::new("Copy the table as CSV")
                         .icon(IconName::Copy)
                         .on_click(move |_, cx| copy(cx, "Table copied", text.clone()))
                         .into(),
                 );
-                items.push(
+                table_items.push(
                     Entry::new("Customize the panel...")
                         .icon(IconName::SlidersHorizontal)
                         .on_click(move |window, cx| customize::open(custom.clone(), window, cx))
                         .into(),
                 );
-                items
+                popup::sections([
+                    popup::Section::new("Columns", columns),
+                    popup::Section::new("Alert log", log),
+                    popup::Section::new("Table", table_items),
+                ])
             }
             MenuTarget::Row(key) => {
                 let Some(row) = table.rows.iter().find(|r| r.key == key) else {
                     return Vec::new();
                 };
-                let mut items: Vec<Item> = Vec::new();
+                let mut groups: Vec<popup::Section> = Vec::new();
                 let text = row_text(table, row);
                 if let Some(symbol) = row.symbol {
                     let show = this.clone();
-                    items.push(
+                    groups.push(popup::Section::untitled(vec![
                         Entry::new("Show on the chart")
                             .icon(IconName::ChartCandlestick)
                             .on_click(move |_, cx| {
                                 show.update(cx, |_, cx| cx.emit(PanelEvent::ShowSymbol(symbol)));
                             })
                             .into(),
-                    );
-                    items.push(Item::Separator);
+                    ]));
                 }
                 match &row.kind {
                     RowKind::Position(position) => {
@@ -545,7 +566,7 @@ impl AccountPanel {
                         );
                         let alert = this.clone();
                         let (position_id, symbol_id) = (position.id, row.symbol.unwrap_or(0));
-                        items.extend([
+                        groups.push(popup::Section::untitled(vec![
                             Entry::new("Modify stop loss and take profit...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |w, cx| edit(w, cx))
@@ -575,7 +596,8 @@ impl AccountPanel {
                             .disabled((position.stop_loss.is_none() && !position.trailing) || busy)
                             .on_click(move |w, cx| trail(w, cx))
                             .into(),
-                            Item::Separator,
+                        ]));
+                        groups.push(popup::Section::untitled(vec![
                             Entry::new("Close half")
                                 .icon(IconName::Scissors)
                                 .disabled(position.half.is_none() || busy)
@@ -592,7 +614,7 @@ impl AccountPanel {
                                 .disabled(busy)
                                 .on_click(move |w, cx| close(w, cx))
                                 .into(),
-                        ]);
+                        ]));
                     }
                     RowKind::Order { id, busy, .. } => {
                         let id = *id;
@@ -606,7 +628,7 @@ impl AccountPanel {
                             },
                             move |cx| account.update(cx, |acc, cx| acc.cancel_order(id, cx)),
                         );
-                        items.extend([
+                        groups.push(popup::Section::untitled(vec![
                             Entry::new("Modify the order...")
                                 .icon(IconName::Pencil)
                                 .on_click(move |window, cx| {
@@ -619,7 +641,7 @@ impl AccountPanel {
                                 .disabled(*busy)
                                 .on_click(move |w, cx| cancel(w, cx))
                                 .into(),
-                        ]);
+                        ]));
                     }
                     RowKind::Alert { id, active } => {
                         let id = *id;
@@ -631,7 +653,7 @@ impl AccountPanel {
                             self.alerts.clone(),
                         );
                         let active = *active;
-                        items.extend([
+                        groups.push(popup::Section::untitled(vec![
                             Entry::new("Snooze for an hour")
                                 .icon(IconName::Timer)
                                 .disabled(!active)
@@ -690,6 +712,8 @@ impl AccountPanel {
                                     });
                                 })
                                 .into(),
+                        ]));
+                        groups.push(popup::Section::untitled(vec![
                             Entry::new("Delete the alert")
                                 .icon(IconName::Trash)
                                 .danger()
@@ -699,7 +723,7 @@ impl AccountPanel {
                                     });
                                 })
                                 .into(),
-                        ]);
+                        ]));
                     }
                     RowKind::Exposure => {
                         if let Some(symbol) = row.symbol {
@@ -713,42 +737,39 @@ impl AccountPanel {
                                     account.update(cx, |acc, cx| acc.close_all(Some(symbol), cx));
                                 },
                             );
-                            items.push(
+                            groups.push(popup::Section::untitled(vec![
                                 Entry::new("Close every position on the symbol")
                                     .icon(IconName::X)
                                     .danger()
                                     .on_click(move |w, cx| action(w, cx))
                                     .into(),
-                            );
+                            ]));
                         }
                     }
                     RowKind::Firing { alert } => {
                         let alert = *alert;
                         if self.alerts.read(cx).book().get(alert).is_some() {
                             let edit = self.alerts.clone();
-                            items.push(
+                            groups.push(popup::Section::untitled(vec![
                                 Entry::new("Open the alert...")
                                     .icon(IconName::Pencil)
                                     .on_click(move |window, cx| {
                                         open_alert(edit.clone(), alert, window, cx)
                                     })
                                     .into(),
-                            );
+                            ]));
                         }
                     }
                     RowKind::Deal => {}
                 }
-                if !matches!(items.last(), Some(Item::Separator) | None) {
-                    items.push(Item::Separator);
-                }
                 let copy_row = text;
-                items.push(
+                groups.push(popup::Section::untitled(vec![
                     Entry::new("Copy the row")
                         .icon(IconName::Copy)
                         .on_click(move |_, cx| copy(cx, "Row copied", copy_row.clone()))
                         .into(),
-                );
-                items
+                ]));
+                popup::sections(groups)
             }
         }
     }
@@ -878,7 +899,7 @@ impl AccountPanel {
                 .flex()
                 .flex_row()
                 .items_baseline()
-                .gap_1p5()
+                .gap_2()
                 .child(
                     div()
                         .text_size(px(tokens::text::small()))
@@ -1215,9 +1236,9 @@ impl AccountPanel {
                             .group(group.clone())
                             .absolute()
                             .top_0()
-                            .right(px(-9.))
+                            .right(px(-RESIZE_HANDLE))
                             .h_full()
-                            .w(px(9.))
+                            .w(px(RESIZE_HANDLE))
                             .flex()
                             .justify_center()
                             .items_center()
@@ -1232,7 +1253,9 @@ impl AccountPanel {
                                     } else {
                                         theme::border_strong()
                                     })
-                                    .group_hover(group, |s| s.bg(theme::accent()).h(px(22.))),
+                                    .group_hover(group, |s| {
+                                        s.bg(theme::accent()).h(px(RESIZE_GRIP_HOVER))
+                                    }),
                             )
                             .on_mouse_down(
                                 MouseButton::Left,
@@ -1326,7 +1349,7 @@ impl AccountPanel {
                         .left_0()
                         .top_0()
                         .h_full()
-                        .w(px(2.))
+                        .w(px(ROW_MARKER_WIDTH))
                         .bg(theme::accent()),
                 );
             }
@@ -1390,7 +1413,7 @@ impl AccountPanel {
                         .flex()
                         .flex_row()
                         .justify_end()
-                        .gap_0p5()
+                        .gap_1()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
                         .children(buttons),

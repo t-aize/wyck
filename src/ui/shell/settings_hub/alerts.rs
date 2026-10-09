@@ -91,10 +91,10 @@ impl SettingsHub {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_1p5()
+                    .gap_2()
                     .children(file_name.map(|name| {
                         div()
-                            .max_w(px(200.))
+                            .max_w(px(crate::ui::kit::tokens::measure::caption()))
                             .truncate()
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())

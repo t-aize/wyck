@@ -82,7 +82,7 @@ impl IndicatorEditor {
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
+            .gap_1()
             .border_b_1()
             .border_color(theme::border_hairline())
             .child(

@@ -504,7 +504,7 @@ impl Chart {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(20.))
+                .size(px(crate::ui::kit::tokens::height::tiny()))
                 .rounded_sm()
                 .cursor_pointer()
                 .hover(move |s| s.bg(hover))
@@ -551,7 +551,7 @@ impl Chart {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_0p5()
+                    .gap_1()
                     .flex_none()
                     .child(
                         button(
@@ -623,12 +623,12 @@ impl Chart {
         let right = axis_w() + if self.shows_toolbar() { 196.0 } else { 8.0 };
         let mut main = div()
             .absolute()
-            .top(px(6.))
-            .left(px(8.))
+            .top(px(crate::ui::kit::tokens::space::sm()))
+            .left(px(crate::ui::kit::tokens::space::sm()))
             .right(px(right))
             .flex()
             .flex_col()
-            .gap_0p5()
+            .gap_1()
             .child(self.headline(compact, cx));
         if !compact && self.settings.status.indicators {
             for (study, config) in self.settings.studies.iter().enumerate() {
@@ -649,7 +649,7 @@ impl Chart {
                 div()
                     .absolute()
                     .top(px(band.top as f32 + 3.0))
-                    .left(px(8.))
+                    .left(px(crate::ui::kit::tokens::space::sm()))
                     .child(self.study_row(pane.study, index, cx))
                     .into_any_element(),
             );
@@ -773,7 +773,7 @@ impl Chart {
         Some(
             div()
                 .id(("market-status", self.id))
-                .size(px(20.))
+                .size(px(crate::ui::kit::tokens::height::tiny()))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -827,7 +827,7 @@ impl Chart {
             div()
                 .flex()
                 .flex_row()
-                .gap_0p5()
+                .gap_1()
                 .child(div().text_color(theme::chart_muted()).child(label))
                 .child(div().text_color(tone).child(text))
         };
@@ -866,7 +866,7 @@ impl Chart {
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
+            .gap_1()
             .h(px(tokens::height::tiny()))
             .px_1()
             .rounded_sm()
@@ -970,7 +970,7 @@ impl Chart {
             div()
                 .flex()
                 .flex_row()
-                .gap_0p5()
+                .gap_1()
                 .child(div().text_color(palette.text).child(label))
                 .child(div().text_color(tone).child(format_price(price, digits)))
         };
@@ -1065,7 +1065,7 @@ impl Chart {
                 .child(
                     div()
                         .h_full()
-                        .px_1p5()
+                        .px_2()
                         .flex()
                         .items_center()
                         .bg(color)
@@ -1074,7 +1074,7 @@ impl Chart {
                         .child(line.label.clone()),
                 )
                 .children(line.detail.clone().map(|(text, detail_color)| {
-                    div().px_1p5().text_color(rgb(detail_color)).child(text)
+                    div().px_2().text_color(rgb(detail_color)).child(text)
                 }))
                 .when(line.closable, |el| {
                     el.child(
@@ -1136,7 +1136,7 @@ impl Chart {
         // The zone opens from the corner at the bottom right.
         let positioned = div()
             .absolute()
-            .right(px(4.))
+            .right(px(crate::ui::kit::tokens::space::xs()))
             .bottom(px(axis_h() + 4.0))
             .child(card);
         Some(
@@ -1226,11 +1226,16 @@ impl Chart {
                             .text_color(theme::chart_muted())
                             .child(message.clone()),
                     )
-                    .child(div().pt_1().w(px(200.)).child(button::primary(
-                        ("chart-retry", self.id),
-                        "Try again",
-                        cx.listener(|this, _event, _window, cx| this.retry(cx)),
-                    )))
+                    .child(
+                        div()
+                            .pt_1()
+                            .w(px(crate::ui::kit::tokens::measure::action()))
+                            .child(button::primary(
+                                ("chart-retry", self.id),
+                                "Try again",
+                                cx.listener(|this, _event, _window, cx| this.retry(cx)),
+                            )),
+                    )
                     .into_any_element(),
             ),
             Load::Ready if self.series.is_empty() => out.push(
@@ -1249,7 +1254,7 @@ impl Chart {
             out.push(
                 div()
                     .absolute()
-                    .left(px(12.))
+                    .left(px(crate::ui::kit::tokens::space::md()))
                     .bottom(px(axis_h() + 8.0))
                     .flex()
                     .flex_row()

@@ -26,6 +26,11 @@ use crate::ui::kit::{
     theme, tokens,
 };
 
+/// The width of the card of a starting template.
+const TEMPLATE_CARD_WIDTH: f32 = 210.0;
+/// The widest the row of template cards grows.
+const TEMPLATE_ROW_MAX: f32 = 690.0;
+
 mod console;
 mod explorer;
 mod reference;
@@ -68,7 +73,7 @@ impl IndicatorEditor {
             .flex()
             .flex_row()
             .items_end()
-            .gap_0p5()
+            .gap_1()
             .px_2()
             .border_b_1()
             .border_color(theme::border_hairline())
@@ -84,9 +89,9 @@ impl IndicatorEditor {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_1p5()
+                    .gap_2()
                     .h(px(tokens::height::control()))
-                    .pl_2p5()
+                    .pl_3()
                     .pr_1()
                     .rounded_t_md()
                     .cursor_pointer()
@@ -140,7 +145,7 @@ impl IndicatorEditor {
                             })
                             .child(if doc.dirty {
                                 div()
-                                    .size(px(8.))
+                                    .size(px(crate::ui::kit::tokens::swatch::dot()))
                                     .rounded_full()
                                     .bg(theme::amber())
                                     .into_any_element()
@@ -217,11 +222,11 @@ impl IndicatorEditor {
             cards = cards.child(
                 div()
                     .id(("editor-template", index))
-                    .w(px(210.))
+                    .w(px(TEMPLATE_CARD_WIDTH))
                     .p_3()
                     .flex()
                     .flex_col()
-                    .gap_1p5()
+                    .gap_2()
                     .rounded_lg()
                     .border_1()
                     .border_color(theme::border_subtle())
@@ -287,7 +292,7 @@ impl IndicatorEditor {
                     .text_color(theme::muted_fg())
                     .child("Pick a script in the list, or start from one of these. A saved script shows up in the list of indicators, on every chart. The Reference button on the top right explains every function."),
             )
-            .child(cards.max_w(px(690.)))
+            .child(cards.max_w(px(TEMPLATE_ROW_MAX)))
             .child(
                 crate::ui::kit::button::dense("editor-empty-folder")
                     .icon(IconName::FolderOpen)
@@ -370,7 +375,7 @@ fn reference_row(
 ) -> AnyElement {
     div()
         .id(("reference-row", number))
-        .mx_1p5()
+        .mx_2()
         .px_2()
         .py_1()
         .rounded_md()

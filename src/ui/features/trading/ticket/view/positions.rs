@@ -120,7 +120,7 @@ impl OrderTicket {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_0p5()
+                    .gap_1()
                     .p_2()
                     .rounded_md()
                     .bg(theme::bg())
@@ -137,7 +137,7 @@ impl OrderTicket {
                                 div()
                                     .flex()
                                     .flex_row()
-                                    .gap_1p5()
+                                    .gap_2()
                                     .child(
                                         div()
                                             .font_semibold()

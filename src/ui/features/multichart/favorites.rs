@@ -123,8 +123,8 @@ impl MultiChart {
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
-            .px_1p5()
+            .gap_1()
+            .px_2()
             .overflow_hidden()
             .rounded_full()
             .border_1()
@@ -134,7 +134,7 @@ impl MultiChart {
             .occlude()
             .opacity(IDLE_OPACITY)
             .hover(|s| s.opacity(1.0))
-            .child(div().flex_none().px_1p5().child(icon::tinted(
+            .child(div().flex_none().px_2().child(icon::tinted(
                 IconName::StarFill,
                 13.,
                 theme::amber(),
@@ -194,7 +194,7 @@ impl MultiChart {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_1p5()
+                    .gap_2()
                     .h(px(tokens::height::control()))
                     .px_2()
                     .rounded_full()

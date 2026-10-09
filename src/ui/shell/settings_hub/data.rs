@@ -151,7 +151,7 @@ impl SettingsHub {
                     .flex()
                     .flex_row()
                     .gap_2()
-                    .pt_1p5()
+                    .pt_2()
                     .child(
                         crate::ui::kit::button::accent("backup-restart")
                             .icon(IconName::RefreshCw)

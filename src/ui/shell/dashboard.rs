@@ -855,13 +855,18 @@ impl Dashboard {
                         .text_color(theme::muted_fg())
                         .child(message.clone()),
                 )
-                .child(div().pt_2().w(px(260.)).child(button::primary(
-                    "sign-in-again",
-                    "Sign in again",
-                    cx.listener(|_this, _event, _window, cx| {
-                        cx.emit(DashboardEvent::SignInAgain);
-                    }),
-                )))
+                .child(
+                    div()
+                        .pt_2()
+                        .w(px(crate::ui::kit::tokens::measure::action()))
+                        .child(button::primary(
+                            "sign-in-again",
+                            "Sign in again",
+                            cx.listener(|_this, _event, _window, cx| {
+                                cx.emit(DashboardEvent::SignInAgain);
+                            }),
+                        )),
+                )
                 .into_any_element(),
             _ => self
                 .trading_layout(self.multi.clone().into_any_element(), cx)

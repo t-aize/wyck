@@ -70,10 +70,6 @@ Left out, on purpose:
 
 ## Left for later
 
-- 87 pixel literals remain in 30 screens: the geometry of the theme previews, glyph and icon
-  boxes, one-off panel sizes. `tests/design-baseline.txt` only lets that number go down.
-- Spacing classes are on a fixed scale (the design test checks it). The half steps (`gap_1p5`,
-  `px_2p5`) are still used in screens.
 - Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
   the maintainer's machine (phase 0).
 

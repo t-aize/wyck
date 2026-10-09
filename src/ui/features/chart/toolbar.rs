@@ -20,7 +20,7 @@ use super::{
 use crate::app::scripts as indicators;
 use crate::ui::kit::{
     controls, icon, layout,
-    menu::{Entry, Item, Menu, Placement},
+    menu::{self, Entry, Item, Menu, Placement, Section},
     theme, tokens,
 };
 
@@ -46,9 +46,9 @@ fn tool(
         .flex()
         .flex_row()
         .items_center()
-        .gap_1p5()
+        .gap_2()
         .h(px(tokens::height::compact()))
-        .px_1p5()
+        .px_2()
         .rounded_md()
         .cursor_pointer()
         .text_size(px(tokens::text::body()))
@@ -82,12 +82,9 @@ impl Chart {
 
     /// The types of chart, in sections, the current one checked.
     fn kind_items(&self, menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
-        let mut items = Vec::new();
+        let mut groups = Vec::new();
         for (title, kinds) in KIND_SECTIONS {
-            if !items.is_empty() {
-                items.push(Item::Separator);
-            }
-            items.push(Item::Title(title.into()));
+            let mut items = Vec::new();
             for kind in kinds.iter().copied() {
                 items.push(
                     self.menu_entry(
@@ -100,23 +97,23 @@ impl Chart {
                     ),
                 );
             }
+            groups.push(Section::new(title, items));
         }
-        items
+        menu::sections(groups)
     }
 
     /// The scales, the inversion and the fit.
     fn scale_items(&self, menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
-        let mut items = vec![Item::Title("Price scale".into())];
+        let mut modes = Vec::new();
         for mode in ScaleMode::ALL {
-            items.push(self.menu_entry(
+            modes.push(self.menu_entry(
                 menu,
                 Entry::new(mode.label()).checked(self.settings.scale == mode),
                 move |this, _, cx| this.edit_settings(cx, |s| s.scale = mode),
                 cx,
             ));
         }
-        items.push(Item::Separator);
-        items.push(
+        let view = vec![
             self.menu_entry(
                 menu,
                 Entry::new("Invert the scale")
@@ -125,8 +122,6 @@ impl Chart {
                 |this, _, cx| this.edit_settings(cx, |s| s.invert = !s.invert),
                 cx,
             ),
-        );
-        items.push(
             self.menu_entry(
                 menu,
                 Entry::new("Auto scale prices")
@@ -135,22 +130,25 @@ impl Chart {
                 |this, _, cx| this.toggle_auto_price_scale(cx),
                 cx,
             ),
-        );
-        items.push(Item::Separator);
-        items.push(self.menu_entry(
+        ];
+        let settings = vec![self.menu_entry(
             menu,
             Entry::new("Scale settings...").icon(IconName::Ruler),
             |_, window, cx| chart_settings_ui::open_scales(cx.entity(), window, cx),
             cx,
-        ));
-        items
+        )];
+        menu::sections([
+            Section::new("Price scale", modes),
+            Section::new("Display", view),
+            Section::untitled(settings),
+        ])
     }
 
     /// The starred and the recent indicators, one click to add, and the ways to the rest.
     fn indicator_items(&self, menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
         let prefs = indicators::prefs(cx);
         let all = catalog::items();
-        let mut items: Vec<Item> = Vec::new();
+        let mut groups: Vec<Section> = Vec::new();
         let by_key = |key: &String| all.iter().find(|item| item.key() == *key && item.ready);
         let starred: Vec<_> = prefs
             .favorites
@@ -166,11 +164,8 @@ impl Chart {
             .take(QUICK)
             .collect();
         let mut section =
-            |title: &'static str, list: Vec<&catalog::Item>, items: &mut Vec<Item>| {
-                if list.is_empty() {
-                    return;
-                }
-                items.push(Item::Title(title.into()));
+            |title: &'static str, list: Vec<&catalog::Item>, groups: &mut Vec<Section>| {
+                let mut items = Vec::new();
                 for item in list {
                     let (icon, config, key) = (
                         match item.source {
@@ -195,46 +190,53 @@ impl Chart {
                         ),
                     );
                 }
-                items.push(Item::Separator);
+                groups.push(Section::new(title, items));
             };
-        section("Favorites", starred, &mut items);
-        section("Recent", recent, &mut items);
-        items.push(self.menu_entry(
-            menu,
-            Entry::new("All indicators...").icon(IconName::ChartSpline),
-            |_, window, cx| indicator_picker::open(cx.entity(), window, cx),
-            cx,
+        section("Favorites", starred, &mut groups);
+        section("Recent", recent, &mut groups);
+        groups.push(Section::new(
+            "Add",
+            vec![
+                self.menu_entry(
+                    menu,
+                    Entry::new("All indicators...").icon(IconName::ChartSpline),
+                    |_, window, cx| indicator_picker::open(cx.entity(), window, cx),
+                    cx,
+                ),
+                self.menu_entry(
+                    menu,
+                    Entry::new("On this chart...").icon(IconName::ListTree),
+                    |_, window, cx| chart_settings_ui::open_indicators(cx.entity(), window, cx),
+                    cx,
+                ),
+            ],
         ));
-        items.push(self.menu_entry(
-            menu,
-            Entry::new("On this chart...").icon(IconName::ListTree),
-            |_, window, cx| chart_settings_ui::open_indicators(cx.entity(), window, cx),
-            cx,
+        groups.push(Section::new(
+            "Scripts",
+            vec![
+                self.menu_entry(
+                    menu,
+                    Entry::new("Indicator editor")
+                        .icon(IconName::CodeXml)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
+                    |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::Open)),
+                    cx,
+                ),
+                self.menu_entry(
+                    menu,
+                    Entry::new("New script...").icon(IconName::FilePlus),
+                    |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::New)),
+                    cx,
+                ),
+                self.menu_entry(
+                    menu,
+                    Entry::new("Open the folder").icon(IconName::FolderOpen),
+                    |_, _, cx| indicators::open_folder(cx),
+                    cx,
+                ),
+            ],
         ));
-        items.push(Item::Separator);
-        items.push(
-            self.menu_entry(
-                menu,
-                Entry::new("Indicator editor")
-                    .icon(IconName::CodeXml)
-                    .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
-                |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::Open)),
-                cx,
-            ),
-        );
-        items.push(self.menu_entry(
-            menu,
-            Entry::new("New script...").icon(IconName::FilePlus),
-            |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::New)),
-            cx,
-        ));
-        items.push(self.menu_entry(
-            menu,
-            Entry::new("Open the folder").icon(IconName::FolderOpen),
-            |_, _, cx| indicators::open_folder(cx),
-            cx,
-        ));
-        items
+        menu::sections(groups)
     }
 
     /// An alert at the last price.
@@ -318,13 +320,13 @@ impl Chart {
 
         let mut bar = div()
             .absolute()
-            .top(px(6.))
+            .top(px(crate::ui::kit::tokens::space::sm()))
             .right(px(super::scene::axis_w() + 8.0))
             .flex()
             .flex_row()
             .items_center()
-            .gap_0p5()
-            .p_0p5()
+            .gap_1()
+            .p_1()
             .rounded_lg()
             .bg(theme::bg_alpha(0.85))
             .border_1()
@@ -484,7 +486,7 @@ impl Chart {
 
     /// What a chart too small for the whole bar keeps in one menu.
     fn overflow_items(&self, menu: &Menu, cx: &mut Context<Self>) -> Vec<Item> {
-        let mut items = vec![
+        let chart = vec![
             self.menu_entry(
                 menu,
                 Entry::new("Indicators...").icon(IconName::ChartSpline),
@@ -497,6 +499,8 @@ impl Chart {
                 |this, _, cx| this.alert_at_last(cx),
                 cx,
             ),
+        ];
+        let export = vec![
             self.menu_entry(
                 menu,
                 Entry::new("Take a picture").icon(IconName::Camera),
@@ -509,8 +513,10 @@ impl Chart {
                 |_, window, cx| export_ui::open(cx.entity(), window, cx),
                 cx,
             ),
-            Item::Separator,
         ];
+        let mut items =
+            menu::sections([Section::new("Chart", chart), Section::new("Export", export)]);
+        items.push(Item::Separator);
         items.extend(self.scale_items(menu, cx));
         items
     }

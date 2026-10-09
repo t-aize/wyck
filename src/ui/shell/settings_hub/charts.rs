@@ -24,7 +24,7 @@ impl SettingsHub {
                     .items_center()
                     .gap_2()
                     .h(px(tokens::height::large()))
-                    .px_2p5()
+                    .px_3()
                     .rounded_md()
                     .border_1()
                     .border_color(if chosen {
@@ -40,8 +40,18 @@ impl SettingsHub {
                             a.candle_down = Some(down);
                         });
                     }))
-                    .child(div().size(px(12.)).rounded_sm().bg(rgb(up)))
-                    .child(div().size(px(12.)).rounded_sm().bg(rgb(down)))
+                    .child(
+                        div()
+                            .size(px(crate::ui::kit::tokens::swatch::small()))
+                            .rounded_sm()
+                            .bg(rgb(up)),
+                    )
+                    .child(
+                        div()
+                            .size(px(crate::ui::kit::tokens::swatch::small()))
+                            .rounded_sm()
+                            .bg(rgb(down)),
+                    )
                     .child(
                         div()
                             .text_size(px(tokens::text::body()))

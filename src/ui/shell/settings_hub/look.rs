@@ -9,6 +9,29 @@ use crate::ui::kit::field;
 use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 
+/// The dots of the title bar of a theme preview.
+const PREVIEW_DOT: f32 = 8.0;
+/// The height of a theme preview.
+const PREVIEW_HEIGHT: f32 = 58.0;
+/// The height of the title line of a theme preview.
+const PREVIEW_TITLE_HEIGHT: f32 = 5.0;
+/// The width of the title line of a theme preview.
+const PREVIEW_TITLE_WIDTH: f32 = 60.0;
+/// The height of a text line of a theme preview.
+const PREVIEW_LINE_HEIGHT: f32 = 4.0;
+/// The width of a text line of a theme preview.
+const PREVIEW_LINE_WIDTH: f32 = 40.0;
+/// The least height of a row with a color swatch.
+const SWATCH_ROW_HEIGHT: f32 = 42.0;
+/// The height of the preview of candle colors.
+const CANDLE_PREVIEW_HEIGHT: f32 = 96.0;
+/// The space between two candles of the preview.
+const CANDLE_GAP: f32 = 9.0;
+/// The width of a candle body of the preview.
+const CANDLE_BODY_WIDTH: f32 = 8.0;
+/// The height of the price line of the preview.
+const CANDLE_LINE_HEIGHT: f32 = 2.0;
+
 impl SettingsHub {
     /// A card that shows a theme: its colors in miniature, its name, and a check when it is the
     /// one in force.
@@ -21,20 +44,26 @@ impl SettingsHub {
         custom: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let dot = |color: u32| div().size(px(8.)).rounded_full().bg(rgb(color));
+        let dot = |color: u32| div().size(px(PREVIEW_DOT)).rounded_full().bg(rgb(color));
         let preview = div()
-            .h(px(58.))
-            .p_1p5()
+            .h(px(PREVIEW_HEIGHT))
+            .p_2()
             .rounded_md()
             .bg(rgb(colors.bg))
             .flex()
             .flex_col()
             .gap_1()
-            .child(div().h(px(5.)).w(px(60.)).rounded_full().bg(rgb(colors.fg)))
             .child(
                 div()
-                    .h(px(4.))
-                    .w(px(40.))
+                    .h(px(PREVIEW_TITLE_HEIGHT))
+                    .w(px(PREVIEW_TITLE_WIDTH))
+                    .rounded_full()
+                    .bg(rgb(colors.fg)),
+            )
+            .child(
+                div()
+                    .h(px(PREVIEW_LINE_HEIGHT))
+                    .w(px(PREVIEW_LINE_WIDTH))
                     .rounded_full()
                     .bg(rgb(colors.muted)),
             )
@@ -43,7 +72,7 @@ impl SettingsHub {
                     .flex_1()
                     .rounded_sm()
                     .bg(rgb(colors.surface))
-                    .px_1p5()
+                    .px_2()
                     .flex()
                     .flex_row()
                     .items_center()
@@ -57,11 +86,11 @@ impl SettingsHub {
         let light = colors.is_light();
         div()
             .id(SharedString::from(format!("theme-{id}")))
-            .w(px(150.))
+            .w(px(crate::ui::kit::tokens::field::select()))
             .flex()
             .flex_col()
             .gap_1()
-            .p_1p5()
+            .p_2()
             .rounded_lg()
             .border_1()
             .border_color(if active {
@@ -93,7 +122,7 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_1()
-                    .px_0p5()
+                    .px_1()
                     .child(
                         div()
                             .flex_1()
@@ -151,7 +180,7 @@ impl SettingsHub {
         );
 
         // The accent.
-        let mut accents = div().flex().flex_row().flex_wrap().items_center().gap_1p5();
+        let mut accents = div().flex().flex_row().flex_wrap().items_center().gap_2();
         let theme_accent = a
             .find(a.active_id(true))
             .map_or(Colors::WYCK_DARK.accent, |(_, c)| c.accent);
@@ -316,7 +345,7 @@ impl SettingsHub {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .min_h(px(42.))
+                    .min_h(px(SWATCH_ROW_HEIGHT))
                     .child(
                         div()
                             .flex_1()
@@ -415,7 +444,7 @@ impl SettingsHub {
                 .h(px(tokens::height::large()))
                 .child(
                     div()
-                        .w(px(150.))
+                        .w(px(crate::ui::kit::tokens::field::select()))
                         .text_size(px(tokens::text::body()))
                         .text_color(theme::muted_fg())
                         .child("Name"),
@@ -441,7 +470,7 @@ impl SettingsHub {
                     .min_h(px(tokens::height::large()))
                     .child(
                         div()
-                            .w(px(150.))
+                            .w(px(crate::ui::kit::tokens::field::select()))
                             .flex_none()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::fg())
@@ -623,7 +652,7 @@ impl SettingsHub {
             (true, 22., 6., 4.),
         ];
         let mut row = div()
-            .h(px(96.))
+            .h(px(CANDLE_PREVIEW_HEIGHT))
             .px_3()
             .rounded_lg()
             .border_1()
@@ -632,7 +661,7 @@ impl SettingsHub {
             .flex()
             .flex_row()
             .items_center()
-            .gap(px(9.));
+            .gap(px(CANDLE_GAP));
         for (up, body, above, below) in shape {
             let color = rgb(if up { c.up } else { c.down });
             row = row.child(
@@ -640,12 +669,28 @@ impl SettingsHub {
                     .flex()
                     .flex_col()
                     .items_center()
-                    .child(div().w(px(1.)).h(px(above)).bg(color))
-                    .child(div().w(px(8.)).h(px(body)).bg(color))
-                    .child(div().w(px(1.)).h(px(below)).bg(color)),
+                    .child(
+                        div()
+                            .w(px(crate::ui::kit::tokens::HAIRLINE))
+                            .h(px(above))
+                            .bg(color),
+                    )
+                    .child(div().w(px(CANDLE_BODY_WIDTH)).h(px(body)).bg(color))
+                    .child(
+                        div()
+                            .w(px(crate::ui::kit::tokens::HAIRLINE))
+                            .h(px(below))
+                            .bg(color),
+                    ),
             );
         }
-        row.child(div().flex_1().h(px(2.)).rounded_full().bg(rgb(c.line)))
-            .into_any_element()
+        row.child(
+            div()
+                .flex_1()
+                .h(px(CANDLE_LINE_HEIGHT))
+                .rounded_full()
+                .bg(rgb(c.line)),
+        )
+        .into_any_element()
     }
 }

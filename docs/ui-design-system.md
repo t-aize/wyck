@@ -10,9 +10,9 @@ size or a color. A screen builds its UI from the kit and reads colors from `them
 | Text | `tokens::text` | caption 10, small 11, body 12, emphasis 13, title 14, heading 16, display 20, hero 26 |
 | Control heights | `tokens::height` | tiny 20, compact 24, control 28, large 34 (for custom rows; buttons and fields use the sizes below) |
 | Field widths | `tokens::field` | narrow 84, number 110, wide 130, text 220 |
-| Spacing | gpui classes, `tokens::space` | the classes `gap_1`, `p_2`... on the steps 0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5 and 6 (2 to 24 px); `space::{xs 4, sm 8, md 12, lg 16, xl 24}` where a size is written with `px(..)`. A screen may not use another step (the design test fails). |
+| Spacing | gpui classes, `tokens::space` | the classes `gap_1`, `p_2`... on the steps 0, 1, 2, 3, 4 and 6 (0, 4, 8, 12, 16 and 24 px, the values of `space`); `space::{xs 4, sm 8, md 12, lg 16, xl 24}` where a size is written with `px(..)`. A screen may not use another step (the design test fails). |
 | Lines and marks | `tokens::HAIRLINE`, `tokens::splitter`, `tokens::swatch`, `layout::rule_h` and `rule_v` | 1 px lines, the 5 px splitter handle, the dots and color swatches |
-| Row and text widths | `tokens::height::row`, `tokens::measure::note`, `tokens::field::select` | 40, 440, 150 |
+| Row and text widths | `tokens::height::row`, `tokens::measure::{note, caption, card, action}`, `tokens::field::select` | 40; 440, 200, 380, 240; 150 |
 | Radius | `tokens::radius` | sm, md (controls), lg (cards), xl (dialogs), full (pills) |
 | Colors | `theme` | read through accessors such as `theme::bg()`, `theme::fg()`, `theme::accent()` |
 
@@ -41,12 +41,12 @@ gets a tab stop and answers Enter and Space.
 
 - `gpui_kit` is named only inside `ui::kit`.
 - No `Button::new` and no size method (`.small()`, `.large()`...) outside the kit.
-- No `px(<literal>)` outside the kit (the count in the baseline only goes down).
+- No `px(<literal>)` outside the kit: take a token, or name the size with a `const` in the file when it is the geometry of one drawing (a theme preview, a grip). `tests/design-baseline.txt` is empty and stays so. `chart/paint.rs` is exempt: it draws into an image, in pixels of that image.
 
 ## Menus
 
 A long menu is built from groups (`menu::Section`, joined by `menu::sections`): each group has a
-short heading in small capitals, and a line separates two groups. The right click menu of a chart
+short heading in small capitals, and a line separates two groups. The chart toolbar menus, the account panel menus (row, header, bulk) and the indicator menu of the header are built this way too. The right click menu of a chart
 reads: the drawing under the pointer (its own heading, then its arrangement, its visibility and
 Delete), Trade at <price>, Alerts, Chart, Copy and paste, Drawings, Export. `Menu::popup` also
 drops a line at the top or the bottom, two lines in a row and a heading with nothing under it, so

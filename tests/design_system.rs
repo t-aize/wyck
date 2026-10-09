@@ -3,8 +3,9 @@
 //! - No `Button::new` outside `src/ui/kit`: screens take a button from `ui::kit::button`.
 //! - No gpui-kit size method (`.xsmall()`, `.small()`, `.medium()`, `.large()`, `.compact()`) outside
 //!   `src/ui/kit`: a button or field gets its size from the kit constructor it comes from.
-//! - Spacing classes (`.gap_2()`, `.px_3()`) outside the kit stay on the scale of the app: 0, 0.5,
-//!   1, 1.5, 2, 2.5, 3, 4, 5 and 6 (2 to 24 pixels). Anything else belongs in a token.
+//! - Spacing classes (`.gap_2()`, `.px_3()`) outside the kit stay on the scale of the app: 0, 1, 2,
+//!   3, 4 and 6 (0, 4, 8, 12, 16 and 24 pixels, the steps of `tokens::space`). Anything else
+//!   belongs in a token.
 //! - Pixel sizes written as numbers (`px(12.0)`) outside the kit are counted per file. The count
 //!   may not grow; fixing some means running `BLESS=1 cargo test --test design_system`.
 
@@ -38,7 +39,7 @@ fn code_of(source: &str) -> String {
 }
 
 /// The spacing steps of gpui classes the screens may use.
-const SPACING_STEPS: [&str; 10] = ["0", "0p5", "1", "1p5", "2", "2p5", "3", "4", "5", "6"];
+const SPACING_STEPS: [&str; 6] = ["0", "1", "2", "3", "4", "6"];
 
 /// The spacing classes written with a step that is not on the scale: `.gap_8()`, `.px_3p5()`.
 fn off_scale_spacing(code: &str) -> Vec<String> {
@@ -99,7 +100,12 @@ fn screens_use_the_design_system() {
             .expect("inside the repo")
             .to_string_lossy()
             .replace('\\', "/");
-        if rel.starts_with("src/ui/kit") || rel == "src/lib.rs" {
+        // `chart/paint.rs` draws the chart into an image, in pixels of that image and not of the
+        // interface, so it has no tokens to take.
+        if rel.starts_with("src/ui/kit")
+            || rel == "src/lib.rs"
+            || rel == "src/ui/features/chart/paint.rs"
+        {
             continue;
         }
         let code = code_of(&fs::read_to_string(&path).expect("a source file is readable"));

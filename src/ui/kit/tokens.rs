@@ -202,6 +202,18 @@ pub mod measure {
     pub fn note() -> f32 {
         scaled(440.0)
     }
+    /// A short caption beside a control.
+    pub fn caption() -> f32 {
+        scaled(200.0)
+    }
+    /// A card that holds a form or a list: a detail card, a file list.
+    pub fn card() -> f32 {
+        scaled(380.0)
+    }
+    /// A button that stands alone under a message ("Try again", "Sign in again").
+    pub fn action() -> f32 {
+        scaled(240.0)
+    }
 }
 
 /// Menus and popovers.

@@ -9,6 +9,13 @@ use crate::ui::kit::field;
 use crate::ui::kit::form::Row;
 use gpui::prelude::*;
 
+/// The height of the box where a label is typed.
+const LABEL_BOX_HEIGHT: f32 = 72.0;
+/// The height of the box where a text is typed.
+const TEXT_BOX_HEIGHT: f32 = 96.0;
+/// The height of the preview of a font.
+const FONT_PREVIEW_HEIGHT: f32 = 52.0;
+
 impl DrawingProps {
     /// What the levels are called on the chart, and the side their labels stand on.
     pub(super) fn captions_group(&self, drawing: &Drawing, cx: &mut Context<Self>) -> gpui::Div {
@@ -169,7 +176,9 @@ impl DrawingProps {
             form::group(
                 IconName::TextCursorInput,
                 "Label",
-                [form::block(Textarea::new(&self.text).h(px(72.)))],
+                [form::block(
+                    Textarea::new(&self.text).h(px(LABEL_BOX_HEIGHT)),
+                )],
             ),
             form::group(IconName::Move, "Placement", placement),
         ]
@@ -181,7 +190,9 @@ impl DrawingProps {
             page = page.child(form::group(
                 IconName::TextCursorInput,
                 "Words",
-                [form::block(Textarea::new(&self.text).h(px(96.)))],
+                [form::block(
+                    Textarea::new(&self.text).h(px(TEXT_BOX_HEIGHT)),
+                )],
             ));
         }
         if drawing.tool.takes_label() {
@@ -292,7 +303,7 @@ impl DrawingProps {
     fn font_preview(&self, drawing: &Drawing) -> gpui::Div {
         let style = &drawing.style;
         let mut line = div()
-            .h(px(52.))
+            .h(px(FONT_PREVIEW_HEIGHT))
             .px_3()
             .flex()
             .items_center()

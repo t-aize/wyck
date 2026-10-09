@@ -9,6 +9,9 @@ use crate::ui::kit::field;
 use crate::ui::kit::form::Row;
 use gpui::prelude::*;
 
+/// The width of the field where a look is named.
+const TEMPLATE_NAME_WIDTH: f32 = 170.0;
+
 impl DrawingProps {
     /// A choice of what ends a line, for `set` to apply.
     pub(super) fn cap_picker(
@@ -245,7 +248,7 @@ impl DrawingProps {
                 .gap_2()
                 .child(
                     div()
-                        .w(px(170.))
+                        .w(px(TEMPLATE_NAME_WIDTH))
                         .child(crate::ui::kit::input::text(&self.template_name)),
                 )
                 .child(

@@ -25,6 +25,11 @@ use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens,
 };
 
+/// The tallest the list of time zones grows before it scrolls.
+const ZONE_LIST_MAX: f32 = 380.0;
+/// The width of a label before its control.
+const LABEL_WIDTH: f32 = 56.0;
+
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[
     ("Small", 1.5),
@@ -477,7 +482,7 @@ impl ChartSettingsEditor {
     fn kind_tiles(&self, current: ChartKind) -> AnyElement {
         let mut column = div().flex().flex_col().gap_3();
         for (title, kinds) in overlay::KIND_SECTIONS {
-            let mut wrap = div().flex().flex_row().flex_wrap().gap_1p5();
+            let mut wrap = div().flex().flex_row().flex_wrap().gap_2();
             for kind in kinds.iter().copied() {
                 let chosen = kind == current;
                 let ink = if chosen {
@@ -489,13 +494,13 @@ impl ChartSettingsEditor {
                 wrap = wrap.child(
                     div()
                         .id(SharedString::from(format!("chart-kind-{}", kind.code())))
-                        .w(px(150.))
+                        .w(px(crate::ui::kit::tokens::field::select()))
                         .h(px(tokens::height::large()))
                         .flex()
                         .flex_row()
                         .items_center()
                         .gap_2()
-                        .px_2p5()
+                        .px_3()
                         .rounded_md()
                         .border_1()
                         .border_color(if chosen {
@@ -889,7 +894,7 @@ impl ChartSettingsEditor {
             .id("settings-zone-list")
             .flex()
             .flex_col()
-            .max_h(px(380.))
+            .max_h(px(ZONE_LIST_MAX))
             .overflow_y_scroll()
             .rounded_md()
             .border_1()
@@ -905,7 +910,7 @@ impl ChartSettingsEditor {
                     .items_center()
                     .justify_between()
                     .h(px(tokens::height::control()))
-                    .px_2p5()
+                    .px_3()
                     .cursor_pointer()
                     .text_size(px(tokens::text::body()))
                     .text_color(if chosen {
@@ -1012,7 +1017,7 @@ impl ChartSettingsEditor {
             .child(
                 div()
                     .flex_none()
-                    .w(px(56.))
+                    .w(px(LABEL_WIDTH))
                     .text_size(px(tokens::text::small()))
                     .text_color(theme::accent())
                     .child(spec.short),
@@ -1035,7 +1040,7 @@ impl ChartSettingsEditor {
                     .flex_none()
                     .flex()
                     .flex_row()
-                    .gap_0p5()
+                    .gap_1()
                     .child(
                         button(
                             "chart-study-eye",

@@ -201,10 +201,12 @@ impl AccountPanel {
         {
             self.menu_target = Some(MenuTarget::Row(row.clone()));
             // Under the left part of the row, where the eye of a keyboard user is.
-            let at = self
-                .row_bounds
-                .get()
-                .map(|b| gpui::point(b.origin.x + gpui::px(24.0), b.origin.y + b.size.height));
+            let at = self.row_bounds.get().map(|b| {
+                gpui::point(
+                    b.origin.x + gpui::px(crate::ui::kit::tokens::height::compact()),
+                    b.origin.y + b.size.height,
+                )
+            });
             menu.open(at, cx);
             cx.stop_propagation();
         }

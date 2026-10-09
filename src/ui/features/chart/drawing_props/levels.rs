@@ -7,6 +7,11 @@ use super::{
 use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 
+/// The width of the badge that numbers a level.
+const LEVEL_BADGE_WIDTH: f32 = 44.0;
+/// The least height of the row of a level.
+const LEVEL_ROW_HEIGHT: f32 = 42.0;
+
 impl DrawingProps {
     /// The button of a level that picks its line style: the drawing's own, then solid, dashed and
     /// dotted, one click at a time.
@@ -38,7 +43,7 @@ impl DrawingProps {
             .flex()
             .items_center()
             .justify_center()
-            .w(px(44.))
+            .w(px(LEVEL_BADGE_WIDTH))
             .h(px(tokens::height::control()))
             .rounded_md()
             .border_1()
@@ -108,8 +113,8 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_3()
-                    .min_h(px(42.))
-                    .py_1p5()
+                    .min_h(px(LEVEL_ROW_HEIGHT))
+                    .py_2()
                     .child(self.switch(
                         &format!("props-level-on-{index}"),
                         level.visible,

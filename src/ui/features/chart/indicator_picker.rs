@@ -20,6 +20,9 @@ use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
 
+/// The width of the column of short names.
+const SHORT_NAME_WIDTH: f32 = 58.0;
+
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {
     // Opened once the chart that asked is no longer being updated, since the panel reads it.
@@ -146,7 +149,7 @@ impl Picker {
             .child(
                 div()
                     .flex_none()
-                    .w(px(58.))
+                    .w(px(SHORT_NAME_WIDTH))
                     .h(px(tokens::height::control()))
                     .flex()
                     .items_center()
@@ -172,7 +175,7 @@ impl Picker {
                     .min_w_0()
                     .flex()
                     .flex_col()
-                    .gap_0p5()
+                    .gap_1()
                     .child(
                         div()
                             .flex()
@@ -231,7 +234,7 @@ impl Picker {
             .children(script.map(|_| {
                 div()
                     .id(("picker-edit", number))
-                    .size(px(28.))
+                    .size(px(crate::ui::kit::tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -252,7 +255,7 @@ impl Picker {
             .child(
                 div()
                     .id(("picker-star", number))
-                    .size(px(28.))
+                    .size(px(crate::ui::kit::tokens::height::control()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -286,9 +289,9 @@ impl Picker {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_1p5()
+                    .gap_2()
                     .h(px(tokens::height::control()))
-                    .px_2p5()
+                    .px_3()
                     .rounded_md()
                     .border_1()
                     .border_color(theme::border_subtle())
@@ -376,7 +379,7 @@ impl Render for Picker {
         self.page = self.page.min(tabs.len() - 1);
         let shown = self.shown(&items, &categories, &query, cx);
 
-        let mut list = div().id("picker-list").flex().flex_col().gap_0p5();
+        let mut list = div().id("picker-list").flex().flex_col().gap_1();
         if shown.is_empty() {
             list = list.child(form::empty(
                 IconName::SearchX,
