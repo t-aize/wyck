@@ -15,7 +15,7 @@ use super::study::custom::{Problem, Severity};
 use super::study::{
     FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
 };
-use wyck_chart::drawing::model::{DASHES, WIDTHS};
+use crate::chart_core::drawing::model::{DASHES, WIDTHS};
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.

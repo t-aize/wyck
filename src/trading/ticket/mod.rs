@@ -46,8 +46,8 @@ use crate::chart::Chart;
 use crate::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan, now_ms};
 use crate::multichart::SymbolRef;
 use crate::runtime;
-use wyck_chart::drawing::model::Dash;
-use wyck_chart::study::atr_stop::AtrStop;
+use crate::chart_core::drawing::model::Dash;
+use crate::chart_core::study::atr_stop::AtrStop;
 
 pub mod customize;
 pub mod prefs;
@@ -1116,14 +1116,14 @@ impl OrderTicket {
                 .settings()
                 .studies
                 .iter()
-                .find(|study| study.kind == wyck_chart::study::StudyKind::Atr)
+                .find(|study| study.kind == crate::chart_core::study::StudyKind::Atr)
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {
-                1 => wyck_chart::study::atr_stop::Smoothing::Sma,
-                2 => wyck_chart::study::atr_stop::Smoothing::Ema,
-                3 => wyck_chart::study::atr_stop::Smoothing::Wma,
-                _ => wyck_chart::study::atr_stop::Smoothing::Rma,
+                1 => crate::chart_core::study::atr_stop::Smoothing::Sma,
+                2 => crate::chart_core::study::atr_stop::Smoothing::Ema,
+                3 => crate::chart_core::study::atr_stop::Smoothing::Wma,
+                _ => crate::chart_core::study::atr_stop::Smoothing::Rma,
             };
             self.write(
                 &self.atr_length.clone(),

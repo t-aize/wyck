@@ -14,7 +14,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use super::MultiChart;
 use crate::chart::object_tree::tool_icon;
 use crate::workspace::MAX_FAVORITE_TOOLS;
-use wyck_chart::drawing::model::Tool;
+use crate::chart_core::drawing::model::Tool;
 use crate::ui::kit::{
     controls, icon,
     menu::{self as popup, Entry, Item},

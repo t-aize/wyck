@@ -18,8 +18,8 @@ use super::indicators::{self, prefs};
 use super::multichart::MultiChart;
 use super::updates;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
-use wyck_chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
-use wyck_chart::settings::MAX_STUDIES;
+use crate::chart_core::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
+use crate::chart_core::settings::MAX_STUDIES;
 use wyck_config::backup::{self, BackupEntry};
 use crate::ui::kit::{
     button, confirm, controls,

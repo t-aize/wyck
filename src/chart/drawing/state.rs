@@ -5,8 +5,8 @@ use gpui::Context;
 use wyck_config::DocumentStore;
 
 use crate::workspace::Saver;
-use wyck_chart::drawing::book::Book;
-use wyck_chart::drawing::model::DrawingsDoc;
+use crate::chart_core::drawing::book::Book;
+use crate::chart_core::drawing::model::DrawingsDoc;
 
 const DOCUMENT: &str = "drawings";
 

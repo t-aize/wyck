@@ -172,7 +172,7 @@ pub struct Account {
     queue: VecDeque<NewOrderReq>,
     /// The limits that keep the account safe, and the zone the day is counted in.
     risk: RiskPrefs,
-    zone: wyck_chart::Zone,
+    zone: crate::chart_core::Zone,
     duplicates: DuplicateGuard,
     /// Orders sent by this app today, as (day, count).
     sent_today: (i64, u32),
@@ -246,7 +246,7 @@ impl Account {
             live: false,
             queue: VecDeque::new(),
             risk: RiskPrefs::default(),
-            zone: wyck_chart::Zone::default(),
+            zone: crate::chart_core::Zone::default(),
             duplicates: DuplicateGuard::default(),
             sent_today: (0, 0),
             reversals: ReverseTracker::default(),
@@ -287,7 +287,7 @@ impl Account {
     }
 
     /// Sets the safety limits and the zone the day is counted in.
-    pub fn set_risk(&mut self, risk: RiskPrefs, zone: wyck_chart::Zone, cx: &mut Context<Self>) {
+    pub fn set_risk(&mut self, risk: RiskPrefs, zone: crate::chart_core::Zone, cx: &mut Context<Self>) {
         if self.risk != risk || self.zone != zone {
             self.risk = risk;
             self.zone = zone;

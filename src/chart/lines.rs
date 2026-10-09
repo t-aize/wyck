@@ -10,9 +10,9 @@
 use wyck_openapi::market::PRICE_SCALE;
 
 use super::scene::PriceMark;
-use wyck_chart::drawing::model::Dash;
+use crate::chart_core::drawing::model::Dash;
 
-pub use wyck_chart::lines::LineId;
+pub use crate::chart_core::lines::LineId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartLine {

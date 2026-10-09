@@ -2,7 +2,7 @@
 //! positions, text.
 //!
 //! What a drawing is, its shapes, how the pointer finds one and the book of every symbol's drawings
-//! with its undo live in [`wyck_chart::drawing`], with no window in them. This module holds
+//! with its undo live in [`crate::chart_core::drawing`], with no window in them. This module holds
 //! [`Drawings`], the live copy every chart reads and edits.
 //!
 //! A drawing is anchored to times and prices, not to screen positions, so it follows the chart

@@ -24,7 +24,7 @@ doc = false
 
 # Transitional: the crates below are merged into this package one by one (see docs/ROADMAP.md).
 [workspace]
-members = ["crates/wyck-chart", "crates/wyck-config", "crates/wyck-openapi"]
+members = ["crates/wyck-config", "crates/wyck-openapi"]
 resolver = "3"
 
 [workspace.package]
@@ -37,7 +37,6 @@ repository = "https://github.com/t-aize/wyck"
 publish = false
 
 [workspace.dependencies]
-wyck-chart = { path = "crates/wyck-chart", version = "0.2.0" }
 wyck-config = { path = "crates/wyck-config", version = "0.2.0" }
 wyck-openapi = { path = "crates/wyck-openapi", version = "0.2.0", default-features = false }
 ab_glyph = "0.2.32"
@@ -118,7 +117,6 @@ depends = [
 [dependencies]
 wyck-config.workspace = true
 wyck-openapi = { workspace = true, features = ["client"] }
-wyck-chart.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -140,6 +138,8 @@ anyhow.workspace = true
 notify-rust.workspace = true
 rodio.workspace = true
 unicode-segmentation.workspace = true
+rhai.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

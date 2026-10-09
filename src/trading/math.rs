@@ -109,7 +109,7 @@ pub fn format_money(amount: f64, currency: &str) -> String {
     let negative = amount < 0.0;
     let cents = (amount.abs() * 100.0).round() as i64;
     let (whole, rest) = (cents / 100, cents % 100);
-    let grouped = wyck_chart::format::grouped(whole);
+    let grouped = crate::chart_core::format::grouped(whole);
     let sign = if negative && cents > 0 { "-" } else { "" };
     if currency.is_empty() {
         format!("{sign}{grouped}.{rest:02}")

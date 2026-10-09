@@ -20,7 +20,7 @@ use super::{
     Chart, ChartAction, ChartEvent, DrawingCommand, EditorRequest, Load, Menu, Older,
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
-use wyck_chart::drawing::book::Order;
+use crate::chart_core::drawing::book::Order;
 use crate::ui::kit::{
     anim, button, controls, icon,
     menu::{self as popup, Entry, Item},
@@ -148,7 +148,7 @@ impl Chart {
                 chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
             }
         };
-        let long = drawing.tool == wyck_chart::drawing::model::Tool::LongPosition;
+        let long = drawing.tool == crate::chart_core::drawing::model::Tool::LongPosition;
         let settings = chart.clone();
         let mut items = vec![
             Item::Title(drawing.title().into()),
@@ -312,7 +312,7 @@ impl Chart {
                 .filter(|s| {
                     s.visible
                         && !s.is_script()
-                        && s.kind != wyck_chart::study::StudyKind::VolumeProfile
+                        && s.kind != crate::chart_core::study::StudyKind::VolumeProfile
                 })
                 .take(6)
             {
@@ -644,7 +644,7 @@ impl Chart {
             Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
-            Some((wyck_chart::drawing::model::Tool::ArrowPath, placed, _)) => format!(
+            Some((crate::chart_core::drawing::model::Tool::ArrowPath, placed, _)) => format!(
                 "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),
@@ -711,7 +711,7 @@ impl Chart {
         let status = self.market_status()?;
         let now = super::now_ms();
         let within =
-            |at: Option<i64>| at.map(|t| wyck_chart::drawing::geometry::duration_text(t - now));
+            |at: Option<i64>| at.map(|t| crate::chart_core::drawing::geometry::duration_text(t - now));
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (
                 theme::emerald(),

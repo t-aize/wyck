@@ -3,7 +3,7 @@
 //! and when it stops. Saved per account, and old files (a price and a crossing) still load.
 
 use serde::{Deserialize, Serialize};
-use wyck_chart::study::StudyConfig;
+use crate::chart_core::study::StudyConfig;
 
 use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 
@@ -356,7 +356,7 @@ pub struct Alert {
     #[serde(default, skip_serializing)]
     pub repeat: bool,
     /// Whether it is watching.
-    #[serde(default = "wyck_chart::defaults::yes")]
+    #[serde(default = "crate::chart_core::defaults::yes")]
     pub active: bool,
     /// When it last fired, in Unix milliseconds, and how many times.
     #[serde(default)]
@@ -512,7 +512,7 @@ impl Alert {
             Source::Indicator { study, .. }
                 if !matches!(
                     study.kind.spec().format,
-                    wyck_chart::study::ValueFormat::Price
+                    crate::chart_core::study::ValueFormat::Price
                 ) =>
             {
                 trim_number(self.price)
@@ -631,7 +631,7 @@ impl AlertBook {
                 alert.amount = 0.0;
             }
             alert.minutes = alert.minutes.min(24 * 60 * 30);
-            if wyck_chart::Timeframe::from_code(&alert.timeframe).is_none() {
+            if crate::chart_core::Timeframe::from_code(&alert.timeframe).is_none() {
                 alert.timeframe = default_timeframe();
             }
         }
@@ -781,7 +781,7 @@ impl AlertBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_chart::study::StudyKind;
+    use crate::chart_core::study::StudyKind;
 
     #[test]
     fn a_lower_alert_limit_blocks_new_alerts_without_removing_saved_ones() {

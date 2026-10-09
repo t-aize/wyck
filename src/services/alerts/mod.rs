@@ -18,9 +18,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{App, Context, Entity, EventEmitter};
-use wyck_chart::Timeframe;
-use wyck_chart::data::Series;
-use wyck_chart::study::{self, ValueFormat};
+use crate::chart_core::Timeframe;
+use crate::chart_core::data::Series;
+use crate::chart_core::study::{self, ValueFormat};
 use wyck_config::DocumentStore;
 use wyck_openapi::market::{Bar, PRICE_SCALE};
 use wyck_openapi::session::Session;
@@ -451,7 +451,7 @@ impl Alerts {
             return None;
         }
         let input =
-            wyck_chart::display::study_input(&Series::Bars(bars.to_vec()), wyck_chart::Zone::Utc);
+            crate::chart_core::display::study_input(&Series::Bars(bars.to_vec()), crate::chart_core::Zone::Utc);
         let output = study::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {

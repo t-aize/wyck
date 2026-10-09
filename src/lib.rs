@@ -6,6 +6,7 @@ mod appearance;
 mod assets;
 mod build_info;
 mod chart;
+pub mod chart_core;
 mod connection;
 mod dashboard;
 mod indicators;

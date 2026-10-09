@@ -18,7 +18,7 @@ use std::collections::HashMap;
 
 use crate::alerts::AlertBook;
 use crate::chart::{ChartLine, LineId};
-use wyck_chart::drawing::model::Dash;
+use crate::chart_core::drawing::model::Dash;
 
 use self::book::{AccountBook, is_buy};
 

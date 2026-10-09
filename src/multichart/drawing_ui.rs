@@ -13,8 +13,8 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use super::MultiChart;
 use crate::chart::DrawingCommand;
 use crate::chart::object_tree::tool_icon;
-use wyck_chart::drawing::look::Cap;
-use wyck_chart::drawing::model::{Dash, Group, PALETTE, Tool};
+use crate::chart_core::drawing::look::Cap;
+use crate::chart_core::drawing::model::{Dash, Group, PALETTE, Tool};
 
 /// The opacities the style bar steps through, most opaque first.
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
@@ -1086,7 +1086,7 @@ impl MultiChart {
 
 /// What the style bar knows of the selected drawing, gathered once for the pieces that build it.
 struct BarState {
-    style: wyck_chart::drawing::model::Style,
+    style: crate::chart_core::drawing::model::Style,
     tool: Tool,
     locked: bool,
     hidden: bool,

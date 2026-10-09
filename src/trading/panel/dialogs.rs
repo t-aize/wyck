@@ -11,7 +11,7 @@ use crate::alerts::model::{PnlScope, PriceKind};
 use crate::alerts::sound::SoundKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::trading::account::Account;
-use wyck_chart::study::{StudyConfig, StudyKind};
+use crate::chart_core::study::{StudyConfig, StudyKind};
 use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::menu::{self as popup, Entry, Item};
 use crate::ui::kit::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
@@ -724,7 +724,7 @@ impl Render for AlertEditor {
         if self.draft.needs_bars() || trigger == Trigger::OncePerBar {
             let tf_this = cx.entity();
             let current = self.draft.timeframe.clone();
-            let frames: Vec<wyck_chart::Timeframe> = wyck_chart::QUICK
+            let frames: Vec<crate::chart_core::Timeframe> = crate::chart_core::QUICK
                 .into_iter()
                 .filter(|t| t.bar_ms().is_some())
                 .collect();
@@ -744,7 +744,7 @@ impl Render for AlertEditor {
                 })
                 .collect();
             let text =
-                wyck_chart::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
+                crate::chart_core::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),
@@ -814,7 +814,7 @@ impl Render for AlertEditor {
                         .gap_2()
                         .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
-                        .child(wyck_chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
+                        .child(crate::chart_core::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
                         .child(div().text_color(theme::fg()).child(f.text.clone())),
                 )
             })

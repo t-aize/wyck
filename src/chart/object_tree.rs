@@ -10,8 +10,8 @@ use gpui_kit::component::{Disableable, Sizable};
 use super::drawing::Drawings;
 use super::drawing_props;
 use super::zone::Zone;
-use wyck_chart::drawing::book::{Book, Order};
-use wyck_chart::drawing::model::{Drawing, Tool};
+use crate::chart_core::drawing::book::{Book, Order};
+use crate::chart_core::drawing::model::{Drawing, Tool};
 use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {

@@ -22,7 +22,7 @@ use crate::trading::account::{Account, Busy};
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, format_money};
 use crate::trading::ticket::prefs::Slot;
-use wyck_chart::zone::Zone;
+use crate::chart_core::zone::Zone;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -4,7 +4,7 @@
 //! change. The file is written, or the text copied, from a snapshot taken when the panel opened,
 //! so the numbers do not move under it while the chart goes on receiving prices.
 //!
-//! What the export contains is decided in [`wyck_chart::export`]; this is only the window on it.
+//! What the export contains is decided in [`crate::chart_core::export`]; this is only the window on it.
 
 use std::collections::BTreeMap;
 
@@ -23,8 +23,8 @@ use super::display::Display;
 use super::settings::{ChartKind, ChartSettings};
 use super::settings_rows::named;
 use super::zone::Zone;
-use wyck_chart::export::store::{self, Saved};
-use wyck_chart::export::{
+use crate::chart_core::export::store::{self, Saved};
+use crate::chart_core::export::{
     self, ColumnKey, Content, Decimal, Delimiter, Empty, ExportOptions, ExportZone, Format,
     HeaderCase, LineEnding, Order, PREVIEW_ROWS, PriceDigits, Quote, RangeKind, Source, TimeFormat,
 };

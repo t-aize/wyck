@@ -32,10 +32,10 @@ use serde::{Deserialize, Serialize};
 use crate::chart::Chart;
 use crate::indicators;
 use crate::multichart::MultiChart;
-use wyck_chart::study::custom::library::{LibraryError, registry};
-use wyck_chart::study::custom::run::Script;
-use wyck_chart::study::custom::templates::{TEMPLATES, Template};
-use wyck_chart::study::custom::{Problem, Severity};
+use crate::chart_core::study::custom::library::{LibraryError, registry};
+use crate::chart_core::study::custom::run::Script;
+use crate::chart_core::study::custom::templates::{TEMPLATES, Template};
+use crate::chart_core::study::custom::{Problem, Severity};
 use crate::ui::kit::{confirm::confirm, menu as popup};
 
 actions!(
@@ -583,7 +583,7 @@ impl IndicatorEditor {
         &mut self,
         id: &str,
         text: String,
-        result: Option<Result<wyck_chart::study::custom::library::Changes, LibraryError>>,
+        result: Option<Result<crate::chart_core::study::custom::library::Changes, LibraryError>>,
         cx: &mut Context<Self>,
     ) {
         match result {
@@ -660,7 +660,7 @@ impl IndicatorEditor {
                 if held {
                     editor.say(true, "It is on the chart already: it was updated.", cx);
                 } else {
-                    let study = wyck_chart::study::StudyConfig::for_script(&id);
+                    let study = crate::chart_core::study::StudyConfig::for_script(&id);
                     chart.update(cx, |chart, cx| chart.add_study(study, cx));
                     indicators::update_prefs(cx, |prefs| {
                         prefs.note_recent(&format!("script:{id}"));

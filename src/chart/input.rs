@@ -13,7 +13,7 @@ use gpui::{Context, CursorStyle};
 use super::lines::{LineId, to_real};
 use super::view::PriceScale;
 use super::{Chart, ChartEvent};
-use wyck_chart::drawing::book::Grab;
+use crate::chart_core::drawing::book::Grab;
 
 /// Where a position is on the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

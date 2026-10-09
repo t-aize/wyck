@@ -12,9 +12,9 @@ use super::{
     Chart, ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan, drawing_props,
     object_tree,
 };
-use wyck_chart::drawing::book::{Book, Order, Press};
-use wyck_chart::drawing::model::Tool;
-use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
+use crate::chart_core::drawing::book::{Book, Order, Press};
+use crate::chart_core::drawing::model::Tool;
+use crate::chart_core::study::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,8 +61,8 @@ impl Chart {
 
     pub(super) fn resolved_position(
         &self,
-        drawing: &wyck_chart::drawing::model::Drawing,
-    ) -> Option<wyck_chart::drawing::model::Drawing> {
+        drawing: &crate::chart_core::drawing::model::Drawing,
+    ) -> Option<crate::chart_core::drawing::model::Drawing> {
         if !drawing.tool.is_position() || drawing.points.len() < 3 {
             return Some(drawing.clone());
         }

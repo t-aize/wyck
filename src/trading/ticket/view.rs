@@ -19,7 +19,7 @@ use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop
 use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
-use wyck_chart::study::atr_stop::Smoothing;
+use crate::chart_core::study::atr_stop::Smoothing;
 use crate::ui::kit::{
     confirm::confirm,
     controls,

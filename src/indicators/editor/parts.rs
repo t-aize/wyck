@@ -16,11 +16,11 @@ use super::{
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
 use crate::indicators;
-use wyck_chart::drawing::model::Tool;
-use wyck_chart::study::custom::docs::{self, Group};
-use wyck_chart::study::custom::library::{Entry as Script, registry};
-use wyck_chart::study::custom::templates::TEMPLATES;
-use wyck_chart::study::custom::{Problem, Severity};
+use crate::chart_core::drawing::model::Tool;
+use crate::chart_core::study::custom::docs::{self, Group};
+use crate::chart_core::study::custom::library::{Entry as Script, registry};
+use crate::chart_core::study::custom::templates::TEMPLATES;
+use crate::chart_core::study::custom::{Problem, Severity};
 use crate::ui::kit::{
     controls, icon, layout, menu,
     menu::{Entry, Item, Placement},

@@ -26,9 +26,9 @@ fn units(hundredths: i64) -> String {
     let whole = hundredths / 100;
     let rest = hundredths % 100;
     if rest == 0 {
-        wyck_chart::format::grouped(whole)
+        crate::chart_core::format::grouped(whole)
     } else {
-        format!("{}.{:02}", wyck_chart::format::grouped(whole), rest.abs())
+        format!("{}.{:02}", crate::chart_core::format::grouped(whole), rest.abs())
     }
 }
 
@@ -49,9 +49,9 @@ fn volume(hundredths: i64, lot_size: Option<i64>) -> String {
         Some(lot) => {
             let lots = hundredths as f64 / lot as f64;
             let text = if lots >= 1000.0 {
-                wyck_chart::format::grouped(lots.round() as i64)
+                crate::chart_core::format::grouped(lots.round() as i64)
             } else {
-                wyck_chart::format::trim(lots, 4)
+                crate::chart_core::format::trim(lots, 4)
             };
             let plural = if (lots - 1.0).abs() < f64::EPSILON {
                 ""

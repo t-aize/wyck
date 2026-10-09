@@ -571,7 +571,7 @@ impl Dashboard {
             crate::chart::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe = timeframe.clone();
                 let spec = study.kind.spec();
-                if matches!(spec.format, wyck_chart::study::ValueFormat::Price) {
+                if matches!(spec.format, crate::chart_core::study::ValueFormat::Price) {
                     // An average or a band on the prices: the price crosses it.
                     alert.versus = Some(Source::Indicator {
                         study: study.clone(),

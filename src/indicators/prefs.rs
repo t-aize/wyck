@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use wyck_chart::study::custom::Limits;
+use crate::chart_core::study::custom::Limits;
 
 /// The name of the document.
 pub const DOCUMENT: &str = "indicators";
@@ -60,7 +60,7 @@ pub struct Prefs {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
     /// Whether the folder is read again every moment, so a file edited elsewhere shows up.
-    #[serde(default = "wyck_chart::defaults::yes")]
+    #[serde(default = "crate::chart_core::defaults::yes")]
     pub auto_reload: bool,
     #[serde(default)]
     pub budget: Budget,

@@ -149,7 +149,7 @@ impl DrawingProps {
                 Row::new("Tag opacity")
                     .hint("How solid the tag behind the words is")
                     .reset(
-                        (layout.tag_opacity() - wyck_chart::drawing::look::DEFAULT_TAG_OPACITY)
+                        (layout.tag_opacity() - crate::chart_core::drawing::look::DEFAULT_TAG_OPACITY)
                             .abs()
                             > 0.005,
                         self.restore(cx, |d, built_in| {

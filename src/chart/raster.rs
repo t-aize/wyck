@@ -593,12 +593,12 @@ mod tests {
     #[test]
     #[ignore = "writes a chart preview for visual review"]
     fn indicator_families_preview() {
-        use wyck_chart::data::Series;
-        use wyck_chart::display::Display;
-        use wyck_chart::scene::{Frame, Palette, build};
-        use wyck_chart::study::{StudyConfig, StudyKind};
-        use wyck_chart::view::View;
-        use wyck_chart::{ChartSettings, Timeframe};
+        use crate::chart_core::data::Series;
+        use crate::chart_core::display::Display;
+        use crate::chart_core::scene::{Frame, Palette, build};
+        use crate::chart_core::study::{StudyConfig, StudyKind};
+        use crate::chart_core::view::View;
+        use crate::chart_core::{ChartSettings, Timeframe};
         use wyck_openapi::market::Bar;
 
         let bars: Vec<Bar> = (0..240)
@@ -768,7 +768,7 @@ mod tests {
                 color: rgb_alpha(0xffffff, 1.0),
                 background: Some(rgb_alpha(0x226666, 1.0)),
                 align: Align::Center,
-                valign: wyck_chart::drawing::look::VAlign::Auto,
+                valign: crate::chart_core::drawing::look::VAlign::Auto,
                 bold: false,
                 face: Default::default(),
             }],

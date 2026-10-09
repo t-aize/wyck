@@ -198,7 +198,7 @@ pub struct Appearance {
     #[serde(default = "default_font")]
     pub font: String,
     /// Whether screens and panels move as they appear.
-    #[serde(default = "wyck_chart::defaults::yes")]
+    #[serde(default = "crate::chart_core::defaults::yes")]
     pub animations: bool,
     /// The size of the interface, in percent of the size it was drawn at: text, controls and
     /// fields. For eyes that need larger text, or a small screen.
@@ -560,7 +560,7 @@ fn put_in_force(cx: &mut App) {
     crate::ui::kit::anim::set_enabled(animations);
     crate::ui::kit::tokens::set_scale(scale);
     // The text drawn on the charts follows it, as the widgets do.
-    wyck_chart::text_scale::set(scale);
+    crate::chart_core::text_scale::set(scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {
         let _ = window.update(cx, |_, window, _| {

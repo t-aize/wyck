@@ -18,13 +18,13 @@ use super::drawing::Drawings;
 use super::object_tree::tool_icon;
 use super::timeframe::GROUPS;
 use super::zone::Zone;
-use wyck_chart::drawing::extras::{ICONS, icon_key};
-use wyck_chart::drawing::figures::wave_names;
-use wyck_chart::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
-use wyck_chart::drawing::model::{
+use crate::chart_core::drawing::extras::{ICONS, icon_key};
+use crate::chart_core::drawing::figures::wave_names;
+use crate::chart_core::drawing::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+use crate::chart_core::drawing::model::{
     DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Point, Tool, wave_label,
 };
-use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
+use crate::chart_core::study::atr_stop::{AtrStop, Smoothing};
 use crate::ui::kit::field::{SliderField, ValueChanged};
 use crate::ui::kit::font_picker::{FontChosen, FontPicker};
 use crate::ui::kit::{button, controls, form, form::Head, modal, number, theme, tokens};
@@ -327,7 +327,7 @@ impl DrawingProps {
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .default_value(zone.format(point.t, wyck_chart::zone::TIME_PATTERN))
+                        .default_value(zone.format(point.t, crate::chart_core::zone::TIME_PATTERN))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
                 subscriptions.push(number::watch_parsed(
@@ -569,7 +569,7 @@ impl DrawingProps {
     fn restore(
         &self,
         cx: &mut Context<Self>,
-        restore: fn(&mut Drawing, &wyck_chart::drawing::model::Style),
+        restore: fn(&mut Drawing, &crate::chart_core::drawing::model::Style),
     ) -> impl Fn(&mut Window, &mut App) + 'static + use<> {
         let this = cx.entity();
         move |window, cx| {

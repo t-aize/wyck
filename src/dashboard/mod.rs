@@ -29,7 +29,7 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
-use wyck_chart::drawing::model::Tool;
+use crate::chart_core::drawing::model::Tool;
 use wyck_openapi::market::{PRICE_SCALE, Spot, format_price};
 use wyck_openapi::session::{Session, SessionEvent, SessionState};
 use wyck_openapi::{Error as ApiError, Event};

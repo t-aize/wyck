@@ -8,7 +8,7 @@ impl SettingsHub {
         let dir = indicators::dir(cx);
         let default_dir = indicators::default_dir(cx);
         let using_default = prefs.folder.is_none();
-        let entries = wyck_chart::study::custom::library::registry::all();
+        let entries = crate::chart_core::study::custom::library::registry::all();
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
         let folder = vec![

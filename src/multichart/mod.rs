@@ -38,8 +38,8 @@ use super::chart::{
     LiveUpdate, Timeframe,
 };
 use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
-use wyck_chart::drawing::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
-use wyck_chart::study::StudyConfig;
+use crate::chart_core::drawing::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
+use crate::chart_core::study::StudyConfig;
 use crate::ui::kit::{text_input::TextInput, theme};
 
 /// How many recent tools and colors are kept.
@@ -833,7 +833,7 @@ impl MultiChart {
     pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
-        change: impl FnOnce(&mut wyck_chart::drawing::book::Book, &str) -> bool,
+        change: impl FnOnce(&mut crate::chart_core::drawing::book::Book, &str) -> bool,
     ) {
         let Some(symbol) = self.symbol_name(cx) else {
             return;

@@ -21,7 +21,7 @@
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
 //! | [`volume`], `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
 //! | [`tpo`], `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
-//! | [`export`](wyck_chart::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
+//! | [`export`](crate::chart_core::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
 //! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
 //! out.
@@ -50,19 +50,19 @@
 //! Open API has no trade tape, so the side and the volume of each unit are inferred from the
 //! quotes, and the chart says so.
 
-use wyck_chart::axis;
+use crate::chart_core::axis;
 mod chart_settings_ui;
 mod construction_ui;
 mod custom_runs;
-use wyck_chart::data;
-use wyck_chart::display;
+use crate::chart_core::data;
+use crate::chart_core::display;
 pub mod drawing;
 pub mod drawing_props;
 mod export_ui;
-use wyck_chart::flow;
+use crate::chart_core::flow;
 mod flow_sync;
 mod follow;
-use wyck_chart::footprint;
+use crate::chart_core::footprint;
 mod footprint_ui;
 mod glue;
 mod history;
@@ -72,25 +72,25 @@ pub mod lines;
 pub mod live;
 pub(crate) mod load;
 pub mod object_tree;
-use wyck_chart::options;
+use crate::chart_core::options;
 mod overlay;
 mod paint;
-use wyck_chart::projection;
+use crate::chart_core::projection;
 pub mod raster;
-use wyck_chart::scene;
-use wyck_chart::settings;
+use crate::chart_core::scene;
+use crate::chart_core::settings;
 mod settings_rows;
-use wyck_chart::study;
+use crate::chart_core::study;
 mod study_settings;
-use wyck_chart::timeframe;
+use crate::chart_core::timeframe;
 mod toolbar;
-use wyck_chart::tpo;
+use crate::chart_core::tpo;
 mod tpo_ui;
-use wyck_chart::transform;
-use wyck_chart::view;
-use wyck_chart::volume;
+use crate::chart_core::transform;
+use crate::chart_core::view;
+use crate::chart_core::volume;
 mod volume_ui;
-use wyck_chart::zone;
+use crate::chart_core::zone;
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -397,7 +397,7 @@ pub enum ChartAction {
 pub enum AlertSeed {
     /// An indicator of the chart, and the timeframe it is worked out on.
     Indicator {
-        study: Box<wyck_chart::study::StudyConfig>,
+        study: Box<crate::chart_core::study::StudyConfig>,
         timeframe: String,
     },
     /// A drawing of the chart.
@@ -415,7 +415,7 @@ pub enum AlertSeed {
 pub struct PositionLink {
     pub drawing: u64,
     /// The stop loss is this many ATRs from the entry.
-    pub atr: Option<wyck_chart::study::atr_stop::AtrStop>,
+    pub atr: Option<crate::chart_core::study::atr_stop::AtrStop>,
     /// The take profit is this multiple of the risk from the entry.
     pub rr: Option<f64>,
 }
@@ -428,7 +428,7 @@ pub struct PositionPlan {
     pub entry: f64,
     pub stop_loss: f64,
     pub take_profit: f64,
-    pub atr: Option<wyck_chart::study::atr_stop::AtrStop>,
+    pub atr: Option<crate::chart_core::study::atr_stop::AtrStop>,
     pub rr: Option<f64>,
 }
 
@@ -507,7 +507,7 @@ pub struct Chart {
     /// Whether a press taken by a drawing is still down.
     drawing_drag: bool,
     /// Whether the pointer is over a drawing, for the mouse cursor.
-    over_drawing: Option<wyck_chart::drawing::book::Grab>,
+    over_drawing: Option<crate::chart_core::drawing::book::Grab>,
     /// A drawing was double-clicked: its settings open at the next render, which has the window.
     settings_for: Option<u64>,
     /// Orders, positions and alerts shown on the prices.
