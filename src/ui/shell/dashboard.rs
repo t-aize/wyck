@@ -15,6 +15,7 @@ mod header;
 mod layout_menu;
 mod lists;
 mod marks;
+mod notice;
 mod picker;
 mod trade;
 
@@ -36,7 +37,7 @@ use gpui::{
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
-use crate::app::account::Account;
+use crate::app::account::{Account, AccountEvent};
 use crate::app::alerts::Alerts;
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{PEEK_OWNER, Wish};
@@ -257,6 +258,12 @@ impl Dashboard {
         let drawings = cx.new(|cx| Drawings::new(documents.account.clone(), cx));
         let hub = Rc::new(LiveHub::new(session.clone()));
         let trading = cx.new(|cx| Account::new(session.clone(), hub.clone(), cx));
+        cx.subscribe(&trading, |_, account, event: &AccountEvent, cx| {
+            if let AccountEvent::Notice(notice) = event {
+                notice::show(&account, notice.clone(), cx);
+            }
+        })
+        .detach();
         let is_live = account.is_live;
         trading.update(cx, |trading, _| trading.set_live(is_live));
         let alerts = cx.new(|cx| {

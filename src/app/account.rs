@@ -26,16 +26,13 @@ use gpui::{Context, EventEmitter};
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
 use crate::app::system::runtime;
-use crate::domain::trading::book::{
-    AccountBook, Notice, NoticeAction, Reason, Tone, is_buy, refusal, sentence,
-};
+use crate::domain::trading::book::{AccountBook, Notice, Reason, Tone, is_buy, refusal, sentence};
 use crate::domain::trading::guard;
 use crate::domain::trading::guard::{
     DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
 };
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, Link, Summary};
-use crate::ui::kit::toast;
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;
@@ -156,6 +153,8 @@ impl ReverseTracker {
 /// Tells the views the account changed (they also observe the entity).
 pub enum AccountEvent {
     Changed,
+    /// Something to tell the user, with the things they can do about it.
+    Notice(Notice),
 }
 
 pub struct Account {
@@ -536,36 +535,7 @@ impl Account {
     }
 
     fn tell(&self, notice: Notice, cx: &mut Context<Self>) {
-        let kind = match notice.tone {
-            Tone::Info => toast::Kind::Info,
-            Tone::Success => toast::Kind::Success,
-            Tone::Warning => toast::Kind::Warning,
-            Tone::Error => toast::Kind::Error,
-        };
-        let has_actions = !notice.actions.is_empty();
-        let mut toast = toast::Toast::new(kind, notice.title, notice.message)
-            .hint_opt(notice.hint)
-            .details_opt(notice.details);
-        let account = cx.entity();
-        for action in notice.actions {
-            let account = account.clone();
-            toast = match action {
-                NoticeAction::ClosePosition(id) => toast.action("Close position", move |_, cx| {
-                    account.update(cx, |a, cx| a.close_position(id, None, cx));
-                }),
-                NoticeAction::BreakEven(id) => toast.action("Stop to entry", move |_, cx| {
-                    account.update(cx, |a, cx| a.break_even(id, cx));
-                }),
-                NoticeAction::CancelOrder(id) => toast.action("Cancel order", move |_, cx| {
-                    account.update(cx, |a, cx| a.cancel_order(id, cx));
-                }),
-            };
-        }
-        // A fill with buttons goes away by itself: the panel keeps the same buttons.
-        if has_actions && notice.tone == Tone::Success {
-            toast = toast.sticky(false);
-        }
-        toast.show(cx);
+        cx.emit(AccountEvent::Notice(notice));
     }
 
     fn watch_reverse(&mut self, position_id: i64, started: Instant, cx: &mut Context<Self>) {
@@ -874,11 +844,13 @@ impl Account {
                 }
             }
             Event::MarginCallTriggered(_) => {
-                toast::show(
+                self.tell(
+                    Notice::new(
+                        Tone::Warning,
+                        "Margin call",
+                        "The account's margin level reached a margin call threshold.",
+                    ),
                     cx,
-                    toast::Kind::Warning,
-                    "Margin call",
-                    "The account's margin level reached a margin call threshold.",
                 );
             }
             _ => {}
