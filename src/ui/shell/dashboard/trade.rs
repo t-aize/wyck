@@ -21,7 +21,7 @@ use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::panel::{PanelEvent, Tab};
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
-use crate::ui::kit::{confirm::confirm, theme, toast};
+use crate::ui::kit::{confirm::confirm, theme, toast, tokens};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {
@@ -49,7 +49,10 @@ const PANEL_MIN: f32 = 120.0;
 
 /// What the charts keep when the panel grows, and what the bars above them take.
 const CHARTS_MIN: f32 = 240.0;
-const BARS: f32 = 62.0;
+/// The height the bars above the charts take: the header and the strip under it.
+fn bars() -> f32 {
+    tokens::bar::header() + tokens::scaled(14.0)
+}
 
 impl Dashboard {
     /// Creates the ticket (which needs the window) and runs what waited for it.
@@ -923,7 +926,7 @@ impl Dashboard {
 
     /// The tallest the panel can be in this window: the charts keep their least height.
     fn panel_room(&self) -> f32 {
-        (self.viewport_height - BARS - CHARTS_MIN).clamp(PANEL_MIN, 900.0)
+        (self.viewport_height - bars() - CHARTS_MIN).clamp(PANEL_MIN, 900.0)
     }
 
     /// The height the panel has now: the one the user chose, or less in a short window.

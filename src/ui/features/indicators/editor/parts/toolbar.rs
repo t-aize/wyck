@@ -72,7 +72,7 @@ impl IndicatorEditor {
         let reference_open = self.reference_open;
         div()
             .flex_none()
-            .h(px(40.))
+            .h(px(tokens::bar::toolbar()))
             .px_2()
             .flex()
             .flex_row()

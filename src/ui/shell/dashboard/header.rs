@@ -13,9 +13,6 @@ use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::ui::features::{chart, trading};
 use crate::ui::kit::{anim, button, controls, icon, layout, menu, theme, tokens};
 
-/// The height of the bar.
-pub(super) const HEADER_HEIGHT: f32 = 48.0;
-
 /// Which parts of the bar the window is wide enough for.
 #[derive(Clone, Copy)]
 struct Fit {
@@ -50,7 +47,7 @@ impl Dashboard {
         div()
             .flex_none()
             .w_full()
-            .h(px(HEADER_HEIGHT))
+            .h(px(tokens::bar::header()))
             .pr_2()
             .flex()
             .flex_row()
@@ -815,7 +812,7 @@ impl Dashboard {
             .child(
                 div()
                     .absolute()
-                    .top(px(HEADER_HEIGHT + 6.0))
+                    .top(px(tokens::bar::header() + 6.0))
                     .right_3()
                     .child(anim::enter(card, "account-menu-card", 0)),
             );

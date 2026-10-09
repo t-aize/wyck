@@ -95,6 +95,47 @@ pub mod height {
     }
 }
 
+/// Space between and around things, in pixels. Use these for gaps and padding written with
+/// `px(..)`; the gpui scale classes (`gap_2`, `p_3`) stay for plain layout.
+pub mod space {
+    use super::scaled;
+
+    /// Between an icon and its label, inside a tight chip.
+    pub fn xs() -> f32 {
+        scaled(4.0)
+    }
+    /// Between controls of a row, inside a button group.
+    pub fn sm() -> f32 {
+        scaled(8.0)
+    }
+    /// Between a label and its field, around a list row.
+    pub fn md() -> f32 {
+        scaled(12.0)
+    }
+    /// Around the content of a card or a panel.
+    pub fn lg() -> f32 {
+        scaled(16.0)
+    }
+    /// Between the blocks of a page.
+    pub fn xl() -> f32 {
+        scaled(24.0)
+    }
+}
+
+/// Heights of the bars that frame a screen, in pixels.
+pub mod bar {
+    use super::scaled;
+
+    /// A strip of tools inside a panel: the editor toolbar, the drawing options.
+    pub fn toolbar() -> f32 {
+        scaled(40.0)
+    }
+    /// The header of the dashboard.
+    pub fn header() -> f32 {
+        scaled(48.0)
+    }
+}
+
 /// Widths of fields, in pixels.
 pub mod field {
     use super::scaled;
@@ -147,6 +188,8 @@ mod tests {
         set_scale(150);
         assert_eq!(text::body(), 18.0);
         assert_eq!(height::control(), 42.0);
+        assert_eq!(space::lg(), 24.0);
+        assert_eq!(bar::header(), 72.0);
         set_scale(10_000);
         assert_eq!(scale_percent(), SCALE_MAX);
         set_scale(1);
