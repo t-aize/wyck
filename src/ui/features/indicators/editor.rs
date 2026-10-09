@@ -30,7 +30,8 @@ use gpui::{
 use serde::{Deserialize, Serialize};
 
 use crate::app::scripts as indicators;
-use crate::domain::indicators::custom::library::{LibraryError, registry};
+use crate::app::scripts::folder::LibraryError;
+use crate::domain::indicators::custom::library::registry;
 use crate::domain::indicators::custom::run::Script;
 use crate::domain::indicators::custom::templates::{TEMPLATES, Template};
 use crate::domain::indicators::custom::{Problem, Severity};
@@ -575,7 +576,7 @@ impl IndicatorEditor {
         &mut self,
         id: &str,
         text: String,
-        result: Option<Result<crate::domain::indicators::custom::library::Changes, LibraryError>>,
+        result: Option<Result<crate::app::scripts::folder::Changes, LibraryError>>,
         cx: &mut Context<Self>,
     ) {
         match result {

@@ -70,8 +70,9 @@ pub fn compute(
 
 #[cfg(test)]
 mod tests {
-    use super::library::{Library, registry};
+    use super::library::registry;
     use super::*;
+    use crate::app::scripts::folder::Library;
 
     #[test]
     fn a_chart_computes_a_script_it_holds_through_the_config() {

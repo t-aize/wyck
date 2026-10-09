@@ -19,8 +19,10 @@ use crate::app::storage::{AppPaths, DocumentStore};
 use gpui::{App, BorrowAppContext as _, Global, Task};
 
 use crate::app::prefs::indicators::{DOCUMENT, Prefs};
-use crate::domain::indicators::custom::library::{Changes, Library, LibraryError};
+use crate::app::scripts::folder::{Changes, Library, LibraryError};
 use crate::domain::indicators::custom::{Limits, library};
+
+pub mod folder;
 
 /// How often the folder is read again.
 const POLL: Duration = Duration::from_millis(1500);
