@@ -15,7 +15,6 @@ src/domain/trading/book.rs	layer	domain -> infra
 src/infra/ctrader/account/client.rs	style	use super::*
 src/infra/ctrader/margin/client.rs	style	use super::*
 src/infra/ctrader/trading/client.rs	style	use super::*
-src/infra/storage/secret/mod.rs	style	mod.rs file
 src/ui/features/chart.rs	extern	ui::features::chart uses tokio
 src/ui/features/chart.rs	layer	ui::features::chart -> ui::features::indicators
 src/ui/features/chart/chart_settings_ui.rs	extern	ui::features::chart uses gpui_kit

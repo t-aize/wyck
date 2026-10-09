@@ -85,7 +85,7 @@ impl MarginCall {
     /// A threshold to send with [`crate::infra::ctrader::margin::MarginClient::update_margin_call`].
     ///
     /// ```
-    /// use wyck::infra::ctrader::margin::{MarginCall, MarginCallType};
+    /// use wyck::domain::trading::{MarginCall, MarginCallType};
     ///
     /// let call = MarginCall::new(MarginCallType::First, 120.0);
     /// assert_eq!(call.kind(), Some(MarginCallType::First));

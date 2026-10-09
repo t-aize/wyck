@@ -102,7 +102,7 @@ pub struct GetTickDataRes {
 /// a few seconds of data where an hour was asked for, and the prices as absolute yields nonsense.
 ///
 /// ```
-/// use wyck::infra::ctrader::market::{WireTick, decode_ticks};
+/// use wyck::domain::market::{WireTick, decode_ticks};
 ///
 /// // Newest first: the first tick is absolute, the others are steps back from it.
 /// let wire = [

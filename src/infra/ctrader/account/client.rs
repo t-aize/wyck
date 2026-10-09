@@ -281,7 +281,7 @@ impl AccountDataClient {
     }
 
     /// The whole answer about the unrealized profit or loss of the open positions, with the
-    /// number of decimals of its amounts (see [`money`]).
+    /// number of decimals of its amounts (see [`crate::domain::trading::money`]).
     ///
     /// # Errors
     ///

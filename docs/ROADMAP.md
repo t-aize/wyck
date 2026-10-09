@@ -5,8 +5,8 @@ Read this file before starting a task and update it when you finish one.
 
 Status: `todo`, `doing`, `done`. Only one phase is `doing` at a time.
 
-Not compiled since phase 0: the restructuring is done without running `cargo`. Run
-`cargo check --all-targets` after pulling and fix what it reports before building on top.
+Checked with `cargo clippy --all-targets -- -D warnings`, `cargo test` (lib, integration, doc) and
+`cargo doc` after phase 9's first half. No release build was made.
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -18,7 +18,7 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 | 5 | Merge `wyck-openapi` (now `src/openapi`), drop the `client` feature | done |
 | 6 | One manifest, no workspace (checkpoint A) | done |
 | 7 | Native window title bar | done |
-| 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | todo |
+| 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | done |
 | 9 | Cut dependency cycles, enforce layers (checkpoint B) | todo |
 | 10 | Design system and screen migration | todo |
 | 11 | Sign-in modal | todo |

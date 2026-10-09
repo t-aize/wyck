@@ -1,5 +1,8 @@
 //! Wyck, a desktop trading terminal for cTrader: the window, the connection flow and every screen.
 
+// The interface modules are public for now and document private helpers.
+#![allow(rustdoc::private_intra_doc_links)]
+
 pub mod app;
 pub mod domain;
 pub mod infra;

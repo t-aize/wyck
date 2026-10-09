@@ -12,7 +12,7 @@ use gpui::{AssetSource, Result, SharedString};
 use gpui_kit::assets::AllAssets;
 
 /// Inter (SIL Open Font License; see `assets/fonts/LICENSE.txt`), registered once at startup in
-/// [`crate::main`] and used everywhere as the app's font.
+/// `run` and used everywhere as the app's font.
 pub const FONT: &[u8] = include_bytes!("../../assets/fonts/Inter.ttf");
 
 /// Country flags, crypto logos and company logos: `marks/flags/us.svg`, `marks/crypto/btc.svg`,

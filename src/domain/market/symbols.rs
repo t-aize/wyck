@@ -288,7 +288,7 @@ impl SymbolTable {
     /// The symbol with this name, in any case.
     ///
     /// ```
-    /// use wyck::infra::ctrader::market::{LightSymbol, SymbolTable};
+    /// use wyck::domain::market::{LightSymbol, SymbolTable};
     ///
     /// let symbol: LightSymbol = serde_json::from_str(r#"{"symbolId": 1, "symbolName": "EURUSD"}"#).unwrap();
     /// let table = SymbolTable::new([symbol]);
