@@ -21,7 +21,7 @@ and the app was never run: everything marked "to verify by hand" below is untest
 | 7 | Native window title bar | done |
 | 8 | Move modules into `domain/`, `infra/`, `app/`, `ui/` | done |
 | 9 | Cut dependency cycles, enforce layers (checkpoint B) | done, the baseline is empty |
-| 10 | Design system and screen migration | done for buttons, fields, tokens, shortcut hints and confirmations over panels; see "Left for later" |
+| 10 | Design system and screen migration | done |
 | 11 | Sign-in modal | done, to try by hand |
 | 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
 | 13 | Domain and cTrader client hardening | done, see the notes below for what was left out |
