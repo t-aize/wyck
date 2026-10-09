@@ -21,7 +21,6 @@ use crate::app::prefs::columns::{
 use crate::app::prefs::panel::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use crate::app::prefs::ticket::Slot;
 use crate::domain::chart::zone::Zone;
-use crate::domain::trading::book::is_buy;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, format_money};
 
@@ -410,7 +409,7 @@ fn positions(ctx: &Ctx) -> Table {
         let id = position.position_id;
         let symbol = position.trade_data.symbol_id;
         let contract = account.book.contract(symbol);
-        let buy = is_buy(position.trade_data.trade_side);
+        let buy = position.trade_data.is_buy();
         let name = account.book.name(symbol);
         let comment = position
             .trade_data
@@ -574,7 +573,7 @@ fn orders(ctx: &Ctx) -> Table {
         let id = order.order_id;
         let symbol = order.trade_data.symbol_id;
         let contract = account.book.contract(symbol);
-        let buy = is_buy(order.trade_data.trade_side);
+        let buy = order.trade_data.is_buy();
         let name = account.book.name(symbol);
         let kind = order.kind().map_or("order", OrderType::label);
         let kind = capitalized(kind);
@@ -688,7 +687,7 @@ fn history(ctx: &Ctx) -> Table {
         unfiltered += 1;
         let symbol = deal.symbol_id;
         let contract = account.book.contract(symbol);
-        let buy = is_buy(deal.trade_side);
+        let buy = deal.is_buy();
         let name = account.book.name(symbol);
         let kind = if closing { "Close" } else { "Open" };
         let digits = deal.money_digits.and_then(|d| u32::try_from(d).ok());
@@ -886,7 +885,7 @@ fn exposure(ctx: &Ctx) -> Table {
 
 fn add_position(held: &mut Held, position: &Position, account: &Account, digits: Option<u32>) {
     let volume = position.trade_data.volume;
-    if is_buy(position.trade_data.trade_side) {
+    if position.trade_data.is_buy() {
         held.long += volume;
     } else {
         held.short += volume;

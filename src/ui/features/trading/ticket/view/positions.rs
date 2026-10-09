@@ -2,7 +2,7 @@
 
 use super::{
     Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, card,
-    card_head, confirm, div, hint, is_buy, math, px, text_button, theme, tokens,
+    card_head, confirm, div, hint, math, px, text_button, theme, tokens,
 };
 use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::prelude::Selectable;
@@ -39,7 +39,7 @@ impl OrderTicket {
             }
             count += 1;
             let id = position.position_id;
-            let buy = is_buy(position.trade_data.trade_side);
+            let buy = position.trade_data.is_buy();
             let volume = position.trade_data.volume;
             let contract = &f.contract;
             let profit = account.net_profit(id);
@@ -238,7 +238,7 @@ impl OrderTicket {
             }
             count += 1;
             let id = order.order_id;
-            let buy = is_buy(order.trade_data.trade_side);
+            let buy = order.trade_data.is_buy();
             let price = order.limit_price.or(order.stop_price);
             let cancelling = account.is_busy(Busy::Cancelling(id));
             let cancel_account = self.account.clone();

@@ -54,5 +54,7 @@ The client lives in `src/infra/ctrader/`. It speaks the cTrader Open API over it
 
 - The OAuth `state` of the redirect is checked when present but not required: the portal's
   documentation does not say that it echoes it. See `docs/ROADMAP.md`.
-- Positions, orders and deals are still the serde types of the wire (`domain::trading::types`)
-  with raw integer fields; typed domain objects behind a mapping layer are not started.
+- Positions, orders and deals are the serde records of the wire (`domain::trading::types`) with
+  typed accessors; the account book leaves out what has a side it cannot read. See
+  `docs/decisions/0003-records-of-the-protocol-stay-in-the-domain.md` for why there is no second
+  model.

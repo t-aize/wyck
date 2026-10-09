@@ -29,7 +29,7 @@ pub use self::notice::{Notice, NoticeAction, Reason, Tone, describe, explain, re
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
 use crate::app::system::runtime;
-use crate::domain::trading::book::{AccountBook, is_buy};
+use crate::domain::trading::book::AccountBook;
 use crate::domain::trading::guard;
 use crate::domain::trading::guard::{
     DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
@@ -641,7 +641,7 @@ impl Account {
                             .filter_map(|id| this.reversals.closed(id))
                             .collect();
                         deals.sort_by_key(|d| std::cmp::Reverse(d.execution_timestamp));
-                        this.book.deals = deals;
+                        this.book.set_deals(deals);
                         this.status = Status::Ready;
                         // The account was read again: whatever a silent call did is in it now.
                         this.uncertain = false;
@@ -1146,7 +1146,7 @@ impl Account {
             && let Some(label) = order.trade_data.label.as_deref().and_then(Label::decode)
             && label.oco
         {
-            let buy = is_buy(order.trade_data.trade_side);
+            let buy = order.trade_data.is_buy();
             let working: Vec<(i64, Label, bool)> = self
                 .book
                 .orders
@@ -1155,7 +1155,7 @@ impl Account {
                     Some((
                         o.order_id,
                         Label::decode(o.trade_data.label.as_deref()?)?,
-                        is_buy(o.trade_data.trade_side),
+                        o.trade_data.is_buy(),
                     ))
                 })
                 .collect();
@@ -1177,7 +1177,7 @@ impl Account {
                     Some(Open {
                         position: p.position_id,
                         label: Label::decode(p.trade_data.label.as_deref()?)?,
-                        buy: is_buy(p.trade_data.trade_side),
+                        buy: p.trade_data.is_buy(),
                         entry: p.price?,
                         stop_loss: p.stop_loss,
                     })
@@ -1350,7 +1350,7 @@ impl Account {
         let Some(position) = self.book.positions.get(&position_id).cloned() else {
             return;
         };
-        let buy = !is_buy(position.trade_data.trade_side);
+        let buy = !position.trade_data.is_buy();
         let (symbol, volume) = (position.trade_data.symbol_id, position.trade_data.volume);
         // The position closes first: if the order that opens the other way would be refused, it is
         // better to know before anything is closed.
@@ -1507,7 +1507,7 @@ async fn missed_exits(
             let label = label_of(&o.trade_data.label)?;
             (label.oco || label.break_even.is_some()).then(|| Past {
                 label,
-                buy: is_buy(o.trade_data.trade_side),
+                buy: o.trade_data.is_buy(),
                 filled: true,
                 position: o.position_id,
                 pip: 0.0,
@@ -1560,7 +1560,7 @@ async fn missed_exits(
             Some(Open {
                 position: p.position_id,
                 label: label_of(&p.trade_data.label)?,
-                buy: is_buy(p.trade_data.trade_side),
+                buy: p.trade_data.is_buy(),
                 entry: p.price?,
                 stop_loss: p.stop_loss,
             })
@@ -1573,7 +1573,7 @@ async fn missed_exits(
             Some((
                 o.order_id,
                 label_of(&o.trade_data.label)?,
-                is_buy(o.trade_data.trade_side),
+                o.trade_data.is_buy(),
             ))
         })
         .collect();

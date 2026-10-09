@@ -314,6 +314,13 @@ impl TradeData {
         TradeSide::from_number(self.trade_side)
     }
 
+    /// Whether it is a buy. The account book only keeps what has a side it can read, so for a
+    /// position or an order taken from it this is the whole answer.
+    #[must_use]
+    pub fn is_buy(&self) -> bool {
+        self.side() == Some(TradeSide::Buy)
+    }
+
     /// The volume in units.
     #[must_use]
     pub fn units(&self) -> f64 {
@@ -482,6 +489,12 @@ impl Deal {
     #[must_use]
     pub fn side(&self) -> Option<TradeSide> {
         TradeSide::from_number(self.trade_side)
+    }
+
+    /// Whether it is a buy; see [`TradeData::is_buy`].
+    #[must_use]
+    pub fn is_buy(&self) -> bool {
+        self.side() == Some(TradeSide::Buy)
     }
 
     /// How the deal ended.

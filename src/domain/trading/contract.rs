@@ -248,12 +248,25 @@ pub fn protection_side(buy: bool, stop: bool) -> f64 {
     if buy == stop { -1.0 } else { 1.0 }
 }
 
+/// The quantity that loses `risk` over a move of `distance` in price, when one unit of quantity
+/// is worth `value` in the risk's currency for each unit of price moved. `None` when these
+/// numbers cannot size anything. This is the one formula: the ticket (through [`lots_for_risk`])
+/// and the position tool of the chart both size from it.
+pub fn quantity_for_risk(risk: f64, distance: f64, value: f64) -> Option<f64> {
+    let per_unit = distance * value;
+    (risk > 0.0 && per_unit > 0.0 && per_unit.is_finite()).then(|| risk / per_unit)
+}
+
+/// What `quantity` gains or loses over a move of `distance` in price; see [`quantity_for_risk`].
+pub fn move_amount(quantity: f64, distance: f64, value: f64) -> f64 {
+    quantity * distance * value
+}
+
 /// The lots whose loss over `stop_distance` is `risk` in the deposit currency, before they are
 /// stepped. `rate` is the deposit currency per unit of quote currency.
 pub fn lots_for_risk(risk: f64, stop_distance: f64, rate: f64, contract: &Contract) -> Option<f64> {
     let units_per_lot = contract.lot_size as f64 / 100.0;
-    let loss_per_lot = stop_distance * rate * units_per_lot;
-    (risk > 0.0 && loss_per_lot > 0.0 && loss_per_lot.is_finite()).then(|| risk / loss_per_lot)
+    quantity_for_risk(risk, stop_distance, rate * units_per_lot)
 }
 
 /// A volume chosen by the ticket, and whether the broker's limits changed it.
@@ -511,6 +524,21 @@ mod tests {
         assert_eq!(format_lots(0.10), "0.1");
         assert_eq!(format_lots(2.0), "2");
     }
+    #[test]
+    fn the_quantity_for_a_risk_and_what_it_loses_are_the_same_formula() {
+        let (risk, distance, value) = (100.0, 0.0020, 50_000.0);
+        let quantity = quantity_for_risk(risk, distance, value).unwrap();
+        assert!((move_amount(quantity, distance, value) - risk).abs() < 1e-9);
+        for bad in [
+            (0.0, 1.0, 1.0),
+            (1.0, 0.0, 1.0),
+            (1.0, 1.0, 0.0),
+            (1.0, f64::NAN, 1.0),
+        ] {
+            assert_eq!(quantity_for_risk(bad.0, bad.1, bad.2), None, "{bad:?}");
+        }
+    }
+
     #[test]
     fn a_risk_makes_the_volume_that_loses_it_at_the_stop() {
         let c = Contract::default();

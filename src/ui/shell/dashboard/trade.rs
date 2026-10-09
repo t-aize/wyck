@@ -149,11 +149,7 @@ impl Dashboard {
                         let contract = book.contract(p.trade_data.symbol_id);
                         format!(
                             "{} {} {}",
-                            if trading::book::is_buy(p.trade_data.trade_side) {
-                                "Buy"
-                            } else {
-                                "Sell"
-                            },
+                            if p.trade_data.is_buy() { "Buy" } else { "Sell" },
                             math::format_lots(contract.lots_of_volume(p.trade_data.volume)),
                             book.name(p.trade_data.symbol_id)
                         )
@@ -539,7 +535,7 @@ impl Dashboard {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let pip = symbol.pip_position.map_or_else(
-            || alerts::model::pip_from_digits(digits),
+            || crate::domain::market::pip_size_from_digits(digits),
             crate::domain::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {
@@ -622,7 +618,7 @@ impl Dashboard {
         }
         let digits = symbol.digits;
         let pip = symbol.pip_position.map_or_else(
-            || alerts::model::pip_from_digits(digits),
+            || crate::domain::market::pip_size_from_digits(digits),
             crate::domain::market::pip_size,
         );
         let added = self.alerts.update(cx, |alerts, cx| {

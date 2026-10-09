@@ -82,9 +82,34 @@ pub fn pip_size(pip_position: i64) -> f64 {
     10f64.powi(-(position as i32))
 }
 
+/// The size of one pip guessed from the decimals of the price, for the moment before the
+/// contract says where the pip sits: the fourth decimal for a pair with four or five, the second
+/// for one with two or three (JPY), and one decimal under the last for the rest. The contract's
+/// own position, through [`pip_size`], always wins when it is known.
+#[must_use]
+pub fn pip_size_from_digits(digits: u32) -> f64 {
+    let position = match digits {
+        0 => 0,
+        1 => 1,
+        2 | 3 => 2,
+        4 | 5 => 4,
+        other => i64::from(other.min(13)) - 1,
+    };
+    pip_size(position)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pip_is_guessed_from_the_decimals_until_the_contract_says() {
+        assert!((pip_size_from_digits(5) - 0.0001).abs() < 1e-12);
+        assert!((pip_size_from_digits(4) - 0.0001).abs() < 1e-12);
+        assert!((pip_size_from_digits(3) - 0.01).abs() < 1e-12);
+        assert!((pip_size_from_digits(2) - 0.01).abs() < 1e-12);
+        assert!((pip_size_from_digits(0) - 1.0).abs() < 1e-12);
+    }
 
     #[test]
     fn a_pip_is_ten_to_the_minus_its_position() {

@@ -86,19 +86,6 @@ fn default_pip() -> f64 {
     0.0001
 }
 
-/// The size of one pip for a symbol with `digits` decimals, when its contract is not at hand:
-/// the fourth decimal for a forex pair, the second for a pair with two or three (JPY). Other
-/// symbols have their own pip: the alert then uses the one read from the contract.
-pub fn pip_from_digits(digits: u32) -> f64 {
-    match digits {
-        0 => 1.0,
-        1 => 0.1,
-        2 | 3 => 0.01,
-        4 | 5 => 0.0001,
-        d => 10f64.powi(1 - i32::try_from(d.min(12)).unwrap_or(5)),
-    }
-}
-
 impl Default for Source {
     fn default() -> Self {
         Self::Price {
@@ -999,15 +986,6 @@ mod tests {
         book.insert(Alert::pnl(0, 8, "GBPUSD", PnlScope::Symbol, 5.0, 0), 100);
         book.insert(Alert::pnl(0, 0, "", PnlScope::Account, 5.0, 0), 100);
         assert_eq!(book.watched(), vec![7]);
-    }
-
-    #[test]
-    fn a_pip_is_worked_out_from_the_decimals_when_the_contract_is_not_known() {
-        assert!((pip_from_digits(5) - 0.0001).abs() < 1e-12);
-        assert!((pip_from_digits(4) - 0.0001).abs() < 1e-12);
-        assert!((pip_from_digits(3) - 0.01).abs() < 1e-12);
-        assert!((pip_from_digits(2) - 0.01).abs() < 1e-12);
-        assert!((pip_from_digits(0) - 1.0).abs() < 1e-12);
     }
 
     #[test]

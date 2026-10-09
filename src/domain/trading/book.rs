@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::domain::trading::{
     Deal, Order, OrderStatus, OrderType, Position, PositionStatus, PositionUnrealizedPnL,
-    TradeSide, Trader, money,
+    TradeData, Trader, money,
 };
 use crate::domain::trading::{ExecutionEvent, ExecutionType};
 
@@ -123,9 +123,18 @@ pub struct AccountBook {
     pub quote_currency: HashMap<i64, String>,
 }
 
-/// The side of a position or order.
-pub fn is_buy(side: i64) -> bool {
-    TradeSide::from_number(side) != Some(TradeSide::Sell)
+/// Whether the side of a position or an order can be read. Something whose side is not one the
+/// app knows is left out of the book instead of being taken for a buy.
+fn has_side(data: &TradeData) -> bool {
+    let known = data.side().is_some();
+    if !known {
+        tracing::warn!(
+            symbol = data.symbol_id,
+            side = data.trade_side,
+            "left out: the side is not one the app knows"
+        );
+    }
+    known
 }
 
 /// Whether an order is a working order the user placed (not the protection of a position).
@@ -165,15 +174,33 @@ impl AccountBook {
     pub fn reconcile(&mut self, positions: Vec<Position>, orders: Vec<Order>) {
         self.positions = positions
             .into_iter()
-            .filter(|p| p.status() == Some(PositionStatus::Open))
+            .filter(|p| p.status() == Some(PositionStatus::Open) && has_side(&p.trade_data))
             .map(|p| (p.position_id, p))
             .collect();
         self.orders = orders
             .into_iter()
-            .filter(is_working)
+            .filter(|o| is_working(o) && has_side(&o.trade_data))
             .map(|o| (o.order_id, o))
             .collect();
         self.marks.retain(|id, _| self.positions.contains_key(id));
+    }
+
+    /// Takes the recent deals the server listed, newest first. A deal whose side is not one the
+    /// app knows is left out.
+    pub fn set_deals(&mut self, deals: Vec<Deal>) {
+        self.deals = deals
+            .into_iter()
+            .filter(|d| {
+                let known = d.side().is_some();
+                if !known {
+                    tracing::warn!(
+                        deal = d.deal_id,
+                        "left out: the side is not one the app knows"
+                    );
+                }
+                known
+            })
+            .collect();
     }
 
     /// Every symbol the account holds or has orders on.
@@ -191,7 +218,7 @@ impl AccountBook {
 
     fn describe_order(&self, order: &Order) -> String {
         let contract = self.contract(order.trade_data.symbol_id);
-        let side = if is_buy(order.trade_data.trade_side) {
+        let side = if order.trade_data.is_buy() {
             "Buy"
         } else {
             "Sell"
@@ -215,8 +242,10 @@ impl AccountBook {
         let mut applied = Applied::default();
         if let Some(position) = &event.position {
             if position.status() == Some(PositionStatus::Open) {
-                self.positions
-                    .insert(position.position_id, position.clone());
+                if has_side(&position.trade_data) {
+                    self.positions
+                        .insert(position.position_id, position.clone());
+                }
             } else {
                 self.positions.remove(&position.position_id);
                 self.marks.remove(&position.position_id);
@@ -225,14 +254,16 @@ impl AccountBook {
         let order_text = event.order.as_ref().map(|o| self.describe_order(o));
         if let Some(order) = &event.order {
             if is_working(order) {
-                self.orders.insert(order.order_id, order.clone());
+                if has_side(&order.trade_data) {
+                    self.orders.insert(order.order_id, order.clone());
+                }
             } else {
                 self.orders.remove(&order.order_id);
             }
         }
-        if let Some(deal) = &event.deal {
+        if let Some(deal) = &event.deal.as_ref().filter(|d| d.side().is_some()) {
             self.deals.retain(|d| d.deal_id != deal.deal_id);
-            self.deals.insert(0, deal.clone());
+            self.deals.insert(0, (*deal).clone());
             self.deals.truncate(MAX_DEALS);
             applied.balance_changed = true;
         }
@@ -341,7 +372,7 @@ impl AccountBook {
         position: &Position,
         quotes: &dyn Fn(i64) -> (Option<f64>, Option<f64>),
     ) -> Option<f64> {
-        let buy = is_buy(position.trade_data.trade_side);
+        let buy = position.trade_data.is_buy();
         let (bid, ask) = quotes(position.trade_data.symbol_id);
         let close = if buy { bid } else { ask }?;
         Some(math::quote_profit(
@@ -492,6 +523,22 @@ mod tests {
             Some(Outcome::Refused { code, .. }) if code == "NOT_ENOUGH_MONEY"
         ));
         assert!(book.orders.is_empty());
+    }
+
+    #[test]
+    fn something_with_a_side_the_app_does_not_know_is_left_out_not_taken_for_a_buy() {
+        let mut book = AccountBook::default();
+        book.reconcile(
+            vec![position(1, 1, 1, 1.1, 1), position(2, 1, 9, 1.1, 1)],
+            vec![order(10, 2, 1)],
+        );
+        assert_eq!(book.positions.keys().copied().collect::<Vec<_>>(), vec![1]);
+        assert!(book.positions[&1].trade_data.is_buy());
+
+        let mut odd = order(11, 2, 1);
+        odd.trade_data.trade_side = 0;
+        book.apply(&event(2, None, Some(odd)));
+        assert!(!book.orders.contains_key(&11));
     }
 
     #[test]

@@ -16,7 +16,6 @@ use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop
 use crate::app::account::Busy;
 use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
 use crate::domain::indicators::atr_stop::Smoothing;
-use crate::domain::trading::book::is_buy;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, Limit, Offset, SizeMode};
 use crate::ui::kit::{

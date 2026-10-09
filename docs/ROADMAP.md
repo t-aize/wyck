@@ -61,11 +61,12 @@ Left out, on purpose:
 - The OAuth `state` stays optional in the redirect: the portal's documentation does not say it
   echoes the parameter, and a mandatory check could lock every user out. Make it mandatory after
   a live sign in confirms the echo (`auth/callback.rs`, `parse_redirect`).
-- The alert pip fallback from decimals (`alerts::model::pip_from_digits`) stays for the moment
-  before a contract is read; every other pip comes from `domain::market::pip_size`.
+- The pip guessed from decimals (`market::pip_size_from_digits`) stays for the moment before a
+  contract is read; every other pip comes from `domain::market::pip_size`.
 - The remaining `Result<_, String>` are texts shown to the user as they are (ticket, raster,
   paint, library import, updates); typing them is a refactor with little gain.
-- DTO to domain mapping (`infra::ctrader::mapping`) and typed `Side` for positions: not started.
+- No second domain model for positions, orders and deals: see decision 0003. The side is checked
+  where the records enter the account book, and the risk formula is shared.
 
 ## Left for later
 
@@ -73,8 +74,6 @@ Left out, on purpose:
   boxes, one-off panel sizes. `tests/design-baseline.txt` only lets that number go down.
 - Spacing classes are on a fixed scale (the design test checks it). The half steps (`gap_1p5`,
   `px_2p5`) are still used in screens.
-- A typed domain model behind a mapping layer in `infra::ctrader` (phase 13 point 1), and one
-  risk sizing shared by the ticket and the position tool.
 - Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
   the maintainer's machine (phase 0).
 

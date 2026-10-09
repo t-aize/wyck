@@ -8,10 +8,13 @@
 //!
 //! Money is in the currency of the account. The point value says how much one unit is worth per
 //! 1.0 of price: 1.0 when the instrument is quoted in the account currency (an index in dollars,
-//! EURUSD on a dollar account), something else when it is not. There is no conversion rate here,
-//! so the figures are a plan, not a quote.
+//! EURUSD on a dollar account), something else when it is not. It does here what the conversion
+//! rate does in the order ticket, and the quantity comes from the same formula
+//! ([`crate::domain::trading::contract::quantity_for_risk`]). There is no live rate, so the
+//! figures are a plan, not a quote.
 
 use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::contract::{move_amount, quantity_for_risk};
 use serde::{Deserialize, Serialize};
 
 /// Everything a position drawing keeps besides its points and its lines.
@@ -212,7 +215,7 @@ impl PositionSettings {
         if !(risk_distance.is_finite() && risk_distance > 0.0 && entry > 0.0) {
             return None;
         }
-        let by_risk = self.risk_amount() / (risk_distance * self.point_value);
+        let by_risk = quantity_for_risk(self.risk_amount(), risk_distance, self.point_value)?;
         let by_leverage = self.account * self.leverage / entry;
         let capped = by_leverage < by_risk;
         let mut qty = by_risk.min(by_leverage);
@@ -229,8 +232,8 @@ impl PositionSettings {
         let ticks = |distance: f64| if tick > 0.0 { distance / tick } else { 0.0 };
         Some(Stats {
             qty,
-            loss: qty * risk_distance * self.point_value,
-            profit: qty * reward_distance * self.point_value,
+            loss: move_amount(qty, risk_distance, self.point_value),
+            profit: move_amount(qty, reward_distance, self.point_value),
             ratio: reward_distance / risk_distance,
             risk_amount: self.risk_amount(),
             capped,
@@ -294,6 +297,31 @@ mod tests {
         assert!((stats.stop_percent + 2.0).abs() < 1e-9);
         assert_eq!(stats.target_ticks.round(), 500.0);
         assert!(!stats.capped);
+    }
+
+    #[test]
+    fn the_tool_and_the_ticket_size_a_risk_the_same_way() {
+        use crate::domain::trading::contract::{Contract, lots_for_risk};
+        let contract = Contract::default();
+        let units_per_lot = contract.lot_size as f64 / 100.0;
+        let ticket = lots_for_risk(100.0, 0.0020, 1.0, &contract).unwrap();
+        // One lot is `units_per_lot` units worth 1.0 each per unit of price.
+        let tool = PositionSettings {
+            account: 1e12,
+            risk: 100.0,
+            risk_percent: false,
+            leverage: 10_000.0,
+            point_value: units_per_lot,
+            lot_size: 1e-8,
+            qty_precision: 8,
+            ..PositionSettings::default()
+        };
+        let stats = tool.stats(1.1000, 1.0980, 1.1040, 0.0).unwrap();
+        assert!(
+            (stats.qty - ticket).abs() < 1e-6,
+            "{} vs {ticket}",
+            stats.qty
+        );
     }
 
     #[test]

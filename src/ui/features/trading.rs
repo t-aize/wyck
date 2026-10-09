@@ -18,7 +18,7 @@ use crate::app::alerts::AlertBook;
 use crate::domain::drawings::model::Dash;
 use crate::ui::features::chart::{ChartLine, LineId};
 
-use self::book::{AccountBook, is_buy};
+use self::book::AccountBook;
 
 /// The lines of every symbol: positions (with their profit), their protection, working orders
 /// and their protection, and active alerts. `profit` gives a position's profit now, `currency`
@@ -44,7 +44,7 @@ pub fn lines(
     for position in book.positions.values() {
         let symbol = position.trade_data.symbol_id;
         let contract = book.contract(symbol);
-        let side = if is_buy(position.trade_data.trade_side) {
+        let side = if position.trade_data.is_buy() {
             "Buy"
         } else {
             "Sell"
@@ -105,7 +105,7 @@ pub fn lines(
     for order in book.orders.values() {
         let symbol = order.trade_data.symbol_id;
         let contract = book.contract(symbol);
-        let side = if is_buy(order.trade_data.trade_side) {
+        let side = if order.trade_data.is_buy() {
             "Buy"
         } else {
             "Sell"

@@ -357,7 +357,7 @@ impl AccountPanel {
                 Some(p) if p < 0.0 => losers.push(id),
                 _ => {}
             }
-            if crate::domain::trading::book::is_buy(position.trade_data.trade_side) {
+            if position.trade_data.is_buy() {
                 buys.push(id);
             } else {
                 sells.push(id);

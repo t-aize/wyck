@@ -167,10 +167,9 @@ impl Alerts {
     /// The size of a pip of a symbol: the one read from its contract, or worked out from its
     /// decimals until then.
     pub fn pip_of(&self, symbol_id: i64) -> f64 {
-        self.pips
-            .get(&symbol_id)
-            .copied()
-            .unwrap_or_else(|| model::pip_from_digits(self.digits_of(symbol_id)))
+        self.pips.get(&symbol_id).copied().unwrap_or_else(|| {
+            crate::domain::market::pip_size_from_digits(self.digits_of(symbol_id))
+        })
     }
 
     /// Every symbol an alert is on, watching or not: the ones whose decimals the alerts need.
