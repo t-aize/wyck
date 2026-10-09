@@ -149,6 +149,23 @@ pub struct WyckConfig {
     secrets: Arc<dyn SecretStore>,
 }
 
+/// Reads one credential of a profile; see [`WyckConfig::profile_secret_reader`].
+pub struct ProfileSecretReader {
+    secrets: Arc<dyn SecretStore>,
+    key: SecretKey,
+}
+
+impl ProfileSecretReader {
+    /// The credential, or `None` when nothing is stored.
+    ///
+    /// # Errors
+    ///
+    /// Any error of the credential store.
+    pub fn read(&self) -> Result<Option<SecretString>> {
+        self.secrets.retrieve(&self.key)
+    }
+}
+
 impl WyckConfig {
     /// Loads the config from the standard folders of the operating system (or where
     /// [`CONFIG_DIR_ENV`] says), with the OS keyring as the credential store. The shortest way to
@@ -308,6 +325,21 @@ impl WyckConfig {
         self.require_profile(id)?;
         names::validate_name(name)?;
         self.secrets.retrieve(&profile_secret_key(id, name))
+    }
+
+    /// A handle on a named credential of a profile that can move to another thread, to read it
+    /// without blocking the one that owns the config (the OS keyring can take a while).
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::UnknownProfile`] or [`ConfigError::InvalidName`].
+    pub fn profile_secret_reader(&self, id: &ProfileId, name: &str) -> Result<ProfileSecretReader> {
+        self.require_profile(id)?;
+        names::validate_name(name)?;
+        Ok(ProfileSecretReader {
+            secrets: Arc::clone(&self.secrets),
+            key: profile_secret_key(id, name),
+        })
     }
 
     /// Deletes a named credential of a profile. Nothing stored is fine.

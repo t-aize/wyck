@@ -17,7 +17,10 @@ use gpui::{AsyncApp, Context, EventEmitter, Task, WeakEntity};
 use secrecy::ExposeSecret;
 use tokio::task::AbortHandle;
 
-use crate::app::storage::{CLIENT_SECRET, OpenApiTokens, ProfileId, Severity, WyckConfig};
+use crate::app::storage::{
+    CLIENT_SECRET, OpenApiTokenStorage, OpenApiTokens, ProfileId, ProfileSecretReader, Severity,
+    WyckConfig,
+};
 use crate::app::token_store::{ConfigTokenStore, to_token_set};
 use crate::app::workspace::Documents;
 use crate::infra::ctrader::auth::{
@@ -88,6 +91,47 @@ struct Saved {
     credentials: ClientCredentials,
     account_id: i64,
     tokens: TokenSet,
+}
+
+/// A saved connection whose secrets are still to be read from the keyring.
+struct SavedPlan {
+    profile_id: ProfileId,
+    label: String,
+    environment: Environment,
+    client_id: String,
+    account_id: i64,
+    secret: ProfileSecretReader,
+    tokens: OpenApiTokenStorage,
+}
+
+impl SavedPlan {
+    /// Reads the client secret and the tokens. Blocks while the keyring answers.
+    fn read(self) -> Option<Saved> {
+        let secret = match self.secret.read() {
+            Ok(Some(secret)) => secret,
+            Ok(None) => return None,
+            Err(error) => {
+                tracing::warn!(%error, "could not read the saved client secret");
+                return None;
+            }
+        };
+        let tokens = match self.tokens.load() {
+            Ok(Some(tokens)) => tokens,
+            Ok(None) => return None,
+            Err(error) => {
+                tracing::warn!(%error, "could not read the saved tokens");
+                return None;
+            }
+        };
+        Some(Saved {
+            profile_id: self.profile_id,
+            label: self.label,
+            environment: self.environment,
+            credentials: ClientCredentials::new(self.client_id, secret.expose_secret()),
+            account_id: self.account_id,
+            tokens: to_token_set(tokens),
+        })
+    }
 }
 
 /// The sign-in entity.
@@ -161,13 +205,23 @@ impl SignIn {
     /// Looks for a saved session after the first frame, so the modal is already on screen while
     /// the keyring is read.
     pub fn restore(&mut self, cx: &mut Context<Self>) {
+        let plan = self.saved_plan();
         self.task = Some(cx.spawn(async move |this, cx| {
-            let _ = this.update(cx, |this, cx| this.finish_restore(cx));
+            // The keyring can take a while to answer: read it off the thread of the windows.
+            let saved = match plan {
+                Some(plan) => {
+                    cx.background_executor()
+                        .spawn(async move { plan.read() })
+                        .await
+                }
+                None => None,
+            };
+            let _ = this.update(cx, |this, cx| this.finish_restore(saved, cx));
         }));
     }
 
-    fn finish_restore(&mut self, cx: &mut Context<Self>) {
-        match self.saved() {
+    fn finish_restore(&mut self, saved: Option<Saved>, cx: &mut Context<Self>) {
+        match saved {
             Some(saved) => {
                 tracing::info!(profile = ?saved.profile_id, "restoring the saved connection");
                 let connection = self.connection_from_saved(saved);
@@ -179,34 +233,30 @@ impl SignIn {
         cx.notify();
     }
 
-    fn saved(&self) -> Option<Saved> {
+    /// What can be read without the keyring about the saved connection, and where to read the rest.
+    fn saved_plan(&self) -> Option<SavedPlan> {
         let profile = saved_profile(self.config.active_profile(), self.config.profiles())?;
         let environment = environment_of(&profile.service)?;
         let client_id = profile.client_id.clone()?;
         let account_id = profile.account_id?;
-        let secret = match self.config.profile_secret(&profile.id, CLIENT_SECRET) {
-            Ok(Some(secret)) => secret,
-            Ok(None) => return None,
+        let secret = match self
+            .config
+            .profile_secret_reader(&profile.id, CLIENT_SECRET)
+        {
+            Ok(reader) => reader,
             Err(error) => {
-                tracing::warn!(%error, "could not read the saved client secret");
+                tracing::warn!(%error, "could not find the saved client secret");
                 return None;
             }
         };
-        let tokens = match self.config.openapi_token_storage(&profile.id).load() {
-            Ok(Some(tokens)) => tokens,
-            Ok(None) => return None,
-            Err(error) => {
-                tracing::warn!(%error, "could not read the saved tokens");
-                return None;
-            }
-        };
-        Some(Saved {
+        Some(SavedPlan {
             profile_id: profile.id.clone(),
             label: profile.display_name.clone(),
             environment,
-            credentials: ClientCredentials::new(client_id, secret.expose_secret()),
+            client_id,
             account_id,
-            tokens: to_token_set(tokens),
+            secret,
+            tokens: self.config.openapi_token_storage(&profile.id),
         })
     }
 

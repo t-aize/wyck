@@ -64,5 +64,6 @@ unavailable (fallback: session in memory with a warning).
 - `ui::shell::app_view`: the window root; opens the session and the dashboard, and brings the
   modal back when the session ends. A settings folder that cannot be opened shows a card with a
   Quit button instead of a panic.
-- The saved session is read after the first frame, on the UI thread. Moving the keyring read off
-  the thread needs `WyckConfig` to be shareable: not done yet.
+- The saved session is read after the first frame. The keyring is read on a background thread
+  (`SavedPlan::read`): the profile is looked up first, and only the secret reader and the token
+  storage, which are `Send`, move to the other thread.
