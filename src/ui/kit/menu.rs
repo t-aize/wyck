@@ -56,6 +56,79 @@ impl From<Entry> for Item {
     }
 }
 
+/// A group of entries with an optional heading: what a long menu is made of, so that what belongs
+/// together is read together. See [`sections`].
+pub struct Section {
+    title: Option<SharedString>,
+    items: Vec<Item>,
+}
+
+impl Section {
+    /// A group under `title`, a few words.
+    pub fn new(title: impl Into<SharedString>, items: Vec<Item>) -> Self {
+        Self {
+            title: Some(title.into()),
+            items,
+        }
+    }
+
+    /// A group with no heading of its own, only a line above it.
+    pub fn untitled(items: Vec<Item>) -> Self {
+        Self { title: None, items }
+    }
+}
+
+/// The groups as one list: a line between two groups, and the heading of each that has one. A
+/// group with nothing in it leaves no trace.
+pub fn sections(groups: impl IntoIterator<Item = Section>) -> Vec<Item> {
+    let mut list = Vec::new();
+    for group in groups {
+        let entries: Vec<Item> = group
+            .items
+            .into_iter()
+            .filter(|item| !matches!(item, Item::Separator))
+            .collect();
+        if entries.is_empty() {
+            continue;
+        }
+        if !list.is_empty() {
+            list.push(Item::Separator);
+        }
+        if let Some(title) = group.title {
+            list.push(Item::Title(title));
+        }
+        list.extend(entries);
+    }
+    list
+}
+
+/// `items` without a line at either end, a line twice in a row, or a heading with nothing under it.
+fn tidy(items: Vec<Item>) -> Vec<Item> {
+    let mut out: Vec<Item> = Vec::with_capacity(items.len());
+    for item in items {
+        match item {
+            Item::Separator => {
+                let after_a_line_or_nothing = matches!(out.last(), None | Some(Item::Separator));
+                if !after_a_line_or_nothing {
+                    out.push(item);
+                }
+            }
+            Item::Title(_) => {
+                // A heading right after another heading replaces it: the first had nothing.
+                if matches!(out.last(), Some(Item::Title(_))) {
+                    out.pop();
+                }
+                out.push(item);
+            }
+            Item::Entry(_) => out.push(item),
+        }
+    }
+    while matches!(out.last(), Some(Item::Separator | Item::Title(_))) {
+        out.pop();
+    }
+    out
+}
+
 /// A line of a card that can be picked.
 #[derive(Clone)]
 pub struct Entry {
@@ -235,6 +308,7 @@ impl Menu {
             let state = self.state.read(cx);
             (state.open, state.at, state.selected)
         };
+        let items = tidy(items);
         if !open || items.is_empty() {
             return None;
         }
@@ -522,8 +596,8 @@ pub fn row(
 /// The heading of a group of rows, in a menu or a popover.
 pub fn section_title(title: impl Into<SharedString>) -> Div {
     div()
-        .px_2()
-        .pt_1p5()
+        .px_3()
+        .pt_1()
         .pb_0p5()
         .text_size(px(text::caption()))
         .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -533,7 +607,11 @@ pub fn section_title(title: impl Into<SharedString>) -> Div {
 
 /// A line between two groups of rows.
 pub fn separator() -> Div {
-    div().my_0p5().h(px(1.)).bg(theme::border_hairline())
+    div()
+        .mx_1()
+        .my_1()
+        .h(px(crate::ui::kit::tokens::HAIRLINE))
+        .bg(theme::border_hairline())
 }
 
 /// A layer over the whole window that closes what is open when it is pressed: the one way a
@@ -592,6 +670,40 @@ mod tests {
         assert_eq!(step(&items, Some(4), true), Some(1), "wraps round");
         assert_eq!(step(&items, Some(1), false), Some(4));
         assert_eq!(step(&items, None, false), Some(4));
+    }
+
+    #[test]
+    fn groups_get_a_line_between_them_and_empty_ones_vanish() {
+        let list = sections([
+            Section::new("One", vec![Entry::new("a").into()]),
+            Section::untitled(vec![]),
+            Section::untitled(vec![Entry::new("b").into(), Item::Separator]),
+        ]);
+        let shape: Vec<&str> = list
+            .iter()
+            .map(|item| match item {
+                Item::Entry(_) => "entry",
+                Item::Separator => "line",
+                Item::Title(_) => "title",
+            })
+            .collect();
+        assert_eq!(shape, ["title", "entry", "line", "entry"]);
+    }
+
+    #[test]
+    fn a_list_is_tidied_of_lines_at_its_ends_and_headings_with_nothing_under_them() {
+        let list = tidy(vec![
+            Item::Separator,
+            Item::Title("Empty".into()),
+            Item::Title("Group".into()),
+            Entry::new("a").into(),
+            Item::Separator,
+            Item::Separator,
+            Entry::new("b").into(),
+            Item::Separator,
+            Item::Title("Nothing".into()),
+        ]);
+        assert_eq!(list.len(), 4, "group, a, line, b");
     }
 
     #[test]

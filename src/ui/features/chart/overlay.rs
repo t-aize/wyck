@@ -135,7 +135,7 @@ impl Render for Chart {
 
 impl Chart {
     /// The items for the drawing under the pointer, at the top of the right-click menu.
-    fn drawing_items(&self, chart: &Entity<Chart>, id: u64, cx: &App) -> Vec<Item> {
+    fn drawing_items(&self, chart: &Entity<Chart>, id: u64, cx: &App) -> Vec<popup::Section> {
         let Some(drawing) = self.drawings.as_ref().and_then(|drawings| {
             let symbol = self.symbol_name()?;
             drawings.read(cx).book().get(&symbol, id).cloned()
@@ -150,8 +150,7 @@ impl Chart {
         };
         let long = drawing.tool == crate::domain::drawings::model::Tool::LongPosition;
         let settings = chart.clone();
-        let mut items = vec![
-            Item::Title(drawing.title().into()),
+        let mut about = vec![
             Entry::new("Settings...")
                 .icon(IconName::Settings2)
                 .on_click(move |window, cx| {
@@ -161,7 +160,7 @@ impl Chart {
         ];
         if drawing.tool.is_position() {
             let trade = chart.clone();
-            items.push(
+            about.push(
                 Entry::new(if long {
                     "Buy with these levels..."
                 } else {
@@ -171,7 +170,7 @@ impl Chart {
                 .on_click(move |_, cx| trade.update(cx, |chart, cx| chart.trade_drawing(id, cx)))
                 .into(),
             );
-            items.push(
+            about.push(
                 Entry::new(if long {
                     "Flip to a short position"
                 } else {
@@ -190,7 +189,7 @@ impl Chart {
                 timeframe: self.timeframe.code(),
             });
             let alert = chart.clone();
-            items.push(
+            about.push(
                 Entry::new("Add alert on this drawing...")
                     .icon(IconName::BellPlus)
                     .on_click(move |_, cx| {
@@ -199,44 +198,49 @@ impl Chart {
                     .into(),
             );
         }
-        items.extend([
-            Entry::new("Duplicate")
-                .icon(IconName::Copy)
-                .on_click(command(DrawingCommand::Duplicate))
-                .into(),
-            Entry::new("Bring to front")
-                .icon(IconName::BringToFront)
-                .on_click(command(DrawingCommand::Order(Order::Front)))
-                .into(),
-            Entry::new("Send to back")
-                .icon(IconName::SendToBack)
-                .on_click(command(DrawingCommand::Order(Order::Back)))
-                .into(),
-            Entry::new(if drawing.hidden { "Show" } else { "Hide" })
-                .icon(if drawing.hidden {
-                    IconName::Eye
-                } else {
-                    IconName::EyeOff
-                })
-                .on_click(command(DrawingCommand::Hidden(!drawing.hidden)))
-                .into(),
-            Entry::new(if drawing.locked { "Unlock" } else { "Lock" })
-                .icon(if drawing.locked {
-                    IconName::LockOpen
-                } else {
-                    IconName::Lock
-                })
-                .on_click(command(DrawingCommand::Lock(!drawing.locked)))
-                .into(),
-            Entry::new("Delete")
-                .icon(IconName::Trash)
-                .disabled(drawing.locked)
-                .danger()
-                .on_click(command(DrawingCommand::Delete))
-                .into(),
-            Item::Separator,
-        ]);
-        items
+        vec![
+            popup::Section::new(drawing.title(), about),
+            popup::Section::untitled(vec![
+                Entry::new("Duplicate")
+                    .icon(IconName::Copy)
+                    .on_click(command(DrawingCommand::Duplicate))
+                    .into(),
+                Entry::new("Bring to front")
+                    .icon(IconName::BringToFront)
+                    .on_click(command(DrawingCommand::Order(Order::Front)))
+                    .into(),
+                Entry::new("Send to back")
+                    .icon(IconName::SendToBack)
+                    .on_click(command(DrawingCommand::Order(Order::Back)))
+                    .into(),
+            ]),
+            popup::Section::untitled(vec![
+                Entry::new(if drawing.hidden { "Show" } else { "Hide" })
+                    .icon(if drawing.hidden {
+                        IconName::Eye
+                    } else {
+                        IconName::EyeOff
+                    })
+                    .on_click(command(DrawingCommand::Hidden(!drawing.hidden)))
+                    .into(),
+                Entry::new(if drawing.locked { "Unlock" } else { "Lock" })
+                    .icon(if drawing.locked {
+                        IconName::LockOpen
+                    } else {
+                        IconName::Lock
+                    })
+                    .on_click(command(DrawingCommand::Lock(!drawing.locked)))
+                    .into(),
+            ]),
+            popup::Section::untitled(vec![
+                Entry::new("Delete")
+                    .icon(IconName::Trash)
+                    .disabled(drawing.locked)
+                    .danger()
+                    .on_click(command(DrawingCommand::Delete))
+                    .into(),
+            ]),
+        ]
     }
 
     /// The right-click menu, for the price under the pointer. `at` is where the pointer was, in
@@ -256,9 +260,9 @@ impl Chart {
             _ => self.context_at.unwrap_or((0.0, 0.0)),
         };
         let (price_raw, bid, ask, digits) = (self.price_at(y), self.bid, self.ask, self.digits());
-        let mut items = Vec::new();
+        let mut groups = Vec::new();
         if let Some(id) = self.drawing_under(x, y, cx) {
-            items = self.drawing_items(chart, id, cx);
+            groups.extend(self.drawing_items(chart, id, cx));
         }
         if let (Some(raw), true) = (price_raw, self.symbol.is_some()) {
             let text = format_price(raw.round() as i64, digits);
@@ -278,32 +282,36 @@ impl Chart {
                 take_profit: None,
                 link: None,
             };
-            items.extend([
-                Entry::new(format!(
-                    "Buy {} {text}",
-                    if buy_limit { "limit" } else { "stop" }
-                ))
-                .icon(IconName::ArrowBigUp)
-                .on_click(emit(ticket(true, Some(real))))
-                .into(),
-                Entry::new(format!(
-                    "Sell {} {text}",
-                    if sell_limit { "limit" } else { "stop" }
-                ))
-                .icon(IconName::ArrowBigDown)
-                .on_click(emit(ticket(false, Some(real))))
-                .into(),
-                Entry::new("New order...")
-                    .icon(IconName::Plus)
-                    .on_click(emit(ticket(true, None)))
+            groups.push(popup::Section::new(
+                format!("Trade at {text}"),
+                vec![
+                    Entry::new(format!(
+                        "Buy {} {text}",
+                        if buy_limit { "limit" } else { "stop" }
+                    ))
+                    .icon(IconName::ArrowBigUp)
+                    .on_click(emit(ticket(true, Some(real))))
                     .into(),
-                Item::Separator,
+                    Entry::new(format!(
+                        "Sell {} {text}",
+                        if sell_limit { "limit" } else { "stop" }
+                    ))
+                    .icon(IconName::ArrowBigDown)
+                    .on_click(emit(ticket(false, Some(real))))
+                    .into(),
+                    Entry::new("New order...")
+                        .icon(IconName::Plus)
+                        .on_click(emit(ticket(true, None)))
+                        .into(),
+                ],
+            ));
+            let mut alerts: Vec<Item> = vec![
                 Entry::new(format!("Add alert at {text}"))
                     .icon(IconName::BellPlus)
                     .hint("Alt+A")
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
-            ]);
+            ];
             // An alert on each indicator the chart shows.
             for study in self
                 .settings()
@@ -316,7 +324,7 @@ impl Chart {
                 })
                 .take(6)
             {
-                items.push(
+                alerts.push(
                     Entry::new(format!("Add alert on {}...", study.title()))
                         .icon(IconName::BellPlus)
                         .on_click(emit(ChartAction::AddAlertOn(super::AlertSeed::Indicator {
@@ -326,7 +334,7 @@ impl Chart {
                         .into(),
                 );
             }
-            items.push(Item::Separator);
+            groups.push(popup::Section::new("Alerts", alerts));
         }
         let on = |f: fn(&mut Chart, &mut Window, &mut Context<Chart>)| {
             let chart = chart.clone();
@@ -334,63 +342,81 @@ impl Chart {
                 chart.update(cx, |this, cx| f(this, window, cx));
             }
         };
-        items.extend([
-            Entry::new("Indicators...")
-                .icon(IconName::ChartSpline)
-                .on_click(on(|_, window, cx| {
-                    indicator_picker::open(cx.entity(), window, cx)
-                }))
-                .into(),
-            Entry::new("Chart settings...")
-                .icon(IconName::Settings2)
-                .on_click(on(|_, window, cx| {
-                    chart_settings_ui::open(cx.entity(), window, cx)
-                }))
-                .into(),
-            Entry::new("Copy indicators")
-                .icon(IconName::Copy)
-                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+C"))
-                .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
-                .into(),
-            Entry::new("Copy chart settings")
-                .icon(IconName::Copy)
-                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+Shift+C"))
-                .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
-                .into(),
-            Entry::new("Paste on this chart")
-                .icon(IconName::ClipboardPaste)
-                .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+V"))
-                .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
-                .into(),
-            Item::Separator,
-            Entry::new("Remove all drawings")
-                .icon(IconName::Trash)
-                .disabled(self.drawing_count(cx).is_none_or(|count| count == 0))
-                .on_click(on(|this, _, cx| this.clear_drawings(cx)))
-                .into(),
-            Item::Separator,
-            Entry::new("Reset chart view")
-                .icon(IconName::RotateCcw)
-                .hint("End")
-                .on_click(on(|this, _, cx| this.jump_to_latest(cx)))
-                .into(),
-            Entry::new("Take a picture of the chart")
-                .icon(IconName::Camera)
-                .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+S"))
-                .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
-                .into(),
-            Entry::new("Take a picture of all the charts")
-                .icon(IconName::Images)
-                .hint(crate::ui::kit::shortcut::text("Ctrl+Alt+Shift+S"))
-                .disabled(self.layout_charts < 2)
-                .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
-                .into(),
-            Entry::new("Export the data...")
-                .icon(IconName::Download)
-                .on_click(on(|_, window, cx| export_ui::open(cx.entity(), window, cx)))
-                .into(),
+        groups.extend([
+            popup::Section::new(
+                "Chart",
+                vec![
+                    Entry::new("Indicators...")
+                        .icon(IconName::ChartSpline)
+                        .on_click(on(|_, window, cx| {
+                            indicator_picker::open(cx.entity(), window, cx)
+                        }))
+                        .into(),
+                    Entry::new("Chart settings...")
+                        .icon(IconName::Settings2)
+                        .on_click(on(|_, window, cx| {
+                            chart_settings_ui::open(cx.entity(), window, cx)
+                        }))
+                        .into(),
+                    Entry::new("Reset chart view")
+                        .icon(IconName::RotateCcw)
+                        .hint("End")
+                        .on_click(on(|this, _, cx| this.jump_to_latest(cx)))
+                        .into(),
+                ],
+            ),
+            popup::Section::new(
+                "Copy and paste",
+                vec![
+                    Entry::new("Copy indicators")
+                        .icon(IconName::Copy)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+C"))
+                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
+                        .into(),
+                    Entry::new("Copy chart settings")
+                        .icon(IconName::Copy)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+Shift+C"))
+                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
+                        .into(),
+                    Entry::new("Paste on this chart")
+                        .icon(IconName::ClipboardPaste)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+V"))
+                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
+                        .into(),
+                ],
+            ),
+            popup::Section::new(
+                "Drawings",
+                vec![
+                    Entry::new("Remove all drawings")
+                        .icon(IconName::Trash)
+                        .disabled(self.drawing_count(cx).is_none_or(|count| count == 0))
+                        .on_click(on(|this, _, cx| this.clear_drawings(cx)))
+                        .into(),
+                ],
+            ),
+            popup::Section::new(
+                "Export",
+                vec![
+                    Entry::new("Take a picture of the chart")
+                        .icon(IconName::Camera)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+S"))
+                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
+                        .into(),
+                    Entry::new("Take a picture of all the charts")
+                        .icon(IconName::Images)
+                        .hint(crate::ui::kit::shortcut::text("Ctrl+Alt+Shift+S"))
+                        .disabled(self.layout_charts < 2)
+                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
+                        .into(),
+                    Entry::new("Export the data...")
+                        .icon(IconName::Download)
+                        .on_click(on(|_, window, cx| export_ui::open(cx.entity(), window, cx)))
+                        .into(),
+                ],
+            ),
         ]);
-        items
+        popup::sections(groups)
     }
 }
 

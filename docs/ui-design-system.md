@@ -43,6 +43,15 @@ gets a tab stop and answers Enter and Space.
 - No `Button::new` and no size method (`.small()`, `.large()`...) outside the kit.
 - No `px(<literal>)` outside the kit (the count in the baseline only goes down).
 
+## Menus
+
+A long menu is built from groups (`menu::Section`, joined by `menu::sections`): each group has a
+short heading in small capitals, and a line separates two groups. The right click menu of a chart
+reads: the drawing under the pointer (its own heading, then its arrangement, its visibility and
+Delete), Trade at <price>, Alerts, Chart, Copy and paste, Drawings, Export. `Menu::popup` also
+drops a line at the top or the bottom, two lines in a row and a heading with nothing under it, so
+a menu whose parts come and go never shows a stray line.
+
 ## Shortcut hints
 
 A hint is written with `Ctrl` and passed through `ui::kit::shortcut::text`, which says `Cmd` and
