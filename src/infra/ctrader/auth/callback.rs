@@ -39,6 +39,9 @@ use crate::infra::ctrader::error::{Error, Result};
 /// The biggest request head read: a redirect is a few hundred bytes.
 const MAX_REQUEST_BYTES: usize = 8 * 1024;
 
+/// The pause after a failed `accept`.
+const ACCEPT_RETRY: Duration = Duration::from_millis(100);
+
 /// How long one connection may take to send its request.
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -133,8 +136,14 @@ impl CallbackListener {
 
     async fn accept_until_code(&self, expected_state: &str) -> Result<AuthorizationCode> {
         loop {
-            let Ok((mut stream, _)) = self.listener.accept().await else {
-                continue;
+            let (mut stream, _) = match self.listener.accept().await {
+                Ok(accepted) => accepted,
+                Err(error) => {
+                    // Often "too many open files": retrying at once would spin on the error.
+                    warn!(%error, "the callback listener could not accept a connection");
+                    tokio::time::sleep(ACCEPT_RETRY).await;
+                    continue;
+                }
             };
             let head = match tokio::time::timeout(READ_TIMEOUT, read_head(&mut stream)).await {
                 Ok(Some(head)) => head,

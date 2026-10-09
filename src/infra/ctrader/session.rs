@@ -625,7 +625,9 @@ enum Next {
 fn classify(error: &Error) -> Next {
     match error.kind() {
         ErrorKind::TokenInvalid => Next::RefreshThenRetry,
-        ErrorKind::NotAuthorized | ErrorKind::Config | ErrorKind::Rejected => Next::Fail,
+        ErrorKind::NotAuthorized | ErrorKind::SignIn | ErrorKind::Config | ErrorKind::Rejected => {
+            Next::Fail
+        }
         ErrorKind::Transport
         | ErrorKind::Timeout
         | ErrorKind::Closed

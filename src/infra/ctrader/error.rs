@@ -31,8 +31,11 @@ pub enum ErrorKind {
     Transport,
     /// No answer came in time.
     Timeout,
-    /// The server sent something this client cannot read, or the sign in exchange failed.
+    /// The server sent something this client cannot read.
     Protocol,
+    /// The sign in exchange failed: the token endpoint refused the code or the refresh token, or
+    /// the user refused in the browser. Only signing in again helps.
+    SignIn,
     /// The client was already closed.
     Closed,
     /// The configuration is unusable.
@@ -141,7 +144,8 @@ impl Error {
             Self::Transport(_) => ErrorKind::Transport,
             Self::Closed => ErrorKind::Closed,
             Self::Timeout { .. } => ErrorKind::Timeout,
-            Self::Protocol(_) | Self::Auth(_) => ErrorKind::Protocol,
+            Self::Protocol(_) => ErrorKind::Protocol,
+            Self::Auth(_) => ErrorKind::SignIn,
             Self::Server { code, .. } => match code.as_str() {
                 // `BLOCKED_PAYLOAD_TYPE` is the server blocking one type of request for a while after
                 // too many, with `retryAfter` seconds until it is unblocked. `CONNECTIONS_LIMIT_EXCEEDED`
@@ -205,6 +209,12 @@ mod tests {
 
     fn server(code: &str) -> Error {
         Error::server(code, None, None, None)
+    }
+
+    #[test]
+    fn a_refused_sign_in_has_its_own_kind() {
+        assert_eq!(Error::Auth("denied".into()).kind(), ErrorKind::SignIn);
+        assert_eq!(Error::Protocol("junk".into()).kind(), ErrorKind::Protocol);
     }
 
     #[test]
