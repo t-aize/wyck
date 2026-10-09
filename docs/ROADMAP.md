@@ -90,5 +90,6 @@ See `docs/decisions/`. Open questions are listed in the restructuring plan, sect
 - The dashboard bars changed height by the removed 34 px bar: `BARS` in `dashboard/trade.rs`,
   the layout menu (`layout_menu.rs`) and the symbol picker (`picker.rs`) were re-tuned by hand.
 - Windows: the executable carries `assets/app-icon.ico` through `build.rs` (the `winresource`
-  crate, Windows hosts only). Check Explorer and the taskbar. The `.ico` is made from
-  `app-icon.png` (16 to 256 px); remake it when the icon changes.
+  crate, Windows hosts only). Check Explorer and the taskbar. The icon files and `assets/logo.png`
+  come from the two images in `assets/brand/` through `scripts/make_brand_assets.py`: run it
+  again when an image changes. The mark shows on the first sign-in step and on the About page.

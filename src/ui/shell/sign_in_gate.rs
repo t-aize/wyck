@@ -162,18 +162,23 @@ impl SignInGate {
         title: &'static str,
         subtitle: &'static str,
     ) -> impl IntoElement {
+        let tile = layout::icon_tile(name, 48., 22., theme::accent_selected(), theme::fg());
+        self.heading_with(tile.into_any_element(), title, subtitle)
+    }
+
+    /// The heading of a step with `leading` before its title.
+    fn heading_with(
+        &self,
+        leading: gpui::AnyElement,
+        title: &'static str,
+        subtitle: &'static str,
+    ) -> impl IntoElement {
         div()
             .flex()
             .flex_row()
             .items_center()
             .gap_4()
-            .child(layout::icon_tile(
-                name,
-                48.,
-                22.,
-                theme::accent_selected(),
-                theme::fg(),
-            ))
+            .child(leading)
             .child(
                 div()
                     .flex()
@@ -253,8 +258,8 @@ impl SignInGate {
             .flex()
             .flex_col()
             .gap_5()
-            .child(self.heading(
-                IconName::KeyRound,
+            .child(self.heading_with(
+                layout::brand_mark(52.).into_any_element(),
                 "Sign in to cTrader",
                 "Use your own cTrader Open API application. Wyck keeps the sign-in on this device only.",
             ))

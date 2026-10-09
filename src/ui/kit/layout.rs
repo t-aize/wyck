@@ -129,6 +129,14 @@ pub fn status_dot(color: Rgba) -> impl IntoElement {
     div().size(px(7.)).flex_shrink_0().rounded_full().bg(color)
 }
 
+/// The mark of the app, `side` pixels wide, with room kept for its height.
+pub fn brand_mark(side: f32) -> impl IntoElement {
+    gpui::img(crate::ui::assets::LOGO_PATH)
+        .size(px(side))
+        .flex_shrink_0()
+        .object_fit(gpui::ObjectFit::Contain)
+}
+
 /// A horizontal hairline across what it is put in.
 pub fn rule_h() -> Div {
     div()

@@ -15,6 +15,13 @@ use gpui_kit::assets::AllAssets;
 /// `run` and used everywhere as the app's font.
 pub const FONT: &[u8] = include_bytes!("../../assets/fonts/Inter.ttf");
 
+/// The mark of the app with its outline, 256 px high, for the screens that show it. Made from
+/// `assets/brand/source-logo.png` by `scripts/make_brand_assets.py`.
+const LOGO: &[u8] = include_bytes!("../../assets/logo.png");
+
+/// The path the logo is served under, for `img(..)`.
+pub const LOGO_PATH: &str = "brand/logo.png";
+
 /// Country flags, crypto logos and company logos: `marks/flags/us.svg`, `marks/crypto/btc.svg`,
 /// `marks/brands/apple.svg`.
 #[derive(rust_embed::RustEmbed)]
@@ -31,6 +38,9 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if path == LOGO_PATH {
+            return Ok(Some(Cow::Borrowed(LOGO)));
+        }
         if let Some(rest) = path.strip_prefix("marks/") {
             return Ok(Marks::get(rest).map(|file| file.data));
         }

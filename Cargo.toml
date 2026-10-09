@@ -30,7 +30,7 @@ description = "Desktop trading terminal for cTrader."
 long-description = "Wyck is a native desktop trading terminal for cTrader."
 homepage = "https://github.com/t-aize/wyck"
 license-file = "LICENSE"
-icons = ["assets/app-icon.png"]
+icons = ["assets/app-icon.png", "assets/app-icon.ico", "assets/app-icon.icns"]
 out-dir = "dist"
 formats = ["default"]
 binaries = [{ path = "wyck", main = true }]

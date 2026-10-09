@@ -114,7 +114,31 @@ impl SettingsHub {
             update_rows.push(form::field("Actions", None, action));
         }
 
+        let brand = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_3()
+            .child(crate::ui::kit::layout::brand_mark(56.))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .child(
+                        div()
+                            .text_size(px(tokens::text::display()))
+                            .text_color(theme::fg())
+                            .child("Wyck"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(tokens::text::body()))
+                            .text_color(theme::muted_fg())
+                            .child("A trading terminal for cTrader"),
+                    ),
+            );
         form::page()
+            .child(brand)
             .child(form::group(IconName::Info, "wyck", rows))
             .child(form::group(IconName::Download, "Updates", update_rows))
             .child(form::note(
