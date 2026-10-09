@@ -47,17 +47,17 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(40.))
+                    .h(px(crate::ui::kit::tokens::height::row()))
                     .child(
                         div()
-                            .w(px(110.))
+                            .w(px(tokens::field::number()))
                             .text_size(px(tokens::text::emphasis()))
                             .text_color(theme::fg())
                             .child(point_name(drawing.tool, index)),
                     )
                     .child(
                         div()
-                            .w(px(130.))
+                            .w(px(tokens::field::wide()))
                             .when(price_on, |el| el.child(crate::ui::kit::input::text(price))),
                     )
                     .child(

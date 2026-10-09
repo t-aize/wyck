@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{Div, Rgba, SharedString, div, px};
 use gpui_kit::assets::IconName;
 
-use crate::ui::kit::{anim, icon, theme};
+use crate::ui::kit::{anim, icon, theme, tokens};
 
 /// The raised panel most screens center their content in.
 pub fn card() -> Div {
@@ -129,12 +129,23 @@ pub fn status_dot(color: Rgba) -> impl IntoElement {
     div().size(px(7.)).flex_shrink_0().rounded_full().bg(color)
 }
 
-/// A short upright line between two groups of a toolbar.
-pub fn divider() -> Div {
+/// A horizontal hairline across what it is put in.
+pub fn rule_h() -> Div {
     div()
         .flex_none()
-        .mx_1()
-        .w(px(1.))
-        .h(px(16.))
+        .h(px(tokens::HAIRLINE))
         .bg(theme::border_hairline())
+}
+
+/// An upright hairline; give it a height.
+pub fn rule_v() -> Div {
+    div()
+        .flex_none()
+        .w(px(tokens::HAIRLINE))
+        .bg(theme::border_hairline())
+}
+
+/// A short upright line between two groups of a toolbar.
+pub fn divider() -> Div {
+    rule_v().mx_1().h(px(tokens::height::compact() * 2.0 / 3.0))
 }

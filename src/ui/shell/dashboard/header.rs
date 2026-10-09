@@ -37,13 +37,7 @@ impl Dashboard {
             equity: width >= 1_240.0,
             subtitle: width >= 1_360.0,
         };
-        let divider = || {
-            div()
-                .flex_none()
-                .w(px(1.))
-                .h(px(tokens::height::compact()))
-                .bg(theme::border_hairline())
-        };
+        let divider = || crate::ui::kit::layout::rule_v().h(px(tokens::height::compact()));
         div()
             .flex_none()
             .w_full()
@@ -461,7 +455,7 @@ impl Dashboard {
                 div()
                     .id(SharedString::from(format!("tf-unit-{}", unit.label())))
                     .h(px(tokens::height::compact()))
-                    .w(px(24.))
+                    .w(px(crate::ui::kit::tokens::height::compact()))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -768,7 +762,7 @@ impl Dashboard {
                         );
                     })),
             )
-            .child(div().h(px(1.)).bg(theme::border_hairline()))
+            .child(crate::ui::kit::layout::rule_h())
             .child(
                 div()
                     .text_size(px(tokens::text::body()))

@@ -278,7 +278,12 @@ impl SettingsHub {
             }));
         match color {
             Some(_) => base
-                .child(div().size(px(18.)).rounded_full().bg(rgb(shown)))
+                .child(
+                    div()
+                        .size(px(crate::ui::kit::tokens::swatch::large()))
+                        .rounded_full()
+                        .bg(rgb(shown)),
+                )
                 .into_any_element(),
             None => base
                 .child(icon::small(IconName::RotateCcw, theme::muted_fg()))

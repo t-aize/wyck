@@ -351,7 +351,7 @@ impl Dashboard {
                     .pb_3()
                     .children(list_chips),
             )
-            .child(div().flex_none().h(px(1.)).bg(theme::border_hairline()))
+            .child(crate::ui::kit::layout::rule_h())
             .child(
                 div()
                     .flex_1()
@@ -646,7 +646,7 @@ fn footer(shown: usize, total: usize) -> gpui::Div {
         .flex_row()
         .items_center()
         .justify_between()
-        .h(px(40.))
+        .h(px(crate::ui::kit::tokens::height::row()))
         .px_5()
         .border_t_1()
         .border_color(theme::border_hairline())

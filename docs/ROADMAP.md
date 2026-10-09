@@ -69,15 +69,12 @@ Left out, on purpose:
 
 ## Left for later
 
-- Spacing is still written as gpui classes (`gap_2`, `px_3`) in screens; `tokens::space` exists
-  and is used by the kit and the sign-in modal. 121 pixel literals remain in 37 screens (theme
-  previews, one-off layout sizes); `tests/design-baseline.txt` only lets that number go down.
-- Menus still close in three ways (a flag per menu, `Popover`, the chart zone menu). One
-  `OpenMenu` state in the kit would replace them.
+- 87 pixel literals remain in 30 screens: the geometry of the theme previews, glyph and icon
+  boxes, one-off panel sizes. `tests/design-baseline.txt` only lets that number go down.
+- Spacing classes are on a fixed scale (the design test checks it). The half steps (`gap_1p5`,
+  `px_2p5`) are still used in screens.
 - A typed domain model behind a mapping layer in `infra::ctrader` (phase 13 point 1), and one
   risk sizing shared by the ticket and the position tool.
-- The user text of order notices is still built in `domain::trading::book`; only the failure
-  wording moved to `app::account`.
 - Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
   the maintainer's machine (phase 0).
 

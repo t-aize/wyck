@@ -144,11 +144,9 @@ impl MultiChart {
         }
 
         rail.child(
-            div()
+            crate::ui::kit::layout::rule_h()
                 .my_1()
-                .w(px(24.))
-                .h(px(1.))
-                .bg(theme::border_hairline()),
+                .w(px(tokens::height::compact())),
         )
         .child(
             crate::ui::kit::button::quiet("draw-favorites")
@@ -795,7 +793,11 @@ impl MultiChart {
         }
         if tool.has_text() {
             bar = bar
-                .child(div().w(px(220.)).child(self.text_input.clone()))
+                .child(
+                    div()
+                        .w(px(tokens::field::text()))
+                        .child(self.text_input.clone()),
+                )
                 .child(layout::divider());
         }
         bar

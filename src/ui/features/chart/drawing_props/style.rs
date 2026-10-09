@@ -212,7 +212,7 @@ impl DrawingProps {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .min_h(px(40.))
+                    .min_h(px(crate::ui::kit::tokens::height::row()))
                     .child(
                         crate::ui::kit::button::quiet(("props-template", index))
                             .icon(IconName::Bookmark)

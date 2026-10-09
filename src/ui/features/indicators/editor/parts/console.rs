@@ -58,7 +58,7 @@ impl IndicatorEditor {
                 div()
                     .id("editor-console-resize")
                     .flex_none()
-                    .h(px(5.))
+                    .h(px(crate::ui::kit::tokens::splitter()))
                     .w_full()
                     .cursor_row_resize()
                     .hover(|s| s.bg(theme::accent_alpha(0.35)))

@@ -233,14 +233,7 @@ impl MultiChart {
         // The pill floats at the bottom of the chart area, over the time axis, centered. The
         // wrapper takes no mouse events, so the chart stays live around the pill.
         let pill = bar
-            .child(
-                div()
-                    .flex_none()
-                    .w(px(1.))
-                    .h(px(16.))
-                    .mx_1()
-                    .bg(theme::border_subtle()),
-            )
+            .child(crate::ui::kit::layout::divider().bg(theme::border_subtle()))
             .child(
                 crate::ui::kit::button::quiet("favorites-names")
                     .icon(IconName::Type)

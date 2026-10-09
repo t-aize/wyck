@@ -10,7 +10,9 @@ size or a color. A screen builds its UI from the kit and reads colors from `them
 | Text | `tokens::text` | caption 10, small 11, body 12, emphasis 13, title 14, heading 16, display 20, hero 26 |
 | Control heights | `tokens::height` | tiny 20, compact 24, control 28, large 34 (for custom rows; buttons and fields use the sizes below) |
 | Field widths | `tokens::field` | narrow 84, number 110, wide 130, text 220 |
-| Spacing | `tokens::space` | xs 4, sm 8, md 12, lg 16, xl 24 |
+| Spacing | gpui classes, `tokens::space` | the classes `gap_1`, `p_2`... on the steps 0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5 and 6 (2 to 24 px); `space::{xs 4, sm 8, md 12, lg 16, xl 24}` where a size is written with `px(..)`. A screen may not use another step (the design test fails). |
+| Lines and marks | `tokens::HAIRLINE`, `tokens::splitter`, `tokens::swatch`, `layout::rule_h` and `rule_v` | 1 px lines, the 5 px splitter handle, the dots and color swatches |
+| Row and text widths | `tokens::height::row`, `tokens::measure::note`, `tokens::field::select` | 40, 440, 150 |
 | Radius | `tokens::radius` | sm, md (controls), lg (cards), xl (dialogs), full (pills) |
 | Colors | `theme` | read through accessors such as `theme::bg()`, `theme::fg()`, `theme::accent()` |
 

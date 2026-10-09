@@ -46,7 +46,7 @@ impl SettingsHub {
                 "Release notes",
                 None,
                 div()
-                    .max_w(px(440.))
+                    .max_w(px(crate::ui::kit::tokens::measure::note()))
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::muted_fg())
                     .child(notes.clone()),

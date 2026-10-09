@@ -130,7 +130,7 @@ impl Dashboard {
                     div()
                         .id("editor-resize")
                         .flex_none()
-                        .w(px(5.))
+                        .w(px(crate::ui::kit::tokens::splitter()))
                         .h_full()
                         .cursor_col_resize()
                         .bg(if dragging {
@@ -286,7 +286,7 @@ impl Dashboard {
                     .absolute()
                     .top(px(4.))
                     .right(px(4.))
-                    .size(px(7.))
+                    .size(px(crate::ui::kit::tokens::swatch::dot()))
                     .rounded_full()
                     .bg(theme::amber())
             }))

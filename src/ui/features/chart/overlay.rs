@@ -757,7 +757,7 @@ impl Chart {
                 .tooltip(controls::tooltip(text.clone()))
                 .child(
                     div()
-                        .size(px(7.))
+                        .size(px(crate::ui::kit::tokens::swatch::dot()))
                         .rounded_full()
                         .bg(color)
                         .when(!status.is_open(), |el| {
@@ -1194,7 +1194,7 @@ impl Chart {
                     )
                     .child(
                         div()
-                            .max_w(px(440.))
+                            .max_w(px(crate::ui::kit::tokens::measure::note()))
                             .text_center()
                             .text_size(px(tokens::text::body()))
                             .text_color(theme::chart_muted())

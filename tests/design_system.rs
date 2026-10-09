@@ -3,6 +3,8 @@
 //! - No `Button::new` outside `src/ui/kit`: screens take a button from `ui::kit::button`.
 //! - No gpui-kit size method (`.xsmall()`, `.small()`, `.medium()`, `.large()`, `.compact()`) outside
 //!   `src/ui/kit`: a button or field gets its size from the kit constructor it comes from.
+//! - Spacing classes (`.gap_2()`, `.px_3()`) outside the kit stay on the scale of the app: 0, 0.5,
+//!   1, 1.5, 2, 2.5, 3, 4, 5 and 6 (2 to 24 pixels). Anything else belongs in a token.
 //! - Pixel sizes written as numbers (`px(12.0)`) outside the kit are counted per file. The count
 //!   may not grow; fixing some means running `BLESS=1 cargo test --test design_system`.
 
@@ -35,6 +37,36 @@ fn code_of(source: &str) -> String {
         .join("\n")
 }
 
+/// The spacing steps of gpui classes the screens may use.
+const SPACING_STEPS: [&str; 10] = ["0", "0p5", "1", "1p5", "2", "2p5", "3", "4", "5", "6"];
+
+/// The spacing classes written with a step that is not on the scale: `.gap_8()`, `.px_3p5()`.
+fn off_scale_spacing(code: &str) -> Vec<String> {
+    const PREFIXES: [&str; 17] = [
+        "gap", "gap_x", "gap_y", "p", "px", "py", "pt", "pb", "pl", "pr", "m", "mx", "my", "mt",
+        "mb", "ml", "mr",
+    ];
+    let mut found = Vec::new();
+    for prefix in PREFIXES {
+        let needle = format!(".{prefix}_");
+        let mut rest = code;
+        while let Some(at) = rest.find(&needle) {
+            let after = &rest[at + needle.len()..];
+            let step: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric())
+                .collect();
+            let closes = after[step.len()..].starts_with("()");
+            let numeric = step.chars().next().is_some_and(|c| c.is_ascii_digit());
+            if closes && numeric && !SPACING_STEPS.contains(&step.as_str()) {
+                found.push(format!("{needle}{step}()"));
+            }
+            rest = after;
+        }
+    }
+    found
+}
+
 /// How many times a pixel size is written as a number: `px(12.0)`, `px(8.)`, `px(4)`.
 fn literal_pixels(code: &str) -> usize {
     let mut count = 0;
@@ -59,6 +91,7 @@ fn screens_use_the_design_system() {
 
     let mut buttons = Vec::new();
     let mut sizes = Vec::new();
+    let mut spacing: Vec<String> = Vec::new();
     let mut pixels: BTreeMap<String, usize> = BTreeMap::new();
     for path in files {
         let rel = path
@@ -72,6 +105,9 @@ fn screens_use_the_design_system() {
         let code = code_of(&fs::read_to_string(&path).expect("a source file is readable"));
         if code.contains("Button::new(") {
             buttons.push(rel.clone());
+        }
+        for class in off_scale_spacing(&code) {
+            spacing.push(format!("{rel}: {class}"));
         }
         if [
             ".xsmall()",
@@ -97,6 +133,11 @@ fn screens_use_the_design_system() {
         buttons.join("\n  ")
     );
 
+    assert!(
+        spacing.is_empty(),
+        "spacing off the scale outside the kit, use a step of the scale or a token:\n  {}",
+        spacing.join("\n  ")
+    );
     assert!(
         sizes.is_empty(),
         "a size method outside the kit, take the size from a constructor of ui::kit:\n  {}",

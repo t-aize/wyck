@@ -229,7 +229,12 @@ impl IndicatorEditor {
                     .truncate()
                     .child(stem(&id).to_owned()),
             )
-            .children(unsaved.then(|| div().size(px(7.)).rounded_full().bg(theme::amber())))
+            .children(unsaved.then(|| {
+                div()
+                    .size(px(crate::ui::kit::tokens::swatch::dot()))
+                    .rounded_full()
+                    .bg(theme::amber())
+            }))
             .into_any_element()
     }
 

@@ -91,6 +91,10 @@ pub mod height {
     pub fn large() -> f32 {
         scaled(34.0)
     }
+    /// A row of a form that holds a label and a control, or a list entry with two lines.
+    pub fn row() -> f32 {
+        scaled(40.0)
+    }
 }
 
 /// Space between and around things, in pixels. Use these for gaps and padding written with
@@ -153,6 +157,50 @@ pub mod field {
     /// A line of text: a name, a comment, a path.
     pub fn text() -> f32 {
         scaled(220.0)
+    }
+    /// A choice from a short list.
+    pub fn select() -> f32 {
+        scaled(150.0)
+    }
+}
+
+/// Sizes of the round and square marks that stand for a state or a color, in pixels.
+pub mod swatch {
+    use super::scaled;
+
+    /// A status dot: connected, unsaved.
+    pub fn dot() -> f32 {
+        scaled(7.0)
+    }
+    /// A color shown next to a label, in a list.
+    pub fn small() -> f32 {
+        scaled(12.0)
+    }
+    /// A color on a button of a toolbar.
+    pub fn medium() -> f32 {
+        scaled(14.0)
+    }
+    /// A color chosen in a form.
+    pub fn large() -> f32 {
+        scaled(18.0)
+    }
+}
+
+/// The thickness of a line between two things. Lines do not scale with the interface.
+pub const HAIRLINE: f32 = 1.0;
+
+/// The grab handle of a splitter between two panes.
+pub fn splitter() -> f32 {
+    scaled(5.0)
+}
+
+/// Widths of blocks of reading text.
+pub mod measure {
+    use super::scaled;
+
+    /// A message that stands alone in a panel: an error, an empty state, a notice.
+    pub fn note() -> f32 {
+        scaled(440.0)
     }
 }
 

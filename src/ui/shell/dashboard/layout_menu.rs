@@ -127,7 +127,7 @@ impl Dashboard {
                     .border_color(theme::border_hairline())
                     .child(
                         div()
-                            .w(px(20.))
+                            .w(px(crate::ui::kit::tokens::height::tiny()))
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(count.to_string()),

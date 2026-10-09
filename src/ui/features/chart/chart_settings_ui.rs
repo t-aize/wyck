@@ -1008,7 +1008,7 @@ impl ChartSettingsEditor {
             .flex_row()
             .items_center()
             .gap_2()
-            .h(px(40.))
+            .h(px(crate::ui::kit::tokens::height::row()))
             .child(
                 div()
                     .flex_none()

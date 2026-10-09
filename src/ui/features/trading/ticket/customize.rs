@@ -468,7 +468,7 @@ impl Customizer {
         let spans: Vec<&str> = Span::ALL.iter().map(|s| s.label()).collect();
         let number = |index: usize| {
             div()
-                .w(px(130.))
+                .w(px(tokens::field::wide()))
                 .child(crate::ui::kit::input::number(&self.numbers[index]))
         };
         form::page()

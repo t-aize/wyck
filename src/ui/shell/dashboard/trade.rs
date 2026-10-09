@@ -758,7 +758,7 @@ impl Dashboard {
             div()
                 .id(id)
                 .flex_none()
-                .w(px(5.))
+                .w(px(crate::ui::kit::tokens::splitter()))
                 .h_full()
                 .flex()
                 .justify_center()
@@ -769,7 +769,7 @@ impl Dashboard {
                     gpui::rgba(0x00000000)
                 })
                 .hover(|s| s.bg(theme::accent_alpha(0.4)))
-                .child(div().w(px(1.)).h_full().bg(theme::border_hairline()))
+                .child(crate::ui::kit::layout::rule_v().h_full())
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
@@ -875,7 +875,7 @@ impl Dashboard {
                         div()
                             .id("panel-resize")
                             .flex_none()
-                            .h(px(5.))
+                            .h(px(crate::ui::kit::tokens::splitter()))
                             .w_full()
                             .cursor_row_resize()
                             .border_t_1()

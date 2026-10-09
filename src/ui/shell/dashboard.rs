@@ -849,7 +849,7 @@ impl Dashboard {
                 )
                 .child(
                     div()
-                        .max_w(px(460.))
+                        .max_w(px(crate::ui::kit::tokens::measure::note()))
                         .text_center()
                         .text_size(px(tokens::text::emphasis()))
                         .text_color(theme::muted_fg())

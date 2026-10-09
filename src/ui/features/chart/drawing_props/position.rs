@@ -223,7 +223,7 @@ impl DrawingProps {
                     "Leave blank to follow this chart, or enter a timeframe code such as M15 or H1",
                 ),
                 div()
-                    .w(px(130.))
+                    .w(px(tokens::field::wide()))
                     .child(crate::ui::kit::input::text(&pos.atr_timeframe)),
             ));
             levels.push(form::field(
