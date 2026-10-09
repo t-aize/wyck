@@ -27,7 +27,7 @@ use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
 use crate::app::system::runtime;
 use crate::domain::trading::book::{
-    AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal,
+    AccountBook, Notice, NoticeAction, Reason, Tone, is_buy, refusal, sentence,
 };
 use crate::domain::trading::guard;
 use crate::domain::trading::guard::{
@@ -1605,9 +1605,52 @@ async fn missed_exits(
     plan::catch_up(&past, &profits, &open, &working)
 }
 
+/// Any failure of a request, in words a trader can act on.
+pub fn describe(error: &ApiError) -> Reason {
+    let reason = |message: &str, hint: &str| Reason {
+        message: message.to_owned(),
+        hint: Some(hint.to_owned()),
+    };
+    match error {
+        ApiError::Server {
+            code, description, ..
+        } => refusal(code, description.as_deref()),
+        ApiError::Timeout { .. } => reason(
+            "The server did not answer in time.",
+            "The request may have gone through: look at the account before sending it again.",
+        ),
+        ApiError::Closed => reason(
+            "The connection is closed.",
+            "Wait for it to come back, then try again.",
+        ),
+        ApiError::Transport(_) => {
+            reason("The connection failed.", "Check the network and try again.")
+        }
+        ApiError::Auth(_) => reason("Signing in failed.", "Disconnect and sign in again."),
+        ApiError::Protocol(_) => Reason {
+            message: "The server sent something that could not be read.".to_owned(),
+            hint: None,
+        },
+        other => Reason {
+            message: sentence(&other.to_string()),
+            hint: None,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ReverseOrder, ReverseTracker};
+    #[test]
+    fn a_failure_that_is_not_a_refusal_says_what_to_do() {
+        let timeout = describe(&ApiError::Timeout {
+            operation: "an order",
+        });
+        assert!(timeout.hint.unwrap().contains("account"));
+        let server = describe(&ApiError::server("MARKET_CLOSED", None, None, None));
+        assert_eq!(server.message, "The market is closed.");
+    }
+
+    use super::{ApiError, ReverseOrder, ReverseTracker, describe};
     use crate::domain::trading::ExecutionType;
 
     fn order() -> ReverseOrder {

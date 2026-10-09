@@ -469,7 +469,7 @@ pub struct Reason {
 }
 
 /// A text as a sentence: its first letter in capital, and a full stop at the end.
-fn sentence(text: &str) -> String {
+pub fn sentence(text: &str) -> String {
     let text = text.trim().trim_end_matches('.');
     let mut chars = text.chars();
     match chars.next() {
@@ -569,38 +569,6 @@ pub fn refusal(code: &str, description: Option<&str>) -> Reason {
     }
 }
 
-/// Any failure of a request, in words a trader can act on.
-pub fn describe(error: &crate::infra::ctrader::Error) -> Reason {
-    use crate::infra::ctrader::Error;
-    let reason = |message: &str, hint: &str| Reason {
-        message: message.to_owned(),
-        hint: Some(hint.to_owned()),
-    };
-    match error {
-        Error::Server {
-            code, description, ..
-        } => refusal(code, description.as_deref()),
-        Error::Timeout { .. } => reason(
-            "The server did not answer in time.",
-            "The request may have gone through: look at the account before sending it again.",
-        ),
-        Error::Closed => reason(
-            "The connection is closed.",
-            "Wait for it to come back, then try again.",
-        ),
-        Error::Transport(_) => reason("The connection failed.", "Check the network and try again."),
-        Error::Auth(_) => reason("Signing in failed.", "Disconnect and sign in again."),
-        Error::Protocol(_) => Reason {
-            message: "The server sent something that could not be read.".to_owned(),
-            hint: None,
-        },
-        other => Reason {
-            message: sentence(&other.to_string()),
-            hint: None,
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,21 +596,6 @@ mod tests {
             "The thing is off."
         );
         assert_eq!(refusal("SOMETHING_NEW", None).message, "Something new.");
-    }
-
-    #[test]
-    fn a_failure_that_is_not_a_refusal_says_what_to_do() {
-        let timeout = describe(&crate::infra::ctrader::Error::Timeout {
-            operation: "an order",
-        });
-        assert!(timeout.hint.unwrap().contains("account"));
-        let server = describe(&crate::infra::ctrader::Error::server(
-            "MARKET_CLOSED",
-            None,
-            None,
-            None,
-        ));
-        assert_eq!(server.message, "The market is closed.");
     }
 
     fn position(id: i64, symbol: i64, side: i64, price: f64, status: i64) -> Position {

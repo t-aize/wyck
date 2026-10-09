@@ -9,7 +9,6 @@ src/app/updates.rs	layer	app -> ui::features::multichart
 src/app/updates.rs	layer	app -> ui::kit
 src/domain/indicators/custom/library.rs	extern	domain uses std::fs
 src/domain/indicators/custom/library.rs	layer	domain -> infra
-src/domain/trading/book.rs	layer	domain -> infra
 src/ui/features/chart.rs	extern	ui::features::chart uses tokio
 src/ui/features/chart/flow_sync.rs	extern	ui::features::chart uses tokio
 src/ui/shell/dashboard.rs	extern	ui::shell uses tokio
