@@ -3,11 +3,10 @@
 //! them; it covers three quarters of the width at first, and its left edge is dragged to make it
 //! wider or narrower. It is made the first time it is asked for (it needs the window).
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::Selectable;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
 use crate::app::scripts as indicators;
@@ -276,13 +275,10 @@ impl Dashboard {
             .relative()
             .flex_none()
             .child(
-                Button::new("open-indicators")
-                    .ghost()
-                    .small()
+                crate::ui::kit::button::quiet("open-indicators")
                     .selected(self.editor_open)
                     .icon(IconName::CodeXml)
                     .tooltip("Indicator scripts: the folder, the editor, import and export")
-                    .cursor_pointer()
                     .on_click(move |_, _window, cx| toggle.toggle(cx)),
             )
             .children(unsaved.then(|| {

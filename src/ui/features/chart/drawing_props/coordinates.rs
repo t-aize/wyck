@@ -54,12 +54,12 @@ impl DrawingProps {
                     .child(
                         div()
                             .w(px(130.))
-                            .when(price_on, |el| el.child(Input::new(price).small())),
+                            .when(price_on, |el| el.child(crate::ui::kit::input::text(price))),
                     )
                     .child(
                         div()
                             .flex_1()
-                            .when(time_on, |el| el.child(Input::new(time).small())),
+                            .when(time_on, |el| el.child(crate::ui::kit::input::text(time))),
                     )
                     .into_any_element(),
             );

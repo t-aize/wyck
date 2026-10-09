@@ -6,11 +6,11 @@ use std::time::Duration;
 use crate::app::broker::auth::CallbackListener;
 use crate::app::broker::config::ClientCredentials;
 use crate::app::broker::{ClientBuilder, Environment};
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt, ClickEvent, Context, Entity, SharedString, Window, div, px, relative,
 };
-use gpui_kit::assets::IconName;
 
 use super::{ConnectionFlow, Screen};
 use crate::app::system::runtime;

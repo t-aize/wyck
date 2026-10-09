@@ -4,15 +4,14 @@
 
 use std::rc::Rc;
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
+use crate::ui::kit::prelude::{Disableable, ElementExt as _, Selectable, StyledExt as _};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, FontWeight, MouseButton, MouseDownEvent,
     MouseMoveEvent, Role, SharedString, Window, div, px,
 };
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{Disableable, ElementExt as _, Selectable, Sizable, StyledExt as _};
 
 use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
@@ -141,8 +140,7 @@ fn icon_button(
     on: bool,
     run: Action,
 ) -> impl IntoElement {
-    button::icon(id, icon, tip)
-        .xsmall()
+    button::icon_dense(id, icon, tip)
         .when(!enabled, |button| button.cursor_not_allowed())
         .selected(on)
         .disabled(!enabled)
@@ -826,7 +824,7 @@ impl AccountPanel {
             .children(self.search.as_ref().map(|search| {
                 div()
                     .w(px(tokens::field::text()))
-                    .child(Input::new(search).small().cleanable(true))
+                    .child(crate::ui::kit::input::text(search).cleanable(true))
             }))
             .child(only)
             .when(
@@ -1264,12 +1262,11 @@ impl AccountPanel {
                 let (more_menu, more_this, more_key) =
                     (row_menu.clone(), row_this.clone(), key.clone());
                 buttons.push(
-                    button::icon(
+                    button::icon_dense(
                         SharedString::from(format!("{key}-more")),
                         IconName::Ellipsis,
                         "More",
                     )
-                    .xsmall()
                     .on_click(move |event, _, cx| {
                         more_this.update(cx, |p, _| {
                             p.menu_target = Some(MenuTarget::Row(more_key.clone()));
@@ -1682,10 +1679,7 @@ impl Render for AccountPanel {
                                 div()
                                     .relative()
                                     .child(
-                                        Button::new("panel-bulk")
-                                            .cursor_pointer()
-                                            .ghost()
-                                            .xsmall()
+                                        crate::ui::kit::button::dense("panel-bulk")
                                             .label("Close")
                                             .icon(IconName::ChevronDown)
                                             .on_click(move |_, _, cx| toggle_bulk.toggle(cx)),
@@ -1700,12 +1694,11 @@ impl Render for AccountPanel {
                             // One menu for what is about the table: its columns, a copy as CSV,
                             // and the settings of the panel.
                             .child(
-                                button::icon(
+                                button::icon_dense(
                                     "panel-more",
                                     IconName::Ellipsis,
                                     "Columns and settings",
                                 )
-                                .xsmall()
                                 .on_click(move |event, _, cx| {
                                     this.update(cx, |p, _| {
                                         p.menu_target = Some(MenuTarget::Header)
@@ -1714,11 +1707,16 @@ impl Render for AccountPanel {
                                 }),
                             )
                             .child(
-                                button::icon("panel-hide", IconName::PanelBottom, "Hide the panel")
-                                    .xsmall()
-                                    .on_click(cx.listener(|_this, _, _, cx| {
+                                button::icon_dense(
+                                    "panel-hide",
+                                    IconName::PanelBottom,
+                                    "Hide the panel",
+                                )
+                                .on_click(cx.listener(
+                                    |_this, _, _, cx| {
                                         cx.emit(PanelEvent::Hide);
-                                    })),
+                                    },
+                                )),
                             ),
                     ),
             )

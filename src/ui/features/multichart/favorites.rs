@@ -6,10 +6,9 @@
 //! list of its family, and a right click on a favorite moves it along the bar or removes it. The
 //! favorites are kept with the rest of the workspace.
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
@@ -243,9 +242,7 @@ impl MultiChart {
                     .bg(theme::border_subtle()),
             )
             .child(
-                Button::new("favorites-names")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("favorites-names")
                     .icon(IconName::Type)
                     .tooltip(if names {
                         "Show icons only"
@@ -253,18 +250,14 @@ impl MultiChart {
                         "Show the names of the tools"
                     })
                     .toggled(names)
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _event, _window, cx| {
                         this.toggle_favorite_names(cx);
                     })),
             )
             .child(
-                Button::new("favorites-hide")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("favorites-hide")
                     .icon(IconName::X)
                     .tooltip("Hide the favorites")
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _event, _window, cx| {
                         this.toggle_favorites_bar(cx);
                     })),

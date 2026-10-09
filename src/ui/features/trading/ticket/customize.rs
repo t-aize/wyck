@@ -7,12 +7,11 @@
 //! setting as it was.
 
 use crate::ui::kit::field;
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::OrderTicket;
 use crate::app::prefs::ticket::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
@@ -383,36 +382,34 @@ impl Customizer {
                         .items_center()
                         .gap_1()
                         .child(
-                            Button::new(SharedString::from(format!("{id}-up-{index}")))
-                                .cursor_pointer()
-                                .ghost()
-                                .xsmall()
-                                .icon(IconName::ChevronUp)
-                                .tooltip("Move up")
-                                .disabled(index == 0)
-                                .on_click(move |_, _, cx| {
-                                    up.update(cx, |c, cx| {
-                                        c.edit(cx, |l| {
-                                            shift(pick(l), index, -1);
-                                        });
+                            crate::ui::kit::button::dense(SharedString::from(format!(
+                                "{id}-up-{index}"
+                            )))
+                            .icon(IconName::ChevronUp)
+                            .tooltip("Move up")
+                            .disabled(index == 0)
+                            .on_click(move |_, _, cx| {
+                                up.update(cx, |c, cx| {
+                                    c.edit(cx, |l| {
+                                        shift(pick(l), index, -1);
                                     });
-                                }),
+                                });
+                            }),
                         )
                         .child(
-                            Button::new(SharedString::from(format!("{id}-down-{index}")))
-                                .cursor_pointer()
-                                .ghost()
-                                .xsmall()
-                                .icon(IconName::ChevronDown)
-                                .tooltip("Move down")
-                                .disabled(index == last)
-                                .on_click(move |_, _, cx| {
-                                    down.update(cx, |c, cx| {
-                                        c.edit(cx, |l| {
-                                            shift(pick(l), index, 1);
-                                        });
+                            crate::ui::kit::button::dense(SharedString::from(format!(
+                                "{id}-down-{index}"
+                            )))
+                            .icon(IconName::ChevronDown)
+                            .tooltip("Move down")
+                            .disabled(index == last)
+                            .on_click(move |_, _, cx| {
+                                down.update(cx, |c, cx| {
+                                    c.edit(cx, |l| {
+                                        shift(pick(l), index, 1);
                                     });
-                                }),
+                                });
+                            }),
                         )
                         .child(controls::toggle(
                             SharedString::from(format!("{id}-{index}")),
@@ -472,7 +469,7 @@ impl Customizer {
         let number = |index: usize| {
             div()
                 .w(px(130.))
-                .child(NumberInput::new(&self.numbers[index]).small())
+                .child(crate::ui::kit::input::number(&self.numbers[index]))
         };
         form::page()
             .child(form::group(

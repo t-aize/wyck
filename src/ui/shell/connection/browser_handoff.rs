@@ -9,9 +9,9 @@ use crate::app::broker::Client;
 use crate::app::broker::Environment;
 use crate::app::broker::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
 use crate::app::broker::config::ClientCredentials;
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 
 use super::select_account::SelectAccountState;

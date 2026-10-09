@@ -141,15 +141,13 @@ impl IndicatorEditor {
             .border_r_1()
             .border_color(theme::border_hairline())
             .bg(theme::fg_alpha(0.02))
-            .child(
-                div()
-                    .p_2()
-                    .child(Input::new(&self.filter).xsmall().prefix(icon::tinted(
-                        IconName::Search,
-                        14.,
-                        theme::muted_fg(),
-                    ))),
-            )
+            .child(div().p_2().child(
+                crate::ui::kit::input::dense(&self.filter).prefix(icon::tinted(
+                    IconName::Search,
+                    14.,
+                    theme::muted_fg(),
+                )),
+            ))
             .child(list)
             .children(file_menu.popup(menu_items, Placement::Cursor, window, cx))
             .into_any_element()
@@ -328,7 +326,7 @@ impl IndicatorEditor {
                     .text_color(theme::muted_fg())
                     .child(text)
             }))
-            .child(Input::new(&prompt.input).small())
+            .child(crate::ui::kit::input::text(&prompt.input))
             .child(
                 div()
                     .flex()
@@ -336,23 +334,15 @@ impl IndicatorEditor {
                     .justify_end()
                     .gap_1()
                     .child(
-                        Button::new("editor-prompt-cancel")
-                            .ghost()
-                            .xsmall()
-                            .compact()
+                        crate::ui::kit::button::dense("editor-prompt-cancel")
                             .label("Cancel")
-                            .cursor_pointer()
                             .on_click(move |_, _window, cx| {
                                 cancel.update(cx, |e, cx| e.cancel_prompt(cx));
                             }),
                     )
                     .child(
-                        Button::new("editor-prompt-ok")
-                            .primary()
-                            .xsmall()
-                            .compact()
+                        crate::ui::kit::button::accent("editor-prompt-ok")
                             .label("OK")
-                            .cursor_pointer()
                             .on_click(move |_, window, cx| {
                                 ok.update(cx, |e, cx| e.commit_prompt(window, cx));
                             }),

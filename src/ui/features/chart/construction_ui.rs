@@ -2,8 +2,8 @@
 //! prices of a bar they read, the reversal of Renko and its wicks, the width of Kagi lines, the
 //! look of the X and O, and the look of the bricks. Every change applies at once.
 
+use crate::ui::kit::input::InputState;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
-use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartKind;

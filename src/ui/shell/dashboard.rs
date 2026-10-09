@@ -26,12 +26,12 @@ use crate::app::broker::session::{Session, SessionEvent, SessionState};
 use crate::app::broker::{Error as ApiError, Event};
 use crate::domain::drawings::model::Tool;
 use crate::domain::market::{PRICE_SCALE, Spot, format_price};
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
     deferred, div, px,
 };
-use gpui_kit::assets::IconName;
 use tokio::sync::broadcast::error::RecvError;
 
 use self::catalog::{Catalog, Entry};
@@ -192,7 +192,7 @@ pub struct Dashboard {
     tf_menu_open: bool,
     /// The field of the menu where a custom timeframe is typed, made with the window, and the
     /// unit a bare number is in.
-    tf_custom: Option<Entity<gpui_kit::component::input::InputState>>,
+    tf_custom: Option<Entity<crate::ui::kit::input::InputState>>,
     tf_unit: chart::Unit,
     /// Whether the layout picker is open.
     layout_menu_open: bool,

@@ -4,11 +4,10 @@
 //! It is built like the other settings panels (see [`crate::ui::kit::form`]) and shows in the
 //! same modal. Every change applies to the account panel at once and is remembered.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Window, div};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::AccountPanel;
 use crate::app::prefs::panel::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
@@ -144,10 +143,7 @@ impl Customizer {
                 .items_center()
                 .gap_1()
                 .child(
-                    Button::new(SharedString::from(format!("{id}-up")))
-                        .cursor_pointer()
-                        .ghost()
-                        .xsmall()
+                    crate::ui::kit::button::dense(SharedString::from(format!("{id}-up")))
                         .icon(IconName::ChevronUp)
                         .tooltip("Move up")
                         .disabled(first)
@@ -157,10 +153,7 @@ impl Customizer {
                         }),
                 )
                 .child(
-                    Button::new(SharedString::from(format!("{id}-down")))
-                        .cursor_pointer()
-                        .ghost()
-                        .xsmall()
+                    crate::ui::kit::button::dense(SharedString::from(format!("{id}-down")))
                         .icon(IconName::ChevronDown)
                         .tooltip("Move down")
                         .disabled(last)

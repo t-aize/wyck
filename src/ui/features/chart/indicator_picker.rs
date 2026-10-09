@@ -4,12 +4,12 @@
 //! It is a panel of the same frame as the settings (see [`crate::ui::kit::form`]). Adding
 //! does not close it, so several indicators can be added in a row.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, SharedString, Subscription, Window, div, px,
 };
-use gpui_kit::assets::IconName;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
 
 use super::study::Placement;
 use super::study::catalog::{self, Item, Source};
@@ -449,11 +449,13 @@ impl Render for Picker {
             .flex()
             .flex_col()
             .gap_3()
-            .child(Input::new(&self.search).prefix(icon::tinted(
-                IconName::Search,
-                14.,
-                theme::muted_fg(),
-            )))
+            .child(
+                crate::ui::kit::input::text(&self.search).prefix(icon::tinted(
+                    IconName::Search,
+                    14.,
+                    theme::muted_fg(),
+                )),
+            )
             .child(list);
         form::frame(
             head,

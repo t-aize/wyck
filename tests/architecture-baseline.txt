@@ -17,43 +17,18 @@ src/infra/ctrader/account/client.rs	style	use super::*
 src/infra/ctrader/margin/client.rs	style	use super::*
 src/infra/ctrader/trading/client.rs	style	use super::*
 src/ui/features/chart.rs	extern	ui::features::chart uses tokio
-src/ui/features/chart/chart_settings_ui.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/construction_ui.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/drawing_props.rs	extern	ui::features::chart uses gpui_kit
 src/ui/features/chart/drawing_props/coordinates.rs	style	use super::*
 src/ui/features/chart/drawing_props/levels.rs	style	use super::*
 src/ui/features/chart/drawing_props/position.rs	style	use super::*
 src/ui/features/chart/drawing_props/style.rs	style	use super::*
 src/ui/features/chart/drawing_props/text.rs	style	use super::*
 src/ui/features/chart/drawing_props/visibility.rs	style	use super::*
-src/ui/features/chart/export_ui.rs	extern	ui::features::chart uses gpui_kit
 src/ui/features/chart/flow_sync.rs	extern	ui::features::chart uses tokio
-src/ui/features/chart/footprint_ui.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/indicator_picker.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/object_tree.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/overlay.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/settings_rows.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/study_settings.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/toolbar.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/tpo_ui.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/chart/volume_ui.rs	extern	ui::features::chart uses gpui_kit
-src/ui/features/indicators/editor.rs	extern	ui::features::indicators uses gpui_kit
-src/ui/features/indicators/editor/parts.rs	extern	ui::features::indicators uses gpui_kit
 src/ui/features/indicators/editor/parts/console.rs	style	use super::*
 src/ui/features/indicators/editor/parts/explorer.rs	style	use super::*
 src/ui/features/indicators/editor/parts/reference.rs	style	use super::*
 src/ui/features/indicators/editor/parts/toolbar.rs	style	use super::*
-src/ui/features/indicators/editor/providers.rs	extern	ui::features::indicators uses gpui_kit
-src/ui/features/multichart/drawing_ui.rs	extern	ui::features::multichart uses gpui_kit
-src/ui/features/multichart/favorites.rs	extern	ui::features::multichart uses gpui_kit
-src/ui/features/trading/panel.rs	extern	ui::features::trading uses gpui_kit
-src/ui/features/trading/panel/customize.rs	extern	ui::features::trading uses gpui_kit
-src/ui/features/trading/panel/dialogs.rs	extern	ui::features::trading uses gpui_kit
-src/ui/features/trading/panel/view.rs	extern	ui::features::trading uses gpui_kit
-src/ui/features/trading/ticket.rs	extern	ui::features::trading uses gpui_kit
-src/ui/features/trading/ticket/customize.rs	extern	ui::features::trading uses gpui_kit
 src/ui/features/trading/ticket/templates.rs	style	use super::*
-src/ui/features/trading/ticket/view.rs	extern	ui::features::trading uses gpui_kit
 src/ui/features/trading/ticket/view/exits.rs	style	use super::*
 src/ui/features/trading/ticket/view/options.rs	style	use super::*
 src/ui/features/trading/ticket/view/order.rs	style	use super::*
@@ -61,23 +36,7 @@ src/ui/features/trading/ticket/view/plans.rs	style	use super::*
 src/ui/features/trading/ticket/view/positions.rs	style	use super::*
 src/ui/features/trading/ticket/view/protection.rs	style	use super::*
 src/ui/shell/connection.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/authorizing.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/browser_handoff.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/credentials.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/select_account.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/stepper.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/connection/welcome.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard.rs	extern	ui::shell uses gpui_kit
 src/ui/shell/dashboard.rs	extern	ui::shell uses tokio
-src/ui/shell/dashboard/catalog.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/details.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/editor_dock.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/header.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/layout_menu.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/lists.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/marks.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/dashboard/picker.rs	extern	ui::shell uses gpui_kit
-src/ui/shell/settings_hub.rs	extern	ui::shell uses gpui_kit
 src/ui/shell/settings_hub/about.rs	style	use super::*
 src/ui/shell/settings_hub/alerts.rs	style	use super::*
 src/ui/shell/settings_hub/behaviour.rs	style	use super::*

@@ -1,10 +1,10 @@
 //! The footprint's part of the chart settings panel: how the cells look, the imbalances, the
 //! point of control and the value area. Every change applies at once.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::footprint::{CellMode, FootprintSettings, HeatScope};

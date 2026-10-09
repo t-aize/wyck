@@ -17,15 +17,15 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::app::workspace::Saver;
+use crate::ui::kit::input::LanguageConfig;
+use crate::ui::kit::input::{
+    AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
+};
+use crate::ui::kit::input::{Diagnostic, DiagnosticSeverity};
 use gpui::prelude::*;
 use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, KeyBinding, MouseMoveEvent, SharedString,
     Subscription, Task, Window, actions,
-};
-use gpui_kit::component::highlighter::{Diagnostic, DiagnosticSeverity};
-use gpui_kit::component::input::language_config::LanguageConfig;
-use gpui_kit::component::input::{
-    AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
 };
 use serde::{Deserialize, Serialize};
 

@@ -1,6 +1,7 @@
 //! The toolbar of the indicator editor.
 
 use super::*;
+use crate::ui::kit::button::Button;
 
 impl IndicatorEditor {
     pub(super) fn tool_button(
@@ -11,13 +12,9 @@ impl IndicatorEditor {
         tip: &'static str,
         enabled: bool,
     ) -> Button {
-        let button = Button::new(id)
-            .ghost()
-            .xsmall()
-            .compact()
+        let button = crate::ui::kit::button::dense(id)
             .icon(icon)
             .tooltip(tip)
-            .cursor_pointer()
             .disabled(!enabled);
         match label {
             Some(label) => button.label(label),

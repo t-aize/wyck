@@ -7,12 +7,10 @@
 
 use std::rc::Rc;
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::{Disableable, Selectable, StyledExt as _};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, NumberInput};
-use gpui_kit::component::{Disableable, Selectable, Sizable, StyledExt as _};
 
 use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop_limit_price};
 use crate::app::account::Busy;
@@ -478,19 +476,11 @@ impl OrderTicket {
     fn send_button(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let locked = self.account.read(cx).lock().is_some();
         let blocked = f.plan.problem.is_some() || f.busy || locked;
-        Button::new("ticket-send")
-            .cursor_pointer()
+        crate::ui::kit::button::trade("ticket-send", self.buy)
             .when(blocked, |button| button.cursor_not_allowed())
             .label(self.describe(&f.plan, cx))
-            .with_size(gpui_kit::component::Size::Large)
             .disabled(blocked)
             .loading(f.busy)
-            .bg(if self.buy {
-                theme::chart_up()
-            } else {
-                theme::chart_down()
-            })
-            .text_color(theme::bg())
             .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
             .into_any_element()
     }

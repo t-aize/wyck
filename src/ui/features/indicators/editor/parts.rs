@@ -3,13 +3,12 @@
 
 use std::collections::BTreeMap;
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::Editor;
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::prelude::ScrollableElement as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Editor, Input};
-use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::{
     AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
@@ -199,23 +198,15 @@ impl IndicatorEditor {
                         .child(text.to_owned()),
                 )
                 .children(actions.then(|| {
-                    Button::new("editor-reload")
-                        .ghost()
-                        .xsmall()
-                        .compact()
+                    crate::ui::kit::button::dense("editor-reload")
                         .label("Load the file")
-                        .cursor_pointer()
                         .on_click(move |_, window, cx| {
                             reload.update(cx, |e, cx| e.reload_from_disk(window, cx));
                         })
                 }))
                 .children(actions.then(|| {
-                    Button::new("editor-keep")
-                        .ghost()
-                        .xsmall()
-                        .compact()
+                    crate::ui::kit::button::dense("editor-keep")
                         .label("Keep mine")
-                        .cursor_pointer()
                         .on_click(move |_, _window, cx| {
                             keep.update(cx, |e, cx| e.keep_mine(cx));
                         })
@@ -305,13 +296,9 @@ impl IndicatorEditor {
             )
             .child(cards.max_w(px(690.)))
             .child(
-                Button::new("editor-empty-folder")
-                    .ghost()
-                    .xsmall()
-                    .compact()
+                crate::ui::kit::button::dense("editor-empty-folder")
                     .icon(IconName::FolderOpen)
                     .label("Open the folder")
-                    .cursor_pointer()
                     .on_click(move |_, _window, cx| {
                         folder.update(cx, |_, cx| indicators::open_folder(cx));
                     }),

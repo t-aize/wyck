@@ -62,7 +62,7 @@ impl OrderTicket {
                             .text_color(theme::muted_fg())
                             .child(format!("TP{}", index + 1)),
                     )
-                    .child(div().flex_1().child(NumberInput::new(share).small()))
+                    .child(div().flex_1().child(crate::ui::kit::input::number(share)))
                     .child(
                         div()
                             .w(px(10.))
@@ -70,7 +70,7 @@ impl OrderTicket {
                             .text_color(theme::muted_fg())
                             .child("%"),
                     )
-                    .child(div().flex_1().child(NumberInput::new(target).small()))
+                    .child(div().flex_1().child(crate::ui::kit::input::number(target)))
                     .child(
                         div()
                             .w(px(10.))

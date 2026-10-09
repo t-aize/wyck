@@ -6,9 +6,9 @@
 //! logos from Simple Icons (CC0); the licenses sit next to the files in `assets/marks`. Company
 //! names and logos belong to their owners.
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, FontWeight, Rgba, div, img, px, rgb, svg};
-use gpui_kit::assets::IconName;
 
 use super::catalog::Class;
 use crate::ui::assets::has_mark;

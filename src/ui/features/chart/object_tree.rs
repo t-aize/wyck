@@ -1,11 +1,10 @@
 //! The list of the drawings of a symbol: pick one, show or hide it, lock it, move it up or down
 //! the stack, open its settings or delete it. Also where the icon of each tool is chosen.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::drawing::Drawings;
 use super::drawing_props;
@@ -164,10 +163,7 @@ impl ObjectTree {
         let (hidden, locked) = (drawing.hidden, drawing.locked);
         let restricted = drawing.timeframes.is_some();
         let button = |name: &str, icon: IconName, tip: &'static str| {
-            Button::new(SharedString::from(format!("{name}-{id}")))
-                .cursor_pointer()
-                .ghost()
-                .xsmall()
+            crate::ui::kit::button::dense(SharedString::from(format!("{name}-{id}")))
                 .icon(icon)
                 .tooltip(tip)
         };

@@ -13,12 +13,12 @@
 use std::ops::Range;
 use std::time::Duration;
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     Context, Entity, Focusable, FontWeight, MouseButton, MouseMoveEvent, ScrollStrategy, Stateful,
     Subscription, UniformListScrollHandle, Window, div, px, relative, uniform_list,
 };
-use gpui_kit::assets::IconName;
 
 use super::catalog::{Class, Entry};
 use super::details::{self, Detail};

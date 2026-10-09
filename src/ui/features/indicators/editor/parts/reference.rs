@@ -103,9 +103,11 @@ impl IndicatorEditor {
                             .child("REFERENCE"),
                     )
                     .child(
-                        Input::new(&self.reference_filter)
-                            .xsmall()
-                            .prefix(icon::tinted(IconName::Search, 14., theme::muted_fg())),
+                        crate::ui::kit::input::dense(&self.reference_filter).prefix(icon::tinted(
+                            IconName::Search,
+                            14.,
+                            theme::muted_fg(),
+                        )),
                     ),
             )
             .child(list)

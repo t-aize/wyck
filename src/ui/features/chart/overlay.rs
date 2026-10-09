@@ -3,12 +3,12 @@
 //! lines, the right-click menu, and the loading, failed and empty states.
 
 use crate::domain::market::format_price;
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, MouseButton, SharedString, Window, deferred, div,
     px,
 };
-use gpui_kit::assets::IconName;
 
 use super::data::Series;
 use super::lines::to_real;

@@ -17,11 +17,8 @@ impl OrderTicket {
                            enabled: bool,
                            on: bool,
                            run: Action| {
-            Button::new(id)
-                .cursor_pointer()
+            crate::ui::kit::button::dense(id)
                 .when(!enabled, |button| button.cursor_not_allowed())
-                .ghost()
-                .xsmall()
                 .icon(icon)
                 .tooltip(tip)
                 .selected(on)

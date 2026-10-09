@@ -220,7 +220,7 @@ impl DrawingProps {
                 ),
                 div()
                     .w(px(130.))
-                    .child(Input::new(&pos.atr_timeframe).small()),
+                    .child(crate::ui::kit::input::text(&pos.atr_timeframe)),
             ));
             levels.push(form::field(
                 "ATR bar",

@@ -272,10 +272,7 @@ impl OrderTicket {
                             .flex_row()
                             .items_center()
                             .child(
-                                Button::new("ticket-customize")
-                                    .cursor_pointer()
-                                    .ghost()
-                                    .small()
+                                crate::ui::kit::button::quiet("ticket-customize")
                                     .icon(IconName::SlidersHorizontal)
                                     .tooltip("Customize the panel")
                                     .on_click(move |_, window, cx| {
@@ -283,10 +280,7 @@ impl OrderTicket {
                                     }),
                             )
                             .child(
-                                Button::new("ticket-close")
-                                    .cursor_pointer()
-                                    .ghost()
-                                    .small()
+                                crate::ui::kit::button::quiet("ticket-close")
                                     .icon(IconName::X)
                                     .tooltip("Close the ticket")
                                     .on_click(
@@ -522,7 +516,7 @@ impl OrderTicket {
                                 },
                             ),
                         ))
-                        .child(Input::new(&self.price).small())
+                        .child(crate::ui::kit::input::text(&self.price))
                         .into_any_element()
                 })
             })
@@ -544,7 +538,7 @@ impl OrderTicket {
                                 .text_color(theme::muted_fg())
                                 .children(limit_at.map(|p| format!("limit at {p}"))),
                         ))
-                        .child(NumberInput::new(&self.slippage).small()),
+                        .child(crate::ui::kit::input::number(&self.slippage)),
                 )
             })
             .into_any_element()
@@ -568,7 +562,7 @@ impl OrderTicket {
                 "Size",
                 Some(self.size_menu(&f.currency, window, cx)),
             ))
-            .child(NumberInput::new(&self.size).small())
+            .child(crate::ui::kit::input::number(&self.size))
             .when(has_presets, |el| el.child(presets))
             .children(size_note.map(|note| {
                 div()

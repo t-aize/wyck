@@ -215,10 +215,7 @@ impl SettingsHub {
             )],
         );
 
-        let reset = Button::new("settings-reset-look")
-            .cursor_pointer()
-            .ghost()
-            .small()
+        let reset = crate::ui::kit::button::quiet("settings-reset-look")
             .icon(IconName::RotateCcw)
             .label("Reset the appearance")
             .disabled(a.is_default())
@@ -325,44 +322,42 @@ impl SettingsHub {
                             .child("In use")
                     }))
                     .child(
-                        Button::new(SharedString::from(format!("theme-edit-{id}")))
-                            .cursor_pointer()
-                            .ghost()
-                            .small()
-                            .icon(IconName::Pencil)
-                            .label(if editing { "Done" } else { "Edit colors" })
-                            .on_click(move |_, window, cx| {
-                                let (id, name) = (edit_id.clone(), name.clone());
-                                edit_this.update(cx, |e, cx| {
-                                    e.pick = None;
-                                    if e.editing.as_deref() == Some(id.as_str()) {
-                                        e.editing = None;
-                                    } else {
-                                        e.editing = Some(id);
-                                        e.rename.update(cx, |s, cx| s.set_value(name, window, cx));
-                                    }
-                                    cx.notify();
-                                });
-                            }),
+                        crate::ui::kit::button::quiet(SharedString::from(format!(
+                            "theme-edit-{id}"
+                        )))
+                        .icon(IconName::Pencil)
+                        .label(if editing { "Done" } else { "Edit colors" })
+                        .on_click(move |_, window, cx| {
+                            let (id, name) = (edit_id.clone(), name.clone());
+                            edit_this.update(cx, |e, cx| {
+                                e.pick = None;
+                                if e.editing.as_deref() == Some(id.as_str()) {
+                                    e.editing = None;
+                                } else {
+                                    e.editing = Some(id);
+                                    e.rename.update(cx, |s, cx| s.set_value(name, window, cx));
+                                }
+                                cx.notify();
+                            });
+                        }),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("theme-delete-{id}")))
-                            .cursor_pointer()
-                            .ghost()
-                            .small()
-                            .icon(IconName::Trash)
-                            .tooltip("Delete this theme")
-                            .on_click(move |_, _window, cx| {
-                                let id = delete_id.clone();
-                                delete_this.update(cx, |e, _| {
-                                    if e.editing.as_deref() == Some(id.as_str()) {
-                                        e.editing = None;
-                                    }
-                                });
-                                appearance::update(cx, |a| {
-                                    a.delete_theme(&id);
-                                });
-                            }),
+                        crate::ui::kit::button::quiet(SharedString::from(format!(
+                            "theme-delete-{id}"
+                        )))
+                        .icon(IconName::Trash)
+                        .tooltip("Delete this theme")
+                        .on_click(move |_, _window, cx| {
+                            let id = delete_id.clone();
+                            delete_this.update(cx, |e, _| {
+                                if e.editing.as_deref() == Some(id.as_str()) {
+                                    e.editing = None;
+                                }
+                            });
+                            appearance::update(cx, |a| {
+                                a.delete_theme(&id);
+                            });
+                        }),
                     )
                     .into_any_element(),
             );
@@ -381,10 +376,7 @@ impl SettingsHub {
                 .gap_2()
                 .child(field::text(&self.new_theme))
                 .child(
-                    Button::new("theme-create")
-                        .cursor_pointer()
-                        .primary()
-                        .small()
+                    crate::ui::kit::button::accent("theme-create")
                         .icon(IconName::Copy)
                         .label("Copy")
                         .on_click(move |_, window, cx| {
@@ -502,9 +494,7 @@ impl SettingsHub {
                         }),
                 )
                 .child(
-                    Button::new("theme-fix-contrast")
-                        .cursor_pointer()
-                        .small()
+                    crate::ui::kit::button::standard("theme-fix-contrast")
                         .icon(IconName::Wand)
                         .label("Fix contrast")
                         .disabled(failing.is_empty())
@@ -582,10 +572,7 @@ impl SettingsHub {
         let mut rows = vec![form::field(
             "Interface font",
             Some("Any font installed on this computer. Inter comes with the app"),
-            Button::new("settings-font-open")
-                .cursor_pointer()
-                .ghost()
-                .small()
+            crate::ui::kit::button::quiet("settings-font-open")
                 .icon(IconName::Type)
                 .label(SharedString::from(a.font.clone()))
                 .toggled(self.font_open)

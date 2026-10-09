@@ -125,7 +125,11 @@ impl OrderTicket {
                                 .flex_row()
                                 .items_center()
                                 .gap_1()
-                                .child(div().flex_1().child(NumberInput::new(&self.expiry).small()))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .child(crate::ui::kit::input::number(&self.expiry)),
+                                )
                                 .child(span_menu),
                         )
                     }),
@@ -160,7 +164,7 @@ impl OrderTicket {
         .when(!stop_on, |el| {
             el.child(hint("Turn the stop loss on to use these."))
         })
-        .child(Input::new(&self.comment).small())
+        .child(crate::ui::kit::input::text(&self.comment))
         .into_any_element()
     }
 }

@@ -67,11 +67,8 @@ impl DrawingProps {
             .items_center()
             .gap_1()
             .child(
-                Button::new("props-level-add")
-                    .cursor_pointer()
+                crate::ui::kit::button::dense("props-level-add")
                     .when(full, |button| button.cursor_not_allowed())
-                    .ghost()
-                    .xsmall()
                     .icon(IconName::Plus)
                     .label("Add")
                     .disabled(full)
@@ -80,10 +77,7 @@ impl DrawingProps {
                     }),
             )
             .child(
-                Button::new("props-level-reset")
-                    .cursor_pointer()
-                    .ghost()
-                    .xsmall()
+                crate::ui::kit::button::dense("props-level-reset")
                     .icon(IconName::RotateCcw)
                     .label("Default")
                     .on_click(move |_, window, cx| {
@@ -137,16 +131,15 @@ impl DrawingProps {
                     .child(self.level_dash_button(index, level.dash, cx))
                     .child(div().flex_1())
                     .child(
-                        Button::new(SharedString::from(format!("props-level-remove-{index}")))
-                            .cursor_pointer()
-                            .ghost()
-                            .xsmall()
-                            .icon(IconName::X)
-                            .tooltip("Remove this level")
-                            .disabled(!removable)
-                            .on_click(move |_, window, cx| {
-                                remove_this.update(cx, |e, cx| e.remove_level(index, window, cx));
-                            }),
+                        crate::ui::kit::button::dense(SharedString::from(format!(
+                            "props-level-remove-{index}"
+                        )))
+                        .icon(IconName::X)
+                        .tooltip("Remove this level")
+                        .disabled(!removable)
+                        .on_click(move |_, window, cx| {
+                            remove_this.update(cx, |e, cx| e.remove_level(index, window, cx));
+                        }),
                     )
                     .into_any_element(),
             );

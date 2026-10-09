@@ -4,11 +4,10 @@
 //! What a drawing is and how the pointer makes one lives in [`crate::ui::features::chart::drawing`]; this
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, Window, canvas, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::Disableable;
-use gpui_kit::component::button::{Button, ButtonVariants};
 
 use super::MultiChart;
 use crate::domain::drawings::look::Cap;
@@ -76,25 +75,19 @@ impl MultiChart {
             .bg(theme::bg())
             .occlude()
             .child(
-                Button::new("draw-pointer")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-pointer")
                     .icon(IconName::MousePointer2)
                     .tooltip("Pointer (Esc)")
                     .toggled(tool.is_none())
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _event, _window, cx| this.pick_tool(None, cx))),
             );
 
         let searching = self.tool_search;
         rail = rail.child(
-            Button::new("draw-search")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-search")
                 .icon(IconName::Search)
                 .tooltip("Find a tool (Ctrl+Shift+F)")
                 .toggled(searching)
-                .cursor_pointer()
                 .on_click(cx.listener(|this, _event, window, cx| {
                     if this.tool_search {
                         this.tool_search = false;
@@ -129,14 +122,14 @@ impl MultiChart {
                         .size_full(),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("draw-group-{group:?}")))
-                            .ghost()
-                            .compact()
-                            .icon(tool_icon(shown))
-                            .tooltip(tip)
-                            .toggled(active || self.flyout == Some(group))
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                        crate::ui::kit::button::quiet(SharedString::from(format!(
+                            "draw-group-{group:?}"
+                        )))
+                        .icon(tool_icon(shown))
+                        .tooltip(tip)
+                        .toggled(active || self.flyout == Some(group))
+                        .on_click(cx.listener(
+                            move |this, _event, _window, cx| {
                                 this.tool_search = false;
                                 this.flyout = if this.flyout == Some(group) {
                                     None
@@ -144,7 +137,8 @@ impl MultiChart {
                                     Some(group)
                                 };
                                 cx.notify();
-                            })),
+                            },
+                        )),
                     ),
             );
         }
@@ -157,9 +151,7 @@ impl MultiChart {
                 .bg(theme::border_hairline()),
         )
         .child(
-            Button::new("draw-favorites")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-favorites")
                 .icon(IconName::Star)
                 .tooltip(if favorites_bar {
                     "Hide the favorites bar"
@@ -167,25 +159,19 @@ impl MultiChart {
                     "Show the favorites bar"
                 })
                 .toggled(favorites_bar)
-                .cursor_pointer()
                 .on_click(cx.listener(|this, _event, _window, cx| this.toggle_favorites_bar(cx))),
         )
         .child(
-            Button::new("draw-tree")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-tree")
                 .icon(IconName::ListTree)
                 .tooltip("Drawings on this symbol")
-                .cursor_pointer()
                 .on_click(cx.listener(|this, _event, window, cx| {
                     let chart = this.active_chart().clone();
                     crate::ui::features::chart::open_object_tree(&chart, window, cx);
                 })),
         )
         .child(
-            Button::new("draw-hide-all")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-hide-all")
                 .icon(if some_hidden {
                     IconName::Eye
                 } else {
@@ -198,16 +184,13 @@ impl MultiChart {
                 })
                 .toggled(some_hidden)
                 .disabled(!has_any)
-                .cursor_pointer()
                 .when(!has_any, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(move |this, _event, _window, cx| {
                     this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
                 })),
         )
         .child(
-            Button::new("draw-keep")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-keep")
                 .icon(IconName::PencilLine)
                 .tooltip(if keep {
                     "Stay in drawing mode: on (draw several in a row, Esc to stop)"
@@ -215,49 +198,36 @@ impl MultiChart {
                     "Stay in drawing mode: off (back to the pointer after each drawing)"
                 })
                 .toggled(keep)
-                .cursor_pointer()
                 .on_click(cx.listener(|this, _event, _window, cx| this.toggle_keep_drawing(cx))),
         )
         .child(
-            Button::new("draw-magnet")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-magnet")
                 .icon(IconName::Magnet)
                 .tooltip("Magnet: snap to open, high, low and close")
                 .toggled(magnet)
-                .cursor_pointer()
                 .on_click(cx.listener(|this, _event, _window, cx| this.toggle_magnet(cx))),
         )
         .child(
-            Button::new("draw-undo")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-undo")
                 .icon(IconName::Undo2)
                 .tooltip("Undo (Ctrl+Z)")
                 .disabled(!can_undo)
-                .cursor_pointer()
                 .when(!can_undo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
         )
         .child(
-            Button::new("draw-redo")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-redo")
                 .icon(IconName::Redo2)
                 .tooltip("Redo (Ctrl+Shift+Z)")
                 .disabled(!can_redo)
-                .cursor_pointer()
                 .when(!can_redo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
         )
         .child(
-            Button::new("draw-clear")
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet("draw-clear")
                 .icon(IconName::Trash)
                 .tooltip("Remove all drawings of this symbol")
                 .disabled(!has_any)
-                .cursor_pointer()
                 .when(!has_any, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
         )
@@ -684,13 +654,10 @@ impl MultiChart {
         if has_fill {
             bar = bar
                 .child(
-                    Button::new("draw-fill")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-fill")
                         .icon(IconName::PaintBucket)
                         .tooltip("Fill")
                         .toggled(style.fill)
-                        .cursor_pointer()
                         .on_click(
                             cx.listener(|this, _event, _window, cx| this.toggle_drawing_fill(cx)),
                         ),
@@ -706,14 +673,11 @@ impl MultiChart {
                 .find(|step| *step < opacity - 0.01)
                 .unwrap_or(OPACITY_STEPS[0]);
             bar = bar.child(
-                Button::new("draw-opacity")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-opacity")
                     .icon(IconName::Droplet)
                     .label(format!("{}%", (opacity * 100.0).round() as u32))
                     .tooltip("Opacity of the lines (click to step down)")
                     .toggled(opacity < 0.99)
-                    .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.edit_book(cx, |book, symbol| {
                             book.edit_style(symbol, |s| s.opacity = next)
@@ -734,13 +698,10 @@ impl MultiChart {
             let (left, right) = (style.extend_left, style.extend_right);
             bar = bar
                 .child(
-                    Button::new("draw-extend-left")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-extend-left")
                         .icon(IconName::ArrowLeftToLine)
                         .tooltip("Extend to the left")
                         .toggled(left)
-                        .cursor_pointer()
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.edit_book(cx, |book, symbol| {
                                 book.edit_style(symbol, |s| s.extend_left = !s.extend_left)
@@ -748,13 +709,10 @@ impl MultiChart {
                         })),
                 )
                 .child(
-                    Button::new("draw-extend-right")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-extend-right")
                         .icon(IconName::ArrowRightToLine)
                         .tooltip("Extend to the right")
                         .toggled(right)
-                        .cursor_pointer()
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.edit_book(cx, |book, symbol| {
                                 book.edit_style(symbol, |s| s.extend_right = !s.extend_right)
@@ -765,13 +723,10 @@ impl MultiChart {
         if tool.has_end_cap() {
             let arrow = style.caps.end == Cap::Arrow;
             bar = bar.child(
-                Button::new("draw-end-arrow")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-end-arrow")
                     .icon(IconName::MoveRight)
                     .tooltip("Arrow at the end")
                     .toggled(arrow)
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _event, _window, cx| {
                         this.edit_book(cx, |book, symbol| {
                             book.edit_style(symbol, |s| {
@@ -793,12 +748,9 @@ impl MultiChart {
             let bold = style.bold;
             bar = bar
                 .child(
-                    Button::new("draw-text-smaller")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-text-smaller")
                         .icon(IconName::Minus)
                         .tooltip("Smaller text")
-                        .cursor_pointer()
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.edit_book(cx, |book, symbol| {
                                 book.edit_style(symbol, |s| {
@@ -817,12 +769,9 @@ impl MultiChart {
                         .child(format!("{}", size.round() as u32)),
                 )
                 .child(
-                    Button::new("draw-text-bigger")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-text-bigger")
                         .icon(IconName::Plus)
                         .tooltip("Bigger text")
-                        .cursor_pointer()
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.edit_book(cx, |book, symbol| {
                                 book.edit_style(symbol, |s| {
@@ -832,13 +781,10 @@ impl MultiChart {
                         })),
                 )
                 .child(
-                    Button::new("draw-text-bold")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-text-bold")
                         .icon(IconName::Bold)
                         .tooltip("Bold")
                         .toggled(bold)
-                        .cursor_pointer()
                         .on_click(cx.listener(|this, _event, _window, cx| {
                             this.edit_book(cx, |book, symbol| {
                                 book.edit_style(symbol, |s| s.bold = !s.bold)
@@ -864,9 +810,7 @@ impl MultiChart {
         if tool.is_position() {
             bar = bar
                 .child(
-                    Button::new("draw-trade")
-                        .primary()
-                        .compact()
+                    crate::ui::kit::button::accent("draw-trade")
                         .icon(IconName::ArrowLeftRight)
                         .label(if tool == Tool::LongPosition {
                             "Buy"
@@ -874,22 +818,18 @@ impl MultiChart {
                             "Sell"
                         })
                         .tooltip("Open the order ticket with this entry, stop and target")
-                        .cursor_pointer()
                         .on_click(cx.listener(move |this, _event, _window, cx| {
                             this.trade_drawing(id, cx);
                         })),
                 )
                 .child(
-                    Button::new("draw-flip")
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet("draw-flip")
                         .icon(IconName::ArrowUpDown)
                         .tooltip(if tool == Tool::LongPosition {
                             "Flip to a short position"
                         } else {
                             "Flip to a long position"
                         })
-                        .cursor_pointer()
                         .on_click(cx.listener(move |this, _event, _window, cx| {
                             this.drawing_command(id, DrawingCommand::Flip, cx);
                         })),
@@ -990,12 +930,9 @@ impl MultiChart {
                 div()
                     .relative()
                     .child(
-                        Button::new("draw-look")
-                            .ghost()
-                            .compact()
+                        crate::ui::kit::button::quiet("draw-look")
                             .icon(IconName::Palette)
                             .tooltip("Save or reuse this look")
-                            .cursor_pointer()
                             .on_click(move |_event, _window, cx| toggle.toggle(cx)),
                     )
                     .children(menu.popup(
@@ -1017,21 +954,16 @@ impl MultiChart {
         let (has_default, template_names) = (st.has_default, st.template_names.clone());
         bar = bar
             .child(
-                Button::new("draw-settings")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-settings")
                     .icon(IconName::Settings2)
                     .tooltip("Settings (double click)")
-                    .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, window, cx| {
                         let chart = this.active_chart().clone();
                         crate::ui::features::chart::open_drawing_settings(&chart, id, window, cx);
                     })),
             )
             .child(
-                Button::new("draw-hide")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-hide")
                     .icon(if hidden {
                         IconName::Eye
                     } else {
@@ -1039,15 +971,12 @@ impl MultiChart {
                     })
                     .tooltip(if hidden { "Show" } else { "Hide" })
                     .toggled(hidden)
-                    .cursor_pointer()
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.drawing_command(id, DrawingCommand::Hidden(!hidden), cx);
                     })),
             )
             .child(
-                Button::new("draw-lock")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-lock")
                     .icon(if locked {
                         IconName::Lock
                     } else {
@@ -1055,28 +984,21 @@ impl MultiChart {
                     })
                     .tooltip(if locked { "Unlock" } else { "Lock" })
                     .toggled(locked)
-                    .cursor_pointer()
                     .on_click(
                         cx.listener(|this, _event, _window, cx| this.toggle_drawing_lock(cx)),
                     ),
             )
             .child(
-                Button::new("draw-copy")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-copy")
                     .icon(IconName::Copy)
                     .tooltip("Duplicate (Ctrl+D)")
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _event, _window, cx| this.duplicate_drawing(cx))),
             )
             .child(
-                Button::new("draw-delete")
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet("draw-delete")
                     .icon(IconName::Trash)
                     .tooltip("Delete (Del)")
                     .disabled(locked)
-                    .cursor_pointer()
                     .when(locked, |button| button.cursor_not_allowed())
                     .on_click(cx.listener(|this, _event, _window, cx| this.delete_drawing(cx))),
             );

@@ -5,12 +5,12 @@
 //! The lists themselves live in the [`Workspace`](crate::app::workspace::Workspace), which saves
 //! them; this file only shows them and turns clicks into edits of them.
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, Context, Entity, Focusable, MouseButton, SharedString, Subscription, Window, div,
     px,
 };
-use gpui_kit::assets::IconName;
 
 use super::Dashboard;
 use crate::app::workspace::{NameError, Watchlists};

@@ -1,11 +1,10 @@
 //! The dialogs the account panel opens: the one that modifies a position or an order, and the one
 //! that edits an alert.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::Sizable;
-use gpui_kit::component::input::{Input, InputState};
 
 use crate::app::account::Account;
 use crate::app::alerts::model::{PnlScope, PriceKind};
@@ -795,8 +794,8 @@ impl Render for AlertEditor {
         ));
 
         let message = vec![
-            form::block(Input::new(&self.message).small()),
-            form::block(Input::new(&self.tag).small()),
+            form::block(crate::ui::kit::input::text(&self.message)),
+            form::block(crate::ui::kit::input::text(&self.tag)),
         ];
 
         // What it did before.

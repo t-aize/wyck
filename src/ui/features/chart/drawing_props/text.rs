@@ -217,10 +217,7 @@ impl DrawingProps {
         let mut rows = vec![form::field(
             "Font",
             Some("Any font installed on this computer"),
-            Button::new("props-font-open")
-                .cursor_pointer()
-                .ghost()
-                .small()
+            crate::ui::kit::button::quiet("props-font-open")
                 .icon(IconName::Type)
                 .label(SharedString::from(family))
                 .toggled(self.font_open)

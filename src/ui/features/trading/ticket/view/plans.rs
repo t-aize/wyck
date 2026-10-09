@@ -48,7 +48,7 @@ impl OrderTicket {
                 .child(
                     div()
                         .flex_1()
-                        .child(NumberInput::new(&self.time_stop_amount).small()),
+                        .child(crate::ui::kit::input::number(&self.time_stop_amount)),
                 )
                 .child(controls::segmented(
                     "ticket-time-stop-span",
@@ -166,10 +166,9 @@ impl OrderTicket {
                 .flex_row()
                 .items_center()
                 .gap_1()
-                .child(div().flex_1().child(Input::new(&self.plan_name).small()))
+                .child(div().flex_1().child(crate::ui::kit::input::text(&self.plan_name)))
                 .child(
-                    Button::new("ticket-plan-save")
-                        .small()
+                    crate::ui::kit::button::standard("ticket-plan-save")
                         .label("Save")
                         .disabled(!named)
                         .on_click(move |_, window, cx| {

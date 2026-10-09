@@ -2,10 +2,10 @@
 //! periods, how the marks look, and the levels and structure that are drawn on each profile.
 //! Every change applies at once.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};

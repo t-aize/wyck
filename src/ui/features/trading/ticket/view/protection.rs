@@ -116,7 +116,7 @@ impl OrderTicket {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .child(NumberInput::new(state).small()),
+                            .child(crate::ui::kit::input::number(state)),
                     )
                     .child(self.unit_menu(stop, &f.currency, window, cx))
                     .into_any_element(),

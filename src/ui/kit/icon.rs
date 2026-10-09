@@ -2,7 +2,7 @@
 
 use gpui::prelude::*;
 use gpui::{Rgba, Svg, px, svg};
-use gpui_kit::assets::IconName;
+pub use gpui_kit::assets::IconName;
 
 use crate::ui::kit::theme;
 

@@ -21,8 +21,8 @@ mod view;
 use std::cell::Cell;
 use std::rc::Rc;
 
+use crate::ui::kit::input::InputState;
 use gpui::{Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, Subscription};
-use gpui_kit::component::input::InputState;
 
 use crate::app::account::Account;
 use crate::app::alerts::Alerts;

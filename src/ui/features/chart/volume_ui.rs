@@ -1,10 +1,10 @@
 //! The volume chart types' part of the chart settings panel: how the candles get wide, how they
 //! are colored and filled, and how much volume a volume bar holds. Every change applies at once.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartSettings;

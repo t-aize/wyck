@@ -7,9 +7,9 @@ use crate::app::broker::TraderAccount;
 use crate::app::broker::auth::TokenSet;
 use crate::app::broker::config::ClientCredentials;
 use crate::app::storage::{OpenApiTokens, ProfileId};
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
 
 use super::credentials::CALLBACK_PORT;

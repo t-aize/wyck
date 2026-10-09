@@ -8,14 +8,13 @@
 
 use std::collections::BTreeMap;
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, SharedString, Subscription, Window, div, px,
 };
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::InputState;
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::Chart;
 use super::data::Series;
@@ -833,12 +832,9 @@ impl ExportDialog {
             let down = this.clone();
             let gone = this.clone();
             let icon_button = |id: String, icon: IconName, tip: &'static str| {
-                Button::new(SharedString::from(id))
-                    .ghost()
-                    .compact()
+                crate::ui::kit::button::quiet(SharedString::from(id))
                     .icon(icon)
                     .tooltip(tip)
-                    .cursor_pointer()
             };
             chosen.push(
                 div()
@@ -937,11 +933,8 @@ impl ExportDialog {
             );
         }
         let reset = this.clone();
-        let standard = Button::new("col-standard")
-            .ghost()
-            .small()
+        let standard = crate::ui::kit::button::quiet("col-standard")
             .label("Standard columns")
-            .cursor_pointer()
             .on_click(move |_, _, cx| {
                 reset.update(cx, |d, cx| {
                     let available = d.available();
@@ -1198,23 +1191,17 @@ impl ExportDialog {
                         .child(name),
                 )
                 .child(
-                    Button::new(SharedString::from(format!("preset-use-{id}")))
-                        .ghost()
-                        .small()
+                    crate::ui::kit::button::quiet(SharedString::from(format!("preset-use-{id}")))
                         .label("Use")
-                        .cursor_pointer()
                         .on_click(move |_, window, cx| {
                             let options = options.clone();
                             use_it.update(cx, |d, cx| d.apply(&options, window, cx));
                         }),
                 )
                 .children(deletable.then(|| {
-                    Button::new(SharedString::from(format!("preset-del-{id}")))
-                        .ghost()
-                        .compact()
+                    crate::ui::kit::button::quiet(SharedString::from(format!("preset-del-{id}")))
                         .icon(IconName::Trash)
                         .tooltip("Delete this preset")
-                        .cursor_pointer()
                         .on_click(move |_, _, cx| {
                             let forget = forget.clone();
                             remove.update(cx, |d, cx| {
@@ -1263,11 +1250,8 @@ impl ExportDialog {
                     tokens::field::text(),
                 ))
                 .child(
-                    Button::new("preset-save")
-                        .primary()
-                        .small()
+                    crate::ui::kit::button::accent("preset-save")
                         .label("Save")
-                        .cursor_pointer()
                         .on_click(move |_, window, cx| {
                             let name = name_state.read(cx).value().to_string();
                             let saved = save.update(cx, |d, cx| {

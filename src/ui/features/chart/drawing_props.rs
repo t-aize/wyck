@@ -5,13 +5,12 @@
 //! the drawing back as it was, and Escape or the close button keep them.
 
 use crate::domain::market::PRICE_SCALE;
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::prelude::Switch;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
-use gpui_kit::component::switch::Switch;
-use gpui_kit::component::{Disableable, Sizable};
 
 use super::Chart;
 use super::drawing::Drawings;

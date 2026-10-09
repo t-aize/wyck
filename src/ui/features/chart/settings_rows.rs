@@ -2,9 +2,9 @@
 //! switch, a typed number. Each one applies its change to the chart at once, like the rest of
 //! the chart settings panel.
 
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
-use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartSettings;

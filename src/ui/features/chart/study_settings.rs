@@ -4,10 +4,10 @@
 //! the changes, Cancel puts the indicator back as it was, and Escape or the close button keep
 //! them.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::input::{InputEvent, InputState};
 
 use super::Chart;
 use super::study::custom::library::registry;

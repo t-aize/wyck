@@ -3,9 +3,9 @@
 //! details could not be loaded.
 
 use crate::domain::market::Symbol;
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
-use gpui_kit::assets::IconName;
 
 use super::catalog::{Class, Entry};
 use super::marks;

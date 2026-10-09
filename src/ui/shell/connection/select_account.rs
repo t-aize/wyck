@@ -5,9 +5,9 @@ use crate::app::broker::Environment;
 use crate::app::broker::TraderAccount;
 use crate::app::broker::auth::TokenSet;
 use crate::app::broker::config::ClientCredentials;
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
-use gpui_kit::assets::IconName;
 
 use super::{ConnectionFlow, Screen};
 use crate::ui::kit::{anim, button, icon, layout, theme, tokens};

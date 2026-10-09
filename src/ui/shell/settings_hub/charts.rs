@@ -1,6 +1,7 @@
 //! The Charts page of the settings.
 
 use super::*;
+use crate::ui::kit::button::Button;
 
 impl SettingsHub {
     pub(super) fn charts_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -46,10 +47,7 @@ impl SettingsHub {
         }
 
         let reset = |id: &'static str, set: bool, clear: fn(&mut appearance::Appearance)| {
-            Button::new(id)
-                .cursor_pointer()
-                .ghost()
-                .xsmall()
+            crate::ui::kit::button::dense(id)
                 .icon(IconName::RotateCcw)
                 .label("Theme")
                 .tooltip("Go back to the color of the theme")

@@ -5,11 +5,11 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{App, Context, FontStyle, FontWeight, HighlightStyle, Hsla, SharedString, Task, Window};
-use gpui_kit::component::input::{
+use crate::ui::kit::input::{
     CompletionProvider, EditorState, FoldRange, HighlightStyleResolver, HoverProvider, InputEdit,
     InputHighlighter, InputHighlighterFactory, Rope, RopeExt,
 };
+use gpui::{App, Context, FontStyle, FontWeight, HighlightStyle, Hsla, SharedString, Task, Window};
 use lsp_types::{
     CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse, CompletionTextEdit,
     Documentation, Hover, HoverContents, MarkupContent, MarkupKind, TextEdit,

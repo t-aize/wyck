@@ -9,8 +9,8 @@ use crate::ui::features::multichart::icon::layout_icon;
 use crate::ui::features::multichart::layouts;
 use crate::ui::features::multichart::layouts::LayoutKey;
 use crate::ui::features::multichart::links::{Link, Links};
+use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{controls, menu, theme, tokens};
-use gpui_kit::component::Disableable;
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [
@@ -171,7 +171,7 @@ impl Dashboard {
                     cx.notify();
                 }))
                 .child(crate::ui::kit::icon::tinted(
-                    gpui_kit::assets::IconName::Images,
+                    crate::ui::kit::icon::IconName::Images,
                     14.,
                     theme::muted_fg(),
                 ))

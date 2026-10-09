@@ -209,10 +209,7 @@ impl DrawingProps {
                     .gap_2()
                     .min_h(px(40.))
                     .child(
-                        Button::new(("props-template", index))
-                            .cursor_pointer()
-                            .ghost()
-                            .small()
+                        crate::ui::kit::button::quiet(("props-template", index))
                             .icon(IconName::Bookmark)
                             .label(name.clone())
                             .tooltip("Apply this look to the drawing")
@@ -222,10 +219,7 @@ impl DrawingProps {
                     )
                     .child(div().flex_1())
                     .child(
-                        Button::new(("props-template-delete", index))
-                            .cursor_pointer()
-                            .ghost()
-                            .xsmall()
+                        crate::ui::kit::button::dense(("props-template-delete", index))
                             .icon(IconName::X)
                             .tooltip("Forget this look")
                             .on_click(move |_, _window, cx| {
@@ -247,13 +241,10 @@ impl DrawingProps {
                 .child(
                     div()
                         .w(px(170.))
-                        .child(Input::new(&self.template_name).small()),
+                        .child(crate::ui::kit::input::text(&self.template_name)),
                 )
                 .child(
-                    Button::new("props-template-save")
-                        .cursor_pointer()
-                        .primary()
-                        .small()
+                    crate::ui::kit::button::accent("props-template-save")
                         .icon(IconName::BookmarkPlus)
                         .label("Save")
                         .on_click(move |_, window, cx| {

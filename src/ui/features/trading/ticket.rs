@@ -36,9 +36,9 @@ use std::time::Duration;
 
 use crate::app::broker::trading::{NewOrderReq, NewOrderType};
 use crate::domain::trading::TradeSide;
+use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Window};
-use gpui_kit::component::input::{InputEvent, InputState};
 
 use crate::app::account::{Account, Busy};
 use crate::app::market_data::now_ms;

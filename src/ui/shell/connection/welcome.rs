@@ -1,8 +1,8 @@
 //! Screen 1: the very first thing a user sees, with nothing configured yet.
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{Window, div, px};
-use gpui_kit::assets::IconName;
 
 use super::ConnectionFlow;
 use crate::ui::kit::{anim, button, layout, theme, tokens};

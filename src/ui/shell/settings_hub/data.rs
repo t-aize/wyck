@@ -104,10 +104,7 @@ impl SettingsHub {
                 Some(
                     "One file: your look, charts and indicators, drawings and their saved looks, favorites, watchlists and alerts. No sign-in is in it",
                 ),
-                Button::new("backup-export")
-                    .cursor_pointer()
-                    .primary()
-                    .small()
+                crate::ui::kit::button::accent("backup-export")
                     .icon(IconName::FileDown)
                     .label("Export")
                     .on_click(move |_, window, cx| {
@@ -119,10 +116,7 @@ impl SettingsHub {
                 Some(
                     "Checked first, then applied when wyck starts again. What it replaces is saved first as a copy you can restore",
                 ),
-                Button::new("backup-import")
-                    .cursor_pointer()
-                    .ghost()
-                    .small()
+                crate::ui::kit::button::quiet("backup-import")
                     .icon(IconName::FileUp)
                     .label("Import")
                     .on_click(move |_, window, cx| {
@@ -153,10 +147,7 @@ impl SettingsHub {
                     .gap_2()
                     .pt_1p5()
                     .child(
-                        Button::new("backup-restart")
-                            .cursor_pointer()
-                            .primary()
-                            .small()
+                        crate::ui::kit::button::accent("backup-restart")
                             .icon(IconName::RefreshCw)
                             .label("Restart now")
                             .on_click(move |_, _window, cx| {
@@ -165,10 +156,7 @@ impl SettingsHub {
                             }),
                     )
                     .child(
-                        Button::new("backup-cancel")
-                            .cursor_pointer()
-                            .ghost()
-                            .small()
+                        crate::ui::kit::button::quiet("backup-cancel")
                             .label("Cancel the import")
                             .on_click(move |_, _window, cx| {
                                 cancel.update(cx, |e, cx| e.cancel_import(cx));
@@ -212,10 +200,7 @@ impl SettingsHub {
             Some(
                 "Kept in the backups folder, next to the automatic ones (one a day, the last seven)",
             ),
-            Button::new("backup-save-copy")
-                .cursor_pointer()
-                .ghost()
-                .small()
+            crate::ui::kit::button::quiet("backup-save-copy")
                 .icon(IconName::Archive)
                 .label("Save a copy")
                 .on_click({
@@ -243,10 +228,7 @@ impl SettingsHub {
                         .flex_row()
                         .gap_1()
                         .child(
-                            Button::new(("backup-restore", index))
-                                .cursor_pointer()
-                                .ghost()
-                                .small()
+                            crate::ui::kit::button::quiet(("backup-restore", index))
                                 .icon(IconName::RotateCcw)
                                 .label("Restore")
                                 .disabled(entry.sealed)
@@ -256,10 +238,7 @@ impl SettingsHub {
                                 }),
                         )
                         .child(
-                            Button::new(("backup-delete", index))
-                                .cursor_pointer()
-                                .ghost()
-                                .small()
+                            crate::ui::kit::button::quiet(("backup-delete", index))
                                 .icon(IconName::Trash)
                                 .on_click(move |_, _window, cx| {
                                     let id = delete_id.clone();
@@ -280,10 +259,7 @@ impl SettingsHub {
         let mut place: Vec<AnyElement> = vec![form::field(
             "Settings folder",
             Some("Where everything is kept, one readable file per kind of data"),
-            Button::new("backup-folder")
-                .cursor_pointer()
-                .ghost()
-                .small()
+            crate::ui::kit::button::quiet("backup-folder")
                 .icon(IconName::FolderOpen)
                 .label("Open")
                 .disabled(dir.is_none())
@@ -302,10 +278,7 @@ impl SettingsHub {
             place.push(form::field(
                 "Backups folder",
                 Some("Every saved copy, one readable file each"),
-                Button::new("backup-copies-folder")
-                    .cursor_pointer()
-                    .ghost()
-                    .small()
+                crate::ui::kit::button::quiet("backup-copies-folder")
                     .icon(IconName::FolderOpen)
                     .label("Open")
                     .on_click(move |_, _window, cx| {
@@ -324,10 +297,7 @@ impl SettingsHub {
                 Some(
                     "Appearance, layout, charts and their indicators, favorites, ticket settings, drawings and their saved looks, watchlists and alerts: all of it goes back to how it is on a fresh install, for every account. Your indicator scripts and your sign-in are not touched",
                 ),
-                Button::new("settings-reset-all")
-                    .cursor_pointer()
-                    .danger()
-                    .small()
+                crate::ui::kit::button::danger("settings-reset-all")
                     .icon(IconName::TriangleAlert)
                     .label("Reset everything")
                     .on_click(move |_, window, cx| {

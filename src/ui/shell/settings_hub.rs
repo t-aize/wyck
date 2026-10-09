@@ -4,12 +4,11 @@
 //! Every change applies at once and is saved as it is made, so there is nothing to confirm: the
 //! app behind the panel shows the result live.
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
+use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px, rgb};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::{Disableable, Sizable};
 
 use crate::app::appearance;
 use crate::app::appearance::presets::CANDLE_SETS;

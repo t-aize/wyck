@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use crate::domain::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
-use gpui_kit::assets::IconName;
+use crate::ui::kit::icon::IconName;
 
 use super::marks::{self, Icon};
 

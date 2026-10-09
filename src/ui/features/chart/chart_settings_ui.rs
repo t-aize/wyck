@@ -7,11 +7,10 @@
 //! opened, and Escape or the close button keep them.
 
 use crate::domain::market::PRICE_SCALE;
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::InputState;
 
 use super::options::{ChartColors, CrosshairStyle, ScaleMargin};
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
@@ -457,12 +456,9 @@ impl ChartSettingsEditor {
             },
         );
         let back = value.is_some().then(|| {
-            Button::new(SharedString::from(format!("chart-color-reset-{key:?}")))
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet(SharedString::from(format!("chart-color-reset-{key:?}")))
                 .icon(IconName::RotateCcw)
                 .tooltip("Back to the color of the theme")
-                .cursor_pointer()
                 .on_click(move |_, _window, cx| {
                     edit_chart(&reset, cx, |s| key.set(&mut s.colors, None));
                 })
@@ -1005,12 +1001,9 @@ impl ChartSettingsEditor {
     fn study_row(&self, index: usize, config: &StudyConfig) -> AnyElement {
         let spec = config.spec();
         let button = |id: &str, icon: IconName, tip: &'static str| {
-            Button::new(SharedString::from(format!("{id}-{index}")))
-                .ghost()
-                .compact()
+            crate::ui::kit::button::quiet(SharedString::from(format!("{id}-{index}")))
                 .icon(icon)
                 .tooltip(tip)
-                .cursor_pointer()
         };
         let (toggle, edit, remove) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let visible = config.visible;

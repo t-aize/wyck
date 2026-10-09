@@ -2,12 +2,11 @@
 
 use std::sync::Arc;
 
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
+use crate::ui::kit::prelude::Selectable;
 use gpui::prelude::*;
 use gpui::{Context, FontFeatures, FontWeight, MouseButton, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
-use gpui_kit::component::button::{Button, ButtonVariants};
-use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::{Selectable, Sizable};
 
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
@@ -495,17 +494,14 @@ impl Dashboard {
             .flex_row()
             .items_center()
             .gap_1p5()
-            .children(self.tf_custom.as_ref().map(|state| {
-                div()
-                    .w(px(78.))
-                    .child(gpui_kit::component::input::Input::new(state).small())
-            }))
+            .children(
+                self.tf_custom
+                    .as_ref()
+                    .map(|state| div().w(px(78.)).child(crate::ui::kit::input::text(state))),
+            )
             .child(units)
             .child(
-                Button::new("tf-add")
-                    .cursor_pointer()
-                    .small()
-                    .primary()
+                crate::ui::kit::button::accent("tf-add")
                     .label("Add")
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.add_custom_timeframe(window, cx);
@@ -554,22 +550,17 @@ impl Dashboard {
             .items_center()
             .gap_0p5()
             .child(
-                Button::new("toggle-panel")
-                    .ghost()
-                    .small()
+                crate::ui::kit::button::quiet("toggle-panel")
                     .selected(self.panel_open)
                     .icon(IconName::PanelBottom)
                     .tooltip("Positions, orders and alerts")
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         let open = !this.panel_open;
                         this.set_panel_open(open, cx);
                     })),
             )
             .child(
-                Button::new("toggle-ticket")
-                    .ghost()
-                    .small()
+                crate::ui::kit::button::quiet("toggle-ticket")
                     .selected(self.ticket_open)
                     .icon(if ticket_on_left {
                         IconName::PanelLeft
@@ -577,7 +568,6 @@ impl Dashboard {
                         IconName::PanelRight
                     })
                     .tooltip("Order ticket")
-                    .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
                         let open = !this.ticket_open;
                         this.set_ticket_open(open, cx);
@@ -683,9 +673,7 @@ impl Dashboard {
 
     fn fullscreen_button(&self, window: &mut Window) -> impl IntoElement {
         let fullscreen = window.is_fullscreen();
-        Button::new("toggle-fullscreen")
-            .ghost()
-            .small()
+        crate::ui::kit::button::quiet("toggle-fullscreen")
             .icon(if fullscreen {
                 IconName::Minimize
             } else {
@@ -696,7 +684,6 @@ impl Dashboard {
             } else {
                 "Full screen"
             })
-            .cursor_pointer()
             .on_click(|_event, window, _cx| window.toggle_fullscreen())
     }
 
@@ -775,9 +762,7 @@ impl Dashboard {
             )
             .child(self.menu_figures(cx))
             .child(
-                Button::new("open-settings")
-                    .cursor_pointer()
-                    .outline()
+                crate::ui::kit::button::outlined("open-settings")
                     .w_full()
                     .icon(IconName::Settings)
                     .label("Settings  (Ctrl+,)")
@@ -803,14 +788,13 @@ impl Dashboard {
                     ),
             )
             .child(
-                button::primary(
+                button::wide_danger(
                     "disconnect-account",
                     "Disconnect",
                     cx.listener(|_this, _event, _window, cx| {
                         cx.emit(DashboardEvent::Disconnect);
                     }),
                 )
-                .danger()
                 .icon(IconName::Unplug),
             );
 

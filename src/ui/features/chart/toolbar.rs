@@ -5,9 +5,9 @@
 //! entries with icons and check marks. On a chart too small for all of them, the type and the
 //! settings stay and the rest goes into one menu.
 
+use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};
-use gpui_kit::assets::IconName;
 
 use super::lines::to_real;
 use super::overlay::{KIND_SECTIONS, kind_icon};
