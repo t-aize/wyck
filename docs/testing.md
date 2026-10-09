@@ -28,3 +28,6 @@ Run it after every phase that touches startup, windows, or the UI, on a demo acc
 
 - Window title bar behavior on Windows 11, macOS, X11, GNOME Wayland (phase 7).
 - Masked secret field and Enter key in the sign-in form (phase 11).
+- A confirmation opened from a settings panel (reset, delete) shows over the panel, and the panel
+  is back after Cancel (phase 10).
+- Shortcut hints read `Cmd` and `Option` on a Mac.

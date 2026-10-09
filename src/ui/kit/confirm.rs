@@ -36,7 +36,7 @@ pub fn confirm(
         label: "Confirm",
         then: Rc::new(then),
     });
-    modal::open(
+    modal::open_over(
         view,
         modal::Options::new(WIDTH, HEIGHT).label(label),
         window,
@@ -82,7 +82,7 @@ pub fn confirm_details(
         warnings: details.warnings,
         then: Rc::new(then),
     });
-    modal::open(
+    modal::open_over(
         view,
         modal::Options::new(WIDTH, height.min(640.0)).label(label),
         window,

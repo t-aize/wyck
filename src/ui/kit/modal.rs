@@ -7,7 +7,8 @@
 //! The header of a panel is its handle: dragging it moves the panel anywhere in the window (see
 //! [`begin_drag`]). The position is forgotten when the next modal opens.
 //!
-//! Only one modal is open at a time: opening another replaces the first at once.
+//! [`open`] replaces the modal that is open. [`open_over`] puts a small one (a confirmation) above
+//! it instead: the panel below stays, dimmed, and comes back when the one above closes.
 //!
 //! For the keyboard: Tab and Shift+Tab cycle inside the panel and never reach what is behind it
 //! (a focus trap), and on opening the focus moves to the first control of the panel, unless the
@@ -26,9 +27,9 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Entity, FocusHandle, Global,
-    KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window, actions,
-    div, point, px, relative,
+    Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Div, Entity, FocusHandle,
+    Global, KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window,
+    actions, div, point, px, relative,
 };
 use gpui_kit::component::FocusTrapElement as _;
 
@@ -109,6 +110,8 @@ struct Shown {
     options: Options,
     leaving: bool,
     previous_focus: Option<FocusHandle>,
+    /// Where the panel sat when another one was put above it.
+    offset: Point<Pixels>,
 }
 
 /// A drag of the header: where the mouse went down, and where the panel was then.
@@ -119,6 +122,8 @@ struct Drag {
 
 pub struct ModalHost {
     shown: Option<Shown>,
+    /// The panel a confirmation was opened over, shown dimmed below it.
+    under: Option<Shown>,
     /// How far the panel has been moved from the center of the window.
     offset: Point<Pixels>,
     drag: Option<Drag>,
@@ -137,6 +142,7 @@ pub fn host(cx: &mut App) -> Entity<ModalHost> {
     }
     let host = cx.new(|cx| ModalHost {
         shown: None,
+        under: None,
         offset: point(px(0.), px(0.)),
         drag: None,
         next_id: 0,
@@ -150,6 +156,13 @@ pub fn host(cx: &mut App) -> Entity<ModalHost> {
 pub fn open(view: impl Into<AnyView>, options: Options, window: &mut Window, cx: &mut App) {
     let view = view.into();
     host(cx).update(cx, |host, cx| host.open(view, options, window, cx));
+}
+
+/// Opens `view` above the modal that is open, which stays below it and comes back when this one
+/// closes. Without a modal open it is the same as [`open`].
+pub fn open_over(view: impl Into<AnyView>, options: Options, window: &mut Window, cx: &mut App) {
+    let view = view.into();
+    host(cx).update(cx, |host, cx| host.open_over(view, options, window, cx));
 }
 
 /// Starts moving the panel: call it when the mouse goes down on the header, with its position. The
@@ -185,12 +198,49 @@ impl ModalHost {
             Some(old) => old.previous_focus,
             None => window.focused(cx),
         };
+        let previous_focus = match self.under.take() {
+            Some(under) => under.previous_focus,
+            None => previous_focus,
+        };
         self.shown = Some(Shown {
             id: self.next_id,
             view,
             options,
             leaving: false,
             previous_focus,
+            offset: point(px(0.), px(0.)),
+        });
+        window.focus(&self.focus, cx);
+        self.focus_first_control(self.next_id, window, cx);
+        cx.notify();
+    }
+
+    fn open_over(
+        &mut self,
+        view: AnyView,
+        options: Options,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.shown.as_ref().is_some_and(|s| !s.leaving) || self.under.is_some() {
+            self.open(view, options, window, cx);
+            return;
+        }
+        self.next_id += 1;
+        self.drag = None;
+        if let Some(mut below) = self.shown.take() {
+            below.offset = self.offset;
+            self.under = Some(below);
+        }
+        self.offset = point(px(0.), px(0.));
+        self.shown = Some(Shown {
+            id: self.next_id,
+            view,
+            options,
+            leaving: false,
+            // Closing the confirmation puts the focus back inside the panel below.
+            previous_focus: window.focused(cx),
+            offset: point(px(0.), px(0.)),
         });
         window.focus(&self.focus, cx);
         self.focus_first_control(self.next_id, window, cx);
@@ -286,6 +336,10 @@ impl ModalHost {
     /// Starts the exit, then removes the modal once it has played.
     fn leave(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(shown) = self.shown.as_mut().filter(|s| !s.leaving) else {
+            // Closing again while a confirmation leaves closes the panel below it as well.
+            if self.shown.is_some() {
+                self.under = None;
+            }
             return;
         };
         shown.leaving = true;
@@ -299,7 +353,10 @@ impl ModalHost {
             this.update(cx, |this, cx| {
                 // A modal opened meanwhile is not this one.
                 if this.shown.as_ref().is_some_and(|s| s.id == id) {
-                    this.shown = None;
+                    this.shown = this.under.take();
+                    if let Some(back) = &this.shown {
+                        this.offset = back.offset;
+                    }
                     cx.notify();
                 }
             })
@@ -315,7 +372,6 @@ impl Render for ModalHost {
             return div().into_any_element();
         };
         let (id, leaving) = (shown.id, shown.leaving);
-        let (width, height) = (shown.options.width, shown.options.height);
         let dismiss_on_veil = shown.options.dismiss_on_veil;
         let offset = self.offset;
         let dragging = self.drag.is_some();
@@ -345,33 +401,38 @@ impl Render for ModalHost {
                 move |el, t| el.opacity(progress(t)),
             );
 
-        let panel: AnyElement = div()
-            .relative()
-            .w(px(width))
-            .h(px(height))
-            .max_w(relative(MAX_WIDTH_SHARE))
-            .max_h(relative(MAX_HEIGHT_SHARE))
-            // The panel takes its clicks: the veil behind it must not.
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .id("wyck-modal-dialog")
-                    .role(Role::Dialog)
-                    .aria_label(shown.options.label.clone())
-                    .size_full()
-                    .child(shown.view.clone()),
-            )
-            .with_animation(
-                ("modal-panel", phase),
-                Animation::new(duration),
-                move |el, t| {
-                    let t = progress(t);
-                    el.opacity(t)
-                        .left(offset.x)
-                        .top(offset.y + px((1.0 - t) * RISE))
-                },
-            )
-            .into_any_element();
+        let panel = panel_of(
+            shown,
+            move |el: Div, t: f32| {
+                let t = progress(t);
+                el.opacity(t)
+                    .left(offset.x)
+                    .top(offset.y + px((1.0 - t) * RISE))
+            },
+            ("modal-panel", phase),
+            duration,
+        );
+        // The panel a confirmation was opened over stays where it was, behind a second veil.
+        let below = self.under.as_ref().map(|under| {
+            let at = under.offset;
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(panel_still(under, at))
+                .child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_full()
+                        .bg(crate::ui::kit::theme::veil()),
+                )
+        });
 
         div()
             .key_context("Modal")
@@ -400,6 +461,7 @@ impl Render for ModalHost {
                     }
                 }),
             ))
+            .children(below)
             .child(
                 div()
                     .absolute()
@@ -427,4 +489,44 @@ impl Render for ModalHost {
             .focus_trap("wyck-modal-trap", &self.focus)
             .into_any_element()
     }
+}
+
+/// The box of a panel: the size asked for, clamped to the window, with its view inside. `animate`
+/// wraps it in the entering or leaving animation.
+fn panel_of(
+    shown: &Shown,
+    animate: impl Fn(Div, f32) -> Div + 'static,
+    id: (&'static str, u64),
+    duration: Duration,
+) -> AnyElement {
+    panel_box(shown)
+        .with_animation(id, Animation::new(duration), animate)
+        .into_any_element()
+}
+
+/// A panel that is not animating: the one below a confirmation.
+fn panel_still(shown: &Shown, offset: Point<Pixels>) -> AnyElement {
+    panel_box(shown)
+        .left(offset.x)
+        .top(offset.y)
+        .into_any_element()
+}
+
+fn panel_box(shown: &Shown) -> Div {
+    div()
+        .relative()
+        .w(px(shown.options.width))
+        .h(px(shown.options.height))
+        .max_w(relative(MAX_WIDTH_SHARE))
+        .max_h(relative(MAX_HEIGHT_SHARE))
+        // The panel takes its clicks: the veil behind it must not.
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .child(
+            div()
+                .id("wyck-modal-dialog")
+                .role(Role::Dialog)
+                .aria_label(shown.options.label.clone())
+                .size_full()
+                .child(shown.view.clone()),
+        )
 }

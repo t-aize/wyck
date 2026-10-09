@@ -35,6 +35,11 @@ tab stop and answers Enter and Space.
 - No `Button::new` and no `px(<literal>)` outside the kit (the count in the baseline only goes
   down).
 
+## Shortcut hints
+
+A hint is written with `Ctrl` and passed through `ui::kit::shortcut::text`, which says `Cmd` and
+`Option` on a Mac. Bindings use `secondary`, so the hint and the key agree.
+
 ## Inputs
 
 One text field stack, the kit's. Secret fields mask their content, offer a reveal toggle and do
@@ -42,9 +47,10 @@ not copy or cut the real text.
 
 ## Modals
 
-One modal system, from the kit. A confirmation can open over a settings panel without closing it.
-Escape and a click on the veil close a dismissible modal; a blocking modal (sign-in) ignores
-both and shakes.
+One modal system, from the kit (`ui::kit::modal`). `modal::open` replaces the modal that is open;
+`modal::open_over` (used by `confirm`) puts a confirmation above it, and the panel below comes
+back when the confirmation closes. Escape and a click on the veil close a dismissible modal; the
+sign-in modal is not part of this system and ignores both (it shakes).
 
 ## Window
 

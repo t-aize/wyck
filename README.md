@@ -48,19 +48,19 @@ package remains managed by the package manager.
 
 ## Layout
 
-One Cargo package, `wyck`: `src/lib.rs` holds the app, `src/main.rs` only starts it. Modules, by
-role (they are being regrouped into four layers, see `docs/ROADMAP.md`):
+One Cargo package, `wyck`: `src/lib.rs` declares the modules, `src/main.rs` only starts the app.
+The code is in four layers, and a lower layer never imports a higher one (a test checks it):
 
-| Module | Owns |
+| Layer | Owns |
 |---|---|
-| `src/openapi` | cTrader Open API client: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
-| `src/infra/storage` | Native settings, documents, backups, indicator files and credential storage |
-| `src/chart_core` | Chart data, calculations, studies, drawings and scene commands |
-| `src/ui/kit` | Widget kit, theme and sizes shared by every screen |
-| the other `src/*` modules | GPUI screens and the app's own services (`src/services`) |
+| `src/domain` | Pure logic: market data, trading maths, indicators, drawings, chart models |
+| `src/infra` | The cTrader Open API client, settings and credential storage, the async runtime |
+| `src/app` | State and use cases: sign-in, account, alerts, preferences, market data |
+| `src/ui` | GPUI screens: the widget kit (`ui/kit`), the window and dashboard (`ui/shell`), the features |
 
-Every control, menu, dialog and color comes from the widget kit. The Open API guide is in the
-documentation of the `openapi` module (`cargo doc --open`).
+Every control, menu, dialog and color comes from the widget kit. Architecture, conventions and
+recipes for adding things are in [docs/](docs/); the Open API client is described in
+`docs/ctrader-client.md` and in the rustdoc of `infra::ctrader` (`cargo doc --open`).
 
 ## Your own indicators
 
@@ -97,14 +97,14 @@ app reads on its own. The header has a button for the folder and for a full edit
 
 ```sh
 cargo build
-cargo test --workspace
+cargo test
 ```
 
 `cargo test` never touches the network: it is entirely mock servers and unit tests.
 
 The first build is slow because the dependency graph is large and dependencies are compiled
 with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
-Later builds only rebuild the changed crates.
+Later builds only recompile what changed in this package.
 
 ## Test against a real demo account
 
@@ -121,9 +121,9 @@ The same checks run in CI on Linux, Windows and macOS:
 
 ```sh
 cargo fmt --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ```
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)

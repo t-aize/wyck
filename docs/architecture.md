@@ -20,7 +20,7 @@ ui       gpui rendering: kit (design system), shell (frame), features (one modul
 | `domain` | `domain` |
 | `infra` | `domain`, `infra` |
 | `app` | `domain`, `infra`, `app` |
-| `ui::kit` | `ui::kit` |
+| `ui::kit` | `domain`, `ui::kit` (the palette is domain data) |
 | `ui::features::X` | `domain`, `app`, `ui::kit`, itself, and a lower feature (chart < multichart < the others) |
 | `ui::shell` | `domain`, `app`, `ui::kit`, `ui::features`, `ui::shell` |
 
@@ -38,21 +38,30 @@ Crate-level rules checked by the same test:
 src/
   lib.rs, main.rs
   domain/
+    appearance.rs the color palette and the look put in force with it
     chart/        chart models: data, timeframe, view, transform, projection, scene, formats
     drawings/     drawing objects, geometry, the drawing book, the position tool
     indicators/   built-in studies, math, script engine (Rhai), catalog
+    market/       bars, ticks, quotes, symbols, price scale, hours
+    trading/      positions, orders, the account book, contract math, margin, guard, plans
   infra/
     ctrader/      cTrader Open API: wire, transport, session, oauth, market/account/trading/margin
-    platform/     async runtime, build facts, self-update
-    storage/      paths, documents, backups, secrets, tokens, indicator script store
+    platform/     async runtime, build facts
+    storage/      paths, documents, backups, secrets, tokens, the scripts folder
   app/
     alerts/       alert rules, evaluation, sounds
     appearance/   theme choice, UI scale, fonts
+    account.rs    the account entity: positions, orders, notices
+    drawings.rs   the live copy of the drawings
+    market_data/  history loading and the live price hub
+    prefs/        one document per feature
+    scripts/      the indicator scripts folder, read in the background
+    sign_in/      the sign-in state machine and its steps
     token_store/  adapter between the session and the secret store
     workspace/    saved layouts, preferences, the saver
   ui/
     kit/          design system: tokens, theme, controls, forms, menus, modal, toast
-    shell/        connection flow, dashboard, settings hub
+    shell/        window root, sign-in modal, dashboard, settings hub
     features/     chart, trading, indicators, multichart
     assets.rs     embedded fonts and marks
 tests/            integration tests: architecture, cTrader session, storage lifecycle
@@ -60,10 +69,8 @@ examples/         runnable cTrader and storage tools
 docs/             this folder
 ```
 
-Known deviations, tracked in `tests/architecture-baseline.txt`: some pure code still lives in
-`infra::ctrader` (account book, contract math, market types) and `ui::features::trading`
-(ticket math, guard, plan); `ui::features::trading::account` is state and belongs in `app`.
-Each move shrinks the baseline.
+`tests/architecture-baseline.txt` lists the violations tolerated while the code moved. It is
+empty now: any new violation fails the test.
 
 ## Enforcement
 

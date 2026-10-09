@@ -22,8 +22,18 @@ The client lives in `src/infra/ctrader/`. It speaks the cTrader Open API over it
 
 `session::Session` keeps one account connected:
 
-- Heartbeat every 5 seconds.
-- Reconnect with exponential backoff (1 s doubling to 60 s, up to 20 % jitter).
+- Heartbeat every 5 seconds. A connection that says nothing for `silence_timeout` (30 s) is
+  treated as dead and replaced; the transport pings on every heartbeat so a quiet but healthy
+  server still answers.
+- Reconnect with exponential backoff (1 s doubling to 60 s, up to 20 % jitter). The wait starts
+  over only after a connection that lasted `stable_after` (30 s), so a server that accepts and
+  drops at once is not hammered.
+- The access token is renewed on the live connection when it comes within `refresh_margin` (one
+  day) of expiry; the connection is kept, the new pair is stored for the next reconnect. A store
+  that fails to save the new pair is reported (`SessionEvent::TokensNotSaved`) and the session
+  carries on with the pair in memory.
+- A token endpoint that answers 5xx, 429 or 408 is retried like a network failure. Only an
+  explicit refusal (`ErrorKind::SignIn`) ends the session.
 - Spot, live bar and depth subscriptions are restored after each reconnect.
 - `AccountDisconnectEvent` re-authorizes the account on the same connection;
   `ClientDisconnectEvent` reconnects; an invalidated token refreshes and reconnects.
@@ -42,6 +52,7 @@ The client lives in `src/infra/ctrader/`. It speaks the cTrader Open API over it
 
 ## Known gaps
 
-Tracked in `docs/ROADMAP.md`, phase 13: no silence watchdog on a half-open socket, no scheduled
-token refresh while connected, a transient token endpoint failure ends the session, the reconnect
-backoff resets after any successful connect.
+- The OAuth `state` of the redirect is checked when present but not required: the portal's
+  documentation does not say that it echoes it. See `docs/ROADMAP.md`.
+- Positions, orders and deals are still the serde types of the wire (`domain::trading::types`)
+  with raw integer fields; typed domain objects behind a mapping layer are not started.
