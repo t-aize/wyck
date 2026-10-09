@@ -14,7 +14,7 @@ use serde_json::json;
 use tokio::sync::broadcast::error::RecvError;
 use wyck::infra::ctrader::config::ConnectionConfig;
 use wyck::infra::ctrader::transport::wire::payload;
-use wyck::infra::ctrader::{Client, DisconnectReason, Error, ErrorKind, Event};
+use wyck::infra::ctrader::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
 
 fn version_answers() -> Vec<(u32, u32, serde_json::Value)> {
     vec![(
@@ -352,4 +352,53 @@ async fn a_peer_that_vanishes_without_a_goodbye_ends_the_connection_cleanly() {
     );
     assert!(client.is_closed());
     assert_eq!(accepted.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_server_that_goes_silent_is_given_up_on_without_a_failed_write() {
+    // The handshake completes, then the server never reads or writes again: a socket that is
+    // still open at both ends and carries nothing, as a dropped route looks.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("ws://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+        // Held open and left alone.
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        drop(socket);
+    });
+
+    let mut config = ConnectionConfig::with_url(url);
+    config.heartbeat_interval = Duration::from_millis(100);
+    config.silence_timeout = Duration::from_millis(600);
+    let client = Client::connect(&config).await.unwrap();
+    let mut events = client.events();
+
+    let started = Instant::now();
+    let reason = loop {
+        let event = tokio::time::timeout(Duration::from_secs(3), events.recv())
+            .await
+            .expect("the silent connection was given up on")
+            .unwrap();
+        if let Event::Disconnected(reason) = event {
+            break reason;
+        }
+    };
+    assert!(started.elapsed() < Duration::from_secs(3));
+    assert!(
+        matches!(&reason, DisconnectReason::Failed(text) if text.contains("nothing heard")),
+        "{reason:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_server_that_keeps_answering_is_not_taken_for_dead() {
+    let server = MockServer::start(answers(vec![])).await;
+    let mut config = config(&server);
+    config.heartbeat_interval = Duration::from_millis(100);
+    config.silence_timeout = Duration::from_millis(500);
+    let client = Client::connect(&config).await.unwrap();
+    // Several silence limits pass; the pings are answered, so the connection stays up.
+    tokio::time::sleep(Duration::from_millis(1800)).await;
+    assert_eq!(*client.state().borrow(), ConnectionState::Connected);
 }

@@ -54,6 +54,11 @@ pub struct ConnectionConfig {
     /// How often a heartbeat is sent. The server drops a connection that is silent for more
     /// than 10 seconds, so keep it well under that.
     pub heartbeat_interval: Duration,
+    /// How long the connection may stay without hearing anything from the server (a message, a
+    /// ping or a pong) before it is treated as dead and closed, so a session can reconnect. A
+    /// half-open socket (a cable pulled, a router that dropped the route) fails no write for
+    /// minutes otherwise. `Duration::ZERO` turns the check off.
+    pub silence_timeout: Duration,
     /// How many events may wait unread before the slowest reader starts to lose the oldest.
     pub event_capacity: usize,
     /// Requests per second for everything but history. The documented limit is 50; the default is
@@ -86,6 +91,7 @@ impl ConnectionConfig {
             connect_timeout: Duration::from_secs(10),
             request_timeout: Duration::from_secs(30),
             heartbeat_interval: Duration::from_secs(5),
+            silence_timeout: Duration::from_secs(30),
             event_capacity: 8192,
             standard_rate: 40,
             historical_rate: 4,
@@ -116,6 +122,11 @@ impl ConnectionConfig {
         }
         if self.heartbeat_interval.is_zero() || self.heartbeat_interval >= Duration::from_secs(10) {
             return bad("the heartbeat interval must be under 10 seconds");
+        }
+        if !self.silence_timeout.is_zero() && self.silence_timeout < self.heartbeat_interval * 2 {
+            return bad(
+                "the silence timeout must be zero (off) or at least twice the heartbeat interval",
+            );
         }
         if self.event_capacity == 0 {
             return bad("the event capacity must be at least 1");
@@ -182,6 +193,14 @@ mod tests {
         config = ConnectionConfig::with_url("ws://127.0.0.1:1");
         config.max_retry_wait = Duration::ZERO;
         assert!(config.validate().is_err());
+        config = ConnectionConfig::with_url("ws://127.0.0.1:1");
+        config.silence_timeout = config.heartbeat_interval;
+        assert!(
+            config.validate().is_err(),
+            "a silence limit under two heartbeats"
+        );
+        config.silence_timeout = Duration::ZERO;
+        assert!(config.validate().is_ok(), "zero turns it off");
         config = ConnectionConfig::with_url("ws://127.0.0.1:1");
         config.request_timeout = Duration::ZERO;
         assert!(config.validate().is_err());

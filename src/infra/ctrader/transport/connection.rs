@@ -99,6 +99,7 @@ struct Shared {
     standard: RateLimiter,
     historical: RateLimiter,
     request_timeout: Duration,
+    silence_timeout: Duration,
     rate_limit_retries: u32,
     max_retry_wait: Duration,
     /// How many live [`Client`] values point at this connection, `run` itself excluded (it holds
@@ -267,6 +268,7 @@ impl Client {
             standard: RateLimiter::new(config.standard_rate),
             historical: RateLimiter::new(config.historical_rate),
             request_timeout: config.request_timeout,
+            silence_timeout: config.silence_timeout,
             rate_limit_retries: config.rate_limit_retries,
             max_retry_wait: config.max_retry_wait,
             handles: AtomicUsize::new(1),
@@ -670,13 +672,26 @@ async fn run<S>(
     // The first tick of an interval is immediate; the connection is fresh, skip it.
     beat.tick().await;
     let mut shutdown = shared.shutdown.subscribe();
+    let mut last_heard = tokio::time::Instant::now();
 
     let reason = loop {
         if *shutdown.borrow() {
             break DisconnectReason::ClosedByClient;
         }
+        // Past this moment without a frame from the server, the connection is taken for dead.
+        let silent = async {
+            if shared.silence_timeout.is_zero() {
+                std::future::pending::<()>().await;
+            } else {
+                tokio::time::sleep_until(last_heard + shared.silence_timeout).await;
+            }
+        };
         tokio::select! {
             biased;
+            () = silent => break DisconnectReason::Failed(format!(
+                "nothing heard from the server for {} seconds",
+                shared.silence_timeout.as_secs()
+            )),
             _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
             message = outgoing.recv() => match message {
                 Some(Outgoing::Text(text)) => {
@@ -695,7 +710,9 @@ async fn run<S>(
                 }
                 None => break DisconnectReason::ClosedByClient,
             },
-            frame = stream.next() => match frame {
+            frame = stream.next() => {
+                last_heard = tokio::time::Instant::now();
+                match frame {
                 Some(Ok(Message::Text(text))) => {
                     if let Some(reason) = handle_text(&shared, text.as_str()) {
                         break reason;
@@ -713,6 +730,7 @@ async fn run<S>(
                 Some(Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_))) => {}
                 Some(Ok(Message::Close(_))) | None => break DisconnectReason::ClosedByServer,
                 Some(Err(error)) => break DisconnectReason::Failed(error.to_string()),
+                }
             },
             _ = beat.tick() => {
                 let text = match Envelope::heartbeat().to_text() {
@@ -730,6 +748,11 @@ async fn run<S>(
                     Ok(Ok(())) => {}
                     Ok(Err(error)) => break DisconnectReason::Failed(error.to_string()),
                     Err(_) => break DisconnectReason::Failed("WebSocket heartbeat timed out".into()),
+                }
+                // A ping too: an idle connection that is alive answers it, which is what the
+                // silence check listens for.
+                if sink.send(Message::Ping(Vec::new().into())).await.is_err() {
+                    break DisconnectReason::Failed("WebSocket ping failed".into());
                 }
             }
         }
