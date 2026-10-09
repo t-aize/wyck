@@ -65,7 +65,7 @@ impl Dashboard {
             }
             Load::Loading => return,
         }
-        self.menu_open = false;
+        self.close_menus();
         let input = cx.new(|cx| TextInput::new(cx, "Search symbols, e.g. EURUSD or gold"));
         let observe = cx.observe(&input, |_this, _input, cx| cx.notify());
         window.focus(&input.focus_handle(cx), cx);
@@ -98,9 +98,7 @@ impl Dashboard {
         }
         self.drop_peek();
         self.picker = None;
-        self.menu_open = false;
-        self.tf_menu_open = false;
-        self.layout_menu_open = false;
+        self.close_menus();
         window.focus(&self.focus_handle, cx);
         cx.notify();
     }

@@ -801,6 +801,16 @@ impl MultiChart {
             .update(cx, |drawings, cx| drawings.edit(cx, |book| book.finish()))
     }
 
+    /// Escape: closes the menu a chart has open (the time zone one). Returns whether one was.
+    pub fn close_menus(&mut self, cx: &mut Context<Self>) -> bool {
+        let charts: Vec<_> = self.slots.iter().map(|slot| slot.chart.clone()).collect();
+        let mut closed = false;
+        for chart in charts {
+            closed |= chart.update(cx, |chart, cx| chart.close_menu(cx));
+        }
+        closed
+    }
+
     /// Escape: gives up what the drawing tools have in progress. Returns whether there was any.
     pub fn cancel_drawing(&mut self, cx: &mut Context<Self>) -> bool {
         if self.flyout.take().is_some() || std::mem::take(&mut self.tool_search) {

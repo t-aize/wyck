@@ -9,7 +9,7 @@ use gpui::prelude::*;
 use gpui::{Context, FontFeatures, FontWeight, MouseButton, SharedString, Window, div, px};
 
 use super::marks;
-use super::{Conn, Dashboard, DashboardEvent, Tick};
+use super::{Conn, Dashboard, DashboardEvent, MenuKind, Tick};
 use crate::ui::features::{chart, trading};
 use crate::ui::kit::{anim, button, controls, icon, layout, menu, theme, tokens};
 
@@ -232,7 +232,7 @@ impl Dashboard {
     /// The favorite timeframes as buttons, and a button that opens all of them: ticks, seconds,
     /// minutes, hours and days.
     fn timeframe_strip(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.tf_menu_open && self.tf_custom.is_none() {
+        if self.menu_is(MenuKind::Timeframes) && self.tf_custom.is_none() {
             let state = cx.new(|cx| InputState::new(window, cx).placeholder("e.g. 7"));
             cx.subscribe_in(
                 &state,
@@ -271,14 +271,12 @@ impl Dashboard {
             } else {
                 theme::fg()
             })
-            .when(!in_quick || self.tf_menu_open, |el| {
+            .when(!in_quick || self.menu_is(MenuKind::Timeframes), |el| {
                 el.bg(theme::accent_selected())
             })
             .hover(|style| style.bg(theme::surface_hover()))
             .on_click(cx.listener(|this, _event, _window, cx| {
-                this.tf_menu_open = !this.tf_menu_open;
-                this.layout_menu_open = false;
-                cx.notify();
+                this.toggle_menu(MenuKind::Timeframes, cx);
             }))
             .when(!in_quick, |el| el.child(current.label()))
             .child(icon::tinted(IconName::ChevronDown, 14., theme::muted_fg()));
@@ -292,16 +290,15 @@ impl Dashboard {
             .gap_0p5()
             .children(quick)
             .child(
-                div()
-                    .relative()
-                    .flex_none()
-                    .child(more)
-                    .children(self.tf_menu_open.then(|| self.timeframe_menu(current, cx))),
+                div().relative().flex_none().child(more).children(
+                    self.menu_is(MenuKind::Timeframes)
+                        .then(|| self.timeframe_menu(current, cx)),
+                ),
             )
     }
 
     fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
-        self.tf_menu_open = false;
+        self.close_menus();
         self.multi
             .update(cx, |multi, cx| multi.set_timeframe(timeframe, cx));
         cx.notify();
@@ -616,7 +613,7 @@ impl Dashboard {
                 .text_color(color)
                 .child(value)
         };
-        let open = self.menu_open;
+        let open = self.menu_is(MenuKind::Account);
         div()
             .id("account-pill")
             .flex_none()
@@ -636,10 +633,7 @@ impl Dashboard {
             .cursor_pointer()
             .hover(|s| s.bg(theme::surface_hover()))
             .on_click(cx.listener(|this, _, _, cx| {
-                this.menu_open = !this.menu_open;
-                this.tf_menu_open = false;
-                this.layout_menu_open = false;
-                cx.notify();
+                this.toggle_menu(MenuKind::Account, cx);
             }))
             .child(dot)
             .child(layout::environment_badge(self.account.is_live))
@@ -733,7 +727,7 @@ impl Dashboard {
 
     /// The menu under the account: its figures, and disconnecting.
     pub(super) fn render_menu(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
-        if !self.menu_open {
+        if !self.menu_is(MenuKind::Account) {
             return None;
         }
         let card = menu::panel(tokens::menu::PANEL_WIDTH)
@@ -764,7 +758,7 @@ impl Dashboard {
                     .icon(IconName::Settings)
                     .label(crate::ui::kit::shortcut::text("Settings  (Ctrl+,)"))
                     .on_click(cx.listener(|this, _event, window, cx| {
-                        this.menu_open = false;
+                        this.close_menus();
                         cx.notify();
                         crate::ui::shell::settings_hub::open(
                             this.workspace.clone(),
@@ -788,8 +782,19 @@ impl Dashboard {
                 button::wide_danger(
                     "disconnect-account",
                     "Disconnect",
-                    cx.listener(|_this, _event, _window, cx| {
-                        cx.emit(DashboardEvent::Disconnect);
+                    cx.listener(|this, _event, window, cx| {
+                        this.close_menus();
+                        cx.notify();
+                        let dashboard = cx.entity();
+                        crate::ui::kit::confirm::confirm(
+                            window,
+                            cx,
+                            "Disconnect?",
+                            "The saved sign-in is removed from this device. You can connect again anytime.",
+                            move |_window, cx| {
+                                dashboard.update(cx, |_, cx| cx.emit(DashboardEvent::Disconnect));
+                            },
+                        );
                     }),
                 )
                 .icon(IconName::Unplug),
@@ -805,7 +810,7 @@ impl Dashboard {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _event, _window, cx| {
-                    this.menu_open = false;
+                    this.close_menus();
                     cx.notify();
                 }),
             )

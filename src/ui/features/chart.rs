@@ -315,6 +315,17 @@ pub enum Menu {
     Zone,
 }
 
+impl Chart {
+    /// Closes the menu that is open, if any. Returns whether there was one.
+    pub fn close_menu(&mut self, cx: &mut Context<Self>) -> bool {
+        let was_open = self.menu.take().is_some();
+        if was_open {
+            cx.notify();
+        }
+        was_open
+    }
+}
+
 /// A time and price under the pointer.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hover {

@@ -4,7 +4,7 @@
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 
-use super::Dashboard;
+use super::{Dashboard, MenuKind};
 use crate::ui::features::multichart::icon::layout_icon;
 use crate::ui::features::multichart::layouts;
 use crate::ui::features::multichart::layouts::LayoutKey;
@@ -54,7 +54,7 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let key = self.multi.read(cx).layout_key();
-        let open = self.layout_menu_open;
+        let open = self.menu_is(MenuKind::Layouts);
         div()
             .relative()
             .flex_none()
@@ -71,8 +71,7 @@ impl Dashboard {
                     .when(open, |el| el.bg(theme::accent_selected()))
                     .hover(|style| style.bg(theme::surface_hover()))
                     .on_click(cx.listener(|this, _event, _window, cx| {
-                        this.layout_menu_open = !this.layout_menu_open;
-                        this.tf_menu_open = false;
+                        this.toggle_menu(MenuKind::Layouts, cx);
                         cx.notify();
                     }))
                     .child(layout_icon(layouts::layout(key), 20., 16., false)),
@@ -81,7 +80,7 @@ impl Dashboard {
     }
 
     pub(super) fn pick_layout(&mut self, key: LayoutKey, cx: &mut Context<Self>) {
-        self.layout_menu_open = false;
+        self.close_menus();
         self.multi.update(cx, |multi, cx| multi.set_layout(key, cx));
         cx.notify();
     }
@@ -166,7 +165,7 @@ impl Dashboard {
                 .text_color(theme::muted_fg())
                 .hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
                 .on_click(cx.listener(|this, _event, _window, cx| {
-                    this.layout_menu_open = false;
+                    this.close_menus();
                     this.multi.update(cx, |multi, cx| multi.picture_all(cx));
                     cx.notify();
                 }))

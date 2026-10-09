@@ -161,6 +161,34 @@ struct Peek {
     quote: Quote,
 }
 
+/// The menus of the dashboard that open over it. One is open at a time, and a click anywhere else
+/// closes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MenuKind {
+    /// The account: figures, settings, disconnect.
+    Account,
+    /// The list of all timeframes.
+    Timeframes,
+    /// The layout picker.
+    Layouts,
+}
+
+impl Dashboard {
+    fn menu_is(&self, kind: MenuKind) -> bool {
+        self.open_menu == Some(kind)
+    }
+
+    /// Opens `kind`, or closes it when it is the one open.
+    fn toggle_menu(&mut self, kind: MenuKind, cx: &mut Context<Self>) {
+        self.open_menu = if self.menu_is(kind) { None } else { Some(kind) };
+        cx.notify();
+    }
+
+    fn close_menus(&mut self) {
+        self.open_menu = None;
+    }
+}
+
 pub struct Dashboard {
     session: Session,
     /// Every price and live bar subscription goes through it.
@@ -186,17 +214,14 @@ pub struct Dashboard {
     peek: Option<Peek>,
     /// How many times the picker has been opened, so its entrance animation replays.
     picker_opens: u64,
-    menu_open: bool,
+    /// The menu that is open, if any: one at a time.
+    open_menu: Option<MenuKind>,
     multi: Entity<MultiChart>,
     workspace: Entity<Workspace>,
-    /// Whether the list of all timeframes is open.
-    tf_menu_open: bool,
     /// The field of the menu where a custom timeframe is typed, made with the window, and the
     /// unit a bare number is in.
     tf_custom: Option<Entity<crate::ui::kit::input::InputState>>,
     tf_unit: chart::Unit,
-    /// Whether the layout picker is open.
-    layout_menu_open: bool,
     /// A chart asked for the picker: it opens at the next render, which has the window.
     pending_picker: bool,
     /// The trading account: positions, orders, balance.
@@ -327,13 +352,11 @@ impl Dashboard {
             details: HashMap::new(),
             peek: None,
             picker_opens: 0,
-            menu_open: false,
+            open_menu: None,
             multi,
             workspace,
-            tf_menu_open: false,
             tf_custom: None,
             tf_unit: chart::Unit::Minutes,
-            layout_menu_open: false,
             pending_picker: false,
             trading,
             alerts,
@@ -917,17 +940,17 @@ impl Render for Dashboard {
         let header = self.render_header(window, cx).into_any_element();
         let body = self.body(cx).into_any_element();
         let menu = self.render_menu(cx);
-        let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
-            let this = cx.entity().downgrade();
-            deferred(crate::ui::kit::menu::backdrop(move |_, cx| {
-                let _ = this.update(cx, |this, cx| {
-                    this.tf_menu_open = false;
-                    this.layout_menu_open = false;
-                    cx.notify();
-                });
-            }))
-            .with_priority(0)
-        });
+        let menu_backdrop = (self.menu_is(MenuKind::Timeframes) || self.menu_is(MenuKind::Layouts))
+            .then(|| {
+                let this = cx.entity().downgrade();
+                deferred(crate::ui::kit::menu::backdrop(move |_, cx| {
+                    let _ = this.update(cx, |this, cx| {
+                        this.close_menus();
+                        cx.notify();
+                    });
+                }))
+                .with_priority(0)
+            });
 
         // A second context name while a drawing is being made turns on the keys for that.
         let context = if self.multi.read(cx).drawing_in_progress(cx) {
@@ -970,10 +993,11 @@ impl Render for Dashboard {
         }))
         .on_action(cx.listener(|this, _: &ClosePicker, window, cx| {
             // Escape gives up a drawing in progress before it closes anything else.
-            let nothing_open = this.picker.is_none()
-                && !this.menu_open
-                && !this.tf_menu_open
-                && !this.layout_menu_open;
+            let nothing_open = this.picker.is_none() && this.open_menu.is_none();
+            // A menu of a chart (the time zone) closes before anything else.
+            if nothing_open && this.multi.update(cx, |multi, cx| multi.close_menus(cx)) {
+                return;
+            }
             if nothing_open && this.multi.update(cx, |multi, cx| multi.cancel_drawing(cx)) {
                 // The field that had the keyboard may be gone with the selection.
                 window.focus(&this.focus_handle, cx);
