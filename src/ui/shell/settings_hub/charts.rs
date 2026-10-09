@@ -1,7 +1,12 @@
 //! The Charts page of the settings.
 
-use super::*;
+use super::{
+    AnyElement, CANDLE_SETS, Context, IconName, Pick, SettingsHub, appearance, div, form, px, rgb,
+    theme, tokens,
+};
 use crate::ui::kit::button::Button;
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 impl SettingsHub {
     pub(super) fn charts_page(&self, cx: &mut Context<Self>) -> AnyElement {

@@ -1,6 +1,12 @@
 //! The stop loss and take profit of the order ticket, and the ATR stop options.
 
-use super::*;
+use super::line;
+use super::{
+    AnyElement, Context, Entry, Frame, IconName, Item, Offset, OrderTicket, SharedString,
+    Smoothing, TicketEvent, Window, card, controls, div, hint, icon, number, px, theme, tokens,
+};
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 /// The multiples of the ATR offered as shortcuts for the ATR stop.
 const ATR_CHOICES: [f64; 4] = [1.0, 1.5, 2.0, 3.0];

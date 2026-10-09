@@ -7,7 +7,6 @@
 use crate::domain::market::PRICE_SCALE;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
-use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::prelude::Switch;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};

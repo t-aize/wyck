@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::Editor;
-use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::prelude::ScrollableElement as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};

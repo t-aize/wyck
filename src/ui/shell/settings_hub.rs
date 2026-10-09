@@ -6,7 +6,6 @@
 
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px, rgb};
 

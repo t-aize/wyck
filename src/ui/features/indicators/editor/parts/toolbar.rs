@@ -1,7 +1,12 @@
 //! The toolbar of the indicator editor.
 
-use super::*;
+use super::{
+    AnyElement, Context, EditorEvent, Entry, FontWeight, IconName, IndicatorEditor, Item,
+    Placement, SharedString, TEMPLATES, Window, div, icon, layout, px, theme, tokens,
+};
 use crate::ui::kit::button::Button;
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 impl IndicatorEditor {
     pub(super) fn tool_button(

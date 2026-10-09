@@ -1,6 +1,10 @@
 //! The Coordinates tab of the drawing settings: the exact time and price of each point.
 
-use super::*;
+use super::{
+    AnyElement, Drawing, DrawingProps, IconName, SharedString, div, form, point_fields, point_name,
+    px, theme, tokens,
+};
+use gpui::prelude::*;
 
 impl DrawingProps {
     pub(super) fn coordinates_page(&self, drawing: &Drawing) -> AnyElement {

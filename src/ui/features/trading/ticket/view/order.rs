@@ -1,7 +1,15 @@
 //! The top of the order ticket: the header, the buy and sell buttons, the kind of order, the size
 //! and its presets.
 
-use super::*;
+use super::line;
+use super::{
+    AnyElement, App, Context, Entry, Frame, IconName, Item, Kind, Offset, OrderTicket, SizeMode,
+    TicketEvent, Window, card, card_head, controls, customize, div, format_units, hint, icon, math,
+    nice, number, or_money, popup, px, stop_limit_price, text_button, theme, tint, tokens,
+};
+use crate::ui::kit::focus::Keyboard as _;
+use crate::ui::kit::prelude::StyledExt as _;
+use gpui::prelude::*;
 
 impl OrderTicket {
     /// A button that opens a list under it, showing what is picked. It is the height and the

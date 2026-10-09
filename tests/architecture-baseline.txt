@@ -7,40 +7,9 @@ src/app/appearance/presets.rs	layer	app -> ui::kit
 src/app/prefs/panel.rs	layer	app -> ui::kit
 src/app/updates.rs	layer	app -> ui::features::multichart
 src/app/updates.rs	layer	app -> ui::kit
-src/domain/chart/export/tests.rs	style	use super::*
-src/domain/chart/scene/tests.rs	style	use super::*
 src/domain/indicators/custom/library.rs	extern	domain uses std::fs
 src/domain/indicators/custom/library.rs	layer	domain -> infra
-src/domain/indicators/custom/library.rs	style	use super::*
 src/domain/trading/book.rs	layer	domain -> infra
-src/infra/ctrader/account/client.rs	style	use super::*
-src/infra/ctrader/margin/client.rs	style	use super::*
-src/infra/ctrader/trading/client.rs	style	use super::*
 src/ui/features/chart.rs	extern	ui::features::chart uses tokio
-src/ui/features/chart/drawing_props/coordinates.rs	style	use super::*
-src/ui/features/chart/drawing_props/levels.rs	style	use super::*
-src/ui/features/chart/drawing_props/position.rs	style	use super::*
-src/ui/features/chart/drawing_props/style.rs	style	use super::*
-src/ui/features/chart/drawing_props/text.rs	style	use super::*
-src/ui/features/chart/drawing_props/visibility.rs	style	use super::*
 src/ui/features/chart/flow_sync.rs	extern	ui::features::chart uses tokio
-src/ui/features/indicators/editor/parts/console.rs	style	use super::*
-src/ui/features/indicators/editor/parts/explorer.rs	style	use super::*
-src/ui/features/indicators/editor/parts/reference.rs	style	use super::*
-src/ui/features/indicators/editor/parts/toolbar.rs	style	use super::*
-src/ui/features/trading/ticket/templates.rs	style	use super::*
-src/ui/features/trading/ticket/view/exits.rs	style	use super::*
-src/ui/features/trading/ticket/view/options.rs	style	use super::*
-src/ui/features/trading/ticket/view/order.rs	style	use super::*
-src/ui/features/trading/ticket/view/plans.rs	style	use super::*
-src/ui/features/trading/ticket/view/positions.rs	style	use super::*
-src/ui/features/trading/ticket/view/protection.rs	style	use super::*
 src/ui/shell/dashboard.rs	extern	ui::shell uses tokio
-src/ui/shell/settings_hub/about.rs	style	use super::*
-src/ui/shell/settings_hub/alerts.rs	style	use super::*
-src/ui/shell/settings_hub/behaviour.rs	style	use super::*
-src/ui/shell/settings_hub/charts.rs	style	use super::*
-src/ui/shell/settings_hub/data.rs	style	use super::*
-src/ui/shell/settings_hub/look.rs	style	use super::*
-src/ui/shell/settings_hub/safety.rs	style	use super::*
-src/ui/shell/settings_hub/scripts.rs	style	use super::*

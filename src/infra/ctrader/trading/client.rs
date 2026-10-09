@@ -1,6 +1,6 @@
 //! [`TradingClient`]: the calls themselves.
 
-use super::*;
+use super::{AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionReq, NewOrderReq};
 use crate::domain::trading::ExecutionEvent;
 use crate::infra::ctrader::error::{Error, Result};
 use crate::infra::ctrader::transport::connection::{Client, RateClass};

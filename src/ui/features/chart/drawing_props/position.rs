@@ -1,7 +1,11 @@
 //! The tabs of a long or short position: its trade and its look.
 
-use super::*;
+use super::{
+    AnyElement, App, Context, DASHES, Drawing, DrawingProps, IconName, PRICE_SCALE, Smoothing,
+    Swatch, controls, div, form, number, px, theme, tokens,
+};
 use crate::ui::kit::field;
+use gpui::prelude::*;
 
 impl DrawingProps {
     /// What the position comes to with these settings, as rows of a card: the plan in figures.

@@ -8,7 +8,7 @@
 use std::rc::Rc;
 
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::{Disableable, Selectable, StyledExt as _};
+use crate::ui::kit::prelude::{Disableable, StyledExt as _};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, px};
 

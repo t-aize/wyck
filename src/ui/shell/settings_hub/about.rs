@@ -1,6 +1,10 @@
 //! The About page of the settings: the version, the build and the updates.
 
-use super::*;
+use super::{
+    AnyElement, BuildMode, Context, IconName, SettingsHub, VERSION, button, confirm, div, form, px,
+    theme, tokens, updates,
+};
+use gpui::prelude::*;
 
 impl SettingsHub {
     pub(super) fn about_page(&self, cx: &mut Context<Self>) -> AnyElement {

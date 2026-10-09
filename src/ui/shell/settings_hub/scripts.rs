@@ -1,6 +1,11 @@
 //! The Indicators page of the settings: the scripts and their limits.
 
-use super::*;
+use super::{
+    AnyElement, Context, IconName, SettingsHub, button, controls, div, form, indicators, prefs, px,
+    theme, tokens,
+};
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 impl SettingsHub {
     pub(super) fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {

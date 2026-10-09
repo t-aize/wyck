@@ -88,7 +88,7 @@ fn with_registry<R>(f: impl FnOnce(&mut Registry) -> R) -> R {
 
 /// What every chart looks the indicators it holds up in.
 pub mod registry {
-    use super::*;
+    use super::{Arc, BTreeMap, Entry, with_registry};
 
     /// The indicator called `id`.
     pub fn get(id: &str) -> Option<Arc<Entry>> {

@@ -1,8 +1,13 @@
 //! The Style tab of the drawing settings: lines, caps, fill, the measure and profile options, and the saved templates.
 
-use super::*;
+use super::{
+    AnyElement, Cap, Context, DASHES, DEGREES, Drawing, DrawingProps, ICONS, IconName, IntoElement,
+    MeasureFlag, Swatch, Tool, Window, controls, div, form, icon_key, number, px, tokens,
+    wave_label, wave_names,
+};
 use crate::ui::kit::field;
 use crate::ui::kit::form::Row;
+use gpui::prelude::*;
 
 impl DrawingProps {
     /// A choice of what ends a line, for `set` to apply.

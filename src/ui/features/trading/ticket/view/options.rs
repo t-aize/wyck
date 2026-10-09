@@ -1,7 +1,14 @@
 //! The options block of the order ticket: the expiry, the slippage, the stop loss options and
 //! the comment, folded away until they are wanted.
 
-use super::*;
+use super::line;
+use super::{
+    AnyElement, Context, Entry, Frame, IconName, Kind, OrderTicket, Span, Tif, Window, card,
+    controls, div, hint, icon, number, px, theme, tokens,
+};
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::prelude::StyledExt as _;
+use gpui::prelude::*;
 
 impl OrderTicket {
     /// The expiry of a pending order, the slippage of a market one, the trailing and the

@@ -1,6 +1,11 @@
 //! The Levels tab of the drawing settings.
 
-use super::*;
+use super::{
+    AnyElement, Context, Dash, Drawing, DrawingProps, IconName, Level, MAX_LEVELS, SharedString,
+    Swatch, Window, controls, div, form, number, px, theme, tokens,
+};
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 impl DrawingProps {
     /// The button of a level that picks its line style: the drawing's own, then solid, dashed and

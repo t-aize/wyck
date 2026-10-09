@@ -302,6 +302,11 @@ fn scan_all() -> BTreeMap<String, String> {
             .expect("inside src")
             .to_string_lossy()
             .replace('\\', "/");
+        // `tests.rs` holds the body of a `#[cfg(test)] mod tests;` declared next to it, and tests
+        // are exempt like the inline ones.
+        if rel.ends_with("/tests.rs") {
+            continue;
+        }
         let shown = format!("src/{rel}");
         let module = module_of(&rel);
         let zone = zone_of(&module);

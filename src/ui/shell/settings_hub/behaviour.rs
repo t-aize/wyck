@@ -1,6 +1,7 @@
 //! The Behaviour page of the settings.
 
-use super::*;
+use super::{AnyElement, Context, IconName, SettingsHub, controls, form, number, tokens};
+use gpui::prelude::*;
 
 impl SettingsHub {
     pub(super) fn behaviour_page(&self, cx: &mut Context<Self>) -> AnyElement {

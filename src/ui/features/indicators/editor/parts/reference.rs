@@ -1,6 +1,10 @@
 //! The reference of the indicator editor: every function a script can call.
 
-use super::*;
+use super::{
+    AnyElement, Context, FontWeight, Group, IconName, IndicatorEditor, Tool, div, docs, icon, menu,
+    px, reference_row, theme, tokens,
+};
+use gpui::prelude::*;
 
 impl IndicatorEditor {
     pub(super) fn reference(&self, cx: &mut Context<Self>) -> AnyElement {

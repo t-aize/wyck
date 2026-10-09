@@ -1,7 +1,13 @@
 //! The Appearance page of the settings: the theme, the accent, the user's own themes, the fonts and the candle colors.
 
-use super::*;
+use super::{
+    ACCENTS, AnyElement, ColorField, Colors, Context, FontChosen, FontPicker, IconName, Mode, Pick,
+    SettingsHub, SharedString, Window, appearance, contrast, controls, div, form, icon, px, rgb,
+    theme, toast, tokens,
+};
 use crate::ui::kit::field;
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 impl SettingsHub {
     /// A card that shows a theme: its colors in miniature, its name, and a check when it is the

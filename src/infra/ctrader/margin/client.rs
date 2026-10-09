@@ -1,7 +1,7 @@
 //! [`MarginClient`]: the calls themselves.
 
 use super::requests::{ExpectedMarginReq as MarginReq, GetDynamicLeverageReq as LeverageReq};
-use super::*;
+use super::{ExpectedMarginRes, GetDynamicLeverageRes, MarginCallListRes, MarginCallUpdateReq};
 use crate::domain::trading::{DynamicLeverage, ExpectedMargin, MarginCall};
 
 use crate::infra::ctrader::error::Result;

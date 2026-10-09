@@ -1,6 +1,10 @@
 //! The console of the indicator editor: the problems of the script and what it printed.
 
-use super::*;
+use super::{
+    AnyElement, ConsoleTab, Context, IconName, IndicatorEditor, MouseButton, Problem, ResizeDrag,
+    ResizeSide, Severity, div, icon, mono, note, px, theme, tokens,
+};
+use gpui::prelude::*;
 
 impl IndicatorEditor {
     pub(super) fn console(&self, cx: &mut Context<Self>) -> AnyElement {

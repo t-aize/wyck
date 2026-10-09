@@ -2,9 +2,15 @@
 //! the copies the app keeps of it. The work itself is done by `crate::app::storage::backup`; this page asks
 //! for it and says what happened.
 
-use super::*;
+use super::PendingSummary;
+use super::{
+    AnyElement, BackupEntry, Context, IconName, SettingsHub, VERSION, Window, appearance, backup,
+    confirm, div, form, icon, indicators, px, theme, tokens,
+};
 use crate::app::storage::backup::{BackupStore, Contents};
 use crate::app::storage::scripts::ScriptStore;
+use crate::ui::kit::prelude::Disableable;
+use gpui::prelude::*;
 
 /// The most copies the page lists.
 const LISTED_COPIES: usize = 8;

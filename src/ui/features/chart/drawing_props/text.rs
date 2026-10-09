@@ -1,8 +1,13 @@
 //! The Text tab of the drawing settings: the words, their place and the captions of the levels.
 
-use super::*;
+use super::{
+    AnyElement, Context, Drawing, DrawingProps, FontChosen, FontPicker, HAlign, IconName,
+    LabelSide, LevelText, SharedString, Swatch, Textarea, Tool, VAlign, Window, controls, div,
+    form, px, theme, tokens,
+};
 use crate::ui::kit::field;
 use crate::ui::kit::form::Row;
+use gpui::prelude::*;
 
 impl DrawingProps {
     /// What the levels are called on the chart, and the side their labels stand on.

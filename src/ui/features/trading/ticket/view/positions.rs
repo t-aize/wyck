@@ -1,6 +1,13 @@
 //! The open positions of the symbol, under the order ticket.
 
-use super::*;
+use super::{
+    Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, card,
+    card_head, confirm, div, hint, is_buy, math, px, text_button, theme, tokens,
+};
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::prelude::Selectable;
+use crate::ui::kit::prelude::StyledExt as _;
+use gpui::prelude::*;
 
 impl OrderTicket {
     /// What is open on the symbol, with what can be done to it.

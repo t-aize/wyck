@@ -1,6 +1,11 @@
 //! The list of the scripts of the indicator editor, as a tree of folders, and its file menu.
 
-use super::*;
+use super::{
+    AnyElement, Ask, BTreeMap, Context, Entry, FontWeight, IconName, IndicatorEditor, Item,
+    MouseButton, Placement, Script, SharedString, TEMPLATES, Window, div, folder_of, icon,
+    indicators, px, registry, source_match, stem, theme, tokens,
+};
+use gpui::prelude::*;
 
 impl IndicatorEditor {
     pub(super) fn explorer(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {

@@ -2,7 +2,12 @@
 //! stop to the entry once the first is reached, and an OCO pair. What the block builds is
 //! described in [`crate::domain::trading::plan`].
 
-use super::*;
+use super::line;
+use super::{
+    AnyElement, Context, Frame, OrderTicket, card, card_head, controls, div, hint, number, plan,
+    px, theme, tokens,
+};
+use gpui::prelude::*;
 
 impl OrderTicket {
     pub(super) fn exits_block(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {

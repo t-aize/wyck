@@ -1,7 +1,11 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
-use super::*;
+use super::{
+    AnyElement, Context, Drawing, DrawingProps, GROUPS, IconName, SharedString, controls, div,
+    every_timeframe, form,
+};
 use crate::ui::kit::field;
+use gpui::prelude::*;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {
