@@ -814,12 +814,12 @@ mod no_inline_colors {
     /// Files that may hold color literals: the palettes themselves, the brand colors of the symbol
     /// marks, the accents on offer and the color picker.
     const ALLOWED: &[&str] = &[
-        "wyck/src/appearance/presets.rs",
-        "wyck/src/dashboard/marks.rs",
-        "wyck/src/settings_hub.rs",
-        "wyck/src/settings_hub/look.rs",
-        "wyck-ui/src/theme.rs",
-        "wyck-ui/src/color_picker.rs",
+        "src/appearance/presets.rs",
+        "src/dashboard/marks.rs",
+        "src/settings_hub.rs",
+        "src/settings_hub/look.rs",
+        "crates/wyck-ui/src/theme.rs",
+        "crates/wyck-ui/src/color_picker.rs",
     ];
 
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -856,17 +856,17 @@ mod no_inline_colors {
 
     #[test]
     fn screens_read_their_colors_from_the_theme() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut files = Vec::new();
         // The screens of the app and the shared controls; the chart has its own colors.
         for dir in [
-            "wyck/src/trading",
-            "wyck/src/indicators",
-            "wyck/src/dashboard",
-            "wyck/src/connection",
-            "wyck/src/settings_hub",
-            "wyck/src/multichart",
-            "wyck-ui/src",
+            "src/trading",
+            "src/indicators",
+            "src/dashboard",
+            "src/connection",
+            "src/settings_hub",
+            "src/multichart",
+            "crates/wyck-ui/src",
         ] {
             walk(&root.join(dir), &mut files);
         }

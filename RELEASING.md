@@ -12,7 +12,7 @@ The updater signing pair is generated with:
 cargo packager signer generate
 ```
 
-Commit only the public key in `crates/wyck/assets/update.pubkey`. Store the encoded private key
+Commit only the public key in `assets/update.pubkey`. Store the encoded private key
 and its password as these GitHub Actions secrets:
 
 - `CARGO_PACKAGER_SIGN_PRIVATE_KEY`

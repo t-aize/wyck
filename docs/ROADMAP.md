@@ -11,7 +11,7 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 | Phase | Goal | Status |
 |---|---|---|
 | 0 | Safety net and baseline measures | done |
-| 1 | Move the app crate to the repo root, keep `crates/` as a transitional workspace | todo |
+| 1 | Move the app crate to the repo root, keep `crates/` as a transitional workspace | done |
 | 2 | Merge `wyck-ui` into the package | todo |
 | 3 | Merge `wyck-chart` | todo |
 | 4 | Merge `wyck-config` | todo |

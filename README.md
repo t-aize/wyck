@@ -21,7 +21,7 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, shown only to identify the
+marks bundled in `assets/marks` are trademarks of their owners, shown only to identify the
 instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
 next to it).
 
@@ -48,8 +48,9 @@ package remains managed by the package manager.
 
 ## Layout
 
-The root manifest only configures the workspace. `cargo run` starts the desktop crate `wyck`.
-The workspace crates are:
+The root package `wyck` is the desktop application: `cargo run` starts it. Its `src/` holds the
+GPUI views and connects the helper crates below, which are being merged into it (see
+`docs/ROADMAP.md`). The helper crates are:
 
 | Crate | Owns |
 |---|---|
@@ -57,11 +58,9 @@ The workspace crates are:
 | `wyck-config` | Native settings, documents, backups, indicator files and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
 | `wyck-ui` | Widget kit, theme and sizes shared by every screen |
-| `wyck` | GPUI desktop application, saved workspace and bundled assets |
 
-Each crate's modules sit directly under its `src` directory. `crates/wyck/src` owns GPUI
-views and connects the crates to the desktop; its native services are in
-`crates/wyck/src/services`. Every control, menu, dialog and color comes from `wyck-ui`.
+Its native services are in `src/services`. Every control, menu, dialog and color comes from
+`wyck-ui`.
 The Open API guide is in the `wyck-openapi` crate documentation.
 
 ## Your own indicators
