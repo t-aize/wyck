@@ -21,7 +21,7 @@ ui       gpui rendering: kit (design system), shell (frame), features (one modul
 | `infra` | `domain`, `infra` |
 | `app` | `domain`, `infra`, `app` |
 | `ui::kit` | `ui::kit` |
-| `ui::features::X` | `domain`, `app`, `ui::kit`, itself (never another feature) |
+| `ui::features::X` | `domain`, `app`, `ui::kit`, itself, and a lower feature (chart < multichart < the others) |
 | `ui::shell` | `domain`, `app`, `ui::kit`, `ui::features`, `ui::shell` |
 
 Crate-level rules checked by the same test:

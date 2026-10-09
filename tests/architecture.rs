@@ -71,8 +71,21 @@ fn allowed(from: &str, to: &str) -> bool {
         "ui::shell" => {
             matches!(to, "domain" | "app" | "ui::kit") || to.starts_with("ui::features::")
         }
-        _ if from.starts_with("ui::features::") => matches!(to, "domain" | "app" | "ui::kit"),
+        _ if from.starts_with("ui::features::") => {
+            matches!(to, "domain" | "app" | "ui::kit") || feature_rank(to) < feature_rank(from)
+        }
         _ => true,
+    }
+}
+
+/// Features build on each other in one direction: the chart is the base, the multichart lays
+/// charts out, and the ticket and the script editor work with both.
+fn feature_rank(zone: &str) -> usize {
+    match zone.strip_prefix("ui::features::") {
+        Some("chart") => 0,
+        Some("multichart") => 1,
+        Some(_) => 2,
+        None => usize::MAX,
     }
 }
 

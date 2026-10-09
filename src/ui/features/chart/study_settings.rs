@@ -671,7 +671,7 @@ impl StudyEditor {
                         "Show",
                         Some(IconName::FolderOpen),
                         false,
-                        move |_window, cx| crate::ui::features::indicators::reveal(cx, &path),
+                        move |_window, cx| crate::app::scripts::reveal(cx, &path),
                     )
                 })),
         ));

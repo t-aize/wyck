@@ -14,6 +14,8 @@ use gpui_kit::component::{Disableable, Sizable};
 use crate::app::appearance;
 use crate::app::appearance::presets::CANDLE_SETS;
 use crate::app::appearance::{ColorField, Mode, contrast};
+use crate::app::prefs::indicators as prefs;
+use crate::app::scripts as indicators;
 use crate::app::storage::backup;
 use crate::app::storage::backup::BackupEntry;
 use crate::app::system::build_info::{BuildMode, VERSION};
@@ -21,8 +23,6 @@ use crate::app::updates;
 use crate::app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use crate::domain::chart::settings::MAX_STUDIES;
 use crate::domain::drawings::model::MAX_DRAWINGS_PER_SYMBOL;
-use crate::ui::features::indicators;
-use crate::ui::features::indicators::prefs;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::{
     button, confirm, controls,

@@ -29,12 +29,12 @@ use gpui_kit::component::input::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::app::scripts as indicators;
 use crate::domain::indicators::custom::library::{LibraryError, registry};
 use crate::domain::indicators::custom::run::Script;
 use crate::domain::indicators::custom::templates::{TEMPLATES, Template};
 use crate::domain::indicators::custom::{Problem, Severity};
 use crate::ui::features::chart::Chart;
-use crate::ui::features::indicators;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::{confirm::confirm, menu as popup};
 

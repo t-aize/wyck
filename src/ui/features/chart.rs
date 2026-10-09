@@ -565,7 +565,7 @@ impl Chart {
             atr_loading: HashSet::new(),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
-            _library: crate::ui::features::indicators::observe(cx, |this: &mut Self, cx| {
+            _library: crate::app::scripts::observe(cx, |this: &mut Self, cx| {
                 this.library_changed(cx);
             }),
             flow: Flow::default(),

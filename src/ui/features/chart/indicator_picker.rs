@@ -15,7 +15,7 @@ use super::study::Placement;
 use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
-use crate::ui::features::indicators;
+use crate::app::scripts as indicators;
 use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };

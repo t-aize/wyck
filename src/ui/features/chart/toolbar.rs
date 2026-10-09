@@ -17,7 +17,7 @@ use super::view::PriceScale;
 use super::{
     Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
 };
-use crate::ui::features::indicators;
+use crate::app::scripts as indicators;
 use crate::ui::kit::{
     controls, icon, layout,
     menu::{Entry, Item, Menu, Placement},

@@ -17,6 +17,7 @@ use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
 use app::appearance;
+use app::scripts;
 use app::updates;
 use infra::platform::build_info::{self, BuildMode};
 use ui::assets;
@@ -52,12 +53,12 @@ pub fn run() {
                         Err(error) => tracing::warn!(%error, "could not apply what was waiting"),
                     }
                     appearance::init(paths.documents(), cx);
-                    indicators::init(Some(paths), cx);
+                    scripts::init(Some(paths), cx);
                     keep_a_daily_copy(paths, cx);
                 }
                 None => {
                     crate::ui::kit::theme::apply(cx);
-                    indicators::init(None, cx);
+                    scripts::init(None, cx);
                 }
             }
             crate::ui::kit::text_input::init(cx);
@@ -128,7 +129,7 @@ pub fn run() {
 /// Saves an automatic copy of everything the user made, at most one a day and the last few kept,
 /// off the interface thread: what a bad import, a reset or a broken disk cannot take away.
 fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut App) {
-    let scripts = crate::infra::storage::scripts::ScriptStore::new(indicators::dir(cx));
+    let scripts = crate::infra::storage::scripts::ScriptStore::new(scripts::dir(cx));
     cx.background_executor()
         .spawn(async move {
             let created = chrono::Local::now().to_rfc3339();

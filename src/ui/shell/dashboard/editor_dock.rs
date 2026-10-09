@@ -10,7 +10,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
-use crate::ui::features::indicators;
+use crate::app::scripts as indicators;
 use crate::ui::features::indicators::editor::{EditorEvent, IndicatorEditor};
 use crate::ui::kit::{
     menu::{Entry, Item, Menu, Placement},

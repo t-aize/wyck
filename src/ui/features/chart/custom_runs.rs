@@ -23,7 +23,7 @@ use super::display::study_input;
 use super::study::custom::library::registry;
 use super::study::custom::{self, Problem, Severity};
 use super::study::{StudyConfig, StudyOutput};
-use crate::ui::features::indicators;
+use crate::app::scripts as indicators;
 
 /// What a run was made from, to know whether another is wanted.
 #[derive(Debug, Clone, PartialEq)]
