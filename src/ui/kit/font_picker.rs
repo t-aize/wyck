@@ -13,8 +13,7 @@ use gpui::{
     UniformListScrollHandle, Window, div, px, uniform_list,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::Sizable;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
 
 use crate::ui::kit::{icon, theme, tokens};
 
@@ -227,7 +226,7 @@ impl Render for FontPicker {
             .flex()
             .flex_col()
             .gap_2()
-            .child(Input::new(&self.filter).small())
+            .child(crate::ui::kit::input::text(&self.filter))
             .child(
                 div()
                     .rounded_md()

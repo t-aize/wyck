@@ -1,24 +1,26 @@
 //! Buttons. They are gpui-kit's, restyled through [`crate::ui::kit::theme::apply`], so every button of
 //! the app takes one of these shapes instead of configuring a `Button` itself.
 //!
-//! There are three sizes and a screen never picks a gpui one by hand:
+//! There are three sizes and a screen never picks a gpui one by hand. Their heights are the
+//! control heights of [`crate::ui::kit::tokens::height`], so they scale with the interface and
+//! match the fields:
 //!
 //! | [`Size`] | Height | Where |
 //! |---|---|---|
-//! | `Sm` | 20 | a dense strip or a table row (the editor toolbar, a list row) |
-//! | `Md` | 24 | everything else: forms, dialogs, menus, panels, footers |
-//! | `Lg` | 32 | buy and sell in the ticket, the main button of the sign-in modal |
+//! | `Sm` | 24 | a dense strip or a table row (the editor toolbar, a list row) |
+//! | `Md` | 28 | everything else: forms, dialogs, menus, panels, footers, the drawing rail |
+//! | `Lg` | 34 | buy and sell in the ticket, the main button of the sign-in modal |
 //!
-//! The fields of the kit are `Md` high too, so a button and a field side by side line up.
+//! An icon-only button is as wide as it is tall.
 
 use gpui::prelude::*;
-use gpui::{App, ClickEvent, ElementId, SharedString, Window};
+use gpui::{App, ClickEvent, ElementId, SharedString, Window, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 pub use gpui_kit::component::button::Button;
 use gpui_kit::component::button::ButtonVariants;
 
-use crate::ui::kit::theme;
+use crate::ui::kit::{theme, tokens};
 
 /// How big a button is. See the module docs for what each is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,13 +33,16 @@ pub enum Size {
     Lg,
 }
 
-/// `button` at `size`: the one place that maps a size to gpui-kit's.
+/// `button` at `size`: the one place that maps a size to gpui-kit's. gpui-kit's own heights
+/// (20, 24, 32) are not the ones of the kit, so the height is set here after the size has set the
+/// text and the padding. `min_w` keeps an icon-only button square.
 fn sized(button: Button, size: Size) -> Button {
-    match size {
-        Size::Sm => button.xsmall().compact(),
-        Size::Md => button.small(),
-        Size::Lg => button.large(),
-    }
+    let (button, height) = match size {
+        Size::Sm => (button.small(), tokens::height::compact()),
+        Size::Md => (button.small(), tokens::height::control()),
+        Size::Lg => (button.large(), tokens::height::large()),
+    };
+    button.h(px(height)).min_w(px(height))
 }
 
 /// The filled, accent-colored button that fills the width it is given: the one action of a small

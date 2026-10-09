@@ -23,8 +23,8 @@ use gpui::{
     linear_gradient, px, rgb,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::{Disableable, Sizable};
+use gpui_kit::component::Disableable;
+use gpui_kit::component::input::{InputEvent, InputState};
 
 use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::theme;
@@ -742,7 +742,7 @@ impl Render for ColorPanel {
                     .items_center()
                     .gap_1()
                     .child(small_label(label))
-                    .child(div().w(px(56.)).child(Input::new(state).small()))
+                    .child(div().w(px(56.)).child(crate::ui::kit::input::text(state)))
             };
             div()
                 .flex()
@@ -756,7 +756,11 @@ impl Render for ColorPanel {
                         .gap_2()
                         .child(preview)
                         .child(small_label("HEX"))
-                        .child(div().flex_1().child(Input::new(&fields.hex).small())),
+                        .child(
+                            div()
+                                .flex_1()
+                                .child(crate::ui::kit::input::text(&fields.hex)),
+                        ),
                 )
                 .child(
                     div()

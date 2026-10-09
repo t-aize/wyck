@@ -11,8 +11,8 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Div, Entity, MouseButton, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::{Sizable, StyledExt as _};
+use gpui_kit::component::StyledExt as _;
+use gpui_kit::component::input::InputState;
 
 use crate::ui::kit::controls::ink;
 use crate::ui::kit::focus::Keyboard;
@@ -439,7 +439,7 @@ pub fn block(content: impl IntoElement) -> AnyElement {
 
 /// A text field of a row, `width` pixels wide, for a state made with [`InputState::new`].
 pub fn text_field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
-    div().w(px(width)).child(Input::new(state).small())
+    div().w(px(width)).child(crate::ui::kit::input::text(state))
 }
 
 /// A line of muted text, for a note under a group or a state with nothing to show.

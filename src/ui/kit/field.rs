@@ -18,9 +18,8 @@ use gpui::{
     App, Context, Div, ElementId, Entity, EventEmitter, SharedString, Subscription, Window, div, px,
 };
 use gpui_kit::assets::IconName;
-use gpui_kit::component::Sizable;
 use gpui_kit::component::checkbox::Checkbox;
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 
 use crate::ui::kit::controls::{child_id, ink, tooltip};
@@ -197,7 +196,7 @@ pub fn unit(state: &Entity<InputState>, unit: &str, width: f32) -> Div {
 pub fn text(state: &Entity<InputState>) -> Div {
     div()
         .w(px(tokens::field::text()))
-        .child(Input::new(state).small())
+        .child(crate::ui::kit::input::text(state))
 }
 
 /// One choice among a few, each an icon with a tooltip saying what it is.

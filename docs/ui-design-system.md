@@ -21,17 +21,18 @@ Every size scales with the interface scale (80 to 160 percent) set in the settin
 ## Buttons
 
 Three sizes, set in one place (`ui::kit::button::Size`). A screen takes a button from a kit
-constructor and never calls a size method.
+constructor and never calls a size method. The heights are the control heights of `tokens::height`
+and scale with the interface; an icon-only button is as wide as it is tall.
 
 | Size | Height | Constructors | Where |
 |---|---|---|---|
-| `Sm` | 20 | `dense`, `icon_dense` | a dense strip or a table row |
-| `Md` | 24 | `primary`, `accent`, `danger`, `outlined`, `standard`, `quiet`, `action`, `icon`, `wide_danger` | forms, dialogs, menus, panels, footers; the default |
-| `Lg` | 32 | `hero`, `trade` | the main button of the sign-in modal; Buy and Sell in the ticket |
+| `Sm` | 24 | `dense`, `icon_dense` | a dense strip or a table row |
+| `Md` | 28 | `primary`, `accent`, `danger`, `outlined`, `standard`, `quiet`, `action`, `icon`, `wide_danger` | forms, dialogs, menus, panels, footers, the drawing rail; the default |
+| `Lg` | 34 | `hero`, `trade` | the main button of the sign-in modal; Buy and Sell in the ticket |
 
-The kit's fields are 24 high too, so a button next to a field lines up. A wide button that sits
-in a card or a menu (`primary`, `wide_danger`, `outlined(..).w_full()`) is `Md`: only the sign-in
-modal and the ticket use `Lg`.
+Text fields (`ui::kit::input`) are `Md` high (28), dense ones `Sm` (24), so a button next to a
+field lines up. A wide button that sits in a card or a menu (`primary`, `wide_danger`,
+`outlined(..).w_full()`) is `Md`: only the sign-in modal and the ticket use `Lg`.
 
 Variants: primary, outlined, ghost, danger, icon. A clickable element that is not a button still
 gets a tab stop and answers Enter and Space.
