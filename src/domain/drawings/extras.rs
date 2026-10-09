@@ -95,8 +95,6 @@ pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
     }
 }
 
-// ---- small arithmetic ----
-
 fn add(a: P, b: P) -> P {
     (a.0 + b.0, a.1 + b.1)
 }
@@ -236,8 +234,6 @@ pub fn fixed_square_corner(a: P, b: P) -> P {
     (a.0 + sx * side, a.1 + sy * side)
 }
 
-// ---- lines ----
-
 fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (a, b) = (pts[0], pts[1]);
@@ -301,8 +297,6 @@ fn trend_angle(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Ve
         Anchor::Center,
     ));
 }
-
-// ---- channels ----
 
 fn regression(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
@@ -453,8 +447,6 @@ fn pitchfan(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
     figures::fan(drawing, a, &through, proj.plot(), out);
     out.push(seg(b, c, drawing.style.color, 0.6, 1.0, Dash::Dashed));
 }
-
-// ---- Fibonacci ----
 
 fn fib_time_extension(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;
@@ -669,8 +661,6 @@ fn fib_wedge(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     }
 }
 
-// ---- cycles ----
-
 /// The x positions of the cycle lines a pair of points makes: one every distance between them,
 /// counted in bars, in both directions across the plot, left to right.
 fn cycle_xs(drawing: &Drawing, pts: &[P], proj: &dyn Projection) -> Vec<f32> {
@@ -767,8 +757,6 @@ fn sine_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
     });
     out.push(polyline(wave, style.color, style.width, 1.0));
 }
-
-// ---- ranges and forecasts ----
 
 /// A line from `a` to `b` with an arrow head at `b`.
 fn arrow(a: P, b: P, color: u32, width: f32, out: &mut Vec<Prim>) {
@@ -919,8 +907,6 @@ fn forecast(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<P
         );
     }
 }
-
-// ---- bars ----
 
 /// The candle of a bar shifted by `offset` in price, at `x`.
 fn candle(
@@ -1229,8 +1215,6 @@ fn volume_profile(
     }
 }
 
-// ---- shapes ----
-
 fn rotated_rectangle(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (a, b, c) = (pts[0], pts[1], pts[2]);
@@ -1355,8 +1339,6 @@ fn double_curve(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     out.push(polyline(line, style.color, style.width, 1.0));
 }
 
-// ---- markers ----
-
 fn arrow_marker(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (tail, tip) = (pts[0], pts[1]);
@@ -1404,8 +1386,6 @@ fn arrow_mark(drawing: &Drawing, at: P, up: bool, out: &mut Vec<Prim>) {
         fill: (style.color, 0.95),
     });
 }
-
-// ---- notes ----
 
 /// The rows of the words of a drawing, or `fallback` when it has none.
 fn rows_of(drawing: &Drawing, fallback: &str) -> Vec<String> {

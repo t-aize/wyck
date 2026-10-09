@@ -32,7 +32,6 @@ struct Open {
 enum Start {
     /// The settings could not be opened.
     Failed(String),
-    /// Signing in.
     Ready {
         gate: Entity<SignInGate>,
         _subscription: Subscription,

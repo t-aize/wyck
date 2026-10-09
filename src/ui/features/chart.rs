@@ -616,8 +616,6 @@ impl Chart {
         (self.bid, self.ask)
     }
 
-    // ---- what to show ----
-
     /// The trading hours of the chart's symbol (ignored for another symbol).
     pub fn set_hours(
         &mut self,

@@ -178,8 +178,6 @@ async fn a_bad_symbol_subscription_is_a_rejection() {
     assert_eq!(refused.kind(), wyck::infra::ctrader::ErrorKind::Rejected);
 }
 
-// ---- history ----
-
 #[tokio::test]
 async fn ticks_are_decoded_to_absolute_times_oldest_first() {
     let server = MockServer::start(answers(vec![(

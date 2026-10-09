@@ -835,8 +835,6 @@ impl DrawingProps {
         tabs
     }
 
-    // ---- the parts every tool can have ----
-
     /// The footer: the defaults of the tool at the left, Cancel and OK at the right.
     fn footer(&self, cx: &mut Context<Self>) -> gpui::Div {
         let has_template = self.has_template(cx);

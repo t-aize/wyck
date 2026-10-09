@@ -528,7 +528,6 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let unit = quote_unit(frame.digits);
     let main_ticks = map.ticks(axis_tick_target(main.h), unit);
 
-    // ---- the prices band ----
     let mut plot: Vec<Cmd> = Vec::new();
     if let Some(text) = &frame.watermark {
         plot.push(Cmd::Text {
@@ -604,7 +603,6 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         inner: plot,
     });
 
-    // ---- the indicator panes ----
     let panes = frame.settings.panes();
     let mut pane_maps: Vec<(Band, PriceMap, ValueFormat, Vec<f64>)> = Vec::new();
     for (i, pane) in panes.iter().enumerate() {
@@ -685,7 +683,6 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         });
     }
 
-    // ---- the axes, over the plot ----
     cmds.push(axes_background(frame, &geometry));
     for band in geometry.bands.iter().skip(1) {
         cmds.push(cx.hline(

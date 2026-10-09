@@ -563,8 +563,6 @@ impl ExportDialog {
         self.edited(cx);
     }
 
-    // ---- writing ----
-
     /// Asks where to write the file, then writes it off the interface thread.
     fn export(&mut self, cx: &mut Context<Self>) {
         if self.busy || self.options.columns.is_empty() {
@@ -653,8 +651,6 @@ impl ExportDialog {
         );
     }
 
-    // ---- rows ----
-
     fn choice<T: Copy + PartialEq + 'static>(
         cx: &mut Context<Self>,
         id: &'static str,
@@ -721,8 +717,6 @@ impl ExportDialog {
     ) -> AnyElement {
         form::field(label, hint, form::text_field(state, width))
     }
-
-    // ---- pages ----
 
     fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let o = &self.options;

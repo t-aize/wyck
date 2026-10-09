@@ -24,8 +24,6 @@ use crate::ui::kit::theme;
 /// The name of the language, as the editor is told.
 pub const LANGUAGE: &str = "rhai";
 
-// ---- colors ----
-
 fn hsla(color: gpui::Rgba) -> Hsla {
     color.into()
 }
@@ -141,8 +139,6 @@ pub fn highlighter_factory() -> InputHighlighterFactory {
     })
 }
 
-// ---- completion ----
-
 pub struct Completions;
 
 fn item_kind(kind: CandidateKind) -> CompletionItemKind {
@@ -193,8 +189,6 @@ impl CompletionProvider for Completions {
         assist::triggers(new_text)
     }
 }
-
-// ---- help under the pointer ----
 
 pub struct Help;
 

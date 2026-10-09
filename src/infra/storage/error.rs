@@ -117,7 +117,6 @@ pub enum ConfigError {
     InvalidName {
         /// The name that was refused.
         name: String,
-        /// Why.
         reason: &'static str,
     },
 
@@ -128,7 +127,6 @@ pub enum ConfigError {
         "`{path}` uses config format {found}, but this version only understands up to {supported}"
     )]
     UnsupportedSchema {
-        /// The file.
         path: PathBuf,
         /// The version it says it has.
         found: u32,

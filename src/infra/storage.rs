@@ -90,7 +90,6 @@
 //! See [`AppPaths`]. `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move them.
 
 #![forbid(unsafe_code)]
-#![warn(missing_docs)]
 
 mod app_config;
 pub mod backup;

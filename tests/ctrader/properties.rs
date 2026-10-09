@@ -58,7 +58,6 @@ fn ticks() -> impl Strategy<Value = Vec<Tick>> {
 }
 
 proptest! {
-    // ---- ticks ----
 
     #[test]
     fn decoding_what_was_encoded_gives_the_ticks_back(original in ticks()) {
@@ -90,7 +89,6 @@ proptest! {
         }
     }
 
-    // ---- windows and paging ----
 
     #[test]
     fn tick_windows_cover_the_range_exactly(from in -1_000_000_000_000i64..1_000_000_000_000, span in 0i64..(40 * 86_400_000)) {
@@ -130,7 +128,6 @@ proptest! {
         }
     }
 
-    // ---- bars ----
 
     #[test]
     fn decoded_bars_are_sane_sorted_and_unique(raw in prop::collection::vec(
@@ -155,7 +152,6 @@ proptest! {
         prop_assert!(bars.len() <= wire.len());
     }
 
-    // ---- prices ----
 
     #[test]
     fn a_price_survives_the_round_trip_through_the_integer(raw in -50_000_000_000i64..50_000_000_000) {
@@ -175,7 +171,6 @@ proptest! {
         prop_assert_eq!(decimals, digits as usize);
     }
 
-    // ---- integers from the server ----
 
     #[test]
     fn any_integer_is_read_from_a_number_and_from_text(value in any::<i64>()) {
@@ -190,7 +185,6 @@ proptest! {
         prop_assert_eq!(as_text.n, value);
     }
 
-    // ---- the envelope and unknown input ----
 
     #[test]
     fn an_envelope_survives_being_written_and_read(
@@ -232,9 +226,7 @@ proptest! {
         let _ = event_from(&envelope);
     }
 
-    // ---- the market helpers ----
 
-    // ---- reconnection delays ----
 
     #[test]
     fn waits_never_shrink_and_never_pass_the_cap(

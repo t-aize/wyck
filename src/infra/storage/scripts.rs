@@ -120,12 +120,10 @@ pub struct ScriptFile {
     pub len: u64,
 }
 
-/// A script and its text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScriptText {
     /// The id of the script.
     pub id: String,
-    /// Its text.
     pub source: String,
 }
 

@@ -100,10 +100,8 @@ pub struct OrderErrorEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TrailingSlChangedEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// The protective order.

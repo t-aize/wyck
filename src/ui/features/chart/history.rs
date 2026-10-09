@@ -184,8 +184,6 @@ impl Chart {
         now_ms()
     }
 
-    // ---- the connection ----
-
     /// The session is connected (again): fetch what was missed, or start over if the first
     /// load never made it.
     pub fn on_ready(&mut self, cx: &mut Context<Self>) {
@@ -258,8 +256,6 @@ impl Chart {
         self.last_time_ms = self.series.last_time().unwrap_or(self.last_time_ms);
         self.data_changed(cx);
     }
-
-    // ---- older history ----
 
     /// Asks for older history when the view is near the oldest point held.
     pub(super) fn load_older_if_needed(&mut self, cx: &mut Context<Self>) {
@@ -344,8 +340,6 @@ impl Chart {
             self.load_older_if_needed(cx);
         }
     }
-
-    // ---- live prices ----
 
     /// A price event (with its live bars corrected) from the session.
     pub fn on_live(&mut self, update: &LiveUpdate, cx: &mut Context<Self>) {

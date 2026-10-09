@@ -70,9 +70,7 @@ pub(crate) use number_enum;
 number_enum! {
     /// Buy or sell.
     TradeSide {
-        /// A purchase.
         Buy = 1 => "buy",
-        /// A sale.
         Sell = 2 => "sell",
     }
 }
@@ -102,11 +100,9 @@ number_enum! {
         Accepted = 1 => "accepted",
         /// Fully executed.
         Filled = 2 => "filled",
-        /// Refused.
         Rejected = 3 => "rejected",
         /// Ran out of time.
         Expired = 4 => "expired",
-        /// Cancelled.
         Cancelled = 5 => "cancelled",
     }
 }
@@ -114,13 +110,10 @@ number_enum! {
 number_enum! {
     /// Where a position stands.
     PositionStatus {
-        /// Open.
         Open = 1 => "open",
-        /// Closed.
         Closed = 2 => "closed",
         /// Being created.
         Created = 3 => "created",
-        /// In error.
         Error = 4 => "error",
     }
 }
@@ -136,9 +129,7 @@ number_enum! {
         Rejected = 4 => "rejected",
         /// Refused inside the platform.
         InternallyRejected = 5 => "internally rejected",
-        /// Failed.
         Error = 6 => "error",
-        /// Missed.
         Missed = 7 => "missed",
     }
 }
@@ -150,7 +141,6 @@ number_enum! {
         Hedged = 0 => "hedged",
         /// One net position per symbol.
         Netted = 1 => "netted",
-        /// Spread betting.
         SpreadBetting = 2 => "spread betting",
     }
 }
@@ -188,13 +178,10 @@ number_enum! {
 number_enum! {
     /// What the account may do.
     AccessRights {
-        /// Everything.
         FullAccess = 0 => "full access",
         /// Positions may only be closed.
         CloseOnly = 1 => "close only",
-        /// No trading.
         NoTrading = 2 => "no trading",
-        /// No login.
         NoLogin = 3 => "no login",
     }
 }
@@ -299,7 +286,6 @@ impl Trader {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TradeData {
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// The volume in hundredths of a unit (see [`volume_units`]).
@@ -314,7 +300,6 @@ pub struct TradeData {
     /// The label the order was sent with.
     #[serde(default)]
     pub label: Option<String>,
-    /// A comment.
     #[serde(default)]
     pub comment: Option<String>,
     /// When it closed, in Unix milliseconds.
@@ -341,7 +326,6 @@ impl TradeData {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Position {
-    /// The position id.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// Symbol, volume, side, times.
@@ -391,7 +375,6 @@ impl Position {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Order {
-    /// The order id.
     #[serde(deserialize_with = "flex::int")]
     pub order_id: i64,
     /// Symbol, volume, side, times.
@@ -453,7 +436,6 @@ impl Order {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Deal {
-    /// The deal id.
     #[serde(deserialize_with = "flex::int")]
     pub deal_id: i64,
     /// The order it fills.
@@ -468,7 +450,6 @@ pub struct Deal {
     /// The volume filled, in hundredths of a unit.
     #[serde(deserialize_with = "flex::int")]
     pub filled_volume: i64,
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// When the deal was created, in Unix milliseconds.
@@ -477,7 +458,6 @@ pub struct Deal {
     /// When it was executed, in Unix milliseconds.
     #[serde(deserialize_with = "flex::int")]
     pub execution_timestamp: i64,
-    /// The execution price.
     #[serde(default)]
     pub execution_price: Option<f64>,
     /// Buy or sell, as its number (see [`Deal::side`]).
@@ -581,7 +561,6 @@ impl DepositWithdraw {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealOffset {
-    /// The deal id.
     #[serde(deserialize_with = "flex::int")]
     pub deal_id: i64,
     /// The matched volume, in hundredths of a unit.
@@ -590,7 +569,6 @@ pub struct DealOffset {
     /// When it executed, in Unix milliseconds.
     #[serde(default, deserialize_with = "flex::opt")]
     pub execution_timestamp: Option<i64>,
-    /// The execution price.
     #[serde(default)]
     pub execution_price: Option<f64>,
 }
@@ -600,7 +578,6 @@ pub struct DealOffset {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct PositionUnrealizedPnL {
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// Gross unrealized profit or loss, scaled by `10^moneyDigits`. Renamed explicitly: the

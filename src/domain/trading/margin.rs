@@ -111,10 +111,8 @@ impl MarginCall {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginChangedEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The position.
     #[serde(deserialize_with = "flex::int")]
     pub position_id: i64,
     /// The new margin used, scaled by `10^moneyDigits`.
@@ -131,7 +129,6 @@ pub struct MarginChangedEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCallUpdateEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
     /// The threshold, after the change.
@@ -144,7 +141,6 @@ pub struct MarginCallUpdateEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MarginCallTriggerEvent {
-    /// The account.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
     /// The threshold that triggered.

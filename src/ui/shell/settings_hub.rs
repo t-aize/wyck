@@ -311,14 +311,6 @@ impl SettingsHub {
         )
     }
 
-    // ---- appearance ----
-
-    // ---- charts ----
-
-    // ---- behavior ----
-
-    // ---- data ----
-
     fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
         self.notice = Some(Notice {
             ok,
@@ -326,10 +318,6 @@ impl SettingsHub {
         });
         cx.notify();
     }
-
-    // ---- about ----
-
-    // ---- indicators ----
 }
 
 /// What the backup that waits holds, kept for as long as the app runs so that the panel can show

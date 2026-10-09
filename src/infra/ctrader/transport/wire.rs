@@ -26,8 +26,6 @@ pub mod payload {
     /// `ProtoHeartbeatEvent`: sent both ways to show the connection is alive.
     pub const HEARTBEAT_EVENT: u32 = 51;
 
-    // ---- Auth ----
-
     /// `ProtoOAApplicationAuthReq`.
     pub const APPLICATION_AUTH_REQ: u32 = 2100;
     /// `ProtoOAApplicationAuthRes`.
@@ -40,8 +38,6 @@ pub mod payload {
     pub const VERSION_REQ: u32 = 2104;
     /// `ProtoOAVersionRes`.
     pub const VERSION_RES: u32 = 2105;
-
-    // ---- Trading ----
 
     /// `ProtoOANewOrderReq`.
     pub const NEW_ORDER_REQ: u32 = 2106;
@@ -57,8 +53,6 @@ pub mod payload {
     pub const CLOSE_POSITION_REQ: u32 = 2111;
     /// `ProtoOAOrderErrorEvent`.
     pub const ORDER_ERROR_EVENT: u32 = 2132;
-
-    // ---- Market ----
 
     /// `ProtoOASymbolsListReq`.
     pub const SYMBOLS_LIST_REQ: u32 = 2114;
@@ -190,8 +184,6 @@ pub mod payload {
     pub const CASH_FLOW_HISTORY_LIST_REQ: u32 = 2143;
     /// `ProtoOACashFlowHistoryListRes`.
     pub const CASH_FLOW_HISTORY_LIST_RES: u32 = 2144;
-
-    // ---- Margin ----
 
     /// `ProtoOAExpectedMarginReq`.
     pub const EXPECTED_MARGIN_REQ: u32 = 2139;

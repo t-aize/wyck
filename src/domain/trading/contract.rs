@@ -319,7 +319,6 @@ impl Contract {
 /// A symbol of a conversion chain, with the assets it trades.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Link {
-    /// The symbol.
     pub symbol_id: i64,
     /// The asset it prices.
     pub base: i64,

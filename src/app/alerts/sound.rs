@@ -31,7 +31,6 @@ pub const MAX_CUSTOM_SECONDS: f32 = 15.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SoundKind {
-    /// Silence.
     Off,
     /// The notification sound of the operating system.
     System,
@@ -264,7 +263,6 @@ pub enum SoundError {
     /// The sound is longer than [`MAX_CUSTOM_SECONDS`].
     #[error("The sound lasts {seconds:.0} s: an alert sound is at most {max:.0} s")]
     TooLong {
-        /// Its length.
         seconds: f32,
         /// The longest allowed.
         max: f32,

@@ -16,9 +16,7 @@ use crate::domain::flex;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplicationAuthReq {
-    /// The client id.
     pub client_id: String,
-    /// The client secret.
     pub client_secret: String,
 }
 
@@ -46,7 +44,6 @@ pub struct AccountAuthRes {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAccountsByAccessTokenReq {
-    /// The access token.
     pub access_token: String,
 }
 
@@ -99,7 +96,6 @@ pub struct VersionRes {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CtidProfileReq {
-    /// The access token.
     pub access_token: String,
 }
 
@@ -108,7 +104,6 @@ pub struct CtidProfileReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CtidProfile {
-    /// The user id.
     #[serde(deserialize_with = "flex::int")]
     pub user_id: i64,
 }
@@ -118,7 +113,6 @@ pub struct CtidProfile {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct CtidProfileRes {
-    /// The profile.
     pub profile: CtidProfile,
 }
 
@@ -141,7 +135,6 @@ pub struct ErrorRes {
     pub ctid_trader_account_id: Option<i64>,
     /// The error code, for example `REQUEST_FREQUENCY_EXCEEDED`.
     pub error_code: String,
-    /// The explanation.
     #[serde(default)]
     pub description: Option<String>,
     /// When maintenance ends, as a Unix time in seconds.
@@ -161,7 +154,6 @@ pub struct AccountsTokenInvalidatedEvent {
     /// The accounts whose tokens were invalidated.
     #[serde(default, deserialize_with = "flex::list")]
     pub ctid_trader_account_ids: Vec<i64>,
-    /// Why.
     #[serde(default)]
     pub reason: Option<String>,
 }
@@ -171,7 +163,6 @@ pub struct AccountsTokenInvalidatedEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ClientDisconnectEvent {
-    /// Why.
     #[serde(default)]
     pub reason: Option<String>,
 }
@@ -181,7 +172,6 @@ pub struct ClientDisconnectEvent {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AccountDisconnectEvent {
-    /// The account.
     #[serde(deserialize_with = "flex::int")]
     pub ctid_trader_account_id: i64,
 }

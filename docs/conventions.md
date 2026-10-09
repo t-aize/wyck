@@ -29,6 +29,9 @@ Remove:
 - banner comments (`// ---- x ----`);
 - numbering or names that went stale.
 
+`scripts/doc_noise.py` lists one-line docs that only repeat the name of the item. It prints
+candidates for a person to review, it deletes nothing.
+
 Where things live: the code says why locally; `docs/` holds architecture, recipes and protocol
 notes; `README.md` says what the app is and how to run it; `AGENTS.md` holds rules for agents;
 `docs/decisions/` holds decisions. Write a fact once and link to it.

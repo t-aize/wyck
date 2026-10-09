@@ -181,7 +181,6 @@ pub enum Condition {
     CrossingUp,
     /// The value goes from over the level to under it.
     CrossingDown,
-    /// Either.
     #[default]
     Crossing,
     /// The value becomes greater than the level.

@@ -21,8 +21,6 @@ pub(super) fn decorate(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<P
     label(drawing, pts, plot, out);
 }
 
-// ---- what ends a line ----
-
 fn caps(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let (tool, style) = (drawing.tool, &drawing.style);
     if pts.len() < 2 {
@@ -62,8 +60,6 @@ fn push_cap(out: &mut Vec<Prim>, cap: Cap, at: P, toward: P, color: u32, width: 
         }
     }
 }
-
-// ---- the words ----
 
 fn label(drawing: &Drawing, pts: &[P], plot: Rect, out: &mut Vec<Prim>) {
     let (tool, style) = (drawing.tool, &drawing.style);

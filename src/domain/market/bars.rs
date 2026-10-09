@@ -217,7 +217,6 @@ pub struct LiveTrendbarReq {
     pub ctid_trader_account_id: i64,
     /// The bar period, as its number.
     pub period: i32,
-    /// The symbol.
     pub symbol_id: i64,
 }
 
@@ -235,7 +234,6 @@ pub struct GetTrendbarsReq {
     pub to_timestamp: Option<i64>,
     /// The bar period, as its number.
     pub period: i32,
-    /// The symbol.
     pub symbol_id: i64,
     /// The most bars to return.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -247,7 +245,6 @@ pub struct GetTrendbarsReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct GetTrendbarsRes {
-    /// The bars.
     #[serde(default)]
     pub trendbar: Vec<WireTrendbar>,
     /// Whether more bars exist in the range than were returned.

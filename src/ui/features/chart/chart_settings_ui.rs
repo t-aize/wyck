@@ -380,8 +380,6 @@ impl ChartSettingsEditor {
         }
     }
 
-    // ---- rows ----
-
     fn switch_row(
         &self,
         id: &'static str,
@@ -475,8 +473,6 @@ impl ChartSettingsEditor {
                 .child(swatch),
         )
     }
-
-    // ---- pages ----
 
     fn kind_tiles(&self, current: ChartKind) -> AnyElement {
         let mut column = div().flex().flex_col().gap_3();

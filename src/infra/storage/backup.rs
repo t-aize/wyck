@@ -82,8 +82,6 @@ const RESET_MARKER: &str = "reset-pending";
 /// The version of this crate, written in the backups the crate makes on its own.
 const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// ---- the file ----
-
 /// A backup: the documents and scripts of an install, as text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Backup {
@@ -112,7 +110,6 @@ pub struct BackupFile {
     pub scope: String,
     /// The name of the document, without its extension.
     pub name: String,
-    /// Its text.
     pub content: String,
 }
 
@@ -441,8 +438,6 @@ fn read_backup_text(path: &Path) -> Result<String> {
     std::fs::read_to_string(path).map_err(read)
 }
 
-// ---- the copies kept on disk ----
-
 /// Why a copy was made: it decides the name of the file and what [`BackupStore::prune`] keeps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BackupKind {
@@ -498,7 +493,6 @@ pub struct BackupEntry {
     pub id: String,
     /// Why it was made.
     pub kind: BackupKind,
-    /// The file.
     pub path: PathBuf,
     /// Its size in bytes.
     pub bytes: u64,
@@ -787,8 +781,6 @@ impl BackupStore {
     }
 }
 
-// ---- the staged restore and reset ----
-
 /// Checks the text of a backup (plain, or sealed with `passphrase`) and puts it aside, to be
 /// applied when the app starts again by [`apply_pending`]. Returns what it holds. A reset that was
 /// waiting is cancelled: the last thing asked for wins.
@@ -1011,8 +1003,6 @@ fn apply_import(
     info!(written, "restored a backup");
     Ok((written, kept))
 }
-
-// ---- export and import of a file ----
 
 /// Writes a backup of everything to `dest` (sealed when a passphrase is given) and returns what
 /// went in. The one call behind an "Export" button: `scripts` is the folder the indicators are

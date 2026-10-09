@@ -322,8 +322,6 @@ impl Book {
         self.drawing_limit.unwrap_or(DEFAULT_DRAWINGS_PER_SYMBOL)
     }
 
-    // ---- tools ----
-
     /// Picks a tool (or, with `None`, the plain pointer), dropping a drawing half made.
     pub fn set_tool(&mut self, tool: Option<Tool>) {
         self.creating = None;
@@ -380,8 +378,6 @@ impl Book {
         self.also.clear();
         had || had_more
     }
-
-    // ---- history ----
 
     fn snapshot(&self, symbol: &str) -> Snapshot {
         Snapshot {
@@ -444,8 +440,6 @@ impl Book {
         self.undo.push(current);
         true
     }
-
-    // ---- making a drawing ----
 
     fn new_id(&mut self) -> u64 {
         self.next_id = self.next_id.max(1);
@@ -1098,8 +1092,6 @@ impl Book {
         Some(Grab::Grip)
     }
 
-    // ---- changing what exists ----
-
     fn edit_selected(&mut self, symbol: &str, mut change: impl FnMut(&mut Drawing)) -> bool {
         let ids = self.selection();
         if ids.is_empty() {
@@ -1308,8 +1300,6 @@ impl Book {
         self.also.clear();
         true
     }
-
-    // ---- changes from the settings dialog and the list of drawings ----
 
     /// Selects a drawing (or nothing), as a click on it would.
     pub fn select(&mut self, id: Option<u64>) {

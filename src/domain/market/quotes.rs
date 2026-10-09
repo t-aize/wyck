@@ -9,7 +9,6 @@ use crate::domain::flex;
 /// A live price change: what one `ProtoOASpotEvent` says about a symbol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Spot {
-    /// The symbol.
     pub symbol_id: i64,
     /// The bid, when this event changed it.
     pub bid: Option<i64>,
@@ -37,7 +36,6 @@ pub struct SpotEvent {
     /// The trading account id.
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// The new bid, when it changed.

@@ -35,8 +35,6 @@ pub struct Documents {
     pub account: DocumentStore,
 }
 
-// ---- the live copy ----
-
 pub struct Workspace {
     preferences: Preferences,
     watchlists: Watchlists,

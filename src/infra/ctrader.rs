@@ -1,7 +1,5 @@
 //! cTrader Open API SDK: messages, client, session, OAuth and trading calculations.
 
-#![warn(missing_docs)]
-
 //! # cTrader Open API client
 //!
 //! A Rust SDK for the **cTrader Open API**, over its JSON WebSocket.

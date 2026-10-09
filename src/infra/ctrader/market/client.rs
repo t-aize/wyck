@@ -53,8 +53,6 @@ impl MarketClient {
         &self.client
     }
 
-    // ---- symbols ----
-
     /// The symbols of the account, archived ones left out.
     ///
     /// # Errors
@@ -140,8 +138,6 @@ impl MarketClient {
         Ok(response.symbol)
     }
 
-    // ---- reference catalogs ----
-
     /// The assets (currencies and other units) of the broker.
     ///
     /// # Errors
@@ -204,8 +200,6 @@ impl MarketClient {
             .await?;
         Ok(response.symbol_category)
     }
-
-    // ---- live data ----
 
     /// Follows the prices of some symbols, with the server's timestamp on each event. The first
     /// [`crate::infra::ctrader::Event::Spot`] of each carries the latest price even when the market is closed; then
@@ -345,8 +339,6 @@ impl MarketClient {
         Ok(())
     }
 
-    // ---- history, one page ----
-
     /// One request for bars in `[from_ms, to_ms]`. Returns the bars, oldest first, and whether more
     /// exist in the range than were returned. The range is limited per period by the server (see
     /// [`MarketClient::bars`] for a whole range in pages).
@@ -417,8 +409,6 @@ impl MarketClient {
             .await?;
         Ok((decode_ticks(&response.tick_data), response.has_more))
     }
-
-    // ---- history, a whole range ----
 
     /// Every bar of `period` in `[from_ms, to_ms]`, paged. See [`history::fetch_bars`].
     ///

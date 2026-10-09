@@ -406,8 +406,6 @@ impl Session {
         }
     }
 
-    // ---- subscriptions ----
-
     /// Follows the prices of some symbols, now and after every reconnect. While the connection is
     /// down the request is only recorded and applied when it is back.
     ///

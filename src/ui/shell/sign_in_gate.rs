@@ -25,7 +25,6 @@ pub fn init(cx: &mut App) {
     cx.bind_keys([KeyBinding::new("escape", Dismiss, Some("SignInGate"))]);
 }
 
-/// The modal.
 pub struct SignInGate {
     sign_in: Entity<SignIn>,
     client_id: Entity<InputState>,

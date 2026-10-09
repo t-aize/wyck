@@ -209,8 +209,6 @@ impl OrderTicket {
         }
     }
 
-    // ---- the blocks ----
-
     fn summary(&self, f: &Frame) -> AnyElement {
         let plan = &f.plan;
         let ratio = plan

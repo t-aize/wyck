@@ -62,12 +62,6 @@ fn source_match(source: &str, query: &str) -> Option<(usize, usize)> {
 }
 
 impl IndicatorEditor {
-    // ---- the toolbar ----
-
-    // ---- the list of scripts ----
-
-    // ---- the tabs and the editor ----
-
     fn tabs(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut row = div()
             .flex_none()
@@ -305,12 +299,6 @@ impl IndicatorEditor {
             )
             .into_any_element()
     }
-
-    // ---- the console ----
-
-    // ---- the reference ----
-
-    // ---- the status bar ----
 
     fn status_bar(&self, cx: &mut Context<Self>) -> AnyElement {
         let position = self

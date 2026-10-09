@@ -66,7 +66,6 @@ pub struct WireTick {
 pub struct GetTickDataReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbol.
     pub symbol_id: i64,
     /// Bid (1) or ask (2) ticks.
     pub r#type: i32,

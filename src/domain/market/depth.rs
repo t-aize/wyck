@@ -26,7 +26,6 @@ pub struct DepthQuote {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthEvent {
-    /// The symbol.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// Entries that were added or changed.

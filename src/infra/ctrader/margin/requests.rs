@@ -11,7 +11,6 @@ use crate::domain::trading::margin::{DynamicLeverage, ExpectedMargin, MarginCall
 pub struct ExpectedMarginReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The symbol.
     pub symbol_id: i64,
     /// The volumes to estimate, in hundredths of a unit.
     pub volume: Vec<i64>,

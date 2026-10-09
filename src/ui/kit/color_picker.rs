@@ -49,8 +49,6 @@ const GAP: f32 = 4.0;
 /// How many colors can be saved.
 const MAX_SAVED: usize = 24;
 
-// ---- colors ----
-
 /// The hue (0 to 360), saturation and value (0 to 1) of a color.
 pub fn rgb_to_hsv(color: u32) -> (f32, f32, f32) {
     let r = ((color >> 16) & 0xff) as f32 / 255.0;
@@ -116,8 +114,6 @@ pub fn parse_hex(text: &str) -> Option<u32> {
         _ => None,
     }
 }
-
-// ---- the panel ----
 
 /// What keeps the saved colors.
 type SaveColors = Rc<dyn Fn(&[u32], &mut App)>;
@@ -517,8 +513,6 @@ pub fn panel_with_opacity(
 pub fn set_swatch_hovered(panel: &Entity<ColorPanel>, hovered: bool, cx: &mut App) {
     panel.update(cx, |panel, _| panel.swatch_hovered = hovered);
 }
-
-// ---- drawing it ----
 
 /// What is being dragged from a surface, carried by the drag itself.
 #[derive(Clone)]

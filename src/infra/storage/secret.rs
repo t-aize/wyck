@@ -27,9 +27,9 @@ use secrecy::SecretString;
 use crate::infra::storage::error::Result;
 
 /// A structured identifier for one secret: `namespace:name`, e.g.
-/// `"ctrader-remote:profile:<uuid>"`. Namespacing keeps different crates' secrets from
+/// `"ctrader-remote:profile:<uuid>"`. Namespacing keeps the secrets of different parts of the app from
 /// colliding in a shared OS credential store (which is keyed by a flat
-/// service/username pair) without any of those crates needing to coordinate on naming
+/// service/username pair) without any of those parts needing to coordinate on naming
 /// conventions beyond "pick a namespace".
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SecretKey(String);

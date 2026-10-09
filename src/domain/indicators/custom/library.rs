@@ -73,8 +73,6 @@ impl Entry {
     }
 }
 
-// ---- the registry ----
-
 #[derive(Default)]
 struct Registry {
     entries: BTreeMap<String, Arc<Entry>>,
@@ -130,8 +128,6 @@ pub mod registry {
         })
     }
 }
-
-// ---- names ----
 
 /// Why an indicator cannot be created, renamed or found.
 #[derive(Debug, thiserror::Error)]
@@ -205,8 +201,6 @@ pub fn short_of(name: &str) -> String {
         text
     }
 }
-
-// ---- what an indicator says about itself ----
 
 static INPUTS: Slices<InputSpec> = Slices::new();
 static PLOTS: Slices<PlotSpec> = Slices::new();
@@ -363,8 +357,6 @@ impl Spec {
         self
     }
 }
-
-// ---- the folder ----
 
 /// A file found in the folder: what [`ScriptStore::scan`] gives.
 type Found = ScriptFile;

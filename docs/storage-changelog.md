@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to `wyck-config` are written here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The crate is versioned with the
-workspace. There has been no release yet: formats are not frozen and carry no migration code.
+All notable changes to the storage layer (`src/infra/storage`) are written here. The format
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). It is versioned with the app.
+There has been no release yet: formats are not frozen and carry no migration code.
 
 ## [Unreleased]
 
@@ -42,7 +42,7 @@ workspace. There has been no release yet: formats are not frozen and carry no mi
   (`BeforeImport`, `BeforeReset`), so both can be undone. `export_to_file` is the one call behind an
   export button.
 - `scripts` module: `ScriptStore`, the folder of indicator scripts, with the rule for ids and the
-  limits that `wyck-chart` and the backup used to each carry their own copy of.
+  limits that the indicator code and the backup used to each carry their own copy of.
 - Errors: `NotABackup`, `BackupTooNew`, `BackupDamaged`, `PassphraseRequired`, `BackupNotFound`.
 - `AppPaths::documents`, `scope`, `scripts` and `backups`, and the same four on `WyckConfig`.
 - The `config_backup` example (list, save, export, import, restore, prune from the command line).

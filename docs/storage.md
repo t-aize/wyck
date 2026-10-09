@@ -255,8 +255,8 @@ folder the user chose) owns what has to be the same everywhere the files are tou
   kind are not scripts, and a file that is too big or not text is left out of a copy;
 - `write`: atomic, and the id and size are checked; `export_all` copies the whole folder.
 
-It does not know the language: compiling and running scripts is `wyck-chart`, which reads and
-writes its library through this type. The backup takes the scripts from here too.
+It does not know the language: compiling and running scripts is `domain::indicators`, and
+`app::scripts` reads and writes the library through this type. The backup takes the scripts from here too.
 
 ## Checking an install
 

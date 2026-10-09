@@ -228,7 +228,6 @@ pub struct OrderFacts {
 /// What the checks say about an order.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Verdict {
-    /// Send it.
     Ok,
     /// Refuse it, with the reason.
     Block(String),

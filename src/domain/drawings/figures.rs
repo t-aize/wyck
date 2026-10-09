@@ -123,8 +123,6 @@ fn ratio_label(a: P, b: P, text: String, drawing: &Drawing) -> Prim {
     prim
 }
 
-// ---- pitchforks ----
-
 fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (a, b, c) = (pts[0], pts[1], pts[2]);
@@ -214,8 +212,6 @@ fn pitchfork(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
         }
     }
 }
-
-// ---- Fibonacci ----
 
 fn fib_channel(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     let style = &drawing.style;
@@ -362,8 +358,6 @@ fn fib_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
         drawing.style.dash,
     ));
 }
-
-// ---- Gann ----
 
 /// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
 pub fn gann_text(ratio: f64) -> String {
@@ -570,8 +564,6 @@ pub(super) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     });
 }
 
-// ---- patterns ----
-
 /// The zigzag through every point.
 fn zigzag(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
@@ -731,8 +723,6 @@ fn triangle_pattern(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
         }
     }
 }
-
-// ---- Elliott waves ----
 
 /// The names of the points of an Elliott wave, the first being its start.
 pub fn wave_names(tool: Tool) -> &'static [&'static str] {

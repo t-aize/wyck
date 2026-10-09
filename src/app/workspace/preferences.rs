@@ -56,8 +56,6 @@ impl UsageLimits {
     }
 }
 
-// ---- preferences ----
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LayoutPref {
     pub count: usize,
@@ -530,8 +528,6 @@ impl Preferences {
         format!("{}-{}", key.count, key.variant)
     }
 }
-
-// ---- watchlists ----
 
 /// A named list of symbols, by the names the broker gives them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -160,8 +160,6 @@ fn spot_ids(server: &MockServer) -> Vec<Vec<i64>> {
         .collect()
 }
 
-// ---- coming up ----
-
 #[tokio::test]
 async fn a_session_signs_the_application_and_the_account_in_and_becomes_ready() {
     let server = MockServer::start(answers(healthy())).await;
@@ -220,8 +218,6 @@ async fn the_accessors_report_the_account_and_the_current_tokens() {
     assert!(format!("{session:?}").contains("Session"));
     session.stop().await;
 }
-
-// ---- staying up ----
 
 #[tokio::test]
 async fn a_dropped_connection_is_replaced_and_the_subscriptions_come_back() {
@@ -385,8 +381,6 @@ async fn the_client_is_none_while_down_and_a_new_one_after() {
     session.stop().await;
 }
 
-// ---- subscriptions ----
-
 #[tokio::test]
 async fn unsubscribing_forgets_a_symbol_so_a_reconnect_does_not_bring_it_back() {
     let server = MockServer::start(answers(healthy())).await;
@@ -521,8 +515,6 @@ async fn already_subscribed_counts_as_success() {
     session.stop().await;
 }
 
-// ---- tokens ----
-
 #[tokio::test]
 async fn tokens_close_to_expiry_are_refreshed_and_saved_before_connecting() {
     let server = MockServer::start(answers(healthy())).await;
@@ -648,8 +640,6 @@ async fn a_notice_about_other_accounts_is_forwarded_but_changes_nothing() {
     assert_eq!(server.connections(), 1, "no reconnect");
     session.stop().await;
 }
-
-// ---- account and server disconnect notices ----
 
 #[tokio::test]
 async fn an_account_disconnected_notice_is_re_authorized_without_a_full_reconnect() {
@@ -868,8 +858,6 @@ async fn a_token_store_that_fails_does_not_end_the_session() {
     );
 }
 
-// ---- failing ----
-
 #[tokio::test]
 async fn an_unreachable_server_is_retried_with_a_growing_wait_then_given_up() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -950,8 +938,6 @@ async fn an_invalid_token_is_refreshed_once_and_a_second_failure_ends_the_sessio
         "the original try and the one with fresh tokens"
     );
 }
-
-// ---- stopping ----
 
 #[tokio::test]
 async fn stopping_closes_the_connection_and_announces_it_once() {

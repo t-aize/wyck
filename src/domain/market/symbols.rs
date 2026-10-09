@@ -10,7 +10,6 @@ use crate::domain::flex;
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct LightSymbol {
-    /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// The ticker the broker uses.
@@ -38,7 +37,6 @@ pub struct LightSymbol {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Symbol {
-    /// The symbol id.
     #[serde(deserialize_with = "flex::int")]
     pub symbol_id: i64,
     /// Decimals the symbol is quoted with.
@@ -79,12 +77,10 @@ pub struct Symbol {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Asset {
-    /// The asset id.
     #[serde(deserialize_with = "flex::int")]
     pub asset_id: i64,
     /// The short name (`EUR`).
     pub name: String,
-    /// The display name.
     #[serde(default)]
     pub display_name: Option<String>,
     /// Decimals of an amount of the asset.
@@ -209,7 +205,6 @@ pub struct SymbolsForConversionRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AssetListRes {
-    /// The assets.
     #[serde(default)]
     pub asset: Vec<Asset>,
 }
@@ -219,7 +214,6 @@ pub struct AssetListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AssetClassListRes {
-    /// The classes.
     #[serde(default)]
     pub asset_class: Vec<AssetClass>,
 }
@@ -229,7 +223,6 @@ pub struct AssetClassListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SymbolCategoryListRes {
-    /// The categories.
     #[serde(default)]
     pub symbol_category: Vec<SymbolCategory>,
 }

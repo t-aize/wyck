@@ -36,7 +36,6 @@ pub struct NewOrderReq {
     /// The trading account id. Always overwritten by `TradingClient::new_order` with the
     /// account it is bound to.
     pub ctid_trader_account_id: i64,
-    /// The symbol.
     pub symbol_id: i64,
     /// Market, limit, stop, market range or stop limit.
     pub order_type: i32,

@@ -606,8 +606,6 @@ impl Account {
         .detach();
     }
 
-    // ---- loading ----
-
     /// The session is connected (again): read everything afresh.
     pub fn on_ready(&mut self, cx: &mut Context<Self>) {
         self.epoch += 1;
@@ -791,8 +789,6 @@ impl Account {
         .detach();
     }
 
-    // ---- what the server says ----
-
     pub fn on_event(&mut self, event: &Event, cx: &mut Context<Self>) {
         match event {
             Event::Spot(spot) => {
@@ -888,8 +884,6 @@ impl Account {
             _ => {}
         }
     }
-
-    // ---- what the user does ----
 
     /// Runs a trading call; on failure says why and reads the account again (the call may have
     /// reached the server even so).

@@ -65,8 +65,6 @@ fn columns() -> Fallible<super::run::Columns> {
     with_run(|run| run.columns.clone())
 }
 
-// ---- arithmetic on every bar ----
-
 fn elementwise(engine: &mut Engine) {
     macro_rules! unary {
         ($name:literal, $f:expr) => {
@@ -154,8 +152,6 @@ fn nan_max(a: f64, b: f64) -> f64 {
     }
 }
 
-// ---- moving over a window of bars ----
-
 fn windows(engine: &mut Engine) {
     macro_rules! window {
         ($name:literal, $f:path) => {
@@ -203,8 +199,6 @@ fn windows(engine: &mut Engine) {
         Series::new(math::bars_since(cond.values()))
     });
 }
-
-// ---- conditions ----
 
 fn logic(engine: &mut Engine) {
     // `iff(condition, a, b)`: `a` on the bars where the condition holds, `b` on the others. Each of
@@ -269,8 +263,6 @@ fn crossing(a: &Series, b: &Series, test: fn(f64, f64) -> bool) -> Fallible<Seri
             .collect(),
     ))
 }
-
-// ---- indicators ready to use ----
 
 fn indicators(engine: &mut Engine) {
     engine.register_fn("tr", || -> Fallible<Series> {
@@ -471,8 +463,6 @@ fn indicators(engine: &mut Engine) {
     );
 }
 
-// ---- colors ----
-
 /// Colors by name, for `color: "orange"` in the options of a plot.
 const NAMED: [(&str, u32); 14] = [
     ("white", 0xffffff),
@@ -512,8 +502,6 @@ fn colors(engine: &mut Engine) {
         format!("#{:06x}", byte(r) << 16 | byte(g) << 8 | byte(b))
     });
 }
-
-// ---- describing the indicator ----
 
 /// The text of a color, `#rrggbb`.
 pub fn color_text(color: u32) -> String {

@@ -68,7 +68,6 @@ pub struct CashFlowHistoryListReq {
 pub struct DealListByPositionIdReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position.
     pub position_id: i64,
     /// Start of the range, in Unix milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -84,7 +83,6 @@ pub struct DealListByPositionIdReq {
 pub struct OrderListByPositionIdReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The position.
     pub position_id: i64,
     /// Start of the range, in Unix milliseconds. Filters by the order's last update.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,7 +98,6 @@ pub struct OrderListByPositionIdReq {
 pub struct OrderDetailsReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The order.
     pub order_id: i64,
 }
 
@@ -110,7 +107,6 @@ pub struct OrderDetailsReq {
 pub struct DealOffsetListReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
-    /// The deal.
     pub deal_id: i64,
 }
 
@@ -119,7 +115,6 @@ pub struct DealOffsetListReq {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct TraderRes {
-    /// The account.
     pub trader: Trader,
 }
 
@@ -141,7 +136,6 @@ pub struct ReconcileRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct DealListRes {
-    /// The deals.
     #[serde(default)]
     pub deal: Vec<Deal>,
     /// Whether more deals exist in the range than were returned.
@@ -154,7 +148,6 @@ pub struct DealListRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderListRes {
-    /// The orders.
     #[serde(default)]
     pub order: Vec<Order>,
     /// Whether more orders exist in the range than were returned.
@@ -212,7 +205,6 @@ pub struct OrderListByPositionIdRes {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct OrderDetailsRes {
-    /// The order.
     pub order: Order,
     /// Every deal that filled it.
     #[serde(default)]

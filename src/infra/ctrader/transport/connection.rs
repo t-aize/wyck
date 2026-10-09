@@ -473,8 +473,6 @@ impl Client {
         }
     }
 
-    // ---- sign in ----
-
     /// Identifies the application to the server. Must come first on a connection.
     ///
     /// # Errors

@@ -17,7 +17,6 @@ pub enum Group {
     Conditions,
     /// Arithmetic on every bar, and reading a series.
     Series,
-    /// Colors.
     Colors,
     /// The chart drawing tools.
     Drawings,
@@ -106,7 +105,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "Lists the names of all chart drawing tools accepted by draw.",
         "drawing_tools()",
     ),
-    // ---- describing the indicator ----
     doc(
         Declare,
         "indicator",
@@ -212,7 +210,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "Shades the space between two plots drawn before. Options: color, alpha (0 to 1), down_color (the color where the second is above).",
         "fill(\"upper\", \"lower\", #{ alpha: 0.08 });",
     ),
-    // ---- series and arithmetic ----
     doc(
         Series,
         "abs",
@@ -409,7 +406,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "A short description of a series, for debugging.",
         "debug(close);",
     ),
-    // ---- averages and windows ----
     doc(
         Windows,
         "sma",
@@ -515,7 +511,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "Relative strength index, from 0 to 100.",
         "rsi(close, 14)",
     ),
-    // ---- ready made indicators ----
     doc(
         Indicators,
         "tr",
@@ -621,7 +616,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "Keltner channel. Gives a map with basis, upper and lower.",
         "let kc = keltner(20, 2.0, 10);",
     ),
-    // ---- conditions ----
     doc(
         Conditions,
         "cross_over",
@@ -650,7 +644,6 @@ pub const FUNCTIONS: &[Doc] = &[
         "a on the bars where the condition holds, b on the others. Each of them is a series or a number.",
         "iff(close > open, 1, -1)",
     ),
-    // ---- colors ----
     doc(
         Colors,
         "rgb",

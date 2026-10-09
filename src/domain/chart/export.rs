@@ -31,8 +31,6 @@ const RAW_DECIMALS: u32 = 5;
 /// Rows of one SQL insert.
 const SQL_BATCH: usize = 500;
 
-// ---- the options ----
-
 /// What is exported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -670,8 +668,6 @@ impl ExportOptions {
     }
 }
 
-// ---- the columns ----
-
 /// A column that can be exported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColumnKey {
@@ -886,8 +882,6 @@ impl<'de> Deserialize<'de> for ColumnKey {
     }
 }
 
-// ---- the source ----
-
 /// What an export reads: the chart's data and how it stands.
 pub struct Source<'a> {
     pub symbol: &'a str,
@@ -1041,8 +1035,6 @@ impl Source<'_> {
     }
 }
 
-// ---- the table ----
-
 /// One value of a table.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Cell {
@@ -1060,7 +1052,6 @@ pub enum Cell {
     Clock(i64),
 }
 
-/// A column of a table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TableColumn {
     pub key: ColumnKey,
@@ -1359,8 +1350,6 @@ pub fn table(source: &Source<'_>, options: &ExportOptions, rows: Option<usize>) 
     }
 }
 
-// ---- writing values ----
-
 fn zone_name(zone: Zone, at: i64) -> String {
     zone.label(at)
 }
@@ -1522,8 +1511,6 @@ fn cell_text(cell: &Cell, cx: &Writer<'_>) -> Option<Written> {
         Cell::Clock(t) => plain(local_text(*t, o.zone(cx.zone), &o.clock_pattern), false),
     }
 }
-
-// ---- rendering ----
 
 fn json_string(text: &str) -> String {
     serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_owned())
@@ -1765,8 +1752,6 @@ pub fn clashes(options: &ExportOptions) -> bool {
         && options.delimiter_char() == ','
         && options.quote == Quote::Never
 }
-
-// ---- presets ----
 
 /// A named set of options.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

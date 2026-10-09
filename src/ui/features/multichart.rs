@@ -493,8 +493,6 @@ impl MultiChart {
         });
     }
 
-    // ---- what the charts show ----
-
     /// Shows a symbol on chart `target`, or on every chart when the symbol is linked.
     pub fn set_symbol(&mut self, target: usize, symbol: SymbolRef, cx: &mut Context<Self>) {
         for index in links::symbol_targets(&self.sync, target, self.slots.len()) {
@@ -617,8 +615,6 @@ impl MultiChart {
         self.lines = lines;
     }
 
-    // ---- the layout ----
-
     /// Arranges the charts as `key` says. Charts that stay keep their state, in order; new ones
     /// are added at the end; those that no longer fit are closed.
     pub fn set_layout(&mut self, key: LayoutKey, cx: &mut Context<Self>) {
@@ -721,8 +717,6 @@ impl MultiChart {
             cx.notify();
         }
     }
-
-    // ---- drawing ----
 
     pub fn set_usage_limits(&mut self, limits: UsageLimits, cx: &mut Context<Self>) {
         for slot in &self.slots {
@@ -991,8 +985,6 @@ impl MultiChart {
         }
     }
 
-    // ---- the links ----
-
     fn on_chart_event(
         &mut self,
         source: &Entity<Chart>,
@@ -1063,8 +1055,6 @@ impl MultiChart {
             }
         }
     }
-
-    // ---- the lines between charts ----
 
     fn on_area_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
         let Some(mut drag) = self.split_drag else {

@@ -451,8 +451,6 @@ impl Appearance {
     }
 }
 
-// ---- in force ----
-
 struct State {
     appearance: Appearance,
     system_dark: bool,

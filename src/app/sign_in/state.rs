@@ -39,10 +39,7 @@ pub enum Phase {
         selected: usize,
     },
     /// The chosen account is being authorized.
-    Authorizing {
-        /// Its name.
-        label: String,
-    },
+    Authorizing { label: String },
     /// A session exists.
     Connected,
 }

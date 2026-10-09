@@ -11,8 +11,6 @@ use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use wyck::infra::ctrader::transport::wire::payload;
 use wyck::infra::ctrader::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
 
-// ---- sign in ----
-
 #[tokio::test]
 async fn the_application_sign_in_sends_the_credentials_in_the_documented_shape() {
     let server = MockServer::start(answers(vec![(
@@ -93,8 +91,6 @@ async fn the_version_is_decoded_and_the_ctid_profile_needs_only_a_token() {
         json!({"accessToken": "tok"})
     );
 }
-
-// ---- errors ----
 
 #[tokio::test]
 async fn a_server_error_becomes_a_typed_error_with_its_advice() {
@@ -189,8 +185,6 @@ async fn silence_ends_in_a_timeout_and_a_late_answer_does_no_harm() {
     assert!(!client.is_closed());
 }
 
-// ---- many requests at once ----
-
 #[tokio::test]
 async fn answers_are_matched_to_their_requests_even_out_of_order() {
     let counter = Arc::new(AtomicUsize::new(0));
@@ -223,8 +217,6 @@ async fn answers_are_matched_to_their_requests_even_out_of_order() {
     assert_eq!(b.unwrap().user_id, 20);
     assert_eq!(c.unwrap().user_id, 30);
 }
-
-// ---- events ----
 
 #[tokio::test]
 async fn every_reader_of_the_events_sees_them() {
@@ -271,8 +263,6 @@ async fn a_token_notice_and_an_unknown_message_are_events_too() {
         }
     ));
 }
-
-// ---- the life of the connection ----
 
 #[tokio::test]
 async fn heartbeats_keep_flowing() {
@@ -388,8 +378,6 @@ async fn unusable_settings_are_refused_before_connecting() {
         .unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Config);
 }
-
-// ---- rate limit refusals ----
 
 fn blocked_then_ok(blocked_times: usize) -> (Arc<AtomicUsize>, crate::support::Handler) {
     let seen = Arc::new(AtomicUsize::new(0));

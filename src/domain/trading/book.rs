@@ -37,7 +37,6 @@ pub enum Tone {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NoticeAction {
-    /// Close this position.
     ClosePosition(i64),
     /// Move the stop loss of this position to its entry price.
     BreakEven(i64),
@@ -52,7 +51,6 @@ pub struct Notice {
     pub tone: Tone,
     /// A short headline.
     pub title: String,
-    /// The details.
     pub message: String,
     /// What to do about it, when there is something.
     pub hint: Option<String>,

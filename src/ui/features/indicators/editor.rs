@@ -388,8 +388,6 @@ impl IndicatorEditor {
         }
     }
 
-    // ---- the message of the status bar ----
-
     pub(super) fn say(&mut self, ok: bool, text: impl Into<String>, cx: &mut Context<Self>) {
         let clear = cx.spawn(async move |this, cx| {
             cx.background_executor().timer(NOTICE_TIME).await;
@@ -405,8 +403,6 @@ impl IndicatorEditor {
         });
         cx.notify();
     }
-
-    // ---- the tabs ----
 
     /// Opens the script `id` in a tab (or goes to its tab).
     pub fn open(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -503,8 +499,6 @@ impl IndicatorEditor {
         }
     }
 
-    // ---- what happens when the text changes ----
-
     fn text_changed(&mut self, id: &str, cx: &mut Context<Self>) {
         let Some(doc) = self.docs.iter_mut().find(|d| d.id == id) else {
             return;
@@ -551,8 +545,6 @@ impl IndicatorEditor {
         let text = doc.state.read(cx).value().to_string();
         show_diagnostics(&doc.state, &doc.problems, &text, cx);
     }
-
-    // ---- saving ----
 
     /// Writes the script of the tab to its file.
     pub(super) fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -673,8 +665,6 @@ impl IndicatorEditor {
         .detach();
     }
 
-    // ---- files ----
-
     /// A file changed, appeared or went: the tabs follow it.
     fn library_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         for index in 0..self.docs.len() {
@@ -737,8 +727,6 @@ impl IndicatorEditor {
         self.queue_drafts(cx);
         cx.notify();
     }
-
-    // ---- new, rename, duplicate, delete ----
 
     /// Asks for a name for a new script made from the template `template`.
     pub fn ask_new(&mut self, template: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -878,8 +866,6 @@ impl IndicatorEditor {
         );
     }
 
-    // ---- moving the cursor ----
-
     /// Puts the cursor at a place a problem points to.
     pub(super) fn jump_to(
         &mut self,
@@ -953,8 +939,6 @@ impl IndicatorEditor {
             self.jump_to(line, column, window, cx);
         }
     }
-
-    // ---- exporting and importing ----
 
     pub(super) fn export_current(&mut self, cx: &mut Context<Self>) {
         let Some(doc) = self.current() else {

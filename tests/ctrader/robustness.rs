@@ -24,8 +24,6 @@ fn version_answers() -> Vec<(u32, u32, serde_json::Value)> {
     )]
 }
 
-// ---- nonsense from the server ----
-
 #[tokio::test]
 async fn frames_that_make_no_sense_are_ignored_and_the_connection_carries_on() {
     let server = MockServer::start(answers(version_answers())).await;
@@ -141,8 +139,6 @@ async fn a_very_large_answer_is_read_whole() {
     assert_eq!(list.len(), 20_000);
     assert_eq!(list[19_999].symbol_name.as_deref(), Some("SYMBOL19999"));
 }
-
-// ---- load ----
 
 #[tokio::test]
 async fn a_burst_of_events_faster_than_the_reader_is_survived_and_the_loss_is_reported() {
@@ -283,8 +279,6 @@ async fn dropping_every_clone_without_closing_still_ends_the_connection() {
     .expect("the connection did not close on its own once every clone was gone")
     .unwrap();
 }
-
-// ---- the network ----
 
 #[tokio::test]
 async fn a_peer_that_never_finishes_the_handshake_is_a_timeout() {

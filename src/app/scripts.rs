@@ -159,8 +159,6 @@ fn changed(cx: &mut App) {
     }
 }
 
-// ---- what the interface reads ----
-
 /// The settings of the indicators.
 pub fn prefs(cx: &App) -> Prefs {
     cx.try_global::<Service>()
@@ -267,8 +265,6 @@ fn point_at(dir: PathBuf, cx: &mut App) {
     })
     .detach();
 }
-
-// ---- what the interface asks for ----
 
 /// Runs `job` on the library off the interface thread, then publishes what it left and tells the
 /// app. The answer is what `job` returned.

@@ -237,8 +237,6 @@ impl Alerts {
         alert.active && !alert.is_snoozed(now) && !alert.is_expired(now)
     }
 
-    // ---- prices ----
-
     /// A price event: judges the alerts that follow the price.
     pub fn on_spot(
         &mut self,
@@ -314,8 +312,6 @@ impl Alerts {
         }
     }
 
-    // ---- profits ----
-
     /// Whether an alert waits for a profit, so the account need not be read for nothing.
     pub fn watches_profit(&self) -> bool {
         self.book
@@ -388,8 +384,6 @@ impl Alerts {
         eval::drawing_level(drawing.tool, &drawing.points, time)
             .map(|(level, upper)| (level / scale, upper.map(|u| u / scale)))
     }
-
-    // ---- bars ----
 
     /// Every few seconds: alerts out of time stop, and the bars the alerts need are read again.
     fn poll(&mut self, cx: &mut Context<Self>) {
@@ -557,8 +551,6 @@ impl Alerts {
             self.fire(id, value, Some(bar), cx);
         }
     }
-
-    // ---- firing ----
 
     /// An alert fired: it is counted and put in the history, saved, and the app is told.
     fn fire(&mut self, id: u64, value: f64, bar: Option<i64>, cx: &mut Context<Self>) {

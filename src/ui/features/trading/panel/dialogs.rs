@@ -15,8 +15,6 @@ use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::menu::{self as popup, Entry, Item};
 use crate::ui::kit::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
 
-// ---- modifying a position or an order ----
-
 #[derive(Debug, Clone, Copy)]
 pub enum Target {
     Position(i64),
@@ -158,8 +156,6 @@ impl Render for ProtectionEditor {
         form::dialog(head, modal::dismiss, body, footer)
     }
 }
-
-// ---- editing an alert ----
 
 struct AlertEditor {
     alerts: Entity<Alerts>,
