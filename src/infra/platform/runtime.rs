@@ -17,6 +17,12 @@ use std::sync::OnceLock;
 use tokio::runtime::{Handle, Runtime};
 use tokio::task::JoinHandle;
 
+// What a screen needs to deal with the results of work it handed to the runtime, so that no
+// screen names tokio.
+pub use tokio::sync::broadcast::error::RecvError;
+pub use tokio::task::JoinError;
+pub use tokio::try_join;
+
 static RUNTIME: OnceLock<Handle> = OnceLock::new();
 
 /// The shared tokio [`Handle`], starting the background runtime thread on first use.

@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use crate::app::broker::session::{Session, SessionEvent, SessionState};
 use crate::app::broker::{Error as ApiError, Event};
+use crate::app::system::runtime::RecvError;
 use crate::domain::drawings::model::Tool;
 use crate::domain::market::{PRICE_SCALE, Spot, format_price};
 use crate::ui::kit::icon::IconName;
@@ -32,7 +33,6 @@ use gpui::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
     deferred, div, px,
 };
-use tokio::sync::broadcast::error::RecvError;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;

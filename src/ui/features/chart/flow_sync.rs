@@ -70,7 +70,7 @@ async fn fetch_quotes(
     to_ms: i64,
 ) -> ApiResult<Vec<Quote>> {
     let market = load::market(session)?;
-    let (bids, asks) = tokio::try_join!(
+    let (bids, asks) = runtime::try_join!(
         market.ticks(symbol_id, QuoteType::Bid, from_ms, to_ms),
         market.ticks(symbol_id, QuoteType::Ask, from_ms, to_ms),
     )?;

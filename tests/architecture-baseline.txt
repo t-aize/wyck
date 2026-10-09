@@ -7,6 +7,3 @@ src/app/appearance/presets.rs	layer	app -> ui::kit
 src/app/prefs/panel.rs	layer	app -> ui::kit
 src/app/updates.rs	layer	app -> ui::features::multichart
 src/app/updates.rs	layer	app -> ui::kit
-src/ui/features/chart.rs	extern	ui::features::chart uses tokio
-src/ui/features/chart/flow_sync.rs	extern	ui::features::chart uses tokio
-src/ui/shell/dashboard.rs	extern	ui::shell uses tokio

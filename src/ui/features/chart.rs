@@ -936,7 +936,9 @@ fn empty_series(timeframe: Timeframe) -> Series {
     }
 }
 
-fn flatten<T>(result: Result<ApiResult<T>, tokio::task::JoinError>) -> ApiResult<T> {
+fn flatten<T>(
+    result: Result<ApiResult<T>, crate::app::system::runtime::JoinError>,
+) -> ApiResult<T> {
     match result {
         Ok(inner) => inner,
         Err(_) => Err(ApiError::Closed),
