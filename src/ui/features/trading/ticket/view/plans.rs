@@ -1,9 +1,9 @@
 //! The time stop and the saved plans of the order ticket. What they hold is described in
-//! [`crate::ui::features::trading::plan`] and [`super::super::prefs`].
+//! [`crate::domain::trading::plan`] and [`super::super::prefs`].
 
 use super::*;
-use crate::ui::features::trading::plan::Only;
-use crate::ui::features::trading::ticket::prefs;
+use crate::app::prefs::ticket as prefs;
+use crate::domain::trading::plan::Only;
 
 impl OrderTicket {
     /// Closing the position once it has been open for a while.

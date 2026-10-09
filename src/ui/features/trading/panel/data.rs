@@ -11,19 +11,19 @@ use std::collections::BTreeMap;
 use crate::domain::trading::{OrderType, Position, money};
 use serde_json::Value;
 
-use super::columns::{
-    AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs,
-};
-use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
 use super::stats::{self, HistoryStats};
 use crate::app::alerts::Alerts;
 use crate::app::market_data::now_ms;
+use crate::app::prefs::columns::{
+    AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, Sort, TablePrefs,
+};
+use crate::app::prefs::panel::{HistoryRange, PanelPrefs, ProfitUnit, Tab};
+use crate::app::prefs::ticket::Slot;
 use crate::domain::chart::zone::Zone;
+use crate::domain::trading::math;
+use crate::domain::trading::math::{Contract, format_money};
 use crate::ui::features::trading::account::{Account, Busy};
 use crate::ui::features::trading::book::is_buy;
-use crate::ui::features::trading::math;
-use crate::ui::features::trading::math::{Contract, format_money};
-use crate::ui::features::trading::ticket::prefs::Slot;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -281,7 +281,7 @@ fn sort_rows(rows: &mut [Row], index: usize, descending: bool) {
 }
 
 /// The columns that show, with which one the table is sorted by.
-fn views<C: super::columns::Column>(prefs: &TablePrefs<C>) -> Vec<ColView> {
+fn views<C: crate::app::prefs::columns::Column>(prefs: &TablePrefs<C>) -> Vec<ColView> {
     prefs
         .columns
         .iter()
@@ -313,7 +313,7 @@ fn total_text(sum: f64, unit: Unit, currency: &str, balance: f64) -> String {
 }
 
 /// Sorts, totals and wraps the rows of a table.
-fn finish<C: super::columns::Column>(
+fn finish<C: crate::app::prefs::columns::Column>(
     ctx: &Ctx,
     tab: Tab,
     prefs: &TablePrefs<C>,

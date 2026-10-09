@@ -15,8 +15,8 @@ use gpui_kit::component::input::{InputEvent, InputState, NumberInput};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::OrderTicket;
-use super::prefs::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
-use crate::ui::features::trading::math::SizeMode;
+use crate::app::prefs::ticket::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
+use crate::domain::trading::math::SizeMode;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, tokens};
 
 /// The ways of sizing that have a list of shortcuts of their own, with what the list is for.
@@ -181,8 +181,8 @@ impl Customizer {
                 window,
                 cx,
             )
-            .min(f64::from(super::prefs::WIDTH_MIN))
-            .max(f64::from(super::prefs::WIDTH_MAX))
+            .min(f64::from(crate::app::prefs::ticket::WIDTH_MIN))
+            .max(f64::from(crate::app::prefs::ticket::WIDTH_MAX))
         });
         subscriptions.push(cx.subscribe(&width, |this, state, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change)

@@ -41,24 +41,26 @@ use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Windo
 use gpui_kit::component::input::{InputEvent, InputState};
 
 use super::account::{Account, Busy};
-use super::math::{self, Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
 use crate::domain::drawings::model::Dash;
 use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::math;
+use crate::domain::trading::math::{Contract, Offset, Pending, Scale, SizeMode, Stepped};
 use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
 
 pub mod customize;
-pub mod prefs;
+pub use crate::app::prefs::ticket as prefs;
 mod templates;
 mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
-use super::guard::Verdict;
-use super::plan::{self, ExitPlan};
+use crate::domain::trading::guard::Verdict;
+use crate::domain::trading::plan;
+use crate::domain::trading::plan::ExitPlan;
 use crate::ui::kit::confirm::{Details, confirm_details};
 use crate::ui::kit::number;
 

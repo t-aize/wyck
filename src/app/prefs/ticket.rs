@@ -9,8 +9,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::indicators::atr_stop::AtrStop;
-use crate::ui::features::trading::math::{Offset, SizeMode};
-use crate::ui::features::trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
+use crate::domain::trading::math::{Offset, SizeMode};
+use crate::domain::trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
 
 /// The kind of order the ticket sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

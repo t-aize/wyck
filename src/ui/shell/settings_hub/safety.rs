@@ -1,8 +1,8 @@
 //! The Safety page of the settings: the limits every new order is checked against (see
-//! [`crate::ui::features::trading::guard`]). A limit of 0 is off.
+//! [`crate::domain::trading::guard`]). A limit of 0 is off.
 
 use super::*;
-use crate::ui::features::trading::guard::RiskPrefs;
+use crate::domain::trading::guard::RiskPrefs;
 
 /// One number of the safety limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -9,12 +9,12 @@
 //!
 //! A row can be clicked to show its symbol on the active chart.
 
-pub mod columns;
+pub use crate::app::prefs::columns;
 mod customize;
 mod data;
 mod dialogs;
 mod nav;
-pub mod prefs;
+pub use crate::app::prefs::panel as prefs;
 mod stats;
 mod view;
 

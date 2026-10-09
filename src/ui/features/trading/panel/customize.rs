@@ -11,8 +11,8 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::{Disableable, Sizable};
 
 use super::AccountPanel;
-use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
-use crate::ui::features::trading::ticket::prefs::{Placed, Slot, shift};
+use crate::app::prefs::panel::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
+use crate::app::prefs::ticket::{Placed, Slot, shift};
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab as SettingsTab, modal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

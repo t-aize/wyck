@@ -2,8 +2,8 @@
 //! [`PlanTemplate`], and filling the ticket from one. What a template holds is described in
 //! [`super::prefs`].
 
-use super::prefs::{Distance, PlanTemplate, TimeStopPrefs};
 use super::*;
+use crate::app::prefs::ticket::{Distance, PlanTemplate, TimeStopPrefs};
 
 impl OrderTicket {
     /// The time stop as typed now.
@@ -216,7 +216,7 @@ impl OrderTicket {
 mod tests {
     use super::prefs::{Distance, PlanTemplate, TicketPrefs, TimeStopPrefs};
     use super::*;
-    use crate::ui::features::trading::plan::Only;
+    use crate::domain::trading::plan::Only;
 
     fn plan(name: &str) -> PlanTemplate {
         PlanTemplate {
@@ -321,7 +321,7 @@ mod tests {
         stop.span = prefs::Span::Days;
         assert_eq!(
             stop.normalized().minutes(),
-            crate::ui::features::trading::plan::MAX_TIME_STOP_MINUTES
+            crate::domain::trading::plan::MAX_TIME_STOP_MINUTES
         );
         assert_eq!(TimeStopPrefs::default().rule(), None);
         stop.only = Only::Losing;

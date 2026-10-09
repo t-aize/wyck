@@ -1,6 +1,6 @@
 //! The exits block of the order ticket: cutting the order into several take profits, moving the
 //! stop to the entry once the first is reached, and an OCO pair. What the block builds is
-//! described in [`crate::ui::features::trading::plan`].
+//! described in [`crate::domain::trading::plan`].
 
 use super::*;
 

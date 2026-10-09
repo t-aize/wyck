@@ -14,12 +14,12 @@ use crate::domain::market::PRICE_SCALE;
 
 use crate::app::alerts;
 use crate::app::market_data::now_ms;
+use crate::app::prefs::ticket::{Dock, WIDTH_DEFAULT};
+use crate::domain::trading::math;
 use crate::ui::features::chart::{ChartAction, LineId, PositionLink};
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
-use crate::ui::features::trading::math;
 use crate::ui::features::trading::panel::{PanelEvent, Tab};
-use crate::ui::features::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
 use crate::ui::kit::{confirm::confirm, theme, toast};
 
@@ -414,7 +414,7 @@ impl Dashboard {
             let contract = self.trading.read(cx).book.contracts.get(&id).cloned();
             // Before the answer a contract is a placeholder: it must not hide what is known.
             let Some(contract) =
-                contract.filter(|c| *c != crate::ui::features::trading::math::Contract::default())
+                contract.filter(|c| *c != crate::domain::trading::math::Contract::default())
             else {
                 continue;
             };

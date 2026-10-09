@@ -3,9 +3,9 @@ src/app/alerts.rs	layer	app -> ui::features::chart
 src/app/appearance.rs	layer	app -> ui::kit
 src/app/appearance/contrast.rs	layer	app -> ui::kit
 src/app/appearance/presets.rs	layer	app -> ui::kit
+src/app/prefs/panel.rs	layer	app -> ui::kit
 src/app/updates.rs	layer	app -> ui::features::multichart
 src/app/updates.rs	layer	app -> ui::kit
-src/app/workspace/preferences.rs	layer	app -> ui::features::trading
 src/domain/chart/export/tests.rs	style	use super::*
 src/domain/chart/scene/tests.rs	style	use super::*
 src/domain/indicators/custom/library.rs	extern	domain uses std::fs

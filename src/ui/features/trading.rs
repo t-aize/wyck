@@ -7,11 +7,9 @@
 //! stands for.
 
 pub mod account;
-pub mod guard;
 pub use crate::domain::trading::book;
-pub mod math;
+use crate::domain::trading::math;
 pub mod panel;
-pub mod plan;
 pub mod ticket;
 
 use std::collections::HashMap;

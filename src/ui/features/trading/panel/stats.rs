@@ -2,7 +2,7 @@
 //! position has been open, the average entry of several positions, the figures of the history,
 //! what a search matches, and how a table is written as CSV.
 
-use super::prefs::TimeStyle;
+use crate::app::prefs::panel::TimeStyle;
 
 /// A span of time as the two largest units it has: `45s`, `12m 30s`, `3h 12m`, `2d 4h`.
 pub fn duration_text(ms: i64) -> String {

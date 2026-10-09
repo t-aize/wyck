@@ -543,9 +543,10 @@ impl Dashboard {
 
     /// The switches of the panel under the charts and of the ticket beside them.
     fn panel_toggles(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let ticket_on_left = self.ticket.as_ref().is_some_and(|t| {
-            t.read(cx).layout().dock == crate::ui::features::trading::ticket::prefs::Dock::Left
-        });
+        let ticket_on_left = self
+            .ticket
+            .as_ref()
+            .is_some_and(|t| t.read(cx).layout().dock == crate::app::prefs::ticket::Dock::Left);
         div()
             .flex_none()
             .flex()
@@ -664,7 +665,7 @@ impl Dashboard {
             .when(ready && problem.is_none(), |el| {
                 el.when(fit.equity, |el| {
                     el.child(figure(
-                        trading::math::format_money(summary.equity, &currency),
+                        crate::domain::trading::math::format_money(summary.equity, &currency),
                         theme::fg(),
                     ))
                 })
@@ -672,7 +673,7 @@ impl Dashboard {
                     format!(
                         "{}{}",
                         if summary.unrealized > 0.0 { "+" } else { "" },
-                        trading::math::format_money(summary.unrealized, &currency)
+                        crate::domain::trading::math::format_money(summary.unrealized, &currency)
                     ),
                     profit_color,
                 ))
@@ -704,7 +705,7 @@ impl Dashboard {
         let account = self.trading.read(cx);
         let summary = account.summary();
         let currency = account.book.currency.clone();
-        let money = |v: f64| trading::math::format_money(v, &currency);
+        let money = |v: f64| crate::domain::trading::math::format_money(v, &currency);
         let connection = match &self.conn {
             Conn::Ready => ("Connected", theme::emerald()),
             Conn::Connecting => ("Connecting...", theme::muted_fg()),

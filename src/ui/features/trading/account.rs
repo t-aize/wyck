@@ -24,13 +24,15 @@ use crate::domain::trading::TradeSide;
 use gpui::{Context, EventEmitter};
 
 use super::book::{AccountBook, Notice, NoticeAction, Tone, describe, is_buy, refusal};
-use super::guard::{
-    self, DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
-};
-use super::math::{self, Contract, Link, Summary};
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
 use crate::app::system::runtime;
+use crate::domain::trading::guard;
+use crate::domain::trading::guard::{
+    DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
+};
+use crate::domain::trading::math;
+use crate::domain::trading::math::{Contract, Link, Summary};
 use crate::ui::kit::toast;
 
 /// How long the recent history reaches back.
@@ -1164,7 +1166,8 @@ impl Account {
         execution: &crate::domain::trading::ExecutionEvent,
         cx: &mut Context<Self>,
     ) {
-        use super::plan::{self, Label, Open};
+        use crate::domain::trading::plan;
+        use crate::domain::trading::plan::{Label, Open};
         if execution.kind() != Some(ExecutionType::OrderFilled) {
             return;
         }
@@ -1220,7 +1223,7 @@ impl Account {
     /// every reading of the profit, so a time that ran out while the app was closed is caught at
     /// the next start. Closing is never held back by the safety limits: they are for new orders.
     fn enforce_time_stops(&mut self, cx: &mut Context<Self>) {
-        use super::plan::Label;
+        use crate::domain::trading::plan::Label;
         // While a call is unanswered the account is not known well enough to close on its own.
         if self.status != Status::Ready || self.uncertain {
             return;
@@ -1271,8 +1274,12 @@ impl Account {
 
     /// Does what a plan asked while the app was closed or cut off (see [`super::plan::catch_up`]),
     /// and says so once.
-    fn catch_up(&mut self, missed: Vec<super::plan::Catch>, cx: &mut Context<Self>) {
-        use super::plan::Catch;
+    fn catch_up(
+        &mut self,
+        missed: Vec<crate::domain::trading::plan::Catch>,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::domain::trading::plan::Catch;
         let (mut stops, mut cancels) = (0, 0);
         for step in missed {
             match step {
@@ -1499,9 +1506,10 @@ async fn missed_exits(
     orders: &[crate::domain::trading::Order],
     deals: &[crate::domain::trading::Deal],
     now: i64,
-) -> Vec<super::plan::Catch> {
-    use super::plan::{self, Label, Open, Past};
+) -> Vec<crate::domain::trading::plan::Catch> {
     use crate::domain::trading::OrderStatus;
+    use crate::domain::trading::plan;
+    use crate::domain::trading::plan::{Label, Open, Past};
     let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
     let rules = positions
         .iter()

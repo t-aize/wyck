@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::columns::{
     AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs,
 };
-use crate::ui::features::trading::ticket::prefs::{Placed, Slot, default_list, mend};
+use crate::app::prefs::ticket::{Placed, Slot, default_list, mend};
 use crate::ui::kit::tokens;
 
 /// A tab of the panel.

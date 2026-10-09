@@ -16,12 +16,12 @@ use gpui_kit::component::{Disableable, ElementExt as _, Selectable, Sizable, Sty
 
 use super::data::{self, Cell, Ctx, PositionRow, Row, RowKind, Table, Tone};
 use super::dialogs::{Target, open_alert, open_protection};
-use super::prefs::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
 use super::stats::HistoryStats;
 use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
+use crate::app::prefs::panel::{HistoryRange, PanelPrefs, RowAction, SideFilter, Stat, Tab};
+use crate::app::prefs::ticket::Slot;
+use crate::domain::trading::math::format_money;
 use crate::ui::features::trading::account::{Account, Status};
-use crate::ui::features::trading::math::format_money;
-use crate::ui::features::trading::ticket::prefs::Slot;
 use crate::ui::kit::{
     button,
     confirm::confirm,
@@ -235,9 +235,9 @@ impl AccountPanel {
         let account = self.account.read(cx);
         let (text, color, back) = if let Some(lock) = account.lock() {
             let text = match lock {
-                crate::ui::features::trading::guard::Lock::KillSwitch => "KILL SWITCH",
-                crate::ui::features::trading::guard::Lock::DailyLoss { .. } => "DAILY LOSS LIMIT",
-                crate::ui::features::trading::guard::Lock::Cooldown { .. } => "COOLING DOWN",
+                crate::domain::trading::guard::Lock::KillSwitch => "KILL SWITCH",
+                crate::domain::trading::guard::Lock::DailyLoss { .. } => "DAILY LOSS LIMIT",
+                crate::domain::trading::guard::Lock::Cooldown { .. } => "COOLING DOWN",
             };
             (text, theme::destructive(), theme::destructive_bg())
         } else if account.is_uncertain() {
