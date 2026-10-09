@@ -4,8 +4,8 @@ use keyring::Entry;
 use secrecy::{ExposeSecret, SecretString};
 use tracing::{debug, trace, warn};
 
-use crate::error::{ConfigError, Result};
-use crate::secret::{SecretKey, SecretStore};
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::secret::{SecretKey, SecretStore};
 
 /// Stores secrets in the OS-native credential store: Windows Credential Manager, macOS
 /// Keychain, or (on Linux) the Secret Service D-Bus API via a pure-Rust `zbus` client:

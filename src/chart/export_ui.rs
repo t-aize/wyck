@@ -28,7 +28,7 @@ use crate::chart_core::export::{
     self, ColumnKey, Content, Decimal, Delimiter, Empty, ExportOptions, ExportZone, Format,
     HeaderCase, LineEnding, Order, PREVIEW_ROWS, PriceDigits, Quote, RangeKind, Source, TimeFormat,
 };
-use wyck_config::DocumentStore;
+use crate::infra::storage::DocumentStore;
 use crate::ui::kit::{
     button, controls, form,
     form::Head,
@@ -266,7 +266,7 @@ fn number_input(
 impl ExportDialog {
     fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let store = crate::app_paths().map(wyck_config::AppPaths::documents);
+        let store = crate::app_paths().map(crate::infra::storage::AppPaths::documents);
         let saved = store.as_ref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.
@@ -573,7 +573,7 @@ impl ExportDialog {
         let options = self.options.clone().normalized();
         let snapshot = self.snapshot.clone();
         let picked = cx.prompt_for_new_path(
-            &wyck_config::AppPaths::documents_dir(),
+            &crate::infra::storage::AppPaths::documents_dir(),
             Some(&self.preview.file_name),
         );
         self.busy = true;
@@ -593,7 +593,7 @@ impl ExportDialog {
                     let source = snapshot.source();
                     let table = export::table(&source, &options, None);
                     let text = export::render(&table, &options, source.digits, source.zone);
-                    wyck_config::atomic_write(&target, text.as_bytes())
+                    crate::infra::storage::atomic_write(&target, text.as_bytes())
                         .map(|()| (table.total_rows, text.len()))
                 })
                 .await;

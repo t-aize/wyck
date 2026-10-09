@@ -1,6 +1,6 @@
 //! A check-up of the config: what is wrong, what is odd, and what could be tidied.
 //!
-//! [`crate::WyckConfig::diagnose`] looks at the config file, the profiles, the credentials they
+//! [`crate::infra::storage::WyckConfig::diagnose`] looks at the config file, the profiles, the credentials they
 //! need, the folders and their permissions, and the files that a crash or a failed read left
 //! behind. It changes nothing. The report says what it found in words a person reads, so a front
 //! end can show it as it is, and a script can look at [`Report::is_healthy`].
@@ -10,12 +10,12 @@ use std::path::Path;
 
 use secrecy::ExposeSecret;
 
-use crate::app_config::AppConfig;
-use crate::documents::DocumentStore;
-use crate::fs_util::stale_temp_files;
-use crate::paths::AppPaths;
-use crate::secret::SecretStore;
-use crate::{CLIENT_SECRET, ProfileConfig};
+use crate::infra::storage::app_config::AppConfig;
+use crate::infra::storage::documents::DocumentStore;
+use crate::infra::storage::fs_util::stale_temp_files;
+use crate::infra::storage::paths::AppPaths;
+use crate::infra::storage::secret::SecretStore;
+use crate::infra::storage::{CLIENT_SECRET, ProfileConfig};
 
 /// How much a finding matters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -149,7 +149,7 @@ fn check_profile(profile: &ProfileConfig, secrets: &dyn SecretStore, report: &mu
     }
     // A profile that signs in through the Open API needs its application secret.
     if profile.client_id.is_some() {
-        let key = crate::profile_secret_key(&profile.id, CLIENT_SECRET);
+        let key = crate::infra::storage::profile_secret_key(&profile.id, CLIENT_SECRET);
         match secrets.retrieve(&key) {
             Ok(Some(secret)) if secret.expose_secret().is_empty() => report.add(
                 Severity::Error,

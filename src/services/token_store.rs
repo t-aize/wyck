@@ -4,7 +4,7 @@
 use std::time::{Duration, SystemTime};
 
 use async_trait::async_trait;
-use wyck_config::{OpenApiTokenStorage, OpenApiTokens};
+use crate::infra::storage::{OpenApiTokenStorage, OpenApiTokens};
 use wyck_openapi::Error as ApiError;
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::session::TokenStore;

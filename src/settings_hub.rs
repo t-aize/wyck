@@ -20,7 +20,7 @@ use super::updates;
 use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use crate::chart_core::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use crate::chart_core::settings::MAX_STUDIES;
-use wyck_config::backup::{self, BackupEntry};
+use crate::infra::storage::backup::{self, BackupEntry};
 use crate::ui::kit::{
     button, confirm, controls,
     font_picker::{FontChosen, FontPicker},

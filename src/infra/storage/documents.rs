@@ -11,7 +11,7 @@
 //! (things named by the broker behind an account, such as symbols, that mean nothing under
 //! another). The caller picks a scope that outlives a sign-in, such as the account number, so that
 //! signing out and in again finds everything where it was. Neither ever holds a secret: those
-//! stay in [`crate::secret`].
+//! stay in [`crate::infra::storage::secret`].
 
 use std::path::{Path, PathBuf};
 
@@ -19,10 +19,10 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tracing::{debug, warn};
 
-use crate::error::{ConfigError, Result};
-use crate::fs_util::atomic_write;
-use crate::names::{is_valid_name, sanitize};
-use crate::paths::AppPaths;
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::names::{is_valid_name, sanitize};
+use crate::infra::storage::paths::AppPaths;
 
 /// A directory of TOML documents. Cheap to clone and safe to hand to another thread: it holds
 /// only a path, and every call goes to the file system.
@@ -41,7 +41,7 @@ impl DocumentStore {
 
     /// The documents of one scope, such as `demo-45970491`. Whatever the name holds, the
     /// directory stays inside the config directory (the name is cleaned with
-    /// [`crate::names::sanitize`]; check it with [`crate::names::validate_name`] first where two
+    /// [`crate::infra::storage::names::sanitize`]; check it with [`crate::infra::storage::names::validate_name`] first where two
     /// different names must never share a folder).
     pub fn scoped(paths: &AppPaths, scope: &str) -> Self {
         Self {

@@ -24,7 +24,7 @@
 //!
 //! ```
 //! use secrecy::SecretString;
-//! use wyck_config::sealed;
+//! use wyck::infra::storage::sealed;
 //!
 //! let passphrase = SecretString::from("correct horse battery staple".to_owned());
 //! let sealed = sealed::seal_text(&passphrase, "wyck-backup", "answer = 42\n")?;
@@ -35,14 +35,14 @@
 //!
 //! let wrong = SecretString::from("Tr0ub4dor&3".to_owned());
 //! assert!(sealed::open_text(&wrong, "wyck-backup", &sealed).is_err());
-//! # Ok::<(), wyck_config::ConfigError>(())
+//! # Ok::<(), wyck::infra::storage::ConfigError>(())
 //! ```
 
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::{self, CryptoError, KdfParams, Sealed};
-use crate::error::{ConfigError, Result};
+use crate::infra::storage::crypto::{self, CryptoError, KdfParams, Sealed};
+use crate::infra::storage::error::{ConfigError, Result};
 
 /// The value of `format` in a sealed document.
 pub const FORMAT: &str = "wyck-sealed";

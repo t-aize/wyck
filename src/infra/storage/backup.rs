@@ -1,8 +1,8 @@
 //! Backups: one file that holds everything the user made, the copies kept on disk, and the
 //! two-step restore.
 //!
-//! What is in a backup: every saved document (global and per scope, see [`crate::DocumentStore`])
-//! and every indicator script (see [`crate::scripts`]). What is never in it: credentials (they stay
+//! What is in a backup: every saved document (global and per scope, see [`crate::infra::storage::DocumentStore`])
+//! and every indicator script (see [`crate::infra::storage::scripts`]). What is never in it: credentials (they stay
 //! in the keyring or in `secrets/`) and `config.toml`. A backup can go in a cloud folder for that
 //! reason, and can be sealed with a passphrase when it should not be readable there anyway.
 //!
@@ -24,8 +24,8 @@
 //!   it before anything reads the documents, after saving what it replaces as a safety copy.
 //!
 //! ```
-//! use wyck_config::{AppPaths, DocumentStore};
-//! use wyck_config::backup::{self, Backup};
+//! use wyck::infra::storage::{AppPaths, DocumentStore};
+//! use wyck::infra::storage::backup::{self, Backup};
 //!
 //! # let dir = tempfile::tempdir().unwrap();
 //! let paths = AppPaths::at(dir.path());
@@ -43,7 +43,7 @@
 //!     DocumentStore::global(&paths).load_text("preferences")?.as_deref(),
 //!     Some("magnet = true\n")
 //! );
-//! # Ok::<(), wyck_config::ConfigError>(())
+//! # Ok::<(), wyck::infra::storage::ConfigError>(())
 //! ```
 
 use std::collections::{BTreeMap, HashSet};
@@ -54,13 +54,13 @@ use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::documents::DocumentStore;
-use crate::error::{ConfigError, Result};
-use crate::fs_util::atomic_write;
-use crate::names::{is_valid_name, validate_name};
-use crate::paths::AppPaths;
-use crate::scripts::{self, ScriptStore};
-use crate::sealed;
+use crate::infra::storage::documents::DocumentStore;
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::names::{is_valid_name, validate_name};
+use crate::infra::storage::paths::AppPaths;
+use crate::infra::storage::scripts::{self, ScriptStore};
+use crate::infra::storage::sealed;
 
 /// The value of `format` in a backup file, and the label of a sealed one.
 pub const FORMAT: &str = "wyck-backup";
@@ -120,7 +120,7 @@ pub struct BackupFile {
 /// text.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BackupScript {
-    /// The id, see [`crate::scripts::clean_id`].
+    /// The id, see [`crate::infra::storage::scripts::clean_id`].
     pub id: String,
     /// The text of the script.
     pub content: String,
@@ -288,7 +288,7 @@ impl Backup {
         toml::to_string_pretty(self).map_err(ConfigError::Serialize)
     }
 
-    /// The text of the backup, sealed with `passphrase` (see [`crate::sealed`]): unreadable
+    /// The text of the backup, sealed with `passphrase` (see [`crate::infra::storage::sealed`]): unreadable
     /// without it.
     ///
     /// # Errors

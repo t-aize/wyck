@@ -5,7 +5,7 @@
 //! so it never keeps the panel from opening. Writing is atomic.
 
 use serde::{Deserialize, Serialize};
-use wyck_config::{DocumentStore, Result};
+use crate::infra::storage::{DocumentStore, Result};
 
 use super::{ExportOptions, Preset};
 
@@ -111,7 +111,7 @@ mod tests {
     /// A store of its own for one test.
     fn store() -> (tempfile::TempDir, DocumentStore) {
         let dir = tempfile::tempdir().unwrap();
-        let store = DocumentStore::global(&wyck_config::AppPaths::at(dir.path()));
+        let store = DocumentStore::global(&crate::infra::storage::AppPaths::at(dir.path()));
         (dir, store)
     }
 

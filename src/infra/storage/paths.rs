@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use directories::ProjectDirs;
 use tracing::debug;
 
-use crate::error::{ConfigError, Result};
+use crate::infra::storage::error::{ConfigError, Result};
 
 /// The environment variable that moves the config directory (and the data directory too, unless
 /// [`DATA_DIR_ENV`] says otherwise): for a portable install, a test, or a second profile of the
@@ -20,10 +20,10 @@ const ORGANIZATION: &str = "wyck";
 const APPLICATION: &str = "wyck";
 
 /// The directories this crate reads and writes: a config directory for
-/// [`crate::AppConfig`]'s TOML file, and a data directory for anything a
-/// [`crate::secret::SecretStore`] backend needs to persist on disk (currently only
-/// [`crate::secret::EncryptedFileSecretStore`]: the default
-/// [`crate::secret::KeyringSecretStore`] backend stores nothing here, the OS credential
+/// [`crate::infra::storage::AppConfig`]'s TOML file, and a data directory for anything a
+/// [`crate::infra::storage::secret::SecretStore`] backend needs to persist on disk (currently only
+/// [`crate::infra::storage::secret::EncryptedFileSecretStore`]: the default
+/// [`crate::infra::storage::secret::KeyringSecretStore`] backend stores nothing here, the OS credential
 /// store owns that).
 ///
 /// On a real install, resolve via [`Self::discover`], which asks the OS for its
@@ -96,7 +96,7 @@ impl AppPaths {
         }
     }
 
-    /// The directory [`crate::AppConfig`]'s TOML file lives in.
+    /// The directory [`crate::infra::storage::AppConfig`]'s TOML file lives in.
     pub fn config_dir(&self) -> &Path {
         &self.config_dir
     }
@@ -106,30 +106,30 @@ impl AppPaths {
         self.config_dir.join("config.toml")
     }
 
-    /// The directory an on-disk [`crate::secret::SecretStore`] backend may persist
+    /// The directory an on-disk [`crate::infra::storage::secret::SecretStore`] backend may persist
     /// files in.
     pub fn data_dir(&self) -> &Path {
         &self.data_dir
     }
 
-    /// The subdirectory [`crate::secret::EncryptedFileSecretStore`] persists its
+    /// The subdirectory [`crate::infra::storage::secret::EncryptedFileSecretStore`] persists its
     /// per-secret envelope files in.
     pub fn secrets_dir(&self) -> PathBuf {
         self.data_dir.join("secrets")
     }
 
-    /// The folder of the documents shared by every account (see [`crate::DocumentStore::global`]).
+    /// The folder of the documents shared by every account (see [`crate::infra::storage::DocumentStore::global`]).
     pub fn state_dir(&self) -> PathBuf {
         self.config_dir.join("state")
     }
 
     /// The folder that holds one folder of documents per scope (see
-    /// [`crate::DocumentStore::scoped`]).
+    /// [`crate::infra::storage::DocumentStore::scoped`]).
     pub fn scopes_dir(&self) -> PathBuf {
         self.config_dir.join("scopes")
     }
 
-    /// The folder of the backups the app keeps (see [`crate::backup::BackupStore`]): the automatic
+    /// The folder of the backups the app keeps (see [`crate::infra::storage::backup::BackupStore`]): the automatic
     /// ones, and a copy of what an import or a reset replaced.
     pub fn backups_dir(&self) -> PathBuf {
         self.config_dir.join("backups")
@@ -140,24 +140,24 @@ impl AppPaths {
         self.config_dir.join("indicators")
     }
 
-    /// The documents shared by every account: [`crate::DocumentStore::global`].
-    pub fn documents(&self) -> crate::DocumentStore {
-        crate::DocumentStore::global(self)
+    /// The documents shared by every account: [`crate::infra::storage::DocumentStore::global`].
+    pub fn documents(&self) -> crate::infra::storage::DocumentStore {
+        crate::infra::storage::DocumentStore::global(self)
     }
 
-    /// The documents of one scope (an account): [`crate::DocumentStore::scoped`].
-    pub fn scope(&self, scope: &str) -> crate::DocumentStore {
-        crate::DocumentStore::scoped(self, scope)
+    /// The documents of one scope (an account): [`crate::infra::storage::DocumentStore::scoped`].
+    pub fn scope(&self, scope: &str) -> crate::infra::storage::DocumentStore {
+        crate::infra::storage::DocumentStore::scoped(self, scope)
     }
 
-    /// The indicator scripts of the default folder: [`crate::scripts::ScriptStore::in_config`].
-    pub fn scripts(&self) -> crate::scripts::ScriptStore {
-        crate::scripts::ScriptStore::in_config(self)
+    /// The indicator scripts of the default folder: [`crate::infra::storage::scripts::ScriptStore::in_config`].
+    pub fn scripts(&self) -> crate::infra::storage::scripts::ScriptStore {
+        crate::infra::storage::scripts::ScriptStore::in_config(self)
     }
 
-    /// The copies kept in [`Self::backups_dir`]: [`crate::backup::BackupStore::new`].
-    pub fn backups(&self) -> crate::backup::BackupStore {
-        crate::backup::BackupStore::new(self)
+    /// The copies kept in [`Self::backups_dir`]: [`crate::infra::storage::backup::BackupStore::new`].
+    pub fn backups(&self) -> crate::infra::storage::backup::BackupStore {
+        crate::infra::storage::backup::BackupStore::new(self)
     }
 
     /// The user's pictures folder, or the home folder when the system has none: where the app puts

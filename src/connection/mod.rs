@@ -25,7 +25,7 @@ use gpui::{
     div,
 };
 use secrecy::ExposeSecret;
-use wyck_config::{ProfileId, Severity, WyckConfig};
+use crate::infra::storage::{ProfileId, Severity, WyckConfig};
 use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
 use wyck_openapi::session::{Session, SessionConfig, TokenStore};
@@ -108,7 +108,7 @@ impl ConnectionFlow {
 
         let secret = match self
             .config
-            .profile_secret(&profile.id, wyck_config::CLIENT_SECRET)
+            .profile_secret(&profile.id, crate::infra::storage::CLIENT_SECRET)
         {
             Ok(Some(secret)) => secret,
             Ok(None) => return None,
@@ -310,7 +310,7 @@ impl Render for ConnectionFlow {
 
 /// Loads the on-disk config, with the OS keyring for secret storage. This is the one place the app
 /// decides where its state lives; every screen goes through `self.config` instead of touching
-/// [`wyck_config`] directly. A config that has something to report (a missing secret, a folder
+/// the storage module directly. A config that has something to report (a missing secret, a folder
 /// other users can read) says so in the log.
 fn load_config() -> WyckConfig {
     let paths = crate::app_paths()

@@ -18,17 +18,17 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use wyck_config::scripts::{ScriptFile, ScriptStore};
+use crate::infra::storage::scripts::{ScriptFile, ScriptStore};
 
 use super::super::intern::{self, Slices};
 use super::super::{InputSpec, Placement, PlotSpec, Spec};
 use super::run::{Declaration, Limits, Problem, Script};
 
 // The rules of the folder (the extension, the limits, which names are allowed) are owned by
-// `wyck-config`, the same ones the backup and the settings folder use.
+// `infra::storage`, the same ones the backup and the settings folder use.
 /// The extension of an indicator file, the biggest script kept (in bytes), the most indicators a
 /// library holds and how many folders deep it looks.
-pub use wyck_config::scripts::{EXTENSION, MAX_DEPTH, MAX_FILE_BYTES, MAX_SCRIPTS};
+pub use crate::infra::storage::scripts::{EXTENSION, MAX_DEPTH, MAX_FILE_BYTES, MAX_SCRIPTS};
 
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
 const DECLARE_LIMITS: Limits = Limits {
@@ -37,7 +37,7 @@ const DECLARE_LIMITS: Limits = Limits {
 };
 
 /// The folder a deleted indicator goes to, inside the library's own.
-const TRASH: &str = wyck_config::scripts::TRASH;
+const TRASH: &str = crate::infra::storage::scripts::TRASH;
 
 /// What is said about an indicator apart from how it computes: the words the menus show.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,9 +151,9 @@ pub enum LibraryError {
     },
 }
 
-impl From<wyck_config::ConfigError> for LibraryError {
-    fn from(error: wyck_config::ConfigError) -> Self {
-        use wyck_config::ConfigError;
+impl From<crate::infra::storage::ConfigError> for LibraryError {
+    fn from(error: crate::infra::storage::ConfigError) -> Self {
+        use crate::infra::storage::ConfigError;
         match error {
             ConfigError::InvalidName { name, reason } => Self::BadName(name, reason),
             ConfigError::Read { path, source } | ConfigError::Write { path, source } => {
@@ -176,12 +176,12 @@ fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> LibraryError + '_ {
 
 /// One part of an id: a file or folder name. Letters, digits, spaces and `- _ . ( ) % + , &`.
 pub fn clean_part(name: &str) -> Result<String, LibraryError> {
-    wyck_config::scripts::clean_part(name).map_err(LibraryError::from)
+    crate::infra::storage::scripts::clean_part(name).map_err(LibraryError::from)
 }
 
 /// A whole id (`folder/name`), every part checked, at most [`MAX_DEPTH`] folders deep.
 pub fn clean_id(id: &str) -> Result<String, LibraryError> {
-    wyck_config::scripts::clean_id(id).map_err(LibraryError::from)
+    crate::infra::storage::scripts::clean_id(id).map_err(LibraryError::from)
 }
 
 /// A short name for the legend: the initials of several words, or the first letters of one.
@@ -690,7 +690,7 @@ impl Library {
         } else {
             dest.with_extension(EXTENSION)
         };
-        wyck_config::atomic_write(&target, entry.source.as_bytes())?;
+        crate::infra::storage::atomic_write(&target, entry.source.as_bytes())?;
         Ok(target)
     }
 
@@ -703,7 +703,7 @@ impl Library {
         let target = ScriptStore::new(dest);
         let mut count = 0;
         for entry in self.known.values().map(|k| &k.entry) {
-            wyck_config::atomic_write(&target.path_of(&entry.id), entry.source.as_bytes())?;
+            crate::infra::storage::atomic_write(&target.path_of(&entry.id), entry.source.as_bytes())?;
             count += 1;
         }
         Ok(count)

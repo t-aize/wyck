@@ -21,7 +21,7 @@ use gpui::{App, Context, Entity, EventEmitter};
 use crate::chart_core::Timeframe;
 use crate::chart_core::data::Series;
 use crate::chart_core::study::{self, ValueFormat};
-use wyck_config::DocumentStore;
+use crate::infra::storage::DocumentStore;
 use wyck_openapi::market::{Bar, PRICE_SCALE};
 use wyck_openapi::session::Session;
 

@@ -16,7 +16,7 @@ pub mod presets;
 
 use gpui::{App, Global, SharedString};
 use serde::{Deserialize, Serialize};
-use wyck_config::DocumentStore;
+use crate::infra::storage::DocumentStore;
 
 use crate::workspace::Saver;
 

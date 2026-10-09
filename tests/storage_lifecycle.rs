@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
-use wyck_config::{AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig};
+use wyck::infra::storage::{AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig};
 
 fn passphrase(text: &str) -> SecretString {
     SecretString::from(text.to_owned())
@@ -319,7 +319,7 @@ fn many_threads_saving_one_document_never_tear_it() {
     for thread in threads {
         thread.join().unwrap();
     }
-    assert!(wyck_config::stale_temp_files(store.dir()).is_empty());
+    assert!(wyck::infra::storage::stale_temp_files(store.dir()).is_empty());
 }
 
 /// A backup carried in a sealed file: every document of an install collected as text, sealed with
@@ -327,7 +327,7 @@ fn many_threads_saving_one_document_never_tear_it() {
 /// export out of the pieces of the crate.
 #[test]
 fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
-    use wyck_config::backup::{self, Backup};
+    use wyck::infra::storage::backup::{self, Backup};
 
     let (from, to) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let source = AppPaths::at(from.path());
@@ -370,11 +370,11 @@ fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
     let target = AppPaths::at(to.path().join("other"));
     assert!(matches!(
         backup::stage_import_file(&target, &file, None),
-        Err(wyck_config::ConfigError::PassphraseRequired)
+        Err(wyck::infra::storage::ConfigError::PassphraseRequired)
     ));
     assert!(matches!(
         backup::stage_import_file(&target, &file, Some(&passphrase("wrong"))),
-        Err(wyck_config::ConfigError::WrongPassphrase)
+        Err(wyck::infra::storage::ConfigError::WrongPassphrase)
     ));
     let staged = backup::stage_import_file(&target, &file, Some(&passphrase("carry-me"))).unwrap();
     assert_eq!(staged, made);
@@ -410,7 +410,7 @@ fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
 
 #[test]
 fn the_copies_an_install_keeps_can_be_listed_restored_and_pruned() {
-    use wyck_config::backup::{self, AutoPolicy, BackupKind};
+    use wyck::infra::storage::backup::{self, AutoPolicy, BackupKind};
 
     let dir = tempfile::tempdir().unwrap();
     let mut config = WyckConfig::builder()

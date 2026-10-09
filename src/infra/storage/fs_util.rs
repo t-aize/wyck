@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use tracing::trace;
 
-use crate::error::{ConfigError, Result};
+use crate::infra::storage::error::{ConfigError, Result};
 
 /// The marker in the name of a file that is being written, before it takes the place of the real
 /// one: `.{name}.tmp-{random}`.

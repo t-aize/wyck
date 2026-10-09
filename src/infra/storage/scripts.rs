@@ -11,8 +11,8 @@
 //! editor, the import and export of the indicator library and the backup all go through it.
 //!
 //! ```
-//! use wyck_config::AppPaths;
-//! use wyck_config::scripts::ScriptStore;
+//! use wyck::infra::storage::AppPaths;
+//! use wyck::infra::storage::scripts::ScriptStore;
 //!
 //! # let dir = tempfile::tempdir().unwrap();
 //! # let paths = AppPaths::at(dir.path());
@@ -20,15 +20,15 @@
 //! store.write("trend/my average", "plot(\"a\", close);")?;
 //! assert_eq!(store.ids(), ["trend/my average"]);
 //! assert_eq!(store.read("trend/my average")?.as_deref(), Some("plot(\"a\", close);"));
-//! # Ok::<(), wyck_config::ConfigError>(())
+//! # Ok::<(), wyck::infra::storage::ConfigError>(())
 //! ```
 
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use crate::error::{ConfigError, Result};
-use crate::fs_util::atomic_write;
-use crate::paths::AppPaths;
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::paths::AppPaths;
 
 /// The extension of an indicator file.
 pub const EXTENSION: &str = "rhai";
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(store.read("Nothing").unwrap(), None);
         assert!(store.read("../x").is_err());
         assert!(
-            crate::fs_util::stale_temp_files(store.dir()).is_empty(),
+            crate::infra::storage::fs_util::stale_temp_files(store.dir()).is_empty(),
             "no temporary file is left"
         );
     }

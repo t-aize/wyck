@@ -845,7 +845,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         gpui::ImageFormat::Png,
         png.clone(),
     )));
-    let folder = wyck_config::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
+    let folder = crate::infra::storage::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
     let Some(folder) = folder else {
         toast::show(
             cx,
@@ -860,7 +860,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         let written = cx
             .background_executor()
             .spawn(async move {
-                wyck_config::atomic_write(&path, &png)?;
+                crate::infra::storage::atomic_write(&path, &png)?;
                 Ok::<_, std::io::Error>(path)
             })
             .await;

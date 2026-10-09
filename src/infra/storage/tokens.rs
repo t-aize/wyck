@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use secrecy::{ExposeSecret, SecretString};
 
-use crate::error::{ConfigError, Result};
-use crate::secret::{SecretKey, SecretStore};
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::secret::{SecretKey, SecretStore};
 
 /// One OAuth token pair kept under a single credential-store key.
 #[derive(Debug, Clone)]
@@ -28,7 +28,7 @@ struct StoredOpenApiTokens {
 }
 
 /// Where one profile's OAuth token pair lives in the credential store: a cheap, cloneable handle
-/// from [`crate::WyckConfig::openapi_token_storage`]. Both halves of the pair are written in one
+/// from [`crate::infra::storage::WyckConfig::openapi_token_storage`]. Both halves of the pair are written in one
 /// store entry, so a rotated refresh token is never saved apart from its access token.
 ///
 /// The handle owns a share of the store, not a borrow of the config, so a long-running session
@@ -101,7 +101,7 @@ impl OpenApiTokenStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::secret::EncryptedFileSecretStore;
+    use crate::infra::storage::secret::EncryptedFileSecretStore;
 
     fn storage(dir: &std::path::Path) -> OpenApiTokenStorage {
         OpenApiTokenStorage {

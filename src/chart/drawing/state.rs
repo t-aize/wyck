@@ -2,7 +2,7 @@
 //! one chart shows at once on the others that show the same symbol.
 
 use gpui::Context;
-use wyck_config::DocumentStore;
+use crate::infra::storage::DocumentStore;
 
 use crate::workspace::Saver;
 use crate::chart_core::drawing::book::Book;

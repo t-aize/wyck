@@ -2,7 +2,7 @@
 //! environment it is for, what an account is called, where its documents live, what permission
 //! the sign-in asks for. Kept apart so they are tested on their own.
 
-use wyck_config::ProfileConfig;
+use crate::infra::storage::ProfileConfig;
 use wyck_openapi::Environment;
 use wyck_openapi::TraderAccount;
 use wyck_openapi::auth::Scope;
@@ -75,7 +75,7 @@ pub fn redirect_uri(port: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_config::ProfileId;
+    use crate::infra::storage::ProfileId;
 
     fn profile(service: &str) -> ProfileConfig {
         ProfileConfig {

@@ -1,9 +1,9 @@
 //! Looks over a Wyck config and says what is wrong. Changes nothing.
 //!
 //! ```text
-//! cargo run -p wyck-config --example config_doctor
-//! cargo run -p wyck-config --example config_doctor -- --dir ./wyck-data
-//! WYCK_PASSPHRASE=... cargo run -p wyck-config --example config_doctor -- --dir ./wyck-data
+//! cargo run --example config_doctor
+//! cargo run --example config_doctor -- --dir ./wyck-data
+//! WYCK_PASSPHRASE=... cargo run --example config_doctor -- --dir ./wyck-data
 //! ```
 //!
 //! * With no argument it checks the standard config of the operating system, credentials in the
@@ -18,7 +18,7 @@
 use std::process::ExitCode;
 
 use secrecy::SecretString;
-use wyck_config::{AppPaths, Severity, WyckConfig};
+use wyck::infra::storage::{AppPaths, Severity, WyckConfig};
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);

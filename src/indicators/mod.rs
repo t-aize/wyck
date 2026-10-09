@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use gpui::{App, BorrowAppContext as _, Global, Task};
-use wyck_config::{AppPaths, DocumentStore};
+use crate::infra::storage::{AppPaths, DocumentStore};
 
 use prefs::{DOCUMENT, Prefs};
 use crate::chart_core::study::custom::library::{Changes, Library, LibraryError};

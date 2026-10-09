@@ -3,19 +3,19 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use crate::error::{ConfigError, Result};
-use crate::fs_util::atomic_write;
-use crate::paths::AppPaths;
-use crate::profile::{ProfileConfig, ProfileId};
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::paths::AppPaths;
+use crate::infra::storage::profile::{ProfileConfig, ProfileId};
 
 /// The version of the layout this build writes, and the newest it reads.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
-/// [`crate::secret`] for where those live instead.
+/// [`crate::infra::storage::secret`] for where those live instead.
 ///
-/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is required
+/// Round-trips through TOML at [`crate::infra::storage::AppPaths::config_file`]. `schema_version` is required
 /// and is bumped whenever a breaking change to this shape ships; a file with a version this build
 /// does not know is refused (see [`AppConfig::load`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

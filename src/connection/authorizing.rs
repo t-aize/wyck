@@ -5,7 +5,7 @@ use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use secrecy::ExposeSecret;
-use wyck_config::{OpenApiTokens, ProfileId};
+use crate::infra::storage::{OpenApiTokens, ProfileId};
 use wyck_openapi::Client;
 use wyck_openapi::Environment;
 use wyck_openapi::TraderAccount;
@@ -110,7 +110,7 @@ impl ConnectionFlow {
         environment: Environment,
         account: &TraderAccount,
         tokens: &TokenSet,
-    ) -> wyck_config::Result<(ProfileId, String)> {
+    ) -> crate::infra::storage::Result<(ProfileId, String)> {
         let stale: Vec<ProfileId> = self
             .config
             .profiles()
@@ -135,7 +135,7 @@ impl ConnectionFlow {
         )?;
         self.config.set_profile_secret(
             &id,
-            wyck_config::CLIENT_SECRET,
+            crate::infra::storage::CLIENT_SECRET,
             &credentials.client_secret,
         )?;
         self.config

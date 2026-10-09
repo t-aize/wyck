@@ -10,7 +10,7 @@
 //! either checked the same way or cleaned with [`sanitize`], depending on whether refusing them
 //! is better than keeping them usable.
 
-use crate::error::{ConfigError, Result};
+use crate::infra::storage::error::{ConfigError, Result};
 
 /// The most characters a name can have.
 pub const MAX_NAME_LEN: usize = 100;
@@ -33,7 +33,7 @@ fn why_not(name: &str) -> Option<&'static str> {
 /// Whether `name` follows the rule of this module.
 ///
 /// ```
-/// use wyck_config::names::is_valid_name;
+/// use wyck::infra::storage::names::is_valid_name;
 ///
 /// assert!(is_valid_name("preferences"));
 /// assert!(is_valid_name("demo-45970491"));
@@ -68,7 +68,7 @@ pub fn validate_name(name: &str) -> Result<()> {
 /// matters.
 ///
 /// ```
-/// use wyck_config::names::sanitize;
+/// use wyck::infra::storage::names::sanitize;
 ///
 /// assert_eq!(sanitize("../../elsewhere"), "______elsewhere");
 /// assert_eq!(sanitize("demo-1"), "demo-1");

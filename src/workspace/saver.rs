@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use serde::Serialize;
-use wyck_config::DocumentStore;
+use crate::infra::storage::DocumentStore;
 
 use crate::runtime;
 
@@ -95,7 +95,7 @@ impl<T: Serialize + Send + 'static> Drop for Saver<T> {
 mod tests {
     use super::*;
     use serde::Deserialize;
-    use wyck_config::AppPaths;
+    use crate::infra::storage::AppPaths;
 
     #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
     struct Doc {

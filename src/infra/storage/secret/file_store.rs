@@ -7,17 +7,17 @@ use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 
-use crate::crypto::{self, CryptoError, KdfParams, Sealed};
-use crate::error::{ConfigError, Result};
-use crate::fs_util::atomic_write;
-use crate::secret::{SecretKey, SecretStore};
+use crate::infra::storage::crypto::{self, CryptoError, KdfParams, Sealed};
+use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::secret::{SecretKey, SecretStore};
 
 /// The version of the envelope layout: the only one written and the only one read.
 const ENVELOPE_VERSION: u8 = 1;
 
 /// A secret encrypted at rest with ChaCha20-Poly1305, one file per [`SecretKey`], for
 /// use where no OS credential store is available: headless Linux boxes, some
-/// containers/CI environments. Prefer [`crate::secret::KeyringSecretStore`] whenever an
+/// containers/CI environments. Prefer [`crate::infra::storage::secret::KeyringSecretStore`] whenever an
 /// OS keyring is actually available; this backend exists specifically for when it isn't.
 ///
 /// # Design
@@ -45,7 +45,7 @@ pub struct EncryptedFileSecretStore {
 }
 
 impl EncryptedFileSecretStore {
-    /// Creates a store rooted at `dir` (typically [`crate::AppPaths::secrets_dir`]),
+    /// Creates a store rooted at `dir` (typically [`crate::infra::storage::AppPaths::secrets_dir`]),
     /// encrypting/decrypting under `passphrase`.
     ///
     /// This crate does not prompt for the passphrase itself: reading one from a

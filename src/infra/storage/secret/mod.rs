@@ -1,6 +1,6 @@
 //! Credential storage: the [`SecretStore`] trait and its two implementations.
 //!
-//! Tokens never live in [`crate::AppConfig`]'s plaintext TOML file: only a
+//! Tokens never live in [`crate::infra::storage::AppConfig`]'s plaintext TOML file: only a
 //! [`SecretKey`] identifying *where* to look one up does. The actual secret bytes go
 //! through a [`SecretStore`] backend and are held in memory as
 //! [`secrecy::SecretString`] (zeroized on drop, never printed by `Debug`), never as a
@@ -24,7 +24,7 @@ pub use keyring_store::KeyringSecretStore;
 
 use secrecy::SecretString;
 
-use crate::error::Result;
+use crate::infra::storage::error::Result;
 
 /// A structured identifier for one secret: `namespace:name`, e.g.
 /// `"ctrader-remote:profile:<uuid>"`. Namespacing keeps different crates' secrets from
@@ -57,7 +57,7 @@ impl std::fmt::Display for SecretKey {
 ///
 /// Implementations must never let a secret value escape into an error message, a log
 /// line, or any other diagnostic output: only the [`SecretKey`] (never sensitive on
-/// its own) is safe to include in an [`crate::ConfigError`].
+/// its own) is safe to include in an [`crate::infra::storage::ConfigError`].
 pub trait SecretStore: Send + Sync {
     /// Stores `secret` under `key`, overwriting any existing value.
     fn store(&self, key: &SecretKey, secret: &SecretString) -> Result<()>;

@@ -1,4 +1,4 @@
-# wyck-config
+# Storage (src/infra/storage)
 
 Configuration, encrypted credentials and portable backups for [Wyck](../../README.md).
 
@@ -41,7 +41,7 @@ reusable.
 
 ```rust
 use secrecy::SecretString;
-use wyck_config::{CLIENT_SECRET, WyckConfig};
+use wyck::infra::storage::{CLIENT_SECRET, WyckConfig};
 
 // The standard folders of the OS, credentials in the OS keyring.
 let mut config = WyckConfig::open()?;
@@ -171,10 +171,10 @@ The crate does not lock files: one process should own a config at a time.
 A backup is **one TOML file** with the text of every document (global and per account) and every
 indicator script, as they are on disk. It never holds credentials or `config.toml`, so it is safe
 in a cloud folder; add a passphrase and it is unreadable there too. The whole life of a backup is
-in `wyck_config::backup`:
+in `wyck::infra::storage::backup`:
 
 ```rust
-use wyck_config::backup::{self, AutoPolicy, Backup, BackupKind};
+use wyck::infra::storage::backup::{self, AutoPolicy, Backup, BackupKind};
 
 // Export: one call. `None` for a plain file, `Some(&passphrase)` to seal it.
 backup::export_to_file(config.paths(), Some(&config.scripts()), &dest, None, "1.0", &now)?;
@@ -233,10 +233,10 @@ other way round). A reset leaves `config.toml`, the credentials and the scripts 
 From the command line, on this machine or a portable install (`--dir`):
 
 ```sh
-cargo run -p wyck-config --example config_backup -- list
-cargo run -p wyck-config --example config_backup -- export ./my-backup.toml
-WYCK_BACKUP_PASSPHRASE=... cargo run -p wyck-config --example config_backup -- export ./locked.toml
-cargo run -p wyck-config --example config_backup -- import ./my-backup.toml   # then start the app
+cargo run --example config_backup -- list
+cargo run --example config_backup -- export ./my-backup.toml
+WYCK_BACKUP_PASSPHRASE=... cargo run --example config_backup -- export ./locked.toml
+cargo run --example config_backup -- import ./my-backup.toml   # then start the app
 ```
 
 `tests/lifecycle.rs` holds complete examples (export sealed, import elsewhere, undo a reset).
@@ -275,9 +275,9 @@ set aside.
 From the command line:
 
 ```sh
-cargo run -p wyck-config --example config_doctor                    # this machine
-cargo run -p wyck-config --example config_doctor -- --dir ./data    # a portable install
-WYCK_PASSPHRASE=... cargo run -p wyck-config --example config_doctor -- --dir ./data
+cargo run --example config_doctor                    # this machine
+cargo run --example config_doctor -- --dir ./data    # a portable install
+WYCK_PASSPHRASE=... cargo run --example config_doctor -- --dir ./data
 scripts/check-config.sh doctor                                      # the same, from the repo root
 ```
 
@@ -319,7 +319,7 @@ module.
 
 ## Errors
 
-Every fallible call returns `wyck_config::Result<T>`. `ConfigError` says what failed and where
+Every fallible call returns `wyck::infra::storage::Result<T>`. `ConfigError` says what failed and where
 (the path or the secret key), never the secret. The ones worth handling by name:
 
 | Variant | Meaning | What a front end does |
@@ -340,7 +340,7 @@ Every fallible call returns `wyck_config::Result<T>`. `ConfigError` says what fa
 
 ```sh
 scripts/check-config.sh          # fmt, clippy -D warnings, tests, docs -D warnings
-cargo test -p wyck-config        # unit tests, end-to-end tests, doc tests
+cargo test --test storage_lifecycle        # unit tests, end-to-end tests, doc tests
 ```
 
 - `src/**` unit tests sit next to the code they test; `tests/lifecycle.rs` uses the public API

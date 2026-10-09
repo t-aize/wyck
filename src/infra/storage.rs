@@ -1,4 +1,4 @@
-//! # wyck-config
+//! # Storage
 //!
 //! Configuration, encrypted credentials and portable backups for Wyck: the one place the app
 //! decides where its files live, how they are written, and how anything secret is kept.
@@ -26,9 +26,9 @@
 //!
 //! ```no_run
 //! use secrecy::SecretString;
-//! use wyck_config::{CLIENT_SECRET, WyckConfig};
+//! use wyck::infra::storage::{CLIENT_SECRET, WyckConfig};
 //!
-//! # fn main() -> wyck_config::Result<()> {
+//! # fn main() -> wyck::infra::storage::Result<()> {
 //! let mut config = WyckConfig::open()?;
 //!
 //! let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
@@ -46,9 +46,9 @@
 //!
 //! ```no_run
 //! use secrecy::SecretString;
-//! use wyck_config::WyckConfig;
+//! use wyck::infra::storage::WyckConfig;
 //!
-//! # fn main() -> wyck_config::Result<()> {
+//! # fn main() -> wyck::infra::storage::Result<()> {
 //! let config = WyckConfig::builder()
 //!     .portable("./wyck-data")
 //!     .encrypted_file(SecretString::from(std::env::var("WYCK_PASSPHRASE").unwrap_or_default()))

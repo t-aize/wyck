@@ -9,6 +9,7 @@ mod chart;
 pub mod chart_core;
 mod connection;
 mod dashboard;
+pub mod infra;
 mod indicators;
 #[cfg(test)]
 mod keymap_guard;
@@ -46,7 +47,7 @@ pub fn run() {
                     // A reset or an import the user asked for waits for this moment, before
                     // anything reads the documents it replaces.
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match wyck_config::backup::apply_pending(paths, &stamp) {
+                    match crate::infra::storage::backup::apply_pending(paths, &stamp) {
                         Ok(applied) if applied != Default::default() => {
                             tracing::info!(?applied, "applied what was waiting for this start");
                         }
@@ -121,12 +122,12 @@ pub fn run() {
 
 /// Saves an automatic copy of everything the user made, at most one a day and the last few kept,
 /// off the interface thread: what a bad import, a reset or a broken disk cannot take away.
-fn keep_a_daily_copy(paths: &'static wyck_config::AppPaths, cx: &mut App) {
-    let scripts = wyck_config::scripts::ScriptStore::new(indicators::dir(cx));
+fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut App) {
+    let scripts = crate::infra::storage::scripts::ScriptStore::new(indicators::dir(cx));
     cx.background_executor()
         .spawn(async move {
             let created = chrono::Local::now().to_rfc3339();
-            let policy = wyck_config::backup::AutoPolicy::default();
+            let policy = crate::infra::storage::backup::AutoPolicy::default();
             match paths.backups().auto_snapshot(
                 Some(&scripts),
                 build_info::VERSION,
@@ -143,14 +144,14 @@ fn keep_a_daily_copy(paths: &'static wyck_config::AppPaths, cx: &mut App) {
 
 /// The folders of the app, resolved once: `None` when the system gives it none. Everything that
 /// needs a path of the app asks here, so there is one answer for the whole run.
-fn app_paths() -> Option<&'static wyck_config::AppPaths> {
-    static PATHS: std::sync::OnceLock<Option<wyck_config::AppPaths>> = std::sync::OnceLock::new();
+fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
+    static PATHS: std::sync::OnceLock<Option<crate::infra::storage::AppPaths>> = std::sync::OnceLock::new();
     PATHS
-        .get_or_init(|| wyck_config::AppPaths::discover().ok())
+        .get_or_init(|| crate::infra::storage::AppPaths::discover().ok())
         .as_ref()
 }
 
-/// Installs a `tracing` subscriber so the events `wyck_config` and `wyck_openapi` emit (and
+/// Installs a `tracing` subscriber so the events `wyck::infra::storage` and `wyck_openapi` emit (and
 /// the app's own) show up on stderr; the library only emits them, it never installs a subscriber
 /// itself. Reads `RUST_LOG`, defaulting to `debug` for `wyck` and `warn` for everything else.
 fn init_tracing() {

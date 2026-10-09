@@ -1,13 +1,13 @@
 //! Lists, saves, exports and restores the backups of a Wyck install from the command line.
 //!
 //! ```text
-//! cargo run -p wyck-config --example config_backup -- list
-//! cargo run -p wyck-config --example config_backup -- save
-//! cargo run -p wyck-config --example config_backup -- export ./my-backup.toml
-//! WYCK_BACKUP_PASSPHRASE=... cargo run -p wyck-config --example config_backup -- export ./locked.toml
-//! cargo run -p wyck-config --example config_backup -- import ./my-backup.toml
-//! cargo run -p wyck-config --example config_backup -- restore <id>
-//! cargo run -p wyck-config --example config_backup -- prune 5
+//! cargo run --example config_backup -- list
+//! cargo run --example config_backup -- save
+//! cargo run --example config_backup -- export ./my-backup.toml
+//! WYCK_BACKUP_PASSPHRASE=... cargo run --example config_backup -- export ./locked.toml
+//! cargo run --example config_backup -- import ./my-backup.toml
+//! cargo run --example config_backup -- restore <id>
+//! cargo run --example config_backup -- prune 5
 //! ```
 //!
 //! * `--dir <folder>` works on a portable install instead of the standard folders.
@@ -20,8 +20,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use secrecy::SecretString;
-use wyck_config::backup::{self, Backup, BackupKind};
-use wyck_config::{AppPaths, ConfigError};
+use wyck::infra::storage::backup::{self, Backup, BackupKind};
+use wyck::infra::storage::{AppPaths, ConfigError};
 
 const USAGE: &str = "usage: config_backup [--dir <folder>] <list | save | export <file> | import <file> | restore <id> | apply | prune <keep>>";
 
