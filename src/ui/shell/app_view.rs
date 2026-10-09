@@ -66,7 +66,7 @@ impl AppView {
             }
             Err(error) => {
                 tracing::error!(%error, "could not open the settings");
-                Start::Failed(error)
+                Start::Failed(error.to_string())
             }
         };
         Self {

@@ -647,19 +647,25 @@ async fn consent(
     });
 }
 
+/// Why the settings could not be opened at start.
+#[derive(Debug, thiserror::Error)]
+pub enum LoadConfigError {
+    /// The system gives the app no folder for its settings.
+    #[error("the system gives Wyck no folder for its settings")]
+    NoFolder,
+    /// The folder or the files in it cannot be used.
+    #[error(transparent)]
+    Config(#[from] crate::infra::storage::ConfigError),
+}
+
 /// Loads the configuration from the standard folders, with the OS keyring for secrets.
 ///
 /// # Errors
 ///
 /// The folders of the app cannot be found or the configuration cannot be read.
-pub fn load_config() -> Result<WyckConfig, String> {
-    let paths = crate::app_paths()
-        .ok_or_else(|| "the system gives Wyck no folder for its settings".to_owned())?
-        .clone();
-    let config = WyckConfig::builder()
-        .paths(paths)
-        .build()
-        .map_err(|error| error.to_string())?;
+pub fn load_config() -> Result<WyckConfig, LoadConfigError> {
+    let paths = crate::app_paths().ok_or(LoadConfigError::NoFolder)?.clone();
+    let config = WyckConfig::builder().paths(paths).build()?;
     let report = config.diagnose();
     if report.worst() >= Some(Severity::Warning) {
         tracing::warn!("the config has something to report:\n{report}");

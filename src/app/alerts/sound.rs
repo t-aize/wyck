@@ -249,29 +249,61 @@ fn system_source(file: PathBuf) -> Option<Source> {
     std::fs::read(file).ok().map(Source::Bytes)
 }
 
+/// Why a sound could not be used or played. The texts are shown to the user as they are.
+#[derive(Debug, thiserror::Error)]
+pub enum SoundError {
+    /// The file could not be read.
+    #[error("The file cannot be read: {0}")]
+    Read(#[from] std::io::Error),
+    /// The file is bigger than [`MAX_CUSTOM_BYTES`].
+    #[error("The file is over 4 MB")]
+    TooBig,
+    /// The audio library cannot decode the file.
+    #[error("This is not a sound the app can play (wav, ogg, mp3 or flac)")]
+    NotASound,
+    /// The sound is longer than [`MAX_CUSTOM_SECONDS`].
+    #[error("The sound lasts {seconds:.0} s: an alert sound is at most {max:.0} s")]
+    TooLong {
+        /// Its length.
+        seconds: f32,
+        /// The longest allowed.
+        max: f32,
+    },
+    /// The sound device could not be opened.
+    #[error("No sound device: {0}")]
+    Device(String),
+    /// The system player (`afplay`) failed.
+    #[cfg(target_os = "macos")]
+    #[error("afplay failed")]
+    Player,
+}
+
 /// Reads a file the user chose, refusing what is too big.
-fn read_custom(path: &Path) -> Result<Vec<u8>, String> {
-    let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
-    if meta.len() > MAX_CUSTOM_BYTES {
-        return Err("The file is over 4 MB".to_owned());
+fn read_custom(path: &Path) -> Result<Vec<u8>, SoundError> {
+    if std::fs::metadata(path)?.len() > MAX_CUSTOM_BYTES {
+        return Err(SoundError::TooBig);
     }
-    std::fs::read(path).map_err(|e| e.to_string())
+    Ok(std::fs::read(path)?)
 }
 
 /// Checks that a file can be used as an alert sound: it decodes, and it is short. Returns its
 /// length in seconds. This is what the settings run before they keep a copy.
-pub fn check_file(path: &Path) -> Result<f32, String> {
+///
+/// # Errors
+///
+/// The file cannot be read, is too big or too long, or is not a sound.
+pub fn check_file(path: &Path) -> Result<f32, SoundError> {
     use rodio::Source as _;
     let bytes = read_custom(path)?;
-    let decoder = rodio::Decoder::new(Cursor::new(bytes))
-        .map_err(|_| "This is not a sound the app can play (wav, ogg, mp3 or flac)".to_owned())?;
+    let decoder = rodio::Decoder::new(Cursor::new(bytes)).map_err(|_| SoundError::NotASound)?;
     // Some formats do not say how long they are: the length is then counted while playing, and
     // the player cuts the sound off at the limit.
     let seconds = decoder.total_duration().map_or(0.0, |d| d.as_secs_f32());
     if seconds > MAX_CUSTOM_SECONDS {
-        return Err(format!(
-            "The sound lasts {seconds:.0} s: an alert sound is at most {MAX_CUSTOM_SECONDS:.0} s"
-        ));
+        return Err(SoundError::TooLong {
+            seconds,
+            max: MAX_CUSTOM_SECONDS,
+        });
     }
     Ok(seconds)
 }
@@ -370,7 +402,7 @@ fn run(inbox: &mpsc::Receiver<Job>) {
 
 /// Plays one sound to its end. The output device is opened for the sound and closed after it, so
 /// a change of device (headphones, a bluetooth speaker going to sleep) never leaves it stuck.
-fn sound(kind: SoundKind, custom: Option<&Path>, volume: u8) -> Result<(), String> {
+fn sound(kind: SoundKind, custom: Option<&Path>, volume: u8) -> Result<(), SoundError> {
     let Some(source) = source(kind, custom) else {
         return Ok(());
     };
@@ -382,22 +414,22 @@ fn sound(kind: SoundKind, custom: Option<&Path>, volume: u8) -> Result<(), Strin
                 .arg("-v")
                 .arg(format!("{:.2}", gain(volume)))
                 .arg(file)
-                .status()
-                .map_err(|e| e.to_string())?;
+                .status()?;
             if status.success() {
                 Ok(())
             } else {
-                Err("afplay failed".to_owned())
+                Err(SoundError::Player)
             }
         }
     }
 }
 
-fn play_bytes(bytes: Vec<u8>, gain: f32) -> Result<(), String> {
+fn play_bytes(bytes: Vec<u8>, gain: f32) -> Result<(), SoundError> {
     use rodio::Source as _;
-    let mut device = rodio::DeviceSinkBuilder::open_default_sink().map_err(|e| e.to_string())?;
+    let mut device = rodio::DeviceSinkBuilder::open_default_sink()
+        .map_err(|e| SoundError::Device(e.to_string()))?;
     device.log_on_drop(false);
-    let decoder = rodio::Decoder::new(Cursor::new(bytes)).map_err(|e| e.to_string())?;
+    let decoder = rodio::Decoder::new(Cursor::new(bytes)).map_err(|_| SoundError::NotASound)?;
     let player = rodio::Player::connect_new(device.mixer());
     player.set_volume(gain);
     // Whatever the file says about itself, the sound is cut at the limit.

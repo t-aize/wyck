@@ -12,6 +12,7 @@ pub type Result<T> = std::result::Result<T, ConfigError>;
 /// secret carries the [`crate::infra::storage::SecretKey`] it was operating on: never the secret value
 /// itself, so a `{:?}`/`{}` of this error (e.g. in a log line) can never leak a token.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ConfigError {
     /// The OS did not report a home directory for the current user, so no
     /// OS-standard config/data directory could be resolved. See

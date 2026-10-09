@@ -215,7 +215,7 @@ fn choose_file(workspace: Entity<Workspace>, cx: &mut App) {
 
 /// Checks a file and copies it beside the settings, so it keeps working when the original moves.
 fn keep_copy(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
-    sound::check_file(path)?;
+    sound::check_file(path).map_err(|error| error.to_string())?;
     let paths = crate::app_paths().ok_or("The settings folder is not available")?;
     let dir = paths.state_dir().join("sounds");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
