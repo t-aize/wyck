@@ -21,7 +21,7 @@ use super::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use wyck_chart::drawing::model::MAX_DRAWINGS_PER_SYMBOL;
 use wyck_chart::settings::MAX_STUDIES;
 use wyck_config::backup::{self, BackupEntry};
-use wyck_ui::{
+use crate::ui::kit::{
     button, confirm, controls,
     font_picker::{FontChosen, FontPicker},
     form,

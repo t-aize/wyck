@@ -1,8 +1,8 @@
 //! The Style tab of the drawing settings: lines, caps, fill, the measure and profile options, and the saved templates.
 
 use super::*;
-use wyck_ui::field;
-use wyck_ui::form::Row;
+use crate::ui::kit::field;
+use crate::ui::kit::form::Row;
 
 impl DrawingProps {
     /// A choice of what ends a line, for `set` to apply.
@@ -294,16 +294,16 @@ impl DrawingProps {
         if saved {
             self.template_name
                 .update(cx, |state, cx| state.set_value("", window, cx));
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Success,
+                crate::ui::kit::toast::Kind::Success,
                 "Look saved",
                 format!("{} is in the saved looks of this tool.", name.trim()),
             );
         } else {
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Warning,
+                crate::ui::kit::toast::Kind::Warning,
                 "Give the look a name",
                 "Type a name first, then save.",
             );

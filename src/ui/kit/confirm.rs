@@ -1,5 +1,5 @@
 //! The question the app asks before it does something it cannot take back: send an order, close a
-//! position. It is a small dialog in the modal (see [`crate::modal`]), with the same look as the
+//! position. It is a small dialog in the modal (see [`crate::ui::kit::modal`]), with the same look as the
 //! settings panels.
 
 use std::rc::Rc;
@@ -8,8 +8,8 @@ use gpui::prelude::*;
 use gpui::{App, Context, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 
-use crate::form::{self, Head};
-use crate::{button, modal, theme};
+use crate::ui::kit::form::{self, Head};
+use crate::ui::kit::{button, modal, theme};
 
 /// The size of the dialog.
 const WIDTH: f32 = 440.0;
@@ -109,7 +109,7 @@ impl Render for Confirm {
         };
         let mut body = div().flex().flex_col().gap_2().child(
             div()
-                .text_size(px(crate::tokens::text::title()))
+                .text_size(px(crate::ui::kit::tokens::text::title()))
                 .text_color(theme::fg())
                 .child(self.text.clone()),
         );
@@ -130,7 +130,7 @@ impl Render for Confirm {
                         .flex_row()
                         .justify_between()
                         .gap_2()
-                        .text_size(px(crate::tokens::text::body()))
+                        .text_size(px(crate::ui::kit::tokens::text::body()))
                         .child(div().text_color(theme::muted_fg()).child(label.clone()))
                         .child(div().text_color(theme::fg()).child(value.clone())),
                 );
@@ -145,7 +145,7 @@ impl Render for Confirm {
                     .bg(theme::amber_bg())
                     .border_1()
                     .border_color(theme::amber())
-                    .text_size(px(crate::tokens::text::body()))
+                    .text_size(px(crate::ui::kit::tokens::text::body()))
                     .text_color(theme::fg())
                     .child(warning.clone()),
             );

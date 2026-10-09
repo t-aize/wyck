@@ -1,7 +1,7 @@
 //! The Appearance page of the settings: the theme, the accent, the user's own themes, the fonts and the candle colors.
 
 use super::*;
-use wyck_ui::field;
+use crate::ui::kit::field;
 
 impl SettingsHub {
     /// A card that shows a theme: its colors in miniature, its name, and a check when it is the

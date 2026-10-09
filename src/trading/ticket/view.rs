@@ -2,7 +2,7 @@
 //! chose (each a card, like the groups of the settings panels), and a footer that stays at the
 //! bottom with what stops the order and the button that sends it.
 //!
-//! Every size comes from [`wyck_ui::tokens`]. The density only changes the space between and
+//! Every size comes from [`crate::ui::kit::tokens`]. The density only changes the space between and
 //! inside the cards, never the size of a text or of a control.
 
 use std::rc::Rc;
@@ -20,7 +20,7 @@ use crate::trading::account::Busy;
 use crate::trading::book::is_buy;
 use crate::trading::math::{self, Contract, Limit, Offset, SizeMode};
 use wyck_chart::study::atr_stop::Smoothing;
-use wyck_ui::{
+use crate::ui::kit::{
     confirm::confirm,
     controls,
     focus::Keyboard,

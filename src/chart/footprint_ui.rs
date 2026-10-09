@@ -9,7 +9,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::footprint::{CellMode, FootprintSettings, HeatScope};
 use super::settings::ChartSettings;
-use wyck_ui::{controls, form, number, tokens};
+use crate::ui::kit::{controls, form, number, tokens};
 
 /// The numbers of the footprint that are typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

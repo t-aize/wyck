@@ -1,7 +1,7 @@
 //! The tabs of a long or short position: its trade and its look.
 
 use super::*;
-use wyck_ui::field;
+use crate::ui::kit::field;
 
 impl DrawingProps {
     /// What the position comes to with these settings, as rows of a card: the plan in figures.

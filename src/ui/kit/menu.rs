@@ -29,8 +29,8 @@ use gpui::{
 };
 use gpui_kit::assets::IconName;
 
-use crate::tokens::{menu as size, text};
-use crate::{controls, icon, theme};
+use crate::ui::kit::tokens::{menu as size, text};
+use crate::ui::kit::{controls, icon, theme};
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -481,7 +481,7 @@ fn row_base() -> Div {
         .flex_row()
         .items_center()
         .gap_2()
-        .h(px(crate::tokens::height::control()))
+        .h(px(crate::ui::kit::tokens::height::control()))
         .px_2()
         .rounded_md()
         .text_size(px(text::body()))

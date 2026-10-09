@@ -8,8 +8,8 @@
 //! * [`check`]: a checkbox with its label.
 //! * [`text`]: a text field of the standard width.
 //!
-//! Number fields themselves are in [`crate::number`], switches and segmented choices in
-//! [`crate::controls`].
+//! Number fields themselves are in [`crate::ui::kit::number`], switches and segmented choices in
+//! [`crate::ui::kit::controls`].
 
 use std::rc::Rc;
 
@@ -23,10 +23,10 @@ use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 
-use crate::controls::{child_id, ink, tooltip};
-use crate::focus::Keyboard;
-use crate::number::{self, Kind};
-use crate::{icon, theme, tokens};
+use crate::ui::kit::controls::{child_id, ink, tooltip};
+use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::number::{self, Kind};
+use crate::ui::kit::{icon, theme, tokens};
 
 /// What a [`SliderField`] says when its value changes.
 pub struct ValueChanged(pub f64);

@@ -19,7 +19,7 @@ use crate::trading::panel::{PanelEvent, Tab};
 use crate::trading::ticket::prefs::{Dock, WIDTH_DEFAULT};
 use crate::trading::ticket::{OrderTicket, TicketEvent};
 use crate::trading::{self, math};
-use wyck_ui::{confirm::confirm, theme, toast};
+use crate::ui::kit::{confirm::confirm, theme, toast};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {

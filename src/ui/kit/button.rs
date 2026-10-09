@@ -1,4 +1,4 @@
-//! Buttons. They are gpui-kit's, restyled through [`crate::theme::apply`], so every button of
+//! Buttons. They are gpui-kit's, restyled through [`crate::ui::kit::theme::apply`], so every button of
 //! the app takes one of these shapes instead of configuring a `Button` itself.
 
 use gpui::prelude::*;
@@ -7,7 +7,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 use gpui_kit::component::button::{Button, ButtonVariants};
 
-/// The "Back" button in the top-left corner of a [`crate::layout::screen`].
+/// The "Back" button in the top-left corner of a [`crate::ui::kit::layout::screen`].
 pub fn back(
     id: impl Into<gpui::ElementId>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,

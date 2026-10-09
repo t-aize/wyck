@@ -1,7 +1,7 @@
 //! The panel that customizes the account panel: how the rows look, which tabs and figures show,
 //! the columns of each table, the history, and the buttons of a row.
 //!
-//! It is built like the other settings panels (see [`wyck_ui::form`]) and shows in the
+//! It is built like the other settings panels (see [`crate::ui::kit::form`]) and shows in the
 //! same modal. Every change applies to the account panel at once and is remembered.
 
 use gpui::prelude::*;
@@ -13,7 +13,7 @@ use gpui_kit::component::{Disableable, Sizable};
 use super::AccountPanel;
 use super::prefs::{HistoryRange, PanelPrefs, ProfitUnit, RowDensity, Tab, TimeStyle};
 use crate::trading::ticket::prefs::{Placed, Slot, shift};
-use wyck_ui::{button, controls, form, form::Head, form::Tab as SettingsTab, modal};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab as SettingsTab, modal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {

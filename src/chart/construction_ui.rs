@@ -30,7 +30,7 @@ pub(super) fn inputs<T: 'static>(
     let t = chart.read(cx).settings.transform;
     let mut numbers = Numbers::new(chart, window, cx);
     let renko_reversal = numbers.add(
-        wyck_ui::number::Kind::Count,
+        crate::ui::kit::number::Kind::Count,
         f64::from(t.renko_reversal),
         (1.0, 10.0),
         |s, v| {
@@ -38,7 +38,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let brick_width = numbers.add(
-        wyck_ui::number::Kind::Share,
+        crate::ui::kit::number::Kind::Share,
         f64::from(t.brick_width) * 100.0,
         (20.0, 100.0),
         |s, v| {
@@ -46,13 +46,13 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let brick_opacity = numbers.add(
-        wyck_ui::number::Kind::Share,
+        crate::ui::kit::number::Kind::Share,
         f64::from(t.brick_opacity) * 100.0,
         (10.0, 100.0),
         |s, v| s.transform.brick_opacity = (v / 100.0) as f32,
     );
     let kagi_thick = numbers.add(
-        wyck_ui::number::Kind::LineWidth,
+        crate::ui::kit::number::Kind::LineWidth,
         f64::from(t.kagi_thick),
         (0.5, 8.0),
         |s, v| {
@@ -60,7 +60,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let kagi_thin = numbers.add(
-        wyck_ui::number::Kind::LineWidth,
+        crate::ui::kit::number::Kind::LineWidth,
         f64::from(t.kagi_thin),
         (0.5, 8.0),
         |s, v| {
@@ -68,7 +68,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let pnf_glyph = numbers.add(
-        wyck_ui::number::Kind::Share,
+        crate::ui::kit::number::Kind::Share,
         f64::from(t.pnf_glyph) * 100.0,
         (30.0, 100.0),
         |s, v| {
@@ -76,7 +76,7 @@ pub(super) fn inputs<T: 'static>(
         },
     );
     let pnf_line = numbers.add(
-        wyck_ui::number::Kind::LineWidth,
+        crate::ui::kit::number::Kind::LineWidth,
         f64::from(t.pnf_line),
         (0.0, 6.0),
         |s, v| {

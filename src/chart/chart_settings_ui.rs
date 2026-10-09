@@ -2,7 +2,7 @@
 //! grid, the canvas, the time zone, the trading lines, and the indicators it holds.
 //!
 //! It is built from the same frame as the panels of the indicators and the drawings (see
-//! [`wyck_ui::form`]). Every change applies at once, so the chart behind the panel shows
+//! [`crate::ui::kit::form`]). Every change applies at once, so the chart behind the panel shows
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
@@ -22,7 +22,7 @@ use super::{
     Chart, construction_ui, footprint_ui, indicator_picker, overlay, study_settings, tpo_ui,
     volume_ui,
 };
-use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall the prices are against the panes of the indicators: a name and the weight it sets.
 const PRICE_HEIGHTS: &[(&str, f32)] = &[

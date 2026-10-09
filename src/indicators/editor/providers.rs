@@ -17,7 +17,7 @@ use lsp_types::{
 
 use wyck_chart::study::custom::assist::{self, CandidateKind};
 use wyck_chart::study::custom::lexer::{self, Kind, Token};
-use wyck_ui::theme;
+use crate::ui::kit::theme;
 
 /// The name of the language, as the editor is told.
 pub const LANGUAGE: &str = "rhai";

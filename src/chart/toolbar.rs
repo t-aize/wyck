@@ -1,7 +1,7 @@
 //! The bar at the top right of a chart: the chart type, the indicators, an alert, the price scale,
 //! and what brings the view back, the picture and the settings.
 //!
-//! Its buttons open the same menus as everywhere in the app (see [`wyck_ui::menu`]): a card of
+//! Its buttons open the same menus as everywhere in the app (see [`crate::ui::kit::menu`]): a card of
 //! entries with icons and check marks. On a chart too small for all of them, the type and the
 //! settings stay and the rest goes into one menu.
 
@@ -18,7 +18,7 @@ use super::{
     Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
 };
 use crate::indicators;
-use wyck_ui::{
+use crate::ui::kit::{
     controls, icon, layout,
     menu::{Entry, Item, Menu, Placement},
     theme, tokens,

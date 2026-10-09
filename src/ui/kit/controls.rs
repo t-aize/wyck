@@ -11,8 +11,8 @@ use gpui::{AnyElement, App, Div, ElementId, Rgba, Role, SharedString, Toggled, W
 use gpui_kit::component::Sizable;
 use gpui_kit::component::switch::Switch;
 
-use crate::focus::Keyboard;
-use crate::{color_picker, menu, theme, tokens};
+use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::{color_picker, menu, theme, tokens};
 
 /// The id of child `n` of an element.
 pub fn child_id(id: &ElementId, n: usize) -> ElementId {
@@ -143,7 +143,7 @@ pub fn chips(
 }
 
 /// A swatch showing `color`; clicking it calls `on_toggle`. With `open`, the color panel shows
-/// under it (see [`crate::color_picker`]), and every change of the color calls `on_pick` while the
+/// under it (see [`crate::ui::kit::color_picker`]), and every change of the color calls `on_pick` while the
 /// panel stays open: a click outside it, or on the swatch, calls `on_toggle` to close it.
 pub fn color_swatch(
     id: impl Into<ElementId>,
@@ -241,7 +241,7 @@ fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Sta
         .items_center()
         .justify_center()
         .w(px(40.))
-        .h(px(crate::tokens::height::control()))
+        .h(px(crate::ui::kit::tokens::height::control()))
         .rounded_md()
         .border_1()
         .border_color(if chosen {

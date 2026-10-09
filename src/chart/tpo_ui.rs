@@ -10,7 +10,7 @@ use gpui_kit::component::input::InputState;
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
 use super::tpo::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
-use wyck_ui::{form, number, tokens};
+use crate::ui::kit::{form, number, tokens};
 
 /// The fields that are typed in.
 pub(super) struct Inputs {

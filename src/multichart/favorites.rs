@@ -15,7 +15,7 @@ use super::MultiChart;
 use crate::chart::object_tree::tool_icon;
 use crate::workspace::MAX_FAVORITE_TOOLS;
 use wyck_chart::drawing::model::Tool;
-use wyck_ui::{
+use crate::ui::kit::{
     controls, icon,
     menu::{self as popup, Entry, Item},
     theme, tokens,
@@ -41,9 +41,9 @@ impl MultiChart {
     pub(crate) fn toggle_favorite(&mut self, tool: Tool, cx: &mut Context<Self>) {
         let list = self.favorite_tools(cx);
         if !list.contains(&tool) && list.len() >= MAX_FAVORITE_TOOLS {
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Info,
+                crate::ui::kit::toast::Kind::Info,
                 "The favorites are full",
                 format!("The bar holds {MAX_FAVORITE_TOOLS} tools. Unpin one to make room."),
             );

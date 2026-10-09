@@ -36,7 +36,7 @@ use wyck_chart::study::custom::library::{LibraryError, registry};
 use wyck_chart::study::custom::run::Script;
 use wyck_chart::study::custom::templates::{TEMPLATES, Template};
 use wyck_chart::study::custom::{Problem, Severity};
-use wyck_ui::{confirm::confirm, menu as popup};
+use crate::ui::kit::{confirm::confirm, menu as popup};
 
 actions!(
     wyck_indicator_editor,

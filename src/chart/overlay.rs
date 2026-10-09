@@ -21,7 +21,7 @@ use super::{
     chart_settings_ui, export_ui, indicator_picker, paint, study_settings,
 };
 use wyck_chart::drawing::book::Order;
-use wyck_ui::{
+use crate::ui::kit::{
     anim, button, controls, icon,
     menu::{self as popup, Entry, Item},
     theme, tokens,

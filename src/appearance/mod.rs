@@ -21,7 +21,7 @@ use wyck_config::DocumentStore;
 use crate::workspace::Saver;
 
 use presets::{DEFAULT_DARK, DEFAULT_LIGHT, PRESETS};
-use wyck_ui::theme::{self, Colors};
+use crate::ui::kit::theme::{self, Colors};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "appearance";
@@ -290,7 +290,7 @@ impl Appearance {
         }
         self.ui_scale = self
             .ui_scale
-            .clamp(wyck_ui::tokens::SCALE_MIN, wyck_ui::tokens::SCALE_MAX);
+            .clamp(crate::ui::kit::tokens::SCALE_MIN, crate::ui::kit::tokens::SCALE_MAX);
         self.font = self.font.trim().chars().take(80).collect();
         if self.font.is_empty() {
             self.font = default_font();
@@ -557,8 +557,8 @@ fn put_in_force(cx: &mut App) {
             state.appearance.ui_scale,
         )
     };
-    wyck_ui::anim::set_enabled(animations);
-    wyck_ui::tokens::set_scale(scale);
+    crate::ui::kit::anim::set_enabled(animations);
+    crate::ui::kit::tokens::set_scale(scale);
     // The text drawn on the charts follows it, as the widgets do.
     wyck_chart::text_scale::set(scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
@@ -589,12 +589,12 @@ mod tests {
             ui_scale: 900,
             ..Appearance::default()
         };
-        assert_eq!(huge.normalized().ui_scale, wyck_ui::tokens::SCALE_MAX);
+        assert_eq!(huge.normalized().ui_scale, crate::ui::kit::tokens::SCALE_MAX);
         let tiny = Appearance {
             ui_scale: 3,
             ..Appearance::default()
         };
-        assert_eq!(tiny.normalized().ui_scale, wyck_ui::tokens::SCALE_MIN);
+        assert_eq!(tiny.normalized().ui_scale, crate::ui::kit::tokens::SCALE_MIN);
     }
 
     #[test]
@@ -805,7 +805,7 @@ mod tests {
     }
 }
 
-/// No screen spells out a color: they read the palette in force (see `wyck_ui::theme`), so a theme
+/// No screen spells out a color: they read the palette in force (see `crate::ui::kit::theme`), so a theme
 /// reaches all of them and stays readable. The files that own colors are listed here.
 #[cfg(test)]
 mod no_inline_colors {
@@ -818,8 +818,8 @@ mod no_inline_colors {
         "src/dashboard/marks.rs",
         "src/settings_hub.rs",
         "src/settings_hub/look.rs",
-        "crates/wyck-ui/src/theme.rs",
-        "crates/wyck-ui/src/color_picker.rs",
+        "src/ui/kit/theme.rs",
+        "src/ui/kit/color_picker.rs",
     ];
 
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -866,7 +866,7 @@ mod no_inline_colors {
             "src/connection",
             "src/settings_hub",
             "src/multichart",
-            "crates/wyck-ui/src",
+            "src/ui/kit",
         ] {
             walk(&root.join(dir), &mut files);
         }
@@ -891,7 +891,7 @@ mod no_inline_colors {
         }
         assert!(
             found.is_empty(),
-            "colors spelled out instead of read from wyck_ui::theme:\n{}",
+            "colors spelled out instead of read from crate::ui::kit::theme:\n{}",
             found.join("\n")
         );
     }

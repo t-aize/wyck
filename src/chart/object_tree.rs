@@ -12,7 +12,7 @@ use super::drawing_props;
 use super::zone::Zone;
 use wyck_chart::drawing::book::{Book, Order};
 use wyck_chart::drawing::model::{Drawing, Tool};
-use wyck_ui::{button, form, form::Head, icon, modal, theme, tokens};
+use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {
     match tool {

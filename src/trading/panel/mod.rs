@@ -183,7 +183,7 @@ impl AccountPanel {
         &mut self,
         index: usize,
         event: &gpui::KeyDownEvent,
-        menu: &wyck_ui::menu::Menu,
+        menu: &crate::ui::kit::menu::Menu,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
@@ -215,7 +215,7 @@ impl AccountPanel {
         let Some(resize) = self.resize else { return };
         // The pointer moves in scaled pixels; the width is kept at the base size.
         let width = resize.start_width
-            + (x - resize.start_x) * 100.0 / wyck_ui::tokens::scale_percent() as f32;
+            + (x - resize.start_x) * 100.0 / crate::ui::kit::tokens::scale_percent() as f32;
         self.edit_prefs(cx, |prefs| prefs.set_width(resize.tab, resize.slot, width));
     }
 }

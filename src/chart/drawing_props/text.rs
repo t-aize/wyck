@@ -1,8 +1,8 @@
 //! The Text tab of the drawing settings: the words, their place and the captions of the levels.
 
 use super::*;
-use wyck_ui::field;
-use wyck_ui::form::Row;
+use crate::ui::kit::field;
+use crate::ui::kit::form::Row;
 
 impl DrawingProps {
     /// What the levels are called on the chart, and the side their labels stand on.

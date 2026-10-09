@@ -17,7 +17,7 @@ use wyck_openapi::config::ClientCredentials;
 use super::select_account::SelectAccountState;
 use super::{ConnectionFlow, Screen};
 use crate::runtime;
-use wyck_ui::{anim, button, icon, layout, theme, tokens};
+use crate::ui::kit::{anim, button, icon, layout, theme, tokens};
 
 /// How long to wait for the user to finish signing in on cTrader's page before giving up.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(300);

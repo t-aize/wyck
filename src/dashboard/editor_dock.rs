@@ -11,7 +11,7 @@ use gpui_kit::component::{Selectable, Sizable};
 
 use super::Dashboard;
 use crate::indicators::{self, editor::EditorEvent, editor::IndicatorEditor};
-use wyck_ui::{
+use crate::ui::kit::{
     menu::{Entry, Item, Menu, Placement},
     theme, tokens,
 };

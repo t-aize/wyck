@@ -15,7 +15,7 @@ use wyck_openapi::config::ClientCredentials;
 use super::credentials::CALLBACK_PORT;
 use super::{ConnectionFlow, SavedConnection, Screen, service_tag};
 use crate::runtime;
-use wyck_ui::{anim, button, icon, layout, theme, tokens};
+use crate::ui::kit::{anim, button, icon, layout, theme, tokens};
 
 pub(super) struct AuthorizingState {
     account: TraderAccount,

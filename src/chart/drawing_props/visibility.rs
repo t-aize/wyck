@@ -1,7 +1,7 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
 use super::*;
-use wyck_ui::field;
+use crate::ui::kit::field;
 
 impl DrawingProps {
     pub(super) fn visibility_page(&self, drawing: &Drawing, cx: &mut Context<Self>) -> AnyElement {

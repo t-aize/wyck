@@ -57,10 +57,9 @@ GPUI views and connects the helper crates below, which are being merged into it 
 | `wyck-openapi` | cTrader Open API SDK: messages, WebSocket client, OAuth, reconnecting session, contract math and account book |
 | `wyck-config` | Native settings, documents, backups, indicator files and credential storage |
 | `wyck-chart` | Chart data, calculations, studies, drawings and scene commands |
-| `wyck-ui` | Widget kit, theme and sizes shared by every screen |
 
 Its native services are in `src/services`. Every control, menu, dialog and color comes from
-`wyck-ui`.
+the widget kit in `src/ui/kit`.
 The Open API guide is in the `wyck-openapi` crate documentation.
 
 ## Your own indicators

@@ -21,7 +21,7 @@ use wyck_chart::study::custom::docs::{self, Group};
 use wyck_chart::study::custom::library::{Entry as Script, registry};
 use wyck_chart::study::custom::templates::TEMPLATES;
 use wyck_chart::study::custom::{Problem, Severity};
-use wyck_ui::{
+use crate::ui::kit::{
     controls, icon, layout, menu,
     menu::{Entry, Item, Placement},
     theme, tokens,

@@ -12,7 +12,7 @@ use gpui::{App, BorrowAppContext, Entity, Global, Subscription};
 use crate::build_info::{BuildMode, VERSION};
 use crate::multichart::MultiChart;
 use crate::{appearance, runtime};
-use wyck_ui::toast;
+use crate::ui::kit::toast;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
 pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";

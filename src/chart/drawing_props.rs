@@ -25,9 +25,9 @@ use wyck_chart::drawing::model::{
     DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Point, Tool, wave_label,
 };
 use wyck_chart::study::atr_stop::{AtrStop, Smoothing};
-use wyck_ui::field::{SliderField, ValueChanged};
-use wyck_ui::font_picker::{FontChosen, FontPicker};
-use wyck_ui::{button, controls, form, form::Head, modal, number, theme, tokens};
+use crate::ui::kit::field::{SliderField, ValueChanged};
+use crate::ui::kit::font_picker::{FontChosen, FontPicker};
+use crate::ui::kit::{button, controls, form, form::Head, modal, number, theme, tokens};
 
 mod coordinates;
 mod levels;
@@ -622,9 +622,9 @@ impl DrawingProps {
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| book.save_template(&symbol, id))
         });
-        wyck_ui::toast::show(
+        crate::ui::kit::toast::show(
             cx,
-            wyck_ui::toast::Kind::Success,
+            crate::ui::kit::toast::Kind::Success,
             "Saved as default",
             format!(
                 "New {} drawings start with this look.",
@@ -748,7 +748,7 @@ impl DrawingProps {
                 drawing.style.fill_opacity
             };
             let this = cx.entity();
-            let change: wyck_ui::color_picker::ChangeOpacity =
+            let change: crate::ui::kit::color_picker::ChangeOpacity =
                 std::rc::Rc::new(move |value, window, cx| {
                     this.update(cx, |e, cx| {
                         e.change(cx, |d| {
@@ -761,7 +761,7 @@ impl DrawingProps {
                         e.set_fields(window, cx);
                     });
                 });
-            Some(wyck_ui::color_picker::Opacity {
+            Some(crate::ui::kit::color_picker::Opacity {
                 value,
                 label,
                 change,

@@ -22,7 +22,7 @@ use super::{AccountPanel, MenuTarget, NewAlert, PanelEvent, Resize, customize};
 use crate::trading::account::{Account, Status};
 use crate::trading::math::format_money;
 use crate::trading::ticket::prefs::Slot;
-use wyck_ui::{
+use crate::ui::kit::{
     button,
     confirm::confirm,
     controls,
@@ -161,9 +161,9 @@ fn row_text(table: &Table, row: &Row) -> String {
 
 fn copy(cx: &mut App, title: &'static str, text: String) {
     cx.write_to_clipboard(ClipboardItem::new_string(text));
-    wyck_ui::toast::show(
+    crate::ui::kit::toast::show(
         cx,
-        wyck_ui::toast::Kind::Info,
+        crate::ui::kit::toast::Kind::Info,
         title,
         "Copied to the clipboard.",
     );

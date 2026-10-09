@@ -6,7 +6,7 @@
 //! Nothing here refuses a color: a user may want a low contrast theme, and it is theirs. The
 //! backgrounds are never touched by [`fix`]: it moves the colors drawn on them.
 
-use wyck_ui::theme::{Colors, contrast};
+use crate::ui::kit::theme::{Colors, contrast};
 
 use super::ColorField;
 
@@ -144,7 +144,7 @@ pub fn fix(colors: &mut Colors) -> Vec<ColorField> {
         let toward_black = steps_to_meet(color, 0x000000, &needs);
         let dark_bg = needs
             .iter()
-            .all(|(bg, _)| wyck_ui::theme::luminance(*bg) < 0.18);
+            .all(|(bg, _)| crate::ui::kit::theme::luminance(*bg) < 0.18);
         let target = match (toward_white, toward_black) {
             (Some(w), Some(b)) if w < b => Some((0xffffff, w)),
             (Some(w), Some(b)) if b < w => Some((0x000000, b)),
@@ -183,7 +183,7 @@ mod tests {
 
     fn poor() -> Colors {
         // Grey on grey: nothing reads.
-        let mut colors = wyck_ui::theme::Colors::WYCK_DARK;
+        let mut colors = crate::ui::kit::theme::Colors::WYCK_DARK;
         colors.bg = 0x404040;
         colors.surface = 0x484848;
         colors.chart_bg = 0x404040;
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn a_color_that_already_reads_is_left_alone() {
-        let mut colors = wyck_ui::theme::Colors::WYCK_DARK;
+        let mut colors = crate::ui::kit::theme::Colors::WYCK_DARK;
         let before = colors;
         assert!(fix(&mut colors).is_empty());
         assert_eq!(colors, before);
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn a_moved_accent_brings_readable_text_along() {
-        let mut colors = wyck_ui::theme::Colors::WYCK_DARK;
+        let mut colors = crate::ui::kit::theme::Colors::WYCK_DARK;
         colors.bg = 0x808080;
         colors.surface = 0x808080;
         ColorField::Accent.set(&mut colors, 0x858585);

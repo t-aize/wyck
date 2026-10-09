@@ -13,7 +13,7 @@ use super::transform::PricePath;
 use super::volume::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
-use wyck_ui::{controls, form, number, tokens};
+use crate::ui::kit::{controls, form, number, tokens};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

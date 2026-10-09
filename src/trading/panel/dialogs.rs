@@ -12,9 +12,9 @@ use crate::alerts::sound::SoundKind;
 use crate::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::trading::account::Account;
 use wyck_chart::study::{StudyConfig, StudyKind};
-use wyck_ui::focus::Keyboard;
-use wyck_ui::menu::{self as popup, Entry, Item};
-use wyck_ui::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
+use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::menu::{self as popup, Entry, Item};
+use crate::ui::kit::{button, controls, form, form::Head, icon, modal, number, theme, tokens};
 
 // ---- modifying a position or an order ----
 

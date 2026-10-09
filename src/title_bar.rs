@@ -6,7 +6,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::TitleBar;
 
 use super::build_info::BuildMode;
-use wyck_ui::{icon, theme, tokens};
+use crate::ui::kit::{icon, theme, tokens};
 
 /// Draws the current section and the unavailable journal beside a drag region.
 pub fn render(window: &mut Window) -> impl IntoElement {

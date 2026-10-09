@@ -58,8 +58,8 @@ pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
 use super::guard::Verdict;
 use super::plan::{self, ExitPlan};
-use wyck_ui::confirm::{Details, confirm_details};
-use wyck_ui::number;
+use crate::ui::kit::confirm::{Details, confirm_details};
+use crate::ui::kit::number;
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;
@@ -785,9 +785,9 @@ impl OrderTicket {
             PlanState::Waiting => {}
             PlanState::Gone => {
                 self.release_link(true, window, cx);
-                wyck_ui::toast::show(
+                crate::ui::kit::toast::show(
                     cx,
-                    wyck_ui::toast::Kind::Info,
+                    crate::ui::kit::toast::Kind::Info,
                     "Drawing removed",
                     "The ticket is free again and back to your own settings.",
                 );
@@ -1512,7 +1512,7 @@ impl OrderTicket {
             return Vec::new();
         }
         let plan = self.plan(cx);
-        let palette_line = wyck_ui::theme::colors().line;
+        let palette_line = crate::ui::kit::theme::colors().line;
         let currency = self.account.read(cx).book.currency.clone();
         let mut lines = Vec::new();
         let line = |id: u8, price: f64, color: u32, label: &str, money: Option<f64>| ChartLine {
@@ -1538,7 +1538,7 @@ impl OrderTicket {
             };
             lines.push(line(LINE_ENTRY, price, palette_line, label, None));
         }
-        let palette = wyck_ui::theme::colors();
+        let palette = crate::ui::kit::theme::colors();
         if let Some(price) = plan.stop {
             lines.push(line(
                 LINE_STOP,
@@ -1854,7 +1854,7 @@ impl OrderTicket {
         let orders = match self.orders(&plan, cx) {
             Ok(orders) => orders,
             Err(message) => {
-                wyck_ui::toast::Toast::warning("The order is not ready", message)
+                crate::ui::kit::toast::Toast::warning("The order is not ready", message)
                     .hint("Fix it in the ticket, then send again.")
                     .sticky(false)
                     .show(cx);
@@ -1872,7 +1872,7 @@ impl OrderTicket {
         };
         let mut warnings = match verdict {
             Verdict::Block(reason) => {
-                wyck_ui::toast::Toast::warning("Blocked by your safety settings", reason)
+                crate::ui::kit::toast::Toast::warning("Blocked by your safety settings", reason)
                     .hint("Change the limits in Settings, Safety.")
                     .show(cx);
                 return;

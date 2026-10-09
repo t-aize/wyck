@@ -11,7 +11,7 @@ use super::columns::{
     AlertCol, AlertLogCol, DealCol, ExposureCol, OrderCol, PositionCol, TablePrefs,
 };
 use crate::trading::ticket::prefs::{Placed, Slot, default_list, mend};
-use wyck_ui::tokens;
+use crate::ui::kit::tokens;
 
 /// A tab of the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

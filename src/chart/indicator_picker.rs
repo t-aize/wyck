@@ -1,7 +1,7 @@
 //! The list of indicators to add to a chart: the ones the app ships and the ones the user wrote,
 //! by category, with a search, stars for the ones used most, and the way to the editor.
 //!
-//! It is a panel of the same frame as the settings (see [`wyck_ui::form`]). Adding
+//! It is a panel of the same frame as the settings (see [`crate::ui::kit::form`]). Adding
 //! does not close it, so several indicators can be added in a row.
 
 use gpui::prelude::*;
@@ -16,7 +16,7 @@ use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::{Chart, ChartEvent, EditorRequest};
 use crate::indicators;
-use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens};
 
 /// Opens the list of indicators for `chart`.
 pub fn open(chart: Entity<Chart>, window: &mut Window, cx: &mut App) {

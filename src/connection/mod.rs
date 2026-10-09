@@ -52,7 +52,7 @@ enum Screen {
 }
 
 use self::rules::service_tag;
-use wyck_ui::{anim, theme};
+use crate::ui::kit::{anim, theme};
 
 /// Everything needed to open a session again, read back from the saved profile.
 struct SavedConnection {
@@ -303,7 +303,7 @@ impl Render for ConnectionFlow {
             .children(Root::render_sheet_layer(window, cx))
             .children(Root::render_dialog_layer(window, cx))
             // The settings panels, over the dialogs and under the notices.
-            .child(wyck_ui::modal::host(cx))
+            .child(crate::ui::kit::modal::host(cx))
             .children(Root::render_notification_layer(window, cx))
     }
 }

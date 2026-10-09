@@ -4,10 +4,10 @@ use gpui::prelude::*;
 use gpui::{Div, Rgba, SharedString, div, px};
 use gpui_kit::assets::IconName;
 
-use crate::{anim, icon, theme};
+use crate::ui::kit::{anim, icon, theme};
 
 /// The page shell every screen renders into: content centered in the remaining space, with room
-/// for a [`crate::button::back`] to sit absolutely positioned in the top-left corner.
+/// for a [`crate::ui::kit::button::back`] to sit absolutely positioned in the top-left corner.
 pub fn screen() -> Div {
     // The top padding keeps content clear of the progress indicator and the Back button.
     div()
@@ -63,7 +63,7 @@ pub fn step_badge(name: IconName) -> impl IntoElement {
 }
 
 /// A labeled field wrapper: an icon and a small caption above whatever's given as the field. For a
-/// label beside the control, as in the settings panels, use [`crate::form::field`].
+/// label beside the control, as in the settings panels, use [`crate::ui::kit::form::field`].
 pub fn stacked_field(
     icon_name: IconName,
     label: impl Into<SharedString>,
@@ -78,7 +78,7 @@ pub fn stacked_field(
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(crate::tokens::text::emphasis()))
+                .text_size(px(crate::ui::kit::tokens::text::emphasis()))
                 .text_color(theme::fg())
                 .child(icon::plain(icon_name, 14.).text_color(theme::muted_fg()))
                 .child(label.into()),
@@ -110,7 +110,7 @@ pub fn error_banner(
                 .flex_row()
                 .items_start()
                 .gap_2()
-                .text_size(px(crate::tokens::text::emphasis()))
+                .text_size(px(crate::ui::kit::tokens::text::emphasis()))
                 .text_color(theme::destructive())
                 .child(icon::tinted(
                     IconName::TriangleAlert,
@@ -121,7 +121,7 @@ pub fn error_banner(
         )
         .child(
             div()
-                .text_size(px(crate::tokens::text::body()))
+                .text_size(px(crate::ui::kit::tokens::text::body()))
                 .text_color(theme::muted_fg())
                 .child(detail.into()),
         );
@@ -138,7 +138,7 @@ pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl In
         .py(px(2.))
         .rounded_sm()
         .bg(tint)
-        .text_size(px(crate::tokens::text::caption()))
+        .text_size(px(crate::ui::kit::tokens::text::caption()))
         .text_color(color)
         .child(label.into())
 }

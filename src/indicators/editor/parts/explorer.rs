@@ -161,7 +161,7 @@ impl IndicatorEditor {
         number: usize,
         indented: bool,
         match_at: Option<(usize, usize)>,
-        menu: &wyck_ui::menu::Menu,
+        menu: &crate::ui::kit::menu::Menu,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = entry.id.clone();
@@ -233,7 +233,7 @@ impl IndicatorEditor {
     /// The entries of the menu of a right click on a script.
     pub(super) fn file_menu_items(
         &self,
-        menu: &wyck_ui::menu::Menu,
+        menu: &crate::ui::kit::menu::Menu,
         cx: &mut Context<Self>,
     ) -> Vec<Item> {
         let Some(id) = self.menu_target.clone() else {

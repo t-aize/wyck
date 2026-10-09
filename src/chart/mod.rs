@@ -118,17 +118,17 @@ use self::view::View;
 fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
     let mut base = scene::Palette::new();
     let color = chart_rgba;
-    base.up = color(wyck_ui::theme::chart_up());
-    base.down = color(wyck_ui::theme::chart_down());
-    base.line = color(wyck_ui::theme::chart_line());
-    base.grid = color(wyck_ui::theme::chart_grid());
-    base.text = color(wyck_ui::theme::chart_muted());
-    base.text_strong = color(wyck_ui::theme::chart_fg());
-    base.bg = color(wyck_ui::theme::chart_bg());
-    base.tag = color(wyck_ui::theme::chart_tag());
-    base.border = color(wyck_ui::theme::chart_border());
-    base.crosshair = color(wyck_ui::theme::chart_crosshair());
-    base.accent = color(wyck_ui::theme::accent());
+    base.up = color(crate::ui::kit::theme::chart_up());
+    base.down = color(crate::ui::kit::theme::chart_down());
+    base.line = color(crate::ui::kit::theme::chart_line());
+    base.grid = color(crate::ui::kit::theme::chart_grid());
+    base.text = color(crate::ui::kit::theme::chart_muted());
+    base.text_strong = color(crate::ui::kit::theme::chart_fg());
+    base.bg = color(crate::ui::kit::theme::chart_bg());
+    base.tag = color(crate::ui::kit::theme::chart_tag());
+    base.border = color(crate::ui::kit::theme::chart_border());
+    base.crosshair = color(crate::ui::kit::theme::chart_crosshair());
+    base.accent = color(crate::ui::kit::theme::accent());
     base.kagi_yang = base.up;
     base.kagi_yin = base.down;
     base.pnf_up = base.up;
@@ -777,9 +777,9 @@ impl Chart {
     /// Adds an indicator, with its defaults.
     pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
         if self.settings.studies.len() >= self.max_studies {
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Warning,
+                crate::ui::kit::toast::Kind::Warning,
                 "Indicator limit reached",
                 format!(
                     "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",

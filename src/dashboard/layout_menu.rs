@@ -9,7 +9,7 @@ use crate::multichart::icon::layout_icon;
 use crate::multichart::layouts::{self, LayoutKey};
 use crate::multichart::links::{Link, Links};
 use gpui_kit::component::Disableable;
-use wyck_ui::{controls, menu, theme, tokens};
+use crate::ui::kit::{controls, menu, theme, tokens};
 
 /// The links on offer, with what each one does.
 const LINK_ROWS: [(Option<Link>, &str, &str); 6] = [
@@ -169,7 +169,7 @@ impl Dashboard {
                     this.multi.update(cx, |multi, cx| multi.picture_all(cx));
                     cx.notify();
                 }))
-                .child(wyck_ui::icon::tinted(
+                .child(crate::ui::kit::icon::tinted(
                     gpui_kit::assets::IconName::Images,
                     14.,
                     theme::muted_fg(),

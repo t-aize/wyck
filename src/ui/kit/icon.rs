@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{Rgba, Svg, px, svg};
 use gpui_kit::assets::IconName;
 
-use crate::theme;
+use crate::ui::kit::theme;
 
 /// A Lucide icon in the primary text color. An `svg` doesn't inherit color from its parent in
 /// this GPUI version, so a different tint is chained on with `.text_color(...)` (or use

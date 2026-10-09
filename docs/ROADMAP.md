@@ -12,7 +12,7 @@ Not compiled since phase 0: the restructuring is done without running `cargo`. R
 |---|---|---|
 | 0 | Safety net and baseline measures | done |
 | 1 | Move the app crate to the repo root, keep `crates/` as a transitional workspace | done |
-| 2 | Merge `wyck-ui` into the package | todo |
+| 2 | Merge `wyck-ui` into the package (now `src/ui/kit`), split `lib.rs` and `main.rs` | done |
 | 3 | Merge `wyck-chart` | todo |
 | 4 | Merge `wyck-config` | todo |
 | 5 | Merge `wyck-openapi`, drop the `client` feature, add `src/lib.rs` | todo |

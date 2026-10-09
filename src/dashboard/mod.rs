@@ -47,7 +47,7 @@ use super::trading::account::Account;
 use super::trading::panel::AccountPanel;
 use super::trading::ticket::OrderTicket;
 use super::workspace::{Documents, Workspace};
-use wyck_ui::{button, icon, theme, toast, tokens};
+use crate::ui::kit::{button, icon, theme, toast, tokens};
 
 gpui::actions!(
     wyck_dashboard,
@@ -233,7 +233,7 @@ impl Dashboard {
     ) -> Self {
         let workspace = cx.new(|cx| Workspace::new(&documents, cx));
         // The colors saved in the color panel live with the preferences.
-        wyck_ui::color_picker::connect(
+        crate::ui::kit::color_picker::connect(
             workspace.read(cx).preferences().saved_colors.clone(),
             {
                 let workspace = workspace.clone();
@@ -910,7 +910,7 @@ impl Render for Dashboard {
         let menu = self.render_menu(cx);
         let menu_backdrop = (self.tf_menu_open || self.layout_menu_open).then(|| {
             let this = cx.entity().downgrade();
-            deferred(wyck_ui::menu::backdrop(move |_, cx| {
+            deferred(crate::ui::kit::menu::backdrop(move |_, cx| {
                 let _ = this.update(cx, |this, cx| {
                     this.tf_menu_open = false;
                     this.layout_menu_open = false;

@@ -17,7 +17,7 @@ const fn selection(accent: u32) -> u32 {
     (accent << 8) | 0x66
 }
 
-use wyck_ui::theme::Colors;
+use crate::ui::kit::theme::Colors;
 /// Fills in what the palettes below leave to a rule: the tint of the selection and the chart's
 /// background, which is the page's. The text on the accent is given: black or white, whichever
 /// reads better on it.
@@ -228,7 +228,7 @@ pub const CANDLE_SETS: &[(&str, u32, u32)] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wyck_ui::theme::luminance;
+    use crate::ui::kit::theme::luminance;
 
     #[test]
     fn every_preset_has_its_own_id_and_name() {
@@ -283,7 +283,7 @@ mod tests {
     /// a chart 3:1. Every theme that comes with the app has to meet it, dark and light alike.
     #[test]
     fn every_preset_meets_the_wcag_contrast_levels() {
-        use wyck_ui::theme::contrast;
+        use crate::ui::kit::theme::contrast;
         let mut failures = Vec::new();
         for p in PRESETS {
             let c = p.colors;

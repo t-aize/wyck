@@ -32,7 +32,7 @@ use gpui::{
 };
 use gpui_kit::component::FocusTrapElement as _;
 
-use crate::anim::{self, ease_out_cubic};
+use crate::ui::kit::anim::{self, ease_out_cubic};
 
 actions!(wyck_modal, [CloseModal]);
 
@@ -338,7 +338,7 @@ impl Render for ModalHost {
             .top_0()
             .left_0()
             .size_full()
-            .bg(crate::theme::veil())
+            .bg(crate::ui::kit::theme::veil())
             .with_animation(
                 ("modal-veil", phase),
                 Animation::new(duration),

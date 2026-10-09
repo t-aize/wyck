@@ -18,6 +18,8 @@ mod title_bar;
 #[path = "services/token_store.rs"]
 mod token_store;
 mod trading;
+// Public while the merged crates are cleaned up: unused items would otherwise fail clippy.
+pub mod ui;
 #[path = "services/updates.rs"]
 mod updates;
 mod workspace;
@@ -55,15 +57,15 @@ pub fn run() {
                     keep_a_daily_copy(paths, cx);
                 }
                 None => {
-                    wyck_ui::theme::apply(cx);
+                    crate::ui::kit::theme::apply(cx);
                     indicators::init(None, cx);
                 }
             }
-            wyck_ui::text_input::init(cx);
+            crate::ui::kit::text_input::init(cx);
             dashboard::init(cx);
             chart::init(cx);
             indicators::editor::init(cx);
-            wyck_ui::modal::init(cx);
+            crate::ui::kit::modal::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

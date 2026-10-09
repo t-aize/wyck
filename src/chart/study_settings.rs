@@ -16,7 +16,7 @@ use super::study::{
     FillStyle, InputKind, LevelStyle, Placement, PlotKind, SOURCES, StudyConfig, StudyKind,
 };
 use wyck_chart::drawing::model::{DASHES, WIDTHS};
-use wyck_ui::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab, icon, modal, number, theme, tokens};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -1139,7 +1139,7 @@ impl StudyEditor {
         rows.push(form::field(
             "Name",
             Some("Leave empty to use the indicator name"),
-            wyck_ui::field::text(&self.name),
+            crate::ui::kit::field::text(&self.name),
         ));
         let axis = self.target.clone();
         rows.push(form::field(

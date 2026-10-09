@@ -9,7 +9,7 @@ use wyck_openapi::market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
-use wyck_ui::{anim, icon, layout, theme, tokens};
+use crate::ui::kit::{anim, icon, layout, theme, tokens};
 
 /// Where the details of one symbol stand.
 pub(super) enum Detail {

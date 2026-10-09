@@ -5,7 +5,7 @@ use gpui::{Window, div, px};
 use gpui_kit::assets::IconName;
 
 use super::ConnectionFlow;
-use wyck_ui::{anim, button, layout, theme, tokens};
+use crate::ui::kit::{anim, button, layout, theme, tokens};
 
 impl ConnectionFlow {
     pub(super) fn render_welcome(

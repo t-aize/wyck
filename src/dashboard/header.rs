@@ -12,7 +12,7 @@ use gpui_kit::component::{Selectable, Sizable};
 use super::marks;
 use super::{Conn, Dashboard, DashboardEvent, Tick};
 use crate::{chart, trading};
-use wyck_ui::{anim, button, controls, icon, layout, menu, theme, tokens};
+use crate::ui::kit::{anim, button, controls, icon, layout, menu, theme, tokens};
 
 /// The height of the bar.
 pub(super) const HEADER_HEIGHT: f32 = 48.0;
@@ -335,9 +335,9 @@ impl Dashboard {
             chart::Timeframe::from_code(&text)
         };
         let Some(timeframe) = timeframe else {
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Warning,
+                crate::ui::kit::toast::Kind::Warning,
                 "Not a timeframe",
                 format!(
                     "\"{text}\" is not one: up to 300 seconds, a day in minutes or hours, 365 days, \

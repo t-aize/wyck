@@ -146,9 +146,9 @@ impl Chart {
             book.tool().is_some() && book.count(&symbol) >= book.drawing_limit()
         };
         if at_limit {
-            wyck_ui::toast::show(
+            crate::ui::kit::toast::show(
                 cx,
-                wyck_ui::toast::Kind::Warning,
+                crate::ui::kit::toast::Kind::Warning,
                 "Drawing limit reached",
                 "Change the drawings per symbol limit in Settings (Ctrl+,).",
             );
@@ -481,7 +481,7 @@ impl Chart {
                 .get(&symbol, id)
                 .is_some_and(|drawing| drawing.style.position.atr_stop.is_some())
         {
-            wyck_ui::toast::Toast::warning(
+            crate::ui::kit::toast::Toast::warning(
                 "ATR unavailable",
                 "The selected chart has no current ATR value for this drawing.",
             )

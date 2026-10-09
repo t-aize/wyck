@@ -40,7 +40,7 @@ use super::chart::{
 use super::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences, UsageLimits, Workspace};
 use wyck_chart::drawing::model::{Dash, Group, MIN_LINE_OPACITY, Tool};
 use wyck_chart::study::StudyConfig;
-use wyck_ui::{text_input::TextInput, theme};
+use crate::ui::kit::{text_input::TextInput, theme};
 
 /// How many recent tools and colors are kept.
 const MAX_RECENT_TOOLS: usize = 8;
@@ -357,9 +357,9 @@ impl MultiChart {
             ChartClipboard::Studies(studies) => {
                 let limit = chart.read(cx).max_studies();
                 if studies.len() > limit {
-                    wyck_ui::toast::show(
+                    crate::ui::kit::toast::show(
                         cx,
-                        wyck_ui::toast::Kind::Warning,
+                        crate::ui::kit::toast::Kind::Warning,
                         "Indicator limit reached",
                         format!(
                             "The copied chart has {} indicators; this chart allows {limit}.",

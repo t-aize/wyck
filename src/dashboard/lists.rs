@@ -14,7 +14,7 @@ use gpui_kit::assets::IconName;
 
 use super::Dashboard;
 use crate::workspace::{NameError, Watchlists};
-use wyck_ui::{button, controls, icon, text_input::TextInput, theme, tokens};
+use crate::ui::kit::{button, controls, icon, text_input::TextInput, theme, tokens};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -29,7 +29,7 @@ use wyck_chart::export::{
     HeaderCase, LineEnding, Order, PREVIEW_ROWS, PriceDigits, Quote, RangeKind, Source, TimeFormat,
 };
 use wyck_config::DocumentStore;
-use wyck_ui::{
+use crate::ui::kit::{
     button, controls, form,
     form::Head,
     form::Tab,

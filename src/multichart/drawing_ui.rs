@@ -20,7 +20,7 @@ use wyck_chart::drawing::model::{Dash, Group, PALETTE, Tool};
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 /// The most tools the search lists.
 const MAX_FOUND: usize = 40;
-use wyck_ui::{controls, icon, layout, menu as popup, theme, tokens};
+use crate::ui::kit::{controls, icon, layout, menu as popup, theme, tokens};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -607,14 +607,14 @@ impl MultiChart {
             }
             // Any other color: the panel with the square, the hue bar and the typed values.
             let (open_this, pick_this, opacity_this) = (cx.entity(), cx.entity(), cx.entity());
-            let opacity: wyck_ui::color_picker::ChangeOpacity =
+            let opacity: crate::ui::kit::color_picker::ChangeOpacity =
                 std::rc::Rc::new(move |value, _window, cx| {
                     opacity_this.update(cx, |this, cx| this.set_drawing_opacity(value, cx));
                 });
             bar = bar.child(controls::color_swatch_with_opacity(
                 "draw-color-custom",
                 style.color,
-                Some(wyck_ui::color_picker::Opacity {
+                Some(crate::ui::kit::color_picker::Opacity {
                     value: style.opacity,
                     label: "LINES",
                     change: opacity,

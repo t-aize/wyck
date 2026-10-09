@@ -3,7 +3,7 @@
 //! same without the rail), and groups of labelled rows.
 //!
 //! They are plain functions returning elements. A panel owns its state and passes it in; the
-//! callbacks say what the user picked. A panel is shown in [`crate::modal`], which sizes it, so the
+//! callbacks say what the user picked. A panel is shown in [`crate::ui::kit::modal`], which sizes it, so the
 //! frame fills the space it is given.
 
 use std::rc::Rc;
@@ -15,9 +15,9 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::{Sizable, StyledExt as _};
 
-use crate::controls::ink;
-use crate::focus::Keyboard;
-use crate::{icon, modal, theme};
+use crate::ui::kit::controls::ink;
+use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::{icon, modal, theme};
 
 /// A tab of the rail.
 #[derive(Clone, Copy)]
@@ -72,7 +72,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 .flex_col()
                 .child(
                     div()
-                        .text_size(px(crate::tokens::text::title()))
+                        .text_size(px(crate::ui::kit::tokens::text::title()))
                         .font_semibold()
                         .text_color(theme::fg())
                         .truncate()
@@ -80,7 +80,7 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 )
                 .child(
                     div()
-                        .text_size(px(crate::tokens::text::small()))
+                        .text_size(px(crate::ui::kit::tokens::text::small()))
                         .text_color(theme::muted_fg())
                         .truncate()
                         .child(head.subtitle),
@@ -152,11 +152,11 @@ pub fn frame(
                 .flex_row()
                 .items_center()
                 .gap_2p5()
-                .h(px(crate::tokens::height::large()))
+                .h(px(crate::ui::kit::tokens::height::large()))
                 .px_2p5()
                 .rounded_md()
                 .cursor_pointer()
-                .text_size(px(crate::tokens::text::emphasis()))
+                .text_size(px(crate::ui::kit::tokens::text::emphasis()))
                 .text_color(ink(chosen))
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -258,7 +258,7 @@ pub fn group_with(
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(crate::tokens::height::large()))
+                .h(px(crate::ui::kit::tokens::height::large()))
                 .px_3()
                 .border_b_1()
                 .border_color(theme::border_hairline())
@@ -266,7 +266,7 @@ pub fn group_with(
                 .child(
                     div()
                         .flex_1()
-                        .text_size(px(crate::tokens::text::body()))
+                        .text_size(px(crate::ui::kit::tokens::text::body()))
                         .font_semibold()
                         .text_color(theme::muted_fg())
                         .child(title.into()),
@@ -365,7 +365,7 @@ impl Row {
             .gap_1p5()
             .child(
                 div()
-                    .text_size(px(crate::tokens::text::emphasis()))
+                    .text_size(px(crate::ui::kit::tokens::text::emphasis()))
                     .text_color(theme::fg())
                     .child(self.label),
             )
@@ -381,7 +381,7 @@ impl Row {
                 div()
                     .id("row-help")
                     .cursor_default()
-                    .tooltip(crate::controls::tooltip(help))
+                    .tooltip(crate::ui::kit::controls::tooltip(help))
                     .child(icon::tinted(IconName::Info, 12., theme::muted_fg())),
             );
         }
@@ -394,11 +394,11 @@ impl Row {
                 .flex()
                 .items_center()
                 .justify_center()
-                .size(px(crate::tokens::height::compact()))
+                .size(px(crate::ui::kit::tokens::height::compact()))
                 .rounded_md()
                 .cursor_pointer()
                 .hover(|s| s.bg(theme::surface_hover()))
-                .tooltip(crate::controls::tooltip("Back to the default"))
+                .tooltip(crate::ui::kit::controls::tooltip("Back to the default"))
                 .on_click(move |_, window, cx| f(window, cx))
                 .child(icon::tinted(IconName::RotateCcw, 13., theme::muted_fg()))
         });
@@ -419,7 +419,7 @@ impl Row {
                     .child(title)
                     .children(self.hint.map(|hint| {
                         div()
-                            .text_size(px(crate::tokens::text::small()))
+                            .text_size(px(crate::ui::kit::tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(hint)
                     })),
@@ -451,7 +451,7 @@ pub fn text_field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
 /// A line of muted text, for a note under a group or a state with nothing to show.
 pub fn note(text: impl Into<SharedString>) -> Div {
     div()
-        .text_size(px(crate::tokens::text::body()))
+        .text_size(px(crate::ui::kit::tokens::text::body()))
         .text_color(theme::muted_fg())
         .child(text.into())
 }

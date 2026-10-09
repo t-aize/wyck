@@ -10,7 +10,7 @@ use wyck_openapi::auth::TokenSet;
 use wyck_openapi::config::ClientCredentials;
 
 use super::{ConnectionFlow, Screen};
-use wyck_ui::{anim, button, icon, layout, theme, tokens};
+use crate::ui::kit::{anim, button, icon, layout, theme, tokens};
 
 pub(super) struct SelectAccountState {
     credentials: ClientCredentials,

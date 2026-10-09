@@ -21,7 +21,7 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::notification::{Notification, NotificationType};
 use gpui_kit::component::{Sizable, StyledExt as _, WindowExt};
 
-use crate::{theme, tokens};
+use crate::ui::kit::{theme, tokens};
 
 /// What a notice is about, which sets its icon and color.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

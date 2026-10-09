@@ -16,7 +16,7 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::Sizable;
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 
-use crate::{icon, theme, tokens};
+use crate::ui::kit::{icon, theme, tokens};
 
 /// What the picker says when a font is picked: its name, or `None` for the default font.
 pub struct FontChosen(pub Option<String>);

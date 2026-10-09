@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{div, px};
 
 use super::layouts::Layout;
-use wyck_ui::theme;
+use crate::ui::kit::theme;
 
 /// A layout drawn as its cells. A selected one is filled, so it stands out in the picker.
 pub fn layout_icon(layout: &Layout, width: f32, height: f32, selected: bool) -> impl IntoElement {

@@ -27,8 +27,8 @@ use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{Disableable, Sizable};
 
-use crate::focus::Keyboard;
-use crate::theme;
+use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::theme;
 
 /// The colors of the theme offered to click: a row of grays, then eight hues in four shades.
 pub const PRESETS: [u32; 40] = [
@@ -589,7 +589,7 @@ fn marker(size: f32, fill: u32) -> gpui::Div {
 
 fn small_label(text: &'static str) -> gpui::Div {
     div()
-        .text_size(px(crate::tokens::text::small()))
+        .text_size(px(crate::ui::kit::tokens::text::small()))
         .text_color(theme::muted_fg())
         .child(text)
 }
@@ -650,7 +650,7 @@ impl ColorPanel {
                         .w(px(34.))
                         .flex()
                         .justify_end()
-                        .text_size(px(crate::tokens::text::small()))
+                        .text_size(px(crate::ui::kit::tokens::text::small()))
                         .text_color(theme::fg())
                         .child(format!("{}%", (value * 100.0).round() as u32)),
                 ),
@@ -734,7 +734,7 @@ impl Render for ColorPanel {
             .flex()
             .flex_row()
             .w(px(44.))
-            .h(px(crate::tokens::height::control()))
+            .h(px(crate::ui::kit::tokens::height::control()))
             .rounded_md()
             .overflow_hidden()
             .border_1()
@@ -820,7 +820,7 @@ impl Render for ColorPanel {
         );
         let save_this = this.clone();
 
-        crate::menu::panel(AREA_W + 24.0)
+        crate::ui::kit::menu::panel(AREA_W + 24.0)
             .on_mouse_down_out(cx.listener(|this, _event, window, cx| {
                 // A click on the swatch itself closes the panel through the swatch.
                 if !this.swatch_hovered
@@ -872,7 +872,7 @@ impl Render for ColorPanel {
                             .h(px(CELL))
                             .flex()
                             .items_center()
-                            .text_size(px(crate::tokens::text::body()))
+                            .text_size(px(crate::ui::kit::tokens::text::body()))
                             .text_color(theme::muted_fg())
                             .child("Colors you save show here")
                     } else {

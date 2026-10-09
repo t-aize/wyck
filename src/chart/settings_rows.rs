@@ -8,7 +8,7 @@ use gpui_kit::component::input::InputState;
 
 use super::Chart;
 use super::settings::ChartSettings;
-use wyck_ui::{controls, form, number, tokens};
+use crate::ui::kit::{controls, form, number, tokens};
 
 pub(super) fn edit(
     chart: &Entity<Chart>,

@@ -14,7 +14,7 @@ use wyck_openapi::{ClientBuilder, Environment};
 
 use super::{ConnectionFlow, Screen};
 use crate::runtime;
-use wyck_ui::{anim, button, icon, layout, text_input::TextInput, theme, tokens};
+use crate::ui::kit::{anim, button, icon, layout, text_input::TextInput, theme, tokens};
 
 /// The local port the OAuth redirect listener binds. Must match a redirect URI
 /// (`http://localhost:<port>`) registered for the user's cTrader Open API application.

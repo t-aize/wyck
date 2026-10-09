@@ -97,7 +97,7 @@ fn decimals_of(step: f64) -> usize {
 }
 
 /// A number field with steppers, for a state made by [`state`]. `width` is one of
-/// [`crate::tokens::field`].
+/// [`crate::ui::kit::tokens::field`].
 pub fn field(state: &Entity<InputState>, width: f32) -> impl IntoElement {
     div().w(px(width)).child(NumberInput::new(state).small())
 }
