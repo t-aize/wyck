@@ -14,9 +14,9 @@ use futures_util::StreamExt;
 use serde_json::json;
 use support::{MockServer, Reply, answers, config, connect};
 use tokio::sync::broadcast::error::RecvError;
-use wyck::openapi::config::ConnectionConfig;
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{Client, DisconnectReason, Error, ErrorKind, Event};
+use wyck::infra::ctrader::config::ConnectionConfig;
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{Client, DisconnectReason, Error, ErrorKind, Event};
 
 fn version_answers() -> Vec<(u32, u32, serde_json::Value)> {
     vec![(
@@ -259,7 +259,7 @@ async fn every_clone_shares_one_connection() {
     other.close().await;
     let mut state = client.state();
     state
-        .wait_for(|s| matches!(s, wyck::openapi::ConnectionState::Closed(_)))
+        .wait_for(|s| matches!(s, wyck::infra::ctrader::ConnectionState::Closed(_)))
         .await
         .unwrap();
     assert!(
@@ -279,7 +279,7 @@ async fn dropping_every_clone_without_closing_still_ends_the_connection() {
     drop(client);
     tokio::time::timeout(
         Duration::from_secs(2),
-        state.wait_for(|s| matches!(s, wyck::openapi::ConnectionState::Closed(_))),
+        state.wait_for(|s| matches!(s, wyck::infra::ctrader::ConnectionState::Closed(_))),
     )
     .await
     .expect("the connection did not close on its own once every clone was gone")

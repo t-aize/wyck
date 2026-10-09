@@ -17,9 +17,9 @@ use serde_json::Value;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
-use wyck::openapi::Client;
-use wyck::openapi::config::ConnectionConfig;
-use wyck::openapi::transport::wire::{Envelope, payload};
+use wyck::infra::ctrader::Client;
+use wyck::infra::ctrader::config::ConnectionConfig;
+use wyck::infra::ctrader::transport::wire::{Envelope, payload};
 
 /// What the server does for one request.
 pub enum Reply {

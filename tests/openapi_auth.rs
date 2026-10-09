@@ -9,9 +9,9 @@ use std::time::Duration;
 use secrecy::ExposeSecret;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use wyck::openapi::Error;
-use wyck::openapi::auth::OAuthClient;
-use wyck::openapi::config::ClientCredentials;
+use wyck::infra::ctrader::Error;
+use wyck::infra::ctrader::auth::OAuthClient;
+use wyck::infra::ctrader::config::ClientCredentials;
 
 /// A one-answer HTTP server: it records the request line and replies with `status` and `body`.
 async fn token_server(status: &str, body: &str) -> (String, Arc<Mutex<Vec<String>>>) {

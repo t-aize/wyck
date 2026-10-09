@@ -1,30 +1,11 @@
 //! Wyck, a desktop trading terminal for cTrader: the window, the connection flow and every screen.
 
-#[path = "services/alerts/mod.rs"]
-mod alerts;
-mod appearance;
-mod assets;
-mod build_info;
-mod chart;
-pub mod chart_core;
-mod connection;
-mod dashboard;
-mod indicators;
+pub mod app;
+pub mod domain;
 pub mod infra;
 #[cfg(test)]
 mod keymap_guard;
-mod multichart;
-pub mod openapi;
-mod runtime;
-mod settings_hub;
-#[path = "services/token_store.rs"]
-mod token_store;
-mod trading;
-// Public while the merged crates are cleaned up: unused items would otherwise fail clippy.
 pub mod ui;
-#[path = "services/updates.rs"]
-mod updates;
-mod workspace;
 
 use std::borrow::Cow;
 
@@ -32,7 +13,12 @@ use gpui::prelude::*;
 use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
-use build_info::BuildMode;
+use app::appearance;
+use infra::platform::build_info::{self, BuildMode};
+use infra::platform::updates;
+use ui::assets;
+use ui::features::{chart, indicators};
+use ui::shell::{connection, dashboard};
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -168,7 +154,7 @@ fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
         .as_ref()
 }
 
-/// Installs a `tracing` subscriber so the events `infra::storage` and `openapi` emit (and
+/// Installs a `tracing` subscriber so the events `infra::storage` and `infra::ctrader` emit (and
 /// the app's own) show up on stderr; the library only emits them, it never installs a subscriber
 /// itself. Reads `RUST_LOG`, defaulting to `debug` for `wyck` and `warn` for everything else.
 fn init_tracing() {

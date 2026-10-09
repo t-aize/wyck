@@ -7,9 +7,9 @@ use std::time::Duration;
 
 use serde_json::json;
 use support::{MockServer, answers, connect};
-use wyck::openapi::margin::{MarginCall, MarginCallType};
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{ErrorKind, Event};
+use wyck::infra::ctrader::margin::{MarginCall, MarginCallType};
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{ErrorKind, Event};
 
 #[tokio::test]
 async fn expected_margin_is_read_for_every_volume_asked() {

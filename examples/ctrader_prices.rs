@@ -6,8 +6,8 @@
 //! cargo run --example ctrader_prices -- EURUSD
 //! ```
 
-use wyck::openapi::market::format_price;
-use wyck::openapi::{ClientBuilder, ClientCredentials, Environment, Error, Event};
+use wyck::infra::ctrader::market::format_price;
+use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error, Event};
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();
@@ -15,7 +15,7 @@ fn var(name: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> wyck::openapi::Result<()> {
+async fn main() -> wyck::infra::ctrader::Result<()> {
     let name = std::env::args().nth(1).unwrap_or_else(|| "EURUSD".into());
     let credentials = ClientCredentials::new(
         var("WYCK_OPENAPI_CLIENT_ID"),

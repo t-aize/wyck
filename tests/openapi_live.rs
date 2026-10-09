@@ -60,15 +60,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use secrecy::SecretString;
-use wyck::openapi::AccountClient;
-use wyck::openapi::TraderAccount;
-use wyck::openapi::auth::TokenSet;
-use wyck::openapi::config::{ClientCredentials, ConnectionConfig, Environment};
-use wyck::openapi::market::symbols::{LightSymbol, Symbol};
-use wyck::openapi::market::{Period, QuoteType, merge_sides, to_price};
-use wyck::openapi::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
-use wyck::openapi::trading::{ExecutionType, NewOrderReq};
-use wyck::openapi::{Client, Event};
+use wyck::infra::ctrader::AccountClient;
+use wyck::infra::ctrader::TraderAccount;
+use wyck::infra::ctrader::auth::TokenSet;
+use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig, Environment};
+use wyck::infra::ctrader::market::symbols::{LightSymbol, Symbol};
+use wyck::infra::ctrader::market::{Period, QuoteType, merge_sides, to_price};
+use wyck::infra::ctrader::session::{MemoryTokenStore, Session, SessionConfig, SessionEvent};
+use wyck::infra::ctrader::trading::{ExecutionType, NewOrderReq};
+use wyck::infra::ctrader::{Client, Event};
 
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
@@ -120,7 +120,7 @@ async fn wait_for_execution(
     events: &mut tokio::sync::broadcast::Receiver<Event>,
     position_id: i64,
     wanted: ExecutionType,
-) -> wyck::openapi::trading::ExecutionEvent {
+) -> wyck::infra::ctrader::trading::ExecutionEvent {
     let matched = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             match events.recv().await.expect("event stream") {
@@ -766,7 +766,7 @@ async fn a_session_connects_subscribes_and_stops_against_the_real_server() {
     session.stop().await;
     assert!(matches!(
         *session.state().borrow(),
-        wyck::openapi::session::SessionState::Stopped
+        wyck::infra::ctrader::session::SessionState::Stopped
     ));
 }
 
@@ -806,7 +806,7 @@ async fn place_and_close_a_minimal_market_order_on_a_demo_account() {
     let mut events = client.events();
     let request = NewOrderReq::market(
         details.symbol_id,
-        wyck::openapi::account::TradeSide::Buy,
+        wyck::infra::ctrader::account::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
@@ -891,7 +891,7 @@ async fn amend_and_cancel_a_pending_order_on_a_demo_account() {
 
     let request = NewOrderReq::limit(
         details.symbol_id,
-        wyck::openapi::account::TradeSide::Buy,
+        wyck::infra::ctrader::account::TradeSide::Buy,
         min_volume,
         far_price,
     )
@@ -912,7 +912,7 @@ async fn amend_and_cancel_a_pending_order_on_a_demo_account() {
     println!("order {order_id} pending");
 
     let amended_price = round_to_digits(far_price * 0.99, details.digits);
-    let mut amend = wyck::openapi::trading::AmendOrderReq::new(order_id);
+    let mut amend = wyck::infra::ctrader::trading::AmendOrderReq::new(order_id);
     amend.limit_price = Some(amended_price);
     let amended = trading.amend_order(amend).await.expect("amend order");
     println!("amend execution: {:?}", amended.kind());
@@ -963,7 +963,7 @@ async fn amend_stop_loss_and_take_profit_on_a_demo_account() {
 
     let request = NewOrderReq::market(
         details.symbol_id,
-        wyck::openapi::account::TradeSide::Buy,
+        wyck::infra::ctrader::account::TradeSide::Buy,
         min_volume,
     )
     .with_label("wyck-live-test");
@@ -990,7 +990,7 @@ async fn amend_stop_loss_and_take_profit_on_a_demo_account() {
     let stop_loss = round_to_digits(entry * 0.98, details.digits);
     let take_profit = round_to_digits(entry * 1.02, details.digits);
     println!("setting stop loss {stop_loss} and take profit {take_profit}");
-    let mut protect = wyck::openapi::trading::AmendPositionSlTpReq::new(position_id);
+    let mut protect = wyck::infra::ctrader::trading::AmendPositionSlTpReq::new(position_id);
     protect.stop_loss = Some(stop_loss);
     protect.take_profit = Some(take_profit);
     let protected = trading
@@ -1222,7 +1222,7 @@ async fn a_session_reconnects_after_a_real_connection_drop() {
     println!("severed the proxied connection to the real server");
 
     tokio::time::timeout(Duration::from_secs(5), async {
-        while *state.borrow() == wyck::openapi::session::SessionState::Ready {
+        while *state.borrow() == wyck::infra::ctrader::session::SessionState::Ready {
             state.changed().await.expect("state stream");
         }
     })
@@ -1245,7 +1245,7 @@ async fn a_session_reconnects_after_a_real_connection_drop() {
     session.stop().await;
     assert!(matches!(
         *session.state().borrow(),
-        wyck::openapi::session::SessionState::Stopped
+        wyck::infra::ctrader::session::SessionState::Stopped
     ));
 }
 
@@ -1261,7 +1261,7 @@ fn round_to_digits(value: f64, digits: i64) -> f64 {
 /// so callers that already placed one do not need this).
 async fn latest_bid(
     client: &Client,
-    market: &wyck::openapi::market::MarketClient,
+    market: &wyck::infra::ctrader::market::MarketClient,
     symbol_id: i64,
 ) -> f64 {
     let mut events = client.events();

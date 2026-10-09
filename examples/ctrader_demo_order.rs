@@ -9,10 +9,10 @@
 //! The access token needs the `trading` scope. The example refuses a live account: it connects to
 //! the demo server, which does not accept live accounts, and checks the account list as well.
 
-use wyck::openapi::account::TradeSide;
-use wyck::openapi::trading::NewOrderReq;
-use wyck::openapi::trading::contract::Contract;
-use wyck::openapi::{ClientBuilder, ClientCredentials, Environment, Error};
+use wyck::infra::ctrader::account::TradeSide;
+use wyck::infra::ctrader::trading::NewOrderReq;
+use wyck::infra::ctrader::trading::contract::Contract;
+use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();
@@ -20,7 +20,7 @@ fn var(name: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> wyck::openapi::Result<()> {
+async fn main() -> wyck::infra::ctrader::Result<()> {
     let name = std::env::args().nth(1).unwrap_or_else(|| "EURUSD".into());
     let access = var("WYCK_OPENAPI_ACCESS_TOKEN");
     let credentials = ClientCredentials::new(

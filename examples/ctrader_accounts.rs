@@ -7,7 +7,7 @@
 //!
 //! The variables can also sit in a `.env` file in the working directory.
 
-use wyck::openapi::{ClientBuilder, ClientCredentials, Environment};
+use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment};
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();
@@ -15,7 +15,7 @@ fn var(name: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> wyck::openapi::Result<()> {
+async fn main() -> wyck::infra::ctrader::Result<()> {
     let credentials = ClientCredentials::new(
         var("WYCK_OPENAPI_CLIENT_ID"),
         var("WYCK_OPENAPI_CLIENT_SECRET"),

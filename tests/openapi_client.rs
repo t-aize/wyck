@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::json;
 use support::{MockServer, Reply, answers, config, connect};
-use wyck::openapi::config::{ClientCredentials, ConnectionConfig};
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
+use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{Client, ConnectionState, DisconnectReason, Error, ErrorKind, Event};
 
 // ---- sign in ----
 

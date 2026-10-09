@@ -12,13 +12,13 @@ use support::http::{TokenServer, token_server_sequence, tokens_body};
 use support::{Handler, MockServer, Reply, answers};
 use tokio::sync::Notify;
 use tokio::sync::broadcast::Receiver;
-use wyck::openapi::auth::{TokenSet, parse_token_response};
-use wyck::openapi::config::{ClientCredentials, ConnectionConfig};
-use wyck::openapi::session::{
+use wyck::infra::ctrader::auth::{TokenSet, parse_token_response};
+use wyck::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
+use wyck::infra::ctrader::session::{
     Backoff, MemoryTokenStore, Session, SessionConfig, SessionEvent, SessionState, TokenStore,
 };
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{Error, ErrorKind, Event};
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{Error, ErrorKind, Event};
 
 const ACCOUNT: i64 = 48_332_955;
 
@@ -94,11 +94,11 @@ struct DelayedTokenStore {
 
 #[async_trait::async_trait]
 impl TokenStore for DelayedTokenStore {
-    async fn load(&self) -> wyck::openapi::Result<Option<TokenSet>> {
+    async fn load(&self) -> wyck::infra::ctrader::Result<Option<TokenSet>> {
         self.inner.load().await
     }
 
-    async fn save(&self, tokens: &TokenSet) -> wyck::openapi::Result<()> {
+    async fn save(&self, tokens: &TokenSet) -> wyck::infra::ctrader::Result<()> {
         self.saving.notify_one();
         self.release.notified().await;
         self.inner.save(tokens).await
@@ -182,7 +182,7 @@ async fn subscriptions_made_before_the_connection_is_up_are_applied_when_it_is()
     // Recorded at once; the connection is not up yet.
     session.subscribe_spots(&[1, 2]).await.unwrap();
     session
-        .subscribe_live_bars(1, wyck::openapi::market::Period::M5)
+        .subscribe_live_bars(1, wyck::infra::ctrader::market::Period::M5)
         .await
         .unwrap();
     session.subscribe_depth(&[3]).await.unwrap();

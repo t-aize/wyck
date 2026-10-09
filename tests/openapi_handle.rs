@@ -4,8 +4,8 @@ mod support;
 
 use serde_json::json;
 use support::{MockServer, answers, connect};
-use wyck::openapi::market::{Period, QuoteType};
-use wyck::openapi::transport::wire::payload;
+use wyck::infra::ctrader::market::{Period, QuoteType};
+use wyck::infra::ctrader::transport::wire::payload;
 
 #[tokio::test]
 async fn every_sub_client_carries_the_bound_account() {
@@ -105,9 +105,9 @@ async fn the_trading_sub_client_overwrites_the_account_on_its_requests() {
     )]))
     .await;
     let account = connect(&server).await.account(7);
-    let request = wyck::openapi::trading::NewOrderReq::market(
+    let request = wyck::infra::ctrader::trading::NewOrderReq::market(
         1,
-        wyck::openapi::account::TradeSide::Buy,
+        wyck::infra::ctrader::account::TradeSide::Buy,
         10_000,
     );
     account.trading().new_order(request).await.unwrap();

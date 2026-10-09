@@ -7,10 +7,12 @@ use std::time::Duration;
 
 use serde_json::json;
 use support::{MockServer, answers, connect};
-use wyck::openapi::ErrorKind;
-use wyck::openapi::account::TradeSide;
-use wyck::openapi::trading::{AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq};
-use wyck::openapi::transport::wire::payload;
+use wyck::infra::ctrader::ErrorKind;
+use wyck::infra::ctrader::account::TradeSide;
+use wyck::infra::ctrader::trading::{
+    AmendOrderReq, AmendPositionSlTpReq, ExecutionType, NewOrderReq,
+};
+use wyck::infra::ctrader::transport::wire::payload;
 
 #[tokio::test]
 async fn a_market_order_is_sent_and_its_execution_is_read() {
@@ -190,7 +192,7 @@ async fn an_unsolicited_execution_event_arrives_on_the_event_stream() {
         .unwrap()
         .unwrap();
     match event {
-        wyck::openapi::Event::Execution(e) => {
+        wyck::infra::ctrader::Event::Execution(e) => {
             assert_eq!(e.kind(), Some(ExecutionType::Swap));
             assert_eq!(e.is_server_event, Some(true));
         }
@@ -214,7 +216,7 @@ async fn an_order_error_event_and_a_trailing_stop_change_arrive_as_events() {
         .unwrap();
     assert!(matches!(
         event,
-        wyck::openapi::Event::OrderError(e) if e.error_code == "POSITION_NOT_FOUND" && e.position_id == Some(5)
+        wyck::infra::ctrader::Event::OrderError(e) if e.error_code == "POSITION_NOT_FOUND" && e.position_id == Some(5)
     ));
 
     server.push(
@@ -227,6 +229,6 @@ async fn an_order_error_event_and_a_trailing_stop_change_arrive_as_events() {
         .unwrap();
     assert!(matches!(
         event,
-        wyck::openapi::Event::TrailingSlChanged(e) if e.stop_price == 1.09
+        wyck::infra::ctrader::Event::TrailingSlChanged(e) if e.stop_price == 1.09
     ));
 }

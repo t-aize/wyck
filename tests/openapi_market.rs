@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 use support::{MockServer, answers, connect};
-use wyck::openapi::market::{MarketClient, Period, QuoteType};
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{Client, Event};
+use wyck::infra::ctrader::market::{MarketClient, Period, QuoteType};
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{Client, Event};
 
 async fn market(server: &MockServer) -> MarketClient {
     connect(server).await.account(1).market()
@@ -176,7 +176,7 @@ async fn a_bad_symbol_subscription_is_a_rejection() {
     .await;
     let market = market(&server).await;
     let refused = market.subscribe_spots(&[999]).await.unwrap_err();
-    assert_eq!(refused.kind(), wyck::openapi::ErrorKind::Rejected);
+    assert_eq!(refused.kind(), wyck::infra::ctrader::ErrorKind::Rejected);
 }
 
 // ---- history ----
@@ -251,7 +251,7 @@ async fn a_tick_page_claiming_more_without_progress_is_an_error() {
         .ticks(1, QuoteType::Bid, 1000, 6000)
         .await
         .unwrap_err();
-    assert!(matches!(error, wyck::openapi::Error::Protocol(_)));
+    assert!(matches!(error, wyck::infra::ctrader::Error::Protocol(_)));
 }
 
 #[tokio::test]
@@ -321,7 +321,7 @@ async fn an_empty_bar_page_claiming_more_is_an_error() {
     .await;
     let market = market(&server).await;
     let error = market.bars(1, Period::M1, 0, 60_000).await.unwrap_err();
-    assert!(matches!(error, wyck::openapi::Error::Protocol(_)));
+    assert!(matches!(error, wyck::infra::ctrader::Error::Protocol(_)));
 }
 
 #[tokio::test]

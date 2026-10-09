@@ -8,11 +8,11 @@ use std::time::Duration;
 
 use serde_json::json;
 use support::{MockServer, answers, connect};
-use wyck::openapi::account::{
+use wyck::infra::ctrader::account::{
     AccessRights, AccountType, DealStatus, OrderStatus, OrderType, PositionStatus, TradeSide,
 };
-use wyck::openapi::transport::wire::payload;
-use wyck::openapi::{ErrorKind, Event};
+use wyck::infra::ctrader::transport::wire::payload;
+use wyck::infra::ctrader::{ErrorKind, Event};
 
 #[tokio::test]
 async fn the_account_details_are_read_and_converted() {

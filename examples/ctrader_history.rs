@@ -6,13 +6,13 @@
 //! cargo run --example ctrader_history -- EURUSD
 //! ```
 //!
-//! [`MarketClient::bars`](wyck::openapi::market::MarketClient::bars) pages through ranges longer
+//! [`MarketClient::bars`](wyck::infra::ctrader::market::MarketClient::bars) pages through ranges longer
 //! than one request allows and keeps under the history rate limit by itself.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use wyck::openapi::market::{Period, to_price};
-use wyck::openapi::{ClientBuilder, ClientCredentials, Environment, Error};
+use wyck::infra::ctrader::market::{Period, to_price};
+use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();
@@ -20,7 +20,7 @@ fn var(name: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> wyck::openapi::Result<()> {
+async fn main() -> wyck::infra::ctrader::Result<()> {
     let name = std::env::args().nth(1).unwrap_or_else(|| "EURUSD".into());
     let credentials = ClientCredentials::new(
         var("WYCK_OPENAPI_CLIENT_ID"),
