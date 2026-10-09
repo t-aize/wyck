@@ -6,20 +6,6 @@ use gpui_kit::assets::IconName;
 
 use crate::ui::kit::{anim, icon, theme};
 
-/// The page shell every screen renders into: content centered in the remaining space, with room
-/// for a [`crate::ui::kit::button::back`] to sit absolutely positioned in the top-left corner.
-pub fn screen() -> Div {
-    // The top padding keeps content clear of the progress indicator and the Back button.
-    div()
-        .relative()
-        .flex()
-        .flex_1()
-        .items_center()
-        .justify_center()
-        .pt(px(76.))
-        .pb(px(24.))
-}
-
 /// The raised panel most screens center their content in.
 pub fn card() -> Div {
     div()
@@ -46,20 +32,6 @@ pub fn icon_tile(name: IconName, tile: f32, glyph: f32, bg: Rgba, fg: Rgba) -> D
         .justify_center()
         .text_color(fg)
         .child(icon::tinted(name, glyph, fg))
-}
-
-/// A circular icon badge for the "what happens next" list.
-pub fn step_badge(name: IconName) -> impl IntoElement {
-    div()
-        .size(px(32.))
-        .flex_shrink_0()
-        .rounded_full()
-        .bg(theme::accent_selected())
-        .flex()
-        .items_center()
-        .justify_center()
-        .text_color(theme::fg())
-        .child(icon::plain(name, 15.))
 }
 
 /// A labeled field wrapper: an icon and a small caption above whatever's given as the field. For a

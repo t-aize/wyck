@@ -194,14 +194,6 @@ impl SignIn {
             .and_then(|profile| environment_of(&profile.service))
     }
 
-    /// The consent page of the attempt in progress.
-    pub fn consent_url(&self) -> Option<&str> {
-        match self.state.phase() {
-            Phase::WaitingBrowser { url } => Some(url),
-            _ => None,
-        }
-    }
-
     /// Looks for a saved session after the first frame, so the modal is already on screen while
     /// the keyring is read.
     pub fn restore(&mut self, cx: &mut Context<Self>) {

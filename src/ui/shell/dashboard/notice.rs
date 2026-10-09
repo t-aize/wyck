@@ -3,7 +3,7 @@
 use gpui::{App, Entity};
 
 use crate::app::account::Account;
-use crate::domain::trading::book::{Notice, NoticeAction, Tone};
+use crate::app::account::{Notice, NoticeAction, Tone};
 use crate::ui::kit::toast;
 
 /// Shows `notice`. Its buttons act on `account`.

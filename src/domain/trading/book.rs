@@ -2,7 +2,7 @@
 //! open positions, the working orders, the recent deals, and each position's profit.
 //!
 //! It is plain data: a reconcile answer, an execution event or a profit answer comes in, the
-//! state changes, and a [`Notice`] says what the user should be told. The gpui entity around it
+//! state changes, and an [`Outcome`] says what became of the order. The gpui entity around it
 //! (the account client) only fetches and forwards.
 
 use std::collections::{BTreeMap, HashMap};
@@ -19,87 +19,64 @@ use crate::domain::trading::contract::{Contract, PnlMark, Summary};
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;
 
-/// How serious a notice is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum Tone {
-    /// Worth knowing.
-    Info,
-    /// Something went through.
-    Success,
-    /// Something went through, but not quite as asked.
-    Warning,
-    /// Something was refused or failed.
-    Error,
-}
-
-/// Something the user can do about a notice, straight from it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum NoticeAction {
-    ClosePosition(i64),
-    /// Move the stop loss of this position to its entry price.
-    BreakEven(i64),
-    /// Cancel this working order.
-    CancelOrder(i64),
-}
-
-/// Something to tell the user about what happened to their orders.
+/// What an execution event came to, for whoever tells the user. The words are not here: the order
+/// is described by its side, size, symbol and price, and the screen decides how to say it.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Notice {
-    /// How serious it is.
-    pub tone: Tone,
-    /// A short headline.
-    pub title: String,
-    pub message: String,
-    /// What to do about it, when there is something.
-    pub hint: Option<String>,
-    /// The exact words of the server or of the error, for a bug report.
-    pub details: Option<String>,
-    /// What can be done about it from the notice itself.
-    pub actions: Vec<NoticeAction>,
-}
-
-impl Notice {
-    /// A notice with a tone, a headline and a message, and nothing else.
-    pub fn new(tone: Tone, title: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            tone,
-            title: title.into(),
-            message: message.into(),
-            hint: None,
-            details: None,
-            actions: Vec::new(),
-        }
-    }
-
-    /// Adds a button the notice offers.
-    #[must_use]
-    pub fn action(mut self, action: NoticeAction) -> Self {
-        self.actions.push(action);
-        self
-    }
-
-    /// Adds what to do about it.
-    #[must_use]
-    pub fn hint(mut self, hint: Option<String>) -> Self {
-        self.hint = hint;
-        self
-    }
-
-    /// Adds the exact words behind it.
-    #[must_use]
-    pub fn details(mut self, details: impl Into<String>) -> Self {
-        self.details = Some(details.into());
-        self
-    }
+pub enum Outcome {
+    /// The order was filled, or the position closed. `position` is the position that stays open.
+    Filled {
+        /// The order in a few words.
+        what: String,
+        /// The execution price, formatted.
+        price: Option<String>,
+        /// Whether a position was closed by it.
+        closed: bool,
+        /// The id of the position left open by it, if one.
+        open_position: Option<i64>,
+    },
+    /// Part of the order was filled.
+    PartlyFilled {
+        /// The order in a few words.
+        what: String,
+    },
+    /// A working order was placed.
+    Placed {
+        /// The order in a few words.
+        what: String,
+        /// Its id.
+        order_id: i64,
+    },
+    /// A working order was changed.
+    Changed {
+        /// The order in a few words.
+        what: String,
+    },
+    /// A working order was cancelled.
+    Cancelled {
+        /// The order in a few words.
+        what: String,
+    },
+    /// A working order expired.
+    Expired {
+        /// The order in a few words.
+        what: String,
+    },
+    /// The server refused the order or its cancellation.
+    Refused {
+        /// The order in a few words, empty when the event carried none.
+        what: String,
+        /// The error code of the server.
+        code: String,
+    },
+    /// A deposit or a withdrawal.
+    BalanceChanged,
 }
 
 /// What an execution event changed, beyond the positions and orders themselves.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Applied {
-    /// What to tell the user, if anything.
-    pub notice: Option<Notice>,
+    /// What happened to the order, if it is worth telling the user.
+    pub outcome: Option<Outcome>,
     /// The balance may have changed: ask for the account again.
     pub balance_changed: bool,
 }
@@ -117,8 +94,8 @@ pub struct Applied {
 /// book.reconcile(positions, orders);
 /// while let Ok(event) = events.recv().await {
 ///     if let Event::Execution(execution) = event {
-///         if let Some(notice) = book.apply(&execution).notice {
-///             println!("{}: {}", notice.title, notice.message);
+///         if let Some(outcome) = book.apply(&execution).outcome {
+///             println!("{outcome:?}");
 ///         }
 ///     }
 /// }
@@ -259,83 +236,51 @@ impl AccountBook {
             self.deals.truncate(MAX_DEALS);
             applied.balance_changed = true;
         }
-        let text = order_text.unwrap_or_default();
-        let notice = |tone: Tone, title: &str, message: String| Notice::new(tone, title, message);
-        applied.notice = match event.kind() {
+        let what = order_text.unwrap_or_default();
+        applied.outcome = match event.kind() {
             Some(ExecutionType::OrderFilled) => {
-                let price = event
-                    .deal
-                    .as_ref()
-                    .and_then(|d| d.execution_price)
-                    .map(|p| {
-                        let symbol = event.deal.as_ref().map_or(0, |d| d.symbol_id);
-                        format!(" at {}", self.contract(symbol).format_price(p))
-                    })
-                    .unwrap_or_default();
-                let closing = event
-                    .position
-                    .as_ref()
-                    .is_some_and(|p| p.status() == Some(PositionStatus::Closed));
-                let mut filled = notice(
-                    Tone::Success,
-                    if closing {
-                        "Position closed"
-                    } else {
-                        "Order filled"
-                    },
-                    format!("{text}{price}"),
-                );
-                if let Some(position) = event
-                    .position
-                    .as_ref()
-                    .filter(|p| p.status() == Some(PositionStatus::Open))
-                {
-                    filled = filled
-                        .action(NoticeAction::ClosePosition(position.position_id))
-                        .action(NoticeAction::BreakEven(position.position_id));
-                }
-                Some(filled)
-            }
-            Some(ExecutionType::OrderPartialFill) => {
-                Some(notice(Tone::Info, "Order partly filled", text))
-            }
-            Some(ExecutionType::OrderAccepted) => {
-                event.order.as_ref().filter(|o| is_working(o)).map(|o| {
-                    notice(Tone::Info, "Order placed", text)
-                        .action(NoticeAction::CancelOrder(o.order_id))
+                let price = event.deal.as_ref().and_then(|d| {
+                    let p = d.execution_price?;
+                    Some(self.contract(d.symbol_id).format_price(p))
+                });
+                Some(Outcome::Filled {
+                    what,
+                    price,
+                    closed: event
+                        .position
+                        .as_ref()
+                        .is_some_and(|p| p.status() == Some(PositionStatus::Closed)),
+                    open_position: event
+                        .position
+                        .as_ref()
+                        .filter(|p| p.status() == Some(PositionStatus::Open))
+                        .map(|p| p.position_id),
                 })
             }
-            Some(ExecutionType::OrderReplaced) => Some(notice(Tone::Info, "Order changed", text)),
-            Some(ExecutionType::OrderCancelled) => {
-                Some(notice(Tone::Info, "Order cancelled", text))
-            }
-            Some(ExecutionType::OrderExpired) => Some(notice(Tone::Warning, "Order expired", text)),
+            Some(ExecutionType::OrderPartialFill) => Some(Outcome::PartlyFilled { what }),
+            Some(ExecutionType::OrderAccepted) => event
+                .order
+                .as_ref()
+                .filter(|o| is_working(o))
+                .map(|o| Outcome::Placed {
+                    what,
+                    order_id: o.order_id,
+                }),
+            Some(ExecutionType::OrderReplaced) => Some(Outcome::Changed { what }),
+            Some(ExecutionType::OrderCancelled) => Some(Outcome::Cancelled { what }),
+            Some(ExecutionType::OrderExpired) => Some(Outcome::Expired { what }),
             Some(ExecutionType::OrderRejected | ExecutionType::OrderCancelRejected) => {
-                let code = event
-                    .error_code
-                    .as_deref()
-                    .unwrap_or("refused by the server");
-                Some(
-                    notice(
-                        Tone::Error,
-                        "Order refused",
-                        format!(
-                            "{text}{}{}",
-                            if text.is_empty() { "" } else { ": " },
-                            explain(code)
-                        ),
-                    )
-                    .hint(refusal(code, None).hint)
-                    .details(code),
-                )
+                Some(Outcome::Refused {
+                    what,
+                    code: event
+                        .error_code
+                        .clone()
+                        .unwrap_or_else(|| "refused by the server".to_owned()),
+                })
             }
             Some(ExecutionType::DepositWithdraw | ExecutionType::BonusDepositWithdraw) => {
                 applied.balance_changed = true;
-                Some(notice(
-                    Tone::Info,
-                    "Balance changed",
-                    "A deposit or withdrawal".into(),
-                ))
+                Some(Outcome::BalanceChanged)
             }
             Some(ExecutionType::Swap) => {
                 applied.balance_changed = true;
@@ -438,165 +383,10 @@ impl AccountBook {
     }
 }
 
-/// A server refusal in words.
-pub fn explain(code: &str) -> String {
-    match code {
-        "NOT_ENOUGH_MONEY" => "not enough free margin".to_owned(),
-        "TRADING_BAD_VOLUME" => "the volume is not one the broker accepts".to_owned(),
-        "TRADING_BAD_STOPS" => "the stop loss or take profit is not allowed there".to_owned(),
-        "TRADING_DISABLED" => "trading is disabled for this symbol or account".to_owned(),
-        "MARKET_CLOSED" => "the market is closed".to_owned(),
-        "PROTECTION_IS_TOO_CLOSE_TO_MARKET" => {
-            "the protection is too close to the price".to_owned()
-        }
-        "POSITION_NOT_FOUND" => "the position is already closed".to_owned(),
-        "ORDER_NOT_FOUND" => "the order no longer exists".to_owned(),
-        "MAX_EXPOSURE_REACHED" => "the most this account may hold is reached".to_owned(),
-        "ACCOUNT_NOT_AUTHORIZED" | "CH_ACCESS_TOKEN_INVALID" => {
-            "this sign-in has no trading permission: disconnect and sign in again".to_owned()
-        }
-        other => other.to_lowercase().replace('_', " "),
-    }
-}
-
-/// A refusal or a failure in words a trader can act on.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Reason {
-    /// What went wrong, as a sentence.
-    pub message: String,
-    /// What to do about it, when there is something to do.
-    pub hint: Option<String>,
-}
-
-/// A text as a sentence: its first letter in capital, and a full stop at the end.
-pub fn sentence(text: &str) -> String {
-    let text = text.trim().trim_end_matches('.');
-    let mut chars = text.chars();
-    match chars.next() {
-        Some(first) => format!("{}{}.", first.to_uppercase(), chars.as_str()),
-        None => String::new(),
-    }
-}
-
-/// A server refusal, from its code and the words it gave, as a sentence with what to do.
-///
-/// The server's own words are the most exact when the code is a general one (`INVALID_REQUEST`),
-/// so a description that names a known problem is put in words first, then the code, then the
-/// description as it came.
-pub fn refusal(code: &str, description: Option<&str>) -> Reason {
-    let reason = |message: &str, hint: &str| Reason {
-        message: message.to_owned(),
-        hint: Some(hint.to_owned()),
-    };
-    let described = description.map(str::trim).filter(|d| !d.is_empty());
-    if let Some(text) = described {
-        let lower = text.to_lowercase();
-        if lower.contains("precision") {
-            let what = ["stop loss", "take profit", "price", "volume"]
-                .into_iter()
-                .find(|what| lower.contains(what))
-                .unwrap_or("value");
-            return reason(
-                &format!("The {what} has more decimals than this symbol allows."),
-                "Round it to the price step of the symbol and send again.",
-            );
-        }
-    }
-    match code {
-        "NOT_ENOUGH_MONEY" => reason(
-            "Not enough free margin for this order.",
-            "Lower the size, or close a position to free some margin.",
-        ),
-        "TRADING_BAD_VOLUME" => reason(
-            "The broker does not accept this volume.",
-            "Check the least, the most and the step of the volume for this symbol.",
-        ),
-        "TRADING_BAD_STOPS" => reason(
-            "The stop loss or take profit is not allowed there.",
-            "A buy has its stop loss under the price and its take profit over it; a sell the other way round.",
-        ),
-        "PROTECTION_IS_TOO_CLOSE_TO_MARKET" => reason(
-            "The stop loss or take profit is too close to the price.",
-            "Move it farther away: the broker asks for a least distance.",
-        ),
-        "TRADING_BAD_PRICES" => reason(
-            "The price of the order is not valid.",
-            "A buy limit goes under the ask and a buy stop over it; a sell the other way round.",
-        ),
-        "TRADING_BAD_EXPIRATION_DATE" => reason(
-            "The expiry is not valid.",
-            "Pick a time that has not passed.",
-        ),
-        "TRADING_DISABLED" => reason(
-            "Trading is disabled for this symbol or account.",
-            "Ask the broker if it is not expected.",
-        ),
-        "MARKET_CLOSED" => reason("The market is closed.", "Try again when it opens."),
-        "POSITION_NOT_FOUND" => reason(
-            "The position is already closed.",
-            "The lists of the account catch up in a moment.",
-        ),
-        "ORDER_NOT_FOUND" => reason(
-            "The order no longer exists.",
-            "It was filled, cancelled or expired.",
-        ),
-        "MAX_EXPOSURE_REACHED" => reason(
-            "The most this account may hold is reached.",
-            "Close a position before opening another.",
-        ),
-        "SYMBOL_NOT_FOUND" | "UNKNOWN_SYMBOL" => reason(
-            "The broker does not know this symbol.",
-            "Pick it again from the list.",
-        ),
-        "ACCOUNT_NOT_AUTHORIZED" | "CH_ACCESS_TOKEN_INVALID" | "OA_AUTH_TOKEN_EXPIRED" => reason(
-            "This sign-in has no trading permission.",
-            "Disconnect and sign in again.",
-        ),
-        "REQUEST_FREQUENCY_EXCEEDED" => reason(
-            "Too many requests in a short time.",
-            "Wait a moment and try again.",
-        ),
-        "SERVER_IS_UNDER_MAINTENANCE" => {
-            reason("The server is under maintenance.", "Try again in a while.")
-        }
-        other => Reason {
-            message: match described {
-                Some(text) => sentence(text),
-                None => sentence(&explain(other)),
-            },
-            hint: None,
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[test]
-    fn a_general_refusal_is_put_in_words_from_what_the_server_says() {
-        let reason = refusal(
-            "INVALID_REQUEST",
-            Some("Relative stop loss has invalid precision"),
-        );
-        assert_eq!(
-            reason.message,
-            "The stop loss has more decimals than this symbol allows."
-        );
-        assert!(reason.hint.is_some());
-        // A code with words of its own wins over a description that says nothing new.
-        assert_eq!(
-            refusal("NOT_ENOUGH_MONEY", Some("no")).message,
-            "Not enough free margin for this order."
-        );
-        // An unknown code with a description keeps the description, as a sentence.
-        assert_eq!(
-            refusal("SOMETHING_NEW", Some("the thing is off")).message,
-            "The thing is off."
-        );
-        assert_eq!(refusal("SOMETHING_NEW", None).message, "Something new.");
-    }
 
     fn position(id: i64, symbol: i64, side: i64, price: f64, status: i64) -> Position {
         serde_json::from_value(json!({
@@ -659,13 +449,11 @@ mod tests {
         ));
         assert!(book.positions.contains_key(&5));
         assert!(!book.orders.contains_key(&10));
-        let notice = applied.notice.unwrap();
-        assert_eq!(notice.title, "Order filled");
-        assert!(
-            notice.message.contains("Buy 0.01 EURUSD limit at 1.05000"),
-            "{}",
-            notice.message
-        );
+        let Some(Outcome::Filled { what, closed, .. }) = applied.outcome else {
+            panic!("a fill is an outcome");
+        };
+        assert!(!closed);
+        assert!(what.contains("Buy 0.01 EURUSD limit at 1.05000"), "{what}");
     }
 
     #[test]
@@ -687,23 +475,23 @@ mod tests {
         ));
         assert!(book.positions.is_empty());
         assert!(book.marks.is_empty());
-        assert_eq!(applied.notice.unwrap().title, "Position closed");
+        assert!(matches!(
+            applied.outcome,
+            Some(Outcome::Filled { closed: true, .. })
+        ));
     }
 
     #[test]
-    fn a_refusal_is_explained() {
+    fn a_refusal_keeps_its_code_and_drops_the_order() {
         let mut book = AccountBook::default();
         let mut refused = event(7, None, Some(order(30, 2, 3)));
         refused.error_code = Some("NOT_ENOUGH_MONEY".into());
-        let notice = book.apply(&refused).notice.unwrap();
-        assert_eq!(notice.tone, Tone::Error);
-        assert!(
-            notice.message.ends_with("not enough free margin"),
-            "{}",
-            notice.message
-        );
+        let applied = book.apply(&refused);
+        assert!(matches!(
+            applied.outcome,
+            Some(Outcome::Refused { code, .. }) if code == "NOT_ENOUGH_MONEY"
+        ));
         assert!(book.orders.is_empty());
-        assert_eq!(explain("SOMETHING_ELSE"), "something else");
     }
 
     #[test]

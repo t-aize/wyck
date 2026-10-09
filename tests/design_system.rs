@@ -73,9 +73,15 @@ fn screens_use_the_design_system() {
         if code.contains("Button::new(") {
             buttons.push(rel.clone());
         }
-        if [".xsmall()", ".small()", ".medium()", ".large()", ".compact()"]
-            .iter()
-            .any(|method| code.contains(method))
+        if [
+            ".xsmall()",
+            ".small()",
+            ".medium()",
+            ".large()",
+            ".compact()",
+        ]
+        .iter()
+        .any(|method| code.contains(method))
         {
             sizes.push(rel.clone());
         }
