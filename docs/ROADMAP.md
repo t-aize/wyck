@@ -26,7 +26,7 @@ and the app was never run: everything marked "to verify by hand" below is untest
 | 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
 | 13 | Domain and cTrader client hardening | done, see the notes below for what was left out |
 | 14 | Documentation pass | done |
-| 15 | Structure pass: typed errors, long files split, long tests in `tests/unit` | done, see below |
+| 15 | Structure pass: typed errors, long files split, tests stay in their modules, no re-exports | done, see below |
 
 ## Phase 0 checklist
 
@@ -96,7 +96,7 @@ smoke checklist in `docs/testing.md` done on a demo account. After the release, 
   `ui::features::trading::ticket::problem` words them; the others have their own enum
   (`UpdateError`, `ImportSkip`, `RasterError`, `HexError`, `ExitsProblem`, `SoundError`).
 - No `unwrap` or `expect` is left outside tests.
-- The long unit test modules live in `tests/unit/`, with the path of their module under `src`.
+- Unit tests stay inside the module they test. When a module is split, they go in the file that holds most of the code they exercise.
 - More than thirty files above 600 lines were split by responsibility, with the same public paths. The 27 files
   still above it (the largest are `app/appearance.rs`, `ui/shell/dashboard/header.rs`,
   `ui/features/trading/panel/dialogs.rs`, `ui/features/chart/raster.rs` and

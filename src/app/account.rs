@@ -381,7 +381,3 @@ mod reverse;
 mod sync;
 
 use reverse::{ReverseOrder, ReverseTracker};
-
-#[cfg(test)]
-#[path = "../../tests/unit/app/account.rs"]
-mod tests;

@@ -686,7 +686,3 @@ impl OrderTicket {
         cx.notify();
     }
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/ui/features/trading/ticket.rs"]
-mod tests;

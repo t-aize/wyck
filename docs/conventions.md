@@ -3,16 +3,15 @@
 ## Code
 
 - Rust 2024, formatted with `cargo fmt`, linted with `cargo clippy --all-targets -- -D warnings`.
-- Modules: `foo.rs` plus `foo/`. No `mod.rs`, no `use super::*` outside tests, and `#[path]` only for the test modules below.
+- Modules: `foo.rs` plus `foo/`. No `mod.rs`, no `#[path]`, no `use super::*` outside tests.
 - Visibility: `pub(crate)` by default; `pub` for what integration tests and examples use.
 - Errors: a `thiserror` enum per module. Never `Result<_, String>` for a new error.
 - Types, not numbers: an enum where a protocol uses an integer code; convert at the boundary.
 - Names: `*View` renders, `*State` is an entity of the app, `*Req`, `*Res` and `*Event` are wire
   types and live only in `infra::ctrader`.
-- Tests sit in the module they test (`mod tests`); integration tests in `tests/`. A long `mod tests`
-  lives in `tests/unit/<path of the module under src>.rs` and is declared in the module with
-  `#[cfg(test)]`, `#[path = "../../tests/unit/..."]` and `mod tests;`. It is still a unit test of
-  that module (private items are visible), and `use super::*` is fine in it.
+- Tests sit in the module they test (`#[cfg(test)] mod tests` at the end of the file, where `use super::*`
+  is fine); integration tests are in `tests/`. When a module is split, its tests go in the file that
+  holds most of the code they exercise.
 - Files stay under about 600 lines apart from data tables. Split by responsibility: `foo.rs` keeps
   the types, the entry points and the re-exports (`pub use`), so no path changes, and the code goes
   to children in `foo/` (`foo/render.rs`, `foo/actions.rs`). A method of a type can live in any

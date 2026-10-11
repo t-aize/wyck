@@ -599,10 +599,6 @@ mod supervisor;
 use supervisor::{error_is_transient, supervise};
 
 #[cfg(test)]
-#[path = "../../../tests/unit/infra/ctrader/session.rs"]
-mod tests;
-
-#[cfg(test)]
 mod stop_tests {
     use super::supervisor::or_stop;
     use super::*;

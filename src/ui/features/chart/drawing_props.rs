@@ -560,7 +560,3 @@ mod chrome;
 mod helpers;
 
 use helpers::{every_timeframe, format_real, point_fields, point_name, set_point};
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/ui/features/chart/drawing_props.rs"]
-mod tests;

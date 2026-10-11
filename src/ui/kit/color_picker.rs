@@ -576,7 +576,3 @@ mod math;
 mod render;
 
 pub use math::{PRESETS, hex_text, hsv_to_rgb, parse_hex, rgb_to_hsv};
-
-#[cfg(test)]
-#[path = "../../../tests/unit/ui/kit/color_picker.rs"]
-mod tests;

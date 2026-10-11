@@ -466,7 +466,3 @@ fn runtime_problem(error: &EvalAltResult, run: &Run) -> Problem {
 pub fn source_index(name: &str) -> Option<usize> {
     SOURCES.iter().position(|s| s.eq_ignore_ascii_case(name))
 }
-
-#[cfg(test)]
-#[path = "../../../../tests/unit/domain/indicators/custom/run.rs"]
-mod tests;

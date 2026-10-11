@@ -14,7 +14,6 @@ recipes are in `docs/`.
   component or spell out a pixel size or a color in a screen.
 - Key bindings live in the modules that own the actions; `src/keymap_guard.rs` fails when two
   actions share keys in one context.
-- A long `mod tests` lives in `tests/unit/` under the path of its module (see `docs/conventions.md`).
 
 ## Commands
 
