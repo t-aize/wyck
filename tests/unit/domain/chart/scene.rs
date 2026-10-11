@@ -1,6 +1,7 @@
 use super::color::rgb;
 use crate::domain::market::{Bar, Period, Quote, Tick};
 
+use super::axes::previous_close;
 use super::cmd::{count, rect_widths, texts};
 use super::*;
 use crate::domain::chart::flow::Flow;
