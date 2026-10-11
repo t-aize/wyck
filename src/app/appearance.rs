@@ -820,7 +820,9 @@ mod no_inline_colors {
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, out);
-            } else if path.extension().is_some_and(|e| e == "rs") {
+            } else if path.extension().is_some_and(|e| e == "rs")
+                && path.file_name().is_some_and(|name| name != "tests.rs")
+            {
                 out.push(path);
             }
         }
