@@ -159,7 +159,7 @@ pub(super) fn plot(key: &'static str, values: Vec<f64>) -> PlotOut {
 }
 
 /// Computes an indicator over the bars. The volume profile is not computed here (it depends on
-/// what is on screen, see [`profile`]); it gives an empty output.
+/// what is on screen, see [`super::profile`]); it gives an empty output.
 pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
     let n = input.len();
     let mut out = StudyOutput::default();

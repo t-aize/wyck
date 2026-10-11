@@ -53,7 +53,7 @@ pub enum InputKind {
 }
 
 impl InputKind {
-    /// Whether the value is text, kept in [`StudyConfig::texts`], rather than a number.
+    /// Whether the value is text, kept in [`super::StudyConfig::texts`], rather than a number.
     pub const fn is_text(self) -> bool {
         matches!(
             self,

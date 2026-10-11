@@ -65,7 +65,7 @@ pub enum StudyKind {
     ForceIndex,
     VolumeOscillator,
     EaseOfMovement,
-    /// An indicator written as a script: which one is in [`StudyConfig::script`].
+    /// An indicator written as a script: which one is in [`super::StudyConfig::script`].
     Custom,
     /// An indicator a newer version wrote. Dropped on load.
     #[serde(other)]
