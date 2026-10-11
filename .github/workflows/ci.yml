@@ -8,12 +8,9 @@ on:
       - "LICENSE"
       - ".github/FUNDING.yml"
       - ".github/ISSUE_TEMPLATE/**"
+  # No paths-ignore here: `main` requires the check `ci-ok`, and a pull request that touches only
+  # Markdown would wait for it forever.
   pull_request:
-    paths-ignore:
-      - "**/*.md"
-      - "LICENSE"
-      - ".github/FUNDING.yml"
-      - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
 
 permissions: {}
