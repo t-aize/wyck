@@ -93,9 +93,11 @@ impl Chart {
 impl Chart {
     /// A PNG picture of the chart as it is on screen, at twice its size, with the symbol and
     /// timeframe written at the top left. Also returns a file name for it.
-    pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), String> {
+    pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), super::raster::RasterError> {
         let (pixmap, _) = self.picture_pixels(cx)?;
-        let png = pixmap.encode_png().map_err(|e| e.to_string())?;
+        let png = pixmap
+            .encode_png()
+            .map_err(|error| super::raster::RasterError::Encode(error.to_string()))?;
         let symbol = self
             .symbol
             .as_ref()
@@ -120,7 +122,7 @@ impl Chart {
     pub fn picture_pixels(
         &self,
         cx: &App,
-    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), String> {
+    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), super::raster::RasterError> {
         let (w, h) = self.size();
         let scale = super::raster::PICTURE_SCALE;
         let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));

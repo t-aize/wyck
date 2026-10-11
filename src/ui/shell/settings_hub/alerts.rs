@@ -198,7 +198,7 @@ fn choose_file(workspace: Entity<Workspace>, cx: &mut App) {
         let Some(path) = paths.into_iter().next() else {
             return;
         };
-        let kept = keep_copy(&path);
+        let kept = sound::keep_copy(crate::app_paths(), &path);
         cx.update(|cx| match kept {
             Ok(copy) => {
                 let shown = copy.display().to_string();
@@ -210,34 +210,13 @@ fn choose_file(workspace: Entity<Workspace>, cx: &mut App) {
                 });
                 preview(&workspace, SoundKind::Custom, cx);
             }
-            Err(message) => {
-                toast::show(cx, toast::Kind::Error, "This sound cannot be used", message)
-            }
+            Err(error) => toast::show(
+                cx,
+                toast::Kind::Error,
+                "This sound cannot be used",
+                error.to_string(),
+            ),
         });
     })
     .detach();
-}
-
-/// Checks a file and copies it beside the settings, so it keeps working when the original moves.
-fn keep_copy(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
-    sound::check_file(path).map_err(|error| error.to_string())?;
-    let paths = crate::app_paths().ok_or("The settings folder is not available")?;
-    let dir = paths.state_dir().join("sounds");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    // One file only: an older copy goes away.
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with("custom.") {
-                let _ = std::fs::remove_file(entry.path());
-            }
-        }
-    }
-    let extension = path
-        .extension()
-        .map(|e| e.to_string_lossy().to_lowercase())
-        .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric()))
-        .unwrap_or_else(|| "wav".to_owned());
-    let target = dir.join(format!("custom.{extension}"));
-    std::fs::copy(path, &target).map_err(|e| e.to_string())?;
-    Ok(target)
 }

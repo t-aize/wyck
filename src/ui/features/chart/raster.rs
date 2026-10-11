@@ -453,6 +453,23 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
     }
 }
 
+/// Why a picture of a chart could not be made.
+#[derive(Debug, thiserror::Error)]
+pub enum RasterError {
+    #[error("the font of the picture cannot be read: {0}")]
+    Font(#[from] ab_glyph::InvalidFont),
+    #[error("the picture is too large")]
+    TooLarge,
+    #[error("the picture cannot be encoded: {0}")]
+    Encode(String),
+}
+
+impl RasterError {
+    fn encode(error: impl std::fmt::Display) -> Self {
+        Self::Encode(error.to_string())
+    }
+}
+
 /// Device pixels per logical pixel in a picture: twice the screen, for a crisp image.
 pub const PICTURE_SCALE: f32 = 2.0;
 
@@ -475,10 +492,10 @@ pub fn render_png(
     scale: f32,
     background: Hsla,
     captions: &[Caption],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, RasterError> {
     render_pixmap(cmds, w, h, scale, background, captions)?
         .encode_png()
-        .map_err(|e| e.to_string())
+        .map_err(RasterError::encode)
 }
 
 /// `render_png` without the encoding: the pixels, to be put in a larger picture (see
@@ -490,10 +507,10 @@ pub fn render_pixmap(
     scale: f32,
     background: Hsla,
     captions: &[Caption],
-) -> Result<Pixmap, String> {
-    let font = FontRef::try_from_slice(assets::FONT).map_err(|e| e.to_string())?;
+) -> Result<Pixmap, RasterError> {
+    let font = FontRef::try_from_slice(assets::FONT)?;
     let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
-    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
+    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     let mut canvas = Canvas {
         pixmap,
@@ -535,9 +552,9 @@ pub fn compose_png(
     scale: f32,
     background: Hsla,
     tiles: &[(f32, f32, Pixmap)],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, RasterError> {
     let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
-    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
+    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     for (x, y, tile) in tiles {
         pixmap.draw_pixmap(
@@ -549,7 +566,7 @@ pub fn compose_png(
             None,
         );
     }
-    pixmap.encode_png().map_err(|e| e.to_string())
+    pixmap.encode_png().map_err(RasterError::encode)
 }
 
 #[cfg(test)]

@@ -938,7 +938,7 @@ impl MultiChart {
         let chart = self.active_chart().clone();
         match chart.read(cx).picture(cx) {
             Ok((png, name)) => cx.emit(MultiChartEvent::Picture(png, name)),
-            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error)),
+            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error.to_string())),
         }
     }
 
@@ -960,7 +960,7 @@ impl MultiChart {
             let (pixmap, bg) = match chart.picture_pixels(cx) {
                 Ok(done) => done,
                 Err(error) => {
-                    cx.emit(MultiChartEvent::PictureFailed(error));
+                    cx.emit(MultiChartEvent::PictureFailed(error.to_string()));
                     return;
                 }
             };
@@ -991,7 +991,7 @@ impl MultiChart {
                 let name = format!("wyck-layout-{}-charts-{stamp}.png", self.slots.len());
                 cx.emit(MultiChartEvent::Picture(png, name));
             }
-            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error)),
+            Err(error) => cx.emit(MultiChartEvent::PictureFailed(error.to_string())),
         }
     }
 

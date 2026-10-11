@@ -267,6 +267,12 @@ pub enum SoundError {
         /// The longest allowed.
         max: f32,
     },
+    /// The settings folder, where the copy of a custom sound is kept, is not available.
+    #[error("The settings folder is not available")]
+    NoSettingsFolder,
+    /// The copy of the sound beside the settings could not be made.
+    #[error("The sound cannot be copied beside the settings: {0}")]
+    Keep(#[source] std::io::Error),
     /// The sound device could not be opened.
     #[error("No sound device: {0}")]
     Device(String),
@@ -442,6 +448,38 @@ fn show(title: &str, body: &str) {
     if let Err(error) = notification.show() {
         tracing::warn!(%error, "could not show a desktop notification");
     }
+}
+
+/// Checks a file and copies it beside the settings, so it keeps working when the original moves.
+/// Only one copy is kept: an older one goes away. Returns where the copy is.
+///
+/// # Errors
+///
+/// [`SoundError`] when the file is not usable as a sound, the settings folder is not known
+/// (`paths` is `None`), or the copy cannot be made.
+pub fn keep_copy(
+    paths: Option<&crate::infra::storage::AppPaths>,
+    path: &Path,
+) -> Result<PathBuf, SoundError> {
+    check_file(path)?;
+    let paths = paths.ok_or(SoundError::NoSettingsFolder)?;
+    let dir = paths.state_dir().join("sounds");
+    std::fs::create_dir_all(&dir).map_err(SoundError::Keep)?;
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().starts_with("custom.") {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+    let extension = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric()))
+        .unwrap_or_else(|| "wav".to_owned());
+    let target = dir.join(format!("custom.{extension}"));
+    std::fs::copy(path, &target).map_err(SoundError::Keep)?;
+    Ok(target)
 }
 
 #[cfg(test)]
