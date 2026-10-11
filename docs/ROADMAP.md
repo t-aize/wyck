@@ -31,7 +31,7 @@ and the app was never run: everything marked "to verify by hand" below is untest
 
 - [x] Baseline is commit `c805e65` (last commit of `main` before the restructuring). The tag is local; push it with
       `git push origin pre-restructure`.
-- [x] Test count (`cargo test --all-features`, 2026-10-11): 1231 passed, 0 failed, 16 ignored.
+- [x] Test count (`cargo test --all-features`, 2026-10-11): 1234 passed, 0 failed, 16 ignored.
 - [x] Manual smoke checklist written in `docs/testing.md`.
 - [x] Key binding collisions fixed: the rectangle tool moves to `Alt+X`, the tool finder to
       `Ctrl+Shift+F`; `src/keymap_guard.rs` fails on any duplicate binding in one context.
@@ -83,3 +83,10 @@ See `docs/decisions/`.
   crate, Windows hosts only). Check Explorer and the taskbar. The icon files and `assets/logo.png`
   come from the two images in `assets/brand/` through `scripts/make_brand_assets.py`: run it
   again when an image changes. The mark shows on the first sign-in step and on the About page.
+
+## Release v0.2.0
+
+`Cargo.toml` is at 0.2.0 and `RELEASING.md` describes the chain, which has never run end to end.
+Before pushing the `v0.2.0` tag: CI green on all three systems, the hand checks above and the
+smoke checklist in `docs/testing.md` done on a demo account. After the release, check that
+`latest.json` is in its assets (the updater downloads it from there).

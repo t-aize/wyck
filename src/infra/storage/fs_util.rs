@@ -285,7 +285,7 @@ mod tests {
                     for round in 0..25 {
                         let text = format!("writer = {n}\nround = {round}\n{}\n", "x".repeat(4096));
                         atomic_write(&path, text.as_bytes()).unwrap();
-                        let seen = std::fs::read_to_string(&*path).unwrap();
+                        let seen = read_text(&path).unwrap();
                         assert!(
                             seen.starts_with("writer = ") && seen.ends_with("x\n"),
                             "torn: {}",

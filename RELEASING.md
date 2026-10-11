@@ -2,7 +2,8 @@
 
 Stable releases are built by GitHub Actions from tags named `vX.Y.Z`. The workflow rejects a tag
 unless the package version in `Cargo.toml` is the same `X.Y.Z`. The first release made by this system
-is `v0.3.0`; the existing `v0.2.0` tag is not changed.
+is `v0.2.0` (the version `Cargo.toml` already has); the older `v0.1.x` releases came from another
+build chain.
 
 ## One-time repository setup
 
@@ -32,8 +33,8 @@ a draft, uploads and attests all assets, and only then publishes it. This follow
 2. Run `cargo check` so `Cargo.lock` records the new version.
 3. Run the checks below and inspect the About page in both debug and release builds.
 4. Commit and push the version change.
-5. Create and push the matching tag, for example `git tag -s v0.3.0` followed by
-   `git push origin v0.3.0`.
+5. Create and push the matching tag, for example `git tag -s v0.2.0` followed by
+   `git push origin v0.2.0`.
 6. Wait for all four package jobs and the final publish job to finish. Do not create the release
    by hand for the same tag.
 
@@ -56,7 +57,7 @@ packages. It never points a deb installation at an in-place replacement.
 Download all files, then verify their hashes:
 
 ```sh
-gh release download v0.3.0 --repo t-aize/wyck --dir wyck-release
+gh release download v0.2.0 --repo t-aize/wyck --dir wyck-release
 cd wyck-release
 sha256sum -c SHA256SUMS
 gh attestation verify . --repo t-aize/wyck
