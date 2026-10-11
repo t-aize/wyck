@@ -49,9 +49,10 @@ impl KeyringSecretStore {
 }
 
 impl Default for KeyringSecretStore {
-    /// Namespaces credentials under the service name `"wyck"`.
+    /// Namespaces credentials under the service of this build: `"wyck"`, or `"wyck-dev"` in a
+    /// development build (see [`crate::infra::storage::identity`]).
     fn default() -> Self {
-        Self::new("wyck")
+        Self::new(crate::infra::storage::identity::keyring_service())
     }
 }
 
