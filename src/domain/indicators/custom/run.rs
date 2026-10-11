@@ -407,10 +407,10 @@ impl Installed {
         Self
     }
 
-    fn finish(self) -> Run {
-        let run = RUN
-            .with(|cell| cell.borrow_mut().take())
-            .expect("the run is installed until it finishes");
+    /// The run, or `None` when something took it from under the script (it is installed until
+    /// this call, so that would be a bug).
+    fn finish(self) -> Option<Run> {
+        let run = RUN.with(|cell| cell.borrow_mut().take());
         std::mem::forget(self);
         run
     }
@@ -560,7 +560,9 @@ impl Script {
         let installed = Installed::new(run);
         let mut scope = globals(&Columns::default(), true);
         let result = engine().run_ast_with_scope(&mut scope, &ast);
-        let run = installed.finish();
+        let Some(run) = installed.finish() else {
+            return Err(vec![lost_run()]);
+        };
         if let Err(error) = result {
             return Err(vec![runtime_problem(&error, &run)]);
         }
@@ -630,7 +632,9 @@ impl Script {
         let started = Instant::now();
         let installed = Installed::new(run);
         let result = engine().run_ast_with_scope(&mut scope, &self.ast);
-        let run = installed.finish();
+        let Some(run) = installed.finish() else {
+            return Err(vec![lost_run()]);
+        };
         let elapsed = started.elapsed();
         if let Err(error) = result {
             return Err(vec![runtime_problem(&error, &run)]);
@@ -668,6 +672,15 @@ fn output_of(run: &Run) -> StudyOutput {
     output.band = run.band;
     output.drawings = run.drawings.clone();
     output
+}
+
+/// What is reported when a run vanished while its script was running.
+fn lost_run() -> Problem {
+    Problem::error(
+        0,
+        0,
+        "the run of the script was lost, this is a bug in Wyck",
+    )
 }
 
 fn parse_problem(error: &ParseError) -> Problem {

@@ -12,6 +12,40 @@ use crate::infra::storage::error::{ConfigError, Result};
 /// one: `.{name}.tmp-{random}`.
 const TEMP_MARKER: &str = ".tmp-";
 
+/// How many times [`retry_when_busy`] tries again.
+const BUSY_RETRIES: u32 = 20;
+
+/// Runs `op`; on Windows, an operation refused with `PermissionDenied` is tried again for a short
+/// while (about half a second at most).
+///
+/// Windows refuses to open or replace a file for a moment while another thread or process is in
+/// the middle of renaming over it (an editor, a virus scanner and the app's own saver all do),
+/// whereas Unix never does. The refusal is almost always gone a few milliseconds later, and
+/// reading it as a real failure would make the app set a good document aside. Elsewhere, and for
+/// every other error, `op` runs once.
+pub(crate) fn retry_when_busy<T>(mut op: impl FnMut() -> std::io::Result<T>) -> std::io::Result<T> {
+    let mut retries = 0;
+    loop {
+        match op() {
+            Err(error)
+                if cfg!(windows)
+                    && error.kind() == std::io::ErrorKind::PermissionDenied
+                    && retries < BUSY_RETRIES =>
+            {
+                retries += 1;
+                std::thread::sleep(std::time::Duration::from_millis(u64::from(retries) * 2));
+            }
+            other => return other,
+        }
+    }
+}
+
+/// [`fs::read_to_string`] that rides out a file being replaced at that moment (see
+/// [`retry_when_busy`]).
+pub(crate) fn read_text(path: &Path) -> std::io::Result<String> {
+    retry_when_busy(|| fs::read_to_string(path))
+}
+
 /// Writes `contents` to `path` so that a reader, or the next start after a crash or a power cut,
 /// finds either the old complete file or the new complete file, never half of one.
 ///
@@ -57,7 +91,7 @@ fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let tmp_path = dir.join(format!(".{file_name}{TEMP_MARKER}{}", uuid::Uuid::new_v4()));
 
     write_synced(&tmp_path, contents)
-        .and_then(|()| fs::rename(&tmp_path, path))
+        .and_then(|()| retry_when_busy(|| fs::rename(&tmp_path, path)))
         .inspect_err(|_| {
             let _ = fs::remove_file(&tmp_path);
         })?;
@@ -144,6 +178,47 @@ fn sync_dir(dir: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn denied() -> std::io::Error {
+        std::io::Error::from(std::io::ErrorKind::PermissionDenied)
+    }
+
+    #[test]
+    fn an_error_other_than_a_refusal_is_not_tried_again() {
+        let mut calls = 0;
+        let result: std::io::Result<()> = retry_when_busy(|| {
+            calls += 1;
+            Err(std::io::Error::from(std::io::ErrorKind::NotFound))
+        });
+        assert!(result.is_err());
+        assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn a_refusal_that_passes_is_ridden_out_on_windows_and_final_elsewhere() {
+        let mut calls = 0;
+        let result = retry_when_busy(|| {
+            calls += 1;
+            if calls < 3 { Err(denied()) } else { Ok(calls) }
+        });
+        if cfg!(windows) {
+            assert_eq!(result.unwrap(), 3);
+        } else {
+            assert!(result.is_err());
+            assert_eq!(calls, 1);
+        }
+    }
+
+    #[test]
+    fn a_refusal_that_never_passes_ends_as_an_error() {
+        let mut calls = 0;
+        let result: std::io::Result<()> = retry_when_busy(|| {
+            calls += 1;
+            Err(denied())
+        });
+        assert!(result.is_err());
+        assert_eq!(calls, if cfg!(windows) { BUSY_RETRIES + 1 } else { 1 });
+    }
 
     #[test]
     fn atomic_write_creates_parent_dirs_and_writes_content() {

@@ -71,16 +71,25 @@ pub fn new_state() -> String {
 ///
 /// `redirect_uri` must be one of the URIs registered for the application, character for
 /// character. `state` is echoed back on the redirect (see [`new_state`]).
-#[must_use]
-pub fn authorization_url(client_id: &str, redirect_uri: &str, scope: Scope, state: &str) -> String {
-    let mut url = Url::parse(AUTHORIZE_URL).expect("the consent page address is a valid URL");
+///
+/// # Errors
+///
+/// [`Error::Config`] when the address of the consent page cannot be parsed.
+pub fn authorization_url(
+    client_id: &str,
+    redirect_uri: &str,
+    scope: Scope,
+    state: &str,
+) -> Result<String> {
+    let mut url = Url::parse(AUTHORIZE_URL)
+        .map_err(|_| Error::Config("the consent page address is not a valid URL".into()))?;
     url.query_pairs_mut()
         .append_pair("client_id", client_id)
         .append_pair("redirect_uri", redirect_uri)
         .append_pair("scope", scope.as_str())
         .append_pair("product", "web")
         .append_pair("state", state);
-    url.into()
+    Ok(url.into())
 }
 
 /// The tokens of a signed in user.
@@ -333,7 +342,8 @@ mod tests {
             "http://localhost:8765/cb?x=1",
             Scope::Accounts,
             "st4te",
-        );
+        )
+        .unwrap();
         assert!(url.starts_with(AUTHORIZE_URL));
         let parsed = Url::parse(&url).unwrap();
         let pairs: std::collections::HashMap<_, _> = parsed.query_pairs().into_owned().collect();
