@@ -11,11 +11,11 @@ testing, decision records) are in the history: `git show ada056c:docs/ROADMAP.md
 - `main` builds and its CI is green on Linux, macOS and Windows.
 - #27 (gpui-kit 0.7.0) and #30 (dependencies at their latest versions; `RELEASING.md` names
   `v0.2.0`) are merged.
-- #31 (structure pass) is open, without conflict, and its CI is running. It contains: typed
+- #31 (structure pass) is merged. It contains: typed
   errors (no `Result<_, String>` and no `unwrap` or `expect` outside tests), more than thirty
   long files split by responsibility, real paths instead of re-exports, unit tests back inside the
   files they test, and the removal of `docs/`.
-- Checked locally on the branch: `cargo fmt --check`, `cargo clippy --all-targets --all-features
+- Checked locally before the merge: `cargo fmt --check`, `cargo clippy --all-targets --all-features
   -- -D warnings`, `cargo test --all-features` (1235 tests), `cargo doc --no-deps` with
   `-D warnings`, `cargo deny check`.
 - The app has not been started on a screen since the restructuring. Everything below marked "by
@@ -26,21 +26,17 @@ testing, decision records) are in the history: `git show ada056c:docs/ROADMAP.md
 
 ## Order of work
 
-1. Pull request #31: wait for the CI, merge it.
+1. Pull request #31: merged.
 2. Start the app and check it by hand (section 2).
-3. Repository settings on GitHub (section 3).
+3. Repository settings on GitHub (section 3): done.
 4. Tag `v0.2.0` (section 4).
 5. Check the release (section 5).
 6. The rest, when there is time (section 6).
 
-## 1. Merge #31
+## 1. Merge #31 (done)
 
-- [ ] The CI of #31 is green on the three systems (`check` on ubuntu, macos and windows, `fmt`,
-      `ci-ok`).
-- [ ] Merge it: `gh pr merge 31 --squash --delete-branch` (or the button on GitHub).
-- [ ] Update the local `main`: `git checkout main && git pull`, then delete the local branch
-      `refactor/structure`.
-- [ ] The CI of `main` is green after the merge.
+- [x] The CI of #31 was green on the three systems, it was merged (squash) and the branch deleted.
+- [x] The local `main` is the same as `origin/main`, and the CI of `main` is green after the merge.
 
 ## 2. Check the app by hand
 
@@ -107,15 +103,19 @@ Optional, against a real server:
 
 ## 3. Repository settings on GitHub
 
-Today: `main` is not protected, secret scanning and push protection are off.
+Done on 2026-10-11 with `gh`:
 
-- [ ] Protect `main`: require the check `ci-ok`, require a pull request, no force push.
-- [ ] Turn on secret scanning and push protection.
-- [ ] Delete the obsolete secret `TAURI_SIGNING_PRIVATE_KEY` (left from the old Tauri chain).
-- [ ] Turn on immutable releases (the release workflow creates a draft, uploads and attests every
-      asset, then publishes).
-- [ ] Optional: Dependabot security updates (off today). Version updates are configured in
+- [x] `main` is protected: the check `ci-ok` is required, a pull request is required (no approval
+      needed), no force push and no deletion. Admins are not forced, so the owner can still push
+      or merge in an emergency.
+- [x] Secret scanning and push protection are on.
+- [x] The obsolete secret `TAURI_SIGNING_PRIVATE_KEY` is deleted.
+- [x] Immutable releases were already on (the release workflow creates a draft, uploads and
+      attests every asset, then publishes).
+- [x] Dependabot alerts and security updates are on. Version updates are configured in
       `.github/dependabot.yml` (weekly, grouped, with a cooldown).
+- [x] The workflow `ci.yml` no longer ignores Markdown-only pull requests, since the required check
+      would never report for them.
 - [ ] Keep a safe backup of the updater private key and its password. They are stored as the
       secrets `CARGO_PACKAGER_SIGN_PRIVATE_KEY` and `CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD`
       (both exist). The public key is committed in `assets/update.pubkey`; replacing it stops
