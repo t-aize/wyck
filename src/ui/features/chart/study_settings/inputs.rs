@@ -1,9 +1,11 @@
 //! The inputs page of an indicator: its fields, and the script it comes from.
 
 use super::{StudyEditor, group_heading, timeframe_picks};
+use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::study::custom::library::registry;
 use crate::ui::features::chart::study::custom::{Problem, Severity};
-use crate::ui::features::chart::study::{InputKind, SOURCES, StudyConfig, StudyKind};
+use crate::ui::features::chart::study::kind::StudyKind;
+use crate::ui::features::chart::study::spec::{InputKind, SOURCES};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{button, controls, form, icon, modal, number, theme, tokens};
 use gpui::prelude::*;

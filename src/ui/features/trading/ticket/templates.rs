@@ -2,9 +2,10 @@
 //! [`PlanTemplate`], and filling the ticket from one. What a template holds is described in
 //! [`super::prefs`].
 
+use super::helpers::format_offset;
 use super::{
-    App, Context, Entity, InputState, Offset, OrderTicket, SizeMode, TicketEvent, Window,
-    format_offset, number, plan, prefs,
+    App, Context, Entity, InputState, Offset, OrderTicket, SizeMode, TicketEvent, Window, number,
+    plan, prefs,
 };
 use crate::app::prefs::ticket::{Distance, PlanTemplate, TimeStopPrefs};
 

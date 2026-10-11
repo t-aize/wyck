@@ -2,7 +2,8 @@
 
 use super::{Book, Order, Snapshot};
 use crate::domain::drawings::geometry::Projection;
-use crate::domain::drawings::model::{Drawing, Tool};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::tool::Tool;
 
 impl Book {
     pub(super) fn edit_selected(
@@ -37,7 +38,11 @@ impl Book {
         self.edit_selected(symbol, |d| d.style.width = width)
     }
 
-    pub fn set_dash(&mut self, symbol: &str, dash: crate::domain::drawings::model::Dash) -> bool {
+    pub fn set_dash(
+        &mut self,
+        symbol: &str,
+        dash: crate::domain::drawings::model::style::Dash,
+    ) -> bool {
         self.edit_selected(symbol, |d| d.style.dash = dash)
     }
 
@@ -46,7 +51,7 @@ impl Book {
     pub fn edit_style(
         &mut self,
         symbol: &str,
-        mut change: impl FnMut(&mut crate::domain::drawings::model::Style),
+        mut change: impl FnMut(&mut crate::domain::drawings::model::style::Style),
     ) -> bool {
         self.edit_selected(symbol, |d| change(&mut d.style))
     }

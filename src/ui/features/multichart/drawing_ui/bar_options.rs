@@ -3,7 +3,7 @@
 use super::style_bar::BarState;
 
 use crate::domain::drawings::look::Cap;
-use crate::domain::drawings::model::Tool;
+use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart::DrawingCommand;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;

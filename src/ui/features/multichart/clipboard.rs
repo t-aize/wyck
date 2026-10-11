@@ -1,7 +1,7 @@
 //! Copying and pasting the indicators and the settings of a chart.
 
 use super::{ChartClipboard, MultiChart};
-use crate::domain::drawings::model::Tool;
+use crate::domain::drawings::model::tool::Tool;
 use gpui::Context;
 
 impl MultiChart {

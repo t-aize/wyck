@@ -1,13 +1,14 @@
 //! The shapes of each tool, drawn from its points.
 
-use super::{
-    Anchor, Prim, Projection, anchors, arrow_head, extended, fib_prims, fill_of, label_size,
-    measure_prims, position_prims, seg, stretch,
-};
+use super::fib::{fib_prims, fill_of, stretch};
+use super::measure::{measure_prims, position_prims};
+use super::{Anchor, Prim, Projection, anchors, arrow_head, extended, label_size, seg};
 use crate::domain::drawings::decor;
 use crate::domain::drawings::extras;
 use crate::domain::drawings::figures;
-use crate::domain::drawings::model::{Dash, Drawing, Tool};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::drawings::model::tool::Tool;
 
 pub(super) fn shapes_of(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
     let Some(pts) = anchors(drawing, proj) else {

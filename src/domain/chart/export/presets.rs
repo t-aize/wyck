@@ -1,9 +1,10 @@
 //! The presets of the export dialog.
 
-use super::{
-    ColumnKey, Decimal, Delimiter, ExportOptions, ExportZone, Format, HeaderCase, LineEnding,
-    RangeKind, TimeFormat,
+use super::choices::{
+    Decimal, Delimiter, ExportZone, Format, HeaderCase, LineEnding, RangeKind, TimeFormat,
 };
+use super::columns::ColumnKey;
+use super::options::ExportOptions;
 
 use serde::{Deserialize, Serialize};
 

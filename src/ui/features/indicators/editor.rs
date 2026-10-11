@@ -9,14 +9,18 @@
 //! Saving (Ctrl+S) writes the file; the app notices the change like it does for a file edited in
 //! another program, so every chart that holds the script draws the new version at once.
 
+pub mod actions;
+pub mod files;
 mod parts;
+pub mod prompts;
 pub mod providers;
+pub mod tabs;
 
-use std::collections::BTreeSet;
-use std::rc::Rc;
-use std::time::Duration;
-
+use crate::app::scripts as indicators;
 use crate::app::workspace::Saver;
+use crate::domain::indicators::custom::library::registry;
+use crate::domain::indicators::custom::{Problem, Severity};
+use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::input::LanguageConfig;
 use crate::ui::kit::input::{
     AutoClosingPair, EditorState, InputEvent, InputState, Position, TabSize, set_language_config,
@@ -28,11 +32,9 @@ use gpui::{
     Task, Window, actions,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::app::scripts as indicators;
-use crate::domain::indicators::custom::library::registry;
-use crate::domain::indicators::custom::{Problem, Severity};
-use crate::ui::features::multichart::MultiChart;
+use std::collections::BTreeSet;
+use std::rc::Rc;
+use std::time::Duration;
 
 actions!(
     wyck_indicator_editor,
@@ -468,11 +470,6 @@ fn show_diagnostics(state: &Entity<EditorState>, problems: &[Problem], text: &st
         cx.notify();
     });
 }
-
-mod actions;
-mod files;
-mod prompts;
-mod tabs;
 
 #[cfg(test)]
 mod draft_tests {

@@ -1,8 +1,8 @@
 //! The Coordinates tab of the drawing settings: the exact time and price of each point.
 
+use super::helpers::{point_fields, point_name};
 use super::{
-    AnyElement, Drawing, DrawingProps, IconName, SharedString, div, form, point_fields, point_name,
-    px, theme, tokens,
+    AnyElement, Drawing, DrawingProps, IconName, SharedString, div, form, px, theme, tokens,
 };
 use gpui::prelude::*;
 

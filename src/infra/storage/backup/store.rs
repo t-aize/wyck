@@ -1,6 +1,7 @@
 //! The copies the app keeps in its backups folder: listed, read, restored, deleted and pruned.
 
-use super::{Backup, read_backup_text, stage_import};
+use super::staged::stage_import;
+use super::{Backup, read_backup_text};
 
 use crate::infra::storage::error::{ConfigError, Result};
 use crate::infra::storage::fs_util::atomic_write;

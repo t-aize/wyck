@@ -10,38 +10,42 @@
 //! that is made to follow another never reports it. What the rest of the app acts on (a symbol to
 //! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
+pub mod charts;
+pub mod clipboard;
+pub mod drawing_cmds;
 mod drawing_ui;
+pub mod events;
 mod favorites;
 pub mod icon;
-pub use crate::app::workspace::layouts;
+pub mod layout;
 pub mod links;
 pub mod split;
 
-use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
-use std::rc::Rc;
-
+use self::layouts::{LayoutKey, layout};
+use self::links::Links;
+use self::split::{Divider, Node};
 use crate::app::broker::session::Session;
+use crate::app::drawings::Drawings;
+use crate::app::market_data::live::LiveHub;
+pub use crate::app::workspace::layouts;
+use crate::app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
+use crate::domain::chart::timeframe::Timeframe;
+use crate::domain::drawings::model::tool::{Group, Tool};
+use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
+use crate::ui::features::chart::{
+    Chart, ChartAction, ChartLine, ChartSettings, EditorRequest, LineId,
+};
+use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
     Subscription, Window, canvas, div, px, relative,
 };
-
-use self::layouts::{LayoutKey, layout};
-use self::links::Links;
-use self::split::{Divider, Node};
-use crate::app::drawings::Drawings;
-use crate::app::market_data::live::LiveHub;
-use crate::app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
-use crate::domain::chart::timeframe::Timeframe;
-use crate::domain::drawings::model::{Group, Tool};
-use crate::domain::indicators::StudyConfig;
-use crate::ui::features::chart::{
-    Chart, ChartAction, ChartLine, ChartSettings, EditorRequest, LineId,
-};
-use crate::ui::kit::{text_input::TextInput, theme};
+use layout::tree_for;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// How many recent tools and colors are kept.
 const MAX_RECENT_TOOLS: usize = 8;
@@ -349,14 +353,6 @@ impl MultiChart {
             .map(|s| s.name.to_string())
     }
 }
-
-mod charts;
-mod clipboard;
-mod drawing_cmds;
-mod events;
-mod layout;
-
-use layout::tree_for;
 
 /// How wide the hit zone of a line between charts is.
 const DIVIDER_HIT: f32 = 7.0;

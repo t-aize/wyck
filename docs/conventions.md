@@ -13,10 +13,12 @@
   is fine); integration tests are in `tests/`. When a module is split, its tests go in the file that
   holds most of the code they exercise.
 - Files stay under about 600 lines apart from data tables. Split by responsibility: `foo.rs` keeps
-  the types, the entry points and the re-exports (`pub use`), so no path changes, and the code goes
-  to children in `foo/` (`foo/render.rs`, `foo/actions.rs`). A method of a type can live in any
-  child as another `impl` block of the type. What the children of one module share is `pub(super)`;
-  a child reaches the module above with `super::` and the rest of the crate with `crate::`.
+  the types and the entry points, and the code goes to children in `foo/` (`foo/render.rs`,
+  `foo/actions.rs`). A method of a type can live in any child as another `impl` block of the type.
+  The children are `pub mod`, and every caller uses the real path (`scene::axes::countdown`): no
+  `pub use` that hides where a thing moved. What the children of one module share is `pub(super)`;
+  a child reaches a sibling with `super::sibling::Item` and the rest of the crate with `crate::`.
+  The `mod` and `use` lines are at the top of the file.
 
 ## Comments and docs
 

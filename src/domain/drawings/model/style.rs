@@ -60,7 +60,7 @@ pub struct Style {
     /// Whether the levels and prices are written.
     #[serde(default = "crate::domain::chart::defaults::yes")]
     pub labels: bool,
-    /// Whether the extra line of the tool shows (see [`super::Tool::middle_label`]).
+    /// Whether the extra line of the tool shows (see [`super::tool::Tool::middle_label`]).
     #[serde(default = "crate::domain::chart::defaults::yes")]
     pub middle: bool,
     /// What a long or short position is sized and told with. Kept in one piece, and left out of

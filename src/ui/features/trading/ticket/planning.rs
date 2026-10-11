@@ -1,9 +1,10 @@
 //! The plan of the ticket: what the fields add up to, the lines on the chart and the margin asked.
 
-use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif, side_of};
+use super::helpers::side_of;
+use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif};
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
 use crate::ui::features::chart::{ChartLine, LineId};

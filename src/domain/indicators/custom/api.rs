@@ -5,11 +5,17 @@
 //! and wraps the answer. The description of every function, for the editor, is in
 //! [`super::docs`], and a test checks that the two lists agree.
 
-use rhai::{Dynamic, Engine, Map};
+pub mod describe;
+pub mod indicators;
+pub mod inputs;
+pub mod plots;
 
 use super::super::math;
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
+use describe::describing;
+use indicators::{colors, indicators};
+use rhai::{Dynamic, Engine, Map};
 
 /// The longest period a function takes.
 pub const MAX_PERIOD: i64 = 100_000;
@@ -56,7 +62,7 @@ fn map_of(pairs: Vec<(&str, Series)>) -> Map {
 }
 
 /// The bars of the chart the script runs on.
-fn columns() -> Fallible<super::run::Columns> {
+fn columns() -> Fallible<super::run::decl::Columns> {
     with_run(|run| run.columns.clone())
 }
 
@@ -258,14 +264,3 @@ fn crossing(a: &Series, b: &Series, test: fn(f64, f64) -> bool) -> Fallible<Seri
             .collect(),
     ))
 }
-
-mod describe;
-mod indicators;
-mod inputs;
-mod plots;
-
-use describe::{Options, check_key, declare_input, describing, title_of};
-pub use indicators::{color_text, parse_color};
-use indicators::{colors, indicators};
-use inputs::{input_choice, input_color, input_number, input_source, input_text};
-use plots::{band, fill, hline, plot, plot_number};

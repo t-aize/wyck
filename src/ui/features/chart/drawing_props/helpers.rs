@@ -1,7 +1,8 @@
 //! Names and edits of the points of a drawing.
 
 use crate::domain::drawings::figures::wave_names;
-use crate::domain::drawings::model::{Drawing, Point, Tool};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{Drawing, Point};
 use crate::domain::market::PRICE_SCALE;
 use crate::ui::features::chart::timeframe::GROUPS;
 
@@ -94,7 +95,8 @@ pub(super) fn format_real(raw: f64, digits: u32) -> String {
 mod tests {
 
     use super::*;
-    use crate::domain::drawings::model::{Drawing, Point, Tool};
+    use crate::domain::drawings::model::tool::Tool;
+    use crate::domain::drawings::model::{Drawing, Point};
 
     #[test]
     fn a_positions_points_keep_their_shape_when_typed() {

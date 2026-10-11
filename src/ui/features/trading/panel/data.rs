@@ -5,7 +5,10 @@
 //! Rows are built with a cell for every column the table has, so showing or moving a column never
 //! asks the account again.
 
-use std::cmp::Ordering;
+pub mod alerts;
+pub mod exposure;
+pub mod orders;
+pub mod positions;
 
 use super::stats::{self, HistoryStats};
 use crate::app::account::Account;
@@ -15,6 +18,11 @@ use crate::app::prefs::panel::{PanelPrefs, Tab};
 use crate::domain::chart::zone::Zone;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, format_money};
+use alerts::{alert_log, alerts};
+use exposure::exposure;
+use orders::{history, orders};
+use positions::positions;
+use std::cmp::Ordering;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -374,16 +382,6 @@ pub fn to_csv(table: &Table) -> String {
     }
     lines.join("\n")
 }
-
-mod alerts;
-mod exposure;
-mod orders;
-mod positions;
-
-use alerts::{alert_log, alerts, capitalized};
-use exposure::exposure;
-use orders::{history, orders};
-use positions::positions;
 
 #[cfg(test)]
 mod tests {

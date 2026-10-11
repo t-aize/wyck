@@ -6,16 +6,18 @@
 //! the result live. OK keeps the changes, Cancel puts the chart back as it was when the panel
 //! opened, and Escape or the close button keep them.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
-use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
+pub mod data_pages;
+pub mod look_pages;
 
 use super::options::ChartColors;
 use super::settings::{ChartKind, ChartSettings};
 use super::transform::{BoxSize, TransformSettings};
 use super::{Chart, construction_ui, footprint_ui, tpo_ui, volume_ui};
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number};
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
 
 /// The tallest the list of time zones grows before it scrolls.
 const ZONE_LIST_MAX: f32 = 380.0;
@@ -182,7 +184,7 @@ impl ColorKey {
     /// The color of the theme, as `0xRRGGBB`.
     fn theme_color(self) -> u32 {
         let none = ChartColors::default();
-        let palette = super::palette_for_chart(&none);
+        let palette = super::palette::palette_for_chart(&none);
         rgb_u32(match self {
             Self::Up => palette.up,
             Self::Down => palette.down,
@@ -471,9 +473,6 @@ impl ChartSettingsEditor {
         )
     }
 }
-
-mod data_pages;
-mod look_pages;
 
 impl Render for ChartSettingsEditor {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

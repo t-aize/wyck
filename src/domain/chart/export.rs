@@ -5,13 +5,21 @@
 //!
 //! 1. [`table`] picks the rows (what is on screen, everything loaded, a range of dates, the last
 //!    few), the columns (in the order asked, with the names asked) and turns them into a
-//!    [`Table`] of typed [`Cell`]s.
-//! 2. [`render`] writes the table as text, by [`ExportOptions`]: delimited text with any
+//!    [`Table`](source::Table) of typed [`Cell`](source::Cell)s.
+//! 2. [`render`] writes the table as text, by [`ExportOptions`](options::ExportOptions): delimited text with any
 //!    delimiter, JSON, JSON lines, a Markdown table or SQL inserts, with times and numbers written
 //!    the way the options say.
 //!
 //! Prices are the server's raw integers until the very end, and are written by integer
 //! arithmetic, so a price never picks up the error of a float.
+
+pub mod choices;
+pub mod columns;
+pub mod options;
+pub mod presets;
+pub mod render;
+pub mod source;
+pub mod table;
 
 /// How many rows a preview shows.
 pub const PREVIEW_ROWS: usize = 12;
@@ -19,28 +27,6 @@ pub const PREVIEW_ROWS: usize = 12;
 const RAW_DECIMALS: u32 = 5;
 /// Rows of one SQL insert.
 const SQL_BATCH: usize = 500;
-
-mod choices;
-mod columns;
-mod options;
-mod presets;
-mod render;
-mod source;
-mod table;
-
-pub use choices::{
-    Content, Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, Order,
-    PriceDigits, Quote, RangeKind, TimeFormat,
-};
-pub use columns::ColumnKey;
-use options::identifier;
-pub use options::{ExportOptions, pattern_is_valid};
-pub use presets::{Preset, builtin_presets};
-pub use render::{clashes, file_name, price_text, render};
-use render::{local_text, zone_name};
-use source::Point;
-pub use source::{Cell, Source, Table, TableColumn};
-pub use table::{date_is_valid, table};
 
 #[cfg(test)]
 mod tests {
@@ -50,6 +36,7 @@ mod tests {
     use super::presets::*;
     use super::render::*;
     use super::source::*;
+    use super::table::*;
 
     use crate::domain::market::{Bar, Tick};
 
@@ -59,7 +46,8 @@ mod tests {
     use crate::domain::chart::settings::{ChartKind, ChartSettings};
     use crate::domain::chart::transform::BoxSize;
     use crate::domain::chart::zone::Zone;
-    use crate::domain::indicators::{StudyConfig, StudyKind};
+    use crate::domain::indicators::config::StudyConfig;
+    use crate::domain::indicators::kind::StudyKind;
 
     /// Monday 2026-01-05 00:00 UTC.
     const MONDAY: i64 = 1_767_571_200_000;

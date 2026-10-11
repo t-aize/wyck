@@ -165,7 +165,7 @@ pub enum ConfigError {
     #[error("This backup is locked with a passphrase.")]
     PassphraseRequired,
 
-    /// No backup is kept under this name (see [`crate::infra::storage::backup::BackupStore`]).
+    /// No backup is kept under this name (see [`crate::infra::storage::backup::store::BackupStore`]).
     #[error("There is no saved backup called `{0}`.")]
     BackupNotFound(String),
 

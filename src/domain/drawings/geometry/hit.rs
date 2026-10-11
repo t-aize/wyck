@@ -5,7 +5,8 @@ use super::{
     distance_to_segment, prims, prims_with,
 };
 use crate::domain::drawings::extras;
-use crate::domain::drawings::model::{Drawing, Tool};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::tool::Tool;
 
 /// The grips of a drawing: where its points are on the screen.
 pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {

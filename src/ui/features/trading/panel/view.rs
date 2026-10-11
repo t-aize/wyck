@@ -2,27 +2,29 @@
 //! of filters, the table with its sortable and resizable columns, the totals, the strip of
 //! figures over the history, and the menus of a row and of a header.
 
-use std::rc::Rc;
-
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::{Disableable, Selectable};
-use gpui::prelude::*;
-use gpui::{
-    AnyElement, App, ClipboardItem, Context, Entity, MouseButton, MouseMoveEvent, Role,
-    SharedString, Window, div, px,
-};
+pub mod header;
+pub mod menus;
+pub mod table;
 
 use super::data::{self, Ctx, PositionRow, Row, Table, Tone};
 use super::dialogs::{Target, open_protection};
 use super::{AccountPanel, MenuTarget, PanelEvent};
 use crate::app::account::{Account, Status};
 use crate::app::prefs::panel::{RowDensity, Tab};
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::{Disableable, Selectable};
 use crate::ui::kit::{
     button,
     confirm::confirm,
     menu::{self as popup},
     theme, tokens,
 };
+use gpui::prelude::*;
+use gpui::{
+    AnyElement, App, ClipboardItem, Context, Entity, MouseButton, MouseMoveEvent, Role,
+    SharedString, Window, div, px,
+};
+use std::rc::Rc;
 
 /// The width of the strip that grabs a column edge.
 const RESIZE_HANDLE: f32 = 9.0;
@@ -166,10 +168,6 @@ fn copy(cx: &mut App, title: &'static str, text: String) {
         "Copied to the clipboard.",
     );
 }
-
-mod header;
-mod menus;
-mod table;
 
 impl Render for AccountPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

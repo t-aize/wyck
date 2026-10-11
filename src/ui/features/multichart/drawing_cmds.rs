@@ -1,7 +1,8 @@
 //! What the drawing tools do for the active chart: pick a tool, edit the selection, undo.
 
 use super::{MAX_RECENT_COLORS, MAX_RECENT_TOOLS, MultiChart};
-use crate::domain::drawings::model::{Dash, MIN_LINE_OPACITY, Tool};
+use crate::domain::drawings::model::style::{Dash, MIN_LINE_OPACITY};
+use crate::domain::drawings::model::tool::Tool;
 use gpui::{Context, Window};
 
 impl MultiChart {

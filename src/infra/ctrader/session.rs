@@ -69,19 +69,8 @@
 //! would not add anything real.
 
 mod backoff;
+pub mod supervisor;
 mod token_store;
-
-pub use backoff::Backoff;
-pub use token_store::{MemoryTokenStore, TokenStore};
-
-use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
-use std::time::Duration;
-
-use tokio::sync::{broadcast, watch};
-use tokio::task::JoinHandle;
-use tracing::debug;
 
 use crate::domain::market::Period;
 use crate::infra::ctrader::auth::{OAuthClient, TokenSet};
@@ -89,6 +78,16 @@ use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use crate::infra::ctrader::error::{Error, Result};
 use crate::infra::ctrader::event::Event;
 use crate::infra::ctrader::transport::connection::Client;
+pub use backoff::Backoff;
+use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::time::Duration;
+use supervisor::{error_is_transient, supervise};
+pub use token_store::{MemoryTokenStore, TokenStore};
+use tokio::sync::{broadcast, watch};
+use tokio::task::JoinHandle;
+use tracing::debug;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]
@@ -593,10 +592,6 @@ impl Session {
         }
     }
 }
-
-mod supervisor;
-
-use supervisor::{error_is_transient, supervise};
 
 #[cfg(test)]
 mod stop_tests {

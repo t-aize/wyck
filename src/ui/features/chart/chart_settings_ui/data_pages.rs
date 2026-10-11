@@ -3,7 +3,7 @@
 use super::{ChartSettingsEditor, ColorKey, LABEL_WIDTH, PRICE_HEIGHTS, ZONE_LIST_MAX, edit_chart};
 use crate::ui::features::chart::options::ChartColors;
 use crate::ui::features::chart::settings::ChartSettings;
-use crate::ui::features::chart::study::StudyConfig;
+use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{
     ChartEvent, EditorRequest, indicator_picker, open_object_tree, study_settings,

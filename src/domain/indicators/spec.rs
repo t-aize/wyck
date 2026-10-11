@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 
 /// Where an indicator is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub enum InputKind {
 }
 
 impl InputKind {
-    /// Whether the value is text, kept in [`super::StudyConfig::texts`], rather than a number.
+    /// Whether the value is text, kept in [`super::config::StudyConfig::texts`], rather than a number.
     pub const fn is_text(self) -> bool {
         matches!(
             self,

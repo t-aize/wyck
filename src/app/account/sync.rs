@@ -1,9 +1,8 @@
 //! Keeping the account in step with the broker: what is loaded when the session is ready, and what each event changes.
 
 use super::orders::missed_exits;
-use super::{
-    Account, Conversion, HISTORY_DAYS, Notice, ReverseOrder, Status, Tone, flatten, refusal,
-};
+use super::reverse::ReverseOrder;
+use super::{Account, Conversion, HISTORY_DAYS, Notice, Status, Tone, flatten, refusal};
 use crate::app::broker::{Error as ApiError, Event};
 use crate::app::system::runtime;
 use crate::domain::trading::ExecutionType;

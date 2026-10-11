@@ -1,6 +1,7 @@
 //! Turning the plan into orders, asking for the go ahead and sending them.
 
-use super::{Kind, OrderTicket, Plan, Tif, problem, side_of, slippage_points, stop_limit_price};
+use super::helpers::{side_of, slippage_points, stop_limit_price};
+use super::{Kind, OrderTicket, Plan, Tif, problem};
 use crate::app::broker::trading::{NewOrderReq, NewOrderType};
 use crate::app::market_data::now_ms;
 use crate::domain::trading::guard::Verdict;

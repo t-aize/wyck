@@ -3,7 +3,8 @@
 use super::{ICONS, add, dist, polyline, sample, scale, sub};
 
 use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, arrow_head, board_size, seg};
-use crate::domain::drawings::model::{Dash, Drawing};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 pub(super) fn arrow_marker(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {

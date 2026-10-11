@@ -1,7 +1,9 @@
 //! The undo history of the book, and how a drawing is added to it.
 
-use super::{Book, Creating, Snapshot, UNDO_DEPTH, drawing_has_text};
-use crate::domain::drawings::model::{Drawing, Point, Tool};
+use super::create::drawing_has_text;
+use super::{Book, Creating, Snapshot, UNDO_DEPTH};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{Drawing, Point};
 
 impl Book {
     pub(super) fn snapshot(&self, symbol: &str) -> Snapshot {

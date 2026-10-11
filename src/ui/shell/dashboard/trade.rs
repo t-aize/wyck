@@ -6,11 +6,10 @@
 //! Some of those need the window (a confirmation, a field of the ticket), which a chart event does
 //! not carry: they wait in [`Pending`] for the next render.
 
-use gpui::prelude::*;
-use gpui::{Context, Window};
+pub mod layout;
+pub mod price_alerts;
 
 use super::Dashboard;
-
 use crate::domain::trading::math;
 use crate::ui::features::chart::{ChartAction, LineId, PositionLink};
 use crate::ui::features::multichart::SymbolRef;
@@ -18,6 +17,8 @@ use crate::ui::features::trading;
 use crate::ui::features::trading::panel::PanelEvent;
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
 use crate::ui::kit::{confirm::confirm, toast, tokens};
+use gpui::prelude::*;
+use gpui::{Context, Window};
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {
@@ -451,6 +452,3 @@ impl Dashboard {
         cx.notify();
     }
 }
-
-mod layout;
-mod price_alerts;

@@ -1,9 +1,10 @@
 //! Writing a table as text: delimited text, JSON, Markdown or SQL.
 
-use super::{
-    Cell, ColumnKey, Decimal, ExportOptions, Format, PriceDigits, Quote, RAW_DECIMALS, SQL_BATCH,
-    Source, Table, TimeFormat, identifier, pattern_is_valid,
-};
+use super::choices::{Decimal, Format, PriceDigits, Quote, TimeFormat};
+use super::columns::ColumnKey;
+use super::options::{ExportOptions, identifier, pattern_is_valid};
+use super::source::{Cell, Source, Table};
+use super::{RAW_DECIMALS, SQL_BATCH};
 
 use crate::domain::chart::zone::Zone;
 use chrono::{DateTime, FixedOffset};

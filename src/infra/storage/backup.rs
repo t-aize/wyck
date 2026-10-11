@@ -15,11 +15,11 @@
 //! * [`Backup`]: the file. Collect it from the disk, write it out (sealed or not), read it back,
 //!   check it. Nothing in a backup can be put outside the config folder: every document and script
 //!   name is checked when it is read.
-//! * [`BackupStore`]: the copies the app keeps for itself in `<config>/backups/`. Manual saves,
+//! * [`BackupStore`](store::BackupStore): the copies the app keeps for itself in `<config>/backups/`. Manual saves,
 //!   automatic ones (at most one per interval, the oldest pruned), and the safety copies made
 //!   before an import or a reset replaces something. Every copy is listed, read, restored and
 //!   deleted through it.
-//! * The staged restore ([`stage_import`], [`stage_reset`], [`apply_pending`]): a restore or a
+//! * The staged restore ([`stage_import`](staged::stage_import), [`stage_reset`](staged::stage_reset), [`apply_pending`](staged::apply_pending)): a restore or a
 //!   reset never writes over a running app. It is checked and put aside, and the next start applies
 //!   it before anything reads the documents, after saving what it replaces as a safety copy.
 //!
@@ -37,7 +37,7 @@
 //! DocumentStore::global(&paths).save_text("preferences", "magnet = false\n")?;
 //! store.restore(&saved.id, None)?;
 //!
-//! let applied = backup::apply_pending(&paths, "2026-09-29T10:05:00Z")?;
+//! let applied = backup::staged::apply_pending(&paths, "2026-09-29T10:05:00Z")?;
 //! assert_eq!(applied.imported, Some(1));
 //! assert_eq!(
 //!     DocumentStore::global(&paths).load_text("preferences")?.as_deref(),
@@ -46,11 +46,8 @@
 //! # Ok::<(), wyck::infra::storage::ConfigError>(())
 //! ```
 
-use std::collections::{BTreeMap, HashSet};
-use std::path::Path;
-
-use secrecy::SecretString;
-use serde::{Deserialize, Serialize};
+pub mod staged;
+pub mod store;
 
 use crate::infra::storage::documents::DocumentStore;
 use crate::infra::storage::error::{ConfigError, Result};
@@ -59,6 +56,10 @@ use crate::infra::storage::names::is_valid_name;
 use crate::infra::storage::paths::AppPaths;
 use crate::infra::storage::scripts::{self, ScriptStore};
 use crate::infra::storage::sealed;
+use secrecy::SecretString;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashSet};
+use std::path::Path;
 
 /// The value of `format` in a backup file, and the label of a sealed one.
 pub const FORMAT: &str = "wyck-backup";
@@ -435,15 +436,6 @@ fn read_backup_text(path: &Path) -> Result<String> {
     }
     std::fs::read_to_string(path).map_err(read)
 }
-
-mod staged;
-mod store;
-
-pub use staged::{
-    Applied, apply_pending, cancel_import, cancel_reset, export_to_file, import_pending,
-    reset_pending, stage_import, stage_import_file, stage_reset,
-};
-pub use store::{AutoPolicy, BackupEntry, BackupKind, BackupStore};
 
 #[cfg(test)]
 mod tests {

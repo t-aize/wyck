@@ -32,7 +32,7 @@ impl Book {
             .find_map(|drawing| {
                 resolve(drawing)
                     .and_then(|resolved| {
-                        geometry::hit(&resolved, proj, at, selected == Some(drawing.id))
+                        geometry::hit::hit(&resolved, proj, at, selected == Some(drawing.id))
                     })
                     .map(|part| (drawing.id, part))
             })
@@ -103,7 +103,7 @@ impl Book {
             });
         }
         if drawing.tool.is_box() && drawing.points.len() == 2 {
-            let grips = geometry::handles(&drawing, proj);
+            let grips = geometry::hit::handles(&drawing, proj);
             if index >= 4 {
                 return Some(if index < 6 {
                     Grab::GripVertical

@@ -1,6 +1,9 @@
 //! Turning bars into the lines of an indicator.
 
-use super::{DOWN, PlotKind, StudyConfig, StudyKind, UP, math};
+use super::config::StudyConfig;
+use super::kind::StudyKind;
+use super::math;
+use super::spec::{DOWN, PlotKind, UP};
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
 pub const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];

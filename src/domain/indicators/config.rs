@@ -4,12 +4,12 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::custom;
+use super::kind::StudyKind;
+use super::spec::{ATR_SMOOTHING, GRAY, InputKind, PlotKind, SOURCES, Spec, ValueFormat};
+use super::style::{FillStyle, LevelStyle, PlotStyle};
 use super::style::{default_bar_width, default_fill_opacity, opaque};
-use super::{
-    ATR_SMOOTHING, FillStyle, GRAY, InputKind, LevelStyle, PlotKind, PlotStyle, SOURCES, Spec,
-    StudyKind, ValueFormat, custom,
-};
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 
 /// One indicator on a chart, as the user set it. Also its saved form.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

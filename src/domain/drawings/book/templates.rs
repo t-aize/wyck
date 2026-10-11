@@ -1,8 +1,9 @@
 //! The templates a tool starts from, and the named ones the user saved.
 
 use super::Book;
+use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{
-    MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME, NamedTemplate, Template, Tool,
+    MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME, NamedTemplate, Template,
 };
 
 impl Book {
@@ -119,8 +120,8 @@ impl Book {
         &self,
         tool: Tool,
     ) -> (
-        crate::domain::drawings::model::Style,
-        Vec<crate::domain::drawings::model::Level>,
+        crate::domain::drawings::model::style::Style,
+        Vec<crate::domain::drawings::model::style::Level>,
     ) {
         match self.templates.get(&tool.code()) {
             Some(template) => (template.style.clone(), template.levels.clone()),

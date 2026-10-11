@@ -2,7 +2,8 @@
 
 use super::{BRUSH_STEP, Book, DRAG_START, EditKind, Editing, Press, Snapshot};
 use crate::domain::drawings::geometry::{self, Part, Projection};
-use crate::domain::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point, Tool};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
 
 impl Book {
     #[allow(clippy::too_many_arguments)]
@@ -22,7 +23,7 @@ impl Book {
         if let Some(id) = self.selected
             && let Some(drawing) = self.get(symbol, id).filter(|d| d.shows_on(timeframe))
             && let Some(resolved) = resolve(drawing)
-            && let Some(part @ Part::Handle(_)) = geometry::hit(&resolved, proj, at, true)
+            && let Some(part @ Part::Handle(_)) = geometry::hit::hit(&resolved, proj, at, true)
         {
             found = Some((id, part));
         }

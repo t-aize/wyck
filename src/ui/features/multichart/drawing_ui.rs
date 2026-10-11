@@ -4,20 +4,22 @@
 //! What a drawing is and how the pointer makes one lives in [`crate::domain::drawings`]; this
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::Disableable;
-use gpui::prelude::*;
-use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
+pub mod bar_options;
+pub mod style_bar;
 
 use super::MultiChart;
-use crate::domain::drawings::model::{Group, Tool};
+use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::ui::features::chart::object_tree::tool_icon;
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::{controls, icon, menu as popup, theme, tokens};
+use gpui::prelude::*;
+use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
 
 /// The opacities the style bar steps through, most opaque first.
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 /// The most tools the search lists.
 const MAX_FOUND: usize = 40;
-use crate::ui::kit::{controls, icon, menu as popup, theme, tokens};
 
 /// The width of the rail of tools.
 pub const RAIL_WIDTH: f32 = 46.0;
@@ -418,6 +420,3 @@ impl MultiChart {
         )
     }
 }
-
-mod bar_options;
-mod style_bar;

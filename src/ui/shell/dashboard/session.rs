@@ -1,8 +1,8 @@
 //! Following the session of the account: its events, the catalog of symbols and the active symbol.
 
+use super::view::quote_text;
 use super::{
-    Active, Conn, Dashboard, DashboardEvent, Load, Peek, Tick, failure_message, quote_text,
-    save_picture,
+    Active, Conn, Dashboard, DashboardEvent, Load, Peek, Tick, failure_message, save_picture,
 };
 
 use super::catalog::{Catalog, Entry};

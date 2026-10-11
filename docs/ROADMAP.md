@@ -97,7 +97,7 @@ smoke checklist in `docs/testing.md` done on a demo account. After the release, 
   (`UpdateError`, `ImportSkip`, `RasterError`, `HexError`, `ExitsProblem`, `SoundError`).
 - No `unwrap` or `expect` is left outside tests.
 - Unit tests stay inside the module they test. When a module is split, they go in the file that holds most of the code they exercise.
-- More than thirty files above 600 lines were split by responsibility, with the same public paths. The 27 files
+- More than thirty files above 600 lines were split by responsibility. Callers use the real paths, with no re-export. The 27 files
   still above it (the largest are `app/appearance.rs`, `ui/shell/dashboard/header.rs`,
   `ui/features/trading/panel/dialogs.rs`, `ui/features/chart/raster.rs` and
   `infra/ctrader/transport/connection.rs`, all under 900 lines) are left for when they change.

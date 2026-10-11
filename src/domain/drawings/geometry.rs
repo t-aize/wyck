@@ -6,8 +6,15 @@
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).
 
+pub mod fib;
+pub mod hit;
+pub mod measure;
+pub mod shapes;
+
 use super::look::Face;
-use super::model::{Dash, Drawing, Point};
+use super::model::style::Dash;
+use super::model::{Drawing, Point};
+use shapes::shapes_of;
 
 pub type P = (f32, f32);
 
@@ -346,23 +353,15 @@ fn prims_at(drawing: &Drawing, proj: &dyn Projection, selected: bool, factor: f3
     shapes_of(drawing, proj, selected)
 }
 
-mod fib;
-mod hit;
-mod measure;
-mod shapes;
-
-use fib::fib_prims;
-pub use fib::level_text;
-pub(super) use fib::{fill_of, label, level_label, stretch, visible_levels};
-pub use hit::{box_handles, handles, hit};
-use measure::{measure_prims, position_prims};
-use shapes::shapes_of;
-
 #[cfg(test)]
 pub(super) mod tests {
 
+    use super::hit::*;
+
     use super::*;
-    use crate::domain::drawings::model::{Dash, Drawing, Point, Style, Tool};
+    use crate::domain::drawings::model::style::{Dash, Style};
+    use crate::domain::drawings::model::tool::Tool;
+    use crate::domain::drawings::model::{Drawing, Point};
 
     /// A projection where time is 1 pixel per second from 0, and price is 1 pixel per unit
     /// upwards from the bottom of a 1000 by 500 plot. Bars are one minute long.

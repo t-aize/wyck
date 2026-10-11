@@ -19,6 +19,7 @@ pub mod layouts;
 mod preferences;
 mod saver;
 
+pub use self::preferences::watchlists::{NameError, Watchlist, Watchlists};
 pub use self::preferences::*;
 pub use self::saver::Saver;
 use crate::infra::storage::DocumentStore;

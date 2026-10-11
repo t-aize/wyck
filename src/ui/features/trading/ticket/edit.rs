@@ -1,6 +1,7 @@
 //! What a click in the ticket changes: the side, the kind, the protections, the units and the size.
 
-use super::{Kind, OrderTicket, TicketEvent, nice, offset_kind, side_of, size_kind};
+use super::helpers::{nice, offset_kind, side_of, size_kind};
+use super::{Kind, OrderTicket, TicketEvent};
 use crate::app::account::Busy;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Offset, SizeMode};
@@ -183,7 +184,7 @@ impl OrderTicket {
                 .settings()
                 .studies
                 .iter()
-                .find(|study| study.kind == crate::domain::indicators::StudyKind::Atr)
+                .find(|study| study.kind == crate::domain::indicators::kind::StudyKind::Atr)
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {

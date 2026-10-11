@@ -10,10 +10,13 @@
 //! The plot is cut into bands ([`mod@geometry`]): the prices on top, then one pane per indicator that
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
+pub mod axes;
 pub mod cmd;
 pub mod color;
+pub mod drawings;
 mod footprint;
 pub mod geometry;
+pub mod palette;
 pub mod price;
 mod series;
 mod studies;
@@ -31,8 +34,15 @@ use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
 use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
-use crate::domain::drawings::model::{Dash, Drawing};
-use crate::domain::indicators::{Placement, ValueFormat};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::indicators::spec::{Placement, ValueFormat};
+use axes::dash_pattern;
+use axes::{
+    axes_background, axis_tick_target, day_breaks, draw_axis_tags, draw_price_lines, spread_tags,
+};
+use drawings::{draw_drawings, draw_script_drawings};
+use palette::Palette;
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
@@ -682,19 +692,9 @@ fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
     }
 }
 
-mod axes;
-mod drawings;
-mod palette;
-use axes::{
-    axes_background, axis_tick_target, day_breaks, draw_axis_tags, draw_price_lines, spread_tags,
-};
-pub use axes::{countdown, dash_pattern};
-pub use drawings::ellipse_points;
-use drawings::{draw_drawings, draw_script_drawings};
-pub use palette::Palette;
-
 #[cfg(test)]
 mod tests {
+    use super::axes::*;
 
     use super::color::rgb;
 
@@ -707,7 +707,9 @@ mod tests {
     use crate::domain::chart::flow::Flow;
     use crate::domain::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
     use crate::domain::chart::zone::Zone;
-    use crate::domain::indicators::{ScriptDrawing, StudyConfig, StudyKind, StudyOutput};
+    use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
+    use crate::domain::indicators::config::StudyConfig;
+    use crate::domain::indicators::kind::StudyKind;
 
     fn bars(n: usize) -> Vec<Bar> {
         (0..n)
@@ -795,7 +797,7 @@ mod tests {
         let mut fixture = Fixture::new(Series::Bars(bars(20)), settings, View::new(8.0));
         let mut drawing = Drawing::new(
             0,
-            crate::domain::drawings::model::Tool::Text,
+            crate::domain::drawings::model::tool::Tool::Text,
             vec![crate::domain::drawings::model::Point {
                 t: 1_767_571_200_000,
                 p: 100_020.0,

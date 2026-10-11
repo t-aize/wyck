@@ -1,9 +1,10 @@
 //! Everything the user set for an export, and the defaults.
 
-use super::{
-    ColumnKey, Content, Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding,
-    Order, PriceDigits, Quote, RangeKind, TimeFormat,
+use super::choices::{
+    Content, Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, Order,
+    PriceDigits, Quote, RangeKind, TimeFormat,
 };
+use super::columns::ColumnKey;
 
 use crate::domain::chart::zone::Zone;
 use chrono::{format::Item, format::StrftimeItems};

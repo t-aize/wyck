@@ -13,8 +13,9 @@ use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
 
 use super::super::intern::{self, Slices};
-use super::super::{InputSpec, Placement, PlotSpec, Spec};
-use super::run::{Declaration, Limits, Problem, Script};
+use super::super::spec::{InputSpec, Placement, PlotSpec, Spec};
+use super::run::Script;
+use super::run::decl::{Declaration, Limits, Problem};
 
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
 const DECLARE_LIMITS: Limits = Limits {
@@ -247,7 +248,7 @@ pub fn missing_spec(id: &str) -> Spec {
         label: intern::name(stem),
         short: intern::name(&short_of(stem)),
         placement: Placement::Overlay,
-        format: super::super::ValueFormat::Plain(2),
+        format: super::super::spec::ValueFormat::Plain(2),
         inputs: &[],
         plots: &[],
         range: None,

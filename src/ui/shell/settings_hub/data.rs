@@ -7,7 +7,8 @@ use super::{
     AnyElement, BackupEntry, Context, IconName, SettingsHub, VERSION, Window, appearance, backup,
     confirm, div, form, icon, indicators, px, theme, tokens,
 };
-use crate::app::storage::backup::{BackupStore, Contents};
+use crate::app::storage::backup::Contents;
+use crate::app::storage::backup::store::BackupStore;
 use crate::app::storage::scripts::ScriptStore;
 use crate::ui::kit::prelude::Disableable;
 use gpui::prelude::*;
@@ -353,7 +354,7 @@ impl SettingsHub {
             let created = chrono::Local::now().to_rfc3339();
             let scripts = ScriptStore::new(scripts_dir);
             let result =
-                backup::export_to_file(dir, Some(&scripts), &path, None, VERSION, &created);
+                backup::staged::export_to_file(dir, Some(&scripts), &path, None, VERSION, &created);
             let _ = this.update(cx, |this, cx| match result {
                 Ok(b) => {
                     let count = b.files.len() + b.scripts.len();
@@ -388,7 +389,7 @@ impl SettingsHub {
             let Some(path) = paths.into_iter().next() else {
                 return;
             };
-            let result = backup::stage_import_file(dir, &path, None);
+            let result = backup::staged::stage_import_file(dir, &path, None);
             let _ = this.update(cx, |this, cx| match result {
                 Ok(b) => this.staged(&b, cx),
                 Err(error) => this.say(false, error.to_string(), cx),
@@ -399,7 +400,7 @@ impl SettingsHub {
 
     pub(super) fn cancel_import(&mut self, cx: &mut Context<Self>) {
         if let Some(dir) = crate::app_paths() {
-            let _ = backup::cancel_import(dir);
+            let _ = backup::staged::cancel_import(dir);
         }
         self.waiting = None;
         self.say(true, "The import is cancelled. Nothing was changed.", cx);
@@ -411,7 +412,7 @@ impl SettingsHub {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
-        if let Err(error) = backup::stage_reset(dir) {
+        if let Err(error) = backup::staged::stage_reset(dir) {
             self.say(false, error.to_string(), cx);
             return;
         }

@@ -2,7 +2,8 @@
 
 use super::{DrawingProps, Swatch};
 
-use crate::domain::drawings::model::{Drawing, MIN_LINE_OPACITY};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::MIN_LINE_OPACITY;
 use crate::ui::kit::prelude::Switch;
 use crate::ui::kit::{controls, number};
 use gpui::{App, Context, SharedString, Window};
@@ -21,7 +22,7 @@ impl DrawingProps {
     pub(super) fn restore(
         &self,
         cx: &mut Context<Self>,
-        restore: fn(&mut Drawing, &crate::domain::drawings::model::Style),
+        restore: fn(&mut Drawing, &crate::domain::drawings::model::style::Style),
     ) -> impl Fn(&mut Window, &mut App) + 'static + use<> {
         let this = cx.entity();
         move |window, cx| {

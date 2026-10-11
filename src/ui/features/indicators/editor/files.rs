@@ -114,7 +114,7 @@ impl IndicatorEditor {
                 if held {
                     editor.say(true, "It is on the chart already: it was updated.", cx);
                 } else {
-                    let study = crate::domain::indicators::StudyConfig::for_script(&id);
+                    let study = crate::domain::indicators::config::StudyConfig::for_script(&id);
                     chart.update(cx, |chart, cx| chart.add_study(study, cx));
                     indicators::update_prefs(cx, |prefs| {
                         prefs.note_recent(&format!("script:{id}"));

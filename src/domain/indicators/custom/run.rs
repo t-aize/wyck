@@ -12,24 +12,19 @@
 //! Every run is bounded: by a number of operations and by a time, and it can be told to stop.
 //! Nothing a script can call reaches the file system, the network or the clock.
 
+pub mod decl;
+
+use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
+use super::super::intern;
+use super::super::spec::{PlotKind, SOURCES};
+use super::api;
+use decl::{Columns, Declaration, Limits, Problem};
+use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
-
-use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
-
-use super::super::intern;
-use super::super::{PlotKind, SOURCES, ScriptDrawing, StudyInput, StudyOutput};
-use super::api;
-
-mod decl;
-
-pub use decl::{
-    Columns, Declaration, InputDecl, InputSection, InputType, Limits, MAX_INPUTS, MAX_PLOTS,
-    MAX_SCRIPT_DRAWINGS, Meta, PlotDecl, Problem, Severity,
-};
 
 /// Which of the two runs this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -393,7 +388,7 @@ fn output_of(run: &Run) -> StudyOutput {
     let mut output = StudyOutput::default();
     for plot in &run.plots {
         let decl = run.declaration.plots.iter().find(|d| d.key == plot.key);
-        output.plots.push(super::super::PlotOut {
+        output.plots.push(super::super::compute::PlotOut {
             key: intern::name(&plot.key),
             kind: decl.map_or(PlotKind::Line, |d| d.kind),
             values: plot.values.clone(),
@@ -402,7 +397,7 @@ fn output_of(run: &Run) -> StudyOutput {
         });
     }
     for fill in &run.fills {
-        output.fills.push(super::super::FillOut {
+        output.fills.push(super::super::compute::FillOut {
             a: fill.a,
             b: fill.b,
             color: fill.color,

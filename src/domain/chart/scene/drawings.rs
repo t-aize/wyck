@@ -1,11 +1,12 @@
 //! The drawings and the script drawings of a chart, as commands.
 
+use super::axes::dash_pattern;
 use super::color::transparent_black;
-use super::{Align, Cmd, Ctx, DrawingView, P, dash_pattern, hsla, rgb_alpha};
+use super::{Align, Cmd, Ctx, DrawingView, P, hsla, rgb_alpha};
 use crate::domain::chart::projection::ChartProjection;
 use crate::domain::drawings::geometry as shapes;
 use crate::domain::drawings::geometry::{Anchor, Prim};
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 
 /// Draws the drawings of the symbol, and the grips of the selected one.
 pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
@@ -30,7 +31,7 @@ pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<
             push_prim(cx, prim, out);
         }
         if selected && !drawing.locked {
-            for at in shapes::handles(drawing, &projection) {
+            for at in shapes::hit::handles(drawing, &projection) {
                 push_prim(cx, Prim::Handle { at }, out);
             }
         }

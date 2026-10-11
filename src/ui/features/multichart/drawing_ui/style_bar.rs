@@ -2,7 +2,8 @@
 
 use super::{OPACITY_STEPS, swatch_color};
 
-use crate::domain::drawings::model::{Dash, PALETTE, Tool};
+use crate::domain::drawings::model::style::{Dash, PALETTE};
+use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, layout, theme, tokens};
@@ -298,7 +299,7 @@ impl MultiChart {
 
 /// What the style bar knows of the selected drawing, gathered once for the pieces that build it.
 pub(super) struct BarState {
-    pub(super) style: crate::domain::drawings::model::Style,
+    pub(super) style: crate::domain::drawings::model::style::Style,
     pub(super) tool: Tool,
     pub(super) locked: bool,
     pub(super) hidden: bool,

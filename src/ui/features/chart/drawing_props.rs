@@ -4,33 +4,37 @@
 //! Every change shows on the charts at once. OK keeps the changes as one undo step, Cancel puts
 //! the drawing back as it was, and Escape or the close button keep them.
 
-use crate::domain::market::PRICE_SCALE;
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
-use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-
-use super::Chart;
-use super::timeframe::GROUPS;
-use super::zone::Zone;
-use crate::app::drawings::Drawings;
-use crate::domain::drawings::extras::{ICONS, icon_key};
-use crate::domain::drawings::figures::wave_names;
-use crate::domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
-use crate::domain::drawings::model::{
-    DASHES, DEGREES, Dash, Drawing, Level, MAX_LEVELS, MIN_LINE_OPACITY, Tool, wave_label,
-};
-use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};
-use crate::ui::kit::field::{SliderField, ValueChanged};
-use crate::ui::kit::font_picker::{FontChosen, FontPicker};
-use crate::ui::kit::{controls, form, modal, number, theme, tokens};
-
+pub mod actions;
+pub mod chrome;
 mod coordinates;
+pub mod helpers;
 mod levels;
 mod position;
 mod style;
 mod text;
 mod visibility;
+
+use super::Chart;
+use super::timeframe::GROUPS;
+use super::zone::Zone;
+use crate::app::drawings::Drawings;
+use crate::domain::drawings::extras::ICONS;
+use crate::domain::drawings::extras::notes::icon_key;
+use crate::domain::drawings::figures::wave_names;
+use crate::domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+use crate::domain::drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
+use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};
+use crate::domain::market::PRICE_SCALE;
+use crate::ui::kit::field::{SliderField, ValueChanged};
+use crate::ui::kit::font_picker::{FontChosen, FontPicker};
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
+use crate::ui::kit::{controls, form, modal, number, theme, tokens};
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use helpers::{format_real, set_point};
 
 pub struct PropsContext {
     pub zone: Zone,
@@ -554,9 +558,3 @@ impl DrawingProps {
         self.levels_changed = false;
     }
 }
-
-mod actions;
-mod chrome;
-mod helpers;
-
-use helpers::{every_timeframe, format_real, point_fields, point_name, set_point};

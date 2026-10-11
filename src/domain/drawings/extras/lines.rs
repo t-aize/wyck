@@ -6,11 +6,12 @@ use super::{
 };
 
 use crate::domain::drawings::figures;
-use crate::domain::drawings::geometry::{
-    Anchor, P, Prim, Projection, extended, fill_of, label, label_size, level_label, level_text,
-    seg, stretch, visible_levels,
+use crate::domain::drawings::geometry::fib::{
+    fill_of, label, level_label, level_text, stretch, visible_levels,
 };
-use crate::domain::drawings::model::{Dash, Drawing};
+use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, extended, label_size, seg};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
 
 pub(super) fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;

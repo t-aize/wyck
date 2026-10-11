@@ -1,6 +1,7 @@
 //! What a tool can do: which properties a drawing of it has and how a click is read.
 
-use super::{Group, Tool, WIDTHS};
+use super::style::WIDTHS;
+use super::tool::{Group, Tool};
 
 impl Tool {
     /// Whether a click places the last point and finishes, without a second click.

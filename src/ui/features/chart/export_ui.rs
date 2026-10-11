@@ -6,12 +6,9 @@
 //!
 //! What the export contains is decided in [`crate::domain::chart::export`]; this is only the window on it.
 
-use std::collections::BTreeMap;
-
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::InputState;
-use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+pub mod format;
+pub mod output;
+pub mod pages;
 
 use super::Chart;
 use super::data::Series;
@@ -21,8 +18,16 @@ use super::zone::Zone;
 use crate::app::storage::DocumentStore;
 use crate::app::storage::chart_export as store;
 use crate::app::storage::chart_export::Saved;
-use crate::domain::chart::export::{ColumnKey, Content, ExportOptions, Source};
+use crate::domain::chart::export::choices::Content;
+use crate::domain::chart::export::columns::ColumnKey;
+use crate::domain::chart::export::options::ExportOptions;
+use crate::domain::chart::export::source::Source;
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::InputState;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use std::collections::BTreeMap;
 
 /// The most rows put on the clipboard: past it a file is the better way.
 const MAX_COPY_ROWS: usize = 250_000;
@@ -553,10 +558,6 @@ impl ExportDialog {
         form::field(label, hint, form::text_field(state, width))
     }
 }
-
-mod format;
-mod output;
-mod pages;
 
 impl Render for ExportDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

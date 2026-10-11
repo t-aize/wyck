@@ -2,8 +2,10 @@
 
 use super::{DOWN, MAX_GHOST_BARS, MAX_ROWS, MIN_ROWS, POC, ROW_PX, UP, polyline, stat};
 
-use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, label, seg, visible_levels};
-use crate::domain::drawings::model::{Dash, Drawing, Point};
+use crate::domain::drawings::geometry::fib::{label, visible_levels};
+use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, seg};
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::drawings::model::{Drawing, Point};
 
 /// The candle of a bar shifted by `offset` in price, at `x`.
 pub(super) fn candle(

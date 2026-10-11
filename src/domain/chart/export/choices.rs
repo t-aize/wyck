@@ -109,7 +109,7 @@ pub enum Delimiter {
     Tab,
     Pipe,
     Space,
-    /// The first character of [`super::ExportOptions::custom_delimiter`].
+    /// The first character of [`super::options::ExportOptions::custom_delimiter`].
     Custom,
 }
 
@@ -198,7 +198,7 @@ pub enum TimeFormat {
     UnixMillis,
     /// Days since 1900 as a number, which a spreadsheet reads as a date.
     Spreadsheet,
-    /// The pattern of [`super::ExportOptions::time_pattern`], with the codes of `strftime`.
+    /// The pattern of [`super::options::ExportOptions::time_pattern`], with the codes of `strftime`.
     Custom,
 }
 
@@ -281,7 +281,7 @@ pub enum PriceDigits {
     /// The decimals of the symbol.
     #[default]
     Symbol,
-    /// [`super::ExportOptions::fixed_digits`] decimals.
+    /// [`super::options::ExportOptions::fixed_digits`] decimals.
     Fixed,
     /// The server's own integers, without a decimal point.
     Raw,

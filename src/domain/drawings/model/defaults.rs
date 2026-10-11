@@ -1,7 +1,8 @@
 //! The look and the levels a new drawing of each tool starts with.
 
+use super::style::{Dash, Level, Style};
 use super::style::{default_opacity, level};
-use super::{Dash, Group, Level, Style, Tool};
+use super::tool::{Group, Tool};
 
 const GRAY: u32 = 0x9ca3af;
 const RED: u32 = 0xff6467;

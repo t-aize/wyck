@@ -2,10 +2,12 @@
 
 use super::ExportDialog;
 use crate::domain::chart::export;
-use crate::domain::chart::export::{
-    ColumnKey, Decimal, Delimiter, Empty, ExportOptions, ExportZone, Format, HeaderCase,
-    LineEnding, PriceDigits, Quote, TimeFormat,
+use crate::domain::chart::export::choices::{
+    Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, PriceDigits, Quote,
+    TimeFormat,
 };
+use crate::domain::chart::export::columns::ColumnKey;
+use crate::domain::chart::export::options::ExportOptions;
 use crate::ui::features::chart::settings_rows::named;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{form, theme, tokens};
@@ -266,7 +268,7 @@ impl ExportDialog {
                 }))
                 .into_any_element()
         };
-        let built_in: Vec<AnyElement> = export::builtin_presets()
+        let built_in: Vec<AnyElement> = export::presets::builtin_presets()
             .into_iter()
             .enumerate()
             .map(|(n, p)| row(format!("b{n}"), p.name, p.options, false))

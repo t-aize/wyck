@@ -32,38 +32,33 @@
 //! width, which blocks show and in what order, the size shortcuts and what a new order starts
 //! with.
 
-use crate::ui::kit::input::{InputEvent, InputState};
-use gpui::prelude::*;
-use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
-
-use crate::app::account::Account;
-use crate::domain::indicators::atr_stop::AtrStop;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, Offset, Pending, SizeMode, Stepped, TicketProblem};
-use crate::ui::features::chart::Chart;
-use crate::ui::features::chart::{PositionLink, PositionPlan};
-use crate::ui::features::multichart::SymbolRef;
-
 pub mod customize;
-pub use crate::app::prefs::ticket as prefs;
-mod edit;
-mod helpers;
-mod link;
-mod planning;
-mod problem;
-mod send;
+pub mod edit;
+pub mod helpers;
+pub mod link;
+pub mod planning;
+pub mod problem;
+pub mod send;
 mod templates;
 mod view;
 
-use self::helpers::{
-    format_offset, nice, offset_kind, side_of, size_kind, slippage_points, stop_limit_price,
-};
-
+use self::helpers::{offset_kind, size_kind};
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
+use crate::app::account::Account;
+pub use crate::app::prefs::ticket as prefs;
+use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::math;
+use crate::domain::trading::math::{Contract, Offset, Pending, SizeMode, Stepped, TicketProblem};
 use crate::domain::trading::plan;
 use crate::domain::trading::plan::ExitPlan;
+use crate::ui::features::chart::Chart;
+use crate::ui::features::chart::{PositionLink, PositionPlan};
+use crate::ui::features::multichart::SymbolRef;
+use crate::ui::kit::input::{InputEvent, InputState};
 use crate::ui::kit::number;
+use gpui::prelude::*;
+use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;

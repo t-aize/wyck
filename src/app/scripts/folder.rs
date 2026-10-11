@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::indicators::custom::library::{Entry, registry};
-use crate::domain::indicators::custom::run::Problem;
+use crate::domain::indicators::custom::run::decl::Problem;
 use crate::infra::storage::scripts::{ScriptFile, ScriptStore};
 
 // The rules of the folder (the extension, the limits, which names are allowed) are owned by
@@ -482,7 +482,7 @@ fn scripts_in(dir: &Path, out: &mut Vec<PathBuf>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::Placement;
+    use crate::domain::indicators::spec::Placement;
 
     const SMA: &str = "indicator(#{ name: \"Two lines\", short: \"TL\", overlay: true });\n\
         let len = input_int(\"length\", 20, #{ min: 2, max: 200 });\n\

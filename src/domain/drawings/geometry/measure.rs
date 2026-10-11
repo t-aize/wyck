@@ -2,7 +2,9 @@
 
 use super::{Anchor, P, Prim, Projection, seg};
 use crate::domain::drawings::extras;
-use crate::domain::drawings::model::{Dash, Drawing, Tool};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::drawings::model::tool::Tool;
 
 pub(super) fn measure_prims(
     drawing: &Drawing,

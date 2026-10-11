@@ -1,6 +1,7 @@
 //! What an export reads: the data of the chart, and the table it is cut into.
 
-use super::{ColumnKey, Content};
+use super::choices::Content;
+use super::columns::ColumnKey;
 
 use crate::domain::chart::data::Series;
 use crate::domain::chart::display::Display;

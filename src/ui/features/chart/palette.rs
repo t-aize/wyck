@@ -2,8 +2,8 @@
 
 use crate::domain::chart::{options, scene};
 
-pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
-    let mut base = scene::Palette::new();
+pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::palette::Palette {
+    let mut base = scene::palette::Palette::new();
     let color = chart_rgba;
     base.up = color(crate::ui::kit::theme::chart_up());
     base.down = color(crate::ui::kit::theme::chart_down());
@@ -20,7 +20,7 @@ pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette
     base.kagi_yin = base.down;
     base.pnf_up = base.up;
     base.pnf_down = base.down;
-    scene::Palette::for_chart_with_base(colors, base)
+    scene::palette::Palette::for_chart_with_base(colors, base)
 }
 
 pub(super) struct DesktopPalette {

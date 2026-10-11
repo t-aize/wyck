@@ -1,11 +1,14 @@
 //! Saved preferences and watchlists.
 
+pub mod watchlists;
+
 use super::layouts::{self, LayoutKey};
 use crate::app::prefs::panel::PanelPrefs;
 use crate::app::prefs::ticket::TicketPrefs;
 use crate::domain::chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use crate::domain::chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
-use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL, Tool};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 use crate::domain::trading::guard::RiskPrefs;
 use serde::{Deserialize, Serialize};
 
@@ -528,10 +531,6 @@ impl Preferences {
         format!("{}-{}", key.count, key.variant)
     }
 }
-
-mod watchlists;
-
-pub use watchlists::{NameError, Watchlist, Watchlists};
 
 #[cfg(test)]
 mod tests {

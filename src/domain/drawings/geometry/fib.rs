@@ -2,7 +2,8 @@
 
 use super::{Anchor, P, Prim, Projection, Rect, extended, seg};
 use crate::domain::drawings::look::{LabelSide, LevelText};
-use crate::domain::drawings::model::{Dash, Drawing, Level, Point, Style};
+use crate::domain::drawings::model::style::{Dash, Level, Style};
+use crate::domain::drawings::model::{Drawing, Point};
 
 pub(super) fn fib_prims(
     drawing: &Drawing,

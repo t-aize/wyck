@@ -7,8 +7,8 @@ use super::{
 use crate::domain::chart::axis;
 use crate::domain::chart::data::Series;
 use crate::domain::chart::timeframe::Timeframe;
-use crate::domain::drawings::model::Dash;
-use crate::domain::indicators::ValueFormat;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::indicators::spec::ValueFormat;
 
 /// The solid strips of the two axes and the lines that set them off.
 pub(super) fn axes_background(frame: &Frame<'_>, geometry: &Geometry) -> Cmd {

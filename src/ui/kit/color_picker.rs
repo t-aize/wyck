@@ -12,18 +12,20 @@
 //! The panel is an entity kept per swatch (by the swatch's id) so that a hue survives a drag
 //! through white, gray or black, where a color no longer says which hue it came from.
 
-use std::cell::Cell;
-use std::collections::HashMap;
-use std::rc::Rc;
+pub mod math;
+pub mod render;
 
+use crate::ui::kit::theme;
 use gpui::prelude::*;
 use gpui::{
     App, Bounds, Context, DragMoveEvent, ElementId, Entity, Global, MouseButton, MouseDownEvent,
     Pixels, Point, Subscription, Window, canvas, div, linear_color_stop, linear_gradient, px, rgb,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
-
-use crate::ui::kit::theme;
+use math::{hex_text, hsv_to_rgb, parse_hex, rgb_to_hsv};
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// The size of the square, and the height of the hue bar.
 const AREA_W: f32 = 232.0;
@@ -571,8 +573,3 @@ impl ColorPanel {
         )
     }
 }
-
-mod math;
-mod render;
-
-pub use math::{PRESETS, hex_text, hsv_to_rgb, parse_hex, rgb_to_hsv};

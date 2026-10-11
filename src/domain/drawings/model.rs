@@ -5,18 +5,15 @@
 //! also what is saved: every field has a default and unknown tools are tolerated, so a file from
 //! another version still loads.
 
-use std::collections::BTreeMap;
+pub mod capabilities;
+pub mod defaults;
+pub mod style;
+pub mod tool;
 
 use serde::{Deserialize, Serialize};
-
-mod style;
-mod tool;
-
-pub use style::{DASHES, Dash, Level, MIN_LINE_OPACITY, PALETTE, Style, WIDTHS};
-pub use tool::{Group, Tool};
-
-mod capabilities;
-mod defaults;
+use std::collections::BTreeMap;
+use style::{Level, Style};
+use tool::Tool;
 
 const SCHEMA_VERSION: u32 = 1;
 

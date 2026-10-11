@@ -2,7 +2,7 @@
 
 use super::rgb;
 use crate::ui::features::chart::scene::{Geometry, axis_w, price};
-use crate::ui::features::chart::study::{Placement, PlotKind, ValueFormat};
+use crate::ui::features::chart::study::spec::{Placement, PlotKind, ValueFormat};
 use crate::ui::features::chart::{Chart, ChartEvent, EditorRequest, study_settings};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, icon, theme, tokens};
@@ -47,9 +47,9 @@ impl Chart {
                             .and_then(|i| up.get(i).copied())
                             .unwrap_or(true);
                         if rising {
-                            crate::ui::features::chart::study::UP_COLOR
+                            crate::ui::features::chart::study::compute::UP_COLOR
                         } else {
-                            crate::ui::features::chart::study::DOWN_COLOR
+                            crate::ui::features::chart::study::compute::DOWN_COLOR
                         }
                     }
                     _ => config.plot_style(plot.key).color,
@@ -268,7 +268,7 @@ impl Chart {
             Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
-            Some((crate::domain::drawings::model::Tool::ArrowPath, placed, _)) => format!(
+            Some((crate::domain::drawings::model::tool::Tool::ArrowPath, placed, _)) => format!(
                 "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),

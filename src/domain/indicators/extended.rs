@@ -1,14 +1,13 @@
 //! Additional built-in indicators. Each output stays aligned with the input bars.
 
+pub mod specs;
+
+use super::compute::{FillOut, PlotOut, StudyInput, StudyOutput, plot};
+use super::config::StudyConfig;
+use super::kind::StudyKind;
+use super::math;
+use super::spec::PlotKind;
 use chrono::{Datelike, NaiveDate};
-
-use super::{
-    FillOut, PlotKind, PlotOut, StudyConfig, StudyInput, StudyKind, StudyOutput, math, plot,
-};
-
-mod specs;
-
-pub(in crate::domain::indicators) use specs::spec_for;
 
 pub(super) fn average(values: &[f64], len: usize, method: usize) -> Vec<f64> {
     match method {

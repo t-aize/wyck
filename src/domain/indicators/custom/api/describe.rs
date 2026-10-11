@@ -1,15 +1,13 @@
 //! The calls that describe an indicator.
 
-use super::{
-    band, fill, hline, input_choice, input_color, input_number, input_source, input_text,
-    parse_color, plot, plot_number,
-};
+use super::indicators::parse_color;
+use super::inputs::{input_choice, input_color, input_number, input_source, input_text};
+use super::plots::{band, fill, hline, plot, plot_number};
 
-use crate::domain::indicators::ValueFormat;
-use crate::domain::indicators::custom::run::{
-    InputDecl, InputType, MAX_INPUTS, Meta, Mode, with_run,
-};
+use crate::domain::indicators::custom::run::decl::{InputDecl, InputType, MAX_INPUTS, Meta};
+use crate::domain::indicators::custom::run::{Mode, with_run};
 use crate::domain::indicators::custom::series::{Fallible, Series, truth};
+use crate::domain::indicators::spec::ValueFormat;
 use rhai::{Array, Dynamic, Engine, Map};
 
 pub(super) fn valid_key(key: &str) -> bool {

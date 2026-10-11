@@ -1,8 +1,7 @@
 //! The rows of the orders tab and of the history of deals.
 
-use super::{
-    Cell, Ctx, Row, RowKind, Table, Tone, Unit, capitalized, finish, price_cell, side_cell,
-};
+use super::alerts::capitalized;
+use super::{Cell, Ctx, Row, RowKind, Table, Tone, Unit, finish, price_cell, side_cell};
 
 use crate::app::account::Busy;
 use crate::app::market_data::now_ms;

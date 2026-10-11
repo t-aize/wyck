@@ -16,13 +16,20 @@
 //! With no tool, a press picks up whatever drawing is under the pointer (a grip to reshape it,
 //! anywhere else to move it whole). A press on nothing is left to the chart, which scrolls.
 
-use std::collections::BTreeMap;
+pub mod actions;
+pub mod create;
+pub mod edit;
+pub mod history;
+pub mod pick;
+pub mod templates;
 
 use super::geometry::{P, Projection};
+use super::model::tool::Tool;
 use super::model::{
     DEFAULT_DRAWINGS_PER_SYMBOL, Drawing, DrawingsDoc, MAX_DRAWINGS_PER_SYMBOL, NamedTemplate,
-    Point, Template, Tool,
+    Point, Template,
 };
+use std::collections::BTreeMap;
 
 /// How far a press must move before it counts as a drag, in pixels.
 const DRAG_START: f32 = 6.0;
@@ -379,15 +386,6 @@ impl Book {
         had || had_more
     }
 }
-
-mod actions;
-mod create;
-mod edit;
-mod history;
-mod pick;
-mod templates;
-
-use create::drawing_has_text;
 
 #[cfg(test)]
 mod tests {
@@ -1441,7 +1439,7 @@ mod tests {
         apply_handle(&mut d, 7, Point { t: 900_000, p: 1.0 });
         assert_eq!(d.points[1].t, 900_000);
         assert_eq!(d.points[1].p, 250.0, "a side moves one way only");
-        assert_eq!(super::super::geometry::handles(&d, &Linear).len(), 8);
+        assert_eq!(super::super::geometry::hit::handles(&d, &Linear).len(), 8);
     }
 
     #[test]

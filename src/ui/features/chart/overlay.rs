@@ -2,13 +2,16 @@
 //! the indicators with their buttons), the toolbar, its menus, the labels of the order and alert
 //! lines, the right-click menu, and the loading, failed and empty states.
 
-use crate::ui::kit::icon::IconName;
-use gpui::prelude::*;
-use gpui::{Context, MouseButton, Window, div};
+pub mod headline;
+pub mod legend;
+pub mod menus;
 
 use super::settings::ChartKind;
 use super::{Chart, paint};
+use crate::ui::kit::icon::IconName;
 use crate::ui::kit::menu::{self as popup};
+use gpui::prelude::*;
+use gpui::{Context, MouseButton, Window, div};
 
 pub fn kind_icon(kind: ChartKind) -> IconName {
     match kind {
@@ -115,7 +118,3 @@ impl Render for Chart {
             .children(menu.popup(context, popup::Placement::Cursor, window, cx))
     }
 }
-
-mod headline;
-mod legend;
-mod menus;

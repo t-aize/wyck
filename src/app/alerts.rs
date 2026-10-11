@@ -20,7 +20,7 @@ use std::time::Duration;
 use crate::domain::chart::Timeframe;
 use crate::domain::chart::data::Series;
 use crate::domain::indicators as study;
-use crate::domain::indicators::ValueFormat;
+use crate::domain::indicators::spec::ValueFormat;
 use crate::domain::market::{Bar, PRICE_SCALE};
 use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;
@@ -442,15 +442,15 @@ impl Alerts {
     }
 
     /// One plot of an indicator over the bars, in the units of the price where it is one.
-    fn plot_of(config: &study::StudyConfig, plot: usize, bars: &[Bar]) -> Option<Vec<f64>> {
-        if config.is_script() || config.kind == study::StudyKind::VolumeProfile {
+    fn plot_of(config: &study::config::StudyConfig, plot: usize, bars: &[Bar]) -> Option<Vec<f64>> {
+        if config.is_script() || config.kind == study::kind::StudyKind::VolumeProfile {
             return None;
         }
         let input = crate::domain::chart::display::study_input(
             &Series::Bars(bars.to_vec()),
             crate::domain::chart::Zone::Utc,
         );
-        let output = study::compute(config, &input);
+        let output = study::compute::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {
             PRICE_SCALE as f64

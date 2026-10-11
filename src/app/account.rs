@@ -10,22 +10,20 @@
 //! the non-idempotency notes of [`crate::app::broker::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
+pub mod actions;
 pub mod notice;
+pub mod orders;
+pub mod reverse;
+pub mod sync;
 
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::rc::Rc;
-use std::time::{Duration, Instant};
-
+pub use self::notice::{Notice, NoticeAction, Reason, Tone, describe, explain, refusal};
 use crate::app::broker::session::Session;
 use crate::app::broker::trading::NewOrderReq;
 use crate::app::broker::{Error as ApiError, Result as ApiResult};
-use crate::domain::market::PRICE_SCALE;
-use crate::domain::trading::TradeSide;
-use gpui::{Context, EventEmitter};
-
-pub use self::notice::{Notice, NoticeAction, Reason, Tone, describe, explain, refusal};
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
+use crate::domain::market::PRICE_SCALE;
+use crate::domain::trading::TradeSide;
 use crate::domain::trading::book::AccountBook;
 use crate::domain::trading::guard;
 use crate::domain::trading::guard::{
@@ -33,6 +31,11 @@ use crate::domain::trading::guard::{
 };
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Link, Summary};
+use gpui::{Context, EventEmitter};
+use reverse::ReverseTracker;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;
@@ -374,10 +377,3 @@ impl Account {
         cx.emit(AccountEvent::Notice(notice));
     }
 }
-
-mod actions;
-mod orders;
-mod reverse;
-mod sync;
-
-use reverse::{ReverseOrder, ReverseTracker};

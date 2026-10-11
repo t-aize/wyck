@@ -1,8 +1,9 @@
 //! The fixed description of each additional indicator: its inputs, plots and where it is drawn.
 
-use crate::domain::indicators::{
-    InputKind, InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, StudyKind, ValueFormat,
-    float, int, line,
+use crate::domain::indicators::kind::StudyKind;
+use crate::domain::indicators::spec::{
+    InputKind, InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, ValueFormat, float, int,
+    line,
 };
 
 pub(super) const BLUE: u32 = 0x2962ff;
@@ -24,7 +25,7 @@ pub(super) const fn styled_plot(
         kind,
         color,
         width,
-        dash: crate::domain::drawings::model::Dash::Solid,
+        dash: crate::domain::drawings::model::style::Dash::Solid,
         visible: true,
     }
 }

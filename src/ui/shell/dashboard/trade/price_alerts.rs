@@ -266,7 +266,10 @@ impl Dashboard {
             crate::ui::features::chart::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe = timeframe.clone();
                 let spec = study.kind.spec();
-                if matches!(spec.format, crate::domain::indicators::ValueFormat::Price) {
+                if matches!(
+                    spec.format,
+                    crate::domain::indicators::spec::ValueFormat::Price
+                ) {
                     // An average or a band on the prices: the price crosses it.
                     alert.versus = Some(Source::Indicator {
                         study: study.clone(),

@@ -1,9 +1,10 @@
 //! What a script declares about itself and what it reads: limits, problems, inputs, plots and the columns of bars.
 
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::indicators::compute::StudyInput;
 use crate::domain::indicators::custom::series::Series;
 use crate::domain::indicators::intern;
-use crate::domain::indicators::{InputKind, PlotKind, StudyInput, ValueFormat};
+use crate::domain::indicators::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;
@@ -254,7 +255,7 @@ impl Columns {
         }
     }
 
-    /// The price a source input names, by its position in [`crate::domain::indicators::SOURCES`].
+    /// The price a source input names, by its position in [`crate::domain::indicators::spec::SOURCES`].
     pub fn source(&self, which: usize) -> Series {
         match which {
             0 => self.open.clone(),

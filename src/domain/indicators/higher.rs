@@ -7,7 +7,7 @@
 
 use crate::domain::chart::timeframe::Timeframe;
 
-use super::StudyInput;
+use super::compute::StudyInput;
 
 /// The chart's bars grouped into the bars of a higher timeframe.
 #[derive(Debug, Clone, PartialEq)]

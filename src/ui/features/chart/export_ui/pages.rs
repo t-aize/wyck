@@ -2,7 +2,9 @@
 
 use super::{ExportDialog, human_bytes, mono};
 use crate::domain::chart::export;
-use crate::domain::chart::export::{Content, ExportOptions, Order, PREVIEW_ROWS, RangeKind};
+use crate::domain::chart::export::PREVIEW_ROWS;
+use crate::domain::chart::export::choices::{Content, Order, RangeKind};
+use crate::domain::chart::export::options::ExportOptions;
 use crate::ui::features::chart::settings_rows::named;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
@@ -21,7 +23,7 @@ impl ExportDialog {
                 "export-content",
                 "Export",
                 Some("The chart draws its own elements, which are not the prices"),
-                export::Content::ALL
+                export::choices::Content::ALL
                     .iter()
                     .map(|c| {
                         (

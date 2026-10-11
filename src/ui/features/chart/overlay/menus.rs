@@ -39,7 +39,7 @@ impl Chart {
                 chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
             }
         };
-        let long = drawing.tool == crate::domain::drawings::model::Tool::LongPosition;
+        let long = drawing.tool == crate::domain::drawings::model::tool::Tool::LongPosition;
         let settings = chart.clone();
         let mut about = vec![
             Entry::new("Settings...")
@@ -213,7 +213,7 @@ impl Chart {
                 .filter(|s| {
                     s.visible
                         && !s.is_script()
-                        && s.kind != crate::domain::indicators::StudyKind::VolumeProfile
+                        && s.kind != crate::domain::indicators::kind::StudyKind::VolumeProfile
                 })
                 .take(6)
             {

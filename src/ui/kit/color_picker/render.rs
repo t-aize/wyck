@@ -1,8 +1,9 @@
 //! How the color panel is drawn: the square, the hue bar, the presets, the fields and the saved colors.
 
+use super::math::{PRESETS, hsv_to_rgb};
 use super::{
-    AREA_H, AREA_W, CELL, ColorPanel, Drag, GAP, HUE_H, MAX_SAVED, PRESETS, Saved, hsv_to_rgb,
-    marker, small_label, surface,
+    AREA_H, AREA_W, CELL, ColorPanel, Drag, GAP, HUE_H, MAX_SAVED, Saved, marker, small_label,
+    surface,
 };
 use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::theme;

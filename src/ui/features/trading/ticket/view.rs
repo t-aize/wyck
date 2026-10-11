@@ -12,7 +12,8 @@ use crate::ui::kit::prelude::{Disableable, StyledExt as _};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, px};
 
-use super::{OrderTicket, Plan, TicketEvent, customize, nice, plan, side_of, stop_limit_price};
+use super::helpers::{nice, side_of, stop_limit_price};
+use super::{OrderTicket, Plan, TicketEvent, customize, plan};
 use crate::app::account::Busy;
 use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
 use crate::domain::indicators::atr_stop::Smoothing;

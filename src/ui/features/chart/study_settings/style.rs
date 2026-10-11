@@ -1,8 +1,10 @@
 //! The style and display pages of an indicator: plots, levels, fills and where it is drawn.
 
 use super::{PANE_HEIGHTS, StudyEditor};
-use crate::domain::drawings::model::{DASHES, WIDTHS};
-use crate::ui::features::chart::study::{Placement, PlotKind, StudyConfig, StudyKind};
+use crate::domain::drawings::model::style::{DASHES, WIDTHS};
+use crate::ui::features::chart::study::config::StudyConfig;
+use crate::ui::features::chart::study::kind::StudyKind;
+use crate::ui::features::chart::study::spec::{Placement, PlotKind};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, form, number, tokens};
 use gpui::prelude::*;
@@ -172,9 +174,9 @@ impl StudyEditor {
                             None,
                             controls::color_swatch(
                                 SharedString::from(format!("plot-up-{key}")),
-                                style
-                                    .up_color
-                                    .unwrap_or(crate::ui::features::chart::study::UP_COLOR),
+                                style.up_color.unwrap_or(
+                                    crate::ui::features::chart::study::compute::UP_COLOR,
+                                ),
                                 up_open,
                                 cx,
                                 move |_window, cx| {
@@ -197,9 +199,9 @@ impl StudyEditor {
                             None,
                             controls::color_swatch(
                                 SharedString::from(format!("plot-down-{key}")),
-                                style
-                                    .down_color
-                                    .unwrap_or(crate::ui::features::chart::study::DOWN_COLOR),
+                                style.down_color.unwrap_or(
+                                    crate::ui::features::chart::study::compute::DOWN_COLOR,
+                                ),
                                 down_open,
                                 cx,
                                 move |_window, cx| {

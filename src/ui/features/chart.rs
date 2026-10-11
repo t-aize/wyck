@@ -50,18 +50,14 @@
 //! Open API has no trade tape, so the side and the volume of each unit are inferred from the
 //! quotes, and the chart says so.
 
-use crate::domain::chart::axis;
+pub mod api;
 mod chart_settings_ui;
 mod construction_ui;
 mod custom_runs;
-use crate::domain::chart::data;
-use crate::domain::chart::display;
 pub mod drawing_props;
 mod export_ui;
-use crate::domain::chart::flow;
 mod flow_sync;
 mod follow;
-use crate::domain::chart::footprint;
 mod footprint_ui;
 mod glue;
 mod history;
@@ -69,34 +65,15 @@ mod indicator_picker;
 mod input;
 pub mod lines;
 pub mod object_tree;
-use crate::domain::chart::options;
 mod overlay;
 mod paint;
-use crate::domain::chart::projection;
+pub mod palette;
 pub mod raster;
-use crate::domain::chart::scene;
-use crate::domain::chart::settings;
 mod settings_rows;
-use crate::domain::indicators as study;
 mod study_settings;
-use crate::domain::chart::timeframe;
 mod toolbar;
-use crate::domain::chart::tpo;
 mod tpo_ui;
-use crate::domain::chart::transform;
-use crate::domain::chart::view;
-use crate::domain::chart::volume;
 mod volume_ui;
-use crate::domain::chart::zone;
-
-use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::time::{Duration, Instant};
-
-use crate::app::broker::session::Session;
-use crate::app::broker::{Error as ApiError, Result as ApiResult};
-use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 
 use self::data::Series;
 use self::display::Display;
@@ -106,16 +83,35 @@ pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
-use self::study::StudyConfig;
+use self::study::config::StudyConfig;
 pub use self::timeframe::{GROUPS, Timeframe, Unit};
 use self::view::View;
+use crate::app::broker::session::Session;
+use crate::app::broker::{Error as ApiError, Result as ApiResult};
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
-
-mod api;
-mod palette;
-
-use palette::{DesktopPalette, gpui_hsla, gpui_rgba, palette_for_chart};
+use crate::domain::chart::axis;
+use crate::domain::chart::data;
+use crate::domain::chart::display;
+use crate::domain::chart::flow;
+use crate::domain::chart::footprint;
+use crate::domain::chart::options;
+use crate::domain::chart::projection;
+use crate::domain::chart::scene;
+use crate::domain::chart::settings;
+use crate::domain::chart::timeframe;
+use crate::domain::chart::tpo;
+use crate::domain::chart::transform;
+use crate::domain::chart::view;
+use crate::domain::chart::volume;
+use crate::domain::chart::zone;
+use crate::domain::indicators as study;
+use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
+use palette::{DesktopPalette, gpui_rgba, palette_for_chart};
+use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 gpui::actions!(
     wyck_chart,
@@ -352,7 +348,7 @@ pub enum ChartAction {
 pub enum AlertSeed {
     /// An indicator of the chart, and the timeframe it is worked out on.
     Indicator {
-        study: Box<crate::domain::indicators::StudyConfig>,
+        study: Box<crate::domain::indicators::config::StudyConfig>,
         timeframe: String,
     },
     /// A drawing of the chart.

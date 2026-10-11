@@ -17,33 +17,33 @@ mod lists;
 mod marks;
 mod notice;
 mod picker;
+pub mod session;
 mod trade;
-
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Arc;
-
-use crate::app::broker::Error as ApiError;
-use crate::app::broker::session::Session;
-use crate::domain::drawings::model::Tool;
-use gpui::prelude::*;
-use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
-};
+pub mod view;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
 use crate::app::account::{Account, AccountEvent};
 use crate::app::alerts::Alerts;
+use crate::app::broker::Error as ApiError;
+use crate::app::broker::session::Session;
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
 use crate::app::workspace::{Documents, Workspace};
+use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart;
 use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent};
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::ticket::OrderTicket;
 use crate::ui::kit::toast;
+use gpui::prelude::*;
+use gpui::{
+    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
+};
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 gpui::actions!(
     wyck_dashboard,
@@ -513,8 +513,3 @@ impl Focusable for Dashboard {
         self.focus_handle.clone()
     }
 }
-
-mod session;
-mod view;
-
-use view::quote_text;

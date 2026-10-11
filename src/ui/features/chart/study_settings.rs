@@ -4,14 +4,19 @@
 //! the changes, Cancel puts the indicator back as it was, and Escape or the close button keep
 //! them.
 
-use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
-use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+pub mod inputs;
+pub mod style;
 
 use super::Chart;
-use super::study::{FillStyle, InputKind, LevelStyle, Placement, StudyConfig, StudyKind};
+use super::study::config::StudyConfig;
+use super::study::kind::StudyKind;
+use super::study::spec::{InputKind, Placement};
+use super::study::style::{FillStyle, LevelStyle};
+use crate::ui::kit::icon::IconName;
+use crate::ui::kit::input::{InputEvent, InputState};
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
+use gpui::prelude::*;
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -75,7 +80,7 @@ impl Target {
         &self,
         key: &'static str,
         cx: &mut App,
-        change: impl FnOnce(&mut super::study::PlotStyle),
+        change: impl FnOnce(&mut super::study::style::PlotStyle),
     ) {
         self.edit(cx, |study| {
             if let Some(style) = study.plots.get_mut(key) {
@@ -504,9 +509,6 @@ impl StudyEditor {
         });
     }
 }
-
-mod inputs;
-mod style;
 
 impl Render for StudyEditor {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

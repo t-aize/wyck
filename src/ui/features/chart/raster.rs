@@ -46,7 +46,7 @@ struct Canvas<'a> {
 }
 
 fn color(hsla: Hsla) -> tiny_skia::Color {
-    let rgba: gpui::Rgba = super::gpui_hsla(hsla).into();
+    let rgba: gpui::Rgba = super::palette::gpui_hsla(hsla).into();
     tiny_skia::Color::from_rgba(
         rgba.r.clamp(0.0, 1.0),
         rgba.g.clamp(0.0, 1.0),
@@ -612,10 +612,12 @@ mod tests {
     fn indicator_families_preview() {
         use crate::domain::chart::data::Series;
         use crate::domain::chart::display::Display;
-        use crate::domain::chart::scene::{Frame, Palette, build};
+        use crate::domain::chart::scene::palette::Palette;
+        use crate::domain::chart::scene::{Frame, build};
         use crate::domain::chart::view::View;
         use crate::domain::chart::{ChartSettings, Timeframe};
-        use crate::domain::indicators::{StudyConfig, StudyKind};
+        use crate::domain::indicators::config::StudyConfig;
+        use crate::domain::indicators::kind::StudyKind;
         use crate::domain::market::Bar;
 
         let bars: Vec<Bar> = (0..240)

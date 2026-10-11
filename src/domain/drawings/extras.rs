@@ -5,12 +5,31 @@
 //! Like the rest of the drawing code this is arithmetic on screen positions. The tools that read
 //! the chart's data (regression, bars, VWAP, volume) get it through [`Projection::bars_between`].
 
-use std::f32::consts::{PI, TAU};
+pub mod bars;
+pub mod curves;
+pub mod fib;
+pub mod lines;
+pub mod notes;
+pub mod ranges;
 
 use super::figures;
 use super::geometry::{Anchor, P, Prim, Projection, duration_text};
 use super::look::MeasureLook;
-use super::model::{Drawing, Point, Style, Tool};
+use super::model::style::Style;
+use super::model::tool::Tool;
+use super::model::{Drawing, Point};
+use bars::{anchored_vwap, bars_pattern, volume_profile};
+use curves::{
+    arc, circle, curve, cyclic_lines, double_curve, rotated_rectangle, sine_line, time_cycles,
+};
+use fib::{fib_arcs, fib_circles, fib_spiral, fib_time_extension, fib_wedge};
+use lines::{disjoint_channel, flat_top_bottom, info_line, pitchfan, regression, trend_angle};
+use notes::{
+    arrow_mark, arrow_marker, callout, comment, flag_mark, icon, note, pin, price_note, signpost,
+    table,
+};
+use ranges::{date_price_range, date_range, forecast, price_range};
+use std::f32::consts::{PI, TAU};
 
 /// The colors of a bar that closed above and below its open, as the position tools have them.
 const UP: u32 = 0x00d492;
@@ -231,31 +250,13 @@ pub fn fixed_square_corner(a: P, b: P) -> P {
     (a.0 + sx * side, a.1 + sy * side)
 }
 
-mod bars;
-mod curves;
-mod fib;
-mod lines;
-mod notes;
-mod ranges;
-
-pub use notes::{icon_key, table_cells};
-
-use bars::{anchored_vwap, bars_pattern, volume_profile};
-use curves::{
-    arc, circle, curve, cyclic_lines, double_curve, rotated_rectangle, sine_line, time_cycles,
-};
-use fib::{fib_arcs, fib_circles, fib_spiral, fib_time_extension, fib_wedge};
-use lines::{disjoint_channel, flat_top_bottom, info_line, pitchfan, regression, trend_angle};
-use notes::{
-    arrow_mark, arrow_marker, callout, comment, flag_mark, icon, note, pin, price_note, signpost,
-    table,
-};
-use ranges::{date_price_range, date_range, forecast, price_range};
-
 #[cfg(test)]
 mod tests {
+    use super::super::geometry::hit::{handles, hit};
     use super::super::geometry::tests::{Linear, drawing};
-    use super::super::geometry::{Prim, handles, hit, prims as shapes_of};
+    use super::super::geometry::{Prim, prims as shapes_of};
+
+    use super::notes::*;
 
     use super::curves::circumcircle;
 

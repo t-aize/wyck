@@ -1,8 +1,8 @@
 //! Following a position or a drawing of the chart: the ticket takes its levels and gives them back.
 
+use super::helpers::format_offset;
 use super::{
-    Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent,
-    format_offset, same_shape,
+    Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent, same_shape,
 };
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Offset, Pending};

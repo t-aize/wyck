@@ -41,9 +41,10 @@ pub const TEMPLATES: &[Template] = &[
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::super::super::StudyInput;
-    use super::super::run::{Limits, Script};
+    use super::super::run::Script;
+    use super::super::run::decl::Limits;
     use super::*;
+    use crate::domain::indicators::compute::StudyInput;
 
     #[test]
     fn starters_compile_and_compute() {

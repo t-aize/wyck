@@ -1,10 +1,12 @@
 //! The input_* calls of a script.
 
-use super::{Options, check_key, color_text, declare_input, parse_color, title_of};
+use super::describe::{Options, check_key, declare_input, title_of};
+use super::indicators::{color_text, parse_color};
 
-use crate::domain::indicators::custom::run::{
-    InputDecl, InputSection, InputType, MAX_INPUTS, Mode, source_index, with_run,
+use crate::domain::indicators::custom::run::decl::{
+    InputDecl, InputSection, InputType, MAX_INPUTS,
 };
+use crate::domain::indicators::custom::run::{Mode, source_index, with_run};
 use crate::domain::indicators::custom::series::{Fallible, Series};
 use rhai::{Array, Map};
 
@@ -66,7 +68,7 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
     let index = source_index(default).ok_or_else(|| {
         format!(
             "input_source: \"{default}\" is not a price (the prices are {})",
-            crate::domain::indicators::SOURCES.join(", ")
+            crate::domain::indicators::spec::SOURCES.join(", ")
         )
     })?;
     let chosen = declare_input(InputDecl {
@@ -75,7 +77,7 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
         kind: InputType::Source,
         default: index as f64,
         min: 0.0,
-        max: (crate::domain::indicators::SOURCES.len() - 1) as f64,
+        max: (crate::domain::indicators::spec::SOURCES.len() - 1) as f64,
         step: 1.0,
         options: Vec::new(),
         section: input_section(&options)?,

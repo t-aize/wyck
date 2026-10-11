@@ -1,13 +1,14 @@
 //! Picking the rows and columns of an export and turning them into a table of cells.
 
-use super::{
-    Cell, ColumnKey, Content, ExportOptions, Order, Point, RangeKind, Source, Table, TableColumn,
-    local_text, zone_name,
-};
+use super::choices::{Content, Order, RangeKind};
+use super::columns::ColumnKey;
+use super::options::ExportOptions;
+use super::render::{local_text, zone_name};
+use super::source::{Cell, Point, Source, Table, TableColumn};
 
 use crate::domain::chart::settings::ChartKind;
 use crate::domain::chart::zone::Zone;
-use crate::domain::indicators::ValueFormat;
+use crate::domain::indicators::spec::ValueFormat;
 
 /// Whether a date field holds a date, or nothing (an open side of the range).
 pub fn date_is_valid(text: &str) -> bool {

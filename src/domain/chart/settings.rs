@@ -13,7 +13,9 @@ use super::tpo::TpoSettings;
 use super::transform::TransformSettings;
 use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
-use crate::domain::indicators::{Placement, StudyConfig, StudyKind};
+use crate::domain::indicators::config::StudyConfig;
+use crate::domain::indicators::kind::StudyKind;
+use crate::domain::indicators::spec::Placement;
 
 /// The chart types. The codes are written in saved files and never change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

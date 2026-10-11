@@ -2,12 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 
-use super::{
-    ATR_SMOOTHING, BLUE, DOWN, GRAY, InputKind, InputSpec, MA_METHODS, OFFSET, ORANGE, PINK,
-    PURPLE, Placement, PlotKind, PlotSpec, SOURCE, Spec, TEAL, UP, ValueFormat, choice, extended,
-    float, hidden_line, int, line,
+use super::compute::MA_METHODS;
+use super::extended;
+use super::spec::{
+    ATR_SMOOTHING, BLUE, DOWN, GRAY, InputKind, InputSpec, OFFSET, ORANGE, PINK, PURPLE, Placement,
+    PlotKind, PlotSpec, SOURCE, Spec, TEAL, UP, ValueFormat, choice, float, hidden_line, int, line,
 };
 
 /// The indicators on offer. The names are written in saved files and never change.
@@ -65,7 +66,7 @@ pub enum StudyKind {
     ForceIndex,
     VolumeOscillator,
     EaseOfMovement,
-    /// An indicator written as a script: which one is in [`super::StudyConfig::script`].
+    /// An indicator written as a script: which one is in [`super::config::StudyConfig::script`].
     Custom,
     /// An indicator a newer version wrote. Dropped on load.
     #[serde(other)]
@@ -682,7 +683,7 @@ impl StudyKind {
                     }
                 }
             }
-            other => extended::spec_for(other),
+            other => extended::specs::spec_for(other),
         }
     }
 }
