@@ -1,4 +1,6 @@
+use super::positions::profit_cell;
 use super::*;
+use crate::app::prefs::panel::ProfitUnit;
 
 fn row(value: Option<f64>) -> Row {
     Row {
