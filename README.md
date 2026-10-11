@@ -109,6 +109,42 @@ The first build is slow because the dependency graph is large and dependencies a
 with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
 Later builds only recompile what changed in this package.
 
+## Development build and installed app
+
+A debug build (`cargo run`) keeps its state apart from the installed app, so testing cannot touch
+your real settings, backups or sign-in. The page Settings > About shows which folder and which
+keyring service the running build uses.
+
+| | Installed app | Debug build |
+|---|---|---|
+| Settings folder (Windows) | `%APPDATA%\wyck\wyck\config` | `%APPDATA%\wyck\wyck-dev\config` |
+| Settings folder (macOS) | `~/Library/Application Support/sh.wyck.wyck` | `~/Library/Application Support/sh.wyck.wyck-dev` |
+| Settings folder (Linux) | `~/.config/wyck` | `~/.config/wyck-dev` |
+| Keyring service | `wyck` | `wyck-dev` |
+
+A debug build starts empty and needs its own cTrader sign-in. Three environment variables change
+that:
+
+- `WYCK_CONFIG_DIR` moves the settings folder (and the data folder with it).
+- `WYCK_DATA_DIR` moves the data folder alone.
+- `WYCK_KEYRING_SERVICE` names the keyring service.
+
+To run a debug build on the data of the installed app (the real thing, so take care), point it at
+the same places:
+
+```powershell
+$env:WYCK_CONFIG_DIR = "$env:APPDATA\wyck\wyck\config"
+$env:WYCK_KEYRING_SERVICE = "wyck"
+cargo run
+```
+
+To start the debug build from a copy of the installed settings instead, copy the folder once
+(close the app first) and leave the sign-in to be done again:
+
+```powershell
+Copy-Item -Recurse "$env:APPDATA\wyck\wyck\config" "$env:APPDATA\wyck\wyck-dev\config"
+```
+
 ## Test against a real demo account
 
 Testing the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.

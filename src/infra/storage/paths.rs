@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use directories::ProjectDirs;
 use tracing::debug;
 
+use crate::infra::platform::build_info::BuildMode;
 use crate::infra::storage::error::{ConfigError, Result};
+use crate::infra::storage::identity::application_name;
 
 /// The environment variable that moves the config directory (and the data directory too, unless
 /// [`DATA_DIR_ENV`] says otherwise): for a portable install, a test, or a second profile of the
@@ -17,7 +19,6 @@ pub const DATA_DIR_ENV: &str = "WYCK_DATA_DIR";
 
 const QUALIFIER: &str = "sh";
 const ORGANIZATION: &str = "wyck";
-const APPLICATION: &str = "wyck";
 
 /// The directories this crate reads and writes: a config directory for
 /// [`crate::infra::storage::AppConfig`]'s TOML file, and a data directory for anything a
@@ -27,10 +28,12 @@ const APPLICATION: &str = "wyck";
 /// store owns that).
 ///
 /// On a real install, resolve via [`Self::discover`], which asks the OS for its
-/// standard per-user application-data locations (`%APPDATA%\wyck` on Windows,
+/// standard per-user application-data locations (under `%APPDATA%\wyck` on Windows,
 /// `~/Library/Application Support/sh.wyck.wyck` on macOS, `~/.config/wyck` on Linux, via
-/// the `directories` crate). For tests, or a caller that wants a portable/overridden
-/// location, [`Self::at`] points both directories at an arbitrary path instead.
+/// the `directories` crate). A development (debug) build uses `wyck-dev` where those say `wyck`,
+/// so it never touches the data of the installed app. For tests, or a caller that wants a
+/// portable/overridden location, [`Self::at`] points both directories at an arbitrary path
+/// instead.
 #[derive(Debug, Clone)]
 pub struct AppPaths {
     config_dir: PathBuf,
@@ -57,6 +60,16 @@ impl AppPaths {
     ///
     /// As [`Self::discover`].
     pub fn discover_with(var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
+        Self::discover_for(BuildMode::CURRENT, var)
+    }
+
+    /// [`Self::discover_with`] for a given build mode: the standard folders of a development
+    /// build are not those of the installed app (see [`crate::infra::storage::identity`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::discover`].
+    pub fn discover_for(mode: BuildMode, var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
         let set = |name: &str| {
             var(name)
                 .filter(|value| !value.is_empty())
@@ -69,7 +82,7 @@ impl AppPaths {
                 config_dir,
             },
             (None, data_dir) => {
-                let dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
+                let dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, application_name(mode))
                     .ok_or(ConfigError::NoProjectDirs)?;
                 Self {
                     config_dir: dirs.config_dir().to_path_buf(),
@@ -238,6 +251,39 @@ mod tests {
             (Err(_), Err(_)) => {} // a machine with no home folder
             other => panic!("an empty variable changed the outcome: {other:?}"),
         }
+    }
+
+    #[test]
+    fn a_development_build_and_the_installed_app_use_different_folders() {
+        let production = AppPaths::discover_for(BuildMode::Production, env(&[]));
+        let development = AppPaths::discover_for(BuildMode::Development, env(&[]));
+        let (Ok(production), Ok(development)) = (production, development) else {
+            return; // a machine with no home folder
+        };
+        assert_ne!(production.config_dir(), development.config_dir());
+        assert_ne!(production.data_dir(), development.data_dir());
+        assert!(
+            development
+                .config_dir()
+                .to_string_lossy()
+                .contains("wyck-dev")
+        );
+        assert!(
+            !production
+                .config_dir()
+                .to_string_lossy()
+                .contains("wyck-dev")
+        );
+        // The folders hang off the config folder, so they are apart too.
+        assert_ne!(production.state_dir(), development.state_dir());
+        assert_ne!(production.backups_dir(), development.backups_dir());
+    }
+
+    #[test]
+    fn the_environment_wins_over_the_build_mode() {
+        let var = env(&[(CONFIG_DIR_ENV, "/real/data")]);
+        let paths = AppPaths::discover_for(BuildMode::Development, var).unwrap();
+        assert_eq!(paths.config_dir(), Path::new("/real/data"));
     }
 
     #[test]

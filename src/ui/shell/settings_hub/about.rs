@@ -28,6 +28,46 @@ impl SettingsHub {
             })
             .collect();
 
+        // Where this build keeps its state: a development build and the installed app do not
+        // share it, so the page says which one this is.
+        let keeps_apart = BuildMode::CURRENT == BuildMode::Development;
+        let folder = crate::app_paths().map_or_else(
+            || "Not available on this system".to_owned(),
+            |paths| paths.config_dir().display().to_string(),
+        );
+        let place_rows: Vec<AnyElement> = [
+            (
+                "Settings folder",
+                Some(if keeps_apart {
+                    "A development build has its own folder, apart from the installed app"
+                } else {
+                    "Everything the app remembers, one readable file per kind of data"
+                }),
+                folder,
+            ),
+            (
+                "Credential store",
+                Some("Where the sign-in tokens are kept, in the system keyring"),
+                format!(
+                    "Service {}",
+                    crate::app::storage::identity::keyring_service()
+                ),
+            ),
+        ]
+        .into_iter()
+        .map(|(label, help, value)| {
+            form::field(
+                label,
+                help,
+                div()
+                    .max_w(px(crate::ui::kit::tokens::measure::note()))
+                    .text_size(px(tokens::text::body()))
+                    .text_color(theme::fg())
+                    .child(value),
+            )
+        })
+        .collect();
+
         let update_state = updates::state(cx);
         let mut update_rows = vec![form::field(
             "Status",
@@ -140,6 +180,7 @@ impl SettingsHub {
         form::page()
             .child(brand)
             .child(form::group(IconName::Info, "wyck", rows))
+            .child(form::group(IconName::HardDrive, "Storage", place_rows))
             .child(form::group(IconName::Download, "Updates", update_rows))
             .child(form::note(
                 "wyck is an independent project. It is not affiliated with, endorsed by, or sponsored by cTrader or Spotware Systems. Trading carries a high risk of loss, and nothing here is financial advice.",

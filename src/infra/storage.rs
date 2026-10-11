@@ -87,7 +87,11 @@
 //!
 //! ## Where the files go
 //!
-//! See [`AppPaths`]. `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move them.
+//! See [`AppPaths`]. A development (debug) build keeps its state apart from the installed app:
+//! the folders are named `wyck-dev` and the keyring entries live under the service `wyck-dev`
+//! (see [`identity`]). `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move the folders, and
+//! `WYCK_KEYRING_SERVICE` names the keyring service. Set all of them to run a development build
+//! on the data of the installed app, or to keep a second profile of the installed one.
 
 #![forbid(unsafe_code)]
 
@@ -99,6 +103,7 @@ mod doctor;
 mod documents;
 mod error;
 mod fs_util;
+pub mod identity;
 pub mod names;
 mod paths;
 mod profile;
@@ -476,7 +481,7 @@ enum Backend {
 /// [`WyckConfig::builder`]; nothing is read until [`Self::build`].
 ///
 /// Without any setting it is [`WyckConfig::open`]: the standard folders and the OS keyring under
-/// the service name `wyck`.
+/// the service name of this build (`wyck`, or `wyck-dev` in a development build).
 pub struct ConfigBuilder {
     paths: Option<AppPaths>,
     backend: Backend,
@@ -486,7 +491,7 @@ impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             paths: None,
-            backend: Backend::Keyring("wyck".to_owned()),
+            backend: Backend::Keyring(identity::keyring_service()),
         }
     }
 }
@@ -505,7 +510,8 @@ impl ConfigBuilder {
         self.paths(AppPaths::at(dir))
     }
 
-    /// Stores credentials in the OS keyring under `service` (the default, with `"wyck"`).
+    /// Stores credentials in the OS keyring under `service`. The default is the service of this
+    /// build (see [`identity::keyring_service`]).
     #[must_use]
     pub fn keyring_service(mut self, service: impl Into<String>) -> Self {
         self.backend = Backend::Keyring(service.into());

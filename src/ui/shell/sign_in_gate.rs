@@ -284,12 +284,14 @@ impl SignInGate {
             .child(layout::stacked_field(
                 IconName::Hash,
                 "Client ID",
-                input::text(&self.client_id).disabled(busy),
+                input::large(&self.client_id).disabled(busy),
             ))
             .child(layout::stacked_field(
                 IconName::Lock,
                 "Client secret",
-                input::text(&self.client_secret).mask_toggle().disabled(busy),
+                input::large(&self.client_secret)
+                    .mask_toggle()
+                    .disabled(busy),
             ))
             .child(field::check(
                 "gate-remember",
