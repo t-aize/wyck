@@ -27,7 +27,7 @@ use gpui::{Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, Subscript
 use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 
-pub use self::dialogs::open_alert;
+pub use self::dialogs::alert_editor::open_alert;
 pub use self::prefs::{PanelPrefs, Tab};
 
 /// An alert the panel asks for, that is not on a price.

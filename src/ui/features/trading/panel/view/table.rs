@@ -7,7 +7,8 @@ use super::{
 use crate::app::prefs::panel::{PanelPrefs, RowAction, Tab};
 use crate::app::prefs::ticket::Slot;
 use crate::ui::features::trading::panel::data::{Cell, Row, RowKind, Table};
-use crate::ui::features::trading::panel::dialogs::{Target, open_alert, open_protection};
+use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
+use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
 use crate::ui::features::trading::panel::{AccountPanel, MenuTarget, PanelEvent, Resize};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::{ElementExt as _, StyledExt as _};

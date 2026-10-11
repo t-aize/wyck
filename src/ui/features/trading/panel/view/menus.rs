@@ -3,7 +3,8 @@
 use super::{ask, copy, position_actions, row_text};
 use crate::app::prefs::panel::Tab;
 use crate::ui::features::trading::panel::data::{self, RowKind, Table};
-use crate::ui::features::trading::panel::dialogs::{Target, open_alert, open_protection};
+use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
+use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
 use crate::ui::features::trading::panel::{
     AccountPanel, MenuTarget, NewAlert, PanelEvent, customize,
 };
