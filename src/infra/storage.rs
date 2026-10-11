@@ -83,7 +83,7 @@
 //! ## Checking it
 //!
 //! [`WyckConfig::diagnose`] looks over the whole config (missing secrets, permissions, files a
-//! crash left behind) and returns a [`Report`]. The `config_doctor` example prints it.
+//! crash left behind) and returns a [`Report`].
 //!
 //! ## Where the files go
 //!

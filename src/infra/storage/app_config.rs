@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::paths::AppPaths;
 use crate::infra::storage::profile::{ProfileConfig, ProfileId};
 
@@ -56,7 +56,7 @@ impl AppConfig {
     /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         let path = paths.config_file();
-        let text = match std::fs::read_to_string(&path) {
+        let text = match read_text(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
                 debug!(path = %path.display(), "no config file yet, starting from defaults");

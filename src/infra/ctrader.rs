@@ -77,7 +77,7 @@
 //! let listener = CallbackListener::bind(8765).await?;
 //! let redirect = listener.redirect_uri();
 //! let state = new_state();
-//! println!("open: {}", authorization_url(&credentials.client_id, &redirect, Scope::Accounts, &state));
+//! println!("open: {}", authorization_url(&credentials.client_id, &redirect, Scope::Accounts, &state)?);
 //! let code = listener.wait(&state, Duration::from_secs(300)).await?;
 //! let oauth = OAuthClient::new(credentials.clone())?;
 //! let tokens = oauth.exchange_code(code.code(), &redirect).await?;

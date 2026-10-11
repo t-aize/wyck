@@ -3,7 +3,7 @@
 ## Automated
 
 - `cargo test` runs unit tests (inside the modules) and integration tests (`tests/`).
-- `cargo test --test live_ctrader -- --ignored` talks to a real cTrader demo account. It needs a
+- `cargo test --test ctrader live -- --ignored` talks to a real cTrader demo account. It needs a
   `.env` (see `.env.example`), refuses live accounts, and is never run in CI.
 - `cargo test keymap_guard` fails when two actions share the same keys in one context.
 

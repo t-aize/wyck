@@ -56,7 +56,7 @@ use tracing::{debug, info, warn};
 
 use crate::infra::storage::documents::DocumentStore;
 use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::names::{is_valid_name, validate_name};
 use crate::infra::storage::paths::AppPaths;
 use crate::infra::storage::scripts::{self, ScriptStore};
@@ -904,7 +904,7 @@ pub fn apply_pending(paths: &AppPaths, created: &str) -> Result<Applied> {
         applied.reset = true;
     }
     let path = paths.config_dir().join(PENDING);
-    let text = match std::fs::read_to_string(&path) {
+    let text = match read_text(&path) {
         Ok(text) => text,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(applied),
         Err(source) => return Err(ConfigError::Read { path, source }),

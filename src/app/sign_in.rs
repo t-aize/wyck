@@ -589,12 +589,15 @@ async fn consent(
 
     let redirect = listener.redirect_uri();
     let oauth_state = new_state();
-    let url = authorization_url(
+    let url = match authorization_url(
         &credentials.client_id,
         &redirect,
         SIGN_IN_SCOPE,
         &oauth_state,
-    );
+    ) {
+        Ok(url) => url,
+        Err(error) => return fail(&this, cx, attempt, Failure::from_connect(&error)),
+    };
     let opened = this
         .update(cx, |this, cx| {
             if this.attempt != attempt {

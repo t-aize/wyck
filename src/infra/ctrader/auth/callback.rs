@@ -9,7 +9,7 @@
 //! let listener = CallbackListener::bind(8765).await?;
 //! let uri = listener.redirect_uri();                       // http://localhost:8765
 //! let state = auth::new_state();
-//! open_in_browser(&auth::authorization_url(id, &uri, Scope::Accounts, &state));
+//! open_in_browser(&auth::authorization_url(id, &uri, Scope::Accounts, &state)?);
 //! let code = listener.wait(&state, Duration::from_secs(300)).await?;
 //! let tokens = oauth.exchange_code(code.code(), &uri).await?;   // within a minute
 //! ```

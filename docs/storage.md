@@ -2,8 +2,8 @@
 
 Configuration, encrypted credentials and portable backups for [Wyck](../../README.md).
 
-This crate is the one place the app decides **where its files live**, **how they are written**
-and **how anything secret is kept**. Everything else in the workspace (the desktop app, the chart
+This module is the one place the app decides **where its files live**, **how they are written**
+and **how anything secret is kept**. Everything else in the package (the desktop app, the chart
 engine, the Open API client) goes through it instead of touching the disk or the keyring on its own.
 
 It knows nothing about cTrader, charts or drawings: a profile's `service` is a free-form tag, and
@@ -77,7 +77,7 @@ config.scripts();          // paths.scripts():     the indicator scripts
 config.backups();          // paths.backups():     the copies kept in backups/
 ```
 
-Documents are typed, and the crate never looks inside them:
+Documents are typed, and the module never looks inside them:
 
 ```rust
 let store = config.documents();                  // = DocumentStore::global(config.paths())
@@ -227,19 +227,10 @@ other way round). A reset leaves `config.toml`, the credentials and the scripts 
 - The label of a sealed backup (`"wyck-backup"`) is signed into it: a backup cannot be passed off as
   another kind of sealed document, and the other way round.
 - `Backup::contents()` says what is inside by name (`Contents`), so a front end can phrase it
-  ("Drawings for 2 accounts") without this crate knowing what a drawing is.
+  ("Drawings for 2 accounts") without this module knowing what a drawing is.
 - `sealed::seal_text` and `sealed::open_text` are still there for any other text.
 
-From the command line, on this machine or a portable install (`--dir`):
-
-```sh
-cargo run --example config_backup -- list
-cargo run --example config_backup -- export ./my-backup.toml
-WYCK_BACKUP_PASSPHRASE=... cargo run --example config_backup -- export ./locked.toml
-cargo run --example config_backup -- import ./my-backup.toml   # then start the app
-```
-
-`tests/lifecycle.rs` holds complete examples (export sealed, import elsewhere, undo a reset).
+`tests/storage_lifecycle.rs` holds complete examples (export sealed, import elsewhere, undo a reset).
 
 ## Indicator scripts
 
@@ -271,17 +262,6 @@ It reports, changing nothing: a dangling active profile, duplicated ids, Open AP
 stored client secret or no chosen account, credentials the store cannot read, config and secrets
 folders readable by other users, unfinished writes left by a crash, and documents that had to be
 set aside.
-
-From the command line:
-
-```sh
-cargo run --example config_doctor                    # this machine
-cargo run --example config_doctor -- --dir ./data    # a portable install
-WYCK_PASSPHRASE=... cargo run --example config_doctor -- --dir ./data
-cargo run --example config_doctor                                  # the same
-```
-
-The exit code is 0 (healthy), 1 (an error was found) or 2 (the config could not be opened).
 
 ## File formats
 
@@ -343,11 +323,11 @@ cargo test infra::storage                  # unit tests
 cargo test --test storage_lifecycle        # end-to-end tests
 ```
 
-- `src/**` unit tests sit next to the code they test; `tests/lifecycle.rs` uses the public API
+- `src/**` unit tests sit next to the code they test; `tests/storage_lifecycle.rs` uses the public API
   only, the way an app does (install, restart, damage, refuse a foreign format, backup).
 - Properties (names, hex, the cipher) are checked with `proptest`.
 - Tests work in temporary folders and never touch the real config or keyring.
-- `#![forbid(unsafe_code)]` and `#![warn(missing_docs)]`: every public item is documented.
+- Unsafe code is forbidden for the whole package (`[lints.rust]` in `Cargo.toml`).
 
 ## Compatibility
 
@@ -355,8 +335,7 @@ cargo test --test storage_lifecycle        # end-to-end tests
   migration code: `config.toml`, the secret envelopes and the sealed documents are read only in the
   layout this build writes. Once a first release is out, a change of layout will bump the version
   written in the file, and an older build will refuse a newer file instead of misreading it.
-- **API.** The crate is part of the Wyck workspace and versioned with it (see the
-  [changelog](CHANGELOG.md)).
-- **Rust.** The version in the workspace `Cargo.toml` (`rust-version`).
+- **API.** The module is part of the Wyck package and versioned with it.
+- **Rust.** The version in `Cargo.toml` (`rust-version`).
 
-License: Apache-2.0, like the rest of the workspace.
+License: Apache-2.0, like the rest of the package.

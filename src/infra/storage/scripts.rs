@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::paths::AppPaths;
 
 /// The extension of an indicator file.
@@ -215,7 +215,7 @@ impl ScriptStore {
     pub fn read(&self, id: &str) -> Result<Option<String>> {
         clean_id(id)?;
         let path = self.path_of(id);
-        match std::fs::read_to_string(&path) {
+        match read_text(&path) {
             Ok(text) => Ok(Some(text)),
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(source) => Err(ConfigError::Read { path, source }),

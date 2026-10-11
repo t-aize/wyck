@@ -9,7 +9,7 @@ use tracing::{debug, trace, warn};
 
 use crate::infra::storage::crypto::{self, CryptoError, KdfParams, Sealed};
 use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::secret::{SecretKey, SecretStore};
 
 /// The version of the envelope layout: the only one written and the only one read.
@@ -122,7 +122,7 @@ impl SecretStore for EncryptedFileSecretStore {
 
     fn retrieve(&self, key: &SecretKey) -> Result<Option<SecretString>> {
         let path = self.envelope_path(key);
-        let text = match fs::read_to_string(&path) {
+        let text = match read_text(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
                 trace!(%key, path = %path.display(), "no envelope on disk for this key");

@@ -29,10 +29,9 @@ and the app was never run: everything marked "to verify by hand" below is untest
 
 ## Phase 0 checklist
 
-- [x] Baseline is commit `c805e65` (last commit of `main` before the restructuring). The tag could not be
-      pushed from the cloud session: run `git tag pre-restructure c805e65 && git push origin pre-restructure`.
-- [ ] Record the exact test count (`cargo test --workspace --all-features`) on the maintainer's machine.
-- [ ] Fill in the build times table of `docs/decisions/0002-build-times.md` (maintainer's machine).
+- [x] Baseline is commit `c805e65` (last commit of `main` before the restructuring). The tag is local; push it with
+      `git push origin pre-restructure`.
+- [x] Test count (`cargo test --all-features`, 2026-10-11): 1231 passed, 0 failed, 16 ignored.
 - [x] Manual smoke checklist written in `docs/testing.md`.
 - [x] Key binding collisions fixed: the rectangle tool moves to `Alt+X`, the tool finder to
       `Ctrl+Shift+F`; `src/keymap_guard.rs` fails on any duplicate binding in one context.
@@ -68,14 +67,9 @@ Left out, on purpose:
 - No second domain model for positions, orders and deals: see decision 0003. The side is checked
   where the records enter the account book, and the risk formula is shared.
 
-## Left for later
-
-- Fill in the build times in `docs/decisions/0002-build-times.md` and record the test count on
-  the maintainer's machine (phase 0).
-
 ## Decisions
 
-See `docs/decisions/`. Open questions are listed in the restructuring plan, section 11.
+See `docs/decisions/`.
 
 ## To verify by hand after phase 7 [a verifier]
 

@@ -640,17 +640,20 @@ impl gpui::Element for TextElement {
         if let Some(selection) = prepaint.selection.take() {
             window.paint_quad(selection)
         }
-        let line = prepaint.line.take().unwrap();
+        let Some(line) = prepaint.line.take() else {
+            return;
+        };
         let line_origin = point(bounds.origin.x - prepaint.scroll_offset, bounds.origin.y);
-        line.paint(
+        if let Err(error) = line.paint(
             line_origin,
             window.line_height(),
             gpui::TextAlign::Left,
             None,
             window,
             cx,
-        )
-        .unwrap();
+        ) {
+            tracing::warn!(%error, "could not paint the text of an input");
+        }
 
         if focus_handle.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()

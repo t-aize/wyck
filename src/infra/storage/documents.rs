@@ -20,7 +20,7 @@ use serde::de::DeserializeOwned;
 use tracing::{debug, warn};
 
 use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
+use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::names::{is_valid_name, sanitize};
 use crate::infra::storage::paths::AppPaths;
 
@@ -123,7 +123,7 @@ impl DocumentStore {
     /// [`ConfigError::Parse`] if the file is not valid TOML for `T`.
     pub fn load<T: DeserializeOwned>(&self, name: &str) -> Result<Option<T>> {
         let path = self.path(name);
-        let text = match std::fs::read_to_string(&path) {
+        let text = match read_text(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(source) => return Err(ConfigError::Read { path, source }),
@@ -189,7 +189,7 @@ impl DocumentStore {
     /// [`ConfigError::Read`] on an I/O failure other than "not found".
     pub fn load_text(&self, name: &str) -> Result<Option<String>> {
         let path = self.path(name);
-        match std::fs::read_to_string(&path) {
+        match read_text(&path) {
             Ok(text) => Ok(Some(text)),
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(source) => Err(ConfigError::Read { path, source }),

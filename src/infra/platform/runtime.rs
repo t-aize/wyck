@@ -26,10 +26,17 @@ pub use tokio::try_join;
 static RUNTIME: OnceLock<Handle> = OnceLock::new();
 
 /// The shared tokio [`Handle`], starting the background runtime thread on first use.
+///
+/// Nothing in the app works without the runtime (connection, history, sign in), so when the
+/// system refuses to start its threads the process says so and ends, instead of limping on.
 pub fn handle() -> Handle {
     RUNTIME
         .get_or_init(|| {
-            let runtime = Runtime::new().expect("failed to start the background tokio runtime");
+            let runtime = Runtime::new().unwrap_or_else(|error| {
+                tracing::error!(%error, "could not start the background runtime");
+                eprintln!("Wyck could not start its background runtime: {error}");
+                std::process::exit(1);
+            });
             let handle = runtime.handle().clone();
             // Leaking the `Runtime` keeps its worker threads (and their reactor/timer) alive for
             // the rest of the process; there is exactly one of these for the app's lifetime, and
