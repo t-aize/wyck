@@ -18,17 +18,6 @@ use super::look::MeasureLook;
 use super::model::style::Style;
 use super::model::tool::Tool;
 use super::model::{Drawing, Point};
-use bars::{anchored_vwap, bars_pattern, volume_profile};
-use curves::{
-    arc, circle, curve, cyclic_lines, double_curve, rotated_rectangle, sine_line, time_cycles,
-};
-use fib::{fib_arcs, fib_circles, fib_spiral, fib_time_extension, fib_wedge};
-use lines::{disjoint_channel, flat_top_bottom, info_line, pitchfan, regression, trend_angle};
-use notes::{
-    arrow_mark, arrow_marker, callout, comment, flag_mark, icon, note, pin, price_note, signpost,
-    table,
-};
-use ranges::{date_price_range, date_range, forecast, price_range};
 use std::f32::consts::{PI, TAU};
 
 /// The colors of a bar that closed above and below its open, as the position tools have them.
@@ -63,50 +52,50 @@ pub const ICONS: [(&str, &str); 10] = [
 /// the screen.
 pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     match drawing.tool {
-        Tool::InfoLine => info_line(drawing, pts, proj, out),
-        Tool::TrendAngle => trend_angle(drawing, pts, proj, out),
-        Tool::RegressionTrend => regression(drawing, pts, proj, out),
-        Tool::FlatTopBottom => flat_top_bottom(drawing, pts, proj, out),
-        Tool::DisjointChannel => disjoint_channel(drawing, pts, proj, out),
-        Tool::Pitchfan => pitchfan(drawing, pts, proj, out),
-        Tool::FibTimeExtension => fib_time_extension(drawing, pts, proj, out),
-        Tool::FibCircles => fib_circles(drawing, pts, out),
-        Tool::FibSpiral => fib_spiral(drawing, pts, out),
-        Tool::FibArcs => fib_arcs(drawing, pts, out),
-        Tool::FibWedge => fib_wedge(drawing, pts, out),
+        Tool::InfoLine => lines::info_line(drawing, pts, proj, out),
+        Tool::TrendAngle => lines::trend_angle(drawing, pts, proj, out),
+        Tool::RegressionTrend => lines::regression(drawing, pts, proj, out),
+        Tool::FlatTopBottom => lines::flat_top_bottom(drawing, pts, proj, out),
+        Tool::DisjointChannel => lines::disjoint_channel(drawing, pts, proj, out),
+        Tool::Pitchfan => lines::pitchfan(drawing, pts, proj, out),
+        Tool::FibTimeExtension => fib::fib_time_extension(drawing, pts, proj, out),
+        Tool::FibCircles => fib::fib_circles(drawing, pts, out),
+        Tool::FibSpiral => fib::fib_spiral(drawing, pts, out),
+        Tool::FibArcs => fib::fib_arcs(drawing, pts, out),
+        Tool::FibWedge => fib::fib_wedge(drawing, pts, out),
         Tool::GannSquareFixed => {
             let corner = fixed_square_corner(pts[0], pts[1]);
             figures::gann_square(drawing, &[pts[0], corner], out);
         }
-        Tool::CyclicLines => cyclic_lines(drawing, pts, proj, out),
-        Tool::TimeCycles => time_cycles(drawing, pts, proj, out),
-        Tool::SineLine => sine_line(drawing, pts, proj, out),
-        Tool::PriceRange => price_range(drawing, pts, proj, out),
-        Tool::DateRange => date_range(drawing, pts, proj, out),
-        Tool::DatePriceRange => date_price_range(drawing, pts, proj, out),
-        Tool::Forecast => forecast(drawing, pts, proj, out),
-        Tool::BarsPattern => bars_pattern(drawing, proj, out, false),
-        Tool::GhostFeed => bars_pattern(drawing, proj, out, true),
-        Tool::AnchoredVwap => anchored_vwap(drawing, pts, proj, out),
-        Tool::FixedRangeVolumeProfile => volume_profile(drawing, pts, proj, out, true),
-        Tool::AnchoredVolumeProfile => volume_profile(drawing, pts, proj, out, false),
-        Tool::RotatedRectangle => rotated_rectangle(drawing, pts, out),
-        Tool::Circle => circle(drawing, pts, out),
-        Tool::Arc => arc(drawing, pts, out),
-        Tool::Curve => curve(drawing, pts, out),
-        Tool::DoubleCurve => double_curve(drawing, pts, out),
-        Tool::ArrowMarker => arrow_marker(drawing, pts, out),
-        Tool::ArrowMarkUp => arrow_mark(drawing, pts[0], true, out),
-        Tool::ArrowMarkDown => arrow_mark(drawing, pts[0], false, out),
-        Tool::Note => note(drawing, pts, out),
-        Tool::PriceNote => price_note(drawing, pts, proj, out),
-        Tool::Callout => callout(drawing, pts, out),
-        Tool::Comment => comment(drawing, pts, out),
-        Tool::Pin => pin(drawing, pts, out),
-        Tool::Signpost => signpost(drawing, pts, out),
-        Tool::FlagMark => flag_mark(drawing, pts, out),
-        Tool::Table => table(drawing, pts, out),
-        Tool::Icon => icon(drawing, pts, out),
+        Tool::CyclicLines => curves::cyclic_lines(drawing, pts, proj, out),
+        Tool::TimeCycles => curves::time_cycles(drawing, pts, proj, out),
+        Tool::SineLine => curves::sine_line(drawing, pts, proj, out),
+        Tool::PriceRange => ranges::price_range(drawing, pts, proj, out),
+        Tool::DateRange => ranges::date_range(drawing, pts, proj, out),
+        Tool::DatePriceRange => ranges::date_price_range(drawing, pts, proj, out),
+        Tool::Forecast => ranges::forecast(drawing, pts, proj, out),
+        Tool::BarsPattern => bars::bars_pattern(drawing, proj, out, false),
+        Tool::GhostFeed => bars::bars_pattern(drawing, proj, out, true),
+        Tool::AnchoredVwap => bars::anchored_vwap(drawing, pts, proj, out),
+        Tool::FixedRangeVolumeProfile => bars::volume_profile(drawing, pts, proj, out, true),
+        Tool::AnchoredVolumeProfile => bars::volume_profile(drawing, pts, proj, out, false),
+        Tool::RotatedRectangle => curves::rotated_rectangle(drawing, pts, out),
+        Tool::Circle => curves::circle(drawing, pts, out),
+        Tool::Arc => curves::arc(drawing, pts, out),
+        Tool::Curve => curves::curve(drawing, pts, out),
+        Tool::DoubleCurve => curves::double_curve(drawing, pts, out),
+        Tool::ArrowMarker => notes::arrow_marker(drawing, pts, out),
+        Tool::ArrowMarkUp => notes::arrow_mark(drawing, pts[0], true, out),
+        Tool::ArrowMarkDown => notes::arrow_mark(drawing, pts[0], false, out),
+        Tool::Note => notes::note(drawing, pts, out),
+        Tool::PriceNote => notes::price_note(drawing, pts, proj, out),
+        Tool::Callout => notes::callout(drawing, pts, out),
+        Tool::Comment => notes::comment(drawing, pts, out),
+        Tool::Pin => notes::pin(drawing, pts, out),
+        Tool::Signpost => notes::signpost(drawing, pts, out),
+        Tool::FlagMark => notes::flag_mark(drawing, pts, out),
+        Tool::Table => notes::table(drawing, pts, out),
+        Tool::Icon => notes::icon(drawing, pts, out),
         _ => {}
     }
 }

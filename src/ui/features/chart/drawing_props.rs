@@ -34,7 +34,6 @@ use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
 use crate::ui::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use helpers::{format_real, set_point};
 
 pub struct PropsContext {
     pub zone: Zone,
@@ -319,11 +318,11 @@ impl DrawingProps {
             let shown = current.as_ref().unwrap_or(drawing);
             for (index, point) in shown.points.iter().enumerate() {
                 let price = cx.new(|cx| {
-                    InputState::new(window, cx).default_value(format_real(point.p, digits))
+                    InputState::new(window, cx).default_value(helpers::format_real(point.p, digits))
                 });
                 subscriptions.push(number::watch(&price, cx, move |this, value, cx| {
                     let raw = value * PRICE_SCALE as f64;
-                    this.change(cx, |d| set_point(d, index, None, Some(raw)));
+                    this.change(cx, |d| helpers::set_point(d, index, None, Some(raw)));
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
@@ -336,7 +335,9 @@ impl DrawingProps {
                     &time,
                     cx,
                     |this, text| this.zone.parse(text),
-                    move |this, t, cx| this.change(cx, |d| set_point(d, index, Some(t), None)),
+                    move |this, t, cx| {
+                        this.change(cx, |d| helpers::set_point(d, index, Some(t), None))
+                    },
                 ));
                 prices.push(price);
                 times.push(time);

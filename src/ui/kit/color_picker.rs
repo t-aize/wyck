@@ -22,7 +22,6 @@ use gpui::{
     Pixels, Point, Subscription, Window, canvas, div, linear_color_stop, linear_gradient, px, rgb,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
-use math::{hex_text, hsv_to_rgb, parse_hex, rgb_to_hsv};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -74,7 +73,7 @@ impl Field {
     /// The color the text makes, given the color as it is, or `None` while it is not a value yet.
     fn parse(self, text: &str, now: u32) -> Option<u32> {
         if self == Self::Hex {
-            return parse_hex(text);
+            return math::parse_hex(text);
         }
         let value: u32 = text.trim().parse().ok().filter(|v| *v <= 255)?;
         let shift = match self {
@@ -88,7 +87,7 @@ impl Field {
     /// What the field shows for a color.
     fn text(self, color: u32) -> String {
         match self {
-            Self::Hex => hex_text(color),
+            Self::Hex => math::hex_text(color),
             Self::Red => ((color >> 16) & 0xff).to_string(),
             Self::Green => ((color >> 8) & 0xff).to_string(),
             Self::Blue => (color & 0xff).to_string(),
@@ -172,7 +171,7 @@ pub struct ColorPanel {
 impl ColorPanel {
     fn new(color: u32) -> Self {
         Self {
-            hsv: rgb_to_hsv(color),
+            hsv: math::rgb_to_hsv(color),
             original: color,
             open: false,
             on_change: None,
@@ -191,7 +190,7 @@ impl ColorPanel {
     }
 
     fn rgb(&self) -> u32 {
-        hsv_to_rgb(self.hsv.0, self.hsv.1, self.hsv.2)
+        math::hsv_to_rgb(self.hsv.0, self.hsv.1, self.hsv.2)
     }
 
     /// Follows the color the owner holds, and remembers what to tell it.
@@ -208,7 +207,7 @@ impl ColorPanel {
         }
         self.open = open;
         if self.rgb() != color {
-            let (hue, saturation, value) = rgb_to_hsv(color);
+            let (hue, saturation, value) = math::rgb_to_hsv(color);
             // A gray or a black has no hue of its own: keep the one there was.
             let hue = if saturation < 1e-4 || value < 1e-4 {
                 self.hsv.0
@@ -241,7 +240,7 @@ impl ColorPanel {
 
     /// Sets the color, from a preset or a typed value: the marker and the thumb move to it.
     fn set_rgb(&mut self, color: u32, window: &mut Window, cx: &mut Context<Self>) {
-        let (hue, saturation, value) = rgb_to_hsv(color);
+        let (hue, saturation, value) = math::rgb_to_hsv(color);
         let hue = if saturation < 1e-4 || value < 1e-4 {
             self.hsv.0
         } else {

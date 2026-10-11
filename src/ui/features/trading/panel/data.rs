@@ -18,10 +18,6 @@ use crate::app::prefs::panel::{PanelPrefs, Tab};
 use crate::domain::chart::zone::Zone;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, format_money};
-use alerts::{alert_log, alerts};
-use exposure::exposure;
-use orders::{history, orders};
-use positions::positions;
 use std::cmp::Ordering;
 
 /// The color a cell is written in.
@@ -360,12 +356,12 @@ fn finish<C: crate::app::prefs::columns::Column>(
 /// The table of a tab.
 pub fn build(ctx: &Ctx, tab: Tab) -> Table {
     match tab {
-        Tab::Positions => positions(ctx),
-        Tab::Orders => orders(ctx),
-        Tab::History => history(ctx),
-        Tab::Exposure => exposure(ctx),
-        Tab::Alerts => alerts(ctx),
-        Tab::AlertLog => alert_log(ctx),
+        Tab::Positions => positions::positions(ctx),
+        Tab::Orders => orders::orders(ctx),
+        Tab::History => orders::history(ctx),
+        Tab::Exposure => exposure::exposure(ctx),
+        Tab::Alerts => alerts::alerts(ctx),
+        Tab::AlertLog => alerts::alert_log(ctx),
     }
 }
 

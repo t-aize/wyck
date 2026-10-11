@@ -37,12 +37,6 @@ use super::view::{PriceScale, View, padded_range};
 use crate::domain::drawings::model::Drawing;
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::{Placement, ValueFormat};
-use axes::dash_pattern;
-use axes::{
-    axes_background, axis_tick_target, day_breaks, draw_axis_tags, draw_price_lines, spread_tags,
-};
-use drawings::{draw_drawings, draw_script_drawings};
-use palette::Palette;
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
@@ -110,7 +104,7 @@ pub struct Frame<'a> {
     pub remote: Option<(i64, f64)>,
     pub ask: Option<i64>,
     pub now_ms: i64,
-    pub palette: Palette,
+    pub palette: palette::Palette,
     pub drawings: Option<DrawingView<'a>>,
     pub marks: &'a [PriceMark],
     /// What traded at each price of each bar, for the footprint chart type.
@@ -364,7 +358,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &geometry,
         frame.digits,
     ) else {
-        cmds.push(axes_background(frame, &geometry));
+        cmds.push(axes::axes_background(frame, &geometry));
         return cmds;
     };
     let pointer = if frame.settings.crosshair == CrosshairStyle::Off {
@@ -408,7 +402,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         )
     };
     let unit = quote_unit(frame.digits);
-    let main_ticks = map.ticks(axis_tick_target(main.h), unit);
+    let main_ticks = map.ticks(axes::axis_tick_target(main.h), unit);
 
     let mut plot: Vec<Cmd> = Vec::new();
     if let Some(text) = &frame.watermark {
@@ -443,7 +437,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
     }
     if frame.settings.price_lines.day_breaks {
-        for index in day_breaks(frame, first, last) {
+        for index in axes::day_breaks(frame, first, last) {
             plot.push(cx.vline(
                 cx.x(index),
                 oy,
@@ -454,7 +448,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     }
     studies::overlays_under(&cx, first, last, &mut plot);
     studies::overlays(&cx, first, last, &mut plot);
-    draw_script_drawings(&cx, &mut plot);
+    drawings::draw_script_drawings(&cx, &mut plot);
     for mark in frame.marks {
         let y = cx.y(mark.price);
         let x0 = ox + mark.from_x.unwrap_or(0.0).max(0.0);
@@ -465,13 +459,13 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             ],
             width: mark.width,
             color: rgb_alpha(mark.color, 0.9),
-            dash: dash_pattern(mark.dash, mark.width),
+            dash: axes::dash_pattern(mark.dash, mark.width),
         });
     }
     if let Some(view) = &frame.drawings {
-        draw_drawings(&cx, view, &mut plot);
+        drawings::draw_drawings(&cx, view, &mut plot);
     }
-    draw_price_lines(&cx, &mut plot);
+    axes::draw_price_lines(&cx, &mut plot);
     // Price marks remain readable even when a scripted or manual drawing fills their area.
     series::draw(&cx, kind, first, last, &mut plot);
     if let Some(((_, hy), 0)) = pointer {
@@ -503,7 +497,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             }
             ValueFormat::Count => 1.0,
         };
-        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axis_tick_target(band.h), min_step);
+        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axes::axis_tick_target(band.h), min_step);
         let mut inner = Vec::new();
         if grid_h {
             for value in &ticks {
@@ -565,7 +559,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         });
     }
 
-    cmds.push(axes_background(frame, &geometry));
+    cmds.push(axes::axes_background(frame, &geometry));
     for band in geometry.bands.iter().skip(1) {
         cmds.push(cx.hline(
             oy + band.top as f32,
@@ -593,7 +587,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let mut tags = Vec::new();
     studies::value_tags(&cx, &pane_maps_for_tags(&panes, &pane_maps), &mut tags);
     let mut pointer_tags = Vec::new();
-    draw_axis_tags(
+    axes::draw_axis_tags(
         &cx,
         pointer,
         &geometry,
@@ -601,7 +595,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &mut tags,
         &mut pointer_tags,
     );
-    spread_tags(&mut tags, &geometry, oy);
+    axes::spread_tags(&mut tags, &geometry, oy);
     let taken: Vec<(f32, f32)> = tags
         .iter()
         .chain(&pointer_tags)

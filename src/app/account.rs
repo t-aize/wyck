@@ -32,7 +32,6 @@ use crate::domain::trading::guard::{
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Link, Summary};
 use gpui::{Context, EventEmitter};
-use reverse::ReverseTracker;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -95,7 +94,7 @@ pub struct Account {
     duplicates: DuplicateGuard,
     /// Orders sent by this app today, as (day, count).
     sent_today: (i64, u32),
-    reversals: ReverseTracker,
+    reversals: reverse::ReverseTracker,
     /// When a time stop last tried to close each position, so a refusal is not retried at once.
     time_stops: HashMap<i64, Instant>,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
@@ -168,7 +167,7 @@ impl Account {
             zone: crate::domain::chart::Zone::default(),
             duplicates: DuplicateGuard::default(),
             sent_today: (0, 0),
-            reversals: ReverseTracker::default(),
+            reversals: reverse::ReverseTracker::default(),
             time_stops: HashMap::new(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),

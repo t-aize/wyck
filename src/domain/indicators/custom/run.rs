@@ -18,7 +18,6 @@ use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
 use super::super::intern;
 use super::super::spec::{PlotKind, SOURCES};
 use super::api;
-use decl::{Columns, Declaration, Limits, Problem};
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -56,12 +55,12 @@ pub struct FillResult {
 /// values of the inputs) and what they write (the declaration, the plots, the log).
 pub struct Run {
     pub mode: Mode,
-    pub columns: Columns,
+    pub columns: decl::Columns,
     /// The values the user chose, by input key.
     pub values: BTreeMap<String, f64>,
     /// The text the user chose for the inputs that are text, by input key.
     pub texts: BTreeMap<String, String>,
-    pub declaration: Declaration,
+    pub declaration: decl::Declaration,
     pub plots: Vec<PlotResult>,
     pub fills: Vec<FillResult>,
     pub drawings: Vec<ScriptDrawing>,
@@ -70,7 +69,7 @@ pub struct Run {
     pub log: Vec<String>,
     /// Whether `indicator` was called.
     pub declared: bool,
-    limits: Limits,
+    limits: decl::Limits,
     started: Instant,
     cancel: Option<Arc<AtomicBool>>,
     stopped: Option<Stop>,
@@ -92,13 +91,18 @@ thread_local! {
 const MAX_LOG: usize = 500;
 
 impl Run {
-    fn new(mode: Mode, columns: Columns, values: BTreeMap<String, f64>, limits: Limits) -> Self {
+    fn new(
+        mode: Mode,
+        columns: decl::Columns,
+        values: BTreeMap<String, f64>,
+        limits: decl::Limits,
+    ) -> Self {
         Self {
             mode,
             columns,
             values,
             texts: BTreeMap::new(),
-            declaration: Declaration::default(),
+            declaration: decl::Declaration::default(),
             plots: Vec::new(),
             fills: Vec::new(),
             drawings: Vec::new(),
@@ -221,7 +225,7 @@ pub fn engine() -> &'static Engine {
 /// The names a script starts with: the bars, and how many there are. When the script is being
 /// compiled they are plain variables: constants would be folded into the program, with the bars it
 /// was compiled against.
-fn globals(columns: &Columns, constant: bool) -> Scope<'static> {
+fn globals(columns: &decl::Columns, constant: bool) -> Scope<'static> {
     let mut scope = Scope::new();
     let mut put = |name: &'static str, value: Dynamic| {
         if constant {
@@ -249,7 +253,7 @@ fn globals(columns: &Columns, constant: bool) -> Scope<'static> {
 /// The names a script starts with, for the editor.
 #[cfg(test)]
 pub fn global_names() -> Vec<String> {
-    globals(&Columns::default(), false)
+    globals(&decl::Columns::default(), false)
         .iter()
         .map(|(name, _, _)| name.to_owned())
         .collect()
@@ -268,9 +272,9 @@ pub struct Computed {
 #[derive(Debug, Clone)]
 pub struct Script {
     ast: AST,
-    pub declaration: Declaration,
+    pub declaration: decl::Declaration,
     /// Things worth knowing that do not stop it: it draws nothing, it has no `indicator` call.
-    pub warnings: Vec<Problem>,
+    pub warnings: Vec<decl::Problem>,
 }
 
 impl Script {
@@ -279,8 +283,8 @@ impl Script {
     /// # Errors
     ///
     /// The problems found, when it does not compile or fails.
-    pub fn compile(source: &str) -> Result<Self, Vec<Problem>> {
-        Self::compile_with(source, Limits::default())
+    pub fn compile(source: &str) -> Result<Self, Vec<decl::Problem>> {
+        Self::compile_with(source, decl::Limits::default())
     }
 
     /// [`Self::compile`], with the limits the declaration run has.
@@ -288,14 +292,19 @@ impl Script {
     /// # Errors
     ///
     /// The problems found, when it does not compile or fails.
-    pub fn compile_with(source: &str, limits: Limits) -> Result<Self, Vec<Problem>> {
-        let scope = globals(&Columns::default(), false);
+    pub fn compile_with(source: &str, limits: decl::Limits) -> Result<Self, Vec<decl::Problem>> {
+        let scope = globals(&decl::Columns::default(), false);
         let ast = engine()
             .compile_with_scope(&scope, source)
             .map_err(|error| vec![parse_problem(&error)])?;
-        let run = Run::new(Mode::Declare, Columns::default(), BTreeMap::new(), limits);
+        let run = Run::new(
+            Mode::Declare,
+            decl::Columns::default(),
+            BTreeMap::new(),
+            limits,
+        );
         let installed = Installed::new(run);
-        let mut scope = globals(&Columns::default(), true);
+        let mut scope = globals(&decl::Columns::default(), true);
         let result = engine().run_ast_with_scope(&mut scope, &ast);
         let Some(run) = installed.finish() else {
             return Err(vec![lost_run()]);
@@ -312,14 +321,14 @@ impl Script {
                     .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_')
         });
         if run.declaration.plots.is_empty() && !has_draw_call {
-            warnings.push(Problem::warning(
+            warnings.push(decl::Problem::warning(
                 0,
                 0,
                 "the script draws nothing: add a plot(...) or draw(...) call",
             ));
         }
         if !run.declared {
-            warnings.push(Problem::warning(
+            warnings.push(decl::Problem::warning(
                 0,
                 0,
                 "no indicator(#{ ... }) call: the file name is the name, and it is drawn in a pane",
@@ -342,9 +351,9 @@ impl Script {
         &self,
         input: &StudyInput,
         values: &BTreeMap<String, f64>,
-        limits: Limits,
+        limits: decl::Limits,
         cancel: Option<Arc<AtomicBool>>,
-    ) -> Result<Computed, Vec<Problem>> {
+    ) -> Result<Computed, Vec<decl::Problem>> {
         self.compute_with_texts(input, values, &BTreeMap::new(), limits, cancel)
     }
 
@@ -358,10 +367,10 @@ impl Script {
         input: &StudyInput,
         values: &BTreeMap<String, f64>,
         texts: &BTreeMap<String, String>,
-        limits: Limits,
+        limits: decl::Limits,
         cancel: Option<Arc<AtomicBool>>,
-    ) -> Result<Computed, Vec<Problem>> {
-        let columns = Columns::from_input(input);
+    ) -> Result<Computed, Vec<decl::Problem>> {
+        let columns = decl::Columns::from_input(input);
         let mut scope = globals(&columns, true);
         let mut run = Run::new(Mode::Compute, columns, values.clone(), limits);
         run.texts = texts.clone();
@@ -412,16 +421,16 @@ fn output_of(run: &Run) -> StudyOutput {
 }
 
 /// What is reported when a run vanished while its script was running.
-fn lost_run() -> Problem {
-    Problem::error(
+fn lost_run() -> decl::Problem {
+    decl::Problem::error(
         0,
         0,
         "the run of the script was lost, this is a bug in Wyck",
     )
 }
 
-fn parse_problem(error: &ParseError) -> Problem {
-    Problem::at(error.position(), error.err_type().to_string())
+fn parse_problem(error: &ParseError) -> decl::Problem {
+    decl::Problem::at(error.position(), error.err_type().to_string())
 }
 
 /// The message of an error without the position Rhai writes after it, and the innermost error of
@@ -438,7 +447,7 @@ fn message_of(error: &EvalAltResult) -> (String, Position) {
     }
 }
 
-fn runtime_problem(error: &EvalAltResult, run: &Run) -> Problem {
+fn runtime_problem(error: &EvalAltResult, run: &Run) -> decl::Problem {
     if let EvalAltResult::ErrorTerminated(_, position) = error {
         let message = match run.stopped {
             Some(Stop::Operations) => format!(
@@ -451,10 +460,10 @@ fn runtime_problem(error: &EvalAltResult, run: &Run) -> Problem {
             ),
             _ => "the script was stopped".to_owned(),
         };
-        return Problem::at(*position, message);
+        return decl::Problem::at(*position, message);
     }
     let (message, position) = message_of(error);
-    Problem::at(position, message)
+    decl::Problem::at(position, message)
 }
 
 /// The position of a source input in [`SOURCES`], by name (any case).

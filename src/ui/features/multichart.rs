@@ -42,7 +42,6 @@ use gpui::{
     Bounds, Context, Entity, EventEmitter, MouseButton, MouseMoveEvent, Pixels, SharedString,
     Subscription, Window, canvas, div, px, relative,
 };
-use layout::tree_for;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -204,7 +203,7 @@ impl MultiChart {
             workspace,
             next_id: 0,
             key,
-            tree: tree_for(key, &prefs),
+            tree: layout::tree_for(key, &prefs),
             slots: Vec::new(),
             active: prefs.active_chart,
             sync: prefs.links,

@@ -13,8 +13,6 @@ pub mod plots;
 use super::super::math;
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
-use describe::describing;
-use indicators::{colors, indicators};
 use rhai::{Dynamic, Engine, Map};
 
 /// The longest period a function takes.
@@ -25,9 +23,9 @@ pub fn register(engine: &mut Engine) {
     elementwise(engine);
     windows(engine);
     logic(engine);
-    indicators(engine);
-    describing(engine);
-    colors(engine);
+    indicators::indicators(engine);
+    describe::describing(engine);
+    indicators::colors(engine);
     super::draw_api::register(engine);
 }
 

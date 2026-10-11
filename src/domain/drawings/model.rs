@@ -12,8 +12,6 @@ pub mod tool;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use style::{Level, Style};
-use tool::Tool;
 
 const SCHEMA_VERSION: u32 = 1;
 
@@ -81,9 +79,9 @@ pub fn wave_label(name: &str, degree: u8) -> String {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Template {
     #[serde(default)]
-    pub style: Style,
+    pub style: style::Style,
     #[serde(default)]
-    pub levels: Vec<Level>,
+    pub levels: Vec<style::Level>,
 }
 
 /// The most looks a user can save under a name, and the longest a name can be.
@@ -97,18 +95,18 @@ pub struct NamedTemplate {
     /// The tool it is for, by code.
     pub tool: String,
     #[serde(default)]
-    pub style: Style,
+    pub style: style::Style,
     #[serde(default)]
-    pub levels: Vec<Level>,
+    pub levels: Vec<style::Level>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Drawing {
     pub id: u64,
-    pub tool: Tool,
+    pub tool: tool::Tool,
     pub points: Vec<Point>,
     #[serde(default)]
-    pub style: Style,
+    pub style: style::Style,
     /// The words of a text drawing.
     #[serde(default)]
     pub text: String,
@@ -120,7 +118,7 @@ pub struct Drawing {
     pub hidden: bool,
     /// The levels, when the tool has some; empty means the tool's own.
     #[serde(default)]
-    pub levels: Vec<Level>,
+    pub levels: Vec<style::Level>,
     /// The timeframes (by code) the drawing shows on; `None` for every one.
     #[serde(default)]
     pub timeframes: Option<Vec<String>>,
@@ -141,7 +139,7 @@ fn default_degree() -> u8 {
 
 impl Drawing {
     /// A new drawing of `tool` with its default look.
-    pub fn new(id: u64, tool: Tool, points: Vec<Point>) -> Self {
+    pub fn new(id: u64, tool: tool::Tool, points: Vec<Point>) -> Self {
         Self {
             id,
             tool,
@@ -168,7 +166,7 @@ impl Drawing {
     }
 
     /// The levels the drawing draws: its own, or the tool's.
-    pub fn levels(&self) -> Vec<Level> {
+    pub fn levels(&self) -> Vec<style::Level> {
         if self.levels.is_empty() {
             self.tool.default_levels()
         } else {
@@ -180,7 +178,7 @@ impl Drawing {
     pub fn title(&self) -> String {
         if !self.name.trim().is_empty() {
             self.name.trim().to_owned()
-        } else if self.tool == Tool::Text && !self.text.trim().is_empty() {
+        } else if self.tool == tool::Tool::Text && !self.text.trim().is_empty() {
             let text: String = self.text.trim().chars().take(24).collect();
             format!("Text: {text}")
         } else {
@@ -191,9 +189,11 @@ impl Drawing {
     /// Whether the drawing is well formed for its tool: the right number of finite points.
     pub fn is_valid(&self) -> bool {
         let count_ok = match self.tool {
-            Tool::Unknown => false,
-            Tool::Brush | Tool::Highlighter => (2..=MAX_BRUSH_POINTS).contains(&self.points.len()),
-            Tool::ArrowPath => (2..=MAX_PATH_POINTS).contains(&self.points.len()),
+            tool::Tool::Unknown => false,
+            tool::Tool::Brush | tool::Tool::Highlighter => {
+                (2..=MAX_BRUSH_POINTS).contains(&self.points.len())
+            }
+            tool::Tool::ArrowPath => (2..=MAX_PATH_POINTS).contains(&self.points.len()),
             tool => self.points.len() == tool.anchors(),
         };
         count_ok
@@ -291,7 +291,8 @@ impl DrawingsDoc {
         }
         self.next_id = next;
         self.symbols.retain(|_, drawings| !drawings.is_empty());
-        let known: std::collections::HashSet<String> = Tool::ALL.iter().map(|t| t.code()).collect();
+        let known: std::collections::HashSet<String> =
+            tool::Tool::ALL.iter().map(|t| t.code()).collect();
         self.templates.retain(|code, _| known.contains(code));
         for template in self.templates.values_mut() {
             template.style = template.style.clone().normalized();

@@ -107,7 +107,6 @@ use crate::domain::chart::volume;
 use crate::domain::chart::zone;
 use crate::domain::indicators as study;
 use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
-use palette::{DesktopPalette, gpui_rgba, palette_for_chart};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -552,14 +551,14 @@ impl Chart {
     }
 
     /// The colors this chart draws with: the theme's, and what the chart overrides.
-    fn palette(&self) -> DesktopPalette {
-        let palette = palette_for_chart(&self.settings.colors);
-        DesktopPalette {
-            up: gpui_rgba(palette.up),
-            down: gpui_rgba(palette.down),
-            text: gpui_rgba(palette.text),
-            text_strong: gpui_rgba(palette.text_strong),
-            bg: gpui_rgba(palette.bg),
+    fn palette(&self) -> palette::DesktopPalette {
+        let palette = palette::palette_for_chart(&self.settings.colors);
+        palette::DesktopPalette {
+            up: palette::gpui_rgba(palette.up),
+            down: palette::gpui_rgba(palette.down),
+            text: palette::gpui_rgba(palette.text),
+            text_strong: palette::gpui_rgba(palette.text_strong),
+            bg: palette::gpui_rgba(palette.bg),
         }
     }
 

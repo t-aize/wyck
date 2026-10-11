@@ -42,7 +42,6 @@ pub mod send;
 mod templates;
 mod view;
 
-use self::helpers::{offset_kind, size_kind};
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
 use crate::app::account::Account;
@@ -210,7 +209,7 @@ impl OrderTicket {
         let defaults = layout.defaults.clone();
         let size = cx.new(|cx| {
             number::state(
-                size_kind(prefs.size_mode, &Contract::default()),
+                helpers::size_kind(prefs.size_mode, &Contract::default()),
                 prefs.size,
                 window,
                 cx,
@@ -219,7 +218,7 @@ impl OrderTicket {
         let price = cx.new(|cx| InputState::new(window, cx));
         let stop_loss = cx.new(|cx| {
             number::empty(
-                offset_kind(prefs.stop_unit, &Contract::default()),
+                helpers::offset_kind(prefs.stop_unit, &Contract::default()),
                 window,
                 cx,
             )
@@ -231,7 +230,7 @@ impl OrderTicket {
             cx.new(|cx| number::state(number::Kind::Multiplier, prefs.atr.multiplier, window, cx));
         let take_profit = cx.new(|cx| {
             number::empty(
-                offset_kind(prefs.target_unit, &Contract::default()),
+                helpers::offset_kind(prefs.target_unit, &Contract::default()),
                 window,
                 cx,
             )

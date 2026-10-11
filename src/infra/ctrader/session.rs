@@ -83,7 +83,6 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::Duration;
-use supervisor::{error_is_transient, supervise};
 pub use token_store::{MemoryTokenStore, TokenStore};
 use tokio::sync::{broadcast, watch};
 use tokio::task::JoinHandle;
@@ -324,7 +323,13 @@ impl Session {
             stop,
             handles: AtomicUsize::new(1),
         });
-        let task = tokio::spawn(supervise(config, Arc::clone(&shared), oauth, store, tokens));
+        let task = tokio::spawn(supervisor::supervise(
+            config,
+            Arc::clone(&shared),
+            oauth,
+            store,
+            tokens,
+        ));
         Ok(Self {
             shared,
             task: Arc::new(Mutex::new(Some(task))),
@@ -584,7 +589,7 @@ impl Session {
             // Already following it is what was asked for (a reconnect may have restored it a
             // moment before this call went out).
             Err(error) if error.code() == Some("ALREADY_SUBSCRIBED") => Ok(()),
-            Err(error) if !error_is_transient(&error) => {
+            Err(error) if !supervisor::error_is_transient(&error) => {
                 undo(&mut lock(&self.shared.registry));
                 Err(error)
             }

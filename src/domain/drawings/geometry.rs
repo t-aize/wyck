@@ -14,7 +14,6 @@ pub mod shapes;
 use super::look::Face;
 use super::model::style::Dash;
 use super::model::{Drawing, Point};
-use shapes::shapes_of;
 
 pub type P = (f32, f32);
 
@@ -348,9 +347,9 @@ fn prims_at(drawing: &Drawing, proj: &dyn Projection, selected: bool, factor: f3
     if (factor - 1.0).abs() > f32::EPSILON {
         let mut scaled = drawing.clone();
         scaled.style.text_size *= factor;
-        return shapes_of(&scaled, proj, selected);
+        return shapes::shapes_of(&scaled, proj, selected);
     }
-    shapes_of(drawing, proj, selected)
+    shapes::shapes_of(drawing, proj, selected)
 }
 
 #[cfg(test)]
