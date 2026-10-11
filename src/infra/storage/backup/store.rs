@@ -356,3 +356,21 @@ impl BackupStore {
         Ok(old.len())
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::store::file_stamp;
+    use super::super::store::*;
+
+    #[test]
+    fn file_names_made_from_a_date_are_safe() {
+        assert_eq!(
+            file_stamp("2026-09-29T10:15:00+02:00"),
+            "2026-09-29T10-15-00-02-00"
+        );
+        assert_eq!(file_stamp("../../x"), "x");
+        assert_eq!(file_stamp(""), "now");
+        assert!(is_valid_name(&format!("backup-{}", file_stamp("a b/c\\d"))));
+    }
+}

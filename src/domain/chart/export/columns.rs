@@ -215,3 +215,58 @@ impl<'de> Deserialize<'de> for ColumnKey {
         Ok(Self::from_code(&code).unwrap_or(Self::Time))
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::columns::*;
+
+    #[test]
+    fn the_codes_of_the_columns_are_a_file_format() {
+        for code in [
+            "time",
+            "date",
+            "clock",
+            "open",
+            "high",
+            "low",
+            "close",
+            "price",
+            "volume",
+            "change",
+            "change_percent",
+            "range",
+            "body",
+            "typical",
+            "median",
+            "direction",
+            "index",
+            "symbol",
+            "timeframe",
+            "chart_type",
+            "box_size",
+            "poc",
+            "value_area_high",
+            "value_area_low",
+            "initial_balance_high",
+            "initial_balance_low",
+            "marks",
+            "periods",
+            "poor_high",
+            "poor_low",
+            "thickness",
+            "glyph",
+            "boxes",
+        ] {
+            let key = ColumnKey::from_code(code).unwrap_or_else(|| panic!("{code}"));
+            assert_eq!(key.code(), code);
+        }
+        assert_eq!(
+            ColumnKey::from_code("study.2.1"),
+            Some(ColumnKey::Study { study: 2, plot: 1 })
+        );
+        assert_eq!(ColumnKey::from_code("study.x.1"), None);
+        assert_eq!(ColumnKey::from_code("nonsense"), None);
+        assert_eq!(ColumnKey::Study { study: 0, plot: 3 }.code(), "study.0.3");
+    }
+}

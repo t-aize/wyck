@@ -341,3 +341,56 @@ pub(super) fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
         *point = to;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::geometry::tests::Linear;
+
+    use super::super::edit::apply_handle;
+
+    use super::super::*;
+
+    #[test]
+    fn a_box_is_reshaped_from_any_corner_or_side() {
+        let mut d = Drawing::new(
+            1,
+            Tool::Rectangle,
+            vec![
+                Point { t: 0, p: 100.0 },
+                Point {
+                    t: 600_000,
+                    p: 200.0,
+                },
+            ],
+        );
+        apply_handle(
+            &mut d,
+            2,
+            Point {
+                t: 60_000,
+                p: 250.0,
+            },
+        );
+        assert_eq!(
+            d.points[0],
+            Point {
+                t: 60_000,
+                p: 100.0
+            }
+        );
+        assert_eq!(
+            d.points[1],
+            Point {
+                t: 600_000,
+                p: 250.0
+            }
+        );
+        apply_handle(&mut d, 7, Point { t: 900_000, p: 1.0 });
+        assert_eq!(d.points[1].t, 900_000);
+        assert_eq!(d.points[1].p, 250.0, "a side moves one way only");
+        assert_eq!(
+            super::super::super::geometry::hit::handles(&d, &Linear).len(),
+            8
+        );
+    }
+}

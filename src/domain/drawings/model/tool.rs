@@ -537,3 +537,22 @@ impl Tool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::tool::*;
+
+    #[test]
+    fn every_tool_has_a_group_a_label_and_a_positive_anchor_count() {
+        for tool in Tool::ALL {
+            assert!(!tool.label().is_empty());
+            assert!(tool.anchors() >= 1, "{tool:?}");
+            let _ = tool.group();
+        }
+        let mut labels: Vec<_> = Tool::ALL.iter().map(|t| t.label()).collect();
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), Tool::ALL.len());
+    }
+}

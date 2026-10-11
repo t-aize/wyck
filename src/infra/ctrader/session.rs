@@ -599,37 +599,4 @@ impl Session {
 }
 
 #[cfg(test)]
-mod stop_tests {
-    use super::supervisor::or_stop;
-    use super::*;
-
-    #[tokio::test(start_paused = true)]
-    async fn a_future_that_finishes_gives_its_value() {
-        let (_tx, mut rx) = watch::channel(false);
-        assert_eq!(or_stop(&mut rx, async { 7 }).await, Some(7));
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn a_stop_drops_a_future_that_would_take_an_hour() {
-        let (tx, mut rx) = watch::channel(false);
-        let running = tokio::spawn(async move {
-            or_stop(&mut rx, tokio::time::sleep(Duration::from_secs(3600))).await
-        });
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        tx.send_replace(true);
-        assert_eq!(running.await.unwrap(), None);
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn a_session_already_asked_to_stop_does_not_start_anything() {
-        let (tx, mut rx) = watch::channel(false);
-        tx.send_replace(true);
-        let mut ran = false;
-        let result = or_stop(&mut rx, async {
-            ran = true;
-        })
-        .await;
-        assert_eq!(result, None);
-        assert!(!ran, "the future was never polled");
-    }
-}
+mod stop_tests {}

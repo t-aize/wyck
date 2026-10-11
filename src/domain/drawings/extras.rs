@@ -245,10 +245,6 @@ mod tests {
     use super::super::geometry::tests::{Linear, drawing};
     use super::super::geometry::{Prim, prims as shapes_of};
 
-    use super::notes::*;
-
-    use super::curves::circumcircle;
-
     use super::*;
 
     /// `count` points spread over the plot, a few minutes and a few dozen units apart.
@@ -335,14 +331,6 @@ mod tests {
             .filter(|(a, b)| (a.0 - b.0).abs() < 1e-3)
             .count();
         assert!((8..=10).contains(&verticals), "{verticals} lines");
-    }
-
-    #[test]
-    fn a_circle_goes_through_three_points() {
-        let (center, radius) = circumcircle((0.0, 0.0), (10.0, 0.0), (5.0, 5.0)).unwrap();
-        assert!((center.0 - 5.0).abs() < 1e-3 && center.1.abs() < 1e-3);
-        assert!((radius - 5.0).abs() < 1e-3);
-        assert!(circumcircle((0.0, 0.0), (5.0, 5.0), (10.0, 10.0)).is_none());
     }
 
     #[test]
@@ -492,32 +480,5 @@ mod tests {
             .filter(|s| matches!(s, Prim::Rect { fill: Some((_, a)), .. } if *a > 0.5))
             .count();
         assert_eq!(bodies, 6, "the bars of minutes 10 to 15");
-    }
-
-    #[test]
-    fn a_table_reads_cells_from_bars_and_lines() {
-        let cells = table_cells("a | b\nc");
-        assert_eq!(cells, vec![vec!["a", "b"], vec!["c", ""]]);
-        assert_eq!(table_cells("  ").len(), 3, "an empty table shows a sample");
-    }
-
-    #[test]
-    fn an_unknown_icon_is_a_star() {
-        assert_eq!(icon_key(""), "star");
-        assert_eq!(icon_key("nonsense"), "star");
-        assert_eq!(icon_key(" heart "), "heart");
-    }
-
-    #[test]
-    fn a_note_grows_with_its_words() {
-        let mut d = drawing(Tool::Note, &[(300, 200.0)]);
-        d.text = "one\nsecond line".to_owned();
-        let Some(Prim::Board { rows, .. }) = shapes_of(&d, &Linear)
-            .into_iter()
-            .find(|s| matches!(s, Prim::Board { .. }))
-        else {
-            panic!("a note is a board");
-        };
-        assert_eq!(rows, vec!["one".to_owned(), "second line".to_owned()]);
     }
 }

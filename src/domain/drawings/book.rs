@@ -391,12 +391,11 @@ impl Book {
 mod tests {
     use super::super::geometry::tests::Linear;
 
-    use super::edit::apply_handle;
-
     use super::*;
     use crate::domain::drawings::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};
 
     const SYMBOL: &str = "US100.cash";
+
     const TF: &str = "M5";
 
     fn book() -> Book {
@@ -423,6 +422,38 @@ mod tests {
         click(book, 60.0, 300.0);
         click(book, 240.0, 360.0);
         book.select(None);
+    }
+
+    /// Presses at `from`, moves to `to` in steps, and lets go there.
+    fn drag(book: &mut Book, from: (f32, f32), to: (f32, f32)) {
+        let (x0, y0) = at(from.0, from.1);
+        book.press(SYMBOL, TF, &Linear, x0, y0);
+        for step in 1..=4 {
+            let k = step as f32 / 4.0;
+            let (x, y) = at(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k);
+            book.pointer_moved(SYMBOL, &Linear, x, y, false);
+        }
+        let (x1, y1) = at(to.0, to.1);
+        book.release(SYMBOL, &Linear, x1, y1);
+    }
+
+    fn with_a_line() -> Book {
+        let mut book = book();
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 120.0, 100.0);
+        click(&mut book, 480.0, 300.0);
+        book
+    }
+
+    fn two_lines() -> (Book, u64, u64) {
+        let mut book = book();
+        for (a, b) in [(100.0, 200.0), (150.0, 250.0)] {
+            book.set_tool(Some(Tool::TrendLine));
+            click(&mut book, 60.0, a);
+            click(&mut book, 300.0, b);
+        }
+        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
+        (book, ids[0], ids[1])
     }
 
     #[test]
@@ -715,19 +746,6 @@ mod tests {
         assert!(book.creating(SYMBOL).is_some());
     }
 
-    /// Presses at `from`, moves to `to` in steps, and lets go there.
-    fn drag(book: &mut Book, from: (f32, f32), to: (f32, f32)) {
-        let (x0, y0) = at(from.0, from.1);
-        book.press(SYMBOL, TF, &Linear, x0, y0);
-        for step in 1..=4 {
-            let k = step as f32 / 4.0;
-            let (x, y) = at(from.0 + (to.0 - from.0) * k, from.1 + (to.1 - from.1) * k);
-            book.pointer_moved(SYMBOL, &Linear, x, y, false);
-        }
-        let (x1, y1) = at(to.0, to.1);
-        book.release(SYMBOL, &Linear, x1, y1);
-    }
-
     #[test]
     fn every_point_of_a_many_point_drawing_can_be_a_drag_or_a_click() {
         // Two drags: the first places two points, the second one more.
@@ -956,14 +974,6 @@ mod tests {
         assert!(book.cancel(), "the tool");
         assert_eq!(book.tool(), None);
         assert!(!book.cancel(), "nothing left");
-    }
-
-    fn with_a_line() -> Book {
-        let mut book = book();
-        book.set_tool(Some(Tool::TrendLine));
-        click(&mut book, 120.0, 100.0);
-        click(&mut book, 480.0, 300.0);
-        book
     }
 
     #[test]
@@ -1214,17 +1224,6 @@ mod tests {
         );
     }
 
-    fn two_lines() -> (Book, u64, u64) {
-        let mut book = book();
-        for (a, b) in [(100.0, 200.0), (150.0, 250.0)] {
-            book.set_tool(Some(Tool::TrendLine));
-            click(&mut book, 60.0, a);
-            click(&mut book, 300.0, b);
-        }
-        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
-        (book, ids[0], ids[1])
-    }
-
     #[test]
     fn a_settings_dialog_previews_then_keeps_as_one_step_or_puts_back() {
         let (mut book, first, _) = two_lines();
@@ -1399,47 +1398,6 @@ mod tests {
         let pattern = &book.drawings(SYMBOL)[0];
         assert_eq!(pattern.points.len(), 5);
         assert!(pattern.is_valid());
-    }
-
-    #[test]
-    fn a_box_is_reshaped_from_any_corner_or_side() {
-        let mut d = Drawing::new(
-            1,
-            Tool::Rectangle,
-            vec![
-                Point { t: 0, p: 100.0 },
-                Point {
-                    t: 600_000,
-                    p: 200.0,
-                },
-            ],
-        );
-        apply_handle(
-            &mut d,
-            2,
-            Point {
-                t: 60_000,
-                p: 250.0,
-            },
-        );
-        assert_eq!(
-            d.points[0],
-            Point {
-                t: 60_000,
-                p: 100.0
-            }
-        );
-        assert_eq!(
-            d.points[1],
-            Point {
-                t: 600_000,
-                p: 250.0
-            }
-        );
-        apply_handle(&mut d, 7, Point { t: 900_000, p: 1.0 });
-        assert_eq!(d.points[1].t, 900_000);
-        assert_eq!(d.points[1].p, 250.0, "a side moves one way only");
-        assert_eq!(super::super::geometry::hit::handles(&d, &Linear).len(), 8);
     }
 
     #[test]

@@ -442,3 +442,157 @@ impl StudyConfig {
         parts.join(" ")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::compute::*;
+    use super::super::config::*;
+    use super::super::kind::*;
+    use super::super::spec::*;
+    use super::super::style::*;
+
+    use crate::domain::drawings::model::style::Dash;
+    use serde::{Deserialize, Serialize};
+
+    #[test]
+    fn a_saved_indicator_reads_back_and_a_future_one_is_recognized() {
+        let mut config = StudyConfig::new(StudyKind::Macd);
+        config.inputs.insert("fast".into(), 8.0);
+        config.plots.get_mut("macd").unwrap().color = 0x123456;
+        #[derive(Serialize, Deserialize)]
+        struct Holder {
+            studies: Vec<StudyConfig>,
+        }
+        let text = toml::to_string(&Holder {
+            studies: vec![config.clone()],
+        })
+        .unwrap();
+        let back: Holder = toml::from_str(&text).unwrap();
+        assert_eq!(back.studies[0], config);
+        let future: Holder =
+            toml::from_str("[[studies]]\nkind = \"super_trend\"\n[studies.inputs]\nx = 1.0\n")
+                .unwrap();
+        assert_eq!(future.studies[0].kind, StudyKind::Unknown);
+    }
+
+    #[test]
+    fn old_and_new_style_fields_survive_storage() {
+        let old: StudyConfig = toml::from_str("kind = 'macd'\n[plots.macd]\ncolor = 1193046\nwidth = 2.0\nvisible = true\nopacity = 1.0\ndash = 'solid'\n").unwrap();
+        let old = old.normalized();
+        assert_eq!(old.plot_style("macd").color, 0x123456);
+        assert!(old.axis_labels);
+        assert!(old.legend_values);
+        assert!(old.fills.is_empty());
+
+        let mut current = StudyConfig::new(StudyKind::Vwap);
+        current.name = "Session VWAP".into();
+        current.precision = Some(4);
+        current.axis_labels = false;
+        current.legend_values = false;
+        current.plots.get_mut("vwap").unwrap().kind = Some(PlotKind::Dots);
+        current.fills.insert(
+            1,
+            FillStyle {
+                color: 0x123456,
+                other: None,
+                opacity: 0.2,
+                visible: false,
+            },
+        );
+        let saved = toml::to_string(&current).unwrap();
+        let loaded: StudyConfig = toml::from_str(&saved).unwrap();
+        assert_eq!(loaded.normalized(), current);
+    }
+
+    #[test]
+    fn titles_name_the_main_inputs() {
+        assert_eq!(StudyConfig::new(StudyKind::Sma).title(), "SMA 20 close");
+        assert_eq!(
+            StudyConfig::new(StudyKind::Bollinger).title(),
+            "BB 20 2 close"
+        );
+        assert_eq!(
+            StudyConfig::new(StudyKind::Macd).title(),
+            "MACD 12 26 9 close"
+        );
+        assert_eq!(StudyConfig::new(StudyKind::Obv).title(), "OBV");
+    }
+
+    #[test]
+    fn atr_methods_optional_plots_and_percent_use_the_same_bars() {
+        let data = StudyInput {
+            high: vec![12.0, 13.0, 17.0, 16.0],
+            low: vec![8.0, 9.0, 11.0, 10.0],
+            close: vec![10.0, 12.0, 12.0, 15.0],
+            ..StudyInput::default()
+        };
+        let mut config = StudyConfig::new(StudyKind::Atr);
+        config.inputs.insert("length".into(), 2.0);
+        config.inputs.insert("signal_length".into(), 2.0);
+        assert!(!config.plot_style("signal").visible);
+        assert!(!config.plot_style("tr").visible);
+        let out = compute(&config, &data);
+        assert_eq!(
+            out.plots.iter().map(|p| p.key).collect::<Vec<_>>(),
+            ["atr", "signal", "tr"]
+        );
+        assert_eq!(out.plots[2].values, [4.0, 4.0, 6.0, 6.0]);
+        assert!(out.plots[0].values[0].is_nan());
+        assert_eq!(&out.plots[0].values[1..], &[4.0, 5.0, 5.5]);
+        assert!(out.plots[1].values[1].is_nan());
+        assert_eq!(&out.plots[1].values[2..], &[4.5, 5.25]);
+
+        for (method, expected) in [(1.0, 6.0), (2.0, 5.777777777777778), (3.0, 6.0)] {
+            config.inputs.insert("smoothing".into(), method);
+            let out = compute(&config, &data);
+            assert!((out.plots[0].values[3] - expected).abs() < 1e-10);
+        }
+
+        config.inputs.insert("smoothing".into(), 0.0);
+        config.inputs.insert("unit".into(), 1.0);
+        let out = compute(&config, &data);
+        assert_eq!(config.value_format(), ValueFormat::Percent(2));
+        config.inputs.insert("percent_decimals".into(), 4.0);
+        assert_eq!(config.value_format(), ValueFormat::Percent(4));
+        assert!((out.plots[0].values[3] - 5.5 / 15.0 * 100.0).abs() < 1e-10);
+        assert!((out.plots[2].values[3] - 6.0 / 15.0 * 100.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn a_plot_saved_before_opacity_and_line_style_loads_opaque_and_solid() {
+        let old: PlotStyle = toml::from_str(
+            "color = 255
+    width = 2.0
+    ",
+        )
+        .unwrap();
+        assert_eq!(old.opacity, 1.0);
+        assert_eq!(old.dash, Dash::Solid);
+        assert!(old.visible);
+
+        let mut config = StudyConfig::new(StudyKind::Sma);
+        let key = config.spec().plots[0].key;
+        config.plots.insert(
+            key.to_owned(),
+            PlotStyle {
+                opacity: 9.0,
+                ..old
+            },
+        );
+        assert_eq!(config.normalized().plot_style(key).opacity, 1.0);
+    }
+
+    #[test]
+    fn text_inputs_survive_saving_and_default_when_absent() {
+        let mut config = StudyConfig::new(StudyKind::MtfMa);
+        assert_eq!(config.text("timeframe"), "4h");
+        config.set_text("timeframe", "1D");
+        let saved = serde_json::to_string(&config).unwrap();
+        let back: StudyConfig = serde_json::from_str(&saved).unwrap();
+        assert_eq!(back.text("timeframe"), "1D");
+        // An older save has no texts at all.
+        let older: StudyConfig =
+            serde_json::from_str(r#"{"kind":"sma","inputs":{"length":9.0}}"#).unwrap();
+        assert!(older.texts.is_empty());
+    }
+}

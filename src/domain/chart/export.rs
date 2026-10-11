@@ -37,9 +37,6 @@ mod tests {
     use super::render::*;
     use super::source::*;
     use super::table::*;
-
-    use crate::domain::market::{Bar, Tick};
-
     use super::*;
     use crate::domain::chart::data::Series;
     use crate::domain::chart::display::Display;
@@ -48,9 +45,11 @@ mod tests {
     use crate::domain::chart::zone::Zone;
     use crate::domain::indicators::config::StudyConfig;
     use crate::domain::indicators::kind::StudyKind;
+    use crate::domain::market::{Bar, Tick};
 
     /// Monday 2026-01-05 00:00 UTC.
     const MONDAY: i64 = 1_767_571_200_000;
+
     const MIN: i64 = 60_000;
 
     fn bars(n: usize) -> Vec<Bar> {
@@ -122,24 +121,6 @@ mod tests {
 
     fn lines(text: &str) -> Vec<&str> {
         text.lines().collect()
-    }
-
-    #[test]
-    fn prices_are_written_exactly_at_any_number_of_decimals() {
-        assert_eq!(price_text(123_456, 5, '.', false), "1.23456");
-        assert_eq!(price_text(123_456, 3, '.', false), "1.235");
-        assert_eq!(price_text(123_449, 3, '.', false), "1.234");
-        assert_eq!(price_text(123_456, 0, '.', false), "1");
-        assert_eq!(price_text(150_000, 0, '.', false), "2");
-        assert_eq!(price_text(123_456, 7, '.', false), "1.2345600");
-        assert_eq!(price_text(100_000, 5, '.', true), "1");
-        assert_eq!(price_text(123_400, 5, '.', true), "1.234");
-        assert_eq!(price_text(123_456, 5, ',', false), "1,23456");
-        assert_eq!(price_text(5, 5, '.', false), "0.00005");
-        assert_eq!(price_text(-10, 5, '.', false), "-0.00010");
-        // A price that rounds to nothing has no sign.
-        assert_eq!(price_text(-1, 3, '.', false), "0.000");
-        assert_eq!(price_text(i64::MAX, 5, '.', false), "92233720368547.75807");
     }
 
     #[test]
@@ -266,22 +247,6 @@ mod tests {
             time_text(ms, &forced, Zone::Named(chrono_tz::Tz::America__New_York)).text,
             "2026-01-05T09:30:00Z"
         );
-    }
-
-    #[test]
-    fn a_pattern_that_cannot_be_written_is_replaced() {
-        assert!(pattern_is_valid("%Y-%m-%d"));
-        assert!(!pattern_is_valid("%Q"));
-        assert!(!pattern_is_valid(""));
-        let o = ExportOptions {
-            time_format: TimeFormat::Custom,
-            time_pattern: "%Q%".to_owned(),
-            date_pattern: String::new(),
-            ..ExportOptions::default()
-        }
-        .normalized();
-        assert_eq!(o.time_pattern, "%Y-%m-%d %H:%M:%S");
-        assert_eq!(o.date_pattern, "%Y-%m-%d");
     }
 
     #[test]
@@ -499,55 +464,6 @@ mod tests {
             last[2].split('.').nth(1).is_some_and(|d| d.len() == 2),
             "{last:?}"
         );
-    }
-
-    #[test]
-    fn the_codes_of_the_columns_are_a_file_format() {
-        for code in [
-            "time",
-            "date",
-            "clock",
-            "open",
-            "high",
-            "low",
-            "close",
-            "price",
-            "volume",
-            "change",
-            "change_percent",
-            "range",
-            "body",
-            "typical",
-            "median",
-            "direction",
-            "index",
-            "symbol",
-            "timeframe",
-            "chart_type",
-            "box_size",
-            "poc",
-            "value_area_high",
-            "value_area_low",
-            "initial_balance_high",
-            "initial_balance_low",
-            "marks",
-            "periods",
-            "poor_high",
-            "poor_low",
-            "thickness",
-            "glyph",
-            "boxes",
-        ] {
-            let key = ColumnKey::from_code(code).unwrap_or_else(|| panic!("{code}"));
-            assert_eq!(key.code(), code);
-        }
-        assert_eq!(
-            ColumnKey::from_code("study.2.1"),
-            Some(ColumnKey::Study { study: 2, plot: 1 })
-        );
-        assert_eq!(ColumnKey::from_code("study.x.1"), None);
-        assert_eq!(ColumnKey::from_code("nonsense"), None);
-        assert_eq!(ColumnKey::Study { study: 0, plot: 3 }.code(), "study.0.3");
     }
 
     #[test]
@@ -848,31 +764,6 @@ mod tests {
     }
 
     #[test]
-    fn options_from_an_old_or_broken_file_are_repaired() {
-        let empty: ExportOptions = toml::from_str("").unwrap();
-        assert_eq!(empty, ExportOptions::default());
-        let broken: ExportOptions = toml::from_str(
-            "every = 0\nlast = 0\nfixed_digits = 99\ncustom_delimiter = \"abc\"\ncolumns = [\"open\", \"open\", \"wat\", \"study.1.0\"]\n[renames]\nopen = \" \"\n",
-        )
-        .unwrap();
-        let broken = broken.normalized();
-        assert_eq!(broken.every, 1);
-        assert_eq!(broken.last, 1);
-        assert_eq!(broken.fixed_digits, 12);
-        assert_eq!(broken.custom_delimiter, "a");
-        // The repeat of open is gone; the unknown one reads as the time.
-        assert_eq!(
-            broken.columns,
-            vec![
-                ColumnKey::Open,
-                ColumnKey::Time,
-                ColumnKey::Study { study: 1, plot: 0 }
-            ]
-        );
-        assert!(broken.renames.is_empty());
-    }
-
-    #[test]
     fn nothing_loaded_exports_only_the_header() {
         let f = Fixture::new(Series::Bars(Vec::new()), ChartSettings::default());
         let text = out(&f, &options(|_| {}));
@@ -891,16 +782,5 @@ mod tests {
         assert_eq!(preview.notes, full.notes);
         let name = |t: &Table| file_name(&f.source(), &o, t);
         assert_eq!(name(&preview), name(&full));
-    }
-
-    #[test]
-    fn a_date_field_is_valid_when_empty_or_a_date() {
-        assert!(date_is_valid(""));
-        assert!(date_is_valid("  "));
-        assert!(date_is_valid("2026-01-05"));
-        assert!(date_is_valid("2026-01-05 09:30"));
-        assert!(date_is_valid("2026-01-05T09:30:15"));
-        assert!(!date_is_valid("5 January"));
-        assert!(!date_is_valid("2026-13-45"));
     }
 }

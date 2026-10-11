@@ -148,3 +148,64 @@ pub(super) fn dedup_keep_order(items: &mut Vec<String>) {
     let mut seen = std::collections::HashSet::new();
     items.retain(|item| seen.insert(item.clone()));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::watchlists::*;
+
+    #[test]
+    fn watchlist_names_are_checked() {
+        let mut lists = Watchlists::default();
+        assert_eq!(lists.create_list("  Majors "), Ok(0));
+        assert_eq!(lists.lists[0].name, "Majors");
+        assert_eq!(lists.create_list("majors"), Err(NameError::Taken));
+        assert_eq!(lists.create_list("   "), Err(NameError::Empty));
+        assert_eq!(
+            lists.create_list(&"x".repeat(MAX_LIST_NAME + 1)),
+            Err(NameError::TooLong)
+        );
+        assert_eq!(lists.create_list("Metals"), Ok(1));
+        assert_eq!(lists.rename_list(1, "Majors"), Err(NameError::Taken));
+        assert_eq!(
+            lists.rename_list(1, "METALS"),
+            Ok(()),
+            "its own name is fine"
+        );
+        assert_eq!(lists.rename_list(1, "Gold and silver"), Ok(()));
+    }
+
+    #[test]
+    fn symbols_move_in_and_out_of_lists_and_favorites() {
+        let mut lists = Watchlists::default();
+        lists.create_list("A").unwrap();
+        lists.toggle_in_list(0, "EURUSD");
+        lists.toggle_in_list(0, "XAUUSD");
+        assert!(lists.in_list(0, "EURUSD"));
+        lists.toggle_in_list(0, "EURUSD");
+        assert!(!lists.in_list(0, "EURUSD"));
+        assert_eq!(lists.lists[0].symbols, vec!["XAUUSD"]);
+        lists.toggle_in_list(7, "X");
+        assert!(!lists.in_list(7, "X"));
+
+        assert!(!lists.is_favorite("US100.cash"));
+        lists.toggle_favorite("US100.cash");
+        assert!(lists.is_favorite("US100.cash"));
+        lists.toggle_favorite("US100.cash");
+        assert!(!lists.is_favorite("US100.cash"));
+
+        lists.delete_list(0);
+        lists.delete_list(0);
+        assert!(lists.lists.is_empty());
+    }
+
+    #[test]
+    fn watchlists_survive_awkward_symbol_names_through_toml() {
+        let mut lists = Watchlists::default();
+        lists.create_list("Odd \"names\" & more").unwrap();
+        lists.toggle_in_list(0, "US100.cash");
+        lists.toggle_in_list(0, "EUR/USD #1");
+        let text = toml::to_string_pretty(&lists).unwrap();
+        let back: Watchlists = toml::from_str(&text).unwrap();
+        assert_eq!(back, lists);
+    }
+}

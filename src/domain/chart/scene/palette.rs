@@ -128,3 +128,42 @@ impl Default for Palette {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::color::rgb;
+
+    use super::super::palette::*;
+
+    use crate::domain::chart::options::ChartColors;
+
+    #[test]
+    fn trading_lines_that_are_hidden_are_not_marks() {
+        let settings = super::super::super::options::TradingLines {
+            alerts: false,
+            ..super::super::super::options::TradingLines::default()
+        };
+        assert!(!settings.shows(super::super::super::lines::LineId::Alert(3)));
+        assert!(settings.shows(super::super::super::lines::LineId::Order(3)));
+    }
+
+    #[test]
+    fn kagi_and_point_figure_take_their_own_colors_and_follow_the_rising_ones_otherwise() {
+        let plain = Palette::for_chart(&ChartColors::default());
+        assert_eq!(plain.kagi_yang, plain.up);
+        assert_eq!(plain.kagi_yin, plain.down);
+        assert_eq!(plain.pnf_up, plain.up);
+        let colors = ChartColors {
+            up: Some(0x112233),
+            kagi_yin: Some(0x445566),
+            pnf_up: Some(0x778899),
+            ..ChartColors::default()
+        };
+        let p = Palette::for_chart(&colors);
+        assert_eq!(p.kagi_yang, rgb(0x112233), "follows the rising color");
+        assert_eq!(p.kagi_yin, rgb(0x445566));
+        assert_eq!(p.pnf_up, rgb(0x778899));
+        assert_eq!(p.pnf_down, p.down);
+    }
+}

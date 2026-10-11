@@ -287,3 +287,51 @@ impl ExportOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::choices::*;
+    use super::super::columns::*;
+    use super::super::options::*;
+
+    #[test]
+    fn a_pattern_that_cannot_be_written_is_replaced() {
+        assert!(pattern_is_valid("%Y-%m-%d"));
+        assert!(!pattern_is_valid("%Q"));
+        assert!(!pattern_is_valid(""));
+        let o = ExportOptions {
+            time_format: TimeFormat::Custom,
+            time_pattern: "%Q%".to_owned(),
+            date_pattern: String::new(),
+            ..ExportOptions::default()
+        }
+        .normalized();
+        assert_eq!(o.time_pattern, "%Y-%m-%d %H:%M:%S");
+        assert_eq!(o.date_pattern, "%Y-%m-%d");
+    }
+
+    #[test]
+    fn options_from_an_old_or_broken_file_are_repaired() {
+        let empty: ExportOptions = toml::from_str("").unwrap();
+        assert_eq!(empty, ExportOptions::default());
+        let broken: ExportOptions = toml::from_str(
+            "every = 0\nlast = 0\nfixed_digits = 99\ncustom_delimiter = \"abc\"\ncolumns = [\"open\", \"open\", \"wat\", \"study.1.0\"]\n[renames]\nopen = \" \"\n",
+        )
+        .unwrap();
+        let broken = broken.normalized();
+        assert_eq!(broken.every, 1);
+        assert_eq!(broken.last, 1);
+        assert_eq!(broken.fixed_digits, 12);
+        assert_eq!(broken.custom_delimiter, "a");
+        // The repeat of open is gone; the unknown one reads as the time.
+        assert_eq!(
+            broken.columns,
+            vec![
+                ColumnKey::Open,
+                ColumnKey::Time,
+                ColumnKey::Study { study: 1, plot: 0 }
+            ]
+        );
+        assert!(broken.renames.is_empty());
+    }
+}

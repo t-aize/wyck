@@ -688,15 +688,12 @@ fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
 
 #[cfg(test)]
 mod tests {
-    use super::axes::*;
 
+    use super::axes::*;
+    use super::cmd::{count, rect_widths, texts};
     use super::color::rgb;
 
     use super::palette::*;
-    use crate::domain::market::{Bar, Period, Quote, Tick};
-
-    use super::axes::previous_close;
-    use super::cmd::{count, rect_widths, texts};
     use super::*;
     use crate::domain::chart::flow::Flow;
     use crate::domain::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
@@ -704,6 +701,7 @@ mod tests {
     use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
     use crate::domain::indicators::config::StudyConfig;
     use crate::domain::indicators::kind::StudyKind;
+    use crate::domain::market::{Bar, Period, Quote, Tick};
 
     fn bars(n: usize) -> Vec<Bar> {
         (0..n)
@@ -772,6 +770,86 @@ mod tests {
             kind,
             ..ChartSettings::default()
         }
+    }
+
+    /// The flow of some bars: the price walks from the low to the high (buyers) and back (sellers).
+    fn flow_of(bars: &[Bar]) -> Flow {
+        let times: Vec<i64> = bars.iter().map(|b| b.time_ms).collect();
+        let mut quotes = Vec::new();
+        for bar in bars {
+            let mut time = bar.time_ms;
+            let up: Vec<i64> = (bar.low..=bar.high).step_by(5).collect();
+            for price in up.iter().chain(up.iter().rev()) {
+                time += 10;
+                quotes.push(Quote {
+                    time_ms: time,
+                    bid: Some(*price),
+                    ask: Some(*price + 2),
+                });
+            }
+        }
+        let mut flow = Flow::default();
+        flow.ingest(&times, Some(60_000), &quotes, true);
+        flow.cover_from(times[0]);
+        flow
+    }
+
+    fn footprint_fixture(n: usize, bar_px: f64) -> Fixture {
+        let data = bars(n);
+        let mut f = Fixture::new(
+            Series::Bars(data.clone()),
+            kind(ChartKind::Footprint),
+            View::new(bar_px),
+        );
+        f.flow = flow_of(&data);
+        f
+    }
+
+    fn drawn(settings: ChartSettings, edit: impl FnOnce(&mut Frame<'_>)) -> usize {
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let mut frame = f.frame();
+        edit(&mut frame);
+        count(&build(&frame))
+    }
+
+    /// Three days of five minute bars, so a session has a dozen letters or so per day.
+    fn tpo_bars() -> Vec<Bar> {
+        (0..864)
+            .map(|i| {
+                let wave = ((i as f64 * 0.05).sin() * 300.0) as i64;
+                let base = 100_000 + wave;
+                Bar {
+                    time_ms: 1_767_571_200_000 + i as i64 * 300_000,
+                    open: base,
+                    high: base + 60,
+                    low: base - 60,
+                    close: base + 10,
+                    volume: 5,
+                }
+            })
+            .collect()
+    }
+
+    fn tpo_fixture(edit: impl FnOnce(&mut ChartSettings), bar_px: f64) -> Fixture {
+        let mut settings = kind(ChartKind::Tpo);
+        settings.zone = Zone::Utc;
+        settings.tpo.row_units = 20;
+        edit(&mut settings);
+        // A little air after the last profile, not the six points a narrow view keeps.
+        let mut view = View::new(bar_px);
+        view.offset = 1.0;
+        Fixture::new(Series::Bars(tpo_bars()), settings, view)
+    }
+
+    /// How many strokes of `points` or more points a frame has (the ring of an O has twenty one).
+    fn long_strokes(cmds: &[Cmd], points: usize) -> usize {
+        cmds.iter()
+            .map(|c| match c {
+                Cmd::Stroke { points: p, .. } if p.len() >= points => 1,
+                Cmd::Clip { inner, .. } => long_strokes(inner, points),
+                _ => 0,
+            })
+            .sum()
     }
 
     #[test]
@@ -982,14 +1060,6 @@ mod tests {
     }
 
     #[test]
-    fn the_time_left_in_a_bar_reads_like_a_clock() {
-        assert_eq!(countdown(65_000), "01:05");
-        assert_eq!(countdown(3_725_000), "1:02:05");
-        assert_eq!(countdown(2 * 86_400_000 + 3_600_000), "2d 01:00");
-        assert_eq!(countdown(-5), "00:00");
-    }
-
-    #[test]
     fn marks_draw_a_line_and_a_tag() {
         let f = Fixture::new(
             Series::Bars(bars(100)),
@@ -1011,38 +1081,6 @@ mod tests {
         // The tag is added; a label of the scale under it gives way.
         assert!(after.len() >= before, "{before} then {after:?}");
         assert!(after.contains(&"1.00200".to_owned()), "{after:?}");
-    }
-
-    #[test]
-    fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
-        let tag = |y: f32| Cmd::Tag {
-            text: String::new(),
-            x: 0.0,
-            y,
-            height: 18.0,
-            pad: 0.0,
-            bg: hsla(rgb(0)),
-            fg: hsla(rgb(0)),
-            align: Align::Left,
-            fixed_width: Some(10.0),
-            within: None,
-            size: font(),
-            bold: false,
-            face: Default::default(),
-        };
-        let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
-        spread_tags(&mut tags, &Geometry::single(1_000.0, 528.0), 0.0);
-        let ys: Vec<f32> = tags
-            .iter()
-            .map(|t| match t {
-                Cmd::Tag { y, .. } => *y,
-                _ => 0.0,
-            })
-            .collect();
-        assert_eq!(ys[2], 104.0, "the last one stays");
-        let mut sorted = ys.clone();
-        sorted.sort_by(f32::total_cmp);
-        assert!(sorted.windows(2).all(|w| w[1] - w[0] >= 18.0), "{ys:?}");
     }
 
     #[test]
@@ -1080,46 +1118,6 @@ mod tests {
             }),
             "missing ATR tag: {label}"
         );
-    }
-
-    #[test]
-    fn price_axis_uses_the_available_vertical_space() {
-        let target = axis_tick_target(300.0);
-        let ticks = axis::price_ticks(30_580.0, 30_660.0, target, 1.0);
-        assert!(ticks.len() >= 8, "{ticks:?}");
-    }
-
-    /// The flow of some bars: the price walks from the low to the high (buyers) and back (sellers).
-    fn flow_of(bars: &[Bar]) -> Flow {
-        let times: Vec<i64> = bars.iter().map(|b| b.time_ms).collect();
-        let mut quotes = Vec::new();
-        for bar in bars {
-            let mut time = bar.time_ms;
-            let up: Vec<i64> = (bar.low..=bar.high).step_by(5).collect();
-            for price in up.iter().chain(up.iter().rev()) {
-                time += 10;
-                quotes.push(Quote {
-                    time_ms: time,
-                    bid: Some(*price),
-                    ask: Some(*price + 2),
-                });
-            }
-        }
-        let mut flow = Flow::default();
-        flow.ingest(&times, Some(60_000), &quotes, true);
-        flow.cover_from(times[0]);
-        flow
-    }
-
-    fn footprint_fixture(n: usize, bar_px: f64) -> Fixture {
-        let data = bars(n);
-        let mut f = Fixture::new(
-            Series::Bars(data.clone()),
-            kind(ChartKind::Footprint),
-            View::new(bar_px),
-        );
-        f.flow = flow_of(&data);
-        f
     }
 
     #[test]
@@ -1208,13 +1206,6 @@ mod tests {
         off.footprint.summary = false;
         let without = main_map(&f.raw, &f.display, &off, &f.view, &g, 5).unwrap();
         assert!(with.bottom < without.bottom - 20.0);
-    }
-
-    fn drawn(settings: ChartSettings, edit: impl FnOnce(&mut Frame<'_>)) -> usize {
-        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
-        let mut frame = f.frame();
-        edit(&mut frame);
-        count(&build(&frame))
     }
 
     #[test]
@@ -1330,31 +1321,6 @@ mod tests {
     }
 
     #[test]
-    fn the_previous_close_is_the_last_close_of_the_day_before() {
-        let day = 86_400_000;
-        let bar = |time_ms, close| Bar {
-            time_ms,
-            open: close,
-            high: close,
-            low: close,
-            close,
-            volume: 1,
-        };
-        let series = Series::Bars(vec![
-            bar(day, 10),
-            bar(day + 3_600_000, 11),
-            bar(2 * day, 20),
-            bar(2 * day + 3_600_000, 21),
-        ]);
-        assert_eq!(previous_close(&series, Zone::Utc), Some(11));
-        assert_eq!(
-            previous_close(&Series::Bars(vec![bar(day, 10)]), Zone::Utc),
-            None
-        );
-        assert_eq!(previous_close(&Series::Ticks(Vec::new()), Zone::Utc), None);
-    }
-
-    #[test]
     fn a_chart_overrides_only_the_colors_it_sets() {
         let theme = Palette::new();
         let colors = ChartColors {
@@ -1388,16 +1354,6 @@ mod tests {
         };
         assert!(range(ScaleMargin::Tight) < range(ScaleMargin::Normal));
         assert!(range(ScaleMargin::Normal) < range(ScaleMargin::Loose));
-    }
-
-    #[test]
-    fn trading_lines_that_are_hidden_are_not_marks() {
-        let settings = super::super::options::TradingLines {
-            alerts: false,
-            ..super::super::options::TradingLines::default()
-        };
-        assert!(!settings.shows(super::super::lines::LineId::Alert(3)));
-        assert!(settings.shows(super::super::lines::LineId::Order(3)));
     }
 
     #[test]
@@ -1487,25 +1443,6 @@ mod tests {
     }
 
     #[test]
-    fn kagi_and_point_figure_take_their_own_colors_and_follow_the_rising_ones_otherwise() {
-        let plain = Palette::for_chart(&ChartColors::default());
-        assert_eq!(plain.kagi_yang, plain.up);
-        assert_eq!(plain.kagi_yin, plain.down);
-        assert_eq!(plain.pnf_up, plain.up);
-        let colors = ChartColors {
-            up: Some(0x112233),
-            kagi_yin: Some(0x445566),
-            pnf_up: Some(0x778899),
-            ..ChartColors::default()
-        };
-        let p = Palette::for_chart(&colors);
-        assert_eq!(p.kagi_yang, rgb(0x112233), "follows the rising color");
-        assert_eq!(p.kagi_yin, rgb(0x445566));
-        assert_eq!(p.pnf_up, rgb(0x778899));
-        assert_eq!(p.pnf_down, p.down);
-    }
-
-    #[test]
     fn every_price_based_type_draws_from_the_whole_path_by_default() {
         for chart_kind in [
             ChartKind::Renko,
@@ -1518,35 +1455,6 @@ mod tests {
             assert!(f.display.is_derived(), "{chart_kind:?}");
             assert!(count(&build(&f.frame())) > 20, "{chart_kind:?}");
         }
-    }
-
-    /// Three days of five minute bars, so a session has a dozen letters or so per day.
-    fn tpo_bars() -> Vec<Bar> {
-        (0..864)
-            .map(|i| {
-                let wave = ((i as f64 * 0.05).sin() * 300.0) as i64;
-                let base = 100_000 + wave;
-                Bar {
-                    time_ms: 1_767_571_200_000 + i as i64 * 300_000,
-                    open: base,
-                    high: base + 60,
-                    low: base - 60,
-                    close: base + 10,
-                    volume: 5,
-                }
-            })
-            .collect()
-    }
-
-    fn tpo_fixture(edit: impl FnOnce(&mut ChartSettings), bar_px: f64) -> Fixture {
-        let mut settings = kind(ChartKind::Tpo);
-        settings.zone = Zone::Utc;
-        settings.tpo.row_units = 20;
-        edit(&mut settings);
-        // A little air after the last profile, not the six points a narrow view keeps.
-        let mut view = View::new(bar_px);
-        view.offset = 1.0;
-        Fixture::new(Series::Bars(tpo_bars()), settings, view)
     }
 
     #[test]
@@ -1655,17 +1563,6 @@ mod tests {
         let crowded = tpo_fixture(|s| s.tpo.period_minutes = 5, 200.0);
         let text = texts(&build(&crowded.frame()));
         assert!(!text.iter().any(|t| t == "A"), "{text:?}");
-    }
-
-    /// How many strokes of `points` or more points a frame has (the ring of an O has twenty one).
-    fn long_strokes(cmds: &[Cmd], points: usize) -> usize {
-        cmds.iter()
-            .map(|c| match c {
-                Cmd::Stroke { points: p, .. } if p.len() >= points => 1,
-                Cmd::Clip { inner, .. } => long_strokes(inner, points),
-                _ => 0,
-            })
-            .sum()
     }
 
     #[test]

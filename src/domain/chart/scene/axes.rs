@@ -353,3 +353,89 @@ pub(super) fn shade(color: Rgba, keep: f32) -> Hsla {
         a: 1.0,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::axes::previous_close;
+    use super::super::axes::*;
+
+    use super::super::color::rgb;
+
+    use super::super::*;
+
+    use crate::domain::chart::zone::Zone;
+
+    use crate::domain::market::Bar;
+
+    #[test]
+    fn the_time_left_in_a_bar_reads_like_a_clock() {
+        assert_eq!(countdown(65_000), "01:05");
+        assert_eq!(countdown(3_725_000), "1:02:05");
+        assert_eq!(countdown(2 * 86_400_000 + 3_600_000), "2d 01:00");
+        assert_eq!(countdown(-5), "00:00");
+    }
+
+    #[test]
+    fn tags_on_the_axis_are_moved_apart_the_later_keeping_their_place() {
+        let tag = |y: f32| Cmd::Tag {
+            text: String::new(),
+            x: 0.0,
+            y,
+            height: 18.0,
+            pad: 0.0,
+            bg: hsla(rgb(0)),
+            fg: hsla(rgb(0)),
+            align: Align::Left,
+            fixed_width: Some(10.0),
+            within: None,
+            size: font(),
+            bold: false,
+            face: Default::default(),
+        };
+        let mut tags = vec![tag(100.0), tag(105.0), tag(104.0)];
+        spread_tags(&mut tags, &Geometry::single(1_000.0, 528.0), 0.0);
+        let ys: Vec<f32> = tags
+            .iter()
+            .map(|t| match t {
+                Cmd::Tag { y, .. } => *y,
+                _ => 0.0,
+            })
+            .collect();
+        assert_eq!(ys[2], 104.0, "the last one stays");
+        let mut sorted = ys.clone();
+        sorted.sort_by(f32::total_cmp);
+        assert!(sorted.windows(2).all(|w| w[1] - w[0] >= 18.0), "{ys:?}");
+    }
+
+    #[test]
+    fn price_axis_uses_the_available_vertical_space() {
+        let target = axis_tick_target(300.0);
+        let ticks = axis::price_ticks(30_580.0, 30_660.0, target, 1.0);
+        assert!(ticks.len() >= 8, "{ticks:?}");
+    }
+
+    #[test]
+    fn the_previous_close_is_the_last_close_of_the_day_before() {
+        let day = 86_400_000;
+        let bar = |time_ms, close| Bar {
+            time_ms,
+            open: close,
+            high: close,
+            low: close,
+            close,
+            volume: 1,
+        };
+        let series = Series::Bars(vec![
+            bar(day, 10),
+            bar(day + 3_600_000, 11),
+            bar(2 * day, 20),
+            bar(2 * day + 3_600_000, 21),
+        ]);
+        assert_eq!(previous_close(&series, Zone::Utc), Some(11));
+        assert_eq!(
+            previous_close(&Series::Bars(vec![bar(day, 10)]), Zone::Utc),
+            None
+        );
+        assert_eq!(previous_close(&Series::Ticks(Vec::new()), Zone::Utc), None);
+    }
+}

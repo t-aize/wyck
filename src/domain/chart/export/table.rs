@@ -291,3 +291,20 @@ pub fn table(source: &Source<'_>, options: &ExportOptions, rows: Option<usize>) 
         total_rows,
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::table::*;
+
+    #[test]
+    fn a_date_field_is_valid_when_empty_or_a_date() {
+        assert!(date_is_valid(""));
+        assert!(date_is_valid("  "));
+        assert!(date_is_valid("2026-01-05"));
+        assert!(date_is_valid("2026-01-05 09:30"));
+        assert!(date_is_valid("2026-01-05T09:30:15"));
+        assert!(!date_is_valid("5 January"));
+        assert!(!date_is_valid("2026-13-45"));
+    }
+}

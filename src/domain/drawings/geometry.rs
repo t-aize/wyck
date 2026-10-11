@@ -433,6 +433,26 @@ pub(super) mod tests {
         drawing
     }
 
+    /// The words of the labels of a position, from top to bottom of the list.
+    fn position_labels(d: &Drawing, selected: bool) -> Vec<String> {
+        prims_with(d, &Linear, selected)
+            .into_iter()
+            .filter_map(|s| match s {
+                Prim::Label { text, .. } => Some(text),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn long_position() -> Drawing {
+        // Entry 100, stop 90, target 130: with the defaults, 1% of 10 000 risked over 10 is 10
+        // units, so the stop loses 100 and the target gains 300.
+        drawing(
+            Tool::LongPosition,
+            &[(100, 100.0), (100, 90.0), (100, 130.0), (400, 100.0)],
+        )
+    }
+
     #[test]
     fn a_point_is_measured_against_a_segment() {
         assert_eq!(
@@ -648,26 +668,6 @@ pub(super) mod tests {
         assert!(prims_with(&short, &Linear, true).iter().any(|s| matches!(
             s, Prim::Label { text, .. } if text.starts_with("Short | Qty") && text.contains("R/R 2.00")
         )));
-    }
-
-    /// The words of the labels of a position, from top to bottom of the list.
-    fn position_labels(d: &Drawing, selected: bool) -> Vec<String> {
-        prims_with(d, &Linear, selected)
-            .into_iter()
-            .filter_map(|s| match s {
-                Prim::Label { text, .. } => Some(text),
-                _ => None,
-            })
-            .collect()
-    }
-
-    fn long_position() -> Drawing {
-        // Entry 100, stop 90, target 130: with the defaults, 1% of 10 000 risked over 10 is 10
-        // units, so the stop loses 100 and the target gains 300.
-        drawing(
-            Tool::LongPosition,
-            &[(100, 100.0), (100, 90.0), (100, 130.0), (400, 100.0)],
-        )
     }
 
     #[test]

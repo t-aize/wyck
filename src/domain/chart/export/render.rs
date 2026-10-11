@@ -411,3 +411,27 @@ pub fn clashes(options: &ExportOptions) -> bool {
         && options.delimiter_char() == ','
         && options.quote == Quote::Never
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::render::*;
+
+    #[test]
+    fn prices_are_written_exactly_at_any_number_of_decimals() {
+        assert_eq!(price_text(123_456, 5, '.', false), "1.23456");
+        assert_eq!(price_text(123_456, 3, '.', false), "1.235");
+        assert_eq!(price_text(123_449, 3, '.', false), "1.234");
+        assert_eq!(price_text(123_456, 0, '.', false), "1");
+        assert_eq!(price_text(150_000, 0, '.', false), "2");
+        assert_eq!(price_text(123_456, 7, '.', false), "1.2345600");
+        assert_eq!(price_text(100_000, 5, '.', true), "1");
+        assert_eq!(price_text(123_400, 5, '.', true), "1.234");
+        assert_eq!(price_text(123_456, 5, ',', false), "1,23456");
+        assert_eq!(price_text(5, 5, '.', false), "0.00005");
+        assert_eq!(price_text(-10, 5, '.', false), "-0.00010");
+        // A price that rounds to nothing has no sign.
+        assert_eq!(price_text(-1, 3, '.', false), "0.000");
+        assert_eq!(price_text(i64::MAX, 5, '.', false), "92233720368547.75807");
+    }
+}

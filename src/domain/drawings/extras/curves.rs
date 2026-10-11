@@ -238,3 +238,17 @@ pub(super) fn double_curve(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     });
     out.push(polyline(line, style.color, style.width, 1.0));
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::super::curves::circumcircle;
+
+    #[test]
+    fn a_circle_goes_through_three_points() {
+        let (center, radius) = circumcircle((0.0, 0.0), (10.0, 0.0), (5.0, 5.0)).unwrap();
+        assert!((center.0 - 5.0).abs() < 1e-3 && center.1.abs() < 1e-3);
+        assert!((radius - 5.0).abs() < 1e-3);
+        assert!(circumcircle((0.0, 0.0), (5.0, 5.0), (10.0, 10.0)).is_none());
+    }
+}

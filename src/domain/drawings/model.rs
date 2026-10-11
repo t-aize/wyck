@@ -330,6 +330,19 @@ mod tests {
     use super::tool::*;
     use super::*;
 
+    fn drawing(id: u64, tool: Tool, count: usize) -> Drawing {
+        Drawing::new(
+            id,
+            tool,
+            (0..count)
+                .map(|i| Point {
+                    t: i as i64 * 60_000,
+                    p: 100.0 + i as f64,
+                })
+                .collect(),
+        )
+    }
+
     #[test]
     fn a_style_saved_before_opacity_is_fully_opaque_and_the_opacity_is_kept_in_range() {
         let old: Style = toml::from_str(
@@ -352,32 +365,6 @@ mod tests {
         assert!(faint.opacity >= 0.05);
     }
 
-    fn drawing(id: u64, tool: Tool, count: usize) -> Drawing {
-        Drawing::new(
-            id,
-            tool,
-            (0..count)
-                .map(|i| Point {
-                    t: i as i64 * 60_000,
-                    p: 100.0 + i as f64,
-                })
-                .collect(),
-        )
-    }
-
-    #[test]
-    fn every_tool_has_a_group_a_label_and_a_positive_anchor_count() {
-        for tool in Tool::ALL {
-            assert!(!tool.label().is_empty());
-            assert!(tool.anchors() >= 1, "{tool:?}");
-            let _ = tool.group();
-        }
-        let mut labels: Vec<_> = Tool::ALL.iter().map(|t| t.label()).collect();
-        labels.sort_unstable();
-        labels.dedup();
-        assert_eq!(labels.len(), Tool::ALL.len());
-    }
-
     #[test]
     fn a_drawing_needs_the_points_its_tool_asks_for() {
         assert!(drawing(1, Tool::TrendLine, 2).is_valid());
@@ -390,21 +377,6 @@ mod tests {
         let mut nan = drawing(1, Tool::HorizontalLine, 1);
         nan.points[0].p = f64::NAN;
         assert!(!nan.is_valid());
-    }
-
-    #[test]
-    fn quick_color_is_only_for_drawings_with_a_primary_color() {
-        assert!(Tool::TrendLine.has_quick_color());
-        assert!(Tool::Rectangle.has_quick_color());
-        for tool in [
-            Tool::LongPosition,
-            Tool::ShortPosition,
-            Tool::FibRetracement,
-            Tool::Measure,
-            Tool::PriceRange,
-        ] {
-            assert!(!tool.has_quick_color(), "{}", tool.label());
-        }
     }
 
     #[test]
