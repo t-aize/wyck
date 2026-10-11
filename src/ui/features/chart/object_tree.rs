@@ -10,7 +10,8 @@ use super::drawing_props;
 use super::zone::Zone;
 use crate::app::drawings::Drawings;
 use crate::domain::drawings::book::{Book, Order};
-use crate::domain::drawings::model::{Drawing, Tool};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::tool::Tool;
 use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
 
 pub fn tool_icon(tool: Tool) -> IconName {

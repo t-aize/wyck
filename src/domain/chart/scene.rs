@@ -10,32 +10,33 @@
 //! The plot is cut into bands ([`mod@geometry`]): the prices on top, then one pane per indicator that
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
+pub mod axes;
 pub mod cmd;
 pub mod color;
+pub mod drawings;
 mod footprint;
 pub mod geometry;
+pub mod palette;
 pub mod price;
 mod series;
 mod studies;
 mod tpo;
 
 pub use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
-use self::color::{Hsla, Rgba, rgb, transparent_black};
+use self::color::{Hsla, Rgba};
 pub use self::geometry::{Band, Geometry, axis_h, axis_w};
 pub use self::price::PriceMap;
 use super::axis;
 use super::data::Series;
 use super::display::{Display, effective_kind};
 use super::flow::Flow;
-use super::options::{ChartColors, CrosshairStyle};
-use super::projection::ChartProjection;
+use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings, ScaleMode};
 use super::timeframe::Timeframe;
 use super::view::{PriceScale, View, padded_range};
-use crate::domain::drawings::geometry as shapes;
-use crate::domain::drawings::geometry::{Anchor, Prim};
-use crate::domain::drawings::model::{Dash, Drawing};
-use crate::domain::indicators::{Placement, ValueFormat};
+use crate::domain::drawings::model::Drawing;
+use crate::domain::drawings::model::style::Dash;
+use crate::domain::indicators::spec::{Placement, ValueFormat};
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
@@ -55,131 +56,6 @@ pub const TPO_SINGLE: u32 = 0xe5586a;
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
     10f64.powi(5 - i32::try_from(digits.min(5)).unwrap_or(5))
-}
-
-/// The colors the chart draws with.
-#[derive(Debug, Clone, Copy)]
-pub struct Palette {
-    pub up: Rgba,
-    pub down: Rgba,
-    pub line: Rgba,
-    pub grid: Rgba,
-    pub text: Rgba,
-    pub text_strong: Rgba,
-    pub bg: Rgba,
-    pub tag: Rgba,
-    pub border: Rgba,
-    pub crosshair: Rgba,
-    pub accent: Rgba,
-    /// The thick and thin lines of Kagi.
-    pub kagi_yang: Rgba,
-    pub kagi_yin: Rgba,
-    /// The X and the O of point and figure.
-    pub pnf_up: Rgba,
-    pub pnf_down: Rgba,
-    /// The marks, the point of control, the value area, the initial balance and the single
-    /// prints of a TPO profile.
-    pub tpo: Rgba,
-    pub tpo_poc: Rgba,
-    pub tpo_value_area: Rgba,
-    pub tpo_ib: Rgba,
-    pub tpo_single: Rgba,
-}
-
-impl Palette {
-    pub fn new() -> Self {
-        Self {
-            up: rgb(0x26a69a),
-            down: rgb(0xef5350),
-            line: rgb(0x5b8def),
-            grid: rgb(0x30343b),
-            text: rgb(0x9aa0a6),
-            text_strong: rgb(0xf0f0f0),
-            bg: rgb(0x0a0a0a),
-            tag: rgb(0x363a45),
-            border: rgb(0x30343b),
-            crosshair: rgb(0x9aa0a6),
-            accent: rgb(0x7c86ff),
-            kagi_yang: rgb(0x26a69a),
-            kagi_yin: rgb(0xef5350),
-            pnf_up: rgb(0x26a69a),
-            pnf_down: rgb(0xef5350),
-            tpo: rgb(TPO_MARKS),
-            tpo_poc: rgb(TPO_POC),
-            tpo_value_area: rgb(TPO_VALUE_AREA),
-            tpo_ib: rgb(TPO_IB),
-            tpo_single: rgb(TPO_SINGLE),
-        }
-    }
-
-    /// The colors of the theme, with the ones a chart overrides.
-    pub fn for_chart(colors: &ChartColors) -> Self {
-        Self::for_chart_with_base(colors, Self::new())
-    }
-
-    /// Applies per-chart colors to a frontend-supplied palette.
-    pub fn for_chart_with_base(colors: &ChartColors, mut palette: Self) -> Self {
-        let pick = |color: u32| rgb(color);
-        if let Some(c) = colors.up {
-            palette.up = pick(c);
-        }
-        if let Some(c) = colors.down {
-            palette.down = pick(c);
-        }
-        // What follows the rising and falling colors, unless it has a color of its own.
-        (palette.kagi_yang, palette.kagi_yin) = (palette.up, palette.down);
-        (palette.pnf_up, palette.pnf_down) = (palette.up, palette.down);
-        if let Some(c) = colors.kagi_yang {
-            palette.kagi_yang = pick(c);
-        }
-        if let Some(c) = colors.kagi_yin {
-            palette.kagi_yin = pick(c);
-        }
-        if let Some(c) = colors.pnf_up {
-            palette.pnf_up = pick(c);
-        }
-        if let Some(c) = colors.pnf_down {
-            palette.pnf_down = pick(c);
-        }
-        for (own, slot) in [
-            (colors.tpo, &mut palette.tpo),
-            (colors.tpo_poc, &mut palette.tpo_poc),
-            (colors.tpo_value_area, &mut palette.tpo_value_area),
-            (colors.tpo_ib, &mut palette.tpo_ib),
-            (colors.tpo_single, &mut palette.tpo_single),
-        ] {
-            if let Some(c) = own {
-                *slot = pick(c);
-            }
-        }
-        if let Some(c) = colors.line {
-            palette.line = pick(c);
-        }
-        if let Some(c) = colors.background {
-            palette.bg = pick(c);
-        }
-        if let Some(c) = colors.grid {
-            // The grid sits behind the prices: a chosen color is drawn faint, like the theme's.
-            palette.grid = Rgba {
-                a: GRID_ALPHA,
-                ..pick(c)
-            };
-        }
-        if let Some(c) = colors.crosshair {
-            palette.crosshair = pick(c);
-        }
-        if let Some(c) = colors.text {
-            palette.text = pick(c);
-            palette.text_strong = pick(c);
-        }
-        palette
-    }
-}
-
-impl Default for Palette {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 /// A horizontal line the chart is told to show on the prices: an order, a position, an alert.
@@ -228,7 +104,7 @@ pub struct Frame<'a> {
     pub remote: Option<(i64, f64)>,
     pub ask: Option<i64>,
     pub now_ms: i64,
-    pub palette: Palette,
+    pub palette: palette::Palette,
     pub drawings: Option<DrawingView<'a>>,
     pub marks: &'a [PriceMark],
     /// What traded at each price of each bar, for the footprint chart type.
@@ -482,7 +358,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &geometry,
         frame.digits,
     ) else {
-        cmds.push(axes_background(frame, &geometry));
+        cmds.push(axes::axes_background(frame, &geometry));
         return cmds;
     };
     let pointer = if frame.settings.crosshair == CrosshairStyle::Off {
@@ -526,7 +402,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         )
     };
     let unit = quote_unit(frame.digits);
-    let main_ticks = map.ticks(axis_tick_target(main.h), unit);
+    let main_ticks = map.ticks(axes::axis_tick_target(main.h), unit);
 
     let mut plot: Vec<Cmd> = Vec::new();
     if let Some(text) = &frame.watermark {
@@ -561,7 +437,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
     }
     if frame.settings.price_lines.day_breaks {
-        for index in day_breaks(frame, first, last) {
+        for index in axes::day_breaks(frame, first, last) {
             plot.push(cx.vline(
                 cx.x(index),
                 oy,
@@ -572,7 +448,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     }
     studies::overlays_under(&cx, first, last, &mut plot);
     studies::overlays(&cx, first, last, &mut plot);
-    draw_script_drawings(&cx, &mut plot);
+    drawings::draw_script_drawings(&cx, &mut plot);
     for mark in frame.marks {
         let y = cx.y(mark.price);
         let x0 = ox + mark.from_x.unwrap_or(0.0).max(0.0);
@@ -583,13 +459,13 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             ],
             width: mark.width,
             color: rgb_alpha(mark.color, 0.9),
-            dash: dash_pattern(mark.dash, mark.width),
+            dash: axes::dash_pattern(mark.dash, mark.width),
         });
     }
     if let Some(view) = &frame.drawings {
-        draw_drawings(&cx, view, &mut plot);
+        drawings::draw_drawings(&cx, view, &mut plot);
     }
-    draw_price_lines(&cx, &mut plot);
+    axes::draw_price_lines(&cx, &mut plot);
     // Price marks remain readable even when a scripted or manual drawing fills their area.
     series::draw(&cx, kind, first, last, &mut plot);
     if let Some(((_, hy), 0)) = pointer {
@@ -621,7 +497,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             }
             ValueFormat::Count => 1.0,
         };
-        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axis_tick_target(band.h), min_step);
+        let ticks = axis::price_ticks(pmap.lo, pmap.hi, axes::axis_tick_target(band.h), min_step);
         let mut inner = Vec::new();
         if grid_h {
             for value in &ticks {
@@ -683,7 +559,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         });
     }
 
-    cmds.push(axes_background(frame, &geometry));
+    cmds.push(axes::axes_background(frame, &geometry));
     for band in geometry.bands.iter().skip(1) {
         cmds.push(cx.hline(
             oy + band.top as f32,
@@ -711,7 +587,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
     let mut tags = Vec::new();
     studies::value_tags(&cx, &pane_maps_for_tags(&panes, &pane_maps), &mut tags);
     let mut pointer_tags = Vec::new();
-    draw_axis_tags(
+    axes::draw_axis_tags(
         &cx,
         pointer,
         &geometry,
@@ -719,7 +595,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         &mut tags,
         &mut pointer_tags,
     );
-    spread_tags(&mut tags, &geometry, oy);
+    axes::spread_tags(&mut tags, &geometry, oy);
     let taken: Vec<(f32, f32)> = tags
         .iter()
         .chain(&pointer_tags)
@@ -810,635 +686,900 @@ fn crosshair_line(cx: &Ctx<'_>, hy: f32) -> Cmd {
     }
 }
 
-/// The solid strips of the two axes and the lines that set them off.
-fn axes_background(frame: &Frame<'_>, geometry: &Geometry) -> Cmd {
-    let (ox, oy) = frame.origin;
-    let plot_w = geometry.plot_w() as f32;
-    let plot_h = geometry.plot_h() as f32;
-    let (w, h) = (frame.w as f32, frame.h as f32);
-    let p = frame.palette;
-    let one = 1.0 / frame.scale;
-    let rect = |x: f32, y: f32, rw: f32, rh: f32, c: Hsla| Cmd::Rect {
-        x,
-        y,
-        w: rw.max(0.0),
-        h: rh.max(0.0),
-        fill: c,
-        border: None,
-        radius: 0.0,
-    };
-    Cmd::Clip {
-        x: ox,
-        y: oy,
-        w,
-        h,
-        inner: vec![
-            rect(ox + plot_w, oy, w - plot_w, h, hsla(p.bg)),
-            rect(ox, oy + plot_h, plot_w, h - plot_h, hsla(p.bg)),
-            rect(ox + plot_w, oy, one, h, hsla(p.border)),
-            rect(ox, oy + plot_h, w, one, hsla(p.border)),
-        ],
-    }
-}
-
-/// The dash pattern of a line style, for a line `width` wide.
-pub fn dash_pattern(dash: Dash, width: f32) -> Option<[f32; 2]> {
-    match dash {
-        Dash::Solid => None,
-        Dash::Dashed => Some([6.0 + width * 1.5, 4.0 + width]),
-        Dash::Dotted => Some([width.max(1.0), 3.0 + width]),
-    }
-}
-
-/// Whether the newest price moved up (or is unchanged) from the one before it.
-fn last_is_up(series: &Series) -> bool {
-    match series {
-        Series::Bars(bars) => bars.last().is_none_or(|b| b.close >= b.open),
-        Series::Ticks(ticks) => match ticks.as_slice() {
-            [.., a, b] => b.price >= a.price,
-            _ => true,
-        },
-    }
-}
-
-/// The close of the last bar of the day before the newest bar's, in raw units, when the prices
-/// are bars.
-fn previous_close(series: &Series, zone: super::zone::Zone) -> Option<i64> {
-    let Series::Bars(bars) = series else {
-        return None;
-    };
-    let day = zone.day(bars.last()?.time_ms);
-    bars.iter()
-        .rev()
-        .find(|bar| zone.day(bar.time_ms) != day)
-        .map(|bar| bar.close)
-}
-
-/// The indexes in `first..last` of the points that start a new day, when the chart's points are
-/// periods shorter than a day.
-fn day_breaks(frame: &Frame<'_>, first: usize, last: usize) -> Vec<usize> {
-    let intraday = frame
-        .timeframe
-        .bar_ms()
-        .is_some_and(|ms| ms < 86_400_000 && frame.settings.kind.keeps_time());
-    if !intraday {
-        return Vec::new();
-    }
-    let series = frame.series();
-    let zone = frame.settings.zone;
-    (first.max(1)..last)
-        .filter(|&i| match (series.time_at(i - 1), series.time_at(i)) {
-            (Some(before), Some(now)) => zone.day(before) != zone.day(now),
-            _ => false,
-        })
-        .collect()
-}
-
-fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
-    let p = cx.f.palette;
-    let lines = cx.f.settings.price_lines;
-    let (x0, x1) = (cx.ox, cx.ox + cx.plot_w as f32);
-    if lines.previous_close
-        && let Some(close) = previous_close(cx.f.raw, cx.f.settings.zone)
-    {
-        let y = cx.snap(cx.y(close as f64)) + 0.5;
-        out.push(Cmd::Stroke {
-            points: vec![(x0, y), (x1, y)],
-            width: 1.0,
-            color: with_alpha(p.text, 0.55),
-            dash: Some([6.0, 4.0]),
-        });
-    }
-    if let Some(ask) = cx.f.ask.filter(|_| lines.ask_line) {
-        out.push(Cmd::Stroke {
-            points: vec![
-                (x0, cx.snap(cx.y(ask as f64)) + 0.5),
-                (x1, cx.snap(cx.y(ask as f64)) + 0.5),
-            ],
-            width: 1.0,
-            color: with_alpha(p.text, 0.35),
-            dash: Some([2.0, 3.0]),
-        });
-    }
-    if let Some(price) = cx.f.raw.last_price().filter(|_| lines.last_line) {
-        let c = with_alpha(cx.up_color(last_is_up(cx.f.raw)), 0.8);
-        let y = cx.snap(cx.y(price as f64)) + 0.5;
-        out.push(Cmd::Stroke {
-            points: vec![(x0, y), (x1, y)],
-            width: 1.0,
-            color: c,
-            dash: Some([1.0, 2.0]),
-        });
-    }
-}
-
-/// `05:12`, `1:05:12` or `2d 03:04`: the time left before the bar closes.
-pub fn countdown(ms: i64) -> String {
-    let seconds = ms.max(0) / 1_000;
-    let (days, hours, minutes, secs) = (
-        seconds / 86_400,
-        seconds % 86_400 / 3_600,
-        seconds % 3_600 / 60,
-        seconds % 60,
-    );
-    if days > 0 {
-        format!("{days}d {hours:02}:{minutes:02}")
-    } else if hours > 0 {
-        format!("{hours}:{minutes:02}:{secs:02}")
-    } else {
-        format!("{minutes:02}:{secs:02}")
-    }
-}
-
-/// The tags on the axes: the newest price with the time left in its bar, the marks, and the
-/// crosshair's value and time.
-/// Draws the tags on the price axis (the order and position lines, the last price and the time
-/// left in its bar) into `out`, and the pointer's price and time into `pointer_out`.
-fn draw_axis_tags(
-    cx: &Ctx<'_>,
-    pointer: Option<(P, usize)>,
-    geometry: &Geometry,
-    panes: &[(Band, PriceMap, ValueFormat, Vec<f64>)],
-    out: &mut Vec<Cmd>,
-    pointer_out: &mut Vec<Cmd>,
-) {
-    let p = cx.f.palette;
-    let axis_x = cx.ox + cx.plot_w as f32 + 1.0;
-    let main = geometry.main();
-    let clamp_y = |band: &Band, y: f32| {
-        let top = cx.oy + band.top as f32 + 9.0;
-        let bottom = cx.oy + band.bottom() as f32 - 9.0;
-        if top <= bottom {
-            y.clamp(top, bottom)
-        } else {
-            (top + bottom) / 2.0
-        }
-    };
-    let tag = |text: String, y: f32, bg: Hsla, fg: Hsla| Cmd::Tag {
-        text,
-        x: axis_x,
-        y: y - 9.0,
-        height: 18.0,
-        pad: 7.0,
-        bg,
-        fg,
-        align: Align::Left,
-        fixed_width: Some(axis_w() - 2.0),
-        within: None,
-        size: font(),
-        bold: false,
-        face: Default::default(),
-    };
-    for mark in cx.f.marks.iter().filter(|m| m.axis_tag) {
-        let y = cx.y(mark.price);
-        if main.contains(f64::from(y - cx.oy)) {
-            out.push(tag(
-                cx.map.label(mark.price, ValueFormat::Price, cx.f.digits),
-                y,
-                rgb_alpha(mark.color, 1.0),
-                hsla(p.bg),
-            ));
-        }
-    }
-    if let Some(price) = cx.f.raw.last_price() {
-        let y = clamp_y(&main, cx.y(price as f64));
-        let bg = hsla(cx.up_color(last_is_up(cx.f.raw)));
-        let lines = cx.f.settings.price_lines;
-        if lines.last_tag {
-            out.push(tag(
-                cx.map.label(price as f64, ValueFormat::Price, cx.f.digits),
-                y,
-                bg,
-                hsla(p.bg),
-            ));
-        }
-        // The time left in the bar, under the price, for bars that are periods of time.
-        if let (Some(bar_ms), Some(last)) = (cx.f.timeframe.bar_ms(), cx.f.raw.last_time())
-            && lines.countdown
-            && cx.f.settings.kind.keeps_time()
-            && matches!(cx.f.raw, Series::Bars(_))
-        {
-            let left = last + bar_ms - cx.f.now_ms;
-            if left > 0 && left <= bar_ms {
-                out.push(Cmd::Tag {
-                    text: countdown(left),
-                    x: axis_x,
-                    // Under the tag of the price, or where it would be without one.
-                    y: if lines.last_tag { y + 9.0 } else { y - 8.0 },
-                    height: 16.0,
-                    pad: 7.0,
-                    bg: shade(cx.up_color(last_is_up(cx.f.raw)), 0.72),
-                    fg: hsla(p.bg),
-                    align: Align::Left,
-                    fixed_width: Some(axis_w() - 2.0),
-                    within: None,
-                    size: font(),
-                    bold: false,
-                    face: Default::default(),
-                });
-            }
-        }
-    }
-    let Some(((hx, hy), band_index)) = pointer else {
-        return;
-    };
-    let band = geometry.bands[band_index];
-    let y = clamp_y(&band, cx.oy + hy);
-    let text = if !band.contains(f64::from(hy)) {
-        None
-    } else if band_index == 0 {
-        Some(
-            cx.map
-                .label(cx.map.price(f64::from(hy)), ValueFormat::Price, cx.f.digits),
-        )
-    } else {
-        panes.get(band_index - 1).map(|(_, map, format, _)| {
-            price::format_value(map.price(f64::from(hy)), *format, cx.f.digits)
-        })
-    };
-    if let Some(text) = text {
-        pointer_out.push(tag(text, y, hsla(p.tag), hsla(p.text_strong)));
-    }
-    if cx.len > 0 {
-        let index =
-            cx.f.view
-                .index_at(f64::from(hx), cx.len, cx.plot_w)
-                .round()
-                .clamp(0.0, (cx.len - 1) as f64) as usize;
-        if let Some(time) = cx.series.time_at(index) {
-            let text = axis::full_time(
-                time,
-                cx.f.settings.zone,
-                matches!(cx.f.timeframe, Timeframe::Seconds(_) | Timeframe::Ticks),
-                matches!(cx.f.timeframe, Timeframe::Ticks),
-            );
-            pointer_out.push(Cmd::Tag {
-                text,
-                x: cx.x(index),
-                y: cx.oy + geometry.plot_h() as f32 + 4.0,
-                height: 20.0,
-                pad: 8.0,
-                bg: hsla(p.tag),
-                fg: hsla(p.text_strong),
-                align: Align::Center,
-                fixed_width: None,
-                within: Some((cx.ox, cx.ox + cx.plot_w as f32)),
-                size: font(),
-                bold: false,
-                face: Default::default(),
-            });
-        }
-    }
-}
-
-/// Keep enough room for a label while using the height available on each axis.
-fn axis_tick_target(height: f64) -> usize {
-    (height / 28.0).floor().clamp(2.0, 32.0) as usize
-}
-
-/// Move axis tags apart within their own bands. Later tags have priority. Drop a lower priority
-/// tag when its band cannot fit it without covering another one.
-fn spread_tags(tags: &mut Vec<Cmd>, geometry: &Geometry, oy: f32) {
-    let mut placed: Vec<(f32, f32)> = Vec::new();
-    for i in (0..tags.len()).rev() {
-        let Cmd::Tag {
-            y,
-            height,
-            fixed_width: Some(_),
-            ..
-        } = &tags[i]
-        else {
-            continue;
-        };
-        let h = *height;
-        let wanted = *y;
-        let Some(band) = geometry.band_at(f64::from(wanted + h / 2.0 - oy)) else {
-            tags.remove(i);
-            continue;
-        };
-        let band = geometry.bands[band];
-        let top = oy + band.top as f32;
-        let bottom = oy + band.bottom() as f32;
-        let fits = |at: f32| {
-            at >= top && at + h <= bottom && placed.iter().all(|(t, b)| at + h <= *t || at >= *b)
-        };
-        let chosen = if fits(wanted) {
-            Some(wanted)
-        } else {
-            (1..400).find_map(|step| {
-                let d = step as f32;
-                [wanted - d, wanted + d].into_iter().find(|at| fits(*at))
-            })
-        };
-        if let Some(chosen) = chosen {
-            if let Cmd::Tag { y, .. } = &mut tags[i] {
-                *y = chosen;
-            }
-            placed.push((chosen, chosen + h));
-        } else {
-            tags.remove(i);
-        }
-    }
-}
-
-/// A color darkened towards black by `amount` of its brightness kept, opaque.
-fn shade(color: Rgba, keep: f32) -> Hsla {
-    hsla(Rgba {
-        r: color.r * keep,
-        g: color.g * keep,
-        b: color.b * keep,
-        a: 1.0,
-    })
-}
-
-/// Draws the drawings of the symbol, and the grips of the selected one.
-fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
-    let projection = ChartProjection {
-        series: cx.series,
-        view: cx.f.view,
-        map: cx.map,
-        plot_w: cx.plot_w,
-        plot_h: cx.band.h,
-        step_ms: cx.f.step_ms(),
-        digits: cx.f.digits,
-        pip_position: cx.f.pip_position,
-    };
-    for drawing in view
-        .list
-        .iter()
-        .filter(|d| (view.visible)(d))
-        .chain(view.creating)
-    {
-        let selected = view.selected == Some(drawing.id) || view.also.contains(&drawing.id);
-        for prim in shapes::prims_with(drawing, &projection, selected) {
-            push_prim(cx, prim, out);
-        }
-        if selected && !drawing.locked {
-            for at in shapes::handles(drawing, &projection) {
-                push_prim(cx, Prim::Handle { at }, out);
-            }
-        }
-    }
-}
-
-/// Draws generated objects using the same geometry as the manual tools, without edit handles.
-fn draw_script_drawings(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
-    let projection = ChartProjection {
-        series: cx.series,
-        view: cx.f.view,
-        map: cx.map,
-        plot_w: cx.plot_w,
-        plot_h: cx.band.h,
-        step_ms: cx.f.step_ms(),
-        digits: cx.f.digits,
-        pip_position: cx.f.pip_position,
-    };
-    let timeframe = cx.f.timeframe.code();
-    for (config, output) in cx.f.settings.studies.iter().zip(&cx.f.display.studies) {
-        if !config.visible {
-            continue;
-        }
-        let Some(output) = output else {
-            continue;
-        };
-        for script_drawing in &output.drawings {
-            let drawing = &script_drawing.drawing;
-            if drawing.shows_on(&timeframe) {
-                for prim in shapes::prims_with(drawing, &projection, false) {
-                    push_prim(cx, prim, out);
-                }
-            }
-        }
-    }
-}
-
-/// A ring of points around an ellipse.
-pub fn ellipse_points(center: P, rx: f32, ry: f32, steps: usize) -> Vec<P> {
-    (0..=steps)
-        .map(|i| {
-            let angle = i as f32 / steps as f32 * std::f32::consts::TAU;
-            (center.0 + rx * angle.cos(), center.1 + ry * angle.sin())
-        })
-        .collect()
-}
-
-/// Turns one shape of a drawing (in plot coordinates) into drawing commands.
-fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
-    let (ox, oy) = (cx.ox, cx.oy);
-    let at = |p: P| (ox + p.0, oy + p.1);
-    let thin = 1.0 / cx.f.scale;
-    match prim {
-        Prim::Segment {
-            a,
-            b,
-            color,
-            alpha,
-            width,
-            dash,
-        } => {
-            let (a, b) = (at(a), at(b));
-            let paint = rgb_alpha(color, alpha);
-            let solid = dash == Dash::Solid;
-            if solid && width <= 1.0 && (a.1 - b.1).abs() < 0.01 {
-                out.push(cx.hline(a.1, a.0.min(b.0), a.0.max(b.0), paint));
-            } else if solid && width <= 1.0 && (a.0 - b.0).abs() < 0.01 {
-                out.push(cx.vline(a.0, a.1, b.1, paint));
-            } else {
-                out.push(Cmd::Stroke {
-                    points: vec![a, b],
-                    width,
-                    color: paint,
-                    dash: dash_pattern(dash, width),
-                });
-            }
-        }
-        Prim::Rect {
-            a,
-            b,
-            fill: inside,
-            stroke: edge,
-        } => {
-            let (a, b) = (at(a), at(b));
-            let (left, right) = (a.0.min(b.0), a.0.max(b.0));
-            let (top, bottom) = (a.1.min(b.1), a.1.max(b.1));
-            out.push(Cmd::Rect {
-                x: left,
-                y: top,
-                w: right - left,
-                h: bottom - top,
-                fill: inside.map_or_else(transparent_black, |(c, al)| rgb_alpha(c, al)),
-                border: edge.map(|(c, width)| (width.max(thin), rgb_alpha(c, 1.0))),
-                radius: 0.0,
-            });
-        }
-        Prim::Ellipse {
-            center,
-            rx,
-            ry,
-            fill: inside,
-            stroke: edge,
-        } => {
-            let ring = ellipse_points(at(center), rx, ry, 64);
-            if let Some((c, al)) = inside {
-                out.push(Cmd::Fill {
-                    points: ring.clone(),
-                    color: rgb_alpha(c, al),
-                });
-            }
-            if let Some((c, width)) = edge {
-                out.push(Cmd::Stroke {
-                    points: ring,
-                    width,
-                    color: rgb_alpha(c, 1.0),
-                    dash: None,
-                });
-            }
-        }
-        Prim::Polygon {
-            points,
-            fill: (c, al),
-        } => {
-            out.push(Cmd::Fill {
-                points: points.into_iter().map(at).collect(),
-                color: rgb_alpha(c, al),
-            });
-        }
-        Prim::Polyline {
-            points,
-            color,
-            width,
-            alpha,
-        } => {
-            out.push(Cmd::Stroke {
-                points: points.into_iter().map(at).collect(),
-                width,
-                color: rgb_alpha(color, alpha),
-                dash: None,
-            });
-        }
-        Prim::Board {
-            tl,
-            rows,
-            fg,
-            bg: (bg, bg_alpha),
-            size,
-            bold,
-            face,
-        } => {
-            let (w, h) = shapes::board_size(&rows, size);
-            let (row, pad_x, pad_y) = shapes::board_metrics();
-            let (x, y) = at(tl);
-            out.push(Cmd::Rect {
-                x,
-                y,
-                w,
-                h,
-                fill: rgb_alpha(bg, bg_alpha),
-                border: None,
-                radius: 4.0,
-            });
-            for (i, text) in rows.into_iter().enumerate() {
-                out.push(Cmd::Text {
-                    text,
-                    x: x + pad_x,
-                    y: y + pad_y + i as f32 * size * row + (size * row - size * 1.3) / 2.0,
-                    size,
-                    color: rgb_alpha(fg, 1.0),
-                    align: Align::Left,
-                    bold,
-                    face,
-                });
-            }
-        }
-        Prim::Label {
-            at: position,
-            text,
-            color,
-            background,
-            anchor,
-            size,
-            bold,
-            face,
-        } => {
-            let (x, y) = at(position);
-            let align = match anchor {
-                Anchor::Left => Align::Left,
-                Anchor::Right => Align::Right,
-                Anchor::Center => Align::Center,
-            };
-            out.push(match background {
-                Some((bg, al)) => Cmd::Tag {
-                    text,
-                    x,
-                    y: y - size * 0.8,
-                    height: size * 1.6,
-                    pad: 6.0,
-                    bg: rgb_alpha(bg, al),
-                    fg: rgb_alpha(color, 1.0),
-                    align,
-                    fixed_width: None,
-                    within: None,
-                    size,
-                    bold,
-                    face,
-                },
-                None => Cmd::Text {
-                    text,
-                    x,
-                    y: y - size * 1.3 / 2.0,
-                    size,
-                    color: rgb_alpha(color, 1.0),
-                    align,
-                    bold,
-                    face,
-                },
-            });
-        }
-        Prim::FittedLabel {
-            bounds,
-            text,
-            color,
-            background,
-            align,
-            valign,
-            size,
-            bold,
-            face,
-        } => {
-            out.push(Cmd::FittedText {
-                text,
-                x: ox + bounds.l,
-                y: oy + bounds.t,
-                w: (bounds.r - bounds.l).max(0.0),
-                h: (bounds.b - bounds.t).max(0.0),
-                size,
-                color: rgb_alpha(color, 1.0),
-                background: background.map(|(color, alpha)| rgb_alpha(color, alpha)),
-                align: match align {
-                    crate::domain::drawings::look::HAlign::Start => Align::Left,
-                    crate::domain::drawings::look::HAlign::Center => Align::Center,
-                    crate::domain::drawings::look::HAlign::End => Align::Right,
-                },
-                valign,
-                bold,
-                face,
-            });
-        }
-        Prim::Handle { at: position } => {
-            let (x, y) = at(position);
-            let r = 4.5;
-            out.push(Cmd::Rect {
-                x: x - r,
-                y: y - r,
-                w: r * 2.0,
-                h: r * 2.0,
-                fill: hsla(cx.f.palette.bg),
-                border: Some((1.5, hsla(cx.f.palette.accent))),
-                radius: r,
-            });
-        }
-    }
-}
-
 #[cfg(test)]
-mod tests;
+mod tests {
+
+    use super::axes::*;
+    use super::cmd::{count, rect_widths, texts};
+    use super::color::rgb;
+
+    use super::palette::*;
+    use super::*;
+    use crate::domain::chart::flow::Flow;
+    use crate::domain::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
+    use crate::domain::chart::zone::Zone;
+    use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
+    use crate::domain::indicators::config::StudyConfig;
+    use crate::domain::indicators::kind::StudyKind;
+    use crate::domain::market::{Bar, Period, Quote, Tick};
+
+    fn bars(n: usize) -> Vec<Bar> {
+        (0..n)
+            .map(|i| {
+                let base = 100_000 + (i as i64 % 50) * 10;
+                Bar {
+                    time_ms: 1_767_571_200_000 + i as i64 * 60_000,
+                    open: base,
+                    high: base + 30,
+                    low: base - 20,
+                    close: base + 10,
+                    volume: 1 + i as i64 % 7,
+                }
+            })
+            .collect()
+    }
+
+    struct Fixture {
+        raw: Series,
+        display: Display,
+        settings: ChartSettings,
+        view: View,
+        flow: Flow,
+    }
+
+    impl Fixture {
+        fn new(raw: Series, settings: ChartSettings, view: View) -> Self {
+            let display = Display::build(&raw, &settings, 1);
+            Self {
+                raw,
+                display,
+                settings,
+                view,
+                flow: Flow::default(),
+            }
+        }
+
+        fn frame(&self) -> Frame<'_> {
+            Frame {
+                raw: &self.raw,
+                display: &self.display,
+                settings: &self.settings,
+                view: &self.view,
+                timeframe: Timeframe::DEFAULT,
+                digits: 5,
+                pip_position: Some(4),
+                origin: (0.0, 0.0),
+                w: 1_000.0,
+                h: 600.0,
+                scale: 1.0,
+                hover: Some((300.0, 200.0)),
+                remote: None,
+                ask: Some(100_020),
+                now_ms: 1_767_571_200_000,
+                palette: Palette::new(),
+                drawings: None,
+                marks: &[],
+                flow: Some(&self.flow),
+                watermark: None,
+            }
+        }
+    }
+
+    fn kind(kind: ChartKind) -> ChartSettings {
+        ChartSettings {
+            kind,
+            ..ChartSettings::default()
+        }
+    }
+
+    /// The flow of some bars: the price walks from the low to the high (buyers) and back (sellers).
+    fn flow_of(bars: &[Bar]) -> Flow {
+        let times: Vec<i64> = bars.iter().map(|b| b.time_ms).collect();
+        let mut quotes = Vec::new();
+        for bar in bars {
+            let mut time = bar.time_ms;
+            let up: Vec<i64> = (bar.low..=bar.high).step_by(5).collect();
+            for price in up.iter().chain(up.iter().rev()) {
+                time += 10;
+                quotes.push(Quote {
+                    time_ms: time,
+                    bid: Some(*price),
+                    ask: Some(*price + 2),
+                });
+            }
+        }
+        let mut flow = Flow::default();
+        flow.ingest(&times, Some(60_000), &quotes, true);
+        flow.cover_from(times[0]);
+        flow
+    }
+
+    fn footprint_fixture(n: usize, bar_px: f64) -> Fixture {
+        let data = bars(n);
+        let mut f = Fixture::new(
+            Series::Bars(data.clone()),
+            kind(ChartKind::Footprint),
+            View::new(bar_px),
+        );
+        f.flow = flow_of(&data);
+        f
+    }
+
+    fn drawn(settings: ChartSettings, edit: impl FnOnce(&mut Frame<'_>)) -> usize {
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let mut frame = f.frame();
+        edit(&mut frame);
+        count(&build(&frame))
+    }
+
+    /// Three days of five minute bars, so a session has a dozen letters or so per day.
+    fn tpo_bars() -> Vec<Bar> {
+        (0..864)
+            .map(|i| {
+                let wave = ((i as f64 * 0.05).sin() * 300.0) as i64;
+                let base = 100_000 + wave;
+                Bar {
+                    time_ms: 1_767_571_200_000 + i as i64 * 300_000,
+                    open: base,
+                    high: base + 60,
+                    low: base - 60,
+                    close: base + 10,
+                    volume: 5,
+                }
+            })
+            .collect()
+    }
+
+    fn tpo_fixture(edit: impl FnOnce(&mut ChartSettings), bar_px: f64) -> Fixture {
+        let mut settings = kind(ChartKind::Tpo);
+        settings.zone = Zone::Utc;
+        settings.tpo.row_units = 20;
+        edit(&mut settings);
+        // A little air after the last profile, not the six points a narrow view keeps.
+        let mut view = View::new(bar_px);
+        view.offset = 1.0;
+        Fixture::new(Series::Bars(tpo_bars()), settings, view)
+    }
+
+    /// How many strokes of `points` or more points a frame has (the ring of an O has twenty one).
+    fn long_strokes(cmds: &[Cmd], points: usize) -> usize {
+        cmds.iter()
+            .map(|c| match c {
+                Cmd::Stroke { points: p, .. } if p.len() >= points => 1,
+                Cmd::Clip { inner, .. } => long_strokes(inner, points),
+                _ => 0,
+            })
+            .sum()
+    }
+
+    #[test]
+    fn a_screenful_of_candles_draws() {
+        let f = Fixture::new(
+            Series::Bars(bars(500)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        assert!(count(&build(&f.frame())) > 100);
+    }
+
+    #[test]
+    fn script_drawings_follow_indicator_visibility_and_reach_the_scene() {
+        let mut settings = kind(ChartKind::Candles);
+        settings.studies.push(StudyConfig::for_script("generated"));
+        let mut fixture = Fixture::new(Series::Bars(bars(20)), settings, View::new(8.0));
+        let mut drawing = Drawing::new(
+            0,
+            crate::domain::drawings::model::tool::Tool::Text,
+            vec![crate::domain::drawings::model::Point {
+                t: 1_767_571_200_000,
+                p: 100_020.0,
+            }],
+        );
+        drawing.text = "SCRIPT_MARKER_UNIQUE".into();
+        fixture.display.studies[0] = Some(StudyOutput {
+            drawings: vec![ScriptDrawing {
+                key: "marker".into(),
+                drawing,
+            }],
+            ..StudyOutput::default()
+        });
+        let cmds = build(&fixture.frame());
+        assert!(
+            texts(&cmds)
+                .iter()
+                .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+        );
+        let main = cmds
+            .iter()
+            .find_map(|cmd| match cmd {
+                Cmd::Clip { inner, .. }
+                    if inner.iter().any(
+                        |cmd| matches!(cmd, Cmd::Text { text, .. } if text == "SCRIPT_MARKER_UNIQUE"),
+                    ) =>
+                {
+                    Some(inner)
+                }
+                _ => None,
+            })
+            .unwrap();
+        let label = main
+            .iter()
+            .position(|cmd| matches!(cmd, Cmd::Text { text, .. } if text == "SCRIPT_MARKER_UNIQUE"))
+            .unwrap();
+        let candle = main.iter().rposition(|cmd| matches!(cmd, Cmd::Rect { fill, .. } if *fill == hsla(fixture.frame().palette.up) || *fill == hsla(fixture.frame().palette.down))).unwrap();
+        assert!(
+            label < candle,
+            "the price series must cover script drawings"
+        );
+        fixture.settings.studies[0].visible = false;
+        assert!(
+            !texts(&build(&fixture.frame()))
+                .iter()
+                .any(|text| text.contains("SCRIPT_MARKER_UNIQUE"))
+        );
+    }
+
+    #[test]
+    fn the_work_does_not_grow_with_the_data() {
+        // A hundred thousand bars squeezed into one screen make about as many commands as a
+        // thousand: they are folded into pixel columns.
+        for chart_kind in ChartKind::ALL {
+            let mut view = View::new(0.2);
+            view.offset = View::home_offset();
+            let small = Fixture::new(Series::Bars(bars(1_000)), kind(chart_kind), view);
+            let huge = Fixture::new(Series::Bars(bars(100_000)), kind(chart_kind), view);
+            let a = count(&build(&small.frame()));
+            let b = count(&build(&huge.frame()));
+            assert!(b < 8_000, "{chart_kind:?}: {b} commands");
+            assert!(b < a * 8 + 800, "{chart_kind:?}: {a} against {b}");
+        }
+    }
+
+    #[test]
+    fn a_line_over_many_ticks_stays_bounded() {
+        let ticks: Vec<Tick> = (0..200_000)
+            .map(|i| Tick {
+                time_ms: 1_767_571_200_000 + i as i64 * 100,
+                price: 100_000 + ((i as i64 * 7919) % 400),
+            })
+            .collect();
+        let mut view = View::new(0.2);
+        view.offset = View::home_offset();
+        let f = Fixture::new(Series::Ticks(ticks), kind(ChartKind::Line), view);
+        let cmds = build(&f.frame());
+        assert!(count(&cmds) < 1_000, "{}", count(&cmds));
+    }
+
+    #[test]
+    fn an_empty_series_only_draws_the_axes() {
+        let f = Fixture::new(
+            Series::Bars(Vec::new()),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        assert_eq!(build(&f.frame()).len(), 1);
+    }
+
+    #[test]
+    fn the_price_map_round_trips_and_keeps_the_data_on_screen() {
+        let f = Fixture::new(
+            Series::Bars(bars(200)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        let g = geometry(&f.settings, 1_000.0, 600.0);
+        let map = main_map(&f.raw, &f.display, &f.settings, &f.view, &g, 5).unwrap();
+        for price in [100_000.0, 100_250.0] {
+            assert!((map.price(map.y(price)) - price).abs() < 1e-6);
+        }
+        assert!(map.y(100_500.0) >= 0.0 && map.y(99_980.0) <= g.plot_h());
+    }
+
+    #[test]
+    fn a_manual_scale_is_honoured() {
+        let mut view = View::new(8.0);
+        view.price = PriceScale::Manual {
+            lo: 0.0,
+            hi: 1_000_000.0,
+        };
+        let f = Fixture::new(Series::Bars(bars(50)), kind(ChartKind::Candles), view);
+        let g = geometry(&f.settings, 1_000.0, 600.0);
+        let map = main_map(&f.raw, &f.display, &f.settings, &f.view, &g, 5).unwrap();
+        assert_eq!((map.lo, map.hi), (0.0, 1_000_000.0));
+    }
+
+    #[test]
+    fn another_charts_pointer_draws_a_crosshair_when_its_time_is_on_screen() {
+        let f = Fixture::new(
+            Series::Bars(bars(200)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        let mut frame = f.frame();
+        frame.hover = None;
+        let bare = count(&build(&frame));
+        let time = f.raw.time_at(190).unwrap();
+        frame.remote = Some((time, 100_030.0));
+        let with_pointer = count(&build(&frame));
+        assert!(with_pointer > bare, "{with_pointer} against {bare}");
+        frame.remote = Some((f.raw.time_at(0).unwrap() - 86_400_000, 100_030.0));
+        assert_eq!(count(&build(&frame)), bare);
+    }
+
+    #[test]
+    fn the_local_pointer_wins_over_a_remote_one() {
+        let f = Fixture::new(
+            Series::Bars(bars(200)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        let mut frame = f.frame();
+        let local_only = count(&build(&frame));
+        frame.remote = Some((f.raw.time_at(150).unwrap(), 100_030.0));
+        assert_eq!(count(&build(&frame)), local_only);
+    }
+
+    #[test]
+    fn quotes_with_fewer_decimals_have_a_bigger_unit() {
+        assert_eq!(quote_unit(5), 1.0);
+        assert_eq!(quote_unit(3), 100.0);
+        assert_eq!(quote_unit(2), 1_000.0);
+    }
+
+    #[test]
+    fn every_indicator_draws_on_the_prices_or_in_its_pane() {
+        let mut settings = ChartSettings::default();
+        for kind in StudyKind::ALL {
+            settings.studies.push(StudyConfig::new(kind));
+        }
+        let f = Fixture::new(Series::Bars(bars(600)), settings, View::new(8.0));
+        let g = geometry(&f.settings, 1_000.0, 600.0);
+        assert_eq!(g.bands.len(), 1 + f.settings.panes().len());
+        let bare = Fixture::new(
+            Series::Bars(bars(600)),
+            ChartSettings::default(),
+            View::new(8.0),
+        );
+        let with = count(&build(&f.frame()));
+        let without = count(&build(&bare.frame()));
+        assert!(with > without + 500, "{with} against {without}");
+    }
+
+    #[test]
+    fn a_percent_scale_labels_the_axis_in_percent() {
+        let settings = ChartSettings {
+            scale: ScaleMode::Percent,
+            ..ChartSettings::default()
+        };
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let labels = texts(&build(&f.frame()));
+        assert!(
+            labels.iter().filter(|t| t.ends_with('%')).count() >= 3,
+            "{labels:?}"
+        );
+    }
+
+    #[test]
+    fn marks_draw_a_line_and_a_tag() {
+        let f = Fixture::new(
+            Series::Bars(bars(100)),
+            kind(ChartKind::Candles),
+            View::new(8.0),
+        );
+        let marks = [PriceMark {
+            price: 100_200.0,
+            color: 0x00ff00,
+            dash: Dash::Dashed,
+            width: 1.0,
+            from_x: None,
+            axis_tag: true,
+        }];
+        let mut frame = f.frame();
+        let before = texts(&build(&frame)).len();
+        frame.marks = &marks;
+        let after = texts(&build(&frame));
+        // The tag is added; a label of the scale under it gives way.
+        assert!(after.len() >= before, "{before} then {after:?}");
+        assert!(after.contains(&"1.00200".to_owned()), "{after:?}");
+    }
+
+    #[test]
+    fn a_compact_atr_pane_keeps_its_last_value_on_the_axis() {
+        let mut settings = ChartSettings::default();
+        let mut atr = StudyConfig::new(StudyKind::Atr);
+        atr.weight = 0.1;
+        settings.studies.push(atr);
+        let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+        let g = geometry(&f.settings, 1_000.0, 600.0);
+        assert_eq!(g.bands[1].h, geometry::MIN_BAND);
+        let value = f.display.studies[0].as_ref().unwrap().plots[0]
+            .values
+            .iter()
+            .rev()
+            .find(|v| v.is_finite())
+            .copied()
+            .unwrap();
+        let label = price::format_value(value, ValueFormat::Price, 5);
+        let cmds = build(&f.frame());
+        assert!(
+            cmds.iter().any(|cmd| match cmd {
+                Cmd::Tag {
+                    text,
+                    y,
+                    height,
+                    fixed_width: Some(_),
+                    ..
+                } => {
+                    text == &label
+                        && g.bands[1].top as f32 <= *y
+                        && *y + *height <= g.bands[1].bottom() as f32
+                }
+                _ => false,
+            }),
+            "missing ATR tag: {label}"
+        );
+    }
+
+    #[test]
+    fn a_footprint_shows_numbers_and_the_summary_of_each_bar() {
+        let f = footprint_fixture(60, 110.0);
+        let labels = texts(&build(&f.frame()));
+        assert!(labels.contains(&"Delta".to_owned()), "{labels:?}");
+        assert!(labels.contains(&"Vol".to_owned()));
+        let numbers = labels
+            .iter()
+            .filter(|t| t.parse::<u32>().is_ok_and(|n| n > 0))
+            .count();
+        assert!(numbers > 20, "{numbers} numbers in {labels:?}");
+    }
+
+    #[test]
+    fn the_cells_can_show_the_delta_or_the_volume() {
+        let mut f = footprint_fixture(60, 110.0);
+        f.settings.footprint.mode = crate::domain::chart::footprint::CellMode::Delta;
+        let labels = texts(&build(&f.frame()));
+        assert!(
+            labels
+                .iter()
+                .any(|t| t.starts_with('+') || t.starts_with('-')),
+            "{labels:?}"
+        );
+        f.settings.footprint.summary = false;
+        let labels = texts(&build(&f.frame()));
+        assert!(!labels.contains(&"Delta".to_owned()), "the summary is off");
+    }
+
+    #[test]
+    fn the_numbers_can_be_turned_off_and_the_cells_still_draw() {
+        let mut f = footprint_fixture(60, 110.0);
+        let with = count(&build(&f.frame()));
+        f.settings.footprint.numbers = false;
+        let cmds = build(&f.frame());
+        let numbers = texts(&cmds)
+            .iter()
+            .filter(|t| t.parse::<u32>().is_ok_and(|n| n > 0 && n < 1_000))
+            .count();
+        assert!(numbers < 10, "{numbers}");
+        assert!(count(&cmds) > 50 && count(&cmds) < with);
+    }
+
+    #[test]
+    fn narrow_bars_are_plain_candles() {
+        let f = footprint_fixture(300, 8.0);
+        let cmds = build(&f.frame());
+        assert!(!texts(&cmds).contains(&"Delta".to_owned()));
+        assert!(count(&cmds) > 100);
+    }
+
+    #[test]
+    fn a_timeframe_a_footprint_cannot_be_built_for_gives_candles() {
+        let f = footprint_fixture(60, 110.0);
+        let mut frame = f.frame();
+        frame.timeframe = Timeframe::Bars(Period::W1);
+        assert!(!texts(&build(&frame)).contains(&"Delta".to_owned()));
+    }
+
+    #[test]
+    fn bars_without_flow_are_still_drawn() {
+        let mut f = footprint_fixture(60, 110.0);
+        f.flow = Flow::default();
+        let cmds = build(&f.frame());
+        // A wick and a body for each of the bars on screen.
+        assert!(count(&cmds) > 16, "{}", count(&cmds));
+    }
+
+    #[test]
+    fn a_footprint_frame_stays_bounded_at_any_zoom() {
+        for bar_px in [24.0, 60.0, 110.0, 260.0] {
+            let f = footprint_fixture(500, bar_px);
+            let n = count(&build(&f.frame()));
+            assert!(n < 12_000, "{bar_px}px: {n} commands");
+        }
+    }
+
+    #[test]
+    fn the_prices_leave_room_for_the_summary_under_them() {
+        let f = footprint_fixture(60, 110.0);
+        let g = geometry(&f.settings, 1_000.0, 600.0);
+        let with = main_map(&f.raw, &f.display, &f.settings, &f.view, &g, 5).unwrap();
+        let mut off = f.settings.clone();
+        off.footprint.summary = false;
+        let without = main_map(&f.raw, &f.display, &off, &f.view, &g, 5).unwrap();
+        assert!(with.bottom < without.bottom - 20.0);
+    }
+
+    #[test]
+    fn the_grid_options_take_lines_out_one_kind_at_a_time() {
+        let with = |grid, horizontal, vertical| {
+            drawn(
+                ChartSettings {
+                    grid,
+                    grid_horizontal: horizontal,
+                    grid_vertical: vertical,
+                    ..ChartSettings::default()
+                },
+                |_| {},
+            )
+        };
+        let both = with(true, true, true);
+        let horizontal_only = with(true, true, false);
+        let vertical_only = with(true, false, true);
+        let none = with(false, true, true);
+        assert!(both > horizontal_only && both > vertical_only, "{both}");
+        assert!(horizontal_only > none && vertical_only > none);
+        assert_eq!(with(true, false, false), none);
+    }
+
+    #[test]
+    fn a_crosshair_that_is_off_draws_neither_lines_nor_tags() {
+        let with = |crosshair| {
+            drawn(
+                ChartSettings {
+                    crosshair,
+                    ..ChartSettings::default()
+                },
+                |_| {},
+            )
+        };
+        let dashed = with(CrosshairStyle::Dashed);
+        assert_eq!(with(CrosshairStyle::Solid), dashed);
+        let off = with(CrosshairStyle::Off);
+        // Two lines and two tags. A tag may also cover one scale label.
+        assert!((3..=4).contains(&(dashed - off)));
+        assert_eq!(CrosshairStyle::Solid.dash(), None);
+        assert!(CrosshairStyle::Dotted.dash().is_some());
+    }
+
+    #[test]
+    fn the_price_lines_and_tags_can_each_be_hidden() {
+        let f = Fixture::new(
+            Series::Bars(bars(300)),
+            ChartSettings::default(),
+            View::new(8.0),
+        );
+        let mut frame = f.frame();
+        // The bar that is current at the moment of the frame, so the countdown shows.
+        frame.now_ms = f.raw.last_time().unwrap() + 1_000;
+        let all = count(&build(&frame));
+        let hide = |change: fn(&mut crate::domain::chart::options::PriceLines)| {
+            let mut settings = ChartSettings::default();
+            change(&mut settings.price_lines);
+            let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+            let mut frame = f.frame();
+            frame.now_ms = f.raw.last_time().unwrap() + 1_000;
+            count(&build(&frame))
+        };
+        assert_eq!(all - hide(|p| p.last_line = false), 1);
+        assert_eq!(all - hide(|p| p.last_tag = false), 1);
+        assert_eq!(all - hide(|p| p.countdown = false), 1);
+        assert_eq!(all - hide(|p| p.ask_line = false), 1);
+    }
+
+    #[test]
+    fn the_watermark_is_written_behind_the_prices() {
+        let f = Fixture::new(
+            Series::Bars(bars(50)),
+            ChartSettings::default(),
+            View::new(8.0),
+        );
+        let mut frame = f.frame();
+        assert!(!texts(&build(&frame)).iter().any(|t| t == "EURUSD, M5"));
+        frame.watermark = Some("EURUSD, M5".to_owned());
+        assert!(texts(&build(&frame)).iter().any(|t| t == "EURUSD, M5"));
+    }
+
+    #[test]
+    fn day_separators_only_show_when_asked_and_on_intraday_bars() {
+        let hourly: Vec<Bar> = (0..120)
+            .map(|i| Bar {
+                time_ms: 1_767_571_200_000 + i * 3_600_000,
+                open: 100_000,
+                high: 100_030,
+                low: 99_980,
+                close: 100_010,
+                volume: 1,
+            })
+            .collect();
+        let build_with = |day_breaks: bool| {
+            let mut settings = ChartSettings::default();
+            settings.price_lines.day_breaks = day_breaks;
+            let f = Fixture::new(Series::Bars(hourly.clone()), settings, View::new(8.0));
+            let mut frame = f.frame();
+            frame.timeframe = Timeframe::Bars(Period::H1);
+            count(&build(&frame))
+        };
+        // 120 hourly bars are five days: at least four changes of the day are on screen.
+        assert!(build_with(true) >= build_with(false) + 4);
+        let f = Fixture::new(
+            Series::Bars(hourly),
+            ChartSettings::default(),
+            View::new(8.0),
+        );
+        let mut frame = f.frame();
+        frame.timeframe = Timeframe::Bars(Period::D1);
+        assert!(day_breaks(&frame, 0, 120).is_empty());
+    }
+
+    #[test]
+    fn a_chart_overrides_only_the_colors_it_sets() {
+        let theme = Palette::new();
+        let colors = ChartColors {
+            up: Some(0x00ff00),
+            background: Some(0x101010),
+            ..ChartColors::default()
+        };
+        let own = Palette::for_chart(&colors);
+        assert_eq!(own.up, rgb(0x00ff00));
+        assert_eq!(own.bg, rgb(0x101010));
+        assert_eq!(own.down, theme.down);
+        let grid = Palette::for_chart(&ChartColors {
+            grid: Some(0xffffff),
+            ..ChartColors::default()
+        });
+        assert!(grid.grid.a < 0.5, "a chosen grid color is drawn faint");
+        assert_eq!(own.line, theme.line);
+    }
+
+    #[test]
+    fn the_margins_widen_the_automatic_price_scale() {
+        let range = |margin| {
+            let settings = ChartSettings {
+                margin,
+                ..ChartSettings::default()
+            };
+            let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
+            let geometry = geometry(&f.settings, 1_000.0, 600.0);
+            let map = main_map(&f.raw, &f.display, &f.settings, &f.view, &geometry, 5).unwrap();
+            map.hi - map.lo
+        };
+        assert!(range(ScaleMargin::Tight) < range(ScaleMargin::Normal));
+        assert!(range(ScaleMargin::Normal) < range(ScaleMargin::Loose));
+    }
+
+    #[test]
+    fn a_volume_candle_is_as_wide_as_its_volume() {
+        let mut data = bars(40);
+        // Two neighbours, one quiet and one very busy: same room, different widths.
+        data[20].volume = 1;
+        data[21].volume = 100_000;
+        let mut settings = kind(ChartKind::VolumeCandles);
+        settings.volume_candles.min_width = 0.2;
+        settings.volume_candles.max_width = 1.0;
+        settings.volume_candles.reference = crate::domain::chart::volume::WidthReference::Max;
+        settings.volume_candles.scale = crate::domain::chart::volume::WidthScale::Linear;
+        let f = Fixture::new(Series::Bars(data), settings, View::new(20.0));
+        let widths = rect_widths(&build(&f.frame()));
+        let (mut thin, mut wide) = (f32::MAX, 0.0_f32);
+        for w in widths.iter().copied().filter(|w| *w >= 3.0 && *w <= 20.5) {
+            thin = thin.min(w);
+            wide = wide.max(w);
+        }
+        assert!(wide >= 19.0, "the busiest fills its room: {wide}");
+        assert!(thin <= 6.0, "the quietest is thin: {thin}");
+    }
+
+    #[test]
+    fn volume_candles_can_write_the_volume_over_wide_candles() {
+        let mut settings = kind(ChartKind::VolumeCandles);
+        settings.volume_candles.labels = true;
+        let f = Fixture::new(Series::Bars(bars(30)), settings, View::new(40.0));
+        let text = texts(&build(&f.frame()));
+        assert!(
+            text.iter()
+                .any(|t| t.parse::<i64>().is_ok_and(|v| (1..=7).contains(&v))),
+            "{text:?}"
+        );
+    }
+
+    #[test]
+    fn volume_bars_draw_and_make_a_different_number_of_bars_than_the_source() {
+        let mut settings = kind(ChartKind::VolumeBars);
+        settings.volume_bars.size = crate::domain::chart::volume::VolumeSize::Fixed { volume: 20 };
+        let f = Fixture::new(Series::Bars(bars(200)), settings, View::new(8.0));
+        assert!(f.display.is_derived());
+        assert_eq!(f.display.volume_size, 20);
+        assert_ne!(f.display.shown(&f.raw).len(), 200);
+        assert!(count(&build(&f.frame())) > 50);
+    }
+
+    #[test]
+    fn renko_wicks_add_a_line_to_each_brick() {
+        let source = bars(400);
+        let plain = kind(ChartKind::Renko);
+        let mut wicked = kind(ChartKind::Renko);
+        wicked.transform.renko_wicks = true;
+        wicked.transform.renko_box =
+            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0002 };
+        let mut plain = plain;
+        plain.transform.renko_box = wicked.transform.renko_box;
+        let a = Fixture::new(Series::Bars(source.clone()), plain, View::new(10.0));
+        let b = Fixture::new(Series::Bars(source), wicked, View::new(10.0));
+        assert!(count(&build(&b.frame())) > count(&build(&a.frame())));
+    }
+
+    #[test]
+    fn bricks_can_drop_their_border_and_change_their_width() {
+        let mut narrow = kind(ChartKind::Renko);
+        narrow.transform.brick_width = 0.4;
+        narrow.transform.brick_border = false;
+        narrow.transform.renko_box =
+            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0002 };
+        let mut wide = narrow.clone();
+        wide.transform.brick_width = 1.0;
+        let a = Fixture::new(Series::Bars(bars(300)), narrow, View::new(20.0));
+        let b = Fixture::new(Series::Bars(bars(300)), wide, View::new(20.0));
+        let widest = |f: &Fixture| {
+            rect_widths(&build(&f.frame()))
+                .into_iter()
+                .filter(|w| *w <= 21.0)
+                .fold(0.0_f32, f32::max)
+        };
+        assert!(
+            widest(&a) < widest(&b),
+            "{} against {}",
+            widest(&a),
+            widest(&b)
+        );
+    }
+
+    #[test]
+    fn every_price_based_type_draws_from_the_whole_path_by_default() {
+        for chart_kind in [
+            ChartKind::Renko,
+            ChartKind::LineBreak,
+            ChartKind::Kagi,
+            ChartKind::PointFigure,
+            ChartKind::Range,
+        ] {
+            let f = Fixture::new(Series::Bars(bars(300)), kind(chart_kind), View::new(8.0));
+            assert!(f.display.is_derived(), "{chart_kind:?}");
+            assert!(count(&build(&f.frame())) > 20, "{chart_kind:?}");
+        }
+    }
+
+    #[test]
+    fn a_tpo_chart_makes_one_element_for_each_session() {
+        let f = tpo_fixture(|_| {}, 200.0);
+        assert_eq!(f.display.tpo.len(), 3);
+        assert_eq!(f.display.shown(&f.raw).len(), 3);
+        assert!(f.display.is_derived());
+    }
+
+    #[test]
+    fn profiles_are_written_in_letters_with_their_levels() {
+        let f = tpo_fixture(
+            |s| s.tpo.display = crate::domain::chart::tpo::TpoDisplay::Letters,
+            200.0,
+        );
+        let text = texts(&build(&f.frame()));
+        assert!(text.iter().any(|t| t == "A"), "{text:?}");
+        assert!(text.iter().any(|t| t == "B"), "{text:?}");
+        assert!(text.iter().any(|t| t.starts_with("POC ")), "{text:?}");
+        assert!(text.iter().any(|t| t.starts_with("VAH ")), "{text:?}");
+        assert!(text.iter().any(|t| t.starts_with("VAL ")), "{text:?}");
+    }
+
+    #[test]
+    fn blocks_have_no_letters_and_the_levels_can_be_turned_off() {
+        let f = tpo_fixture(
+            |s| {
+                s.tpo.display = crate::domain::chart::tpo::TpoDisplay::Blocks;
+                s.tpo.poc = false;
+                s.tpo.value_area = false;
+            },
+            200.0,
+        );
+        let text = texts(&build(&f.frame()));
+        assert!(!text.iter().any(|t| t == "A" || t == "B"), "{text:?}");
+        assert!(
+            !text
+                .iter()
+                .any(|t| t.starts_with("POC ") || t.starts_with("VAH "))
+        );
+        let plain = tpo_fixture(|s| s.tpo.labels = false, 200.0);
+        let text = texts(&build(&plain.frame()));
+        assert!(!text.iter().any(|t| t.starts_with("POC ")), "{text:?}");
+    }
+
+    #[test]
+    fn the_profile_extras_add_what_they_draw() {
+        let bare = tpo_fixture(
+            |s| {
+                s.tpo.value_area = false;
+                s.tpo.poc_line = false;
+                s.tpo.initial_balance = false;
+                s.tpo.single_prints = false;
+                s.tpo.poor_extremes = false;
+                s.tpo.open_close = false;
+                s.tpo.labels = false;
+            },
+            200.0,
+        );
+        let full = tpo_fixture(|s| s.tpo.midpoint = true, 200.0);
+        assert!(count(&build(&full.frame())) > count(&build(&bare.frame())));
+    }
+
+    #[test]
+    fn zoomed_out_the_sessions_are_bars_and_the_work_stays_bounded() {
+        let f = tpo_fixture(|_| {}, 4.0);
+        let text = texts(&build(&f.frame()));
+        assert!(!text.iter().any(|t| t == "A"), "{text:?}");
+        let mut view = View::new(0.2);
+        view.offset = View::home_offset();
+        let many: Vec<Bar> = (0..60_000)
+            .map(|i| {
+                let base = 100_000 + ((i as f64 * 0.01).sin() * 900.0) as i64;
+                Bar {
+                    time_ms: 1_767_571_200_000 + i as i64 * 3_600_000,
+                    open: base,
+                    high: base + 50,
+                    low: base - 50,
+                    close: base + 5,
+                    volume: 3,
+                }
+            })
+            .collect();
+        let mut settings = kind(ChartKind::Tpo);
+        settings.zone = Zone::Utc;
+        let huge = Fixture::new(Series::Bars(many), settings, view);
+        assert!(count(&build(&huge.frame())) < 8_000);
+    }
+
+    #[test]
+    fn every_color_mode_draws() {
+        use crate::domain::chart::tpo::TpoColor;
+        for mode in TpoColor::ALL {
+            let f = tpo_fixture(|s| s.tpo.color = mode, 200.0);
+            assert!(count(&build(&f.frame())) > 100, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn the_automatic_display_keeps_letters_for_columns_wide_enough_to_read() {
+        // With few periods in a session the columns are wide, and the letters show by themselves.
+        let f = tpo_fixture(|s| s.tpo.period_minutes = 240, 200.0);
+        let text = texts(&build(&f.frame()));
+        assert!(text.iter().any(|t| t == "A"), "{text:?}");
+        let crowded = tpo_fixture(|s| s.tpo.period_minutes = 5, 200.0);
+        let text = texts(&build(&crowded.frame()));
+        assert!(!text.iter().any(|t| t == "A"), "{text:?}");
+    }
+
+    #[test]
+    fn point_and_figure_draws_its_x_and_o_on_a_real_price_scale() {
+        // The prices are around 100000 raw units, far from the zero the boxes used to be measured
+        // from: the boxes then had no height and every column fell back to a bar.
+        let mut settings = kind(ChartKind::PointFigure);
+        settings.transform.pnf_box =
+            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0015 };
+        let mut view = View::new(22.0);
+        view.offset = 1.0;
+        let f = Fixture::new(Series::Bars(bars(500)), settings, view);
+        let mut frame = f.frame();
+        frame.hover = None;
+        assert!(
+            long_strokes(&build(&frame), 10) > 0,
+            "no O drawn: the columns fell back to bars"
+        );
+    }
+}

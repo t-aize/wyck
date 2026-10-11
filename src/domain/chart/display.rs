@@ -14,7 +14,8 @@ use super::transform::{self, KagiLine, PnfColumn};
 use super::volume;
 use super::zone::Zone;
 use crate::domain::indicators as study;
-use crate::domain::indicators::{StudyInput, StudyKind, StudyOutput};
+use crate::domain::indicators::compute::{StudyInput, StudyOutput};
+use crate::domain::indicators::kind::StudyKind;
 
 /// What is drawn when it is not the prices as they are.
 #[derive(Debug, Clone, Default)]
@@ -207,7 +208,7 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
         .iter()
         .map(|config| {
             (config.visible && config.kind != StudyKind::VolumeProfile && !config.is_script())
-                .then(|| study::compute(config, &input))
+                .then(|| study::compute::compute(config, &input))
         })
         .collect()
 }
@@ -215,7 +216,7 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::StudyConfig;
+    use crate::domain::indicators::config::StudyConfig;
 
     fn bars(n: usize) -> Series {
         Series::Bars(

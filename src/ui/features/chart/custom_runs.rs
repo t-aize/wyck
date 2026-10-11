@@ -20,9 +20,10 @@ use gpui::{Context, Task};
 
 use super::Chart;
 use super::display::study_input;
+use super::study::compute::StudyOutput;
+use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
 use super::study::custom::{self, Problem, Severity};
-use super::study::{StudyConfig, StudyOutput};
 use crate::app::scripts as indicators;
 
 /// What a run was made from, to know whether another is wanted.
@@ -378,7 +379,7 @@ impl Chart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::features::chart::study::StudyKind;
+    use crate::ui::features::chart::study::kind::StudyKind;
 
     fn slot_for(custom: &Custom, index: usize) -> u64 {
         custom.slots[index].serial

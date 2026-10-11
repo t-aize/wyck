@@ -23,6 +23,18 @@ pub const MAX_LEGS: usize = 3;
 /// The start of every label the app writes.
 const PREFIX: &str = "wyck:";
 
+/// Why a set of exits cannot be sent: codes, the sentence belongs to the screen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum ExitsProblem {
+    /// An exit takes no share of the volume.
+    EmptyShare,
+    /// The shares add up to this many percent instead of 100.
+    SharesTotal(f64),
+    /// A take profit is not further than the one before it.
+    TargetsNotRising,
+}
+
 /// One exit of a plan.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Leg {
@@ -115,20 +127,18 @@ impl ExitPlan {
     }
 
     /// Why the plan cannot be sent, if it cannot.
-    pub fn problem(&self) -> Option<String> {
+    pub fn problem(&self) -> Option<ExitsProblem> {
         if self.legs.iter().any(|l| l.share <= 0.0) {
-            return Some("Every exit needs a share above 0".to_owned());
+            return Some(ExitsProblem::EmptyShare);
         }
         let total: f64 = self.legs.iter().map(|l| l.share).sum();
         if (total - 100.0).abs() > 0.5 {
-            return Some(format!(
-                "The shares of the exits add up to {total:.0}%, not 100%"
-            ));
+            return Some(ExitsProblem::SharesTotal(total));
         }
         let mut last = 0.0;
         for leg in self.legs.iter().filter(|l| l.target_r > 0.0) {
             if leg.target_r <= last {
-                return Some("Each take profit must be further than the one before".to_owned());
+                return Some(ExitsProblem::TargetsNotRising);
             }
             last = leg.target_r;
         }
@@ -490,10 +500,10 @@ mod tests {
         assert_eq!(plan.problem(), None);
         let mut bad = plan.clone();
         bad.legs[2].share = 30.0;
-        assert!(bad.problem().unwrap().contains("add up"));
+        assert!(matches!(bad.problem(), Some(ExitsProblem::SharesTotal(_))));
         let mut bad = plan.clone();
         bad.legs[1].target_r = 0.5;
-        assert!(bad.problem().unwrap().contains("further"));
+        assert_eq!(bad.problem(), Some(ExitsProblem::TargetsNotRising));
         let mut zero = plan;
         zero.legs[0].share = 0.0;
         assert!(zero.problem().is_some());

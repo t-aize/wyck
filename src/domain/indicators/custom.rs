@@ -21,7 +21,7 @@ pub mod templates;
 #[cfg(test)]
 mod behavior;
 
-use super::Spec;
+use super::spec::Spec;
 
 /// The spec of the indicator whose script is `id`: what it declared, or an empty one when there is
 /// no such script (it was deleted, or its file has a mistake).
@@ -30,7 +30,8 @@ pub fn spec_for(id: Option<&str>) -> Spec {
     library::registry::get(id).map_or_else(|| library::missing_spec(id), |entry| entry.spec)
 }
 
-pub use run::{Computed, Limits, Problem, Severity};
+pub use run::Computed;
+pub use run::decl::{Limits, Problem, Severity};
 
 #[cfg(test)]
 use std::sync::Arc;
@@ -38,7 +39,9 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 #[cfg(test)]
-use super::{StudyConfig, StudyInput};
+use super::compute::StudyInput;
+#[cfg(test)]
+use super::config::StudyConfig;
 
 #[cfg(test)]
 /// Computes the indicator a config holds over `input`. The script is looked up by the id in the
@@ -164,9 +167,11 @@ plot(\"a\", sma(close, n2));";
         assert_eq!(back, config);
         // The built-in ones save no script.
         assert!(
-            !toml::to_string(&StudyConfig::new(super::super::StudyKind::Sma))
-                .unwrap()
-                .contains("script")
+            !toml::to_string(&StudyConfig::new(
+                crate::domain::indicators::kind::StudyKind::Sma
+            ))
+            .unwrap()
+            .contains("script")
         );
     }
 }

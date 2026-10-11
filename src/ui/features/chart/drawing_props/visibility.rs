@@ -1,8 +1,8 @@
 //! The Visibility tab of the drawing settings: the timeframes a drawing shows on.
 
+use super::helpers::every_timeframe;
 use super::{
-    AnyElement, Context, Drawing, DrawingProps, GROUPS, IconName, SharedString, controls, div,
-    every_timeframe, form,
+    AnyElement, Context, Drawing, DrawingProps, GROUPS, IconName, SharedString, controls, div, form,
 };
 use crate::ui::kit::field;
 use gpui::prelude::*;

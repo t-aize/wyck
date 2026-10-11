@@ -46,7 +46,7 @@ struct Canvas<'a> {
 }
 
 fn color(hsla: Hsla) -> tiny_skia::Color {
-    let rgba: gpui::Rgba = super::gpui_hsla(hsla).into();
+    let rgba: gpui::Rgba = super::palette::gpui_hsla(hsla).into();
     tiny_skia::Color::from_rgba(
         rgba.r.clamp(0.0, 1.0),
         rgba.g.clamp(0.0, 1.0),
@@ -453,6 +453,23 @@ fn aligned(x: f32, width: f32, align: Align) -> f32 {
     }
 }
 
+/// Why a picture of a chart could not be made.
+#[derive(Debug, thiserror::Error)]
+pub enum RasterError {
+    #[error("the font of the picture cannot be read: {0}")]
+    Font(#[from] ab_glyph::InvalidFont),
+    #[error("the picture is too large")]
+    TooLarge,
+    #[error("the picture cannot be encoded: {0}")]
+    Encode(String),
+}
+
+impl RasterError {
+    fn encode(error: impl std::fmt::Display) -> Self {
+        Self::Encode(error.to_string())
+    }
+}
+
 /// Device pixels per logical pixel in a picture: twice the screen, for a crisp image.
 pub const PICTURE_SCALE: f32 = 2.0;
 
@@ -475,10 +492,10 @@ pub fn render_png(
     scale: f32,
     background: Hsla,
     captions: &[Caption],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, RasterError> {
     render_pixmap(cmds, w, h, scale, background, captions)?
         .encode_png()
-        .map_err(|e| e.to_string())
+        .map_err(RasterError::encode)
 }
 
 /// `render_png` without the encoding: the pixels, to be put in a larger picture (see
@@ -490,10 +507,10 @@ pub fn render_pixmap(
     scale: f32,
     background: Hsla,
     captions: &[Caption],
-) -> Result<Pixmap, String> {
-    let font = FontRef::try_from_slice(assets::FONT).map_err(|e| e.to_string())?;
+) -> Result<Pixmap, RasterError> {
+    let font = FontRef::try_from_slice(assets::FONT)?;
     let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
-    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
+    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     let mut canvas = Canvas {
         pixmap,
@@ -535,9 +552,9 @@ pub fn compose_png(
     scale: f32,
     background: Hsla,
     tiles: &[(f32, f32, Pixmap)],
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, RasterError> {
     let (pw, ph) = ((w * scale).round() as u32, (h * scale).round() as u32);
-    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or("the picture is too large")?;
+    let mut pixmap = Pixmap::new(pw.max(1), ph.max(1)).ok_or(RasterError::TooLarge)?;
     pixmap.fill(color(background));
     for (x, y, tile) in tiles {
         pixmap.draw_pixmap(
@@ -549,7 +566,7 @@ pub fn compose_png(
             None,
         );
     }
-    pixmap.encode_png().map_err(|e| e.to_string())
+    pixmap.encode_png().map_err(RasterError::encode)
 }
 
 #[cfg(test)]
@@ -595,10 +612,12 @@ mod tests {
     fn indicator_families_preview() {
         use crate::domain::chart::data::Series;
         use crate::domain::chart::display::Display;
-        use crate::domain::chart::scene::{Frame, Palette, build};
+        use crate::domain::chart::scene::palette::Palette;
+        use crate::domain::chart::scene::{Frame, build};
         use crate::domain::chart::view::View;
         use crate::domain::chart::{ChartSettings, Timeframe};
-        use crate::domain::indicators::{StudyConfig, StudyKind};
+        use crate::domain::indicators::config::StudyConfig;
+        use crate::domain::indicators::kind::StudyKind;
         use crate::domain::market::Bar;
 
         let bars: Vec<Bar> = (0..240)

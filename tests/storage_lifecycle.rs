@@ -355,7 +355,7 @@ fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
 
     // Export, sealed, to a file that can be put anywhere.
     let file = to.path().join("carried").join("backup.toml");
-    let made = backup::export_to_file(
+    let made = backup::staged::export_to_file(
         &source,
         Some(&source.scripts()),
         &file,
@@ -371,19 +371,20 @@ fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
     // Import, elsewhere: checked and staged, applied at the next start.
     let target = AppPaths::at(to.path().join("other"));
     assert!(matches!(
-        backup::stage_import_file(&target, &file, None),
+        backup::staged::stage_import_file(&target, &file, None),
         Err(wyck::infra::storage::ConfigError::PassphraseRequired)
     ));
     assert!(matches!(
-        backup::stage_import_file(&target, &file, Some(&passphrase("wrong"))),
+        backup::staged::stage_import_file(&target, &file, Some(&passphrase("wrong"))),
         Err(wyck::infra::storage::ConfigError::WrongPassphrase)
     ));
-    let staged = backup::stage_import_file(&target, &file, Some(&passphrase("carry-me"))).unwrap();
+    let staged =
+        backup::staged::stage_import_file(&target, &file, Some(&passphrase("carry-me"))).unwrap();
     assert_eq!(staged, made);
-    assert!(backup::import_pending(&target));
+    assert!(backup::staged::import_pending(&target));
     assert_eq!(target.scope("demo-1").load_text("notes").unwrap(), None);
 
-    let applied = backup::apply_pending(&target, "2026-09-29T10:05:00Z").unwrap();
+    let applied = backup::staged::apply_pending(&target, "2026-09-29T10:05:00Z").unwrap();
     assert_eq!(applied.imported, Some(4));
     assert_eq!(
         target
@@ -412,7 +413,8 @@ fn a_sealed_backup_moves_every_document_and_script_to_another_install() {
 
 #[test]
 fn the_copies_an_install_keeps_can_be_listed_restored_and_pruned() {
-    use wyck::infra::storage::backup::{self, AutoPolicy, BackupKind};
+    use wyck::infra::storage::backup;
+    use wyck::infra::storage::backup::store::{AutoPolicy, BackupKind};
 
     let dir = tempfile::tempdir().unwrap();
     let mut config = WyckConfig::builder()
@@ -450,15 +452,15 @@ fn the_copies_an_install_keeps_can_be_listed_restored_and_pruned() {
         .documents()
         .save_text("preferences", "magnet = false\n")
         .unwrap();
-    backup::stage_reset(config.paths()).unwrap();
-    let applied = backup::apply_pending(config.paths(), "2026-09-29T11:00:00Z").unwrap();
+    backup::staged::stage_reset(config.paths()).unwrap();
+    let applied = backup::staged::apply_pending(config.paths(), "2026-09-29T11:00:00Z").unwrap();
     assert!(applied.reset);
     assert_eq!(config.documents().load_text("preferences").unwrap(), None);
 
     let kinds: Vec<_> = store.list().unwrap().iter().map(|e| e.kind).collect();
     assert!(kinds.contains(&BackupKind::BeforeReset), "{kinds:?}");
     store.restore(&auto.id, None).unwrap();
-    backup::apply_pending(config.paths(), "2026-09-29T11:05:00Z").unwrap();
+    backup::staged::apply_pending(config.paths(), "2026-09-29T11:05:00Z").unwrap();
     assert_eq!(
         config
             .documents()

@@ -1,7 +1,7 @@
 //! The parts of the look of a drawing beyond its line and fill: the words it carries, what ends
 //! its lines, what its levels and measures write, and how a volume profile is cut.
 //!
-//! Each is a small piece of a [`super::model::Style`], with defaults that draw a drawing the way
+//! Each is a small piece of a [`super::model::style::Style`], with defaults that draw a drawing the way
 //! it was drawn before the piece existed. Every piece is left out of the saved form while it is at
 //! its default, so a file only says what was changed, and an old file loads unchanged.
 
@@ -266,14 +266,15 @@ mod tests {
             .tag_opacity(),
             0.05
         );
-        let mut style = crate::domain::drawings::model::Style::default();
+        let mut style = crate::domain::drawings::model::style::Style::default();
         assert_eq!(style.face(), Face::default());
         style.italic = true;
         style.font = Some("  Georgia ".into());
         let face = style.face();
         assert!(face.italic);
         assert_eq!(face.family, Some("Georgia"));
-        let saved = toml::to_string(&crate::domain::drawings::model::Style::default()).unwrap();
+        let saved =
+            toml::to_string(&crate::domain::drawings::model::style::Style::default()).unwrap();
         assert!(
             !saved.contains("font") && !saved.contains("italic"),
             "{saved}"

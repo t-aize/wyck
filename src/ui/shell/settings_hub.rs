@@ -15,7 +15,7 @@ use crate::app::appearance::{ColorField, Mode, contrast};
 use crate::app::prefs::indicators as prefs;
 use crate::app::scripts as indicators;
 use crate::app::storage::backup;
-use crate::app::storage::backup::BackupEntry;
+use crate::app::storage::backup::store::BackupEntry;
 use crate::app::system::build_info::{BuildMode, VERSION};
 use crate::app::updates;
 use crate::app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
@@ -250,7 +250,7 @@ impl SettingsHub {
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| crate::app_paths().is_some_and(backup::import_pending));
+            .filter(|_| crate::app_paths().is_some_and(backup::staged::import_pending));
         Self {
             workspace,
             multi,

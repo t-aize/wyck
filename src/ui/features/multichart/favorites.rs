@@ -12,7 +12,7 @@ use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
 
 use super::MultiChart;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
-use crate::domain::drawings::model::Tool;
+use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart::object_tree::tool_icon;
 use crate::ui::kit::{
     controls, icon,

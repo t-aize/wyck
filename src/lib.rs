@@ -46,7 +46,7 @@ pub fn run() {
                     // A reset or an import the user asked for waits for this moment, before
                     // anything reads the documents it replaces.
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match crate::infra::storage::backup::apply_pending(paths, &stamp) {
+                    match crate::infra::storage::backup::staged::apply_pending(paths, &stamp) {
                         Ok(applied) if applied != Default::default() => {
                             tracing::info!(?applied, "applied what was waiting for this start");
                         }
@@ -135,7 +135,7 @@ fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut A
     cx.background_executor()
         .spawn(async move {
             let created = chrono::Local::now().to_rfc3339();
-            let policy = crate::infra::storage::backup::AutoPolicy::default();
+            let policy = crate::infra::storage::backup::store::AutoPolicy::default();
             match paths.backups().auto_snapshot(
                 Some(&scripts),
                 build_info::VERSION,

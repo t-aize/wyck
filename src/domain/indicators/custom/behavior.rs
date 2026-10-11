@@ -3,8 +3,11 @@
 
 use std::collections::BTreeMap;
 
-use super::super::{InputKind, PlotKind, StudyInput, math};
-use super::run::{Computed, Limits, Script};
+use super::super::compute::StudyInput;
+use super::super::math;
+use super::super::spec::{InputKind, PlotKind};
+use super::run::decl::Limits;
+use super::run::{Computed, Script};
 
 fn bars(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)
@@ -311,7 +314,10 @@ fn plots_take_their_style_from_the_script() {
         (plots[0].color, plots[0].width, plots[0].label.as_str()),
         (0x0012_3456, 3.0, "My line")
     );
-    assert_eq!(plots[0].dash, crate::domain::drawings::model::Dash::Dashed);
+    assert_eq!(
+        plots[0].dash,
+        crate::domain::drawings::model::style::Dash::Dashed
+    );
     assert_eq!(plots[1].kind, PlotKind::Histogram);
     assert_eq!(plots[2].kind, PlotKind::Dots);
     assert_ne!(
@@ -358,7 +364,10 @@ fn the_indicator_call_sets_the_words_the_menus_show() {
         ),
         ("Momentum", "Me", "1.2")
     );
-    assert!(matches!(meta.format, super::super::ValueFormat::Count));
+    assert!(matches!(
+        meta.format,
+        super::super::spec::ValueFormat::Count
+    ));
 }
 
 #[test]

@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::indicators::custom::library::{Entry, registry};
-use crate::domain::indicators::custom::run::Problem;
+use crate::domain::indicators::custom::run::decl::Problem;
 use crate::infra::storage::scripts::{ScriptFile, ScriptStore};
 
 // The rules of the folder (the extension, the limits, which names are allowed) are owned by
@@ -130,12 +130,29 @@ impl Changes {
 }
 
 /// What an import did.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ImportReport {
     /// The ids of the indicators that were added.
     pub imported: Vec<String>,
     /// The files that were not, and why.
-    pub skipped: Vec<(PathBuf, String)>,
+    pub skipped: Vec<(PathBuf, ImportSkip)>,
+}
+
+/// Why a file was left out of an import. The text is meant to be shown as it is, after "it".
+#[derive(Debug, thiserror::Error)]
+pub enum ImportSkip {
+    #[error("it is not a .{} file", EXTENSION)]
+    NotAScript,
+    #[error("it cannot be read: {0}")]
+    Unreadable(#[source] std::io::Error),
+    #[error("it is bigger than {} KB", MAX_FILE_BYTES / 1024)]
+    TooBig,
+    #[error("it is not a text file")]
+    NotText,
+    #[error("the library is full ({} indicators)", MAX_SCRIPTS)]
+    Full,
+    #[error(transparent)]
+    Library(#[from] LibraryError),
 }
 
 struct Known {
@@ -381,21 +398,20 @@ impl Library {
         report
     }
 
-    fn import_one(&mut self, path: &Path) -> Result<String, String> {
+    fn import_one(&mut self, path: &Path) -> Result<String, ImportSkip> {
         let is_script = path
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case(EXTENSION));
         if !is_script {
-            return Err(format!("it is not a .{EXTENSION} file"));
+            return Err(ImportSkip::NotAScript);
         }
-        let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
+        let meta = std::fs::metadata(path).map_err(ImportSkip::Unreadable)?;
         if meta.len() > MAX_FILE_BYTES {
-            return Err(format!("it is bigger than {} KB", MAX_FILE_BYTES / 1024));
+            return Err(ImportSkip::TooBig);
         }
-        let source =
-            std::fs::read_to_string(path).map_err(|_| "it is not a text file".to_owned())?;
+        let source = std::fs::read_to_string(path).map_err(|_| ImportSkip::NotText)?;
         if self.known.len() >= MAX_SCRIPTS {
-            return Err(format!("the library is full ({MAX_SCRIPTS} indicators)"));
+            return Err(ImportSkip::Full);
         }
         let stem = path
             .file_stem()
@@ -409,8 +425,8 @@ impl Library {
                 .collect();
             clean_part(plain.trim()).unwrap_or_else(|_| "Imported".to_owned())
         });
-        let id = self.unique_id(None, &name).map_err(|e| e.to_string())?;
-        self.write(&id, &source).map_err(|e| e.to_string())?;
+        let id = self.unique_id(None, &name)?;
+        self.write(&id, &source)?;
         Ok(id)
     }
 
@@ -466,7 +482,7 @@ fn scripts_in(dir: &Path, out: &mut Vec<PathBuf>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::Placement;
+    use crate::domain::indicators::spec::Placement;
 
     const SMA: &str = "indicator(#{ name: \"Two lines\", short: \"TL\", overlay: true });\n\
         let len = input_int(\"length\", 20, #{ min: 2, max: 200 });\n\

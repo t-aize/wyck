@@ -11,7 +11,7 @@
 //! | Tokens and secrets | the OS keyring, or encrypted files | [`SecretStore`] |
 //! | Everything else the app remembers (layouts, drawings, favorites) | one TOML file per document | [`DocumentStore`] |
 //! | Indicator scripts | one `.rhai` file each | [`scripts::ScriptStore`] |
-//! | A backup of everything, to export, import, keep or restore | one TOML file | [`backup::Backup`], [`backup::BackupStore`] |
+//! | A backup of everything, to export, import, keep or restore | one TOML file | [`backup::Backup`], [`backup::store::BackupStore`] |
 //! | Text to carry elsewhere, unreadable without a passphrase | a small TOML document | [`sealed`] |
 //!
 //! **A token never appears in `config.toml`.** The file only holds a profile's public settings;
@@ -74,10 +74,10 @@
 //!
 //! ## Backups
 //!
-//! [`backup`] owns the whole life of a backup: [`backup::export_to_file`] and
-//! [`backup::stage_import_file`] for the export and import buttons, [`backup::BackupStore`]
+//! [`backup`] owns the whole life of a backup: [`backup::staged::export_to_file`] and
+//! [`backup::staged::stage_import_file`] for the export and import buttons, [`backup::store::BackupStore`]
 //! (`config.backups()`) for the copies kept in `backups/` (automatic ones included), and
-//! [`backup::apply_pending`] to run at the start of the app, so a restore never writes over a
+//! [`backup::staged::apply_pending`] to run at the start of the app, so a restore never writes over a
 //! running app and can itself be undone.
 //!
 //! ## Checking it
@@ -452,8 +452,8 @@ impl WyckConfig {
     }
 
     /// The backups kept in the backups folder: list, save, restore, delete (see
-    /// [`backup::BackupStore`]).
-    pub fn backups(&self) -> backup::BackupStore {
+    /// [`backup::store::BackupStore`]).
+    pub fn backups(&self) -> backup::store::BackupStore {
         self.paths.backups()
     }
 

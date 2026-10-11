@@ -2,8 +2,10 @@
 //! the user wrote as scripts. The menus that add an indicator read this, and nothing else needs
 //! to know which is which.
 
+use super::config::StudyConfig;
 use super::custom::library::registry;
-use super::{Placement, StudyConfig, StudyKind};
+use super::kind::StudyKind;
+use super::spec::Placement;
 
 /// Where an indicator comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]

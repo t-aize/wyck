@@ -3,11 +3,14 @@
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 use serde_json::{Map as JsonMap, Number, Value};
 
-use super::api::parse_color;
-use super::run::{MAX_SCRIPT_DRAWINGS, Mode, with_run};
+use super::api::indicators::parse_color;
+use super::run::decl::MAX_SCRIPT_DRAWINGS;
+use super::run::{Mode, with_run};
 use super::series::Fallible;
-use crate::domain::drawings::model::{Drawing, Level, MAX_BRUSH_POINTS, Point, Style, Tool};
-use crate::domain::indicators::ScriptDrawing;
+use crate::domain::drawings::model::style::{Level, Style};
+use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
+use crate::domain::indicators::compute::ScriptDrawing;
 
 const MAX_SCRIPT_POINTS: usize = 20_000;
 const MAX_OPTION_NODES: usize = 2_000;
@@ -307,9 +310,10 @@ fn draw(key: &str, tool: &str, points: Array, options: Map) -> Fallible<()> {
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::super::run::{Limits, Script};
+    use super::super::run::Script;
+    use super::super::run::decl::Limits;
     use super::*;
-    use crate::domain::indicators::StudyInput;
+    use crate::domain::indicators::compute::StudyInput;
 
     fn bars() -> StudyInput {
         StudyInput {
@@ -323,7 +327,7 @@ mod tests {
         }
     }
 
-    fn compute(source: &str) -> Fallible<crate::domain::indicators::StudyOutput> {
+    fn compute(source: &str) -> Fallible<crate::domain::indicators::compute::StudyOutput> {
         let script = Script::compile(source).map_err(|p| format!("{p:?}"))?;
         script
             .compute(&bars(), &BTreeMap::new(), Limits::default(), None)

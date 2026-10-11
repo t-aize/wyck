@@ -50,18 +50,14 @@
 //! Open API has no trade tape, so the side and the volume of each unit are inferred from the
 //! quotes, and the chart says so.
 
-use crate::domain::chart::axis;
+pub mod api;
 mod chart_settings_ui;
 mod construction_ui;
 mod custom_runs;
-use crate::domain::chart::data;
-use crate::domain::chart::display;
 pub mod drawing_props;
 mod export_ui;
-use crate::domain::chart::flow;
 mod flow_sync;
 mod follow;
-use crate::domain::chart::footprint;
 mod footprint_ui;
 mod glue;
 mod history;
@@ -69,35 +65,15 @@ mod indicator_picker;
 mod input;
 pub mod lines;
 pub mod object_tree;
-use crate::domain::chart::options;
 mod overlay;
 mod paint;
-use crate::domain::chart::projection;
+pub mod palette;
 pub mod raster;
-use crate::domain::chart::scene;
-use crate::domain::chart::settings;
 mod settings_rows;
-use crate::domain::indicators as study;
 mod study_settings;
-use crate::domain::chart::timeframe;
 mod toolbar;
-use crate::domain::chart::tpo;
 mod tpo_ui;
-use crate::domain::chart::transform;
-use crate::domain::chart::view;
-use crate::domain::chart::volume;
 mod volume_ui;
-use crate::domain::chart::zone;
-
-use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::time::{Duration, Instant};
-
-use crate::app::broker::session::Session;
-use crate::app::broker::{Error as ApiError, Result as ApiResult};
-use crate::app::market_data::now_ms;
-use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
 
 use self::data::Series;
 use self::display::Display;
@@ -107,69 +83,34 @@ pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
-use self::study::StudyConfig;
+use self::study::config::StudyConfig;
 pub use self::timeframe::{GROUPS, Timeframe, Unit};
 use self::view::View;
+use crate::app::broker::session::Session;
+use crate::app::broker::{Error as ApiError, Result as ApiResult};
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
-
-fn palette_for_chart(colors: &options::ChartColors) -> scene::Palette {
-    let mut base = scene::Palette::new();
-    let color = chart_rgba;
-    base.up = color(crate::ui::kit::theme::chart_up());
-    base.down = color(crate::ui::kit::theme::chart_down());
-    base.line = color(crate::ui::kit::theme::chart_line());
-    base.grid = color(crate::ui::kit::theme::chart_grid());
-    base.text = color(crate::ui::kit::theme::chart_muted());
-    base.text_strong = color(crate::ui::kit::theme::chart_fg());
-    base.bg = color(crate::ui::kit::theme::chart_bg());
-    base.tag = color(crate::ui::kit::theme::chart_tag());
-    base.border = color(crate::ui::kit::theme::chart_border());
-    base.crosshair = color(crate::ui::kit::theme::chart_crosshair());
-    base.accent = color(crate::ui::kit::theme::accent());
-    base.kagi_yang = base.up;
-    base.kagi_yin = base.down;
-    base.pnf_up = base.up;
-    base.pnf_down = base.down;
-    scene::Palette::for_chart_with_base(colors, base)
-}
-
-struct DesktopPalette {
-    up: gpui::Rgba,
-    down: gpui::Rgba,
-    text: gpui::Rgba,
-    text_strong: gpui::Rgba,
-    bg: gpui::Rgba,
-}
-
-// The chart crate has no gpui, so its colors are types of its own: these move them across.
-
-fn chart_rgba(color: gpui::Rgba) -> scene::color::Rgba {
-    scene::color::Rgba {
-        r: color.r,
-        g: color.g,
-        b: color.b,
-        a: color.a,
-    }
-}
-
-fn gpui_rgba(color: scene::color::Rgba) -> gpui::Rgba {
-    gpui::Rgba {
-        r: color.r,
-        g: color.g,
-        b: color.b,
-        a: color.a,
-    }
-}
-
-fn gpui_hsla(color: scene::color::Hsla) -> gpui::Hsla {
-    gpui::Hsla {
-        h: color.h,
-        s: color.s,
-        l: color.l,
-        a: color.a,
-    }
-}
+use crate::domain::chart::axis;
+use crate::domain::chart::data;
+use crate::domain::chart::display;
+use crate::domain::chart::flow;
+use crate::domain::chart::footprint;
+use crate::domain::chart::options;
+use crate::domain::chart::projection;
+use crate::domain::chart::scene;
+use crate::domain::chart::settings;
+use crate::domain::chart::timeframe;
+use crate::domain::chart::tpo;
+use crate::domain::chart::transform;
+use crate::domain::chart::view;
+use crate::domain::chart::volume;
+use crate::domain::chart::zone;
+use crate::domain::indicators as study;
+use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
+use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 gpui::actions!(
     wyck_chart,
@@ -406,7 +347,7 @@ pub enum ChartAction {
 pub enum AlertSeed {
     /// An indicator of the chart, and the timeframe it is worked out on.
     Indicator {
-        study: Box<crate::domain::indicators::StudyConfig>,
+        study: Box<crate::domain::indicators::config::StudyConfig>,
         timeframe: String,
     },
     /// A drawing of the chart.
@@ -609,233 +550,15 @@ impl Chart {
         }
     }
 
-    pub fn timeframe(&self) -> Timeframe {
-        self.timeframe
-    }
-
-    pub fn settings(&self) -> &ChartSettings {
-        &self.settings
-    }
-
-    pub fn symbol(&self) -> Option<&Symbol> {
-        self.symbol.as_ref()
-    }
-
-    /// The last bid and ask seen for the chart's symbol.
-    pub fn quote(&self) -> (Option<i64>, Option<i64>) {
-        (self.bid, self.ask)
-    }
-
-    /// The trading hours of the chart's symbol (ignored for another symbol).
-    pub fn set_hours(
-        &mut self,
-        id: i64,
-        hours: Option<std::sync::Arc<crate::domain::market::TradingHours>>,
-        cx: &mut Context<Self>,
-    ) {
-        let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
-        let same = match (&self.hours, &hours) {
-            (Some(a), Some(b)) => std::sync::Arc::ptr_eq(a, b),
-            (None, None) => true,
-            _ => false,
-        };
-        if !same {
-            self.hours = hours;
-            cx.notify();
-        }
-    }
-
-    /// Whether this is the chart the user works on.
-    /// Keeps the hint of a drawing tool `floor` pixels off the bottom of the chart.
-    pub fn set_hint_floor(&mut self, floor: f32, cx: &mut Context<Self>) {
-        if (self.hint_floor - floor).abs() > 0.5 {
-            self.hint_floor = floor;
-            cx.notify();
-        }
-    }
-
-    pub fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
-        if self.selected != selected {
-            self.selected = selected;
-            if !selected {
-                self.menu = None;
-            }
-            cx.notify();
-        }
-    }
-
-    /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub fn market_status(&self) -> Option<crate::domain::market::MarketStatus> {
-        Some(self.hours.as_ref()?.status_at(now_ms()))
-    }
-
-    /// Tells the chart how many charts the layout holds.
-    pub fn set_layout_charts(&mut self, count: usize, cx: &mut Context<Self>) {
-        if self.layout_charts != count {
-            self.layout_charts = count;
-            cx.notify();
-        }
-    }
-
-    pub fn set_symbol(
-        &mut self,
-        id: i64,
-        name: SharedString,
-        digits: u32,
-        pip_position: Option<i64>,
-        cx: &mut Context<Self>,
-    ) {
-        if self.symbol.as_ref().is_some_and(|s| s.id == id) {
-            if let Some(symbol) = self.symbol.as_mut()
-                && pip_position.is_some()
-                && (symbol.digits != digits || symbol.pip_position != pip_position)
-            {
-                symbol.digits = digits;
-                symbol.pip_position = pip_position.or(symbol.pip_position);
-                self.data_changed(cx);
-            }
-            return;
-        }
-        self.symbol = Some(Symbol {
-            id,
-            name,
-            digits,
-            pip_position,
-        });
-        self.lines.clear();
-        self.reload(cx);
-        self.request_drawing_atr(cx);
-    }
-
-    /// The broker said how the symbol is quoted.
-    pub fn set_quote_details(
-        &mut self,
-        id: i64,
-        digits: u32,
-        pip_position: i64,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(symbol) = self.symbol.as_mut().filter(|s| s.id == id)
-            && (symbol.digits != digits || symbol.pip_position != Some(pip_position))
-        {
-            symbol.digits = digits;
-            symbol.pip_position = Some(pip_position);
-            self.data_changed(cx);
-        }
-    }
-
-    pub fn set_timeframe(&mut self, timeframe: Timeframe, cx: &mut Context<Self>) {
-        if self.timeframe == timeframe {
-            return;
-        }
-        self.timeframe = timeframe;
-        self.reload(cx);
-        self.request_drawing_atr(cx);
-        cx.emit(ChartEvent::SettingsChanged);
-    }
-
-    /// Changes the settings with `change`; recomputes what depends on them, redraws, and tells the
-    /// layout (which saves them) when they really changed.
-    pub fn edit_settings(
-        &mut self,
-        cx: &mut Context<Self>,
-        change: impl FnOnce(&mut ChartSettings),
-    ) {
-        let before = self.settings.clone();
-        change(&mut self.settings);
-        self.settings = std::mem::take(&mut self.settings).normalized();
-        if self.settings == before {
-            return;
-        }
-        let layout_changed = before.kind != self.settings.kind
-            || (self.settings.kind.is_derived() && before.transform != self.settings.transform);
-        let data_changed = layout_changed
-            || before.studies != self.settings.studies
-            || before.zone != self.settings.zone;
-        if data_changed {
-            self.rebuild_display();
-        }
-        if before.kind != self.settings.kind {
-            let footprint = self.settings.kind == ChartKind::Footprint;
-            if footprint {
-                self.view.bar_px = self.view.bar_px.max(footprint::DEFAULT_BAR_PX);
-            } else if before.kind == ChartKind::Footprint {
-                // Bars as wide as a footprint's would be absurd as candles.
-                self.view.bar_px = self.timeframe.default_bar_px();
-                self.reset_flow();
-            }
-        }
-        if layout_changed {
-            // A different construction has a different number of points: start from the end.
-            self.view = View::new(self.view.bar_px);
-        }
-        if before.scale != self.settings.scale || before.invert != self.settings.invert {
-            self.view.price = view::PriceScale::Auto;
-        }
-        cx.emit(ChartEvent::SettingsChanged);
-        cx.notify();
-        self.ensure_flow(cx);
-    }
-
-    pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {
-        self.edit_settings(cx, |s| s.kind = kind);
-    }
-
-    /// Adds an indicator, with its defaults.
-    pub fn add_study(&mut self, config: StudyConfig, cx: &mut Context<Self>) {
-        if self.settings.studies.len() >= self.max_studies {
-            crate::ui::kit::toast::show(
-                cx,
-                crate::ui::kit::toast::Kind::Warning,
-                "Indicator limit reached",
-                crate::ui::kit::shortcut::text(&format!(
-                    "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",
-                    self.max_studies
-                )),
-            );
-            return;
-        }
-        self.edit_settings(cx, |s| s.studies.push(config));
-    }
-
-    pub fn max_studies(&self) -> usize {
-        self.max_studies
-    }
-
-    pub fn set_max_studies(&mut self, limit: usize, cx: &mut Context<Self>) {
-        self.max_studies = limit.clamp(1, settings::MAX_STUDIES);
-        cx.notify();
-    }
-
-    pub fn remove_study(&mut self, index: usize, cx: &mut Context<Self>) {
-        self.edit_settings(cx, |s| {
-            if index < s.studies.len() {
-                s.studies.remove(index);
-            }
-        });
-    }
-
-    /// The orders, positions and alerts to show.
-    pub fn set_lines(&mut self, lines: Vec<ChartLine>, cx: &mut Context<Self>) {
-        if self.lines != lines {
-            self.lines = lines;
-            cx.notify();
-        }
-    }
-
-    pub fn digits(&self) -> u32 {
-        self.symbol.as_ref().map_or(5, |s| s.digits)
-    }
-
     /// The colors this chart draws with: the theme's, and what the chart overrides.
-    fn palette(&self) -> DesktopPalette {
-        let palette = palette_for_chart(&self.settings.colors);
-        DesktopPalette {
-            up: gpui_rgba(palette.up),
-            down: gpui_rgba(palette.down),
-            text: gpui_rgba(palette.text),
-            text_strong: gpui_rgba(palette.text_strong),
-            bg: gpui_rgba(palette.bg),
+    fn palette(&self) -> palette::DesktopPalette {
+        let palette = palette::palette_for_chart(&self.settings.colors);
+        palette::DesktopPalette {
+            up: palette::gpui_rgba(palette.up),
+            down: palette::gpui_rgba(palette.down),
+            text: palette::gpui_rgba(palette.text),
+            text_strong: palette::gpui_rgba(palette.text_strong),
+            bg: palette::gpui_rgba(palette.bg),
         }
     }
 

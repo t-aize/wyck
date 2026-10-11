@@ -73,7 +73,7 @@ impl Chart {
                 .map(|r| (r.time_ms, r.price)),
             ask: self.ask,
             now_ms: self.now_for_display(),
-            palette: super::palette_for_chart(&self.settings.colors),
+            palette: super::palette::palette_for_chart(&self.settings.colors),
             drawings: drawings
                 .as_ref()
                 .map(|(list, creating, selected, also)| DrawingView {
@@ -93,9 +93,11 @@ impl Chart {
 impl Chart {
     /// A PNG picture of the chart as it is on screen, at twice its size, with the symbol and
     /// timeframe written at the top left. Also returns a file name for it.
-    pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), String> {
+    pub fn picture(&self, cx: &App) -> Result<(Vec<u8>, String), super::raster::RasterError> {
         let (pixmap, _) = self.picture_pixels(cx)?;
-        let png = pixmap.encode_png().map_err(|e| e.to_string())?;
+        let png = pixmap
+            .encode_png()
+            .map_err(|error| super::raster::RasterError::Encode(error.to_string()))?;
         let symbol = self
             .symbol
             .as_ref()
@@ -120,13 +122,13 @@ impl Chart {
     pub fn picture_pixels(
         &self,
         cx: &App,
-    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), String> {
+    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), super::raster::RasterError> {
         let (w, h) = self.size();
         let scale = super::raster::PICTURE_SCALE;
         let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));
         // No crosshair in a picture: it is drawn for the pointer, which is not in it.
         let cmds = self.scene(cx, bounds, scale, false);
-        let palette = super::palette_for_chart(&self.settings.colors);
+        let palette = super::palette::palette_for_chart(&self.settings.colors);
         let symbol = self
             .symbol
             .as_ref()
@@ -186,12 +188,12 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
             } => {
                 let mut quad = gpui::fill(
                     Bounds::new(point(px(x), px(y)), size(px(w.max(0.0)), px(h.max(0.0)))),
-                    super::gpui_hsla(fill),
+                    super::palette::gpui_hsla(fill),
                 );
                 quad.corner_radii = px(radius).into();
                 if let Some((width, color)) = border {
                     quad.border_widths = px(width).into();
-                    quad.border_color = super::gpui_hsla(color);
+                    quad.border_color = super::palette::gpui_hsla(color);
                 }
                 window.paint_quad(quad);
             }
@@ -210,7 +212,7 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 let mut builder = PathBuilder::fill();
                 builder.add_polygon(&polygon, true);
                 if let Ok(path) = builder.build() {
-                    window.paint_path(path, super::gpui_hsla(color));
+                    window.paint_path(path, super::palette::gpui_hsla(color));
                 }
             }
             Cmd::Clip { x, y, w, h, inner } => {
@@ -271,7 +273,7 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                             point(px(left - 3.0), px(top - 1.0)),
                             size(px(text_w + 6.0), px(font_size * 1.3 + 2.0)),
                         ),
-                        super::gpui_hsla(bg),
+                        super::palette::gpui_hsla(bg),
                     );
                     quad.corner_radii = px(3.0).into();
                     window.paint_quad(quad);
@@ -308,7 +310,7 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 }
                 let mut quad: PaintQuad = gpui::fill(
                     Bounds::new(point(px(x), px(y)), size(px(width), px(height))),
-                    super::gpui_hsla(bg),
+                    super::palette::gpui_hsla(bg),
                 );
                 quad.corner_radii = px(3.0).into();
                 window.paint_quad(quad);
@@ -346,7 +348,7 @@ fn stroke(
             builder.line_to(point(px(*x), px(*y)));
         }
         if let Ok(path) = builder.build() {
-            window.paint_path(path, super::gpui_hsla(color));
+            window.paint_path(path, super::palette::gpui_hsla(color));
         }
         start = end - 1;
     }
@@ -382,7 +384,7 @@ fn shape(
     let run = TextRun {
         len: text.len(),
         font,
-        color: super::gpui_hsla(color),
+        color: super::palette::gpui_hsla(color),
         background_color: None,
         underline: None,
         strikethrough: None,

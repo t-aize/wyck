@@ -14,7 +14,7 @@ use super::{
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
 use crate::app::scripts as indicators;
-use crate::domain::drawings::model::Tool;
+use crate::domain::drawings::model::tool::Tool;
 use crate::domain::indicators::custom::docs;
 use crate::domain::indicators::custom::docs::Group;
 use crate::domain::indicators::custom::library::{Entry as Script, registry};

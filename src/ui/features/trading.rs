@@ -15,7 +15,7 @@ pub mod ticket;
 use std::collections::HashMap;
 
 use crate::app::alerts::AlertBook;
-use crate::domain::drawings::model::Dash;
+use crate::domain::drawings::model::style::Dash;
 use crate::ui::features::chart::{ChartLine, LineId};
 
 use self::book::AccountBook;

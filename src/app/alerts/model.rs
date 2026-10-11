@@ -2,7 +2,7 @@
 //! (a level, a drawing, another indicator), the condition that fires it, how often it may fire,
 //! and when it stops. Saved per account, and old files (a price and a crossing) still load.
 
-use crate::domain::indicators::StudyConfig;
+use crate::domain::indicators::config::StudyConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::app::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
@@ -498,7 +498,7 @@ impl Alert {
             Source::Indicator { study, .. }
                 if !matches!(
                     study.kind.spec().format,
-                    crate::domain::indicators::ValueFormat::Price
+                    crate::domain::indicators::spec::ValueFormat::Price
                 ) =>
             {
                 trim_number(self.price)
@@ -767,7 +767,7 @@ impl AlertBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::StudyKind;
+    use crate::domain::indicators::kind::StudyKind;
 
     #[test]
     fn a_lower_alert_limit_blocks_new_alerts_without_removing_saved_ones() {

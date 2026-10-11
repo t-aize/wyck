@@ -1,7 +1,6 @@
 # domain
 
-Pure logic: market data, trading maths, indicators, drawings, chart models. Read the layer table
-in `docs/architecture.md` first.
+Pure logic: market data, trading maths, indicators, drawings, chart models.
 
 - Imports: `domain` only. Never gpui, tokio, reqwest, keyring, rodio, `std::fs`, `std::net`,
   `std::env`, `std::process`. `tests/architecture.rs` fails on them.

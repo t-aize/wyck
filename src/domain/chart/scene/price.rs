@@ -11,7 +11,7 @@ use crate::domain::chart::format;
 
 use super::super::axis;
 use super::super::settings::ScaleMode;
-use crate::domain::indicators::ValueFormat;
+use crate::domain::indicators::spec::ValueFormat;
 
 /// Prices under this are clamped before taking their logarithm.
 const LOG_FLOOR: f64 = 1e-9;

@@ -11,7 +11,7 @@ use crate::domain::market::Bar;
 use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::{Ctx, series};
-use crate::domain::indicators::ValueFormat;
+use crate::domain::indicators::spec::ValueFormat;
 
 /// Profiles in a slot narrower than this are drawn as bars.
 const COMPACT_PX: f64 = 10.0;

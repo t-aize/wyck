@@ -62,9 +62,8 @@ The code is in four layers, and a lower layer never imports a higher one (a test
 | `src/app` | State and use cases: sign-in, account, alerts, preferences, market data |
 | `src/ui` | GPUI screens: the widget kit (`ui/kit`), the window and dashboard (`ui/shell`), the features |
 
-Every control, menu, dialog and color comes from the widget kit. Architecture, conventions and
-recipes for adding things are in [docs/](docs/); the Open API client is described in
-`docs/ctrader-client.md` and in the rustdoc of `infra::ctrader` (`cargo doc --open`).
+Every control, menu, dialog and color comes from the widget kit. The Open API client is described
+in the rustdoc of `infra::ctrader` (`cargo doc --open`).
 
 ## Your own indicators
 

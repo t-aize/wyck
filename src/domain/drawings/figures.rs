@@ -4,11 +4,11 @@
 //! Like the rest of [`super::geometry`], this is plain arithmetic on screen positions, tested
 //! with the linear projection of the geometry tests.
 
-use super::geometry::{
-    Anchor, P, Prim, Projection, Rect, extended, fill_of, label, level_label, level_text, seg,
-    stretch, visible_levels,
-};
-use super::model::{Dash, Drawing, Point, Tool, wave_label};
+use super::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
+use super::geometry::{Anchor, P, Prim, Projection, Rect, extended, seg};
+use super::model::style::Dash;
+use super::model::tool::Tool;
+use super::model::{Drawing, Point, wave_label};
 
 /// How far a label sits above or below the point it names.
 const LABEL_GAP: f32 = 14.0;
@@ -751,8 +751,9 @@ fn elliott(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 
 #[cfg(test)]
 mod tests {
+    use super::super::geometry::hit::hit;
+    use super::super::geometry::prims;
     use super::super::geometry::tests::{Linear, drawing};
-    use super::super::geometry::{hit, prims};
     use super::*;
 
     fn labels(shapes: &[Prim]) -> Vec<String> {

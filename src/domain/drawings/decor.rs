@@ -6,7 +6,8 @@
 
 use super::geometry::{Anchor, P, Prim, Rect, arrow_head};
 use super::look::{Cap, HAlign, TextLayout, VAlign};
-use super::model::{Drawing, Tool};
+use super::model::Drawing;
+use super::model::tool::Tool;
 
 /// How far the words sit from the end of a line or the edge of a shape.
 const EDGE: f32 = 6.0;

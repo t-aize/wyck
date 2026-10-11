@@ -129,7 +129,7 @@ impl AppPaths {
         self.config_dir.join("scopes")
     }
 
-    /// The folder of the backups the app keeps (see [`crate::infra::storage::backup::BackupStore`]): the automatic
+    /// The folder of the backups the app keeps (see [`crate::infra::storage::backup::store::BackupStore`]): the automatic
     /// ones, and a copy of what an import or a reset replaced.
     pub fn backups_dir(&self) -> PathBuf {
         self.config_dir.join("backups")
@@ -155,9 +155,9 @@ impl AppPaths {
         crate::infra::storage::scripts::ScriptStore::in_config(self)
     }
 
-    /// The copies kept in [`Self::backups_dir`]: [`crate::infra::storage::backup::BackupStore::new`].
-    pub fn backups(&self) -> crate::infra::storage::backup::BackupStore {
-        crate::infra::storage::backup::BackupStore::new(self)
+    /// The copies kept in [`Self::backups_dir`]: [`crate::infra::storage::backup::store::BackupStore::new`].
+    pub fn backups(&self) -> crate::infra::storage::backup::store::BackupStore {
+        crate::infra::storage::backup::store::BackupStore::new(self)
     }
 
     /// The user's pictures folder, or the home folder when the system has none: where the app puts

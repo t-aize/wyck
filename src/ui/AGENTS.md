@@ -1,6 +1,6 @@
 # ui
 
-gpui rendering. Read the layer table in `docs/architecture.md` and `docs/ui-design-system.md`.
+gpui rendering.
 
 - `kit` is the design system and the only place that names gpui-kit components. A screen builds
   buttons, fields, menus and dialogs with `ui::kit` constructors, sizes with `tokens` and colors
