@@ -1,4 +1,4 @@
-//! Keeps the layers of `src/` apart. See `docs/architecture.md` for the rules.
+//! Keeps the layers of `src/` apart.
 //!
 //! The code is read as text, not compiled: every `use` and every `crate::` or `super::` path is
 //! resolved to a module, and the importing layer must be allowed to depend on the imported one.
@@ -362,7 +362,7 @@ fn layers_stay_apart() {
 
     let mut message = String::new();
     if !new.is_empty() {
-        message.push_str("new architecture violations (see docs/architecture.md):\n");
+        message.push_str("new architecture violations:\n");
         for v in &new {
             message.push_str(&format!(
                 "  {} (first at {})\n",

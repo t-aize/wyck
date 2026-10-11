@@ -1,4 +1,4 @@
-//! Keeps screens on the design system. See `docs/ui-design-system.md`.
+//! Keeps screens on the design system.
 //!
 //! - No `Button::new` outside `src/ui/kit`: screens take a button from `ui::kit::button`.
 //! - No gpui-kit size method (`.xsmall()`, `.small()`, `.medium()`, `.large()`, `.compact()`) outside

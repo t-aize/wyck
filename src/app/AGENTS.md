@@ -1,7 +1,6 @@
 # app
 
-State and use cases: sign-in, account, alerts, preferences, market data, updates. Read the layer
-table in `docs/architecture.md` first.
+State and use cases: sign-in, account, alerts, preferences, market data, updates.
 
 - Imports: `domain`, `infra`, `app`. gpui is allowed for `Entity`, `Context`, `Global` and tasks;
   never for elements, `Render` or gpui-kit components.

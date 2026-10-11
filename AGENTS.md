@@ -1,8 +1,7 @@
 # AGENTS.md
 
 Wyck is a desktop trading terminal for cTrader: Rust 2024, GPUI, one Cargo package at the repo
-root. Read `docs/ROADMAP.md` before a task and update it when you finish one. Architecture and
-recipes are in `docs/`.
+root.
 
 ## Layout
 
