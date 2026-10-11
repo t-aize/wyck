@@ -36,7 +36,7 @@ formats = ["default"]
 binaries = [{ path = "wyck", main = true }]
 
 [package.metadata.packager.nsis]
-install-mode = "currentUser"
+installer-mode = "currentUser"
 languages = ["English"]
 
 [package.metadata.packager.windows]
