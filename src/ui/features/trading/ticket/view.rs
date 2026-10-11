@@ -331,7 +331,7 @@ impl OrderTicket {
                 number::format(high, 2)
             ));
         }
-        warnings.extend(f.plan.problem.clone());
+        warnings.extend(f.plan.problem.as_ref().map(super::problem::text));
         warnings
     }
 

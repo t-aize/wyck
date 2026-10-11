@@ -18,6 +18,19 @@ pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
 const UPDATE_PUBLIC_KEY: &str = include_str!("../../assets/update.pubkey");
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
+/// Why an update could not be checked, downloaded or installed.
+#[derive(Debug, thiserror::Error)]
+pub enum UpdateError {
+    #[error("the version of this build is not valid: {0}")]
+    Version(#[from] cargo_packager_updater::semver::Error),
+    #[error("the address of the updates is not valid: {0}")]
+    Endpoint(#[from] cargo_packager_updater::url::ParseError),
+    #[error(transparent)]
+    Updater(#[from] cargo_packager_updater::Error),
+    #[error("the update task stopped: {0}")]
+    Task(#[from] runtime::JoinError),
+}
+
 /// What the application currently knows or is doing about updates.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UpdateState {
@@ -135,17 +148,18 @@ pub fn check(cx: &mut App, announce: Option<fn(&str, &mut App)>) {
                 }
             }
             Ok(None) => set(UpdateState::UpToDate, None, cx),
-            Err(message) => set(UpdateState::Failed { message }, None, cx),
+            Err(error) => {
+                let message = error.to_string();
+                set(UpdateState::Failed { message }, None, cx)
+            }
         });
     })
     .detach();
 }
 
-fn check_now() -> Result<Option<Update>, String> {
-    let current = Version::parse(VERSION).map_err(|error| error.to_string())?;
-    let endpoint = UPDATE_ENDPOINT
-        .parse()
-        .map_err(|error: cargo_packager_updater::url::ParseError| error.to_string())?;
+fn check_now() -> Result<Option<Update>, UpdateError> {
+    let current = Version::parse(VERSION)?;
+    let endpoint: cargo_packager_updater::url::Url = UPDATE_ENDPOINT.parse()?;
     let config = Config {
         endpoints: vec![endpoint],
         pubkey: UPDATE_PUBLIC_KEY.trim().to_owned(),
@@ -154,12 +168,12 @@ fn check_now() -> Result<Option<Update>, String> {
             install_mode: Some(WindowsUpdateInstallMode::Passive),
         }),
     };
-    UpdaterBuilder::new(current, config)
+    let update = UpdaterBuilder::new(current, config)
         .timeout(REQUEST_TIMEOUT)
         .version_comparator(|current, release| stable_newer(&current, &release.version))
         .build()
-        .and_then(|updater| updater.check())
-        .map_err(|error| error.to_string())
+        .and_then(|updater| updater.check())?;
+    Ok(update)
 }
 
 fn stable_newer(current: &Version, candidate: &Version) -> bool {
@@ -193,7 +207,8 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
         let downloaded = blocking(move || downloader.download()).await;
         let bytes = match downloaded {
             Ok(bytes) => bytes,
-            Err(message) => {
+            Err(error) => {
+                let message = error.to_string();
                 cx.update(|cx| set(UpdateState::Failed { message }, None, cx));
                 return;
             }
@@ -215,7 +230,13 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
         let installed = blocking(move || installer.install(bytes)).await;
         cx.update(|cx| match installed {
             Ok(()) => cx.restart(),
-            Err(message) => set(UpdateState::Failed { message }, None, cx),
+            Err(error) => set(
+                UpdateState::Failed {
+                    message: error.to_string(),
+                },
+                None,
+                cx,
+            ),
         });
     })
     .detach();
@@ -225,20 +246,14 @@ pub fn open_releases(cx: &mut App) {
     cx.open_url(RELEASES_URL);
 }
 
-async fn blocking<T, E, F>(work: F) -> Result<T, String>
+async fn blocking<T, E, F>(work: F) -> Result<T, UpdateError>
 where
     T: Send + 'static,
-    E: ToString + Send + 'static,
+    E: Into<UpdateError> + Send + 'static,
     F: FnOnce() -> Result<T, E> + Send + 'static,
 {
-    runtime::spawn(async move {
-        tokio::task::spawn_blocking(work)
-            .await
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string())
-    })
-    .await
-    .map_err(|error| error.to_string())?
+    let outcome = runtime::spawn(async move { tokio::task::spawn_blocking(work).await }).await??;
+    outcome.map_err(Into::into)
 }
 
 fn automatic_install_supported() -> bool {

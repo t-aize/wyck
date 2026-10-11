@@ -46,13 +46,16 @@ use crate::app::system::runtime;
 use crate::domain::drawings::model::Dash;
 use crate::domain::indicators::atr_stop::AtrStop;
 use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, Offset, Pending, Scale, SizeMode, Stepped};
+use crate::domain::trading::math::{
+    Contract, Offset, Pending, Scale, SizeMode, Stepped, TicketProblem,
+};
 use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::{ChartLine, LineId, PlanState, PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
 
 pub mod customize;
 pub use crate::app::prefs::ticket as prefs;
+mod problem;
 mod templates;
 mod view;
 
@@ -136,7 +139,7 @@ struct Plan {
     risk: Option<f64>,
     reward: Option<f64>,
     /// Why the order cannot be sent yet.
-    problem: Option<String>,
+    problem: Option<TicketProblem>,
 }
 
 pub struct OrderTicket {
@@ -1360,37 +1363,38 @@ impl OrderTicket {
                 .flatten()
         };
         let lot_units = contract.lot_size as f64 / 100.0;
-        let sized: Result<Stepped, String> = (|| match self.size_mode {
-            SizeMode::Lots => Ok(contract.volume_near(size.ok_or("Set the volume")?)),
-            SizeMode::Units => Ok(contract.volume_near(size.ok_or("Set the volume")? / lot_units)),
+        let sized: Result<Stepped, TicketProblem> = (|| match self.size_mode {
+            SizeMode::Lots => Ok(contract.volume_near(size.ok_or(TicketProblem::NoVolume)?)),
+            SizeMode::Units => {
+                Ok(contract.volume_near(size.ok_or(TicketProblem::NoVolume)? / lot_units))
+            }
             SizeMode::RiskBalance | SizeMode::RiskEquity | SizeMode::RiskMoney => {
-                let value = size.ok_or("Set the risk")?;
+                let value = size.ok_or(TicketProblem::NoRisk)?;
                 let money = match self.size_mode {
                     SizeMode::RiskBalance => summary.balance * value / 100.0,
                     SizeMode::RiskEquity => summary.equity * value / 100.0,
                     _ => value,
                 };
                 if !self.stop_on {
-                    return Err("Turn the stop loss on to size by risk".to_owned());
+                    return Err(TicketProblem::StopLossOff);
                 }
-                let stop = early_stop.ok_or("Set the stop loss")?;
-                let distance =
-                    side(stop, true).ok_or_else(|| math::TicketProblem::NoPrice.to_string())?;
+                let stop = early_stop.ok_or(TicketProblem::NoStopLoss)?;
+                let distance = side(stop, true).ok_or(TicketProblem::NoPrice)?;
                 if distance <= 0.0 {
-                    return Err(math::TicketProblem::StopLossWrongSide.to_string());
+                    return Err(TicketProblem::StopLossWrongSide);
                 }
-                let rate = rate.ok_or("Waiting for the conversion rate")?;
-                let lots =
-                    math::lots_for_risk(money, distance, rate, &contract).ok_or("Set the risk")?;
+                let rate = rate.ok_or(TicketProblem::WaitingForRate)?;
+                let lots = math::lots_for_risk(money, distance, rate, &contract)
+                    .ok_or(TicketProblem::NoRisk)?;
                 Ok(contract.volume_at_most(lots))
             }
             SizeMode::FreeMargin => {
-                let value = size.ok_or("Set the share of the free margin")?;
+                let value = size.ok_or(TicketProblem::NoMarginShare)?;
                 let lot = self
                     .margin
                     .map(|m| side_of(m.lot, self.buy))
                     .filter(|m| *m > 0.0)
-                    .ok_or("Waiting for the margin")?;
+                    .ok_or(TicketProblem::WaitingForMargin)?;
                 Ok(contract.volume_at_most(summary.free_margin.max(0.0) * value / 100.0 / lot))
             }
         })();
@@ -1399,12 +1403,12 @@ impl OrderTicket {
             rate,
             ..Plan::default()
         };
-        let problem = |plan: &mut Plan, text: String| {
-            plan.problem.get_or_insert(text);
+        let problem = |plan: &mut Plan, found: TicketProblem| {
+            plan.problem.get_or_insert(found);
         };
         match sized {
             Ok(sized) => plan.sized = Some(sized),
-            Err(text) => problem(&mut plan, text),
+            Err(found) => problem(&mut plan, found),
         }
         plan.money_per_price = plan
             .sized
@@ -1448,62 +1452,56 @@ impl OrderTicket {
                     .sum()
             });
             if !self.stop_on || plan.stop_distance.is_none() {
-                problem(
-                    &mut plan,
-                    "Exits need a stop loss: their targets are multiples of the risk".to_owned(),
-                );
+                problem(&mut plan, TicketProblem::ExitsNeedStopLoss);
             }
-            if let Some(text) = exits.problem() {
-                problem(&mut plan, text);
+            if let Some(found) = exits.problem() {
+                problem(&mut plan, TicketProblem::Exits(found));
             }
             if exits.oco_pips > 0.0 && !matches!(self.kind, Kind::Limit | Kind::Stop) {
-                problem(
-                    &mut plan,
-                    "An OCO pair needs a limit or stop order".to_owned(),
-                );
+                problem(&mut plan, TicketProblem::OcoNeedsPending);
             }
         }
 
         if entry.is_none() {
-            problem(&mut plan, math::TicketProblem::NoPrice.to_string());
+            problem(&mut plan, TicketProblem::NoPrice);
         }
         if self.stop_on && plan.stop.is_none() {
-            let text = if self.stop_atr {
-                "ATR unavailable for the selected timeframe and bar"
+            let found = if self.stop_atr {
+                TicketProblem::AtrUnavailable
             } else if self.stop_unit.needs_volume() && rate.is_none() {
-                "Waiting for the conversion rate"
+                TicketProblem::WaitingForRate
             } else {
-                "Set the stop loss"
+                TicketProblem::NoStopLoss
             };
-            problem(&mut plan, text.to_owned());
+            problem(&mut plan, found);
         }
         if self.target_on && !self.exits.on && plan.target.is_none() {
-            let text = if self.target_unit == Offset::Ratio && plan.stop_distance.is_none() {
-                "A take profit in R needs a stop loss"
+            let found = if self.target_unit == Offset::Ratio && plan.stop_distance.is_none() {
+                TicketProblem::RatioNeedsStopLoss
             } else if self.target_unit.needs_volume() && rate.is_none() {
-                "Waiting for the conversion rate"
+                TicketProblem::WaitingForRate
             } else {
-                "Set the take profit"
+                TicketProblem::NoTakeProfit
             };
-            problem(&mut plan, text.to_owned());
+            problem(&mut plan, found);
         }
         if let Some(entry) = entry
             && let Err(wrong) = math::check_protection(self.buy, entry, plan.stop, plan.target)
         {
-            problem(&mut plan, wrong.to_string());
+            problem(&mut plan, wrong);
         }
         if self.kind.is_pending() && self.tif == Tif::GoodTillDate && self.expires_at(cx).is_none()
         {
-            problem(&mut plan, "Set when the order expires".to_owned());
+            problem(&mut plan, TicketProblem::NoExpiry);
         }
         if self.kind == Kind::StopLimit && self.slippage_pips(cx).is_none() {
-            problem(&mut plan, "Set the range of the limit".to_owned());
+            problem(&mut plan, TicketProblem::NoLimitRange);
         }
         if self.kind == Kind::Market && self.slippage_on && self.slippage_pips(cx).is_none() {
-            problem(&mut plan, "Set the largest slippage".to_owned());
+            problem(&mut plan, TicketProblem::NoSlippage);
         }
         if self.symbol.is_none() {
-            plan.problem = Some("Pick a symbol first".to_owned());
+            plan.problem = Some(TicketProblem::NoSymbol);
         }
         plan
     }
@@ -1634,7 +1632,7 @@ impl OrderTicket {
     }
 
     /// The order as it would be sent, or why it cannot be.
-    fn order(&self, plan: &Plan, cx: &App) -> Result<NewOrderReq, String> {
+    fn order(&self, plan: &Plan, cx: &App) -> Result<NewOrderReq, TicketProblem> {
         self.order_with(self.buy, self.kind, plan, cx)
     }
 
@@ -1646,13 +1644,13 @@ impl OrderTicket {
         kind: Kind,
         plan: &Plan,
         cx: &App,
-    ) -> Result<NewOrderReq, String> {
+    ) -> Result<NewOrderReq, TicketProblem> {
         if let Some(problem) = &plan.problem {
             return Err(problem.clone());
         }
-        let symbol = self.symbol.as_ref().ok_or("Pick a symbol first")?;
+        let symbol = self.symbol.as_ref().ok_or(TicketProblem::NoSymbol)?;
         let (Some(entry), Some(sized)) = (plan.entry, plan.sized) else {
-            return Err(math::TicketProblem::NoPrice.to_string());
+            return Err(TicketProblem::NoPrice);
         };
         let contract = self.contract(cx);
         let side = if buy { TradeSide::Buy } else { TradeSide::Sell };
@@ -1685,7 +1683,7 @@ impl OrderTicket {
             Kind::Stop => NewOrderReq::stop(symbol.id, side, volume, round(entry))
                 .with_protection(plan.stop.map(round), plan.target.map(round)),
             Kind::StopLimit => {
-                let range = pips.ok_or("Set the range of the limit")?;
+                let range = pips.ok_or(TicketProblem::NoLimitRange)?;
                 let mut order = NewOrderReq::stop_limit(
                     symbol.id,
                     side,
@@ -1720,7 +1718,7 @@ impl OrderTicket {
     /// Every order the ticket sends: the one order, or the legs of a plan of exits, and their
     /// opposites when an OCO pair is asked for. The orders of a plan carry a label that says
     /// which plan and leg they are (see [`plan::Label`]).
-    fn orders(&self, plan: &Plan, cx: &App) -> Result<Vec<NewOrderReq>, String> {
+    fn orders(&self, plan: &Plan, cx: &App) -> Result<Vec<NewOrderReq>, TicketProblem> {
         let time_stop = self.time_stop_now(cx).rule();
         if !self.exits.on {
             let mut order = self.order(plan, cx)?;
@@ -1747,7 +1745,7 @@ impl OrderTicket {
         let (Some(entry), Some(sized), Some(stop), Some(distance)) =
             (plan.entry, plan.sized, plan.stop, plan.stop_distance)
         else {
-            return Err("Exits need a stop loss".to_owned());
+            return Err(TicketProblem::ExitsNeedStopLoss);
         };
         let contract = self.contract(cx);
         let shares: Vec<f64> = exits.legs.iter().map(|l| l.share).collect();
@@ -1758,7 +1756,7 @@ impl OrderTicket {
             contract.step_volume,
         );
         if volumes.is_empty() {
-            return Err("The volume is too small to cut into exits".to_owned());
+            return Err(TicketProblem::VolumeTooSmallForExits);
         }
         // The break-even leg counted among the legs that are left.
         let break_even = (exits.break_even.on && kept.len() > 1).then(|| {
@@ -1785,7 +1783,7 @@ impl OrderTicket {
             };
             let other = entry + toward * exits.oco_pips * pip;
             if other <= 0.0 {
-                return Err("The opposite price of the OCO pair is not a price".to_owned());
+                return Err(TicketProblem::OcoPriceInvalid);
             }
             let other_stop = other + math::protection_side(!self.buy, true) * distance;
             sides.push((!self.buy, other, other_stop));
@@ -1855,11 +1853,14 @@ impl OrderTicket {
         let plan = self.plan(cx);
         let orders = match self.orders(&plan, cx) {
             Ok(orders) => orders,
-            Err(message) => {
-                crate::ui::kit::toast::Toast::warning("The order is not ready", message)
-                    .hint("Fix it in the ticket, then send again.")
-                    .sticky(false)
-                    .show(cx);
+            Err(found) => {
+                crate::ui::kit::toast::Toast::warning(
+                    "The order is not ready",
+                    problem::text(&found),
+                )
+                .hint("Fix it in the ticket, then send again.")
+                .sticky(false)
+                .show(cx);
                 return;
             }
         };

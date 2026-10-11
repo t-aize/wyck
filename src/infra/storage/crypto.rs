@@ -178,18 +178,27 @@ pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     text
 }
 
+/// Why a text is not hexadecimal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum HexError {
+    #[error("hex string has odd length")]
+    OddLength,
+    #[error("hex string holds a character that is not a hex digit")]
+    NotAHexDigit,
+}
+
 /// The bytes of a hexadecimal text (either case). Works on bytes, never on slices of the text, so
 /// a multi-byte character in a damaged file is an error and not a panic.
-pub(crate) fn hex_decode(text: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn hex_decode(text: &str) -> Result<Vec<u8>, HexError> {
     let bytes = text.as_bytes();
     if !bytes.len().is_multiple_of(2) {
-        return Err("hex string has odd length".to_owned());
+        return Err(HexError::OddLength);
     }
     let nibble = |b: u8| match b {
         b'0'..=b'9' => Ok(b - b'0'),
         b'a'..=b'f' => Ok(b - b'a' + 10),
         b'A'..=b'F' => Ok(b - b'A' + 10),
-        _ => Err("hex string holds a character that is not a hex digit".to_owned()),
+        _ => Err(HexError::NotAHexDigit),
     };
     bytes
         .as_chunks::<2>()

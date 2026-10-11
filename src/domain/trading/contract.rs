@@ -158,7 +158,8 @@ pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -
     }
 }
 
-/// Why an order would be refused before it is sent.
+/// Why an order would be refused before it is sent. These are codes: the sentence a person reads
+/// belongs to the screen that shows it.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum TicketProblem {
@@ -168,16 +169,44 @@ pub enum TicketProblem {
     StopLossWrongSide,
     /// The take profit is on the loss side of the entry.
     TakeProfitWrongSide,
-}
-
-impl std::fmt::Display for TicketProblem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::NoPrice => "Set the price of the order",
-            Self::StopLossWrongSide => "The stop loss is on the wrong side of the entry",
-            Self::TakeProfitWrongSide => "The take profit is on the wrong side of the entry",
-        })
-    }
+    /// No volume to size by lots or units.
+    NoVolume,
+    /// No risk to size by.
+    NoRisk,
+    /// Sizing by risk needs a stop loss, and it is off.
+    StopLossOff,
+    /// The stop loss has no value.
+    NoStopLoss,
+    /// The take profit has no value.
+    NoTakeProfit,
+    /// The rate that turns the quote currency into the deposit currency is not known yet.
+    WaitingForRate,
+    /// No share of the free margin to size by.
+    NoMarginShare,
+    /// The margin of one lot is not known yet.
+    WaitingForMargin,
+    /// The exits are targets in multiples of the risk, which needs a stop loss.
+    ExitsNeedStopLoss,
+    /// The exits are not a valid plan.
+    Exits(super::plan::ExitsProblem),
+    /// An OCO pair is made of two pending orders.
+    OcoNeedsPending,
+    /// A stop loss in ATR without an ATR for the chosen timeframe and bar.
+    AtrUnavailable,
+    /// A take profit in R without a stop loss to measure it from.
+    RatioNeedsStopLoss,
+    /// A good-till-date order without a date.
+    NoExpiry,
+    /// A stop limit order without the range of its limit.
+    NoLimitRange,
+    /// A market order with a slippage limit that has no value.
+    NoSlippage,
+    /// No symbol is chosen.
+    NoSymbol,
+    /// The volume is too small to be cut between the exits.
+    VolumeTooSmallForExits,
+    /// The price of the other order of an OCO pair is not a price.
+    OcoPriceInvalid,
 }
 
 /// Checks that the protection sits on the right side of the entry: under it for a buy's stop
