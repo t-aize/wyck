@@ -1,5 +1,7 @@
 use super::super::geometry::tests::Linear;
+use super::edit::apply_handle;
 use super::*;
+use crate::domain::drawings::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};
 
 const SYMBOL: &str = "US100.cash";
 const TF: &str = "M5";
