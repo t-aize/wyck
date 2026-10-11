@@ -810,6 +810,7 @@ mod no_inline_colors {
         "src/ui/shell/settings_hub/look.rs",
         "src/ui/kit/theme.rs",
         "src/ui/kit/color_picker.rs",
+        "src/ui/kit/color_picker/math.rs",
     ];
 
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
