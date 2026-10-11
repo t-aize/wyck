@@ -15,7 +15,6 @@ use crate::app::broker::{ConnectionConfig, Environment};
 use crate::app::sign_in::{Connection, SignIn, SignInEvent, load_config};
 use crate::app::storage::ProfileId;
 use crate::app::system::runtime;
-use crate::ui::kit::prelude::Root;
 use crate::ui::kit::{button, layout, theme, toast, tokens};
 use crate::ui::shell::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use crate::ui::shell::locked_frame;
@@ -253,11 +252,8 @@ impl Render for AppView {
                     .overflow_hidden()
                     .child(content),
             )
-            // Dialogs and notices of gpui-component draw in these layers, over everything.
-            .children(Root::render_sheet_layer(window, cx))
-            .children(Root::render_dialog_layer(window, cx))
-            // The settings panels, over the dialogs and under the notices.
+            // The settings panels. The sheets, dialogs and notices of gpui-component are drawn by
+            // the window's `Root`, above everything in this view.
             .child(crate::ui::kit::modal::host(cx))
-            .children(Root::render_notification_layer(window, cx))
     }
 }
