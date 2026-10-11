@@ -1,7 +1,17 @@
 use crate::domain::market::{Bar, Tick};
 
+use super::choices::*;
+use super::columns::*;
+use super::options::*;
+use super::presets::*;
+use super::render::*;
+use super::source::*;
 use super::*;
+use crate::domain::chart::data::Series;
+use crate::domain::chart::display::Display;
+use crate::domain::chart::settings::{ChartKind, ChartSettings};
 use crate::domain::chart::transform::BoxSize;
+use crate::domain::chart::zone::Zone;
 use crate::domain::indicators::{StudyConfig, StudyKind};
 
 /// Monday 2026-01-05 00:00 UTC.
