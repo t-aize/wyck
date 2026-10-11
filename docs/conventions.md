@@ -13,7 +13,11 @@
   lives in `tests/unit/<path of the module under src>.rs` and is declared in the module with
   `#[cfg(test)]`, `#[path = "../../tests/unit/..."]` and `mod tests;`. It is still a unit test of
   that module (private items are visible), and `use super::*` is fine in it.
-- Files stay under about 600 lines apart from data tables. Split by responsibility.
+- Files stay under about 600 lines apart from data tables. Split by responsibility: `foo.rs` keeps
+  the types, the entry points and the re-exports (`pub use`), so no path changes, and the code goes
+  to children in `foo/` (`foo/render.rs`, `foo/actions.rs`). A method of a type can live in any
+  child as another `impl` block of the type. What the children of one module share is `pub(super)`;
+  a child reaches the module above with `super::` and the rest of the crate with `crate::`.
 
 ## Comments and docs
 

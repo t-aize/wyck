@@ -128,7 +128,9 @@ the value.
 **The OS keyring** (`KeyringSecretStore`, the default) is the recommended store: the operating
 system owns the keys, and there is no passphrase to manage.
 
-**Encrypted files** (`EncryptedFileSecretStore`) are for machines with no keyring:
+**Encrypted files** (`EncryptedFileSecretStore`) are for machines with no keyring. The app does not
+choose them today (it uses the keyring); they are the way to keep secrets where there is none, and
+the backend the storage tests run on:
 
 - a key is derived from the passphrase with **Argon2id** (19 MiB, 2 passes, 1 lane: the OWASP
   minimum), with a fresh 16-byte salt for every secret;

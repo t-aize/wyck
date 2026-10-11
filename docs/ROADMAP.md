@@ -26,6 +26,7 @@ and the app was never run: everything marked "to verify by hand" below is untest
 | 12 | Indicator inputs v2 (checkpoint C) | done for HLCC4, text inputs, tooltips, groups and a higher timeframe average; a second symbol's prices are not wired (see `docs/indicators.md`) |
 | 13 | Domain and cTrader client hardening | done, see the notes below for what was left out |
 | 14 | Documentation pass | done |
+| 15 | Structure pass: typed errors, long files split, long tests in `tests/unit` | done, see below |
 
 ## Phase 0 checklist
 
@@ -62,8 +63,6 @@ Left out, on purpose:
   a live sign in confirms the echo (`auth/callback.rs`, `parse_redirect`).
 - The pip guessed from decimals (`market::pip_size_from_digits`) stays for the moment before a
   contract is read; every other pip comes from `domain::market::pip_size`.
-- The remaining `Result<_, String>` are texts shown to the user as they are (ticket, raster,
-  paint, library import, updates); typing them is a refactor with little gain.
 - No second domain model for positions, orders and deals: see decision 0003. The side is checked
   where the records enter the account book, and the risk formula is shared.
 
@@ -90,3 +89,17 @@ See `docs/decisions/`.
 Before pushing the `v0.2.0` tag: CI green on all three systems, the hand checks above and the
 smoke checklist in `docs/testing.md` done on a demo account. After the release, check that
 `latest.json` is in its assets (the updater downloads it from there).
+
+## Phase 15 notes
+
+- No `Result<_, String>` is left. The order ticket reports `TicketProblem` codes (domain) and
+  `ui::features::trading::ticket::problem` words them; the others have their own enum
+  (`UpdateError`, `ImportSkip`, `RasterError`, `HexError`, `ExitsProblem`, `SoundError`).
+- No `unwrap` or `expect` is left outside tests.
+- The long unit test modules live in `tests/unit/`, with the path of their module under `src`.
+- More than thirty files above 600 lines were split by responsibility, with the same public paths. The 27 files
+  still above it (the largest are `app/appearance.rs`, `ui/shell/dashboard/header.rs`,
+  `ui/features/trading/panel/dialogs.rs`, `ui/features/chart/raster.rs` and
+  `infra/ctrader/transport/connection.rs`, all under 900 lines) are left for when they change.
+- `EncryptedFileSecretStore` stays: it is the documented store for a machine with no keyring,
+  and the storage tests use it as their secret store. The app itself uses the keyring only.
