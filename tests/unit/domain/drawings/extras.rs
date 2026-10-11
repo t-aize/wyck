@@ -1,5 +1,6 @@
 use super::super::geometry::tests::{Linear, drawing};
 use super::super::geometry::{Prim, handles, hit, prims as shapes_of};
+use super::curves::circumcircle;
 use super::*;
 
 /// `count` points spread over the plot, a few minutes and a few dozen units apart.
