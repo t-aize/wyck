@@ -18,7 +18,8 @@
   The children are `pub mod`, and every caller uses the real path (`scene::axes::countdown`): no
   `pub use` that hides where a thing moved. What the children of one module share is `pub(super)`;
   a child reaches a sibling with `super::sibling::Item` and the rest of the crate with `crate::`.
-  The `mod` and `use` lines are at the top of the file.
+  The `mod` and `use` lines are at the top of the file, and the root qualifies its calls to a child
+  (`axes::dash_pattern(..)`) instead of importing them.
 
 ## Comments and docs
 

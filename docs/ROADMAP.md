@@ -96,10 +96,15 @@ smoke checklist in `docs/testing.md` done on a demo account. After the release, 
   `ui::features::trading::ticket::problem` words them; the others have their own enum
   (`UpdateError`, `ImportSkip`, `RasterError`, `HexError`, `ExitsProblem`, `SoundError`).
 - No `unwrap` or `expect` is left outside tests.
-- Unit tests stay inside the module they test. When a module is split, they go in the file that holds most of the code they exercise.
-- More than thirty files above 600 lines were split by responsibility. Callers use the real paths, with no re-export. The 27 files
-  still above it (the largest are `app/appearance.rs`, `ui/shell/dashboard/header.rs`,
-  `ui/features/trading/panel/dialogs.rs`, `ui/features/chart/raster.rs` and
-  `infra/ctrader/transport/connection.rs`, all under 900 lines) are left for when they change.
+- Unit tests stay inside the module they test. When a module is split, a test goes in the file
+  that holds most of the code it exercises; a test that needs a fixture shared with others stays
+  with the fixture, so some roots still carry many tests (`domain/drawings/book.rs`,
+  `domain/chart/export.rs`, `domain/chart/scene.rs`).
+- More than thirty files above 600 lines were split by responsibility. Callers use the real
+  paths, with no re-export, and the root files qualify their calls to the children
+  (`axes::dash_pattern(..)`). 22 files still have more than 600 lines of code (40 counting their
+  tests); the largest, `infra/ctrader/transport/connection.rs`, `app/alerts/model.rs`,
+  `domain/drawings/figures.rs` and `app/prefs/ticket.rs`, are under 770 lines of code and are left
+  for when they change.
 - `EncryptedFileSecretStore` stays: it is the documented store for a machine with no keyring,
   and the storage tests use it as their secret store. The app itself uses the keyring only.
