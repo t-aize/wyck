@@ -1742,4 +1742,5 @@ fn icon(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/drawings/extras.rs"]
 mod tests;

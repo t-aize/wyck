@@ -579,4 +579,5 @@ pub fn letter(mark: u16) -> char {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/tpo.rs"]
 mod tests;

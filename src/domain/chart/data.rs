@@ -396,4 +396,5 @@ pub fn trim_front<T>(items: &mut Vec<T>, max: usize) -> usize {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/data.rs"]
 mod tests;

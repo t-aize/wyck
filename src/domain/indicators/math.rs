@@ -601,4 +601,5 @@ pub fn bars_since(condition: &[f64]) -> Vec<f64> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/indicators/math.rs"]
 mod tests;

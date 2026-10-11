@@ -741,4 +741,5 @@ impl TicketPrefs {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/app/prefs/ticket.rs"]
 mod tests;

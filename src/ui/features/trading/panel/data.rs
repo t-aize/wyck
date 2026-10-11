@@ -1112,4 +1112,5 @@ pub fn to_csv(table: &Table) -> String {
 }
 
 #[cfg(test)]
+#[path = "../../../../../tests/unit/ui/features/trading/panel/data.rs"]
 mod tests;

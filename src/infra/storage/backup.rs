@@ -1025,4 +1025,5 @@ pub fn export_to_file(
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/infra/storage/backup.rs"]
 mod tests;

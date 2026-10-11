@@ -332,4 +332,5 @@ impl Flow {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/flow.rs"]
 mod tests;

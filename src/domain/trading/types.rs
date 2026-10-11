@@ -604,4 +604,5 @@ pub struct PositionUnrealizedPnL {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/trading/types.rs"]
 mod tests;

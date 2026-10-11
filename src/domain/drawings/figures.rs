@@ -750,4 +750,5 @@ fn elliott(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/drawings/figures.rs"]
 mod tests;

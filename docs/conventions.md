@@ -3,13 +3,16 @@
 ## Code
 
 - Rust 2024, formatted with `cargo fmt`, linted with `cargo clippy --all-targets -- -D warnings`.
-- Modules: `foo.rs` plus `foo/`. No `mod.rs`, no `#[path]`, no `use super::*` outside tests.
+- Modules: `foo.rs` plus `foo/`. No `mod.rs`, no `use super::*` outside tests, and `#[path]` only for the test modules below.
 - Visibility: `pub(crate)` by default; `pub` for what integration tests and examples use.
 - Errors: a `thiserror` enum per module. Never `Result<_, String>` for a new error.
 - Types, not numbers: an enum where a protocol uses an integer code; convert at the boundary.
 - Names: `*View` renders, `*State` is an entity of the app, `*Req`, `*Res` and `*Event` are wire
   types and live only in `infra::ctrader`.
-- Tests sit in the module they test (`mod tests`); integration tests in `tests/`.
+- Tests sit in the module they test (`mod tests`); integration tests in `tests/`. A long `mod tests`
+  lives in `tests/unit/<path of the module under src>.rs` and is declared in the module with
+  `#[cfg(test)]`, `#[path = "../../tests/unit/..."]` and `mod tests;`. It is still a unit test of
+  that module (private items are visible), and `use super::*` is fine in it.
 - Files stay under about 600 lines apart from data tables. Split by responsibility.
 
 ## Comments and docs

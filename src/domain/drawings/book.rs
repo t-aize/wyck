@@ -1644,4 +1644,5 @@ fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/drawings/book.rs"]
 mod tests;

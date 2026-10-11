@@ -460,4 +460,5 @@ pub fn catch_up(
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/trading/plan.rs"]
 mod tests;

@@ -433,4 +433,5 @@ pub fn summary(balance: f64, unrealized: f64, margin: f64) -> Summary {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/trading/contract.rs"]
 mod tests;

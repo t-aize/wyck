@@ -414,4 +414,5 @@ pub fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/volume.rs"]
 mod tests;

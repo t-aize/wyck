@@ -700,4 +700,5 @@ pub fn range_bars(bars: &[Bar], range: i64, path: PricePath) -> Vec<Bar> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/transform.rs"]
 mod tests;

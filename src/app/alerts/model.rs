@@ -765,4 +765,5 @@ impl AlertBook {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/app/alerts/model.rs"]
 mod tests;

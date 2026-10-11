@@ -580,4 +580,5 @@ pub fn render(icon: &Icon, size: f32, ring: Rgba) -> AnyElement {
 }
 
 #[cfg(test)]
+#[path = "../../../../tests/unit/ui/shell/dashboard/marks.rs"]
 mod tests;

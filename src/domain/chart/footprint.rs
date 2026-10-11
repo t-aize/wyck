@@ -485,4 +485,5 @@ pub fn signed(value: i64) -> String {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/footprint.rs"]
 mod tests;

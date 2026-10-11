@@ -1441,4 +1441,5 @@ fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/scene.rs"]
 mod tests;

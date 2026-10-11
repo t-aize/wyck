@@ -1856,4 +1856,5 @@ pub fn builtin_presets() -> Vec<Preset> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/domain/chart/export.rs"]
 mod tests;

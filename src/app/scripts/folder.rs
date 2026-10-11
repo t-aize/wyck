@@ -480,4 +480,5 @@ fn scripts_in(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/app/scripts/folder.rs"]
 mod tests;

@@ -551,4 +551,5 @@ impl ConfigBuilder {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/infra/storage.rs"]
 mod tests;
