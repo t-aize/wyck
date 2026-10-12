@@ -4,6 +4,7 @@
 pub mod book;
 pub mod contract;
 pub mod events;
+pub mod follow;
 pub mod guard;
 pub mod margin;
 pub mod math;

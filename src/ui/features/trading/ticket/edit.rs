@@ -242,6 +242,15 @@ impl OrderTicket {
         cx.notify();
     }
 
+    /// Turns on or off the following of the ATR by the stop of a pending order.
+    pub(super) fn set_follow_atr(&mut self, on: bool, cx: &mut Context<Self>) {
+        if self.follow_atr != on {
+            self.follow_atr = on;
+            self.settings_changed(cx);
+            cx.notify();
+        }
+    }
+
     /// Sets how many ATRs away the ATR stop sits.
     pub(super) fn set_atr_multiplier(
         &mut self,

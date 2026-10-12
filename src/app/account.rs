@@ -11,6 +11,7 @@
 //! reconciled again rather than the order resent.
 
 pub mod actions;
+pub mod follow;
 pub mod notice;
 pub mod orders;
 pub mod reverse;
@@ -97,6 +98,8 @@ pub struct Account {
     reversals: reverse::ReverseTracker,
     /// When a time stop last tried to close each position, so a refusal is not retried at once.
     time_stops: HashMap<i64, Instant>,
+    /// The pending orders whose stop follows the ATR.
+    following: follow::Following,
     /// The asset each symbol is priced in, and how an asset converts into the deposit one.
     quote_assets: HashMap<i64, i64>,
     conversions: HashMap<i64, Conversion>,
@@ -145,6 +148,9 @@ impl Account {
                         this.refresh_pnl(cx);
                         this.enforce_time_stops(cx);
                     }
+                    if this.follows_atr() {
+                        this.follow_atr(cx);
+                    }
                 });
                 if alive.is_err() {
                     break;
@@ -169,6 +175,7 @@ impl Account {
             sent_today: (0, 0),
             reversals: reverse::ReverseTracker::default(),
             time_stops: HashMap::new(),
+            following: follow::Following::default(),
             quote_assets: HashMap::new(),
             conversions: HashMap::new(),
             focus: None,

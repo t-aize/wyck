@@ -70,6 +70,14 @@ in the rustdoc of `infra::ctrader` (`cargo doc --open`).
 Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
 app reads on its own. The header has a button for the folder and for a full editor.
 
+## Keyboard shortcuts
+
+Every shortcut can be changed in Settings > Shortcuts (Ctrl+, opens the settings; Cmd+, on a
+Mac). Click a key and press the new combination, add a second key to an action, leave an action
+with none, or put the default back. A combination that another action of the same place already
+uses is refused with the name of that action. The hints in the tooltips and menus follow what you
+set.
+
 ## Accessibility
 
 - **Keyboard.** Tab reaches the controls. In the account panel, the current row is the one stop

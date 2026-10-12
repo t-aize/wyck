@@ -482,6 +482,8 @@ pub struct TicketPrefs {
     pub stop_unit: Offset,
     pub stop_atr: bool,
     pub atr: AtrStop,
+    /// Whether a pending order with an ATR stop has its stop moved with the ATR while it waits.
+    pub follow_atr: bool,
     pub target_unit: Offset,
     pub layout: Layout,
     /// The exits of a plan: several take profits, a break-even, an OCO pair.
@@ -500,6 +502,7 @@ impl Default for TicketPrefs {
             stop_unit: Offset::Pips,
             stop_atr: false,
             atr: AtrStop::default(),
+            follow_atr: false,
             target_unit: Offset::Pips,
             layout: Layout::default(),
             exits: ExitPlan::default(),

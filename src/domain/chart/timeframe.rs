@@ -390,6 +390,15 @@ impl Timeframe {
         }
     }
 
+    /// Like [`Self::group_key`], and also right for a timeframe that is not grouped: the same key
+    /// for every time inside one bar, a greater one for a later bar.
+    pub fn bar_key(self, time_ms: i64) -> i64 {
+        match self {
+            Self::Bars(period) => Self::Multiple(period, 1).group_key(time_ms),
+            other => other.group_key(time_ms),
+        }
+    }
+
     /// When the group holding a server bar that opens at `time_ms` opens, or `None` to use the
     /// time of its first bar (weeks and months, whose server bars open at the broker's own hour).
     pub fn group_open(self, time_ms: i64) -> Option<i64> {
@@ -445,6 +454,18 @@ impl Timeframe {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn two_times_in_one_bar_have_the_same_bar_key_for_any_bar_timeframe() {
+        let h1 = Timeframe::from_code("H1").unwrap();
+        let m5 = Timeframe::from_code("M5").unwrap();
+        let hour = 3_600_000;
+        let start = 1_000 * hour;
+        assert_eq!(h1.bar_key(start), h1.bar_key(start + hour - 1));
+        assert!(h1.bar_key(start + hour) > h1.bar_key(start));
+        assert_eq!(m5.bar_key(start + 1), m5.bar_key(start + 299_999));
+        assert_ne!(m5.bar_key(start), m5.bar_key(start + 300_000));
+    }
 
     #[test]
     fn stepping_goes_to_the_next_timeframe_of_the_list_and_round_at_the_ends() {

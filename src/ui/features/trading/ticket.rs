@@ -147,6 +147,8 @@ pub struct OrderTicket {
     stop_unit: Offset,
     stop_atr: bool,
     atr: AtrStop,
+    /// Whether a pending order keeps its ATR stop on the ATR while it waits.
+    follow_atr: bool,
     atr_seeded: bool,
     atr_length: Entity<InputState>,
     atr_multiplier: Entity<InputState>,
@@ -232,6 +234,7 @@ impl OrderTicket {
             stop_unit,
             stop_atr,
             atr,
+            follow_atr: self.follow_atr,
             target_unit,
             layout: self.layout.clone(),
             exits: self.exits_now(cx),

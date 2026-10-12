@@ -170,6 +170,7 @@ impl OrderTicket {
             take_profit,
             stop_unit: prefs.stop_unit,
             stop_atr: prefs.stop_atr,
+            follow_atr: prefs.follow_atr,
             atr: prefs.atr,
             atr_seeded,
             atr_length,

@@ -42,7 +42,7 @@ impl Chart {
             bars
         };
         let last = bars.last()?;
-        let last_is_open = timeframe.group_key(last.time_ms) == timeframe.group_key(now_ms());
+        let last_is_open = timeframe.bar_key(last.time_ms) == timeframe.bar_key(now_ms());
         settings.value(bars, last_is_open)
     }
 
