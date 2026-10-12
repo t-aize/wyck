@@ -1,11 +1,15 @@
 //! The crate used the way an app uses it, through its public API only: an install is created,
 //! used, closed and opened again, damaged, upgraded and backed up.
+// A failed `unwrap` or `expect` is how a test fails. clippy.toml covers only `#[test]` functions
+// and `#[cfg(test)]` modules, not the helpers of an integration test.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::Path;
 use std::sync::Arc;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
+use wyck::infra::storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
 use wyck::infra::storage::{
     AppPaths, CLIENT_SECRET, ConfigError, DocumentStore, OpenApiTokens, WyckConfig,
 };
@@ -280,6 +284,215 @@ fn files_in_a_format_this_build_does_not_write_are_refused_not_migrated() {
     let text = std::fs::read_to_string(&file).unwrap();
     std::fs::write(&file, text.replace("version = 1", "version = 0")).unwrap();
     assert!(config.profile_secret(&id, CLIENT_SECRET).is_err());
+}
+
+fn rename_zoom(table: &mut toml::Table) -> Result<(), StepError> {
+    if let Some(zoom) = table.remove("zoom") {
+        table.insert("scale".to_owned(), zoom);
+    }
+    Ok(())
+}
+
+fn add_columns(table: &mut toml::Table) -> Result<(), StepError> {
+    table
+        .entry("columns")
+        .or_insert_with(|| toml::Value::Array(vec![toml::Value::String("price".to_owned())]));
+    Ok(())
+}
+
+const LAYOUT_PLAN: Plan = Plan {
+    document: "layout",
+    current: 3,
+    steps: &[
+        Step {
+            from: 1,
+            apply: rename_zoom,
+        },
+        Step {
+            from: 2,
+            apply: add_columns,
+        },
+    ],
+};
+
+/// What an update does to an install, in the order it does it: a copy of everything, then, at the
+/// next start, the documents brought forward. The copy brings the old layout back.
+#[test]
+fn an_update_keeps_a_copy_then_brings_the_documents_forward_and_the_copy_can_undo_it() {
+    use wyck::infra::storage::backup::store::BackupKind;
+
+    let dir = tempfile::tempdir().unwrap();
+    let paths = AppPaths::at(dir.path());
+    let store = paths.documents();
+    let old = "schema_version = 1\nzoom = 1.5\n";
+    store.save_text("layout", old).unwrap();
+
+    // The update is about to be installed.
+    let copy = paths
+        .backups()
+        .snapshot_before_update(None, "0.2.0", "2026-10-12T09:00:00Z")
+        .unwrap()
+        .unwrap();
+    assert_eq!(copy.kind, BackupKind::BeforeUpdate);
+
+    // The next start, by the new version, two layouts later.
+    let outcome = upgrade_document(&store, &LAYOUT_PLAN).unwrap();
+    assert!(matches!(outcome, Outcome::Migrated { from: 1, to: 3, .. }));
+    let upgraded = store.load_text("layout").unwrap().unwrap();
+    assert!(upgraded.contains("schema_version = 3") && upgraded.contains("scale = 1.5"));
+    assert!(
+        !upgraded.contains("zoom"),
+        "the document is in the new layout: {upgraded}"
+    );
+
+    // The user goes back: the copy is staged, applied at the next start, and the old layout is
+    // there again, to be brought forward once more by whichever version runs next.
+    paths.backups().restore(&copy.id, None).unwrap();
+    wyck::infra::storage::backup::staged::apply_pending(&paths, "2026-10-12T09:05:00Z").unwrap();
+    assert_eq!(store.load_text("layout").unwrap().as_deref(), Some(old));
+    assert!(matches!(
+        upgrade_document(&store, &LAYOUT_PLAN).unwrap(),
+        Outcome::Migrated { from: 1, .. }
+    ));
+    assert_eq!(
+        std::fs::read_to_string(store.dir().join("layout.toml.v1.bak")).unwrap(),
+        old,
+        "the first copy of the old layout is the one kept"
+    );
+}
+
+#[test]
+fn a_document_from_a_newer_version_is_never_rewritten_by_this_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = AppPaths::at(dir.path()).documents();
+    let future = "schema_version = 8\nscale = 2.0\nfrom_the_future = [1, 2]\n";
+    store.save_text("layout", future).unwrap();
+
+    let outcome = upgrade_document(&store, &LAYOUT_PLAN).unwrap();
+
+    let Outcome::Newer { found: 8, kept_as } = outcome else {
+        panic!("expected a newer document, got {outcome:?}");
+    };
+    assert_eq!(
+        std::fs::read_to_string(kept_as.unwrap()).unwrap(),
+        future,
+        "byte for byte"
+    );
+    assert_eq!(store.load_or_default::<Layout>("layout"), Layout::default());
+}
+
+/// What a user does with a cloud folder: the data of one computer is moved there, the app starts
+/// again on it, a second computer joins it, and the other build is kept out.
+#[test]
+fn data_moved_to_a_cloud_folder_is_followed_shared_and_kept_from_the_other_build() {
+    use wyck::infra::platform::build_info::BuildMode;
+    use wyck::infra::storage::locations::{Kind, Locations, cloud_layout};
+    use wyck::infra::storage::relocate::{Change, apply_pending, stage};
+
+    let temp = tempfile::tempdir().unwrap();
+    let cloud = temp.path().join("OneDrive");
+    std::fs::create_dir_all(&cloud).unwrap();
+    let start = |base: &Path, mode| {
+        AppPaths::at_for(mode, base).with_locations(Locations::load(base).unwrap())
+    };
+    let preset = |mode| -> Vec<Change> {
+        cloud_layout(&cloud, mode)
+            .into_iter()
+            .map(|(kind, dir)| Change {
+                kind,
+                to: Some(dir),
+            })
+            .collect()
+    };
+
+    // The first computer: some data, then the move, applied at the next start.
+    let first = temp.path().join("first");
+    let paths = start(&first, BuildMode::Production);
+    paths
+        .documents()
+        .save_text("preferences", "magnet = true\n")
+        .unwrap();
+    paths
+        .scope("demo-1")
+        .save_text("alerts", "next_id = 3\n")
+        .unwrap();
+    stage(&paths, &preset(BuildMode::Production)).unwrap();
+    let applied = apply_pending(&paths, "first");
+    assert!(
+        applied.failed.is_empty() && applied.refused.is_none(),
+        "{applied:?}"
+    );
+
+    let paths = start(&first, BuildMode::Production);
+    for kind in [
+        Kind::Settings,
+        Kind::Accounts,
+        Kind::Indicators,
+        Kind::Backups,
+    ] {
+        assert!(paths.dir(kind).starts_with(cloud.join("Wyck")), "{kind}");
+    }
+    assert!(
+        !paths.is_custom(Kind::Logs),
+        "the logs stay on the computer"
+    );
+    assert_eq!(
+        paths
+            .documents()
+            .load_text("preferences")
+            .unwrap()
+            .as_deref(),
+        Some("magnet = true\n")
+    );
+    assert_eq!(
+        paths
+            .scope("demo-1")
+            .load_text("alerts")
+            .unwrap()
+            .as_deref(),
+        Some("next_id = 3\n"),
+        "an account's data is found by its number"
+    );
+    assert!(
+        paths
+            .documents()
+            .path("preferences")
+            .starts_with(cloud.join("Wyck"))
+    );
+
+    // A second computer picks the same folders and uses what is in them.
+    let second = temp.path().join("second");
+    let other = start(&second, BuildMode::Production);
+    other
+        .documents()
+        .save_text("preferences", "magnet = false\n")
+        .unwrap();
+    stage(&other, &preset(BuildMode::Production)).unwrap();
+    apply_pending(&other, "second");
+    let other = start(&second, BuildMode::Production);
+    assert_eq!(
+        other
+            .documents()
+            .load_text("preferences")
+            .unwrap()
+            .as_deref(),
+        Some("magnet = true\n"),
+        "what the first computer saved wins"
+    );
+
+    // A development build neither takes that folder nor shares its own with the installed app.
+    let dev = start(&temp.path().join("dev"), BuildMode::Development);
+    let error = stage(&dev, &preset(BuildMode::Production)).unwrap_err();
+    assert!(
+        error.to_string().contains("belongs to the installed app"),
+        "{error}"
+    );
+    stage(&dev, &preset(BuildMode::Development)).unwrap();
+    assert!(
+        cloud_layout(&cloud, BuildMode::Development)[0]
+            .1
+            .starts_with(cloud.join("Wyck (dev)"))
+    );
 }
 
 #[test]

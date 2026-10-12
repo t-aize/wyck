@@ -43,7 +43,7 @@ pub use self::model::condition::{Condition, Trigger};
 pub use self::model::source::Source;
 pub use self::model::{Alert, AlertBook};
 
-const DOCUMENT: &str = "alerts";
+pub(crate) const DOCUMENT: &str = "alerts";
 /// The owner of the alerts' price subscriptions in the live hub.
 pub const ALERTS_OWNER: u64 = u64::MAX - 3;
 /// How often the bars an alert needs are read again.

@@ -5,11 +5,27 @@ use tracing::{debug, warn};
 
 use crate::infra::storage::error::{ConfigError, Result};
 use crate::infra::storage::fs_util::{atomic_write, read_text};
+use crate::infra::storage::migrate::{self, Plan};
 use crate::infra::storage::paths::AppPaths;
 use crate::infra::storage::profile::{ProfileConfig, ProfileId};
 
 /// The version of the layout this build writes, and the newest it reads.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+/// How an older `config.toml` is brought to [`CURRENT_SCHEMA_VERSION`]. Raising the version means
+/// adding a step here (`Step::unchanged` for a field that only gained a default); a test fails
+/// until it is done.
+const PLAN: Plan = Plan {
+    document: "config",
+    current: CURRENT_SCHEMA_VERSION,
+    steps: &[],
+};
+
+/// Just the version of a config file, read before the rest.
+#[derive(Deserialize)]
+struct Head {
+    schema_version: u32,
+}
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
@@ -54,9 +70,16 @@ impl AppConfig {
     /// [`ConfigError::Read`] on any I/O failure other than "file not found";
     /// [`ConfigError::Parse`] if the file exists but isn't valid TOML matching this
     /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
+    ///
+    /// A file in an older layout is upgraded first (see [`crate::infra::storage::migrate`]): the
+    /// old text stays next to it as `config.toml.v<old>.bak`.
     pub fn load(paths: &AppPaths) -> Result<Self> {
+        Self::load_with(paths, &PLAN)
+    }
+
+    fn load_with(paths: &AppPaths, plan: &Plan) -> Result<Self> {
         let path = paths.config_file();
-        let text = match read_text(&path) {
+        let mut text = match read_text(&path) {
             Ok(text) => text,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
                 debug!(path = %path.display(), "no config file yet, starting from defaults");
@@ -67,28 +90,38 @@ impl AppConfig {
                 return Err(ConfigError::Read { path, source });
             }
         };
-        let config: Self = toml::from_str(&text).map_err(|source| {
+        let parse_error = |source| {
             warn!(path = %path.display(), error = %source, "the config file could not be parsed");
             ConfigError::Parse {
                 path: path.clone(),
                 source: Box::new(source),
             }
-        })?;
+        };
+        // The version is read first, on its own: a file of another layout may not fit the type.
+        let head: Head = toml::from_str(&text).map_err(parse_error)?;
         // A file from the future is left alone: reading it with what this version knows and
         // writing it back would drop what this version does not.
-        if config.schema_version > CURRENT_SCHEMA_VERSION {
+        if head.schema_version > plan.current {
             warn!(
                 path = %path.display(),
-                found = config.schema_version,
-                supported = CURRENT_SCHEMA_VERSION,
+                found = head.schema_version,
+                supported = plan.current,
                 "the config file was written by a newer version"
             );
             return Err(ConfigError::UnsupportedSchema {
                 path,
-                found: config.schema_version,
-                supported: CURRENT_SCHEMA_VERSION,
+                found: head.schema_version,
+                supported: plan.current,
             });
         }
+        if head.schema_version < plan.current {
+            migrate::upgrade_file(&path, plan)?;
+            text = read_text(&path).map_err(|source| ConfigError::Read {
+                path: path.clone(),
+                source,
+            })?;
+        }
+        let config: Self = toml::from_str(&text).map_err(parse_error)?;
         debug!(path = %path.display(), "loaded the config file");
         Ok(config)
     }
@@ -190,6 +223,73 @@ mod tests {
             std::fs::read_to_string(paths.config_file()).unwrap(),
             future
         );
+    }
+
+    #[test]
+    fn the_plan_reaches_the_version_this_build_writes() {
+        assert_eq!(PLAN.current, CURRENT_SCHEMA_VERSION);
+        assert!(
+            PLAN.is_complete(),
+            "the version was raised: add a step to PLAN (Step::unchanged if only a default is new)"
+        );
+    }
+
+    fn rename_symbol(table: &mut toml::Table) -> std::result::Result<(), migrate::StepError> {
+        if let Some(symbol) = table.remove("symbol") {
+            table.insert("last_symbol".to_owned(), symbol);
+        }
+        Ok(())
+    }
+
+    const NEXT: Plan = Plan {
+        document: "config",
+        current: 2,
+        steps: &[migrate::Step {
+            from: 1,
+            apply: rename_symbol,
+        }],
+    };
+
+    #[test]
+    fn an_older_config_is_upgraded_on_load_and_the_old_text_is_kept() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        let old = "schema_version = 1\nsymbol = \"EURUSD\"\n";
+        std::fs::write(paths.config_file(), old).unwrap();
+
+        let config = AppConfig::load_with(&paths, &NEXT).unwrap();
+
+        assert_eq!(config.last_symbol.as_deref(), Some("EURUSD"));
+        assert_eq!(config.schema_version, 2);
+        assert!(
+            std::fs::read_to_string(paths.config_file())
+                .unwrap()
+                .contains("schema_version = 2"),
+            "the file on disk is upgraded too"
+        );
+        let kept = temp_dir.path().join("config.toml.v1.bak");
+        assert_eq!(std::fs::read_to_string(kept).unwrap(), old);
+
+        // The second start finds nothing to do.
+        let again = AppConfig::load_with(&paths, &NEXT).unwrap();
+        assert_eq!(again, config);
+    }
+
+    #[test]
+    fn an_upgraded_config_that_still_does_not_fit_is_refused_and_the_old_text_is_kept() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp_dir.path());
+        let old = "schema_version = 1\nactive_profile = 7\n";
+        std::fs::write(paths.config_file(), old).unwrap();
+
+        let result = AppConfig::load_with(&paths, &NEXT);
+
+        assert!(
+            matches!(result, Err(ConfigError::Parse { .. })),
+            "{result:?}"
+        );
+        let kept = temp_dir.path().join("config.toml.v1.bak");
+        assert_eq!(std::fs::read_to_string(kept).unwrap(), old);
     }
 
     #[test]

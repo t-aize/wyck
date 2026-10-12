@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use crate::app::storage::locations::Kind;
 use crate::app::storage::{AppPaths, DocumentStore};
 use gpui::{App, BorrowAppContext as _, Global, Task};
 
@@ -53,16 +54,23 @@ impl Global for Service {}
 /// `paths` is `None` when the settings folder cannot be found: the indicators then live in a
 /// temporary folder and nothing is remembered.
 pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
-    let (default_dir, store) = match paths {
-        Some(paths) => (paths.indicators_dir(), Some(paths.documents())),
-        None => (std::env::temp_dir().join("wyck-indicators"), None),
+    // The folder is a choice of this computer (see `crate::app::locations`), already in `paths`.
+    let (default_dir, dir, store) = match paths {
+        Some(paths) => (
+            paths.standard_dir(Kind::Indicators).to_path_buf(),
+            paths.indicators_dir(),
+            Some(paths.documents()),
+        ),
+        None => {
+            let temp = std::env::temp_dir().join("wyck-indicators");
+            (temp.clone(), temp, None)
+        }
     };
     let mut prefs = store
         .as_ref()
         .map(|s| s.load_or_default::<Prefs>(DOCUMENT))
         .unwrap_or_default()
         .normalized();
-    let dir = prefs.folder_path().unwrap_or_else(|| default_dir.clone());
     let mut library = Library::new(&dir);
     if library.ensure_dir().is_ok() && !prefs.examples_removed {
         match remove_examples_folder(library.dir()) {
@@ -198,20 +206,12 @@ pub fn update_prefs(cx: &mut App, change: impl FnOnce(&mut Prefs)) {
     if !cx.has_global::<Service>() {
         return;
     }
-    let mut folder_changed = None;
     cx.update_global::<Service, _>(|service, _| {
         let mut next = service.prefs.clone();
         change(&mut next);
         let next = next.normalized();
         if next == service.prefs {
             return;
-        }
-        if next.folder != service.prefs.folder {
-            let dir = next
-                .folder_path()
-                .unwrap_or_else(|| service.default_dir.clone());
-            service.dir.clone_from(&dir);
-            folder_changed = Some(dir);
         }
         service.prefs = next;
         if let Some(store) = &service.store
@@ -221,9 +221,30 @@ pub fn update_prefs(cx: &mut App, change: impl FnOnce(&mut Prefs)) {
         }
         service.revision += 1;
     });
-    if let Some(dir) = folder_changed {
-        point_at(dir, cx);
+}
+
+/// Reads the indicators from another folder from now on, and remembers it for this computer (the
+/// folder is a choice of the computer, not part of the settings that can be shared). `None` is the
+/// standard folder. The folder may be one the user already keeps their scripts in: it is read in
+/// place and nothing is copied.
+///
+/// # Errors
+///
+/// A folder that cannot be used, or a choice that cannot be saved. Nothing changes then.
+pub fn set_folder(
+    cx: &mut App,
+    dir: Option<&Path>,
+) -> Result<(), crate::app::locations::FolderError> {
+    if !cx.has_global::<Service>() {
+        return Ok(());
     }
+    let dir = crate::app::locations::set_indicators_folder(dir)?;
+    cx.update_global::<Service, _>(|service, _| {
+        service.dir.clone_from(&dir);
+        service.revision += 1;
+    });
+    point_at(dir, cx);
+    Ok(())
 }
 
 /// [`observe`], for a view that needs the window to answer.

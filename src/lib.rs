@@ -20,6 +20,7 @@ use app::appearance;
 use app::scripts;
 use app::updates;
 use infra::platform::build_info::{self, BuildMode};
+use infra::platform::logging;
 use ui::assets;
 use ui::features::indicators;
 use ui::shell::app_view::AppView;
@@ -32,12 +33,25 @@ const APP_ID: &str = "sh.wyck.wyck";
 
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
-    init_tracing();
+    // The first thing, so that whatever goes wrong afterwards is on disk: the events
+    // `infra::storage` and `infra::ctrader` emit (and the app's own) go to stderr and to a log
+    // file, and a panic leaves a report next to it. The library only emits events, it never
+    // installs a subscriber itself.
+    let logs = app_paths().map(|paths| paths.logs_dir());
+    logging::init(logs);
+    app::locations::log_startup();
+    if let Some(dir) = logs {
+        logging::install_panic_hook(dir.to_path_buf());
+    } else {
+        tracing::warn!("this system gives the app no folder: nothing is saved, logs go to stderr");
+    }
 
     gpui_kit::application()
         .with_assets(assets::Assets)
         .run(|cx: &mut App| {
             gpui_kit::init(cx);
+            // A process that exits does not wait for the log worker: write out what it holds.
+            cx.on_app_quit(|_| async { logging::flush() }).detach();
             updates::init(cx);
             // The saved look is in force before a window opens, so the first frame is the right one.
             match app_paths() {
@@ -52,6 +66,12 @@ pub fn run() {
                         Ok(_) => {}
                         Err(error) => tracing::warn!(%error, "could not apply what was waiting"),
                     }
+                    // Documents saved by an older version are brought to this one now, whatever
+                    // the distance, before anything reads them.
+                    let migrated = app::migrations::run(paths);
+                    if !migrated.is_empty() {
+                        tracing::info!(?migrated, "brought the saved documents to this version");
+                    }
                     appearance::init(paths.documents(), ui::kit::theme::put_in_force, cx);
                     scripts::init(Some(paths), cx);
                     keep_a_daily_copy(paths, cx);
@@ -64,9 +84,13 @@ pub fn run() {
             indicators::editor::init(cx);
             crate::ui::shell::keymap::apply(&Default::default(), cx);
 
-            cx.text_system()
+            // Without the bundled font the system's own is used: the app is still usable.
+            if let Err(error) = cx
+                .text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])
-                .expect("the bundled Inter font failed to load");
+            {
+                tracing::error!(%error, "the bundled Inter font failed to load");
+            }
 
             cx.on_window_closed(|cx, _window_id| {
                 if cx.windows().is_empty() {
@@ -105,7 +129,7 @@ pub fn run() {
                 app_id: Some(APP_ID.to_owned()),
                 ..Default::default()
             };
-            cx.open_window(options, |window, cx| {
+            let opened = cx.open_window(options, |window, cx| {
                 // The size of the interface the user chose, for what is sized in rems.
                 window.set_rem_size(gpui::px(16.0 * appearance::get(cx).ui_scale as f32 / 100.0));
                 // With the mode on System, the theme follows the system as it changes.
@@ -114,13 +138,20 @@ pub fn run() {
                     .detach();
                 let shell = cx.new(|cx| AppView::new(window, cx));
                 cx.new(|cx| Root::new(shell, window, cx))
-            })
-            .expect("failed to open the main window");
+            });
+            // An app with no window has nothing to show: say why in the log and leave.
+            if let Err(error) = opened {
+                tracing::error!(%error, "could not open the main window");
+                cx.quit();
+                return;
+            }
 
             updates::check(cx, Some(ui::shell::settings_hub::announce_update));
+            ui::shell::settings_hub::announce_folders(cx);
 
             cx.activate(true);
         });
+    logging::flush();
 }
 
 /// Saves an automatic copy of everything the user made, at most one a day and the last few kept,
@@ -147,24 +178,11 @@ fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut A
 
 /// The folders of the app, resolved once: `None` when the system gives it none. Everything that
 /// needs a path of the app asks here, so there is one answer for the whole run.
+///
+/// The first call also makes the move of folders the user asked for (it has to be done before
+/// anything reads a document), which is why the first call is the first thing `run` does.
 fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
     static PATHS: std::sync::OnceLock<Option<crate::infra::storage::AppPaths>> =
         std::sync::OnceLock::new();
-    PATHS
-        .get_or_init(|| crate::infra::storage::AppPaths::discover().ok())
-        .as_ref()
-}
-
-/// Installs a `tracing` subscriber so the events `infra::storage` and `infra::ctrader` emit (and
-/// the app's own) show up on stderr; the library only emits them, it never installs a subscriber
-/// itself. Reads `RUST_LOG`, defaulting to `debug` for `wyck` and `warn` for everything else.
-fn init_tracing() {
-    use tracing_subscriber::EnvFilter;
-
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("wyck=debug,warn"));
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(true)
-        .try_init();
+    PATHS.get_or_init(app::locations::prepare).as_ref()
 }

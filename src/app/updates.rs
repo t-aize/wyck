@@ -9,9 +9,10 @@ use cargo_packager_updater::{
 };
 use gpui::{App, BorrowAppContext, Global, Subscription};
 
-use crate::app::appearance;
+use crate::app::{appearance, scripts};
 use crate::infra::platform::build_info::{BuildMode, VERSION};
 use crate::infra::platform::runtime;
+use crate::infra::storage::scripts::ScriptStore;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
 pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
@@ -214,7 +215,7 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
             }
         };
 
-        cx.update(|cx| {
+        let to_copy = cx.update(|cx| {
             before_install(cx);
             appearance::save_now(cx);
             set(
@@ -224,7 +225,32 @@ pub fn install(before_install: impl FnOnce(&mut App) + 'static, cx: &mut App) {
                 Some(update.clone()),
                 cx,
             );
+            // Read after the last changes were written, so the copy has them.
+            crate::app_paths().map(|paths| (paths, ScriptStore::new(scripts::dir(cx))))
         });
+
+        // A copy of everything the user made, to come back to if the new version does not suit.
+        // The update itself touches no document (the next start upgrades them, keeping the old
+        // text of each), so a copy that cannot be made is logged, not a reason to stay behind.
+        if let Some((paths, scripts)) = to_copy {
+            let made = cx
+                .background_executor()
+                .spawn(async move {
+                    paths.backups().snapshot_before_update(
+                        Some(&scripts),
+                        VERSION,
+                        &chrono::Local::now().to_rfc3339(),
+                    )
+                })
+                .await;
+            match made {
+                Ok(Some(entry)) => tracing::info!(id = entry.id, "kept a copy before the update"),
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::warn!(%error, "could not keep a copy before the update, updating anyway");
+                }
+            }
+        }
 
         let installer = update;
         let installed = blocking(move || installer.install(bytes)).await;

@@ -25,7 +25,13 @@ pub enum BackupKind {
     BeforeImport,
     /// What a reset removed, saved right before it was applied.
     BeforeReset,
+    /// Everything the user made, saved right before an update was installed: what to come back
+    /// to if the new version does not suit.
+    BeforeUpdate,
 }
+
+/// How many copies made before an update are kept.
+pub const KEPT_BEFORE_UPDATE: usize = 3;
 
 impl BackupKind {
     /// The start of the name of the files of this kind.
@@ -36,6 +42,7 @@ impl BackupKind {
             Self::Automatic => "auto",
             Self::BeforeImport => "before-import",
             Self::BeforeReset => "before-reset",
+            Self::BeforeUpdate => "before-update",
         }
     }
 
@@ -47,17 +54,23 @@ impl BackupKind {
             Self::Automatic => "Automatic",
             Self::BeforeImport => "Before an import",
             Self::BeforeReset => "Before a reset",
+            Self::BeforeUpdate => "Before an update",
         }
     }
 
     fn of(id: &str) -> Self {
-        [Self::Automatic, Self::BeforeImport, Self::BeforeReset]
-            .into_iter()
-            .find(|kind| {
-                id.strip_prefix(kind.prefix())
-                    .is_some_and(|rest| rest.starts_with('-'))
-            })
-            .unwrap_or(Self::Manual)
+        [
+            Self::Automatic,
+            Self::BeforeImport,
+            Self::BeforeReset,
+            Self::BeforeUpdate,
+        ]
+        .into_iter()
+        .find(|kind| {
+            id.strip_prefix(kind.prefix())
+                .is_some_and(|rest| rest.starts_with('-'))
+        })
+        .unwrap_or(Self::Manual)
     }
 }
 
@@ -276,6 +289,28 @@ impl BackupStore {
         }
         let entry = self.save(BackupKind::Automatic, &backup, None)?;
         self.prune(BackupKind::Automatic, policy.keep)?;
+        Ok(Some(entry))
+    }
+
+    /// Saves a copy of the install right before an update is installed, and keeps only the newest
+    /// [`KEPT_BEFORE_UPDATE`] of them. `app_version` is the version being left. `None` when there
+    /// is nothing to save.
+    ///
+    /// # Errors
+    ///
+    /// As [`Backup::collect`] and [`Self::save`].
+    pub fn snapshot_before_update(
+        &self,
+        scripts: Option<&ScriptStore>,
+        app_version: &str,
+        created: &str,
+    ) -> Result<Option<BackupEntry>> {
+        let backup = Backup::collect(&self.paths, scripts, app_version, created)?;
+        if backup.is_empty() {
+            return Ok(None);
+        }
+        let entry = self.save(BackupKind::BeforeUpdate, &backup, None)?;
+        self.prune(BackupKind::BeforeUpdate, KEPT_BEFORE_UPDATE)?;
         Ok(Some(entry))
     }
 

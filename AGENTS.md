@@ -28,7 +28,10 @@ root.
 - Add a dependency without saying why in the commit message.
 - Put credentials or tokens in code, logs or tests, or commit `.env`.
 - Skip, disable or delete a test to get a green build.
-- Add `unwrap` or `expect` outside tests, or `Result<_, String>` for a new error.
+- Add `unwrap` or `expect` outside tests (clippy denies both, see `clippy.toml`), or
+  `Result<_, String>` for a new error.
+- Change the layout of a saved document without raising its `SCHEMA_VERSION` and adding its step
+  in `src/app/migrations.rs` (a test fails until both are done).
 
 ## Git commits
 
@@ -69,9 +72,9 @@ Prose habits to avoid as well: stock filler words ("delve", "leverage", "robust"
 that"), tacked-on summaries, three-item lists by reflex, and hedging every claim. Say
 the concrete thing once, in the fewest words that stay accurate.
 
-Before committing, check for leftovers (prints nothing when clean):
+`tests/writing_style.rs` checks every tracked text file for these characters (and Rust sources
+for non-ASCII), so `cargo test` and CI fail on one. To run only it:
 
 ```sh
-git ls-files ':!LICENSE' ':!*.lock' ':!*.ttf' \
-  | xargs perl -CSD -ne 'print "$ARGV:$.: $_" if /[\x{2013}\x{2014}\x{2018}\x{2019}\x{201C}\x{201D}\x{2026}\x{2190}-\x{2193}\x{2212}\x{D7}\x{2248}\x{200B}\x{FEFF}\x{1F300}-\x{1FAFF}]/'
+cargo test --test writing_style
 ```

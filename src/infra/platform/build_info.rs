@@ -22,6 +22,14 @@ impl BuildMode {
         }
     }
 
+    /// The name of the mode in files, such as the marker of a moved folder.
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Development => "development",
+            Self::Production => "production",
+        }
+    }
+
     pub const fn is_production(self) -> bool {
         matches!(self, Self::Production)
     }

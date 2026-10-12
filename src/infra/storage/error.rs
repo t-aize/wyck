@@ -134,6 +134,21 @@ pub enum ConfigError {
         supported: u32,
     },
 
+    /// A saved file could not be brought to the layout this version writes (see
+    /// [`crate::infra::storage::migrate`]). The file is left as it was.
+    #[error("`{path}` could not be upgraded from format {from}: {reason}")]
+    Migration {
+        path: PathBuf,
+        /// The version the file says it has.
+        from: u32,
+        reason: &'static str,
+    },
+
+    /// Moving a kind of data to another folder failed or could not be checked (see
+    /// [`crate::infra::storage::relocate`]). Nothing was switched.
+    #[error("could not move to `{path}`: {reason}")]
+    Relocate { path: PathBuf, reason: &'static str },
+
     /// Text that should be a sealed (passphrase-encrypted) document is not one, or is damaged, or
     /// was made by a newer version.
     #[error("not a readable sealed document: {0}")]
@@ -186,6 +201,8 @@ impl From<ConfigError> for std::io::Error {
             | ConfigError::NotABackup
             | ConfigError::BackupTooNew { .. }
             | ConfigError::BackupDamaged(_)
+            | ConfigError::Migration { .. }
+            | ConfigError::Relocate { .. }
             | ConfigError::UnsupportedSchema { .. } => std::io::ErrorKind::InvalidData,
             ConfigError::BackupNotFound(_) => std::io::ErrorKind::NotFound,
             _ => std::io::ErrorKind::Other,

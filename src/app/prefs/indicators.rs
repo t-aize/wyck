@@ -1,8 +1,12 @@
-//! What the user set about the indicators: where their folder is, whether it is read again on its
-//! own, how much a script may do, and which indicators they starred. Saved in a document of its
-//! own, so a backup carries it.
+//! What the user set about the indicators: whether the folder is read again on its own, how much a
+//! script may do, and which indicators they starred. Saved in a document of its own, so a backup
+//! carries it.
+//!
+//! Where the folder is does not belong here: a path means something on one computer only, and this
+//! document can be kept in a folder that several computers share. The folder is a choice of the
+//! computer (see `crate::app::locations`); an older version kept it here as `folder`, which is
+//! ignored when read and moved by `crate::app::locations::prepare`.
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -56,9 +60,6 @@ impl Budget {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prefs {
-    /// The folder the user chose, when it is not the default one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub folder: Option<String>,
     /// Whether the folder is read again every moment, so a file edited elsewhere shows up.
     #[serde(default = "crate::domain::chart::defaults::yes")]
     pub auto_reload: bool,
@@ -78,7 +79,6 @@ pub struct Prefs {
 impl Default for Prefs {
     fn default() -> Self {
         Self {
-            folder: None,
             auto_reload: true,
             budget: Budget::Normal,
             examples_removed: false,
@@ -89,21 +89,12 @@ impl Default for Prefs {
 }
 
 impl Prefs {
-    /// The settings repaired: an empty folder is none, and the lists have no repeats and a limit.
+    /// The settings repaired: the lists have no repeats and a limit.
     #[must_use]
     pub fn normalized(mut self) -> Self {
-        self.folder = self
-            .folder
-            .map(|f| f.trim().to_owned())
-            .filter(|f| !f.is_empty());
         dedup(&mut self.favorites, MAX_FAVORITES);
         dedup(&mut self.recent, MAX_RECENT);
         self
-    }
-
-    /// The folder the user chose.
-    pub fn folder_path(&self) -> Option<PathBuf> {
-        self.folder.as_deref().map(PathBuf::from)
     }
 
     pub fn is_favorite(&self, key: &str) -> bool {
@@ -149,7 +140,6 @@ mod tests {
     #[test]
     fn the_settings_are_saved_and_read_back() {
         let mut prefs = Prefs {
-            folder: Some("D:\\Indicators".to_owned()),
             auto_reload: false,
             budget: Budget::Heavy,
             examples_removed: true,
@@ -162,15 +152,24 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_folder_is_none_and_the_lists_are_repaired() {
+    fn the_lists_are_repaired() {
         let prefs = Prefs {
-            folder: Some("   ".to_owned()),
             favorites: vec!["a".into(), "b".into(), "a".into()],
             ..Prefs::default()
         }
         .normalized();
-        assert_eq!(prefs.folder, None);
         assert_eq!(prefs.favorites, ["a", "b"]);
+    }
+
+    #[test]
+    fn a_document_from_an_older_version_with_a_folder_still_reads() {
+        let prefs: Prefs =
+            toml::from_str("folder = \"D:\\\\Indicators\"\nauto_reload = false\n").unwrap();
+        assert!(!prefs.auto_reload);
+        assert!(
+            !toml::to_string(&prefs).unwrap().contains("folder"),
+            "the old field is not written again"
+        );
     }
 
     #[test]

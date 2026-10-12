@@ -4,6 +4,7 @@ use super::{
     AnyElement, BuildMode, Context, IconName, SettingsHub, VERSION, button, confirm, div, form, px,
     theme, tokens, updates,
 };
+use crate::app::diagnostics;
 use gpui::prelude::*;
 
 impl SettingsHub {
@@ -33,15 +34,15 @@ impl SettingsHub {
         let keeps_apart = BuildMode::CURRENT == BuildMode::Development;
         let folder = crate::app_paths().map_or_else(
             || "Not available on this system".to_owned(),
-            |paths| paths.config_dir().display().to_string(),
+            |paths| paths.state_dir().display().to_string(),
         );
-        let place_rows: Vec<AnyElement> = [
+        let mut place_rows: Vec<AnyElement> = [
             (
                 "Settings folder",
                 Some(if keeps_apart {
-                    "A development build has its own folder, apart from the installed app"
+                    "A development build has its own folder, apart from the installed app. Settings > Folders moves it"
                 } else {
-                    "Everything the app remembers, one readable file per kind of data"
+                    "Everything the look and the charts remember, one readable file per kind of data. Settings > Folders moves it"
                 }),
                 folder,
             ),
@@ -67,6 +68,49 @@ impl SettingsHub {
             )
         })
         .collect();
+
+        // The log files are what a bug report needs, so the page says where they are and opens
+        // the folder, and says so when the app wrote a report after a panic.
+        if let Some(logs) = diagnostics::logs_dir() {
+            let reports = diagnostics::report_count(&logs);
+            place_rows.push(form::field(
+                "Log folder",
+                Some("The log of each day and, after a crash, an error report. Send them with a bug report"),
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(
+                        div()
+                            .max_w(px(crate::ui::kit::tokens::measure::note()))
+                            .text_size(px(tokens::text::body()))
+                            .text_color(theme::fg())
+                            .child(logs.display().to_string()),
+                    )
+                    .child(
+                        div().flex().flex_row().child(button::action(
+                            "about-open-logs",
+                            "Open the log folder",
+                            Some(IconName::FolderOpen),
+                            false,
+                            |_window, cx| diagnostics::open_logs_folder(cx),
+                        )),
+                    ),
+            ));
+            if reports > 0 {
+                place_rows.push(form::field(
+                    "Error reports",
+                    None,
+                    div()
+                        .text_size(px(tokens::text::body()))
+                        .text_color(theme::fg())
+                        .child(match reports {
+                            1 => "1 error report was saved in the log folder".to_owned(),
+                            n => format!("{n} error reports were saved in the log folder"),
+                        }),
+                ));
+            }
+        }
 
         let update_state = updates::state(cx);
         let mut update_rows = vec![form::field(
@@ -114,7 +158,7 @@ impl SettingsHub {
                                 window,
                                 cx,
                                 "Update and restart?",
-                                "Wyck will close after saving pending workspace and appearance changes. The downloaded update is installed only after its signature is verified.",
+                                "Wyck will close after saving pending workspace and appearance changes. A copy of everything you made is kept first (Settings > Data and backup), and the downloaded update is installed only after its signature is verified.",
                                 move |_window, cx| {
                                     let multi = multi.clone();
                                     updates::install(move |cx| multi.read(cx).flush_documents(cx), cx);

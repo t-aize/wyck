@@ -50,6 +50,14 @@ then select About to check again or install an available update. The AppImage, m
 Windows installer can update in place. A `.deb` installation opens the release page so the system
 package remains managed by the package manager.
 
+An update replaces the program only; your settings, drawings and alerts stay where they are. Just
+before it installs, Wyck keeps a copy of everything you made (Settings > Data and backup, "Before
+an update", the last three are kept). At the next start, a file saved by an older version is
+brought to the layout of the new one, and the old text stays next to it as `<name>.toml.v<n>.bak`.
+A file saved by a newer version (after going back to an older Wyck) is never read wrongly or
+rewritten: it is set aside as `<name>.toml.from-v<n>` and the older version starts that document
+afresh.
+
 ## Layout
 
 One Cargo package, `wyck`: `src/lib.rs` declares the modules, `src/main.rs` only starts the app.
@@ -69,6 +77,55 @@ in the rustdoc of `infra::ctrader` (`cargo doc --open`).
 
 Indicators can be written as scripts (in [Rhai](https://rhai.rs)) and kept in a folder that the
 app reads on its own. The header has a button for the folder and for a full editor.
+
+## Where your data is kept
+
+Settings > Folders shows where each kind of data lives and lets you move it, one kind at a time:
+
+| Kind | What is in it |
+|---|---|
+| Settings and themes | look, themes, colors, layout, shortcuts, favorites, ticket and indicator settings |
+| Account data | drawings and their saved looks, watchlists and alerts, one folder per account number |
+| Indicator scripts | the `.rhai` files you write |
+| Backups | the copies kept for restoring, automatic ones included |
+| Logs | the log of each day and the report of a crash |
+
+**Keeping several computers in step.** "Use OneDrive" (or Dropbox, Google Drive, iCloud Drive, or
+"Choose another folder...") puts the first four kinds in a folder called `Wyck` inside the folder
+your service keeps in step (`Wyck (dev)` for a development build). Install Wyck on the other
+computer, open Settings > Folders and pick the same folder: it uses what is there. Your logs stay
+local.
+
+What happens when you move a kind:
+
+- Nothing moves while Wyck runs. The request waits, and the next start makes it: the files are
+  copied one by one, read back and compared, and only then is the new place remembered. A failure
+  leaves everything where it was.
+- The old folder is kept beside where it was, renamed `<name>.moved-<date>`, until you delete it
+  from the same page. Nothing is lost if you change your mind.
+- A folder that already holds data of Wyck (the first computer's) is used as it is, and nothing
+  from this computer is copied over it; what this computer had stays in the renamed old folder.
+- A folder that holds other files is never mixed with: Wyck makes a folder named after the kind
+  inside it.
+- If the folder cannot be reached at start (the service has not mounted it), the standard folder
+  is used for that run, you are told, and the choice is kept for when it is back.
+
+What is never moved: the keys that sign in to your broker (the system keyring), and the list of
+accounts you signed in with, which is tied to those keys on this computer. A synced folder holds
+nothing that signs in. The data of an account is found again by its account number, so signing in
+on the second computer brings back the same drawings and alerts.
+
+Things to know about a synced folder: use Wyck on one computer at a time, because a service cannot
+merge two changes of the same file (the last one saved wins, and the other is kept as a copy such
+as `preferences-LAPTOP.toml`, which Wyck does not read; Settings > Folders lists these copies).
+The indicators folder you pick in Settings > Indicators is remembered by each computer on its own,
+never in the settings, since a path means something on one computer only.
+
+**Development and installed app.** Each has its own standard folders and its own file of choices.
+A moved folder carries a small marker, `wyck-location.toml`, saying which build made it and for
+which kind of data. A development build refuses a folder marked by the installed app and the other
+way round, and a folder of one kind is never taken for another. `WYCK_CONFIG_DIR` moves the folder
+the choices are read from, as for everything else.
 
 ## Keyboard shortcuts
 
@@ -129,6 +186,9 @@ keyring service the running build uses.
 | Settings folder (macOS) | `~/Library/Application Support/sh.wyck.wyck` | `~/Library/Application Support/sh.wyck.wyck-dev` |
 | Settings folder (Linux) | `~/.config/wyck` | `~/.config/wyck-dev` |
 | Keyring service | `wyck` | `wyck-dev` |
+| Log folder (Windows) | `%LOCALAPPDATA%\wyck\wyck\data\logs` | `%LOCALAPPDATA%\wyck\wyck-dev\data\logs` |
+| Log folder (macOS) | `~/Library/Logs/sh.wyck.wyck` | `~/Library/Logs/sh.wyck.wyck-dev` |
+| Log folder (Linux) | `~/.local/state/wyck/logs` | `~/.local/state/wyck-dev/logs` |
 
 A debug build starts empty and needs its own cTrader sign-in. Three environment variables change
 that:
@@ -157,6 +217,22 @@ To start the debug build from a copy of the installed settings instead, copy the
 Copy-Item -Recurse "$env:APPDATA\wyck\wyck\config" "$env:APPDATA\wyck\wyck-dev\config"
 ```
 
+## Logs and crashes
+
+The installed app has no console, so it writes what it does to a file: `wyck.YYYY-MM-DD.log` in
+the log folder above, one per day, the last 14 kept. It records the start, the sign-in and
+connection steps, saved copies, updates and warnings, never a token, a secret or an
+authorization code. Settings > About > "Open the log folder" opens it.
+
+When the app panics it also writes `panic-YYYYMMDD-HHMMSS-<pid>-<n>.txt` there (the message, the
+place in the code, the thread, the version and a backtrace); the last 10 are kept. Attach the
+end of the log and that report to a bug report, after reading them for anything private.
+
+`RUST_LOG` changes how much is written, to the file and to stderr alike (for example
+`RUST_LOG=wyck=debug`). Without it the file gets `info` for Wyck and `warn` for the rest, and
+stderr gets `debug` for Wyck. `WYCK_DATA_DIR` moves the log folder with the rest of the data
+(to a `logs` folder inside it).
+
 ## Test against a real demo account
 
 Testing the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
@@ -176,6 +252,10 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ```
+
+`cargo test` also keeps the writing of the repository plain (no typographic dashes, quotes or
+emoji, Rust sources in ASCII: `tests/writing_style.rs`), and clippy refuses `unwrap` and `expect`
+outside tests (`clippy.toml`).
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
 (`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.

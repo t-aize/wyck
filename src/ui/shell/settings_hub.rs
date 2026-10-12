@@ -44,10 +44,25 @@ pub fn announce_update(version: &str, cx: &mut App) {
     );
 }
 
+/// Tells the user what the start found or did about the folders of their data: a move that was
+/// made or failed, a chosen folder that could not be reached, copies made by a sync service.
+pub fn announce_folders(cx: &mut App) {
+    use crate::ui::kit::toast::{Kind, show};
+    for note in crate::app::locations::startup_notes() {
+        let kind = if note.warning {
+            Kind::Warning
+        } else {
+            Kind::Info
+        };
+        show(cx, kind, note.title, note.text);
+    }
+}
+
 mod alerts;
 mod behaviour;
 mod charts;
 mod data;
+mod folders;
 mod look;
 mod safety;
 mod scripts;
@@ -92,12 +107,13 @@ pub enum Page {
     Shortcuts,
     Alerts,
     Safety,
+    Folders,
     Data,
     About,
 }
 
 impl Page {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 10] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
@@ -105,6 +121,7 @@ impl Page {
         Self::Shortcuts,
         Self::Alerts,
         Self::Safety,
+        Self::Folders,
         Self::Data,
         Self::About,
     ];
@@ -118,6 +135,7 @@ impl Page {
             Self::Shortcuts => ("Shortcuts", IconName::Keyboard),
             Self::Alerts => ("Alerts", IconName::Bell),
             Self::Safety => ("Safety", IconName::ShieldCheck),
+            Self::Folders => ("Folders", IconName::FolderOpen),
             Self::Data => ("Data and backup", IconName::Database),
             Self::About => ("About", IconName::Info),
         };
@@ -187,6 +205,12 @@ struct SettingsHub {
     waiting: Option<Vec<String>>,
     /// The copies kept in the backups folder, newest first, as last listed.
     copies: Vec<BackupEntry>,
+    /// Where each kind of data is kept, as last read (see the Folders page).
+    folders: Option<crate::app::locations::Overview>,
+    /// What a move of folders that waits for the next start will do.
+    folders_wait: Option<Vec<String>>,
+    /// What the last step of the Folders page said.
+    folders_notice: Option<Notice>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -260,6 +284,8 @@ impl SettingsHub {
             }));
             risk_inputs.push((field, state));
         }
+        let folders = crate::app::locations::overview();
+        let folders_wait = folders.as_ref().and_then(|o| o.waiting.clone());
         let shortcut_search = Self::new_shortcut_search(window, cx);
         subscriptions.push(cx.observe(&shortcut_search, |_this, _search, cx| cx.notify()));
         let waiting = cx
@@ -290,6 +316,9 @@ impl SettingsHub {
             library_open: false,
             waiting,
             copies: data::list_copies(),
+            folders,
+            folders_wait,
+            folders_notice: None,
             _subscriptions: subscriptions,
         }
     }
@@ -370,6 +399,7 @@ impl Render for SettingsHub {
             Page::Shortcuts => self.shortcuts_page(cx),
             Page::Alerts => self.alerts_page(cx),
             Page::Safety => self.safety_page(cx),
+            Page::Folders => self.folders_page(cx),
             Page::Data => self.data_page(cx),
             Page::About => self.about_page(cx),
         };

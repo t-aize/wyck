@@ -264,8 +264,8 @@ impl SettingsHub {
         let copies_group = form::group(IconName::HardDrive, "Saved copies", copy_rows);
 
         let mut place: Vec<AnyElement> = vec![form::field(
-            "Settings folder",
-            Some("Where everything is kept, one readable file per kind of data"),
+            "Config folder",
+            Some("Where the list of your accounts is kept. The rest is in Settings > Folders"),
             crate::ui::kit::button::quiet("backup-folder")
                 .icon(IconName::FolderOpen)
                 .label("Open")
