@@ -17,6 +17,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::follow::AtrFollow;
+
 /// The most exits one plan has.
 pub const MAX_LEGS: usize = 3;
 
@@ -193,6 +195,8 @@ pub struct Label {
     pub oco: bool,
     /// Close the position after a time (see [`TimeStop`]).
     pub time_stop: Option<TimeStop>,
+    /// Keep the stop loss of the pending order on the ATR (see [`super::follow`]).
+    pub follow: Option<AtrFollow>,
 }
 
 /// Closing a position once it has been open for a while.
@@ -282,6 +286,9 @@ impl Label {
         if let Some(stop) = self.time_stop {
             text.push_str(&format!(":t{}{}", stop.minutes, stop.only.letter()));
         }
+        if let Some(follow) = &self.follow {
+            text.push_str(&format!(":a{}", follow.encode()));
+        }
         text
     }
 
@@ -300,6 +307,7 @@ impl Label {
             break_even: None,
             oco: false,
             time_stop: None,
+            follow: None,
         };
         for part in parts {
             if part == "oco" {
@@ -315,6 +323,8 @@ impl Label {
                     return None;
                 }
                 label.time_stop = Some(TimeStop { minutes, only });
+            } else if let Some(rule) = part.strip_prefix('a') {
+                label.follow = Some(AtrFollow::decode(rule)?);
             } else if let Some(rule) = part.strip_prefix('b') {
                 let (after, tenths) = rule.split_once(',')?;
                 label.break_even = Some((after.parse().ok()?, tenths.parse().ok()?));
@@ -554,6 +564,7 @@ mod tests {
             break_even: Some((1, 25)),
             oco: false,
             time_stop: None,
+            follow: None,
         };
         let text = label.encode();
         assert_eq!(text, "wyck:k3j9x2:2/3:b1,25");
@@ -593,6 +604,7 @@ mod tests {
                 minutes: 1_440,
                 only: Only::Always,
             }),
+            follow: None,
         };
         assert_eq!(single.encode(), "wyck:abc:1/1:t1440");
         assert_eq!(Label::decode("wyck:abc:1/1:t1440"), Some(single));
@@ -605,6 +617,36 @@ mod tests {
         ] {
             assert_eq!(Label::decode(bad), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn a_rule_on_the_atr_is_written_in_the_label_and_read_back() {
+        use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};
+        let mut label = Label::decode("wyck:k3j9x2:1/2:b1,0:oco").unwrap();
+        assert_eq!(label.follow, None);
+        label.follow = Some(AtrFollow {
+            atr: AtrStop {
+                length: 14,
+                smoothing: Smoothing::Rma,
+                multiplier: 2.0,
+                timeframe: Some("H1".to_owned()),
+                current_bar: false,
+            },
+            rr: Some(2.0),
+        });
+        label.time_stop = Some(TimeStop {
+            minutes: 90,
+            only: Only::Always,
+        });
+        let text = label.encode();
+        assert_eq!(text, "wyck:k3j9x2:1/2:b1,0:oco:t90:a14,r,200,H1,0,r200");
+        assert!(
+            text.len() <= 100,
+            "a broker label is at most 100 characters"
+        );
+        assert_eq!(Label::decode(&text), Some(label));
+        // A rule that cannot be read makes the label unreadable, not half read.
+        assert_eq!(Label::decode("wyck:abc:1/1:a14,r,200"), None);
     }
 
     #[test]
@@ -645,6 +687,7 @@ mod tests {
                 break_even: Some((1, 0)),
                 oco: false,
                 time_stop: None,
+                follow: None,
             },
             buy,
             entry,
@@ -707,6 +750,7 @@ mod tests {
             break_even: None,
             oco,
             time_stop: None,
+            follow: None,
         };
         let working = [
             (10, label("a", true), false),
@@ -732,6 +776,7 @@ mod tests {
                 break_even: Some((1, 0)),
                 oco,
                 time_stop: None,
+                follow: None,
             },
             buy,
             filled,
@@ -797,6 +842,7 @@ mod tests {
             break_even: None,
             oco,
             time_stop: None,
+            follow: None,
         };
         let working = [(10, label(true), false), (11, label(true), true)];
         let mut filled = past(5, 1, true, true, true);

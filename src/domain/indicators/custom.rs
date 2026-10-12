@@ -14,6 +14,7 @@ pub mod docs;
 mod draw_api;
 pub mod lexer;
 pub mod library;
+pub mod other;
 pub mod run;
 pub mod series;
 pub mod templates;
@@ -108,7 +109,12 @@ mod tests {
             volume: vec![1.0; 6],
             day: vec![0; 6],
         };
-        let done = compute(&config, &input, Limits::default(), None).unwrap();
+        // The operations budget stops a runaway script; the wall clock would only add chance.
+        let limits = Limits {
+            time: std::time::Duration::from_secs(600),
+            ..Limits::default()
+        };
+        let done = compute(&config, &input, limits, None).unwrap();
         let values = &done.output.plots[0].values;
         assert!(values[0].is_nan());
         assert_eq!(&values[1..], &[1.5, 2.5, 3.5, 4.5, 5.5]);

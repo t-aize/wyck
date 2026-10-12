@@ -4,6 +4,7 @@ use super::helpers::{side_of, slippage_points, stop_limit_price};
 use super::{Kind, OrderTicket, Plan, Tif, problem};
 use crate::app::broker::trading::{NewOrderReq, NewOrderType};
 use crate::app::market_data::now_ms;
+use crate::domain::trading::follow::AtrFollow;
 use crate::domain::trading::guard::Verdict;
 use crate::domain::trading::math;
 use crate::domain::trading::math::TicketProblem;
@@ -103,10 +104,24 @@ impl OrderTicket {
     /// which plan and leg they are (see [`plan::Label`]).
     pub(super) fn orders(&self, plan: &Plan, cx: &App) -> Result<Vec<NewOrderReq>, TicketProblem> {
         let time_stop = self.time_stop_now(cx).rule();
+        let follow_base = self.follow_base(cx);
         if !self.exits.on {
             let mut order = self.order(plan, cx)?;
-            // A time stop needs the label to travel with the position.
-            if time_stop.is_some() {
+            // The rule a pending order keeps its ATR stop on, with the take profit as a multiple
+            // of the risk when it is one.
+            let follow = follow_base.clone().map(|atr| {
+                let rr = match (plan.entry, plan.stop, plan.target) {
+                    (Some(entry), Some(stop), Some(target))
+                        if self.target_unit == math::Offset::Ratio && entry != stop =>
+                    {
+                        Some((target - entry).abs() / (entry - stop).abs())
+                    }
+                    _ => None,
+                };
+                AtrFollow { atr, rr }
+            });
+            // A time stop, or a rule on the ATR, needs the label to travel with the order.
+            if time_stop.is_some() || follow.is_some() {
                 order.label = Some(
                     plan::Label {
                         group: plan::new_group(now_ms()),
@@ -115,6 +130,7 @@ impl OrderTicket {
                         break_even: None,
                         oco: false,
                         time_stop,
+                        follow,
                     }
                     .encode(),
                 );
@@ -194,6 +210,10 @@ impl OrderTicket {
                         break_even,
                         oco,
                         time_stop,
+                        follow: follow_base.clone().map(|atr| AtrFollow {
+                            atr,
+                            rr: (target_r > 0.0).then_some(target_r),
+                        }),
                     }
                     .encode(),
                 );
@@ -201,6 +221,22 @@ impl OrderTicket {
             }
         }
         Ok(orders)
+    }
+
+    /// The ATR a pending order with an ATR stop keeps its stop on: the one of the ticket, on the
+    /// timeframe it is read on (the chart's own when none was picked). `None` when the option is
+    /// off, the order is not a pending one, the stop is not an ATR one, or the ticket follows a
+    /// drawing, which has its own ATR.
+    fn follow_base(&self, cx: &App) -> Option<crate::domain::indicators::atr_stop::AtrStop> {
+        if !(self.follow_atr && self.stop_atr && self.kind.is_pending() && self.link.is_none()) {
+            return None;
+        }
+        let mut atr = self.atr.clone().normalized();
+        if atr.timeframe.is_none() {
+            let chart = self.chart.as_ref()?;
+            atr.timeframe = Some(chart.read(cx).timeframe().code());
+        }
+        Some(atr)
     }
 
     pub(super) fn describe(&self, plan: &Plan, cx: &App) -> String {

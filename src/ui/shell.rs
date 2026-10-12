@@ -3,6 +3,7 @@
 
 pub mod app_view;
 pub mod dashboard;
+pub mod keymap;
 pub mod locked_frame;
 pub mod settings_hub;
 pub mod sign_in_gate;

@@ -42,7 +42,7 @@ impl Chart {
             bars
         };
         let last = bars.last()?;
-        let last_is_open = timeframe.group_key(last.time_ms) == timeframe.group_key(now_ms());
+        let last_is_open = timeframe.bar_key(last.time_ms) == timeframe.bar_key(now_ms());
         settings.value(bars, last_is_open)
     }
 
@@ -102,6 +102,7 @@ impl Chart {
         self.view = View::new(super::bar_px_for(&self.settings, self.timeframe));
         self.pending_focus = None;
         self.reset_flow();
+        self.custom.forget_others();
         self.older = Older::Idle;
         self.hover = None;
         self.drag = None;

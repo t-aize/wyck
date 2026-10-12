@@ -10,7 +10,8 @@ use crate::domain::market::Bar;
 
 use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use super::cmd::{Align, Cmd, hsla, with_alpha};
-use super::{Ctx, series};
+use super::ctx::Ctx;
+use super::series;
 use crate::domain::indicators::spec::ValueFormat;
 
 /// Profiles in a slot narrower than this are drawn as bars.

@@ -5,7 +5,7 @@
 use crate::domain::drawings::model::Point;
 use crate::domain::drawings::model::tool::Tool;
 
-use super::model::{Condition, Trigger};
+use super::model::condition::{Condition, Trigger};
 
 /// What an alert saw at one moment: the value it watches, the level it is compared with, and
 /// the other side of the zone for a zone condition.

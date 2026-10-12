@@ -158,7 +158,7 @@ pub const FUNCTIONS: &[Doc] = &[
         Declare,
         "input_symbol",
         "input_symbol(key, default, options?) -> text",
-        "The name of a symbol the user can change; empty means the symbol of the chart. Gives the text. The script reads the name; it does not get that symbol's prices. Options: label, section, group, tooltip.",
+        "The name of a symbol the user can change; empty means the symbol of the chart. Gives the text, which bars_of turns into that symbol's prices. Options: label, section, group, tooltip.",
         "let other = input_symbol(\"other\", \"\");",
     ),
     doc(
@@ -209,6 +209,13 @@ pub const FUNCTIONS: &[Doc] = &[
         "fill(key_a, key_b, options?)",
         "Shades the space between two plots drawn before. Options: color, alpha (0 to 1), down_color (the color where the second is above).",
         "fill(\"upper\", \"lower\", #{ alpha: 0.08 });",
+    ),
+    doc(
+        Series,
+        "bars_of",
+        "bars_of(symbol) -> map",
+        "The prices of a symbol on the bars of the chart: a map with open, high, low, close and volume. An empty name is the chart's own symbol. Any other name must come from input_symbol, which is how Wyck knows to load it. A bar the other symbol has no price for is flat at its last close. The prices are read when the chart loads.",
+        "let b = bars_of(input_symbol(\"other\", \"GBPUSD\")); plot(\"ratio\", close / b.close);",
     ),
     doc(
         Series,

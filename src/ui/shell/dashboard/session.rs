@@ -159,6 +159,17 @@ impl Dashboard {
         self.trading.update(cx, |account, cx| {
             account.set_symbols(names, quotes, quote_assets, cx)
         });
+        let ids = entries
+            .iter()
+            .map(|e| {
+                (
+                    crate::domain::indicators::custom::other::key_of(&e.name),
+                    e.id,
+                )
+            })
+            .collect();
+        self.multi
+            .update(cx, |multi, cx| multi.set_symbol_ids(ids, cx));
         // Each chart gets the symbol it was saved with, or the one to start on.
         let wanted = self.multi.read(cx).wanted_symbols(cx);
         let linked = self.multi.read(cx).sync().symbol;

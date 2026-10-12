@@ -90,8 +90,10 @@
 //! See [`AppPaths`]. A development (debug) build keeps its state apart from the installed app:
 //! the folders are named `wyck-dev` and the keyring entries live under the service `wyck-dev`
 //! (see [`identity`]). `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move the folders, and
-//! `WYCK_KEYRING_SERVICE` names the keyring service. Set all of them to run a development build
+//! `WYCK_KEYRING_SERVICE` names the keyring service. Set these three to run a development build
 //! on the data of the installed app, or to keep a second profile of the installed one.
+//! `WYCK_PASSPHRASE` keeps the credentials in encrypted files locked by that passphrase, for a
+//! machine with no keyring.
 
 #![forbid(unsafe_code)]
 

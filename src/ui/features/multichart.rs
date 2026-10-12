@@ -6,7 +6,7 @@
 //! [`links`], as plain data, and this view only applies what they say.
 //!
 //! The charts do not know about each other. Each one reports what the user did as a
-//! [`ChartEvent`](crate::ui::features::chart::ChartEvent), and this view applies the links, which keeps a chart free of loops: a chart
+//! [`ChartEvent`](crate::ui::features::chart::events::ChartEvent), and this view applies the links, which keeps a chart free of loops: a chart
 //! that is made to follow another never reports it. What the rest of the app acts on (a symbol to
 //! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
@@ -33,9 +33,8 @@ use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
-use crate::ui::features::chart::{
-    Chart, ChartAction, ChartLine, ChartSettings, EditorRequest, LineId,
-};
+use crate::ui::features::chart::events::{ChartAction, EditorRequest};
+use crate::ui::features::chart::{Chart, ChartLine, ChartSettings, LineId};
 use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
@@ -108,6 +107,8 @@ pub struct MultiChart {
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
     hours: HashMap<i64, std::sync::Arc<crate::domain::market::TradingHours>>,
+    /// The ids of the symbols of the account by name, for the indicators that read a second symbol.
+    symbol_ids: std::sync::Arc<HashMap<String, i64>>,
     next_id: u64,
     key: LayoutKey,
     tree: Node,
@@ -199,6 +200,7 @@ impl MultiChart {
             hub,
             tracker: LiveBarTracker::new(),
             hours: HashMap::new(),
+            symbol_ids: std::sync::Arc::default(),
             session,
             workspace,
             next_id: 0,
@@ -320,6 +322,15 @@ impl MultiChart {
         ids.sort_unstable();
         ids.dedup();
         ids
+    }
+
+    /// Makes the chart `delta` places after (or before) the active one the active one, going round.
+    pub fn step_active(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let count = self.slots.len();
+        if count > 1 {
+            let next = (self.active as isize + delta).rem_euclid(count as isize) as usize;
+            self.activate(next, cx);
+        }
     }
 
     fn activate(&mut self, index: usize, cx: &mut Context<Self>) {

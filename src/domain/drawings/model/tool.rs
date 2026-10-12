@@ -521,21 +521,6 @@ impl Tool {
             Self::Unknown => 0,
         }
     }
-
-    /// The keys that pick the tool, for the tools drawn most, or `None`.
-    pub fn shortcut(self) -> Option<&'static str> {
-        match self {
-            Self::TrendLine => Some("Alt+T"),
-            Self::HorizontalLine => Some("Alt+H"),
-            Self::VerticalLine => Some("Alt+V"),
-            Self::FibRetracement => Some("Alt+F"),
-            Self::Rectangle => Some("Alt+X"),
-            Self::Text => Some("Alt+N"),
-            Self::Measure => Some("Alt+M"),
-            Self::Brush => Some("Alt+P"),
-            _ => None,
-        }
-    }
 }
 
 #[cfg(test)]

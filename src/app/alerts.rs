@@ -39,7 +39,9 @@ pub mod model;
 pub mod sound;
 
 use self::eval::{Judged, Reading};
-pub use self::model::{Alert, AlertBook, Condition, Source, Trigger};
+pub use self::model::condition::{Condition, Trigger};
+pub use self::model::source::Source;
+pub use self::model::{Alert, AlertBook};
 
 const DOCUMENT: &str = "alerts";
 /// The owner of the alerts' price subscriptions in the live hub.
@@ -69,13 +71,13 @@ pub struct Profits {
 impl Profits {
     /// The profit an alert follows. A symbol with nothing open makes nothing; a position that is
     /// closed has no profit to read, so its alert waits.
-    pub fn of(&self, scope: &model::PnlScope, symbol_id: i64) -> Option<f64> {
+    pub fn of(&self, scope: &model::source::PnlScope, symbol_id: i64) -> Option<f64> {
         match scope {
-            model::PnlScope::Account => self.account,
-            model::PnlScope::Symbol => self
+            model::source::PnlScope::Account => self.account,
+            model::source::PnlScope::Symbol => self
                 .account
                 .map(|_| self.symbols.get(&symbol_id).copied().unwrap_or(0.0)),
-            model::PnlScope::Position { id } => self.positions.get(id).copied(),
+            model::source::PnlScope::Position { id } => self.positions.get(id).copied(),
         }
     }
 }
@@ -164,12 +166,13 @@ impl Alerts {
         self.digits.get(&symbol_id).copied().unwrap_or(5)
     }
 
-    /// The size of a pip of a symbol: the one read from its contract, or worked out from its
-    /// decimals until then.
+    /// The size of a pip of a symbol: the one read from its contract, or the usual one of a
+    /// currency pair (position 4) until the contract is read.
     pub fn pip_of(&self, symbol_id: i64) -> f64 {
-        self.pips.get(&symbol_id).copied().unwrap_or_else(|| {
-            crate::domain::market::pip_size_from_digits(self.digits_of(symbol_id))
-        })
+        self.pips
+            .get(&symbol_id)
+            .copied()
+            .unwrap_or_else(|| crate::domain::market::pip_size(4))
     }
 
     /// Every symbol an alert is on, watching or not: the ones whose decimals the alerts need.

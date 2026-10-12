@@ -38,9 +38,7 @@ use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::ticket::OrderTicket;
 use crate::ui::kit::toast;
 use gpui::prelude::*;
-use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
-};
+use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedString, Window};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -62,34 +60,23 @@ gpui::actions!(
         TicketBuy,
         TicketSell,
         TicketSend,
+        OpenShortcuts,
+        ToggleTicket,
+        ToggleAccountPanel,
+        ToggleFullscreen,
+        NextChart,
+        PreviousChart,
+        NextTimeframe,
+        PreviousTimeframe,
+        ToggleMagnet,
+        ToggleKeepDrawing,
+        ToggleFavoritesBar,
+        CancelAllOrders,
+        ToggleLogScale,
+        TogglePercentScale,
+        ToggleGrid,
     ]
 );
-
-/// Registers the dashboard's key bindings. Call once, at startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("secondary-k", OpenPicker, Some("Dashboard")),
-        KeyBinding::new("secondary-,", OpenSettings, Some("Dashboard")),
-        KeyBinding::new(
-            "secondary-shift-e",
-            ToggleIndicatorEditor,
-            Some("Dashboard"),
-        ),
-        KeyBinding::new("secondary-shift-x", CloseAllPositions, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-k", ToggleKillSwitch, Some("Dashboard")),
-        KeyBinding::new("alt-b", TicketBuy, Some("Dashboard")),
-        KeyBinding::new("alt-s", TicketSell, Some("Dashboard")),
-        KeyBinding::new("secondary-enter", TicketSend, Some("Dashboard")),
-        KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
-        KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
-        KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
-        KeyBinding::new("ctrl-p", PickerUp, Some("SymbolPicker")),
-        KeyBinding::new("ctrl-n", PickerDown, Some("SymbolPicker")),
-        KeyBinding::new("pageup", PickerPageUp, Some("SymbolPicker")),
-        KeyBinding::new("pagedown", PickerPageDown, Some("SymbolPicker")),
-        KeyBinding::new("enter", PickerConfirm, Some("SymbolPicker")),
-    ]);
-}
 
 /// Who the dashboard is connected as.
 #[derive(Clone)]
@@ -313,6 +300,8 @@ impl Dashboard {
         cx.observe(&alerts, |this, _alerts, cx| this.push_lines(cx))
             .detach();
         let prefs = workspace.read(cx).preferences().clone();
+        // The keys the user chose, over the defaults bound at the start.
+        crate::ui::shell::keymap::apply(&prefs.shortcuts, cx);
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),

@@ -1,13 +1,12 @@
 //! The pages for the canvas, the time zone, the trading lines and the indicators of the chart.
 
 use super::{ChartSettingsEditor, ColorKey, LABEL_WIDTH, PRICE_HEIGHTS, ZONE_LIST_MAX, edit_chart};
+use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
 use crate::ui::features::chart::options::ChartColors;
 use crate::ui::features::chart::settings::ChartSettings;
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::zone::Zone;
-use crate::ui::features::chart::{
-    ChartEvent, EditorRequest, indicator_picker, open_object_tree, study_settings,
-};
+use crate::ui::features::chart::{indicator_picker, open_object_tree, study_settings};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{button, controls, form, icon, modal, theme, tokens};
 use gpui::prelude::*;
@@ -264,9 +263,10 @@ impl ChartSettingsEditor {
         let full = settings.studies.len() >= limit;
         let (browse, editor, new) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let add = if full {
-            form::block(form::note(crate::ui::kit::shortcut::text(&format!(
-                "This chart allows {limit} indicators. Change the limit in Settings (Ctrl+,)."
-            ))))
+            form::block(form::note(format!(
+                "This chart allows {limit} indicators. Change the limit in Settings{}.",
+                crate::ui::kit::hints::suffix("open_settings")
+            )))
         } else {
             form::block(
                 div()

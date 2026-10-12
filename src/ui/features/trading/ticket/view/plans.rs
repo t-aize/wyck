@@ -166,7 +166,7 @@ impl OrderTicket {
             );
         }
         let save = cx.entity();
-        let named = !prefs::clean_name(&self.plan_name.read(cx).value()).is_empty();
+        let named = !prefs::plans::clean_name(&self.plan_name.read(cx).value()).is_empty();
         card.child(
             div()
                 .flex()

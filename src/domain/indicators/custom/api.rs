@@ -9,6 +9,7 @@ pub mod describe;
 pub mod indicators;
 pub mod inputs;
 pub mod plots;
+pub mod symbols;
 
 use super::super::math;
 use super::run::with_run;
@@ -26,6 +27,7 @@ pub fn register(engine: &mut Engine) {
     indicators::indicators(engine);
     describe::describing(engine);
     indicators::colors(engine);
+    symbols::symbols(engine);
     super::draw_api::register(engine);
 }
 

@@ -1,6 +1,6 @@
 //! Names and edits of the points of a drawing.
 
-use crate::domain::drawings::figures::wave_names;
+use crate::domain::drawings::figures::patterns::wave_names;
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{Drawing, Point};
 use crate::domain::market::PRICE_SCALE;

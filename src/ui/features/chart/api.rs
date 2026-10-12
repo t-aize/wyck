@@ -1,9 +1,11 @@
 //! What the rest of the app asks of a chart: its symbol, its timeframe, its settings, its studies and its lines.
 
+use super::events::ChartEvent;
 use super::settings;
+use super::settings::ScaleMode;
 use super::{
-    Chart, ChartEvent, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View,
-    footprint, view,
+    Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
+    view,
 };
 
 use crate::app::market_data::now_ms;
@@ -25,6 +27,18 @@ impl Chart {
     /// The last bid and ask seen for the chart's symbol.
     pub fn quote(&self) -> (Option<i64>, Option<i64>) {
         (self.bid, self.ask)
+    }
+
+    /// The ids of the symbols of the account by name (see `key_of`), so an indicator that reads
+    /// the prices of a second symbol can ask for them.
+    pub fn set_symbol_ids(
+        &mut self,
+        ids: std::sync::Arc<std::collections::HashMap<String, i64>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.symbol_ids = ids;
+        self.custom.symbols_changed();
+        cx.notify();
     }
 
     /// The trading hours of the chart's symbol (ignored for another symbol).
@@ -135,6 +149,22 @@ impl Chart {
         cx.emit(ChartEvent::SettingsChanged);
     }
 
+    /// Puts the price scale on `mode`, or back to linear when it already is.
+    pub fn toggle_scale(&mut self, mode: ScaleMode, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| {
+            s.scale = if s.scale == mode {
+                ScaleMode::Linear
+            } else {
+                mode
+            };
+        });
+    }
+
+    /// Shows or hides the grid.
+    pub fn toggle_grid(&mut self, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| s.grid = !s.grid);
+    }
+
     /// Changes the settings with `change`; recomputes what depends on them, redraws, and tells the
     /// layout (which saves them) when they really changed.
     pub fn edit_settings(
@@ -189,10 +219,11 @@ impl Chart {
                 cx,
                 crate::ui::kit::toast::Kind::Warning,
                 "Indicator limit reached",
-                crate::ui::kit::shortcut::text(&format!(
-                    "This chart allows {} indicators. Change the limit in Settings (Ctrl+,).",
-                    self.max_studies
-                )),
+                format!(
+                    "This chart allows {} indicators. Change the limit in Settings{}.",
+                    self.max_studies,
+                    crate::ui::kit::hints::suffix("open_settings")
+                ),
             );
             return;
         }

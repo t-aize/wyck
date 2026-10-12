@@ -4,7 +4,7 @@ use super::{ChartSettingsEditor, ColorKey, edit_chart, size_mode, size_value};
 use crate::domain::market::PRICE_SCALE;
 use crate::ui::features::chart::options::{CrosshairStyle, ScaleMargin};
 use crate::ui::features::chart::settings::{ChartKind, ChartSettings, ScaleMode};
-use crate::ui::features::chart::transform::BoxSize;
+use crate::ui::features::chart::transform::settings::BoxSize;
 use crate::ui::features::chart::{construction_ui, footprint_ui, overlay, tpo_ui, volume_ui};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, form, icon, number, theme, tokens};

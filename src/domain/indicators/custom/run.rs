@@ -18,6 +18,7 @@ use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
 use super::super::intern;
 use super::super::spec::{PlotKind, SOURCES};
 use super::api;
+use super::other::{self, OtherSymbols};
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -60,6 +61,9 @@ pub struct Run {
     pub values: BTreeMap<String, f64>,
     /// The text the user chose for the inputs that are text, by input key.
     pub texts: BTreeMap<String, String>,
+    /// The prices of the other symbols the script may read with `bars_of`, on the bars of the
+    /// chart, by [`other::key_of`] their names.
+    pub others: BTreeMap<String, other::Aligned>,
     pub declaration: decl::Declaration,
     pub plots: Vec<PlotResult>,
     pub fills: Vec<FillResult>,
@@ -102,6 +106,7 @@ impl Run {
             columns,
             values,
             texts: BTreeMap::new(),
+            others: BTreeMap::new(),
             declaration: decl::Declaration::default(),
             plots: Vec::new(),
             fills: Vec::new(),
@@ -341,6 +346,30 @@ impl Script {
         })
     }
 
+    /// The symbols the script reads the prices of: what the user chose for each input of type
+    /// symbol (the default when nothing was chosen), as [`other::key_of`] their names. The symbol
+    /// of the chart, which an empty name stands for, is not in the list.
+    pub fn symbols_wanted(&self, texts: &BTreeMap<String, String>) -> Vec<String> {
+        let mut wanted: Vec<String> = self
+            .declaration
+            .inputs
+            .iter()
+            .filter(|input| input.input_kind() == super::super::spec::InputKind::Symbol)
+            .map(|input| {
+                texts
+                    .get(&input.key)
+                    .map(|text| text.trim())
+                    .filter(|text| text.chars().count() <= super::api::inputs::MAX_TEXT)
+                    .unwrap_or(&input.text)
+            })
+            .map(other::key_of)
+            .filter(|key| !key.is_empty())
+            .collect();
+        wanted.sort_unstable();
+        wanted.dedup();
+        wanted
+    }
+
     /// Computes the script over `input`, with the values the user chose for the inputs (an input
     /// with no value uses its default).
     ///
@@ -370,10 +399,32 @@ impl Script {
         limits: decl::Limits,
         cancel: Option<Arc<AtomicBool>>,
     ) -> Result<Computed, Vec<decl::Problem>> {
+        self.compute_with_others(input, values, texts, &OtherSymbols::new(), limits, cancel)
+    }
+
+    /// [`Self::compute_with_texts`] with the bars of other symbols, which the script reads with
+    /// `bars_of`. `others` holds them under [`other::key_of`] their names.
+    ///
+    /// # Errors
+    ///
+    /// The problem that stopped it: a mistake of the script, or the limits.
+    pub fn compute_with_others(
+        &self,
+        input: &StudyInput,
+        values: &BTreeMap<String, f64>,
+        texts: &BTreeMap<String, String>,
+        others: &OtherSymbols,
+        limits: decl::Limits,
+        cancel: Option<Arc<AtomicBool>>,
+    ) -> Result<Computed, Vec<decl::Problem>> {
         let columns = decl::Columns::from_input(input);
         let mut scope = globals(&columns, true);
         let mut run = Run::new(Mode::Compute, columns, values.clone(), limits);
         run.texts = texts.clone();
+        run.others = others
+            .iter()
+            .map(|(name, bars)| (name.clone(), other::Aligned::on(&input.time, bars)))
+            .collect();
         run.cancel = cancel;
         let started = Instant::now();
         let installed = Installed::new(run);

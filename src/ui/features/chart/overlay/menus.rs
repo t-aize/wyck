@@ -2,12 +2,12 @@
 
 use crate::domain::drawings::book::Order;
 use crate::domain::market::format_price;
+use crate::ui::features::chart::events::{ChartAction, ChartEvent};
 use crate::ui::features::chart::lines::to_real;
 use crate::ui::features::chart::scene::{Geometry, axis_h};
 use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, Menu, chart_settings_ui, export_ui,
-    indicator_picker,
+    Chart, DrawingCommand, Menu, chart_settings_ui, export_ui, indicator_picker,
 };
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{
@@ -76,11 +76,12 @@ impl Chart {
             );
         }
         if crate::app::alerts::eval::is_alert_tool(drawing.tool) {
-            let seed = ChartAction::AddAlertOn(crate::ui::features::chart::AlertSeed::Drawing {
-                id,
-                zone: crate::app::alerts::eval::is_zone_tool(drawing.tool),
-                timeframe: self.timeframe.code(),
-            });
+            let seed =
+                ChartAction::AddAlertOn(crate::ui::features::chart::events::AlertSeed::Drawing {
+                    id,
+                    zone: crate::app::alerts::eval::is_zone_tool(drawing.tool),
+                    timeframe: self.timeframe.code(),
+                });
             let alert = chart.clone();
             about.push(
                 Entry::new("Add alert on this drawing...")
@@ -201,7 +202,7 @@ impl Chart {
             let mut alerts: Vec<Item> = vec![
                 Entry::new(format!("Add alert at {text}"))
                     .icon(IconName::BellPlus)
-                    .hint("Alt+A")
+                    .hint(crate::ui::kit::hints::hint("add_alert").unwrap_or_default())
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
             ];
@@ -221,7 +222,7 @@ impl Chart {
                     Entry::new(format!("Add alert on {}...", study.title()))
                         .icon(IconName::BellPlus)
                         .on_click(emit(ChartAction::AddAlertOn(
-                            crate::ui::features::chart::AlertSeed::Indicator {
+                            crate::ui::features::chart::events::AlertSeed::Indicator {
                                 study: Box::new(study.clone()),
                                 timeframe: self.timeframe.code(),
                             },
@@ -265,17 +266,17 @@ impl Chart {
                 vec![
                     Entry::new("Copy indicators")
                         .icon(IconName::Copy)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+C"))
+                        .hint(crate::ui::kit::hints::hint("copy_indicators").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
                         .into(),
                     Entry::new("Copy chart settings")
                         .icon(IconName::Copy)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+Shift+C"))
+                        .hint(crate::ui::kit::hints::hint("copy_settings").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
                         .into(),
                     Entry::new("Paste on this chart")
                         .icon(IconName::ClipboardPaste)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+V"))
+                        .hint(crate::ui::kit::hints::hint("paste_to_chart").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
                         .into(),
                 ],
@@ -295,12 +296,12 @@ impl Chart {
                 vec![
                     Entry::new("Take a picture of the chart")
                         .icon(IconName::Camera)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+S"))
+                        .hint(crate::ui::kit::hints::hint("screenshot").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
                         .into(),
                     Entry::new("Take a picture of all the charts")
                         .icon(IconName::Images)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl+Alt+Shift+S"))
+                        .hint(crate::ui::kit::hints::hint("screenshot_all").unwrap_or_default())
                         .disabled(self.layout_charts < 2)
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
                         .into(),
@@ -326,7 +327,7 @@ impl Chart {
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(
-                        popup::row(
+                        popup::parts::row(
                             SharedString::from(format!("chart-zone-{}", zone.code())),
                             zone.name(now),
                             None,
@@ -340,12 +341,12 @@ impl Chart {
                         )),
                     );
                 }
-                popup::card()
+                popup::parts::card()
                     .id("chart-zone-menu")
                     .w(px(tokens::menu::DROPDOWN_WIDTH))
                     .max_h(px((geometry.h as f32 - 60.0).max(160.0)))
                     .overflow_y_scroll()
-                    .child(popup::section_title("Time zone"))
+                    .child(popup::parts::section_title("Time zone"))
                     .child(list)
                     .into_any_element()
             }
@@ -358,7 +359,7 @@ impl Chart {
             .child(card);
         Some(
             deferred(
-                popup::backdrop({
+                popup::parts::backdrop({
                     let this = cx.entity().downgrade();
                     move |_, cx| {
                         let _ = this.update(cx, |this, cx| {

@@ -457,121 +457,6 @@ mod tests {
     }
 
     #[test]
-    fn shift_and_a_click_builds_a_selection_and_a_second_click_takes_one_out() {
-        let mut book = book();
-        apart_lines(&mut book);
-        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
-        let (x, y) = at(150.0, 130.0);
-        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
-        book.release(SYMBOL, &Linear, x, y);
-        let (x, y) = at(150.0, 330.0);
-        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
-        book.release(SYMBOL, &Linear, x, y);
-        assert_eq!(book.selected_count(), 2);
-        assert!(ids.iter().all(|id| book.is_selected(*id)));
-
-        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
-        book.release(SYMBOL, &Linear, x, y);
-        assert_eq!(book.selected_count(), 1);
-        assert!(!book.is_selected(ids[1]));
-    }
-
-    #[test]
-    fn dragging_one_of_a_group_moves_all_of_it_as_one_undo_step() {
-        let mut book = book();
-        apart_lines(&mut book);
-        assert!(book.select_all(SYMBOL, TF));
-        let before: Vec<f64> = book
-            .drawings(SYMBOL)
-            .iter()
-            .map(|d| d.points[0].p)
-            .collect();
-        let (x, y) = at(150.0, 130.0);
-        book.press(SYMBOL, TF, &Linear, x, y);
-        let (x2, y2) = at(150.0, 150.0);
-        book.pointer_moved(SYMBOL, &Linear, x2, y2, false);
-        book.release(SYMBOL, &Linear, x2, y2);
-        let after: Vec<f64> = book
-            .drawings(SYMBOL)
-            .iter()
-            .map(|d| d.points[0].p)
-            .collect();
-        let moved: Vec<f64> = before.iter().zip(&after).map(|(a, b)| b - a).collect();
-        assert!(moved[0].abs() > 0.0);
-        assert!((moved[0] - moved[1]).abs() < 1e-6, "both moved the same");
-        assert_eq!(book.selected_count(), 2, "the group is kept");
-
-        assert!(book.undo());
-        let restored: Vec<f64> = book
-            .drawings(SYMBOL)
-            .iter()
-            .map(|d| d.points[0].p)
-            .collect();
-        assert_eq!(restored, before);
-    }
-
-    #[test]
-    fn a_box_selects_what_has_a_point_inside_it() {
-        let mut book = book();
-        apart_lines(&mut book);
-        let low = book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 80.0), at(300.0, 200.0), false);
-        assert!(low);
-        assert_eq!(book.selected_count(), 1);
-        book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 280.0), at(300.0, 400.0), true);
-        assert_eq!(book.selected_count(), 2, "added to the selection");
-    }
-
-    #[test]
-    fn delete_and_style_changes_reach_every_selected_drawing() {
-        let mut book = book();
-        apart_lines(&mut book);
-        book.select_all(SYMBOL, TF);
-        assert!(book.set_color(SYMBOL, 0x123456));
-        assert!(
-            book.drawings(SYMBOL)
-                .iter()
-                .all(|d| d.style.color == 0x123456)
-        );
-        assert!(book.delete_selected(SYMBOL));
-        assert_eq!(book.count(SYMBOL), 0);
-        assert!(book.undo());
-        assert_eq!(book.count(SYMBOL), 2);
-    }
-
-    #[test]
-    fn a_copy_pastes_on_another_symbol_and_each_paste_lands_further() {
-        let mut book = book();
-        apart_lines(&mut book);
-        book.select_all(SYMBOL, TF);
-        assert!(book.copy_selection(SYMBOL));
-        assert!(book.paste("EURUSD", &Linear));
-        assert_eq!(book.count("EURUSD"), 2);
-        assert_eq!(book.selected_count(), 2, "the copies are selected");
-        assert!(book.paste("EURUSD", &Linear));
-        let list = book.drawings("EURUSD");
-        assert_eq!(list.len(), 4);
-        assert_ne!(list[0].points[0], list[2].points[0]);
-        assert_eq!(book.count(SYMBOL), 2, "the originals stay");
-    }
-
-    #[test]
-    fn the_arrows_move_the_selection_but_not_a_locked_drawing() {
-        let mut book = book();
-        apart_lines(&mut book);
-        let id = book.drawings(SYMBOL)[0].id;
-        book.select(Some(id));
-        let start = book.drawings(SYMBOL)[0].points[0];
-        assert!(book.nudge(SYMBOL, &Linear, 1.0, 1.0));
-        let moved = book.drawings(SYMBOL)[0].points[0];
-        assert!(moved.t > start.t && moved.p > start.p);
-        assert!(book.toggle_lock(SYMBOL));
-        assert!(
-            !book.nudge(SYMBOL, &Linear, 1.0, 1.0),
-            "a locked drawing stays"
-        );
-    }
-
-    #[test]
     fn an_arrow_path_takes_a_point_per_click_and_ends_on_a_double_click() {
         let mut book = book();
         book.set_tool(Some(Tool::ArrowPath));
@@ -620,33 +505,6 @@ mod tests {
             assert_eq!(book.count(SYMBOL), 1, "{tool:?} is not made");
             assert!(book.drawings(SYMBOL)[0].is_valid(), "{tool:?} is not valid");
         }
-    }
-
-    #[test]
-    fn a_position_can_be_flipped_to_the_other_side() {
-        let mut book = book();
-        book.set_tool(Some(Tool::LongPosition));
-        click(&mut book, 300.0, 200.0);
-        let id = book.selected().unwrap();
-        let before = book.get(SYMBOL, id).unwrap().clone();
-        assert!(book.flip_position(SYMBOL, id));
-        let flipped = book.get(SYMBOL, id).unwrap();
-        assert_eq!(flipped.tool, Tool::ShortPosition);
-        assert_eq!(flipped.points[0], before.points[0], "the entry stays");
-        let entry = before.points[0].p;
-        assert!((flipped.points[1].p - (2.0 * entry - before.points[1].p)).abs() < 1e-9);
-        assert!((flipped.points[2].p - (2.0 * entry - before.points[2].p)).abs() < 1e-9);
-        assert!(book.flip_position(SYMBOL, id));
-        assert_eq!(book.get(SYMBOL, id).unwrap().points, before.points);
-        assert!(book.undo() && book.undo());
-        assert_eq!(book.get(SYMBOL, id).unwrap().tool, Tool::LongPosition);
-        let line = {
-            book.set_tool(Some(Tool::TrendLine));
-            click(&mut book, 60.0, 100.0);
-            click(&mut book, 180.0, 160.0);
-            book.selected().unwrap()
-        };
-        assert!(!book.flip_position(SYMBOL, line), "only positions flip");
     }
 
     #[test]
@@ -977,6 +835,54 @@ mod tests {
     }
 
     #[test]
+    fn a_five_point_pattern_takes_five_clicks() {
+        let mut book = book();
+        book.set_tool(Some(Tool::Xabcd));
+        for (i, price) in [100.0, 200.0, 150.0, 180.0, 120.0].iter().enumerate() {
+            assert_eq!(book.count(SYMBOL), 0);
+            click(&mut book, 60.0 * (i as f32 + 1.0), *price);
+        }
+        assert_eq!(book.count(SYMBOL), 1);
+        let pattern = &book.drawings(SYMBOL)[0];
+        assert_eq!(pattern.points.len(), 5);
+        assert!(pattern.is_valid());
+    }
+
+    #[test]
+    fn with_the_tool_kept_several_lines_are_drawn_in_a_row() {
+        let mut book = book();
+        book.set_keep_tool(true);
+        book.set_tool(Some(Tool::TrendLine));
+        for n in 0..3 {
+            click(&mut book, 60.0, 100.0 + n as f32 * 20.0);
+            assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(1));
+            click(&mut book, 300.0, 150.0 + n as f32 * 20.0);
+        }
+        assert_eq!(book.count(SYMBOL), 3);
+        assert_eq!(
+            book.tool(),
+            Some(Tool::TrendLine),
+            "the tool is still picked"
+        );
+        // A text gives way at once, so its words can be typed.
+        book.set_tool(Some(Tool::Text));
+        click(&mut book, 100.0, 100.0);
+        assert_eq!(book.tool(), None);
+    }
+
+    #[test]
+    fn shift_keeps_a_line_to_45_degrees() {
+        let mut book = book();
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 100.0);
+        // Nearly flat: it lies flat.
+        let (x, y) = at(300.0, 104.0);
+        book.pointer_moved(SYMBOL, &Linear, x, y, true);
+        let line = book.creating(SYMBOL).unwrap();
+        assert!((line.points[1].p - 100.0).abs() < 1.0, "{:?}", line.points);
+    }
+
+    #[test]
     fn a_press_on_a_drawing_selects_it_and_dragging_moves_it_whole() {
         let mut book = with_a_line();
         book.selected = None;
@@ -1083,6 +989,43 @@ mod tests {
         );
         assert_eq!(after.points[0], before.points[0]);
         assert_eq!(after.points[2], before.points[2]);
+    }
+
+    #[test]
+    fn a_right_click_finds_the_drawing_under_the_pointer() {
+        let (book, _, second) = two_lines();
+        // The second line runs from (60 s, 150) to (300 s, 250); its middle is (180, 200).
+        let (x, y) = at(180.0, 200.0);
+        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), Some(second));
+        let (x, y) = at(180.0, 50.0);
+        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), None);
+    }
+
+    #[test]
+    fn a_position_can_be_flipped_to_the_other_side() {
+        let mut book = book();
+        book.set_tool(Some(Tool::LongPosition));
+        click(&mut book, 300.0, 200.0);
+        let id = book.selected().unwrap();
+        let before = book.get(SYMBOL, id).unwrap().clone();
+        assert!(book.flip_position(SYMBOL, id));
+        let flipped = book.get(SYMBOL, id).unwrap();
+        assert_eq!(flipped.tool, Tool::ShortPosition);
+        assert_eq!(flipped.points[0], before.points[0], "the entry stays");
+        let entry = before.points[0].p;
+        assert!((flipped.points[1].p - (2.0 * entry - before.points[1].p)).abs() < 1e-9);
+        assert!((flipped.points[2].p - (2.0 * entry - before.points[2].p)).abs() < 1e-9);
+        assert!(book.flip_position(SYMBOL, id));
+        assert_eq!(book.get(SYMBOL, id).unwrap().points, before.points);
+        assert!(book.undo() && book.undo());
+        assert_eq!(book.get(SYMBOL, id).unwrap().tool, Tool::LongPosition);
+        let line = {
+            book.set_tool(Some(Tool::TrendLine));
+            click(&mut book, 60.0, 100.0);
+            click(&mut book, 180.0, 160.0);
+            book.selected().unwrap()
+        };
+        assert!(!book.flip_position(SYMBOL, line), "only positions flip");
     }
 
     #[test]
@@ -1377,60 +1320,117 @@ mod tests {
     }
 
     #[test]
-    fn a_right_click_finds_the_drawing_under_the_pointer() {
-        let (book, _, second) = two_lines();
-        // The second line runs from (60 s, 150) to (300 s, 250); its middle is (180, 200).
-        let (x, y) = at(180.0, 200.0);
-        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), Some(second));
-        let (x, y) = at(180.0, 50.0);
-        assert_eq!(book.drawing_at(SYMBOL, TF, &Linear, x, y), None);
+    fn shift_and_a_click_builds_a_selection_and_a_second_click_takes_one_out() {
+        let mut book = book();
+        apart_lines(&mut book);
+        let ids: Vec<u64> = book.drawings(SYMBOL).iter().map(|d| d.id).collect();
+        let (x, y) = at(150.0, 130.0);
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        let (x, y) = at(150.0, 330.0);
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        assert_eq!(book.selected_count(), 2);
+        assert!(ids.iter().all(|id| book.is_selected(*id)));
+
+        book.press_adding(SYMBOL, TF, &Linear, x, y, true, &|d| Some(d.clone()));
+        book.release(SYMBOL, &Linear, x, y);
+        assert_eq!(book.selected_count(), 1);
+        assert!(!book.is_selected(ids[1]));
     }
 
     #[test]
-    fn a_five_point_pattern_takes_five_clicks() {
+    fn dragging_one_of_a_group_moves_all_of_it_as_one_undo_step() {
         let mut book = book();
-        book.set_tool(Some(Tool::Xabcd));
-        for (i, price) in [100.0, 200.0, 150.0, 180.0, 120.0].iter().enumerate() {
-            assert_eq!(book.count(SYMBOL), 0);
-            click(&mut book, 60.0 * (i as f32 + 1.0), *price);
-        }
-        assert_eq!(book.count(SYMBOL), 1);
-        let pattern = &book.drawings(SYMBOL)[0];
-        assert_eq!(pattern.points.len(), 5);
-        assert!(pattern.is_valid());
+        apart_lines(&mut book);
+        assert!(book.select_all(SYMBOL, TF));
+        let before: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        let (x, y) = at(150.0, 130.0);
+        book.press(SYMBOL, TF, &Linear, x, y);
+        let (x2, y2) = at(150.0, 150.0);
+        book.pointer_moved(SYMBOL, &Linear, x2, y2, false);
+        book.release(SYMBOL, &Linear, x2, y2);
+        let after: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        let moved: Vec<f64> = before.iter().zip(&after).map(|(a, b)| b - a).collect();
+        assert!(moved[0].abs() > 0.0);
+        assert!((moved[0] - moved[1]).abs() < 1e-6, "both moved the same");
+        assert_eq!(book.selected_count(), 2, "the group is kept");
+
+        assert!(book.undo());
+        let restored: Vec<f64> = book
+            .drawings(SYMBOL)
+            .iter()
+            .map(|d| d.points[0].p)
+            .collect();
+        assert_eq!(restored, before);
     }
 
     #[test]
-    fn with_the_tool_kept_several_lines_are_drawn_in_a_row() {
+    fn a_box_selects_what_has_a_point_inside_it() {
         let mut book = book();
-        book.set_keep_tool(true);
-        book.set_tool(Some(Tool::TrendLine));
-        for n in 0..3 {
-            click(&mut book, 60.0, 100.0 + n as f32 * 20.0);
-            assert_eq!(book.progress(SYMBOL).map(|p| p.1), Some(1));
-            click(&mut book, 300.0, 150.0 + n as f32 * 20.0);
-        }
-        assert_eq!(book.count(SYMBOL), 3);
-        assert_eq!(
-            book.tool(),
-            Some(Tool::TrendLine),
-            "the tool is still picked"
+        apart_lines(&mut book);
+        let low = book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 80.0), at(300.0, 200.0), false);
+        assert!(low);
+        assert_eq!(book.selected_count(), 1);
+        book.select_in_box(SYMBOL, TF, &Linear, at(0.0, 280.0), at(300.0, 400.0), true);
+        assert_eq!(book.selected_count(), 2, "added to the selection");
+    }
+
+    #[test]
+    fn delete_and_style_changes_reach_every_selected_drawing() {
+        let mut book = book();
+        apart_lines(&mut book);
+        book.select_all(SYMBOL, TF);
+        assert!(book.set_color(SYMBOL, 0x123456));
+        assert!(
+            book.drawings(SYMBOL)
+                .iter()
+                .all(|d| d.style.color == 0x123456)
         );
-        // A text gives way at once, so its words can be typed.
-        book.set_tool(Some(Tool::Text));
-        click(&mut book, 100.0, 100.0);
-        assert_eq!(book.tool(), None);
+        assert!(book.delete_selected(SYMBOL));
+        assert_eq!(book.count(SYMBOL), 0);
+        assert!(book.undo());
+        assert_eq!(book.count(SYMBOL), 2);
     }
 
     #[test]
-    fn shift_keeps_a_line_to_45_degrees() {
+    fn a_copy_pastes_on_another_symbol_and_each_paste_lands_further() {
         let mut book = book();
-        book.set_tool(Some(Tool::TrendLine));
-        click(&mut book, 60.0, 100.0);
-        // Nearly flat: it lies flat.
-        let (x, y) = at(300.0, 104.0);
-        book.pointer_moved(SYMBOL, &Linear, x, y, true);
-        let line = book.creating(SYMBOL).unwrap();
-        assert!((line.points[1].p - 100.0).abs() < 1.0, "{:?}", line.points);
+        apart_lines(&mut book);
+        book.select_all(SYMBOL, TF);
+        assert!(book.copy_selection(SYMBOL));
+        assert!(book.paste("EURUSD", &Linear));
+        assert_eq!(book.count("EURUSD"), 2);
+        assert_eq!(book.selected_count(), 2, "the copies are selected");
+        assert!(book.paste("EURUSD", &Linear));
+        let list = book.drawings("EURUSD");
+        assert_eq!(list.len(), 4);
+        assert_ne!(list[0].points[0], list[2].points[0]);
+        assert_eq!(book.count(SYMBOL), 2, "the originals stay");
+    }
+
+    #[test]
+    fn the_arrows_move_the_selection_but_not_a_locked_drawing() {
+        let mut book = book();
+        apart_lines(&mut book);
+        let id = book.drawings(SYMBOL)[0].id;
+        book.select(Some(id));
+        let start = book.drawings(SYMBOL)[0].points[0];
+        assert!(book.nudge(SYMBOL, &Linear, 1.0, 1.0));
+        let moved = book.drawings(SYMBOL)[0].points[0];
+        assert!(moved.t > start.t && moved.p > start.p);
+        assert!(book.toggle_lock(SYMBOL));
+        assert!(
+            !book.nudge(SYMBOL, &Linear, 1.0, 1.0),
+            "a locked drawing stays"
+        );
     }
 }

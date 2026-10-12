@@ -4,11 +4,14 @@
 //! Like the rest of [`super::geometry`], this is plain arithmetic on screen positions, tested
 //! with the linear projection of the geometry tests.
 
+pub mod gann;
+pub mod patterns;
+
 use super::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
-use super::geometry::{Anchor, P, Prim, Projection, Rect, extended, seg};
+use super::geometry::{Anchor, P, Prim, Projection, Rect, seg};
 use super::model::style::Dash;
 use super::model::tool::Tool;
-use super::model::{Drawing, Point, wave_label};
+use super::model::{Drawing, Point};
 
 /// How far a label sits above or below the point it names.
 const LABEL_GAP: f32 = 14.0;
@@ -25,19 +28,19 @@ pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
         Tool::FibChannel => fib_channel(drawing, pts, rect, out),
         Tool::FibTimeZone => fib_time_zone(drawing, pts, proj, out),
         Tool::FibFan => fib_fan(drawing, pts, rect, out),
-        Tool::GannFan => gann_fan(drawing, pts, rect, out),
-        Tool::GannBox => gann_box(drawing, pts, proj, out),
-        Tool::GannSquare => gann_square(drawing, pts, out),
+        Tool::GannFan => gann::gann_fan(drawing, pts, rect, out),
+        Tool::GannBox => gann::gann_box(drawing, pts, proj, out),
+        Tool::GannSquare => gann::gann_square(drawing, pts, out),
         Tool::Xabcd | Tool::Cypher | Tool::Abcd | Tool::ThreeDrives => {
-            harmonic(drawing, pts, out);
+            patterns::harmonic(drawing, pts, out);
         }
-        Tool::HeadAndShoulders => head_and_shoulders(drawing, pts, rect, out),
-        Tool::TrianglePattern => triangle_pattern(drawing, pts, out),
+        Tool::HeadAndShoulders => patterns::head_and_shoulders(drawing, pts, rect, out),
+        Tool::TrianglePattern => patterns::triangle_pattern(drawing, pts, out),
         Tool::ElliottImpulse
         | Tool::ElliottCorrection
         | Tool::ElliottTriangle
         | Tool::ElliottDoubleCombo
-        | Tool::ElliottTripleCombo => elliott(drawing, pts, out),
+        | Tool::ElliottTripleCombo => patterns::elliott(drawing, pts, out),
         _ => {}
     }
 }
@@ -359,396 +362,6 @@ fn fib_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
     ));
 }
 
-/// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
-pub fn gann_text(ratio: f64) -> String {
-    if ratio >= 1.0 {
-        format!("{}/1", level_text(ratio))
-    } else if ratio > 0.0 {
-        format!("1/{}", level_text(1.0 / ratio))
-    } else {
-        level_text(ratio)
-    }
-}
-
-fn gann_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
-    let (a, b) = (pts[0], pts[1]);
-    let d = sub(b, a);
-    let mut levels = visible_levels(drawing);
-    levels.reverse();
-    let through: Vec<(P, u32, String)> = levels
-        .into_iter()
-        .map(|l| {
-            let p = (a.0 + d.0, a.1 + d.1 * l.value as f32);
-            (p, l.color, gann_text(l.value))
-        })
-        .collect();
-    fan(drawing, a, &through, rect, out);
-}
-
-/// The positions of the levels along one side of a box, from `from` to `to`.
-fn along(from: f32, to: f32, k: f64, reverse: bool) -> f32 {
-    let k = if reverse { 1.0 - k } else { k } as f32;
-    from + (to - from) * k
-}
-
-fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
-    let levels = visible_levels(drawing);
-    let (top, bottom) = (a.1.min(b.1), a.1.max(b.1));
-    let (left, right) = (a.0.min(b.0), a.0.max(b.0));
-    // The zones between the price levels.
-    if let Some((_, opacity)) = fill_of(style) {
-        for pair in levels.windows(2) {
-            out.push(Prim::Rect {
-                a: (left, along(a.1, b.1, pair[0].value, drawing.reverse)),
-                b: (right, along(a.1, b.1, pair[1].value, drawing.reverse)),
-                fill: Some((pair[1].color, opacity)),
-                stroke: None,
-            });
-        }
-    }
-    for level in &levels {
-        let y = along(a.1, b.1, level.value, drawing.reverse);
-        let x = along(a.0, b.0, level.value, drawing.reverse);
-        out.push(seg(
-            (left, y),
-            (right, y),
-            level.color,
-            0.9,
-            level.line_width(style.width),
-            level.line_dash(style.dash),
-        ));
-        out.push(seg(
-            (x, top),
-            (x, bottom),
-            level.color,
-            0.9,
-            level.line_width(style.width),
-            level.line_dash(style.dash),
-        ));
-        if style.labels {
-            out.push(label(
-                (left - 4.0, y),
-                level_label(style, level.value, None),
-                level.color,
-                Anchor::Right,
-                style,
-            ));
-            out.push(label(
-                (x, bottom + 10.0),
-                level_label(style, level.value, None),
-                level.color,
-                Anchor::Center,
-                style,
-            ));
-        }
-    }
-    if style.middle {
-        out.push(seg(a, b, style.color, 0.8, 1.0, Dash::Dashed));
-        out.push(seg(
-            (a.0, b.1),
-            (b.0, a.1),
-            style.color,
-            0.8,
-            1.0,
-            Dash::Dashed,
-        ));
-    }
-    if style.labels {
-        // How far the box reaches, in price and in bars.
-        let (p, q) = (drawing.points[0], drawing.points[1]);
-        let span = proj.format_price((q.p - p.p).abs());
-        let bars = match (proj.index_of(p.t), proj.index_of(q.t)) {
-            (Some(i), Some(j)) => format!(", {} bars", (j - i).abs().round()),
-            _ => String::new(),
-        };
-        out.push(label(
-            ((left + right) / 2.0, top - 10.0),
-            format!("{span}{bars}"),
-            style.color,
-            Anchor::Center,
-            style,
-        ));
-    }
-}
-
-pub(super) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    let (a, b) = (pts[0], pts[1]);
-    let d = sub(b, a);
-    let levels = visible_levels(drawing);
-    // The grid.
-    for level in &levels {
-        let k = level.value as f32;
-        let (x, y) = (a.0 + d.0 * k, a.1 + d.1 * k);
-        out.push(seg(
-            (a.0, y),
-            (b.0, y),
-            level.color,
-            0.7,
-            level.line_width(1.0),
-            level.line_dash(style.dash),
-        ));
-        out.push(seg(
-            (x, a.1),
-            (x, b.1),
-            level.color,
-            0.7,
-            level.line_width(1.0),
-            level.line_dash(style.dash),
-        ));
-    }
-    // The arcs about the first point, each a quarter towards the second.
-    let (sx, sy) = (d.0.signum(), d.1.signum());
-    for level in levels.iter().filter(|l| l.value > 0.0) {
-        let k = level.value as f32;
-        let (rx, ry) = (d.0.abs() * k, d.1.abs() * k);
-        let points: Vec<P> = (0..=24)
-            .map(|i| {
-                let angle = i as f32 / 24.0 * std::f32::consts::FRAC_PI_2;
-                (a.0 + sx * rx * angle.cos(), a.1 + sy * ry * angle.sin())
-            })
-            .collect();
-        if let Some((_, opacity)) = fill_of(style) {
-            let mut wedge = points.clone();
-            wedge.push(a);
-            out.push(Prim::Polygon {
-                points: wedge,
-                fill: (level.color, opacity * 0.5),
-            });
-        }
-        out.push(Prim::Polyline {
-            points,
-            color: level.color,
-            width: style.width,
-            alpha: 1.0,
-        });
-    }
-    // The fan from the first point to each level on the far sides.
-    for level in &levels {
-        let k = level.value as f32;
-        out.push(seg(
-            a,
-            (b.0, a.1 + d.1 * k),
-            level.color,
-            0.8,
-            level.line_width(1.0),
-            level.line_dash(Dash::Solid),
-        ));
-        out.push(seg(
-            a,
-            (a.0 + d.0 * k, b.1),
-            level.color,
-            0.8,
-            level.line_width(1.0),
-            level.line_dash(Dash::Solid),
-        ));
-    }
-    if style.middle {
-        out.push(seg(a, b, style.color, 1.0, style.width, style.dash));
-        out.push(seg(
-            (a.0, b.1),
-            (b.0, a.1),
-            style.color,
-            1.0,
-            style.width,
-            style.dash,
-        ));
-    }
-    out.push(Prim::Rect {
-        a,
-        b,
-        fill: None,
-        stroke: Some((style.color, style.width)),
-    });
-}
-
-/// The zigzag through every point.
-fn zigzag(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    for pair in pts.windows(2) {
-        out.push(seg(
-            pair[0],
-            pair[1],
-            style.color,
-            1.0,
-            style.width,
-            style.dash,
-        ));
-    }
-}
-
-fn harmonic(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    let p = &drawing.points;
-    let names: &[&str] = match drawing.tool {
-        Tool::Xabcd | Tool::Cypher => &["X", "A", "B", "C", "D"],
-        Tool::Abcd => &["A", "B", "C", "D"],
-        _ => &["", "1", "A", "2", "B", "3", ""],
-    };
-    // The two triangles of a five point pattern, the zones of a four point one.
-    if let Some(fill) = fill_of(style) {
-        let triangles: Vec<[usize; 3]> = match pts.len() {
-            5 => vec![[0, 1, 2], [2, 3, 4]],
-            4 => vec![[0, 1, 2], [1, 2, 3]],
-            _ => vec![[1, 2, 3], [3, 4, 5]],
-        };
-        for [i, j, k] in triangles {
-            out.push(Prim::Polygon {
-                points: vec![pts[i], pts[j], pts[k]],
-                fill,
-            });
-        }
-    }
-    zigzag(drawing, pts, out);
-    if style.middle {
-        // Which moves are compared, as (dashed line from, to, the ratio of the moves).
-        let ratios: Vec<(usize, usize, Option<String>)> = match drawing.tool {
-            Tool::Xabcd => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-                (2, 4, ratio(p[3], p[4], p[2], p[3])),
-                (0, 4, ratio(p[1], p[4], p[0], p[1])),
-            ],
-            Tool::Cypher => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[0], p[3], p[0], p[1])),
-                (0, 4, ratio(p[3], p[4], p[0], p[3])),
-            ],
-            Tool::Abcd => vec![
-                (0, 2, ratio(p[1], p[2], p[0], p[1])),
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-            ],
-            _ => vec![
-                (1, 3, ratio(p[2], p[3], p[1], p[2])),
-                (3, 5, ratio(p[4], p[5], p[3], p[4])),
-                (2, 4, ratio(p[3], p[4], p[2], p[3])),
-            ],
-        };
-        for (from, to, text) in ratios {
-            out.push(seg(pts[from], pts[to], style.color, 0.7, 1.0, Dash::Dashed));
-            if style.labels
-                && let Some(text) = text
-            {
-                out.push(ratio_label(pts[from], pts[to], text, drawing));
-            }
-        }
-    }
-    if style.labels {
-        for (i, name) in names.iter().enumerate().filter(|(_, n)| !n.is_empty()) {
-            let text = match drawing.tool {
-                Tool::ThreeDrives
-                    if name.len() == 1 && name.chars().all(|c| c.is_ascii_digit()) =>
-                {
-                    format!("Drive {name}")
-                }
-                _ => (*name).to_owned(),
-            };
-            out.push(point_label(pts, i, text, drawing, true));
-        }
-    }
-}
-
-fn head_and_shoulders(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    if let Some(fill) = fill_of(style) {
-        for [i, j, k] in [[0, 1, 2], [2, 3, 4], [4, 5, 6]] {
-            out.push(Prim::Polygon {
-                points: vec![pts[i], pts[j], pts[k]],
-                fill,
-            });
-        }
-    }
-    zigzag(drawing, pts, out);
-    // The neckline, through the two troughs, from the first point to the last.
-    let (n1, n2) = (pts[2], pts[4]);
-    if (n2.0 - n1.0).abs() > 1e-3 {
-        let slope = (n2.1 - n1.1) / (n2.0 - n1.0);
-        let at = |x: f32| (x, n1.1 + slope * (x - n1.0));
-        let (mut start, mut end) = (at(pts[0].0.min(n1.0)), at(pts[6].0.max(n2.0)));
-        if (style.extend_left || style.extend_right)
-            && let Some((p, q)) = extended(start, end, style.extend_left, style.extend_right, rect)
-        {
-            (start, end) = (p, q);
-        }
-        out.push(seg(start, end, style.color, 1.0, style.width, Dash::Dashed));
-    }
-    if style.labels {
-        for (i, name) in [(1, "Left shoulder"), (3, "Head"), (5, "Right shoulder")] {
-            out.push(point_label(pts, i, name.to_owned(), drawing, true));
-        }
-    }
-}
-
-/// Where the lines `a` to `b` and `c` to `d` meet, if they are not parallel.
-fn intersection(a: P, b: P, c: P, d: P) -> Option<P> {
-    let (r, s) = (sub(b, a), sub(d, c));
-    let denominator = r.0 * s.1 - r.1 * s.0;
-    if denominator.abs() < 1e-6 {
-        return None;
-    }
-    let t = ((c.0 - a.0) * s.1 - (c.1 - a.1) * s.0) / denominator;
-    Some(add(a, scale(r, t)))
-}
-
-fn triangle_pattern(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
-    let style = &drawing.style;
-    let (a, b, c, d) = (pts[0], pts[1], pts[2], pts[3]);
-    let right = a.0.max(b.0).max(c.0).max(d.0);
-    // The two sides run on to where they meet, when that is ahead; otherwise to the last point.
-    let apex = intersection(a, c, b, d).filter(|p| p.0 > right);
-    let side = |p: P, q: P| -> P {
-        match apex {
-            Some(apex) => apex,
-            None if (q.0 - p.0).abs() > 1e-3 => {
-                (right, p.1 + (q.1 - p.1) * (right - p.0) / (q.0 - p.0))
-            }
-            None => q,
-        }
-    };
-    let (upper_end, lower_end) = (side(a, c), side(b, d));
-    if let Some(fill) = fill_of(style) {
-        out.push(Prim::Polygon {
-            points: vec![a, upper_end, lower_end, b],
-            fill,
-        });
-    }
-    out.push(seg(a, upper_end, style.color, 1.0, style.width, style.dash));
-    out.push(seg(b, lower_end, style.color, 1.0, style.width, style.dash));
-    zigzag(drawing, pts, out);
-    if style.labels {
-        for (i, name) in ["A", "B", "C", "D"].iter().enumerate() {
-            out.push(point_label(pts, i, (*name).to_owned(), drawing, true));
-        }
-    }
-}
-
-/// The names of the points of an Elliott wave, the first being its start.
-pub fn wave_names(tool: Tool) -> &'static [&'static str] {
-    match tool {
-        Tool::ElliottImpulse => &["0", "1", "2", "3", "4", "5"],
-        Tool::ElliottCorrection => &["0", "A", "B", "C"],
-        Tool::ElliottTriangle => &["0", "A", "B", "C", "D", "E"],
-        Tool::ElliottDoubleCombo => &["0", "W", "X", "Y"],
-        Tool::ElliottTripleCombo => &["0", "W", "X", "Y", "X", "Z"],
-        _ => &[],
-    }
-}
-
-fn elliott(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
-    zigzag(drawing, pts, out);
-    if !drawing.style.labels {
-        return;
-    }
-    for (i, name) in wave_names(drawing.tool).iter().enumerate().skip(1) {
-        if i < pts.len() {
-            let text = wave_label(name, drawing.degree);
-            out.push(point_label(pts, i, text, drawing, false));
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::geometry::hit::hit;
@@ -832,8 +445,8 @@ mod tests {
             *a == (100.0, 400.0) && ((b.1 - 400.0) / (b.0 - 100.0) + 1.0).abs() < 1e-3
         });
         assert!(one.is_some());
-        assert_eq!(gann_text(1.0 / 3.0), "1/3");
-        assert_eq!(gann_text(4.0), "4/1");
+        assert_eq!(gann::gann_text(1.0 / 3.0), "1/3");
+        assert_eq!(gann::gann_text(4.0), "4/1");
     }
 
     #[test]

@@ -292,6 +292,19 @@ impl OrderTicket {
                     ))
                     .child("ATR settings"),
             );
+        if self.kind.is_pending() {
+            let follow = cx.entity();
+            column = column
+                .child(line(
+                    "Follow the ATR while it waits",
+                    controls::toggle("ticket-atr-follow", self.follow_atr, move |on, _w, cx| {
+                        follow.update(cx, |t, cx| t.set_follow_atr(on, cx));
+                    }),
+                ))
+                .child(hint(
+                    "While the order waits, Wyck moves its stop loss with the ATR, and its take profit when that is a multiple of the risk. It stops if you move the stop yourself, and when the order fills or goes. Wyck must be open; the volume does not change.",
+                ));
+        }
         if open {
             column = column.child(self.atr_details(window, cx));
         }

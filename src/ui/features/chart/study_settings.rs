@@ -4,6 +4,7 @@
 //! the changes, Cancel puts the indicator back as it was, and Escape or the close button keep
 //! them.
 
+mod build;
 pub mod inputs;
 pub mod style;
 
@@ -14,9 +15,9 @@ use super::study::spec::{InputKind, Placement};
 use super::study::style::{FillStyle, LevelStyle};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme};
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -171,258 +172,6 @@ struct StudyEditor {
 }
 
 impl StudyEditor {
-    fn new(
-        chart: Entity<Chart>,
-        index: usize,
-        config: StudyConfig,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let target = Target {
-            chart: chart.clone(),
-            index,
-            kind: config.kind,
-        };
-        let mut subscriptions = vec![cx.observe(&chart, |_this, _chart, cx| cx.notify())];
-        let mut fields = Vec::new();
-        for input in config.spec().inputs {
-            if !matches!(input.kind, InputKind::Int | InputKind::Float) {
-                continue;
-            }
-            let decimals = if input.kind == InputKind::Int { 0 } else { 4 };
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::Declared {
-                        step: input.step,
-                        decimals,
-                    },
-                    config.input(input.key),
-                    window,
-                    cx,
-                )
-                .min(input.min)
-                .max(input.max)
-            });
-            let key = input.key;
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                this.target.clone().set_input(key, value, cx);
-            }));
-            fields.push((key, state));
-        }
-        let mut texts = Vec::new();
-        for input in config.spec().inputs {
-            if !input.kind.is_text() {
-                continue;
-            }
-            let placeholder = match input.kind {
-                InputKind::Symbol => "The symbol of the chart",
-                InputKind::Timeframe => "The timeframe of the chart, or e.g. 4h",
-                InputKind::Session => "e.g. 0930-1600",
-                _ => "",
-            };
-            let value = config.text(input.key);
-            let state = cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder(placeholder)
-                    .default_value(value)
-            });
-            let key = input.key;
-            subscriptions.push(
-                cx.subscribe(&state, move |this, state, event: &InputEvent, cx| {
-                    if matches!(event, InputEvent::Change) {
-                        let value = state.read(cx).value().trim().to_owned();
-                        this.target.clone().set_text(key, value, cx);
-                    }
-                }),
-            );
-            texts.push((key, state));
-        }
-        let mut opacity = Vec::new();
-        for plot in config.spec().plots {
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::Share,
-                    f64::from(config.plot_style(plot.key).opacity) * 100.0,
-                    window,
-                    cx,
-                )
-            });
-            let key = plot.key;
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                let value = (value / 100.0).clamp(0.05, 1.0) as f32;
-                this.target
-                    .clone()
-                    .plot(key, cx, |style| style.opacity = value);
-            }));
-            opacity.push((key, state));
-        }
-        let mut widths = Vec::new();
-        for plot in config.spec().plots {
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::LineWidth,
-                    f64::from(config.plot_style(plot.key).width),
-                    window,
-                    cx,
-                )
-            });
-            let key = plot.key;
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                let value = value.clamp(0.5, 20.0) as f32;
-                this.target
-                    .clone()
-                    .plot(key, cx, |style| style.width = value);
-            }));
-            widths.push((key, state));
-        }
-        let mut bar_widths = Vec::new();
-        for plot in config.spec().plots {
-            let key = plot.key;
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::Share,
-                    f64::from(config.plot_style(key).bar_width) * 100.0,
-                    window,
-                    cx,
-                )
-                .min(10.0)
-            });
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                this.target
-                    .clone()
-                    .plot(key, cx, |style| style.bar_width = (value / 100.0) as f32);
-            }));
-            bar_widths.push((key, state));
-        }
-        let mut level_values = Vec::new();
-        let mut level_widths = Vec::new();
-        let mut level_opacity = Vec::new();
-        for (index, value) in config.default_levels().into_iter().enumerate() {
-            let style = config.levels.get(&index).copied().unwrap_or_default();
-            let value = style.value.unwrap_or(value);
-            let state = cx.new(|cx| number::state(number::Kind::Level, value, window, cx));
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                this.target
-                    .clone()
-                    .level(index, cx, |style| style.value = Some(value));
-            }));
-            level_values.push((index, state));
-            let width = cx.new(|cx| {
-                number::state(number::Kind::LineWidth, f64::from(style.width), window, cx)
-            });
-            subscriptions.push(number::watch(&width, cx, move |this, value, cx| {
-                this.target
-                    .clone()
-                    .level(index, cx, |style| style.width = value as f32);
-            }));
-            level_widths.push((index, width));
-            let opacity = cx.new(|cx| {
-                number::state(
-                    number::Kind::Share,
-                    f64::from(style.opacity) * 100.0,
-                    window,
-                    cx,
-                )
-            });
-            subscriptions.push(number::watch(&opacity, cx, move |this, value, cx| {
-                this.target
-                    .clone()
-                    .level(index, cx, |style| style.opacity = (value / 100.0) as f32);
-            }));
-            level_opacity.push((index, opacity));
-        }
-        let mut fill_opacity = Vec::new();
-        for index in 0..2 {
-            let Some(default) = config.default_fill(index) else {
-                continue;
-            };
-            let style = config.fills.get(&index).copied().unwrap_or(default);
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::Share,
-                    f64::from(style.opacity) * 100.0,
-                    window,
-                    cx,
-                )
-            });
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                this.target.clone().fill(index, default, cx, |style| {
-                    style.opacity = (value / 100.0) as f32
-                });
-            }));
-            fill_opacity.push((index, state));
-        }
-        let band_opacity = config.default_band().map(|default| {
-            let style = config.band.unwrap_or(default);
-            let state = cx.new(|cx| {
-                number::state(
-                    number::Kind::Share,
-                    f64::from(style.opacity) * 100.0,
-                    window,
-                    cx,
-                )
-            });
-            subscriptions.push(number::watch(&state, cx, move |this, value, cx| {
-                this.target
-                    .clone()
-                    .band(default, cx, |style| style.opacity = (value / 100.0) as f32);
-            }));
-            state
-        });
-        let name = cx.new(|cx| {
-            InputState::new(window, cx)
-                .default_value(config.name.clone())
-                .placeholder(config.spec().label)
-        });
-        subscriptions.push(cx.subscribe(&name, |this, state, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                let value = state.read(cx).value().to_string();
-                this.target.edit(cx, |study| study.name = value);
-            }
-        }));
-        let precision = cx.new(|cx| {
-            number::state(
-                number::Kind::Count,
-                config.precision.unwrap_or(2) as f64,
-                window,
-                cx,
-            )
-            .max(8.0)
-        });
-        subscriptions.push(number::watch(&precision, cx, |this, value, cx| {
-            this.target
-                .edit(cx, |study| study.precision = Some(value as u32));
-        }));
-        Self {
-            target,
-            chart,
-            index,
-            kind: config.kind,
-            original: config,
-            page: Page::Inputs,
-            fields,
-            texts,
-            opacity,
-            widths,
-            bar_widths,
-            level_values,
-            level_widths,
-            level_opacity,
-            fill_opacity,
-            band_opacity,
-            name,
-            precision,
-            color_open: None,
-            up_color_open: None,
-            down_color_open: None,
-            level_color_open: None,
-            fill_color_open: None,
-            fill_other_open: None,
-            band_color_open: false,
-            _subscriptions: subscriptions,
-        }
-    }
-
     fn pages(config: &StudyConfig) -> Vec<Page> {
         let mut pages = Vec::new();
         if !config.spec().inputs.is_empty() || config.is_script() {
@@ -431,82 +180,6 @@ impl StudyEditor {
         pages.push(Page::Style);
         pages.push(Page::Display);
         pages
-    }
-
-    /// Puts the values of `config` back in the number fields.
-    fn set_fields(&self, config: &StudyConfig, window: &mut Window, cx: &mut App) {
-        for (key, state) in &self.fields {
-            let text = number::format(config.input(key), 4);
-            state.update(cx, |state, cx| state.set_value(text, window, cx));
-        }
-        for (key, state) in &self.opacity {
-            let text = number::format(f64::from(config.plot_style(key).opacity) * 100.0, 0);
-            state.update(cx, |state, cx| state.set_value(text, window, cx));
-        }
-        for (key, state) in &self.widths {
-            let text = number::format(f64::from(config.plot_style(key).width), 1);
-            state.update(cx, |state, cx| state.set_value(text, window, cx));
-        }
-        for (key, state) in &self.bar_widths {
-            let text = number::format(f64::from(config.plot_style(key).bar_width) * 100.0, 0);
-            state.update(cx, |state, cx| state.set_value(text, window, cx));
-        }
-        for (index, state) in &self.level_values {
-            if let Some(value) = config.default_levels().get(*index) {
-                let value = config
-                    .levels
-                    .get(index)
-                    .and_then(|s| s.value)
-                    .unwrap_or(*value);
-                state.update(cx, |state, cx| {
-                    state.set_value(number::format(value, 3), window, cx)
-                });
-            }
-        }
-        for (index, state) in &self.level_widths {
-            let style = config.levels.get(index).copied().unwrap_or_default();
-            state.update(cx, |state, cx| {
-                state.set_value(number::format(f64::from(style.width), 1), window, cx)
-            });
-        }
-        for (index, state) in &self.level_opacity {
-            let style = config.levels.get(index).copied().unwrap_or_default();
-            state.update(cx, |state, cx| {
-                state.set_value(
-                    number::format(f64::from(style.opacity) * 100.0, 0),
-                    window,
-                    cx,
-                )
-            });
-        }
-        for (index, state) in &self.fill_opacity {
-            if let Some(default) = config.default_fill(*index) {
-                let style = config.fills.get(index).copied().unwrap_or(default);
-                state.update(cx, |state, cx| {
-                    state.set_value(
-                        number::format(f64::from(style.opacity) * 100.0, 0),
-                        window,
-                        cx,
-                    )
-                });
-            }
-        }
-        if let (Some(default), Some(state)) = (config.default_band(), &self.band_opacity) {
-            let style = config.band.unwrap_or(default);
-            state.update(cx, |state, cx| {
-                state.set_value(
-                    number::format(f64::from(style.opacity) * 100.0, 0),
-                    window,
-                    cx,
-                )
-            });
-        }
-        self.name.update(cx, |state, cx| {
-            state.set_value(config.name.clone(), window, cx)
-        });
-        self.precision.update(cx, |state, cx| {
-            state.set_value(config.precision.unwrap_or(2).to_string(), window, cx)
-        });
     }
 }
 
@@ -648,14 +321,39 @@ impl Render for StudyEditor {
     }
 }
 
-/// The heading of a group of inputs.
-fn group_heading(name: &str) -> AnyElement {
-    div()
-        .pt_2()
-        .text_size(px(tokens::text::small()))
-        .text_color(crate::ui::kit::theme::muted_fg())
-        .child(name.to_uppercase())
-        .into_any_element()
+/// Puts rows into cards, one card for each group a script named, like the groups of the other
+/// settings panels. The rows with no group go in a card called `fallback`. The cards come in the
+/// order their group first appears, and the rows of a group that comes back later join its card.
+fn grouped(
+    icon: IconName,
+    fallback: &'static str,
+    rows: Vec<(&'static str, AnyElement)>,
+) -> Vec<AnyElement> {
+    split_by_group(fallback, rows)
+        .into_iter()
+        .map(|(title, rows)| form::group(icon, title, rows).into_any_element())
+        .collect()
+}
+
+/// The part of [`grouped`] that does not draw: `items` cut into runs by group name, an empty name
+/// standing for `fallback`.
+fn split_by_group<T>(
+    fallback: &'static str,
+    items: Vec<(&'static str, T)>,
+) -> Vec<(&'static str, Vec<T>)> {
+    let mut sections: Vec<(&'static str, Vec<T>)> = Vec::new();
+    for (group, item) in items {
+        let title = if group.trim().is_empty() {
+            fallback
+        } else {
+            group
+        };
+        match sections.iter_mut().find(|(name, _)| *name == title) {
+            Some((_, rows)) => rows.push(item),
+            None => sections.push((title, vec![item])),
+        }
+    }
+    sections
 }
 
 /// The timeframes offered beside a timeframe input; the first one is the chart's own.
@@ -693,4 +391,36 @@ fn timeframe_picks(
             field.update(cx, |state, cx| state.set_value(code, window, cx));
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_by_group;
+
+    #[test]
+    fn inputs_with_no_group_stay_in_one_card_under_the_fallback_title() {
+        let cards = split_by_group("Parameters", vec![("", 1), ("", 2), (" ", 3)]);
+        assert_eq!(cards, vec![("Parameters", vec![1, 2, 3])]);
+    }
+
+    #[test]
+    fn each_named_group_gets_its_own_card_in_the_order_it_first_appears() {
+        let cards = split_by_group(
+            "Parameters",
+            vec![("Data", 1), ("", 2), ("Display", 3), ("Data", 4), ("", 5)],
+        );
+        assert_eq!(
+            cards,
+            vec![
+                ("Data", vec![1, 4]),
+                ("Parameters", vec![2, 5]),
+                ("Display", vec![3]),
+            ]
+        );
+    }
+
+    #[test]
+    fn no_input_means_no_card() {
+        assert!(split_by_group::<u8>("Parameters", Vec::new()).is_empty());
+    }
 }

@@ -1,11 +1,14 @@
 //! What the dashboard draws: its body and the header over the charts.
 
 use super::{
-    CloseAllPositions, ClosePicker, Conn, Dashboard, DashboardEvent, MenuKind, OpenPicker,
-    OpenSettings, Quote, TicketBuy, TicketSell, TicketSend, ToggleIndicatorEditor,
-    ToggleKillSwitch,
+    CancelAllOrders, CloseAllPositions, ClosePicker, Conn, Dashboard, DashboardEvent, MenuKind,
+    NextChart, NextTimeframe, OpenPicker, OpenSettings, OpenShortcuts, PreviousChart,
+    PreviousTimeframe, Quote, TicketBuy, TicketSell, TicketSend, ToggleAccountPanel,
+    ToggleFavoritesBar, ToggleFullscreen, ToggleGrid, ToggleIndicatorEditor, ToggleKeepDrawing,
+    ToggleKillSwitch, ToggleLogScale, ToggleMagnet, TogglePercentScale, ToggleTicket,
 };
 
+use crate::domain::chart::settings::ScaleMode;
 use crate::domain::market::{PRICE_SCALE, format_price};
 use crate::ui::features::chart;
 use crate::ui::kit::icon::IconName;
@@ -82,7 +85,7 @@ impl Render for Dashboard {
         let menu_backdrop = (self.menu_is(MenuKind::Timeframes) || self.menu_is(MenuKind::Layouts))
             .then(|| {
                 let this = cx.entity().downgrade();
-                deferred(crate::ui::kit::menu::backdrop(move |_, cx| {
+                deferred(crate::ui::kit::menu::parts::backdrop(move |_, cx| {
                     let _ = this.update(cx, |this, cx| {
                         this.close_menus();
                         cx.notify();
@@ -108,6 +111,61 @@ impl Render for Dashboard {
                 window,
                 cx,
             );
+        }))
+        .on_action(cx.listener(|this, _: &OpenShortcuts, window, cx| {
+            crate::ui::shell::settings_hub::open_at(
+                this.workspace.clone(),
+                this.multi.clone(),
+                crate::ui::shell::settings_hub::Page::Shortcuts,
+                window,
+                cx,
+            );
+        }))
+        .on_action(cx.listener(|this, _: &ToggleTicket, _window, cx| {
+            let open = !this.ticket_open;
+            this.set_ticket_open(open, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleAccountPanel, _window, cx| {
+            let open = !this.panel_open;
+            this.set_panel_open(open, cx);
+        }))
+        .on_action(cx.listener(|_this, _: &ToggleFullscreen, window, _cx| {
+            window.toggle_fullscreen();
+        }))
+        .on_action(cx.listener(|this, _: &NextChart, _window, cx| {
+            this.multi.update(cx, |multi, cx| multi.step_active(1, cx));
+        }))
+        .on_action(cx.listener(|this, _: &PreviousChart, _window, cx| {
+            this.multi.update(cx, |multi, cx| multi.step_active(-1, cx));
+        }))
+        .on_action(cx.listener(|this, _: &NextTimeframe, _window, cx| {
+            this.step_timeframe(true, cx);
+        }))
+        .on_action(cx.listener(|this, _: &PreviousTimeframe, _window, cx| {
+            this.step_timeframe(false, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleMagnet, _window, cx| {
+            this.multi.update(cx, |multi, cx| multi.toggle_magnet(cx));
+        }))
+        .on_action(cx.listener(|this, _: &ToggleKeepDrawing, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.toggle_keep_drawing(cx));
+        }))
+        .on_action(cx.listener(|this, _: &ToggleFavoritesBar, _window, cx| {
+            this.multi
+                .update(cx, |multi, cx| multi.toggle_favorites_bar(cx));
+        }))
+        .on_action(cx.listener(|this, _: &CancelAllOrders, window, cx| {
+            this.ask_cancel_all(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleLogScale, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_scale(ScaleMode::Log, cx));
+        }))
+        .on_action(cx.listener(|this, _: &TogglePercentScale, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_scale(ScaleMode::Percent, cx));
+        }))
+        .on_action(cx.listener(|this, _: &ToggleGrid, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_grid(cx));
         }))
         .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
             this.toggle_editor(cx);

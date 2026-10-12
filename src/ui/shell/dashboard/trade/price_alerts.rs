@@ -19,7 +19,7 @@ impl Dashboard {
         kind: crate::ui::features::trading::panel::NewAlert,
         cx: &mut Context<Self>,
     ) {
-        use crate::app::alerts::model::PnlScope;
+        use crate::app::alerts::model::source::PnlScope;
         use crate::ui::features::trading::panel::NewAlert;
         let now = now_ms();
         let (alert, digits) = match kind {
@@ -92,9 +92,10 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                crate::ui::kit::shortcut::text(&format!(
-                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
-                )),
+                format!(
+                    "The limit is {limit} alerts. Change it in Settings{}.",
+                    crate::ui::kit::hints::suffix("open_settings")
+                ),
             ),
         }
         cx.notify();
@@ -215,13 +216,12 @@ impl Dashboard {
     ) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
-        let pip = symbol.pip_position.map_or_else(
-            || crate::domain::market::pip_size_from_digits(digits),
-            crate::domain::market::pip_size,
-        );
+        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
-            alerts.set_pip(id, pip);
+            if let Some(pip) = pip {
+                alerts.set_pip(id, pip);
+            }
             alerts.edit(cx, |book| {
                 book.add_with_limit(
                     id,
@@ -244,9 +244,10 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                crate::ui::kit::shortcut::text(&format!(
-                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
-                )),
+                format!(
+                    "The limit is {limit} alerts. Change it in Settings{}.",
+                    crate::ui::kit::hints::suffix("open_settings")
+                ),
             ),
         }
         cx.notify();
@@ -256,14 +257,14 @@ impl Dashboard {
     pub(in crate::ui::shell::dashboard) fn add_alert_on(
         &mut self,
         symbol: &SymbolRef,
-        seed: &crate::ui::features::chart::AlertSeed,
+        seed: &crate::ui::features::chart::events::AlertSeed,
         cx: &mut Context<Self>,
     ) {
         use crate::app::alerts::{Alert, Condition, Source};
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
         match seed {
-            crate::ui::features::chart::AlertSeed::Indicator { study, timeframe } => {
+            crate::ui::features::chart::events::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe = timeframe.clone();
                 let spec = study.kind.spec();
                 if matches!(
@@ -286,7 +287,7 @@ impl Dashboard {
                         .map_or(0.0, |(low, high)| low + (high - low) * 0.7);
                 }
             }
-            crate::ui::features::chart::AlertSeed::Drawing {
+            crate::ui::features::chart::events::AlertSeed::Drawing {
                 id,
                 zone,
                 timeframe,
@@ -301,13 +302,12 @@ impl Dashboard {
             }
         }
         let digits = symbol.digits;
-        let pip = symbol.pip_position.map_or_else(
-            || crate::domain::market::pip_size_from_digits(digits),
-            crate::domain::market::pip_size,
-        );
+        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);
-            alerts.set_pip(symbol.id, pip);
+            if let Some(pip) = pip {
+                alerts.set_pip(symbol.id, pip);
+            }
             alerts.edit(cx, |book| book.insert(alert, limit))
         });
         match added {
@@ -321,9 +321,10 @@ impl Dashboard {
                 cx,
                 toast::Kind::Warning,
                 "No alert added",
-                crate::ui::kit::shortcut::text(&format!(
-                    "The limit is {limit} alerts. Change it in Settings (Ctrl+,)."
-                )),
+                format!(
+                    "The limit is {limit} alerts. Change it in Settings{}.",
+                    crate::ui::kit::hints::suffix("open_settings")
+                ),
             ),
         }
         cx.notify();

@@ -9,14 +9,13 @@ use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};
 
+use super::events::{ChartAction, ChartEvent, EditorRequest};
 use super::lines::to_real;
 use super::overlay::{KIND_SECTIONS, kind_icon};
 use super::settings::ScaleMode;
 use super::study::catalog::{self, Source};
 use super::view::PriceScale;
-use super::{
-    Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
-};
+use super::{Chart, chart_settings_ui, export_ui, indicator_picker};
 use crate::app::scripts as indicators;
 use crate::ui::kit::{
     controls, icon, layout,
@@ -216,9 +215,9 @@ impl Chart {
             vec![
                 self.menu_entry(
                     menu,
-                    Entry::new("Indicator editor")
-                        .icon(IconName::CodeXml)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
+                    Entry::new("Indicator editor").icon(IconName::CodeXml).hint(
+                        crate::ui::kit::hints::hint("toggle_indicator_editor").unwrap_or_default(),
+                    ),
                     |_, _, cx| cx.emit(ChartEvent::IndicatorEditor(EditorRequest::Open)),
                     cx,
                 ),
@@ -381,7 +380,10 @@ impl Chart {
                         "chart-alert",
                         IconName::BellPlus,
                         None,
-                        "An alert at the last price (Alt+A at the pointer)",
+                        format!(
+                            "An alert at the last price{}",
+                            crate::ui::kit::hints::suffix("add_alert")
+                        ),
                         false,
                     )
                     .on_click(alert),
@@ -413,7 +415,10 @@ impl Chart {
                         "chart-auto-scale",
                         IconName::Scaling,
                         None,
-                        "Fit the prices (Alt+R)",
+                        format!(
+                            "Fit the prices{}",
+                            crate::ui::kit::hints::suffix("reset_price_scale")
+                        ),
                         false,
                     )
                     .on_click(cx.listener(|this, _, _, cx| this.reset_price_scale(cx))),
@@ -436,7 +441,10 @@ impl Chart {
                     "chart-picture",
                     IconName::Camera,
                     None,
-                    crate::ui::kit::shortcut::text("Take a picture (Ctrl+Shift+S)"),
+                    gpui::SharedString::from(format!(
+                        "Take a picture{}",
+                        crate::ui::kit::hints::suffix("screenshot")
+                    )),
                     false,
                 )
                 .on_click(cx.listener(|_, _, _, cx| cx.emit(ChartEvent::Screenshot))),

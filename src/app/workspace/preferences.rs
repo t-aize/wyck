@@ -227,6 +227,9 @@ pub struct Preferences {
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
+    /// The keyboard shortcuts the user changed (see `ui::shell::keymap` for the defaults).
+    #[serde(default)]
+    pub shortcuts: crate::domain::shortcuts::ShortcutPrefs,
 }
 
 fn default_panel_height() -> f32 {
@@ -291,6 +294,7 @@ impl Default for Preferences {
             favorites_bar: true,
             favorites_labels: false,
             saved_colors: Vec::new(),
+            shortcuts: Default::default(),
         }
     }
 }
@@ -306,6 +310,7 @@ impl Preferences {
     pub fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
         self.limits = self.limits.normalized();
+        self.shortcuts = std::mem::take(&mut self.shortcuts).normalized();
 
         // The custom timeframes, each once under its own code, shortest first. A favorite
         // that is neither offered nor added becomes an added one, so its star has a home.

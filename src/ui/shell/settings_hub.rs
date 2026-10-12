@@ -51,6 +51,7 @@ mod data;
 mod look;
 mod safety;
 mod scripts;
+mod shortcuts;
 
 /// Opens the settings.
 pub fn open(
@@ -88,6 +89,7 @@ pub enum Page {
     Charts,
     Indicators,
     Behaviour,
+    Shortcuts,
     Alerts,
     Safety,
     Data,
@@ -95,11 +97,12 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::Appearance,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
+        Self::Shortcuts,
         Self::Alerts,
         Self::Safety,
         Self::Data,
@@ -112,6 +115,7 @@ impl Page {
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
+            Self::Shortcuts => ("Shortcuts", IconName::Keyboard),
             Self::Alerts => ("Alerts", IconName::Bell),
             Self::Safety => ("Safety", IconName::ShieldCheck),
             Self::Data => ("Data and backup", IconName::Database),
@@ -170,6 +174,15 @@ struct SettingsHub {
     font_open: bool,
     _font_subscription: Option<Subscription>,
     notice: Option<Notice>,
+    /// The shortcut waiting for its new keys, and the last thing said about one.
+    capturing: Option<shortcuts::Capture>,
+    shortcut_note: Option<(String, String)>,
+    shortcut_search: Entity<InputState>,
+    capture_focus: gpui::FocusHandle,
+    /// A combination waiting to be taken from the action that has it.
+    swap: Option<shortcuts::Swap>,
+    /// Whether the keys of the widget library are listed.
+    library_open: bool,
     /// What the backup waiting to be applied holds, once one was chosen.
     waiting: Option<Vec<String>>,
     /// The copies kept in the backups folder, newest first, as last listed.
@@ -247,6 +260,8 @@ impl SettingsHub {
             }));
             risk_inputs.push((field, state));
         }
+        let shortcut_search = Self::new_shortcut_search(window, cx);
+        subscriptions.push(cx.observe(&shortcut_search, |_this, _search, cx| cx.notify()));
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
@@ -267,6 +282,12 @@ impl SettingsHub {
             font_open: false,
             _font_subscription: None,
             notice: None,
+            capturing: None,
+            shortcut_note: None,
+            shortcut_search,
+            capture_focus: cx.focus_handle(),
+            swap: None,
+            library_open: false,
             waiting,
             copies: data::list_copies(),
             _subscriptions: subscriptions,
@@ -346,6 +367,7 @@ impl Render for SettingsHub {
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),
+            Page::Shortcuts => self.shortcuts_page(cx),
             Page::Alerts => self.alerts_page(cx),
             Page::Safety => self.safety_page(cx),
             Page::Data => self.data_page(cx),

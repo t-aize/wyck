@@ -151,7 +151,10 @@ impl MultiChart {
         for (index, tool) in favorites.iter().copied().enumerate() {
             let selected = current == Some(tool);
             let hint: SharedString = if index < 9 {
-                format!("{} (Alt+{})", tool.label(), index + 1).into()
+                match crate::ui::kit::hints::hint(&format!("favorite_{}", index + 1)) {
+                    Some(keys) => format!("{} ({keys})", tool.label()).into(),
+                    None => tool.label().into(),
+                }
             } else {
                 tool.label().into()
             };

@@ -28,8 +28,8 @@ use crate::ui::kit::input::{
 use crate::ui::kit::input::{Diagnostic, DiagnosticSeverity};
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, KeyBinding, MouseMoveEvent, Subscription,
-    Task, Window, actions,
+    App, Context, Entity, EventEmitter, FocusHandle, MouseMoveEvent, Subscription, Task, Window,
+    actions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -51,9 +51,9 @@ actions!(
 );
 
 /// The key context of the editor's panel.
-const CONTEXT: &str = "IndicatorEditor";
+pub const CONTEXT: &str = "IndicatorEditor";
 
-/// Registers the key bindings of the editor. Call once, at startup.
+/// Prepares the editor. Call once, at startup. Its key bindings are in `ui::shell::keymap`.
 pub fn init(cx: &mut App) {
     // Brackets and double quotes close themselves. Single quotes do not: they are apostrophes in a
     // comment far more often than they are a character.
@@ -67,17 +67,6 @@ pub fn init(cx: &mut App) {
         ]),
         cx,
     );
-    cx.bind_keys([
-        KeyBinding::new("secondary-s", SaveScript, Some(CONTEXT)),
-        KeyBinding::new("secondary-enter", AddToChart, Some(CONTEXT)),
-        KeyBinding::new("f5", AddToChart, Some(CONTEXT)),
-        KeyBinding::new("secondary-w", CloseTab, Some(CONTEXT)),
-        KeyBinding::new("secondary-alt-r", ToggleReference, Some(CONTEXT)),
-        KeyBinding::new("f8", NextProblem, Some(CONTEXT)),
-        KeyBinding::new("shift-f8", PreviousProblem, Some(CONTEXT)),
-        KeyBinding::new("secondary-tab", NextTab, Some(CONTEXT)),
-        KeyBinding::new("secondary-shift-tab", PreviousTab, Some(CONTEXT)),
-    ]);
 }
 
 /// What the editor tells the dashboard around it.

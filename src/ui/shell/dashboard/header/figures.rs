@@ -62,7 +62,7 @@ impl Dashboard {
         if !self.menu_is(MenuKind::Account) {
             return None;
         }
-        let card = menu::panel(tokens::menu::PANEL_WIDTH)
+        let card = menu::parts::panel(tokens::menu::PANEL_WIDTH)
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
                 cx.stop_propagation();
             })
@@ -88,7 +88,7 @@ impl Dashboard {
                 crate::ui::kit::button::outlined("open-settings")
                     .w_full()
                     .icon(IconName::Settings)
-                    .label(crate::ui::kit::shortcut::text("Settings  (Ctrl+,)"))
+                    .label(gpui::SharedString::from(format!("Settings {}", crate::ui::kit::hints::suffix("open_settings"))))
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.close_menus();
                         cx.notify();

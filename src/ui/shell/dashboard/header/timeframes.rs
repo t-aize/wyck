@@ -83,6 +83,27 @@ impl Dashboard {
             )
     }
 
+    /// Moves the active chart to the next (`longer`) or previous timeframe of the favorites,
+    /// going round at the ends.
+    pub(in crate::ui::shell::dashboard) fn step_timeframe(
+        &mut self,
+        longer: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let list: Vec<chart::Timeframe> = self
+            .workspace
+            .read(cx)
+            .preferences()
+            .favorite_timeframes
+            .iter()
+            .filter_map(|code| chart::Timeframe::from_code(code))
+            .collect();
+        let current = self.multi.read(cx).active_timeframe(cx);
+        if let Some(next) = current.step_in(&list, longer) {
+            self.pick_timeframe(next, cx);
+        }
+    }
+
     pub(super) fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
         self.close_menus();
         self.multi
@@ -217,13 +238,13 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let prefs = self.workspace.read(cx).preferences().clone();
-        let mut card = menu::panel(tokens::menu::PANEL_WIDTH);
+        let mut card = menu::parts::panel(tokens::menu::PANEL_WIDTH);
         let section = |title: &'static str, chips: Vec<gpui::AnyElement>| {
             div()
                 .flex()
                 .flex_col()
                 .gap_2()
-                .child(menu::section_title(title).px_0())
+                .child(menu::parts::section_title(title).px_0())
                 .child(div().flex().flex_row().flex_wrap().gap_1().children(chips))
         };
         for (title, items) in chart::GROUPS {
@@ -300,7 +321,7 @@ impl Dashboard {
                 .flex()
                 .flex_col()
                 .gap_2()
-                .child(menu::section_title("Custom").px_0())
+                .child(menu::parts::section_title("Custom").px_0())
                 .when(!customs.is_empty(), |el| {
                     el.child(
                         div()
@@ -322,7 +343,7 @@ impl Dashboard {
                      unit picked, or a code such as 45m, 2h or 3D.",
                 ),
         );
-        menu::below(card, tokens::height::control(), 1)
+        menu::parts::below(card, tokens::height::control(), 1)
     }
 }
 

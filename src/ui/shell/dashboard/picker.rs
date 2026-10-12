@@ -10,20 +10,22 @@
 //! it binds none of them, so they reach the picker's key context. The mouse works the same:
 //! hovering highlights, clicking chooses, clicking outside closes.
 
+mod footer;
+mod rows;
+
 use std::ops::Range;
 use std::time::Duration;
 
 use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{
-    Context, Entity, Focusable, FontWeight, MouseButton, MouseMoveEvent, ScrollStrategy, Stateful,
-    Subscription, UniformListScrollHandle, Window, div, px, relative, uniform_list,
+    Context, Entity, Focusable, MouseButton, ScrollStrategy, Subscription, UniformListScrollHandle,
+    Window, div, px, relative, uniform_list,
 };
 
 use super::catalog::{Class, Entry};
 use super::details::{self, Detail};
 use super::lists::{self, ListEditor, Scope};
-use super::marks;
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
 use crate::app::broker::Error as ApiError;
 use crate::app::system::runtime;
@@ -219,7 +221,7 @@ impl Dashboard {
 
         let chips = std::iter::once(None)
             .chain(catalog.classes().into_iter().map(Some))
-            .map(|class| class_chip(class, class == selected_class, cx))
+            .map(|class| rows::class_chip(class, class == selected_class, cx))
             .collect::<Vec<_>>();
 
         let list_chips = lists::list_chips(
@@ -266,7 +268,7 @@ impl Dashboard {
                     range
                         .filter_map(|row| {
                             let entry = catalog.entry(*picker.results.get(row)?)?;
-                            Some(symbol_row(
+                            Some(rows::symbol_row(
                                 row,
                                 entry,
                                 row == picker.highlighted,
@@ -331,7 +333,7 @@ impl Dashboard {
                     .py_3()
                     .child(icon::tinted(IconName::Search, 18., theme::muted_fg()))
                     .child(div().flex_1().child(input))
-                    .child(key_cap("esc")),
+                    .child(footer::key_cap("esc")),
             )
             .child(
                 div()
@@ -366,7 +368,7 @@ impl Dashboard {
                     .child(div().flex_1().min_w_0().flex().flex_col().child(list))
                     .child(sheet),
             )
-            .child(footer(count, total));
+            .child(footer::footer(count, total));
 
         let overlay = div()
             .absolute()
@@ -386,140 +388,6 @@ impl Dashboard {
             .child(anim::enter(panel, ("symbol-picker", self.picker_opens), 0));
         Some(overlay.into_any_element())
     }
-}
-
-/// A filter chip: one asset class, or `None` for all of them.
-fn class_chip(
-    class: Option<Class>,
-    selected: bool,
-    cx: &mut Context<Dashboard>,
-) -> Stateful<gpui::Div> {
-    let label = class.map_or("All", Class::label);
-    div()
-        .id(("class-chip", class.map_or(0, |c| c as u64 + 1)))
-        .px_3()
-        .py_1()
-        .rounded_full()
-        .border_1()
-        .border_color(if selected {
-            theme::accent()
-        } else {
-            theme::border_subtle()
-        })
-        .bg(if selected {
-            theme::accent_selected()
-        } else {
-            theme::bg()
-        })
-        .text_size(px(tokens::text::body()))
-        .text_color(if selected {
-            theme::fg()
-        } else {
-            theme::muted_fg()
-        })
-        .cursor_pointer()
-        .when(!selected, |el| {
-            el.hover(|style| style.bg(theme::surface_hover()).text_color(theme::fg()))
-        })
-        .on_click(cx.listener(move |this, _event, _window, cx| {
-            if let Some(picker) = this.picker.as_mut() {
-                picker.class = class;
-                cx.notify();
-            }
-        }))
-        .child(label)
-}
-
-fn symbol_row(
-    row: usize,
-    entry: &super::catalog::Entry,
-    highlighted: bool,
-    active: bool,
-    favorite: bool,
-    cx: &mut Context<Dashboard>,
-) -> Stateful<gpui::Div> {
-    let star = lists::star(row, favorite, cx, entry.name.clone().into());
-    let main = div()
-        .id(("symbol-row", row as u64))
-        .flex_1()
-        .min_w_0()
-        .h_full()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap_3()
-        .cursor_pointer()
-        .active(|style| style.bg(theme::surface_pressed()))
-        .on_mouse_move(
-            cx.listener(move |this, _event: &MouseMoveEvent, _window, cx| {
-                if let Some(picker) = this.picker.as_mut()
-                    && picker.highlighted != row
-                {
-                    picker.highlighted = row;
-                    cx.notify();
-                }
-            }),
-        )
-        .on_click(cx.listener(move |this, _event, window, cx| this.choose(row, window, cx)))
-        .child(marks::render(
-            &entry.icon,
-            38.,
-            if highlighted {
-                theme::surface_hover()
-            } else {
-                theme::surface()
-            },
-        ))
-        .child(
-            div()
-                .w(px(RESULT_COLUMN_WIDTH))
-                .flex_none()
-                .truncate()
-                .text_size(px(tokens::text::title()))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(theme::fg())
-                .child(entry.name.clone()),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .truncate()
-                .text_size(px(tokens::text::body()))
-                .text_color(theme::muted_fg())
-                .child(entry.description.clone()),
-        )
-        .child(
-            div()
-                .flex_none()
-                .text_size(px(tokens::text::small()))
-                .text_color(theme::muted_fg())
-                .child(
-                    entry
-                        .category
-                        .clone()
-                        .unwrap_or_else(|| entry.class.label().to_owned()),
-                ),
-        )
-        .child(
-            div()
-                .w(px(crate::ui::kit::tokens::space::lg()))
-                .flex_none()
-                .children(active.then(|| icon::tinted(IconName::Check, 16., theme::accent()))),
-        );
-    div()
-        .id(("symbol-line", row as u64))
-        .w_full()
-        .h(px(ROW_HEIGHT))
-        .pl_4()
-        .pr_2()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap_1()
-        .when(highlighted, |el| el.bg(theme::surface_hover()))
-        .child(main)
-        .child(star)
 }
 
 impl Dashboard {
@@ -601,77 +469,4 @@ impl Dashboard {
         })
         .detach();
     }
-}
-
-/// A key cap: `Esc`, or an icon for an arrow key.
-fn key_cap(content: impl IntoElement) -> gpui::Div {
-    div()
-        .flex()
-        .flex_none()
-        .items_center()
-        .justify_center()
-        .min_w(px(crate::ui::kit::tokens::height::tiny()))
-        .h(px(tokens::height::tiny()))
-        .px_2()
-        .rounded_md()
-        .border_1()
-        .border_color(theme::border_subtle())
-        .bg(theme::bg())
-        .text_size(px(tokens::text::small()))
-        .text_color(theme::muted_fg())
-        .child(content)
-}
-
-fn key_hint(caps: Vec<gpui::AnyElement>, label: &'static str) -> gpui::Div {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .children(caps)
-        .child(
-            div()
-                .text_size(px(tokens::text::body()))
-                .text_color(theme::muted_fg())
-                .child(label),
-        )
-}
-
-/// The line of key hints and the count.
-fn footer(shown: usize, total: usize) -> gpui::Div {
-    let arrow = |icon| key_cap(icon::tinted(icon, 11., theme::muted_fg())).into_any_element();
-    let count = if shown == total {
-        format!("{total} symbols")
-    } else {
-        format!("{shown} of {total} symbols")
-    };
-    div()
-        .flex_none()
-        .flex()
-        .flex_row()
-        .items_center()
-        .justify_between()
-        .h(px(crate::ui::kit::tokens::height::row()))
-        .px_4()
-        .border_t_1()
-        .border_color(theme::border_hairline())
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_4()
-                .child(key_hint(
-                    vec![arrow(IconName::ArrowUp), arrow(IconName::ArrowDown)],
-                    "Navigate",
-                ))
-                .child(key_hint(vec![arrow(IconName::CornerDownLeft)], "Select"))
-                .child(key_hint(vec![key_cap("esc").into_any_element()], "Close")),
-        )
-        .child(
-            div()
-                .text_size(px(tokens::text::body()))
-                .text_color(theme::muted_fg())
-                .child(count),
-        )
 }

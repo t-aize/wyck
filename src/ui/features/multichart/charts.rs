@@ -5,7 +5,8 @@ use crate::app::market_data::live::LiveUpdate;
 use crate::app::workspace::ChartState;
 use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::market::SpotEvent;
-use crate::ui::features::chart::{Chart, ChartEvent, ChartLine};
+use crate::ui::features::chart::events::ChartEvent;
+use crate::ui::features::chart::{Chart, ChartLine};
 use gpui::Context;
 use gpui::prelude::*;
 use std::collections::HashMap;
@@ -28,6 +29,10 @@ impl MultiChart {
         let chart = cx.new(|cx| Chart::new(session, hub, id, timeframe, settings, max_studies, cx));
         let drawings = self.drawings.clone();
         chart.update(cx, |chart, cx| chart.attach_drawings(drawings, cx));
+        if !self.symbol_ids.is_empty() {
+            let ids = self.symbol_ids.clone();
+            chart.update(cx, |chart, cx| chart.set_symbol_ids(ids, cx));
+        }
         // A linked symbol comes from the charts already open.
         let shared = self
             .sync
@@ -106,6 +111,17 @@ impl MultiChart {
     }
 
     /// The broker said how a symbol is quoted.
+    /// The symbols of the account arrived: `ids` has the id of each by name (see
+    /// [`crate::domain::indicators::custom::other::key_of`]).
+    pub fn set_symbol_ids(&mut self, ids: HashMap<String, i64>, cx: &mut Context<Self>) {
+        self.symbol_ids = std::sync::Arc::new(ids);
+        for slot in &self.slots {
+            let ids = self.symbol_ids.clone();
+            slot.chart
+                .update(cx, |chart, cx| chart.set_symbol_ids(ids, cx));
+        }
+    }
+
     /// A symbol's trading hours arrived.
     pub fn set_hours(
         &mut self,

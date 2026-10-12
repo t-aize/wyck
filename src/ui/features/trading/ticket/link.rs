@@ -6,7 +6,7 @@ use super::{
 };
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Offset, Pending};
-use crate::ui::features::chart::{PlanState, PositionPlan};
+use crate::ui::features::chart::events::{PlanState, PositionPlan};
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::number;
 use gpui::{App, Context, Entity, Window};

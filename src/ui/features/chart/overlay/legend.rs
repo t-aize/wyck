@@ -1,9 +1,10 @@
 //! The legend of each band: the symbol, the prices under the pointer and the indicators.
 
 use super::rgb;
+use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
 use crate::ui::features::chart::scene::{Geometry, axis_w, price};
 use crate::ui::features::chart::study::spec::{Placement, PlotKind, ValueFormat};
-use crate::ui::features::chart::{Chart, ChartEvent, EditorRequest, study_settings};
+use crate::ui::features::chart::{Chart, study_settings};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;

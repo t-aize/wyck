@@ -14,7 +14,8 @@ use crate::domain::market::Bar;
 use super::super::flow::Flow;
 use super::super::footprint::{self as model, Analysis, CellMode, HeatScope};
 use super::cmd::{Align, Cmd, font, hsla, with_alpha};
-use super::{Ctx, quote_unit, series};
+use super::ctx::Ctx;
+use super::{quote_unit, series};
 
 /// Bars narrower than this are drawn as plain candles.
 const DETAIL_MIN_PX: f64 = 24.0;

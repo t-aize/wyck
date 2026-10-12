@@ -180,12 +180,12 @@ impl Dashboard {
             .flex()
             .flex_col()
             .gap_1()
-            .child(menu::section_title("Sync in layout").px_0());
+            .child(menu::parts::section_title("Sync in layout").px_0());
         for (index, (link, title, hint)) in LINK_ROWS.into_iter().enumerate() {
             links_section = links_section.child(link_row(index, link, title, hint, links, cx));
         }
 
-        let card = menu::panel(tokens::menu::PANEL_WIDTH)
+        let card = menu::parts::panel(tokens::menu::PANEL_WIDTH)
             .id("layout-menu")
             .max_h(px(max_height))
             .overflow_y_scroll()
@@ -194,7 +194,7 @@ impl Dashboard {
             .children(picture)
             .child(links_section);
 
-        menu::below(card, tokens::height::control(), 1)
+        menu::parts::below(card, tokens::height::control(), 1)
     }
 }
 

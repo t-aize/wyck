@@ -11,7 +11,7 @@ pub mod look_pages;
 
 use super::options::ChartColors;
 use super::settings::{ChartKind, ChartSettings};
-use super::transform::{BoxSize, TransformSettings};
+use super::transform::settings::{BoxSize, TransformSettings};
 use super::{Chart, construction_ui, footprint_ui, tpo_ui, volume_ui};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::InputState;

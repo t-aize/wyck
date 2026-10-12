@@ -486,6 +486,12 @@ impl AccountPanel {
         }
 
         let body = if rows.is_empty() {
+            let alerts_empty = match crate::ui::kit::hints::hint("add_alert") {
+                Some(keys) => format!(
+                    "No alert. Right click a chart, or press {keys}, to add one at a price."
+                ),
+                None => "No alert. Right click a chart to add one at a price.".to_owned(),
+            };
             let text = if table.unfiltered > 0 {
                 "Nothing matches the search and the filters."
             } else {
@@ -494,9 +500,7 @@ impl AccountPanel {
                     Tab::Orders => "No working order.",
                     Tab::History => "No trade in this period.",
                     Tab::Exposure => "Nothing is open.",
-                    Tab::Alerts => {
-                        "No alert. Right click a chart, or press Alt+A, to add one at a price."
-                    }
+                    Tab::Alerts => alerts_empty.as_str(),
                     Tab::AlertLog => "No alert has fired yet.",
                 }
             };
@@ -518,7 +522,7 @@ impl AccountPanel {
                     20.,
                     theme::fg_alpha(0.35),
                 ))
-                .child(text)
+                .child(text.to_owned())
                 .into_any_element()
         } else {
             div().flex().flex_col().children(rows).into_any_element()

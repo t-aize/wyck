@@ -2,7 +2,8 @@
 
 use super::axes::dash_pattern;
 use super::color::transparent_black;
-use super::{Align, Cmd, Ctx, DrawingView, P, hsla, rgb_alpha};
+use super::ctx::Ctx;
+use super::{Align, Cmd, DrawingView, P, hsla, rgb_alpha};
 use crate::domain::chart::projection::ChartProjection;
 use crate::domain::drawings::geometry as shapes;
 use crate::domain::drawings::geometry::{Anchor, Prim};
