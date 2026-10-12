@@ -467,6 +467,10 @@ pub fn check(
                 }
             }
         },
+        // Unix says so when a part of the path is a file; Windows says "not found".
+        Err(source) if source.kind() == std::io::ErrorKind::NotADirectory => {
+            Err(fail(Reason::NotAFolder))
+        }
         Err(_) => Err(fail(Reason::Unreadable)),
     }
 }

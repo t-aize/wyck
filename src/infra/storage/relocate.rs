@@ -93,12 +93,32 @@ pub enum PlanError {
     Storage(#[from] ConfigError),
 }
 
+/// `path` with its `.` and `..` worked out by reading it, without asking the disk: a `..` of a
+/// folder that does not exist yet still has to cancel the folder before it.
+fn without_dots(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for part in path.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
 /// A path made comparable: the real path when the place exists (symbolic links and `..` gone),
 /// else the nearest existing parent with the rest after it; without the `\\?\` prefix Windows
 /// adds, and in lower case on Windows, whose file names do not tell capitals apart.
 fn normalized(path: &Path) -> PathBuf {
+    let path = without_dots(path);
     let mut rest = Vec::new();
-    let mut base = path.to_path_buf();
+    let mut base = path.clone();
     let real = loop {
         match fs::canonicalize(&base) {
             Ok(real) => break real,
@@ -107,7 +127,7 @@ fn normalized(path: &Path) -> PathBuf {
                     rest.push(name);
                     base = parent.to_path_buf();
                 }
-                _ => break path.to_path_buf(),
+                _ => break path.clone(),
             },
         }
     };
@@ -1101,7 +1121,14 @@ mod tests {
         );
         assert!(within(&real, &real));
         assert!(!within(&real, &real.join("a")));
-        assert!(within(&real.join("x").join("..").join("y"), &real));
+        assert!(
+            within(&real.join("x").join("..").join("y"), &real),
+            "a `..` cancels a folder that is not there yet"
+        );
+        assert!(
+            !within(&real.join("..").join("elsewhere"), &real),
+            "and one that leads out of the folder is out"
+        );
         if cfg!(windows) {
             let upper = PathBuf::from(real.to_string_lossy().to_uppercase());
             assert!(
