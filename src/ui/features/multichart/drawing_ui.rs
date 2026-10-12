@@ -5,6 +5,7 @@
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
 pub mod bar_options;
+pub(super) mod bar_place;
 pub mod style_bar;
 
 use super::MultiChart;

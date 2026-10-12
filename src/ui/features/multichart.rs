@@ -140,6 +140,8 @@ pub struct MultiChart {
     root_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// The drawing whose color panel is open in the style bar.
     color_open: Option<u64>,
+    /// Where the style bar sits over the charts, and the drag that moves it.
+    bar: drawing_ui::bar_place::BarPlace,
     /// Taken when a chart is clicked, so the keys (arrows, Delete, Ctrl+Z) reach the charts and
     /// not a text field that had the keyboard before.
     focus: gpui::FocusHandle,
@@ -195,6 +197,7 @@ impl MultiChart {
             rail_slots: Rc::default(),
             root_bounds: Rc::new(Cell::new(None)),
             color_open: None,
+            bar: Default::default(),
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
             hub,
@@ -392,8 +395,17 @@ impl Render for MultiChart {
             });
         }
         let (rects, dividers) = self.tree.place(self.slots.len());
-        // The bar of the selected drawing floats over the chart it is being edited on.
-        let mut style_bar = self.render_style_bar(window, cx);
+        // The bar of the selected drawing floats over the whole area, under the legends of the
+        // charts along the top, so a small chart low in the layout does not have to hold it.
+        let home_top = self
+            .slots
+            .iter()
+            .zip(&rects)
+            .filter(|(_, r)| r.y < 0.001)
+            .map(|(slot, _)| slot.chart.read(cx).legend_bottom())
+            .fold(0.0, f32::max);
+        self.bar.set_home(home_top);
+        let style_bar = self.render_style_bar(window, cx);
         let gap = if several { 1.0 } else { 0.0 };
 
         let cells = self
@@ -439,11 +451,6 @@ impl Render for MultiChart {
                             })
                             .child(slot.chart.clone()),
                     )
-                    .children(if index == self.active {
-                        style_bar.take()
-                    } else {
-                        None
-                    })
             })
             .collect::<Vec<_>>();
 
@@ -511,6 +518,7 @@ impl Render for MultiChart {
             })
             .collect::<Vec<_>>();
 
+        let bar_drag = self.bar_drag_layer(cx);
         let rail = self.render_rail(cx);
         let favorites = self.render_favorites(window, cx);
         let flyout = self.render_flyout(cx);
@@ -564,6 +572,8 @@ impl Render for MultiChart {
                         )
                         .children(cells)
                         .children(divider_elements)
+                        .children(style_bar)
+                        .children(bar_drag)
                         .children(favorites),
                 ),
             )

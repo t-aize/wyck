@@ -6,9 +6,9 @@ use crate::domain::drawings::model::style::{Dash, PALETTE};
 use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, layout, theme, tokens};
+use crate::ui::kit::{controls, icon, layout, theme, tokens};
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, Window, div, px};
+use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, Window, canvas, div, px};
 
 impl MultiChart {
     /// The bar over a selected drawing, or nothing. Only the cheap test lives here: the bar itself
@@ -80,6 +80,7 @@ impl MultiChart {
             .border_color(theme::border_subtle())
             .shadow_lg()
             .occlude()
+            .child(self.bar_grip(cx))
             .child(
                 div()
                     .px_2()
@@ -104,11 +105,22 @@ impl MultiChart {
         }
         bar = self.bar_actions(bar, &st, cx);
 
-        let top = self.active_chart().read(cx).legend_bottom();
+        // The bar belongs to the whole area of charts: it sits under the legends along the top, or
+        // where the user moved it.
+        let (dx, dy) = self.bar.offset(self.area.get());
+        let bounds = self.bar.bounds_cell();
+        let bar = bar.relative().left(px(dx)).child(
+            canvas(
+                move |bounds_now, _window, _cx| bounds.set(Some(bounds_now)),
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .size_full(),
+        );
         Some(
             div()
                 .absolute()
-                .top(px(top))
+                .top(px(self.bar.home_top() + dy))
                 .left_0()
                 .right_0()
                 .flex()
@@ -116,6 +128,38 @@ impl MultiChart {
                 .child(bar)
                 .into_any_element(),
         )
+    }
+
+    /// The grip at the left of the bar: hold it to move the bar, double click to bring it back.
+    fn bar_grip(&self, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id("draw-bar-grip")
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .h(px(tokens::height::compact()))
+            .px_1()
+            .cursor_grab()
+            .tooltip(controls::tooltip(
+                "Move the bar (double click to put it back)",
+            ))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, event: &MouseDownEvent, _window, cx| {
+                    cx.stop_propagation();
+                    if event.click_count >= 2 {
+                        this.reset_bar_place(cx);
+                    } else {
+                        this.begin_bar_drag(event.position, cx);
+                    }
+                }),
+            )
+            .child(icon::tinted(
+                IconName::GripVertical,
+                tokens::text::body(),
+                theme::muted_fg(),
+            ))
     }
 
     #[allow(unused_variables)]
