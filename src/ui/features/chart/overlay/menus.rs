@@ -2,12 +2,12 @@
 
 use crate::domain::drawings::book::Order;
 use crate::domain::market::format_price;
+use crate::ui::features::chart::events::{ChartAction, ChartEvent};
 use crate::ui::features::chart::lines::to_real;
 use crate::ui::features::chart::scene::{Geometry, axis_h};
 use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{
-    Chart, ChartAction, ChartEvent, DrawingCommand, Menu, chart_settings_ui, export_ui,
-    indicator_picker,
+    Chart, DrawingCommand, Menu, chart_settings_ui, export_ui, indicator_picker,
 };
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{
@@ -76,11 +76,12 @@ impl Chart {
             );
         }
         if crate::app::alerts::eval::is_alert_tool(drawing.tool) {
-            let seed = ChartAction::AddAlertOn(crate::ui::features::chart::AlertSeed::Drawing {
-                id,
-                zone: crate::app::alerts::eval::is_zone_tool(drawing.tool),
-                timeframe: self.timeframe.code(),
-            });
+            let seed =
+                ChartAction::AddAlertOn(crate::ui::features::chart::events::AlertSeed::Drawing {
+                    id,
+                    zone: crate::app::alerts::eval::is_zone_tool(drawing.tool),
+                    timeframe: self.timeframe.code(),
+                });
             let alert = chart.clone();
             about.push(
                 Entry::new("Add alert on this drawing...")
@@ -221,7 +222,7 @@ impl Chart {
                     Entry::new(format!("Add alert on {}...", study.title()))
                         .icon(IconName::BellPlus)
                         .on_click(emit(ChartAction::AddAlertOn(
-                            crate::ui::features::chart::AlertSeed::Indicator {
+                            crate::ui::features::chart::events::AlertSeed::Indicator {
                                 study: Box::new(study.clone()),
                                 timeframe: self.timeframe.code(),
                             },
@@ -326,7 +327,7 @@ impl Chart {
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(
-                        popup::row(
+                        popup::parts::row(
                             SharedString::from(format!("chart-zone-{}", zone.code())),
                             zone.name(now),
                             None,
@@ -340,12 +341,12 @@ impl Chart {
                         )),
                     );
                 }
-                popup::card()
+                popup::parts::card()
                     .id("chart-zone-menu")
                     .w(px(tokens::menu::DROPDOWN_WIDTH))
                     .max_h(px((geometry.h as f32 - 60.0).max(160.0)))
                     .overflow_y_scroll()
-                    .child(popup::section_title("Time zone"))
+                    .child(popup::parts::section_title("Time zone"))
                     .child(list)
                     .into_any_element()
             }
@@ -358,7 +359,7 @@ impl Chart {
             .child(card);
         Some(
             deferred(
-                popup::backdrop({
+                popup::parts::backdrop({
                     let this = cx.entity().downgrade();
                     move |_, cx| {
                         let _ = this.update(cx, |this, cx| {

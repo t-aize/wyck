@@ -11,7 +11,8 @@ pub mod price_alerts;
 
 use super::Dashboard;
 use crate::domain::trading::math;
-use crate::ui::features::chart::{ChartAction, LineId, PositionLink};
+use crate::ui::features::chart::LineId;
+use crate::ui::features::chart::events::{ChartAction, PositionLink};
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::panel::PanelEvent;
@@ -38,7 +39,7 @@ pub(super) enum Pending {
     /// Open the editor of a new alert.
     EditAlert(u64),
     /// Open the editor of the indicator scripts.
-    Editor(crate::ui::features::chart::EditorRequest),
+    Editor(crate::ui::features::chart::events::EditorRequest),
 }
 
 /// The least height of the account panel.
@@ -170,7 +171,7 @@ impl Dashboard {
                 );
             }
             Pending::Editor(request) => {
-                use crate::ui::features::chart::EditorRequest;
+                use crate::ui::features::chart::events::EditorRequest;
                 self.with_editor(window, cx, move |editor, window, cx| match request {
                     EditorRequest::Open => editor.focus_editor(window, cx),
                     EditorRequest::New => editor.ask_new(0, window, cx),

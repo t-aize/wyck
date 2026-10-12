@@ -12,7 +12,7 @@
 //!
 //! # A session, step by step
 //!
-//! 1. [`Client::connect`] opens the socket (or [`ClientBuilder`] for connecting and identifying the
+//! 1. [`Client::connect`] opens the socket (or [`builder::ClientBuilder`] for connecting and identifying the
 //!    application in one step).
 //! 2. [`Client::authenticate_application`] identifies the application (client id and secret).
 //! 3. [`Client::accounts`] lists the trading accounts an access token covers, and
@@ -228,7 +228,7 @@ impl std::fmt::Debug for Client {
 
 impl Client {
     /// Opens the connection. No message is sent yet: authenticate the application next (or use
-    /// [`ClientBuilder`] to do both in one call).
+    /// [`builder::ClientBuilder`] to do both in one call).
     ///
     /// # Errors
     ///
@@ -283,8 +283,8 @@ impl Client {
         Ok(Self { shared })
     }
 
-    /// Starts a [`ClientBuilder`] for `environment`, the friendliest way to connect and (with
-    /// [`ClientBuilder::credentials`]) identify the application in one step.
+    /// Starts a [`builder::ClientBuilder`] for `environment`, the friendliest way to connect and (with
+    /// [`builder::ClientBuilder::credentials`]) identify the application in one step.
     #[must_use]
     pub fn builder(environment: Environment) -> builder::ClientBuilder {
         builder::ClientBuilder::new(environment)

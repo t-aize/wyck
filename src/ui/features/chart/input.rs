@@ -10,9 +10,10 @@
 
 use gpui::{Context, CursorStyle};
 
+use super::Chart;
+use super::events::ChartEvent;
 use super::lines::{LineId, to_real};
 use super::view::PriceScale;
-use super::{Chart, ChartEvent};
 use crate::domain::drawings::book::Grab;
 
 /// Where a position is on the chart.

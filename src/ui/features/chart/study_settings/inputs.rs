@@ -229,8 +229,8 @@ impl StudyEditor {
                         modal::close(window, cx);
                         let id = edit_id.clone();
                         edit_chart.update(cx, |_, cx| {
-                            cx.emit(crate::ui::features::chart::ChartEvent::IndicatorEditor(
-                                crate::ui::features::chart::EditorRequest::Edit(id),
+                            cx.emit(crate::ui::features::chart::events::ChartEvent::IndicatorEditor(
+                                crate::ui::features::chart::events::EditorRequest::Edit(id),
                             ));
                         });
                     },

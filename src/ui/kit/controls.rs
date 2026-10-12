@@ -207,7 +207,7 @@ pub fn color_swatch_with_opacity(
         .relative()
         .child(swatch)
         // Above the dialogs of gpui-component, which hold the color fields of the settings.
-        .child(menu::below(panel, tokens::height::compact(), 100))
+        .child(menu::parts::below(panel, tokens::height::compact(), 100))
         .into_any_element()
 }
 

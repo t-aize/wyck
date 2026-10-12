@@ -11,10 +11,11 @@ use gpui::{
     AnyElement, App, Context, Entity, FontWeight, SharedString, Subscription, Window, div, px,
 };
 
+use super::Chart;
+use super::events::{ChartEvent, EditorRequest};
 use super::study::catalog::{self, Item, Source};
 use super::study::intern;
 use super::study::spec::Placement;
-use super::{Chart, ChartEvent, EditorRequest};
 use crate::app::scripts as indicators;
 use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,

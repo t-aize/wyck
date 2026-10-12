@@ -82,7 +82,7 @@ impl Render for Dashboard {
         let menu_backdrop = (self.menu_is(MenuKind::Timeframes) || self.menu_is(MenuKind::Layouts))
             .then(|| {
                 let this = cx.entity().downgrade();
-                deferred(crate::ui::kit::menu::backdrop(move |_, cx| {
+                deferred(crate::ui::kit::menu::parts::backdrop(move |_, cx| {
                     let _ = this.update(cx, |this, cx| {
                         this.close_menus();
                         cx.notify();

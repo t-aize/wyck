@@ -29,7 +29,11 @@ impl IndicatorEditor {
             .filter(|g| matches(&format!("{} {}", g.name, g.summary)))
             .collect();
         if !globals.is_empty() {
-            list = list.child(menu::section_title("Names you start with").px_3().pt_3());
+            list = list.child(
+                menu::parts::section_title("Names you start with")
+                    .px_3()
+                    .pt_3(),
+            );
             for global in globals {
                 row_number += 1;
                 let this = cx.entity();
@@ -51,7 +55,7 @@ impl IndicatorEditor {
             if items.is_empty() {
                 continue;
             }
-            list = list.child(menu::section_title(group.label()).px_3().pt_3());
+            list = list.child(menu::parts::section_title(group.label()).px_3().pt_3());
             for doc in items {
                 row_number += 1;
                 let this = cx.entity();
@@ -72,7 +76,11 @@ impl IndicatorEditor {
             })
             .collect();
         if !tools.is_empty() {
-            list = list.child(menu::section_title("Drawing tool names").px_3().pt_3());
+            list = list.child(
+                menu::parts::section_title("Drawing tool names")
+                    .px_3()
+                    .pt_3(),
+            );
             for (name, label) in tools {
                 row_number += 1;
                 let this = cx.entity();

@@ -307,6 +307,11 @@ fn scan_all() -> BTreeMap<String, String> {
         let zone = zone_of(&module);
         let source = fs::read_to_string(&path).expect("a source file is readable");
         let ast = syn::parse_file(&source).unwrap_or_else(|e| panic!("{shown}: {e}"));
+        // A file of unit tests (`#![cfg(test)]`, loaded by a `#[cfg(test)] mod tests;`) is skipped
+        // like a `#[cfg(test)]` module written inside its file.
+        if is_cfg_test(&ast.attrs) {
+            continue;
+        }
         let mut scan = Scan {
             file: &shown,
             module: &module,

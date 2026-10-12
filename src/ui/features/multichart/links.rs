@@ -8,7 +8,7 @@
 //! - **Time**: scrolling one chart brings the others to the same time at the right edge.
 //! - **Date range**: zooming and scrolling one chart gives the others the same span of time.
 
-use crate::ui::features::chart::{ChartEvent, Hover, Span};
+use crate::ui::features::chart::events::{ChartEvent, Hover, Span};
 
 pub use crate::app::workspace::LinksPref as Links;
 

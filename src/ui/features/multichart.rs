@@ -6,7 +6,7 @@
 //! [`links`], as plain data, and this view only applies what they say.
 //!
 //! The charts do not know about each other. Each one reports what the user did as a
-//! [`ChartEvent`](crate::ui::features::chart::ChartEvent), and this view applies the links, which keeps a chart free of loops: a chart
+//! [`ChartEvent`](crate::ui::features::chart::events::ChartEvent), and this view applies the links, which keeps a chart free of loops: a chart
 //! that is made to follow another never reports it. What the rest of the app acts on (a symbol to
 //! pick, an order asked from the chart, a line dragged) goes up as a [`MultiChartEvent`].
 
@@ -33,9 +33,8 @@ use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
-use crate::ui::features::chart::{
-    Chart, ChartAction, ChartLine, ChartSettings, EditorRequest, LineId,
-};
+use crate::ui::features::chart::events::{ChartAction, EditorRequest};
+use crate::ui::features::chart::{Chart, ChartLine, ChartSettings, LineId};
 use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{

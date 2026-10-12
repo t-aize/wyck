@@ -182,7 +182,7 @@ impl Render for ColorPanel {
         );
         let save_this = this.clone();
 
-        crate::ui::kit::menu::panel(AREA_W + 24.0)
+        crate::ui::kit::menu::parts::panel(AREA_W + 24.0)
             .on_mouse_down_out(cx.listener(|this, _event, window, cx| {
                 // A click on the swatch itself closes the panel through the swatch.
                 if !this.swatch_hovered

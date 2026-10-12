@@ -255,14 +255,14 @@ impl Dashboard {
     pub(in crate::ui::shell::dashboard) fn add_alert_on(
         &mut self,
         symbol: &SymbolRef,
-        seed: &crate::ui::features::chart::AlertSeed,
+        seed: &crate::ui::features::chart::events::AlertSeed,
         cx: &mut Context<Self>,
     ) {
         use crate::app::alerts::{Alert, Condition, Source};
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
         match seed {
-            crate::ui::features::chart::AlertSeed::Indicator { study, timeframe } => {
+            crate::ui::features::chart::events::AlertSeed::Indicator { study, timeframe } => {
                 alert.timeframe = timeframe.clone();
                 let spec = study.kind.spec();
                 if matches!(
@@ -285,7 +285,7 @@ impl Dashboard {
                         .map_or(0.0, |(low, high)| low + (high - low) * 0.7);
                 }
             }
-            crate::ui::features::chart::AlertSeed::Drawing {
+            crate::ui::features::chart::events::AlertSeed::Drawing {
                 id,
                 zone,
                 timeframe,

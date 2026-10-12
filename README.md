@@ -129,6 +129,10 @@ that:
 - `WYCK_DATA_DIR` moves the data folder alone.
 - `WYCK_KEYRING_SERVICE` names the keyring service.
 
+On a machine with no keyring (Linux without a Secret Service), Wyck cannot keep the sign-in.
+Set `WYCK_PASSPHRASE` before starting it and the credentials are kept in encrypted files in the
+data folder, locked by that passphrase. The same passphrase must be set at every start.
+
 To run a debug build on the data of the installed app (the real thing, so take care), point it at
 the same places:
 

@@ -345,7 +345,7 @@ impl MultiChart {
                 .map_or(4.0, |bounds| f32::from(bounds.origin.y) - root_top),
             None => 4.0,
         };
-        let mut list = popup::card()
+        let mut list = popup::parts::card()
             .id("draw-flyout-list")
             .absolute()
             .top(px(top.max(0.0)))
@@ -355,7 +355,7 @@ impl MultiChart {
             .overflow_y_scroll();
 
         if let Some(group) = self.flyout {
-            list = list.child(popup::section_title(group.label()));
+            list = list.child(popup::parts::section_title(group.label()));
             for tool in group_tools(group) {
                 list = list.child(self.tool_row(tool, current, &favorites, cx));
             }
@@ -364,7 +364,7 @@ impl MultiChart {
             list = list.child(div().p_1().child(self.search_input.clone()));
             if query.is_empty() {
                 if !self.recent_tools.is_empty() {
-                    list = list.child(popup::section_title("Recent"));
+                    list = list.child(popup::parts::section_title("Recent"));
                     for tool in self.recent_tools.clone() {
                         list = list.child(self.tool_row(tool, current, &favorites, cx));
                     }

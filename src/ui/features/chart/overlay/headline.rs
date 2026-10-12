@@ -3,9 +3,10 @@
 use super::rgb;
 use crate::domain::market::format_price;
 use crate::ui::features::chart::data::Series;
+use crate::ui::features::chart::events::ChartEvent;
 use crate::ui::features::chart::scene::{Geometry, axis_h, axis_w};
 use crate::ui::features::chart::settings::ChartKind;
-use crate::ui::features::chart::{Chart, ChartEvent, Load, Older};
+use crate::ui::features::chart::{Chart, Load, Older};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;

@@ -1,9 +1,10 @@
 //! What the rest of the app asks of a chart: its symbol, its timeframe, its settings, its studies and its lines.
 
+use super::events::ChartEvent;
 use super::settings;
 use super::{
-    Chart, ChartEvent, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View,
-    footprint, view,
+    Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
+    view,
 };
 
 use crate::app::market_data::now_ms;

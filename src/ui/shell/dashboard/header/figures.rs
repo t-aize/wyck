@@ -62,7 +62,7 @@ impl Dashboard {
         if !self.menu_is(MenuKind::Account) {
             return None;
         }
-        let card = menu::panel(tokens::menu::PANEL_WIDTH)
+        let card = menu::parts::panel(tokens::menu::PANEL_WIDTH)
             .on_mouse_down(MouseButton::Left, |_event, _window, cx| {
                 cx.stop_propagation();
             })

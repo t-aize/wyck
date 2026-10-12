@@ -2,7 +2,8 @@
 
 use super::links::Follow;
 use super::{MultiChart, MultiChartEvent, SymbolRef};
-use crate::ui::features::chart::{Chart, ChartEvent};
+use crate::ui::features::chart::Chart;
+use crate::ui::features::chart::events::ChartEvent;
 use gpui::{Context, Entity};
 
 impl MultiChart {

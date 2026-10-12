@@ -9,14 +9,13 @@ use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, Window, div, px};
 
+use super::events::{ChartAction, ChartEvent, EditorRequest};
 use super::lines::to_real;
 use super::overlay::{KIND_SECTIONS, kind_icon};
 use super::settings::ScaleMode;
 use super::study::catalog::{self, Source};
 use super::view::PriceScale;
-use super::{
-    Chart, ChartAction, ChartEvent, EditorRequest, chart_settings_ui, export_ui, indicator_picker,
-};
+use super::{Chart, chart_settings_ui, export_ui, indicator_picker};
 use crate::app::scripts as indicators;
 use crate::ui::kit::{
     controls, icon, layout,
