@@ -8,4 +8,5 @@ pub mod drawings;
 pub mod flex;
 pub mod indicators;
 pub mod market;
+pub mod shortcuts;
 pub mod trading;

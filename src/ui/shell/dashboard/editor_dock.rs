@@ -212,7 +212,8 @@ impl Dashboard {
                     run(
                         "Indicator editor",
                         IconName::CodeXml,
-                        Some(crate::ui::kit::shortcut::text("Ctrl+Shift+E")),
+                        crate::ui::kit::hints::hint("toggle_indicator_editor")
+                            .map(gpui::SharedString::from),
                         |d, _, cx| {
                             d.toggle_editor(cx);
                         },

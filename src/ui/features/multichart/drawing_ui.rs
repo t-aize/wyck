@@ -86,7 +86,10 @@ impl MultiChart {
         rail = rail.child(
             crate::ui::kit::button::quiet("draw-search")
                 .icon(IconName::Search)
-                .tooltip(crate::ui::kit::shortcut::text("Find a tool (Ctrl+Shift+F)"))
+                .tooltip(gpui::SharedString::from(format!(
+                    "Find a tool{}",
+                    crate::ui::kit::hints::suffix("find_tool")
+                )))
                 .toggled(searching)
                 .on_click(cx.listener(|this, _event, window, cx| {
                     if this.tool_search {
@@ -102,7 +105,7 @@ impl MultiChart {
             let shown = self.group_tool(group);
             let active = tool.is_some_and(|t| t.group() == group);
             let slots = self.rail_slots.clone();
-            let tip: SharedString = match shown.shortcut() {
+            let tip: SharedString = match crate::ui::kit::hints::tool_hint(shown) {
                 Some(keys) => format!("{}: {} ({keys})", group.label(), shown.label()).into(),
                 None => format!("{}: {}", group.label(), shown.label()).into(),
             };
@@ -208,7 +211,10 @@ impl MultiChart {
         .child(
             crate::ui::kit::button::quiet("draw-undo")
                 .icon(IconName::Undo2)
-                .tooltip(crate::ui::kit::shortcut::text("Undo (Ctrl+Z)"))
+                .tooltip(gpui::SharedString::from(format!(
+                    "Undo{}",
+                    crate::ui::kit::hints::suffix("undo_drawing")
+                )))
                 .disabled(!can_undo)
                 .when(!can_undo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
@@ -216,7 +222,10 @@ impl MultiChart {
         .child(
             crate::ui::kit::button::quiet("draw-redo")
                 .icon(IconName::Redo2)
-                .tooltip(crate::ui::kit::shortcut::text("Redo (Ctrl+Shift+Z)"))
+                .tooltip(gpui::SharedString::from(format!(
+                    "Redo{}",
+                    crate::ui::kit::hints::suffix("redo_drawing")
+                )))
                 .disabled(!can_redo)
                 .when(!can_redo, |button| button.cursor_not_allowed())
                 .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
@@ -282,7 +291,7 @@ impl MultiChart {
                         },
                     ))
                     .child(div().flex_1().min_w_0().child(tool.label()))
-                    .children(tool.shortcut().map(|keys| {
+                    .children(crate::ui::kit::hints::tool_hint(tool).map(|keys| {
                         div()
                             .flex_none()
                             .pr_1()

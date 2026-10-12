@@ -206,7 +206,10 @@ impl SettingsHub {
             .child(form::group(IconName::SlidersHorizontal, "Behavior", behavior))
             .child(form::group(IconName::Star, "Favorites", favorites))
             .child(form::note(
-                crate::ui::kit::shortcut::text("Open the editor from the button in the header (Ctrl+Shift+E). Export a script from the editor to share it."),
+                format!(
+                    "Open the editor from the button in the header{}. Export a script from the editor to share it.",
+                    crate::ui::kit::hints::suffix("toggle_indicator_editor")
+                ),
             ))
             .into_any_element()
     }

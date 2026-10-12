@@ -162,63 +162,12 @@ gpui::actions!(
     ]
 );
 
-/// Registers the chart's key bindings. Call once, at startup.
+/// Registers the key bindings of the chart that cannot be changed. The others are in
+/// `ui::shell::keymap`. Call once, at startup.
 pub fn init(cx: &mut App) {
     cx.bind_keys([
-        KeyBinding::new("left", ChartPanBack, Some("Dashboard")),
-        KeyBinding::new("right", ChartPanForward, Some("Dashboard")),
-        KeyBinding::new("secondary-=", ChartZoomIn, Some("Dashboard")),
-        KeyBinding::new("secondary-+", ChartZoomIn, Some("Dashboard")),
-        KeyBinding::new("secondary--", ChartZoomOut, Some("Dashboard")),
-        KeyBinding::new("end", ChartLatest, Some("Dashboard")),
-        KeyBinding::new("alt-r", ChartResetScale, Some("Dashboard")),
-        KeyBinding::new("delete", DeleteDrawing, Some("Dashboard")),
-        KeyBinding::new("backspace", DeleteDrawing, Some("Dashboard")),
         // Only while a drawing is being made, so Enter is left alone the rest of the time.
         KeyBinding::new("enter", FinishDrawing, Some("DrawingInProgress")),
-        // Alt and a number picks the favorite tool at that place in the bar.
-        KeyBinding::new("alt-1", Favorite1, Some("Dashboard")),
-        KeyBinding::new("alt-2", Favorite2, Some("Dashboard")),
-        KeyBinding::new("alt-3", Favorite3, Some("Dashboard")),
-        KeyBinding::new("alt-4", Favorite4, Some("Dashboard")),
-        KeyBinding::new("alt-5", Favorite5, Some("Dashboard")),
-        KeyBinding::new("alt-6", Favorite6, Some("Dashboard")),
-        KeyBinding::new("alt-7", Favorite7, Some("Dashboard")),
-        KeyBinding::new("alt-8", Favorite8, Some("Dashboard")),
-        KeyBinding::new("alt-9", Favorite9, Some("Dashboard")),
-        KeyBinding::new("secondary-z", UndoDrawing, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-z", RedoDrawing, Some("Dashboard")),
-        KeyBinding::new("secondary-y", RedoDrawing, Some("Dashboard")),
-        KeyBinding::new("secondary-d", DuplicateDrawing, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-s", ChartScreenshot, Some("Dashboard")),
-        KeyBinding::new(
-            "secondary-alt-shift-s",
-            ChartScreenshotAll,
-            Some("Dashboard"),
-        ),
-        KeyBinding::new("alt-a", ChartAddAlert, Some("Dashboard")),
-        KeyBinding::new("secondary-c", ChartCopyIndicators, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-c", ChartCopySettings, Some("Dashboard")),
-        KeyBinding::new("secondary-v", ChartPaste, Some("Dashboard")),
-        KeyBinding::new("secondary-a", SelectAllDrawings, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-f", FindTool, Some("Dashboard")),
-        // With drawings selected the arrows move them: one bar or a little price, ten times that
-        // with Shift. With none selected the keys go on to the chart.
-        KeyBinding::new("up", NudgeUp, Some("Dashboard")),
-        KeyBinding::new("down", NudgeDown, Some("Dashboard")),
-        KeyBinding::new("shift-left", NudgeBackFast, Some("Dashboard")),
-        KeyBinding::new("shift-right", NudgeForwardFast, Some("Dashboard")),
-        KeyBinding::new("shift-up", NudgeUpFast, Some("Dashboard")),
-        KeyBinding::new("shift-down", NudgeDownFast, Some("Dashboard")),
-        // Alt and a letter picks a tool drawn often, see `Tool::shortcut`.
-        KeyBinding::new("alt-t", ToolTrendLine, Some("Dashboard")),
-        KeyBinding::new("alt-h", ToolHorizontal, Some("Dashboard")),
-        KeyBinding::new("alt-v", ToolVertical, Some("Dashboard")),
-        KeyBinding::new("alt-f", ToolFib, Some("Dashboard")),
-        KeyBinding::new("alt-x", ToolRectangle, Some("Dashboard")),
-        KeyBinding::new("alt-n", ToolText, Some("Dashboard")),
-        KeyBinding::new("alt-m", ToolMeasure, Some("Dashboard")),
-        KeyBinding::new("alt-p", ToolBrush, Some("Dashboard")),
     ]);
 }
 

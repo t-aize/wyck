@@ -263,9 +263,10 @@ impl ChartSettingsEditor {
         let full = settings.studies.len() >= limit;
         let (browse, editor, new) = (self.chart.clone(), self.chart.clone(), self.chart.clone());
         let add = if full {
-            form::block(form::note(crate::ui::kit::shortcut::text(&format!(
-                "This chart allows {limit} indicators. Change the limit in Settings (Ctrl+,)."
-            ))))
+            form::block(form::note(format!(
+                "This chart allows {limit} indicators. Change the limit in Settings{}.",
+                crate::ui::kit::hints::suffix("open_settings")
+            )))
         } else {
             form::block(
                 div()

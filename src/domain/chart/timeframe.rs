@@ -324,6 +324,28 @@ impl Timeframe {
         self.bar_ms().unwrap_or(0)
     }
 
+    /// The timeframe after (`longer`) or before `self` among `list`, going round at the ends. The
+    /// list may be in any order. `None` when there is no other timeframe to go to.
+    pub fn step_in(self, list: &[Self], longer: bool) -> Option<Self> {
+        let mut sorted: Vec<Self> = list.to_vec();
+        sorted.sort_by_key(|t| t.sort_key());
+        sorted.dedup();
+        let key = self.sort_key();
+        let next = if longer {
+            sorted
+                .iter()
+                .find(|t| t.sort_key() > key)
+                .or_else(|| sorted.first())
+        } else {
+            sorted
+                .iter()
+                .rev()
+                .find(|t| t.sort_key() < key)
+                .or_else(|| sorted.last())
+        };
+        next.copied().filter(|t| *t != self)
+    }
+
     /// The length of one bar in milliseconds, `None` for ticks.
     pub fn bar_ms(self) -> Option<i64> {
         match self {
@@ -423,6 +445,40 @@ impl Timeframe {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stepping_goes_to_the_next_timeframe_of_the_list_and_round_at_the_ends() {
+        let list = [
+            Timeframe::of(15, Unit::Minutes).unwrap(),
+            Timeframe::of(1, Unit::Minutes).unwrap(),
+            Timeframe::of(1, Unit::Hours).unwrap(),
+        ];
+        let m1 = list[1];
+        let m15 = list[0];
+        let h1 = list[2];
+        assert_eq!(m1.step_in(&list, true), Some(m15));
+        assert_eq!(m15.step_in(&list, true), Some(h1));
+        assert_eq!(h1.step_in(&list, true), Some(m1), "round to the shortest");
+        assert_eq!(m1.step_in(&list, false), Some(h1), "round to the longest");
+        assert_eq!(h1.step_in(&list, false), Some(m15));
+    }
+
+    #[test]
+    fn stepping_from_a_timeframe_not_in_the_list_picks_the_neighbour() {
+        let list = [
+            Timeframe::of(5, Unit::Minutes).unwrap(),
+            Timeframe::of(1, Unit::Hours).unwrap(),
+        ];
+        let m30 = Timeframe::of(30, Unit::Minutes).unwrap();
+        assert_eq!(m30.step_in(&list, true), Some(list[1]));
+        assert_eq!(m30.step_in(&list, false), Some(list[0]));
+        assert_eq!(m30.step_in(&[], true), None);
+        assert_eq!(
+            list[0].step_in(&list[..1], true),
+            None,
+            "nowhere else to go"
+        );
+    }
 
     #[test]
     fn every_menu_entry_has_a_unique_label() {

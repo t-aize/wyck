@@ -67,6 +67,7 @@ pub fn run() {
             sign_in_gate::init(cx);
             chart::init(cx);
             indicators::editor::init(cx);
+            crate::ui::shell::keymap::apply(&Default::default(), cx);
             crate::ui::kit::modal::init(cx);
 
             cx.text_system()

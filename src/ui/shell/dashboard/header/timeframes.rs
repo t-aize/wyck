@@ -83,6 +83,27 @@ impl Dashboard {
             )
     }
 
+    /// Moves the active chart to the next (`longer`) or previous timeframe of the favorites,
+    /// going round at the ends.
+    pub(in crate::ui::shell::dashboard) fn step_timeframe(
+        &mut self,
+        longer: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let list: Vec<chart::Timeframe> = self
+            .workspace
+            .read(cx)
+            .preferences()
+            .favorite_timeframes
+            .iter()
+            .filter_map(|code| chart::Timeframe::from_code(code))
+            .collect();
+        let current = self.multi.read(cx).active_timeframe(cx);
+        if let Some(next) = current.step_in(&list, longer) {
+            self.pick_timeframe(next, cx);
+        }
+    }
+
     pub(super) fn pick_timeframe(&mut self, timeframe: chart::Timeframe, cx: &mut Context<Self>) {
         self.close_menus();
         self.multi

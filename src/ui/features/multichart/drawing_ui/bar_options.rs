@@ -335,7 +335,10 @@ impl MultiChart {
             .child(
                 crate::ui::kit::button::quiet("draw-copy")
                     .icon(IconName::Copy)
-                    .tooltip(crate::ui::kit::shortcut::text("Duplicate (Ctrl+D)"))
+                    .tooltip(gpui::SharedString::from(format!(
+                        "Duplicate{}",
+                        crate::ui::kit::hints::suffix("duplicate_drawing")
+                    )))
                     .on_click(cx.listener(|this, _event, _window, cx| this.duplicate_drawing(cx))),
             )
             .child(

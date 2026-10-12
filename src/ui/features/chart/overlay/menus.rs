@@ -202,7 +202,7 @@ impl Chart {
             let mut alerts: Vec<Item> = vec![
                 Entry::new(format!("Add alert at {text}"))
                     .icon(IconName::BellPlus)
-                    .hint("Alt+A")
+                    .hint(crate::ui::kit::hints::hint("add_alert").unwrap_or_default())
                     .on_click(emit(ChartAction::AddAlert(real)))
                     .into(),
             ];
@@ -266,17 +266,17 @@ impl Chart {
                 vec![
                     Entry::new("Copy indicators")
                         .icon(IconName::Copy)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+C"))
+                        .hint(crate::ui::kit::hints::hint("copy_indicators").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
                         .into(),
                     Entry::new("Copy chart settings")
                         .icon(IconName::Copy)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+Shift+C"))
+                        .hint(crate::ui::kit::hints::hint("copy_settings").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
                         .into(),
                     Entry::new("Paste on this chart")
                         .icon(IconName::ClipboardPaste)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl/Cmd+V"))
+                        .hint(crate::ui::kit::hints::hint("paste_to_chart").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Paste)))
                         .into(),
                 ],
@@ -296,12 +296,12 @@ impl Chart {
                 vec![
                     Entry::new("Take a picture of the chart")
                         .icon(IconName::Camera)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl+Shift+S"))
+                        .hint(crate::ui::kit::hints::hint("screenshot").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::Screenshot)))
                         .into(),
                     Entry::new("Take a picture of all the charts")
                         .icon(IconName::Images)
-                        .hint(crate::ui::kit::shortcut::text("Ctrl+Alt+Shift+S"))
+                        .hint(crate::ui::kit::hints::hint("screenshot_all").unwrap_or_default())
                         .disabled(self.layout_charts < 2)
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::ScreenshotAll)))
                         .into(),

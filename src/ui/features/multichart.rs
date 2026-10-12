@@ -324,6 +324,15 @@ impl MultiChart {
         ids
     }
 
+    /// Makes the chart `delta` places after (or before) the active one the active one, going round.
+    pub fn step_active(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let count = self.slots.len();
+        if count > 1 {
+            let next = (self.active as isize + delta).rem_euclid(count as isize) as usize;
+            self.activate(next, cx);
+        }
+    }
+
     fn activate(&mut self, index: usize, cx: &mut Context<Self>) {
         if index < self.slots.len() && self.active != index {
             self.active = index;

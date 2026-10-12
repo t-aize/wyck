@@ -127,7 +127,10 @@ impl IndicatorEditor {
                     "editor-save",
                     IconName::Save,
                     Some("Save"),
-                    crate::ui::kit::shortcut::text("Save (Ctrl+S)"),
+                    gpui::SharedString::from(format!(
+                        "Save{}",
+                        crate::ui::kit::hints::suffix("editor_save")
+                    )),
                     has_doc && dirty,
                 )
                 .on_click(move |_, window, cx| {
@@ -139,9 +142,10 @@ impl IndicatorEditor {
                     "editor-add",
                     IconName::Play,
                     Some("Add to chart"),
-                    crate::ui::kit::shortcut::text(
-                        "Save, and put it on the active chart (Ctrl+Enter or F5)",
-                    ),
+                    gpui::SharedString::from(format!(
+                        "Save, and put it on the active chart{}",
+                        crate::ui::kit::hints::suffix("editor_add_to_chart")
+                    )),
                     has_doc,
                 )
                 .on_click(move |_, window, cx| {
@@ -199,7 +203,10 @@ impl IndicatorEditor {
                     "editor-reference",
                     IconName::BookOpen,
                     Some("Reference"),
-                    crate::ui::kit::shortcut::text("Every function of the language (Ctrl+Alt+R)"),
+                    gpui::SharedString::from(format!(
+                        "Every function of the language{}",
+                        crate::ui::kit::hints::suffix("editor_reference")
+                    )),
                     true,
                 )
                 .toggled(reference_open)

@@ -11,8 +11,10 @@ root.
   on it, and its baseline is empty. Each layer folder has a short `AGENTS.md` with its rules.
 - Screens take every control, size and color from `src/ui/kit`. Never configure a gpui-kit
   component or spell out a pixel size or a color in a screen.
-- Key bindings live in the modules that own the actions; `src/keymap_guard.rs` fails when two
-  actions share keys in one context.
+- A shortcut the user can change is declared once, in the table of `src/ui/shell/keymap.rs`; its
+  tests fail when two defaults share keys in one context. The bindings that stay fixed (text
+  fields, dialogs, the symbol picker) live in the modules that own the actions, and
+  `src/keymap_guard.rs` fails when two of them share keys in one context.
 
 ## Commands
 

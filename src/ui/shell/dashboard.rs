@@ -62,24 +62,24 @@ gpui::actions!(
         TicketBuy,
         TicketSell,
         TicketSend,
+        OpenShortcuts,
+        ToggleTicket,
+        ToggleAccountPanel,
+        ToggleFullscreen,
+        NextChart,
+        PreviousChart,
+        NextTimeframe,
+        PreviousTimeframe,
+        ToggleMagnet,
+        ToggleKeepDrawing,
+        ToggleFavoritesBar,
     ]
 );
 
-/// Registers the dashboard's key bindings. Call once, at startup.
+/// Registers the key bindings of the dashboard that cannot be changed. The others are in
+/// `ui::shell::keymap`. Call once, at startup.
 pub fn init(cx: &mut App) {
     cx.bind_keys([
-        KeyBinding::new("secondary-k", OpenPicker, Some("Dashboard")),
-        KeyBinding::new("secondary-,", OpenSettings, Some("Dashboard")),
-        KeyBinding::new(
-            "secondary-shift-e",
-            ToggleIndicatorEditor,
-            Some("Dashboard"),
-        ),
-        KeyBinding::new("secondary-shift-x", CloseAllPositions, Some("Dashboard")),
-        KeyBinding::new("secondary-shift-k", ToggleKillSwitch, Some("Dashboard")),
-        KeyBinding::new("alt-b", TicketBuy, Some("Dashboard")),
-        KeyBinding::new("alt-s", TicketSell, Some("Dashboard")),
-        KeyBinding::new("secondary-enter", TicketSend, Some("Dashboard")),
         KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
         KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
         KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
@@ -313,6 +313,8 @@ impl Dashboard {
         cx.observe(&alerts, |this, _alerts, cx| this.push_lines(cx))
             .detach();
         let prefs = workspace.read(cx).preferences().clone();
+        // The keys the user chose, over the defaults bound at the start.
+        crate::ui::shell::keymap::apply(&prefs.shortcuts, cx);
         let multi = cx.new(|cx| {
             MultiChart::new(
                 session.clone(),
