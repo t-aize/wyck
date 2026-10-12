@@ -105,7 +105,7 @@ impl AppView {
             toast::Toast::new(
                 toast::Kind::Warning,
                 "Sign-in not saved",
-                "You are connected, but Wyck could not keep the sign-in on this device. You will sign in again next time.",
+                "You are connected, but Wyck could not keep the sign-in on this device. You will sign in again next time. On a machine with no keyring, set WYCK_PASSPHRASE to keep it in encrypted files.",
             )
             .details_opt(Some(reason.clone()))
             .show(cx);

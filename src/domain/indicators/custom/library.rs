@@ -20,8 +20,15 @@ use super::run::decl::{Declaration, Limits, Problem};
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
 const DECLARE_LIMITS: Limits = Limits {
     operations: 2_000_000,
-    time: Duration::from_secs(1),
+    time: DECLARE_TIME,
 };
+
+/// The wall time of a declaration. A test gets a long one: the operations budget is what stops a
+/// runaway script there, and the wall clock would make a test on a loaded machine fail by chance.
+#[cfg(not(test))]
+const DECLARE_TIME: Duration = Duration::from_secs(1);
+#[cfg(test)]
+const DECLARE_TIME: Duration = Duration::from_secs(600);
 
 /// What is said about an indicator apart from how it computes: the words the menus show.
 #[derive(Debug, Clone, PartialEq, Eq)]

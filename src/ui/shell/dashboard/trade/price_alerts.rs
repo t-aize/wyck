@@ -215,13 +215,12 @@ impl Dashboard {
     ) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
-        let pip = symbol.pip_position.map_or_else(
-            || crate::domain::market::pip_size_from_digits(digits),
-            crate::domain::market::pip_size,
-        );
+        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
-            alerts.set_pip(id, pip);
+            if let Some(pip) = pip {
+                alerts.set_pip(id, pip);
+            }
             alerts.edit(cx, |book| {
                 book.add_with_limit(
                     id,
@@ -301,13 +300,12 @@ impl Dashboard {
             }
         }
         let digits = symbol.digits;
-        let pip = symbol.pip_position.map_or_else(
-            || crate::domain::market::pip_size_from_digits(digits),
-            crate::domain::market::pip_size,
-        );
+        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);
-            alerts.set_pip(symbol.id, pip);
+            if let Some(pip) = pip {
+                alerts.set_pip(symbol.id, pip);
+            }
             alerts.edit(cx, |book| book.insert(alert, limit))
         });
         match added {

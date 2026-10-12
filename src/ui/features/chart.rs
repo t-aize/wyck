@@ -419,6 +419,9 @@ pub struct Chart {
     display: Display,
     /// The indicators written as scripts, run off the interface thread.
     custom: custom_runs::Custom,
+    /// The ids of the symbols of the account by name (see `key_of`), for the indicators that read
+    /// the prices of a second symbol.
+    symbol_ids: std::sync::Arc<std::collections::HashMap<String, i64>>,
     _library: gpui::Subscription,
     /// What traded at each price of each bar, for the footprint chart type.
     flow: Flow,
@@ -516,6 +519,7 @@ impl Chart {
             atr_loading: HashSet::new(),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
+            symbol_ids: std::sync::Arc::default(),
             _library: crate::app::scripts::observe(cx, |this: &mut Self, cx| {
                 this.library_changed(cx);
             }),

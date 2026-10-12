@@ -108,6 +108,8 @@ pub struct MultiChart {
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
     hours: HashMap<i64, std::sync::Arc<crate::domain::market::TradingHours>>,
+    /// The ids of the symbols of the account by name, for the indicators that read a second symbol.
+    symbol_ids: std::sync::Arc<HashMap<String, i64>>,
     next_id: u64,
     key: LayoutKey,
     tree: Node,
@@ -199,6 +201,7 @@ impl MultiChart {
             hub,
             tracker: LiveBarTracker::new(),
             hours: HashMap::new(),
+            symbol_ids: std::sync::Arc::default(),
             session,
             workspace,
             next_id: 0,

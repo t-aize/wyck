@@ -12,11 +12,18 @@
 
 use std::ffi::OsString;
 
+use secrecy::SecretString;
+
 use crate::infra::platform::build_info::BuildMode;
 
 /// The environment variable that names the keyring group credentials are kept under, whatever the
 /// build mode says. An empty value counts as not set.
 pub const KEYRING_SERVICE_ENV: &str = "WYCK_KEYRING_SERVICE";
+
+/// The environment variable that holds a passphrase: when it is set, credentials are kept in
+/// encrypted files under the data folder, locked by it, instead of the OS keyring. For a machine
+/// with no keyring (Linux without a Secret Service). An empty value counts as not set.
+pub const PASSPHRASE_ENV: &str = "WYCK_PASSPHRASE";
 
 /// The application name of the installed app, used in its folder names and its keyring service.
 const PRODUCTION_NAME: &str = "wyck";
@@ -41,6 +48,19 @@ pub fn keyring_service_with(mode: BuildMode, var: impl Fn(&str) -> Option<OsStri
         .unwrap_or_else(|| application_name(mode).to_owned())
 }
 
+/// The passphrase [`PASSPHRASE_ENV`] gives, if `var` has one.
+pub fn passphrase_with(var: impl Fn(&str) -> Option<OsString>) -> Option<SecretString> {
+    var(PASSPHRASE_ENV)
+        .and_then(|value| value.into_string().ok())
+        .filter(|value| !value.is_empty())
+        .map(SecretString::from)
+}
+
+/// The passphrase of the real environment: see [`passphrase_with`].
+pub fn passphrase() -> Option<SecretString> {
+    passphrase_with(|name| std::env::var_os(name))
+}
+
 /// The keyring service of this build, read from the real environment: see [`keyring_service_with`].
 pub fn keyring_service() -> String {
     keyring_service_with(BuildMode::CURRENT, |name| std::env::var_os(name))
@@ -57,6 +77,15 @@ mod tests {
                 .find(|(key, _)| *key == name)
                 .map(|(_, value)| OsString::from(value))
         }
+    }
+
+    #[test]
+    fn a_passphrase_in_the_environment_selects_the_encrypted_files() {
+        use secrecy::ExposeSecret;
+        let given = passphrase_with(env(&[(PASSPHRASE_ENV, "open sesame")])).unwrap();
+        assert_eq!(given.expose_secret(), "open sesame");
+        assert!(passphrase_with(env(&[(PASSPHRASE_ENV, "")])).is_none());
+        assert!(passphrase_with(env(&[])).is_none());
     }
 
     #[test]

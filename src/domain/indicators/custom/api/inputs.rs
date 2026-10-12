@@ -130,7 +130,7 @@ pub(super) fn input_choice(
 }
 
 /// The longest text an input may hold.
-pub(super) const MAX_TEXT: usize = 200;
+pub(in crate::domain::indicators::custom) const MAX_TEXT: usize = 200;
 
 /// Whether `text` is a session such as `0930-1600` (or empty, for none).
 pub(super) fn is_session(text: &str) -> bool {

@@ -27,6 +27,18 @@ impl Chart {
         (self.bid, self.ask)
     }
 
+    /// The ids of the symbols of the account by name (see `key_of`), so an indicator that reads
+    /// the prices of a second symbol can ask for them.
+    pub fn set_symbol_ids(
+        &mut self,
+        ids: std::sync::Arc<std::collections::HashMap<String, i64>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.symbol_ids = ids;
+        self.custom.symbols_changed();
+        cx.notify();
+    }
+
     /// The trading hours of the chart's symbol (ignored for another symbol).
     pub fn set_hours(
         &mut self,

@@ -703,14 +703,21 @@ pub enum LoadConfigError {
     Config(#[from] crate::infra::storage::ConfigError),
 }
 
-/// Loads the configuration from the standard folders, with the OS keyring for secrets.
+/// Loads the configuration from the standard folders, with the OS keyring for secrets, or with
+/// encrypted files when the environment variable `WYCK_PASSPHRASE` holds a passphrase (a machine
+/// with no keyring).
 ///
 /// # Errors
 ///
 /// The folders of the app cannot be found or the configuration cannot be read.
 pub fn load_config() -> Result<WyckConfig, LoadConfigError> {
     let paths = crate::app_paths().ok_or(LoadConfigError::NoFolder)?.clone();
-    let config = WyckConfig::builder().paths(paths).build()?;
+    let builder = WyckConfig::builder().paths(paths);
+    let builder = match crate::app::storage::identity::passphrase() {
+        Some(passphrase) => builder.encrypted_file(passphrase),
+        None => builder,
+    };
+    let config = builder.build()?;
     let report = config.diagnose();
     if report.worst() >= Some(Severity::Warning) {
         tracing::warn!("the config has something to report:\n{report}");

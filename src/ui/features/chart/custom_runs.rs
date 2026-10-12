@@ -11,7 +11,7 @@
 //! thrown away when the bars are no longer the ones it was made from (a new symbol, older history
 //! put in front).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -23,8 +23,12 @@ use super::display::study_input;
 use super::study::compute::StudyOutput;
 use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
+use super::study::custom::other::{OtherBars, OtherSymbols};
 use super::study::custom::{self, Problem, Severity};
+use crate::app::market_data::load::{self, Loaded};
+use crate::app::market_data::now_ms;
 use crate::app::scripts as indicators;
+use crate::app::system::runtime;
 
 /// What a run was made from, to know whether another is wanted.
 #[derive(Debug, Clone, PartialEq)]
@@ -95,9 +99,28 @@ impl Status<'_> {
     }
 }
 
+/// The prices of another symbol a script reads, on the timeframe of the chart.
+enum Other {
+    /// Being loaded. Dropping it stops the load.
+    Loading(#[allow(dead_code)] Task<()>),
+    Ready(Arc<OtherBars>),
+    Failed(String),
+}
+
+/// What the symbols a script reads come to, for one run.
+enum Others {
+    Ready(OtherSymbols),
+    /// Some are still being loaded; the run starts when they are in.
+    Waiting,
+    Failed(String),
+}
+
 #[derive(Default)]
 pub(super) struct Custom {
     slots: Vec<Slot>,
+    /// The other symbols the scripts read, by name (see `key_of`). Forgotten whenever the chart
+    /// loads again, since they are on its timeframe.
+    others: HashMap<String, Other>,
     /// The time of the first bar the outputs were made from.
     first_time: Option<i64>,
     /// Grows whenever the data or the settings want a new run.
@@ -131,6 +154,21 @@ impl Custom {
             }
         }
         self.wanted += 1;
+        self.pending = true;
+    }
+
+    /// The chart loads again: the prices of the other symbols were for the old symbol or
+    /// timeframe.
+    pub(super) fn forget_others(&mut self) {
+        self.others.clear();
+        self.pending = true;
+    }
+
+    /// The names of symbols the account has arrived (or changed): a name that was not found may
+    /// be found now.
+    pub(super) fn symbols_changed(&mut self) {
+        self.others
+            .retain(|_, other| !matches!(other, Other::Failed(_)));
         self.pending = true;
     }
 
@@ -253,6 +291,27 @@ impl Chart {
                     ))
                 })
                 .clone();
+            let wanted = script.symbols_wanted(&config.texts);
+            let mut others = match self.other_symbols(&wanted, cx) {
+                Others::Ready(others) => others,
+                Others::Waiting => continue,
+                Others::Failed(message) => {
+                    let slot = &mut self.custom.slots[index];
+                    slot.output = None;
+                    slot.problems = vec![Problem::error(0, 0, message)];
+                    continue;
+                }
+            };
+            // The symbol of the chart, named in an input, is the bars the run already has.
+            let own = self
+                .symbol
+                .as_ref()
+                .map(|s| custom::other::key_of(&s.name))
+                .filter(|own| wanted.contains(own));
+            if let Some(own) = own {
+                others.insert(own, OtherBars::from_input(&bars));
+            }
+            let slot = &mut self.custom.slots[index];
             let cancel = Arc::new(AtomicBool::new(false));
             let (flag, values, texts) =
                 (cancel.clone(), config.inputs.clone(), config.texts.clone());
@@ -262,7 +321,14 @@ impl Chart {
                     let result = cx
                         .background_executor()
                         .spawn(async move {
-                            script.compute_with_texts(&bars, &values, &texts, limits, Some(flag))
+                            script.compute_with_others(
+                                &bars,
+                                &values,
+                                &texts,
+                                &others,
+                                limits,
+                                Some(flag),
+                            )
                         })
                         .await;
                     let _ = this.update(cx, |this, cx| {
@@ -276,6 +342,92 @@ impl Chart {
             });
             slot.problems.clear();
         }
+    }
+
+    /// The bars of the other symbols a script reads. A symbol not asked for yet is looked up by
+    /// name and loaded on the timeframe of the chart. The symbol of the chart itself is not
+    /// handled here.
+    fn other_symbols(&mut self, wanted: &[String], cx: &mut Context<Self>) -> Others {
+        let own = self.symbol.as_ref().map(|s| custom::other::key_of(&s.name));
+        let mut ready = OtherSymbols::new();
+        let mut waiting = false;
+        for key in wanted.iter().filter(|key| Some(*key) != own.as_ref()) {
+            match self.custom.others.get(key) {
+                Some(Other::Ready(bars)) => {
+                    ready.insert(key.clone(), (**bars).clone());
+                }
+                Some(Other::Loading(_)) => waiting = true,
+                Some(Other::Failed(message)) => {
+                    return Others::Failed(format!(
+                        "the prices of {key} could not be loaded: {message}"
+                    ));
+                }
+                None => {
+                    let Some(id) = self.symbol_ids.get(key).copied() else {
+                        // Until the list of symbols is in there is nothing to say against a name.
+                        if self.symbol_ids.is_empty() {
+                            waiting = true;
+                            continue;
+                        }
+                        return Others::Failed(format!(
+                            "{key} is not a symbol of this account, change the symbol input"
+                        ));
+                    };
+                    self.load_other(key.clone(), id, cx);
+                    waiting = true;
+                }
+            }
+        }
+        if waiting {
+            Others::Waiting
+        } else {
+            Others::Ready(ready)
+        }
+    }
+
+    /// Loads the bars of another symbol on the timeframe of the chart.
+    fn load_other(&mut self, key: String, id: i64, cx: &mut Context<Self>) {
+        let (session, timeframe, epoch) = (self.session.clone(), self.timeframe, self.epoch);
+        let name = key.clone();
+        let task = cx.spawn(async move |this, cx| {
+            let result =
+                runtime::spawn(
+                    async move { load::initial(&session, id, timeframe, now_ms()).await },
+                )
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.other_loaded(epoch, name, super::flatten(result), cx);
+            });
+        });
+        self.custom.others.insert(key, Other::Loading(task));
+    }
+
+    fn other_loaded(
+        &mut self,
+        epoch: u64,
+        key: String,
+        result: crate::app::broker::Result<Loaded>,
+        cx: &mut Context<Self>,
+    ) {
+        if epoch != self.epoch {
+            return;
+        }
+        let other = match result {
+            Ok(Loaded::Bars(bars) | Loaded::Grouped { bars, .. }) if !bars.is_empty() => {
+                Other::Ready(Arc::new(OtherBars::from_bars(&bars)))
+            }
+            Ok(Loaded::Bars(_) | Loaded::Grouped { .. }) => {
+                Other::Failed("the server has no bars for it".to_owned())
+            }
+            Ok(Loaded::Ticks(_)) => {
+                Other::Failed("the chart is on ticks, which have no bars to line up".to_owned())
+            }
+            Err(error) => Other::Failed(error.to_string()),
+        };
+        self.custom.others.insert(key, other);
+        self.custom.wanted += 1;
+        self.custom.pending = true;
+        cx.notify();
     }
 
     /// A run ended.

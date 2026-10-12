@@ -102,6 +102,7 @@ impl Chart {
         self.view = View::new(super::bar_px_for(&self.settings, self.timeframe));
         self.pending_focus = None;
         self.reset_flow();
+        self.custom.forget_others();
         self.older = Older::Idle;
         self.hover = None;
         self.drag = None;
