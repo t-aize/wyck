@@ -308,16 +308,12 @@ mod tests {
         let opened = open_log_file(dir.path()).unwrap();
         drop(opened);
 
+        // The library removes the oldest by the time each file was created, and these twenty were
+        // made within the same instant: which ones go is not for this test to say. How many stay
+        // is: the library keeps one fewer than the limit and then makes today's file, so the days
+        // wanted are there, today included.
         let logs = matching(dir.path(), LOG_PREFIX, LOG_SUFFIX);
-        assert!(logs.len() <= KEPT_LOG_DAYS, "{logs:?}");
-        assert!(
-            !dir.path().join("wyck.2020-01-01.log").exists(),
-            "the oldest went"
-        );
-        assert!(
-            dir.path().join("wyck.2020-01-20.log").exists(),
-            "the newest old one stays"
-        );
+        assert_eq!(logs.len(), KEPT_LOG_DAYS, "{logs:?}");
         assert!(
             dir.path().join("notes.txt").exists(),
             "other files are left alone"
