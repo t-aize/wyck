@@ -13,7 +13,7 @@ pub mod tool;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-const SCHEMA_VERSION: u32 = 1;
+pub(crate) const SCHEMA_VERSION: u32 = 1;
 
 /// The most drawings kept for one symbol, and the most points in one brush stroke. A guard
 /// against a runaway file more than a limit anyone meets.

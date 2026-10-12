@@ -25,6 +25,8 @@ guaranteed response time.
 - A short description of what you are trying to do.
 - The version or commit, your operating system, and `rustc --version`.
 - The exact error output, as text.
+- The end of the day's log and the crash report, if there is one: Settings > About > "Open the
+  log folder" in the app (see the README, "Logs and crashes").
 - A minimal way to reproduce the problem.
 - Secrets removed: tokens, keys, and account identifiers must never be posted.
 

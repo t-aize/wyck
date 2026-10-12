@@ -8,6 +8,7 @@ use super::{
 
 use crate::infra::storage::error::{ConfigError, Result};
 use crate::infra::storage::fs_util::{atomic_write, read_text};
+use crate::infra::storage::locations::Kind;
 use crate::infra::storage::paths::AppPaths;
 use crate::infra::storage::scripts::ScriptStore;
 use secrecy::SecretString;
@@ -94,6 +95,28 @@ pub fn cancel_reset(paths: &AppPaths) -> Result<()> {
     remove_marker(&paths.config_dir().join(RESET_MARKER))
 }
 
+/// Removes everything in `dir` but the marker that says the folder is Wyck's. A missing folder is
+/// fine.
+fn clear_contents(dir: &Path) -> std::io::Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(source) => return Err(source),
+    };
+    for entry in entries.flatten() {
+        if entry.file_name() == crate::infra::storage::locations::MARKER {
+            continue;
+        }
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            std::fs::remove_dir_all(&path)?;
+        } else {
+            std::fs::remove_file(&path)?;
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn remove_marker(path: &Path) -> Result<()> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
@@ -167,17 +190,22 @@ pub(super) fn apply_reset(paths: &AppPaths, created: &str) -> Result<Option<Path
                 .path,
         )
     };
-    for folder in [paths.state_dir(), paths.scopes_dir()] {
-        match std::fs::remove_dir_all(&folder) {
-            Ok(()) => {}
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
-            Err(source) => {
-                return Err(ConfigError::Write {
-                    path: folder,
-                    source,
-                });
+    for kind in [Kind::Settings, Kind::Accounts] {
+        let folder = paths.dir(kind);
+        let cleared = if paths.is_custom(kind) {
+            // A folder the user chose (a cloud folder, say) stays, with its marker: it is emptied,
+            // not removed from under whatever syncs it.
+            clear_contents(&folder)
+        } else {
+            match std::fs::remove_dir_all(&folder) {
+                Err(source) if source.kind() != std::io::ErrorKind::NotFound => Err(source),
+                _ => Ok(()),
             }
-        }
+        };
+        cleared.map_err(|source| ConfigError::Write {
+            path: folder,
+            source,
+        })?;
     }
     remove_marker(&paths.config_dir().join(RESET_MARKER))?;
     info!("reset every saved document");

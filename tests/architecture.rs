@@ -5,6 +5,9 @@
 //! Violations that existed before the rules did are listed in `architecture-baseline.txt`; the
 //! list can only shrink. After fixing some, run `BLESS=1 cargo test --test architecture` to
 //! rewrite it.
+// A failed `unwrap` or `expect` is how a test fails. clippy.toml covers only `#[test]` functions
+// and `#[cfg(test)]` modules, not the helpers of an integration test.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

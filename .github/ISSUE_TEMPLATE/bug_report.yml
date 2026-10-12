@@ -59,7 +59,11 @@ body:
     id: logs
     attributes:
       label: Logs or error output
-      description: Paste as text. It is rendered as code automatically.
+      description: |
+        Paste as text. It is rendered as code automatically. In the installed app, Settings >
+        About > "Open the log folder" shows the log of each day (wyck.YYYY-MM-DD.log) and, after
+        a crash, a panic-*.txt report. Paste the end of the log of the day, and the report if
+        there is one. Read them first and remove anything private.
       render: shell
 
   - type: dropdown

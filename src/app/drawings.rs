@@ -13,7 +13,7 @@ use crate::app::workspace::Saver;
 use crate::domain::drawings::book::Book;
 use crate::domain::drawings::model::DrawingsDoc;
 
-const DOCUMENT: &str = "drawings";
+pub(crate) const DOCUMENT: &str = "drawings";
 
 pub struct Drawings {
     book: Book,

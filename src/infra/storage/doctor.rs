@@ -115,8 +115,44 @@ pub(crate) fn run(paths: &AppPaths, config: &AppConfig, secrets: &dyn SecretStor
     let mut report = Report::default();
     check_profiles(config, secrets, &mut report);
     check_folders(paths, &mut report);
+    check_chosen_folders(paths, &mut report);
     check_leftovers(paths, &mut report);
     report.sorted()
+}
+
+/// The folders the user moved: the ones that cannot be used right now, a damaged file of choices,
+/// and the folders an earlier move left behind.
+fn check_chosen_folders(paths: &AppPaths, report: &mut Report) {
+    if let Some(error) = paths.pointer_error() {
+        report.add(
+            Severity::Warning,
+            "folders",
+            format!(
+                "the file of chosen folders could not be read, so every folder is in its standard place: {error}"
+            ),
+        );
+    }
+    for problem in paths.problems() {
+        report.add(
+            Severity::Warning,
+            "folders",
+            format!(
+                "{}: {problem}. The standard folder is used until it can be",
+                problem.kind
+            ),
+        );
+    }
+    for left in crate::infra::storage::relocate::leftovers(paths) {
+        report.add(
+            Severity::Info,
+            "folders",
+            format!(
+                "{} is what an earlier move left behind ({} files); delete it once the new folder is checked",
+                left.path.display(),
+                left.files
+            ),
+        );
+    }
 }
 
 fn check_profiles(config: &AppConfig, secrets: &dyn SecretStore, report: &mut Report) {

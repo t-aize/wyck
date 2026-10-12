@@ -12,7 +12,7 @@ use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_P
 use crate::domain::trading::guard::RiskPrefs;
 use serde::{Deserialize, Serialize};
 
-const SCHEMA_VERSION: u32 = 1;
+pub(crate) const SCHEMA_VERSION: u32 = 1;
 
 /// Maximum length of a watchlist name.
 pub const MAX_LIST_NAME: usize = 40;

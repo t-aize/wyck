@@ -5,14 +5,27 @@ use super::{
     theme, tokens,
 };
 use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::toast;
 use gpui::prelude::*;
+
+/// Reads the indicators from `dir` (the standard folder for `None`), and says so when it cannot.
+fn set_folder(cx: &mut gpui::App, dir: Option<&std::path::Path>) {
+    if let Err(error) = indicators::set_folder(cx, dir) {
+        toast::show(
+            cx,
+            toast::Kind::Error,
+            "The indicators folder was not changed",
+            error.to_string(),
+        );
+    }
+}
 
 impl SettingsHub {
     pub(super) fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let prefs = indicators::prefs(cx);
         let dir = indicators::dir(cx);
         let default_dir = indicators::default_dir(cx);
-        let using_default = prefs.folder.is_none();
+        let using_default = dir == default_dir;
         let entries = crate::domain::indicators::custom::library::registry::all();
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
@@ -39,9 +52,9 @@ impl SettingsHub {
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(if using_default {
-                                "The default folder, inside the settings folder."
+                                "The standard folder."
                             } else {
-                                "A folder you chose."
+                                "A folder you chose. This computer remembers it; the settings do not, so a settings folder shared with another computer never points to it."
                             }),
                     ),
             ),
@@ -69,11 +82,7 @@ impl SettingsHub {
                                     return;
                                 };
                                 if let Some(path) = paths.into_iter().next() {
-                                    cx.update(|cx| {
-                                        indicators::update_prefs(cx, |p| {
-                                            p.folder = Some(path.display().to_string());
-                                        });
-                                    });
+                                    cx.update(|cx| set_folder(cx, Some(&path)));
                                 }
                             })
                             .detach();
@@ -85,7 +94,7 @@ impl SettingsHub {
                             "Default",
                             Some(IconName::RotateCcw),
                             false,
-                            move |_window, cx| indicators::update_prefs(cx, |p| p.folder = None),
+                            move |_window, cx| set_folder(cx, None),
                         )
                         .disabled(using_default),
                     )

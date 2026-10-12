@@ -67,7 +67,9 @@
 //! * **A file that cannot be read never takes the app down.** [`DocumentStore::load_or_default`]
 //!   sets a damaged document aside as `.bad` and starts from the defaults.
 //! * **A file from a newer version is left alone.** The config refuses to load rather than being
-//!   read wrong and written back without what it did not know.
+//!   read wrong and written back without what it did not know; a document is set aside whole.
+//! * **A file from an older version is upgraded, with a copy.** [`migrate`] runs the steps from the
+//!   version found to the one this build writes and keeps the old text as `.v<n>.bak`.
 //! * **Names cannot leave their folder.** See [`names`].
 //! * **Secrets stay secret.** Errors and logs carry the [`SecretKey`], never the value. See
 //!   [`secret::EncryptedFileSecretStore`] for the encryption.
@@ -92,6 +94,13 @@
 //! (see [`identity`]). `WYCK_CONFIG_DIR` and `WYCK_DATA_DIR` move the folders, and
 //! `WYCK_KEYRING_SERVICE` names the keyring service. Set these three to run a development build
 //! on the data of the installed app, or to keep a second profile of the installed one.
+//! [`AppPaths::logs_dir`] is the folder of the log files, apart from the settings (see
+//! [`crate::infra::platform::logging`]).
+//!
+//! The settings, the data of the accounts, the indicator scripts, the backups and the logs can each be
+//! kept in a folder the user chose, such as one a cloud service syncs: see [`locations`] (the rules
+//! and the file of choices) and [`relocate`] (the move, made at the next start). Credentials and
+//! `config.toml` never move.
 //! `WYCK_PASSPHRASE` keeps the credentials in encrypted files locked by that passphrase, for a
 //! machine with no keyring.
 
@@ -106,9 +115,12 @@ mod documents;
 mod error;
 mod fs_util;
 pub mod identity;
+pub mod locations;
+pub mod migrate;
 pub mod names;
 mod paths;
 mod profile;
+pub mod relocate;
 pub mod scripts;
 pub mod sealed;
 pub mod secret;

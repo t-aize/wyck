@@ -13,7 +13,6 @@ use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
 
 impl MultiChart {
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_extras(
         &self,
@@ -21,9 +20,7 @@ impl MultiChart {
         st: &BarState,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
-        let (has_fill, has_dash) = (st.has_fill, st.has_dash);
-        let (has_default, template_names) = (st.has_default, st.template_names.clone());
+        let (style, tool, has_fill) = (&st.style, st.tool, st.has_fill);
         if tool.has_extend() {
             let (left, right) = (style.extend_left, style.extend_right);
             bar = bar
@@ -135,7 +132,6 @@ impl MultiChart {
         bar
     }
 
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_position(
         &self,
@@ -143,9 +139,7 @@ impl MultiChart {
         st: &BarState,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
-        let (has_fill, has_dash) = (st.has_fill, st.has_dash);
-        let (has_default, template_names) = (st.has_default, st.template_names.clone());
+        let (tool, id) = (st.tool, st.id);
         if tool.is_position() {
             bar = bar
                 .child(
@@ -178,7 +172,6 @@ impl MultiChart {
         bar
     }
 
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_look(
         &self,
@@ -187,8 +180,7 @@ impl MultiChart {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
-        let (has_fill, has_dash) = (st.has_fill, st.has_dash);
+        let (tool, locked, id) = (st.tool, st.locked, st.id);
         let (has_default, template_names) = (st.has_default, st.template_names.clone());
         if !locked {
             let menu = popup::Menu::new(("draw-style-menu", 0usize), window, cx);
@@ -285,7 +277,6 @@ impl MultiChart {
         bar
     }
 
-    #[allow(unused_variables)]
     #[inline(never)]
     pub(super) fn bar_actions(
         &self,
@@ -293,9 +284,7 @@ impl MultiChart {
         st: &BarState,
         cx: &mut Context<Self>,
     ) -> gpui::Div {
-        let (style, tool, locked, hidden, id) = (&st.style, st.tool, st.locked, st.hidden, st.id);
-        let (has_fill, has_dash) = (st.has_fill, st.has_dash);
-        let (has_default, template_names) = (st.has_default, st.template_names.clone());
+        let (locked, hidden, id) = (st.locked, st.hidden, st.id);
         bar = bar
             .child(
                 crate::ui::kit::button::quiet("draw-settings")

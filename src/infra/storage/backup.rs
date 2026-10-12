@@ -958,4 +958,46 @@ mod tests {
             .unwrap();
         assert_eq!(store.list().unwrap().len(), 2, "the oldest went");
     }
+
+    #[test]
+    fn a_copy_before_an_update_keeps_the_latest_few_and_leaves_the_other_kinds() {
+        let dir = setup();
+        let paths = at(dir.path());
+        let store = paths.backups();
+        let manual = store
+            .create(&Backup::collect(&paths, None, "1", "manual").unwrap())
+            .unwrap();
+
+        let empty = tempfile::tempdir().unwrap();
+        assert!(
+            at(empty.path())
+                .backups()
+                .snapshot_before_update(None, "1", "t")
+                .unwrap()
+                .is_none(),
+            "nothing to save"
+        );
+
+        for n in 0..(KEPT_BEFORE_UPDATE + 2) {
+            let made = store
+                .snapshot_before_update(None, "0.2.0", &format!("t{n}"))
+                .unwrap()
+                .unwrap();
+            assert_eq!(made.kind, BackupKind::BeforeUpdate);
+            assert!(made.id.starts_with("before-update-"), "{}", made.id);
+        }
+
+        let entries = store.list().unwrap();
+        let updates = entries
+            .iter()
+            .filter(|entry| entry.kind == BackupKind::BeforeUpdate)
+            .count();
+        assert_eq!(updates, KEPT_BEFORE_UPDATE);
+        assert!(entries.iter().any(|entry| entry.id == manual.id));
+        let copy = entries
+            .iter()
+            .find(|entry| entry.kind == BackupKind::BeforeUpdate)
+            .unwrap();
+        assert_eq!(store.load(&copy.id, None).unwrap().app_version, "0.2.0");
+    }
 }

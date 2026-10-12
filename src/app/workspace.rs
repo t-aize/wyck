@@ -24,8 +24,8 @@ pub use self::preferences::*;
 pub use self::saver::Saver;
 use crate::infra::storage::DocumentStore;
 
-const PREFERENCES: &str = "preferences";
-const WATCHLISTS: &str = "watchlists";
+pub(crate) const PREFERENCES: &str = "preferences";
+pub(crate) const WATCHLISTS: &str = "watchlists";
 
 /// The two places documents are kept.
 #[derive(Clone)]

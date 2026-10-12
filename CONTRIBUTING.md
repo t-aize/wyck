@@ -30,7 +30,8 @@ Automated dependency updates from Dependabot are the only exception.
 - What you did, what you expected, and what happened instead.
 - The smallest steps or input that reproduce it.
 - Version or commit, operating system, and Rust toolchain version (`rustc --version`).
-- Logs or error output, as text and not as a screenshot.
+- Logs or error output, as text and not as a screenshot. The app keeps a log of each day and a
+  report after a crash (README, "Logs and crashes").
 - Remove secrets first: tokens, API keys, account identifiers, and anything else private.
 
 ## Writing a good feature request

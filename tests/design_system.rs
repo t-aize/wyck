@@ -8,6 +8,9 @@
 //!   belongs in a token.
 //! - Pixel sizes written as numbers (`px(12.0)`) outside the kit are counted per file. The count
 //!   may not grow; fixing some means running `BLESS=1 cargo test --test design_system`.
+// A failed `unwrap` or `expect` is how a test fails. clippy.toml covers only `#[test]` functions
+// and `#[cfg(test)]` modules, not the helpers of an integration test.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::BTreeMap;
 use std::fs;
