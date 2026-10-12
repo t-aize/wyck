@@ -411,6 +411,7 @@ impl OrderTicket {
             warnings: warnings.into_iter().map(Into::into).collect(),
             badge: live.then(|| "LIVE ACCOUNT".into()),
             label: Some(if self.buy { "Buy" } else { "Sell" }),
+            ..Details::default()
         }
     }
 }

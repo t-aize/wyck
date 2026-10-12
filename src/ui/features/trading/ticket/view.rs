@@ -20,7 +20,7 @@ use crate::domain::indicators::atr_stop::Smoothing;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Contract, Limit, Offset, SizeMode};
 use crate::ui::kit::{
-    confirm::confirm,
+    confirm::{Tone, confirm_as},
     controls,
     focus::Keyboard,
     form, icon,
@@ -267,9 +267,10 @@ impl OrderTicket {
                                     } else {
                                         "Buy and Sell will send orders as soon as you click, with no confirmation."
                                     };
-                                    confirm(
+                                    confirm_as(
                                         window,
                                         cx,
+                                        if live { Tone::Danger } else { Tone::Caution },
                                         "Turn on one-click trading?",
                                         text,
                                         move |_, cx| {

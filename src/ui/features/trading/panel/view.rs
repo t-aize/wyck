@@ -15,7 +15,7 @@ use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::{Disableable, Selectable};
 use crate::ui::kit::{
     button,
-    confirm::confirm,
+    confirm::{Tone as AskTone, confirm_as},
     menu::{self as popup},
     theme, tokens,
 };
@@ -62,7 +62,14 @@ fn ask(on: bool, title: &'static str, text: String, run: impl Fn(&mut App) + 'st
     Rc::new(move |window, cx| {
         if on {
             let run = run.clone();
-            confirm(window, cx, title, text.clone(), move |_, cx| run(cx));
+            confirm_as(
+                window,
+                cx,
+                AskTone::Caution,
+                title,
+                text.clone(),
+                move |_, cx| run(cx),
+            );
         } else {
             run(cx);
         }

@@ -95,6 +95,19 @@ pub fn action(
     }
 }
 
+/// The button of a footer that confirms something that destroys: [`action`] filled in the danger
+/// color.
+pub fn action_danger(
+    id: impl Into<ElementId>,
+    label: &'static str,
+    on_click: impl Fn(&mut Window, &mut App) + 'static,
+) -> Button {
+    sized(Button::new(id).primary().danger(), Size::Md)
+        .cursor_pointer()
+        .label(label)
+        .on_click(move |_, window, cx| on_click(window, cx))
+}
+
 /// A button that is only an icon, with `tip` as its tooltip and its name for a screen reader.
 /// [`icon_dense`] is the one for a dense strip.
 pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {

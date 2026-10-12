@@ -17,7 +17,10 @@ use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading;
 use crate::ui::features::trading::panel::PanelEvent;
 use crate::ui::features::trading::ticket::{OrderTicket, TicketEvent};
-use crate::ui::kit::{confirm::confirm, toast, tokens};
+use crate::ui::kit::{
+    confirm::{Tone, confirm_as},
+    toast, tokens,
+};
 use gpui::prelude::*;
 use gpui::{Context, Window};
 
@@ -158,9 +161,16 @@ impl Dashboard {
                     })
                     .unwrap_or_default();
                 let account = self.trading.clone();
-                confirm(window, cx, "Close this position?", text, move |_, cx| {
-                    account.update(cx, |a, cx| a.close_position(id, None, cx));
-                });
+                confirm_as(
+                    window,
+                    cx,
+                    Tone::Danger,
+                    "Close this position?",
+                    text,
+                    move |_, cx| {
+                        account.update(cx, |a, cx| a.close_position(id, None, cx));
+                    },
+                );
             }
             Pending::EditAlert(id) => {
                 crate::ui::features::trading::panel::open_alert(
@@ -241,9 +251,10 @@ impl Dashboard {
             return;
         }
         let account = self.trading.clone();
-        confirm(
+        confirm_as(
             window,
             cx,
+            Tone::Danger,
             "Close every position?",
             format!("{count} open position(s) will be closed at market."),
             move |_, cx| account.update(cx, |a, cx| a.close_all(None, cx)),
@@ -267,9 +278,10 @@ impl Dashboard {
             return;
         }
         let account = self.trading.clone();
-        confirm(
+        confirm_as(
             window,
             cx,
+            Tone::Danger,
             "Cancel every order?",
             format!("{} working order(s) will be cancelled.", ids.len()),
             move |_, cx| {

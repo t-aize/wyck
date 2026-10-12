@@ -9,7 +9,7 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, Entity, MouseButton, SharedString, Window, div, px};
+use gpui::{AnyElement, App, Div, Entity, MouseButton, Rgba, SharedString, Window, div, px};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::StyledExt as _;
 use gpui_kit::component::input::InputState;
@@ -35,9 +35,25 @@ pub struct Head {
 /// The width of the rail of tabs.
 const RAIL_WIDTH: f32 = 176.0;
 
+/// The colors of the icon of a header: the glyph, and the tile behind it.
+#[derive(Clone, Copy)]
+pub struct Tint {
+    pub glyph: Rgba,
+    pub tile: Rgba,
+}
+
 /// The header of a panel: its icon, what it is about, and the close button. Dragging it moves the
-/// panel (see [`modal::begin_drag`]).
-fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div {
+/// panel (see [`modal::begin_drag`]). A `tint` colors the icon, for a header that says how serious
+/// the panel is.
+fn header(
+    head: Head,
+    tint: Option<Tint>,
+    on_close: impl Fn(&mut Window, &mut App) + 'static,
+) -> Div {
+    let (glyph, tile) = match tint {
+        Some(tint) => (tint.glyph, tint.tile),
+        None => (theme::fg(), theme::accent_selected()),
+    };
     div()
         .flex_none()
         .cursor_grab()
@@ -60,8 +76,8 @@ fn header(head: Head, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Div
                 .items_center()
                 .justify_center()
                 .rounded_lg()
-                .bg(theme::accent_selected())
-                .child(icon::tinted(head.icon, 17., theme::fg())),
+                .bg(tile)
+                .child(icon::tinted(head.icon, 17., glyph)),
         )
         .child(
             div()
@@ -161,7 +177,7 @@ pub fn frame(
     }
 
     shell()
-        .child(header(head, on_close))
+        .child(header(head, None, on_close))
         .child(
             div()
                 .flex_1()
@@ -190,8 +206,19 @@ pub fn dialog(
     body: impl IntoElement,
     footer: impl IntoElement,
 ) -> Div {
+    dialog_tinted(head, None, on_close, body, footer)
+}
+
+/// [`dialog`] with the icon of the header in the colors of `tint`.
+pub fn dialog_tinted(
+    head: Head,
+    tint: Option<Tint>,
+    on_close: impl Fn(&mut Window, &mut App) + 'static,
+    body: impl IntoElement,
+    footer: impl IntoElement,
+) -> Div {
     shell()
-        .child(header(head, on_close))
+        .child(header(head, tint, on_close))
         .child(
             div()
                 .id("dialog-body")
