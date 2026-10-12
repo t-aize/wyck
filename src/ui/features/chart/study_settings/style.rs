@@ -1,6 +1,6 @@
 //! The style and display pages of an indicator: plots, levels, fills and where it is drawn.
 
-use super::{PANE_HEIGHTS, StudyEditor};
+use super::{PANE_HEIGHTS, StudyEditor, grouped};
 use crate::domain::drawings::model::style::{DASHES, WIDTHS};
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::study::kind::StudyKind;
@@ -16,11 +16,9 @@ impl StudyEditor {
         let mut page = form::page();
         let style_rows = self.input_rows(config, true, cx);
         if !style_rows.is_empty() {
-            page = page.child(form::group(
-                IconName::Palette,
-                "Indicator style",
-                style_rows,
-            ));
+            for card in grouped(IconName::Palette, "Indicator style", style_rows) {
+                page = page.child(card);
+            }
         } else if config.is_script() && config.spec().plots.is_empty() {
             page = page.child(form::note("This script has no style settings. Declare a color, opacity, width or text size input, or use section: \"style\" on an input."));
         }

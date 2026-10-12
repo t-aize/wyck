@@ -1,6 +1,6 @@
 //! The inputs page of an indicator: its fields, and the script it comes from.
 
-use super::{StudyEditor, group_heading, timeframe_picks};
+use super::{StudyEditor, grouped, timeframe_picks};
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::study::custom::library::registry;
 use crate::ui::features::chart::study::custom::{Problem, Severity};
@@ -21,7 +21,9 @@ impl StudyEditor {
         if rows.is_empty() {
             page = page.child(form::note("This indicator has no parameters to change."));
         } else {
-            page = page.child(form::group(IconName::SlidersHorizontal, "Parameters", rows));
+            for card in grouped(IconName::SlidersHorizontal, "Parameters", rows) {
+                page = page.child(card);
+            }
         }
         if config.kind == StudyKind::Atr {
             page = page.child(form::note(
@@ -36,10 +38,9 @@ impl StudyEditor {
         config: &StudyConfig,
         style: bool,
         cx: &mut Context<Self>,
-    ) -> Vec<AnyElement> {
+    ) -> Vec<(&'static str, AnyElement)> {
         let target = &self.target;
         let mut rows = Vec::new();
-        let mut last_group = "";
         let script = config.script.as_deref().and_then(registry::get);
         for input in config.spec().inputs {
             let script_style = script
@@ -155,12 +156,8 @@ impl StudyEditor {
                 }
             };
             if let Some(control) = control {
-                if !input.group.is_empty() && last_group != input.group {
-                    last_group = input.group;
-                    rows.push(group_heading(input.group));
-                }
                 let hint = (!input.tooltip.is_empty()).then_some(input.tooltip);
-                rows.push(form::field(input.label, hint, control));
+                rows.push((input.group, form::field(input.label, hint, control)));
             }
         }
         rows

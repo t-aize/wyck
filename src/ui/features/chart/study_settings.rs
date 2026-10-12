@@ -15,9 +15,9 @@ use super::study::spec::{InputKind, Placement};
 use super::study::style::{FillStyle, LevelStyle};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
+use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme};
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
 
 /// How tall a pane is, as the choices the panel offers: a name and its weight against the prices.
 const PANE_HEIGHTS: &[(&str, f32)] = &[
@@ -321,14 +321,39 @@ impl Render for StudyEditor {
     }
 }
 
-/// The heading of a group of inputs.
-fn group_heading(name: &str) -> AnyElement {
-    div()
-        .pt_2()
-        .text_size(px(tokens::text::small()))
-        .text_color(crate::ui::kit::theme::muted_fg())
-        .child(name.to_uppercase())
-        .into_any_element()
+/// Puts rows into cards, one card for each group a script named, like the groups of the other
+/// settings panels. The rows with no group go in a card called `fallback`. The cards come in the
+/// order their group first appears, and the rows of a group that comes back later join its card.
+fn grouped(
+    icon: IconName,
+    fallback: &'static str,
+    rows: Vec<(&'static str, AnyElement)>,
+) -> Vec<AnyElement> {
+    split_by_group(fallback, rows)
+        .into_iter()
+        .map(|(title, rows)| form::group(icon, title, rows).into_any_element())
+        .collect()
+}
+
+/// The part of [`grouped`] that does not draw: `items` cut into runs by group name, an empty name
+/// standing for `fallback`.
+fn split_by_group<T>(
+    fallback: &'static str,
+    items: Vec<(&'static str, T)>,
+) -> Vec<(&'static str, Vec<T>)> {
+    let mut sections: Vec<(&'static str, Vec<T>)> = Vec::new();
+    for (group, item) in items {
+        let title = if group.trim().is_empty() {
+            fallback
+        } else {
+            group
+        };
+        match sections.iter_mut().find(|(name, _)| *name == title) {
+            Some((_, rows)) => rows.push(item),
+            None => sections.push((title, vec![item])),
+        }
+    }
+    sections
 }
 
 /// The timeframes offered beside a timeframe input; the first one is the chart's own.
@@ -366,4 +391,36 @@ fn timeframe_picks(
             field.update(cx, |state, cx| state.set_value(code, window, cx));
         },
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_by_group;
+
+    #[test]
+    fn inputs_with_no_group_stay_in_one_card_under_the_fallback_title() {
+        let cards = split_by_group("Parameters", vec![("", 1), ("", 2), (" ", 3)]);
+        assert_eq!(cards, vec![("Parameters", vec![1, 2, 3])]);
+    }
+
+    #[test]
+    fn each_named_group_gets_its_own_card_in_the_order_it_first_appears() {
+        let cards = split_by_group(
+            "Parameters",
+            vec![("Data", 1), ("", 2), ("Display", 3), ("Data", 4), ("", 5)],
+        );
+        assert_eq!(
+            cards,
+            vec![
+                ("Data", vec![1, 4]),
+                ("Parameters", vec![2, 5]),
+                ("Display", vec![3]),
+            ]
+        );
+    }
+
+    #[test]
+    fn no_input_means_no_card() {
+        assert!(split_by_group::<u8>("Parameters", Vec::new()).is_empty());
+    }
 }
