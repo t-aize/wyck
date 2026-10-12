@@ -1,8 +1,8 @@
 //! The banners that tell the user an order is risky or cannot be sent as it stands.
 
 use super::{
-    AnyElement, Context, IconName, OrderTicket, THIN_METER_HEIGHT, confirm, div, icon, math, px,
-    text_button, theme, tokens,
+    AnyElement, Context, IconName, OrderTicket, THIN_METER_HEIGHT, Tone, confirm_as, div, icon,
+    math, px, text_button, theme, tokens,
 };
 use gpui::prelude::*;
 
@@ -68,9 +68,10 @@ impl OrderTicket {
                             text_button("ticket-lock-close-all", "Close all positions").on_click(
                                 move |_, window, cx| {
                                     let close = close.clone();
-                                    confirm(
+                                    confirm_as(
                                         window,
                                         cx,
+                                        Tone::Danger,
                                         "Close every position?",
                                         "All open positions are closed at market.",
                                         move |_, cx| {

@@ -4,7 +4,7 @@ use super::{Ask, IndicatorEditor, Prompt};
 use crate::app::scripts as indicators;
 use crate::app::scripts::folder::LibraryError;
 use crate::domain::indicators::custom::templates::{TEMPLATES, Template};
-use crate::ui::kit::confirm::confirm;
+use crate::ui::kit::confirm::{Tone, confirm_as};
 use crate::ui::kit::input::{InputEvent, InputState};
 use gpui::prelude::*;
 use gpui::{Context, Task, Window};
@@ -124,9 +124,10 @@ impl IndicatorEditor {
     /// Asks, then takes the script out of the folder (into its trash).
     pub(super) fn delete(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (this, target) = (cx.entity(), id.to_owned());
-        confirm(
+        confirm_as(
             window,
             cx,
+            Tone::Danger,
             format!("Delete {id}?"),
             "The file goes to the .trash folder inside the indicators folder, where it can still be found. Charts that hold it show it as missing.",
             move |_window, cx| {

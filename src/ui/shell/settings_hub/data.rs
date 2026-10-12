@@ -309,9 +309,10 @@ impl SettingsHub {
                     .label("Reset everything")
                     .on_click(move |_, window, cx| {
                         let reset = reset.clone();
-                        confirm::confirm(
+                        confirm::confirm_as(
                             window,
                             cx,
+                            confirm::Tone::Danger,
                             "Reset everything?",
                             "This puts the appearance, layout, charts, drawings, watchlists, favorites and alerts of every account back to how they are on a fresh install. A copy of what is removed is kept in the backups folder. Wyck restarts right after. Your indicator scripts and your sign-in stay exactly as they are.",
                             move |_window, cx| {

@@ -1,8 +1,8 @@
 //! The open positions of the symbol, under the order ticket.
 
 use super::{
-    Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, card,
-    card_head, confirm, div, hint, math, px, text_button, theme, tokens,
+    Action, AnyElement, App, Busy, Context, Frame, IconName, OrderTicket, Rc, SharedString, Tone,
+    card, card_head, confirm_as, div, hint, math, px, text_button, theme, tokens,
 };
 use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::prelude::Selectable;
@@ -75,7 +75,14 @@ impl OrderTicket {
                             action(cx);
                         } else {
                             let action = action.clone();
-                            confirm(window, cx, title, text.clone(), move |_, cx| action(cx));
+                            confirm_as(
+                                window,
+                                cx,
+                                Tone::Caution,
+                                title,
+                                text.clone(),
+                                move |_, cx| action(cx),
+                            );
                         }
                     })
                 };
@@ -286,9 +293,10 @@ impl OrderTicket {
                     if one_click {
                         run(cx);
                     } else {
-                        confirm(
+                        confirm_as(
                             window,
                             cx,
+                            Tone::Danger,
                             "Close every position on this symbol?",
                             text.clone(),
                             move |_, cx| run(cx),

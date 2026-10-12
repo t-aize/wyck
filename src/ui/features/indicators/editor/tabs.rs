@@ -4,7 +4,7 @@ use super::{CHECK_DELAY, Doc, IndicatorEditor, new_state, show_diagnostics};
 use crate::domain::indicators::custom::Problem;
 use crate::domain::indicators::custom::library::registry;
 use crate::domain::indicators::custom::run::Script;
-use crate::ui::kit::confirm::confirm;
+use crate::ui::kit::confirm::{Tone, confirm_as};
 use crate::ui::kit::input::InputEvent;
 use gpui::{Context, Window};
 
@@ -80,9 +80,10 @@ impl IndicatorEditor {
             return;
         }
         let (this, id) = (cx.entity(), doc.id.clone());
-        confirm(
+        confirm_as(
             window,
             cx,
+            Tone::Danger,
             format!("Close {id}?"),
             "This script has changes that are not saved. Closing it throws them away.",
             move |_window, cx| {

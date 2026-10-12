@@ -118,9 +118,10 @@ impl Dashboard {
                         this.close_menus();
                         cx.notify();
                         let dashboard = cx.entity();
-                        crate::ui::kit::confirm::confirm(
+                        crate::ui::kit::confirm::confirm_as(
                             window,
                             cx,
+                            crate::ui::kit::confirm::Tone::Danger,
                             "Disconnect?",
                             "The saved sign-in is removed from this device. You can connect again anytime.",
                             move |_window, cx| {
