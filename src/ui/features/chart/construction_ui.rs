@@ -8,7 +8,8 @@ use gpui::{AnyElement, Context, Entity, Subscription, Window};
 use super::Chart;
 use super::settings::ChartKind;
 use super::settings_rows::{Numbers, choice, named, number, switch};
-use super::transform::{PricePath, TransformSettings};
+use super::transform::PricePath;
+use super::transform::settings::TransformSettings;
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

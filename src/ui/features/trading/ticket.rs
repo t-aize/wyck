@@ -186,10 +186,10 @@ pub struct OrderTicket {
     be_offset: Entity<InputState>,
     oco_pips: Entity<InputState>,
     /// Closing the position after a time, and the number typed for it.
-    time_stop: prefs::TimeStopPrefs,
+    time_stop: prefs::plans::TimeStopPrefs,
     time_stop_amount: Entity<InputState>,
     /// The setups saved under a name, and the name being typed for the next one.
-    plans: Vec<prefs::PlanTemplate>,
+    plans: Vec<prefs::plans::PlanTemplate>,
     plan_name: Entity<InputState>,
     _subscriptions: Vec<Subscription>,
 }

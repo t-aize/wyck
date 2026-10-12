@@ -65,7 +65,7 @@ pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<
         Tool::FibWedge => fib::fib_wedge(drawing, pts, out),
         Tool::GannSquareFixed => {
             let corner = fixed_square_corner(pts[0], pts[1]);
-            figures::gann_square(drawing, &[pts[0], corner], out);
+            figures::gann::gann_square(drawing, &[pts[0], corner], out);
         }
         Tool::CyclicLines => curves::cyclic_lines(drawing, pts, proj, out),
         Tool::TimeCycles => curves::time_cycles(drawing, pts, proj, out),

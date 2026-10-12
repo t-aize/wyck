@@ -1,6 +1,6 @@
 //! The dialog that edits an alert: its source, its conditions and how it tells the user.
 
-use crate::app::alerts::model::{PnlScope, PriceKind};
+use crate::app::alerts::model::source::{PnlScope, PriceKind};
 use crate::app::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use crate::domain::indicators::config::StudyConfig;
 use crate::domain::indicators::kind::StudyKind;

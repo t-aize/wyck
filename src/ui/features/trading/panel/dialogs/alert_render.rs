@@ -1,7 +1,7 @@
 //! How the alert editor is drawn.
 
 use super::alert_editor::{AlertEditor, watchable};
-use crate::app::alerts::model::{PnlScope, PriceKind};
+use crate::app::alerts::model::source::{PnlScope, PriceKind};
 use crate::app::alerts::sound::SoundKind;
 use crate::app::alerts::{Condition, Source, Trigger};
 use crate::domain::indicators::config::StudyConfig;

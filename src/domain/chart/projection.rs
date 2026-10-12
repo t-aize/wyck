@@ -140,7 +140,8 @@ impl Projection for ChartProjection<'_> {
 mod tests {
     use super::*;
     use crate::domain::chart::display::Display;
-    use crate::domain::chart::scene::{Geometry, main_map};
+    use crate::domain::chart::scene::Geometry;
+    use crate::domain::chart::scene::scale::main_map;
     use crate::domain::chart::settings::ChartSettings;
     use crate::domain::market::Bar;
 

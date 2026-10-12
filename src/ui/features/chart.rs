@@ -629,12 +629,12 @@ impl Chart {
     /// The bands of the chart as it was last drawn.
     fn geometry(&self) -> Geometry {
         let (w, h) = self.size();
-        scene::geometry(&self.settings, w, h)
+        scene::scale::geometry(&self.settings, w, h)
     }
 
     /// The price scale of the prices band as it is now.
     fn main_map(&self) -> Option<scene::PriceMap> {
-        scene::main_map(
+        scene::scale::main_map(
             &self.series,
             &self.display,
             &self.settings,

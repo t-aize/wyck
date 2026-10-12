@@ -41,7 +41,7 @@ mod tests {
     use crate::domain::chart::data::Series;
     use crate::domain::chart::display::Display;
     use crate::domain::chart::settings::{ChartKind, ChartSettings};
-    use crate::domain::chart::transform::BoxSize;
+    use crate::domain::chart::transform::settings::BoxSize;
     use crate::domain::chart::zone::Zone;
     use crate::domain::indicators::config::StudyConfig;
     use crate::domain::indicators::kind::StudyKind;

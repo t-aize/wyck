@@ -20,7 +20,7 @@ use super::zone::Zone;
 use crate::app::drawings::Drawings;
 use crate::domain::drawings::extras::ICONS;
 use crate::domain::drawings::extras::notes::icon_key;
-use crate::domain::drawings::figures::wave_names;
+use crate::domain::drawings::figures::patterns::wave_names;
 use crate::domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 use crate::domain::drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
 use crate::domain::drawings::model::tool::Tool;

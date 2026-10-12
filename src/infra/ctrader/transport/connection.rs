@@ -37,17 +37,18 @@
 //! again and the subscriptions renewed, which is the caller's business (see [`crate::infra::ctrader::session`] for
 //! a client that does this by itself). Build a new [`Client`] and repeat the steps.
 
+pub mod builder;
+mod task;
+
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use futures_util::{SinkExt, StreamExt};
 use secrecy::ExposeSecret;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
-use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, trace, warn};
 
 use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig, Environment};
@@ -272,7 +273,7 @@ impl Client {
             max_retry_wait: config.max_retry_wait,
             handles: AtomicUsize::new(1),
         });
-        tokio::spawn(run(
+        tokio::spawn(task::run(
             socket,
             outgoing_rx,
             Arc::clone(&shared),
@@ -285,8 +286,8 @@ impl Client {
     /// Starts a [`ClientBuilder`] for `environment`, the friendliest way to connect and (with
     /// [`ClientBuilder::credentials`]) identify the application in one step.
     #[must_use]
-    pub fn builder(environment: Environment) -> ClientBuilder {
-        ClientBuilder::new(environment)
+    pub fn builder(environment: Environment) -> builder::ClientBuilder {
+        builder::ClientBuilder::new(environment)
     }
 
     /// The events the server sends: prices, order book changes, account and token notices, and
@@ -582,193 +583,13 @@ impl Client {
     }
 }
 
-/// Builds a [`Client`]: the friendliest entry point for a newcomer, connecting and (optionally)
-/// identifying the application in one call. Skip it and call [`Client::connect`] directly when the
-/// two steps are better kept apart (for example to report progress between them).
-///
-/// ```no_run
-/// use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment};
-///
-/// # async fn demo() -> wyck::infra::ctrader::Result<()> {
-/// let client = ClientBuilder::new(Environment::Demo)
-///     .credentials(ClientCredentials::new("my-client-id", "my-client-secret"))
-///     .connect()
-///     .await?;
-/// # let _ = client; Ok(()) }
-/// ```
-#[derive(Debug, Clone)]
-pub struct ClientBuilder {
-    config: ConnectionConfig,
-    credentials: Option<ClientCredentials>,
-}
-
-impl ClientBuilder {
-    /// A builder with the default settings for `environment`.
-    #[must_use]
-    pub fn new(environment: Environment) -> Self {
-        Self {
-            config: ConnectionConfig::new(environment),
-            credentials: None,
-        }
-    }
-
-    /// Identifies the application once connected. Without this, [`ClientBuilder::connect`] only
-    /// opens the socket, same as [`Client::connect`].
-    #[must_use]
-    pub fn credentials(mut self, credentials: ClientCredentials) -> Self {
-        self.credentials = Some(credentials);
-        self
-    }
-
-    /// Connects, and identifies the application when [`ClientBuilder::credentials`] were given.
-    ///
-    /// # Errors
-    ///
-    /// Whatever [`Client::connect`] and [`Client::authenticate_application`] return.
-    pub async fn connect(self) -> Result<Client> {
-        let client = Client::connect(&self.config).await?;
-        if let Some(credentials) = &self.credentials {
-            client.authenticate_application(credentials).await?;
-        }
-        Ok(client)
-    }
-}
-
-/// The connection task: reads the socket, writes what the client queues, sends heartbeats.
-async fn run<S>(
-    socket: tokio_tungstenite::WebSocketStream<S>,
-    mut outgoing: mpsc::Receiver<Outgoing>,
-    shared: Arc<Shared>,
-    heartbeat: Duration,
-) where
-    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
-{
-    let (mut sink, mut stream) = socket.split();
-    let mut beat = tokio::time::interval(heartbeat);
-    beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    // The first tick of an interval is immediate; the connection is fresh, skip it.
-    beat.tick().await;
-    let mut shutdown = shared.shutdown.subscribe();
-    let mut last_heard = tokio::time::Instant::now();
-
-    let reason = loop {
-        if *shutdown.borrow() {
-            break DisconnectReason::ClosedByClient;
-        }
-        // Past this moment without a frame from the server, the connection is taken for dead.
-        let silent = async {
-            if shared.silence_timeout.is_zero() {
-                std::future::pending::<()>().await;
-            } else {
-                tokio::time::sleep_until(last_heard + shared.silence_timeout).await;
-            }
-        };
-        tokio::select! {
-            biased;
-            () = silent => break DisconnectReason::Failed(format!(
-                "nothing heard from the server for {} seconds",
-                shared.silence_timeout.as_secs()
-            )),
-            _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
-            message = outgoing.recv() => match message {
-                Some(Outgoing::Text(text)) => {
-                    let sent = tokio::select! {
-                        _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
-                        sent = tokio::time::timeout(
-                            shared.request_timeout,
-                            sink.send(Message::text(text)),
-                        ) => sent,
-                    };
-                    match sent {
-                        Ok(Ok(())) => {}
-                        Ok(Err(error)) => break DisconnectReason::Failed(error.to_string()),
-                        Err(_) => break DisconnectReason::Failed("WebSocket write timed out".into()),
-                    }
-                }
-                None => break DisconnectReason::ClosedByClient,
-            },
-            frame = stream.next() => {
-                last_heard = tokio::time::Instant::now();
-                match frame {
-                Some(Ok(Message::Text(text))) => {
-                    if let Some(reason) = handle_text(&shared, text.as_str()) {
-                        break reason;
-                    }
-                }
-                Some(Ok(Message::Binary(bytes))) => match std::str::from_utf8(&bytes) {
-                    Ok(text) => {
-                        if let Some(reason) = handle_text(&shared, text) {
-                            break reason;
-                        }
-                    }
-                    Err(_) => warn!("a binary frame that is not text was ignored"),
-                },
-                // The library answers pings by itself; pongs and raw frames need nothing.
-                Some(Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_))) => {}
-                Some(Ok(Message::Close(_))) | None => break DisconnectReason::ClosedByServer,
-                Some(Err(error)) => break DisconnectReason::Failed(error.to_string()),
-                }
-            },
-            _ = beat.tick() => {
-                let text = match Envelope::heartbeat().to_text() {
-                    Ok(text) => text,
-                    Err(_) => continue,
-                };
-                let sent = tokio::select! {
-                    _ = shutdown.changed() => break DisconnectReason::ClosedByClient,
-                    sent = tokio::time::timeout(
-                        shared.request_timeout,
-                        sink.send(Message::text(text)),
-                    ) => sent,
-                };
-                match sent {
-                    Ok(Ok(())) => {}
-                    Ok(Err(error)) => break DisconnectReason::Failed(error.to_string()),
-                    Err(_) => break DisconnectReason::Failed("WebSocket heartbeat timed out".into()),
-                }
-                // A ping too: an idle connection that is alive answers it, which is what the
-                // silence check listens for.
-                if sink.send(Message::Ping(Vec::new().into())).await.is_err() {
-                    break DisconnectReason::Failed("WebSocket ping failed".into());
-                }
-            }
-        }
-    };
-    if matches!(reason, DisconnectReason::ClosedByClient) {
-        let _ = tokio::time::timeout(Duration::from_secs(1), sink.send(Message::Close(None))).await;
-    }
-    debug!(?reason, "the Open API connection ended");
-    shared.finish(reason);
-}
-
-/// Reads one text frame from the server. Returns the reason when the server announced that it is
-/// ending the connection, which is more telling than the socket closing after it.
-fn handle_text(shared: &Shared, text: &str) -> Option<DisconnectReason> {
-    let envelope = match Envelope::from_text(text) {
-        Ok(envelope) => envelope,
-        Err(error) => {
-            warn!(%error, "a message that could not be read was ignored");
-            return None;
-        }
-    };
-    let announced = (envelope.payload_type == payload::CLIENT_DISCONNECT_EVENT).then(|| {
-        DisconnectReason::ServerAnnounced(
-            envelope
-                .payload
-                .get("reason")
-                .and_then(|r| r.as_str())
-                .map(str::to_owned),
-        )
-    });
-    shared.route(envelope);
-    announced
-}
-
 #[cfg(test)]
 mod cancellation_tests {
     use super::*;
+    use futures_util::StreamExt;
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
+    use tokio_tungstenite::tungstenite::Message;
 
     #[tokio::test]
     async fn cancelled_requests_leave_no_pending_waiters() {

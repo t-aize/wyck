@@ -39,6 +39,8 @@ mod order;
 mod plans;
 mod positions;
 mod protection;
+mod safety;
+mod summary;
 
 /// What a button of a position row does.
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -214,273 +216,6 @@ impl OrderTicket {
         }
     }
 
-    fn summary(&self, f: &Frame) -> AnyElement {
-        let plan = &f.plan;
-        let ratio = plan
-            .risk
-            .zip(plan.reward)
-            .filter(|(r, _)| *r > 0.0)
-            .map(|(r, w)| format!("1 : {:.2}", w / r));
-        let mut card = card(f.m).child(card_head("Summary", None));
-        // What is risked against what may be won, drawn to scale.
-        if let Some((risk, reward)) = plan
-            .risk
-            .zip(plan.reward)
-            .filter(|(r, w)| *r > 0.0 && *w > 0.0)
-        {
-            card = card.child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap_1()
-                            .h(px(METER_HEIGHT))
-                            .rounded_full()
-                            .overflow_hidden()
-                            .child(
-                                div()
-                                    .h_full()
-                                    .w(gpui::relative((risk / (risk + reward)) as f32))
-                                    .bg(theme::chart_down()),
-                            )
-                            .child(div().h_full().flex_1().bg(theme::chart_up())),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .justify_between()
-                            .text_size(px(tokens::text::small()))
-                            .child(
-                                div()
-                                    .text_color(theme::chart_down())
-                                    .child(format!("Risk {}", f.money(risk))),
-                            )
-                            .child(
-                                div()
-                                    .text_color(theme::chart_up())
-                                    .child(format!("Reward {}", f.money(reward))),
-                            ),
-                    ),
-            );
-        }
-        let mut rows = div().flex().flex_col().gap_1();
-        for shown in self.layout.visible_lines() {
-            let text = match shown {
-                Line::Volume => f.lots.zip(f.units).map_or_else(
-                    || "-".into(),
-                    |(l, u)| format!("{} lots, {} units", math::format_lots(l), format_units(u)),
-                ),
-                Line::Notional => plan.sized.zip(plan.entry).zip(plan.rate).map_or_else(
-                    || "-".into(),
-                    |((s, e), r)| f.money(s.volume as f64 / 100.0 * e * r),
-                ),
-                Line::Risk => match plan.risk {
-                    Some(r) => format!("{}  {}", f.money(r), f.share(r)),
-                    None if self.stop_on => "-".into(),
-                    None => "No stop loss".into(),
-                },
-                Line::Reward => plan
-                    .reward
-                    .map_or_else(|| "-".into(), |r| format!("{}  {}", f.money(r), f.share(r))),
-                Line::RiskReward => ratio.clone().unwrap_or_else(|| "-".into()),
-                Line::Margin => f.margin.map_or_else(|| "-".into(), |m| f.money(m)),
-                Line::PipValue => match (f.units, plan.rate) {
-                    (Some(u), Some(rate)) => f.money(f.contract.pip() * u * rate),
-                    (Some(u), None) => math::format_money(f.contract.pip() * u, &f.quote_currency),
-                    _ => "-".into(),
-                },
-                Line::SpreadCost => f
-                    .bid
-                    .zip(f.ask)
-                    .zip(f.units)
-                    .zip(plan.rate)
-                    .map_or_else(|| "-".into(), |(((b, a), u), r)| f.money((a - b) * u * r)),
-            };
-            rows = rows.child(summary_row(shown.label(), text));
-        }
-        card.child(rows).into_any_element()
-    }
-
-    /// The warnings that do not stop the order, then what does.
-    fn warnings(&self, f: &Frame) -> Vec<String> {
-        let mut warnings: Vec<String> = Vec::new();
-        match f.plan.sized.and_then(|s| s.limit) {
-            Some(Limit::Min) => warnings.push(format!(
-                "Raised to the least volume, {} lots: more at stake than asked",
-                math::format_lots(f.contract.lots_of_volume(f.contract.min_volume))
-            )),
-            Some(Limit::Max) => warnings.push("Cut to the most volume the broker takes".into()),
-            None => {}
-        }
-        if let Some(m) = f.margin
-            && m > f.free_margin
-        {
-            warnings.push("Not enough free margin".into());
-        }
-        let high = self.layout.high_risk;
-        if let Some(risk) = f.plan.risk
-            && f.balance > 0.0
-            && risk / f.balance * 100.0 > high
-        {
-            warnings.push(format!(
-                "Risks more than {}% of the balance",
-                number::format(high, 2)
-            ));
-        }
-        warnings.extend(f.plan.problem.as_ref().map(super::problem::text));
-        warnings
-    }
-
-    /// What the safety limits say now: a lock that stops new orders (with the way out), a request
-    /// that got no answer, and how much of the day's loss limit is used.
-    fn safety_banners(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
-        let account_entity = self.account.clone();
-        let (lock, uncertain, standing, limit, positions, currency, text) = {
-            let account = self.account.read(cx);
-            let standing = account.standing();
-            let lock = account.lock();
-            (
-                lock,
-                account.is_uncertain(),
-                standing,
-                account.risk().daily_loss_limit(standing.day_start_balance),
-                account.book.positions.len(),
-                account.book.currency.clone(),
-                lock.map(|lock| {
-                    lock.text(
-                        &|m| math::format_money(m, &account.book.currency),
-                        standing.now,
-                    )
-                }),
-            )
-        };
-        let mut out: Vec<AnyElement> = Vec::new();
-        if let (Some(_), Some(text)) = (lock, text) {
-            let close = account_entity.clone();
-            out.push(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .p_2()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme::destructive())
-                    .bg(theme::destructive_bg())
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_start()
-                            .gap_2()
-                            .text_size(px(tokens::text::body()))
-                            .text_color(theme::destructive())
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .pt(px(crate::ui::kit::tokens::HAIRLINE))
-                                    .child(icon::tinted(
-                                        IconName::ShieldAlert,
-                                        13.,
-                                        theme::destructive(),
-                                    )),
-                            )
-                            .child(div().flex_1().min_w_0().child(text)),
-                    )
-                    .when(positions > 0, |el| {
-                        el.child(
-                            text_button("ticket-lock-close-all", "Close all positions").on_click(
-                                move |_, window, cx| {
-                                    let close = close.clone();
-                                    confirm(
-                                        window,
-                                        cx,
-                                        "Close every position?",
-                                        "All open positions are closed at market.",
-                                        move |_, cx| {
-                                            close.update(cx, |a, cx| a.close_all(None, cx))
-                                        },
-                                    );
-                                },
-                            ),
-                        )
-                    })
-                    .into_any_element(),
-            );
-        }
-        if uncertain {
-            let refresh = account_entity.clone();
-            out.push(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .p_2()
-                    .rounded_md()
-                    .bg(theme::amber_bg())
-                    .text_size(px(tokens::text::body()))
-                    .text_color(theme::amber())
-                    .child("A request got no answer. It may have gone through: check the positions before sending again.")
-                    .child(text_button("ticket-uncertain-refresh", "Check the account").on_click(
-                        move |_, _, cx| refresh.update(cx, |a, cx| a.on_ready(cx)),
-                    ))
-                    .into_any_element(),
-            );
-        }
-        if let Some(limit) = limit.filter(|l| *l > 0.0) {
-            let used = (-standing.day_pnl).max(0.0);
-            let share = (used / limit).clamp(0.0, 1.0) as f32;
-            let color = if share >= 1.0 {
-                theme::destructive()
-            } else if share >= 0.7 {
-                theme::amber()
-            } else {
-                theme::emerald()
-            };
-            out.push(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .justify_between()
-                            .text_size(px(tokens::text::small()))
-                            .text_color(theme::muted_fg())
-                            .child("Daily loss")
-                            .child(format!(
-                                "{} of {}",
-                                math::format_money(used, &currency),
-                                math::format_money(limit, &currency)
-                            )),
-                    )
-                    .child(
-                        div()
-                            .h(px(THIN_METER_HEIGHT))
-                            .w_full()
-                            .rounded_full()
-                            .bg(theme::fg_alpha(0.12))
-                            .child(
-                                div()
-                                    .h_full()
-                                    .rounded_full()
-                                    .bg(color)
-                                    .w(gpui::relative(share.max(0.02))),
-                            ),
-                    )
-                    .into_any_element(),
-            );
-        }
-        out
-    }
-
     fn send_button(&self, f: &Frame, cx: &mut Context<Self>) -> AnyElement {
         let locked = self.account.read(cx).lock().is_some();
         let blocked = f.plan.problem.is_some() || f.busy || locked;
@@ -512,7 +247,7 @@ impl OrderTicket {
             .border_color(theme::border_hairline())
             .bg(theme::bg())
             .children(self.safety_banners(cx))
-            .children(warning_rows(warnings))
+            .children(summary::warning_rows(warnings))
             .when(with_send, |el| el.child(self.send_button(f, cx)))
             .child(
                 div()
@@ -692,32 +427,6 @@ impl Render for OrderTicket {
     }
 }
 
-fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
-    warnings
-        .iter()
-        .map(|message| {
-            div()
-                .flex()
-                .flex_row()
-                .items_start()
-                .gap_2()
-                .p_2()
-                .rounded_md()
-                .bg(theme::amber_bg())
-                .text_size(px(tokens::text::body()))
-                .text_color(theme::amber())
-                .child(
-                    div()
-                        .flex_none()
-                        .pt(px(crate::ui::kit::tokens::HAIRLINE))
-                        .child(icon::tinted(IconName::TriangleAlert, 13., theme::amber())),
-                )
-                .child(div().flex_1().min_w_0().child(message.clone()))
-                .into_any_element()
-        })
-        .collect()
-}
-
 /// The deposit currency, or a word for it before it is known.
 fn or_money(currency: &str) -> &str {
     if currency.is_empty() {
@@ -725,17 +434,6 @@ fn or_money(currency: &str) -> &str {
     } else {
         currency
     }
-}
-
-fn summary_row(label: &'static str, value: String) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_row()
-        .justify_between()
-        .gap_2()
-        .text_size(px(tokens::text::body()))
-        .child(div().text_color(theme::muted_fg()).child(label))
-        .child(div().text_color(theme::fg()).child(value))
 }
 
 fn format_units(units: f64) -> String {

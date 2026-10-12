@@ -7,8 +7,8 @@ use crate::domain::market::Bar;
 use super::super::data::Series;
 use super::super::settings::ChartKind;
 use super::cmd::{Align, Cmd, P, font, hsla, line_height, with_alpha};
+use super::ctx::{Ctx, columns};
 use super::drawings::ellipse_points;
-use super::{Ctx, columns};
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
 const CANDLE_MIN_PX: f64 = 4.0;

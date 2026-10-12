@@ -7,7 +7,7 @@ use super::{
     App, Context, Entity, InputState, Offset, OrderTicket, SizeMode, TicketEvent, Window, number,
     plan, prefs,
 };
-use crate::app::prefs::ticket::{Distance, PlanTemplate, TimeStopPrefs};
+use crate::app::prefs::ticket::plans::{Distance, PlanTemplate, TimeStopPrefs};
 
 impl OrderTicket {
     /// The time stop as typed now.
@@ -57,7 +57,7 @@ impl OrderTicket {
 
     /// Saves the ticket under the name typed. Says what happened.
     pub(super) fn save_template(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let name = prefs::clean_name(&self.plan_name.read(cx).value());
+        let name = prefs::plans::clean_name(&self.plan_name.read(cx).value());
         let template = self.template(&name, cx);
         let mut prefs = self.prefs(cx);
         match prefs.save_plan(template) {
@@ -86,7 +86,7 @@ impl OrderTicket {
                     "The list of plans is full",
                     format!(
                         "At most {} plans can be saved. Delete one, or use the name of one to replace it.",
-                        prefs::MAX_PLANS
+                        prefs::plans::MAX_PLANS
                     ),
                 )
                 .show(cx);
@@ -218,7 +218,8 @@ impl OrderTicket {
 
 #[cfg(test)]
 mod tests {
-    use super::prefs::{Distance, PlanTemplate, TicketPrefs, TimeStopPrefs};
+    use super::prefs::TicketPrefs;
+    use super::prefs::plans::{Distance, PlanTemplate, TimeStopPrefs};
     use super::*;
     use crate::domain::trading::plan::Only;
 
@@ -261,13 +262,13 @@ mod tests {
     #[test]
     fn the_list_of_plans_has_a_limit() {
         let mut prefs = TicketPrefs::default();
-        for n in 0..prefs::MAX_PLANS {
+        for n in 0..prefs::plans::MAX_PLANS {
             assert_eq!(prefs.save_plan(plan(&format!("plan {n}"))), Some(false));
         }
         assert_eq!(prefs.save_plan(plan("one more")), None);
         // A name already there still replaces.
         assert_eq!(prefs.save_plan(plan("PLAN 3")), Some(true));
-        assert_eq!(prefs.plans.len(), prefs::MAX_PLANS);
+        assert_eq!(prefs.plans.len(), prefs::plans::MAX_PLANS);
     }
 
     #[test]
@@ -294,7 +295,10 @@ mod tests {
         assert_eq!(prefs.plans[0].stop, None, "a price is not kept");
         assert_eq!(prefs.plans[0].target, None);
         assert_eq!(prefs.plans[0].size, 0.1);
-        assert_eq!(prefs.plans[1].name.chars().count(), prefs::MAX_PLAN_NAME);
+        assert_eq!(
+            prefs.plans[1].name.chars().count(),
+            prefs::plans::MAX_PLAN_NAME
+        );
     }
 
     #[test]

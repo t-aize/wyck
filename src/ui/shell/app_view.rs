@@ -12,7 +12,8 @@ use gpui::{
 use crate::app::appearance;
 use crate::app::broker::session::Session;
 use crate::app::broker::{ConnectionConfig, Environment};
-use crate::app::sign_in::{Connection, SignIn, SignInEvent, load_config};
+use crate::app::sign_in::config::load_config;
+use crate::app::sign_in::{Connection, SignIn, SignInEvent};
 use crate::app::storage::ProfileId;
 use crate::app::system::runtime;
 use crate::ui::kit::{button, layout, theme, toast, tokens};

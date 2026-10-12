@@ -2,10 +2,11 @@
 //! pane of their own, the volume profile of the bars on screen, and their values on the axis.
 
 use super::super::data::Series;
+use super::Placement;
 use super::cmd::{Align, Cmd, P, font, rgb_alpha};
+use super::ctx::Ctx;
 use super::geometry::{Band, axis_w};
 use super::price::{self, PriceMap};
-use super::{Ctx, Placement};
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::compute::{DOWN_COLOR, FillOut, PlotOut, StudyOutput, UP_COLOR};
 use crate::domain::indicators::config::StudyConfig;

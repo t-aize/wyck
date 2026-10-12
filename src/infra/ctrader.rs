@@ -164,5 +164,6 @@ pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{Error, ErrorKind, Result};
 pub use event::{DisconnectReason, Event};
 pub use handle::AccountClient;
-pub use transport::connection::{Client, ClientBuilder, ConnectionState};
+pub use transport::connection::builder::ClientBuilder;
+pub use transport::connection::{Client, ConnectionState};
 pub use transport::messages::{AccountsRes, CtidProfile, TraderAccount};

@@ -10,7 +10,7 @@ use super::options::{
     ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines,
 };
 use super::tpo::TpoSettings;
-use super::transform::TransformSettings;
+use super::transform::settings::TransformSettings;
 use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
 use crate::domain::indicators::config::StudyConfig;

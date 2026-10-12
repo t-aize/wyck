@@ -13,27 +13,30 @@
 pub mod axes;
 pub mod cmd;
 pub mod color;
+mod ctx;
 pub mod drawings;
 mod footprint;
 pub mod geometry;
 pub mod palette;
 pub mod price;
+pub mod scale;
 mod series;
 mod studies;
 mod tpo;
 
 pub use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
-use self::color::{Hsla, Rgba};
+use self::ctx::Ctx;
 pub use self::geometry::{Band, Geometry, axis_h, axis_w};
 pub use self::price::PriceMap;
+use self::scale::{geometry, main_map};
 use super::axis;
 use super::data::Series;
 use super::display::{Display, effective_kind};
 use super::flow::Flow;
 use super::options::CrosshairStyle;
-use super::settings::{ChartKind, ChartSettings, ScaleMode};
+use super::settings::{ChartKind, ChartSettings};
 use super::timeframe::Timeframe;
-use super::view::{PriceScale, View, padded_range};
+use super::view::View;
 use crate::domain::drawings::model::Drawing;
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::{Placement, ValueFormat};
@@ -130,184 +133,6 @@ impl Frame<'_> {
             self.timeframe.bar_ms()
         };
         self.series().step_ms(nominal)
-    }
-}
-
-/// The bands of a chart of `w` by `h` with these settings.
-pub fn geometry(settings: &ChartSettings, w: f64, h: f64) -> Geometry {
-    let mut weights = vec![settings.main_weight];
-    weights.extend(settings.panes().iter().map(|pane| pane.weight));
-    Geometry::new(w, h, &weights)
-}
-
-/// The price scale of the prices band, or `None` without data.
-pub fn main_map(
-    raw: &Series,
-    display: &Display,
-    settings: &ChartSettings,
-    view: &View,
-    geometry: &Geometry,
-    digits: u32,
-) -> Option<PriceMap> {
-    let series = display.shown(raw);
-    let plot_w = geometry.plot_w();
-    let (first, last) = view.visible(series.len(), plot_w);
-    let kind = effective_kind(raw, settings.kind);
-    let (lo, hi) = match view.price {
-        PriceScale::Manual { lo, hi } if hi > lo => (lo, hi),
-        _ => {
-            let (mut lo, mut hi) = series
-                .price_range(first, last, kind.uses_ohlc())
-                .map(|(l, h)| (l as f64, h as f64))?;
-            // Indicators on the prices count too, so a band never runs off the top.
-            for (config, output) in settings.studies.iter().zip(&display.studies) {
-                if config.spec().placement != Placement::Overlay || !config.visible {
-                    continue;
-                }
-                if let Some(output) = output {
-                    for plot in &output.plots {
-                        let style = config.plot_style(plot.key);
-                        if !style.visible {
-                            continue;
-                        }
-                        if let Some((l, h)) = studies::visible_range(
-                            plot,
-                            style.kind.unwrap_or(plot.kind),
-                            first,
-                            last,
-                        ) {
-                            lo = lo.min(l);
-                            hi = hi.max(h);
-                        }
-                    }
-                }
-            }
-            padded_range(lo, hi, quote_unit(digits) * 10.0, settings.margin.share())
-        }
-    };
-    let (lo, hi) = if settings.scale == ScaleMode::Log {
-        (lo.max(1.0), hi.max(lo.max(1.0) + 1.0))
-    } else {
-        (lo, hi)
-    };
-    let band = geometry.main();
-    let reserved = 12.0 + f64::from(footprint::reserved(settings));
-    let base = series
-        .value_at(first.min(series.len().saturating_sub(1)))
-        .map_or(0.0, |v| v as f64);
-    Some(PriceMap {
-        lo,
-        hi,
-        top: band.top + 12.0,
-        bottom: (band.bottom() - reserved).max(band.top + 30.0),
-        mode: settings.scale,
-        invert: settings.invert,
-        base,
-    })
-}
-
-/// The drawing context of the prices band.
-struct Ctx<'a> {
-    f: &'a Frame<'a>,
-    series: &'a Series,
-    map: PriceMap,
-    len: usize,
-    plot_w: f64,
-    band: Band,
-    ox: f32,
-    oy: f32,
-}
-
-impl Ctx<'_> {
-    fn snap(&self, v: f32) -> f32 {
-        (v * self.f.scale).round() / self.f.scale
-    }
-
-    /// Absolute x of point `index` (fractional, possibly past the data).
-    fn xf(&self, index: f64) -> f32 {
-        self.ox + self.f.view.x_of(index, self.len, self.plot_w) as f32
-    }
-
-    fn x(&self, index: usize) -> f32 {
-        self.xf(index as f64)
-    }
-
-    /// Absolute y of a value on `map`, kept to a range a GPU can draw.
-    fn y_on(&self, map: &PriceMap, value: f64) -> f32 {
-        self.oy + (map.y(value).clamp(-4_000.0, 20_000.0)) as f32
-    }
-
-    fn y(&self, price: f64) -> f32 {
-        self.y_on(&self.map, price)
-    }
-
-    fn rect(&self, x: f32, y: f32, w: f32, h: f32, fill: Hsla) -> Cmd {
-        Cmd::Rect {
-            x,
-            y,
-            w: w.max(0.0),
-            h: h.max(0.0),
-            fill,
-            border: None,
-            radius: 0.0,
-        }
-    }
-
-    /// A one device pixel wide vertical line from `y0` to `y1`.
-    fn vline(&self, x: f32, y0: f32, y1: f32, c: Hsla) -> Cmd {
-        let w = 1.0 / self.f.scale;
-        let (a, b) = (y0.min(y1), y0.max(y1));
-        self.rect(
-            self.snap(x),
-            self.snap(a),
-            w,
-            self.snap(b) - self.snap(a),
-            c,
-        )
-    }
-
-    fn hline(&self, y: f32, x0: f32, x1: f32, c: Hsla) -> Cmd {
-        let h = 1.0 / self.f.scale;
-        self.rect(
-            self.snap(x0),
-            self.snap(y),
-            self.snap(x1) - self.snap(x0),
-            h,
-            c,
-        )
-    }
-
-    fn up_color(&self, up: bool) -> Rgba {
-        if up {
-            self.f.palette.up
-        } else {
-            self.f.palette.down
-        }
-    }
-}
-
-/// Calls `each` for every group of points that share a pixel column, with the column's center x.
-/// Wider than a pixel, every point is its own group.
-fn columns(
-    cx: &Ctx<'_>,
-    first: usize,
-    last: usize,
-    mut each: impl FnMut(f32, std::ops::Range<usize>),
-) {
-    let mut start = first;
-    while start < last {
-        let column = cx.x(start).floor();
-        let mut end = start + 1;
-        while end < last && cx.x(end).floor() == column {
-            end += 1;
-        }
-        let x = if end - start == 1 {
-            cx.x(start)
-        } else {
-            column + 0.5
-        };
-        each(x, start..end);
-        start = end;
     }
 }
 
@@ -697,6 +522,8 @@ mod tests {
     use super::*;
     use crate::domain::chart::flow::Flow;
     use crate::domain::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
+    use crate::domain::chart::settings::ScaleMode;
+    use crate::domain::chart::view::PriceScale;
     use crate::domain::chart::zone::Zone;
     use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
     use crate::domain::indicators::config::StudyConfig;
@@ -1409,7 +1236,7 @@ mod tests {
         let mut wicked = kind(ChartKind::Renko);
         wicked.transform.renko_wicks = true;
         wicked.transform.renko_box =
-            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0002 };
+            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0002 };
         let mut plain = plain;
         plain.transform.renko_box = wicked.transform.renko_box;
         let a = Fixture::new(Series::Bars(source.clone()), plain, View::new(10.0));
@@ -1423,7 +1250,7 @@ mod tests {
         narrow.transform.brick_width = 0.4;
         narrow.transform.brick_border = false;
         narrow.transform.renko_box =
-            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0002 };
+            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0002 };
         let mut wide = narrow.clone();
         wide.transform.brick_width = 1.0;
         let a = Fixture::new(Series::Bars(bars(300)), narrow, View::new(20.0));
@@ -1571,7 +1398,7 @@ mod tests {
         // from: the boxes then had no height and every column fell back to a bar.
         let mut settings = kind(ChartKind::PointFigure);
         settings.transform.pnf_box =
-            crate::domain::chart::transform::BoxSize::Fixed { price: 0.0015 };
+            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0015 };
         let mut view = View::new(22.0);
         view.offset = 1.0;
         let f = Fixture::new(Series::Bars(bars(500)), settings, view);

@@ -19,7 +19,7 @@ impl Dashboard {
         kind: crate::ui::features::trading::panel::NewAlert,
         cx: &mut Context<Self>,
     ) {
-        use crate::app::alerts::model::PnlScope;
+        use crate::app::alerts::model::source::PnlScope;
         use crate::ui::features::trading::panel::NewAlert;
         let now = now_ms();
         let (alert, digits) = match kind {
