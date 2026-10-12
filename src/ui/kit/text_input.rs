@@ -19,8 +19,8 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt, App, Bounds, ClipboardItem, Context, CursorStyle, EntityInputHandler,
-    FocusHandle, Focusable, KeyBinding, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, Point, ShapedLine, SharedString, Window, div, px,
+    FocusHandle, Focusable, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
+    Point, ShapedLine, SharedString, Window, div, px,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -44,29 +44,6 @@ gpui::actions!(
     ]
 );
 
-/// Registers the key bindings every [`TextInput`] on the window relies on. Call once, at
-/// startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("backspace", TextInputBackspace, Some("TextInput")),
-        KeyBinding::new("delete", TextInputDelete, Some("TextInput")),
-        KeyBinding::new("left", TextInputLeft, Some("TextInput")),
-        KeyBinding::new("right", TextInputRight, Some("TextInput")),
-        KeyBinding::new("shift-left", TextInputSelectLeft, Some("TextInput")),
-        KeyBinding::new("shift-right", TextInputSelectRight, Some("TextInput")),
-        // "secondary" is GPUI's cross-platform primary modifier: cmd on macOS, ctrl everywhere
-        // else. Binding these to "cmd-*" instead would only fire on the literal Super/Windows
-        // key, so Ctrl+C/V/X/A silently did nothing on Windows and Linux.
-        KeyBinding::new("secondary-a", TextInputSelectAll, Some("TextInput")),
-        KeyBinding::new("secondary-v", TextInputPaste, Some("TextInput")),
-        KeyBinding::new("secondary-c", TextInputCopy, Some("TextInput")),
-        KeyBinding::new("secondary-x", TextInputCut, Some("TextInput")),
-        KeyBinding::new("home", TextInputHome, Some("TextInput")),
-        KeyBinding::new("end", TextInputEnd, Some("TextInput")),
-    ]);
-}
-
-/// A single-line, editable text field.
 pub struct TextInput {
     focus_handle: FocusHandle,
     content: SharedString,

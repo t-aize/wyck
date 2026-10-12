@@ -6,8 +6,8 @@
 
 use gpui::prelude::*;
 use gpui::{
-    App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyBinding, KeyDownEvent,
-    SharedString, Subscription, Window, div, px,
+    App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyDownEvent, SharedString,
+    Subscription, Window, div, px,
 };
 
 use crate::app::broker::Environment;
@@ -19,11 +19,6 @@ use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{anim, button, controls, field, icon, layout, theme, tokens};
 
 gpui::actions!(wyck_sign_in, [Dismiss]);
-
-/// Registers the key binding of the modal. Call once, at startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("escape", Dismiss, Some("SignInGate"))]);
-}
 
 pub struct SignInGate {
     sign_in: Entity<SignIn>,

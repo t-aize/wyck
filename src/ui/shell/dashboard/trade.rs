@@ -250,6 +250,38 @@ impl Dashboard {
         );
     }
 
+    /// Asks, then cancels every working order. Positions stay open.
+    pub(in crate::ui::shell::dashboard) fn ask_cancel_all(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let ids: Vec<i64> = self.trading.read(cx).book.orders.keys().copied().collect();
+        if ids.is_empty() {
+            toast::show(
+                cx,
+                toast::Kind::Info,
+                "Nothing to cancel",
+                "No order is waiting.",
+            );
+            return;
+        }
+        let account = self.trading.clone();
+        confirm(
+            window,
+            cx,
+            "Cancel every order?",
+            format!("{} working order(s) will be cancelled.", ids.len()),
+            move |_, cx| {
+                account.update(cx, |a, cx| {
+                    for id in &ids {
+                        a.cancel_order(*id, cx);
+                    }
+                });
+            },
+        );
+    }
+
     /// Turns the kill switch on or off: while it is on, no new order can be sent.
     pub(in crate::ui::shell::dashboard) fn toggle_kill_switch(&mut self, cx: &mut Context<Self>) {
         let on = !self.workspace.read(cx).preferences().risk.kill_switch;

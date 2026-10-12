@@ -21,9 +21,8 @@ use app::scripts;
 use app::updates;
 use infra::platform::build_info::{self, BuildMode};
 use ui::assets;
-use ui::features::{chart, indicators};
+use ui::features::indicators;
 use ui::shell::app_view::AppView;
-use ui::shell::{dashboard, sign_in_gate};
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);
@@ -62,13 +61,8 @@ pub fn run() {
                     scripts::init(None, cx);
                 }
             }
-            crate::ui::kit::text_input::init(cx);
-            dashboard::init(cx);
-            sign_in_gate::init(cx);
-            chart::init(cx);
             indicators::editor::init(cx);
             crate::ui::shell::keymap::apply(&Default::default(), cx);
-            crate::ui::kit::modal::init(cx);
 
             cx.text_system()
                 .add_fonts(vec![Cow::Borrowed(assets::FONT)])

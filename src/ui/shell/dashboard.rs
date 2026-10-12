@@ -38,9 +38,7 @@ use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::ticket::OrderTicket;
 use crate::ui::kit::toast;
 use gpui::prelude::*;
-use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding, SharedString, Window,
-};
+use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedString, Window};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -73,23 +71,12 @@ gpui::actions!(
         ToggleMagnet,
         ToggleKeepDrawing,
         ToggleFavoritesBar,
+        CancelAllOrders,
+        ToggleLogScale,
+        TogglePercentScale,
+        ToggleGrid,
     ]
 );
-
-/// Registers the key bindings of the dashboard that cannot be changed. The others are in
-/// `ui::shell::keymap`. Call once, at startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("escape", ClosePicker, Some("Dashboard")),
-        KeyBinding::new("up", PickerUp, Some("SymbolPicker")),
-        KeyBinding::new("down", PickerDown, Some("SymbolPicker")),
-        KeyBinding::new("ctrl-p", PickerUp, Some("SymbolPicker")),
-        KeyBinding::new("ctrl-n", PickerDown, Some("SymbolPicker")),
-        KeyBinding::new("pageup", PickerPageUp, Some("SymbolPicker")),
-        KeyBinding::new("pagedown", PickerPageDown, Some("SymbolPicker")),
-        KeyBinding::new("enter", PickerConfirm, Some("SymbolPicker")),
-    ]);
-}
 
 /// Who the dashboard is connected as.
 #[derive(Clone)]

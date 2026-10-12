@@ -1,24 +1,33 @@
-//! The Shortcuts page of the settings: every action with its keys, and the means to change them.
+//! The Shortcuts page of the settings: every key of the app, the ones that can be changed and the
+//! ones that cannot.
 //!
-//! A key of a row is a button. Pressing it waits for the new combination (Esc gives up), a plus
-//! adds a second key to the action, the eraser leaves it with no key and the arrow puts the
-//! default back. A combination another action of the same place already uses is refused, with
-//! the name of that action, so a shortcut never stops working without anyone knowing it.
+//! A key of a row that can be changed is a button. Pressing it waits for the new combination (Esc
+//! gives up), a plus adds a second key to the action, the eraser leaves it with no key and the
+//! arrow puts the default back. When another action of the same place already uses the
+//! combination, the page says which and asks whether to take it from there; a combination that is
+//! a fixed key, or one the widgets use everywhere, is refused.
 
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div};
+use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div, px};
 
-use super::{IconName, SettingsHub, button, form};
+use super::{IconName, SettingsHub, button, form, theme, tokens};
 use crate::domain::shortcuts::{Chord, ChordError, Held, MAX_KEYS_PER_ACTION, clashes, taken_by};
 use crate::ui::kit::input::InputState;
-use crate::ui::kit::prelude::Disableable;
-use crate::ui::shell::keymap::{self, Def, Group};
+use crate::ui::shell::keymap::{self, Def, Group, Kind};
 
 /// The key being waited for: which action, and which of its keys (`None` adds one).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Capture {
     pub id: &'static str,
     pub slot: Option<usize>,
+}
+
+/// A combination waiting for the user to say whether it is taken from the action that has it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Swap {
+    pub capture: Capture,
+    pub keys: String,
+    pub from: &'static str,
 }
 
 fn mac() -> bool {
@@ -32,6 +41,10 @@ fn group_icon(group: Group) -> IconName {
         Group::Chart => IconName::ChartCandlestick,
         Group::Drawing => IconName::PenLine,
         Group::Editor => IconName::CodeXml,
+        Group::Text => IconName::Type,
+        Group::Dialogs => IconName::MessageSquare,
+        Group::Picker => IconName::Search,
+        Group::Panel => IconName::LayoutList,
     }
 }
 
@@ -40,12 +53,12 @@ fn show(keys: &str) -> String {
     Chord::parse(keys).map_or_else(|_| keys.to_owned(), |chord| chord.label(mac()))
 }
 
-/// Whether `def` matches what was typed in the search field: its name or one of its keys.
-fn matches(def: &Def, keys: &[String], query: &str) -> bool {
+/// Whether what was typed in the search field matches a name or one of its keys.
+fn matches(label: &str, keys: &[String], query: &str) -> bool {
     let query = query.trim().to_lowercase();
     query.is_empty()
-        || def.label.to_lowercase().contains(&query)
-        || keys.iter().any(|k| show(k).to_lowercase().contains(&query))
+        || label.to_lowercase().contains(&query)
+        || keys.iter().any(|k| k.to_lowercase().contains(&query))
 }
 
 /// Why a combination was refused, in words.
@@ -56,6 +69,21 @@ fn refusal(error: &ChordError) -> String {
         }
         other => format!("That combination cannot be used: {other}."),
     }
+}
+
+/// A key as a small box.
+fn chip(text: impl Into<SharedString>) -> gpui::Div {
+    div()
+        .flex()
+        .items_center()
+        .h(px(tokens::height::compact()))
+        .px_2()
+        .rounded_md()
+        .border_1()
+        .border_color(theme::border_subtle())
+        .text_size(px(tokens::text::body()))
+        .text_color(theme::muted_fg())
+        .child(text.into())
 }
 
 impl SettingsHub {
@@ -72,71 +100,89 @@ impl SettingsHub {
         let query = self.shortcut_search.read(cx).value().to_string();
         let shared = clashes(&all);
 
-        let reset_all = {
+        let mut head = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .child(div().flex_1().child(form::text_field(
+                &self.shortcut_search,
+                tokens::field::wide(),
+            )));
+        if !prefs.changed.is_empty() {
             let this = cx.entity();
-            button::quiet("shortcuts-reset-all")
-                .icon(IconName::RotateCcw)
-                .label("Reset all")
-                .disabled(prefs.changed.is_empty())
-                .on_click(move |_, _, cx| {
-                    this.update(cx, |hub, cx| hub.edit_shortcuts(cx, |p| p.reset_all()));
-                })
-        };
-        let mut page = form::page().child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(div().flex_1().child(form::text_field(
-                    &self.shortcut_search,
-                    crate::ui::kit::tokens::field::wide(),
-                )))
-                .child(reset_all),
-        );
-        page = page.child(form::note(
-            "Click a key, then press the new combination. Esc gives up. Several actions can wait for the same key in different places, but not in one.",
+            head = head.child(
+                button::quiet("shortcuts-reset-all")
+                    .icon(IconName::RotateCcw)
+                    .label("Reset all")
+                    .on_click(move |_, _, cx| {
+                        this.update(cx, |hub, cx| hub.edit_shortcuts(cx, |p| p.reset_all()));
+                    }),
+            );
+        }
+        let mut page = form::page().child(head).child(form::note(
+            "Click a key, then press the new combination. Esc gives up. Two actions of one place cannot share a key. The keys with a lock are fixed.",
         ));
 
         let mut shown = 0;
         for group in Group::ALL {
             let mut rows: Vec<AnyElement> = Vec::new();
             for def in keymap::DEFS.iter().filter(|def| def.group == group) {
-                let keys = prefs.keys_of(def.id, def.keys);
-                if !matches(def, &keys, &query) {
+                let keys = keymap::keys_of(def, &prefs);
+                let shown_keys: Vec<String> = keys.iter().map(|k| show(k)).collect();
+                if !matches(def.label, &shown_keys, &query) {
                     continue;
                 }
-                rows.push(self.shortcut_row(def, &keys, &prefs, cx));
-                let clash = shared
-                    .iter()
-                    .find(|c| c.context == def.context && c.ids.iter().any(|id| id == def.id));
-                if let Some(clash) = clash {
-                    let others: Vec<&str> = clash
-                        .ids
-                        .iter()
-                        .filter(|id| id.as_str() != def.id)
-                        .filter_map(|id| keymap::def(id).map(|d| d.label))
-                        .collect();
-                    rows.push(
-                        form::note(format!(
-                            "{} is also used by {}. Only one of them will work.",
-                            show(&clash.keys),
-                            others.join(", ")
-                        ))
-                        .into_any_element(),
-                    );
+                match def.kind {
+                    Kind::Custom => rows.push(self.shortcut_row(def, &keys, &prefs, cx)),
+                    Kind::Fixed => rows.push(self.fixed_row(def, &shown_keys)),
                 }
-                if let Some((id, text)) = &self.shortcut_note
-                    && id == def.id
-                {
-                    rows.push(form::note(text.clone()).into_any_element());
+                if def.kind == Kind::Custom {
+                    rows.extend(self.row_notes(def, &shared, cx));
                 }
             }
-            if !rows.is_empty() {
-                shown += rows.iter().filter(|_| true).count();
-                page = page.child(form::group(group_icon(group), group.label(), rows));
+            for handled in keymap::HANDLED.iter().filter(|h| h.group == group) {
+                let keys: Vec<String> = handled.keys.iter().map(|k| (*k).to_owned()).collect();
+                if matches(handled.label, &keys, &query) {
+                    rows.push(Self::handled_row(handled.label, handled.context, &keys));
+                }
             }
+            if rows.is_empty() {
+                continue;
+            }
+            shown += rows.len();
+            let changed_here = keymap::DEFS
+                .iter()
+                .any(|d| d.group == group && d.kind == Kind::Custom && prefs.is_changed(d.id));
+            let reset = changed_here.then(|| {
+                let this = cx.entity();
+                button::icon(
+                    SharedString::from(format!("shortcuts-reset-{group:?}")),
+                    IconName::RotateCcw,
+                    "Back to the defaults of this group",
+                )
+                .on_click(move |_, _, cx| {
+                    this.update(cx, |hub, cx| {
+                        hub.edit_shortcuts(cx, |p| {
+                            for def in keymap::DEFS
+                                .iter()
+                                .filter(|d| d.group == group && d.kind == Kind::Custom)
+                            {
+                                p.reset(def.id);
+                            }
+                        });
+                    });
+                })
+                .into_any_element()
+            });
+            page = page.child(form::group_with(
+                group_icon(group),
+                group.label(),
+                reset,
+                rows,
+            ));
         }
+        page = page.child(self.library_group(&query, &mut shown, cx));
         if shown == 0 {
             page = page.child(form::empty(
                 IconName::Search,
@@ -149,6 +195,164 @@ impl SettingsHub {
             .capture_key_down(cx.listener(Self::on_capture_key))
             .child(page)
             .into_any_element()
+    }
+
+    /// The keys of the widget library, which the app does not own and cannot change, behind a
+    /// fold.
+    fn library_group(&self, query: &str, shown: &mut usize, cx: &mut Context<Self>) -> AnyElement {
+        let all = keymap::library_keys(cx);
+        let found: Vec<_> = all
+            .iter()
+            .filter(|k| {
+                matches(
+                    &format!("{} {}", k.action, k.context),
+                    std::slice::from_ref(&k.keys),
+                    query,
+                )
+            })
+            .collect();
+        if found.is_empty() {
+            return div().into_any_element();
+        }
+        *shown += found.len();
+        let open = self.library_open || !query.trim().is_empty();
+        let this = cx.entity();
+        let toggle = button::quiet("shortcuts-library")
+            .icon(if open {
+                IconName::ChevronDown
+            } else {
+                IconName::ChevronRight
+            })
+            .label(if open { "Hide" } else { "Show" })
+            .on_click(move |_, _, cx| {
+                this.update(cx, |hub, cx| {
+                    hub.library_open = !hub.library_open;
+                    cx.notify();
+                });
+            })
+            .into_any_element();
+        let rows: Vec<AnyElement> = if open {
+            found
+                .iter()
+                .map(|k| Self::handled_row(&k.action, &k.context, std::slice::from_ref(&k.keys)))
+                .collect()
+        } else {
+            vec![
+                form::note(format!(
+                    "{} more keys come with the widgets (lists, tables, menus, the date picker). They work where the widget is.",
+                    found.len()
+                ))
+                .into_any_element(),
+            ]
+        };
+        form::group_with(IconName::Layers, "Keys of the widgets", Some(toggle), rows)
+            .into_any_element()
+    }
+
+    /// A row for a key the app cannot change: the keys, a lock.
+    fn fixed_row(&self, def: &Def, keys: &[String]) -> AnyElement {
+        let mut chips = div().flex().flex_row().items_center().gap_1();
+        for key in keys {
+            chips = chips.child(chip(key.clone()));
+        }
+        chips = chips.child(crate::ui::kit::icon::tinted(
+            IconName::Lock,
+            13.,
+            theme::muted_fg(),
+        ));
+        form::Row::new(def.label).control(chips)
+    }
+
+    /// A row for keys a screen reads itself, or the library does.
+    fn handled_row(label: &str, context: &str, keys: &[String]) -> AnyElement {
+        let mut chips = div().flex().flex_row().items_center().gap_1();
+        for key in keys {
+            chips = chips.child(chip(key.clone()));
+        }
+        chips = chips.child(crate::ui::kit::icon::tinted(
+            IconName::Lock,
+            13.,
+            theme::muted_fg(),
+        ));
+        form::Row::new(label.to_owned())
+            .hint(context.to_owned())
+            .control(chips)
+    }
+
+    /// What is said under a row: that two actions share a key, that a combination was refused,
+    /// that one waits for a decision.
+    fn row_notes(
+        &self,
+        def: &'static Def,
+        shared: &[crate::domain::shortcuts::Clash],
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let mut notes = Vec::new();
+        if let Some(clash) = shared
+            .iter()
+            .find(|c| c.context == def.context && c.ids.iter().any(|id| id == def.id))
+        {
+            let others: Vec<&str> = clash
+                .ids
+                .iter()
+                .filter(|id| id.as_str() != def.id)
+                .filter_map(|id| keymap::def(id).map(|d| d.label))
+                .collect();
+            notes.push(
+                form::note(format!(
+                    "{} is also used by {}. Only one of them will work.",
+                    show(&clash.keys),
+                    others.join(", ")
+                ))
+                .into_any_element(),
+            );
+        }
+        if let Some((id, text)) = &self.shortcut_note
+            && id == def.id
+        {
+            notes.push(form::note(text.clone()).into_any_element());
+        }
+        if let Some(swap) = self.swap.as_ref().filter(|s| s.capture.id == def.id) {
+            let from = keymap::def(swap.from).map_or("another action", |d| d.label);
+            let (take, keep) = (cx.entity(), cx.entity());
+            notes.push(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .py_1()
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_size(px(tokens::text::body()))
+                            .text_color(theme::fg())
+                            .child(format!(
+                                "{} is used by \"{from}\". Take it from there?",
+                                show(&swap.keys)
+                            )),
+                    )
+                    .child(
+                        button::accent("shortcuts-swap-take")
+                            .label("Take it")
+                            .on_click(move |_, _, cx| {
+                                take.update(cx, |hub, cx| hub.take_swap(cx));
+                            }),
+                    )
+                    .child(
+                        button::quiet("shortcuts-swap-keep")
+                            .label("Keep it there")
+                            .on_click(move |_, _, cx| {
+                                keep.update(cx, |hub, cx| {
+                                    hub.swap = None;
+                                    cx.notify();
+                                });
+                            }),
+                    )
+                    .into_any_element(),
+            );
+        }
+        notes
     }
 
     fn shortcut_row(
@@ -238,6 +442,7 @@ impl SettingsHub {
     fn start_capture(&mut self, capture: Capture, window: &mut Window, cx: &mut Context<Self>) {
         self.capturing = Some(capture);
         self.shortcut_note = None;
+        self.swap = None;
         window.focus(&self.capture_focus, cx);
         cx.notify();
     }
@@ -279,34 +484,90 @@ impl SettingsHub {
             return;
         };
         self.capturing = None;
-        if let Err(error) = chord.allowed() {
-            self.shortcut_note = Some((capture.id.to_owned(), refusal(&error)));
+        let say = |hub: &mut Self, text: String, cx: &mut Context<Self>| {
+            hub.shortcut_note = Some((capture.id.to_owned(), text));
             cx.notify();
+        };
+        if let Err(error) = chord.allowed() {
+            say(self, refusal(&error), cx);
             return;
         }
         let keys = chord.keys();
         let prefs = self.workspace.read(cx).preferences().shortcuts.clone();
         let all = keymap::resolved(&prefs);
         if let Some(other) = taken_by(&all, def.id, def.context, &keys) {
-            let name = keymap::def(&other.id).map_or("another action", |d| d.label);
-            self.shortcut_note = Some((
-                capture.id.to_owned(),
-                format!(
-                    "{} is already used by \"{name}\". Choose another, or change that one first.",
-                    show(&keys)
-                ),
-            ));
-            cx.notify();
+            let Some(other_def) = keymap::def(&other.id) else {
+                return;
+            };
+            if other_def.kind == Kind::Fixed {
+                say(
+                    self,
+                    format!(
+                        "{} is a fixed key of \"{}\". Choose another.",
+                        show(&keys),
+                        other_def.label
+                    ),
+                    cx,
+                );
+            } else {
+                self.swap = Some(Swap {
+                    capture,
+                    keys,
+                    from: other_def.id,
+                });
+                cx.notify();
+            }
             return;
         }
+        if let Some(library) = keymap::reserved_by_library(&keys, cx) {
+            say(
+                self,
+                format!(
+                    "{} is used by the widgets everywhere in the app ({}). Choose another.",
+                    show(&keys),
+                    library.action.to_lowercase()
+                ),
+                cx,
+            );
+            return;
+        }
+        self.shortcut_note = None;
+        self.edit_shortcuts(cx, |p| Self::put(p, def, capture.slot, keys));
+    }
+
+    /// Takes the combination from the action that has it and gives it to the one that asked.
+    fn take_swap(&mut self, cx: &mut Context<Self>) {
+        let Some(swap) = self.swap.take() else {
+            return;
+        };
+        let (Some(def), Some(from)) = (keymap::def(swap.capture.id), keymap::def(swap.from)) else {
+            return;
+        };
+        self.edit_shortcuts(cx, |p| {
+            let rest: Vec<String> = p
+                .keys_of(from.id, from.keys)
+                .into_iter()
+                .filter(|k| *k != swap.keys)
+                .collect();
+            p.set(from.id, rest, from.keys);
+            Self::put(p, def, swap.capture.slot, swap.keys.clone());
+        });
+    }
+
+    /// Gives an action a combination, in the slot that was asked or after its other keys.
+    fn put(
+        prefs: &mut crate::domain::shortcuts::ShortcutPrefs,
+        def: &Def,
+        slot: Option<usize>,
+        keys: String,
+    ) {
         let mut list = prefs.keys_of(def.id, def.keys);
-        match capture.slot {
-            Some(slot) if slot < list.len() => list[slot] = keys.clone(),
-            _ => list.push(keys.clone()),
+        match slot {
+            Some(slot) if slot < list.len() => list[slot] = keys,
+            _ => list.push(keys),
         }
         list.dedup();
-        self.shortcut_note = None;
-        self.edit_shortcuts(cx, |p| p.set(def.id, list, def.keys));
+        prefs.set(def.id, list, def.keys);
     }
 
     /// Changes the shortcuts, saves them and binds the keys again.
@@ -316,6 +577,7 @@ impl SettingsHub {
         change: impl FnOnce(&mut crate::domain::shortcuts::ShortcutPrefs),
     ) {
         self.shortcut_note = None;
+        self.swap = None;
         self.workspace.update(cx, |workspace, cx| {
             workspace.edit_preferences(cx, |prefs| change(&mut prefs.shortcuts));
         });
@@ -331,17 +593,47 @@ mod tests {
 
     #[test]
     fn the_search_finds_an_action_by_its_name_or_by_its_key() {
-        let undo = keymap::def("undo_drawing").unwrap();
-        let keys = vec!["secondary-z".to_owned()];
-        assert!(matches(undo, &keys, ""));
-        assert!(matches(undo, &keys, "UNDO"));
-        assert!(matches(undo, &keys, "ctrl+z") || matches(undo, &keys, "cmd+z"));
-        assert!(!matches(undo, &keys, "kill"));
+        let keys = vec!["Ctrl+Z".to_owned()];
+        assert!(matches("Undo", &keys, ""));
+        assert!(matches("Undo", &keys, "UNDO"));
+        assert!(matches("Undo", &keys, "ctrl+z"));
+        assert!(!matches("Undo", &keys, "kill"));
     }
 
     #[test]
     fn a_refusal_says_what_to_do() {
         assert!(refusal(&ChordError::NeedsModifier).contains("Add Ctrl"));
         assert!(refusal(&ChordError::Empty).contains("cannot be used"));
+    }
+
+    #[test]
+    fn a_combination_is_put_in_the_slot_asked_or_after_the_others() {
+        use crate::domain::shortcuts::ShortcutPrefs;
+        let zoom = keymap::def("zoom_in").unwrap();
+        let mut prefs = ShortcutPrefs::default();
+        SettingsHub::put(&mut prefs, zoom, Some(1), "alt-z".into());
+        assert_eq!(prefs.keys_of(zoom.id, zoom.keys), ["secondary-=", "alt-z"]);
+        SettingsHub::put(&mut prefs, zoom, None, "alt-y".into());
+        assert_eq!(
+            prefs.keys_of(zoom.id, zoom.keys),
+            ["secondary-=", "alt-z", "alt-y"]
+        );
+        // The same key twice in a row is one key.
+        SettingsHub::put(&mut prefs, zoom, None, "alt-y".into());
+        assert_eq!(prefs.keys_of(zoom.id, zoom.keys).len(), 3);
+    }
+
+    #[test]
+    fn a_combination_taken_from_another_action_leaves_it_with_the_rest() {
+        use crate::domain::shortcuts::ShortcutPrefs;
+        let redo = keymap::def("redo_drawing").unwrap();
+        let mut prefs = ShortcutPrefs::default();
+        let rest: Vec<String> = prefs
+            .keys_of(redo.id, redo.keys)
+            .into_iter()
+            .filter(|k| k != "secondary-y")
+            .collect();
+        prefs.set(redo.id, rest, redo.keys);
+        assert_eq!(prefs.keys_of(redo.id, redo.keys), ["secondary-shift-z"]);
     }
 }

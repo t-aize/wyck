@@ -28,8 +28,8 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, AnyView, App, Context, Div, Entity, FocusHandle,
-    Global, KeyBinding, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window,
-    actions, div, point, px, relative,
+    Global, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString, Window, actions, div,
+    point, px, relative,
 };
 use gpui_kit::component::FocusTrapElement as _;
 
@@ -42,11 +42,6 @@ const ENTER: Duration = Duration::from_millis(180);
 const EXIT: Duration = Duration::from_millis(120);
 /// How far the panel rises while it appears, in pixels.
 const RISE: f32 = 10.0;
-
-/// Registers the key bindings of the modal. Call once, at startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("escape", CloseModal, Some("Modal"))]);
-}
 
 /// The share of the window a panel may fill, as in the render below.
 const MAX_WIDTH_SHARE: f32 = 0.94;

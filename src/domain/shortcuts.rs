@@ -237,7 +237,7 @@ impl fmt::Display for Chord {
     }
 }
 
-fn key_label(key: &str) -> String {
+pub fn key_label(key: &str) -> String {
     match key {
         "pageup" => "Page Up".into(),
         "pagedown" => "Page Down".into(),

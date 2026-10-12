@@ -2,6 +2,7 @@
 
 use super::events::ChartEvent;
 use super::settings;
+use super::settings::ScaleMode;
 use super::{
     Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
     view,
@@ -146,6 +147,22 @@ impl Chart {
         self.reload(cx);
         self.request_drawing_atr(cx);
         cx.emit(ChartEvent::SettingsChanged);
+    }
+
+    /// Puts the price scale on `mode`, or back to linear when it already is.
+    pub fn toggle_scale(&mut self, mode: ScaleMode, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| {
+            s.scale = if s.scale == mode {
+                ScaleMode::Linear
+            } else {
+                mode
+            };
+        });
+    }
+
+    /// Shows or hides the grid.
+    pub fn toggle_grid(&mut self, cx: &mut Context<Self>) {
+        self.edit_settings(cx, |s| s.grid = !s.grid);
     }
 
     /// Changes the settings with `change`; recomputes what depends on them, redraws, and tells the

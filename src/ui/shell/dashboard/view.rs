@@ -1,13 +1,14 @@
 //! What the dashboard draws: its body and the header over the charts.
 
 use super::{
-    CloseAllPositions, ClosePicker, Conn, Dashboard, DashboardEvent, MenuKind, NextChart,
-    NextTimeframe, OpenPicker, OpenSettings, OpenShortcuts, PreviousChart, PreviousTimeframe,
-    Quote, TicketBuy, TicketSell, TicketSend, ToggleAccountPanel, ToggleFavoritesBar,
-    ToggleFullscreen, ToggleIndicatorEditor, ToggleKeepDrawing, ToggleKillSwitch, ToggleMagnet,
-    ToggleTicket,
+    CancelAllOrders, CloseAllPositions, ClosePicker, Conn, Dashboard, DashboardEvent, MenuKind,
+    NextChart, NextTimeframe, OpenPicker, OpenSettings, OpenShortcuts, PreviousChart,
+    PreviousTimeframe, Quote, TicketBuy, TicketSell, TicketSend, ToggleAccountPanel,
+    ToggleFavoritesBar, ToggleFullscreen, ToggleGrid, ToggleIndicatorEditor, ToggleKeepDrawing,
+    ToggleKillSwitch, ToggleLogScale, ToggleMagnet, TogglePercentScale, ToggleTicket,
 };
 
+use crate::domain::chart::settings::ScaleMode;
 use crate::domain::market::{PRICE_SCALE, format_price};
 use crate::ui::features::chart;
 use crate::ui::kit::icon::IconName;
@@ -153,6 +154,18 @@ impl Render for Dashboard {
         .on_action(cx.listener(|this, _: &ToggleFavoritesBar, _window, cx| {
             this.multi
                 .update(cx, |multi, cx| multi.toggle_favorites_bar(cx));
+        }))
+        .on_action(cx.listener(|this, _: &CancelAllOrders, window, cx| {
+            this.ask_cancel_all(window, cx);
+        }))
+        .on_action(cx.listener(|this, _: &ToggleLogScale, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_scale(ScaleMode::Log, cx));
+        }))
+        .on_action(cx.listener(|this, _: &TogglePercentScale, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_scale(ScaleMode::Percent, cx));
+        }))
+        .on_action(cx.listener(|this, _: &ToggleGrid, _window, cx| {
+            this.on_active_chart(cx, |chart, cx| chart.toggle_grid(cx));
         }))
         .on_action(cx.listener(|this, _: &ToggleIndicatorEditor, _window, cx| {
             this.toggle_editor(cx);

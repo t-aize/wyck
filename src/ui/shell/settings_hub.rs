@@ -179,6 +179,10 @@ struct SettingsHub {
     shortcut_note: Option<(String, String)>,
     shortcut_search: Entity<InputState>,
     capture_focus: gpui::FocusHandle,
+    /// A combination waiting to be taken from the action that has it.
+    swap: Option<shortcuts::Swap>,
+    /// Whether the keys of the widget library are listed.
+    library_open: bool,
     /// What the backup waiting to be applied holds, once one was chosen.
     waiting: Option<Vec<String>>,
     /// The copies kept in the backups folder, newest first, as last listed.
@@ -282,6 +286,8 @@ impl SettingsHub {
             shortcut_note: None,
             shortcut_search,
             capture_focus: cx.focus_handle(),
+            swap: None,
+            library_open: false,
             waiting,
             copies: data::list_copies(),
             _subscriptions: subscriptions,

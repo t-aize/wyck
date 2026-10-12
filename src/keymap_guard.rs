@@ -1,9 +1,35 @@
-//! Fails the build when two actions are bound to the same keys in the same context: GPUI
-//! lets the later binding win, so the earlier action silently stops working.
+//! Keeps every keyboard shortcut in one place.
+//!
+//! - Every binding is declared in the table of `ui::shell::keymap`. A `KeyBinding::new` or a
+//!   `bind_keys` anywhere else would be a shortcut the settings page does not show and the clash
+//!   tests do not see.
+//! - A screen that reads keys by hand (`keystroke.key`, `on_key_down`) must be one of the files
+//!   named below, and its keys told in `keymap::HANDLED`, so the settings page lists them too.
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// The files that read keys by hand, with what they read. Their keys are in `keymap::HANDLED`.
+const READS_KEYS: &[&str] = &[
+    // Up, Down, Enter and Escape in a menu.
+    "ui/kit/menu.rs",
+    // The arrows, Home, End, Page Up, Page Down and the menu key in the rows of the account panel.
+    "ui/features/trading/panel.rs",
+    "ui/features/trading/panel/view/table.rs",
+    // Up, Down and Enter to choose an account.
+    "ui/shell/sign_in_gate.rs",
+    // Escape to give up naming a script.
+    "ui/features/indicators/editor/parts/explorer.rs",
+    // The key being awaited by the page that sets the shortcuts.
+    "ui/shell/settings_hub/shortcuts.rs",
+];
+
+const BY_HAND: &[&str] = &[
+    "keystroke.key",
+    ".on_key_down(",
+    ".capture_key_down(",
+    ".on_key_event(",
+];
 
 fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {
@@ -19,81 +45,64 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// The text between the parentheses of the call whose opening one is at `open`.
-fn call_body(source: &str, open: usize) -> Option<&str> {
-    let mut depth = 0usize;
-    let mut in_string = false;
-    for (offset, ch) in source[open..].char_indices() {
-        match ch {
-            '"' => in_string = !in_string,
-            '(' if !in_string => depth += 1,
-            ')' if !in_string => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&source[open + 1..open + offset]);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// `(keys, action, context)` of a `KeyBinding::new(keys, Action, Some("Context"))` call body.
-fn parse_binding(body: &str) -> Option<(String, String, String)> {
-    let mut parts = body.splitn(3, '"');
-    parts.next()?;
-    let keys = parts.next()?;
-    let rest = parts.next()?;
-    let action = rest
-        .trim_start_matches(|c: char| c == ',' || c.is_whitespace())
-        .split(',')
-        .next()?
-        .trim();
-    let context = rest
-        .split("Some(\"")
-        .nth(1)
-        .and_then(|tail| tail.split('"').next())
-        .unwrap_or("");
-    Some((keys.to_owned(), action.to_owned(), context.to_owned()))
+fn sources() -> Vec<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    rust_files(&root, &mut files);
+    files
+        .into_iter()
+        .filter_map(|file| {
+            let name = file
+                .strip_prefix(&root)
+                .ok()?
+                .to_string_lossy()
+                .replace('\\', "/");
+            Some((name, fs::read_to_string(&file).ok()?))
+        })
+        .filter(|(name, _)| name != "keymap_guard.rs")
+        .collect()
 }
 
 #[test]
-fn no_two_actions_share_keys_in_one_context() {
-    let mut files = Vec::new();
-    rust_files(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
-        &mut files,
-    );
-
-    let mut seen: HashMap<(String, String), (String, PathBuf)> = HashMap::new();
-    let mut clashes = Vec::new();
-    for file in files {
-        if file.ends_with("keymap_guard.rs") {
-            continue;
-        }
-        let source = fs::read_to_string(&file).expect("a source file is readable");
-        for (at, _) in source.match_indices("KeyBinding::new(") {
-            let open = at + "KeyBinding::new".len();
-            let Some((keys, action, context)) = call_body(&source, open).and_then(parse_binding)
-            else {
-                continue;
-            };
-            if let Some((other, other_file)) = seen.insert(
-                (keys.clone(), context.clone()),
-                (action.clone(), file.clone()),
-            ) {
-                clashes.push(format!(
-                    "{keys} in {context}: {other} ({}) and {action} ({})",
-                    other_file.display(),
-                    file.display()
-                ));
-            }
-        }
-    }
+fn every_binding_is_declared_in_the_table_of_the_keymap() {
+    let strays: Vec<String> = sources()
+        .into_iter()
+        .filter(|(name, _)| name != "ui/shell/keymap.rs")
+        .filter(|(_, text)| text.contains("KeyBinding::new(") || text.contains(".bind_keys("))
+        .map(|(name, _)| name)
+        .collect();
     assert!(
-        clashes.is_empty(),
-        "key binding clashes:\n{}",
-        clashes.join("\n")
+        strays.is_empty(),
+        "bindings outside ui/shell/keymap.rs (declare them in its table): {strays:?}"
+    );
+}
+
+#[test]
+fn keys_read_by_hand_are_told_in_the_keymap() {
+    let sources = sources();
+    let undeclared: Vec<&str> = sources
+        .iter()
+        .filter(|(name, text)| {
+            name != "ui/shell/keymap.rs"
+                && !READS_KEYS.contains(&name.as_str())
+                && BY_HAND.iter().any(|p| text.contains(p))
+        })
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert!(
+        undeclared.is_empty(),
+        "these files read keys by hand: add what they read to keymap::HANDLED, then the file to READS_KEYS in keymap_guard.rs: {undeclared:?}"
+    );
+    let gone: Vec<&&str> = READS_KEYS
+        .iter()
+        .filter(|name| {
+            !sources
+                .iter()
+                .any(|(n, text)| n == **name && BY_HAND.iter().any(|p| text.contains(p)))
+        })
+        .collect();
+    assert!(
+        gone.is_empty(),
+        "READS_KEYS lists files that no longer read keys by hand: {gone:?}"
     );
 }

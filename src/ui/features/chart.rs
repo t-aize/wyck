@@ -108,7 +108,7 @@ use crate::domain::chart::view;
 use crate::domain::chart::volume;
 use crate::domain::chart::zone;
 use crate::domain::indicators as study;
-use gpui::{App, Bounds, Context, Entity, EventEmitter, KeyBinding, Pixels, SharedString};
+use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -161,15 +161,6 @@ gpui::actions!(
         ToolBrush,
     ]
 );
-
-/// Registers the key bindings of the chart that cannot be changed. The others are in
-/// `ui::shell::keymap`. Call once, at startup.
-pub fn init(cx: &mut App) {
-    cx.bind_keys([
-        // Only while a drawing is being made, so Enter is left alone the rest of the time.
-        KeyBinding::new("enter", FinishDrawing, Some("DrawingInProgress")),
-    ]);
-}
 
 /// A chart smaller than this shows fewer numbers and a smaller toolbar.
 const COMPACT_WIDTH: f32 = 640.0;
