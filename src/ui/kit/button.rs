@@ -8,8 +8,8 @@
 //! | [`Size`] | Height | Where |
 //! |---|---|---|
 //! | `Sm` | 24 | a dense strip or a table row (the editor toolbar, a list row) |
-//! | `Md` | 28 | everything else: forms, dialogs, menus, panels, footers, the drawing rail |
-//! | `Lg` | 34 | buy and sell in the ticket, the main button of the sign-in modal |
+//! | `Md` | 28 | everything else: forms, dialogs, menus, panels, footers |
+//! | `Lg` | 34 | buy and sell in the ticket, the main button of the sign-in modal, the drawing rail |
 //!
 //! An icon-only button is as wide as it is tall.
 
@@ -122,6 +122,12 @@ pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> But
 /// `.tooltip(..)` and `.on_click(..)` on it.
 pub fn quiet(id: impl Into<ElementId>) -> Button {
     sized(Button::new(id).ghost(), Size::Md).cursor_pointer()
+}
+
+/// A ghost button of the large size, for a vertical rail of tools that must be easy to hit (the
+/// drawing tools). Chain `.icon(..)`, `.tooltip(..)` and `.on_click(..)` on it.
+pub fn rail(id: impl Into<ElementId>) -> Button {
+    sized(Button::new(id).ghost(), Size::Lg).cursor_pointer()
 }
 
 /// A ghost button for a dense strip or a table row (the editor toolbar, a list row).

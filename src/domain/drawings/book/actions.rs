@@ -345,6 +345,24 @@ impl Book {
         changed
     }
 
+    /// Locks or unlocks every drawing of the symbol at once. A locked drawing can be selected but
+    /// not moved, edited or deleted by mistake.
+    pub fn set_all_locked(&mut self, symbol: &str, locked: bool) -> bool {
+        let before = self.snapshot(symbol);
+        let Some(list) = self.symbols.get_mut(symbol) else {
+            return false;
+        };
+        let mut changed = false;
+        for drawing in list.iter_mut().filter(|d| d.locked != locked) {
+            drawing.locked = locked;
+            changed = true;
+        }
+        if changed {
+            self.remember(before);
+        }
+        changed
+    }
+
     /// Deletes one drawing, unless it is locked.
     pub fn delete(&mut self, symbol: &str, id: u64) -> bool {
         if self.get(symbol, id).is_none_or(|d| d.locked) {

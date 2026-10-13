@@ -1220,6 +1220,22 @@ mod tests {
     }
 
     #[test]
+    fn locking_every_drawing_at_once_can_be_undone() {
+        let (mut book, first, second) = two_lines();
+        assert!(book.set_all_locked(SYMBOL, true));
+        assert!(book.drawings(SYMBOL).iter().all(|d| d.locked));
+        assert!(!book.set_all_locked(SYMBOL, true), "already locked");
+        assert!(!book.delete(SYMBOL, first) && !book.delete(SYMBOL, second));
+        assert!(!book.set_all_locked("NOSUCH", true), "no drawings there");
+        assert!(book.set_all_locked(SYMBOL, false));
+        assert!(book.delete(SYMBOL, first));
+        // The one step back puts the lock on again.
+        assert!(book.undo());
+        assert!(book.undo());
+        assert!(book.drawings(SYMBOL).iter().all(|d| d.locked));
+    }
+
+    #[test]
     fn a_saved_look_is_what_new_drawings_of_the_tool_start_with() {
         let (mut book, first, _) = two_lines();
         let mut changed = book.get(SYMBOL, first).unwrap().clone();
