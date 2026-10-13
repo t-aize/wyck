@@ -6,13 +6,19 @@ use super::layouts::{self, LayoutKey};
 use crate::app::prefs::panel::PanelPrefs;
 use crate::app::prefs::ticket::TicketPrefs;
 use crate::domain::chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
-use crate::domain::chart::{ChartKind, ChartSettings, QUICK, Timeframe, Zone};
+use crate::domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings, QUICK, Timeframe};
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 use crate::domain::trading::guard::RiskPrefs;
 use serde::{Deserialize, Serialize};
 
-pub(crate) const SCHEMA_VERSION: u32 = 1;
+/// The layout of the preferences document. Version 2: the account panel keeps only its open tab.
+/// Version 3: how the charts look is saved once (`chart`), not in each chart.
+/// Version 4: the bar of favorite tools can be moved (`favorites_place`).
+pub(crate) const SCHEMA_VERSION: u32 = 4;
+
+/// The layout of the watchlists document.
+pub(crate) const WATCHLISTS_VERSION: u32 = 1;
 
 /// Maximum length of a watchlist name.
 pub const MAX_LIST_NAME: usize = 40;
@@ -115,9 +121,9 @@ pub struct ChartPref {
     /// The symbol the chart shows when the symbol is not linked, by the broker's name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
-    /// Everything else about the chart: type, scale, zone, indicators.
+    /// What the chart shows: type, scale, indicators. How it looks is in `Preferences::chart`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settings: Option<ChartSettings>,
+    pub settings: Option<ChartContent>,
 }
 
 fn default_timeframe_code() -> String {
@@ -140,15 +146,17 @@ impl Default for ChartPref {
 }
 
 impl ChartPref {
-    /// The settings of the chart: the saved ones, or the defaults with the saved type.
-    pub fn chart_settings(&self) -> ChartSettings {
-        match &self.settings {
-            Some(settings) => settings.clone().normalized(),
-            None => ChartSettings {
+    /// The settings of the chart: what it saved, or the defaults with the saved type, with the look
+    /// every chart shares.
+    pub fn chart_settings(&self, look: &ChartLook) -> ChartSettings {
+        let content = match &self.settings {
+            Some(content) => content.clone(),
+            None => ChartContent {
                 kind: ChartKind::from_code(&self.kind).unwrap_or(ChartKind::Candles),
-                ..ChartSettings::default()
+                ..ChartContent::default()
             },
-        }
+        };
+        ChartSettings::from_parts(content, look).normalized()
     }
 }
 
@@ -166,8 +174,9 @@ pub struct Preferences {
     pub schema_version: u32,
     #[serde(default)]
     pub limits: UsageLimits,
+    /// How every chart looks: the grid, the crosshair, the colors, the legend, the time zone.
     #[serde(default)]
-    pub zone: Zone,
+    pub chart: ChartLook,
     /// The timeframes shown as buttons in the header (all of them stay in the menu).
     #[serde(default = "default_favorite_timeframes")]
     pub favorite_timeframes: Vec<String>,
@@ -224,6 +233,9 @@ pub struct Preferences {
     /// Whether the bar writes the name of each tool beside its icon.
     #[serde(default)]
     pub favorites_labels: bool,
+    /// How far the bar of favorite tools was moved from its place, right and down, in pixels.
+    #[serde(default)]
+    pub favorites_place: [f32; 2],
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
@@ -272,7 +284,7 @@ impl Default for Preferences {
         Self {
             schema_version: SCHEMA_VERSION,
             limits: UsageLimits::default(),
-            zone: Zone::default(),
+            chart: ChartLook::default(),
             favorite_timeframes: default_favorite_timeframes(),
             custom_timeframes: Vec::new(),
             layout: LayoutPref::default(),
@@ -293,6 +305,7 @@ impl Default for Preferences {
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,
+            favorites_place: [0.0, 0.0],
             saved_colors: Vec::new(),
             shortcuts: Default::default(),
         }
@@ -365,9 +378,17 @@ impl Preferences {
             });
         }
         for chart in &mut self.charts {
-            if let Some(settings) = chart.settings.take() {
-                chart.kind = settings.kind.code().to_owned();
-                chart.settings = Some(settings.normalized());
+            if let Some(content) = chart.settings.take() {
+                chart.kind = content.kind.code().to_owned();
+                // What a chart shows is repaired as a whole, with the look it will have.
+                let settings = ChartSettings::from_parts(content, &self.chart).normalized();
+                chart.settings = Some(settings.content());
+            }
+        }
+        self.chart = std::mem::take(&mut self.chart).normalized();
+        for offset in &mut self.favorites_place {
+            if !offset.is_finite() {
+                *offset = 0.0;
             }
         }
         self.active_chart = self.active_chart.min(count - 1);
@@ -376,7 +397,6 @@ impl Preferences {
         }
         self.panel_height = self.panel_height.min(2_000.0);
         self.ticket = self.ticket.normalized();
-        self.account_panel = self.account_panel.normalized();
         self.risk = self.risk.normalized();
         self.alert_output = self.alert_output.normalized();
 
@@ -500,14 +520,9 @@ impl Preferences {
     /// What chart `index` keeps, as the file says (repaired on load).
     pub fn chart(&self, index: usize) -> ChartState {
         let pref = self.charts.get(index).cloned().unwrap_or_default();
-        let mut settings = pref.chart_settings();
-        if pref.settings.is_none() {
-            // Files from before per-chart zones had one zone for every chart.
-            settings.zone = self.zone;
-        }
         ChartState {
             timeframe: Timeframe::from_code(&pref.timeframe).unwrap_or(Timeframe::DEFAULT),
-            settings,
+            settings: pref.chart_settings(&self.chart),
             symbol: pref.symbol.clone(),
         }
     }
@@ -524,7 +539,7 @@ impl Preferences {
                 timeframe: chart.timeframe.code(),
                 kind: chart.settings.kind.code().to_owned(),
                 symbol: chart.symbol.clone(),
-                settings: Some(chart.settings.clone()),
+                settings: Some(chart.settings.content()),
             })
             .collect();
         self.active_chart = active;
@@ -541,6 +556,7 @@ impl Preferences {
 mod tests {
     use super::watchlists::*;
     use super::*;
+    use crate::domain::chart::Zone;
     use crate::domain::market::Period;
 
     #[test]
@@ -597,17 +613,24 @@ mod tests {
     #[test]
     fn a_saved_arrangement_is_read_back_exactly() {
         let mut prefs = Preferences {
-            zone: Zone::Utc,
+            chart: ChartLook {
+                zone: Zone::Utc,
+                ..ChartLook::default()
+            },
             magnet: true,
             ..Preferences::default()
         };
         prefs.links.interval = true;
+        let look = prefs.chart.clone();
         let state = |timeframe, kind, symbol: Option<&str>| ChartState {
             timeframe,
-            settings: ChartSettings {
-                kind,
-                ..ChartSettings::default()
-            },
+            settings: ChartSettings::from_parts(
+                ChartContent {
+                    kind,
+                    ..ChartContent::default()
+                },
+                &look,
+            ),
             symbol: symbol.map(str::to_owned),
         };
         prefs.set_arrangement(
@@ -686,7 +709,7 @@ mod tests {
         let prefs: Preferences = toml::from_str(text).unwrap();
         let prefs = prefs.normalized();
 
-        assert_eq!(prefs.schema_version, 1);
+        assert_eq!(prefs.schema_version, 4);
         assert_eq!(
             prefs.layout,
             LayoutPref {

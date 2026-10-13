@@ -1,0 +1,20 @@
+schema_version = 3
+active_chart = 0
+panel_open = true
+favorites_bar = true
+
+[layout]
+count = 1
+variant = 0
+
+[chart]
+grid = false
+zone = "utc"
+
+[[charts]]
+timeframe = "H1"
+kind = "line"
+
+[charts.settings]
+kind = "line"
+scale = "log"

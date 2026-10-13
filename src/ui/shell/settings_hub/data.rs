@@ -20,7 +20,7 @@ const LISTED_COPIES: usize = 8;
 fn describe(contents: &Contents) -> Vec<String> {
     let mut lines = Vec::new();
     if contents.has_global("appearance") {
-        lines.push("Appearance: themes, colors, font".to_owned());
+        lines.push("Appearance: font, size, colors of the charts".to_owned());
     }
     if contents.has_global("preferences") {
         lines.push("Layout, charts and their indicators, favorites, ticket settings".to_owned());
@@ -97,14 +97,8 @@ fn when(entry: &BackupEntry) -> String {
 
 impl SettingsHub {
     pub(super) fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {
-        let (export, import, cancel, restart, open_folder) = (
-            cx.entity(),
-            cx.entity(),
-            cx.entity(),
-            cx.entity(),
-            cx.entity(),
-        );
-        let dir = crate::app_paths();
+        let (export, import, cancel, restart) =
+            (cx.entity(), cx.entity(), cx.entity(), cx.entity());
         let mut rows: Vec<AnyElement> = vec![
             form::field(
                 "Export everything",
@@ -263,38 +257,6 @@ impl SettingsHub {
         }
         let copies_group = form::group(IconName::HardDrive, "Saved copies", copy_rows);
 
-        let mut place: Vec<AnyElement> = vec![form::field(
-            "Config folder",
-            Some("Where the list of your accounts is kept. The rest is in Settings > Folders"),
-            crate::ui::kit::button::quiet("backup-folder")
-                .icon(IconName::FolderOpen)
-                .label("Open")
-                .disabled(dir.is_none())
-                .on_click(move |_, _window, cx| {
-                    open_folder.update(cx, |_, _| {});
-                    if let Some(paths) = crate::app_paths() {
-                        cx.reveal_path(paths.config_dir());
-                    }
-                }),
-        )];
-        if let Some(dir) = &dir {
-            place.push(form::block(form::note(
-                dir.config_dir().display().to_string(),
-            )));
-            let dir = dir.backups().dir();
-            place.push(form::field(
-                "Backups folder",
-                Some("Every saved copy, one readable file each"),
-                crate::ui::kit::button::quiet("backup-copies-folder")
-                    .icon(IconName::FolderOpen)
-                    .label("Open")
-                    .on_click(move |_, _window, cx| {
-                        let _ = std::fs::create_dir_all(&dir);
-                        cx.reveal_path(&dir);
-                    }),
-            ));
-        }
-
         let reset = cx.entity();
         let danger_group = form::group(
             IconName::TriangleAlert,
@@ -326,7 +288,6 @@ impl SettingsHub {
         form::page()
             .child(backup_group)
             .child(copies_group)
-            .child(form::group(IconName::FolderOpen, "Where it is", place))
             .child(form::note(
                 "The keys that sign in to your broker are not in a backup: they stay in the system's secure storage.",
             ))

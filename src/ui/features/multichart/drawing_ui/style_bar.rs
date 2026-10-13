@@ -1,14 +1,15 @@
 //! The style bar over a selected drawing: its colors and its line.
 
+use super::bar_place::Movable;
 use super::{OPACITY_STEPS, swatch_color};
 
 use crate::domain::drawings::model::style::{Dash, PALETTE};
 use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::{controls, icon, layout, theme, tokens};
+use crate::ui::kit::{controls, layout, theme, tokens};
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, Window, canvas, div, px};
+use gpui::{AnyElement, Context, Window, canvas, div, px};
 
 impl MultiChart {
     /// The bar over a selected drawing, or nothing. Only the cheap test lives here: the bar itself
@@ -21,14 +22,9 @@ impl MultiChart {
     ) -> Option<AnyElement> {
         let symbol = self.symbol_name(cx)?;
         let book = self.drawings.read(cx).book();
-        if book.tool().is_some()
-            || book
-                .selected()
-                .and_then(|id| book.get(&symbol, id))
-                .is_none()
-        {
-            return None;
-        }
+        // The bar stays while a tool is armed (the one kept for the next drawing): the drawing
+        // just made is still there to restyle.
+        book.selected().and_then(|id| book.get(&symbol, id))?;
         self.build_style_bar(window, cx)
     }
 
@@ -41,9 +37,6 @@ impl MultiChart {
     ) -> Option<AnyElement> {
         let symbol = self.symbol_name(cx)?;
         let book = self.drawings.read(cx).book();
-        if book.tool().is_some() {
-            return None;
-        }
         let drawing = book.selected().and_then(|id| book.get(&symbol, id))?;
         let tool = drawing.tool;
         let count = book.selected_count();
@@ -80,7 +73,7 @@ impl MultiChart {
             .border_color(theme::border_subtle())
             .shadow_lg()
             .occlude()
-            .child(self.bar_grip(cx))
+            .child(self.bar_grip(Movable::StyleBar, cx))
             .child(
                 div()
                     .px_2()
@@ -120,7 +113,7 @@ impl MultiChart {
         Some(
             div()
                 .absolute()
-                .top(px(self.bar.home_top() + dy))
+                .top(px(self.bar.home() + dy))
                 .left_0()
                 .right_0()
                 .flex()
@@ -128,38 +121,6 @@ impl MultiChart {
                 .child(bar)
                 .into_any_element(),
         )
-    }
-
-    /// The grip at the left of the bar: hold it to move the bar, double click to bring it back.
-    fn bar_grip(&self, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
-        div()
-            .id("draw-bar-grip")
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_center()
-            .h(px(tokens::height::compact()))
-            .px_1()
-            .cursor_grab()
-            .tooltip(controls::tooltip(
-                "Move the bar (double click to put it back)",
-            ))
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, event: &MouseDownEvent, _window, cx| {
-                    cx.stop_propagation();
-                    if event.click_count >= 2 {
-                        this.reset_bar_place(cx);
-                    } else {
-                        this.begin_bar_drag(event.position, cx);
-                    }
-                }),
-            )
-            .child(icon::tinted(
-                IconName::GripVertical,
-                tokens::text::body(),
-                theme::muted_fg(),
-            ))
     }
 
     #[allow(unused_variables)]

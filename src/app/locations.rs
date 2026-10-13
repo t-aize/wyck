@@ -745,7 +745,7 @@ mod tests {
         let steps = stage_folder_in(&start, Kind::Settings, Some(&cloud.join("settings"))).unwrap();
         let lines = describe(&steps);
         assert!(
-            lines[0].starts_with("Settings and themes: 1 file(s), 14 B, are copied to"),
+            lines[0].starts_with("Settings: 1 file(s), 14 B, are copied to"),
             "{lines:?}"
         );
         assert!(overview_of(&start, Vec::new()).waiting.is_some());
@@ -759,11 +759,7 @@ mod tests {
         let notes = notes_for(&after, Some(&startup));
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].title, "Folders moved");
-        assert!(
-            notes[0].text.contains("Settings and themes:"),
-            "{}",
-            notes[0].text
-        );
+        assert!(notes[0].text.contains("Settings:"), "{}", notes[0].text);
         assert!(!notes[0].warning);
     }
 

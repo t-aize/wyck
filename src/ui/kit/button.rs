@@ -1,14 +1,15 @@
 //! Buttons. They are gpui-kit's, restyled through [`crate::ui::kit::theme::apply`], so every button of
 //! the app takes one of these shapes instead of configuring a `Button` itself.
 //!
-//! There are three sizes and a screen never picks a gpui one by hand. Their heights are the
+//! There are four sizes and a screen never picks a gpui one by hand. Their heights are the
 //! control heights of [`crate::ui::kit::tokens::height`], so they scale with the interface and
 //! match the fields:
 //!
 //! | [`Size`] | Height | Where |
 //! |---|---|---|
 //! | `Sm` | 24 | a dense strip or a table row (the editor toolbar, a list row) |
-//! | `Md` | 28 | everything else: forms, dialogs, menus, panels, footers, the drawing rail |
+//! | `Md` | 28 | everything else: forms, dialogs, menus, panels, footers |
+//! | `Rail` | 30 | a tool of the drawing rail |
 //! | `Lg` | 34 | buy and sell in the ticket, the main button of the sign-in modal |
 //!
 //! An icon-only button is as wide as it is tall.
@@ -29,6 +30,8 @@ pub enum Size {
     Sm,
     /// The default.
     Md,
+    /// A tool of a vertical rail.
+    Rail,
     /// The one action of a screen.
     Lg,
 }
@@ -40,32 +43,37 @@ fn sized(button: Button, size: Size) -> Button {
     let (button, height) = match size {
         Size::Sm => (button.small(), tokens::height::compact()),
         Size::Md => (button.small(), tokens::height::control()),
+        Size::Rail => (button.small(), tokens::height::rail()),
         Size::Lg => (button.large(), tokens::height::large()),
     };
     button.h(px(height)).min_w(px(height))
 }
 
-/// The filled, accent-colored button that fills the width it is given: the one action of a small
-/// panel ("Try again", "Sign in again").
-pub fn primary(
-    id: impl Into<ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    sized(Button::new(id).primary(), Size::Md)
-        .w_full()
-        .label(label)
-        .cursor_pointer()
-        .on_click(on_click)
+/// The color of a [`primary`] button.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fill {
+    /// The accent: the action to take.
+    Accent,
+    /// The danger color: what disconnects or deletes.
+    Danger,
 }
 
-/// [`primary`] at the large size: the main button of the sign-in modal, nothing else.
-pub fn hero(
+/// The filled button that fills the width it is given: the one action of a small panel ("Try
+/// again", "Sign in again", "Disconnect"). At the large size it is the main button of the
+/// sign-in screens.
+pub fn primary(
     id: impl Into<ElementId>,
+    fill: Fill,
+    size: Size,
     label: impl Into<SharedString>,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Button {
-    sized(Button::new(id).primary(), Size::Lg)
+    let button = Button::new(id).primary();
+    let button = match fill {
+        Fill::Accent => button,
+        Fill::Danger => button.danger(),
+    };
+    sized(button, size)
         .w_full()
         .label(label)
         .cursor_pointer()
@@ -109,9 +117,9 @@ pub fn action_danger(
 }
 
 /// A button that is only an icon, with `tip` as its tooltip and its name for a screen reader.
-/// [`icon_dense`] is the one for a dense strip.
-pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {
-    sized(Button::new(id).ghost(), Size::Md)
+/// `Size::Sm` is the one for a dense strip or a table row.
+pub fn icon(id: impl Into<ElementId>, size: Size, glyph: IconName, tip: &'static str) -> Button {
+    sized(Button::new(id).ghost(), size)
         .icon(glyph)
         .tooltip(tip)
         .accessibility_label(tip)
@@ -122,6 +130,12 @@ pub fn icon(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> But
 /// `.tooltip(..)` and `.on_click(..)` on it.
 pub fn quiet(id: impl Into<ElementId>) -> Button {
     sized(Button::new(id).ghost(), Size::Md).cursor_pointer()
+}
+
+/// A ghost button of the rail size, for a vertical rail of tools that must be easy to hit (the
+/// drawing tools). Chain `.icon(..)`, `.tooltip(..)` and `.on_click(..)` on it.
+pub fn rail(id: impl Into<ElementId>) -> Button {
+    sized(Button::new(id).ghost(), Size::Rail).cursor_pointer()
 }
 
 /// A ghost button for a dense strip or a table row (the editor toolbar, a list row).
@@ -144,11 +158,6 @@ pub fn outlined(id: impl Into<ElementId>) -> Button {
     sized(Button::new(id).outline(), Size::Md).cursor_pointer()
 }
 
-/// A button with the kit's default look.
-pub fn standard(id: impl Into<ElementId>) -> Button {
-    sized(Button::new(id), Size::Md).cursor_pointer()
-}
-
 /// The large button that sends an order: green for a buy, red for a sell.
 pub fn trade(id: impl Into<ElementId>, buy: bool) -> Button {
     sized(Button::new(id), Size::Lg)
@@ -159,22 +168,4 @@ pub fn trade(id: impl Into<ElementId>, buy: bool) -> Button {
             theme::chart_down()
         })
         .text_color(theme::bg())
-}
-
-/// The icon-only button of a dense strip or a panel's own bar.
-pub fn icon_dense(id: impl Into<ElementId>, glyph: IconName, tip: &'static str) -> Button {
-    sized(Button::new(id).ghost(), Size::Sm)
-        .icon(glyph)
-        .tooltip(tip)
-        .accessibility_label(tip)
-        .cursor_pointer()
-}
-
-/// A wide button that disconnects or deletes: [`primary`] in the danger color.
-pub fn wide_danger(
-    id: impl Into<ElementId>,
-    label: impl Into<SharedString>,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Button {
-    primary(id, label, on_click).danger()
 }

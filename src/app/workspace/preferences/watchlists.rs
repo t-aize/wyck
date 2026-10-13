@@ -1,7 +1,12 @@
 //! The watchlists: named lists of symbols.
 
-use super::{MAX_LIST_NAME, SCHEMA_VERSION, schema_version};
+use super::{MAX_LIST_NAME, WATCHLISTS_VERSION};
 use serde::{Deserialize, Serialize};
+
+/// What a watchlists document without a version is taken to be.
+fn schema_version() -> u32 {
+    WATCHLISTS_VERSION
+}
 
 /// A named list of symbols, by the names the broker gives them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,7 +47,7 @@ pub struct Watchlists {
 impl Default for Watchlists {
     fn default() -> Self {
         Self {
-            schema_version: SCHEMA_VERSION,
+            schema_version: WATCHLISTS_VERSION,
             favorites: Vec::new(),
             lists: Vec::new(),
         }
@@ -53,7 +58,7 @@ impl Watchlists {
     /// The lists repaired: repeated symbols and lists with a repeated or empty name dropped.
     #[must_use]
     pub fn normalized(mut self) -> Self {
-        self.schema_version = SCHEMA_VERSION;
+        self.schema_version = WATCHLISTS_VERSION;
         dedup_keep_order(&mut self.favorites);
         let mut seen: Vec<String> = Vec::new();
         self.lists.retain_mut(|list| {

@@ -1,6 +1,6 @@
 //! Copying and pasting the indicators and the settings of a chart.
 
-use super::{ChartClipboard, MultiChart};
+use super::MultiChart;
 use crate::domain::drawings::model::tool::Tool;
 use gpui::Context;
 
@@ -13,11 +13,7 @@ impl MultiChart {
             self.clipboard = None;
             return;
         }
-        self.copy_chart(self.active, false, cx);
-    }
-
-    pub fn copy_active_settings(&mut self, cx: &mut Context<Self>) {
-        self.copy_chart(self.active, true, cx);
+        self.copy_chart(self.active, cx);
     }
 
     /// Ctrl+V: the drawings copied last, or else the indicators or settings copied.
@@ -56,55 +52,37 @@ impl MultiChart {
         );
     }
 
-    pub(super) fn copy_chart(&mut self, index: usize, settings: bool, cx: &mut Context<Self>) {
+    pub(super) fn copy_chart(&mut self, index: usize, cx: &mut Context<Self>) {
         let Some(slot) = self.slots.get(index) else {
             return;
         };
-        let source = slot.chart.read(cx).settings().clone();
-        self.clipboard = Some(if settings {
-            ChartClipboard::Settings(Box::new(source))
-        } else {
-            ChartClipboard::Studies(source.studies)
-        });
+        self.clipboard = Some(slot.chart.read(cx).settings().studies.clone());
     }
 
     pub(super) fn paste_chart(&mut self, index: usize, cx: &mut Context<Self>) {
-        let Some(payload) = self.clipboard.clone() else {
+        let Some(studies) = self.clipboard.clone() else {
             return;
         };
         let Some(slot) = self.slots.get(index) else {
             return;
         };
         let chart = slot.chart.clone();
-        match payload {
-            ChartClipboard::Studies(studies) => {
-                let limit = chart.read(cx).max_studies();
-                if studies.len() > limit {
-                    crate::ui::kit::toast::show(
-                        cx,
-                        crate::ui::kit::toast::Kind::Warning,
-                        "Indicator limit reached",
-                        format!(
-                            "The copied chart has {} indicators; this chart allows {limit}.",
-                            studies.len()
-                        ),
-                    );
-                    return;
-                }
-                chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |settings| settings.studies = studies)
-                });
-            }
-            ChartClipboard::Settings(settings) => {
-                chart.update(cx, |chart, cx| {
-                    chart.edit_settings(cx, |target| {
-                        let studies = std::mem::take(&mut target.studies);
-                        *target = *settings;
-                        target.studies = studies;
-                    })
-                });
-            }
+        let limit = chart.read(cx).max_studies();
+        if studies.len() > limit {
+            crate::ui::kit::toast::show(
+                cx,
+                crate::ui::kit::toast::Kind::Warning,
+                "Indicator limit reached",
+                format!(
+                    "The copied chart has {} indicators; this chart allows {limit}.",
+                    studies.len()
+                ),
+            );
+            return;
         }
+        chart.update(cx, |chart, cx| {
+            chart.edit_settings(cx, |settings| settings.studies = studies)
+        });
         self.persist(cx);
     }
 

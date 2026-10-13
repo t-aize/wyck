@@ -1,235 +1,144 @@
-//! The table: its rows, their buttons, and the columns that are sorted and resized.
+//! The table: its header, its rows with their two buttons, and the line of totals.
 
-use super::{
-    BUTTON_W, RESIZE_GRIP_HOVER, RESIZE_HANDLE, ROW_MARKER_WIDTH, ask, density_height,
-    density_text, icon_button, position_actions, tint, tone_color,
-};
-use crate::app::prefs::panel::{PanelPrefs, RowAction, Tab};
-use crate::app::prefs::ticket::Slot;
-use crate::ui::features::trading::panel::data::{Cell, Row, RowKind, Table};
+use super::{Action, ask, tone_color};
+use crate::app::prefs::panel::Tab;
+use crate::ui::features::trading::panel::data::{Column, Row, RowKind, Table};
 use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
 use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
-use crate::ui::features::trading::panel::{AccountPanel, MenuTarget, PanelEvent, Resize};
+use crate::ui::features::trading::panel::{AccountPanel, PanelEvent};
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::prelude::{ElementExt as _, StyledExt as _};
-use crate::ui::kit::{
-    button,
-    focus::Keyboard,
-    icon,
-    menu::{self as popup},
-    theme, tokens,
-};
+use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, Role, SharedString, div, px};
+use gpui::{AnyElement, Context, MouseButton, Role, SharedString, div, px};
 use std::rc::Rc;
 
+/// A small button of a row.
+fn icon_button(
+    id: SharedString,
+    glyph: IconName,
+    tip: &'static str,
+    enabled: bool,
+    run: Action,
+) -> AnyElement {
+    button::icon(id, button::Size::Sm, glyph, tip)
+        .when(!enabled, |button| button.cursor_not_allowed())
+        .disabled(!enabled)
+        .on_click(move |_, window, cx| run(window, cx))
+        .into_any_element()
+}
+
+/// A cell of the header, of a row or of the totals: the columns line up because they all start
+/// from the same width and share the room left.
+fn cell(col: &Column) -> gpui::Div {
+    div()
+        .w(px(col.width))
+        .flex_grow_1()
+        .flex_shrink_0()
+        .min_w_0()
+        .truncate()
+        .when(col.right, |el| el.text_right())
+}
+
 impl AccountPanel {
-    /// The buttons at the end of a row, by what the row is.
-    pub(super) fn row_buttons(&self, row: &Row) -> (Vec<AnyElement>, f32) {
-        let prefs = &self.prefs;
-        let mut buttons: Vec<AnyElement> = Vec::new();
+    /// The two buttons at the end of a row, by what the row is: modify and close for a position or
+    /// an order (cancel), modify and delete for an alert.
+    fn row_buttons(&self, row: &Row) -> Vec<AnyElement> {
         match &row.kind {
             RowKind::Position(position) => {
-                let acts = position_actions(&self.account, position, prefs.confirm_close);
-                let key = &row.key;
-                let busy = position.busy;
-                for placed in prefs.actions.iter().filter(|a| a.shown) {
-                    let id = SharedString::from(format!("{key}-{:?}", placed.item));
-                    buttons.push(match placed.item {
-                        RowAction::Edit => icon_button(
-                            id,
-                            IconName::Pencil,
-                            "Stop loss and take profit",
-                            true,
-                            false,
-                            acts.edit.clone(),
-                        )
-                        .into_any_element(),
-                        RowAction::Half => icon_button(
-                            id,
-                            IconName::Scissors,
-                            "Close half",
-                            position.half.is_some() && !busy,
-                            false,
-                            acts.half.clone(),
-                        )
-                        .into_any_element(),
-                        RowAction::BreakEven => {
-                            let at_entry = position
-                                .entry
-                                .zip(position.stop_loss)
-                                .is_some_and(|(e, s)| (e - s).abs() < 1e-9);
-                            icon_button(
-                                id,
-                                IconName::ShieldCheck,
-                                "Move the stop loss to the entry",
-                                position.entry.is_some() && !at_entry && !busy,
-                                at_entry,
-                                acts.break_even.clone(),
-                            )
-                            .into_any_element()
-                        }
-                        RowAction::Trail => icon_button(
-                            id,
-                            IconName::TrendingUp,
-                            if position.trailing {
-                                "Stop trailing the stop loss"
-                            } else {
-                                "Trail the stop loss"
-                            },
-                            (position.stop_loss.is_some() || position.trailing) && !busy,
-                            position.trailing,
-                            acts.trail.clone(),
-                        )
-                        .into_any_element(),
-                        RowAction::Reverse => icon_button(
-                            id,
-                            IconName::ArrowUpDown,
-                            "Reverse",
-                            !busy,
-                            false,
-                            acts.reverse.clone(),
-                        )
-                        .into_any_element(),
-                        RowAction::Close => {
-                            icon_button(id, IconName::X, "Close", !busy, false, acts.close.clone())
-                                .into_any_element()
-                        }
-                    });
-                }
+                let (account, edit, id) = (self.account.clone(), self.account.clone(), position.id);
+                let close = ask(
+                    "Close this position?",
+                    position.describe.clone(),
+                    move |cx| account.update(cx, |acc, cx| acc.close_position(id, None, cx)),
+                );
+                vec![
+                    icon_button(
+                        SharedString::from(format!("{}-edit", row.key)),
+                        IconName::Pencil,
+                        "Stop loss and take profit",
+                        true,
+                        Rc::new(move |window, cx| {
+                            open_protection(edit.clone(), Target::Position(id), window, cx);
+                        }),
+                    ),
+                    icon_button(
+                        SharedString::from(format!("{}-close", row.key)),
+                        IconName::X,
+                        "Close",
+                        !position.busy,
+                        close,
+                    ),
+                ]
             }
             RowKind::Order { id, busy, describe } => {
-                let id = *id;
-                let (account, edit) = (self.account.clone(), self.account.clone());
-                let cancel = ask(
-                    prefs.confirm_close,
-                    "Cancel this order?",
-                    describe.clone(),
-                    move |cx| account.update(cx, |acc, cx| acc.cancel_order(id, cx)),
-                );
-                if prefs.shows_action(RowAction::Edit) {
-                    buttons.push(
-                        icon_button(
-                            SharedString::from(format!("order-edit-{id}")),
-                            IconName::Pencil,
-                            "Price, stop loss and take profit",
-                            true,
-                            false,
-                            Rc::new(move |window, cx| {
-                                open_protection(edit.clone(), Target::Order(id), window, cx);
-                            }),
-                        )
-                        .into_any_element(),
-                    );
-                }
-                if prefs.shows_action(RowAction::Close) {
-                    buttons.push(
-                        icon_button(
-                            SharedString::from(format!("order-cancel-{id}")),
-                            IconName::X,
-                            "Cancel",
-                            !busy,
-                            false,
-                            cancel,
-                        )
-                        .into_any_element(),
-                    );
-                }
-            }
-            RowKind::Alert { id, active } => {
-                let (id, active) = (*id, *active);
-                let (edit, toggle, remove) = (
-                    self.alerts.clone(),
-                    self.alerts.clone(),
-                    self.alerts.clone(),
-                );
-                buttons.push(
+                let (account, edit, id) = (self.account.clone(), self.account.clone(), *id);
+                let cancel = ask("Cancel this order?", describe.clone(), move |cx| {
+                    account.update(cx, |acc, cx| acc.cancel_order(id, cx));
+                });
+                vec![
                     icon_button(
-                        SharedString::from(format!("alert-edit-{id}")),
+                        SharedString::from(format!("{}-edit", row.key)),
+                        IconName::Pencil,
+                        "Price, stop loss and take profit",
+                        true,
+                        Rc::new(move |window, cx| {
+                            open_protection(edit.clone(), Target::Order(id), window, cx);
+                        }),
+                    ),
+                    icon_button(
+                        SharedString::from(format!("{}-cancel", row.key)),
+                        IconName::X,
+                        "Cancel",
+                        !busy,
+                        cancel,
+                    ),
+                ]
+            }
+            RowKind::Alert { id } => {
+                let (edit, remove, id) = (self.alerts.clone(), self.alerts.clone(), *id);
+                vec![
+                    icon_button(
+                        SharedString::from(format!("{}-edit", row.key)),
                         IconName::Pencil,
                         "Edit",
                         true,
-                        false,
                         Rc::new(move |window, cx| open_alert(edit.clone(), id, window, cx)),
-                    )
-                    .into_any_element(),
-                );
-                buttons.push(
+                    ),
                     icon_button(
-                        SharedString::from(format!("alert-toggle-{id}")),
-                        if active {
-                            IconName::BellOff
-                        } else {
-                            IconName::BellRing
-                        },
-                        if active { "Pause" } else { "Watch again" },
-                        true,
-                        false,
-                        Rc::new(move |_, cx| {
-                            toggle.update(cx, |alerts, cx| {
-                                alerts.edit(cx, |book| {
-                                    if let Some(alert) = book.get_mut(id) {
-                                        alert.active = !alert.active;
-                                        alert.fired_at = None;
-                                    }
-                                });
-                            });
-                        }),
-                    )
-                    .into_any_element(),
-                );
-                buttons.push(
-                    icon_button(
-                        SharedString::from(format!("alert-delete-{id}")),
+                        SharedString::from(format!("{}-delete", row.key)),
                         IconName::Trash,
                         "Delete",
                         true,
-                        false,
                         Rc::new(move |_, cx| {
                             remove.update(cx, |alerts, cx| alerts.edit(cx, |book| book.remove(id)));
                         }),
-                    )
-                    .into_any_element(),
-                );
+                    ),
+                ]
             }
-            RowKind::Deal | RowKind::Exposure | RowKind::Firing { .. } => {}
+            RowKind::Plain => Vec::new(),
         }
-        let width = buttons.len() as f32 * tokens::scaled(BUTTON_W);
-        (buttons, width)
     }
 
     /// The table: its header, its rows and its totals.
-    pub(super) fn table_view(
-        &self,
-        table: &Table,
-        menu: &popup::Menu,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let prefs: &PanelPrefs = &self.prefs;
+    pub(super) fn table_view(&self, table: &Table, cx: &mut Context<Self>) -> AnyElement {
         let tab = table.tab;
-        let height = tokens::scaled(density_height(prefs.density));
-        let text = tokens::scaled(density_text(prefs.density));
-        // The width the buttons of the rows take, from the first row that has some.
-        let has_more = |row: &Row| matches!(row.kind, RowKind::Position(_) | RowKind::Order { .. });
-        let buttons_w = table.rows.first().map_or(0.0, |row| {
-            self.row_buttons(row).1
-                + if has_more(row) {
-                    tokens::scaled(BUTTON_W)
-                } else {
-                    0.0
-                }
-        });
+        let text = tokens::text::body();
+        // The width the buttons of the rows take: two, on the tabs whose rows have some.
+        let has_buttons = matches!(tab, Tab::Positions | Tab::Orders | Tab::Alerts);
+        let buttons_w = if has_buttons {
+            2.0 * tokens::height::compact() + tokens::scaled(4.0)
+        } else {
+            0.0
+        };
         let content_w: f32 = table
             .columns
             .iter()
-            .map(|c| tokens::scaled(c.width) + 8.0)
+            .map(|c| c.width + tokens::scaled(8.0))
             .sum::<f32>()
             + buttons_w
-            + 24.0;
+            + tokens::scaled(24.0);
 
-        let header_menu = menu.clone();
-        let this = cx.entity();
-        let header_this = this.clone();
         let mut header = div()
             .id("panel-header")
             .role(Role::Row)
@@ -244,132 +153,28 @@ impl AccountPanel {
             .text_size(px(tokens::text::small()))
             .text_color(theme::muted_fg())
             .border_b_1()
-            .border_color(theme::border_hairline())
-            .on_mouse_down(MouseButton::Right, move |event, _, cx| {
-                header_this.update(cx, |p, _| p.menu_target = Some(MenuTarget::Header));
-                header_menu.open(Some(event.position), cx);
-            });
-        for col in &table.columns {
-            let (slot, start_width) = (col.slot, col.width);
-            let sorted = match col.sorted {
-                Some(true) => ", sorted descending",
-                Some(false) => ", sorted ascending",
-                None => "",
-            };
+            .border_color(theme::border_hairline());
+        for (slot, col) in table.columns.iter().enumerate() {
             header = header.child(
-                div()
-                    .id(SharedString::from(format!("panel-col-{}", col.slot)))
-                    .keyboard()
+                cell(col)
+                    .id(SharedString::from(format!("panel-col-{slot}")))
                     .role(Role::ColumnHeader)
-                    .aria_label(SharedString::from(format!("{}{sorted}", col.label)))
-                    .aria_column_index(col.slot + 1)
-                    .relative()
-                    .w(px(tokens::scaled(col.width)))
-                    .flex_none()
-                    .h_full()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_1()
-                    .cursor_pointer()
-                    .when(col.right, |el| el.justify_end())
-                    .hover(|s| s.text_color(theme::fg()))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.edit_prefs(cx, |prefs| prefs.cycle_sort(tab, slot));
-                    }))
-                    .child(div().min_w_0().truncate().child(col.label))
-                    .children(col.sorted.map(|descending| {
-                        icon::tinted(
-                            if descending {
-                                IconName::ChevronDown
-                            } else {
-                                IconName::ChevronUp
-                            },
-                            11.,
-                            theme::accent(),
-                        )
-                    }))
-                    .child({
-                        // The edge of the column: a thin mark that is always there, and lights
-                        // up under the pointer and while the column is dragged.
-                        let group = SharedString::from(format!("panel-col-grip-{}", col.slot));
-                        let active = self.resize.is_some_and(|r| r.tab == tab && r.slot == slot);
-                        div()
-                            .id(group.clone())
-                            .group(group.clone())
-                            .absolute()
-                            .top_0()
-                            .right(px(-RESIZE_HANDLE))
-                            .h_full()
-                            .w(px(RESIZE_HANDLE))
-                            .flex()
-                            .justify_center()
-                            .items_center()
-                            .cursor_col_resize()
-                            .child(
-                                div()
-                                    .w(px(if active { 2. } else { 1. }))
-                                    .h(px(if active { 22. } else { 12. }))
-                                    .rounded_full()
-                                    .bg(if active {
-                                        theme::accent()
-                                    } else {
-                                        theme::border_strong()
-                                    })
-                                    .group_hover(group, |s| {
-                                        s.bg(theme::accent()).h(px(RESIZE_GRIP_HOVER))
-                                    }),
-                            )
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                                    this.resize = Some(Resize {
-                                        tab,
-                                        slot,
-                                        start_x: f32::from(event.position.x),
-                                        start_width,
-                                    });
-                                    cx.stop_propagation();
-                                }),
-                            )
-                    }),
+                    .aria_column_index(slot + 1)
+                    .child(col.label),
             );
         }
-        if buttons_w > 0.0 {
+        if has_buttons {
             header = header.child(div().w(px(buttons_w)).flex_none());
         }
 
-        let click_shows = prefs.click_shows_symbol;
-        let current = self.current_index();
         let mut rows: Vec<AnyElement> = Vec::new();
         for (index, row) in table.rows.iter().enumerate() {
-            let (mut buttons, _) = self.row_buttons(row);
-            let (row_menu, row_this, key) = (menu.clone(), this.clone(), row.key.clone());
-            // What the row has no button for is in its menu, as it is under a right click.
-            if has_more(row) {
-                let (more_menu, more_this, more_key) =
-                    (row_menu.clone(), row_this.clone(), key.clone());
-                buttons.push(
-                    button::icon_dense(
-                        SharedString::from(format!("{key}-more")),
-                        IconName::Ellipsis,
-                        "More",
-                    )
-                    .on_click(move |event, _, cx| {
-                        more_this.update(cx, |p, _| {
-                            p.menu_target = Some(MenuTarget::Row(more_key.clone()));
-                        });
-                        more_menu.open(Some(event.position()), cx);
-                    })
-                    .into_any_element(),
-                );
-            }
-            let symbol = row.symbol;
-            let active_symbol = symbol.is_some() && symbol == self.symbol;
+            let buttons = self.row_buttons(row);
             let summary: String = table
                 .columns
                 .iter()
-                .map(|col| format!("{}: {}", col.label, row.cells[col.index].text))
+                .zip(&row.cells)
+                .map(|(col, cell)| format!("{}: {}", col.label, cell.text))
                 .collect::<Vec<_>>()
                 .join(", ");
             let mut el = div()
@@ -377,108 +182,44 @@ impl AccountPanel {
                 .role(Role::Row)
                 .aria_label(SharedString::from(summary))
                 .aria_row_index(index + 2)
-                .aria_selected(active_symbol)
                 .flex_none()
                 .flex()
                 .flex_row()
                 .items_center()
                 .gap_2()
-                .h(px(height))
+                .h(px(tokens::height::control()))
                 .px_3()
                 .text_size(px(text))
                 .border_b_1()
                 .border_color(theme::border_hairline())
-                .when(prefs.zebra && index % 2 == 1, |el| {
-                    el.bg(theme::fg_alpha(0.025))
-                })
-                .when(prefs.tint_rows, |el| match row.profit {
-                    Some(p) if p > 0.0 => el.bg(tint(theme::chart_up(), 0.07)),
-                    Some(p) if p < 0.0 => el.bg(tint(theme::chart_down(), 0.07)),
-                    _ => el,
-                })
-                .relative()
-                .hover(|s| s.bg(theme::surface_hover()))
-                .on_mouse_down(MouseButton::Right, move |event, _, cx| {
-                    row_this.update(cx, |p, _| {
-                        p.menu_target = Some(MenuTarget::Row(key.clone()))
-                    });
-                    row_menu.open(Some(event.position), cx);
-                });
-            // The row of the symbol on the active chart carries a bar at its left edge. It is a box of its own: a colored border would color the line under the row too.
-            if active_symbol {
-                el = el.child(
-                    div()
-                        .absolute()
-                        .left_0()
-                        .top_0()
-                        .h_full()
-                        .w(px(ROW_MARKER_WIDTH))
-                        .bg(theme::accent()),
-                );
-            }
-            // The keyboard: the row is a stop of Tab only when it is the current one, and the
-            // arrows move among the rows.
-            if let Some(handle) = self.row_focus.get(index) {
-                let is_current = index == current;
-                let handle = handle.clone().tab_index(0).tab_stop(is_current);
-                let (key_this, key_menu) = (this.clone(), menu.clone());
-                let (focus_this, focus_key) = (this.clone(), row.key.clone());
-                el = el
-                    .track_focus(&handle)
-                    .focus_visible(|style| {
-                        style
-                            .border_color(theme::accent())
-                            .bg(theme::accent_alpha(0.22))
-                    })
-                    .on_key_down(move |event, window, cx| {
-                        key_this.update(cx, |panel, cx| {
-                            panel.row_key(index, event, &key_menu, window, cx);
-                        });
-                    })
-                    // A click puts the keyboard where the mouse is.
-                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                        focus_this.update(cx, |panel, _| {
-                            panel.current_row = Some(focus_key.clone());
-                        });
-                    });
-                if is_current {
-                    let bounds = self.row_bounds.clone();
-                    el = el.on_prepaint(move |b, _, _| bounds.set(Some(b)));
-                }
-            }
-            if click_shows && let Some(symbol) = symbol {
+                .hover(|s| s.bg(theme::surface_hover()));
+            if let Some(symbol) = row.symbol {
                 el = el
                     .cursor_pointer()
                     .on_click(cx.listener(move |_this, _, _, cx| {
                         cx.emit(PanelEvent::ShowSymbol(symbol));
                     }));
             }
-            for col in &table.columns {
-                let cell: &Cell = &row.cells[col.index];
+            for (slot, (col, value)) in table.columns.iter().zip(&row.cells).enumerate() {
                 el = el.child(
-                    div()
-                        .id(SharedString::from(format!("{}-c{}", row.key, col.slot)))
+                    cell(col)
+                        .id(SharedString::from(format!("{}-c{slot}", row.key)))
                         .role(Role::Cell)
-                        .aria_label(SharedString::from(cell.text.to_string()))
-                        .aria_column_index(col.slot + 1)
-                        .w(px(tokens::scaled(col.width)))
-                        .flex_none()
-                        .truncate()
-                        .text_color(tone_color(cell.tone))
-                        .when(col.right, |el| el.text_right())
-                        .child(cell.text.clone()),
+                        .aria_column_index(slot + 1)
+                        .text_color(tone_color(value.tone))
+                        .child(value.text.clone()),
                 );
             }
-            if !buttons.is_empty() {
+            if has_buttons {
                 el = el.child(
                     div()
+                        .w(px(buttons_w))
                         .flex_none()
                         .flex()
                         .flex_row()
                         .justify_end()
                         .gap_1()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
                         .children(buttons),
                 );
             }
@@ -492,17 +233,13 @@ impl AccountPanel {
                 ),
                 None => "No alert. Right click a chart to add one at a price.".to_owned(),
             };
-            let text = if table.unfiltered > 0 {
-                "Nothing matches the search and the filters."
-            } else {
-                match tab {
-                    Tab::Positions => "No open position.",
-                    Tab::Orders => "No working order.",
-                    Tab::History => "No trade in this period.",
-                    Tab::Exposure => "Nothing is open.",
-                    Tab::Alerts => alerts_empty.as_str(),
-                    Tab::AlertLog => "No alert has fired yet.",
-                }
+            let message = match tab {
+                Tab::Positions => "No open position.",
+                Tab::Orders => "No working order.",
+                Tab::History => "No trade closed in the last 7 days.",
+                Tab::Exposure => "Nothing is open.",
+                Tab::Alerts => alerts_empty.as_str(),
+                Tab::AlertLog => "No alert has fired yet.",
             };
             div()
                 .flex_1()
@@ -512,7 +249,7 @@ impl AccountPanel {
                 .items_center()
                 .justify_center()
                 .gap_2()
-                .text_size(px(tokens::text::body()))
+                .text_size(px(text))
                 .text_color(theme::muted_fg())
                 .child(icon::tinted(
                     match tab {
@@ -522,44 +259,33 @@ impl AccountPanel {
                     20.,
                     theme::fg_alpha(0.35),
                 ))
-                .child(text.to_owned())
+                .child(message.to_owned())
                 .into_any_element()
         } else {
             div().flex().flex_col().children(rows).into_any_element()
         };
 
-        let has_totals =
-            prefs.totals && !table.rows.is_empty() && table.totals.iter().any(|t| !t.is_empty());
-        let totals = has_totals.then(|| {
-            let mut row = div()
-                .flex_none()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .h(px(tokens::height::compact()))
-                .px_3()
-                .text_size(px(text))
-                .font_semibold()
-                .border_t_1()
-                .border_color(theme::border_subtle())
-                .bg(theme::fg_alpha(0.03));
-            for (col, total) in table.columns.iter().zip(&table.totals) {
-                row = row.child(
-                    div()
-                        .w(px(tokens::scaled(col.width)))
-                        .flex_none()
-                        .truncate()
-                        .text_color(theme::fg())
-                        .when(col.right, |el| el.text_right())
-                        .child(total.clone()),
-                );
-            }
-            if buttons_w > 0.0 {
-                row = row.child(div().w(px(buttons_w)).flex_none());
-            }
-            row
-        });
+        let totals = (!table.rows.is_empty() && table.totals.iter().any(|(t, _)| !t.is_empty()))
+            .then(|| {
+                let mut row = div()
+                    .flex_none()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .h(px(tokens::height::compact()))
+                    .px_3()
+                    .text_size(px(tokens::text::small()))
+                    .border_t_1()
+                    .border_color(theme::border_subtle());
+                for (col, (total, tone)) in table.columns.iter().zip(&table.totals) {
+                    row = row.child(cell(col).text_color(tone_color(*tone)).child(total.clone()));
+                }
+                if has_buttons {
+                    row = row.child(div().w(px(buttons_w)).flex_none());
+                }
+                row
+            });
 
         div()
             .id("panel-scroll-x")

@@ -84,7 +84,7 @@ Settings > Folders shows where each kind of data lives and lets you move it, one
 
 | Kind | What is in it |
 |---|---|
-| Settings and themes | look, themes, colors, layout, shortcuts, favorites, ticket and indicator settings |
+| Settings | look, colors of the charts, layout, shortcuts, favorites, ticket and indicator settings |
 | Account data | drawings and their saved looks, watchlists and alerts, one folder per account number |
 | Indicator scripts | the `.rhai` files you write |
 | Backups | the copies kept for restoring, automatic ones included |
@@ -137,10 +137,8 @@ set.
 
 ## Accessibility
 
-- **Keyboard.** Tab reaches the controls. In the account panel, the current row is the one stop
-  of Tab: the arrows, Home, End, Page Up and Page Down move among the rows, Enter or Space does
-  what a click does, and the menu key (or Shift+F10) opens the menu of the row. Modal windows
-  keep Tab inside themselves and give the focus back when they close.
+- **Keyboard.** Tab reaches the controls, including the buttons of the account panel. Modal
+  windows keep Tab inside themselves and give the focus back when they close.
 - **Screen readers.** The app exposes roles and names through AccessKit (Windows UI Automation,
   macOS, and AT-SPI on Linux): tables with rows, column headers and cells, tabs, dialogs, menus,
   toggles and notices. This has been built from the AccessKit documentation and covered by unit
@@ -148,9 +146,8 @@ set.
   Reports from people who use them are the most useful thing you can send.
 - **Size.** The interface scale in Settings (80 to 160 percent) also scales the text drawn on the
   charts.
-- **Colors.** Every theme that comes with the app meets WCAG 2.2 contrast (4.5:1 for text, 3:1
-  for the accent and the chart). The editor of your own themes shows what falls short and can fix
-  it; it never refuses a color.
+- **Colors.** The interface has one dark palette. Its text meets WCAG 2.2 contrast (4.5:1 for
+  text, 3:1 for the accent and the chart).
 
 ## Requirements
 

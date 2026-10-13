@@ -213,9 +213,8 @@ impl Chart {
     ) -> Vec<AnyElement> {
         let mut out = Vec::new();
         let index = self.shown_index();
-        // The legend wraps before the toolbar at the top right (or the price axis, when the
-        // toolbar is hidden).
-        let right = axis_w() + if self.shows_toolbar() { 196.0 } else { 8.0 };
+        // The legend wraps before the price axis.
+        let right = axis_w() + 8.0;
         let mut main = div()
             .absolute()
             .top(px(crate::ui::kit::tokens::space::sm()))
@@ -318,16 +317,6 @@ impl Chart {
                 )
                 .into_any_element(),
         )
-    }
-
-    /// Whether the toolbar shows: on the chart being worked on, when it has the room, and while
-    /// one of its menus is open.
-    pub(super) fn shows_toolbar(&self) -> bool {
-        let wide = self
-            .bounds
-            .get()
-            .is_some_and(|b| f32::from(b.size.width) >= 360.0);
-        (self.selected && wide) || self.menu.is_some()
     }
 
     /// A dot that says whether the symbol's market is open, with when it opens or closes.

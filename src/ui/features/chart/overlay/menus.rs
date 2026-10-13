@@ -254,6 +254,12 @@ impl Chart {
                             chart_settings_ui::open(cx.entity(), window, cx)
                         }))
                         .into(),
+                    Entry::new("Scale settings...")
+                        .icon(IconName::Ruler)
+                        .on_click(on(|_, window, cx| {
+                            chart_settings_ui::open_scales(cx.entity(), window, cx)
+                        }))
+                        .into(),
                     Entry::new("Reset chart view")
                         .icon(IconName::RotateCcw)
                         .hint("End")
@@ -268,11 +274,6 @@ impl Chart {
                         .icon(IconName::Copy)
                         .hint(crate::ui::kit::hints::hint("copy_indicators").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
-                        .into(),
-                    Entry::new("Copy chart settings")
-                        .icon(IconName::Copy)
-                        .hint(crate::ui::kit::hints::hint("copy_settings").unwrap_or_default())
-                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
                         .into(),
                     Entry::new("Paste on this chart")
                         .icon(IconName::ClipboardPaste)

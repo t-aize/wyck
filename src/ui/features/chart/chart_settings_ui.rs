@@ -1,4 +1,5 @@
-//! The settings of a chart: its type and colors, the legend, the price scale, the lines and the
+//! The settings of the charts: the type and the indicators of the chart being worked on, and the
+//! look every chart shares: the legend, the price scale, the lines and the
 //! grid, the canvas, the time zone, the trading lines, and the indicators it holds.
 //!
 //! It is built from the same frame as the panels of the indicators and the drawings (see
@@ -505,6 +506,18 @@ impl Render for ChartSettingsEditor {
             Page::Time => self.time_page(&settings),
             Page::Trading => self.trading_page(&settings, cx),
             Page::Indicators => self.indicators_page(&settings, cx),
+        };
+        // How a chart looks is how every chart looks: the pages that set it say so.
+        let body = if matches!(
+            self.page,
+            Page::Status | Page::Scales | Page::Canvas | Page::Time | Page::Trading
+        ) {
+            form::page()
+                .child(form::note("These settings are the same for every chart."))
+                .child(body)
+                .into_any_element()
+        } else {
+            body
         };
 
         let this = cx.entity();

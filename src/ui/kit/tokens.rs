@@ -87,6 +87,10 @@ pub mod height {
     pub fn control() -> f32 {
         scaled(28.0)
     }
+    /// A tool of the drawing rail: between a button and a tab, easy to hit without crowding.
+    pub fn rail() -> f32 {
+        scaled(30.0)
+    }
     /// A tab of a rail, the head of a group.
     pub fn large() -> f32 {
         scaled(34.0)

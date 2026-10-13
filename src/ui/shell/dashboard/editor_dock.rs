@@ -289,6 +289,7 @@ impl Dashboard {
                 crate::ui::kit::button::quiet("open-indicators")
                     .selected(self.editor_open)
                     .icon(IconName::CodeXml)
+                    .label("Script")
                     .tooltip("Indicator scripts: the folder, the editor, import and export")
                     .on_click(move |_, _window, cx| toggle.toggle(cx)),
             )

@@ -44,7 +44,6 @@ fn group_icon(group: Group) -> IconName {
         Group::Text => IconName::Type,
         Group::Dialogs => IconName::MessageSquare,
         Group::Picker => IconName::Search,
-        Group::Panel => IconName::LayoutList,
     }
 }
 
@@ -158,6 +157,7 @@ impl SettingsHub {
                 let this = cx.entity();
                 button::icon(
                     SharedString::from(format!("shortcuts-reset-{group:?}")),
+                    crate::ui::kit::button::Size::Md,
                     IconName::RotateCcw,
                     "Back to the defaults of this group",
                 )
@@ -421,6 +421,7 @@ impl SettingsHub {
             controls = controls.child(
                 button::icon(
                     SharedString::from(format!("shortcut-{id}-clear")),
+                    crate::ui::kit::button::Size::Md,
                     IconName::Eraser,
                     "Leave without a key",
                 )

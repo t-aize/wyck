@@ -34,7 +34,7 @@ use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
-use crate::ui::features::chart::{Chart, ChartLine, ChartSettings, LineId};
+use crate::ui::features::chart::{Chart, ChartLine, LineId};
 use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
@@ -86,12 +86,6 @@ struct Slot {
     _events: Subscription,
 }
 
-#[derive(Clone)]
-enum ChartClipboard {
-    Studies(Vec<StudyConfig>),
-    Settings(Box<ChartSettings>),
-}
-
 /// A line between charts being dragged.
 #[derive(Debug, Clone, Copy)]
 struct SplitDrag {
@@ -115,7 +109,8 @@ pub struct MultiChart {
     slots: Vec<Slot>,
     active: usize,
     sync: Links,
-    clipboard: Option<ChartClipboard>,
+    /// The indicators copied last, for Ctrl+V.
+    clipboard: Option<Vec<StudyConfig>>,
     syncing_studies: bool,
     /// The drawings, shared by every chart.
     drawings: Entity<Drawings>,
@@ -142,6 +137,8 @@ pub struct MultiChart {
     color_open: Option<u64>,
     /// Where the style bar sits over the charts, and the drag that moves it.
     bar: drawing_ui::bar_place::BarPlace,
+    /// The same for the bar of the favorite tools, which sits at the bottom.
+    pill: drawing_ui::bar_place::BarPlace,
     /// Taken when a chart is clicked, so the keys (arrows, Delete, Ctrl+Z) reach the charts and
     /// not a text field that had the keyboard before.
     focus: gpui::FocusHandle,
@@ -198,6 +195,10 @@ impl MultiChart {
             root_bounds: Rc::new(Cell::new(None)),
             color_open: None,
             bar: Default::default(),
+            pill: drawing_ui::bar_place::BarPlace::at_bottom(
+                favorites::PILL_BOTTOM,
+                (prefs.favorites_place[0], prefs.favorites_place[1]),
+            ),
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
             hub,
@@ -382,6 +383,14 @@ impl Render for MultiChart {
         // A chart that changed symbol gets that symbol's hours (a no-op when it has them).
         self.give_hours(cx);
         let several = self.slots.len() > 1;
+        // The symbol is named on a chart only when the charts do not all show the same one: with one
+        // symbol the header says it already.
+        let names: Vec<Option<String>> = self
+            .slots
+            .iter()
+            .map(|slot| slot.chart.read(cx).symbol().map(|s| s.name.to_string()))
+            .collect();
+        let show_symbol = names.iter().any(|name| *name != names[0]);
         let floor = if self.favorites_shown(cx) {
             favorites::PILL_TOP
         } else {
@@ -392,6 +401,7 @@ impl Render for MultiChart {
             slot.chart.update(cx, |chart, cx| {
                 chart.set_selected(selected, cx);
                 chart.set_hint_floor(floor, cx);
+                chart.set_show_symbol(show_symbol, cx);
             });
         }
         let (rects, dividers) = self.tree.place(self.slots.len());

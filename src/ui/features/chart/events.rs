@@ -29,8 +29,9 @@ pub enum ChartEvent {
     ViewChanged(Span),
     /// Something that is saved changed: the timeframe, the type, the indicators, the scale.
     SettingsChanged,
+    /// How the chart looks changed. It is the same for every chart: the layout hands it to them all.
+    LookChanged(Box<crate::domain::chart::ChartLook>),
     CopyIndicators,
-    CopySettings,
     Paste,
     /// The user asked to change the symbol of this chart.
     PickSymbol,

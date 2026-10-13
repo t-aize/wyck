@@ -82,7 +82,6 @@ impl Render for Chart {
         self.schedule_customs(cx);
         let entity = cx.entity();
         let compact = self.is_compact();
-        let latest = !self.view.is_following() && !self.shown().is_empty();
         let geometry = self.geometry();
         let menu = popup::Menu::new(("chart-context-menu", self.id), window, cx);
         let context = if menu.is_open(cx) {
@@ -103,11 +102,7 @@ impl Render for Chart {
             .child(paint::surface(&entity, self.bounds.clone()))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
-            // The toolbar belongs to the chart being worked on, as long as it has the room.
-            .children(
-                self.shows_toolbar()
-                    .then(|| self.toolbar(latest, compact, window, cx)),
-            )
+            .children(self.corner(cx))
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
             .children(self.marquee())

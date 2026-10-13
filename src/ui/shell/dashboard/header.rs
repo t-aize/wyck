@@ -24,6 +24,7 @@ const CUSTOM_TIMEFRAME_WIDTH: f32 = 78.0;
 /// Which parts of the bar the window is wide enough for.
 #[derive(Clone, Copy)]
 struct Fit {
+    chart_labels: bool,
     ask: bool,
     equity: bool,
     subtitle: bool,
@@ -41,6 +42,7 @@ impl Dashboard {
         // What the bar leaves out as the window narrows, least needed first.
         let width = f32::from(window.viewport_size().width);
         let fit = Fit {
+            chart_labels: width >= 1_180.0,
             ask: width >= 1_100.0,
             equity: width >= 1_240.0,
             subtitle: width >= 1_360.0,
@@ -62,6 +64,7 @@ impl Dashboard {
             .child(divider())
             .child(self.timeframe_strip(window, cx))
             .child(self.layout_button(window, cx))
+            .child(self.chart_buttons(fit.chart_labels, window, cx))
             .child(div().flex_1().min_w_0())
             .child(self.indicators_button(window, cx))
             .child(self.panel_toggles(cx))

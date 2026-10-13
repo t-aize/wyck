@@ -213,6 +213,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("rename-list", index as u64),
+                    crate::ui::kit::button::Size::Md,
                     IconName::Pencil,
                     "Rename the list",
                 )
@@ -224,6 +225,7 @@ pub(super) fn list_chips(
             out.push(
                 button::icon(
                     ("delete-list", index as u64),
+                    crate::ui::kit::button::Size::Md,
                     IconName::Trash,
                     "Delete the list",
                 )

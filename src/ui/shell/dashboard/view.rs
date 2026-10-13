@@ -53,6 +53,8 @@ impl Dashboard {
                         .w(px(crate::ui::kit::tokens::measure::action()))
                         .child(button::primary(
                             "sign-in-again",
+                            crate::ui::kit::button::Fill::Accent,
+                            crate::ui::kit::button::Size::Md,
                             "Sign in again",
                             cx.listener(|_this, _event, _window, cx| {
                                 cx.emit(DashboardEvent::SignInAgain);
@@ -311,15 +313,6 @@ impl Render for Dashboard {
                 this.multi.update(cx, |multi, cx| {
                     if multi.has_chart_focus(window) {
                         multi.copy_active_indicators(cx);
-                    }
-                });
-            }),
-        )
-        .on_action(
-            cx.listener(|this, _: &chart::ChartCopySettings, window, cx| {
-                this.multi.update(cx, |multi, cx| {
-                    if multi.has_chart_focus(window) {
-                        multi.copy_active_settings(cx);
                     }
                 });
             }),

@@ -523,10 +523,112 @@ impl Tool {
     }
 }
 
+impl Tool {
+    /// The part of its family the tool is listed under: a long family is cut in a few short ones,
+    /// so a tool is found by what it is (a ray, a pitchfork, a level) and not by scanning a list.
+    pub fn section(self) -> &'static str {
+        match self {
+            Self::TrendLine
+            | Self::Ray
+            | Self::ExtendedLine
+            | Self::InfoLine
+            | Self::TrendAngle => "Lines",
+            Self::HorizontalLine | Self::HorizontalRay | Self::VerticalLine | Self::CrossLine => {
+                "Horizontal and vertical"
+            }
+            Self::Arrow | Self::ArrowPath => "Arrows",
+            Self::ParallelChannel
+            | Self::RegressionTrend
+            | Self::FlatTopBottom
+            | Self::DisjointChannel => "Channels",
+            Self::Pitchfork
+            | Self::SchiffPitchfork
+            | Self::ModifiedSchiffPitchfork
+            | Self::InsidePitchfork
+            | Self::Pitchfan => "Pitchforks",
+            Self::FibRetracement | Self::FibExtension | Self::FibChannel => "Price levels",
+            Self::FibTimeZone | Self::FibTimeExtension => "Time",
+            Self::FibFan | Self::FibCircles | Self::FibSpiral | Self::FibArcs | Self::FibWedge => {
+                "Fans and curves"
+            }
+            Self::GannFan | Self::GannBox | Self::GannSquare | Self::GannSquareFixed => "Gann",
+            Self::Xabcd
+            | Self::Cypher
+            | Self::Abcd
+            | Self::HeadAndShoulders
+            | Self::TrianglePattern
+            | Self::ThreeDrives => "Chart patterns",
+            Self::CyclicLines | Self::TimeCycles | Self::SineLine => "Cycles",
+            Self::ElliottImpulse | Self::ElliottCorrection | Self::ElliottTriangle => "Waves",
+            Self::ElliottDoubleCombo | Self::ElliottTripleCombo => "Combinations",
+            Self::Rectangle
+            | Self::RotatedRectangle
+            | Self::Circle
+            | Self::Ellipse
+            | Self::Triangle
+            | Self::Arc => "Shapes",
+            Self::Curve | Self::DoubleCurve => "Curves",
+            Self::Brush | Self::Highlighter => "Freehand",
+            Self::ArrowMarker | Self::ArrowMarkUp | Self::ArrowMarkDown => "Markers",
+            Self::Measure | Self::PriceRange | Self::DateRange | Self::DatePriceRange => "Measure",
+            Self::LongPosition | Self::ShortPosition => "Positions",
+            Self::Forecast | Self::BarsPattern | Self::GhostFeed => "Forecast",
+            Self::AnchoredVwap | Self::FixedRangeVolumeProfile | Self::AnchoredVolumeProfile => {
+                "Volume"
+            }
+            Self::Text | Self::Note | Self::Callout | Self::Comment | Self::Table => "Text",
+            Self::PriceNote | Self::PriceLabel => "Price",
+            Self::Pin | Self::Signpost | Self::FlagMark | Self::Icon => "Marks",
+            Self::Unknown => "",
+        }
+    }
+}
+
+impl Group {
+    /// The sections of the family with their tools, in the order the family lists them. A family
+    /// of one section has a single entry.
+    pub fn sections(self) -> Vec<(&'static str, Vec<Tool>)> {
+        let mut out: Vec<(&'static str, Vec<Tool>)> = Vec::new();
+        for tool in Tool::ALL.into_iter().filter(|t| t.group() == self) {
+            let section = tool.section();
+            match out.iter_mut().find(|(name, _)| *name == section) {
+                Some((_, tools)) => tools.push(tool),
+                None => out.push((section, vec![tool])),
+            }
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::super::tool::*;
+
+    #[test]
+    fn every_tool_is_in_a_section_and_the_long_families_are_cut() {
+        for tool in Tool::ALL {
+            assert!(!tool.section().is_empty(), "{tool:?}");
+        }
+        for group in Group::ALL {
+            let sections = group.sections();
+            let total: usize = sections.iter().map(|(_, tools)| tools.len()).sum();
+            assert_eq!(
+                total,
+                Tool::ALL.iter().filter(|t| t.group() == group).count(),
+                "{group:?} loses a tool"
+            );
+            // A family of more than six tools is listed in at least two sections, and no
+            // section holds more than six.
+            if total > 6 {
+                assert!(sections.len() >= 2, "{group:?} is one long list");
+            }
+            assert!(
+                sections.iter().all(|(_, tools)| tools.len() <= 6),
+                "{group:?} has a section that is long again"
+            );
+        }
+    }
 
     #[test]
     fn every_tool_has_a_group_a_label_and_a_positive_anchor_count() {

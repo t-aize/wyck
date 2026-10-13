@@ -132,10 +132,6 @@ pub fn run() {
             let opened = cx.open_window(options, |window, cx| {
                 // The size of the interface the user chose, for what is sized in rems.
                 window.set_rem_size(gpui::px(16.0 * appearance::get(cx).ui_scale as f32 / 100.0));
-                // With the mode on System, the theme follows the system as it changes.
-                window
-                    .observe_window_appearance(|_window, cx| appearance::refresh_system(cx))
-                    .detach();
                 let shell = cx.new(|cx| AppView::new(window, cx));
                 cx.new(|cx| Root::new(shell, window, cx))
             });

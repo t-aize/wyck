@@ -6,8 +6,8 @@
 //! and saved to the folder they were read from, so nothing is moved under a running app.
 
 use super::{
-    AnyElement, Context, IconName, SettingsHub, appearance, confirm, div, form, icon, px, theme,
-    tokens,
+    AnyElement, Context, IconName, SettingsHub, appearance, confirm, div, form, icon, indicators,
+    px, theme, tokens,
 };
 use crate::app::locations::{self, Row};
 use crate::app::storage::locations::Kind;
@@ -44,6 +44,21 @@ impl SettingsHub {
         for (index, row) in overview.rows.iter().enumerate() {
             rows.extend(self.folder_row(index, row, cx));
         }
+        if let Some(paths) = crate::app_paths() {
+            let config = paths.config_dir().to_path_buf();
+            let shown = config.display().to_string();
+            rows.push(
+                form::Row::new("Settings file")
+                    .hint(shown)
+                    .help("The list of the accounts you signed in with, and where the folders above are. It stays here")
+                    .control(
+                        crate::ui::kit::button::quiet("folders-config-open")
+                            .icon(IconName::ExternalLink)
+                            .label("Open")
+                            .on_click(move |_, _window, cx| locations::reveal(&config, cx)),
+                    ),
+            );
+        }
         if let Some(error) = &overview.pointer_error {
             rows.push(form::block(
                 div()
@@ -57,7 +72,7 @@ impl SettingsHub {
         let folders_group = form::group(IconName::FolderOpen, "Where your data is kept", rows);
 
         let mut cloud_rows: Vec<AnyElement> = vec![form::block(form::note(format!(
-            "Keep your settings, themes, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
+            "Keep your settings, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
             crate::app::storage::locations::cloud_folder_name(overview.mode)
         )))];
         let mut buttons = div().flex().flex_row().flex_wrap().gap_2();
@@ -327,6 +342,11 @@ impl SettingsHub {
                         ),
                 ),
         ];
+        if kind == Kind::Indicators {
+            shown.push(form::block(form::note(
+                "The scripts are read where they are, from any folder you already keep them in: nothing is copied or moved, and nothing waits for a restart. Only this computer remembers it.",
+            )));
+        }
         if let Some(problem) = &row.unavailable {
             shown.push(form::block(
                 div()
@@ -393,7 +413,11 @@ impl SettingsHub {
                 return;
             };
             let _ = this.update(cx, |hub, cx| {
-                hub.stage_result(locations::stage_folder(kind, Some(&path)), cx);
+                if kind == Kind::Indicators {
+                    hub.read_indicators_from(Some(&path), cx);
+                } else {
+                    hub.stage_result(locations::stage_folder(kind, Some(&path)), cx);
+                }
             });
         })
         .detach();
@@ -423,7 +447,28 @@ impl SettingsHub {
 
     /// Puts the move of `kind` back to its standard folder aside.
     fn reset_folder(&mut self, kind: Kind, cx: &mut Context<Self>) {
+        if kind == Kind::Indicators {
+            self.read_indicators_from(None, cx);
+            return;
+        }
         self.stage_result(locations::stage_folder(kind, None), cx);
+    }
+
+    /// Reads the indicators from `dir` (the standard folder for `None`) from now on. Unlike the
+    /// other folders this moves nothing and waits for nothing: the scripts are read in place, from
+    /// a folder the user may already keep them in. Only this computer remembers it.
+    fn read_indicators_from(&mut self, dir: Option<&std::path::Path>, cx: &mut Context<Self>) {
+        match indicators::set_folder(cx, dir) {
+            Ok(()) => {
+                self.refresh_folders();
+                self.say_folders(
+                    true,
+                    "The indicators are read from that folder now. Nothing was copied or moved.",
+                    cx,
+                );
+            }
+            Err(error) => self.say_folders(false, error.to_string(), cx),
+        }
     }
 
     fn cancel_folders(&mut self, cx: &mut Context<Self>) {

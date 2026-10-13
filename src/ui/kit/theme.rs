@@ -2,16 +2,14 @@
 //!
 //! Every color is read through a function of this module (`theme::bg()`, `theme::fg()`), and
 //! every function reads the palette in force. The palette is a plain value, [`Colors`], that
-//! [`set_colors`] replaces: that is how a theme, an accent or a set of candle colors chosen by the
-//! user reaches the whole interface without a screen having to know about it. The themes
-//! themselves (their names, their colors, what the user changed) live in the app's
-//! `appearance` module. A screen should read `theme::` values and never spell out a hex color
-//! inline.
+//! [`set_colors`] replaces: that is how a set of candle colors chosen by the user reaches the whole
+//! interface without a screen having to know about it. There is one theme, a dark one; what the
+//! user can change lives in the app's `appearance` module. A screen should read `theme::` values
+//! and never spell out a hex color inline.
 //!
 //! The palette is small on purpose: the backgrounds, the text colors, the accent, the three
 //! signal colors and the colors of the chart. The lines between things, the tints of the
-//! selection and of the warnings are derived from those, so a theme only has to say what it looks
-//! like and not how each border is drawn.
+//! selection and of the warnings are derived from those.
 
 use std::sync::RwLock;
 
@@ -216,7 +214,7 @@ pub fn chart_crosshair() -> Rgba {
 
 /// The veil behind a dialog, so what is open stands out from the screen under it.
 pub fn veil() -> Rgba {
-    rgba(if is_light() { 0x0000_0055 } else { 0x0000_0099 })
+    rgba(0x0000_0099)
 }
 
 /// The veil over a locked app: strong enough that the frame behind reads as soft shapes and not
@@ -231,11 +229,6 @@ pub fn lock_veil() -> Rgba {
     }
 }
 
-/// Whether the palette in force is a light one.
-pub fn is_light() -> bool {
-    colors().is_light()
-}
-
 /// Points gpui-component's theme at the palette in force, so its buttons, spinners and tooltips
 /// match the hand-styled parts of the UI, then repaints every window. Call it at startup, after
 /// `gpui_kit::init`, and again whenever the palette changes.
@@ -244,12 +237,7 @@ pub fn apply(cx: &mut gpui::App) {
     use gpui_kit::component::{Theme, ThemeMode};
 
     let palette = colors();
-    let mode = if is_light() {
-        ThemeMode::Light
-    } else {
-        ThemeMode::Dark
-    };
-    Theme::change(mode, None, cx);
+    Theme::change(ThemeMode::Dark, None, cx);
     let theme_colors = &mut Theme::global_mut(cx).colors;
     let hsla = |color: Rgba| -> Hsla { color.into() };
 
@@ -352,22 +340,15 @@ mod tests {
     // These tests never put a palette in force: the others run beside them and read it.
 
     #[test]
-    fn the_default_palette_is_the_one_the_app_started_with() {
+    fn the_default_palette_is_the_one_of_the_interface() {
         let c = Colors::default();
         assert_eq!(c, Colors::WYCK_DARK);
         assert_eq!(rgba(c.selected), rgba(0x615fff73));
-        assert!(!c.is_light());
-    }
-
-    #[test]
-    fn light_and_dark_palettes_are_told_apart() {
-        let light = Colors {
-            bg: 0xffffff,
-            fg: 0x111111,
-            ..Colors::WYCK_DARK
-        };
-        assert!(light.is_light());
-        assert!(!Colors::WYCK_DARK.is_light());
+        assert!(luminance(c.bg) < luminance(c.fg), "dark");
+        assert!(
+            contrast(c.fg, c.bg) >= 7.0 && contrast(c.muted, c.bg) >= 4.5,
+            "the text reads on the background"
+        );
     }
 
     #[test]

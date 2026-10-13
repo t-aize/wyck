@@ -69,9 +69,13 @@ impl Chart {
         let entry = drawing.points[0].p / PRICE_SCALE as f64;
         let buy = drawing.tool == Tool::LongPosition;
         if let Some(config) = &settings.atr_stop {
-            let atr = self.atr_value(config)?;
-            let stop = config.stop(entry, buy, atr)?;
-            result.points[1].p = stop * PRICE_SCALE as f64;
+            let fresh = self
+                .atr_value(config)
+                .and_then(|atr| config.stop(entry, buy, atr));
+            // Where it was saved when it never had a stop from its ATR.
+            if let Some(stop) = last_stop(&self.atr_stops, drawing.id, fresh) {
+                result.points[1].p = stop * PRICE_SCALE as f64;
+            }
         }
         if let Some(rr) = settings.target_rr {
             let distance = (entry - result.points[1].p / PRICE_SCALE as f64).abs();
@@ -525,5 +529,44 @@ pub fn open_object_tree(chart: &Entity<Chart>, window: &mut Window, cx: &mut App
             window,
             cx,
         );
+    }
+}
+
+/// The stop of an ATR following drawing: the one just worked out, which is kept, or else the last
+/// one it had. The ATR is not at hand for a moment now and then (the bars of another timeframe are
+/// asked for again every half minute): without this the drawing left the chart for that moment and
+/// came back with the bars.
+fn last_stop(
+    kept: &std::cell::RefCell<std::collections::HashMap<u64, f64>>,
+    drawing: u64,
+    fresh: Option<f64>,
+) -> Option<f64> {
+    match fresh {
+        Some(stop) => {
+            kept.borrow_mut().insert(drawing, stop);
+            Some(stop)
+        }
+        None => kept.borrow().get(&drawing).copied(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::last_stop;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    #[test]
+    fn a_drawing_keeps_its_last_stop_while_its_atr_is_not_at_hand() {
+        let kept = RefCell::new(HashMap::new());
+        // Nothing yet: it is drawn where it was saved.
+        assert_eq!(last_stop(&kept, 7, None), None);
+        assert_eq!(last_stop(&kept, 7, Some(1.2345)), Some(1.2345));
+        // The ATR goes away for a moment: the drawing stays where it was.
+        assert_eq!(last_stop(&kept, 7, None), Some(1.2345));
+        // A new value replaces it, and another drawing has its own.
+        assert_eq!(last_stop(&kept, 7, Some(1.2300)), Some(1.2300));
+        assert_eq!(last_stop(&kept, 8, None), None);
+        assert_eq!(last_stop(&kept, 7, None), Some(1.2300));
     }
 }

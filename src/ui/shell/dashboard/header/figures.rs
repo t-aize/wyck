@@ -111,8 +111,9 @@ impl Dashboard {
                     ),
             )
             .child(
-                button::wide_danger(
+                button::primary(
                     "disconnect-account",
+crate::ui::kit::button::Fill::Danger, crate::ui::kit::button::Size::Md,
                     "Disconnect",
                     cx.listener(|this, _event, window, cx| {
                         this.close_menus();

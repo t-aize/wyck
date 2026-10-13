@@ -1,4 +1,4 @@
-//! The fonts and the candle colors on the Appearance page.
+//! The fonts on the Interface page, and the preview of the candle colors of the Charts page.
 
 use super::{
     AnyElement, Context, FontChosen, FontPicker, IconName, SettingsHub, SharedString, Window,

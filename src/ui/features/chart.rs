@@ -53,6 +53,7 @@
 pub mod api;
 mod chart_settings_ui;
 mod construction_ui;
+mod corner;
 mod custom_runs;
 pub mod drawing_props;
 pub mod events;
@@ -61,6 +62,7 @@ mod flow_sync;
 mod follow;
 mod footprint_ui;
 mod glue;
+mod header_menus;
 mod history;
 mod indicator_picker;
 mod input;
@@ -69,13 +71,14 @@ pub mod object_tree;
 mod overlay;
 mod paint;
 pub mod palette;
+mod path_pieces;
 pub mod raster;
 mod settings_rows;
 mod study_settings;
-mod toolbar;
 mod tpo_ui;
 mod volume_ui;
 
+pub use self::chart_settings_ui::open as open_chart_settings;
 use self::data::Series;
 use self::display::Display;
 use self::events::{ChartEvent, Hover};
@@ -83,6 +86,7 @@ use self::flow::Flow;
 use self::flow_sync::{FlowLoad, HeldQuote};
 pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
+pub use self::overlay::kind_icon;
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
 use self::study::config::StudyConfig;
@@ -141,7 +145,6 @@ gpui::actions!(
         ChartScreenshotAll,
         ChartAddAlert,
         ChartCopyIndicators,
-        ChartCopySettings,
         ChartPaste,
         SelectAllDrawings,
         FindTool,
@@ -225,6 +228,9 @@ pub struct Chart {
     /// How far from the bottom of the chart the hint of a drawing tool must stay, to clear what floats
     /// over the chart there (the favorites pill). 0 when nothing does.
     hint_floor: f32,
+    /// Whether the legend names the symbol. It does not when every chart shows the same one, which
+    /// the header says already.
+    show_symbol: bool,
     timeframe: Timeframe,
     settings: ChartSettings,
     max_studies: usize,
@@ -232,6 +238,9 @@ pub struct Chart {
     series: Series,
     atr_history: HashMap<(i64, Timeframe), (Vec<crate::domain::market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
+    /// The stop an ATR following position drawing last got, by drawing, for the moments the ATR
+    /// is not at hand (see `resolved_position`).
+    atr_stops: std::cell::RefCell<HashMap<u64, f64>>,
     /// What is drawn from them.
     display: Display,
     /// The indicators written as scripts, run off the interface thread.
@@ -327,6 +336,7 @@ impl Chart {
             hours: None,
             selected: true,
             hint_floor: 0.0,
+            show_symbol: true,
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,
@@ -334,6 +344,7 @@ impl Chart {
             series: empty_series(timeframe),
             atr_history: HashMap::new(),
             atr_loading: HashSet::new(),
+            atr_stops: std::cell::RefCell::default(),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
             symbol_ids: std::sync::Arc::default(),

@@ -22,8 +22,17 @@ const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 /// The most tools the search lists.
 const MAX_FOUND: usize = 40;
 
-/// The width of the rail of tools.
-pub const RAIL_WIDTH: f32 = 46.0;
+/// The width of the rail of tools: a rail button and room on each side.
+pub fn rail_width() -> f32 {
+    tokens::height::rail() + 2.0 * tokens::space::sm()
+}
+
+/// A short line between two blocks of the rail.
+fn rail_rule() -> gpui::Div {
+    crate::ui::kit::layout::rule_h()
+        .my_1()
+        .w(px(tokens::height::compact()))
+}
 
 fn group_tools(group: Group) -> Vec<Tool> {
     Tool::ALL
@@ -46,7 +55,9 @@ impl MultiChart {
             .unwrap_or_else(|| group_tools(group)[0])
     }
 
-    /// The vertical strip of tools.
+    /// The vertical strip of tools: the families of drawing tools on top, and under them, apart,
+    /// the modes (stay in drawing mode, magnet), what is done to the drawings of the symbol and
+    /// the history. The buttons are the large size of the kit, so they are easy to hit.
     pub(super) fn render_rail(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let symbol = self.symbol_name(cx);
         let book = self.drawings.read(cx).book();
@@ -59,24 +70,19 @@ impl MultiChart {
         let some_hidden = symbol
             .as_ref()
             .is_some_and(|symbol| book.drawings(symbol).iter().any(|d| d.hidden));
+        let all_locked = symbol.as_ref().is_some_and(|symbol| {
+            let list = book.drawings(symbol);
+            !list.is_empty() && list.iter().all(|d| d.locked)
+        });
 
-        let mut rail = div()
-            .id("draw-rail")
-            .overflow_y_scroll()
+        let mut tools = div()
             .flex_none()
-            .w(px(RAIL_WIDTH))
-            .h_full()
-            .py_2()
             .flex()
             .flex_col()
             .items_center()
             .gap_1()
-            .border_r_1()
-            .border_color(theme::border_hairline())
-            .bg(theme::bg())
-            .occlude()
             .child(
-                crate::ui::kit::button::quiet("draw-pointer")
+                crate::ui::kit::button::rail("draw-pointer")
                     .icon(IconName::MousePointer2)
                     .tooltip("Pointer (Esc)")
                     .toggled(tool.is_none())
@@ -84,8 +90,8 @@ impl MultiChart {
             );
 
         let searching = self.tool_search;
-        rail = rail.child(
-            crate::ui::kit::button::quiet("draw-search")
+        tools = tools.child(
+            crate::ui::kit::button::rail("draw-search")
                 .icon(IconName::Search)
                 .tooltip(gpui::SharedString::from(format!(
                     "Find a tool{}",
@@ -107,14 +113,29 @@ impl MultiChart {
             let active = tool.is_some_and(|t| t.group() == group);
             let slots = self.rail_slots.clone();
             let tip: SharedString = match crate::ui::kit::hints::tool_hint(shown) {
-                Some(keys) => format!("{}: {} ({keys})", group.label(), shown.label()).into(),
-                None => format!("{}: {}", group.label(), shown.label()).into(),
+                Some(keys) => format!(
+                    "{} ({keys}). The arrow lists the {}",
+                    shown.label(),
+                    group.label().to_lowercase()
+                )
+                .into(),
+                None => format!(
+                    "{}. The arrow lists the {}",
+                    shown.label(),
+                    group.label().to_lowercase()
+                )
+                .into(),
             };
-            // The wrapper only tells where the button is, for the list to open beside it.
-            rail = rail.child(
+            // The wrapper tells where the button is, for the list to open beside it, and holds
+            // the small arrow that says there is a list.
+            tools = tools.child(
                 div()
                     .relative()
                     .flex_none()
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, _event, _window, cx| this.toggle_flyout(group, cx)),
+                    )
                     .child(
                         canvas(
                             move |bounds, _window, _cx| {
@@ -126,119 +147,193 @@ impl MultiChart {
                         .size_full(),
                     )
                     .child(
-                        crate::ui::kit::button::quiet(SharedString::from(format!(
+                        crate::ui::kit::button::rail(SharedString::from(format!(
                             "draw-group-{group:?}"
                         )))
                         .icon(tool_icon(shown))
                         .tooltip(tip)
                         .toggled(active || self.flyout == Some(group))
+                        // A click draws with the tool the family shows (a second click goes back
+                        // to the pointer); the arrow, or a right click, opens the list.
                         .on_click(cx.listener(
                             move |this, _event, _window, cx| {
-                                this.tool_search = false;
-                                this.flyout = if this.flyout == Some(group) {
-                                    None
-                                } else {
-                                    Some(group)
-                                };
-                                cx.notify();
+                                let current = this.drawings.read(cx).book().tool();
+                                this.pick_tool(
+                                    if current == Some(shown) {
+                                        None
+                                    } else {
+                                        Some(shown)
+                                    },
+                                    cx,
+                                );
                             },
                         )),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("draw-arrow-{group:?}")))
+                            .absolute()
+                            .right_0()
+                            .bottom_0()
+                            .size(px(tokens::swatch::medium()))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .hover(|s| s.bg(theme::surface_hover()))
+                            .tooltip(controls::tooltip(format!(
+                                "{}: the list of tools",
+                                group.label()
+                            )))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.toggle_flyout(group, cx);
+                            }))
+                            .child(icon::tinted(IconName::ChevronRight, 9., theme::muted_fg())),
                     ),
             );
         }
 
-        rail.child(
-            crate::ui::kit::layout::rule_h()
-                .my_1()
-                .w(px(tokens::height::compact())),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-favorites")
-                .icon(IconName::Star)
-                .tooltip(if favorites_bar {
-                    "Hide the favorites bar"
-                } else {
-                    "Show the favorites bar"
-                })
-                .toggled(favorites_bar)
-                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_favorites_bar(cx))),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-tree")
-                .icon(IconName::ListTree)
-                .tooltip("Drawings on this symbol")
-                .on_click(cx.listener(|this, _event, window, cx| {
-                    let chart = this.active_chart().clone();
-                    crate::ui::features::chart::open_object_tree(&chart, window, cx);
-                })),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-hide-all")
-                .icon(if some_hidden {
-                    IconName::Eye
-                } else {
-                    IconName::EyeOff
-                })
-                .tooltip(if some_hidden {
-                    "Show the drawings"
-                } else {
-                    "Hide the drawings"
-                })
-                .toggled(some_hidden)
-                .disabled(!has_any)
-                .when(!has_any, |button| button.cursor_not_allowed())
-                .on_click(cx.listener(move |this, _event, _window, cx| {
-                    this.edit_book(cx, |book, symbol| book.set_all_hidden(symbol, !some_hidden));
-                })),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-keep")
-                .icon(IconName::PencilLine)
-                .tooltip(if keep {
-                    "Stay in drawing mode: on (draw several in a row, Esc to stop)"
-                } else {
-                    "Stay in drawing mode: off (back to the pointer after each drawing)"
-                })
-                .toggled(keep)
-                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_keep_drawing(cx))),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-magnet")
-                .icon(IconName::Magnet)
-                .tooltip("Magnet: snap to open, high, low and close")
-                .toggled(magnet)
-                .on_click(cx.listener(|this, _event, _window, cx| this.toggle_magnet(cx))),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-undo")
-                .icon(IconName::Undo2)
-                .tooltip(gpui::SharedString::from(format!(
-                    "Undo{}",
-                    crate::ui::kit::hints::suffix("undo_drawing")
-                )))
-                .disabled(!can_undo)
-                .when(!can_undo, |button| button.cursor_not_allowed())
-                .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-redo")
-                .icon(IconName::Redo2)
-                .tooltip(gpui::SharedString::from(format!(
-                    "Redo{}",
-                    crate::ui::kit::hints::suffix("redo_drawing")
-                )))
-                .disabled(!can_redo)
-                .when(!can_redo, |button| button.cursor_not_allowed())
-                .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
-        )
-        .child(
-            crate::ui::kit::button::quiet("draw-clear")
-                .icon(IconName::Trash)
-                .tooltip("Remove all drawings of this symbol")
-                .disabled(!has_any)
-                .when(!has_any, |button| button.cursor_not_allowed())
-                .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
-        )
+        let utilities = div()
+            .flex_none()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap_1()
+            .child(
+                crate::ui::kit::button::rail("draw-keep")
+                    .icon(IconName::PencilLine)
+                    .tooltip(if keep {
+                        "Stay in drawing mode: on (draw several in a row, Esc to stop)"
+                    } else {
+                        "Stay in drawing mode: off (back to the pointer after each drawing)"
+                    })
+                    .toggled(keep)
+                    .on_click(
+                        cx.listener(|this, _event, _window, cx| this.toggle_keep_drawing(cx)),
+                    ),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-magnet")
+                    .icon(IconName::Magnet)
+                    .tooltip("Magnet: snap to open, high, low and close")
+                    .toggled(magnet)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.toggle_magnet(cx))),
+            )
+            .child(rail_rule())
+            .child(
+                crate::ui::kit::button::rail("draw-favorites")
+                    .icon(IconName::Star)
+                    .tooltip(if favorites_bar {
+                        "Hide the favorites bar"
+                    } else {
+                        "Show the favorites bar"
+                    })
+                    .toggled(favorites_bar)
+                    .on_click(
+                        cx.listener(|this, _event, _window, cx| this.toggle_favorites_bar(cx)),
+                    ),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-tree")
+                    .icon(IconName::ListTree)
+                    .tooltip("Drawings on this symbol")
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        let chart = this.active_chart().clone();
+                        crate::ui::features::chart::open_object_tree(&chart, window, cx);
+                    })),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-lock-all")
+                    .icon(if all_locked {
+                        IconName::Lock
+                    } else {
+                        IconName::LockOpen
+                    })
+                    .tooltip(if all_locked {
+                        "Unlock the drawings"
+                    } else {
+                        "Lock the drawings"
+                    })
+                    .toggled(all_locked)
+                    .disabled(!has_any)
+                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.edit_book(cx, |book, symbol| book.set_all_locked(symbol, !all_locked));
+                    })),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-hide-all")
+                    .icon(if some_hidden {
+                        IconName::Eye
+                    } else {
+                        IconName::EyeOff
+                    })
+                    .tooltip(if some_hidden {
+                        "Show the drawings"
+                    } else {
+                        "Hide the drawings"
+                    })
+                    .toggled(some_hidden)
+                    .disabled(!has_any)
+                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.edit_book(cx, |book, symbol| {
+                            book.set_all_hidden(symbol, !some_hidden)
+                        });
+                    })),
+            )
+            .child(rail_rule())
+            .child(
+                crate::ui::kit::button::rail("draw-undo")
+                    .icon(IconName::Undo2)
+                    .tooltip(gpui::SharedString::from(format!(
+                        "Undo{}",
+                        crate::ui::kit::hints::suffix("undo_drawing")
+                    )))
+                    .disabled(!can_undo)
+                    .when(!can_undo, |button| button.cursor_not_allowed())
+                    .on_click(cx.listener(|this, _event, _window, cx| this.undo_drawing(cx))),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-redo")
+                    .icon(IconName::Redo2)
+                    .tooltip(gpui::SharedString::from(format!(
+                        "Redo{}",
+                        crate::ui::kit::hints::suffix("redo_drawing")
+                    )))
+                    .disabled(!can_redo)
+                    .when(!can_redo, |button| button.cursor_not_allowed())
+                    .on_click(cx.listener(|this, _event, _window, cx| this.redo_drawing(cx))),
+            )
+            .child(
+                crate::ui::kit::button::rail("draw-clear")
+                    .icon(IconName::Trash)
+                    .tooltip("Remove all drawings of this symbol")
+                    .disabled(!has_any)
+                    .when(!has_any, |button| button.cursor_not_allowed())
+                    .on_click(cx.listener(|this, _event, _window, cx| this.clear_drawings(cx))),
+            );
+
+        // On a low window the whole strip scrolls; on a tall one the utilities sit at the bottom.
+        div()
+            .id("draw-rail")
+            .overflow_y_scroll()
+            .flex_none()
+            .w(px(rail_width()))
+            .h_full()
+            .py_2()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap_2()
+            .border_r_1()
+            .border_color(theme::border_hairline())
+            .bg(theme::bg())
+            .occlude()
+            .child(tools)
+            .child(div().flex_1().min_h_0())
+            .child(utilities)
     }
 
     /// One row of a list of tools: the icon, the name, the keys when it has some, and the star
@@ -269,7 +364,7 @@ impl MultiChart {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .h(px(tokens::height::control()))
+                    .h(px(tokens::height::large()))
                     .pl_2()
                     .cursor_pointer()
                     .text_size(px(tokens::text::body()))
@@ -308,7 +403,7 @@ impl MultiChart {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .size(px(tokens::height::control()))
+                    .size(px(tokens::height::large()))
                     .cursor_pointer()
                     .tooltip(controls::tooltip(if starred {
                         "Unpin from the favorites"
@@ -359,15 +454,32 @@ impl MultiChart {
             .id("draw-flyout-list")
             .absolute()
             .top(px(top.max(0.0)))
-            .left(px(RAIL_WIDTH + 6.0))
+            .left(px(rail_width() + tokens::space::xs()))
             .w(px(tokens::menu::FLYOUT_WIDTH))
             .max_h(px(tokens::menu::MAX_HEIGHT))
             .overflow_y_scroll();
 
         if let Some(group) = self.flyout {
             list = list.child(popup::parts::section_title(group.label()));
-            for tool in group_tools(group) {
-                list = list.child(self.tool_row(tool, current, &favorites, cx));
+            // A long family is cut in sections: a ray, a pitchfork or a level is found by what it
+            // is.
+            let sections = group.sections();
+            let several = sections.len() > 1;
+            for (name, tools) in sections {
+                if several {
+                    list = list.child(
+                        div()
+                            .px_2()
+                            .pt_2()
+                            .pb_1()
+                            .text_size(px(tokens::text::caption()))
+                            .text_color(theme::muted_fg())
+                            .child(name.to_uppercase()),
+                    );
+                }
+                for tool in tools {
+                    list = list.child(self.tool_row(tool, current, &favorites, cx));
+                }
             }
         } else {
             let query = self.search_input.read(cx).text().trim().to_lowercase();
