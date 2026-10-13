@@ -7,6 +7,7 @@ use crate::domain::trading::math::format_amount;
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::panel::data::Tone;
 use crate::ui::kit::prelude::StyledExt as _;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{focus::Keyboard, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
@@ -59,7 +60,7 @@ impl AccountPanel {
             .children((count > 0).then(|| {
                 div()
                     .px_1()
-                    .rounded_sm()
+                    .round_control()
                     .bg(theme::fg_alpha(0.08))
                     .text_size(px(tokens::text::caption()))
                     .text_color(theme::muted_fg())

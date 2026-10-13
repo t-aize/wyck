@@ -8,6 +8,7 @@ use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{indicator_picker, open_object_tree, study_settings};
 use crate::ui::kit::icon::IconName;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{button, controls, form, icon, modal, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
@@ -65,7 +66,7 @@ impl ChartSettingsEditor {
             .flex_col()
             .max_h(px(ZONE_LIST_MAX))
             .overflow_y_scroll()
-            .rounded_md()
+            .round_control()
             .border_1()
             .border_color(theme::border_subtle());
         for zone in Zone::menu() {

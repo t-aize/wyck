@@ -4,6 +4,7 @@ use super::{
     AnyElement, Context, IconName, OrderTicket, THIN_METER_HEIGHT, Tone, confirm_as, div, icon,
     math, px, text_button, theme, tokens,
 };
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl OrderTicket {
@@ -39,7 +40,7 @@ impl OrderTicket {
                     .flex_col()
                     .gap_1()
                     .p_2()
-                    .rounded_md()
+                    .round_control()
                     .border_1()
                     .border_color(theme::destructive())
                     .bg(theme::destructive_bg())
@@ -93,7 +94,7 @@ impl OrderTicket {
                     .flex_col()
                     .gap_1()
                     .p_2()
-                    .rounded_md()
+                    .round_control()
                     .bg(theme::amber_bg())
                     .text_size(px(tokens::text::body()))
                     .text_color(theme::amber())

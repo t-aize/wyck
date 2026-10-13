@@ -3,6 +3,7 @@
 
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 
@@ -186,7 +187,7 @@ impl ObjectTree {
             .gap_2()
             .h(px(tokens::height::large()))
             .px_2()
-            .rounded_md()
+            .round_control()
             .when(selected, |el| el.bg(theme::accent_selected()))
             .hover(|s| s.bg(theme::surface_hover()))
             .cursor_pointer()

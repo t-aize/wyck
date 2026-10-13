@@ -6,6 +6,7 @@
 //! callbacks say what the user picked. A panel is shown in [`crate::ui::kit::modal`], which sizes it, so the
 //! frame fills the space it is given.
 
+use crate::ui::kit::shape::Shape as _;
 use std::rc::Rc;
 
 use gpui::prelude::*;
@@ -75,7 +76,7 @@ fn header(
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded_lg()
+                .round_card()
                 .bg(tile)
                 .child(icon::tinted(head.icon, 17., glyph)),
         )
@@ -114,11 +115,11 @@ fn shell() -> Div {
         .flex()
         .flex_col()
         .overflow_hidden()
-        .rounded_xl()
+        .round_dialog()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::bg())
-        .shadow_2xl()
+        .floats()
         .text_color(theme::fg())
 }
 
@@ -164,7 +165,7 @@ pub fn frame(
                 .gap_2p5()
                 .h(px(crate::ui::kit::tokens::height::large()))
                 .px_2p5()
-                .rounded_md()
+                .round_control()
                 .cursor_pointer()
                 .text_size(px(crate::ui::kit::tokens::text::emphasis()))
                 .text_color(ink(chosen))
@@ -269,7 +270,7 @@ pub fn group_with(
     let mut card = div()
         .flex()
         .flex_col()
-        .rounded_lg()
+        .round_card()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::fg_alpha(0.025))
@@ -416,7 +417,7 @@ impl Row {
                 .items_center()
                 .justify_center()
                 .size(px(crate::ui::kit::tokens::height::compact()))
-                .rounded_md()
+                .round_control()
                 .cursor_pointer()
                 .hover(|s| s.bg(theme::surface_hover()))
                 .tooltip(crate::ui::kit::controls::tooltip("Back to the default"))

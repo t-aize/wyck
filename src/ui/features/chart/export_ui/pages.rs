@@ -8,6 +8,7 @@ use crate::domain::chart::export::options::ExportOptions;
 use crate::ui::features::chart::settings_rows::named;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
@@ -205,7 +206,7 @@ impl ExportDialog {
                     .flex()
                     .items_center()
                     .px_3()
-                    .rounded_md()
+                    .round_control()
                     .border_1()
                     .border_color(theme::border_subtle())
                     .cursor_pointer()
@@ -263,7 +264,7 @@ impl ExportDialog {
             .id("export-preview")
             .w_full()
             .p_3()
-            .rounded_md()
+            .round_control()
             .bg(theme::fg_alpha(0.05))
             .border_1()
             .border_color(theme::border_hairline())

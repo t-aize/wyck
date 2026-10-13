@@ -6,6 +6,7 @@ use super::{
     surface,
 };
 use crate::ui::kit::focus::Keyboard;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::theme;
 use gpui::prelude::*;
 use gpui::{
@@ -37,7 +38,7 @@ impl Render for ColorPanel {
             .relative()
             .w(px(AREA_W))
             .h(px(AREA_H))
-            .rounded_md()
+            .round_control()
             .overflow_hidden()
             .bg(rgb(pure))
             .child(div().absolute().size_full().bg(linear_gradient(
@@ -93,7 +94,7 @@ impl Render for ColorPanel {
             .flex_row()
             .w(px(44.))
             .h(px(crate::ui::kit::tokens::height::control()))
-            .rounded_md()
+            .round_control()
             .overflow_hidden()
             .border_1()
             .border_color(theme::border_subtle())
@@ -146,7 +147,7 @@ impl Render for ColorPanel {
                 .role(gpui::Role::Button)
                 .aria_label(SharedString::from(format!("Color {shade:06x}")))
                 .size(px(CELL))
-                .rounded_sm()
+                .round_control()
                 .bg(rgb(shade))
                 .border_2()
                 .border_color(if shade == color {

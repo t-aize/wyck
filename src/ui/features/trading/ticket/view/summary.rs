@@ -4,6 +4,7 @@ use super::{
     AnyElement, Frame, IconName, Limit, Line, METER_HEIGHT, OrderTicket, Slot, card, card_head,
     div, format_units, icon, math, number, px, theme, tokens,
 };
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl OrderTicket {
@@ -140,7 +141,7 @@ pub(super) fn warning_rows(warnings: &[String]) -> Vec<AnyElement> {
                 .items_start()
                 .gap_2()
                 .p_2()
-                .rounded_md()
+                .round_control()
                 .bg(theme::amber_bg())
                 .text_size(px(tokens::text::body()))
                 .text_color(theme::amber())

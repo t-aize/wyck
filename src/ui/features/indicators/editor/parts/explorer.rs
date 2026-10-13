@@ -5,6 +5,7 @@ use super::{
     MouseButton, Placement, Script, SharedString, TEMPLATES, Window, div, folder_of, icon,
     indicators, px, registry, source_match, stem, theme, tokens,
 };
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl IndicatorEditor {
@@ -79,7 +80,7 @@ impl IndicatorEditor {
                         .px_2()
                         .mt_1()
                         .cursor_pointer()
-                        .rounded_md()
+                        .round_control()
                         .hover(|s| s.bg(theme::surface_hover()))
                         .on_click(move |_, _window, cx| {
                             this.update(cx, |e, cx| {
@@ -184,7 +185,7 @@ impl IndicatorEditor {
             .pl(px(if indented { 24. } else { 8. }))
             .pr_2()
             .mx_1()
-            .rounded_md()
+            .round_control()
             .cursor_pointer()
             .when(active, |el| el.bg(theme::accent_selected()))
             .when(!active, |el| el.hover(|s| s.bg(theme::surface_hover())))
@@ -318,11 +319,11 @@ impl IndicatorEditor {
             .flex()
             .flex_col()
             .gap_2()
-            .rounded_xl()
+            .round_dialog()
             .border_1()
             .border_color(theme::border_subtle())
             .bg(theme::surface())
-            .shadow_lg()
+            .floats()
             .child(
                 div()
                     .text_size(px(tokens::text::title()))

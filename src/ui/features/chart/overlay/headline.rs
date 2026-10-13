@@ -8,6 +8,7 @@ use crate::ui::features::chart::scene::{Geometry, axis_h, axis_w};
 use crate::ui::features::chart::settings::ChartKind;
 use crate::ui::features::chart::{Chart, Load, Older};
 use crate::ui::kit::icon::IconName;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
@@ -37,7 +38,7 @@ impl Chart {
             .gap_1()
             .h(px(tokens::height::tiny()))
             .px_1()
-            .rounded_sm()
+            .round_control()
             .cursor_pointer()
             .hover(move |s| s.bg(hover))
             .text_size(px(tokens::text::small()))
@@ -78,7 +79,7 @@ impl Chart {
             .gap_1()
             .h(px(tokens::height::tiny()))
             .px_1()
-            .rounded_sm()
+            .round_control()
             .cursor_pointer()
             .hover(move |s| s.bg(hover))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -229,7 +230,7 @@ impl Chart {
                 .flex()
                 .flex_row()
                 .items_center()
-                .rounded_sm()
+                .round_control()
                 .overflow_hidden()
                 .border_1()
                 .border_color(color)

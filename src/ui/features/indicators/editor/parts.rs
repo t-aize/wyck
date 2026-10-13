@@ -1,6 +1,7 @@
 //! What the editor looks like: the toolbar, the list of scripts, the tabs, the console, the
 //! reference and the status bar.
 
+use crate::ui::kit::shape::Shape as _;
 use std::collections::BTreeMap;
 
 use crate::ui::kit::icon::IconName;
@@ -93,7 +94,7 @@ impl IndicatorEditor {
                     .h(px(tokens::height::control()))
                     .pl_3()
                     .pr_1()
-                    .rounded_t_md()
+                    .round_control()
                     .cursor_pointer()
                     .border_1()
                     .border_b_0()
@@ -138,7 +139,7 @@ impl IndicatorEditor {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .rounded_sm()
+                            .round_control()
                             .hover(|s| s.bg(theme::surface_pressed()))
                             .on_click(move |_, window, cx| {
                                 close.update(cx, |e, cx| e.close_tab(index, window, cx));
@@ -227,7 +228,7 @@ impl IndicatorEditor {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .rounded_lg()
+                    .round_card()
                     .border_1()
                     .border_color(theme::border_subtle())
                     .bg(theme::fg_alpha(0.025))
@@ -378,7 +379,7 @@ fn reference_row(
         .mx_2()
         .px_2()
         .py_1()
-        .rounded_md()
+        .round_control()
         .cursor_pointer()
         .hover(|s| s.bg(theme::surface_hover()))
         .on_click(move |_, window, cx| on_click(window, cx))

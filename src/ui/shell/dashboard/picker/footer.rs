@@ -1,5 +1,6 @@
 //! The key hints under the list of the symbol picker.
 
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{div, px};
 
@@ -16,7 +17,7 @@ pub(super) fn key_cap(content: impl IntoElement) -> gpui::Div {
         .min_w(px(crate::ui::kit::tokens::height::tiny()))
         .h(px(tokens::height::tiny()))
         .px_2()
-        .rounded_md()
+        .round_control()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::bg())

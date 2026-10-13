@@ -10,6 +10,7 @@ use crate::app::prefs::ticket as prefs;
 use crate::domain::trading::plan::Only;
 use crate::ui::kit::focus::Keyboard as _;
 use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl OrderTicket {
@@ -128,7 +129,7 @@ impl OrderTicket {
                             .flex_col()
                             .px_2()
                             .py_1()
-                            .rounded_md()
+                            .round_control()
                             .cursor_pointer()
                             .hover(|s| s.bg(theme::surface_hover()))
                             .on_click(move |_, window, cx| {
@@ -155,7 +156,7 @@ impl OrderTicket {
                             .keyboard()
                             .flex_none()
                             .p_1()
-                            .rounded_md()
+                            .round_control()
                             .cursor_pointer()
                             .hover(|s| s.bg(theme::surface_hover()))
                             .on_click(move |_, _, cx| {

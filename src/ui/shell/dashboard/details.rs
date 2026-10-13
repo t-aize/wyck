@@ -4,6 +4,7 @@
 
 use crate::domain::market::Symbol;
 use crate::ui::kit::icon::IconName;
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
 
@@ -112,7 +113,7 @@ fn tile(label: &'static str, value: String) -> Div {
         .min_w_0()
         .px_3()
         .py_2()
-        .rounded_lg()
+        .round_card()
         .bg(theme::surface())
         .border_1()
         .border_color(theme::border_hairline())
@@ -275,7 +276,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
         .mt_4()
         .flex()
         .flex_col()
-        .rounded_lg()
+        .round_card()
         .overflow_hidden()
         .border_1()
         .border_color(theme::border_subtle())
@@ -320,7 +321,7 @@ pub(super) fn render_details(sheet: Sheet<'_>) -> Div {
                 .gap_1()
                 .mt_3()
                 .p_3()
-                .rounded_lg()
+                .round_card()
                 .bg(theme::destructive_bg())
                 .border_1()
                 .border_color(theme::destructive())

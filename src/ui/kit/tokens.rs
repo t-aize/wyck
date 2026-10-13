@@ -1,10 +1,10 @@
 //! The sizes every screen shares: text, control heights, field widths and menus.
 //!
 //! A screen picks one of these instead of writing a number, so two controls that do the same job
-//! have the same size wherever they are. Corners follow one rule too: `rounded_md` for a control,
-//! `rounded_lg` for a card, a menu or a popover, `rounded_xl` for a dialog, `rounded_full` for a
-//! pill or a dot. The edge of a card, a menu or a popover is `theme::border_subtle`; a line
-//! between two parts of one surface is `theme::border_hairline`.
+//! have the same size wherever they are. Corners follow one rule too, three small radii (see
+//! [`radius`] and [`super::shape::Shape`]): a control, a card or a menu, a dialog; `rounded_full` is
+//! for a dot or a switch only. The edge of a card, a menu or a popover is `theme::border_subtle`; a
+//! line between two parts of one surface is `theme::border_hairline`.
 //!
 //! Text, heights and widths follow the size of the interface the user chose (see [`set_scale`]):
 //! they are functions that give the base size times that scale, so the whole app grows or shrinks
@@ -31,6 +31,24 @@ pub fn scale_percent() -> u32 {
 /// A base size at the scale in force.
 pub fn scaled(base: f32) -> f32 {
     base * scale_percent() as f32 / 100.0
+}
+
+/// Corner radii, in pixels. The interface is square: see [`super::shape`].
+pub mod radius {
+    use super::scaled;
+
+    /// A button, a field, a tab, a swatch.
+    pub fn control() -> f32 {
+        scaled(2.0)
+    }
+    /// A card, a menu, a popover, a bar over the chart.
+    pub fn card() -> f32 {
+        scaled(3.0)
+    }
+    /// A dialog.
+    pub fn dialog() -> f32 {
+        scaled(4.0)
+    }
 }
 
 /// Text sizes, in pixels.

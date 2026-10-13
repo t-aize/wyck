@@ -9,6 +9,7 @@ use super::{
 };
 use crate::ui::kit::focus::Keyboard as _;
 use crate::ui::kit::prelude::StyledExt as _;
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl OrderTicket {
@@ -39,7 +40,7 @@ impl OrderTicket {
                     .gap_1()
                     .h(px(tokens::height::compact()))
                     .px_2()
-                    .rounded_md()
+                    .round_control()
                     .border_1()
                     .border_color(if open {
                         theme::accent()
@@ -337,7 +338,7 @@ impl OrderTicket {
                 .flex_col()
                 .gap_1()
                 .p_2()
-                .rounded_md()
+                .round_control()
                 .border_1()
                 .border_color(theme::accent_alpha(0.5))
                 .bg(theme::accent_selected())
@@ -393,7 +394,7 @@ impl OrderTicket {
                 .items_center()
                 .gap_1()
                 .py(px(f.m.inner))
-                .rounded_lg()
+                .round_card()
                 .border_1()
                 .border_color(if chosen {
                     color

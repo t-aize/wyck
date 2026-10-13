@@ -13,6 +13,7 @@ use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::ui::features::chart::object_tree::tool_icon;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{controls, icon, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
@@ -257,7 +258,7 @@ impl MultiChart {
             .flex()
             .flex_row()
             .items_center()
-            .rounded_md()
+            .round_control()
             .when(selected, |el| el.bg(theme::accent_selected()))
             .hover(|style| style.bg(theme::surface_hover()))
             .child(

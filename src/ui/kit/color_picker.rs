@@ -15,6 +15,7 @@
 pub mod math;
 pub mod render;
 
+use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::theme;
 use gpui::prelude::*;
 use gpui::{
@@ -499,7 +500,7 @@ fn marker(size: f32, fill: u32) -> gpui::Div {
         .bg(rgb(fill))
         .border_2()
         .border_color(rgb(0xffffff))
-        .shadow_md()
+        .floats()
 }
 
 fn small_label(text: &'static str) -> gpui::Div {

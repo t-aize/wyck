@@ -1,5 +1,6 @@
 //! The bar across the top of the dashboard, and the account menu that hangs from it.
 
+use crate::ui::kit::shape::Shape as _;
 use std::sync::Arc;
 
 use crate::ui::kit::icon::IconName;
@@ -331,7 +332,7 @@ impl Dashboard {
             .items_center()
             .gap_3()
             .px_3()
-            .rounded_lg()
+            .round_card()
             .border_1()
             .border_color(if open {
                 theme::accent()

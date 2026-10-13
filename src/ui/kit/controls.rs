@@ -4,6 +4,7 @@
 //! They are plain functions returning elements, so a view owns its state (which choice, which
 //! swatch popover is open) and passes it in; the callbacks say what the user picked.
 
+use crate::ui::kit::shape::Shape as _;
 use std::rc::Rc;
 
 use gpui::prelude::*;
@@ -49,7 +50,7 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
         .items_center()
         .p_0p5()
         .gap_0p5()
-        .rounded_md()
+        .round_control()
         .bg(theme::bg())
         .border_1()
         .border_color(theme::border_subtle());
@@ -75,7 +76,7 @@ fn strip(id: ElementId, options: &[&str], selected: usize, fill: bool, on_select
                 .px_2p5()
                 .flex()
                 .items_center()
-                .rounded_sm()
+                .round_control()
                 .cursor_pointer()
                 .text_size(px(tokens::text::body()))
                 .text_color(ink(chosen))
@@ -106,7 +107,7 @@ pub fn chip(id: impl Into<ElementId>, chosen: bool) -> gpui::Stateful<Div> {
         .gap_1p5()
         .h(px(tokens::height::compact()))
         .px_2p5()
-        .rounded_md()
+        .round_control()
         .border_1()
         .border_color(if chosen {
             theme::accent()
@@ -183,7 +184,7 @@ pub fn color_swatch_with_opacity(
         .aria_expanded(open)
         .size(px(tokens::height::compact()))
         .p(px(3.))
-        .rounded_md()
+        .round_control()
         .border_1()
         .border_color(if open {
             theme::accent()
@@ -196,7 +197,7 @@ pub fn color_swatch_with_opacity(
             color_picker::set_swatch_hovered(&hover, *hovered, cx);
         })
         .on_click(move |_, window, cx| on_toggle(window, cx))
-        .child(div().size_full().rounded_sm().bg(gpui::Rgba {
+        .child(div().size_full().round_control().bg(gpui::Rgba {
             a: shown,
             ..gpui::rgb(color)
         }));
@@ -242,7 +243,7 @@ fn option_box(id: ElementId, chosen: bool, glyph: impl IntoElement) -> gpui::Sta
         .justify_center()
         .w(px(40.))
         .h(px(crate::ui::kit::tokens::height::control()))
-        .rounded_md()
+        .round_control()
         .border_1()
         .border_color(if chosen {
             theme::accent()

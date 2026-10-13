@@ -1,6 +1,7 @@
 //! The layout button in the header and the picker it opens: how many charts, how they are
 //! arranged, and what is linked between them.
 
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{Context, SharedString, Window, div, px};
 
@@ -66,7 +67,7 @@ impl Dashboard {
                     .justify_center()
                     .h(px(tokens::height::control()))
                     .px_2()
-                    .rounded_md()
+                    .round_control()
                     .cursor_pointer()
                     .when(open, |el| el.bg(theme::accent_selected()))
                     .hover(|style| style.bg(theme::surface_hover()))
@@ -107,7 +108,7 @@ impl Dashboard {
                     div()
                         .id(("layout-option", count * 100 + variant))
                         .p_1()
-                        .rounded_md()
+                        .round_control()
                         .cursor_pointer()
                         .hover(|style| style.bg(theme::surface_hover()))
                         .on_click(cx.listener(move |this, _event, _window, cx| {
@@ -140,7 +141,7 @@ impl Dashboard {
             .id("layout-reset-splits")
             .px_1()
             .py_1()
-            .rounded_md()
+            .round_control()
             .cursor_pointer()
             .text_size(px(tokens::text::body()))
             .text_color(theme::muted_fg())
@@ -159,7 +160,7 @@ impl Dashboard {
                 .gap_2()
                 .px_1()
                 .py_1()
-                .rounded_md()
+                .round_control()
                 .cursor_pointer()
                 .text_size(px(tokens::text::body()))
                 .text_color(theme::muted_fg())
@@ -216,7 +217,7 @@ fn link_row(
         .gap_3()
         .py_1()
         .px_1()
-        .rounded_md()
+        .round_control()
         .when(link.is_some(), |el| {
             el.cursor_pointer()
                 .hover(|style| style.bg(theme::surface_hover()))

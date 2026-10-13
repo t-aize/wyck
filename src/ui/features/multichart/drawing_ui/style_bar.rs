@@ -1,6 +1,7 @@
 //! The style bar over a selected drawing: its colors and its line.
 
 use super::{OPACITY_STEPS, swatch_color};
+use crate::ui::kit::shape::Shape as _;
 
 use crate::domain::drawings::model::style::{Dash, PALETTE};
 use crate::domain::drawings::model::tool::Tool;
@@ -74,11 +75,11 @@ impl MultiChart {
             .items_center()
             .gap_1()
             .p_1()
-            .rounded_xl()
+            .round_dialog()
             .bg(theme::surface_alpha(0.95))
             .border_1()
             .border_color(theme::border_subtle())
-            .shadow_lg()
+            .floats()
             .occlude()
             .child(self.bar_grip(cx))
             .child(

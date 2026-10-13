@@ -6,6 +6,7 @@
 //! them; this file only shows them and turns clicks into edits of them.
 
 use crate::ui::kit::icon::IconName;
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, Context, Entity, Focusable, MouseButton, SharedString, Subscription, Window, div,
@@ -286,7 +287,7 @@ pub(super) fn star(
         .items_center()
         .justify_center()
         .size(px(tokens::height::control()))
-        .rounded_md()
+        .round_control()
         .cursor_pointer()
         .hover(|style| style.bg(theme::surface_pressed()))
         .on_click(cx.listener(move |this, _event, _window, cx| {
@@ -332,7 +333,7 @@ pub(super) fn membership_panel(
     let mut panel = div()
         .flex()
         .flex_col()
-        .rounded_lg()
+        .round_card()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::surface())

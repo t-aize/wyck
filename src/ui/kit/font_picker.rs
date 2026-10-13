@@ -4,6 +4,7 @@
 //! its own font, and the first row puts the choice back on the default. The picker tells what was
 //! picked with a [`FontChosen`] event; `None` is the default font.
 
+use crate::ui::kit::shape::Shape as _;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -229,7 +230,7 @@ impl Render for FontPicker {
             .child(crate::ui::kit::input::text(&self.filter))
             .child(
                 div()
-                    .rounded_md()
+                    .round_control()
                     .border_1()
                     .border_color(theme::border_subtle())
                     .overflow_hidden()

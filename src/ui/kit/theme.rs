@@ -238,6 +238,14 @@ pub fn apply(cx: &mut gpui::App) {
 
     let palette = colors();
     Theme::change(ThemeMode::Dark, None, cx);
+    // Square and flat: the components of the library round their corners and cast their shadows
+    // from the theme, which would otherwise give them 6 px and a shadow of their own.
+    {
+        let theme = Theme::global_mut(cx);
+        theme.radius = gpui::px(super::tokens::radius::control());
+        theme.radius_lg = gpui::px(super::tokens::radius::dialog());
+        theme.shadow = false;
+    }
     let theme_colors = &mut Theme::global_mut(cx).colors;
     let hsla = |color: Rgba| -> Hsla { color.into() };
 

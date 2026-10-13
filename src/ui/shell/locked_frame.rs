@@ -3,13 +3,14 @@
 //! It holds no data and does nothing: it only lets the person see, under the veil, the shape of
 //! the app they are about to open.
 
+use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{Div, div, px};
 
 use crate::ui::kit::{theme, tokens};
 
 fn block() -> Div {
-    div().rounded_md().bg(theme::border_subtle())
+    div().round_control().bg(theme::border_subtle())
 }
 
 fn rows(count: usize) -> Div {
@@ -62,7 +63,7 @@ pub fn render() -> impl IntoElement {
                 div()
                     .flex_1()
                     .h(px(tokens::space::xl() * h as f32 / 4.0))
-                    .rounded_sm()
+                    .round_control()
                     .bg(theme::border_subtle())
             }),
         ))

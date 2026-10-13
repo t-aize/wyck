@@ -11,6 +11,7 @@
 //! Number fields themselves are in [`crate::ui::kit::number`], switches and segmented choices in
 //! [`crate::ui::kit::controls`].
 
+use crate::ui::kit::shape::Shape as _;
 use std::rc::Rc;
 
 use gpui::prelude::*;
@@ -214,7 +215,7 @@ pub fn icon_choice(
         .items_center()
         .p_0p5()
         .gap_0p5()
-        .rounded_md()
+        .round_control()
         .bg(theme::bg())
         .border_1()
         .border_color(theme::border_subtle());
@@ -236,7 +237,7 @@ pub fn icon_choice(
                 .items_center()
                 .justify_center()
                 .size(px(tokens::height::compact()))
-                .rounded_sm()
+                .round_control()
                 .cursor_pointer()
                 .when(chosen, |el| el.bg(theme::accent_selected()))
                 .when(!chosen, |el| el.hover(|s| s.bg(theme::surface_hover())))
