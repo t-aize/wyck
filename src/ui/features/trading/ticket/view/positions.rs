@@ -7,7 +7,6 @@ use super::{
 use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::prelude::Selectable;
 use crate::ui::kit::prelude::StyledExt as _;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl OrderTicket {
@@ -130,7 +129,7 @@ impl OrderTicket {
                     .flex_col()
                     .gap_1()
                     .p_2()
-                    .round_control()
+                    .rounded_md()
                     .bg(theme::bg())
                     .border_1()
                     .border_color(theme::border_hairline())

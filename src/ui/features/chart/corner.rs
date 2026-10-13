@@ -2,7 +2,6 @@
 //! corner (auto, log, percent), the time zone at the right end of the time axis, and the way back
 //! to the latest price.
 
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
 
@@ -33,7 +32,7 @@ fn toggle(
         .h(px(tokens::height::tiny()))
         .min_w(px(tokens::height::tiny()))
         .px_1()
-        .round_control()
+        .rounded_sm()
         .cursor_pointer()
         .text_size(px(tokens::text::caption()))
         .font_weight(FontWeight::MEDIUM)
@@ -139,7 +138,7 @@ impl Chart {
                             .items_center()
                             .justify_center()
                             .size(px(tokens::height::compact()))
-                            .round_control()
+                            .rounded_md()
                             .cursor_pointer()
                             .bg(theme::bg_alpha(0.85))
                             .border_1()

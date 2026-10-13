@@ -4,7 +4,6 @@ use super::{
     AnyElement, ConsoleTab, Context, IconName, IndicatorEditor, MouseButton, Problem, ResizeDrag,
     ResizeSide, Severity, div, icon, mono, note, px, theme, tokens,
 };
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl IndicatorEditor {
@@ -184,7 +183,7 @@ impl IndicatorEditor {
                     .gap_2()
                     .px_2()
                     .py_1()
-                    .round_control()
+                    .rounded_md()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme::surface_hover()))
                     .on_click(move |_, window, cx| {

@@ -5,7 +5,6 @@
 //! Every size comes from [`crate::ui::kit::tokens`]. The density only changes the space between and
 //! inside the cards, never the size of a text or of a control.
 
-use crate::ui::kit::shape::Shape as _;
 use std::rc::Rc;
 
 use crate::ui::kit::icon::IconName;
@@ -125,7 +124,7 @@ fn card(m: Metrics) -> Div {
         .flex_col()
         .gap(px(m.inner))
         .p(px(m.inner + 4.))
-        .round_card()
+        .rounded_lg()
         .border_1()
         .border_color(theme::border_subtle())
         .bg(theme::fg_alpha(0.025))

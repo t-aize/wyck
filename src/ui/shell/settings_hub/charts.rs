@@ -6,7 +6,6 @@ use super::{
 };
 use crate::ui::kit::button::Button;
 use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 impl SettingsHub {
@@ -26,7 +25,7 @@ impl SettingsHub {
                     .gap_2()
                     .h(px(tokens::height::large()))
                     .px_3()
-                    .round_control()
+                    .rounded_md()
                     .border_1()
                     .border_color(if chosen {
                         theme::accent()
@@ -44,13 +43,13 @@ impl SettingsHub {
                     .child(
                         div()
                             .size(px(crate::ui::kit::tokens::swatch::small()))
-                            .round_control()
+                            .rounded_sm()
                             .bg(rgb(up)),
                     )
                     .child(
                         div()
                             .size(px(crate::ui::kit::tokens::swatch::small()))
-                            .round_control()
+                            .rounded_sm()
                             .bg(rgb(down)),
                     )
                     .child(

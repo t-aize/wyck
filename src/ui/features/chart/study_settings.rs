@@ -15,7 +15,6 @@ use super::study::spec::{InputKind, Placement};
 use super::study::style::{FillStyle, LevelStyle};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
@@ -200,7 +199,7 @@ impl Render for StudyEditor {
                 .flex()
                 .items_center()
                 .justify_center()
-                .round_dialog()
+                .rounded_xl()
                 .border_1()
                 .border_color(theme::border_subtle())
                 .bg(theme::bg())

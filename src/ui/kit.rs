@@ -21,7 +21,6 @@ pub mod menu;
 pub mod modal;
 pub mod number;
 pub mod prelude;
-pub mod shape;
 pub mod text_input;
 pub mod theme;
 pub mod toast;

@@ -7,7 +7,6 @@ use crate::ui::features::chart::settings::{ChartKind, ChartSettings, ScaleMode};
 use crate::ui::features::chart::transform::settings::BoxSize;
 use crate::ui::features::chart::{construction_ui, footprint_ui, overlay, tpo_ui, volume_ui};
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{controls, form, icon, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
@@ -35,7 +34,7 @@ impl ChartSettingsEditor {
                         .items_center()
                         .gap_2()
                         .px_3()
-                        .round_control()
+                        .rounded_md()
                         .border_1()
                         .border_color(if chosen {
                             theme::accent()

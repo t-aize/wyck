@@ -8,7 +8,6 @@ use crate::ui::kit::focus::Keyboard;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::menu::{self as popup, Item};
-use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{icon, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
@@ -280,7 +279,7 @@ impl AlertEditor {
                     .h(px(tokens::height::control()))
                     .px_2()
                     .min_w(px(tokens::field::number()))
-                    .round_control()
+                    .rounded_md()
                     .border_1()
                     .border_color(if open {
                         theme::accent()

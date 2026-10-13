@@ -13,7 +13,6 @@
 mod element;
 mod handler;
 
-use crate::ui::kit::shape::Shape as _;
 use std::ops::Range;
 use std::time::Duration;
 
@@ -351,11 +350,11 @@ impl Render for TextInput {
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_move(cx.listener(Self::on_mouse_move))
             .w_full()
-            .h(px(super::tokens::height::large()))
-            .px_3()
+            .h(px(44.))
+            .px_3p5()
             .items_center()
             .overflow_hidden()
-            .round_card()
+            .rounded_lg()
             .bg(theme::bg())
             .border_1()
             .border_color(if focused {

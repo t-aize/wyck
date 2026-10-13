@@ -1,6 +1,5 @@
 //! Page-level building blocks: the screen shell, cards, tiles, banners, badges and status dots.
 
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{Div, Rgba, SharedString, div, px};
 use gpui_kit::assets::IconName;
@@ -15,7 +14,7 @@ pub fn card() -> Div {
         .w(px(480.))
         .p(px(32.))
         .gap_6()
-        .round_dialog()
+        .rounded_xl()
         .bg(theme::surface())
         .border_1()
         .border_color(theme::border_subtle())
@@ -26,7 +25,7 @@ pub fn icon_tile(name: IconName, tile: f32, glyph: f32, bg: Rgba, fg: Rgba) -> D
     div()
         .size(px(tile))
         .flex_shrink_0()
-        .round_dialog()
+        .rounded_xl()
         .bg(bg)
         .flex()
         .items_center()
@@ -73,7 +72,7 @@ pub fn error_banner(
         .flex_col()
         .gap_1()
         .p(px(14.))
-        .round_card()
+        .rounded_lg()
         .bg(theme::destructive_bg())
         .border_1()
         .border_color(theme::destructive())
@@ -109,7 +108,7 @@ pub fn badge(label: impl Into<SharedString>, color: Rgba, tint: Rgba) -> impl In
     div()
         .px_2()
         .py(px(2.))
-        .round_control()
+        .rounded_sm()
         .bg(tint)
         .text_size(px(crate::ui::kit::tokens::text::caption()))
         .text_color(color)

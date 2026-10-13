@@ -4,7 +4,6 @@
 //! the person typed, and does nothing else. Escape and a click on the veil never close it: during
 //! a step they cancel the step, otherwise the card shakes.
 
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{
     App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyDownEvent, SharedString,
@@ -425,7 +424,7 @@ impl SignInGate {
                 .gap_3()
                 .px_3()
                 .h(px(tokens::height::large()))
-                .round_card()
+                .rounded_lg()
                 .border_1()
                 .border_color(if chosen {
                     theme::accent()

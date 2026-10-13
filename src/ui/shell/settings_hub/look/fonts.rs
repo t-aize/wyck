@@ -4,7 +4,6 @@ use super::{
     AnyElement, Context, FontChosen, FontPicker, IconName, SettingsHub, SharedString, Window,
     appearance, div, form, px, rgb, theme,
 };
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 /// The height of the preview of candle colors.
@@ -90,7 +89,7 @@ impl SettingsHub {
         let mut row = div()
             .h(px(CANDLE_PREVIEW_HEIGHT))
             .px_3()
-            .round_card()
+            .rounded_lg()
             .border_1()
             .border_color(theme::border_subtle())
             .bg(rgb(c.chart_bg))

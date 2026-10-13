@@ -5,7 +5,6 @@ use super::{
     Swatch, Window, controls, div, form, number, px, theme, tokens,
 };
 use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 /// The width of the badge that numbers a level.
@@ -46,7 +45,7 @@ impl DrawingProps {
             .justify_center()
             .w(px(LEVEL_BADGE_WIDTH))
             .h(px(tokens::height::control()))
-            .round_control()
+            .rounded_md()
             .border_1()
             .border_color(theme::border_subtle())
             .cursor_pointer()

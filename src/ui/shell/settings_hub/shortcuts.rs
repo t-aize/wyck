@@ -7,7 +7,6 @@
 //! combination, the page says which and asks whether to take it from there; a combination that is
 //! a fixed key, or one the widgets use everywhere, is refused.
 
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div, px};
 
@@ -78,7 +77,7 @@ fn chip(text: impl Into<SharedString>) -> gpui::Div {
         .items_center()
         .h(px(tokens::height::compact()))
         .px_2()
-        .round_control()
+        .rounded_md()
         .border_1()
         .border_color(theme::border_subtle())
         .text_size(px(tokens::text::body()))

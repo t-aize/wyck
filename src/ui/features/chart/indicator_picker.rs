@@ -6,7 +6,6 @@
 
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::{InputEvent, InputState};
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, SharedString, Subscription, Window, div, px,
@@ -141,7 +140,7 @@ impl Picker {
             .gap_3()
             .px_3()
             .py_2()
-            .round_card()
+            .rounded_lg()
             .border_1()
             .border_color(gpui::rgba(0))
             .hover(|s| {
@@ -156,7 +155,7 @@ impl Picker {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .round_control()
+                    .rounded_md()
                     .bg(if usable {
                         theme::accent_selected()
                     } else {
@@ -240,7 +239,7 @@ impl Picker {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .round_control()
+                    .rounded_md()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme::surface_pressed()))
                     .tooltip(controls::tooltip("Edit the script"))
@@ -261,7 +260,7 @@ impl Picker {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .round_control()
+                    .rounded_md()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme::surface_pressed()))
                     .tooltip(controls::tooltip(if favorite {
@@ -294,7 +293,7 @@ impl Picker {
                     .gap_2()
                     .h(px(tokens::height::control()))
                     .px_3()
-                    .round_control()
+                    .rounded_md()
                     .border_1()
                     .border_color(theme::border_subtle())
                     .text_size(px(tokens::text::body()))

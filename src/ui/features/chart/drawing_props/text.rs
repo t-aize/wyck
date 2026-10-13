@@ -7,7 +7,6 @@ use super::{
 };
 use crate::ui::kit::field;
 use crate::ui::kit::form::Row;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 
 /// The height of the box where a label is typed.
@@ -308,7 +307,7 @@ impl DrawingProps {
             .px_3()
             .flex()
             .items_center()
-            .round_control()
+            .rounded_md()
             .border_1()
             .border_color(theme::border_subtle())
             .bg(theme::chart_bg())

@@ -35,7 +35,6 @@ use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
 use crate::ui::features::chart::{Chart, ChartLine, LineId};
-use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
@@ -435,7 +434,7 @@ impl Render for MultiChart {
                             .size_full()
                             .flex()
                             .flex_col()
-                            .when(several, |el| el.round_card())
+                            .rounded(px(if several { 3.0 } else { 0.0 }))
                             .overflow_hidden()
                             .border_1()
                             .border_color(if active {

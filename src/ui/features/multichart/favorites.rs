@@ -7,7 +7,6 @@
 //! favorites are kept with the rest of the workspace.
 
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
 
@@ -131,7 +130,7 @@ impl MultiChart {
             .border_1()
             .border_color(theme::border_subtle())
             .bg(theme::surface_alpha(0.92))
-            .floats()
+            .shadow_lg()
             .occlude()
             .opacity(IDLE_OPACITY)
             .hover(|s| s.opacity(1.0))

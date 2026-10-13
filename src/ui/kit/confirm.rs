@@ -6,7 +6,6 @@
 //! and of the words, and the confirming button follow it. Its height follows the words, so a short
 //! question does not float in an empty box.
 
-use crate::ui::kit::shape::Shape as _;
 use std::rc::Rc;
 
 use gpui::prelude::*;
@@ -239,7 +238,7 @@ impl Render for Confirm {
                     div()
                         .px_2()
                         .py_0p5()
-                        .round_control()
+                        .rounded_md()
                         .bg(theme::amber_bg())
                         .border_1()
                         .border_color(theme::amber())
@@ -257,7 +256,7 @@ impl Render for Confirm {
         body = body.child(if self.boxed() {
             words
                 .p_3()
-                .round_card()
+                .rounded_lg()
                 .bg(tone.soft())
                 .border_1()
                 .border_color(gpui::Rgba {
@@ -273,7 +272,7 @@ impl Render for Confirm {
                 .flex_col()
                 .gap_1()
                 .p_2()
-                .round_card()
+                .rounded_lg()
                 .border_1()
                 .border_color(theme::border_subtle())
                 .bg(theme::surface());
@@ -304,7 +303,7 @@ impl Render for Confirm {
                     .items_center()
                     .gap_2()
                     .p_2()
-                    .round_control()
+                    .rounded_md()
                     .bg(theme::amber_bg())
                     .border_1()
                     .border_color(theme::amber())

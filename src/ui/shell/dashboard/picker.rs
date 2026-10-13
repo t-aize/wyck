@@ -13,7 +13,6 @@
 mod footer;
 mod rows;
 
-use crate::ui::kit::shape::Shape as _;
 use std::ops::Range;
 use std::time::Duration;
 
@@ -318,8 +317,8 @@ impl Dashboard {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .round_dialog()
-            .floats()
+            .rounded_xl()
+            .shadow_lg()
             .bg(theme::surface())
             .border_1()
             .border_color(theme::border_subtle())

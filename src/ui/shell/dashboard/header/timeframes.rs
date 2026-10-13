@@ -1,7 +1,6 @@
 //! The timeframes of the header: the strip, the favorites, the custom ones and the menu of all.
 
 use super::CUSTOM_TIMEFRAME_WIDTH;
-use crate::ui::kit::shape::Shape as _;
 
 use crate::ui::features::chart;
 use crate::ui::kit::icon::IconName;
@@ -50,7 +49,7 @@ impl Dashboard {
             .gap_1()
             .h(px(tokens::height::control()))
             .px_2()
-            .round_control()
+            .rounded_md()
             .cursor_pointer()
             .text_size(px(tokens::text::body()))
             .text_color(if in_quick {
@@ -186,7 +185,7 @@ impl Dashboard {
                 .items_center()
                 .justify_center()
                 .size(px(tokens::height::compact()))
-                .round_control()
+                .rounded_md()
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::surface_hover()))
                 .tooltip(controls::tooltip(tip))
@@ -281,7 +280,7 @@ impl Dashboard {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .round_control()
+                    .rounded_md()
                     .cursor_pointer()
                     .text_size(px(tokens::text::body()))
                     .text_color(if chosen {
@@ -364,7 +363,7 @@ pub(super) fn timeframe_chip(
         .px_2()
         .flex()
         .items_center()
-        .round_control()
+        .rounded_md()
         .cursor_pointer()
         .text_size(px(tokens::text::body()))
         .text_color(if active {

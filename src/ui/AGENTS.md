@@ -5,9 +5,7 @@ gpui rendering.
 - `kit` is the design system and the only place that names gpui-kit components. A screen builds
   buttons, fields, menus and dialogs with `ui::kit` constructors, sizes with `tokens` and colors
   with `theme`. No `Button::new`, no literal `px(..)` in a screen (`tests/design_system.rs`
-  counts them and the count only goes down). Corners and shadows come from `kit::shape::Shape`
-  (`round_control`, `round_card`, `round_dialog`, `floats`): the interface is square and flat, and
-  a sized `rounded_*` or `shadow_*` class fails the same test.
+  counts them and the count only goes down).
 - `features/<name>` imports `domain`, `app`, `kit` and a lower feature (chart < multichart < the
   others). Features do not import `infra`.
 - `shell` assembles features: the window root, the dashboard, the sign-in modal, the settings.

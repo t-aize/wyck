@@ -1,7 +1,6 @@
 //! The pieces a menu or a popover is made of, for a list placed by hand: the card, the panel,
 //! a row, a heading, a separator and the layer behind a popover.
 
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Div, ElementId, MouseButton, SharedString, Window, anchored, deferred, div, px,
@@ -45,11 +44,11 @@ pub fn card() -> Div {
         .flex()
         .flex_col()
         .gap_0p5()
-        .round_card()
+        .rounded_lg()
         .bg(theme::surface())
         .border_1()
         .border_color(theme::border_subtle())
-        .floats()
+        .shadow_lg()
         .occlude()
 }
 
@@ -62,11 +61,11 @@ pub fn panel(width: f32) -> Div {
         .flex()
         .flex_col()
         .gap_3()
-        .round_card()
+        .rounded_lg()
         .bg(theme::surface())
         .border_1()
         .border_color(theme::border_subtle())
-        .floats()
+        .shadow_lg()
         .occlude()
 }
 
@@ -80,7 +79,7 @@ pub(super) fn row_base() -> Div {
         .min_h(px(crate::ui::kit::tokens::height::control()))
         .py_1()
         .px_3()
-        .round_control()
+        .rounded_md()
         .text_size(px(text::body()))
 }
 

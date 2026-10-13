@@ -1,7 +1,6 @@
 //! The tabs, the footer and the body of the properties panel.
 
 use super::{DrawingProps, Tab};
-use crate::ui::kit::shape::Shape as _;
 
 use crate::ui::features::chart::object_tree::tool_icon;
 use crate::ui::kit::icon::IconName;
@@ -82,7 +81,7 @@ impl Render for DrawingProps {
                 .flex()
                 .items_center()
                 .justify_center()
-                .round_dialog()
+                .rounded_xl()
                 .border_1()
                 .border_color(theme::border_subtle())
                 .bg(theme::bg())

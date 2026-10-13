@@ -6,7 +6,6 @@ use crate::ui::features::chart::scene::{Geometry, axis_w, price};
 use crate::ui::features::chart::study::spec::{Placement, PlotKind, ValueFormat};
 use crate::ui::features::chart::{Chart, study_settings};
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::shape::Shape as _;
 use crate::ui::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
@@ -101,7 +100,7 @@ impl Chart {
                 .items_center()
                 .justify_center()
                 .size(px(crate::ui::kit::tokens::height::tiny()))
-                .round_control()
+                .rounded_sm()
                 .cursor_pointer()
                 .hover(move |s| s.bg(hover))
                 // The press is the button's, not the chart's under it.
@@ -117,7 +116,7 @@ impl Chart {
             .gap_2()
             .h(px(tokens::height::tiny()))
             .pl_1()
-            .round_control()
+            .rounded_sm()
             .text_size(px(tokens::text::body()))
             .hover(move |s| s.bg(hover))
             .child(

@@ -5,7 +5,6 @@
 
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Selectable;
-use crate::ui::kit::shape::Shape as _;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, Window, div, px};
 
@@ -126,7 +125,7 @@ impl Dashboard {
                 .bg(theme::bg())
                 .border_l_1()
                 .border_color(theme::border_subtle())
-                .floats()
+                .shadow_lg()
                 .child(
                     div()
                         .id("editor-resize")
