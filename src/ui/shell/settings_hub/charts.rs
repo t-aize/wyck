@@ -64,8 +64,8 @@ impl SettingsHub {
         let reset = |id: &'static str, set: bool, clear: fn(&mut appearance::Appearance)| {
             crate::ui::kit::button::dense(id)
                 .icon(IconName::RotateCcw)
-                .label("Theme")
-                .tooltip("Go back to the color of the theme")
+                .label("Default")
+                .tooltip("Go back to the default color")
                 .disabled(!set)
                 .on_click(move |_, _window, cx| appearance::update(cx, clear))
         };

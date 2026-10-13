@@ -20,7 +20,7 @@ const LISTED_COPIES: usize = 8;
 fn describe(contents: &Contents) -> Vec<String> {
     let mut lines = Vec::new();
     if contents.has_global("appearance") {
-        lines.push("Appearance: themes, colors, font".to_owned());
+        lines.push("Appearance: font, size, colors of the charts".to_owned());
     }
     if contents.has_global("preferences") {
         lines.push("Layout, charts and their indicators, favorites, ticket settings".to_owned());

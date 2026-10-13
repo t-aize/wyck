@@ -5,13 +5,12 @@
 //! app behind the panel shows the result live.
 
 use crate::ui::kit::icon::IconName;
-use crate::ui::kit::input::{InputEvent, InputState};
+use crate::ui::kit::input::InputState;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px, rgb};
 
 use crate::app::appearance;
-use crate::app::appearance::presets::CANDLE_SETS;
-use crate::app::appearance::{ColorField, Mode, contrast};
+use crate::app::appearance::candles::CANDLE_SETS;
 use crate::app::prefs::indicators as prefs;
 use crate::app::scripts as indicators;
 use crate::app::storage::backup;
@@ -27,9 +26,7 @@ use crate::ui::kit::{
     font_picker::{FontChosen, FontPicker},
     form,
     form::Head,
-    icon, modal, number, theme,
-    theme::Colors,
-    toast, tokens,
+    icon, modal, number, theme, toast, tokens,
 };
 
 mod about;
@@ -75,7 +72,7 @@ pub fn open(
     window: &mut Window,
     cx: &mut App,
 ) {
-    open_at(workspace, multi, Page::Appearance, window, cx);
+    open_at(workspace, multi, Page::Interface, window, cx);
 }
 
 /// Opens the settings on a page.
@@ -100,7 +97,7 @@ pub fn open_at(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
-    Appearance,
+    Interface,
     Charts,
     Indicators,
     Behaviour,
@@ -114,7 +111,7 @@ pub enum Page {
 
 impl Page {
     const ALL: [Self; 10] = [
-        Self::Appearance,
+        Self::Interface,
         Self::Charts,
         Self::Indicators,
         Self::Behaviour,
@@ -128,7 +125,7 @@ impl Page {
 
     fn tab(self) -> form::Tab {
         let (label, icon) = match self {
-            Self::Appearance => ("Appearance", IconName::Palette),
+            Self::Interface => ("Interface", IconName::Settings2),
             Self::Charts => ("Charts", IconName::ChartCandlestick),
             Self::Indicators => ("Indicators", IconName::CodeXml),
             Self::Behaviour => ("Behavior", IconName::SlidersHorizontal),
@@ -146,12 +143,10 @@ impl Page {
 /// Which color panel is open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Pick {
-    Accent,
     CandleUp,
     CandleDown,
     ChartLine,
     ChartBackground,
-    Theme(ColorField),
 }
 
 #[derive(Clone, Copy)]
@@ -160,12 +155,6 @@ enum UsageLimitKind {
     Alerts,
     Drawings,
 }
-
-/// The colors offered for the accent.
-const ACCENTS: [u32; 10] = [
-    0x7c86ff, 0x3b82f6, 0x06b6d4, 0x10b981, 0x84cc16, 0xeab308, 0xf97316, 0xef4444, 0xec4899,
-    0xa855f7,
-];
 
 /// What a backup step last said.
 struct Notice {
@@ -178,10 +167,6 @@ struct SettingsHub {
     multi: Entity<MultiChart>,
     page: Page,
     pick: Option<Pick>,
-    /// The theme of the user's whose colors are being edited.
-    editing: Option<String>,
-    new_theme: Entity<InputState>,
-    rename: Entity<InputState>,
     study_limit: Entity<InputState>,
     alert_limit: Entity<InputState>,
     drawing_limit: Entity<InputState>,
@@ -223,9 +208,6 @@ impl SettingsHub {
         cx: &mut Context<Self>,
     ) -> Self {
         let limits = workspace.read(cx).preferences().limits;
-        let new_theme =
-            cx.new(|cx| InputState::new(window, cx).placeholder("Name of the new theme"));
-        let rename = cx.new(|cx| InputState::new(window, cx).placeholder("Name"));
         let study_limit = cx.new(|cx| {
             number::state(
                 number::Kind::Count,
@@ -255,16 +237,6 @@ impl SettingsHub {
             cx.observe(&workspace, |_this, _workspace, cx| cx.notify()),
             indicators::observe(cx, |_this: &mut Self, cx| cx.notify()),
             updates::observe(cx, |_this: &mut Self, cx| cx.notify()),
-            cx.subscribe(&rename, |this, state, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::PressEnter { .. } | InputEvent::Blur)
-                    && let Some(id) = this.editing.clone()
-                {
-                    let name = state.read(cx).value().to_string();
-                    appearance::update(cx, |a| {
-                        a.rename_theme(&id, &name);
-                    });
-                }
-            }),
         ];
         subscriptions.push(number::watch(&study_limit, cx, |this, value, cx| {
             this.set_usage_limit(UsageLimitKind::Indicators, value, cx);
@@ -297,9 +269,6 @@ impl SettingsHub {
             multi,
             page,
             pick: None,
-            editing: None,
-            new_theme,
-            rename,
             study_limit,
             alert_limit,
             drawing_limit,
@@ -392,7 +361,7 @@ impl Render for SettingsHub {
         let active = Page::ALL.iter().position(|p| *p == self.page).unwrap_or(0);
         let this = cx.entity();
         let body = match self.page {
-            Page::Appearance => self.appearance_page(cx),
+            Page::Interface => self.interface_page(cx),
             Page::Charts => self.charts_page(cx),
             Page::Indicators => self.indicators_page(cx),
             Page::Behaviour => self.behaviour_page(cx),

@@ -57,7 +57,7 @@ impl SettingsHub {
         let folders_group = form::group(IconName::FolderOpen, "Where your data is kept", rows);
 
         let mut cloud_rows: Vec<AnyElement> = vec![form::block(form::note(format!(
-            "Keep your settings, themes, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
+            "Keep your settings, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
             crate::app::storage::locations::cloud_folder_name(overview.mode)
         )))];
         let mut buttons = div().flex().flex_row().flex_wrap().gap_2();

@@ -84,7 +84,7 @@ Settings > Folders shows where each kind of data lives and lets you move it, one
 
 | Kind | What is in it |
 |---|---|
-| Settings and themes | look, themes, colors, layout, shortcuts, favorites, ticket and indicator settings |
+| Settings | look, colors of the charts, layout, shortcuts, favorites, ticket and indicator settings |
 | Account data | drawings and their saved looks, watchlists and alerts, one folder per account number |
 | Indicator scripts | the `.rhai` files you write |
 | Backups | the copies kept for restoring, automatic ones included |
@@ -146,9 +146,8 @@ set.
   Reports from people who use them are the most useful thing you can send.
 - **Size.** The interface scale in Settings (80 to 160 percent) also scales the text drawn on the
   charts.
-- **Colors.** Every theme that comes with the app meets WCAG 2.2 contrast (4.5:1 for text, 3:1
-  for the accent and the chart). The editor of your own themes shows what falls short and can fix
-  it; it never refuses a color.
+- **Colors.** The interface has one dark palette. Its text meets WCAG 2.2 contrast (4.5:1 for
+  text, 3:1 for the accent and the chart).
 
 ## Requirements
 

@@ -4,7 +4,7 @@
 //! keep some of it elsewhere, such as a folder that OneDrive, Dropbox or another service syncs
 //! between computers, or a data disk. Five kinds can move, each on its own ([`Kind`]):
 //!
-//! * the settings (themes, layout, shortcuts, favorites, everything the look and the charts keep),
+//! * the settings (layout, shortcuts, favorites, everything the look and the charts keep),
 //! * the data of the accounts (drawings, alerts, watchlists),
 //! * the indicator scripts,
 //! * the backups,
@@ -70,7 +70,7 @@ const PLAN: Plan = Plan {
 /// A kind of data that can be kept in a folder of the user's choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
-    /// Themes, layout, shortcuts and every document shared by the accounts.
+    /// Layout, shortcuts and every document shared by the accounts.
     Settings,
     /// Drawings, alerts and watchlists, one folder per account.
     Accounts,
@@ -114,7 +114,7 @@ impl Kind {
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Settings => "Settings and themes",
+            Self::Settings => "Settings",
             Self::Accounts => "Account data",
             Self::Indicators => "Indicator scripts",
             Self::Backups => "Backups",
@@ -127,7 +127,7 @@ impl Kind {
     pub const fn help(self) -> &'static str {
         match self {
             Self::Settings => {
-                "Look, themes, colors, layout, shortcuts, favorites, ticket and indicator settings"
+                "Look, colors, layout, shortcuts, favorites, ticket and indicator settings"
             }
             Self::Accounts => {
                 "Drawings and their saved looks, watchlists and alerts, one folder per account number"

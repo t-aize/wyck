@@ -35,7 +35,7 @@ pub struct Colors {
 }
 
 impl Colors {
-    /// The dark palette the app started with.
+    /// The one palette of the interface: dark.
     pub const WYCK_DARK: Self = Self {
         bg: 0x0a0a0a,
         surface: 0x171717,
@@ -43,9 +43,9 @@ impl Colors {
         pressed: 0x282828,
         fg: 0xfafafa,
         muted: 0xa1a1a1,
-        accent: 0x7c86ff,
-        accent_fg: 0x0a0a0a,
-        selected: 0x615fff73,
+        accent: 0x3b82f6,
+        accent_fg: 0xffffff,
+        selected: 0x3b82f666,
         danger: 0xff6467,
         amber: 0xffb900,
         emerald: 0x00d492,
@@ -58,11 +58,6 @@ impl Colors {
 }
 
 impl Colors {
-    /// Whether this is a light palette: the background is lighter than the text.
-    pub fn is_light(&self) -> bool {
-        luminance(self.bg) > luminance(self.fg)
-    }
-
     /// The text colors for what is drawn straight on the chart: the text, the secondary text and
     /// the background of the crosshair's tags. The chart can have a background of its own, so a
     /// dark theme can sit on a white chart: the theme's text is kept while it reads on that
