@@ -14,10 +14,11 @@ use gpui::{
 use crate::domain::drawings::look::Face;
 
 use super::Chart;
+use super::path_pieces;
 use super::scene::{self, Align, Cmd, DrawingView, Frame, P};
 
-/// Most points in one stroked path: a GPU path may only hold so many vertices.
-const PATH_CHUNK: usize = 1_500;
+/// Most points in one path: a GPU path may only hold so many vertices (see [`super::path_pieces`]).
+const PATH_BATCH: usize = 3_000;
 
 impl Chart {
     /// Builds the frame for the canvas at `bounds`.
@@ -204,15 +205,21 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 dash,
             } => stroke(window, &points, width, color, dash),
             Cmd::Fill { points, color } => {
-                if points.len() < 3 {
+                // Only what shows: a polygon far larger than the screen is cut to it, so it
+                // cannot spoil the tessellation.
+                let polygon: Vec<gpui::Point<Pixels>> =
+                    path_pieces::clip_polygon(&points, visible(window, 2.0))
+                        .into_iter()
+                        .map(|(x, y)| point(px(x), px(y)))
+                        .collect();
+                if polygon.len() < 3 {
                     continue;
                 }
-                let polygon: Vec<gpui::Point<Pixels>> =
-                    points.iter().map(|(x, y)| point(px(*x), px(*y))).collect();
                 let mut builder = PathBuilder::fill();
                 builder.add_polygon(&polygon, true);
-                if let Ok(path) = builder.build() {
-                    window.paint_path(path, super::palette::gpui_hsla(color));
+                match builder.build() {
+                    Ok(path) => window.paint_path(path, super::palette::gpui_hsla(color)),
+                    Err(error) => note_refused(&error, polygon.len()),
                 }
             }
             Cmd::Clip { x, y, w, h, inner } => {
@@ -327,8 +334,32 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
     }
 }
 
-/// Strokes a polyline in pieces a GPU path can hold, each sharing its end point with the next so
-/// the line has no break.
+/// The part of the window the next shapes show in, grown by `grow` so the width of a line at the
+/// edge is not cut.
+fn visible(window: &Window, grow: f32) -> path_pieces::Rect {
+    let bounds = window.content_mask().bounds;
+    let (left, top) = (f32::from(bounds.origin.x), f32::from(bounds.origin.y));
+    path_pieces::Rect {
+        left,
+        top,
+        right: left + f32::from(bounds.size.width),
+        bottom: top + f32::from(bounds.size.height),
+    }
+    .grown(grow)
+}
+
+/// Says once that a shape was refused by the GPU path builder. It used to vanish without a word.
+fn note_refused(error: &anyhow::Error, points: usize) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static SAID: AtomicBool = AtomicBool::new(false);
+    if !SAID.swap(true, Ordering::Relaxed) {
+        tracing::warn!(%error, points, "a shape of the chart was refused by the path builder and is not drawn");
+    }
+}
+
+/// Strokes a polyline: the part of it that shows, in paths a GPU path can hold. A dashed line is
+/// drawn dash by dash, so a line longer than the screen by a million pixels costs what the screen
+/// shows of it (see [`super::path_pieces`]).
 fn stroke(
     window: &mut Window,
     points: &[P],
@@ -336,21 +367,28 @@ fn stroke(
     color: scene::color::Hsla,
     dash: Option<[f32; 2]>,
 ) {
-    let mut start = 0;
-    while start + 1 < points.len() {
-        let end = (start + PATH_CHUNK).min(points.len());
+    let rect = visible(window, width + 2.0);
+    let pieces = match dash {
+        Some([on, off]) => path_pieces::dashes(points, on, off, rect),
+        None => path_pieces::solid(points, rect),
+    };
+    for group in path_pieces::batches(pieces, PATH_BATCH) {
         let mut builder = PathBuilder::stroke(px(width));
-        if let Some([on, off]) = dash {
-            builder = builder.dash_array(&[px(on), px(off)]);
+        let mut count = 0;
+        for piece in &group {
+            let Some((first, rest)) = piece.split_first() else {
+                continue;
+            };
+            builder.move_to(point(px(first.0), px(first.1)));
+            for (x, y) in rest {
+                builder.line_to(point(px(*x), px(*y)));
+            }
+            count += piece.len();
         }
-        builder.move_to(point(px(points[start].0), px(points[start].1)));
-        for (x, y) in &points[start + 1..end] {
-            builder.line_to(point(px(*x), px(*y)));
+        match builder.build() {
+            Ok(path) => window.paint_path(path, super::palette::gpui_hsla(color)),
+            Err(error) => note_refused(&error, count),
         }
-        if let Ok(path) = builder.build() {
-            window.paint_path(path, super::palette::gpui_hsla(color));
-        }
-        start = end - 1;
     }
 }
 

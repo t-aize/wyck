@@ -1410,4 +1410,80 @@ mod tests {
             "no O drawn: the columns fell back to bars"
         );
     }
+
+    /// Whether every number of the commands is a number: a point that is not would cut a line out of
+    /// a frame, or spoil the whole path.
+    fn all_finite(cmds: &[Cmd]) -> bool {
+        cmds.iter().all(|cmd| match cmd {
+            Cmd::Rect { x, y, w, h, .. } => [x, y, w, h].iter().all(|v| v.is_finite()),
+            Cmd::Stroke { points, .. } | Cmd::Fill { points, .. } => {
+                points.iter().all(|p| p.0.is_finite() && p.1.is_finite())
+            }
+            Cmd::Text { x, y, .. } | Cmd::Tag { x, y, .. } => x.is_finite() && y.is_finite(),
+            Cmd::FittedText { x, y, w, h, .. } => [x, y, w, h].iter().all(|v| v.is_finite()),
+            Cmd::Clip { x, y, w, h, inner } => {
+                [x, y, w, h].iter().all(|v| v.is_finite()) && all_finite(inner)
+            }
+        })
+    }
+
+    /// A drawing of `tool` over the bars of the fixture, spread so that its points are not on one
+    /// line.
+    fn sample_drawing(tool: crate::domain::drawings::model::tool::Tool) -> Drawing {
+        use crate::domain::drawings::model::Point;
+        let points = (0..tool.anchors().max(2))
+            .map(|i| Point {
+                t: 1_767_571_200_000 + (210 + i as i64 * 9) * 60_000,
+                p: 100_000.0 + 60.0 + ((i as f64 * 37.0) % 90.0),
+            })
+            .collect();
+        Drawing::new(1, tool, points)
+    }
+
+    #[test]
+    fn every_drawing_tool_draws_finite_shapes_at_any_zoom_and_position() {
+        use crate::domain::drawings::model::tool::Tool;
+        let mut shown_at_start = Vec::new();
+        for tool in Tool::ALL {
+            let drawing = sample_drawing(tool);
+            let list = [drawing];
+            let visible = |_: &Drawing| true;
+            for (bar_px, pan) in [
+                (8.0, 0.0),
+                (0.4, 0.0),
+                (2.0, 3_000.0),
+                (60.0, -2_000.0),
+                (240.0, 0.0),
+                (900.0, 40_000.0),
+            ] {
+                let mut fixture = Fixture::new(
+                    Series::Bars(bars(300)),
+                    kind(ChartKind::Candles),
+                    View::new(bar_px),
+                );
+                fixture.view.pan(pan, 300, 924.0);
+                let bare = build(&fixture.frame());
+                let mut frame = fixture.frame();
+                frame.drawings = Some(DrawingView {
+                    list: &list,
+                    creating: None,
+                    selected: None,
+                    also: &[],
+                    visible: &visible,
+                });
+                let cmds = build(&frame);
+                assert!(
+                    all_finite(&cmds),
+                    "{tool:?} at {bar_px} px a bar, panned {pan}: a number is not one"
+                );
+                if bar_px == 8.0 && pan == 0.0 && count(&cmds) <= count(&bare) {
+                    shown_at_start.push(format!("{tool:?}"));
+                }
+            }
+        }
+        assert!(
+            shown_at_start.is_empty(),
+            "tools that draw nothing over the bars of the chart: {shown_at_start:?}"
+        );
+    }
 }

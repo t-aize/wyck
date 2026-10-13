@@ -97,7 +97,7 @@ pub fn drop_in(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
 pub fn shake(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
     el.relative().with_animation(
         id,
-        Animation::new(Duration::from_millis(420)),
+        Animation::new(dur(Duration::from_millis(420))),
         |el, delta| {
             let amplitude = (1.0 - delta) * 7.0;
             el.left(px((delta * PI * 6.0).sin() * amplitude))
@@ -117,13 +117,18 @@ pub fn pop(el: Div, id: impl Into<ElementId>, size: f32) -> impl IntoElement {
     )
 }
 
-/// A gentle up-and-down float, for the hero icon on the welcome screen.
+/// A gentle up-and-down float, for the hero icon on the welcome screen. With the animations off it
+/// stays where it rests: a repeating animation also keeps the window repainting for as long as
+/// it is on screen.
 pub fn float(el: Div, id: impl Into<ElementId>) -> impl IntoElement {
-    el.relative().with_animation(
-        id,
-        Animation::new(Duration::from_millis(3600)).repeat(),
-        |el, delta| el.top(px((delta * 2.0 * PI).sin() * 4.0)),
-    )
+    let animation = if enabled() {
+        Animation::new(Duration::from_millis(3600)).repeat()
+    } else {
+        Animation::new(Duration::from_millis(1))
+    };
+    el.relative().with_animation(id, animation, |el, delta| {
+        el.top(px((delta * 2.0 * PI).sin() * 4.0))
+    })
 }
 
 /// Spins an icon forever, for a "working on it" indicator.

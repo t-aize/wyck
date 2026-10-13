@@ -71,6 +71,7 @@ pub mod object_tree;
 mod overlay;
 mod paint;
 pub mod palette;
+mod path_pieces;
 pub mod raster;
 mod settings_rows;
 mod study_settings;
@@ -234,6 +235,9 @@ pub struct Chart {
     series: Series,
     atr_history: HashMap<(i64, Timeframe), (Vec<crate::domain::market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
+    /// The stop an ATR following position drawing last got, by drawing, for the moments the ATR
+    /// is not at hand (see `resolved_position`).
+    atr_stops: std::cell::RefCell<HashMap<u64, f64>>,
     /// What is drawn from them.
     display: Display,
     /// The indicators written as scripts, run off the interface thread.
@@ -336,6 +340,7 @@ impl Chart {
             series: empty_series(timeframe),
             atr_history: HashMap::new(),
             atr_loading: HashSet::new(),
+            atr_stops: std::cell::RefCell::default(),
             display: Display::default(),
             custom: custom_runs::Custom::default(),
             symbol_ids: std::sync::Arc::default(),
