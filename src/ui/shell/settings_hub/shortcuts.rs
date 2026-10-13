@@ -44,7 +44,6 @@ fn group_icon(group: Group) -> IconName {
         Group::Text => IconName::Type,
         Group::Dialogs => IconName::MessageSquare,
         Group::Picker => IconName::Search,
-        Group::Panel => IconName::LayoutList,
     }
 }
 

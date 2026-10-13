@@ -1,24 +1,21 @@
 //! What the tables of the account panel show: every row of every tab worked out from the account
-//! and the alerts, as cells with a text, a tone and a value to sort by, then filtered, sorted and
-//! totalled as the user asked.
+//! and the alerts, as cells with a text and a tone, then totalled.
 //!
-//! Rows are built with a cell for every column the table has, so showing or moving a column never
-//! asks the account again.
+//! Each tab has fixed columns (see [`columns`]), and every row has one cell for each of them, in
+//! the same order.
 
 pub mod alerts;
 pub mod exposure;
 pub mod orders;
 pub mod positions;
 
-use super::stats::{self, HistoryStats};
 use crate::app::account::Account;
 use crate::app::alerts::Alerts;
-use crate::app::prefs::columns::{Sort, TablePrefs};
-use crate::app::prefs::panel::{PanelPrefs, Tab};
+use crate::app::prefs::panel::Tab;
 use crate::domain::chart::zone::Zone;
 use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, format_money};
-use std::cmp::Ordering;
+use crate::domain::trading::math::{Contract, format_amount};
+use crate::ui::kit::tokens;
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,28 +40,18 @@ impl Tone {
     }
 }
 
-/// What a cell is sorted by.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Key {
-    None,
-    Num(f64),
-    Text(String),
-}
-
 /// How the sum of a column is written in the totals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
     None,
     Lots,
     Money,
-    Percent,
 }
 
 #[derive(Debug, Clone)]
 pub struct Cell {
     pub text: String,
     pub tone: Tone,
-    pub key: Key,
     /// What the column adds up, when it does.
     pub sum: Option<f64>,
     pub unit: Unit,
@@ -72,46 +59,21 @@ pub struct Cell {
 
 impl Cell {
     fn text(text: impl Into<String>) -> Self {
-        let text = text.into();
         Self {
-            key: Key::Text(text.to_lowercase()),
-            text,
+            text: text.into(),
             tone: Tone::Plain,
-            sum: None,
-            unit: Unit::None,
-        }
-    }
-
-    fn empty() -> Self {
-        Self {
-            text: String::new(),
-            tone: Tone::Muted,
-            key: Key::None,
             sum: None,
             unit: Unit::None,
         }
     }
 
     fn dash() -> Self {
-        Self {
-            text: "-".to_owned(),
-            ..Self::empty()
-        }
-    }
-
-    fn num(text: impl Into<String>, value: f64) -> Self {
-        Self {
-            text: text.into(),
-            tone: Tone::Plain,
-            key: Key::Num(value),
-            sum: None,
-            unit: Unit::None,
-        }
+        Self::text("-").tone(Tone::Muted)
     }
 
     /// A number that may be missing.
     fn opt(value: Option<f64>, text: impl FnOnce(f64) -> String) -> Self {
-        value.map_or_else(Self::dash, |v| Self::num(text(v), v))
+        value.map_or_else(Self::dash, |v| Self::text(text(v)))
     }
 
     fn tone(mut self, tone: Tone) -> Self {
@@ -130,12 +92,6 @@ impl Cell {
 #[derive(Debug, Clone)]
 pub struct PositionRow {
     pub id: i64,
-    /// Half of the volume, stepped, when that is a volume the broker takes.
-    pub half: Option<i64>,
-    pub entry: Option<f64>,
-    pub stop_loss: Option<f64>,
-    pub take_profit: Option<f64>,
-    pub trailing: bool,
     pub busy: bool,
     /// `Buy 0.1 EURUSD`, for what a confirmation says.
     pub describe: String,
@@ -149,16 +105,11 @@ pub enum RowKind {
         busy: bool,
         describe: String,
     },
-    Deal,
     Alert {
         id: u64,
-        active: bool,
     },
-    Exposure,
-    /// A time an alert fired; `alert` is the alert, which may be gone.
-    Firing {
-        alert: u64,
-    },
+    /// A closed trade, a symbol's exposure or a time an alert fired: nothing to do to the row.
+    Plain,
 }
 
 #[derive(Debug, Clone)]
@@ -166,190 +117,169 @@ pub struct Row {
     /// A key that stays the same for the same row, for element ids.
     pub key: String,
     pub symbol: Option<i64>,
-    /// What the row gains or loses, for its tint.
-    pub profit: Option<f64>,
     pub kind: RowKind,
-    /// One cell for each column the table can have, in the order of the column type.
+    /// One cell for each column of the table.
     pub cells: Vec<Cell>,
 }
 
-/// A column that shows.
-#[derive(Debug, Clone)]
-pub struct ColView {
-    /// Its place among all the columns of the table.
-    pub index: usize,
-    /// Its place among the columns the user arranged.
-    pub slot: usize,
+/// A column of a table.
+#[derive(Debug, Clone, Copy)]
+pub struct Column {
     pub label: &'static str,
+    /// How wide it is at least, in pixels, at the scale of the interface now.
     pub width: f32,
+    /// Whether its text sits at the right, as numbers do.
     pub right: bool,
-    /// `Some(descending)` when the table is sorted by it.
-    pub sorted: Option<bool>,
 }
 
 /// A table ready to draw.
 #[derive(Debug, Clone)]
 pub struct Table {
     pub tab: Tab,
-    pub columns: Vec<ColView>,
+    pub columns: Vec<Column>,
     pub rows: Vec<Row>,
-    /// One text for each column that shows; empty where a column adds up to nothing.
-    pub totals: Vec<String>,
-    /// How many rows there are before the filters.
-    pub unfiltered: usize,
-    pub stats: Option<HistoryStats>,
+    /// One total for each column; its text is empty where a column adds up to nothing.
+    pub totals: Vec<(String, Tone)>,
 }
 
 /// What the tables are built from.
 pub struct Ctx<'a> {
     pub account: &'a Account,
     pub alerts: &'a Alerts,
-    pub prefs: &'a PanelPrefs,
-    /// The symbol of the active chart.
-    pub symbol: Option<i64>,
-    pub query: &'a str,
 }
 
 impl Ctx<'_> {
-    /// Whether a row passes the filters and the search.
-    fn keeps(&self, symbol: i64, buy: Option<bool>, texts: &[&str]) -> bool {
-        if self.prefs.only_symbol && self.symbol.is_some_and(|s| s != symbol) {
-            return false;
-        }
-        if let Some(buy) = buy
-            && !self.prefs.side.keeps(buy)
-        {
-            return false;
-        }
-        stats::matches(self.query, texts)
-    }
-
     fn currency(&self) -> &str {
         &self.account.book.currency
     }
 
     fn time(&self, ms: i64) -> String {
-        stats::format_time(Zone::Local.shift(ms), self.prefs.time_style)
+        super::stats::format_time(Zone::Local.shift(ms))
     }
 }
 
-fn side_cell(buy: bool, colored: bool) -> Cell {
-    let cell = Cell::text(if buy { "Buy" } else { "Sell" });
-    if colored {
-        cell.tone(if buy { Tone::Up } else { Tone::Down })
-    } else {
-        cell
-    }
+/// A money amount of a table: the symbol of the currency, a `+` on a gain.
+fn money_text(amount: f64, currency: &str) -> String {
+    format_amount(amount, currency, true)
+}
+
+fn side_cell(buy: bool) -> Cell {
+    Cell::text(if buy { "Buy" } else { "Sell" }).tone(if buy { Tone::Up } else { Tone::Down })
 }
 
 fn price_cell(contract: &Contract, price: Option<f64>) -> Cell {
     Cell::opt(price, |p| contract.format_price(p))
 }
 
-fn pips_cell(contract: &Contract, distance: Option<f64>) -> Cell {
-    Cell::opt(distance, |d| format!("{:+.1}", contract.pips(d)))
-}
-
-/// The value a sort key compares: numbers before text, missing last.
-fn compare(a: &Key, b: &Key) -> Ordering {
-    match (a, b) {
-        (Key::Num(x), Key::Num(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
-        (Key::Text(x), Key::Text(y)) => x.cmp(y),
-        (Key::None, Key::None) => Ordering::Equal,
-        (Key::None, _) => Ordering::Greater,
-        (_, Key::None) => Ordering::Less,
-        (Key::Num(_), Key::Text(_)) => Ordering::Less,
-        (Key::Text(_), Key::Num(_)) => Ordering::Greater,
+/// The columns of a tab, as wide as the sizes every screen shares.
+fn columns(tab: Tab) -> Vec<Column> {
+    let (short, number, wide, text) = (
+        tokens::field::narrow(),
+        tokens::field::number(),
+        tokens::field::wide(),
+        tokens::field::text(),
+    );
+    let col = |label, width, right| Column {
+        label,
+        width,
+        right,
+    };
+    match tab {
+        Tab::Positions => vec![
+            col("Symbol", number, false),
+            col("Side", short, false),
+            col("Volume", short, true),
+            col("Entry", number, true),
+            col("Price", number, true),
+            col("SL", number, true),
+            col("TP", number, true),
+            col("Profit", wide, true),
+        ],
+        Tab::Orders => vec![
+            col("Symbol", number, false),
+            col("Side", short, false),
+            col("Type", number, false),
+            col("Volume", short, true),
+            col("Price", number, true),
+            col("SL", number, true),
+            col("TP", number, true),
+        ],
+        Tab::History => vec![
+            col("Closed", wide, false),
+            col("Symbol", number, false),
+            col("Side", short, false),
+            col("Volume", short, true),
+            col("Entry", number, true),
+            col("Exit", number, true),
+            col("Profit", wide, true),
+        ],
+        Tab::Exposure => vec![
+            col("Symbol", number, false),
+            col("Net", short, true),
+            col("Long", short, true),
+            col("Short", short, true),
+            col("Positions", short, true),
+            col("Average entry", number, true),
+            col("Profit", wide, true),
+        ],
+        Tab::Alerts => vec![
+            col("Symbol", number, false),
+            col("Condition", wide, false),
+            col("Level", number, true),
+            col("State", wide, false),
+            col("Message", text, false),
+        ],
+        Tab::AlertLog => vec![
+            col("Time", wide, false),
+            col("Symbol", number, false),
+            col("Watched", number, false),
+            col("Condition", wide, false),
+            col("Value", number, true),
+            col("Message", text, false),
+        ],
     }
-}
-
-/// Puts the rows in the order of a sort. A missing value stays last either way.
-fn sort_rows(rows: &mut [Row], index: usize, descending: bool) {
-    rows.sort_by(|a, b| {
-        let (x, y) = (&a.cells[index].key, &b.cells[index].key);
-        match (x, y) {
-            (Key::None, _) | (_, Key::None) => compare(x, y),
-            _ if descending => compare(y, x),
-            _ => compare(x, y),
-        }
-    });
-}
-
-/// The columns that show, with which one the table is sorted by.
-fn views<C: crate::app::prefs::columns::Column>(prefs: &TablePrefs<C>) -> Vec<ColView> {
-    prefs
-        .columns
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| c.shown)
-        .map(|(slot, c)| ColView {
-            index: C::ALL.iter().position(|x| *x == c.item).unwrap_or(0),
-            slot,
-            label: c.item.label(),
-            width: prefs.width_at(slot),
-            right: c.item.right(),
-            sorted: prefs
-                .sort
-                .filter(|s| s.column == c.item)
-                .map(|s| s.descending),
-        })
-        .collect()
 }
 
 /// What a column adds up to, written for its unit.
-fn total_text(sum: f64, unit: Unit, currency: &str, balance: f64) -> String {
+fn total_text(sum: f64, unit: Unit, currency: &str) -> String {
     match unit {
         Unit::None => String::new(),
         Unit::Lots => math::format_lots(sum),
-        Unit::Money => format_money(sum, currency),
-        Unit::Percent if balance > 0.0 => format!("{sum:+.2}%"),
-        Unit::Percent => String::new(),
+        Unit::Money => money_text(sum, currency),
     }
 }
 
-/// Sorts, totals and wraps the rows of a table.
-fn finish<C: crate::app::prefs::columns::Column>(
-    ctx: &Ctx,
-    tab: Tab,
-    prefs: &TablePrefs<C>,
-    mut rows: Vec<Row>,
-    unfiltered: usize,
-    stats: Option<HistoryStats>,
-) -> Table {
-    let columns = views(prefs);
-    if let Some(Sort { column, descending }) = prefs.sort
-        && let Some(index) = C::ALL.iter().position(|c| *c == column)
-    {
-        sort_rows(&mut rows, index, descending);
-    }
-    let balance = ctx.account.summary().balance;
-    let mut totals: Vec<String> = columns
-        .iter()
-        .map(|col| {
-            let cells = rows.iter().map(|r| &r.cells[col.index]);
-            let unit = rows.first().map_or(Unit::None, |r| r.cells[col.index].unit);
-            let sums: Vec<f64> = cells.filter_map(|c| c.sum).collect();
+/// Totals the rows of a table and wraps them.
+fn finish(ctx: &Ctx, tab: Tab, rows: Vec<Row>) -> Table {
+    let columns = columns(tab);
+    let mut totals: Vec<(String, Tone)> = (0..columns.len())
+        .map(|index| {
+            let unit = rows.first().map_or(Unit::None, |r| r.cells[index].unit);
+            let sums: Vec<f64> = rows.iter().filter_map(|r| r.cells[index].sum).collect();
             if sums.is_empty() {
-                String::new()
-            } else {
-                total_text(sums.iter().sum(), unit, ctx.currency(), balance)
+                return (String::new(), Tone::Muted);
             }
+            let sum: f64 = sums.iter().sum();
+            let tone = if unit == Unit::Money {
+                Tone::of(sum)
+            } else {
+                Tone::Muted
+            };
+            (total_text(sum, unit, ctx.currency()), tone)
         })
         .collect();
-    // The first column says what the line is, when it adds up to nothing itself.
+    // The first column says what the line is.
     if let Some(first) = totals.first_mut()
-        && first.is_empty()
+        && first.0.is_empty()
         && !rows.is_empty()
     {
-        *first = "Total".to_owned();
+        *first = ("Total".to_owned(), Tone::Muted);
     }
     Table {
         tab,
         columns,
         rows,
         totals,
-        unfiltered,
-        stats,
     }
 }
 
@@ -365,125 +295,16 @@ pub fn build(ctx: &Ctx, tab: Tab) -> Table {
     }
 }
 
-/// The table as CSV: the columns that show, then a line for each row.
-pub fn to_csv(table: &Table) -> String {
-    let mut lines = vec![stats::csv_line(table.columns.iter().map(|c| c.label))];
-    for row in &table.rows {
-        lines.push(stats::csv_line(
-            table
-                .columns
-                .iter()
-                .map(|c| row.cells[c.index].text.as_str()),
-        ));
-    }
-    lines.join("\n")
-}
-
 #[cfg(test)]
 mod tests {
-
-    use super::positions::profit_cell;
-
     use super::*;
-    use crate::app::prefs::panel::ProfitUnit;
-
-    fn row(value: Option<f64>) -> Row {
-        Row {
-            key: String::new(),
-            symbol: None,
-            profit: None,
-            kind: RowKind::Deal,
-            cells: vec![value.map_or_else(Cell::empty, |v| Cell::num(v.to_string(), v))],
-        }
-    }
-
-    fn values(rows: &[Row]) -> Vec<Option<f64>> {
-        rows.iter()
-            .map(|r| match r.cells[0].key {
-                Key::Num(v) => Some(v),
-                _ => None,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn rows_sort_by_number_and_a_missing_value_stays_last() {
-        let mut rows = vec![row(Some(2.0)), row(None), row(Some(-1.0)), row(Some(5.0))];
-        sort_rows(&mut rows, 0, false);
-        assert_eq!(values(&rows), [Some(-1.0), Some(2.0), Some(5.0), None]);
-        sort_rows(&mut rows, 0, true);
-        assert_eq!(values(&rows), [Some(5.0), Some(2.0), Some(-1.0), None]);
-    }
-
-    #[test]
-    fn text_sorts_without_regard_to_case() {
-        let mut rows: Vec<Row> = ["b", "A", "c"]
-            .iter()
-            .map(|t| Row {
-                cells: vec![Cell::text(*t)],
-                ..row(None)
-            })
-            .collect();
-        sort_rows(&mut rows, 0, false);
-        let texts: Vec<&str> = rows.iter().map(|r| r.cells[0].text.as_str()).collect();
-        assert_eq!(texts, ["A", "b", "c"]);
-    }
-
-    #[test]
-    fn a_profit_is_written_in_the_unit_chosen() {
-        let money = |unit| profit_cell(unit, Some(12.5), Some(6.25), 1_000.0, "USD").text;
-        assert_eq!(money(ProfitUnit::Money), "12.50 USD");
-        assert_eq!(money(ProfitUnit::Pips), "+6.2 pips");
-        assert_eq!(money(ProfitUnit::Percent), "+1.25%");
-        assert_eq!(money(ProfitUnit::MoneyPips), "12.50 USD (+6.2 pips)");
-        let waiting = profit_cell(ProfitUnit::Money, None, None, 1_000.0, "USD");
-        assert_eq!(waiting.text, "...");
-        assert_eq!(waiting.sum, None);
-    }
 
     #[test]
     fn totals_are_written_for_their_unit() {
-        assert_eq!(total_text(1.5, Unit::Lots, "USD", 100.0), "1.5");
-        assert_eq!(total_text(-3.0, Unit::Money, "USD", 100.0), "-3.00 USD");
-        assert_eq!(total_text(2.0, Unit::Percent, "USD", 100.0), "+2.00%");
-        assert_eq!(total_text(2.0, Unit::Percent, "USD", 0.0), "");
-        assert_eq!(total_text(2.0, Unit::None, "USD", 100.0), "");
-    }
-
-    #[test]
-    fn a_table_is_written_as_csv_with_the_columns_that_show() {
-        let table = Table {
-            tab: Tab::History,
-            columns: vec![
-                ColView {
-                    index: 0,
-                    slot: 0,
-                    label: "Symbol",
-                    width: 100.0,
-                    right: false,
-                    sorted: None,
-                },
-                ColView {
-                    index: 1,
-                    slot: 1,
-                    label: "Note, long",
-                    width: 100.0,
-                    right: false,
-                    sorted: None,
-                },
-            ],
-            rows: vec![Row {
-                cells: vec![Cell::text("EURUSD"), Cell::text("a \"b\"")],
-                ..row(None)
-            }],
-            totals: Vec::new(),
-            unfiltered: 1,
-            stats: None,
-        };
-        assert_eq!(
-            to_csv(&table),
-            "Symbol,\"Note, long\"\nEURUSD,\"a \"\"b\"\"\""
-        );
+        assert_eq!(total_text(1.5, Unit::Lots, "USD"), "1.5");
+        assert_eq!(total_text(-3.0, Unit::Money, "USD"), "-$3.00");
+        assert_eq!(total_text(127.6, Unit::Money, "USD"), "+$127.60");
+        assert_eq!(total_text(2.0, Unit::None, "USD"), "");
     }
 
     #[test]
@@ -491,5 +312,14 @@ mod tests {
         assert_eq!(Tone::of(1.0), Tone::Up);
         assert_eq!(Tone::of(-1.0), Tone::Down);
         assert_eq!(Tone::of(0.0), Tone::Plain);
+    }
+
+    #[test]
+    fn every_tab_has_columns_and_a_first_one_for_the_symbol_or_time() {
+        for tab in Tab::ALL {
+            let columns = columns(tab);
+            assert!(columns.len() >= 5, "{tab:?}");
+            assert!(matches!(columns[0].label, "Symbol" | "Closed" | "Time"));
+        }
     }
 }

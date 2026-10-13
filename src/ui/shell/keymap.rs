@@ -46,12 +46,10 @@ pub enum Group {
     Dialogs,
     /// The symbol picker. Fixed.
     Picker,
-    /// The rows of the account panel. Fixed.
-    Panel,
 }
 
 impl Group {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 8] = [
         Self::Navigation,
         Self::Trading,
         Self::Chart,
@@ -60,7 +58,6 @@ impl Group {
         Self::Text,
         Self::Dialogs,
         Self::Picker,
-        Self::Panel,
     ];
 
     pub fn label(self) -> &'static str {
@@ -73,7 +70,6 @@ impl Group {
             Self::Text => "Text fields",
             Self::Dialogs => "Dialogs, menus and sign-in",
             Self::Picker => "Symbol picker",
-            Self::Panel => "Account panel",
         }
     }
 }
@@ -252,10 +248,6 @@ pub static HANDLED: &[Handled] = &[
     Handled { label: "Choose an account", group: Group::Dialogs, context: "Sign-in", keys: &["Up", "Down"] },
     Handled { label: "Connect to the chosen account", group: Group::Dialogs, context: "Sign-in", keys: &["Enter"] },
     Handled { label: "Give up naming a script", group: Group::Dialogs, context: "Indicator editor", keys: &["Esc"] },
-    Handled { label: "Move to the row above or below", group: Group::Panel, context: "Account panel", keys: &["Up", "Down"] },
-    Handled { label: "Move a page up or down", group: Group::Panel, context: "Account panel", keys: &["Page Up", "Page Down"] },
-    Handled { label: "Go to the first or last row", group: Group::Panel, context: "Account panel", keys: &["Home", "End"] },
-    Handled { label: "Open the menu of the row", group: Group::Panel, context: "Account panel", keys: &["Menu", "Shift+F10"] },
 ];
 
 fn mac() -> bool {

@@ -12,7 +12,11 @@ use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_P
 use crate::domain::trading::guard::RiskPrefs;
 use serde::{Deserialize, Serialize};
 
-pub(crate) const SCHEMA_VERSION: u32 = 1;
+/// The layout of the preferences document. Version 2: the account panel keeps only its open tab.
+pub(crate) const SCHEMA_VERSION: u32 = 2;
+
+/// The layout of the watchlists document.
+pub(crate) const WATCHLISTS_VERSION: u32 = 1;
 
 /// Maximum length of a watchlist name.
 pub const MAX_LIST_NAME: usize = 40;
@@ -376,7 +380,6 @@ impl Preferences {
         }
         self.panel_height = self.panel_height.min(2_000.0);
         self.ticket = self.ticket.normalized();
-        self.account_panel = self.account_panel.normalized();
         self.risk = self.risk.normalized();
         self.alert_output = self.alert_output.normalized();
 
@@ -686,7 +689,7 @@ mod tests {
         let prefs: Preferences = toml::from_str(text).unwrap();
         let prefs = prefs.normalized();
 
-        assert_eq!(prefs.schema_version, 1);
+        assert_eq!(prefs.schema_version, 2);
         assert_eq!(
             prefs.layout,
             LayoutPref {

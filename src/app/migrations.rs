@@ -23,7 +23,7 @@ use tracing::{info, warn};
 
 use crate::app::{alerts, drawings, workspace};
 use crate::domain::drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
-use crate::infra::storage::migrate::{Outcome, Plan, Step, upgrade_document};
+use crate::infra::storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
 use crate::infra::storage::{AppPaths, DocumentStore};
 
 /// The layouts of the documents, one plan each.
@@ -31,11 +31,15 @@ pub const PLANS: [Plan; 4] = [
     Plan {
         document: workspace::PREFERENCES,
         current: workspace::SCHEMA_VERSION,
-        steps: &[],
+        // Version 2: the account panel keeps only its open tab.
+        steps: &[Step {
+            from: 1,
+            apply: trim_account_panel,
+        }],
     },
     Plan {
         document: workspace::WATCHLISTS,
-        current: workspace::SCHEMA_VERSION,
+        current: workspace::WATCHLISTS_VERSION,
         steps: &[],
     },
     Plan {
@@ -50,6 +54,18 @@ pub const PLANS: [Plan; 4] = [
         steps: &[],
     },
 ];
+
+/// Version 1 to 2 of the preferences: the account panel lost its settings (tabs, columns, filters,
+/// the look of the rows) and keeps the tab that was open. What it had is dropped.
+fn trim_account_panel(table: &mut toml::Table) -> std::result::Result<(), StepError> {
+    if let Some(panel) = table
+        .get_mut("account_panel")
+        .and_then(toml::Value::as_table_mut)
+    {
+        panel.retain(|key, _| key == "tab");
+    }
+    Ok(())
+}
 
 /// What [`run`] did, to be logged.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -187,10 +203,10 @@ mod tests {
         assert_eq!(
             report,
             Report {
-                upgraded: 1,
+                upgraded: 2,
                 ..Report::default()
             },
-            "only the alerts were behind"
+            "the alerts and the preferences were behind"
         );
         let book: AlertBook = account.load(alerts::DOCUMENT).unwrap().unwrap();
         assert_eq!(book.schema_version, 2);
@@ -207,7 +223,22 @@ mod tests {
         );
         assert!(run(&paths).is_empty(), "a second start has nothing to do");
         let preferences: Preferences = shared.load(workspace::PREFERENCES).unwrap().unwrap();
-        assert!(preferences.magnet, "a current document was not touched");
+        assert!(preferences.magnet, "the preferences kept what they held");
+        assert_eq!(preferences.schema_version, 2);
+    }
+
+    #[test]
+    fn the_account_panel_of_version_1_keeps_only_its_open_tab() {
+        use crate::app::prefs::panel::Tab;
+        let mut table: toml::Table =
+            toml::from_str(include_str!("../../tests/fixtures/preferences-0.2.toml")).unwrap();
+        assert!(trim_account_panel(&mut table).is_ok());
+        let panel = table["account_panel"].as_table().unwrap();
+        assert_eq!(panel.len(), 1, "only the tab is left: {panel:?}");
+        let preferences: Preferences = table.try_into().unwrap();
+        assert_eq!(preferences.account_panel.tab, Tab::History);
+        assert!(preferences.panel_open, "the rest of the file is untouched");
+        assert_eq!(preferences.panel_height, 240.0);
     }
 
     #[test]

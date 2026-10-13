@@ -285,7 +285,7 @@ impl Dashboard {
             this.on_alert_event(event, cx)
         })
         .detach();
-        let panel_prefs = workspace.read(cx).preferences().account_panel.clone();
+        let panel_prefs = workspace.read(cx).preferences().account_panel;
         let panel =
             cx.new(|cx| AccountPanel::new(trading.clone(), alerts.clone(), panel_prefs, cx));
         cx.subscribe(&panel, |this, _panel, event, cx| {

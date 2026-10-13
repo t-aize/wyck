@@ -97,7 +97,6 @@ impl Dashboard {
         }
         // The ticket is for the active chart's symbol.
         let symbol = self.multi.read(cx).active_symbol(cx);
-        let symbol_id = symbol.as_ref().map(|s| s.id);
         // Also when only the decimals changed: the broker's answer can come after the symbol.
         if let Some(ticket) = &self.ticket
             && ticket.read(cx).symbol() != symbol.as_ref()
@@ -110,9 +109,6 @@ impl Dashboard {
                 t.set_chart(chart, cx);
                 t.request_atr(cx);
             });
-        }
-        if let Some(panel) = &self.panel {
-            panel.update(cx, |p, cx| p.set_symbol(symbol_id, cx));
         }
         for pending in std::mem::take(&mut self.pending) {
             self.run_pending(pending, window, cx);
@@ -359,15 +355,13 @@ impl Dashboard {
         cx: &mut Context<Self>,
     ) {
         match event {
-            PanelEvent::Hide => self.set_panel_open(false, cx),
             PanelEvent::Settings(settings) => {
-                let settings = (**settings).clone();
+                let settings = **settings;
                 self.workspace.update(cx, |workspace, cx| {
                     workspace.edit_preferences(cx, |prefs| prefs.account_panel = settings);
                 });
             }
             PanelEvent::ShowSymbol(id) => self.show_symbol(*id, cx),
-            PanelEvent::NewAlert(kind) => self.add_measure_alert(*kind, cx),
         }
     }
 

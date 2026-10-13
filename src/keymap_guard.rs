@@ -13,9 +13,6 @@ use std::path::{Path, PathBuf};
 const READS_KEYS: &[&str] = &[
     // Up, Down, Enter and Escape in a menu.
     "ui/kit/menu.rs",
-    // The arrows, Home, End, Page Up, Page Down and the menu key in the rows of the account panel.
-    "ui/features/trading/panel.rs",
-    "ui/features/trading/panel/view/table.rs",
     // Up, Down and Enter to choose an account.
     "ui/shell/sign_in_gate.rs",
     // Escape to give up naming a script.

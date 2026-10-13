@@ -137,10 +137,8 @@ set.
 
 ## Accessibility
 
-- **Keyboard.** Tab reaches the controls. In the account panel, the current row is the one stop
-  of Tab: the arrows, Home, End, Page Up and Page Down move among the rows, Enter or Space does
-  what a click does, and the menu key (or Shift+F10) opens the menu of the row. Modal windows
-  keep Tab inside themselves and give the focus back when they close.
+- **Keyboard.** Tab reaches the controls, including the buttons of the account panel. Modal
+  windows keep Tab inside themselves and give the focus back when they close.
 - **Screen readers.** The app exposes roles and names through AccessKit (Windows UI Automation,
   macOS, and AT-SPI on Linux): tables with rows, column headers and cells, tabs, dialogs, menus,
   toggles and notices. This has been built from the AccessKit documentation and covered by unit
