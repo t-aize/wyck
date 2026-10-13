@@ -9,6 +9,7 @@
 //! The two things the rest of the app has to act on come out as a [`DashboardEvent`].
 
 mod catalog;
+mod chart_buttons;
 mod details;
 mod editor_dock;
 mod header;

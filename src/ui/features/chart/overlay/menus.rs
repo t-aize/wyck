@@ -254,6 +254,12 @@ impl Chart {
                             chart_settings_ui::open(cx.entity(), window, cx)
                         }))
                         .into(),
+                    Entry::new("Scale settings...")
+                        .icon(IconName::Ruler)
+                        .on_click(on(|_, window, cx| {
+                            chart_settings_ui::open_scales(cx.entity(), window, cx)
+                        }))
+                        .into(),
                     Entry::new("Reset chart view")
                         .icon(IconName::RotateCcw)
                         .hint("End")

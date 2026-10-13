@@ -283,6 +283,8 @@ impl Dashboard {
             _ => None,
         };
         let Some(entry) = entry else {
+            // The symbol is not known yet, but the chart buttons of the header still follow the chart.
+            cx.notify();
             return;
         };
         let (digits, pip_position) = match self.details.get(&symbol.id) {
