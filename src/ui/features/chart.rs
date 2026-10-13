@@ -228,6 +228,9 @@ pub struct Chart {
     /// How far from the bottom of the chart the hint of a drawing tool must stay, to clear what floats
     /// over the chart there (the favorites pill). 0 when nothing does.
     hint_floor: f32,
+    /// Whether the legend names the symbol. It does not when every chart shows the same one, which
+    /// the header says already.
+    show_symbol: bool,
     timeframe: Timeframe,
     settings: ChartSettings,
     max_studies: usize,
@@ -333,6 +336,7 @@ impl Chart {
             hours: None,
             selected: true,
             hint_floor: 0.0,
+            show_symbol: true,
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,

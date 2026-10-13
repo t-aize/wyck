@@ -70,6 +70,14 @@ impl Chart {
         }
     }
 
+    /// Says whether the legend of the chart names its symbol.
+    pub fn set_show_symbol(&mut self, show: bool, cx: &mut Context<Self>) {
+        if self.show_symbol != show {
+            self.show_symbol = show;
+            cx.notify();
+        }
+    }
+
     pub fn set_selected(&mut self, selected: bool, cx: &mut Context<Self>) {
         if self.selected != selected {
             self.selected = selected;

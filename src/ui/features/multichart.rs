@@ -383,6 +383,14 @@ impl Render for MultiChart {
         // A chart that changed symbol gets that symbol's hours (a no-op when it has them).
         self.give_hours(cx);
         let several = self.slots.len() > 1;
+        // The symbol is named on a chart only when the charts do not all show the same one: with one
+        // symbol the header says it already.
+        let names: Vec<Option<String>> = self
+            .slots
+            .iter()
+            .map(|slot| slot.chart.read(cx).symbol().map(|s| s.name.to_string()))
+            .collect();
+        let show_symbol = names.iter().any(|name| *name != names[0]);
         let floor = if self.favorites_shown(cx) {
             favorites::PILL_TOP
         } else {
@@ -393,6 +401,7 @@ impl Render for MultiChart {
             slot.chart.update(cx, |chart, cx| {
                 chart.set_selected(selected, cx);
                 chart.set_hint_floor(floor, cx);
+                chart.set_show_symbol(show_symbol, cx);
             });
         }
         let (rects, dividers) = self.tree.place(self.slots.len());

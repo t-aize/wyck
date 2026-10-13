@@ -114,7 +114,7 @@ impl Chart {
             .items_center()
             .gap_x_2()
             .text_size(px(tokens::text::body()))
-            .child(symbol)
+            .children((self.show_symbol || self.symbol.is_none()).then_some(symbol))
             .child(div().text_color(palette.text).child(kind_text))
             .children(
                 self.settings
