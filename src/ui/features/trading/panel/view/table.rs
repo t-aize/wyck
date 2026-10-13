@@ -21,7 +21,7 @@ fn icon_button(
     enabled: bool,
     run: Action,
 ) -> AnyElement {
-    button::icon_dense(id, glyph, tip)
+    button::icon(id, button::Size::Sm, glyph, tip)
         .when(!enabled, |button| button.cursor_not_allowed())
         .disabled(!enabled)
         .on_click(move |_, window, cx| run(window, cx))

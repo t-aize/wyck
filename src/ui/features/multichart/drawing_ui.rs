@@ -22,9 +22,9 @@ const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 /// The most tools the search lists.
 const MAX_FOUND: usize = 40;
 
-/// The width of the rail of tools: a large button and room on each side.
+/// The width of the rail of tools: a rail button and room on each side.
 pub fn rail_width() -> f32 {
-    tokens::height::large() + 2.0 * tokens::space::sm()
+    tokens::height::rail() + 2.0 * tokens::space::sm()
 }
 
 /// A short line between two blocks of the rail.
@@ -113,8 +113,18 @@ impl MultiChart {
             let active = tool.is_some_and(|t| t.group() == group);
             let slots = self.rail_slots.clone();
             let tip: SharedString = match crate::ui::kit::hints::tool_hint(shown) {
-                Some(keys) => format!("{}: {} ({keys})", group.label(), shown.label()).into(),
-                None => format!("{}: {}", group.label(), shown.label()).into(),
+                Some(keys) => format!(
+                    "{} ({keys}). The arrow lists the {}",
+                    shown.label(),
+                    group.label().to_lowercase()
+                )
+                .into(),
+                None => format!(
+                    "{}. The arrow lists the {}",
+                    shown.label(),
+                    group.label().to_lowercase()
+                )
+                .into(),
             };
             // The wrapper tells where the button is, for the list to open beside it, and holds
             // the small arrow that says there is a list.
@@ -122,6 +132,10 @@ impl MultiChart {
                 div()
                     .relative()
                     .flex_none()
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, _event, _window, cx| this.toggle_flyout(group, cx)),
+                    )
                     .child(
                         canvas(
                             move |bounds, _window, _cx| {
@@ -139,23 +153,44 @@ impl MultiChart {
                         .icon(tool_icon(shown))
                         .tooltip(tip)
                         .toggled(active || self.flyout == Some(group))
+                        // A click draws with the tool the family shows (a second click goes back
+                        // to the pointer); the arrow, or a right click, opens the list.
                         .on_click(cx.listener(
                             move |this, _event, _window, cx| {
-                                this.tool_search = false;
-                                this.flyout = if this.flyout == Some(group) {
-                                    None
-                                } else {
-                                    Some(group)
-                                };
-                                cx.notify();
+                                let current = this.drawings.read(cx).book().tool();
+                                this.pick_tool(
+                                    if current == Some(shown) {
+                                        None
+                                    } else {
+                                        Some(shown)
+                                    },
+                                    cx,
+                                );
                             },
                         )),
                     )
-                    .child(div().absolute().right_0().bottom_0().child(icon::tinted(
-                        IconName::ChevronRight,
-                        9.,
-                        theme::muted_fg(),
-                    ))),
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("draw-arrow-{group:?}")))
+                            .absolute()
+                            .right_0()
+                            .bottom_0()
+                            .size(px(tokens::swatch::medium()))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .cursor_pointer()
+                            .hover(|s| s.bg(theme::surface_hover()))
+                            .tooltip(controls::tooltip(format!(
+                                "{}: the list of tools",
+                                group.label()
+                            )))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.toggle_flyout(group, cx);
+                            }))
+                            .child(icon::tinted(IconName::ChevronRight, 9., theme::muted_fg())),
+                    ),
             );
         }
 
@@ -426,8 +461,25 @@ impl MultiChart {
 
         if let Some(group) = self.flyout {
             list = list.child(popup::parts::section_title(group.label()));
-            for tool in group_tools(group) {
-                list = list.child(self.tool_row(tool, current, &favorites, cx));
+            // A long family is cut in sections: a ray, a pitchfork or a level is found by what it
+            // is.
+            let sections = group.sections();
+            let several = sections.len() > 1;
+            for (name, tools) in sections {
+                if several {
+                    list = list.child(
+                        div()
+                            .px_2()
+                            .pt_2()
+                            .pb_1()
+                            .text_size(px(tokens::text::caption()))
+                            .text_color(theme::muted_fg())
+                            .child(name.to_uppercase()),
+                    );
+                }
+                for tool in tools {
+                    list = list.child(self.tool_row(tool, current, &favorites, cx));
+                }
             }
         } else {
             let query = self.search_input.read(cx).text().trim().to_lowercase();

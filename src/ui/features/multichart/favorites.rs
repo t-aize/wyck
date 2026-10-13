@@ -1,16 +1,18 @@
 //! The favorite drawing tools: the tools drawn most, pinned in a pill over the charts so they
 //! are one click away (or Alt and a number), whatever family they belong to.
 //!
-//! The pill is anchored at the bottom center of the chart area, not draggable. It fades while
+//! The pill starts at the bottom center of the chart area and can be moved with its grip (a double
+//! click on the grip puts it back); where it was put is kept. It fades while
 //! the pointer is elsewhere and is always there, unless it is turned off. A tool is pinned or unpinned with the star beside it in the
 //! list of its family, and a right click on a favorite moves it along the bar or removes it. The
 //! favorites are kept with the rest of the workspace.
 
 use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, MouseButton, SharedString, Window, div, px};
+use gpui::{AnyElement, Context, MouseButton, SharedString, Window, canvas, div, px};
 
 use super::MultiChart;
+use super::drawing_ui::bar_place::Movable;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
 use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart::object_tree::tool_icon;
@@ -23,7 +25,7 @@ use crate::ui::kit::{
 /// How tall the pill is.
 const PILL_HEIGHT: f32 = 36.0;
 /// How far the pill sits above the bottom of the chart area, clear of the time axis.
-const PILL_BOTTOM: f32 = 44.0;
+pub(super) const PILL_BOTTOM: f32 = 44.0;
 /// The opacity of the pill while the pointer is elsewhere.
 const IDLE_OPACITY: f32 = 0.7;
 
@@ -134,7 +136,8 @@ impl MultiChart {
             .occlude()
             .opacity(IDLE_OPACITY)
             .hover(|s| s.opacity(1.0))
-            .child(div().flex_none().px_2().child(icon::tinted(
+            .child(self.bar_grip(Movable::Favorites, cx))
+            .child(div().flex_none().px_1().child(icon::tinted(
                 IconName::StarFill,
                 13.,
                 theme::amber(),
@@ -259,12 +262,22 @@ impl MultiChart {
                     })),
             );
 
+        // Where the user put it: moved right and down from the middle, inside the charts.
+        let ((dx, dy), bounds) = self.place_of(Movable::Favorites);
+        let pill = pill.relative().left(px(dx)).child(
+            canvas(
+                move |bounds_now, _window, _cx| bounds.set(Some(bounds_now)),
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .size_full(),
+        );
         Some(
             div()
                 .absolute()
                 .left_0()
                 .right_0()
-                .bottom(px(PILL_BOTTOM))
+                .bottom(px(PILL_BOTTOM - dy))
                 .px_2()
                 .flex()
                 .flex_row()

@@ -175,7 +175,7 @@ impl OrderTicket {
                 .gap_1()
                 .child(div().flex_1().child(crate::ui::kit::input::text(&self.plan_name)))
                 .child(
-                    crate::ui::kit::button::standard("ticket-plan-save")
+                    crate::ui::kit::button::outlined("ticket-plan-save")
                         .label("Save")
                         .disabled(!named)
                         .on_click(move |_, window, cx| {

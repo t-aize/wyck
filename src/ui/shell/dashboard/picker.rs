@@ -195,6 +195,8 @@ impl Dashboard {
         let action = highlighted.as_ref().map(|entry| {
             button::primary(
                 "pick-symbol",
+                crate::ui::kit::button::Fill::Accent,
+                crate::ui::kit::button::Size::Md,
                 if is_current {
                     format!("Stay on {}", entry.name)
                 } else {

@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 
 /// The layout of the preferences document. Version 2: the account panel keeps only its open tab.
 /// Version 3: how the charts look is saved once (`chart`), not in each chart.
-pub(crate) const SCHEMA_VERSION: u32 = 3;
+/// Version 4: the bar of favorite tools can be moved (`favorites_place`).
+pub(crate) const SCHEMA_VERSION: u32 = 4;
 
 /// The layout of the watchlists document.
 pub(crate) const WATCHLISTS_VERSION: u32 = 1;
@@ -232,6 +233,9 @@ pub struct Preferences {
     /// Whether the bar writes the name of each tool beside its icon.
     #[serde(default)]
     pub favorites_labels: bool,
+    /// How far the bar of favorite tools was moved from its place, right and down, in pixels.
+    #[serde(default)]
+    pub favorites_place: [f32; 2],
     /// The colors the user saved in the color panel, as `0xRRGGBB`.
     #[serde(default)]
     pub saved_colors: Vec<u32>,
@@ -301,6 +305,7 @@ impl Default for Preferences {
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,
+            favorites_place: [0.0, 0.0],
             saved_colors: Vec::new(),
             shortcuts: Default::default(),
         }
@@ -381,6 +386,11 @@ impl Preferences {
             }
         }
         self.chart = std::mem::take(&mut self.chart).normalized();
+        for offset in &mut self.favorites_place {
+            if !offset.is_finite() {
+                *offset = 0.0;
+            }
+        }
         self.active_chart = self.active_chart.min(count - 1);
         if !(self.panel_height.is_finite() && self.panel_height >= 80.0) {
             self.panel_height = default_panel_height();
@@ -699,7 +709,7 @@ mod tests {
         let prefs: Preferences = toml::from_str(text).unwrap();
         let prefs = prefs.normalized();
 
-        assert_eq!(prefs.schema_version, 3);
+        assert_eq!(prefs.schema_version, 4);
         assert_eq!(
             prefs.layout,
             LayoutPref {

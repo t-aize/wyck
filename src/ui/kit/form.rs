@@ -102,8 +102,13 @@ fn header(
                 ),
         )
         .child(
-            crate::ui::kit::button::icon("settings-close", IconName::X, "Close (Esc)")
-                .on_click(move |_, window, cx| on_close(window, cx)),
+            crate::ui::kit::button::icon(
+                "settings-close",
+                crate::ui::kit::button::Size::Md,
+                IconName::X,
+                "Close (Esc)",
+            )
+            .on_click(move |_, window, cx| on_close(window, cx)),
         )
 }
 

@@ -1220,6 +1220,21 @@ mod tests {
     }
 
     #[test]
+    fn a_new_drawing_leaves_the_selection_of_the_last_one_behind() {
+        let (mut book, _, _) = two_lines();
+        book.set_keep_tool(true);
+        book.set_tool(Some(Tool::TrendLine));
+        click(&mut book, 60.0, 300.0);
+        click(&mut book, 300.0, 350.0);
+        let made = book.selected();
+        assert!(made.is_some(), "the drawing just made is selected");
+        assert_eq!(book.tool(), Some(Tool::TrendLine), "the tool was kept");
+        // The next drawing begins: the old one is no longer the selected one.
+        click(&mut book, 80.0, 120.0);
+        assert_eq!(book.selected(), None);
+    }
+
+    #[test]
     fn locking_every_drawing_at_once_can_be_undone() {
         let (mut book, first, second) = two_lines();
         assert!(book.set_all_locked(SYMBOL, true));

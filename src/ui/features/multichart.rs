@@ -137,6 +137,8 @@ pub struct MultiChart {
     color_open: Option<u64>,
     /// Where the style bar sits over the charts, and the drag that moves it.
     bar: drawing_ui::bar_place::BarPlace,
+    /// The same for the bar of the favorite tools, which sits at the bottom.
+    pill: drawing_ui::bar_place::BarPlace,
     /// Taken when a chart is clicked, so the keys (arrows, Delete, Ctrl+Z) reach the charts and
     /// not a text field that had the keyboard before.
     focus: gpui::FocusHandle,
@@ -193,6 +195,10 @@ impl MultiChart {
             root_bounds: Rc::new(Cell::new(None)),
             color_open: None,
             bar: Default::default(),
+            pill: drawing_ui::bar_place::BarPlace::at_bottom(
+                favorites::PILL_BOTTOM,
+                (prefs.favorites_place[0], prefs.favorites_place[1]),
+            ),
             focus: cx.focus_handle(),
             last_tool: HashMap::new(),
             hub,

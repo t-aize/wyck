@@ -347,6 +347,8 @@ impl Chart {
                             .w(px(crate::ui::kit::tokens::measure::action()))
                             .child(button::primary(
                                 ("chart-retry", self.id),
+                                crate::ui::kit::button::Fill::Accent,
+                                crate::ui::kit::button::Size::Md,
                                 "Try again",
                                 cx.listener(|this, _event, _window, cx| this.retry(cx)),
                             )),

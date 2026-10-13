@@ -353,8 +353,9 @@ impl SignInGate {
                     )
             }))
             .child(
-                button::hero(
+                button::primary(
                     "gate-submit",
+crate::ui::kit::button::Fill::Accent, crate::ui::kit::button::Size::Lg,
                     submit_label,
                     cx.listener(|this, _, _window, cx| this.submit(cx)),
                 )
@@ -457,8 +458,10 @@ impl SignInGate {
             ))
             .child(div().flex().flex_col().gap_2().children(rows))
             .child(
-                button::hero(
+                button::primary(
                     "gate-connect-account",
+                    crate::ui::kit::button::Fill::Accent,
+                    crate::ui::kit::button::Size::Lg,
                     "Connect this account",
                     cx.listener(|this, _, _window, cx| {
                         this.sign_in.update(cx, |s, cx| s.connect_chosen(cx));

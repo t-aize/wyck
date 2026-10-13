@@ -33,6 +33,7 @@ pub const PLANS: [Plan; 4] = [
         current: workspace::SCHEMA_VERSION,
         // Version 2: the account panel keeps only its open tab.
         // Version 3: how the charts look is saved once, not in each chart.
+        // Version 4: the bar of favorite tools can be moved: a new field with a default.
         steps: &[
             Step {
                 from: 1,
@@ -42,6 +43,7 @@ pub const PLANS: [Plan; 4] = [
                 from: 2,
                 apply: lift_chart_look,
             },
+            Step::unchanged(3),
         ],
     },
     Plan {
@@ -299,7 +301,7 @@ mod tests {
         assert!(run(&paths).is_empty(), "a second start has nothing to do");
         let preferences: Preferences = shared.load(workspace::PREFERENCES).unwrap().unwrap();
         assert!(preferences.magnet, "the preferences kept what they held");
-        assert_eq!(preferences.schema_version, 3);
+        assert_eq!(preferences.schema_version, 4);
     }
 
     #[test]
@@ -357,6 +359,22 @@ mod tests {
         let mut empty: toml::Table = toml::from_str("schema_version = 2\n").unwrap();
         assert!(lift_chart_look(&mut empty).is_ok());
         assert!(empty.get("chart").is_none());
+    }
+
+    #[test]
+    fn a_version_3_file_gets_the_favorites_in_their_place() {
+        let text = include_str!("../../tests/fixtures/preferences-0.3.toml");
+        let preferences: Preferences = toml::from_str(text).unwrap();
+        let preferences = preferences.normalized();
+        assert_eq!(preferences.schema_version, 4);
+        assert_eq!(preferences.favorites_place, [0.0, 0.0], "not moved yet");
+        assert!(!preferences.chart.grid, "what the file held is kept");
+        let moved = Preferences {
+            favorites_place: [f32::NAN, 12.5],
+            ..Preferences::default()
+        }
+        .normalized();
+        assert_eq!(moved.favorites_place, [0.0, 12.5]);
     }
 
     #[test]

@@ -202,8 +202,10 @@ impl AppView {
                             .text_color(theme::muted_fg())
                             .child(message.to_owned()),
                     )
-                    .child(button::hero(
+                    .child(button::primary(
                         "startup-quit",
+                        crate::ui::kit::button::Fill::Accent,
+                        crate::ui::kit::button::Size::Lg,
                         "Quit Wyck",
                         |_, _window, cx| cx.quit(),
                     )),

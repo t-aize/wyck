@@ -88,6 +88,9 @@ impl Book {
             creating.dragged = false;
             return Press::Taken;
         }
+        // A new drawing starts: what was selected is left behind.
+        self.selected = None;
+        self.also.clear();
         if tool.is_position() {
             let points = Self::position_points(tool, point, proj);
             let drawing = self.blank(tool, points);

@@ -2,7 +2,7 @@
 
 use super::{MAX_RECENT_COLORS, MAX_RECENT_TOOLS, MultiChart};
 use crate::domain::drawings::model::style::{Dash, MIN_LINE_OPACITY};
-use crate::domain::drawings::model::tool::Tool;
+use crate::domain::drawings::model::tool::{Group, Tool};
 use gpui::{Context, Window};
 
 impl MultiChart {
@@ -18,6 +18,17 @@ impl MultiChart {
         self.drawings.update(cx, |drawings, cx| {
             drawings.edit(cx, |book| book.set_tool(tool))
         });
+        cx.notify();
+    }
+
+    /// Opens the list of tools of a family beside the rail, or closes it when it is the one open.
+    pub(crate) fn toggle_flyout(&mut self, group: Group, cx: &mut Context<Self>) {
+        self.tool_search = false;
+        self.flyout = if self.flyout == Some(group) {
+            None
+        } else {
+            Some(group)
+        };
         cx.notify();
     }
 

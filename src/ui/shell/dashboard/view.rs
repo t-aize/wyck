@@ -53,6 +53,8 @@ impl Dashboard {
                         .w(px(crate::ui::kit::tokens::measure::action()))
                         .child(button::primary(
                             "sign-in-again",
+                            crate::ui::kit::button::Fill::Accent,
+                            crate::ui::kit::button::Size::Md,
                             "Sign in again",
                             cx.listener(|_this, _event, _window, cx| {
                                 cx.emit(DashboardEvent::SignInAgain);
