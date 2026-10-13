@@ -340,7 +340,7 @@ impl Render for AlertEditor {
             .sound
             .and_then(|own| SoundKind::ALL.iter().position(|k| *k == own))
             .map_or(0, |i| i + 1);
-        often.push(form::field(
+        often.push(form::field_below(
             "Sound",
             Some("Default is the one of the settings"),
             controls::chips(

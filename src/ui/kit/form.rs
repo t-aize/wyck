@@ -9,7 +9,9 @@
 use std::rc::Rc;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Div, Entity, MouseButton, Rgba, SharedString, Window, div, px};
+use gpui::{
+    AnyElement, App, Div, Entity, MouseButton, Rgba, SharedString, Stateful, Window, div, px,
+};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::StyledExt as _;
 use gpui_kit::component::input::InputState;
@@ -332,6 +334,21 @@ pub fn field(
     .control(control)
 }
 
+/// Like [`field`], with the control under the label instead of beside it (see
+/// [`Row::control_below`]).
+pub fn field_below(
+    label: impl Into<SharedString>,
+    hint: Option<&'static str>,
+    control: impl IntoElement,
+) -> AnyElement {
+    let row = Row::new(label);
+    match hint {
+        Some(hint) => row.hint(hint),
+        None => row,
+    }
+    .control_below(control)
+}
+
 /// What a row does when the user asks to put its value back.
 type OnReset = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -382,7 +399,8 @@ impl Row {
         self
     }
 
-    pub fn control(self, control: impl IntoElement) -> AnyElement {
+    /// The label with its dot, help mark and hint, and the reset button when there is one.
+    fn head(self) -> (Div, Option<Stateful<Div>>) {
         let modified = self.reset.as_ref().is_some_and(|(modified, _)| *modified);
         let mut title = div()
             .flex()
@@ -428,6 +446,24 @@ impl Row {
                 .on_click(move |_, window, cx| f(window, cx))
                 .child(icon::tinted(IconName::RotateCcw, 13., theme::muted_fg()))
         });
+        let head = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(title)
+            .children(self.hint.map(|hint| {
+                div()
+                    .text_size(px(crate::ui::kit::tokens::text::small()))
+                    .text_color(theme::muted_fg())
+                    .child(hint)
+            }));
+        (head, reset)
+    }
+
+    /// The control at the right of the label.
+    pub fn control(self, control: impl IntoElement) -> AnyElement {
+        let (head, reset) = self.head();
         div()
             .flex()
             .flex_row()
@@ -436,20 +472,7 @@ impl Row {
             .gap_4()
             .min_h(px(42.))
             .py_1p5()
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .child(title)
-                    .children(self.hint.map(|hint| {
-                        div()
-                            .text_size(px(crate::ui::kit::tokens::text::small()))
-                            .text_color(theme::muted_fg())
-                            .child(hint)
-                    })),
-            )
+            .child(head)
             .child(
                 div()
                     .flex_none()
@@ -460,6 +483,29 @@ impl Row {
                     .children(reset)
                     .child(control),
             )
+            .into_any_element()
+    }
+
+    /// The control under the label, as wide as the row: for one that is too wide to sit beside
+    /// it (a list of chips), which would leave the label no room.
+    pub fn control_below(self, control: impl IntoElement) -> AnyElement {
+        let (head, reset) = self.head();
+        div()
+            .flex()
+            .flex_col()
+            .gap_1p5()
+            .py_1p5()
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .gap_4()
+                    .child(head)
+                    .children(reset),
+            )
+            .child(div().min_w_0().child(control))
             .into_any_element()
     }
 }

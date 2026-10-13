@@ -46,7 +46,7 @@ impl SettingsHub {
             .map(|n| n.to_string_lossy().into_owned());
 
         let sound_fields = vec![
-            form::field(
+            form::field_below(
                 "Sound",
                 Some("Played when an alert fires. An alert can choose its own in its window"),
                 controls::chips("alert-sound", &labels, &[chosen], move |index, _w, cx| {
