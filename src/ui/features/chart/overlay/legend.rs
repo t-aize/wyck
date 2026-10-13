@@ -213,9 +213,8 @@ impl Chart {
     ) -> Vec<AnyElement> {
         let mut out = Vec::new();
         let index = self.shown_index();
-        // The legend wraps before the toolbar at the top right (or the price axis, when the
-        // toolbar is hidden).
-        let right = axis_w() + if self.shows_toolbar() { 84.0 } else { 8.0 };
+        // The legend wraps before the price axis.
+        let right = axis_w() + 8.0;
         let mut main = div()
             .absolute()
             .top(px(crate::ui::kit::tokens::space::sm()))

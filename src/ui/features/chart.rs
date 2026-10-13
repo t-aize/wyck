@@ -53,6 +53,7 @@
 pub mod api;
 mod chart_settings_ui;
 mod construction_ui;
+mod corner;
 mod custom_runs;
 pub mod drawing_props;
 pub mod events;
@@ -73,7 +74,6 @@ pub mod palette;
 pub mod raster;
 mod settings_rows;
 mod study_settings;
-mod toolbar;
 mod tpo_ui;
 mod volume_ui;
 

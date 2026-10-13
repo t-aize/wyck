@@ -11,6 +11,10 @@ pub fn axis_w() -> f32 {
 pub fn axis_h() -> f32 {
     crate::domain::chart::text_scale::scaled(28.0)
 }
+/// Width, in the time axis and left of the corner, kept for the label of the time zone.
+pub fn zone_w() -> f32 {
+    crate::domain::chart::text_scale::scaled(64.0)
+}
 /// The least height a pane is given when there is room for it.
 pub const MIN_BAND: f64 = 36.0;
 /// How close (in pixels) the pointer must be to the line between two panes to drag it.

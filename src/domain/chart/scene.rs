@@ -26,7 +26,7 @@ mod tpo;
 
 pub use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
 use self::ctx::Ctx;
-pub use self::geometry::{Band, Geometry, axis_h, axis_w};
+pub use self::geometry::{Band, Geometry, axis_h, axis_w, zone_w};
 pub use self::price::PriceMap;
 use self::scale::{geometry, main_map};
 use super::axis;
@@ -453,7 +453,12 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             }
         }
     }
+    // The labels stop short of the time zone, which sits at the right end of the axis.
+    let zone_left = ox + plot_w as f32 - zone_w();
     for label in &time_labels {
+        if cx.x(label.index) > zone_left - 16.0 {
+            continue;
+        }
         cmds.push(Cmd::Text {
             text: label.text.clone(),
             x: cx.x(label.index),
@@ -469,19 +474,16 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
             face: Default::default(),
         });
     }
-    // The zone the times are in, in the corner between the axes, and the scale mode.
+    // The zone the times are in, at the right end of the time axis. The scale buttons are in the
+    // corner under the price axis (drawn over the chart, not here).
     let corner_time = frame.raw.last_time().unwrap_or(frame.now_ms);
-    let mut corner = frame.settings.zone.label(corner_time);
-    if !frame.settings.scale.short().is_empty() {
-        corner = format!("{corner}  {}", frame.settings.scale.short());
-    }
     cmds.push(Cmd::Text {
-        text: corner,
-        x: ox + plot_w as f32 + axis_w() / 2.0,
+        text: frame.settings.zone.label(corner_time),
+        x: ox + plot_w as f32 - 8.0,
         y: oy + plot_h as f32 + 8.0,
         size: font(),
         color: hsla(p.text),
-        align: Align::Center,
+        align: Align::Right,
         bold: false,
         face: Default::default(),
     });

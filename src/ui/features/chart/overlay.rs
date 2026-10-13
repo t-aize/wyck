@@ -102,8 +102,7 @@ impl Render for Chart {
             .child(paint::surface(&entity, self.bounds.clone()))
             .children(self.legends(&geometry, compact, cx))
             .children(self.line_labels(&geometry, cx))
-            // The way back to the latest price, on the chart being worked on.
-            .children(self.shows_toolbar().then(|| self.toolbar(cx)))
+            .children(self.corner(cx))
             .children(self.menu_popup(&geometry, cx))
             .children(self.drawing_hint(&geometry, cx))
             .children(self.marquee())

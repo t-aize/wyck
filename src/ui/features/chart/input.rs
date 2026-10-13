@@ -203,9 +203,8 @@ impl Chart {
             cx.notify();
         }
         let region = self.region(x, y);
+        // The corner has its own buttons over the chart (see `corner.rs`).
         if region == Region::Corner {
-            self.menu = Some(super::Menu::Zone);
-            cx.notify();
             return;
         }
         if let Region::Plot(_) = region
@@ -511,7 +510,7 @@ impl Chart {
             Region::PriceAxis(0) => CursorStyle::ResizeUpDown,
             Region::PriceAxis(_) => CursorStyle::Arrow,
             Region::TimeAxis => CursorStyle::ResizeLeftRight,
-            Region::Corner => CursorStyle::PointingHand,
+            Region::Corner => CursorStyle::Arrow,
         }
     }
 }
