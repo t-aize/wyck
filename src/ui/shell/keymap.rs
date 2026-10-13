@@ -168,7 +168,6 @@ pub static DEFS: &[Def] = &[
     def!("screenshot", "Take a picture of the chart", Chart, DASHBOARD, ["secondary-shift-s"], c::ChartScreenshot),
     def!("screenshot_all", "Take a picture of every chart", Chart, DASHBOARD, ["secondary-alt-shift-s"], c::ChartScreenshotAll),
     def!("copy_indicators", "Copy the indicators of the chart", Chart, DASHBOARD, ["secondary-c"], c::ChartCopyIndicators),
-    def!("copy_settings", "Copy the settings of the chart", Chart, DASHBOARD, ["secondary-shift-c"], c::ChartCopySettings),
     def!("paste_to_chart", "Paste indicators or settings", Chart, DASHBOARD, ["secondary-v"], c::ChartPaste),
     // Drawings.
     def!("find_tool", "Find a drawing tool", Drawing, DASHBOARD, ["secondary-shift-f"], c::FindTool),

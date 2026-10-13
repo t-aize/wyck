@@ -9,6 +9,7 @@ pub mod flow;
 pub mod footprint;
 pub mod format;
 pub mod lines;
+pub mod look;
 pub mod options;
 pub mod projection;
 pub mod scene;
@@ -21,6 +22,7 @@ pub mod view;
 pub mod volume;
 pub mod zone;
 
+pub use look::{ChartContent, ChartLook};
 pub use settings::{ChartKind, ChartSettings};
 pub use timeframe::{QUICK, Timeframe};
 pub use zone::Zone;

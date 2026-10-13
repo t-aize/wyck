@@ -32,10 +32,17 @@ pub const PLANS: [Plan; 4] = [
         document: workspace::PREFERENCES,
         current: workspace::SCHEMA_VERSION,
         // Version 2: the account panel keeps only its open tab.
-        steps: &[Step {
-            from: 1,
-            apply: trim_account_panel,
-        }],
+        // Version 3: how the charts look is saved once, not in each chart.
+        steps: &[
+            Step {
+                from: 1,
+                apply: trim_account_panel,
+            },
+            Step {
+                from: 2,
+                apply: lift_chart_look,
+            },
+        ],
     },
     Plan {
         document: workspace::WATCHLISTS,
@@ -63,6 +70,74 @@ fn trim_account_panel(table: &mut toml::Table) -> std::result::Result<(), StepEr
         .and_then(toml::Value::as_table_mut)
     {
         panel.retain(|key, _| key == "tab");
+    }
+    Ok(())
+}
+
+/// The keys of a chart's settings that say how it looks, and that are now the same for every chart.
+const LOOK_KEYS: [&str; 12] = [
+    "zone",
+    "invert",
+    "grid",
+    "grid_horizontal",
+    "grid_vertical",
+    "crosshair",
+    "margin",
+    "watermark",
+    "colors",
+    "price_lines",
+    "status",
+    "trading",
+];
+
+/// Version 2 to 3 of the preferences: how the charts look moves out of each chart into one `chart`
+/// table. It is taken from the chart the user was working on (the first one with settings when that
+/// one has none), so the look they see stays the look they see. Before charts had a zone each, the
+/// preferences had one zone at the top: it is the zone when no chart says one.
+fn lift_chart_look(table: &mut toml::Table) -> std::result::Result<(), StepError> {
+    use toml::Value;
+    let active = table
+        .get("active_chart")
+        .and_then(Value::as_integer)
+        .and_then(|n| usize::try_from(n).ok())
+        .unwrap_or(0);
+    let mut look = toml::Table::new();
+    if let Some(Value::Array(charts)) = table.get_mut("charts") {
+        // The chart being worked on gives the look, else the first that has settings.
+        let source = if charts
+            .get(active)
+            .is_some_and(|c| c.get("settings").is_some_and(Value::is_table))
+        {
+            Some(active)
+        } else {
+            charts
+                .iter()
+                .position(|c| c.get("settings").is_some_and(Value::is_table))
+        };
+        if let Some(source) = source
+            && let Some(settings) = charts[source].get("settings").and_then(Value::as_table)
+        {
+            for key in LOOK_KEYS {
+                if let Some(value) = settings.get(key) {
+                    look.insert(key.to_owned(), value.clone());
+                }
+            }
+        }
+        for chart in charts.iter_mut() {
+            if let Some(settings) = chart.get_mut("settings").and_then(Value::as_table_mut) {
+                for key in LOOK_KEYS {
+                    settings.remove(key);
+                }
+            }
+        }
+    }
+    if let Some(zone) = table.remove("zone")
+        && !look.contains_key("zone")
+    {
+        look.insert("zone".to_owned(), zone);
+    }
+    if !look.is_empty() && !table.contains_key("chart") {
+        table.insert("chart".to_owned(), Value::Table(look));
     }
     Ok(())
 }
@@ -224,7 +299,64 @@ mod tests {
         assert!(run(&paths).is_empty(), "a second start has nothing to do");
         let preferences: Preferences = shared.load(workspace::PREFERENCES).unwrap().unwrap();
         assert!(preferences.magnet, "the preferences kept what they held");
-        assert_eq!(preferences.schema_version, 2);
+        assert_eq!(preferences.schema_version, 3);
+    }
+
+    #[test]
+    fn how_the_charts_look_moves_out_of_each_chart_into_one_table() {
+        use crate::domain::chart::Zone;
+        let mut table: toml::Table = toml::from_str(include_str!(
+            "../../tests/fixtures/preferences-0.2-look.toml"
+        ))
+        .unwrap();
+        assert!(lift_chart_look(&mut table).is_ok());
+        assert!(
+            table.get("zone").is_none(),
+            "the old zone at the top is gone"
+        );
+        for chart in table["charts"].as_array().unwrap() {
+            let settings = chart["settings"].as_table().unwrap();
+            for key in LOOK_KEYS {
+                assert!(!settings.contains_key(key), "{key} stayed in a chart");
+            }
+            assert!(settings.contains_key("kind") && settings.contains_key("main_weight"));
+        }
+        let preferences: Preferences = table.try_into().unwrap();
+        let preferences = preferences.normalized();
+        // The look is the one of the chart that was active (the second), for every chart.
+        assert!(!preferences.chart.grid);
+        assert!(!preferences.chart.grid_vertical);
+        assert!(preferences.chart.watermark);
+        assert!(preferences.chart.invert);
+        assert_eq!(preferences.chart.zone, Zone::Utc);
+        assert_eq!(preferences.chart.colors.up, Some(65280));
+        assert!(!preferences.chart.trading.orders);
+        for index in 0..2 {
+            let settings = preferences.chart(index).settings;
+            assert_eq!(settings.look(), preferences.chart);
+        }
+        // What each chart shows stayed with it.
+        assert_eq!(
+            preferences.chart(0).settings.scale,
+            crate::domain::chart::settings::ScaleMode::Log
+        );
+        assert_eq!(preferences.chart(1).settings.studies.len(), 1);
+        assert_eq!(preferences.chart(1).settings.main_weight, 5.0);
+    }
+
+    #[test]
+    fn a_file_with_one_zone_for_every_chart_keeps_that_zone() {
+        use crate::domain::chart::Zone;
+        let mut table: toml::Table =
+            toml::from_str("schema_version = 2\nzone = \"utc\"\n[[charts]]\ntimeframe = \"M5\"\nkind = \"candles\"\n")
+                .unwrap();
+        assert!(lift_chart_look(&mut table).is_ok());
+        let preferences: Preferences = table.try_into().unwrap();
+        assert_eq!(preferences.chart.zone, Zone::Utc);
+        // Nothing to lift: nothing is made up.
+        let mut empty: toml::Table = toml::from_str("schema_version = 2\n").unwrap();
+        assert!(lift_chart_look(&mut empty).is_ok());
+        assert!(empty.get("chart").is_none());
     }
 
     #[test]

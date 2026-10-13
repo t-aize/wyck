@@ -5,6 +5,7 @@ use super::links::Link;
 use super::split::Node;
 use super::{MultiChart, MultiChartEvent};
 use crate::app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
+use crate::domain::chart::ChartContent;
 use crate::domain::chart::timeframe::Timeframe;
 use crate::ui::features::chart::ChartSettings;
 use gpui::{Context, MouseButton, MouseMoveEvent};
@@ -24,15 +25,19 @@ impl MultiChart {
                 )
                 .unwrap_or(Timeframe::DEFAULT)
             };
-            let settings = ChartSettings {
-                zone: self.active_chart().read(cx).settings().zone,
-                studies: if self.sync.studies {
-                    self.active_chart().read(cx).settings().studies.clone()
-                } else {
-                    Vec::new()
+            // A new chart looks as the others do, and has their indicators when those are linked.
+            let active = self.active_chart().read(cx).settings();
+            let settings = ChartSettings::from_parts(
+                ChartContent {
+                    studies: if self.sync.studies {
+                        active.studies.clone()
+                    } else {
+                        Vec::new()
+                    },
+                    ..ChartContent::default()
                 },
-                ..Default::default()
-            };
+                &active.look(),
+            );
             // A new chart shows the active chart's symbol even when symbols are not linked.
             let symbol = self.active_chart().read(cx).symbol().cloned();
             self.add_chart(

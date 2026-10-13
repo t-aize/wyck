@@ -319,7 +319,7 @@ impl Dashboard {
     /// Hands the safety limits and the zone the day is counted in to the account.
     pub(in crate::ui::shell::dashboard) fn sync_risk(&mut self, cx: &mut Context<Self>) {
         let prefs = self.workspace.read(cx).preferences();
-        let (risk, zone) = (prefs.risk.clone(), prefs.zone);
+        let (risk, zone) = (prefs.risk.clone(), prefs.chart.zone);
         self.trading
             .update(cx, |account, cx| account.set_risk(risk, zone, cx));
     }

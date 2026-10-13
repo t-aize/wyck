@@ -31,7 +31,7 @@ impl ChartSettingsEditor {
         if settings.colors.any() {
             let chart = self.chart.clone();
             colors.push(form::field(
-                "Colors of this chart",
+                "Colors of the charts",
                 Some("Rising, falling and line colors are on the Symbol page"),
                 button::action(
                     "canvas-theme-colors",

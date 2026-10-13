@@ -275,11 +275,6 @@ impl Chart {
                         .hint(crate::ui::kit::hints::hint("copy_indicators").unwrap_or_default())
                         .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopyIndicators)))
                         .into(),
-                    Entry::new("Copy chart settings")
-                        .icon(IconName::Copy)
-                        .hint(crate::ui::kit::hints::hint("copy_settings").unwrap_or_default())
-                        .on_click(on(|_, _, cx| cx.emit(ChartEvent::CopySettings)))
-                        .into(),
                     Entry::new("Paste on this chart")
                         .icon(IconName::ClipboardPaste)
                         .hint(crate::ui::kit::hints::hint("paste_to_chart").unwrap_or_default())

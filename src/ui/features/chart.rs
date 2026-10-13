@@ -77,6 +77,7 @@ mod study_settings;
 mod tpo_ui;
 mod volume_ui;
 
+pub use self::chart_settings_ui::open as open_chart_settings;
 use self::data::Series;
 use self::display::Display;
 use self::events::{ChartEvent, Hover};
@@ -143,7 +144,6 @@ gpui::actions!(
         ChartScreenshotAll,
         ChartAddAlert,
         ChartCopyIndicators,
-        ChartCopySettings,
         ChartPaste,
         SelectAllDrawings,
         FindTool,

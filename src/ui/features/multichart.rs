@@ -34,7 +34,7 @@ use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
 use crate::domain::market::LiveBarTracker;
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
-use crate::ui::features::chart::{Chart, ChartLine, ChartSettings, LineId};
+use crate::ui::features::chart::{Chart, ChartLine, LineId};
 use crate::ui::kit::{text_input::TextInput, theme};
 use gpui::prelude::*;
 use gpui::{
@@ -86,12 +86,6 @@ struct Slot {
     _events: Subscription,
 }
 
-#[derive(Clone)]
-enum ChartClipboard {
-    Studies(Vec<StudyConfig>),
-    Settings(Box<ChartSettings>),
-}
-
 /// A line between charts being dragged.
 #[derive(Debug, Clone, Copy)]
 struct SplitDrag {
@@ -115,7 +109,8 @@ pub struct MultiChart {
     slots: Vec<Slot>,
     active: usize,
     sync: Links,
-    clipboard: Option<ChartClipboard>,
+    /// The indicators copied last, for Ctrl+V.
+    clipboard: Option<Vec<StudyConfig>>,
     syncing_studies: bool,
     /// The drawings, shared by every chart.
     drawings: Entity<Drawings>,

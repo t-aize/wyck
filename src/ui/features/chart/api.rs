@@ -7,6 +7,7 @@ use super::{
     Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
     view,
 };
+use crate::domain::chart::ChartLook;
 
 use crate::app::market_data::now_ms;
 use gpui::{Context, SharedString};
@@ -203,9 +204,33 @@ impl Chart {
         if before.scale != self.settings.scale || before.invert != self.settings.invert {
             self.view.price = view::PriceScale::Auto;
         }
+        // How a chart looks is how every chart looks: the layout hands it to the others, and
+        // keeps it, before it saves what this chart shows.
+        let look = self.settings.look();
+        if before.look() != look {
+            cx.emit(ChartEvent::LookChanged(Box::new(look)));
+        }
         cx.emit(ChartEvent::SettingsChanged);
         cx.notify();
         self.ensure_flow(cx);
+    }
+
+    /// Takes the look every chart shares, after another chart changed it. What this chart shows is
+    /// left alone, and nothing is announced: the chart that changed it did.
+    pub fn adopt_look(&mut self, look: &ChartLook, cx: &mut Context<Self>) {
+        if self.settings.look() == *look {
+            return;
+        }
+        let before = self.settings.clone();
+        self.settings.set_look(look);
+        self.settings = std::mem::take(&mut self.settings).normalized();
+        if before.zone != self.settings.zone {
+            self.rebuild_display();
+        }
+        if before.invert != self.settings.invert {
+            self.view.price = view::PriceScale::Auto;
+        }
+        cx.notify();
     }
 
     pub fn set_kind(&mut self, kind: ChartKind, cx: &mut Context<Self>) {

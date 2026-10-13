@@ -97,6 +97,19 @@ impl MultiChart {
                         });
                 }
             }
+            ChartEvent::LookChanged(look) => {
+                // Kept for the next start, and handed to the other charts.
+                let look = (**look).clone();
+                self.workspace.update(cx, |workspace, cx| {
+                    workspace.edit_preferences(cx, |prefs| prefs.chart = look.clone());
+                });
+                for (index, slot) in self.slots.iter().enumerate() {
+                    if index != from {
+                        slot.chart
+                            .update(cx, |chart, cx| chart.adopt_look(&look, cx));
+                    }
+                }
+            }
             ChartEvent::SettingsChanged => {
                 if self.sync.studies && !self.syncing_studies {
                     self.share_studies(from, cx);
@@ -106,8 +119,7 @@ impl MultiChart {
                     cx.emit(MultiChartEvent::ActiveChanged);
                 }
             }
-            ChartEvent::CopyIndicators => self.copy_chart(from, false, cx),
-            ChartEvent::CopySettings => self.copy_chart(from, true, cx),
+            ChartEvent::CopyIndicators => self.copy_chart(from, cx),
             ChartEvent::Paste => self.paste_chart(from, cx),
             ChartEvent::PickSymbol => {
                 self.activate(from, cx);

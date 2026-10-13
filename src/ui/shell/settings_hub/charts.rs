@@ -1,8 +1,8 @@
 //! The Charts page of the settings.
 
 use super::{
-    AnyElement, CANDLE_SETS, Context, IconName, Pick, SettingsHub, appearance, div, form, px, rgb,
-    theme, tokens,
+    AnyElement, CANDLE_SETS, Context, IconName, Pick, SettingsHub, appearance, div, form, modal,
+    px, rgb, theme, tokens,
 };
 use crate::ui::kit::button::Button;
 use crate::ui::kit::prelude::Disableable;
@@ -149,11 +149,34 @@ impl SettingsHub {
             )],
         );
 
+        // The grid, the crosshair, the legend, the scales, the time zone and the lines are one
+        // setting for every chart, in the window of the chart settings.
+        let chart = self.multi.read(cx).active_chart().clone();
+        let all = form::group(
+            IconName::Settings2,
+            "All charts",
+            [form::field(
+                "Grid, crosshair, legend, scales, time zone and lines",
+                Some("The same for every chart"),
+                crate::ui::kit::button::action(
+                    "settings-chart-look",
+                    "Chart settings...",
+                    Some(IconName::Settings2),
+                    false,
+                    move |window, cx| {
+                        modal::close(window, cx);
+                        crate::ui::features::chart::open_chart_settings(chart.clone(), window, cx);
+                    },
+                ),
+            )],
+        );
+
         form::page()
+            .child(all)
             .child(candles)
             .child(background)
             .child(form::note(
-                "The type of a chart (candles, hollow candles, bars, Heikin Ashi, line...) is set on each chart, from its toolbar.",
+                "The type of a chart (candles, hollow candles, bars, Heikin Ashi, line...) and its indicators are set on each chart, from the bar at the top.",
             ))
             .into_any_element()
     }

@@ -315,15 +315,6 @@ impl Render for Dashboard {
                 });
             }),
         )
-        .on_action(
-            cx.listener(|this, _: &chart::ChartCopySettings, window, cx| {
-                this.multi.update(cx, |multi, cx| {
-                    if multi.has_chart_focus(window) {
-                        multi.copy_active_settings(cx);
-                    }
-                });
-            }),
-        )
         .on_action(cx.listener(|this, _: &chart::ChartPaste, window, cx| {
             this.multi.update(cx, |multi, cx| {
                 if multi.has_chart_focus(window) {
