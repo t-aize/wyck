@@ -5,20 +5,7 @@ use super::{
     theme, tokens,
 };
 use crate::ui::kit::prelude::Disableable;
-use crate::ui::kit::toast;
 use gpui::prelude::*;
-
-/// Reads the indicators from `dir` (the standard folder for `None`), and says so when it cannot.
-fn set_folder(cx: &mut gpui::App, dir: Option<&std::path::Path>) {
-    if let Err(error) = indicators::set_folder(cx, dir) {
-        toast::show(
-            cx,
-            toast::Kind::Error,
-            "The indicators folder was not changed",
-            error.to_string(),
-        );
-    }
-}
 
 impl SettingsHub {
     pub(super) fn indicators_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -29,6 +16,8 @@ impl SettingsHub {
         let entries = crate::domain::indicators::custom::library::registry::all();
         let broken = entries.iter().filter(|e| !e.is_ready()).count();
 
+        // Where the scripts are kept is chosen with the other folders, on the Folders page.
+        let hub = cx.entity();
         let folder = vec![
             form::block(
                 div()
@@ -52,52 +41,31 @@ impl SettingsHub {
                             .text_size(px(tokens::text::small()))
                             .text_color(theme::muted_fg())
                             .child(if using_default {
-                                "The standard folder."
+                                "The standard folder. Every .rhai file in it (and in the folders inside it) is an indicator."
                             } else {
-                                "A folder you chose. This computer remembers it; the settings do not, so a settings folder shared with another computer never points to it."
+                                "A folder you chose. Every .rhai file in it (and in the folders inside it) is an indicator."
                             }),
                     ),
             ),
             form::field(
                 "Change the folder",
-                Some("Every .rhai file in it (and in the folders inside it) is an indicator"),
+                Some("With the other folders of Wyck"),
                 div()
                     .flex()
                     .flex_row()
                     .gap_2()
                     .child(button::action(
-                        "indicators-choose",
-                        "Choose...",
+                        "indicators-folders",
+                        "Folders...",
                         Some(IconName::FolderOpen),
                         false,
                         move |_window, cx| {
-                            let picked = cx.prompt_for_paths(gpui::PathPromptOptions {
-                                files: false,
-                                directories: true,
-                                multiple: false,
-                                prompt: Some("Choose the folder of your indicators".into()),
+                            hub.update(cx, |hub, cx| {
+                                hub.page = super::Page::Folders;
+                                cx.notify();
                             });
-                            cx.spawn(async move |cx| {
-                                let Ok(Ok(Some(paths))) = picked.await else {
-                                    return;
-                                };
-                                if let Some(path) = paths.into_iter().next() {
-                                    cx.update(|cx| set_folder(cx, Some(&path)));
-                                }
-                            })
-                            .detach();
                         },
                     ))
-                    .child(
-                        button::action(
-                            "indicators-default",
-                            "Default",
-                            Some(IconName::RotateCcw),
-                            false,
-                            move |_window, cx| set_folder(cx, None),
-                        )
-                        .disabled(using_default),
-                    )
                     .child(button::action(
                         "indicators-open",
                         "Open",
@@ -105,16 +73,6 @@ impl SettingsHub {
                         false,
                         move |_window, cx| indicators::open_folder(cx),
                     )),
-            ),
-            form::field(
-                "Its default place",
-                None,
-                div()
-                    .max_w(px(crate::ui::kit::tokens::measure::note()))
-                    .truncate()
-                    .text_size(px(tokens::text::small()))
-                    .text_color(theme::muted_fg())
-                    .child(default_dir.display().to_string()),
             ),
         ];
 
