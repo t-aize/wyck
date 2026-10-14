@@ -42,7 +42,7 @@ pub(super) fn axes_background(frame: &Frame<'_>, geometry: &Geometry) -> Cmd {
 }
 
 /// The dash pattern of a line style, for a line `width` wide.
-pub fn dash_pattern(dash: Dash, width: f32) -> Option<[f32; 2]> {
+pub(crate) fn dash_pattern(dash: Dash, width: f32) -> Option<[f32; 2]> {
     match dash {
         Dash::Solid => None,
         Dash::Dashed => Some([6.0 + width * 1.5, 4.0 + width]),
@@ -133,7 +133,7 @@ pub(super) fn draw_price_lines(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
 }
 
 /// `05:12`, `1:05:12` or `2d 03:04`: the time left before the bar closes.
-pub fn countdown(ms: i64) -> String {
+pub(crate) fn countdown(ms: i64) -> String {
     let seconds = ms.max(0) / 1_000;
     let (days, hours, minutes, secs) = (
         seconds / 86_400,
@@ -353,12 +353,12 @@ pub(super) fn shade(color: Rgba, keep: f32) -> Hsla {
 
 #[cfg(test)]
 mod tests {
-    use super::super::axes::previous_close;
-    use super::super::axes::*;
+    use super::previous_close;
+    use super::*;
 
-    use super::super::color::rgb;
+    use crate::scene::color::rgb;
 
-    use super::super::*;
+    use crate::scene::*;
 
     use crate::zone::Zone;
 

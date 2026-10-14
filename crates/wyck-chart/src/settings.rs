@@ -55,7 +55,7 @@ pub enum ChartKind {
 }
 
 impl ChartKind {
-    pub const ALL: [Self; 17] = [
+    pub(crate) const ALL: [Self; 17] = [
         Self::Candles,
         Self::Hollow,
         Self::HeikinAshi,
@@ -125,7 +125,7 @@ impl ChartKind {
     }
 
     /// Whether the kind is drawn from open, high, low and close.
-    pub fn uses_ohlc(self) -> bool {
+    pub(crate) fn uses_ohlc(self) -> bool {
         matches!(
             self,
             Self::Candles
@@ -160,7 +160,7 @@ impl ChartKind {
     }
 
     /// Whether the elements of the kind stand for time periods (so the time axis is regular).
-    pub fn keeps_time(self) -> bool {
+    pub(crate) fn keeps_time(self) -> bool {
         !self.is_derived() || self == Self::HeikinAshi
     }
 }
@@ -204,19 +204,10 @@ impl ScaleMode {
             Self::Indexed => "Indexed to 100",
         }
     }
-
-    pub fn short(self) -> &'static str {
-        match self {
-            Self::Linear => "",
-            Self::Log => "log",
-            Self::Percent => "%",
-            Self::Indexed => "100",
-        }
-    }
 }
 
 /// The heights of the panes: the prices, then one weight per indicator pane.
-pub const MAIN_WEIGHT: f32 = 3.0;
+pub(crate) const MAIN_WEIGHT: f32 = 3.0;
 /// The largest supported number of indicators on one chart.
 pub const MAX_STUDIES: usize = 64;
 pub const DEFAULT_STUDIES_LIMIT: usize = 16;
@@ -448,7 +439,7 @@ mod tests {
             kind: ChartKind::Footprint,
             ..ChartSettings::default()
         };
-        settings.footprint.mode = super::super::footprint::CellMode::Delta;
+        settings.footprint.mode = crate::footprint::CellMode::Delta;
         settings.footprint.imbalance_percent = 450;
         let text = toml::to_string_pretty(&settings).unwrap();
         let back: ChartSettings = toml::from_str(&text).unwrap();

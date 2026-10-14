@@ -22,11 +22,11 @@
 use wyck_market::Quote;
 
 /// The most bars of flow kept. Older ones are dropped as new ones arrive.
-pub const MAX_FLOW_BARS: usize = 3_000;
+pub(crate) const MAX_FLOW_BARS: usize = 3_000;
 
 /// Which side of the market a unit of volume came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Side {
+pub(crate) enum Side {
     /// Sellers hit the bid.
     Sell,
     /// Buyers lifted the ask.
@@ -35,7 +35,7 @@ pub enum Side {
 
 /// Turns a stream of quotes into units of volume with a side.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Classifier {
+pub(crate) struct Classifier {
     bid: Option<i64>,
     ask: Option<i64>,
 }
@@ -43,7 +43,7 @@ pub struct Classifier {
 impl Classifier {
     /// The next quote (a side that did not change may be `None`). Returns the bid price and the
     /// side of the volume it stands for, or `None` when it shows no aggression.
-    pub fn push(&mut self, bid: Option<i64>, ask: Option<i64>) -> Option<(i64, Side)> {
+    pub(crate) fn push(&mut self, bid: Option<i64>, ask: Option<i64>) -> Option<(i64, Side)> {
         let (old_bid, old_ask) = (self.bid, self.ask);
         self.bid = bid.or(self.bid);
         self.ask = ask.or(self.ask);

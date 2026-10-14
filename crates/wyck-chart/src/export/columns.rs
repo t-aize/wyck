@@ -101,7 +101,7 @@ impl ColumnKey {
         }
     }
 
-    pub fn from_code(code: &str) -> Option<Self> {
+    pub(crate) fn from_code(code: &str) -> Option<Self> {
         const FIXED: [ColumnKey; 33] = [
             ColumnKey::Time,
             ColumnKey::Date,
@@ -148,7 +148,7 @@ impl ColumnKey {
     }
 
     /// The name of the column when the user has not chosen one.
-    pub fn default_name(self) -> String {
+    pub(crate) fn default_name(self) -> String {
         match self {
             Self::Time => "Time".into(),
             Self::Date => "Date".into(),
@@ -219,7 +219,7 @@ impl<'de> Deserialize<'de> for ColumnKey {
 #[cfg(test)]
 mod tests {
 
-    use super::super::columns::*;
+    use super::*;
 
     #[test]
     fn the_codes_of_the_columns_are_a_file_format() {

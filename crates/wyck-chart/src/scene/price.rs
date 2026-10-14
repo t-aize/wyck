@@ -9,8 +9,8 @@ use wyck_market::format_price;
 
 use wyck_core::format;
 
-use super::super::axis;
-use super::super::settings::ScaleMode;
+use crate::axis;
+use crate::settings::ScaleMode;
 use wyck_indicators::spec::ValueFormat;
 
 /// Prices under this are clamped before taking their logarithm.
@@ -31,7 +31,7 @@ pub struct PriceMap {
 
 impl PriceMap {
     /// A plain linear map, for indicator panes.
-    pub fn linear(lo: f64, hi: f64, top: f64, bottom: f64) -> Self {
+    pub(crate) fn linear(lo: f64, hi: f64, top: f64, bottom: f64) -> Self {
         Self {
             lo,
             hi,
@@ -111,13 +111,12 @@ impl PriceMap {
 
     /// The values to label, about `target` of them. `min_step` is the smallest step that still
     /// means something (one unit of the symbol's last decimal).
-    pub fn ticks(&self, target: usize, min_step: f64) -> Vec<f64> {
+    pub(crate) fn ticks(&self, target: usize, min_step: f64) -> Vec<f64> {
         let (lo, hi) = (self.lo, self.hi);
         if !(lo.is_finite() && hi.is_finite() && hi > lo) {
             return Vec::new();
         }
         match self.mode {
-            ScaleMode::Linear => axis::price_ticks(lo, hi, target, min_step),
             ScaleMode::Percent | ScaleMode::Indexed if self.base > 0.0 => {
                 // Round steps of the percentage (or index), mapped back to prices.
                 let to_unit = |price: f64| price / self.base * 100.0;
@@ -132,13 +131,15 @@ impl PriceMap {
                 .map(from_unit)
                 .collect()
             }
-            ScaleMode::Percent | ScaleMode::Indexed => axis::price_ticks(lo, hi, target, min_step),
             ScaleMode::Log => log_ticks(lo.max(LOG_FLOOR), hi, target, min_step),
+            ScaleMode::Linear | ScaleMode::Percent | ScaleMode::Indexed => {
+                axis::price_ticks(lo, hi, target, min_step)
+            }
         }
     }
 
     /// The label of a price on the axis.
-    pub fn label(&self, price: f64, format: ValueFormat, digits: u32) -> String {
+    pub(crate) fn label(&self, price: f64, format: ValueFormat, digits: u32) -> String {
         match self.mode {
             ScaleMode::Percent if self.base > 0.0 => {
                 let pct = (price / self.base - 1.0) * 100.0;
@@ -188,7 +189,7 @@ pub fn format_value(value: f64, format: ValueFormat, digits: u32) -> String {
 }
 
 /// `1.2K`, `3.45M`: a large count, short.
-pub fn count(value: f64) -> String {
+pub(crate) fn count(value: f64) -> String {
     let abs = value.abs();
     let (scaled, suffix) = if abs >= 1e9 {
         (value / 1e9, "B")

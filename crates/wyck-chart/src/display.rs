@@ -37,7 +37,7 @@ pub struct Display {
 
 /// The kind a series is drawn as: ticks have no bars, so they are a line (or the constructions
 /// that work from single prices).
-pub fn effective_kind(series: &Series, kind: ChartKind) -> ChartKind {
+pub(crate) fn effective_kind(series: &Series, kind: ChartKind) -> ChartKind {
     match (series, kind) {
         (
             Series::Ticks(_),
@@ -73,7 +73,7 @@ fn tick_bar(tick: &Tick) -> Bar {
 
 /// Heikin Ashi bars: each closes at the average of its bar and opens halfway through the body of
 /// the one before.
-pub fn heikin_ashi(bars: &[Bar]) -> Vec<Bar> {
+pub(crate) fn heikin_ashi(bars: &[Bar]) -> Vec<Bar> {
     let mut out: Vec<Bar> = Vec::with_capacity(bars.len());
     for bar in bars {
         let close = ((bar.open + bar.high + bar.low + bar.close) as f64 / 4.0).round() as i64;

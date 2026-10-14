@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 /// Every option of an export. Saved as a preset, so every field has a default and everything
 /// read is repaired by [`ExportOptions::normalized`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportOptions {
     #[serde(default)]
     pub content: Content,
@@ -264,7 +264,7 @@ impl ExportOptions {
     }
 
     /// The extension a file of these options gets.
-    pub fn extension(&self) -> &'static str {
+    pub(crate) fn extension(&self) -> &'static str {
         match self.format {
             Format::Delimited => match self.delimiter {
                 Delimiter::Tab => "tsv",
@@ -290,9 +290,9 @@ impl ExportOptions {
 
 #[cfg(test)]
 mod tests {
-    use super::super::choices::*;
-    use super::super::columns::*;
-    use super::super::options::*;
+    use super::*;
+    use crate::export::choices::*;
+    use crate::export::columns::*;
 
     #[test]
     fn a_pattern_that_cannot_be_written_is_replaced() {

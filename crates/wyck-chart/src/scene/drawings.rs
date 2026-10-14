@@ -71,7 +71,7 @@ pub(super) fn draw_script_drawings(cx: &Ctx<'_>, out: &mut Vec<Cmd>) {
 }
 
 /// A ring of points around an ellipse.
-pub fn ellipse_points(center: P, rx: f32, ry: f32, steps: usize) -> Vec<P> {
+pub(crate) fn ellipse_points(center: P, rx: f32, ry: f32, steps: usize) -> Vec<P> {
     (0..=steps)
         .map(|i| {
             let angle = i as f32 / steps as f32 * std::f32::consts::TAU;

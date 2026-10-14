@@ -63,7 +63,7 @@ impl ChartColors {
 
     /// The colors with everything past `0xFFFFFF` cut off.
     #[must_use]
-    pub fn normalized(self) -> Self {
+    pub(crate) fn normalized(self) -> Self {
         let cut = |c: Option<u32>| c.map(|c| c & 0x00ff_ffff);
         Self {
             up: cut(self.up),
@@ -111,7 +111,7 @@ impl CrosshairStyle {
     }
 
     /// The dash pattern of the lines, `None` for solid lines.
-    pub fn dash(self) -> Option<[f32; 2]> {
+    pub(crate) fn dash(self) -> Option<[f32; 2]> {
         match self {
             Self::Dashed | Self::Off => Some([4.0, 4.0]),
             Self::Dotted => Some([1.0, 3.0]),
@@ -142,7 +142,7 @@ impl ScaleMargin {
     }
 
     /// The room, as a share of the price range.
-    pub fn share(self) -> f64 {
+    pub(crate) fn share(self) -> f64 {
         match self {
             Self::Tight => 0.02,
             Self::Normal => 0.07,

@@ -83,7 +83,7 @@ pub(super) fn time_text(time_ms: i64, options: &ExportOptions, chart_zone: Zone)
 
 /// A price of the server's raw units, written exactly with `digits` decimals (rounded half away
 /// from zero), or as the integer itself.
-pub fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
+pub(crate) fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
     let negative = raw < 0;
     let magnitude = i128::from(raw).unsigned_abs();
     // Bring the raw units to the wanted decimals.
@@ -102,10 +102,8 @@ pub fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
         format!("{whole}{decimal}{part:0width$}", width = wanted as usize)
     };
     if trim && wanted > 0 {
-        text = text
-            .trim_end_matches('0')
-            .trim_end_matches(decimal)
-            .to_owned();
+        let kept = text.trim_end_matches('0').trim_end_matches(decimal).len();
+        text.truncate(kept);
     }
     // "-0" is just "0".
     let zero = text.chars().all(|c| c == '0' || c == decimal);
@@ -123,7 +121,7 @@ pub(super) fn value_text(value: f64, digits: u32, decimal: char, trim: bool) -> 
         format!("{value:.*}", digits as usize)
     };
     if text == "-0" {
-        text = "0".to_owned();
+        "0".clone_into(&mut text);
     }
     if decimal != '.' {
         text = text.replace('.', &decimal.to_string());
@@ -153,7 +151,6 @@ pub(super) fn cell_text(cell: &Cell, cx: &Writer<'_>) -> Option<Written> {
     let o = cx.options;
     let plain = |text: String, numeric: bool| Some(Written { text, numeric });
     match cell {
-        Cell::Empty => None,
         Cell::Text(text) => plain(text.clone(), false),
         Cell::Int(n) => plain(n.to_string(), true),
         Cell::Price(raw) => match price_digits(o, cx.digits) {
@@ -164,7 +161,7 @@ pub(super) fn cell_text(cell: &Cell, cx: &Writer<'_>) -> Option<Written> {
             value_text(*v, o.value_digits, cx.decimal, o.trim_zeros),
             true,
         ),
-        Cell::Value(_) => None,
+        Cell::Empty | Cell::Value(_) => None,
         Cell::Time(t) => Some(time_text(*t, o, cx.zone)),
         Cell::Date(t) => plain(local_text(*t, o.zone(cx.zone), &o.date_pattern), false),
         Cell::Clock(t) => plain(local_text(*t, o.zone(cx.zone), &o.clock_pattern), false),
@@ -415,7 +412,7 @@ pub fn clashes(options: &ExportOptions) -> bool {
 #[cfg(test)]
 mod tests {
 
-    use super::super::render::*;
+    use super::*;
 
     #[test]
     fn prices_are_written_exactly_at_any_number_of_decimals() {

@@ -7,16 +7,16 @@
 //! - Once points are narrower than a pixel they are folded into one column each (their low, high,
 //!   first and last), so a chart with a hundred thousand bars costs what a screenful costs.
 //!
-//! The plot is cut into bands ([`mod@geometry`]): the prices on top, then one pane per indicator that
+//! The plot is cut into bands (`geometry`): the prices on top, then one pane per indicator that
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
-pub mod axes;
+mod axes;
 pub mod cmd;
 pub mod color;
 mod ctx;
-pub mod drawings;
+mod drawings;
 mod footprint;
-pub mod geometry;
+mod geometry;
 pub mod palette;
 pub mod price;
 pub mod scale;
@@ -50,11 +50,11 @@ fn watermark_size() -> f32 {
 }
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
-pub const TPO_MARKS: u32 = 0x7f93b2;
-pub const TPO_POC: u32 = 0xf0a020;
-pub const TPO_VALUE_AREA: u32 = 0x5b8def;
-pub const TPO_IB: u32 = 0xb27be6;
-pub const TPO_SINGLE: u32 = 0xe5586a;
+pub(crate) const TPO_MARKS: u32 = 0x7f93b2;
+pub(crate) const TPO_POC: u32 = 0xf0a020;
+pub(crate) const TPO_VALUE_AREA: u32 = 0x5b8def;
+pub(crate) const TPO_IB: u32 = 0xb27be6;
+pub(crate) const TPO_SINGLE: u32 = 0xe5586a;
 
 /// One unit of the symbol's last decimal, in raw price units.
 pub fn quote_unit(digits: u32) -> f64 {
@@ -272,7 +272,7 @@ pub fn build(frame: &Frame<'_>) -> Vec<Cmd> {
         }
     }
     studies::overlays_under(&cx, first, last, &mut plot);
-    studies::overlays(&cx, first, last, &mut plot);
+    studies::overlays(&cx, first, &mut plot);
     drawings::draw_script_drawings(&cx, &mut plot);
     for mark in frame.marks {
         let y = cx.y(mark.price);
@@ -995,14 +995,17 @@ mod tests {
             background: Some(0x101010),
             ..ChartColors::default()
         };
-        let own = Palette::for_chart(&colors);
+        let own = Palette::for_chart_with_base(&colors, Palette::new());
         assert_eq!(own.up, rgb(0x00ff00));
         assert_eq!(own.bg, rgb(0x101010));
         assert_eq!(own.down, theme.down);
-        let grid = Palette::for_chart(&ChartColors {
-            grid: Some(0xffffff),
-            ..ChartColors::default()
-        });
+        let grid = Palette::for_chart_with_base(
+            &ChartColors {
+                grid: Some(0xffffff),
+                ..ChartColors::default()
+            },
+            Palette::new(),
+        );
         assert!(grid.grid.a < 0.5, "a chosen grid color is drawn faint");
         assert_eq!(own.line, theme.line);
     }

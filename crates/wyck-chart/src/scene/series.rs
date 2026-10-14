@@ -4,11 +4,11 @@
 use super::color::transparent_black;
 use wyck_market::Bar;
 
-use super::super::data::Series;
-use super::super::settings::ChartKind;
 use super::cmd::{Align, Cmd, P, font, hsla, line_height, with_alpha};
 use super::ctx::{Ctx, columns};
 use super::drawings::ellipse_points;
+use crate::data::Series;
+use crate::settings::ChartKind;
 
 /// Bars narrower than this are drawn as one line each, not as a body with wicks.
 const CANDLE_MIN_PX: f64 = 4.0;
@@ -36,7 +36,10 @@ impl CandleStyle {
 /// Draws the series as `kind`.
 pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out: &mut Vec<Cmd>) {
     match (cx.series, kind) {
-        (Series::Bars(bars), ChartKind::Candles | ChartKind::HeikinAshi) => {
+        (
+            Series::Bars(bars),
+            ChartKind::Candles | ChartKind::HeikinAshi | ChartKind::Range | ChartKind::VolumeBars,
+        ) => {
             candles(cx, bars, first, last, CandleStyle::Solid, out);
         }
         (Series::Bars(bars), ChartKind::Hollow) => {
@@ -55,9 +58,6 @@ pub(super) fn draw(cx: &Ctx<'_>, kind: ChartKind, first: usize, last: usize, out
         }
         (Series::Bars(bars), ChartKind::LineBreak) => {
             candles(cx, bars, first, last, CandleStyle::Body, out);
-        }
-        (Series::Bars(bars), ChartKind::Range | ChartKind::VolumeBars) => {
-            candles(cx, bars, first, last, CandleStyle::Solid, out);
         }
         (Series::Bars(bars), ChartKind::VolumeCandles) => {
             volume_candles(cx, bars, first, last, out);
@@ -171,7 +171,7 @@ fn candles(
                 radius: 0.0,
             });
         } else {
-            out.push(cx.rect(x0, top, x1 - x0, height, c));
+            out.push(Cmd::rect(x0, top, x1 - x0, height, c));
         }
     }
 }
@@ -210,8 +210,8 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
         let bar = &bars[i];
         let x = cx.x(i);
         let up = match settings.color_by {
-            super::super::volume::ColorBy::Body => bar.close >= bar.open,
-            super::super::volume::ColorBy::PreviousClose => {
+            crate::volume::ColorBy::Body => bar.close >= bar.open,
+            crate::volume::ColorBy::PreviousClose => {
                 bar.close >= i.checked_sub(1).map_or(bar.open, |p| bars[p].close)
             }
         };
@@ -220,7 +220,7 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
         let (y_high, y_low) = (cx.y(bar.high as f64), cx.y(bar.low as f64));
         let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
         let (wick_top, wick_bottom) = (y_high.min(y_low), y_low.max(y_high) + thin);
-        out.push(cx.rect(
+        out.push(Cmd::rect(
             cx.snap(x - wick_w / 2.0),
             cx.snap(wick_top),
             wick_w,
@@ -253,7 +253,7 @@ fn volume_candles(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &m
                 radius: 0.0,
             });
         } else {
-            out.push(cx.rect(x0, top, x1 - x0, height, c));
+            out.push(Cmd::rect(x0, top, x1 - x0, height, c));
         }
         if settings.labels && body_w >= 26.0 && wick_top - line_height() - 2.0 >= top_edge {
             out.push(Cmd::Text {

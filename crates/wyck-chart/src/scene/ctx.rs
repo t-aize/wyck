@@ -39,23 +39,11 @@ impl Ctx<'_> {
         self.y_on(&self.map, price)
     }
 
-    pub(super) fn rect(&self, x: f32, y: f32, w: f32, h: f32, fill: Hsla) -> Cmd {
-        Cmd::Rect {
-            x,
-            y,
-            w: w.max(0.0),
-            h: h.max(0.0),
-            fill,
-            border: None,
-            radius: 0.0,
-        }
-    }
-
     /// A one device pixel wide vertical line from `y0` to `y1`.
     pub(super) fn vline(&self, x: f32, y0: f32, y1: f32, c: Hsla) -> Cmd {
         let w = 1.0 / self.f.scale;
         let (a, b) = (y0.min(y1), y0.max(y1));
-        self.rect(
+        Cmd::rect(
             self.snap(x),
             self.snap(a),
             w,
@@ -66,7 +54,7 @@ impl Ctx<'_> {
 
     pub(super) fn hline(&self, y: f32, x0: f32, x1: f32, c: Hsla) -> Cmd {
         let h = 1.0 / self.f.scale;
-        self.rect(
+        Cmd::rect(
             self.snap(x0),
             self.snap(y),
             self.snap(x1) - self.snap(x0),

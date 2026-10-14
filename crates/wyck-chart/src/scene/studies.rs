@@ -16,7 +16,7 @@ use wyck_indicators::spec::{PlotKind, ValueFormat};
 use wyck_indicators::style::FillStyle;
 
 /// The part of the data a plot draws on screen: data indices `from..to`.
-fn data_range(cx: &Ctx<'_>, plot: &PlotOut, first: usize, _last: usize) -> (usize, usize) {
+fn data_range(cx: &Ctx<'_>, plot: &PlotOut, first: usize) -> (usize, usize) {
     let n = plot.values.len() as i64;
     // The right edge may be past the data: plots shifted forward draw there.
     let right = cx.f.view.index_at(cx.plot_w, cx.len, cx.plot_w).ceil() as i64 + 2;
@@ -97,14 +97,8 @@ pub(super) fn pane_map(
 
 /// The points of a plot on screen, cut where it has no value. Several points per pixel column
 /// keep only the last of each column.
-fn segments(
-    cx: &Ctx<'_>,
-    plot: &PlotOut,
-    map: &PriceMap,
-    first: usize,
-    last: usize,
-) -> Vec<Vec<P>> {
-    let (from, to) = data_range(cx, plot, first, last);
+fn segments(cx: &Ctx<'_>, plot: &PlotOut, map: &PriceMap, first: usize) -> Vec<Vec<P>> {
+    let (from, to) = data_range(cx, plot, first);
     let mut out: Vec<Vec<P>> = Vec::new();
     let mut current: Vec<P> = Vec::new();
     let mut last_column: Option<i32> = None;
@@ -142,7 +136,6 @@ fn draw_plot(
     plot: &PlotOut,
     map: &PriceMap,
     first: usize,
-    last: usize,
     out: &mut Vec<Cmd>,
 ) {
     let style = config.plot_style(plot.key);
@@ -151,7 +144,7 @@ fn draw_plot(
     }
     match style.kind.unwrap_or(plot.kind) {
         PlotKind::Line => {
-            for points in segments(cx, plot, map, first, last) {
+            for points in segments(cx, plot, map, first) {
                 out.push(Cmd::Stroke {
                     points,
                     width: style.width,
@@ -161,7 +154,7 @@ fn draw_plot(
             }
         }
         PlotKind::Dots => {
-            let (from, to) = data_range(cx, plot, first, last);
+            let (from, to) = data_range(cx, plot, first);
             let r = (style.width.max(1.0) + (cx.f.view.bar_px as f32 / 6.0).min(2.0)) / 2.0;
             for i in from..to {
                 let v = plot.values[i];
@@ -180,7 +173,7 @@ fn draw_plot(
             }
         }
         PlotKind::Histogram => {
-            let (from, to) = data_range(cx, plot, first, last);
+            let (from, to) = data_range(cx, plot, first);
             let zero = cx.y_on(map, 0.0);
             let bar_px = cx.f.view.bar_px as f32;
             let width = if bar_px >= 2.0 {
@@ -259,7 +252,7 @@ fn draw_fill(
     if a.offset != b.offset {
         return;
     }
-    let (from, to) = data_range(cx, a, visible.0, visible.1);
+    let (from, to) = data_range(cx, a, visible.0);
     let to = to.min(b.values.len());
     // Runs where both have a value and the same one is on top.
     let mut run: Vec<usize> = Vec::new();
@@ -271,21 +264,14 @@ fn draw_fill(
                 Some(other) if !above => other,
                 _ => style.map_or(fill.color, |s| s.color),
             };
-            let mut points: Vec<P> = run
-                .iter()
-                .map(|&i| {
-                    (
-                        cx.xf((i as i64 + a.offset) as f64),
-                        cx.y_on(map, a.values[i]),
-                    )
-                })
-                .collect();
-            points.extend(run.iter().rev().map(|&i| {
+            let edge = |line: &PlotOut, i: usize| {
                 (
-                    cx.xf((i as i64 + b.offset) as f64),
-                    cx.y_on(map, b.values[i]),
+                    cx.xf((i as i64 + line.offset) as f64),
+                    cx.y_on(map, line.values[i]),
                 )
-            }));
+            };
+            let mut points: Vec<P> = run.iter().map(|&i| edge(a, i)).collect();
+            points.extend(run.iter().rev().map(|&i| edge(b, i)));
             out.push(Cmd::Fill {
                 points,
                 color: rgb_alpha(color, style.map_or(fill.alpha, |s| s.opacity)),
@@ -339,14 +325,14 @@ pub(super) fn overlays_under(cx: &Ctx<'_>, first: usize, last: usize, out: &mut 
 }
 
 /// The lines of the overlays, over the prices.
-pub(super) fn overlays(cx: &Ctx<'_>, first: usize, last: usize, out: &mut Vec<Cmd>) {
+pub(super) fn overlays(cx: &Ctx<'_>, first: usize, out: &mut Vec<Cmd>) {
     for (config, output) in cx.f.settings.studies.iter().zip(&cx.f.display.studies) {
         if !config.visible || config.spec().placement != Placement::Overlay {
             continue;
         }
         if let Some(output) = output {
             for plot in &output.plots {
-                draw_plot(cx, config, plot, &cx.map, first, last, out);
+                draw_plot(cx, config, plot, &cx.map, first, out);
             }
         }
     }
@@ -410,7 +396,7 @@ pub(super) fn pane(
         );
     }
     for plot in &output.plots {
-        draw_plot(cx, config, plot, map, first, last, out);
+        draw_plot(cx, config, plot, map, first, out);
     }
 }
 

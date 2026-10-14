@@ -9,7 +9,7 @@ use super::options::ExportOptions;
 use serde::{Deserialize, Serialize};
 
 /// A named set of options.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Preset {
     pub name: String,
     #[serde(default)]

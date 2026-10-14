@@ -65,8 +65,8 @@ const LADDER: [Unit; 28] = [
 ];
 
 /// A label of the time axis.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TimeLabel {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TimeLabel {
     /// Which point it belongs to.
     pub index: usize,
     pub text: String,
@@ -75,7 +75,7 @@ pub struct TimeLabel {
 }
 
 /// A step for a price axis that shows about `target` labels over `range`.
-pub fn nice_step(range: f64, target: usize) -> f64 {
+pub(crate) fn nice_step(range: f64, target: usize) -> f64 {
     if !(range.is_finite() && range > 0.0) {
         return 1.0;
     }
@@ -96,7 +96,7 @@ pub fn nice_step(range: f64, target: usize) -> f64 {
 
 /// The values to label between `lo` and `hi`. `min_step` is the smallest step that still means
 /// something for the symbol (one unit of its last decimal).
-pub fn price_ticks(lo: f64, hi: f64, target: usize, min_step: f64) -> Vec<f64> {
+pub(crate) fn price_ticks(lo: f64, hi: f64, target: usize, min_step: f64) -> Vec<f64> {
     if !(lo.is_finite() && hi.is_finite() && hi > lo) {
         return Vec::new();
     }
@@ -158,7 +158,7 @@ fn bucket(unit: Unit, time_ms: i64) -> i64 {
 ///
 /// `time_at` gives the time of a point, `x_of` its x, and `min_gap` is the least space between
 /// two labels in pixels.
-pub fn time_labels(
+pub(crate) fn time_labels(
     first: usize,
     last: usize,
     time_at: impl Fn(usize) -> Option<i64>,

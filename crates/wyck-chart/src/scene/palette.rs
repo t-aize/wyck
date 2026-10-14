@@ -59,11 +59,6 @@ impl Palette {
         }
     }
 
-    /// The colors of the theme, with the ones a chart overrides.
-    pub fn for_chart(colors: &ChartColors) -> Self {
-        Self::for_chart_with_base(colors, Self::new())
-    }
-
     /// Applies per-chart colors to a frontend-supplied palette.
     pub fn for_chart_with_base(colors: &ChartColors, mut palette: Self) -> Self {
         let pick = |color: u32| rgb(color);
@@ -132,25 +127,25 @@ impl Default for Palette {
 #[cfg(test)]
 mod tests {
 
-    use super::super::color::rgb;
+    use crate::scene::color::rgb;
 
-    use super::super::palette::*;
+    use super::*;
 
     use crate::options::ChartColors;
 
     #[test]
     fn trading_lines_that_are_hidden_are_not_marks() {
-        let settings = super::super::super::options::TradingLines {
+        let settings = crate::options::TradingLines {
             alerts: false,
-            ..super::super::super::options::TradingLines::default()
+            ..crate::options::TradingLines::default()
         };
-        assert!(!settings.shows(super::super::super::lines::LineId::Alert(3)));
-        assert!(settings.shows(super::super::super::lines::LineId::Order(3)));
+        assert!(!settings.shows(crate::lines::LineId::Alert(3)));
+        assert!(settings.shows(crate::lines::LineId::Order(3)));
     }
 
     #[test]
     fn kagi_and_point_figure_take_their_own_colors_and_follow_the_rising_ones_otherwise() {
-        let plain = Palette::for_chart(&ChartColors::default());
+        let plain = Palette::for_chart_with_base(&ChartColors::default(), Palette::new());
         assert_eq!(plain.kagi_yang, plain.up);
         assert_eq!(plain.kagi_yin, plain.down);
         assert_eq!(plain.pnf_up, plain.up);
@@ -160,7 +155,7 @@ mod tests {
             pnf_up: Some(0x778899),
             ..ChartColors::default()
         };
-        let p = Palette::for_chart(&colors);
+        let p = Palette::for_chart_with_base(&colors, Palette::new());
         assert_eq!(p.kagi_yang, rgb(0x112233), "follows the rising color");
         assert_eq!(p.kagi_yin, rgb(0x445566));
         assert_eq!(p.pnf_up, rgb(0x778899));

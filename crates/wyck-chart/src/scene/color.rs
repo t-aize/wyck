@@ -16,7 +16,7 @@ pub struct Hsla {
     pub a: f32,
 }
 
-pub fn rgb(hex: u32) -> Rgba {
+pub(crate) fn rgb(hex: u32) -> Rgba {
     Rgba {
         r: ((hex >> 16) & 0xff) as f32 / 255.0,
         g: ((hex >> 8) & 0xff) as f32 / 255.0,
@@ -25,7 +25,7 @@ pub fn rgb(hex: u32) -> Rgba {
     }
 }
 
-pub fn color_hsla(h: f32, s: f32, l: f32, a: f32) -> Hsla {
+pub(crate) fn color_hsla(h: f32, s: f32, l: f32, a: f32) -> Hsla {
     Hsla {
         h: h.clamp(0.0, 1.0),
         s: s.clamp(0.0, 1.0),
@@ -34,7 +34,7 @@ pub fn color_hsla(h: f32, s: f32, l: f32, a: f32) -> Hsla {
     }
 }
 
-pub fn transparent_black() -> Hsla {
+pub(crate) fn transparent_black() -> Hsla {
     Hsla {
         h: 0.0,
         s: 0.0,

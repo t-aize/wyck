@@ -2,7 +2,7 @@
 //! and range bars. Each one filters the prices it is given into its own sequence of bricks, lines,
 //! columns or bars, and the chart then shows that sequence one after the other, like bars.
 //!
-//! A construction reads a stream of prices ([`Sample`]s), made from the bars by [`samples`]. Which
+//! A construction reads a stream of prices (`Sample`s), made from the bars by `samples`. Which
 //! prices of a bar it reads is [`PricePath`]: only the close, or the whole path the price most
 //! likely took inside the bar (open, then low and high, then close). Reading the path is what
 //! keeps a brick chart of one minute bars close to what a tick chart would show, since a bar that
@@ -61,7 +61,7 @@ impl PricePath {
     }
 
     /// The prices of `bar` in the order the construction walks them.
-    pub fn points(self, bar: &Bar) -> Vec<i64> {
+    pub(crate) fn points(self, bar: &Bar) -> Vec<i64> {
         match self {
             Self::Close => vec![bar.close],
             Self::Ohlc if bar.close >= bar.open => vec![bar.open, bar.low, bar.high, bar.close],
@@ -72,7 +72,7 @@ impl PricePath {
 
 /// One price of the stream a construction reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Sample {
+pub(crate) struct Sample {
     pub time_ms: i64,
     pub price: i64,
     /// The share of the volume of its bar that goes with this price.
@@ -81,7 +81,7 @@ pub struct Sample {
 
 /// The stream of prices of `bars` along `path`. The volume of a bar is split evenly between its
 /// prices (the last one takes what is left), so nothing is lost.
-pub fn samples(bars: &[Bar], path: PricePath) -> Vec<Sample> {
+pub(crate) fn samples(bars: &[Bar], path: PricePath) -> Vec<Sample> {
     let mut out = Vec::with_capacity(bars.len() * if path == PricePath::Ohlc { 4 } else { 1 });
     for bar in bars {
         let points = path.points(bar);
@@ -104,7 +104,7 @@ pub fn samples(bars: &[Bar], path: PricePath) -> Vec<Sample> {
 }
 
 /// A Kagi line: how thick it starts and where (if anywhere) it changes.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KagiLine {
     /// Whether the line starts thick (yang).
     pub yang: bool,
@@ -138,7 +138,7 @@ fn brick(time_ms: i64, open: i64, close: i64, volume: i64) -> Bar {
 /// Renko bricks of `size` from `samples`. A brick of the other color needs the price to go back
 /// `reversal` boxes from where the last brick ended. With `wicks` a brick's high and low reach the
 /// extremes the price saw while it was forming.
-pub fn renko(samples: &[Sample], size: i64, reversal: i64, wicks: bool) -> Vec<Bar> {
+pub(crate) fn renko(samples: &[Sample], size: i64, reversal: i64, wicks: bool) -> Vec<Bar> {
     let size = size.max(1);
     let reversal = reversal.clamp(1, 10);
     let mut out: Vec<Bar> = Vec::new();
@@ -211,7 +211,7 @@ pub fn renko(samples: &[Sample], size: i64, reversal: i64, wicks: bool) -> Vec<B
 }
 
 /// Line break lines: a new line past the extreme of the last `lines` lines.
-pub fn line_break(samples: &[Sample], lines: usize) -> Vec<Bar> {
+pub(crate) fn line_break(samples: &[Sample], lines: usize) -> Vec<Bar> {
     let lines = lines.max(1);
     let mut out: Vec<Bar> = Vec::new();
     let Some(first) = samples.first() else {
@@ -303,7 +303,7 @@ impl KagiBuilder {
 
 /// Kagi lines with a reversal of `reversal`. Each bar is one vertical line: open where it starts,
 /// close where it ends, and [`KagiLine`] for its thickness.
-pub fn kagi(samples: &[Sample], reversal: i64) -> (Vec<Bar>, Vec<KagiLine>) {
+pub(crate) fn kagi(samples: &[Sample], reversal: i64) -> (Vec<Bar>, Vec<KagiLine>) {
     let reversal = reversal.max(1);
     let mut builder = KagiBuilder::default();
     let Some(first) = samples.first() else {
@@ -349,7 +349,7 @@ pub fn kagi(samples: &[Sample], reversal: i64) -> (Vec<Bar>, Vec<KagiLine>) {
 /// every level the price reached going up, a falling one every level it reached going down; a
 /// column turns once the price goes `reversal` levels back from its extreme, and the new column
 /// starts one level off that extreme.
-pub fn point_and_figure(
+pub(crate) fn point_and_figure(
     samples: &[Sample],
     size: i64,
     reversal: i64,
@@ -427,7 +427,7 @@ pub fn point_and_figure(
 
 /// Range bars of `range`, walking each bar along `path` (open, low, high, close for a rising bar,
 /// open, high, low, close for a falling one).
-pub fn range_bars(bars: &[Bar], range: i64, path: PricePath) -> Vec<Bar> {
+pub(crate) fn range_bars(bars: &[Bar], range: i64, path: PricePath) -> Vec<Bar> {
     let range = range.max(1);
     let mut out: Vec<Bar> = Vec::new();
     let mut current: Option<Bar> = None;

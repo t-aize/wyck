@@ -59,7 +59,7 @@ impl Series {
     }
 
     /// The last price: a bar's close, or the tick's price.
-    pub fn last_price(&self) -> Option<i64> {
+    pub(crate) fn last_price(&self) -> Option<i64> {
         match self {
             Self::Bars(bars) => bars.last().map(|b| b.close),
             Self::Ticks(ticks) => ticks.last().map(|t| t.price),
@@ -67,7 +67,7 @@ impl Series {
     }
 
     /// The value a point is plotted at in a line: a bar's close, or a tick's price.
-    pub fn value_at(&self, index: usize) -> Option<i64> {
+    pub(crate) fn value_at(&self, index: usize) -> Option<i64> {
         match self {
             Self::Bars(bars) => bars.get(index).map(|b| b.close),
             Self::Ticks(ticks) => ticks.get(index).map(|t| t.price),
@@ -135,7 +135,7 @@ impl Series {
 
     /// The lowest and highest price in `[first, last)`. With `wicks` a bar counts by its low and
     /// high, otherwise by its close.
-    pub fn price_range(&self, first: usize, last: usize, wicks: bool) -> Option<(i64, i64)> {
+    pub(crate) fn price_range(&self, first: usize, last: usize, wicks: bool) -> Option<(i64, i64)> {
         let (mut lo, mut hi) = (i64::MAX, i64::MIN);
         match self {
             Self::Bars(bars) => {
@@ -310,7 +310,7 @@ pub fn fold_group(
 /// Joins bars fetched for a range that overlaps what is held (a refill after a reconnect). Where a
 /// bar exists on both sides the one with more ticks wins: a bar only ever gains ticks, so that is
 /// the fresher one, whichever arrived last.
-pub fn merge_bars(bars: &mut Vec<Bar>, fetched: Vec<Bar>) {
+pub fn merge_bars(bars: &mut Vec<Bar>, fetched: &[Bar]) {
     if fetched.is_empty() {
         return;
     }
@@ -327,17 +327,13 @@ pub fn merge_bars(bars: &mut Vec<Bar>, fetched: Vec<Bar>) {
                 merged.push(*x);
                 a += 1;
             }
-            (Some(_), Some(y)) => {
+            (_, Some(y)) => {
                 merged.push(*y);
                 b += 1;
             }
             (Some(x), None) => {
                 merged.push(*x);
                 a += 1;
-            }
-            (None, Some(y)) => {
-                merged.push(*y);
-                b += 1;
             }
             (None, None) => break,
         }
@@ -479,7 +475,7 @@ mod tests {
         let mut bars = vec![bar(0, 1, 1, 1, 1, 9), bar(60, 1, 1, 1, 1, 2)];
         merge_bars(
             &mut bars,
-            vec![
+            &[
                 bar(0, 1, 2, 1, 2, 3),
                 bar(60, 1, 5, 1, 5, 7),
                 bar(120, 1, 1, 1, 1, 1),

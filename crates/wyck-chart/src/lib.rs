@@ -7,7 +7,7 @@ pub mod export;
 pub mod flow;
 pub mod footprint;
 pub mod lines;
-pub mod look;
+mod look;
 pub mod options;
 pub mod projection;
 pub mod scene;

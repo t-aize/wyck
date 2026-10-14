@@ -8,7 +8,7 @@
 //!   says how the width follows the volume, how the candles are colored and filled.
 //! - **Volume bars** are not periods at all: a bar closes once it has seen a set amount of
 //!   volume, however long that took, so a quiet hour is one bar and a busy minute is several.
-//!   [`volume_bars`] builds them by walking the price through each source bar and closing a bar
+//!   `volume_bars` builds them by walking the price through each source bar and closing a bar
 //!   every time the volume set is used up. A bar's volume is spread over the legs of its path
 //!   by their length, since the bar does not say when the price was where.
 
@@ -130,7 +130,7 @@ impl Fill {
     }
 
     /// Whether a body that rose (or not) is an outline.
-    pub fn is_hollow(self, up: bool) -> bool {
+    pub(crate) fn is_hollow(self, up: bool) -> bool {
         match self {
             Self::Solid => false,
             Self::Hollow => true,
@@ -197,7 +197,7 @@ impl Default for VolumeCandleSettings {
 
 impl VolumeCandleSettings {
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         let fix = |v: f32, default: f32| if v.is_finite() { v } else { default };
         self.min_width = fix(self.min_width, default_min_width()).clamp(0.05, 1.0);
         self.max_width = fix(self.max_width, default_max_width()).clamp(0.1, 1.0);
@@ -210,7 +210,7 @@ impl VolumeCandleSettings {
 
     /// The widths, as a share of the room each candle has, for the volumes of the candles on
     /// screen. A candle's width is never past `max_width` nor under `min_width`.
-    pub fn widths(&self, volumes: &[i64]) -> Vec<f32> {
+    pub(crate) fn widths(&self, volumes: &[i64]) -> Vec<f32> {
         let reference = self.reference_volume(volumes);
         let (min, max) = (f64::from(self.min_width), f64::from(self.max_width));
         volumes
@@ -265,7 +265,7 @@ impl Default for VolumeSize {
 
 impl VolumeSize {
     /// The volume of a bar for `bars`, at least 1.
-    pub fn resolve(self, bars: &[Bar]) -> i64 {
+    pub(crate) fn resolve(self, bars: &[Bar]) -> i64 {
         match self {
             Self::Fixed { volume } => i64::from(volume.max(1)),
             Self::Average { multiple } => {
@@ -296,7 +296,7 @@ pub struct VolumeBarSettings {
 
 impl VolumeBarSettings {
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.size = match self.size {
             VolumeSize::Fixed { volume } => VolumeSize::Fixed {
                 volume: volume.clamp(1, 1_000_000_000),
@@ -370,7 +370,7 @@ impl Builder {
 
 /// Volume bars of `size` volume from `bars`, walking each bar along `path`. Each output bar keeps
 /// the time of the source bar it opened in.
-pub fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> {
+pub(crate) fn volume_bars(bars: &[Bar], size: i64, path: PricePath) -> Vec<Bar> {
     let mut builder = Builder {
         size: size.max(1) as f64,
         out: Vec::new(),

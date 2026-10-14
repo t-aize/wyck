@@ -8,19 +8,19 @@
 //! Bars narrower than [`DETAIL_MIN_PX`] cannot hold numbers and are plain candles; bars the flow
 //! has not loaded yet are candles too, so a bar is never missing.
 
-use super::color::{Hsla, Rgba, rgb, transparent_black};
+use super::color::{Rgba, rgb, transparent_black};
 use wyck_market::Bar;
 
-use super::super::flow::Flow;
-use super::super::footprint::{self as model, Analysis, CellMode, HeatScope};
-use super::cmd::{Align, Cmd, font, hsla, with_alpha};
+use super::cmd::{Align, Cmd, font, hsla, rgb_alpha, with_alpha};
 use super::ctx::Ctx;
 use super::{quote_unit, series};
+use crate::flow::Flow;
+use crate::footprint::{self as model, Analysis, CellMode, HeatScope};
 
 /// Bars narrower than this are drawn as plain candles.
 const DETAIL_MIN_PX: f64 = 24.0;
 /// The height of the strip under the prices that holds each bar's delta and volume.
-pub const SUMMARY_H: f32 = 34.0;
+pub(super) const SUMMARY_H: f32 = 34.0;
 /// The color of the point of control and the value area.
 const POC: u32 = 0xf5b942;
 /// How many bars a stack or a point of control is followed to the right before giving up on it
@@ -30,7 +30,7 @@ const FOLLOW_BARS: usize = 2_000;
 const BODY_W: f32 = 3.0;
 
 /// How much room the strip under the prices takes, in pixels (none when it is off).
-pub fn reserved(settings: &super::ChartSettings) -> f32 {
+pub(super) fn reserved(settings: &super::ChartSettings) -> f32 {
     if settings.kind == super::ChartKind::Footprint && settings.footprint.summary {
         SUMMARY_H
     } else {
@@ -134,14 +134,14 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
             let (y_top, y_bottom) =
                 span_y(a.rows[a.value_area.0].index, a.rows[a.value_area.1].index);
             if on_screen((y_top, y_bottom)) {
-                out.push(cx.rect(
+                out.push(Cmd::rect(
                     x0,
                     y_top,
                     x1 - x0,
                     y_bottom - y_top,
                     with_alpha(rgb(POC), 0.07),
                 ));
-                out.push(cx.rect(
+                out.push(Cmd::rect(
                     x0 - 2.0,
                     y_top,
                     1.5,
@@ -185,7 +185,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                         for (side, count, color) in [(left, row.sell, down), (right, row.buy, up)] {
                             let alpha = heat(u64::from(count), norm);
                             if alpha > 0.0 {
-                                out.push(cx.rect(
+                                out.push(Cmd::rect(
                                     side.0,
                                     cy0,
                                     side.1 - side.0,
@@ -241,7 +241,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                         )
                     };
                     if s.heat && alpha > 0.0 {
-                        out.push(cx.rect(
+                        out.push(Cmd::rect(
                             left.0,
                             cy0,
                             left.1 - left.0,
@@ -280,7 +280,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                     w: x1 - x0,
                     h: (y1 - y0).max(1.0),
                     fill: transparent_black(),
-                    border: Some((1.5, hsla_rgb(POC, 0.95))),
+                    border: Some((1.5, rgb_alpha(POC, 0.95))),
                     radius: 0.0,
                 });
             }
@@ -307,13 +307,19 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
             }
             let color = if stack.buy { up } else { down };
             let edge = if stack.buy { x1 } else { x0 - 3.0 };
-            out.push(cx.rect(edge, y_top, 3.0, y_bottom - y_top, with_alpha(color, 0.9)));
+            out.push(Cmd::rect(
+                edge,
+                y_top,
+                3.0,
+                y_bottom - y_top,
+                with_alpha(color, 0.9),
+            ));
             if s.project_stacks {
                 let low = a.rows[stack.first].index * size;
                 let high = (a.rows[stack.last].index + 1) * size - 1;
                 let end = follow(low, high);
                 if end > x1 {
-                    out.push(cx.rect(
+                    out.push(Cmd::rect(
                         x1,
                         y_top,
                         end - x1,
@@ -334,7 +340,7 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
                 out.push(Cmd::Stroke {
                     points: vec![(x1, cx.snap(y) + 0.5), (end, cx.snap(y) + 0.5)],
                     width: 1.0,
-                    color: hsla_rgb(POC, 0.8),
+                    color: rgb_alpha(POC, 0.8),
                     dash: Some([4.0, 3.0]),
                 });
             }
@@ -344,10 +350,6 @@ pub(super) fn draw(cx: &Ctx<'_>, bars: &[Bar], first: usize, last: usize, out: &
     if s.summary {
         summary(cx, &analyses, first, w, out);
     }
-}
-
-fn hsla_rgb(color: u32, alpha: f32) -> Hsla {
-    with_alpha(rgb(color), alpha)
 }
 
 /// The border around a half cell that won an imbalance.
@@ -372,7 +374,7 @@ fn candle_strip(cx: &Ctx<'_>, bar: &Bar, x: f32, out: &mut Vec<Cmd>) {
     let (y_open, y_close) = (cx.y(bar.open as f64), cx.y(bar.close as f64));
     let top = cx.snap(y_open.min(y_close));
     let height = (cx.snap(y_open.max(y_close)) - top).max(1.0 / cx.f.scale);
-    out.push(cx.rect(x - BODY_W / 2.0, top, BODY_W, height, color));
+    out.push(Cmd::rect(x - BODY_W / 2.0, top, BODY_W, height, color));
 }
 
 /// The strip under the prices: the delta and the volume of each bar.
@@ -386,7 +388,13 @@ fn summary(
     let p = cx.f.palette;
     let (left, right) = (cx.ox, cx.ox + cx.plot_w as f32);
     let y = cx.oy + cx.band.bottom() as f32 - SUMMARY_H;
-    out.push(cx.rect(left, y, right - left, SUMMARY_H, with_alpha(p.bg, 0.94)));
+    out.push(Cmd::rect(
+        left,
+        y,
+        right - left,
+        SUMMARY_H,
+        with_alpha(p.bg, 0.94),
+    ));
     out.push(cx.hline(y, left, right, hsla(p.border)));
     let (row_1, row_2) = (y + 4.0, y + 4.0 + font() * 1.3 + 3.0);
     let label = |text: &str, y: f32| Cmd::Text {

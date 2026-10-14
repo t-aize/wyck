@@ -4,9 +4,9 @@
 //! weekend without prices leaves no hole, as on any trading chart. Point `i` is centered at
 //! `i + 0.5` in "index space", and the right edge of the plot sits at `len + offset`.
 
-pub const MIN_BAR_PX: f64 = 0.2;
+pub(crate) const MIN_BAR_PX: f64 = 0.2;
 /// Wide enough for a footprint's numbers.
-pub const MAX_BAR_PX: f64 = 260.0;
+pub(crate) const MAX_BAR_PX: f64 = 260.0;
 /// Points that must stay on screen when scrolled all the way back.
 const KEEP_VISIBLE: f64 = 3.0;
 
@@ -37,12 +37,12 @@ impl View {
     }
 
     /// The offset that leaves a little air after the last point.
-    pub fn home_offset() -> f64 {
+    pub(crate) fn home_offset() -> f64 {
         6.0
     }
 
     /// The index-space position of the right edge.
-    pub fn right(&self, len: usize) -> f64 {
+    pub(crate) fn right(&self, len: usize) -> f64 {
         len as f64 + self.offset
     }
 
@@ -52,7 +52,7 @@ impl View {
     }
 
     /// The x of the center of point `index`, from the left of the plot.
-    pub fn x_of(&self, index: f64, len: usize, plot_w: f64) -> f64 {
+    pub(crate) fn x_of(&self, index: f64, len: usize, plot_w: f64) -> f64 {
         plot_w - (self.right(len) - index - 0.5) * self.bar_px
     }
 
@@ -125,7 +125,7 @@ impl View {
 /// Widens a price range so it never collapses to a line and leaves room around the data.
 /// `min_range` is the smallest range worth showing, in raw units, and `share` the room left on
 /// each side as a share of the range.
-pub fn padded_range(lo: f64, hi: f64, min_range: f64, share: f64) -> (f64, f64) {
+pub(crate) fn padded_range(lo: f64, hi: f64, min_range: f64, share: f64) -> (f64, f64) {
     let mut range = hi - lo;
     let mut lo = lo;
     let mut hi = hi;

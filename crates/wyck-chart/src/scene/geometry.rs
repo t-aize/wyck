@@ -16,9 +16,9 @@ pub fn zone_w() -> f32 {
     wyck_core::text_scale::scaled(64.0)
 }
 /// The least height a pane is given when there is room for it.
-pub const MIN_BAND: f64 = 36.0;
+pub(crate) const MIN_BAND: f64 = 36.0;
 /// How close (in pixels) the pointer must be to the line between two panes to drag it.
-pub const SEPARATOR_REACH: f64 = 4.0;
+pub(crate) const SEPARATOR_REACH: f64 = 4.0;
 
 /// A horizontal band of the plot, from the top of the chart.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,7 +32,7 @@ impl Band {
         self.top + self.h
     }
 
-    pub fn contains(&self, y: f64) -> bool {
+    pub(crate) fn contains(&self, y: f64) -> bool {
         y >= self.top && y < self.bottom()
     }
 }
@@ -47,7 +47,7 @@ pub struct Geometry {
 
 impl Geometry {
     /// Cuts a chart of `w` by `h` into bands of the given weights (the prices' weight first).
-    pub fn new(w: f64, h: f64, weights: &[f32]) -> Self {
+    pub(crate) fn new(w: f64, h: f64, weights: &[f32]) -> Self {
         let plot_h = (h - f64::from(axis_h())).max(1.0);
         let weights: Vec<f64> = if weights.is_empty() {
             vec![1.0]
@@ -86,7 +86,7 @@ impl Geometry {
 
     /// A chart with the prices alone.
     #[cfg(test)]
-    pub fn single(w: f64, h: f64) -> Self {
+    pub(crate) fn single(w: f64, h: f64) -> Self {
         Self::new(w, h, &[1.0])
     }
 
@@ -95,7 +95,7 @@ impl Geometry {
     }
 
     /// The height of the whole plot, every band together.
-    pub fn plot_h(&self) -> f64 {
+    pub(crate) fn plot_h(&self) -> f64 {
         (self.h - f64::from(axis_h())).max(1.0)
     }
 

@@ -90,6 +90,21 @@ pub enum Cmd {
     },
 }
 
+impl Cmd {
+    /// A plain filled rectangle: no border, square corners. A negative size is drawn empty.
+    pub(super) fn rect(x: f32, y: f32, w: f32, h: f32, fill: Hsla) -> Self {
+        Self::Rect {
+            x,
+            y,
+            w: w.max(0.0),
+            h: h.max(0.0),
+            fill,
+            border: None,
+            radius: 0.0,
+        }
+    }
+}
+
 /// The size of the text of the chart, at the scale of the text (see [`wyck_core::text_scale`]).
 pub fn font() -> f32 {
     wyck_core::text_scale::scaled(11.0)
@@ -152,9 +167,7 @@ pub fn fitted_origin(
 
 /// A `0xRRGGBB` color with an alpha, as the drawing commands take it.
 pub fn rgb_alpha(color: u32, alpha: f32) -> Hsla {
-    let mut hsla: Hsla = rgb(color).into();
-    hsla.a = alpha;
-    hsla
+    with_alpha(rgb(color), alpha)
 }
 
 /// A theme color with another alpha.
@@ -170,7 +183,7 @@ pub fn hsla(color: Rgba) -> Hsla {
 
 /// Counts the leaf commands, for tests that bound the work of a frame.
 #[cfg(test)]
-pub fn count(cmds: &[Cmd]) -> usize {
+pub(crate) fn count(cmds: &[Cmd]) -> usize {
     cmds.iter()
         .map(|c| match c {
             Cmd::Clip { inner, .. } => count(inner),
@@ -181,7 +194,7 @@ pub fn count(cmds: &[Cmd]) -> usize {
 
 /// The width of every rectangle of the frame, in order, for tests.
 #[cfg(test)]
-pub fn rect_widths(cmds: &[Cmd]) -> Vec<f32> {
+pub(crate) fn rect_widths(cmds: &[Cmd]) -> Vec<f32> {
     let mut out = Vec::new();
     for cmd in cmds {
         match cmd {
@@ -195,7 +208,7 @@ pub fn rect_widths(cmds: &[Cmd]) -> Vec<f32> {
 
 /// Every text of the frame, in order, for tests.
 #[cfg(test)]
-pub fn texts(cmds: &[Cmd]) -> Vec<String> {
+pub(crate) fn texts(cmds: &[Cmd]) -> Vec<String> {
     let mut out = Vec::new();
     for cmd in cmds {
         match cmd {

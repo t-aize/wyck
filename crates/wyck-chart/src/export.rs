@@ -217,7 +217,7 @@ mod tests {
         let base = ExportOptions::default();
         let utc = |o: &ExportOptions| time_text(ms, o, Zone::Utc).text;
         assert_eq!(utc(&base), "2026-01-05T09:30:00Z");
-        let mut o = base.clone();
+        let mut o = base;
         o.millis = true;
         assert_eq!(utc(&o), "2026-01-05T09:30:00.123Z");
         o.time_format = TimeFormat::DateTime;
@@ -531,7 +531,10 @@ mod tests {
             !name.contains('/') && !name.contains('\\') && !name.contains(':'),
             "{name}"
         );
-        assert!(name.ends_with(".json"));
+        assert_eq!(
+            std::path::Path::new(&name).extension(),
+            Some("json".as_ref())
+        );
         let empty = ExportOptions {
             file_name: "  ".to_owned(),
             ..ExportOptions::default()

@@ -65,7 +65,7 @@ impl HeatScope {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FootprintSettings {
     pub mode: CellMode,
@@ -126,7 +126,7 @@ impl Default for FootprintSettings {
 impl FootprintSettings {
     /// The settings repaired: every number in range.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.row_steps = self.row_steps.min(10_000);
         self.imbalance_percent = self.imbalance_percent.clamp(110, 2_000);
         self.imbalance_min = self.imbalance_min.clamp(1, 100_000);
@@ -146,13 +146,13 @@ pub fn supports(timeframe: wyck_market::Timeframe) -> bool {
 pub const DEFAULT_BAR_PX: f64 = 110.0;
 
 /// Rows never get shorter than this many pixels, whatever the settings ask.
-pub const MIN_ROW_PX: f64 = 3.0;
+pub(crate) const MIN_ROW_PX: f64 = 3.0;
 
 /// The height of a row in raw price units. `step` is one price step (the last decimal of the
 /// symbol) in raw units, `step_px` how many pixels a step is high on screen, and `want_px` the
 /// least a row should be to hold a number. With `fixed` steps set that is what is used, unless
 /// it would make rows too short to see.
-pub fn row_size(step: i64, fixed: u32, step_px: f64, want_px: f64) -> i64 {
+pub(crate) fn row_size(step: i64, fixed: u32, step_px: f64, want_px: f64) -> i64 {
     let step = step.max(1);
     let step_px = if step_px.is_finite() && step_px > 0.0 {
         step_px
@@ -191,7 +191,7 @@ fn nice(n: f64) -> i64 {
 
 /// One row of a bar: the levels that fall in it, added up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Row {
+pub(crate) struct Row {
     /// The row number: the price divided by the row size, rounded down.
     pub index: i64,
     pub sell: u32,
@@ -199,18 +199,18 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn volume(&self) -> u64 {
+    pub(crate) fn volume(&self) -> u64 {
         u64::from(self.sell) + u64::from(self.buy)
     }
 
-    pub fn delta(&self) -> i64 {
+    pub(crate) fn delta(&self) -> i64 {
         i64::from(self.buy) - i64::from(self.sell)
     }
 }
 
 /// A run of rows with an imbalance on the same side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Stack {
+pub(crate) struct Stack {
     pub buy: bool,
     /// Positions in [`Analysis::rows`], both included.
     pub first: usize,
@@ -218,8 +218,8 @@ pub struct Stack {
 }
 
 /// One bar's flow cut into rows, with what stands out in it.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Analysis {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Analysis {
     /// The rows that traded, from the lowest price up.
     pub rows: Vec<Row>,
     /// The size of a row, raw price units.
@@ -241,18 +241,22 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    pub fn delta(&self) -> i64 {
+    pub(crate) fn delta(&self) -> i64 {
         self.buy as i64 - self.sell as i64
     }
 
-    pub fn volume(&self) -> u64 {
+    pub(crate) fn volume(&self) -> u64 {
         self.sell + self.buy
     }
 }
 
 /// Cuts `levels` (from the lowest price up) into rows of `size` raw units and works out what
 /// stands out. `None` when nothing traded.
-pub fn analyze(levels: &[Level], size: i64, settings: &FootprintSettings) -> Option<Analysis> {
+pub(crate) fn analyze(
+    levels: &[Level],
+    size: i64,
+    settings: &FootprintSettings,
+) -> Option<Analysis> {
     let size = size.max(1);
     let mut rows: Vec<Row> = Vec::new();
     for level in levels {
@@ -428,7 +432,7 @@ fn stacks(rows: &[Row], buys: &[bool], sells: &[bool], min_rows: u32) -> Vec<Sta
                 && start.is_none_or(|s| rows[i].index == rows[i - 1].index + 1 && s <= i);
             match (on, start) {
                 (true, None) => start = Some(i),
-                (true, Some(_)) => {}
+                (true, Some(_)) | (false, None) => {}
                 (false, Some(s)) => {
                     if (i - s) as u32 >= min_rows {
                         out.push(Stack {
@@ -440,7 +444,6 @@ fn stacks(rows: &[Row], buys: &[bool], sells: &[bool], min_rows: u32) -> Vec<Sta
                     // A row that broke the run may start the next one.
                     start = (i < rows.len() && flags[i]).then_some(i);
                 }
-                (false, None) => {}
             }
         }
     }
@@ -451,7 +454,7 @@ fn stacks(rows: &[Row], buys: &[bool], sells: &[bool], min_rows: u32) -> Vec<Sta
 /// How many bars of `ranges` (each a lowest and a highest raw price, in time order) pass before
 /// the first one that reaches into `low..=high`: where the price came back to a level, so it
 /// stops being worth showing to the right. `None` when none does.
-pub fn first_touch(
+pub(crate) fn first_touch(
     mut ranges: impl Iterator<Item = (i64, i64)>,
     low: i64,
     high: i64,

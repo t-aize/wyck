@@ -1,9 +1,9 @@
 //! The volume profile indicator: the histogram of volume by price, drawn beside the bars.
 
-use super::super::cmd::{Cmd, rgb_alpha};
-use super::super::ctx::Ctx;
 use super::dash_pattern;
 use crate::data::Series;
+use crate::scene::cmd::{Cmd, rgb_alpha};
+use crate::scene::ctx::Ctx;
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::profile;
 use wyck_indicators::profile::Slice;

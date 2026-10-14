@@ -295,7 +295,7 @@ pub fn table(source: &Source<'_>, options: &ExportOptions, rows: Option<usize>) 
 #[cfg(test)]
 mod tests {
 
-    use super::super::table::*;
+    use super::*;
 
     #[test]
     fn a_date_field_is_valid_when_empty_or_a_date() {

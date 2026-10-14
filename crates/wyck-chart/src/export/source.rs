@@ -178,7 +178,7 @@ pub enum Cell {
     Clock(i64),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableColumn {
     pub key: ColumnKey,
     pub name: String,

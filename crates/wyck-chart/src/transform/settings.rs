@@ -26,7 +26,7 @@ impl Default for BoxSize {
 
 impl BoxSize {
     /// The size in raw price units for `bars`, never below one quote unit.
-    pub fn resolve(self, bars: &[Bar], unit: i64) -> i64 {
+    pub(crate) fn resolve(self, bars: &[Bar], unit: i64) -> i64 {
         let unit = unit.max(1);
         let raw = match self {
             Self::Atr { length } => {
@@ -178,7 +178,7 @@ impl Default for TransformSettings {
 
 impl TransformSettings {
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.line_break = self.line_break.clamp(1, 10);
         self.pnf_reversal = self.pnf_reversal.clamp(1, 10);
         self.renko_reversal = self.renko_reversal.clamp(1, 10);

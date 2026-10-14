@@ -235,9 +235,9 @@ impl Chart {
     fn gap_loaded(&mut self, loaded: Loaded, from: i64, to: i64, cx: &mut Context<Self>) {
         let before = self.series.len();
         match (loaded, &mut self.series) {
-            (Loaded::Bars(bars), Series::Bars(held)) => data::merge_bars(held, bars),
+            (Loaded::Bars(bars), Series::Bars(held)) => data::merge_bars(held, &bars),
             (Loaded::Grouped { bars, tail }, Series::Bars(held)) => {
-                data::merge_bars(held, bars);
+                data::merge_bars(held, &bars);
                 if !tail.is_empty() {
                     self.group_tail = tail;
                 }

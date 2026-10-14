@@ -28,7 +28,7 @@ pub enum Zone {
 
 /// The zones the menu offers, with the name shown for each: the market centres a trader follows,
 /// west to east.
-pub const NAMED: [(Tz, &str); 22] = [
+pub(crate) const NAMED: [(Tz, &str); 22] = [
     (Tz::Pacific__Honolulu, "Honolulu"),
     (Tz::America__Los_Angeles, "Los Angeles"),
     (Tz::America__Denver, "Denver"),
@@ -70,7 +70,7 @@ impl Zone {
     }
 
     /// The offset from UTC at `time_ms`, in milliseconds.
-    pub fn offset_ms(self, time_ms: i64) -> i64 {
+    pub(crate) fn offset_ms(self, time_ms: i64) -> i64 {
         if self == Self::Utc {
             return 0;
         }
@@ -103,7 +103,7 @@ impl Zone {
             .unwrap_or_default()
     }
 
-    /// Reads a time written in this zone (see [`parse_local`]), as Unix milliseconds.
+    /// Reads a time written in this zone (see `parse_local`), as Unix milliseconds.
     pub fn parse(self, text: &str) -> Option<i64> {
         let (local, _) = parse_local(text)?;
         let local_ms = local.and_utc().timestamp_millis();
@@ -151,7 +151,7 @@ impl Zone {
     }
 
     /// The zone a saved text names; the computer's zone for anything unknown.
-    pub fn from_code(code: &str) -> Self {
+    pub(crate) fn from_code(code: &str) -> Self {
         match code {
             "utc" | "UTC" => Self::Utc,
             "local" => Self::Local,
@@ -188,7 +188,7 @@ fn named_offset_ms(tz: Tz, time_ms: i64) -> i64 {
 }
 
 /// `UTC`, `UTC+2`, `UTC-3:30`, for an offset in milliseconds.
-pub fn offset_label(offset_ms: i64) -> String {
+pub(crate) fn offset_label(offset_ms: i64) -> String {
     let minutes = offset_ms / 60_000;
     if minutes == 0 {
         return "UTC".to_owned();
@@ -207,7 +207,7 @@ pub const TIME_PATTERN: &str = "%Y-%m-%d %H:%M";
 
 /// A date and time as typed: `2025-03-14 09:30`, with seconds, with a `T` for the space, or a
 /// date alone, and whether it was a date alone (a whole day).
-pub fn parse_local(text: &str) -> Option<(chrono::NaiveDateTime, bool)> {
+pub(crate) fn parse_local(text: &str) -> Option<(chrono::NaiveDateTime, bool)> {
     let text = text.trim().replace('T', " ");
     ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
         .iter()

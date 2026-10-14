@@ -1,3 +1,5 @@
+//! The identity of a horizontal line on the chart: which order, position or alert it stands for.
+
 /// What a horizontal chart line represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LineId {

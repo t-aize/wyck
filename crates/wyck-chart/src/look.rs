@@ -41,7 +41,7 @@ impl Default for ChartContent {
 }
 
 /// How every chart looks, saved once.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChartLook {
     pub zone: Zone,

@@ -8,10 +8,10 @@
 use super::color::{Hsla, color_hsla, transparent_black};
 use wyck_market::Bar;
 
-use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::ctx::Ctx;
 use super::series;
+use crate::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use wyck_indicators::spec::ValueFormat;
 
 /// Profiles in a slot narrower than this are drawn as bars.
@@ -152,7 +152,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
     if settings.value_area {
         let (top, _) = span(va_high);
         let (_, bottom) = span(va_low);
-        out.push(cx.rect(
+        out.push(Cmd::rect(
             left,
             top,
             look.usable,
@@ -164,7 +164,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
     for print in profile.singles.iter().filter(|_| settings.single_prints) {
         let (top, _) = span(print.last);
         let (_, bottom) = span(print.first);
-        out.push(cx.rect(
+        out.push(Cmd::rect(
             left,
             top,
             look.usable,
@@ -230,7 +230,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
             for (k, mark) in marks.iter().enumerate() {
                 let mut c = tone(*mark);
                 c.a *= 0.75;
-                out.push(cx.rect(
+                out.push(Cmd::rect(
                     left + k as f32 * look.col_w + 0.5,
                     top + 0.5,
                     look.col_w - 1.0,
@@ -241,7 +241,7 @@ fn draw_profile(cx: &Ctx<'_>, profile: &Profile, left: f32, look: &Look, out: &m
         } else if let Some(mark) = marks.first() {
             let mut c = tone(*mark);
             c.a *= 0.75;
-            out.push(cx.rect(
+            out.push(Cmd::rect(
                 left,
                 top + 0.5,
                 marks.len() as f32 * look.col_w,

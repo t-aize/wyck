@@ -37,7 +37,7 @@ const MAX_ROWS: i64 = 800;
 /// How many rows a profile aims for when the row height is automatic.
 const AUTO_ROWS: i64 = 40;
 /// The most letters in a period sequence before it starts over.
-pub const LETTERS: usize = 52;
+pub(crate) const LETTERS: usize = 52;
 
 /// How the chart is cut into sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ impl TpoColor {
 }
 
 /// The settings of the TPO chart type. Saved with the chart.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TpoSettings {
     #[serde(default)]
     pub session: SessionKind,
@@ -218,7 +218,7 @@ impl Default for TpoSettings {
 
 impl TpoSettings {
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.session_hours = self.session_hours.clamp(1, 168);
         self.session_start = self.session_start.min(24 * 60 - 1);
         self.period_minutes = self.period_minutes.clamp(1, 24 * 60);
@@ -262,7 +262,7 @@ pub struct SinglePrint {
 }
 
 /// One session laid out.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Profile {
     /// When the first bar of the session opened, in Unix milliseconds.
     pub start_ms: i64,
@@ -297,17 +297,17 @@ pub struct Profile {
 
 impl Profile {
     /// The raw price at the bottom of row `row`.
-    pub fn row_bottom(&self, row: usize) -> i64 {
+    pub(crate) fn row_bottom(&self, row: usize) -> i64 {
         (self.low_row + row as i64) * self.row_size
     }
 
     /// The raw price at the top of row `row`.
-    pub fn row_top(&self, row: usize) -> i64 {
+    pub(crate) fn row_top(&self, row: usize) -> i64 {
         self.row_bottom(row) + self.row_size
     }
 
     /// The most marks in one row.
-    pub fn widest(&self) -> usize {
+    pub(crate) fn widest(&self) -> usize {
         self.rows.iter().map(Vec::len).max().unwrap_or(0)
     }
 
@@ -320,13 +320,13 @@ impl Profile {
     }
 
     /// The price in the middle of the range of the session.
-    pub fn midpoint(&self) -> i64 {
+    pub(crate) fn midpoint(&self) -> i64 {
         (self.high + self.low) / 2
     }
 }
 
 /// A profile as the one element of the series the chart draws.
-pub fn element(profile: &Profile) -> Bar {
+pub(crate) fn element(profile: &Profile) -> Bar {
     Bar {
         time_ms: profile.start_ms,
         open: profile.open,
@@ -439,7 +439,7 @@ fn bar_span(bars: &[Bar]) -> i64 {
 }
 
 /// Lays out the sessions of `bars`. `unit` is one quote unit of the symbol in raw price units.
-pub fn build(bars: &[Bar], settings: &TpoSettings, zone: Zone, unit: i64) -> Vec<Profile> {
+pub(crate) fn build(bars: &[Bar], settings: &TpoSettings, zone: Zone, unit: i64) -> Vec<Profile> {
     let unit = unit.max(1);
     let mut sessions: Vec<&[Bar]> = Vec::new();
     let mut start = 0;
@@ -569,7 +569,7 @@ pub fn parse_clock(text: &str) -> Option<u32> {
 }
 
 /// The letter of a period: A to Z, then a to z, then over again.
-pub fn letter(mark: u16) -> char {
+pub(crate) fn letter(mark: u16) -> char {
     let m = usize::from(mark) % LETTERS;
     if m < 26 {
         char::from(b'A' + m as u8)
