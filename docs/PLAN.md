@@ -13,7 +13,7 @@ Rien n'est poussé, aucune PR n'est ouverte et aucun réglage GitHub n'est chang
 | Phase | Contenu | État |
 |---|---|---|
 | 0 | Base, mesures, décisions chiffrées, reliquats | [!] fait, à valider |
-| 1 | Casser le cycle chart / drawings / indicators dans le crate unique | [ ] |
+| 1 | Casser le cycle chart / drawings / indicators dans le crate unique | [!] fait, à valider |
 | 2 | Squelette du workspace (manifeste virtuel, dépendances centralisées, lints, profils) | [ ] |
 | 3 | CI/CD refaite, xtask, réglages GitHub proposés | [ ] |
 | 4a | Extraction : core, market, trading | [ ] |
@@ -65,6 +65,10 @@ Rempli au fil des phases (date, mesure ou décision, source).
 | 2026-10-14 | 0 | Reliquats corrigés : `README.md` (plus de `--test ctrader` ni de « a test checks it »), `.env.example`, `.gitignore` (seuls les fichiers personnels de `.claude/` sont ignorés). |
 | 2026-10-14 | 0 | Recensement clippy (92 lints sondés, dont des lints très bruyants ajoutés exprès pour mesurer) : voir la section « Lints proposés ». Environ la moitié des occurrences sont des doublons, car la lib est analysée deux fois (normale et tests). |
 | 2026-10-14 | 0 | Ajustement du plan : `shortcuts` -> `wyck-app` (au lieu de `core`), `LineId` reste dans `chart`. |
+| 2026-10-14 | 1 | Déplacement mécanique (commit 1aeec46) : `defaults`, `format`, `text_scale`, `intern`, `math`, `flex`, `appearance` -> module `wyck_core` ; `Timeframe` -> `domain::market` ; `atr_stop` -> `domain::trading` ; `shortcuts` et `chart_export` -> `app`. 88 fichiers touchés par réécriture de chemins, mêmes tests. |
+| 2026-10-14 | 1 | Fuites de couches corrigées (commit 5bb98ec) : `kit::hints` n'importe plus `Tool` (la table touche -> outil est dans le rail de dessin du multichart), les 3 tests de scripts passent par le registre du domaine au lieu de `app::scripts::Library` (avec un `registry::insert` réservé aux tests, qui évite aussi qu'ils s'écrasent entre eux), `NewOrderType` passe de `infra::ctrader` à `domain::trading` (la macro `number_enum!` reste interne au domaine trading), le test qui cherche les couleurs en dur passe de `app::appearance` à `ui::kit`, plus de lien de doc vers une couche plus haute. |
+| 2026-10-14 | 1 | Relecture des fichiers déplacés (commit 3888397) : panique latente corrigée dans `AtrStop::value` (liste de barres vide avec dernière barre ouverte, test ajouté) ; `Slices` et la liste d'options quittent `intern` pour `indicators::custom::library` (un seul utilisateur) ; `text_scale` réutilise les bornes de `appearance` ; `appearance` : un seul `impl Colors`, dérivations serde inutiles retirées, tests de `luminance`/`contrast` placés avec le code ; `chart_export` : imports et `to_lowercase` hoisté. Sonde de code mort (`pub` -> `pub(crate)` sur les 11 fichiers) : aucun élément mort, seul `theme::luminance` n'était utilisé que par des tests. |
+| 2026-10-14 | 1 | Résultat : 1 189 tests unitaires (2 de plus), 28 doc-tests (1 de moins : l'exemple de `AccountBook` qui citait le client cTrader est devenu du texte), clippy `-D warnings` et rustdoc `-D warnings` propres. Graphe de modules (production) : les domaines forment un DAG `market <- trading <- drawings <- indicators <- chart`, `wyck_core` n'importe rien, aucune flèche ne remonte de couche. Reste un cycle interne à `app` (`alerts <-> drawings <-> workspace`), traité en Phase 5. |
 
 ---
 
