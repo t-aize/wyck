@@ -4,12 +4,12 @@ use super::Pending;
 
 use crate::app::alerts;
 use crate::app::market_data::now_ms;
-use crate::domain::market::PRICE_SCALE;
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading::panel::Tab;
 use crate::ui::kit::toast;
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::Context;
+use wyck_market::PRICE_SCALE;
 
 impl Dashboard {
     /// Gives the alerts what they read from the account: how the symbols they watch are written
@@ -22,8 +22,7 @@ impl Dashboard {
                 .update(cx, |account, cx| account.ensure_contract(id, cx));
             let contract = self.trading.read(cx).book.contracts.get(&id).cloned();
             // Before the answer a contract is a placeholder: it must not hide what is known.
-            let Some(contract) =
-                contract.filter(|c| *c != crate::domain::trading::math::Contract::default())
+            let Some(contract) = contract.filter(|c| *c != wyck_trading::math::Contract::default())
             else {
                 continue;
             };
@@ -127,7 +126,7 @@ impl Dashboard {
     ) {
         let (id, name, digits) = (symbol.id, symbol.name.to_string(), symbol.digits);
         let limit = self.workspace.read(cx).preferences().limits.alerts;
-        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
+        let pip = symbol.pip_position.map(wyck_market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(id, digits);
             if let Some(pip) = pip {
@@ -213,7 +212,7 @@ impl Dashboard {
             }
         }
         let digits = symbol.digits;
-        let pip = symbol.pip_position.map(crate::domain::market::pip_size);
+        let pip = symbol.pip_position.map(wyck_market::pip_size);
         let added = self.alerts.update(cx, |alerts, cx| {
             alerts.digits.insert(symbol.id, digits);
             if let Some(pip) = pip {

@@ -2,8 +2,8 @@
 //! with this chart's projection, so a drawing made here shows at once on every chart of the
 //! symbol.
 
-use crate::domain::market::PRICE_SCALE;
 use gpui::{App, Context, Entity, Window};
+use wyck_market::PRICE_SCALE;
 
 use super::events::{ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan};
 use super::projection::ChartProjection;
@@ -12,7 +12,7 @@ use super::{Chart, drawing_props, object_tree};
 use crate::app::drawings::Drawings;
 use crate::domain::drawings::book::{Book, Order, Press};
 use crate::domain::drawings::model::tool::Tool;
-use crate::domain::trading::atr_stop::{AtrStop, Smoothing};
+use wyck_trading::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

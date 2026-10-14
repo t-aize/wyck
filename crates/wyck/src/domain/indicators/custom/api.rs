@@ -1,7 +1,7 @@
 //! What a script can call: the functions on series, the ready made indicators, and the calls
 //! that describe an indicator (`indicator`, `input_*`, `plot`, `hline`, `fill`).
 //!
-//! The functions on series are thin: each hands the numbers to the arithmetic in [`crate::wyck_core::math`]
+//! The functions on series are thin: each hands the numbers to the arithmetic in [`wyck_core::math`]
 //! and wraps the answer. The description of every function, for the editor, is in
 //! [`super::docs`], and a test checks that the two lists agree.
 
@@ -13,8 +13,8 @@ pub mod symbols;
 
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
-use crate::wyck_core::math;
 use rhai::{Dynamic, Engine, Map};
+use wyck_core::math;
 
 /// The longest period a function takes.
 pub const MAX_PERIOD: i64 = 100_000;

@@ -19,7 +19,7 @@ use crate::app::scripts as indicators;
 use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
-use crate::wyck_core::intern;
+use wyck_core::intern;
 
 /// The width of the column of short names.
 const SHORT_NAME_WIDTH: f32 = 58.0;

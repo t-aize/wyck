@@ -18,13 +18,13 @@ use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
 use super::super::spec::{PlotKind, SOURCES};
 use super::api;
 use super::other::{self, OtherSymbols};
-use crate::wyck_core::intern;
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
+use wyck_core::intern;
 
 /// Which of the two runs this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

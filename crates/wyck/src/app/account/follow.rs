@@ -1,5 +1,5 @@
 //! Keeping the stop loss of a pending order on the ATR while it waits (see
-//! [`crate::domain::trading::follow`]).
+//! [`wyck_trading::follow`]).
 //!
 //! The rule travels in the label of the order, so it is found again after a restart. The account
 //! looks at the orders that carry one every few seconds, reads the ATR of their symbol on the
@@ -14,12 +14,12 @@ use crate::app::market_data::load;
 use crate::app::market_data::load::Loaded;
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
-use crate::domain::market::Bar;
-use crate::domain::market::Timeframe;
-use crate::domain::trading::OrderStatus;
-use crate::domain::trading::follow::{Step, Tracked, bars_are_fresh, next_step};
-use crate::domain::trading::plan::Label;
 use gpui::Context;
+use wyck_market::Bar;
+use wyck_market::Timeframe;
+use wyck_trading::OrderStatus;
+use wyck_trading::follow::{Step, Tracked, bars_are_fresh, next_step};
+use wyck_trading::plan::Label;
 
 /// How long the account waits before asking for bars again after a failure.
 const RETRY_GAP: Duration = Duration::from_secs(15);
@@ -58,7 +58,7 @@ impl Account {
             id: i64,
             symbol: i64,
             timeframe: Timeframe,
-            rule: crate::domain::trading::follow::AtrFollow,
+            rule: wyck_trading::follow::AtrFollow,
             order: Tracked,
         }
         let jobs: Vec<Job> = self

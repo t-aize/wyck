@@ -618,8 +618,8 @@ mod tests {
         use crate::domain::chart::view::View;
         use crate::domain::indicators::config::StudyConfig;
         use crate::domain::indicators::kind::StudyKind;
-        use crate::domain::market::Bar;
-        use crate::domain::market::Timeframe;
+        use wyck_market::Bar;
+        use wyck_market::Timeframe;
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {

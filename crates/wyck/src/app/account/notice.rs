@@ -5,7 +5,7 @@
 //! request are put in sentences here too.
 
 use crate::app::broker::Error as ApiError;
-use crate::domain::trading::book::Outcome;
+use wyck_trading::book::Outcome;
 
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -13,9 +13,9 @@ use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 use crate::app::prefs::panel::Tab;
 use crate::domain::chart::zone::Zone;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, format_amount};
 use crate::ui::kit::tokens;
+use wyck_trading::math;
+use wyck_trading::math::{Contract, format_amount};
 
 /// The color a cell is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

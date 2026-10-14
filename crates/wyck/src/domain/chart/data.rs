@@ -4,9 +4,9 @@
 //! (which bar a tick belongs to, how a page of older history joins, what a reconnect refill
 //! replaces) are unit tested without a window.
 
-use crate::domain::market::{Bar, Tick};
+use wyck_market::{Bar, Tick};
 
-use crate::domain::market::Timeframe;
+use wyck_market::Timeframe;
 
 /// The most bars kept. Older ones are dropped as new ones arrive, so a chart left open for days
 /// does not grow without end.

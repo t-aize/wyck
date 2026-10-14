@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::market::{Bar, PRICE_SCALE};
-use crate::wyck_core::math;
+use wyck_core::math;
+use wyck_market::{Bar, PRICE_SCALE};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

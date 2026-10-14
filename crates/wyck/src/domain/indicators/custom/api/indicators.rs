@@ -3,8 +3,8 @@
 use super::{columns, map_of, period};
 
 use crate::domain::indicators::custom::series::{Fallible, Series};
-use crate::wyck_core::math;
 use rhai::{Engine, Map};
+use wyck_core::math;
 
 pub(super) fn indicators(engine: &mut Engine) {
     engine.register_fn("tr", || -> Fallible<Series> {

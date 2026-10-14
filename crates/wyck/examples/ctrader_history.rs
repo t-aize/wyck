@@ -11,8 +11,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use wyck::domain::market::{Period, to_price};
 use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
+use wyck_market::{Period, to_price};
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();

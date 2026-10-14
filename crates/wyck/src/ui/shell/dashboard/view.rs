@@ -9,12 +9,12 @@ use super::{
 };
 
 use crate::domain::chart::settings::ScaleMode;
-use crate::domain::market::{PRICE_SCALE, format_price};
 use crate::ui::features::chart;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
+use wyck_market::{PRICE_SCALE, format_price};
 
 impl Dashboard {
     pub(super) fn body(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -349,9 +349,7 @@ pub(super) fn quote_text(
 ) -> Option<super::details::Live> {
     let bid = quote.bid?;
     let spread = quote.ask.map(|ask| {
-        let pips = (ask - bid) as f64
-            / PRICE_SCALE as f64
-            / crate::domain::market::price::pip_size(pip_position);
+        let pips = (ask - bid) as f64 / PRICE_SCALE as f64 / wyck_market::pip_size(pip_position);
         format!("{pips:.1}")
     });
     Some((

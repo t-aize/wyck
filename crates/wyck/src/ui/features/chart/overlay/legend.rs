@@ -321,7 +321,7 @@ impl Chart {
 
     /// A dot that says whether the symbol's market is open, with when it opens or closes.
     pub(super) fn market_dot(&self) -> Option<AnyElement> {
-        use crate::domain::market::MarketStatus;
+        use wyck_market::MarketStatus;
         let status = self.market_status()?;
         let now = crate::app::market_data::now_ms();
         let within =

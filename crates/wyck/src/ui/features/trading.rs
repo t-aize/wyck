@@ -7,8 +7,8 @@
 //! stands for.
 
 pub use crate::app::account;
-pub use crate::domain::trading::book;
-use crate::domain::trading::math;
+pub use wyck_trading::book;
+use wyck_trading::math;
 pub mod panel;
 pub mod ticket;
 
@@ -110,9 +110,7 @@ pub fn lines(
         } else {
             "Sell"
         };
-        let kind = order
-            .kind()
-            .map_or("order", crate::domain::trading::OrderType::label);
+        let kind = order.kind().map_or("order", wyck_trading::OrderType::label);
         let lots = math::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let list = out.entry(symbol).or_default();
         if let Some(price) = order.limit_price.or(order.stop_price) {
@@ -174,8 +172,8 @@ pub fn lines(
 mod tests {
     use super::*;
     use crate::app::alerts::Condition;
-    use crate::domain::trading::{Order, Position};
     use serde_json::json;
+    use wyck_trading::{Order, Position};
 
     #[test]
     fn every_position_order_and_alert_gets_its_lines() {

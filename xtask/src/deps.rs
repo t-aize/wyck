@@ -28,11 +28,49 @@ struct Layer {
     own_lints: bool,
 }
 
+/// External crates the domain crates (no screen, no file, no network) must not use.
+const NOT_IN_THE_DOMAIN: &[&str] = &[
+    "ab_glyph",
+    "cargo-packager-updater",
+    "directories",
+    "gpui",
+    "gpui-kit",
+    "keyring",
+    "notify-rust",
+    "reqwest",
+    "rhai",
+    "rodio",
+    "rust-embed",
+    "tiny-skia",
+    "tokio",
+    "tokio-tungstenite",
+    "tracing-appender",
+    "tracing-subscriber",
+];
+
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
 const LAYERS: &[Layer] = &[
     Layer {
-        name: "wyck",
+        name: "wyck-core",
         internal: &[],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
+        name: "wyck-market",
+        internal: &["wyck-core"],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
+        name: "wyck-trading",
+        internal: &["wyck-core", "wyck-market"],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
+        name: "wyck",
+        internal: &["wyck-core", "wyck-market", "wyck-trading"],
         forbidden: &[],
         own_lints: true,
     },

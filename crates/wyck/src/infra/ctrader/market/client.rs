@@ -4,20 +4,18 @@
 use serde::Serialize;
 
 use super::history;
-use crate::domain::market::bars::{
-    Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, decode_bars,
-};
-use crate::domain::market::quotes::SubscribeSpotsReq;
-use crate::domain::market::symbols::{
-    Asset, AssetClass, AssetClassListRes, AssetListRes, LightSymbol, Symbol, SymbolByIdReq,
-    SymbolByIdRes, SymbolCategory, SymbolCategoryListRes, SymbolsForConversionReq,
-    SymbolsForConversionRes, SymbolsListReq, SymbolsListRes,
-};
-use crate::domain::market::ticks::{GetTickDataReq, GetTickDataRes, QuoteType, Tick, decode_ticks};
 use crate::infra::ctrader::error::Result;
 use crate::infra::ctrader::transport::connection::{Client, RateClass};
 use crate::infra::ctrader::transport::messages::AccountReq;
 use crate::infra::ctrader::transport::wire::payload;
+use wyck_market::SubscribeSpotsReq;
+use wyck_market::{
+    Asset, AssetClass, AssetClassListRes, AssetListRes, LightSymbol, Symbol, SymbolByIdReq,
+    SymbolByIdRes, SymbolCategory, SymbolCategoryListRes, SymbolsForConversionReq,
+    SymbolsForConversionRes, SymbolsListReq, SymbolsListRes,
+};
+use wyck_market::{Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, decode_bars};
+use wyck_market::{GetTickDataReq, GetTickDataRes, QuoteType, Tick, decode_ticks};
 
 /// A request naming an account and some symbols: `ProtoOAUnsubscribeSpotsReq` and the request of
 /// the depth subscription calls.

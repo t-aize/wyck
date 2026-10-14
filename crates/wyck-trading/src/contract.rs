@@ -8,12 +8,12 @@
 //! - **Prices** here are real (1.08412), like the prices of positions and orders on the wire.
 //! - **Money** is in the account's deposit currency, as real numbers.
 
-use crate::domain::market::PRICE_SCALE;
+use wyck_market::PRICE_SCALE;
 
 /// How a symbol trades: its lot, the volumes it accepts and where its pip is.
 ///
 /// ```
-/// use wyck::domain::trading::contract::{Contract, lots_for_risk};
+/// use wyck_trading::contract::{Contract, lots_for_risk};
 ///
 /// // A forex pair: 100 000 units a lot, steps of 0.01 lot, pips at the fourth decimal.
 /// let eurusd = Contract::default();
@@ -57,7 +57,7 @@ impl Default for Contract {
 impl Contract {
     /// The contract of a symbol as the server describes it, with a forex pair's values for
     /// anything missing or zero.
-    pub fn from_symbol(symbol: &crate::domain::market::Symbol) -> Self {
+    pub fn from_symbol(symbol: &wyck_market::Symbol) -> Self {
         let default = Self::default();
         let positive =
             |value: Option<i64>, fallback: i64| value.filter(|v| *v > 0).unwrap_or(fallback);
@@ -90,7 +90,7 @@ impl Contract {
 
     /// The size of one pip in price.
     pub fn pip(&self) -> f64 {
-        crate::domain::market::pip_size(self.pip_position)
+        wyck_market::pip_size(self.pip_position)
     }
 
     /// A price distance in pips.
@@ -161,7 +161,6 @@ pub fn pending_kind(buy: bool, price: f64, bid: Option<f64>, ask: Option<f64>) -
 /// Why an order would be refused before it is sent. These are codes: the sentence a person reads
 /// belongs to the screen that shows it.
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum TicketProblem {
     /// A pending order without a price.
     NoPrice,

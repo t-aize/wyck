@@ -72,7 +72,6 @@ mod backoff;
 pub mod supervisor;
 mod token_store;
 
-use crate::domain::market::Period;
 use crate::infra::ctrader::auth::{OAuthClient, TokenSet};
 use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig};
 use crate::infra::ctrader::error::{Error, Result};
@@ -87,6 +86,7 @@ pub use token_store::{MemoryTokenStore, TokenStore};
 use tokio::sync::{broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::debug;
+use wyck_market::Period;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]

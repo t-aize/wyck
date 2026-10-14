@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::wyck_core::flex;
+use wyck_core::flex;
 
 /// Which side of the market a tick history is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,7 +31,7 @@ impl QuoteType {
 pub struct Tick {
     /// When the tick happened, in Unix milliseconds.
     pub time_ms: i64,
-    /// The raw price, see [`crate::domain::market::to_price`].
+    /// The raw price, see [`crate::to_price`].
     pub price: i64,
 }
 
@@ -80,7 +80,6 @@ pub struct GetTickDataReq {
 /// `ProtoOAGetTickDataRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct GetTickDataRes {
     /// The ticks, newest first.
     #[serde(default)]
@@ -101,7 +100,7 @@ pub struct GetTickDataRes {
 /// a few seconds of data where an hour was asked for, and the prices as absolute yields nonsense.
 ///
 /// ```
-/// use wyck::domain::market::{WireTick, decode_ticks};
+/// use wyck_market::{WireTick, decode_ticks};
 ///
 /// // Newest first: the first tick is absolute, the others are steps back from it.
 /// let wire = [

@@ -4,16 +4,16 @@ use super::helpers::{side_of, slippage_points, stop_limit_price};
 use super::{Kind, OrderTicket, Plan, Tif, problem};
 use crate::app::broker::trading::NewOrderReq;
 use crate::app::market_data::now_ms;
-use crate::domain::trading::NewOrderType;
-use crate::domain::trading::follow::AtrFollow;
-use crate::domain::trading::guard::Verdict;
-use crate::domain::trading::math;
-use crate::domain::trading::math::TicketProblem;
-use crate::domain::trading::plan;
-use crate::domain::trading::{TimeInForce, TradeSide};
 use crate::ui::kit::confirm::{Details, confirm_details};
 use crate::ui::kit::number;
 use gpui::{App, Context, SharedString, Window};
+use wyck_trading::NewOrderType;
+use wyck_trading::follow::AtrFollow;
+use wyck_trading::guard::Verdict;
+use wyck_trading::math;
+use wyck_trading::math::TicketProblem;
+use wyck_trading::plan;
+use wyck_trading::{TimeInForce, TradeSide};
 
 impl OrderTicket {
     /// The order as it would be sent, or why it cannot be.
@@ -228,7 +228,7 @@ impl OrderTicket {
     /// timeframe it is read on (the chart's own when none was picked). `None` when the option is
     /// off, the order is not a pending one, the stop is not an ATR one, or the ticket follows a
     /// drawing, which has its own ATR.
-    fn follow_base(&self, cx: &App) -> Option<crate::domain::trading::atr_stop::AtrStop> {
+    fn follow_base(&self, cx: &App) -> Option<wyck_trading::atr_stop::AtrStop> {
         if !(self.follow_atr && self.stop_atr && self.kind.is_pending() && self.link.is_none()) {
             return None;
         }

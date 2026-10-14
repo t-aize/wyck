@@ -4,12 +4,12 @@ use super::helpers::format_offset;
 use super::{
     Before, Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Link, OrderTicket, TicketEvent, same_shape,
 };
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Offset, Pending};
 use crate::ui::features::chart::events::{PlanState, PositionPlan};
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::number;
 use gpui::{App, Context, Entity, Window};
+use wyck_trading::math;
+use wyck_trading::math::{Offset, Pending};
 
 impl OrderTicket {
     /// Starts following a position drawing: the ticket takes its side, its entry and its

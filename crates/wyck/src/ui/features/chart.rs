@@ -111,12 +111,12 @@ use crate::domain::chart::view;
 use crate::domain::chart::volume;
 use crate::domain::chart::zone;
 use crate::domain::indicators as study;
-use crate::domain::market::timeframe;
 use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_market::timeframe;
 
 gpui::actions!(
     wyck_chart,
@@ -221,7 +221,7 @@ pub struct Chart {
     id: u64,
     symbol: Option<Symbol>,
     /// When the symbol trades, once its details are known.
-    hours: Option<std::sync::Arc<crate::domain::market::TradingHours>>,
+    hours: Option<std::sync::Arc<wyck_market::TradingHours>>,
     /// Whether this is the chart the user works on; only that one shows its toolbar when there
     /// are several.
     selected: bool,
@@ -236,7 +236,7 @@ pub struct Chart {
     max_studies: usize,
     /// The prices, as held.
     series: Series,
-    atr_history: HashMap<(i64, Timeframe), (Vec<crate::domain::market::Bar>, i64)>,
+    atr_history: HashMap<(i64, Timeframe), (Vec<wyck_market::Bar>, i64)>,
     atr_loading: HashSet<(i64, Timeframe)>,
     /// The stop an ATR following position drawing last got, by drawing, for the moments the ATR
     /// is not at hand (see `resolved_position`).
@@ -270,7 +270,7 @@ pub struct Chart {
     /// The time of the newest point, kept from going backwards when the local clock is used.
     last_time_ms: i64,
     /// The server bars of the newest bar of a grouped timeframe, which live bars join.
-    group_tail: Vec<crate::domain::market::Bar>,
+    group_tail: Vec<wyck_market::Bar>,
     hover: Option<(f32, f32)>,
     /// The pointer of another chart, when the crosshairs are linked.
     remote: Option<Hover>,

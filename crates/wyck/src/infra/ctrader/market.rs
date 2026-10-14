@@ -12,13 +12,13 @@
 //! | Module | Role |
 //! |---|---|
 //! | [`client`] | [`MarketClient`] itself: one method per call |
-//! | [`crate::domain::market::symbols`] | the symbol list and its details, the reference catalogs |
-//! | [`crate::domain::market::quotes`] | [`crate::domain::market::Spot`], the live price event |
-//! | [`crate::domain::market::depth`] | the order book event |
-//! | [`crate::domain::market::bars`] | [`crate::domain::market::Period`], [`crate::domain::market::Bar`], decoding the low-plus-offsets wire form |
-//! | [`crate::domain::market::ticks`] | [`crate::domain::market::Tick`], [`crate::domain::market::QuoteType`], decoding the delta-encoded wire form |
-//! | [`crate::domain::market::price`] | [`crate::domain::market::PRICE_SCALE`], [`crate::domain::market::to_price`], [`crate::domain::market::from_price`], [`crate::domain::market::format_price`] |
-//! | [`crate::domain::market::live`] | [`crate::domain::market::LiveBarTracker`]: live bars with their real close (the server's is wrong) |
+//! | [`wyck_market::symbols`] | the symbol list and its details, the reference catalogs |
+//! | [`wyck_market::quotes`] | [`wyck_market::Spot`], the live price event |
+//! | [`wyck_market::depth`] | the order book event |
+//! | [`wyck_market::bars`] | [`wyck_market::Period`], [`wyck_market::Bar`], decoding the low-plus-offsets wire form |
+//! | [`wyck_market::ticks`] | [`wyck_market::Tick`], [`wyck_market::QuoteType`], decoding the delta-encoded wire form |
+//! | [`wyck_market::price`] | [`wyck_market::PRICE_SCALE`], [`wyck_market::to_price`], [`wyck_market::from_price`], [`wyck_market::format_price`] |
+//! | [`wyck_market::live`] | [`wyck_market::LiveBarTracker`]: live bars with their real close (the server's is wrong) |
 //! | [`history`] | [`history::fetch_bars`], [`history::fetch_ticks`]: whole ranges, paged |
 
 pub mod client;

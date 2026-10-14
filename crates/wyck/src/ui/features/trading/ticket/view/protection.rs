@@ -361,9 +361,9 @@ impl OrderTicket {
                         })
                         .into(),
                 );
-                for (_, group) in crate::domain::market::timeframe::GROUPS {
+                for (_, group) in wyck_market::GROUPS {
                     for &tf in group {
-                        if tf == crate::domain::market::Timeframe::Ticks {
+                        if tf == wyck_market::Timeframe::Ticks {
                             continue;
                         }
                         let code = tf.code();

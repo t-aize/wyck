@@ -3,8 +3,8 @@
 use crate::domain::drawings::figures::patterns::wave_names;
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{Drawing, Point};
-use crate::domain::market::PRICE_SCALE;
 use crate::ui::features::chart::timeframe::GROUPS;
+use wyck_market::PRICE_SCALE;
 
 /// Every timeframe's code.
 pub(super) fn every_timeframe() -> Vec<String> {

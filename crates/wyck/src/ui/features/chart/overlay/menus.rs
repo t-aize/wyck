@@ -1,7 +1,6 @@
 //! The right-click menu of the chart, and the menu of the toolbar.
 
 use crate::domain::drawings::book::Order;
-use crate::domain::market::format_price;
 use crate::ui::features::chart::events::{ChartAction, ChartEvent};
 use crate::ui::features::chart::lines::to_real;
 use crate::ui::features::chart::scene::{Geometry, axis_h};
@@ -18,6 +17,7 @@ use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
 };
+use wyck_market::format_price;
 
 impl Chart {
     /// The items for the drawing under the pointer, at the top of the right-click menu.

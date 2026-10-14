@@ -2,10 +2,10 @@
 //! under the highlight, a live price when it is the symbol being followed, and the reason when the
 //! details could not be loaded.
 
-use crate::domain::market::Symbol;
 use crate::ui::kit::icon::IconName;
 use gpui::prelude::*;
 use gpui::{AnyElement, Div, FontWeight, SharedString, div, px};
+use wyck_market::Symbol;
 
 use super::catalog::{Class, Entry};
 use super::marks;
@@ -26,13 +26,9 @@ fn units(hundredths: i64) -> String {
     let whole = hundredths / 100;
     let rest = hundredths % 100;
     if rest == 0 {
-        crate::wyck_core::format::grouped(whole)
+        wyck_core::format::grouped(whole)
     } else {
-        format!(
-            "{}.{:02}",
-            crate::wyck_core::format::grouped(whole),
-            rest.abs()
-        )
+        format!("{}.{:02}", wyck_core::format::grouped(whole), rest.abs())
     }
 }
 
@@ -53,9 +49,9 @@ fn volume(hundredths: i64, lot_size: Option<i64>) -> String {
         Some(lot) => {
             let lots = hundredths as f64 / lot as f64;
             let text = if lots >= 1000.0 {
-                crate::wyck_core::format::grouped(lots.round() as i64)
+                wyck_core::format::grouped(lots.round() as i64)
             } else {
-                crate::wyck_core::format::trim(lots, 4)
+                wyck_core::format::trim(lots, 4)
             };
             let plural = if (lots - 1.0).abs() < f64::EPSILON {
                 ""

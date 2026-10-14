@@ -9,7 +9,7 @@ use chrono::{Datelike, TimeZone, Timelike};
 use chrono_tz::Tz;
 use serde::Deserialize;
 
-use crate::wyck_core::flex;
+use wyck_core::flex;
 
 use super::Symbol;
 
@@ -18,7 +18,6 @@ const WEEK: i64 = 7 * 86_400;
 /// One trading session of the week (`ProtoOAInterval`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Interval {
     /// Seconds from Sunday 00:00, included.
     #[serde(deserialize_with = "flex::int")]
@@ -31,7 +30,6 @@ pub struct Interval {
 /// A day the symbol does not trade, or trades less (`ProtoOAHoliday`).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Holiday {
     /// What the holiday is called.
     #[serde(default)]

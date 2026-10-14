@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::Span;
-use crate::domain::trading::math::{Offset, SizeMode};
-use crate::domain::trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
+use wyck_trading::math::{Offset, SizeMode};
+use wyck_trading::plan::{ExitPlan, MAX_TIME_STOP_MINUTES, Only, TimeStop};
 
 /// Closing a position once it has been open for a while, as set on the ticket.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

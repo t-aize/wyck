@@ -3,10 +3,10 @@
 use super::helpers::{nice, offset_kind, side_of, size_kind};
 use super::{Kind, OrderTicket, TicketEvent};
 use crate::app::account::Busy;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Offset, SizeMode};
 use crate::ui::kit::number;
 use gpui::{Context, Window};
+use wyck_trading::math;
+use wyck_trading::math::{Offset, SizeMode};
 
 impl OrderTicket {
     /// Whether a side can be picked: a followed drawing is a long or a short, not both.
@@ -188,10 +188,10 @@ impl OrderTicket {
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {
-                1 => crate::domain::trading::atr_stop::Smoothing::Sma,
-                2 => crate::domain::trading::atr_stop::Smoothing::Ema,
-                3 => crate::domain::trading::atr_stop::Smoothing::Wma,
-                _ => crate::domain::trading::atr_stop::Smoothing::Rma,
+                1 => wyck_trading::atr_stop::Smoothing::Sma,
+                2 => wyck_trading::atr_stop::Smoothing::Ema,
+                3 => wyck_trading::atr_stop::Smoothing::Wma,
+                _ => wyck_trading::atr_stop::Smoothing::Rma,
             };
             self.write(
                 &self.atr_length.clone(),

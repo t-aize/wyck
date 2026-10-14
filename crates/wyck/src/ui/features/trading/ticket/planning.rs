@@ -5,13 +5,13 @@ use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan,
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
 use crate::domain::drawings::model::style::Dash;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
 use crate::ui::features::chart::{ChartLine, LineId};
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::number;
 use gpui::{App, Context, Entity};
 use std::time::Duration;
+use wyck_trading::math;
+use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
 
 impl OrderTicket {
     pub(super) fn contract(&self, cx: &App) -> Contract {
@@ -368,10 +368,10 @@ impl OrderTicket {
                 if this.margin_epoch != epoch {
                     return;
                 }
-                let money = |m: &crate::domain::trading::ExpectedMargin| {
+                let money = |m: &wyck_trading::ExpectedMargin| {
                     (
-                        crate::domain::trading::money(m.buy_margin, digits),
-                        crate::domain::trading::money(m.sell_margin, digits),
+                        wyck_trading::money(m.buy_margin, digits),
+                        wyck_trading::money(m.sell_margin, digits),
                     )
                 };
                 match answer.ok().and_then(Result::ok) {

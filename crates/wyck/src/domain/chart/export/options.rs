@@ -45,7 +45,7 @@ pub struct ExportOptions {
     /// The names written for columns, by their code, instead of the default ones.
     #[serde(default)]
     pub renames: BTreeMap<String, String>,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub header: bool,
     #[serde(default)]
     pub header_case: HeaderCase,
@@ -93,7 +93,7 @@ pub struct ExportOptions {
     /// JSON file).
     #[serde(default)]
     pub notes: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub json_pretty: bool,
     /// The table of SQL inserts.
     #[serde(default = "default_table")]

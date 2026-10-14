@@ -7,13 +7,13 @@ use super::{
 use crate::app::broker::trading::NewOrderReq;
 use crate::app::broker::{Error as ApiError, Event, Result as ApiResult};
 use crate::app::system::runtime;
-use crate::domain::trading::ExecutionType;
-use crate::domain::trading::PositionStatus;
-use crate::domain::trading::guard::Verdict;
-use crate::domain::trading::math::Contract;
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;
+use wyck_trading::ExecutionType;
+use wyck_trading::PositionStatus;
+use wyck_trading::guard::Verdict;
+use wyck_trading::math::Contract;
 
 impl Account {
     /// Runs a trading call; on failure says why and reads the account again (the call may have
@@ -21,9 +21,7 @@ impl Account {
     pub(super) fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
         F: FnOnce(crate::app::broker::trading::TradingClient) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = ApiResult<crate::domain::trading::ExecutionEvent>>
-            + Send
-            + 'static,
+        Fut: std::future::Future<Output = ApiResult<wyck_trading::ExecutionEvent>> + Send + 'static,
     {
         if !self.busy.insert(busy) {
             return;
@@ -290,11 +288,11 @@ impl Account {
     /// left to their entry.
     pub(super) fn manage(
         &mut self,
-        execution: &crate::domain::trading::ExecutionEvent,
+        execution: &wyck_trading::ExecutionEvent,
         cx: &mut Context<Self>,
     ) {
-        use crate::domain::trading::plan;
-        use crate::domain::trading::plan::{Label, Open};
+        use wyck_trading::plan;
+        use wyck_trading::plan::{Label, Open};
         if execution.kind() != Some(ExecutionType::OrderFilled) {
             return;
         }
@@ -350,7 +348,7 @@ impl Account {
     /// every reading of the profit, so a time that ran out while the app was closed is caught at
     /// the next start. Closing is never held back by the safety limits: they are for new orders.
     pub(super) fn enforce_time_stops(&mut self, cx: &mut Context<Self>) {
-        use crate::domain::trading::plan::Label;
+        use wyck_trading::plan::Label;
         // While a call is unanswered the account is not known well enough to close on its own.
         if self.status != Status::Ready || self.uncertain {
             return;
@@ -403,10 +401,10 @@ impl Account {
     /// and says so once.
     pub(super) fn catch_up(
         &mut self,
-        missed: Vec<crate::domain::trading::plan::Catch>,
+        missed: Vec<wyck_trading::plan::Catch>,
         cx: &mut Context<Self>,
     ) {
-        use crate::domain::trading::plan::Catch;
+        use wyck_trading::plan::Catch;
         let (mut stops, mut cancels) = (0, 0);
         for step in missed {
             match step {
@@ -458,14 +456,14 @@ impl Account {
 /// gives nothing when any call fails: the next connection tries again.
 pub(super) async fn missed_exits(
     account: &crate::app::broker::AccountClient,
-    positions: &[crate::domain::trading::Position],
-    orders: &[crate::domain::trading::Order],
-    deals: &[crate::domain::trading::Deal],
+    positions: &[wyck_trading::Position],
+    orders: &[wyck_trading::Order],
+    deals: &[wyck_trading::Deal],
     now: i64,
-) -> Vec<crate::domain::trading::plan::Catch> {
-    use crate::domain::trading::OrderStatus;
-    use crate::domain::trading::plan;
-    use crate::domain::trading::plan::{Label, Open, Past};
+) -> Vec<wyck_trading::plan::Catch> {
+    use wyck_trading::OrderStatus;
+    use wyck_trading::plan;
+    use wyck_trading::plan::{Label, Open, Past};
     let label_of = |text: &Option<String>| text.as_deref().and_then(Label::decode);
     let rules = positions
         .iter()

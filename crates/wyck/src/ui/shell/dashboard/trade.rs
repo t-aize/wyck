@@ -10,7 +10,6 @@ pub mod layout;
 pub mod price_alerts;
 
 use super::Dashboard;
-use crate::domain::trading::math;
 use crate::ui::features::chart::LineId;
 use crate::ui::features::chart::events::{ChartAction, PositionLink};
 use crate::ui::features::multichart::SymbolRef;
@@ -23,6 +22,7 @@ use crate::ui::kit::{
 };
 use gpui::prelude::*;
 use gpui::{Context, Window};
+use wyck_trading::math;
 
 /// Something to do once the window is at hand.
 pub(super) enum Pending {

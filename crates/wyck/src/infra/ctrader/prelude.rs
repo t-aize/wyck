@@ -5,8 +5,6 @@
 //! use wyck::infra::ctrader::prelude::*;
 //! ```
 
-pub use crate::domain::market::{Period, QuoteType};
-pub use crate::domain::trading::TradeSide;
 pub use crate::infra::ctrader::config::{ClientCredentials, ConnectionConfig, Environment};
 pub use crate::infra::ctrader::session::{Session, SessionConfig, SessionEvent};
 pub use crate::infra::ctrader::trading::NewOrderReq;
@@ -14,3 +12,5 @@ pub use crate::infra::ctrader::{
     AccountClient, Client, ClientBuilder, ConnectionState, DisconnectReason, Error, ErrorKind,
     Event, Result,
 };
+pub use wyck_market::{Period, QuoteType};
+pub use wyck_trading::TradeSide;

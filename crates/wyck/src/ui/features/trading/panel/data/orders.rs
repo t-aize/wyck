@@ -8,9 +8,9 @@ use super::{
 use crate::app::account::Busy;
 use crate::app::market_data::now_ms;
 use crate::app::prefs::panel::Tab;
-use crate::domain::trading::math;
-use crate::domain::trading::{OrderType, money};
 use serde_json::Value;
+use wyck_trading::math;
+use wyck_trading::{OrderType, money};
 
 /// How far back the history reaches, in days.
 const HISTORY_DAYS: i64 = 7;

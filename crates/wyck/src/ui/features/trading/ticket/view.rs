@@ -16,9 +16,6 @@ use super::helpers::{nice, side_of, stop_limit_price};
 use super::{OrderTicket, Plan, TicketEvent, customize, plan};
 use crate::app::account::Busy;
 use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
-use crate::domain::trading::atr_stop::Smoothing;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Contract, Limit, Offset, SizeMode};
 use crate::ui::kit::{
     confirm::{Tone, confirm_as},
     controls,
@@ -27,6 +24,9 @@ use crate::ui::kit::{
     menu::{self as popup, Entry, Item},
     number, theme, tokens,
 };
+use wyck_trading::atr_stop::Smoothing;
+use wyck_trading::math;
+use wyck_trading::math::{Contract, Limit, Offset, SizeMode};
 
 /// The height of the bar that shows how a total is shared.
 const METER_HEIGHT: f32 = 6.0;

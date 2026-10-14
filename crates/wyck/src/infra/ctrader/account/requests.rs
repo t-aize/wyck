@@ -3,10 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::trading::types::{
+use wyck_core::flex;
+use wyck_trading::types::{
     Deal, DealOffset, DepositWithdraw, Order, Position, PositionUnrealizedPnL, Trader,
 };
-use crate::wyck_core::flex;
 
 /// `ProtoOAReconcileReq`: what the account holds right now.
 #[derive(Debug, Serialize)]

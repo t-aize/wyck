@@ -8,8 +8,8 @@
 
 use std::collections::HashMap;
 
-use crate::domain::market::{Asset, AssetClass, LightSymbol, SymbolCategory};
 use crate::ui::kit::icon::IconName;
+use wyck_market::{Asset, AssetClass, LightSymbol, SymbolCategory};
 
 use super::marks::{self, Icon};
 

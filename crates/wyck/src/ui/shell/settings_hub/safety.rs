@@ -1,9 +1,9 @@
 //! The Safety page of the settings: the limits every new order is checked against (see
-//! [`crate::domain::trading::guard`]). A limit of 0 is off.
+//! [`wyck_trading::guard`]). A limit of 0 is off.
 
 use super::{AnyElement, Context, IconName, SettingsHub, controls, div, form, number, tokens};
-use crate::domain::trading::guard::RiskPrefs;
 use gpui::prelude::*;
+use wyck_trading::guard::RiskPrefs;
 
 /// One number of the safety limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

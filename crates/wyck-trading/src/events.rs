@@ -3,9 +3,9 @@
 
 use serde::Deserialize;
 
-use crate::domain::trading::types::number_enum;
-use crate::domain::trading::{Deal, Order, Position};
-use crate::wyck_core::flex;
+use crate::types::number_enum;
+use crate::{Deal, Order, Position};
+use wyck_core::flex;
 
 number_enum! {
     /// What an execution event reports (`ProtoOAExecutionType`).
@@ -39,7 +39,6 @@ number_enum! {
 /// withdrawal or swap that was not asked for by one.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ExecutionEvent {
     /// The account the execution belongs to.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -77,7 +76,6 @@ impl ExecutionEvent {
 /// (for example the account moved out of margin between requests).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct OrderErrorEvent {
     /// The account the error is about.
     #[serde(default, deserialize_with = "flex::opt")]
@@ -98,7 +96,6 @@ pub struct OrderErrorEvent {
 /// `ProtoOATrailingSLChangedEvent`: a trailing stop loss moved with the price.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct TrailingSlChangedEvent {
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,

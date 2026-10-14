@@ -1,6 +1,6 @@
 //! Indicators ("studies"): moving averages, bands, oscillators and the volume profile.
 //!
-//! - [`crate::wyck_core::math`]: the arithmetic, series in and series out, tested against worked examples.
+//! - [`wyck_core::math`]: the arithmetic, series in and series out, tested against worked examples.
 //! - `kind` and `spec`: what each indicator is ([`StudyKind`](kind::StudyKind) and its [`Spec`](spec::Spec): inputs, plots,
 //!   where it is drawn).
 //! - `config` and `style`: what the user set ([`StudyConfig`](config::StudyConfig), which is also what is saved) and how
@@ -31,7 +31,7 @@ mod tests {
     use super::config::*;
     use super::kind::*;
     use super::spec::*;
-    use crate::wyck_core::math;
+    use wyck_core::math;
 
     fn input(n: usize) -> StudyInput {
         let close: Vec<f64> = (0..n)

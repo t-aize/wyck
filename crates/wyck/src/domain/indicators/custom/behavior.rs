@@ -7,7 +7,7 @@ use super::super::compute::StudyInput;
 use super::super::spec::{InputKind, PlotKind};
 use super::run::decl::Limits;
 use super::run::{Computed, Script};
-use crate::wyck_core::math;
+use wyck_core::math;
 
 fn bars(n: usize) -> StudyInput {
     let close: Vec<f64> = (0..n)

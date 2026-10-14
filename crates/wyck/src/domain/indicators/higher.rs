@@ -5,7 +5,7 @@
 //! that holds it. Nothing is fetched: the bigger bars are built from the bars already loaded, so
 //! they reach back as far as the chart does.
 
-use crate::domain::market::Timeframe;
+use wyck_market::Timeframe;
 
 use super::compute::StudyInput;
 

@@ -39,14 +39,14 @@ use super::view::View;
 use crate::domain::drawings::model::Drawing;
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::{Placement, ValueFormat};
-use crate::domain::market::Timeframe;
+use wyck_market::Timeframe;
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
 
 /// The size of the text of the watermark.
 fn watermark_size() -> f32 {
-    crate::wyck_core::text_scale::scaled(46.0)
+    wyck_core::text_scale::scaled(46.0)
 }
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.
@@ -529,7 +529,7 @@ mod tests {
     use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
     use crate::domain::indicators::config::StudyConfig;
     use crate::domain::indicators::kind::StudyKind;
-    use crate::domain::market::{Bar, Period, Quote, Tick};
+    use wyck_market::{Bar, Period, Quote, Tick};
 
     fn bars(n: usize) -> Vec<Bar> {
         (0..n)

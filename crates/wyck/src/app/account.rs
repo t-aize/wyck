@@ -4,7 +4,7 @@
 //! On every (re)connection it asks what the account holds (balance, positions, orders, recent
 //! deals); after that the server's execution events keep it current. The profit of the positions
 //! is asked every two seconds while any are open, and follows the prices in between (see
-//! [`crate::domain::trading::math::live_net`]).
+//! [`wyck_trading::math::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
 //! the non-idempotency notes of [`crate::app::broker::trading`]), so after a failed call the account is
@@ -23,19 +23,19 @@ use crate::app::broker::trading::NewOrderReq;
 use crate::app::broker::{Error as ApiError, Result as ApiResult};
 use crate::app::market_data::live::LiveHub;
 use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
-use crate::domain::market::PRICE_SCALE;
-use crate::domain::trading::TradeSide;
-use crate::domain::trading::book::AccountBook;
-use crate::domain::trading::guard;
-use crate::domain::trading::guard::{
-    DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
-};
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Link, Summary};
 use gpui::{Context, EventEmitter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_market::PRICE_SCALE;
+use wyck_trading::TradeSide;
+use wyck_trading::book::AccountBook;
+use wyck_trading::guard;
+use wyck_trading::guard::{
+    DuplicateGuard, Fingerprint, Lock, OrderFacts, RiskPrefs, Standing, Verdict,
+};
+use wyck_trading::math;
+use wyck_trading::math::{Link, Summary};
 
 /// How long the recent history reaches back.
 const HISTORY_DAYS: i64 = 7;

@@ -28,7 +28,7 @@ pub struct Style {
     #[serde(default = "default_line_opacity")]
     pub opacity: f32,
     /// Whether closed shapes are filled.
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub fill: bool,
     /// The color of the fill; the line color when unset.
     #[serde(default)]
@@ -58,10 +58,10 @@ pub struct Style {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font: Option<String>,
     /// Whether the levels and prices are written.
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub labels: bool,
     /// Whether the extra line of the tool shows (see [`super::tool::Tool::middle_label`]).
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub middle: bool,
     /// What a long or short position is sized and told with. Kept in one piece, and left out of
     /// the saved form when it is the default, so the other tools carry nothing of it.
@@ -130,7 +130,7 @@ impl Style {
                 .font
                 .as_deref()
                 .filter(|name| !name.trim().is_empty())
-                .map(|name| crate::wyck_core::intern::name(name.trim())),
+                .map(|name| wyck_core::intern::name(name.trim())),
         }
     }
 }
@@ -224,7 +224,7 @@ pub const DASHES: [Dash; 3] = [Dash::Solid, Dash::Dashed, Dash::Dotted];
 pub struct Level {
     pub value: f64,
     pub color: u32,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub visible: bool,
     /// The width of its line; 0 is the width of the drawing.
     #[serde(default, skip_serializing_if = "is_default")]

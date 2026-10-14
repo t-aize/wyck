@@ -10,7 +10,7 @@ use crate::domain::drawings::model::style::Dash;
 pub struct PlotStyle {
     pub color: u32,
     pub width: f32,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub visible: bool,
     /// How opaque the plot is, from 0 to 1.
     #[serde(default = "opaque")]
@@ -46,7 +46,7 @@ pub struct LevelStyle {
     pub width: f32,
     #[serde(default = "default_level_dash")]
     pub dash: Dash,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub visible: bool,
 }
 
@@ -80,7 +80,7 @@ pub struct FillStyle {
     pub other: Option<u32>,
     #[serde(default = "default_fill_opacity")]
     pub opacity: f32,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub visible: bool,
 }
 

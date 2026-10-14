@@ -3,12 +3,12 @@
 use super::{Account, Busy, Notice, REVERSE_FINAL_WAIT, REVERSE_RECHECK, Tone};
 
 use crate::app::broker::trading::NewOrderReq;
-use crate::domain::trading::ExecutionType;
-use crate::domain::trading::TradeSide;
-use crate::domain::trading::guard::Verdict;
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;
+use wyck_trading::ExecutionType;
+use wyck_trading::TradeSide;
+use wyck_trading::guard::Verdict;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ReverseOrder {
@@ -187,7 +187,7 @@ impl Account {
 mod tests {
 
     use super::{ReverseOrder, ReverseTracker};
-    use crate::domain::trading::ExecutionType;
+    use wyck_trading::ExecutionType;
 
     fn order() -> ReverseOrder {
         ReverseOrder {

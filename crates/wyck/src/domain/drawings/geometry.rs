@@ -187,7 +187,7 @@ pub enum Part {
 
 /// The size of the words a drawing writes by itself (prices, ratios).
 pub fn label_size() -> f32 {
-    crate::wyck_core::text_scale::scaled(11.0)
+    wyck_core::text_scale::scaled(11.0)
 }
 
 /// How far the words of a board are from its edge.
@@ -333,16 +333,11 @@ pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
 /// The shapes of a drawing (without grips). `selected` says whether it is the one selected: a
 /// position can keep its stats for then.
 pub fn prims_with(drawing: &Drawing, proj: &dyn Projection, selected: bool) -> Vec<Prim> {
-    prims_at(
-        drawing,
-        proj,
-        selected,
-        crate::wyck_core::text_scale::factor(),
-    )
+    prims_at(drawing, proj, selected, wyck_core::text_scale::factor())
 }
 
 /// [`prims_with`] with the text at `factor` times its size. The text of a drawing follows the
-/// scale of the text (see [`crate::wyck_core::text_scale`]); the size that is saved does not change.
+/// scale of the text (see [`wyck_core::text_scale`]); the size that is saved does not change.
 fn prims_at(drawing: &Drawing, proj: &dyn Projection, selected: bool, factor: f32) -> Vec<Prim> {
     if (factor - 1.0).abs() > f32::EPSILON {
         let mut scaled = drawing.clone();

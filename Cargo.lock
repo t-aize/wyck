@@ -9859,7 +9859,40 @@ dependencies = [
  "unicode-segmentation",
  "uuid",
  "winresource",
+ "wyck-core",
+ "wyck-market",
+ "wyck-trading",
  "zeroize",
+]
+
+[[package]]
+name = "wyck-core"
+version = "0.2.1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "wyck-market"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
+ "wyck-core",
+]
+
+[[package]]
+name = "wyck-trading"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+ "wyck-core",
+ "wyck-market",
 ]
 
 [[package]]

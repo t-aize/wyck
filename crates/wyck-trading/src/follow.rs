@@ -10,8 +10,8 @@
 //! This file is plain data and arithmetic. Where the ATR comes from, and the amending, are in
 //! `app::account::follow`.
 
-use crate::domain::market::Timeframe;
-use crate::domain::trading::atr_stop::{AtrStop, Smoothing};
+use crate::atr_stop::{AtrStop, Smoothing};
+use wyck_market::Timeframe;
 
 /// The longest an ATR can be, as the label writes it.
 const MAX_LENGTH: usize = 1_000;

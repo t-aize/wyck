@@ -10,12 +10,12 @@
 //! 1.0 of price: 1.0 when the instrument is quoted in the account currency (an index in dollars,
 //! EURUSD on a dollar account), something else when it is not. It does here what the conversion
 //! rate does in the order ticket, and the quantity comes from the same formula
-//! ([`crate::domain::trading::contract::quantity_for_risk`]). There is no live rate, so the
+//! ([`wyck_trading::contract::quantity_for_risk`]). There is no live rate, so the
 //! figures are a plan, not a quote.
 
-use crate::domain::trading::atr_stop::AtrStop;
-use crate::domain::trading::contract::{move_amount, quantity_for_risk};
 use serde::{Deserialize, Serialize};
+use wyck_trading::atr_stop::AtrStop;
+use wyck_trading::contract::{move_amount, quantity_for_risk};
 
 /// Everything a position drawing keeps besides its points and its lines.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,7 +30,7 @@ pub struct PositionSettings {
     /// How much is risked: a percentage of the account, or an amount (see `risk_percent`).
     #[serde(default = "default_risk")]
     pub risk: f64,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub risk_percent: bool,
     /// The step a quantity is rounded down to.
     #[serde(default = "one")]
@@ -55,24 +55,24 @@ pub struct PositionSettings {
     #[serde(default = "default_entry_color")]
     pub entry_color: u32,
     /// The stats written on the chart, one switch each.
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_qty: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_risk: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_amounts: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_ratio: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_percent: bool,
     #[serde(default)]
     pub show_ticks: bool,
     #[serde(default)]
     pub show_pips: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub show_price: bool,
     /// Shorter tags, for a crowded chart.
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub compact: bool,
     /// Whether the tags show all the time. Off, they show only while the drawing is selected.
     #[serde(default)]
@@ -246,7 +246,7 @@ impl PositionSettings {
 
     /// A quantity as written: its decimals, no trailing zeros.
     pub fn format_qty(&self, qty: f64) -> String {
-        crate::wyck_core::format::trim(qty, usize::from(self.qty_precision))
+        wyck_core::format::trim(qty, usize::from(self.qty_precision))
     }
 
     /// An amount with its sign, two decimals and the currency.
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn the_tool_and_the_ticket_size_a_risk_the_same_way() {
-        use crate::domain::trading::contract::{Contract, lots_for_risk};
+        use wyck_trading::contract::{Contract, lots_for_risk};
         let contract = Contract::default();
         let units_per_lot = contract.lot_size as f64 / 100.0;
         let ticket = lots_for_risk(100.0, 0.0020, 1.0, &contract).unwrap();

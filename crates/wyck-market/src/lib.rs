@@ -27,4 +27,4 @@ pub use symbols::{
 pub use ticks::{
     GetTickDataReq, GetTickDataRes, Quote, QuoteType, Tick, WireTick, decode_ticks, merge_sides,
 };
-pub use timeframe::{QUICK, Timeframe};
+pub use timeframe::{GROUPS, QUICK, Timeframe, Unit};

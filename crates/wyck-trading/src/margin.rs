@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::trading::types::number_enum;
-use crate::wyck_core::flex;
+use crate::types::number_enum;
+use wyck_core::flex;
 
 number_enum! {
     /// Which of the three supported margin call thresholds this is (`ProtoOANotificationType`).
@@ -22,7 +22,6 @@ number_enum! {
 /// to a volume; the last tier also covers everything above its volume.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct DynamicLeverageTier {
     /// The largest open volume, per side, this tier's leverage applies to, in hundredths of a unit.
     #[serde(deserialize_with = "flex::int")]
@@ -35,7 +34,6 @@ pub struct DynamicLeverageTier {
 /// A dynamic leverage schedule (`ProtoOADynamicLeverage`), referenced by `Symbol::leverage_id`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct DynamicLeverage {
     /// The id `Symbol::leverage_id` points to.
     #[serde(deserialize_with = "flex::int")]
@@ -48,7 +46,6 @@ pub struct DynamicLeverage {
 /// The margin an order of each volume would need (`ProtoOAExpectedMargin`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ExpectedMargin {
     /// The volume this estimate is for, in hundredths of a unit.
     #[serde(deserialize_with = "flex::int")]
@@ -65,7 +62,6 @@ pub struct ExpectedMargin {
 /// `margin_call_type`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct MarginCall {
     /// Which of the three thresholds this is, as [`MarginCallType`]'s number.
     #[serde(deserialize_with = "flex::int")]
@@ -85,7 +81,7 @@ impl MarginCall {
     /// A threshold to send with the margin client's `update_margin_call`.
     ///
     /// ```
-    /// use wyck::domain::trading::{MarginCall, MarginCallType};
+    /// use wyck_trading::{MarginCall, MarginCallType};
     ///
     /// let call = MarginCall::new(MarginCallType::First, 120.0);
     /// assert_eq!(call.kind(), Some(MarginCallType::First));
@@ -109,7 +105,6 @@ impl MarginCall {
 /// `ProtoOAMarginChangedEvent`: the margin used by a position changed.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct MarginChangedEvent {
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
@@ -127,7 +122,6 @@ pub struct MarginChangedEvent {
 /// for example the cTrader platform).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct MarginCallUpdateEvent {
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,
@@ -139,7 +133,6 @@ pub struct MarginCallUpdateEvent {
 /// once every ten minutes per threshold.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct MarginCallTriggerEvent {
     #[serde(default, deserialize_with = "flex::opt")]
     pub ctid_trader_account_id: Option<i64>,

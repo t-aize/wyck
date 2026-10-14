@@ -9,10 +9,10 @@
 //! The access token needs the `trading` scope. The example refuses a live account: it connects to
 //! the demo server, which does not accept live accounts, and checks the account list as well.
 
-use wyck::domain::trading::TradeSide;
-use wyck::domain::trading::contract::Contract;
 use wyck::infra::ctrader::trading::NewOrderReq;
 use wyck::infra::ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
+use wyck_trading::TradeSide;
+use wyck_trading::contract::Contract;
 
 fn var(name: &str) -> String {
     let _ = dotenvy::dotenv();

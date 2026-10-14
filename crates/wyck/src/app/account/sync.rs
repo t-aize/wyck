@@ -5,11 +5,11 @@ use super::reverse::ReverseOrder;
 use super::{Account, Conversion, HISTORY_DAYS, Notice, Status, Tone, flatten, refusal};
 use crate::app::broker::{Error as ApiError, Event};
 use crate::app::system::runtime;
-use crate::domain::trading::ExecutionType;
-use crate::domain::trading::PositionStatus;
-use crate::domain::trading::math::{Contract, Link};
 use gpui::Context;
 use std::collections::HashMap;
+use wyck_trading::ExecutionType;
+use wyck_trading::PositionStatus;
+use wyck_trading::math::{Contract, Link};
 
 impl Account {
     /// Asks the server once how the currency of `symbol_id` converts into the deposit one, and

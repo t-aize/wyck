@@ -25,7 +25,7 @@ pub struct StudyConfig {
     pub texts: BTreeMap<String, String>,
     #[serde(default)]
     pub plots: BTreeMap<String, PlotStyle>,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub visible: bool,
     /// How tall its pane is, relative to the prices (only for an indicator with a pane).
     #[serde(default = "pane_weight")]
@@ -40,9 +40,9 @@ pub struct StudyConfig {
     pub name: String,
     #[serde(default)]
     pub precision: Option<u32>,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub axis_labels: bool,
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub legend_values: bool,
 }
 
@@ -419,7 +419,7 @@ impl StudyConfig {
             let value = self.input(input.key);
             match input.kind {
                 InputKind::Int => parts.push(format!("{value:.0}")),
-                InputKind::Float => parts.push(crate::wyck_core::format::trim(value, 3)),
+                InputKind::Float => parts.push(wyck_core::format::trim(value, 3)),
                 InputKind::Source => {
                     parts.push(SOURCES[(value as usize).min(SOURCES.len() - 1)].to_lowercase());
                 }

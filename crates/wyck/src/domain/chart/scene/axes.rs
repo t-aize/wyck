@@ -8,7 +8,7 @@ use crate::domain::chart::axis;
 use crate::domain::chart::data::Series;
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::ValueFormat;
-use crate::domain::market::Timeframe;
+use wyck_market::Timeframe;
 
 /// The solid strips of the two axes and the lines that set them off.
 pub(super) fn axes_background(frame: &Frame<'_>, geometry: &Geometry) -> Cmd {
@@ -365,7 +365,7 @@ mod tests {
 
     use crate::domain::chart::zone::Zone;
 
-    use crate::domain::market::Bar;
+    use wyck_market::Bar;
 
     #[test]
     fn the_time_left_in_a_bar_reads_like_a_clock() {

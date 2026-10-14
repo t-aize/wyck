@@ -11,15 +11,15 @@
 use serde_json::Value;
 use tracing::{debug, warn};
 
-use crate::domain::market::{DepthEvent, SpotEvent, SymbolChangedEvent};
-use crate::domain::trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
-use crate::domain::trading::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
 use crate::infra::ctrader::account::TraderUpdatedEvent;
 use crate::infra::ctrader::error::Error;
 use crate::infra::ctrader::transport::messages::{
     AccountDisconnectEvent, AccountsTokenInvalidatedEvent, ClientDisconnectEvent, ErrorRes,
 };
 use crate::infra::ctrader::transport::wire::{Envelope, payload};
+use wyck_market::{DepthEvent, SpotEvent, SymbolChangedEvent};
+use wyck_trading::{ExecutionEvent, OrderErrorEvent, TrailingSlChangedEvent};
+use wyck_trading::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedEvent};
 
 /// Why a connection ended.
 #[derive(Debug, Clone, PartialEq, Eq)]

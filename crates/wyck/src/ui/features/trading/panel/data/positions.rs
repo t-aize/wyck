@@ -7,7 +7,7 @@ use super::{
 
 use crate::app::account::Busy;
 use crate::app::prefs::panel::Tab;
-use crate::domain::trading::math;
+use wyck_trading::math;
 
 /// The profit of a position, or a wait while the quote it depends on has not come.
 fn profit_cell(profit: Option<f64>, currency: &str) -> Cell {

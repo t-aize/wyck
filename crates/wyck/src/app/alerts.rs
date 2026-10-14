@@ -20,11 +20,11 @@ use std::time::Duration;
 use crate::domain::chart::data::Series;
 use crate::domain::indicators as study;
 use crate::domain::indicators::spec::ValueFormat;
-use crate::domain::market::Timeframe;
-use crate::domain::market::{Bar, PRICE_SCALE};
 use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;
 use gpui::{App, Context, Entity, EventEmitter};
+use wyck_market::Timeframe;
+use wyck_market::{Bar, PRICE_SCALE};
 
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::{LiveHub, Wish};
@@ -172,7 +172,7 @@ impl Alerts {
         self.pips
             .get(&symbol_id)
             .copied()
-            .unwrap_or_else(|| crate::domain::market::pip_size(4))
+            .unwrap_or_else(|| wyck_market::pip_size(4))
     }
 
     /// Every symbol an alert is on, watching or not: the ones whose decimals the alerts need.

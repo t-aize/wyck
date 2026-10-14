@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 
 use crate::app::broker::Result as ApiResult;
 use crate::app::broker::session::Session;
-use crate::domain::market::{Quote, QuoteType, merge_sides};
 use gpui::Context;
+use wyck_market::{Quote, QuoteType, merge_sides};
 
 use super::data::Series;
 use super::flow::{self, Flow};

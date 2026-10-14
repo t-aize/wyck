@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::super::compute::StudyInput;
 use super::series::Series;
-use crate::domain::market::Bar;
+use wyck_market::Bar;
 
 /// The bars of another symbol, as they came from the server: one value per bar, oldest first.
 #[derive(Debug, Clone, Default, PartialEq)]

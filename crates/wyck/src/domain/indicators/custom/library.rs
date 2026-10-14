@@ -15,7 +15,7 @@ use std::time::Duration;
 use super::super::spec::{InputSpec, Placement, PlotSpec, Spec};
 use super::run::Script;
 use super::run::decl::{Declaration, Limits, Problem};
-use crate::wyck_core::intern;
+use wyck_core::intern;
 
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
 const DECLARE_LIMITS: Limits = Limits {

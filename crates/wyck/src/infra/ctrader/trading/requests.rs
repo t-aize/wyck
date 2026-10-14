@@ -7,7 +7,7 @@
 
 use serde::Serialize;
 
-use crate::domain::trading::{NewOrderType, TimeInForce, TradeSide};
+use wyck_trading::{NewOrderType, TimeInForce, TradeSide};
 
 /// `ProtoOANewOrderReq`. Build with [`NewOrderReq::market`], [`NewOrderReq::limit`],
 /// [`NewOrderReq::stop`] or [`NewOrderReq::stop_limit`], then set the optional fields.
@@ -30,7 +30,7 @@ pub struct NewOrderReq {
     /// The stop price. Only for [`NewOrderType::Stop`] and [`NewOrderType::StopLimit`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_price: Option<f64>,
-    /// How long the order stays working, as [`crate::domain::trading::TimeInForce`]'s number.
+    /// How long the order stays working, as [`wyck_trading::TimeInForce`]'s number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<i32>,
     /// When a good-till-date order expires, in Unix milliseconds.
@@ -61,11 +61,11 @@ pub struct NewOrderReq {
     /// Your own id for the order, at most 50 characters (like FIX `ClOrdID`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_order_id: Option<String>,
-    /// A stop loss relative to the entry price, in [`crate::domain::market::PRICE_SCALE`] units, instead of
+    /// A stop loss relative to the entry price, in [`wyck_market::PRICE_SCALE`] units, instead of
     /// the absolute `stop_loss`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A take profit relative to the entry price, in [`crate::domain::market::PRICE_SCALE`] units, instead
+    /// A take profit relative to the entry price, in [`wyck_market::PRICE_SCALE`] units, instead
     /// of the absolute `take_profit`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
@@ -284,10 +284,10 @@ pub struct AmendOrderReq {
     /// A new slippage, in points.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
-    /// A new relative stop loss, in [`crate::domain::market::PRICE_SCALE`] units.
+    /// A new relative stop loss, in [`wyck_market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_stop_loss: Option<i64>,
-    /// A new relative take profit, in [`crate::domain::market::PRICE_SCALE`] units.
+    /// A new relative take profit, in [`wyck_market::PRICE_SCALE`] units.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_take_profit: Option<i64>,
     /// A new guaranteed stop loss setting.

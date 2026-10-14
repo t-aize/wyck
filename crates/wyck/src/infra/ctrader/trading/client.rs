@@ -1,17 +1,17 @@
 //! [`TradingClient`]: the calls themselves.
 
 use super::{AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionReq, NewOrderReq};
-use crate::domain::trading::ExecutionEvent;
 use crate::infra::ctrader::error::{Error, Result};
 use crate::infra::ctrader::transport::connection::{Client, RateClass};
 use crate::infra::ctrader::transport::wire::payload;
+use wyck_trading::ExecutionEvent;
 
 /// Trading bound to one account: places, amends and cancels orders, closes positions. See
 /// [`crate::infra::ctrader::AccountClient::trading`] and the [module docs](crate::infra::ctrader::trading) for the non-idempotency caveat.
 ///
 /// ```no_run
 /// # async fn demo(account: wyck::infra::ctrader::AccountClient) -> wyck::infra::ctrader::Result<()> {
-/// use wyck::domain::trading::TradeSide;
+/// use wyck_trading::TradeSide;
 /// use wyck::infra::ctrader::trading::NewOrderReq;
 ///
 /// // 0.01 lot of symbol 1 at market, with a stop loss and a take profit.

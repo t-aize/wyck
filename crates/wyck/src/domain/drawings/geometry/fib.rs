@@ -116,7 +116,7 @@ pub(in crate::domain::drawings) fn visible_levels(drawing: &Drawing) -> Vec<Leve
 
 /// A level's value as the chart writes it: up to three decimals, no trailing zeros.
 pub fn level_text(value: f64) -> String {
-    crate::wyck_core::format::trim(value, 3)
+    wyck_core::format::trim(value, 3)
 }
 
 /// The caption of a level as the style asks for it: `price` is the price of the level, for a tool

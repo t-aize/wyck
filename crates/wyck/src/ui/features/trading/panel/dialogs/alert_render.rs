@@ -287,7 +287,7 @@ impl Render for AlertEditor {
         if self.draft.needs_bars() || trigger == Trigger::OncePerBar {
             let tf_this = cx.entity();
             let current = self.draft.timeframe.clone();
-            let frames: Vec<crate::domain::market::Timeframe> = crate::domain::market::QUICK
+            let frames: Vec<wyck_market::Timeframe> = wyck_market::QUICK
                 .into_iter()
                 .filter(|t| t.bar_ms().is_some())
                 .collect();
@@ -306,8 +306,8 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text = crate::domain::market::Timeframe::from_code(&current)
-                .map_or(current.clone(), |t| t.label());
+            let text =
+                wyck_market::Timeframe::from_code(&current).map_or(current.clone(), |t| t.label());
             often.push(form::field(
                 "Timeframe",
                 Some("The bars it is judged on"),

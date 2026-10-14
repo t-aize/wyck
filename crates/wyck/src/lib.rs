@@ -9,7 +9,6 @@ pub mod infra;
 #[cfg(test)]
 mod keymap_guard;
 pub mod ui;
-pub mod wyck_core;
 
 use std::borrow::Cow;
 

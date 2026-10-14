@@ -45,7 +45,7 @@ mod tests {
     use crate::domain::chart::zone::Zone;
     use crate::domain::indicators::config::StudyConfig;
     use crate::domain::indicators::kind::StudyKind;
-    use crate::domain::market::{Bar, Tick};
+    use wyck_market::{Bar, Tick};
 
     /// Monday 2026-01-05 00:00 UTC.
     const MONDAY: i64 = 1_767_571_200_000;

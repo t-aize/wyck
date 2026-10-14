@@ -7,14 +7,14 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::domain::trading::{
+use crate::{
     Deal, Order, OrderStatus, OrderType, Position, PositionStatus, PositionUnrealizedPnL,
     TradeData, Trader, money,
 };
-use crate::domain::trading::{ExecutionEvent, ExecutionType};
+use crate::{ExecutionEvent, ExecutionType};
 
-use crate::domain::trading::contract as math;
-use crate::domain::trading::contract::{Contract, PnlMark, Summary};
+use crate::contract as math;
+use crate::contract::{Contract, PnlMark, Summary};
 
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;

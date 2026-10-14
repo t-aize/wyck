@@ -2,8 +2,8 @@
 
 use super::{Account, Busy};
 use crate::app::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
-use crate::domain::trading::TradeSide;
 use gpui::Context;
+use wyck_trading::TradeSide;
 
 impl Account {
     /// Moves the stop loss of a position to its entry price, keeping the take profit.

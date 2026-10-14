@@ -47,17 +47,17 @@ pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
 use crate::app::account::Account;
 pub use crate::app::prefs::ticket as prefs;
-use crate::domain::trading::atr_stop::AtrStop;
-use crate::domain::trading::math;
-use crate::domain::trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
-use crate::domain::trading::plan;
-use crate::domain::trading::plan::ExitPlan;
 use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::events::{PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::number;
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
+use wyck_trading::atr_stop::AtrStop;
+use wyck_trading::math;
+use wyck_trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
+use wyck_trading::plan;
+use wyck_trading::plan::ExitPlan;
 
 /// Which line of the ticket a pending line on the chart stands for.
 pub const LINE_ENTRY: u8 = 0;

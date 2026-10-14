@@ -25,8 +25,6 @@ use crate::domain::drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 use crate::domain::drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
-use crate::domain::market::PRICE_SCALE;
-use crate::domain::trading::atr_stop::{AtrStop, Smoothing};
 use crate::ui::kit::field::{SliderField, ValueChanged};
 use crate::ui::kit::font_picker::{FontChosen, FontPicker};
 use crate::ui::kit::icon::IconName;
@@ -34,6 +32,8 @@ use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
 use crate::ui::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use wyck_market::PRICE_SCALE;
+use wyck_trading::atr_stop::{AtrStop, Smoothing};
 
 pub struct PropsContext {
     pub zone: Zone,

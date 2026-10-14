@@ -5,9 +5,9 @@
 //! same height at any price), or evenly but labelled as a percentage change or an index of 100
 //! from the first bar on screen. The scale can also be turned upside down.
 
-use crate::domain::market::format_price;
+use wyck_market::format_price;
 
-use crate::wyck_core::format;
+use wyck_core::format;
 
 use super::super::axis;
 use super::super::settings::ScaleMode;

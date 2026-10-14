@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::PricePath;
-use crate::domain::market::Bar;
-use crate::wyck_core::math;
+use wyck_core::math;
+use wyck_market::Bar;
 
 /// How a box (or a reversal, or a range) is sized.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl BoxSize {
                         ((hi - lo) / 20.0).max(unit as f64)
                     })
             }
-            Self::Fixed { price } => price * crate::domain::market::PRICE_SCALE as f64,
+            Self::Fixed { price } => price * wyck_market::PRICE_SCALE as f64,
             Self::Percent { percent } => {
                 bars.last().map_or(0.0, |b| b.close as f64) * percent / 100.0
             }
@@ -109,7 +109,7 @@ pub struct TransformSettings {
     #[serde(default = "default_brick_opacity")]
     pub brick_opacity: f32,
     /// A line around each brick.
-    #[serde(default = "crate::wyck_core::defaults::yes")]
+    #[serde(default = "wyck_core::defaults::yes")]
     pub brick_border: bool,
 }
 

@@ -21,9 +21,9 @@
 //! # Units
 //!
 //! Volumes are hundredths of a unit, like the read-only account calls (see
-//! [`crate::domain::trading::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
-//! decimals, like the prices on [`crate::domain::trading::Position`] and [`crate::domain::trading::Order`], unlike
-//! the integer, [`crate::domain::market::PRICE_SCALE`] prices of ticks and bars.
+//! [`wyck_trading::volume_units`]). Prices (limit, stop, stop loss, take profit) are ordinary
+//! decimals, like the prices on [`wyck_trading::Position`] and [`wyck_trading::Order`], unlike
+//! the integer, [`wyck_market::PRICE_SCALE`] prices of ticks and bars.
 
 pub mod requests;
 

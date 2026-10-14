@@ -24,8 +24,8 @@
 
 pub mod settings;
 
-use crate::domain::market::Bar;
 use serde::{Deserialize, Serialize};
+use wyck_market::Bar;
 
 /// Most elements a construction produces, like the bar limit of the chart.
 const MAX_OUT: usize = 120_000;

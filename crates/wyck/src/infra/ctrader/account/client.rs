@@ -11,7 +11,7 @@ use super::{
     OrderDetailsRes, OrderListByPositionIdRes, OrderListRes, PositionUnrealizedPnLRes,
     ReconcileRes, TraderRes,
 };
-use crate::domain::trading::{
+use wyck_trading::{
     Deal, DealOffset, DepositWithdraw, Order, Position, PositionUnrealizedPnL, Trader,
 };
 
@@ -285,7 +285,7 @@ impl AccountDataClient {
     }
 
     /// The whole answer about the unrealized profit or loss of the open positions, with the
-    /// number of decimals of its amounts (see [`crate::domain::trading::money`]).
+    /// number of decimals of its amounts (see [`wyck_trading::money`]).
     ///
     /// # Errors
     ///

@@ -4,10 +4,10 @@ use super::{Cell, Ctx, Row, RowKind, Table, Tone, Unit, finish, money_text, pric
 
 use crate::app::account::Account;
 use crate::app::prefs::panel::Tab;
-use crate::domain::trading::Position;
-use crate::domain::trading::math;
 use crate::ui::features::trading::panel::stats;
 use std::collections::BTreeMap;
+use wyck_trading::Position;
+use wyck_trading::math;
 
 /// What the account holds on one symbol.
 #[derive(Default)]

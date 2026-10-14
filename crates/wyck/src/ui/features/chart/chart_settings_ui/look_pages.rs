@@ -1,7 +1,6 @@
 //! The pages that set how the chart looks: its type, symbol, status, scales and colors.
 
 use super::{ChartSettingsEditor, ColorKey, edit_chart, size_mode, size_value};
-use crate::domain::market::PRICE_SCALE;
 use crate::ui::features::chart::options::{CrosshairStyle, ScaleMargin};
 use crate::ui::features::chart::settings::{ChartKind, ChartSettings, ScaleMode};
 use crate::ui::features::chart::transform::settings::BoxSize;
@@ -10,6 +9,7 @@ use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, form, icon, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
+use wyck_market::PRICE_SCALE;
 
 impl ChartSettingsEditor {
     pub(super) fn kind_tiles(&self, current: ChartKind) -> AnyElement {

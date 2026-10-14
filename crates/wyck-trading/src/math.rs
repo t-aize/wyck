@@ -1,7 +1,7 @@
-//! The ticket's own arithmetic on top of [`crate::domain::trading::contract`]: how an order's
+//! The ticket's own arithmetic on top of [`crate::contract`]: how an order's
 //! size and its stop loss and take profit are typed, and how money is written.
 
-pub use crate::domain::trading::contract::*;
+pub use crate::contract::*;
 
 /// How the volume of an order is chosen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -109,7 +109,7 @@ pub fn format_money(amount: f64, currency: &str) -> String {
     let negative = amount < 0.0;
     let cents = (amount.abs() * 100.0).round() as i64;
     let (whole, rest) = (cents / 100, cents % 100);
-    let grouped = crate::wyck_core::format::grouped(whole);
+    let grouped = wyck_core::format::grouped(whole);
     let sign = if negative && cents > 0 { "-" } else { "" };
     if currency.is_empty() {
         format!("{sign}{grouped}.{rest:02}")
@@ -132,7 +132,7 @@ pub fn format_amount(amount: f64, currency: &str, signed: bool) -> String {
     };
     let figures = format!(
         "{}.{:02}",
-        crate::wyck_core::format::grouped(cents / 100),
+        wyck_core::format::grouped(cents / 100),
         cents % 100
     );
     match currency {

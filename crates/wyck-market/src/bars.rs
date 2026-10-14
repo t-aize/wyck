@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::wyck_core::flex;
+use wyck_core::flex;
 
 /// The period of a bar. The numbers are those of the official `ProtoOATrendbarPeriod` enum.
 ///
@@ -127,7 +127,7 @@ impl Period {
     }
 }
 
-/// A bar with real values. Prices are the server's raw integers, see [`crate::domain::market::to_price`].
+/// A bar with real values. Prices are the server's raw integers, see [`crate::to_price`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bar {
     /// When the bar opens, in Unix milliseconds.
@@ -243,7 +243,6 @@ pub struct GetTrendbarsReq {
 /// `ProtoOAGetTrendbarsRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct GetTrendbarsRes {
     #[serde(default)]
     pub trendbar: Vec<WireTrendbar>,

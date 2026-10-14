@@ -221,7 +221,7 @@ mod tests {
     use super::prefs::TicketPrefs;
     use super::prefs::plans::{Distance, PlanTemplate, TimeStopPrefs};
     use super::*;
-    use crate::domain::trading::plan::Only;
+    use wyck_trading::plan::Only;
 
     fn plan(name: &str) -> PlanTemplate {
         PlanTemplate {
@@ -329,7 +329,7 @@ mod tests {
         stop.span = prefs::Span::Days;
         assert_eq!(
             stop.normalized().minutes(),
-            crate::domain::trading::plan::MAX_TIME_STOP_MINUTES
+            wyck_trading::plan::MAX_TIME_STOP_MINUTES
         );
         assert_eq!(TimeStopPrefs::default().rule(), None);
         stop.only = Only::Losing;

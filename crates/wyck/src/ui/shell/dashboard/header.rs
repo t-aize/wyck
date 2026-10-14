@@ -354,7 +354,7 @@ impl Dashboard {
             .when(ready && problem.is_none(), |el| {
                 el.when(fit.equity, |el| {
                     el.child(figure(
-                        crate::domain::trading::math::format_money(summary.equity, &currency),
+                        wyck_trading::math::format_money(summary.equity, &currency),
                         theme::fg(),
                     ))
                 })
@@ -362,7 +362,7 @@ impl Dashboard {
                     format!(
                         "{}{}",
                         if summary.unrealized > 0.0 { "+" } else { "" },
-                        crate::domain::trading::math::format_money(summary.unrealized, &currency)
+                        wyck_trading::math::format_money(summary.unrealized, &currency)
                     ),
                     profit_color,
                 ))

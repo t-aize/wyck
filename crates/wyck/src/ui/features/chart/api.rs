@@ -46,7 +46,7 @@ impl Chart {
     pub fn set_hours(
         &mut self,
         id: i64,
-        hours: Option<std::sync::Arc<crate::domain::market::TradingHours>>,
+        hours: Option<std::sync::Arc<wyck_market::TradingHours>>,
         cx: &mut Context<Self>,
     ) {
         let hours = hours.filter(|_| self.symbol.as_ref().is_some_and(|s| s.id == id));
@@ -89,7 +89,7 @@ impl Chart {
     }
 
     /// Where the market of the chart's symbol stands now, when its hours are known.
-    pub fn market_status(&self) -> Option<crate::domain::market::MarketStatus> {
+    pub fn market_status(&self) -> Option<wyck_market::MarketStatus> {
         Some(self.hours.as_ref()?.status_at(now_ms()))
     }
 

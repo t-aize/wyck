@@ -31,8 +31,6 @@ pub use crate::app::workspace::layouts;
 use crate::app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
 use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
-use crate::domain::market::LiveBarTracker;
-use crate::domain::market::Timeframe;
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
 use crate::ui::features::chart::{Chart, ChartLine, LineId};
 use crate::ui::kit::{text_input::TextInput, theme};
@@ -44,6 +42,8 @@ use gpui::{
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
+use wyck_market::LiveBarTracker;
+use wyck_market::Timeframe;
 
 /// How many recent tools and colors are kept.
 const MAX_RECENT_TOOLS: usize = 8;
@@ -100,7 +100,7 @@ pub struct MultiChart {
     /// Corrects the live bars of the price events before the charts see them.
     tracker: LiveBarTracker,
     /// The trading hours of every symbol whose details came, for the charts showing them.
-    hours: HashMap<i64, std::sync::Arc<crate::domain::market::TradingHours>>,
+    hours: HashMap<i64, std::sync::Arc<wyck_market::TradingHours>>,
     /// The ids of the symbols of the account by name, for the indicators that read a second symbol.
     symbol_ids: std::sync::Arc<HashMap<String, i64>>,
     next_id: u64,

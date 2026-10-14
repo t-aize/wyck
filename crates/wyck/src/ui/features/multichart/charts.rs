@@ -3,13 +3,13 @@
 use super::{MultiChart, MultiChartEvent, Slot, SymbolRef};
 use crate::app::market_data::live::LiveUpdate;
 use crate::app::workspace::ChartState;
-use crate::domain::market::SpotEvent;
-use crate::domain::market::Timeframe;
 use crate::ui::features::chart::events::ChartEvent;
 use crate::ui::features::chart::{Chart, ChartLine};
 use gpui::Context;
 use gpui::prelude::*;
 use std::collections::HashMap;
+use wyck_market::SpotEvent;
+use wyck_market::Timeframe;
 
 impl MultiChart {
     pub(super) fn add_chart(&mut self, state: ChartState, cx: &mut Context<Self>) {
@@ -123,12 +123,7 @@ impl MultiChart {
     }
 
     /// A symbol's trading hours arrived.
-    pub fn set_hours(
-        &mut self,
-        id: i64,
-        hours: crate::domain::market::TradingHours,
-        cx: &mut Context<Self>,
-    ) {
+    pub fn set_hours(&mut self, id: i64, hours: wyck_market::TradingHours, cx: &mut Context<Self>) {
         self.hours.insert(id, std::sync::Arc::new(hours));
         self.give_hours(cx);
     }

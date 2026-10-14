@@ -11,9 +11,9 @@ pub mod plans;
 use serde::{Deserialize, Serialize};
 
 use self::plans::{MAX_PLANS, PlanTemplate, TimeStopPrefs};
-use crate::domain::trading::atr_stop::AtrStop;
-use crate::domain::trading::math::{Offset, SizeMode};
-use crate::domain::trading::plan::ExitPlan;
+use wyck_trading::atr_stop::AtrStop;
+use wyck_trading::math::{Offset, SizeMode};
+use wyck_trading::plan::ExitPlan;
 
 /// The kind of order the ticket sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

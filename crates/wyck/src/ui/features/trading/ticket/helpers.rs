@@ -1,7 +1,7 @@
 //! The small arithmetic and formats the ticket shares.
 
-use crate::domain::trading::math::{Contract, Offset, SizeMode};
 use crate::ui::kit::number;
+use wyck_trading::math::{Contract, Offset, SizeMode};
 
 /// The margin of a side: the buy one or the sell one.
 pub(super) fn side_of(margins: (f64, f64), buy: bool) -> f64 {
