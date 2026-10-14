@@ -104,7 +104,6 @@ impl Entry {
 #[derive(Default)]
 struct Registry {
     entries: BTreeMap<String, Arc<Entry>>,
-    revision: u64,
 }
 
 static REGISTRY: RwLock<Option<Registry>> = RwLock::new(None);
@@ -133,19 +132,12 @@ pub mod registry {
         with_registry(|r| r.entries.values().cloned().collect())
     }
 
-    /// A number that grows whenever what is published changes.
-    #[cfg(test)]
-    pub fn revision() -> u64 {
-        with_registry(|r| r.revision)
-    }
-
     /// Adds one indicator, or replaces the one with the same id. Tests use it so that they do not
     /// wipe each other's indicators the way [`install`] would.
     #[cfg(test)]
     pub fn insert(entry: Arc<Entry>) {
         with_registry(|r| {
             r.entries.insert(entry.id.clone(), entry);
-            r.revision += 1;
         });
     }
 
@@ -160,7 +152,6 @@ pub mod registry {
                     .all(|(id, e)| r.entries.get(id).is_some_and(|old| old.stamp == e.stamp));
             if !same {
                 r.entries = next;
-                r.revision += 1;
             }
             !same
         })

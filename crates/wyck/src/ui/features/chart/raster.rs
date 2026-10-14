@@ -616,8 +616,8 @@ mod tests {
         use crate::domain::chart::scene::palette::Palette;
         use crate::domain::chart::scene::{Frame, build};
         use crate::domain::chart::view::View;
-        use crate::domain::indicators::config::StudyConfig;
-        use crate::domain::indicators::kind::StudyKind;
+        use wyck_indicators::config::StudyConfig;
+        use wyck_indicators::kind::StudyKind;
         use wyck_market::Bar;
         use wyck_market::Timeframe;
 

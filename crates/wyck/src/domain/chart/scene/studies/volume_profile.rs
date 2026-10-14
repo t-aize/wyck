@@ -4,9 +4,9 @@ use super::super::cmd::{Cmd, rgb_alpha};
 use super::super::ctx::Ctx;
 use super::dash_pattern;
 use crate::domain::chart::data::Series;
-use crate::domain::indicators::config::StudyConfig;
-use crate::domain::indicators::profile;
-use crate::domain::indicators::profile::Slice;
+use wyck_indicators::config::StudyConfig;
+use wyck_indicators::profile;
+use wyck_indicators::profile::Slice;
 
 /// The volume profile of the bars on screen, as horizontal rows along one side of the plot.
 pub(super) fn volume_profile(

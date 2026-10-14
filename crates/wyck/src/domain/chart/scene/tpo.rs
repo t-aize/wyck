@@ -12,7 +12,7 @@ use super::super::tpo::{Profile, TpoColor, TpoDisplay, letter};
 use super::cmd::{Align, Cmd, hsla, with_alpha};
 use super::ctx::Ctx;
 use super::series;
-use crate::domain::indicators::spec::ValueFormat;
+use wyck_indicators::spec::ValueFormat;
 
 /// Profiles in a slot narrower than this are drawn as bars.
 const COMPACT_PX: f64 = 10.0;

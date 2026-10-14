@@ -8,12 +8,12 @@ use super::cmd::{Align, Cmd, P, font, rgb_alpha};
 use super::ctx::Ctx;
 use super::geometry::{Band, axis_w};
 use super::price::{self, PriceMap};
-use crate::domain::indicators::compute::{DOWN_COLOR, FillOut, PlotOut, StudyOutput, UP_COLOR};
-use crate::domain::indicators::config::StudyConfig;
-use crate::domain::indicators::kind::StudyKind;
-use crate::domain::indicators::spec::{PlotKind, ValueFormat};
-use crate::domain::indicators::style::FillStyle;
 use wyck_drawings::model::style::Dash;
+use wyck_indicators::compute::{DOWN_COLOR, FillOut, PlotOut, StudyOutput, UP_COLOR};
+use wyck_indicators::config::StudyConfig;
+use wyck_indicators::kind::StudyKind;
+use wyck_indicators::spec::{PlotKind, ValueFormat};
+use wyck_indicators::style::FillStyle;
 
 /// The part of the data a plot draws on screen: data indices `from..to`.
 fn data_range(cx: &Ctx<'_>, plot: &PlotOut, first: usize, _last: usize) -> (usize, usize) {

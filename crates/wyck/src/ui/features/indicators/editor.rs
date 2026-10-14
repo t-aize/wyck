@@ -18,8 +18,6 @@ pub mod tabs;
 
 use crate::app::scripts as indicators;
 use crate::app::workspace::Saver;
-use crate::domain::indicators::custom::library::registry;
-use crate::domain::indicators::custom::{Problem, Severity};
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::input::LanguageConfig;
 use crate::ui::kit::input::{
@@ -35,6 +33,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use std::time::Duration;
+use wyck_indicators::custom::library::registry;
+use wyck_indicators::custom::{Problem, Severity};
 
 actions!(
     wyck_indicator_editor,

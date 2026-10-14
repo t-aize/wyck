@@ -14,17 +14,17 @@ use super::{
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
 use crate::app::scripts as indicators;
-use crate::domain::indicators::custom::docs;
-use crate::domain::indicators::custom::docs::Group;
-use crate::domain::indicators::custom::library::{Entry as Script, registry};
-use crate::domain::indicators::custom::templates::TEMPLATES;
-use crate::domain::indicators::custom::{Problem, Severity};
 use crate::ui::kit::{
     controls, icon, layout, menu,
     menu::{Entry, Item, Placement},
     theme, tokens,
 };
 use wyck_drawings::model::tool::Tool;
+use wyck_indicators::custom::docs;
+use wyck_indicators::custom::docs::Group;
+use wyck_indicators::custom::library::{Entry as Script, registry};
+use wyck_indicators::custom::templates::TEMPLATES;
+use wyck_indicators::custom::{Problem, Severity};
 
 /// The width of the card of a starting template.
 const TEMPLATE_CARD_WIDTH: f32 = 210.0;

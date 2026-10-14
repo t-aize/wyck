@@ -6,8 +6,8 @@ use super::{
 };
 use crate::domain::chart::axis;
 use crate::domain::chart::data::Series;
-use crate::domain::indicators::spec::ValueFormat;
 use wyck_drawings::model::style::Dash;
+use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;
 
 /// The solid strips of the two axes and the lines that set them off.

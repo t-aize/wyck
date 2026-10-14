@@ -43,8 +43,8 @@ mod tests {
     use crate::domain::chart::settings::{ChartKind, ChartSettings};
     use crate::domain::chart::transform::settings::BoxSize;
     use crate::domain::chart::zone::Zone;
-    use crate::domain::indicators::config::StudyConfig;
-    use crate::domain::indicators::kind::StudyKind;
+    use wyck_indicators::config::StudyConfig;
+    use wyck_indicators::kind::StudyKind;
     use wyck_market::{Bar, Tick};
 
     /// Monday 2026-01-05 00:00 UTC.

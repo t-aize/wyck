@@ -8,7 +8,7 @@ use super::source::{Cell, Point, Source, Table, TableColumn};
 
 use crate::domain::chart::settings::ChartKind;
 use crate::domain::chart::zone::Zone;
-use crate::domain::indicators::spec::ValueFormat;
+use wyck_indicators::spec::ValueFormat;
 
 /// Whether a date field holds a date, or nothing (an open side of the range).
 pub fn date_is_valid(text: &str) -> bool {

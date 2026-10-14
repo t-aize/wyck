@@ -5,7 +5,7 @@
 //! can point it elsewhere in the settings). The app reads that folder when it starts and again
 //! every moment, so a file edited in another program shows up on its own. What was read is
 //! published to the registry that charts look their indicators up in
-//! ([`crate::domain::indicators::custom::library::registry`]), and every chart is told to look
+//! ([`wyck_indicators::custom::library::registry`]), and every chart is told to look
 //! again.
 //!
 //! Everything that touches a file goes through here and runs off the interface thread, so a
@@ -21,7 +21,7 @@ use gpui::{App, BorrowAppContext as _, Global, Task};
 
 use crate::app::prefs::indicators::{DOCUMENT, Prefs};
 use crate::app::scripts::folder::{Changes, Library, LibraryError};
-use crate::domain::indicators::custom::{Limits, library};
+use wyck_indicators::custom::{Limits, library};
 
 pub mod folder;
 

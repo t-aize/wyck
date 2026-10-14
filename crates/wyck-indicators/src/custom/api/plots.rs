@@ -2,10 +2,10 @@
 
 use super::describe::{Options, check_key, title_of};
 
-use crate::domain::indicators::custom::run::decl::{MAX_PLOTS, PlotDecl};
-use crate::domain::indicators::custom::run::{FillResult, Mode, PlotResult, with_run};
-use crate::domain::indicators::custom::series::{Fallible, Series, is_true};
-use crate::domain::indicators::spec::PlotKind;
+use crate::custom::run::decl::{MAX_PLOTS, PlotDecl};
+use crate::custom::run::{FillResult, Mode, PlotResult, with_run};
+use crate::custom::series::{Fallible, Series, is_true};
+use crate::spec::PlotKind;
 use rhai::Map;
 use wyck_drawings::model::style::Dash;
 

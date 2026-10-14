@@ -83,7 +83,7 @@ pub enum ChartAction {
 pub enum AlertSeed {
     /// An indicator of the chart, and the timeframe it is worked out on.
     Indicator {
-        study: Box<crate::domain::indicators::config::StudyConfig>,
+        study: Box<wyck_indicators::config::StudyConfig>,
         timeframe: String,
     },
     /// A drawing of the chart.

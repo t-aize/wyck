@@ -4,12 +4,12 @@ use super::alert_editor::{AlertEditor, watchable};
 use crate::app::alerts::model::source::{PnlScope, PriceKind};
 use crate::app::alerts::sound::SoundKind;
 use crate::app::alerts::{Condition, Source, Trigger};
-use crate::domain::indicators::config::StudyConfig;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::menu::{Entry, Item};
 use crate::ui::kit::{button, controls, form, form::Head, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use wyck_indicators::config::StudyConfig;
 
 impl Render for AlertEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

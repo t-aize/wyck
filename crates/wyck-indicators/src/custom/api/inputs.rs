@@ -3,11 +3,9 @@
 use super::describe::{Options, check_key, declare_input, title_of};
 use super::indicators::{color_text, parse_color};
 
-use crate::domain::indicators::custom::run::decl::{
-    InputDecl, InputSection, InputType, MAX_INPUTS,
-};
-use crate::domain::indicators::custom::run::{Mode, source_index, with_run};
-use crate::domain::indicators::custom::series::{Fallible, Series};
+use crate::custom::run::decl::{InputDecl, InputSection, InputType, MAX_INPUTS};
+use crate::custom::run::{Mode, source_index, with_run};
+use crate::custom::series::{Fallible, Series};
 use rhai::{Array, Map};
 
 pub(super) fn input_section(options: &Options<'_>) -> Fallible<Option<InputSection>> {
@@ -68,7 +66,7 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
     let index = source_index(default).ok_or_else(|| {
         format!(
             "input_source: \"{default}\" is not a price (the prices are {})",
-            crate::domain::indicators::spec::SOURCES.join(", ")
+            crate::spec::SOURCES.join(", ")
         )
     })?;
     let chosen = declare_input(InputDecl {
@@ -77,7 +75,7 @@ pub(super) fn input_source(key: &str, default: &str, opts: Map) -> Fallible<Seri
         kind: InputType::Source,
         default: index as f64,
         min: 0.0,
-        max: (crate::domain::indicators::spec::SOURCES.len() - 1) as f64,
+        max: (crate::spec::SOURCES.len() - 1) as f64,
         step: 1.0,
         options: Vec::new(),
         section: input_section(&options)?,
@@ -130,7 +128,7 @@ pub(super) fn input_choice(
 }
 
 /// The longest text an input may hold.
-pub(in crate::domain::indicators::custom) const MAX_TEXT: usize = 200;
+pub(in crate::custom) const MAX_TEXT: usize = 200;
 
 /// Whether `text` is a session such as `0930-1600` (or empty, for none).
 pub(super) fn is_session(text: &str) -> bool {

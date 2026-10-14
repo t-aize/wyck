@@ -109,12 +109,12 @@ use crate::domain::chart::transform;
 use crate::domain::chart::view;
 use crate::domain::chart::volume;
 use crate::domain::chart::zone;
-use crate::domain::indicators as study;
 use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_indicators as study;
 pub use wyck_market::{GROUPS, Timeframe, Unit};
 
 gpui::actions!(

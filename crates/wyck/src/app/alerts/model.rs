@@ -244,7 +244,7 @@ impl Alert {
             Source::Indicator { study, .. }
                 if !matches!(
                     study.kind.spec().format,
-                    crate::domain::indicators::spec::ValueFormat::Price
+                    wyck_indicators::spec::ValueFormat::Price
                 ) =>
             {
                 trim_number(self.price)
@@ -513,8 +513,8 @@ impl AlertBook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::config::StudyConfig;
-    use crate::domain::indicators::kind::StudyKind;
+    use wyck_indicators::config::StudyConfig;
+    use wyck_indicators::kind::StudyKind;
 
     #[test]
     fn a_lower_alert_limit_blocks_new_alerts_without_removing_saved_ones() {

@@ -1,7 +1,7 @@
 //! The fixed description of each additional indicator: its inputs, plots and where it is drawn.
 
-use crate::domain::indicators::kind::StudyKind;
-use crate::domain::indicators::spec::{
+use crate::kind::StudyKind;
+use crate::spec::{
     InputKind, InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, ValueFormat, float, int,
     line,
 };
@@ -81,7 +81,7 @@ pub(super) const fn spec(
     }
 }
 
-pub(in crate::domain::indicators) const fn spec_for(kind: StudyKind) -> Spec {
+pub(crate) const fn spec_for(kind: StudyKind) -> Spec {
     use Placement::{Overlay, Pane};
     use ValueFormat::{Count, Plain, Price};
     match kind {

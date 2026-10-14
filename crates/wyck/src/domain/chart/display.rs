@@ -13,9 +13,9 @@ use super::tpo;
 use super::transform::{self, KagiLine, PnfColumn};
 use super::volume;
 use super::zone::Zone;
-use crate::domain::indicators as study;
-use crate::domain::indicators::compute::{StudyInput, StudyOutput};
-use crate::domain::indicators::kind::StudyKind;
+use wyck_indicators as study;
+use wyck_indicators::compute::{StudyInput, StudyOutput};
+use wyck_indicators::kind::StudyKind;
 
 /// What is drawn when it is not the prices as they are.
 #[derive(Debug, Clone, Default)]
@@ -216,7 +216,7 @@ fn compute_studies(series: &Series, settings: &ChartSettings) -> Vec<Option<Stud
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::config::StudyConfig;
+    use wyck_indicators::config::StudyConfig;
 
     fn bars(n: usize) -> Series {
         Series::Bars(

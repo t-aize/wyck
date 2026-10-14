@@ -165,11 +165,9 @@ plot(\"a\", sma(close, n2));";
         assert_eq!(back, config);
         // The built-in ones save no script.
         assert!(
-            !toml::to_string(&StudyConfig::new(
-                crate::domain::indicators::kind::StudyKind::Sma
-            ))
-            .unwrap()
-            .contains("script")
+            !toml::to_string(&StudyConfig::new(crate::kind::StudyKind::Sma))
+                .unwrap()
+                .contains("script")
         );
     }
 }

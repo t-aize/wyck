@@ -38,7 +38,6 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
     "keyring",
     "notify-rust",
     "reqwest",
-    "rhai",
     "rodio",
     "rust-embed",
     "tiny-skia",
@@ -47,6 +46,10 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
     "tracing-appender",
     "tracing-subscriber",
 ];
+
+/// External crates that only some crates may use, because one crate owns the job: a second user
+/// would be a second way of doing the same thing.
+const OWNERS: &[(&str, &[&str])] = &[("rhai", &["wyck-indicators"])];
 
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
 const LAYERS: &[Layer] = &[
@@ -75,8 +78,20 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-indicators",
+        internal: &["wyck-core", "wyck-drawings", "wyck-market"],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck",
-        internal: &["wyck-core", "wyck-drawings", "wyck-market", "wyck-trading"],
+        internal: &[
+            "wyck-core",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-market",
+            "wyck-trading",
+        ],
         forbidden: &[],
         own_lints: true,
     },
@@ -290,6 +305,16 @@ fn check_dependencies(
                 member.path, layer.name
             ));
         }
+        if let Some((_, owners)) = OWNERS.iter().find(|(owned, _)| *owned == name)
+            && !owners.contains(&layer.name)
+        {
+            problems.push(format!(
+                "{}: only {} may use `{name}`, not `{}`",
+                member.path,
+                owners.join(", "),
+                layer.name
+            ));
+        }
     }
     problems
 }
@@ -394,6 +419,22 @@ mod tests {
         let problems = check_workspace(&table(root), &members, &layers);
         assert_eq!(problems.len(), 1, "{problems:?}");
         assert!(problems[0].contains("`a` may not depend on `b`"));
+    }
+
+    #[test]
+    fn a_crate_that_does_not_own_a_dependency_may_not_use_it() {
+        let root = "[workspace.dependencies]
+rhai = \"1\"
+";
+        let members = [member(
+            "a",
+            "[dependencies]
+rhai.workspace = true
+",
+        )];
+        let problems = check_workspace(&table(root), &members, &[layer("a", &[])]);
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(problems[0].contains("only wyck-indicators may use `rhai`"));
     }
 
     #[test]

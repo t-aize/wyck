@@ -7,7 +7,7 @@ use crate::domain::chart::data::Series;
 use crate::domain::chart::display::{Display, effective_kind};
 use crate::domain::chart::settings::{ChartSettings, ScaleMode};
 use crate::domain::chart::view::{PriceScale, View, padded_range};
-use crate::domain::indicators::spec::Placement;
+use wyck_indicators::spec::Placement;
 
 /// The bands of a chart of `w` by `h` with these settings.
 pub fn geometry(settings: &ChartSettings, w: f64, h: f64) -> Geometry {

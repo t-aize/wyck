@@ -16,7 +16,7 @@ use super::tpo::TpoSettings;
 use super::transform::settings::TransformSettings;
 use super::volume::{VolumeBarSettings, VolumeCandleSettings};
 use super::zone::Zone;
-use crate::domain::indicators::config::StudyConfig;
+use wyck_indicators::config::StudyConfig;
 
 /// What one chart shows, as it is saved for that chart.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -149,7 +149,7 @@ impl ChartSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::indicators::kind::StudyKind;
+    use wyck_indicators::kind::StudyKind;
 
     #[test]
     fn the_content_and_the_look_make_the_settings_back() {

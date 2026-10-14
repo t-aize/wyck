@@ -2,10 +2,10 @@
 
 use super::{ConsoleTab, IndicatorEditor};
 use crate::app::scripts as indicators;
-use crate::domain::indicators::custom::library::registry;
 use crate::ui::kit::input::Position;
 use crate::ui::kit::menu as popup;
 use gpui::{App, Context, SharedString, Window};
+use wyck_indicators::custom::library::registry;
 
 impl IndicatorEditor {
     /// Puts the cursor at a place a problem points to.

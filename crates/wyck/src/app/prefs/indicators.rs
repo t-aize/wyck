@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::indicators::custom::Limits;
+use wyck_indicators::custom::Limits;
 
 /// The name of the document.
 pub const DOCUMENT: &str = "indicators";

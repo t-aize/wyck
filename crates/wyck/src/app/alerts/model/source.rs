@@ -1,7 +1,7 @@
 //! What an alert watches: a price of the market, an indicator, a spread or a profit.
 
-use crate::domain::indicators::config::StudyConfig;
 use serde::{Deserialize, Serialize};
+use wyck_indicators::config::StudyConfig;
 
 use super::condition::Condition;
 

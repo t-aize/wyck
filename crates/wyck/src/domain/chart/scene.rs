@@ -36,9 +36,9 @@ use super::flow::Flow;
 use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings};
 use super::view::View;
-use crate::domain::indicators::spec::{Placement, ValueFormat};
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::style::Dash;
+use wyck_indicators::spec::{Placement, ValueFormat};
 use wyck_market::Timeframe;
 
 /// The opacity of a grid color the user chose.
@@ -526,9 +526,9 @@ mod tests {
     use crate::domain::chart::settings::ScaleMode;
     use crate::domain::chart::view::PriceScale;
     use crate::domain::chart::zone::Zone;
-    use crate::domain::indicators::compute::{ScriptDrawing, StudyOutput};
-    use crate::domain::indicators::config::StudyConfig;
-    use crate::domain::indicators::kind::StudyKind;
+    use wyck_indicators::compute::{ScriptDrawing, StudyOutput};
+    use wyck_indicators::config::StudyConfig;
+    use wyck_indicators::kind::StudyKind;
     use wyck_market::{Bar, Period, Quote, Tick};
 
     fn bars(n: usize) -> Vec<Bar> {

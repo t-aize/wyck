@@ -1,8 +1,8 @@
 //! Reading the prices of another symbol.
 
-use crate::domain::indicators::custom::other::{Aligned, key_of};
-use crate::domain::indicators::custom::run::{Mode, with_run};
-use crate::domain::indicators::custom::series::Fallible;
+use crate::custom::other::{Aligned, key_of};
+use crate::custom::run::{Mode, with_run};
+use crate::custom::series::Fallible;
 use rhai::{Dynamic, Engine, Map};
 
 pub fn symbols(engine: &mut Engine) {
@@ -53,10 +53,10 @@ fn bars_of(name: &str) -> Fallible<Map> {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::indicators::compute::StudyInput;
-    use crate::domain::indicators::custom::other::{OtherBars, OtherSymbols, key_of};
-    use crate::domain::indicators::custom::run::Script;
-    use crate::domain::indicators::custom::run::decl::Limits;
+    use crate::compute::StudyInput;
+    use crate::custom::other::{OtherBars, OtherSymbols, key_of};
+    use crate::custom::run::Script;
+    use crate::custom::run::decl::Limits;
     use std::collections::BTreeMap;
 
     fn chart() -> StudyInput {

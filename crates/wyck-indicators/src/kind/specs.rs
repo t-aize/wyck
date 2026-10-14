@@ -2,9 +2,9 @@
 //! oscillators and the volume studies. The later ones are in [`super::super::extended::specs`].
 
 use super::StudyKind;
-use crate::domain::indicators::compute::MA_METHODS;
-use crate::domain::indicators::extended;
-use crate::domain::indicators::spec::{
+use crate::compute::MA_METHODS;
+use crate::extended;
+use crate::spec::{
     ATR_SMOOTHING, BLUE, DOWN, GRAY, InputKind, InputSpec, OFFSET, ORANGE, PINK, PURPLE, Placement,
     PlotKind, PlotSpec, SOURCE, Spec, TEAL, UP, ValueFormat, choice, float, hidden_line, int, line,
 };

@@ -4,10 +4,10 @@ use super::indicators::parse_color;
 use super::inputs::{input_choice, input_color, input_number, input_source, input_text};
 use super::plots::{band, fill, hline, plot, plot_number};
 
-use crate::domain::indicators::custom::run::decl::{InputDecl, InputType, MAX_INPUTS, Meta};
-use crate::domain::indicators::custom::run::{Mode, with_run};
-use crate::domain::indicators::custom::series::{Fallible, Series, truth};
-use crate::domain::indicators::spec::ValueFormat;
+use crate::custom::run::decl::{InputDecl, InputType, MAX_INPUTS, Meta};
+use crate::custom::run::{Mode, with_run};
+use crate::custom::series::{Fallible, Series, truth};
+use crate::spec::ValueFormat;
 use rhai::{Array, Dynamic, Engine, Map};
 
 pub(super) fn valid_key(key: &str) -> bool {

@@ -214,7 +214,7 @@ impl Chart {
                 .filter(|s| {
                     s.visible
                         && !s.is_script()
-                        && s.kind != crate::domain::indicators::kind::StudyKind::VolumeProfile
+                        && s.kind != wyck_indicators::kind::StudyKind::VolumeProfile
                 })
                 .take(6)
             {

@@ -184,7 +184,7 @@ impl OrderTicket {
                 .settings()
                 .studies
                 .iter()
-                .find(|study| study.kind == crate::domain::indicators::kind::StudyKind::Atr)
+                .find(|study| study.kind == wyck_indicators::kind::StudyKind::Atr)
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {

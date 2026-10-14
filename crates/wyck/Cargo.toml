@@ -75,7 +75,6 @@ keyring.workspace = true
 lsp-types.workspace = true
 notify-rust.workspace = true
 reqwest = { workspace = true, features = ["native-tls"] }
-rhai = { workspace = true, features = ["sync", "metadata", "no_module", "no_time"] }
 rodio = { workspace = true, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
 rust-embed = { workspace = true, features = ["debug-embed"] }
 secrecy = { workspace = true, features = ["serde"] }
@@ -100,6 +99,7 @@ unicode-segmentation.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 wyck-core.workspace = true
 wyck-drawings.workspace = true
+wyck-indicators.workspace = true
 wyck-market.workspace = true
 wyck-trading.workspace = true
 zeroize.workspace = true

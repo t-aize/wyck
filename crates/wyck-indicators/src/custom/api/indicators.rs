@@ -2,7 +2,7 @@
 
 use super::{columns, map_of, period};
 
-use crate::domain::indicators::custom::series::{Fallible, Series};
+use crate::custom::series::{Fallible, Series};
 use rhai::{Engine, Map};
 use wyck_core::math;
 

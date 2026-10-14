@@ -161,12 +161,7 @@ impl Dashboard {
         });
         let ids = entries
             .iter()
-            .map(|e| {
-                (
-                    crate::domain::indicators::custom::other::key_of(&e.name),
-                    e.id,
-                )
-            })
+            .map(|e| (wyck_indicators::custom::other::key_of(&e.name), e.id))
             .collect();
         self.multi
             .update(cx, |multi, cx| multi.set_symbol_ids(ids, cx));

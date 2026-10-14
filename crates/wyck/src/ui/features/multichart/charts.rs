@@ -112,7 +112,7 @@ impl MultiChart {
 
     /// The broker said how a symbol is quoted.
     /// The symbols of the account arrived: `ids` has the id of each by name (see
-    /// [`crate::domain::indicators::custom::other::key_of`]).
+    /// [`wyck_indicators::custom::other::key_of`]).
     pub fn set_symbol_ids(&mut self, ids: HashMap<String, i64>, cx: &mut Context<Self>) {
         self.symbol_ids = std::sync::Arc::new(ids);
         for slot in &self.slots {

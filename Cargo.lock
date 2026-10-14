@@ -9841,7 +9841,6 @@ dependencies = [
  "notify-rust",
  "proptest",
  "reqwest 0.13.5",
- "rhai",
  "rodio",
  "rust-embed",
  "secrecy",
@@ -9861,6 +9860,7 @@ dependencies = [
  "winresource",
  "wyck-core",
  "wyck-drawings",
+ "wyck-indicators",
  "wyck-market",
  "wyck-trading",
  "zeroize",
@@ -9883,6 +9883,20 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "wyck-core",
  "wyck-trading",
+]
+
+[[package]]
+name = "wyck-indicators"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "rhai",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-market",
 ]
 
 [[package]]
