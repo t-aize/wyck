@@ -98,6 +98,7 @@ unicode-segmentation.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 wyck-chart.workspace = true
 wyck-core.workspace = true
+wyck-ctrader.workspace = true
 wyck-drawings.workspace = true
 wyck-indicators.workspace = true
 wyck-market.workspace = true

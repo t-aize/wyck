@@ -17,9 +17,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::infra::ctrader::session::Session;
 use gpui::{App, Context, Entity, EventEmitter};
 use wyck_chart::Series;
+use wyck_ctrader::session::Session;
 use wyck_indicators as study;
 use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;

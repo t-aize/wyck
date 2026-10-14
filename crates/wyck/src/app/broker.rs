@@ -4,4 +4,4 @@
 //! connection types become plain domain types (market data, orders, positions) they come from
 //! `domain` instead.
 
-pub use crate::infra::ctrader::*;
+pub use wyck_ctrader::*;

@@ -27,6 +27,7 @@ publish = false
 [workspace.dependencies]
 wyck-chart = { path = "crates/wyck-chart" }
 wyck-core = { path = "crates/wyck-core" }
+wyck-ctrader = { path = "crates/wyck-ctrader" }
 wyck-drawings = { path = "crates/wyck-drawings" }
 wyck-indicators = { path = "crates/wyck-indicators" }
 wyck-market = { path = "crates/wyck-market" }

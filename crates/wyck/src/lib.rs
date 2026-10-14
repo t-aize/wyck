@@ -4,7 +4,6 @@
 #![allow(rustdoc::private_intra_doc_links)]
 
 pub mod app;
-pub mod infra;
 #[cfg(test)]
 mod keymap_guard;
 pub mod ui;
@@ -33,7 +32,7 @@ const APP_ID: &str = "sh.wyck.wyck";
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
     // The first thing, so that whatever goes wrong afterwards is on disk: the events
-    // `wyck_storage` and `infra::ctrader` emit (and the app's own) go to stderr and to a log
+    // `wyck_storage` and `wyck_ctrader` emit (and the app's own) go to stderr and to a log
     // file, and a panic leaves a report next to it. The library only emits events, it never
     // installs a subscriber itself.
     let logs = app_paths().map(|paths| paths.logs_dir());

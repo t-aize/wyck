@@ -236,10 +236,10 @@ stderr gets `debug` for Wyck. `WYCK_DATA_DIR` moves the log folder with the rest
 ## Test against a real demo account
 
 Trying the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
-Fill in `.env` from [.env.example](.env.example), then run one of the examples in `examples/`:
+Fill in `.env` from [.env.example](crates/wyck-ctrader/.env.example), then run one of the examples in `crates/wyck-ctrader/examples/`:
 
 ```sh
-cargo run --example ctrader_accounts
+cargo run -p wyck-ctrader --example ctrader_accounts
 ```
 
 ## Checks

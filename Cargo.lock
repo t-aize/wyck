@@ -9859,6 +9859,7 @@ dependencies = [
  "winresource",
  "wyck-chart",
  "wyck-core",
+ "wyck-ctrader",
  "wyck-drawings",
  "wyck-indicators",
  "wyck-market",
@@ -9889,6 +9890,27 @@ version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "wyck-ctrader"
+version = "0.2.1"
+dependencies = [
+ "async-trait",
+ "dotenvy",
+ "futures-util",
+ "reqwest 0.13.5",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "uuid",
+ "wyck-core",
+ "wyck-market",
+ "wyck-trading",
 ]
 
 [[package]]

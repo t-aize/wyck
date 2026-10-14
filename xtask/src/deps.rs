@@ -95,6 +95,25 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-ctrader",
+        internal: &["wyck-core", "wyck-market", "wyck-trading"],
+        forbidden: &[
+            "ab_glyph",
+            "cargo-packager-updater",
+            "directories",
+            "gpui",
+            "gpui-kit",
+            "keyring",
+            "notify-rust",
+            "rodio",
+            "rust-embed",
+            "tiny-skia",
+            "tracing-appender",
+            "tracing-subscriber",
+        ],
+        own_lints: false,
+    },
+    Layer {
         name: "wyck-platform",
         internal: &[],
         forbidden: &[
@@ -136,6 +155,7 @@ const LAYERS: &[Layer] = &[
         internal: &[
             "wyck-chart",
             "wyck-core",
+            "wyck-ctrader",
             "wyck-drawings",
             "wyck-indicators",
             "wyck-market",

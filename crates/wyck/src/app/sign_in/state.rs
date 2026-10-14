@@ -4,7 +4,7 @@
 //! is one, is shown above the form with the phase back at [`Phase::Editing`], so the typed
 //! fields are never lost.
 
-use crate::infra::ctrader::Error;
+use wyck_ctrader::Error;
 
 /// A trading account the user can pick.
 #[derive(Debug, Clone, PartialEq, Eq)]
