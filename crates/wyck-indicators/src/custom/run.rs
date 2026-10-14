@@ -28,14 +28,14 @@ use wyck_core::intern;
 
 /// Which of the two runs this is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
+pub(crate) enum Mode {
     Declare,
     Compute,
 }
 
 /// A plot as a run made it.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PlotResult {
+pub(crate) struct PlotResult {
     pub key: String,
     pub values: Vec<f64>,
     pub offset: i64,
@@ -44,7 +44,7 @@ pub struct PlotResult {
 
 /// The shaded area between two plots (by position), as a run made it.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FillResult {
+pub(crate) struct FillResult {
     pub a: usize,
     pub b: usize,
     pub color: u32,
@@ -54,7 +54,7 @@ pub struct FillResult {
 
 /// The state of the run that is going on: what the functions of the script read (the bars, the
 /// values of the inputs) and what they write (the declaration, the plots, the log).
-pub struct Run {
+pub(crate) struct Run {
     pub mode: Mode,
     pub columns: decl::Columns,
     /// The values the user chose, by input key.
@@ -123,7 +123,7 @@ impl Run {
     }
 
     /// Adds a line to the log, up to a limit.
-    pub fn say(&mut self, line: String) {
+    pub(crate) fn say(&mut self, line: String) {
         if self.log.len() < MAX_LOG {
             self.log.push(line);
         } else if self.log.len() == MAX_LOG {
@@ -134,7 +134,7 @@ impl Run {
 }
 
 /// Runs `f` on the run that is going on, or fails when no script is running.
-pub fn with_run<R>(f: impl FnOnce(&mut Run) -> R) -> Result<R, Box<EvalAltResult>> {
+pub(crate) fn with_run<R>(f: impl FnOnce(&mut Run) -> R) -> Result<R, Box<EvalAltResult>> {
     RUN.with(|cell| match cell.try_borrow_mut() {
         Ok(mut slot) => slot
             .as_mut()
@@ -257,7 +257,7 @@ fn globals(columns: &decl::Columns, constant: bool) -> Scope<'static> {
 
 /// The names a script starts with, for the editor.
 #[cfg(test)]
-pub fn global_names() -> Vec<String> {
+pub(crate) fn global_names() -> Vec<String> {
     globals(&decl::Columns::default(), false)
         .iter()
         .map(|(name, _, _)| name.to_owned())
@@ -297,7 +297,10 @@ impl Script {
     /// # Errors
     ///
     /// The problems found, when it does not compile or fails.
-    pub fn compile_with(source: &str, limits: decl::Limits) -> Result<Self, Vec<decl::Problem>> {
+    pub(crate) fn compile_with(
+        source: &str,
+        limits: decl::Limits,
+    ) -> Result<Self, Vec<decl::Problem>> {
         let scope = globals(&decl::Columns::default(), false);
         let ast = engine()
             .compile_with_scope(&scope, source)
@@ -391,7 +394,7 @@ impl Script {
     /// # Errors
     ///
     /// The problem that stopped it: a mistake of the script, or the limits.
-    pub fn compute_with_texts(
+    pub(crate) fn compute_with_texts(
         &self,
         input: &StudyInput,
         values: &BTreeMap<String, f64>,
@@ -465,9 +468,9 @@ fn output_of(run: &Run) -> StudyOutput {
             other: fill.other,
         });
     }
-    output.levels = run.levels.clone();
+    output.levels.clone_from(&run.levels);
     output.band = run.band;
-    output.drawings = run.drawings.clone();
+    output.drawings.clone_from(&run.drawings);
     output
 }
 

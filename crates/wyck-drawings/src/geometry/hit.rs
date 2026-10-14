@@ -27,7 +27,7 @@ pub fn handles(drawing: &Drawing, proj: &dyn Projection) -> Vec<P> {
 /// The grips of a shape drawn in the box between two opposite corners: those two, the other two
 /// corners, then the middle of each side (the side through the first corner's height, the second
 /// corner's height, the first corner's time, the second's).
-pub fn box_handles(a: P, b: P) -> Vec<P> {
+pub(crate) fn box_handles(a: P, b: P) -> Vec<P> {
     let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
     vec![
         a,
@@ -58,7 +58,12 @@ pub(super) fn inside_rect(p: P, a: P, b: P) -> bool {
 
 /// What part of the drawing a screen position is on, if any. Grips win over the body, so a
 /// drawing can be picked up by its ends even where lines cross.
-pub fn hit(drawing: &Drawing, proj: &dyn Projection, at: P, with_handles: bool) -> Option<Part> {
+pub(crate) fn hit(
+    drawing: &Drawing,
+    proj: &dyn Projection,
+    at: P,
+    with_handles: bool,
+) -> Option<Part> {
     if with_handles && !drawing.locked {
         let grips = handles(drawing, proj);
         let mut best: Option<(usize, f32)> = None;

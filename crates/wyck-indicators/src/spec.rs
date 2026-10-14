@@ -28,7 +28,7 @@ pub enum ValueFormat {
 }
 
 /// What an input is.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputKind {
     /// A whole number.
     Int,

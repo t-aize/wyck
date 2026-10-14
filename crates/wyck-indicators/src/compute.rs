@@ -6,10 +6,10 @@ use super::spec::{DOWN, PlotKind, UP};
 use wyck_core::math;
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
-pub const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
+pub(crate) const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
 
 /// A moving average of `values`, by its position in [`MA_METHODS`].
-pub fn moving_average(values: &[f64], length: usize, method: usize) -> Vec<f64> {
+pub(crate) fn moving_average(values: &[f64], length: usize, method: usize) -> Vec<f64> {
     match method {
         1 => math::ema(values, length),
         2 => math::wma(values, length),
@@ -244,7 +244,12 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
                 vol += v;
                 values[i] = if vol > 0.0 { pv / vol } else { src[i] };
                 deviation[i] = if vol > 0.0 {
-                    (pv2 / vol - values[i] * values[i]).max(0.0).sqrt()
+                    #[expect(
+                        clippy::suspicious_operation_groupings,
+                        reason = "the variance is E[x^2] minus the square of the mean"
+                    )]
+                    let variance = pv2 / vol - values[i] * values[i];
+                    variance.max(0.0).sqrt()
                 } else {
                     0.0
                 };

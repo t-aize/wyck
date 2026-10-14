@@ -242,12 +242,12 @@ impl Default for Level {
 
 impl Level {
     /// The width of the line of this level, given the width of the drawing.
-    pub fn line_width(&self, base: f32) -> f32 {
+    pub(crate) fn line_width(&self, base: f32) -> f32 {
         if self.width > 0.0 { self.width } else { base }
     }
 
     /// The style of the line of this level, given the style of the drawing.
-    pub fn line_dash(&self, base: Dash) -> Dash {
+    pub(crate) fn line_dash(&self, base: Dash) -> Dash {
         self.dash.unwrap_or(base)
     }
 }

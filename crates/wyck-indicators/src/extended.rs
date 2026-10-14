@@ -1,6 +1,6 @@
 //! Additional built-in indicators. Each output stays aligned with the input bars.
 
-pub mod specs;
+pub(crate) mod specs;
 
 use super::compute::{FillOut, PlotOut, StudyInput, StudyOutput, plot};
 use super::config::StudyConfig;

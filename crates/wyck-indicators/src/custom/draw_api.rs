@@ -15,25 +15,18 @@ use wyck_drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
 const MAX_SCRIPT_POINTS: usize = 20_000;
 const MAX_OPTION_NODES: usize = 2_000;
 
-pub fn register(engine: &mut Engine) {
+pub(super) fn register(engine: &mut Engine) {
     engine.register_fn("drawing_tools", || -> Array {
         Tool::ALL
             .iter()
-            .map(|tool| {
-                Dynamic::from(
-                    serde_json::to_value(tool)
-                        .ok()
-                        .and_then(|value| value.as_str().map(str::to_owned))
-                        .unwrap_or_default(),
-                )
-            })
+            .map(|tool| Dynamic::from(tool.code()))
             .collect()
     });
     engine.register_fn("bar_point", |index: i64, price: Dynamic| {
-        point_on_bar(index, price)
+        point_on_bar(index, &price)
     });
     engine.register_fn("time_point", |time: i64, price: Dynamic| {
-        point_at_time(time, price)
+        point_map(time, &price)
     });
     engine.register_fn("draw", |key: &str, tool: &str, points: Array| {
         draw(key, tool, points, Map::new())
@@ -52,25 +45,21 @@ fn number(value: &Dynamic) -> Option<f64> {
         .filter(|n| n.is_finite())
 }
 
-fn point_map(time: i64, price: Dynamic) -> Fallible<Map> {
-    let price = number(&price).ok_or("point: price must be a finite number")?;
+fn point_map(time: i64, price: &Dynamic) -> Fallible<Map> {
+    let price = number(price).ok_or("point: price must be a finite number")?;
     let mut point = Map::new();
     point.insert("time".into(), Dynamic::from(time));
     point.insert("price".into(), Dynamic::from(price));
     Ok(point)
 }
 
-fn point_on_bar(index: i64, price: Dynamic) -> Fallible<Map> {
+fn point_on_bar(index: i64, price: &Dynamic) -> Fallible<Map> {
     let time = with_run(|run| {
         usize::try_from(index)
             .ok()
             .and_then(|i| run.columns.raw_time.get(i).copied())
     })?
     .ok_or("bar_point: index is outside the available bars")?;
-    point_map(time, price)
-}
-
-fn point_at_time(time: i64, price: Dynamic) -> Fallible<Map> {
     point_map(time, price)
 }
 
@@ -215,11 +204,7 @@ fn draw(key: &str, tool: &str, points: Array, options: Map) -> Fallible<()> {
     {
         return Err("draw: id must be 1 to 64 ASCII letters, digits, _ or -".into());
     }
-    let tool: Tool = serde_json::from_value(Value::String(tool.to_owned()))
-        .map_err(|_| format!("draw: unknown tool \"{tool}\""))?;
-    if tool == Tool::Unknown {
-        return Err("draw: unknown tool".into());
-    }
+    let tool = Tool::from_code(tool).ok_or_else(|| format!("draw: unknown tool \"{tool}\""))?;
     if points.len() > MAX_BRUSH_POINTS {
         return Err(format!("draw: at most {MAX_BRUSH_POINTS} points per drawing").into());
     }
@@ -339,8 +324,7 @@ mod tests {
     fn every_manual_tool_can_be_drawn_from_rhai() {
         let mut source = String::from("indicator(#{ overlay: false }); if n > 0 {\n");
         for (i, tool) in Tool::ALL.iter().enumerate() {
-            let name = serde_json::to_value(tool).unwrap();
-            let name = name.as_str().unwrap();
+            let name = tool.code();
             let points = (0..tool.anchors())
                 .map(|j| {
                     format!(

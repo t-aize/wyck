@@ -224,7 +224,7 @@ pub(super) const NAMED: [(&str, u32); 14] = [
 ];
 
 /// A color: `"#2962ff"`, `"2962ff"` or a name.
-pub fn parse_color(text: &str) -> Option<u32> {
+pub(crate) fn parse_color(text: &str) -> Option<u32> {
     let text = text.trim();
     if let Some((_, rgb)) = NAMED
         .iter()
@@ -246,6 +246,6 @@ pub(super) fn colors(engine: &mut Engine) {
 }
 
 /// The text of a color, `#rrggbb`.
-pub fn color_text(color: u32) -> String {
+pub(crate) fn color_text(color: u32) -> String {
     format!("#{color:06x}")
 }

@@ -17,7 +17,7 @@ Rien n'est poussé, aucune PR n'est ouverte et aucun réglage GitHub n'est chang
 | 2 | Squelette du workspace (manifeste virtuel, dépendances centralisées, lints, profils) | [!] fait, à valider |
 | 3 | CI/CD refaite, xtask, réglages GitHub proposés | [!] CI et essai à blanc de la release verts sur GitHub ; réglages GitHub à décider |
 | 4a | Extraction : core, market, trading | [!] fait, à valider |
-| 4b | Extraction : drawings, indicators | [ ] |
+| 4b | Extraction : drawings, indicators | [~] extraction faite, relecture en cours |
 | 4c | Extraction : chart | [ ] |
 | 4d | Extraction : platform, storage, ctrader | [ ] |
 | 4e | Extraction : ui-kit, app | [ ] |
@@ -36,8 +36,8 @@ Rien n'est poussé, aucune PR n'est ouverte et aucun réglage GitHub n'est chang
 | wyck-core | [x] | [x] | [x] |
 | wyck-market | [x] | [x] | [x] |
 | wyck-trading | [x] | [x] | [x] |
-| wyck-drawings | [ ] | [ ] | [ ] |
-| wyck-indicators | [ ] | [ ] | [ ] |
+| wyck-drawings | [x] | [~] | [ ] |
+| wyck-indicators | [x] | [~] | [ ] |
 | wyck-chart | [ ] | [ ] | [ ] |
 | wyck-platform | [ ] | [ ] | [ ] |
 | wyck-storage | [ ] | [ ] | [ ] |
@@ -95,6 +95,7 @@ Rempli au fil des phases (date, mesure ou décision, source).
 | 2026-10-14 | 4a | Résultat : 1 192 tests unitaires (1 043 + 31 + 39 + 79 ; +3 `flex`, +1 jour férié récurrent, -1 doublon) et 26 doc-tests exécutés + 3 ignorés (-2 répétitions) ; lignes : core 1 239 -> 1 299 (les tests de `flex`), market 2 420 -> 2 183, trading 4 527 -> 4 530 ; clippy `-D warnings`, rustdoc `-D warnings`, `cargo xtask deps` et machete propres. **Laissé tel quel, avec la raison** : les charges utiles du serveur (symboles, barres, ticks, ordres, positions) sont aussi le modèle de l'application (un type par notion au lieu de deux, un `serde` de moins à écrire et à tester) ; séparer « fil » et « domaine » doublerait les types pour un projet solo. La mise en ordre de `trading::contract`, `math` et `types` est ajoutée à la Phase 5 (mélange de sujets dans un fichier). |
 | 2026-10-14 | 4a | `cargo xtask check --full` : tout passe sauf cargo-deny, qui échoue sur un **avis publié aujourd'hui, RUSTSEC-2026-0349** (`rustls` 0.23.45, tiré par `cargo-packager-updater` puis `reqwest` 0.12 ; un attaquant réseau actif peut faire perdre l'échange de clés post-quantique à une connexion, sans casser l'authentification). Rien à voir avec le chantier : correction par `cargo update -p rustls` (0.23.46) dans un commit à part. |
 | 2026-10-14 | 4a | Branche poussée avec ton accord, CI lancée à la main (run 38578006589) : **tout est vert**, `ci-ok` compris. Windows 320 s, macOS 235 s, Linux 130 s, documentation 49 s, lint 29 s, build release 113 s. Les temps sont ceux d'un run sans cache écrit pour ces crates (le crate est encore compilé en gros bloc ; le gain de `cache-workspace-crates` viendra en fin de Phase 4). GitHub annonce que `ubuntu-latest` passe à Ubuntu 26 le 19 octobre 2026 : le paquet Linux de la release est construit sur ce label, donc sa version de glibc changerait ; à décider (épingler `ubuntu-24.04` pour la release, ou accepter). |
+| 2026-10-14 | 4b | **En cours (arrêt demandé par toi avant la fin).** Extraction mécanique faite et commitée : `wyck-drawings` (8faa796) et `wyck-indicators` (9d4774e), mêmes tests (1 192). Les starters `.rhai` vont avec `wyck-indicators` ; `rhai` n'est plus une dépendance de `wyck` ; `xtask deps` connaît le propriétaire de `rhai` (tableau `OWNERS`, avec test). Relecture commencée : modules internes privés (`extras`, `figures`, `decor`, `position`, les sous-modules de `book`, `geometry`, `model`, `custom::api`, `series`) et API plate pour les seuls `ICONS`, `icon_key`, `wave_names`, `handles` ; environ 100 éléments `pub` sans utilisateur externe passent en `pub(crate)` (le compilateur a refusé 12 types qui sont des champs publics, ils sont restés `pub`) ; clippy `-D warnings` propre dans les deux crates (`allow` remplacés par `expect` avec raison, 6 `clone_from`, arms identiques fusionnés dans `defaults.rs`, `Eq` ajouté, 2 formules de variance justifiées par un `expect`) ; `Tool::code` et `from_code` remplacent trois copies dans `draw_api` ; `toml` devient dev-dépendance de `wyck-drawings` ; le compteur de révision du registre (lu par un seul test) est supprimé ; les tests de plusieurs modules de `wyck-indicators` passent de `lib.rs` à `tests.rs`. **Reste à faire en 4b** : `AGENTS.md` et `CLAUDE.md` des deux crates, remplacer les `super::super::` restants par `crate::`, dernier passage de relecture des gros fichiers, rapport final et ta validation. Constat pour la Phase 5/6 : `drawings/book.rs` fait 1 467 lignes dont 1 078 de tests (389 de code) -> c'est un sujet de tests (Phase 6), pas de découpage. |
 
 ---
 

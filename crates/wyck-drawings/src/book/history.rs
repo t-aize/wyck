@@ -79,7 +79,7 @@ impl Book {
         let mut drawing = Drawing::new(self.new_id(), tool, points);
         if let Some(template) = self.templates.get(&tool.code()) {
             drawing.style = template.style.clone();
-            drawing.levels = template.levels.clone();
+            drawing.levels.clone_from(&template.levels);
         }
         drawing
     }

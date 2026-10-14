@@ -37,7 +37,7 @@ impl Book {
         self.press_resolved(symbol, timeframe, proj, x, y, &|d| Some(d.clone()))
     }
 
-    pub fn press_resolved(
+    pub(crate) fn press_resolved(
         &mut self,
         symbol: &str,
         timeframe: &str,
@@ -51,7 +51,10 @@ impl Book {
 
     /// A press, with `add` (Shift held) turning a click on a drawing into adding it to the
     /// selection, or taking it out, and leaving the selection alone on a click on nothing.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a press is a position, a mode and a resolver; one struct for them comes with the split of book.rs"
+    )]
     pub fn press_adding(
         &mut self,
         symbol: &str,

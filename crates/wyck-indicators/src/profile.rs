@@ -167,7 +167,7 @@ mod tests {
             .enumerate()
             .map(|(i, v)| bar(i as f64 + 0.1, i as f64 + 0.9, true, *v))
             .collect();
-        let mut with_edges = bars.clone();
+        let mut with_edges = bars;
         with_edges.push(bar(0.0, 0.0, true, 0.0));
         with_edges.push(bar(5.0, 5.0, true, 0.0));
         let profile = build(&with_edges, 5, 0.7).unwrap();

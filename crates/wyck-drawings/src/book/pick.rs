@@ -6,6 +6,7 @@ use crate::model::Drawing;
 
 impl Book {
     /// The topmost drawing shown on `timeframe` under `at`, and the part of it.
+    #[cfg(test)]
     pub(super) fn hit(
         &self,
         symbol: &str,
@@ -39,7 +40,8 @@ impl Book {
     }
 
     /// The id of the topmost drawing shown on `timeframe` under `(x, y)`.
-    pub fn drawing_at(
+    #[cfg(test)]
+    pub(crate) fn drawing_at(
         &self,
         symbol: &str,
         timeframe: &str,

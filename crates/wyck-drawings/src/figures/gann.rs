@@ -7,7 +7,7 @@ use crate::model::Drawing;
 use crate::model::style::Dash;
 
 /// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
-pub fn gann_text(ratio: f64) -> String {
+pub(crate) fn gann_text(ratio: f64) -> String {
     if ratio >= 1.0 {
         format!("{}/1", level_text(ratio))
     } else if ratio > 0.0 {

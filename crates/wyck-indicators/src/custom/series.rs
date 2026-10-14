@@ -15,10 +15,10 @@ use std::sync::Arc;
 use rhai::{Engine, EvalAltResult};
 
 /// What a registered function returns: a value, or the error the script stops with.
-pub type Fallible<T> = Result<T, Box<EvalAltResult>>;
+pub(crate) type Fallible<T> = Result<T, Box<EvalAltResult>>;
 
 /// The most bars a script may make a series of by itself, so `series(1e12, 0.0)` is refused.
-pub const MAX_LEN: usize = 2_000_000;
+pub(crate) const MAX_LEN: usize = 2_000_000;
 
 /// One number per bar. `NaN` is "no value".
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -47,7 +47,7 @@ impl Series {
     }
 
     /// The numbers, moved out when nobody else holds them.
-    pub fn into_vec(self) -> Vec<f64> {
+    pub(crate) fn into_vec(self) -> Vec<f64> {
         Arc::try_unwrap(self.0).unwrap_or_else(|shared| (*shared).clone())
     }
 
@@ -114,17 +114,17 @@ impl From<Vec<f64>> for Series {
 }
 
 /// A truth value as a number, the way series hold them: 1 for true, 0 for false.
-pub fn truth(value: bool) -> f64 {
+pub(crate) fn truth(value: bool) -> f64 {
     if value { 1.0 } else { 0.0 }
 }
 
 /// Whether a series value counts as true: anything but 0 and `NaN`.
-pub fn is_true(value: f64) -> bool {
+pub(crate) fn is_true(value: f64) -> bool {
     value != 0.0 && !value.is_nan()
 }
 
 /// Registers the type, its arithmetic, its comparisons and the reading of its bars.
-pub fn register(engine: &mut Engine) {
+pub(crate) fn register(engine: &mut Engine) {
     engine.register_type_with_name::<Series>("Series");
 
     // Arithmetic and comparison, for a series with a series, a series with a number and a number

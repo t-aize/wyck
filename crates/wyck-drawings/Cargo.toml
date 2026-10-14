@@ -12,9 +12,11 @@ description = "Drawing tools of Wyck: the drawings a trader puts on a chart, the
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-toml.workspace = true
 wyck-core.workspace = true
 wyck-trading.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
 
 [lints]
 workspace = true

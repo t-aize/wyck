@@ -5,8 +5,8 @@
 //! also what is saved: every field has a default and unknown tools are tolerated, so a file from
 //! another version still loads.
 
-pub mod capabilities;
-pub mod defaults;
+mod capabilities;
+mod defaults;
 pub mod style;
 pub mod tool;
 
@@ -21,7 +21,7 @@ pub const MAX_DRAWINGS_PER_SYMBOL: usize = 5_000;
 pub const DEFAULT_DRAWINGS_PER_SYMBOL: usize = 2_000;
 pub const MAX_BRUSH_POINTS: usize = 2_000;
 /// The most points an arrow path can have.
-pub const MAX_PATH_POINTS: usize = 64;
+pub(crate) const MAX_PATH_POINTS: usize = 64;
 /// The most levels a drawing can have.
 pub const MAX_LEVELS: usize = 24;
 
@@ -44,7 +44,7 @@ pub const DEGREES: [&str; 7] = [
 ];
 
 /// The degree new waves start with: Minor, plain `1 2 3` and `A B C`.
-pub const DEFAULT_DEGREE: u8 = 4;
+pub(crate) const DEFAULT_DEGREE: u8 = 4;
 
 /// The name of wave `name` (a digit or a capital letter) at `degree`.
 pub fn wave_label(name: &str, degree: u8) -> String {
@@ -85,8 +85,8 @@ pub struct Template {
 }
 
 /// The most looks a user can save under a name, and the longest a name can be.
-pub const MAX_NAMED_TEMPLATES: usize = 100;
-pub const MAX_TEMPLATE_NAME: usize = 40;
+pub(crate) const MAX_NAMED_TEMPLATES: usize = 100;
+pub(crate) const MAX_TEMPLATE_NAME: usize = 40;
 
 /// A look (and levels) saved under a name, to apply to any drawing of the same tool.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -520,7 +520,7 @@ mod tests {
         let back = back.normalized();
         assert_eq!(back.symbols["EURUSD"][0], d.clone().normalized());
         assert_eq!(back.named_templates.len(), 1);
-        assert_eq!(back.named_templates[0].style, d.style.clone().normalized());
+        assert_eq!(back.named_templates[0].style, d.style.normalized());
         assert_eq!(back.named_templates[0].levels[0].width, 3.0);
 
         // A drawing left at the defaults writes none of it.

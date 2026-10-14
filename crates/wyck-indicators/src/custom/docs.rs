@@ -723,7 +723,7 @@ pub const GLOBALS: &[Name] = &[
 ];
 
 /// The words of the language.
-pub const KEYWORDS: &[&str] = &[
+pub(crate) const KEYWORDS: &[&str] = &[
     "let", "const", "if", "else", "switch", "while", "loop", "for", "in", "break", "continue",
     "return", "fn", "true", "false", "print", "debug",
 ];

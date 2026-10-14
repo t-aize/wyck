@@ -265,7 +265,7 @@ fn next_sign(text: &str, from: usize) -> Option<char> {
 
 /// Where a position of the text is, for what the editor offers there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Place {
+pub(crate) enum Place {
     /// Somewhere code can be written.
     Code,
     /// Inside a string.
@@ -275,7 +275,7 @@ pub enum Place {
 }
 
 /// What `offset` is in: a comment, a string, or code.
-pub fn place_at(text: &str, offset: usize) -> Place {
+pub(crate) fn place_at(text: &str, offset: usize) -> Place {
     for token in lex(text) {
         if token.range.start >= offset {
             break;
@@ -308,7 +308,7 @@ pub fn place_at(text: &str, offset: usize) -> Place {
 }
 
 /// The word that ends at `offset` (what is being typed), and where it starts.
-pub fn word_before(text: &str, offset: usize) -> (usize, &str) {
+pub(crate) fn word_before(text: &str, offset: usize) -> (usize, &str) {
     let offset = offset.min(text.len());
     let head = &text[..offset];
     let start = head
@@ -321,13 +321,13 @@ pub fn word_before(text: &str, offset: usize) -> (usize, &str) {
 }
 
 /// Whether the word that ends at `offset` comes right after a dot (a property of a value).
-pub fn after_dot(text: &str, offset: usize) -> bool {
+pub(crate) fn after_dot(text: &str, offset: usize) -> bool {
     let (start, _) = word_before(text, offset);
     text[..start].trim_end_matches([' ', '\t']).ends_with('.')
 }
 
 /// The whole word around `offset`, with where it is.
-pub fn word_at(text: &str, offset: usize) -> Option<(Range<usize>, &str)> {
+pub(crate) fn word_at(text: &str, offset: usize) -> Option<(Range<usize>, &str)> {
     let offset = offset.min(text.len());
     let is_word = |c: char| c.is_alphanumeric() || c == '_';
     let start = text[..offset]

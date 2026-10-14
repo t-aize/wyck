@@ -129,7 +129,7 @@ pub fn higher(input: &StudyInput, target: Timeframe) -> Option<Higher> {
 /// finished chart never shows a number that was not known yet (the first grouped bar gives no
 /// value). Without it, a chart bar gets the value of the grouped bar still forming, which
 /// changes until that bar closes.
-pub fn carry_back(values: &[f64], of: &[usize], confirmed: bool) -> Vec<f64> {
+pub(crate) fn carry_back(values: &[f64], of: &[usize], confirmed: bool) -> Vec<f64> {
     of.iter()
         .map(|&at| {
             if confirmed {

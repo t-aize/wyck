@@ -97,7 +97,7 @@ impl Book {
         self.edit_selected(symbol, |d| {
             if d.tool == tool {
                 d.style = template.style.clone();
-                d.levels = template.levels.clone();
+                d.levels.clone_from(&template.levels);
             }
         })
     }
@@ -108,7 +108,7 @@ impl Book {
         self.edit_selected(symbol, |d| {
             if d.tool == tool {
                 d.style = style.clone();
-                d.levels = levels.clone();
+                d.levels.clone_from(&levels);
             }
         })
     }

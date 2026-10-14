@@ -6,10 +6,12 @@
 //!
 //! Positions are in the plot's own coordinates, the top left of the plot being (0, 0).
 
-pub mod fib;
-pub mod hit;
-pub mod measure;
-pub mod shapes;
+pub(crate) mod fib;
+pub(crate) mod hit;
+pub(crate) mod measure;
+pub(crate) mod shapes;
+
+pub use hit::handles;
 
 use super::look::Face;
 use super::model::style::Dash;
@@ -211,10 +213,10 @@ pub const fn board_metrics() -> (f32, f32, f32) {
 
 /// How close the pointer must be to a line to be on it, and to a grip.
 pub const LINE_REACH: f32 = 6.0;
-pub const HANDLE_REACH: f32 = 9.0;
+pub(crate) const HANDLE_REACH: f32 = 9.0;
 
 /// The distance from `p` to the segment `a` to `b`.
-pub fn distance_to_segment(p: P, a: P, b: P) -> f32 {
+pub(crate) fn distance_to_segment(p: P, a: P, b: P) -> f32 {
     let (abx, aby) = (b.0 - a.0, b.1 - a.1);
     let length_sq = abx * abx + aby * aby;
     if length_sq < 1e-9 {
@@ -227,7 +229,7 @@ pub fn distance_to_segment(p: P, a: P, b: P) -> f32 {
 
 /// The part of the line through `a` and `b` that is inside `rect`, as the two parameters `t`
 /// where the line (at `a + t * (b - a)`) enters and leaves it, or `None` when it misses.
-pub fn clip_line(a: P, b: P, rect: Rect) -> Option<(f32, f32)> {
+pub(crate) fn clip_line(a: P, b: P, rect: Rect) -> Option<(f32, f32)> {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let (mut t0, mut t1) = (f32::NEG_INFINITY, f32::INFINITY);
     for (p, q) in [
@@ -326,7 +328,7 @@ pub(super) fn arrow_head(a: P, b: P, color: u32, width: f32) -> Option<Prim> {
 }
 
 /// The shapes of a drawing (without grips), as they show when it is selected.
-pub fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
+pub(crate) fn prims(drawing: &Drawing, proj: &dyn Projection) -> Vec<Prim> {
     prims_with(drawing, proj, true)
 }
 
@@ -358,7 +360,7 @@ pub(super) mod tests {
 
     /// A projection where time is 1 pixel per second from 0, and price is 1 pixel per unit
     /// upwards from the bottom of a 1000 by 500 plot. Bars are one minute long.
-    pub struct Linear;
+    pub(crate) struct Linear;
 
     impl Projection for Linear {
         fn plot(&self) -> Rect {
@@ -411,7 +413,7 @@ pub(super) mod tests {
         }
     }
 
-    pub fn drawing(tool: Tool, points: &[(i64, f64)]) -> Drawing {
+    pub(crate) fn drawing(tool: Tool, points: &[(i64, f64)]) -> Drawing {
         let mut drawing = Drawing::new(
             1,
             tool,

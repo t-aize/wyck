@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Whether a value is the default one, for leaving it out of the saved form.
-pub fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+pub(crate) fn is_default<T: Default + PartialEq>(value: &T) -> bool {
     *value == T::default()
 }
 
@@ -150,7 +150,7 @@ pub enum LabelSide {
 }
 
 /// What the tools that measure write, and the color of a move down.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MeasureLook {
     #[serde(default = "wyck_core::defaults::yes")]
     pub price: bool,
@@ -209,8 +209,8 @@ impl Default for ProfileLook {
 }
 
 /// The least and the most rows a profile can be cut into.
-pub const MIN_PROFILE_ROWS: u16 = 8;
-pub const MAX_PROFILE_ROWS: u16 = 240;
+pub(crate) const MIN_PROFILE_ROWS: u16 = 8;
+pub(crate) const MAX_PROFILE_ROWS: u16 = 240;
 
 impl ProfileLook {
     #[must_use]

@@ -101,6 +101,10 @@ pub(super) fn regression(drawing: &Drawing, pts: &[P], proj: &dyn Projection, ou
         sum_y += bar.close;
         sum_xy += x * bar.close;
     }
+    #[expect(
+        clippy::suspicious_operation_groupings,
+        reason = "least squares: n * sum(x^2) minus the square of sum(x)"
+    )]
     let denominator = count * sum_xx - sum_x * sum_x;
     let slope = if denominator.abs() < 1e-12 {
         0.0

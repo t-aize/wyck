@@ -5,7 +5,7 @@ use crate::custom::run::{Mode, with_run};
 use crate::custom::series::Fallible;
 use rhai::{Dynamic, Engine, Map};
 
-pub fn symbols(engine: &mut Engine) {
+pub(crate) fn symbols(engine: &mut Engine) {
     engine.register_fn("bars_of", bars_of);
 }
 

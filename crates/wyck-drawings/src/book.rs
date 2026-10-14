@@ -16,12 +16,12 @@
 //! With no tool, a press picks up whatever drawing is under the pointer (a grip to reshape it,
 //! anywhere else to move it whole). A press on nothing is left to the chart, which scrolls.
 
-pub mod actions;
-pub mod create;
-pub mod edit;
-pub mod history;
-pub mod pick;
-pub mod templates;
+mod actions;
+mod create;
+mod edit;
+mod history;
+mod pick;
+mod templates;
 
 use super::geometry::{P, Projection};
 use super::model::tool::Tool;
@@ -198,7 +198,7 @@ impl Book {
             .collect()
     }
 
-    pub fn is_selected(&self, id: u64) -> bool {
+    pub(crate) fn is_selected(&self, id: u64) -> bool {
         self.selected == Some(id) || self.also.contains(&id)
     }
 
@@ -208,7 +208,7 @@ impl Book {
     }
 
     /// Adds the drawing to the selection, or takes it out when it is in.
-    pub fn toggle_select(&mut self, id: u64) {
+    pub(crate) fn toggle_select(&mut self, id: u64) {
         if self.selected == Some(id) {
             self.selected = if self.also.is_empty() {
                 None

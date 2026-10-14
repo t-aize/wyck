@@ -32,7 +32,7 @@ pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<
             push_prim(cx, prim, out);
         }
         if selected && !drawing.locked {
-            for at in shapes::hit::handles(drawing, &projection) {
+            for at in shapes::handles(drawing, &projection) {
                 push_prim(cx, Prim::Handle { at }, out);
             }
         }

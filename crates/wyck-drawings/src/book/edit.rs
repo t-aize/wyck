@@ -6,7 +6,10 @@ use crate::model::tool::Tool;
 use crate::model::{Drawing, MAX_BRUSH_POINTS, Point};
 
 impl Book {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a press is a position, a mode and a resolver; one struct for them comes with the split of book.rs"
+    )]
     pub(super) fn press_to_edit(
         &mut self,
         symbol: &str,
@@ -195,7 +198,7 @@ impl Book {
                     }
                 };
                 shift(&mut updated);
-                moved_group = editing.group.clone();
+                moved_group.clone_from(&editing.group);
                 for other in &mut moved_group {
                     shift(other);
                 }

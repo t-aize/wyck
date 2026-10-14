@@ -151,6 +151,10 @@ pub(super) fn anchored_vwap(
         weighted += typical * weight;
         weighted_squares += typical * typical * weight;
         let vwap = weighted / volume;
+        #[expect(
+            clippy::suspicious_operation_groupings,
+            reason = "the variance is E[x^2] minus the square of the mean"
+        )]
         let deviation = (weighted_squares / volume - vwap * vwap).max(0.0).sqrt();
         // Only what is near the plot is kept: the rest of a long history is out of sight.
         if bar.x < rect.l - 20.0 || bar.x > rect.r + 20.0 {

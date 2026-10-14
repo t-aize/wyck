@@ -4,8 +4,8 @@
 //! Like the rest of [`super::geometry`], this is plain arithmetic on screen positions, tested
 //! with the linear projection of the geometry tests.
 
-pub mod gann;
-pub mod patterns;
+pub(crate) mod gann;
+pub(crate) mod patterns;
 
 use super::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
 use super::geometry::{Anchor, P, Prim, Projection, Rect, seg};
@@ -18,7 +18,7 @@ const LABEL_GAP: f32 = 14.0;
 
 /// The shapes of a drawing whose tool is one of the ones in this file. `pts` are its points on
 /// the screen.
-pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
+pub(crate) fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let rect = proj.plot();
     match drawing.tool {
         Tool::Pitchfork

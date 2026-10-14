@@ -2,9 +2,13 @@
 
 pub mod book;
 mod decor;
-pub mod extras;
-pub mod figures;
+mod extras;
+mod figures;
 pub mod geometry;
 pub mod look;
 pub mod model;
-pub mod position;
+mod position;
+
+pub use extras::ICONS;
+pub use extras::notes::icon_key;
+pub use figures::patterns::wave_names;

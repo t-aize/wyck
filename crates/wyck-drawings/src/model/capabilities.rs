@@ -5,7 +5,7 @@ use super::tool::{Group, Tool};
 
 impl Tool {
     /// Whether a click places the last point and finishes, without a second click.
-    pub fn is_single_click(self) -> bool {
+    pub(crate) fn is_single_click(self) -> bool {
         self.anchors() == 1 || self.is_position()
     }
 

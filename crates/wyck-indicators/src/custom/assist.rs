@@ -79,7 +79,7 @@ const SNIPPETS: &[(&str, &str, &str)] = &[
 ];
 
 /// The names a script defines with `let`, `const`, `fn` and `for`.
-pub fn defined_names(text: &str) -> BTreeSet<String> {
+pub(crate) fn defined_names(text: &str) -> BTreeSet<String> {
     let tokens = lexer::lex(text);
     let mut names = BTreeSet::new();
     for pair in tokens.windows(2) {

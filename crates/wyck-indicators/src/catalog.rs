@@ -79,7 +79,7 @@ fn builtin_code(kind: StudyKind) -> String {
 }
 
 /// The category and the one line a menu shows for a built-in indicator.
-pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
+pub(crate) fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
     match kind {
         StudyKind::Sma => (
             "Trend",
@@ -204,7 +204,7 @@ pub fn builtin_info(kind: StudyKind) -> (&'static str, &'static str) {
 }
 
 /// The order categories are listed in: the ones the app ships first, then the others by name.
-pub const CATEGORY_ORDER: [&str; 4] = ["Trend", "Momentum", "Volatility", "Volume"];
+pub(crate) const CATEGORY_ORDER: [&str; 4] = ["Trend", "Momentum", "Volatility", "Volume"];
 
 /// Every indicator that can be added, the ones the app ships and then the scripts, each group by
 /// category and name.

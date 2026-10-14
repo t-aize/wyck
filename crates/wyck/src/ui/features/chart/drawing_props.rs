@@ -25,13 +25,13 @@ use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
 use crate::ui::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
-use wyck_drawings::extras::ICONS;
-use wyck_drawings::extras::notes::icon_key;
-use wyck_drawings::figures::patterns::wave_names;
+use wyck_drawings::ICONS;
+use wyck_drawings::icon_key;
 use wyck_drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 use wyck_drawings::model::style::{DASHES, Dash, Level, MIN_LINE_OPACITY};
 use wyck_drawings::model::tool::Tool;
 use wyck_drawings::model::{DEGREES, Drawing, MAX_LEVELS, wave_label};
+use wyck_drawings::wave_names;
 use wyck_market::PRICE_SCALE;
 use wyck_trading::atr_stop::{AtrStop, Smoothing};
 

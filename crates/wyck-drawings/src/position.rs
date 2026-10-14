@@ -194,12 +194,12 @@ impl PositionSettings {
         self
     }
 
-    pub fn is_default(&self) -> bool {
+    pub(crate) fn is_default(&self) -> bool {
         *self == Self::default()
     }
 
     /// The amount risked.
-    pub fn risk_amount(&self) -> f64 {
+    pub(crate) fn risk_amount(&self) -> f64 {
         if self.risk_percent {
             self.account * self.risk / 100.0
         } else {

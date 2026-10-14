@@ -217,7 +217,7 @@ pub(super) fn flag_mark(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 }
 
 /// The cells of the words of a table: a row per line, cells split by a bar.
-pub fn table_cells(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn table_cells(text: &str) -> Vec<Vec<String>> {
     let source = if text.trim().is_empty() {
         "Item | Value\nEntry | 0.0\nStop | 0.0"
     } else {

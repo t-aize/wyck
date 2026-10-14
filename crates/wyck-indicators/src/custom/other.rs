@@ -60,7 +60,7 @@ pub type OtherSymbols = BTreeMap<String, OtherBars>;
 
 /// The prices of another symbol on the bars of the chart.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Aligned {
+pub(crate) struct Aligned {
     pub open: Series,
     pub high: Series,
     pub low: Series,
@@ -70,7 +70,7 @@ pub struct Aligned {
 
 impl Aligned {
     /// No bars at all, for the run that declares the indicator.
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self::default()
     }
 
@@ -78,7 +78,7 @@ impl Aligned {
     /// bar of the other symbol that opened at the same time. When the other symbol has none
     /// there (a market that was closed), the bar is flat at the last close it had and has no
     /// volume; before its first bar the values are `NaN`.
-    pub fn on(times: &[i64], other: &OtherBars) -> Self {
+    pub(crate) fn on(times: &[i64], other: &OtherBars) -> Self {
         let n = times.len();
         let (mut open, mut high, mut low, mut close, mut volume) = (
             Vec::with_capacity(n),

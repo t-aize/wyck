@@ -26,33 +26,39 @@ impl Tool {
             | Self::FibCircles
             | Self::FibSpiral
             | Self::FibArcs
-            | Self::FibWedge => (ORANGE, 1.0),
-            Self::Measure | Self::PriceRange | Self::DateRange | Self::DatePriceRange => {
-                (BLUE, 1.0)
-            }
+            | Self::FibWedge
+            | Self::HorizontalLine
+            | Self::HorizontalRay
+            | Self::VerticalLine
+            | Self::CrossLine
+            | Self::GannFan
+            | Self::GannBox
+            | Self::GannSquare
+            | Self::GannSquareFixed => (ORANGE, 1.0),
+            Self::Measure
+            | Self::PriceRange
+            | Self::DateRange
+            | Self::DatePriceRange
+            | Self::Pitchfan => (BLUE, 1.0),
             Self::LongPosition | Self::ArrowMarkUp => (GREEN, 1.5),
             Self::ShortPosition | Self::ArrowMarkDown | Self::Pin => (RED, 1.5),
             Self::Text | Self::PriceLabel => (0xffffff, 1.0),
-            Self::Forecast | Self::BarsPattern => (CYAN, 1.5),
-            Self::GhostFeed => (PURPLE, 1.5),
+            Self::Forecast
+            | Self::BarsPattern
+            | Self::CyclicLines
+            | Self::TimeCycles
+            | Self::SineLine
+            | Self::HeadAndShoulders
+            | Self::TrianglePattern => (CYAN, 1.5),
+            Self::GhostFeed
+            | Self::PriceNote
+            | Self::Xabcd
+            | Self::Cypher
+            | Self::Abcd
+            | Self::ThreeDrives => (PURPLE, 1.5),
             Self::AnchoredVwap | Self::Note | Self::FlagMark | Self::Icon => (ORANGE, 1.5),
-            Self::PriceNote => (PURPLE, 1.5),
             Self::Highlighter => (ORANGE, 12.0),
-            Self::CyclicLines | Self::TimeCycles | Self::SineLine => (CYAN, 1.5),
-            Self::Pitchfan => (BLUE, 1.0),
-            Self::HorizontalLine | Self::HorizontalRay | Self::VerticalLine | Self::CrossLine => {
-                (ORANGE, 1.0)
-            }
-            Self::GannFan | Self::GannBox | Self::GannSquare | Self::GannSquareFixed => {
-                (ORANGE, 1.0)
-            }
-            Self::Xabcd | Self::Cypher | Self::Abcd | Self::ThreeDrives => (PURPLE, 1.5),
-            Self::HeadAndShoulders | Self::TrianglePattern => (CYAN, 1.5),
-            Self::ElliottImpulse
-            | Self::ElliottCorrection
-            | Self::ElliottTriangle
-            | Self::ElliottDoubleCombo
-            | Self::ElliottTripleCombo => (BLUE, 1.5),
+            // The rest, the Elliott waves included.
             _ => (BLUE, 1.5),
         };
         let extend_right = self.is_pitchfork();
@@ -189,15 +195,7 @@ impl Tool {
                 level(1.618, ORANGE, true),
                 level(2.618, RED, false),
             ],
-            Self::FibArcs => vec![
-                level(0.236, RED, false),
-                level(0.382, ORANGE, true),
-                level(0.5, GREEN, true),
-                level(0.618, CYAN, true),
-                level(0.786, BLUE, false),
-                level(1.0, GRAY, true),
-            ],
-            Self::FibWedge => vec![
+            Self::FibArcs | Self::FibWedge => vec![
                 level(0.236, RED, false),
                 level(0.382, ORANGE, true),
                 level(0.5, GREEN, true),

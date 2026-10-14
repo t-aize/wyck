@@ -5,12 +5,12 @@
 //! Like the rest of the drawing code this is arithmetic on screen positions. The tools that read
 //! the chart's data (regression, bars, VWAP, volume) get it through [`Projection::bars_between`].
 
-pub mod bars;
-pub mod curves;
-pub mod fib;
-pub mod lines;
-pub mod notes;
-pub mod ranges;
+pub(crate) mod bars;
+pub(crate) mod curves;
+pub(crate) mod fib;
+pub(crate) mod lines;
+pub(crate) mod notes;
+pub(crate) mod ranges;
 
 use super::figures;
 use super::geometry::{Anchor, P, Prim, Projection, duration_text};
@@ -50,7 +50,7 @@ pub const ICONS: [(&str, &str); 10] = [
 
 /// The shapes of a drawing whose tool is one of the ones in this file. `pts` are its points on
 /// the screen.
-pub fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
+pub(crate) fn prims(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     match drawing.tool {
         Tool::InfoLine => lines::info_line(drawing, pts, proj, out),
         Tool::TrendAngle => lines::trend_angle(drawing, pts, proj, out),
@@ -232,7 +232,7 @@ fn polyline(points: Vec<P>, color: u32, width: f32, alpha: f32) -> Prim {
 
 /// The corner opposite `a` of the square a fixed Gann square makes towards `b`: as far as the
 /// pointer goes on its longer side, so the square is square on the screen.
-pub fn fixed_square_corner(a: P, b: P) -> P {
+pub(crate) fn fixed_square_corner(a: P, b: P) -> P {
     let side = (b.0 - a.0).abs().max((b.1 - a.1).abs());
     let sx = if b.0 >= a.0 { 1.0 } else { -1.0 };
     let sy = if b.1 >= a.1 { 1.0 } else { -1.0 };
@@ -442,8 +442,8 @@ mod tests {
                     Prim::Rect {
                         fill: Some((_, alpha)),
                         ..
-                    } => Some(alpha),
-                    Prim::Polygon {
+                    }
+                    | Prim::Polygon {
                         fill: (_, alpha), ..
                     } => Some(alpha),
                     _ => None,

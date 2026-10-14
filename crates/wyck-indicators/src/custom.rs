@@ -8,7 +8,7 @@
 //! - [`api`]: every function a script can call.
 //! - [`run`]: compiling, declaring and computing a script, with limits on what a run may do.
 
-pub mod api;
+pub(crate) mod api;
 pub mod assist;
 pub mod docs;
 mod draw_api;
@@ -16,7 +16,7 @@ pub mod lexer;
 pub mod library;
 pub mod other;
 pub mod run;
-pub mod series;
+pub(crate) mod series;
 pub mod templates;
 
 #[cfg(test)]
@@ -26,7 +26,7 @@ use super::spec::Spec;
 
 /// The spec of the indicator whose script is `id`: what it declared, or an empty one when there is
 /// no such script (it was deleted, or its file has a mistake).
-pub fn spec_for(id: Option<&str>) -> Spec {
+pub(crate) fn spec_for(id: Option<&str>) -> Spec {
     let id = id.unwrap_or("");
     library::registry::get(id).map_or_else(|| library::missing_spec(id), |entry| entry.spec)
 }

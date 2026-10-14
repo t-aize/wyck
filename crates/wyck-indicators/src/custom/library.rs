@@ -67,7 +67,7 @@ impl Entry {
     /// "Broken" with the reasons.
     pub fn broken(id: &str, path: &Path, source: Arc<str>, problems: Vec<Problem>) -> Self {
         let (spec, mut info) = spec_of(id, &Declaration::default());
-        info.category = "Broken".to_owned();
+        "Broken".clone_into(&mut info.category);
         Self {
             id: id.to_owned(),
             path: path.to_path_buf(),
@@ -159,7 +159,7 @@ pub mod registry {
 }
 
 /// A short name for the legend: the initials of several words, or the first letters of one.
-pub fn short_of(name: &str) -> String {
+pub(crate) fn short_of(name: &str) -> String {
     let words: Vec<&str> = name
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
@@ -218,7 +218,7 @@ pub fn choices(options: &[String]) -> &'static [&'static str] {
 }
 
 /// The spec the panels use, from what a script declared.
-pub fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
+pub(crate) fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
     let meta = &declaration.meta;
     let stem = id.rsplit('/').next().unwrap_or(id);
     let name = meta.name.clone().unwrap_or_else(|| stem.to_owned());
@@ -284,7 +284,7 @@ pub fn spec_of(id: &str, declaration: &Declaration) -> (Spec, Info) {
 }
 
 /// What a chart shows for an indicator whose script is gone or does not work.
-pub fn missing_spec(id: &str) -> Spec {
+pub(crate) fn missing_spec(id: &str) -> Spec {
     let stem = id.rsplit('/').next().unwrap_or(id);
     Spec {
         label: intern::name(stem),

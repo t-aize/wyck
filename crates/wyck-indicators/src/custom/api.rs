@@ -5,11 +5,11 @@
 //! and wraps the answer. The description of every function, for the editor, is in
 //! [`super::docs`], and a test checks that the two lists agree.
 
-pub mod describe;
-pub mod indicators;
-pub mod inputs;
-pub mod plots;
-pub mod symbols;
+pub(crate) mod describe;
+pub(crate) mod indicators;
+pub(crate) mod inputs;
+pub(crate) mod plots;
+pub(crate) mod symbols;
 
 use super::run::with_run;
 use super::series::{Fallible, Series, is_true, truth};
@@ -17,9 +17,9 @@ use rhai::{Dynamic, Engine, Map};
 use wyck_core::math;
 
 /// The longest period a function takes.
-pub const MAX_PERIOD: i64 = 100_000;
+pub(crate) const MAX_PERIOD: i64 = 100_000;
 
-pub fn register(engine: &mut Engine) {
+pub(crate) fn register(engine: &mut Engine) {
     super::series::register(engine);
     elementwise(engine);
     windows(engine);

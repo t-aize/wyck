@@ -1,9 +1,9 @@
 //! Names and edits of the points of a drawing.
 
 use crate::ui::features::chart::GROUPS;
-use wyck_drawings::figures::patterns::wave_names;
 use wyck_drawings::model::tool::Tool;
 use wyck_drawings::model::{Drawing, Point};
+use wyck_drawings::wave_names;
 use wyck_market::PRICE_SCALE;
 
 /// Every timeframe's code.

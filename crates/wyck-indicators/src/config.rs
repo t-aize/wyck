@@ -324,7 +324,6 @@ impl StudyConfig {
         if let Some(precision) = self.precision {
             return match self.spec().format {
                 ValueFormat::Percent(_) => ValueFormat::Percent(precision),
-                ValueFormat::Count => ValueFormat::Plain(precision),
                 _ => ValueFormat::Plain(precision),
             };
         }

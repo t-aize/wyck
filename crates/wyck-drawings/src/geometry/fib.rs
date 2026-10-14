@@ -69,11 +69,11 @@ pub(super) fn fib_prims(
             } else {
                 style.extend_right
             };
-            let (x, anchor) = match (on_left, run_out) {
-                (true, true) => (edge + 4.0, Anchor::Left),
-                (true, false) => (edge - 4.0, Anchor::Right),
-                (false, true) => (edge - 4.0, Anchor::Right),
-                (false, false) => (edge + 4.0, Anchor::Left),
+            // The label sits inside the line when the line runs out on its own side, outside otherwise.
+            let (x, anchor) = if on_left == run_out {
+                (edge + 4.0, Anchor::Left)
+            } else {
+                (edge - 4.0, Anchor::Right)
             };
             let y = if run_out { y - 8.0 } else { y };
             out.push(label((x, y), text, level.color, anchor, style));
@@ -115,7 +115,7 @@ pub(crate) fn visible_levels(drawing: &Drawing) -> Vec<Level> {
 }
 
 /// A level's value as the chart writes it: up to three decimals, no trailing zeros.
-pub fn level_text(value: f64) -> String {
+pub(crate) fn level_text(value: f64) -> String {
     wyck_core::format::trim(value, 3)
 }
 
