@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::flex;
 use crate::domain::trading::types::number_enum;
+use crate::wyck_core::flex;
 
 number_enum! {
     /// Which of the three supported margin call thresholds this is (`ProtoOANotificationType`).

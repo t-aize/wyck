@@ -227,7 +227,7 @@ impl OrderTicket {
     /// timeframe it is read on (the chart's own when none was picked). `None` when the option is
     /// off, the order is not a pending one, the stop is not an ATR one, or the ticket follows a
     /// drawing, which has its own ATR.
-    fn follow_base(&self, cx: &App) -> Option<crate::domain::indicators::atr_stop::AtrStop> {
+    fn follow_base(&self, cx: &App) -> Option<crate::domain::trading::atr_stop::AtrStop> {
         if !(self.follow_atr && self.stop_atr && self.kind.is_pending() && self.link.is_none()) {
             return None;
         }

@@ -7,7 +7,7 @@
 
 use crate::domain::market::format_price;
 
-use crate::domain::chart::format;
+use crate::wyck_core::format;
 
 use super::super::axis;
 use super::super::settings::ScaleMode;

@@ -610,15 +610,16 @@ mod tests {
     #[test]
     #[ignore = "writes a chart preview for visual review"]
     fn indicator_families_preview() {
+        use crate::domain::chart::ChartSettings;
         use crate::domain::chart::data::Series;
         use crate::domain::chart::display::Display;
         use crate::domain::chart::scene::palette::Palette;
         use crate::domain::chart::scene::{Frame, build};
         use crate::domain::chart::view::View;
-        use crate::domain::chart::{ChartSettings, Timeframe};
         use crate::domain::indicators::config::StudyConfig;
         use crate::domain::indicators::kind::StudyKind;
         use crate::domain::market::Bar;
+        use crate::domain::market::Timeframe;
 
         let bars: Vec<Bar> = (0..240)
             .map(|i| {

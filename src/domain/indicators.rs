@@ -1,6 +1,6 @@
 //! Indicators ("studies"): moving averages, bands, oscillators and the volume profile.
 //!
-//! - [`math`]: the arithmetic, series in and series out, tested against worked examples.
+//! - [`crate::wyck_core::math`]: the arithmetic, series in and series out, tested against worked examples.
 //! - `kind` and `spec`: what each indicator is ([`StudyKind`](kind::StudyKind) and its [`Spec`](spec::Spec): inputs, plots,
 //!   where it is drawn).
 //! - `config` and `style`: what the user set ([`StudyConfig`](config::StudyConfig), which is also what is saved) and how
@@ -12,16 +12,13 @@
 //! position, and every one of them has a default. A file written by another version still loads:
 //! an unknown indicator is dropped, a missing input takes its default, an unknown one is ignored.
 
-pub mod atr_stop;
 pub mod catalog;
 pub mod compute;
 pub mod config;
 pub mod custom;
 mod extended;
 pub mod higher;
-pub mod intern;
 pub mod kind;
-pub mod math;
 pub mod profile;
 pub mod spec;
 pub mod style;
@@ -34,8 +31,7 @@ mod tests {
     use super::config::*;
     use super::kind::*;
     use super::spec::*;
-
-    use super::*;
+    use crate::wyck_core::math;
 
     fn input(n: usize) -> StudyInput {
         let close: Vec<f64> = (0..n)

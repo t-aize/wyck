@@ -152,15 +152,15 @@ pub enum LabelSide {
 /// What the tools that measure write, and the color of a move down.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MeasureLook {
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub price: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub percent: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub bars: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub time: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub angle: bool,
     /// The color of a measure that goes down; the drawing's own color is for one that goes up.
     #[serde(default = "default_down")]

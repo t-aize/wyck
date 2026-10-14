@@ -101,7 +101,7 @@ pub enum AlertSeed {
 pub struct PositionLink {
     pub drawing: u64,
     /// The stop loss is this many ATRs from the entry.
-    pub atr: Option<crate::domain::indicators::atr_stop::AtrStop>,
+    pub atr: Option<crate::domain::trading::atr_stop::AtrStop>,
     /// The take profit is this multiple of the risk from the entry.
     pub rr: Option<f64>,
 }
@@ -114,7 +114,7 @@ pub struct PositionPlan {
     pub entry: f64,
     pub stop_loss: f64,
     pub take_profit: f64,
-    pub atr: Option<crate::domain::indicators::atr_stop::AtrStop>,
+    pub atr: Option<crate::domain::trading::atr_stop::AtrStop>,
     pub rr: Option<f64>,
 }
 

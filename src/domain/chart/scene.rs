@@ -35,18 +35,18 @@ use super::display::{Display, effective_kind};
 use super::flow::Flow;
 use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings};
-use super::timeframe::Timeframe;
 use super::view::View;
 use crate::domain::drawings::model::Drawing;
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::{Placement, ValueFormat};
+use crate::domain::market::Timeframe;
 
 /// The opacity of a grid color the user chose.
 const GRID_ALPHA: f32 = 0.3;
 
 /// The size of the text of the watermark.
 fn watermark_size() -> f32 {
-    crate::domain::chart::text_scale::scaled(46.0)
+    crate::wyck_core::text_scale::scaled(46.0)
 }
 
 /// The colors of a TPO profile that a theme does not have: mid tones that read on light and dark.

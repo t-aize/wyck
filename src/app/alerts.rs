@@ -17,10 +17,10 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::domain::chart::Timeframe;
 use crate::domain::chart::data::Series;
 use crate::domain::indicators as study;
 use crate::domain::indicators::spec::ValueFormat;
+use crate::domain::market::Timeframe;
 use crate::domain::market::{Bar, PRICE_SCALE};
 use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;

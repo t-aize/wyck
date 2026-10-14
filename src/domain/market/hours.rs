@@ -9,7 +9,7 @@ use chrono::{Datelike, TimeZone, Timelike};
 use chrono_tz::Tz;
 use serde::Deserialize;
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 use super::Symbol;
 

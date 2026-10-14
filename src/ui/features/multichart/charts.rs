@@ -3,8 +3,8 @@
 use super::{MultiChart, MultiChartEvent, Slot, SymbolRef};
 use crate::app::market_data::live::LiveUpdate;
 use crate::app::workspace::ChartState;
-use crate::domain::chart::timeframe::Timeframe;
 use crate::domain::market::SpotEvent;
+use crate::domain::market::Timeframe;
 use crate::ui::features::chart::events::ChartEvent;
 use crate::ui::features::chart::{Chart, ChartLine};
 use gpui::Context;

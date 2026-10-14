@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// The period of a bar. The numbers are those of the official `ProtoOATrendbarPeriod` enum.
 ///

@@ -243,13 +243,13 @@ pub struct ChartSettings {
     #[serde(default)]
     pub zone: Zone,
     /// Whether the grid shows.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub grid: bool,
     /// Whether the grid has its horizontal lines (at the prices), when it shows.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub grid_horizontal: bool,
     /// Whether the grid has its vertical lines (at the times), when it shows.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub grid_vertical: bool,
     #[serde(default)]
     pub crosshair: CrosshairStyle,

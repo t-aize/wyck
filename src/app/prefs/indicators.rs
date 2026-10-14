@@ -61,7 +61,7 @@ impl Budget {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prefs {
     /// Whether the folder is read again every moment, so a file edited elsewhere shows up.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub auto_reload: bool,
     #[serde(default)]
     pub budget: Budget,

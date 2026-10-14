@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// One order book entry (`ProtoOADepthQuote`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]

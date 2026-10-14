@@ -8,6 +8,7 @@ pub mod price;
 pub mod quotes;
 pub mod symbols;
 pub mod ticks;
+pub mod timeframe;
 
 pub use bars::{
     Bar, GetTrendbarsReq, GetTrendbarsRes, LiveTrendbarReq, Period, WireTrendbar, decode_bar,
@@ -26,3 +27,4 @@ pub use symbols::{
 pub use ticks::{
     GetTickDataReq, GetTickDataRes, Quote, QuoteType, Tick, WireTick, decode_ticks, merge_sides,
 };
+pub use timeframe::{QUICK, Timeframe};

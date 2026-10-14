@@ -15,7 +15,7 @@ use std::sync::RwLock;
 
 use gpui::{Rgba, rgb, rgba};
 
-pub use crate::domain::appearance::{Colors, contrast, luminance};
+pub use crate::wyck_core::appearance::{Colors, contrast, luminance};
 
 fn store() -> &'static RwLock<Colors> {
     static COLORS: RwLock<Colors> = RwLock::new(Colors::WYCK_DARK);
@@ -317,11 +317,11 @@ pub fn apply(cx: &mut gpui::App) {
 
 /// Puts a look in force: animations, the scale of the interface, the font and the palette. The
 /// windows are refreshed, so what is on screen follows at once.
-pub fn put_in_force(look: &crate::domain::appearance::Look, cx: &mut gpui::App) {
+pub fn put_in_force(look: &crate::wyck_core::appearance::Look, cx: &mut gpui::App) {
     super::anim::set_enabled(look.animations);
     super::tokens::set_scale(look.scale);
     // The text drawn on the charts follows it, as the widgets do.
-    crate::domain::chart::text_scale::set(look.scale);
+    crate::wyck_core::text_scale::set(look.scale);
     // What is sized in rems (the components of gpui-kit) follows the same scale.
     for window in cx.windows() {
         let _ = window.update(cx, |_, window, _| {

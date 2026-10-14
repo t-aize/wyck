@@ -6,7 +6,7 @@
 
 use crate::domain::market::{Bar, Tick};
 
-use super::timeframe::Timeframe;
+use crate::domain::market::Timeframe;
 
 /// The most bars kept. Older ones are dropped as new ones arrive, so a chart left open for days
 /// does not grow without end.

@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// A symbol in the list of an account (`ProtoOALightSymbol`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]

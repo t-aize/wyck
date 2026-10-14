@@ -12,7 +12,7 @@ use super::{Chart, drawing_props, object_tree};
 use crate::app::drawings::Drawings;
 use crate::domain::drawings::book::{Book, Order, Press};
 use crate::domain::drawings::model::tool::Tool;
-use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};
+use crate::domain::trading::atr_stop::{AtrStop, Smoothing};
 
 /// Something done to one drawing from its menu or the bar over it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

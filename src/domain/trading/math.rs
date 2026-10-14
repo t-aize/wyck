@@ -109,7 +109,7 @@ pub fn format_money(amount: f64, currency: &str) -> String {
     let negative = amount < 0.0;
     let cents = (amount.abs() * 100.0).round() as i64;
     let (whole, rest) = (cents / 100, cents % 100);
-    let grouped = crate::domain::chart::format::grouped(whole);
+    let grouped = crate::wyck_core::format::grouped(whole);
     let sign = if negative && cents > 0 { "-" } else { "" };
     if currency.is_empty() {
         format!("{sign}{grouped}.{rest:02}")
@@ -132,7 +132,7 @@ pub fn format_amount(amount: f64, currency: &str, signed: bool) -> String {
     };
     let figures = format!(
         "{}.{:02}",
-        crate::domain::chart::format::grouped(cents / 100),
+        crate::wyck_core::format::grouped(cents / 100),
         cents % 100
     );
     match currency {

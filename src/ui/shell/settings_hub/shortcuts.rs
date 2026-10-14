@@ -11,7 +11,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, KeyDownEvent, SharedString, Window, div, px};
 
 use super::{IconName, SettingsHub, button, form, theme, tokens};
-use crate::domain::shortcuts::{Chord, ChordError, Held, MAX_KEYS_PER_ACTION, clashes, taken_by};
+use crate::app::shortcuts::{Chord, ChordError, Held, MAX_KEYS_PER_ACTION, clashes, taken_by};
 use crate::ui::kit::input::InputState;
 use crate::ui::shell::keymap::{self, Def, Group, Kind};
 
@@ -284,7 +284,7 @@ impl SettingsHub {
     fn row_notes(
         &self,
         def: &'static Def,
-        shared: &[crate::domain::shortcuts::Clash],
+        shared: &[crate::app::shortcuts::Clash],
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let mut notes = Vec::new();
@@ -359,7 +359,7 @@ impl SettingsHub {
         &self,
         def: &'static Def,
         keys: &[String],
-        prefs: &crate::domain::shortcuts::ShortcutPrefs,
+        prefs: &crate::app::shortcuts::ShortcutPrefs,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = def.id;
@@ -557,7 +557,7 @@ impl SettingsHub {
 
     /// Gives an action a combination, in the slot that was asked or after its other keys.
     fn put(
-        prefs: &mut crate::domain::shortcuts::ShortcutPrefs,
+        prefs: &mut crate::app::shortcuts::ShortcutPrefs,
         def: &Def,
         slot: Option<usize>,
         keys: String,
@@ -575,7 +575,7 @@ impl SettingsHub {
     fn edit_shortcuts(
         &mut self,
         cx: &mut Context<Self>,
-        change: impl FnOnce(&mut crate::domain::shortcuts::ShortcutPrefs),
+        change: impl FnOnce(&mut crate::app::shortcuts::ShortcutPrefs),
     ) {
         self.shortcut_note = None;
         self.swap = None;
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn a_combination_is_put_in_the_slot_asked_or_after_the_others() {
-        use crate::domain::shortcuts::ShortcutPrefs;
+        use crate::app::shortcuts::ShortcutPrefs;
         let zoom = keymap::def("zoom_in").unwrap();
         let mut prefs = ShortcutPrefs::default();
         SettingsHub::put(&mut prefs, zoom, Some(1), "alt-z".into());
@@ -626,7 +626,7 @@ mod tests {
 
     #[test]
     fn a_combination_taken_from_another_action_leaves_it_with_the_rest() {
-        use crate::domain::shortcuts::ShortcutPrefs;
+        use crate::app::shortcuts::ShortcutPrefs;
         let redo = keymap::def("redo_drawing").unwrap();
         let mut prefs = ShortcutPrefs::default();
         let rest: Vec<String> = prefs

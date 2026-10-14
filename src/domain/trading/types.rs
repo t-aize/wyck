@@ -21,7 +21,7 @@
 
 use serde::Deserialize;
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// Defines an enumeration that maps to server numbers and back. Reachable as
 /// `crate::domain::trading::types::number_enum` so [`crate::infra::ctrader::trading`] and [`crate::infra::ctrader::margin`] can

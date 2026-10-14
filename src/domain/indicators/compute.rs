@@ -2,8 +2,8 @@
 
 use super::config::StudyConfig;
 use super::kind::StudyKind;
-use super::math;
 use super::spec::{DOWN, PlotKind, UP};
+use crate::wyck_core::math;
 
 /// The kinds of moving average an indicator can offer, in the order of its `method` input.
 pub const MA_METHODS: [&str; 5] = ["SMA", "EMA", "WMA", "RMA", "HMA"];
@@ -189,8 +189,7 @@ pub fn compute(config: &StudyConfig, input: &StudyInput) -> StudyOutput {
         StudyKind::MtfMa => {
             let length = config.length("length");
             let method = config.input("method") as usize;
-            let timeframe =
-                crate::domain::chart::timeframe::Timeframe::from_code(&config.text("timeframe"));
+            let timeframe = crate::domain::market::Timeframe::from_code(&config.text("timeframe"));
             let values = match timeframe.and_then(|tf| super::higher::higher(input, tf)) {
                 Some(grouped) => {
                     let which = config.input("source");

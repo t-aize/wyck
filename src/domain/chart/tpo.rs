@@ -137,36 +137,36 @@ pub struct TpoSettings {
     pub display: TpoDisplay,
     #[serde(default)]
     pub color: TpoColor,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub value_area: bool,
     /// The share of the marks the value area holds, in percent.
     #[serde(default = "default_value_area")]
     pub value_area_percent: u32,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub poc: bool,
     /// A line across the profile at the point of control.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub poc_line: bool,
     #[serde(default)]
     pub midpoint: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub initial_balance: bool,
     /// How many periods the initial balance lasts.
     #[serde(default = "default_ib")]
     pub ib_periods: u32,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub single_prints: bool,
     /// The fewest rows in a row of single prints for it to count.
     #[serde(default = "default_singles")]
     pub single_min_rows: u32,
     /// Mark the ends of a profile that did not reject the price.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub poor_extremes: bool,
     /// Where the session opened and closed.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub open_close: bool,
     /// The prices of the point of control and of the value area, written beside the profile.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub labels: bool,
 }
 

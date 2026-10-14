@@ -1,6 +1,7 @@
 //! Trading types and arithmetic: accounts, orders, positions, deals, margin, contracts and the
 //! account book that follows them.
 
+pub mod atr_stop;
 pub mod book;
 pub mod contract;
 pub mod events;

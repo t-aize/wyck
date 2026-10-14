@@ -11,7 +11,7 @@ pub mod plans;
 use serde::{Deserialize, Serialize};
 
 use self::plans::{MAX_PLANS, PlanTemplate, TimeStopPrefs};
-use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::atr_stop::AtrStop;
 use crate::domain::trading::math::{Offset, SizeMode};
 use crate::domain::trading::plan::ExitPlan;
 

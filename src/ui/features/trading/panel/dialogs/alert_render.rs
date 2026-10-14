@@ -287,7 +287,7 @@ impl Render for AlertEditor {
         if self.draft.needs_bars() || trigger == Trigger::OncePerBar {
             let tf_this = cx.entity();
             let current = self.draft.timeframe.clone();
-            let frames: Vec<crate::domain::chart::Timeframe> = crate::domain::chart::QUICK
+            let frames: Vec<crate::domain::market::Timeframe> = crate::domain::market::QUICK
                 .into_iter()
                 .filter(|t| t.bar_ms().is_some())
                 .collect();
@@ -306,7 +306,7 @@ impl Render for AlertEditor {
                         .into()
                 })
                 .collect();
-            let text = crate::domain::chart::Timeframe::from_code(&current)
+            let text = crate::domain::market::Timeframe::from_code(&current)
                 .map_or(current.clone(), |t| t.label());
             often.push(form::field(
                 "Timeframe",

@@ -210,8 +210,8 @@ pub mod payload {
     pub const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
 }
 
-/// Reading integers that may arrive as a number or as text (see [`crate::domain::flex`]).
-pub use crate::domain::flex;
+/// Reading integers that may arrive as a number or as text (see [`crate::wyck_core::flex`]).
+pub use crate::wyck_core::flex;
 
 /// One message on the wire.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

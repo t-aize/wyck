@@ -3,8 +3,8 @@
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::compute::StudyInput;
 use crate::domain::indicators::custom::series::Series;
-use crate::domain::indicators::intern;
 use crate::domain::indicators::spec::{InputKind, PlotKind, ValueFormat};
+use crate::wyck_core::intern;
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;

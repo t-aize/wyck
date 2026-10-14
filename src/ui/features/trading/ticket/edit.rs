@@ -188,10 +188,10 @@ impl OrderTicket {
         {
             self.atr.length = (study.input("length") as usize).clamp(1, 1_000);
             self.atr.smoothing = match study.input("smoothing") as usize {
-                1 => crate::domain::indicators::atr_stop::Smoothing::Sma,
-                2 => crate::domain::indicators::atr_stop::Smoothing::Ema,
-                3 => crate::domain::indicators::atr_stop::Smoothing::Wma,
-                _ => crate::domain::indicators::atr_stop::Smoothing::Rma,
+                1 => crate::domain::trading::atr_stop::Smoothing::Sma,
+                2 => crate::domain::trading::atr_stop::Smoothing::Ema,
+                3 => crate::domain::trading::atr_stop::Smoothing::Wma,
+                _ => crate::domain::trading::atr_stop::Smoothing::Rma,
             };
             self.write(
                 &self.atr_length.clone(),

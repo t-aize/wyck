@@ -15,10 +15,10 @@
 pub mod decl;
 
 use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
-use super::super::intern;
 use super::super::spec::{PlotKind, SOURCES};
 use super::api;
 use super::other::{self, OtherSymbols};
+use crate::wyck_core::intern;
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;

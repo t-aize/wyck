@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::flex;
 use crate::domain::trading::margin::{DynamicLeverage, ExpectedMargin, MarginCall};
+use crate::wyck_core::flex;
 
 /// `ProtoOAExpectedMarginReq`.
 #[derive(Debug, Serialize)]

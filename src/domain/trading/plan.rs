@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn a_rule_on_the_atr_is_written_in_the_label_and_read_back() {
-        use crate::domain::indicators::atr_stop::{AtrStop, Smoothing};
+        use crate::domain::trading::atr_stop::{AtrStop, Smoothing};
         let mut label = Label::decode("wyck:k3j9x2:1/2:b1,0:oco").unwrap();
         assert_eq!(label.follow, None);
         label.follow = Some(AtrFollow {

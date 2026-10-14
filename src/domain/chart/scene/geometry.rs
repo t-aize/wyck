@@ -4,16 +4,16 @@
 
 /// Width of the price axis on the right: it grows with the text it holds.
 pub fn axis_w() -> f32 {
-    crate::domain::chart::text_scale::scaled(76.0)
+    crate::wyck_core::text_scale::scaled(76.0)
 }
 
 /// Height of the time axis at the bottom.
 pub fn axis_h() -> f32 {
-    crate::domain::chart::text_scale::scaled(28.0)
+    crate::wyck_core::text_scale::scaled(28.0)
 }
 /// Width, in the time axis and left of the corner, kept for the label of the time zone.
 pub fn zone_w() -> f32 {
-    crate::domain::chart::text_scale::scaled(64.0)
+    crate::wyck_core::text_scale::scaled(64.0)
 }
 /// The least height a pane is given when there is room for it.
 pub const MIN_BAND: f64 = 36.0;

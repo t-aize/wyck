@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// Which side of the market a tick history is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

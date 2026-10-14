@@ -90,9 +90,9 @@ pub enum Cmd {
     },
 }
 
-/// The size of the text of the chart, at the scale of the text (see [`crate::domain::chart::text_scale`]).
+/// The size of the text of the chart, at the scale of the text (see [`crate::wyck_core::text_scale`]).
 pub fn font() -> f32 {
-    crate::domain::chart::text_scale::scaled(11.0)
+    crate::wyck_core::text_scale::scaled(11.0)
 }
 
 /// The line height of that text.

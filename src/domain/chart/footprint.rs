@@ -138,7 +138,7 @@ impl FootprintSettings {
 
 /// Whether a footprint can be built for a timeframe: bars of a day or less. Ticks are single
 /// prices, and longer bars would need weeks of quotes.
-pub fn supports(timeframe: super::timeframe::Timeframe) -> bool {
+pub fn supports(timeframe: crate::domain::market::Timeframe) -> bool {
     timeframe.bar_ms().is_some_and(|ms| ms <= 86_400_000)
 }
 

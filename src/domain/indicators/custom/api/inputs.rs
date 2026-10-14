@@ -168,7 +168,7 @@ pub(super) fn input_text(kind: InputType, key: &str, default: &str, opts: Map) -
     }
     match kind {
         InputType::Timeframe if !default.is_empty() => {
-            if crate::domain::chart::timeframe::Timeframe::from_code(default).is_none() {
+            if crate::domain::market::Timeframe::from_code(default).is_none() {
                 return Err(format!(
                     "{name}: \"{default}\" is not a timeframe (try 15m, 4h or 1D)"
                 )
@@ -210,7 +210,7 @@ pub(super) fn input_text(kind: InputType, key: &str, default: &str, opts: Map) -
         .filter(|t| t.chars().count() <= MAX_TEXT)
         .filter(|t| match kind {
             InputType::Timeframe => {
-                t.is_empty() || crate::domain::chart::timeframe::Timeframe::from_code(t).is_some()
+                t.is_empty() || crate::domain::market::Timeframe::from_code(t).is_some()
             }
             InputType::Session => is_session(t),
             _ => true,

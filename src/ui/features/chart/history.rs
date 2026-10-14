@@ -15,14 +15,11 @@ use crate::app::market_data::load;
 use crate::app::market_data::load::Loaded;
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
-use crate::domain::chart::timeframe::Timeframe;
+use crate::domain::market::Timeframe;
 
 impl Chart {
     /// ATR for this chart's symbol and the selected chart or dedicated timeframe.
-    pub fn atr_value(
-        &self,
-        settings: &crate::domain::indicators::atr_stop::AtrStop,
-    ) -> Option<f64> {
+    pub fn atr_value(&self, settings: &crate::domain::trading::atr_stop::AtrStop) -> Option<f64> {
         let timeframe = settings
             .timeframe
             .as_deref()
@@ -49,7 +46,7 @@ impl Chart {
     /// Fetches an ATR timeframe that differs from the visible chart.
     pub fn request_atr(
         &mut self,
-        settings: &crate::domain::indicators::atr_stop::AtrStop,
+        settings: &crate::domain::trading::atr_stop::AtrStop,
         cx: &mut Context<Self>,
     ) {
         let Some(timeframe) = settings.timeframe.as_deref().and_then(Timeframe::from_code) else {

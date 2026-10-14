@@ -29,13 +29,13 @@ const MAX_BLOCKS: usize = 20_000;
 const MAX_ROWS: usize = 12_000;
 /// The room kept on the right of a profile for the prices of its levels.
 fn label_w() -> f32 {
-    crate::domain::chart::text_scale::scaled(56.0)
+    crate::wyck_core::text_scale::scaled(56.0)
 }
 /// The narrowest slot that has that room.
 const LABEL_SLOT: f32 = 130.0;
 /// The size of the text of the levels.
 fn label_size() -> f32 {
-    crate::domain::chart::text_scale::scaled(9.0)
+    crate::wyck_core::text_scale::scaled(9.0)
 }
 
 /// Draws the profiles of `first..last`.

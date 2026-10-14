@@ -2,12 +2,12 @@
 
 use super::tone_color;
 use crate::app::prefs::panel::Tab;
-use crate::domain::chart::format::grouped;
 use crate::domain::trading::math::format_amount;
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::panel::data::Tone;
 use crate::ui::kit::prelude::StyledExt as _;
 use crate::ui::kit::{focus::Keyboard, theme, tokens};
+use crate::wyck_core::format::grouped;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
 

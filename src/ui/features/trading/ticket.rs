@@ -47,7 +47,7 @@ pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
 use crate::app::account::Account;
 pub use crate::app::prefs::ticket as prefs;
-use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::atr_stop::AtrStop;
 use crate::domain::trading::math;
 use crate::domain::trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};
 use crate::domain::trading::plan;

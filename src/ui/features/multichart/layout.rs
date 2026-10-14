@@ -6,7 +6,7 @@ use super::split::Node;
 use super::{MultiChart, MultiChartEvent};
 use crate::app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
 use crate::domain::chart::ChartContent;
-use crate::domain::chart::timeframe::Timeframe;
+use crate::domain::market::Timeframe;
 use crate::ui::features::chart::ChartSettings;
 use gpui::{Context, MouseButton, MouseMoveEvent};
 

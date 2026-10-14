@@ -2,7 +2,7 @@
 
 use super::super::Chart;
 use super::{ExportDialog, Inputs, Page, Preview, Snapshot, number_input, text_input};
-use crate::app::storage::chart_export as store;
+use crate::app::chart_export as store;
 use crate::domain::chart::export::choices::Content;
 use crate::domain::chart::export::columns::ColumnKey;
 use crate::domain::chart::export::options::ExportOptions;

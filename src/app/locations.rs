@@ -23,11 +23,11 @@ use gpui::App;
 use tracing::{info, warn};
 
 use crate::app::prefs::indicators as indicator_prefs;
-use crate::app::{alerts, appearance, drawings, workspace};
+use crate::app::{alerts, appearance, chart_export, drawings, workspace};
 use crate::infra::platform::build_info::BuildMode;
 use crate::infra::storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
 use crate::infra::storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};
-use crate::infra::storage::{AppPaths, ConfigError, DocumentStore, chart_export};
+use crate::infra::storage::{AppPaths, ConfigError, DocumentStore};
 
 /// The documents the app knows by name, to tell the copies a sync service makes of them.
 const KNOWN_DOCUMENTS: [&str; 7] = [

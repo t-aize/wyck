@@ -5,8 +5,8 @@ pub mod specs;
 use super::compute::{FillOut, PlotOut, StudyInput, StudyOutput, plot};
 use super::config::StudyConfig;
 use super::kind::StudyKind;
-use super::math;
 use super::spec::PlotKind;
+use crate::wyck_core::math;
 use chrono::{Datelike, NaiveDate};
 
 pub(super) fn average(values: &[f64], len: usize, method: usize) -> Vec<f64> {

@@ -3,7 +3,7 @@
 use super::{columns, map_of, period};
 
 use crate::domain::indicators::custom::series::{Fallible, Series};
-use crate::domain::indicators::math;
+use crate::wyck_core::math;
 use rhai::{Engine, Map};
 
 pub(super) fn indicators(engine: &mut Engine) {

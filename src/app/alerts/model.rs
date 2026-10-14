@@ -88,7 +88,7 @@ pub struct Alert {
     #[serde(default, skip_serializing)]
     pub repeat: bool,
     /// Whether it is watching.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub active: bool,
     /// When it last fired, in Unix milliseconds, and how many times.
     #[serde(default)]
@@ -363,7 +363,7 @@ impl AlertBook {
                 alert.amount = 0.0;
             }
             alert.minutes = alert.minutes.min(24 * 60 * 30);
-            if crate::domain::chart::Timeframe::from_code(&alert.timeframe).is_none() {
+            if crate::domain::market::Timeframe::from_code(&alert.timeframe).is_none() {
                 alert.timeframe = default_timeframe();
             }
         }

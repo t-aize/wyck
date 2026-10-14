@@ -13,7 +13,7 @@
 //! ([`crate::domain::trading::contract::quantity_for_risk`]). There is no live rate, so the
 //! figures are a plan, not a quote.
 
-use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::atr_stop::AtrStop;
 use crate::domain::trading::contract::{move_amount, quantity_for_risk};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub struct PositionSettings {
     /// How much is risked: a percentage of the account, or an amount (see `risk_percent`).
     #[serde(default = "default_risk")]
     pub risk: f64,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub risk_percent: bool,
     /// The step a quantity is rounded down to.
     #[serde(default = "one")]
@@ -55,24 +55,24 @@ pub struct PositionSettings {
     #[serde(default = "default_entry_color")]
     pub entry_color: u32,
     /// The stats written on the chart, one switch each.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_qty: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_risk: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_amounts: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_ratio: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_percent: bool,
     #[serde(default)]
     pub show_ticks: bool,
     #[serde(default)]
     pub show_pips: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub show_price: bool,
     /// Shorter tags, for a crowded chart.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub compact: bool,
     /// Whether the tags show all the time. Off, they show only while the drawing is selected.
     #[serde(default)]
@@ -246,7 +246,7 @@ impl PositionSettings {
 
     /// A quantity as written: its decimals, no trailing zeros.
     pub fn format_qty(&self, qty: f64) -> String {
-        crate::domain::chart::format::trim(qty, usize::from(self.qty_precision))
+        crate::wyck_core::format::trim(qty, usize::from(self.qty_precision))
     }
 
     /// An amount with its sign, two decimals and the currency.

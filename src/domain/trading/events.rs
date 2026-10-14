@@ -3,9 +3,9 @@
 
 use serde::Deserialize;
 
-use crate::domain::flex;
 use crate::domain::trading::types::number_enum;
 use crate::domain::trading::{Deal, Order, Position};
+use crate::wyck_core::flex;
 
 number_enum! {
     /// What an execution event reports (`ProtoOAExecutionType`).

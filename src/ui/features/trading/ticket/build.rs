@@ -3,7 +3,7 @@
 
 use super::{OrderTicket, TicketEvent, TicketPrefs, helpers};
 use crate::app::account::Account;
-use crate::domain::indicators::atr_stop::AtrStop;
+use crate::domain::trading::atr_stop::AtrStop;
 use crate::domain::trading::math::{Contract, Offset};
 use crate::domain::trading::plan;
 use crate::ui::kit::input::{InputEvent, InputState};

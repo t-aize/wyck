@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::PricePath;
-use crate::domain::indicators::math;
 use crate::domain::market::Bar;
+use crate::wyck_core::math;
 
 /// How a box (or a reversal, or a range) is sized.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -109,7 +109,7 @@ pub struct TransformSettings {
     #[serde(default = "default_brick_opacity")]
     pub brick_opacity: f32,
     /// A line around each brick.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub brick_border: bool,
 }
 

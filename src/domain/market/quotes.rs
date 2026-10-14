@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::bars::{Bar, Period, WireTrendbar, decode_bar};
-use crate::domain::flex;
+use crate::wyck_core::flex;
 
 /// A live price change: what one `ProtoOASpotEvent` says about a symbol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

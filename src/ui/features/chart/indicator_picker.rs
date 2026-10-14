@@ -14,12 +14,12 @@ use gpui::{
 use super::Chart;
 use super::events::{ChartEvent, EditorRequest};
 use super::study::catalog::{self, Item, Source};
-use super::study::intern;
 use super::study::spec::Placement;
 use crate::app::scripts as indicators;
 use crate::ui::kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,
 };
+use crate::wyck_core::intern;
 
 /// The width of the column of short names.
 const SHORT_NAME_WIDTH: f32 = 58.0;

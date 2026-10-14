@@ -118,7 +118,7 @@ pub fn price_text(raw: i64, digits: u32, decimal: char, trim: bool) -> String {
 
 pub(super) fn value_text(value: f64, digits: u32, decimal: char, trim: bool) -> String {
     let mut text = if trim {
-        crate::domain::chart::format::trim(value, digits as usize)
+        crate::wyck_core::format::trim(value, digits as usize)
     } else {
         format!("{value:.*}", digits as usize)
     };

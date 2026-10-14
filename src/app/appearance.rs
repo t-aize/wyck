@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app::workspace::Saver;
 
-use crate::domain::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
+use crate::wyck_core::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "appearance";
@@ -37,7 +37,7 @@ pub struct Appearance {
     #[serde(default = "default_font")]
     pub font: String,
     /// Whether screens and panels move as they appear.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub animations: bool,
     /// The size of the interface, in percent of the size it was drawn at: text, controls and
     /// fields. For eyes that need larger text, or a small screen.

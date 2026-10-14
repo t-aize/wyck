@@ -6,9 +6,10 @@ use super::layouts::{self, LayoutKey};
 use crate::app::prefs::panel::PanelPrefs;
 use crate::app::prefs::ticket::TicketPrefs;
 use crate::domain::chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
-use crate::domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings, QUICK, Timeframe};
+use crate::domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
+use crate::domain::market::{QUICK, Timeframe};
 use crate::domain::trading::guard::RiskPrefs;
 use serde::{Deserialize, Serialize};
 
@@ -83,13 +84,13 @@ impl Default for LayoutPref {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinksPref {
     /// Every chart shows the same symbol.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub symbol: bool,
     #[serde(default)]
     pub interval: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub crosshair: bool,
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub time: bool,
     #[serde(default)]
     pub range: bool,
@@ -195,14 +196,14 @@ pub struct Preferences {
     #[serde(default)]
     pub magnet: bool,
     /// Whether a drawing tool stays picked once a drawing is finished.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub keep_drawing: bool,
     /// How the lines between the charts were dragged, per layout (`"count-variant"`): one list
     /// of weights per split of the layout.
     #[serde(default)]
     pub splits: std::collections::BTreeMap<String, Vec<Vec<f32>>>,
     /// Whether the account panel under the charts is open, and its height.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub panel_open: bool,
     #[serde(default = "default_panel_height")]
     pub panel_height: f32,
@@ -228,7 +229,7 @@ pub struct Preferences {
     #[serde(default = "default_favorite_tools")]
     pub favorite_tools: Vec<String>,
     /// Whether the bar of favorite tools shows over the charts.
-    #[serde(default = "crate::domain::chart::defaults::yes")]
+    #[serde(default = "crate::wyck_core::defaults::yes")]
     pub favorites_bar: bool,
     /// Whether the bar writes the name of each tool beside its icon.
     #[serde(default)]
@@ -241,7 +242,7 @@ pub struct Preferences {
     pub saved_colors: Vec<u32>,
     /// The keyboard shortcuts the user changed (see `ui::shell::keymap` for the defaults).
     #[serde(default)]
-    pub shortcuts: crate::domain::shortcuts::ShortcutPrefs,
+    pub shortcuts: crate::app::shortcuts::ShortcutPrefs,
 }
 
 fn default_panel_height() -> f32 {
