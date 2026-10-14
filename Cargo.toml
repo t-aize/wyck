@@ -7,7 +7,9 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "xtask"]
+# `cargo run` and `cargo build` at the root mean the app; `xtask` is reached with `cargo xtask`.
+default-members = ["crates/*"]
 
 [workspace.package]
 version = "0.2.1"
@@ -31,6 +33,7 @@ async-trait = "0.1.92"
 cargo-packager-updater = "0.2.3"
 chacha20poly1305 = "0.11.0"
 chrono = "0.4.45"
+clap = { version = "4.6.7", default-features = false }
 chrono-tz = "0.10.4"
 directories = "6.0.0"
 dotenvy = "0.15.7"

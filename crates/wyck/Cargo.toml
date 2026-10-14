@@ -47,14 +47,14 @@ generate-desktop-entry = true
 
 [package.metadata.packager.deb]
 depends = [
-    "libasound2 | libasound2t64",
-    "libc6",
-    "libfontconfig1",
-    "libssl3 | libssl3t64",
-    "libwayland-client0",
-    "libxcb1",
-    "libxkbcommon0",
-    "libxkbcommon-x11-0",
+  "libasound2 | libasound2t64",
+  "libc6",
+  "libfontconfig1",
+  "libssl3 | libssl3t64",
+  "libwayland-client0",
+  "libxcb1",
+  "libxkbcommon0",
+  "libxkbcommon-x11-0",
 ]
 
 [dependencies]
@@ -83,7 +83,14 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tiny-skia.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+  "net",
+  "io-util",
+] }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 toml.workspace = true
 tracing.workspace = true

@@ -1,0 +1,26 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "Developer commands of the workspace: `cargo xtask check`, `cargo xtask deps`."
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = [
+  "std",
+  "derive",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "color",
+] }
+toml.workspace = true
+
+[lints]
+workspace = true
