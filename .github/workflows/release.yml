@@ -166,10 +166,12 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: cargo build --release --locked -p wyck --target "$TARGET"
 
+      # cargo-packager reads its settings in crates/wyck and takes a relative --out-dir from there,
+      # so the folder is given in full: the next steps look for the files at the same place.
       - name: Package and sign
         env:
           TARGET: ${{ matrix.target }}
-          PLATFORM: ${{ matrix.platform }}
+          OUT_DIR: ${{ github.workspace }}/dist/${{ matrix.platform }}
           FORMATS: ${{ matrix.formats }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ github.event_name == 'push' && secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY || format('{0}/dry-run.key', runner.temp) }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ github.event_name == 'push' && secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD || 'dry-run' }}
@@ -182,15 +184,16 @@ jobs:
           cargo packager --release --packages wyck \
             --target "$TARGET" \
             --formats "$FORMATS" \
-            --out-dir "dist/$PLATFORM"
+            --out-dir "$OUT_DIR"
 
       - name: Check the signatures and name the release files
         env:
           PLATFORM: ${{ matrix.platform }}
+          OUT_DIR: ${{ github.workspace }}/dist/${{ matrix.platform }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           cargo run --locked --quiet --package xtask -- release name-assets \
-            --input "dist/$PLATFORM" \
+            --input "$OUT_DIR" \
             --platform "$PLATFORM" \
             --release-version "$VERSION"
 
