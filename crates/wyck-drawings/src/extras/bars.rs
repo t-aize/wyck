@@ -2,10 +2,10 @@
 
 use super::{DOWN, MAX_GHOST_BARS, MAX_ROWS, MIN_ROWS, POC, ROW_PX, UP, polyline, stat};
 
-use crate::domain::drawings::geometry::fib::{label, visible_levels};
-use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, seg};
-use crate::domain::drawings::model::style::Dash;
-use crate::domain::drawings::model::{Drawing, Point};
+use crate::geometry::fib::{label, visible_levels};
+use crate::geometry::{Anchor, P, Prim, Projection, seg};
+use crate::model::style::Dash;
+use crate::model::{Drawing, Point};
 
 /// The candle of a bar shifted by `offset` in price, at `x`.
 pub(super) fn candle(
@@ -39,7 +39,7 @@ pub(super) fn candle(
 pub(super) fn source_bars(
     drawing: &Drawing,
     proj: &dyn Projection,
-) -> Vec<crate::domain::drawings::geometry::BarView> {
+) -> Vec<crate::geometry::BarView> {
     let (a, b) = (drawing.points[0].t, drawing.points[1].t);
     let mut bars = proj.bars_between(a.min(b), a.max(b));
     bars.truncate(MAX_GHOST_BARS);

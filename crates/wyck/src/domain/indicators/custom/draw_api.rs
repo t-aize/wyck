@@ -7,10 +7,10 @@ use super::api::indicators::parse_color;
 use super::run::decl::MAX_SCRIPT_DRAWINGS;
 use super::run::{Mode, with_run};
 use super::series::Fallible;
-use crate::domain::drawings::model::style::{Level, Style};
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
 use crate::domain::indicators::compute::ScriptDrawing;
+use wyck_drawings::model::style::{Level, Style};
+use wyck_drawings::model::tool::Tool;
+use wyck_drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
 
 const MAX_SCRIPT_POINTS: usize = 20_000;
 const MAX_OPTION_NODES: usize = 2_000;

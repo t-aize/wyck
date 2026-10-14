@@ -22,9 +22,9 @@
 use tracing::{info, warn};
 
 use crate::app::{alerts, drawings, workspace};
-use crate::domain::drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
 use crate::infra::storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
 use crate::infra::storage::{AppPaths, DocumentStore};
+use wyck_drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
 
 /// The layouts of the documents, one plan each.
 pub const PLANS: [Plan; 4] = [
@@ -217,7 +217,7 @@ mod tests {
     use super::*;
     use crate::app::alerts::AlertBook;
     use crate::app::workspace::{Preferences, Watchlists};
-    use crate::domain::drawings::model::DrawingsDoc;
+    use wyck_drawings::model::DrawingsDoc;
 
     #[test]
     fn every_plan_has_a_step_for_each_version_it_left_behind() {

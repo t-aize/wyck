@@ -10,7 +10,7 @@
 use wyck_market::PRICE_SCALE;
 
 use super::scene::PriceMark;
-use crate::domain::drawings::model::style::Dash;
+use wyck_drawings::model::style::Dash;
 
 pub use crate::domain::chart::lines::LineId;
 

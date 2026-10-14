@@ -3,13 +3,13 @@
 use super::bar_place::Movable;
 use super::{OPACITY_STEPS, swatch_color};
 
-use crate::domain::drawings::model::style::{Dash, PALETTE};
-use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, layout, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Window, canvas, div, px};
+use wyck_drawings::model::style::{Dash, PALETTE};
+use wyck_drawings::model::tool::Tool;
 
 impl MultiChart {
     /// The bar over a selected drawing, or nothing. Only the cheap test lives here: the bar itself
@@ -304,7 +304,7 @@ impl MultiChart {
 
 /// What the style bar knows of the selected drawing, gathered once for the pieces that build it.
 pub(super) struct BarState {
-    pub(super) style: crate::domain::drawings::model::style::Style,
+    pub(super) style: wyck_drawings::model::style::Style,
     pub(super) tool: Tool,
     pub(super) locked: bool,
     pub(super) hidden: bool,

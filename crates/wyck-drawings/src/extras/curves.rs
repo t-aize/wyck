@@ -2,10 +2,10 @@
 
 use super::{MAX_CYCLES, add, dist, length, polyline, sample, scale, sub};
 
-use crate::domain::drawings::geometry::fib::fill_of;
-use crate::domain::drawings::geometry::{P, Prim, Projection, seg};
-use crate::domain::drawings::model::style::Dash;
-use crate::domain::drawings::model::{Drawing, Point};
+use crate::geometry::fib::fill_of;
+use crate::geometry::{P, Prim, Projection, seg};
+use crate::model::style::Dash;
+use crate::model::{Drawing, Point};
 use std::f32::consts::{PI, TAU};
 
 /// The x positions of the cycle lines a pair of points makes: one every distance between them,

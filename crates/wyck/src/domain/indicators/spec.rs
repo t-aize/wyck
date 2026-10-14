@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::drawings::model::style::Dash;
+use wyck_drawings::model::style::Dash;
 
 /// Where an indicator is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

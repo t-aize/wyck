@@ -210,8 +210,8 @@ fn place(tool: Tool, pts: &[P], plot: Rect, layout: &TextLayout, size: f32) -> (
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::drawings::look::Caps;
-    use crate::domain::drawings::model::Point;
+    use crate::look::Caps;
+    use crate::model::Point;
 
     const PLOT: Rect = Rect {
         l: 0.0,

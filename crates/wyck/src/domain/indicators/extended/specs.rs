@@ -25,7 +25,7 @@ pub(super) const fn styled_plot(
         kind,
         color,
         width,
-        dash: crate::domain::drawings::model::style::Dash::Solid,
+        dash: wyck_drawings::model::style::Dash::Solid,
         visible: true,
     }
 }

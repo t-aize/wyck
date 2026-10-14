@@ -1,7 +1,6 @@
 //! The style and display pages of an indicator: plots, levels, fills and where it is drawn.
 
 use super::{PANE_HEIGHTS, StudyEditor, grouped};
-use crate::domain::drawings::model::style::{DASHES, WIDTHS};
 use crate::ui::features::chart::study::config::StudyConfig;
 use crate::ui::features::chart::study::kind::StudyKind;
 use crate::ui::features::chart::study::spec::{Placement, PlotKind};
@@ -9,6 +8,7 @@ use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, form, number, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div};
+use wyck_drawings::model::style::{DASHES, WIDTHS};
 
 impl StudyEditor {
     pub(super) fn style_page(&self, config: &StudyConfig, cx: &mut Context<Self>) -> AnyElement {

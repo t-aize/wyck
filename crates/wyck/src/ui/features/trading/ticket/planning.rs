@@ -4,12 +4,12 @@ use super::helpers::side_of;
 use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif};
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
-use crate::domain::drawings::model::style::Dash;
 use crate::ui::features::chart::{ChartLine, LineId};
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::number;
 use gpui::{App, Context, Entity};
 use std::time::Duration;
+use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
 

@@ -5,7 +5,7 @@
 //! Building them is plain arithmetic, so it is tested without a window.
 
 use super::color::{Hsla, Rgba, rgb};
-use crate::domain::drawings::look::{Face, VAlign};
+use wyck_drawings::look::{Face, VAlign};
 
 pub type P = (f32, f32);
 

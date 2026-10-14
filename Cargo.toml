@@ -26,6 +26,7 @@ publish = false
 # which ones it may use is decided by `LAYERS` in `xtask/src/deps.rs`.
 [workspace.dependencies]
 wyck-core = { path = "crates/wyck-core" }
+wyck-drawings = { path = "crates/wyck-drawings" }
 wyck-market = { path = "crates/wyck-market" }
 wyck-trading = { path = "crates/wyck-trading" }
 

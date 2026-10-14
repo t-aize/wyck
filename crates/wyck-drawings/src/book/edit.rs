@@ -1,9 +1,9 @@
 //! Moving a drawing, one of its handles, or a new point under the pointer.
 
 use super::{BRUSH_STEP, Book, DRAG_START, EditKind, Editing, Press, Snapshot};
-use crate::domain::drawings::geometry::{self, Part, Projection};
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{Drawing, MAX_BRUSH_POINTS, Point};
+use crate::geometry::{self, Part, Projection};
+use crate::model::tool::Tool;
+use crate::model::{Drawing, MAX_BRUSH_POINTS, Point};
 
 impl Book {
     #[allow(clippy::too_many_arguments)]

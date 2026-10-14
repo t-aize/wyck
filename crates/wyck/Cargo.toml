@@ -99,6 +99,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 unicode-segmentation.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 wyck-core.workspace = true
+wyck-drawings.workspace = true
 wyck-market.workspace = true
 wyck-trading.workspace = true
 zeroize.workspace = true

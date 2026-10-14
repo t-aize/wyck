@@ -392,7 +392,7 @@ mod tests {
     use super::super::geometry::tests::Linear;
 
     use super::*;
-    use crate::domain::drawings::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};
+    use crate::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};
 
     const SYMBOL: &str = "US100.cash";
 

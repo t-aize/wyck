@@ -7,9 +7,9 @@ use crate::app::prefs::panel::PanelPrefs;
 use crate::app::prefs::ticket::TicketPrefs;
 use crate::domain::chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
 use crate::domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 use serde::{Deserialize, Serialize};
+use wyck_drawings::model::tool::Tool;
+use wyck_drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 use wyck_market::{QUICK, Timeframe};
 use wyck_trading::guard::RiskPrefs;
 

@@ -1,7 +1,7 @@
 //! The drawing tools of the multichart: the rail of tools on the left, the list of tools of a
 //! family that opens beside it, and the bar of options over a selected drawing.
 //!
-//! What a drawing is and how the pointer makes one lives in [`crate::domain::drawings`]; this
+//! What a drawing is and how the pointer makes one lives in [`wyck_drawings`]; this
 //! file only shows the choices and turns clicks into calls on the shared drawings.
 
 pub mod bar_options;
@@ -9,13 +9,13 @@ pub(super) mod bar_place;
 pub mod style_bar;
 
 use super::MultiChart;
-use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::ui::features::chart::object_tree::tool_icon;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{controls, icon, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, SharedString, canvas, div, px};
+use wyck_drawings::model::tool::{Group, Tool};
 
 /// The opacities the style bar steps through, most opaque first.
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];

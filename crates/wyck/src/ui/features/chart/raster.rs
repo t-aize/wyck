@@ -788,7 +788,7 @@ mod tests {
                 color: rgb_alpha(0xffffff, 1.0),
                 background: Some(rgb_alpha(0x226666, 1.0)),
                 align: Align::Center,
-                valign: crate::domain::drawings::look::VAlign::Auto,
+                valign: wyck_drawings::look::VAlign::Auto,
                 bold: false,
                 face: Default::default(),
             }],

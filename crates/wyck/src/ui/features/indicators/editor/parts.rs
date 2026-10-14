@@ -14,7 +14,6 @@ use super::{
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
 use crate::app::scripts as indicators;
-use crate::domain::drawings::model::tool::Tool;
 use crate::domain::indicators::custom::docs;
 use crate::domain::indicators::custom::docs::Group;
 use crate::domain::indicators::custom::library::{Entry as Script, registry};
@@ -25,6 +24,7 @@ use crate::ui::kit::{
     menu::{Entry, Item, Placement},
     theme, tokens,
 };
+use wyck_drawings::model::tool::Tool;
 
 /// The width of the card of a starting template.
 const TEMPLATE_CARD_WIDTH: f32 = 210.0;

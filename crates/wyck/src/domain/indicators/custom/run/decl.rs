@@ -1,6 +1,5 @@
 //! What a script declares about itself and what it reads: limits, problems, inputs, plots and the columns of bars.
 
-use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::compute::StudyInput;
 use crate::domain::indicators::custom::library::choices;
 use crate::domain::indicators::custom::series::Series;
@@ -8,6 +7,7 @@ use crate::domain::indicators::spec::{InputKind, PlotKind, ValueFormat};
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;
+use wyck_drawings::model::style::Dash;
 
 /// How much a run may do before it is stopped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

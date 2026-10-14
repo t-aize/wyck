@@ -31,7 +31,6 @@ use crate::app::broker::session::Session;
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
 use crate::app::workspace::{Documents, Workspace};
-use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart;
 use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent};
@@ -43,6 +42,7 @@ use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedStr
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use wyck_drawings::model::tool::Tool;
 
 gpui::actions!(
     wyck_dashboard,

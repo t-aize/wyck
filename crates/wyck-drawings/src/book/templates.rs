@@ -1,10 +1,8 @@
 //! The templates a tool starts from, and the named ones the user saved.
 
 use super::Book;
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{
-    MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME, NamedTemplate, Template,
-};
+use crate::model::tool::Tool;
+use crate::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME, NamedTemplate, Template};
 
 impl Book {
     /// Makes the look and levels of this drawing what new drawings of its tool start with.
@@ -119,10 +117,7 @@ impl Book {
     pub fn starting_style(
         &self,
         tool: Tool,
-    ) -> (
-        crate::domain::drawings::model::style::Style,
-        Vec<crate::domain::drawings::model::style::Level>,
-    ) {
+    ) -> (crate::model::style::Style, Vec<crate::model::style::Level>) {
         match self.templates.get(&tool.code()) {
             Some(template) => (template.style.clone(), template.levels.clone()),
             None => (tool.default_style(), Vec::new()),

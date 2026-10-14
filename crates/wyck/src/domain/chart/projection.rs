@@ -5,8 +5,8 @@ use wyck_market::{PRICE_SCALE, format_price};
 use super::data::Series;
 use super::scene::PriceMap;
 use super::view::View;
-use crate::domain::drawings::geometry::{BarView, P, Projection, Rect};
-use crate::domain::drawings::model::Point;
+use wyck_drawings::geometry::{BarView, P, Projection, Rect};
+use wyck_drawings::model::Point;
 
 /// How close (in pixels) the pointer must be to a bar's open, high, low or close for the magnet
 /// to take it.

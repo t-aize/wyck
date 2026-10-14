@@ -1,10 +1,10 @@
 //! How the measure and the position tools are drawn.
 
 use super::{Anchor, P, Prim, Projection, seg};
-use crate::domain::drawings::extras;
-use crate::domain::drawings::model::Drawing;
-use crate::domain::drawings::model::style::Dash;
-use crate::domain::drawings::model::tool::Tool;
+use crate::extras;
+use crate::model::Drawing;
+use crate::model::style::Dash;
+use crate::model::tool::Tool;
 
 pub(super) fn measure_prims(
     drawing: &Drawing,

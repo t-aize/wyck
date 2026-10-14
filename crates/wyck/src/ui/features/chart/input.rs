@@ -14,7 +14,7 @@ use super::Chart;
 use super::events::ChartEvent;
 use super::lines::{LineId, to_real};
 use super::view::PriceScale;
-use crate::domain::drawings::book::Grab;
+use wyck_drawings::book::Grab;
 
 /// Where a position is on the chart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

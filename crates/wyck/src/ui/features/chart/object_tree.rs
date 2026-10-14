@@ -9,10 +9,10 @@ use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window,
 use super::drawing_props;
 use super::zone::Zone;
 use crate::app::drawings::Drawings;
-use crate::domain::drawings::book::{Book, Order};
-use crate::domain::drawings::model::Drawing;
-use crate::domain::drawings::model::tool::Tool;
 use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
+use wyck_drawings::book::{Book, Order};
+use wyck_drawings::model::Drawing;
+use wyck_drawings::model::tool::Tool;
 
 pub fn tool_icon(tool: Tool) -> IconName {
     match tool {

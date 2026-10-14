@@ -19,7 +19,6 @@ use crate::app::system::build_info::{BuildMode, VERSION};
 use crate::app::updates;
 use crate::app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use crate::domain::chart::settings::MAX_STUDIES;
-use crate::domain::drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::{
     button, confirm, controls,
@@ -28,6 +27,7 @@ use crate::ui::kit::{
     form::Head,
     icon, modal, number, theme, toast, tokens,
 };
+use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 
 mod about;
 

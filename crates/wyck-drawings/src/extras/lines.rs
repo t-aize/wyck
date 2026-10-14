@@ -5,13 +5,11 @@ use super::{
     stat, stat_rows, sub,
 };
 
-use crate::domain::drawings::figures;
-use crate::domain::drawings::geometry::fib::{
-    fill_of, label, level_label, level_text, stretch, visible_levels,
-};
-use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, extended, label_size, seg};
-use crate::domain::drawings::model::Drawing;
-use crate::domain::drawings::model::style::Dash;
+use crate::figures;
+use crate::geometry::fib::{fill_of, label, level_label, level_text, stretch, visible_levels};
+use crate::geometry::{Anchor, P, Prim, Projection, extended, label_size, seg};
+use crate::model::Drawing;
+use crate::model::style::Dash;
 
 pub(super) fn info_line(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out: &mut Vec<Prim>) {
     let style = &drawing.style;

@@ -1,9 +1,9 @@
 //! What the drawing tools do for the active chart: pick a tool, edit the selection, undo.
 
 use super::{MAX_RECENT_COLORS, MAX_RECENT_TOOLS, MultiChart};
-use crate::domain::drawings::model::style::{Dash, MIN_LINE_OPACITY};
-use crate::domain::drawings::model::tool::{Group, Tool};
 use gpui::{Context, Window};
+use wyck_drawings::model::style::{Dash, MIN_LINE_OPACITY};
+use wyck_drawings::model::tool::{Group, Tool};
 
 impl MultiChart {
     pub(crate) fn pick_tool(&mut self, tool: Option<Tool>, cx: &mut Context<Self>) {
@@ -118,7 +118,7 @@ impl MultiChart {
     pub(crate) fn edit_book(
         &mut self,
         cx: &mut Context<Self>,
-        change: impl FnOnce(&mut crate::domain::drawings::book::Book, &str) -> bool,
+        change: impl FnOnce(&mut wyck_drawings::book::Book, &str) -> bool,
     ) {
         let Some(symbol) = self.symbol_name(cx) else {
             return;

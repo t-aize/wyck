@@ -1,8 +1,8 @@
 //! Copying and pasting the indicators and the settings of a chart.
 
 use super::MultiChart;
-use crate::domain::drawings::model::tool::Tool;
 use gpui::Context;
+use wyck_drawings::model::tool::Tool;
 
 impl MultiChart {
     /// Ctrl+C: copies the selected drawings, or else the indicators of the chart.

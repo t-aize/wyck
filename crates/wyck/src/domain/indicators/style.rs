@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::spec::PlotKind;
-use crate::domain::drawings::model::style::Dash;
+use wyck_drawings::model::style::Dash;
 
 /// How one plot of an indicator looks.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

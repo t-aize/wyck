@@ -266,15 +266,14 @@ mod tests {
             .tag_opacity(),
             0.05
         );
-        let mut style = crate::domain::drawings::model::style::Style::default();
+        let mut style = crate::model::style::Style::default();
         assert_eq!(style.face(), Face::default());
         style.italic = true;
         style.font = Some("  Georgia ".into());
         let face = style.face();
         assert!(face.italic);
         assert_eq!(face.family, Some("Georgia"));
-        let saved =
-            toml::to_string(&crate::domain::drawings::model::style::Style::default()).unwrap();
+        let saved = toml::to_string(&crate::model::style::Style::default()).unwrap();
         assert!(
             !saved.contains("font") && !saved.contains("italic"),
             "{saved}"

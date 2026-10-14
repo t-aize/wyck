@@ -36,9 +36,9 @@ use super::flow::Flow;
 use super::options::CrosshairStyle;
 use super::settings::{ChartKind, ChartSettings};
 use super::view::View;
-use crate::domain::drawings::model::Drawing;
-use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::spec::{Placement, ValueFormat};
+use wyck_drawings::model::Drawing;
+use wyck_drawings::model::style::Dash;
 use wyck_market::Timeframe;
 
 /// The opacity of a grid color the user chose.
@@ -624,8 +624,8 @@ mod tests {
         let mut fixture = Fixture::new(Series::Bars(bars(20)), settings, View::new(8.0));
         let mut drawing = Drawing::new(
             0,
-            crate::domain::drawings::model::tool::Tool::Text,
-            vec![crate::domain::drawings::model::Point {
+            wyck_drawings::model::tool::Tool::Text,
+            vec![wyck_drawings::model::Point {
                 t: 1_767_571_200_000,
                 p: 100_020.0,
             }],
@@ -1429,8 +1429,8 @@ mod tests {
 
     /// A drawing of `tool` over the bars of the fixture, spread so that its points are not on one
     /// line.
-    fn sample_drawing(tool: crate::domain::drawings::model::tool::Tool) -> Drawing {
-        use crate::domain::drawings::model::Point;
+    fn sample_drawing(tool: wyck_drawings::model::tool::Tool) -> Drawing {
+        use wyck_drawings::model::Point;
         let points = (0..tool.anchors().max(2))
             .map(|i| Point {
                 t: 1_767_571_200_000 + (210 + i as i64 * 9) * 60_000,
@@ -1442,7 +1442,7 @@ mod tests {
 
     #[test]
     fn every_drawing_tool_draws_finite_shapes_at_any_zoom_and_position() {
-        use crate::domain::drawings::model::tool::Tool;
+        use wyck_drawings::model::tool::Tool;
         let mut shown_at_start = Vec::new();
         for tool in Tool::ALL {
             let drawing = sample_drawing(tool);

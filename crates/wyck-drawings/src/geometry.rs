@@ -352,9 +352,9 @@ pub(super) mod tests {
     use super::hit::*;
 
     use super::*;
-    use crate::domain::drawings::model::style::{Dash, Style};
-    use crate::domain::drawings::model::tool::Tool;
-    use crate::domain::drawings::model::{Drawing, Point};
+    use crate::model::style::{Dash, Style};
+    use crate::model::tool::Tool;
+    use crate::model::{Drawing, Point};
 
     /// A projection where time is 1 pixel per second from 0, and price is 1 pixel per unit
     /// upwards from the bottom of a 1000 by 500 plot. Bars are one minute long.
@@ -655,7 +655,7 @@ pub(super) mod tests {
 
     #[test]
     fn a_level_can_have_its_own_line_and_its_caption_follows_the_style() {
-        use crate::domain::drawings::look::{LabelSide, LevelText};
+        use crate::look::{LabelSide, LevelText};
 
         let mut d = drawing(Tool::FibRetracement, &[(100, 100.0), (400, 200.0)]);
         let mut levels = d.levels();

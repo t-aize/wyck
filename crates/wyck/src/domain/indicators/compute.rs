@@ -144,7 +144,7 @@ pub struct StudyOutput {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScriptDrawing {
     pub key: String,
-    pub drawing: crate::domain::drawings::model::Drawing,
+    pub drawing: wyck_drawings::model::Drawing,
 }
 
 /// The up and down colors of histograms and profiles.

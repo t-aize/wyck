@@ -2,12 +2,12 @@
 
 use super::describe::{Options, check_key, title_of};
 
-use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::custom::run::decl::{MAX_PLOTS, PlotDecl};
 use crate::domain::indicators::custom::run::{FillResult, Mode, PlotResult, with_run};
 use crate::domain::indicators::custom::series::{Fallible, Series, is_true};
 use crate::domain::indicators::spec::PlotKind;
 use rhai::Map;
+use wyck_drawings::model::style::Dash;
 
 pub(super) fn plot_number(key: &str, value: f64, opts: Map) -> Fallible<()> {
     let len = with_run(|run| run.columns.len)?;

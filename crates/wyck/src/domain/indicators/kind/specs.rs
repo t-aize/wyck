@@ -2,13 +2,13 @@
 //! oscillators and the volume studies. The later ones are in [`super::super::extended::specs`].
 
 use super::StudyKind;
-use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::compute::MA_METHODS;
 use crate::domain::indicators::extended;
 use crate::domain::indicators::spec::{
     ATR_SMOOTHING, BLUE, DOWN, GRAY, InputKind, InputSpec, OFFSET, ORANGE, PINK, PURPLE, Placement,
     PlotKind, PlotSpec, SOURCE, Spec, TEAL, UP, ValueFormat, choice, float, hidden_line, int, line,
 };
+use wyck_drawings::model::style::Dash;
 
 pub(super) fn spec_of(kind: StudyKind) -> Spec {
     use Placement::{Overlay, Pane};

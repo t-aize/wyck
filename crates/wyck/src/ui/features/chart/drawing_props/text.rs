@@ -161,8 +161,7 @@ impl DrawingProps {
                 Row::new("Tag opacity")
                     .hint("How solid the tag behind the words is")
                     .reset(
-                        (layout.tag_opacity() - crate::domain::drawings::look::DEFAULT_TAG_OPACITY)
-                            .abs()
+                        (layout.tag_opacity() - wyck_drawings::look::DEFAULT_TAG_OPACITY).abs()
                             > 0.005,
                         self.restore(cx, |d, built_in| {
                             d.style.text_layout.background_opacity =

@@ -1,8 +1,8 @@
 //! What is under the pointer: which drawing, and which part of it.
 
 use super::{Book, Grab};
-use crate::domain::drawings::geometry::{self, P, Part, Projection};
-use crate::domain::drawings::model::Drawing;
+use crate::geometry::{self, P, Part, Projection};
+use crate::model::Drawing;
 
 impl Book {
     /// The topmost drawing shown on `timeframe` under `at`, and the part of it.

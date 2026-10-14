@@ -1,9 +1,9 @@
 //! Placing the points of a new drawing.
 
 use super::{Book, Creating, POSITION_BARS, POSITION_RISK, Press};
-use crate::domain::drawings::geometry::{P, Projection};
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{Drawing, MAX_PATH_POINTS, Point};
+use crate::geometry::{P, Projection};
+use crate::model::tool::Tool;
+use crate::model::{Drawing, MAX_PATH_POINTS, Point};
 use std::collections::BTreeMap;
 
 impl Book {

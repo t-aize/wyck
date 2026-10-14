@@ -268,7 +268,7 @@ impl Chart {
             Some((tool, _, _)) if tool.is_freehand() => {
                 "Keep the button down and draw; let go to finish".to_owned()
             }
-            Some((crate::domain::drawings::model::tool::Tool::ArrowPath, placed, _)) => format!(
+            Some((wyck_drawings::model::tool::Tool::ArrowPath, placed, _)) => format!(
                 "Click or drag to place point {}. Double click, Enter or Esc finishes. Backspace takes back the last point",
                 placed + 1
             ),
@@ -324,8 +324,7 @@ impl Chart {
         use wyck_market::MarketStatus;
         let status = self.market_status()?;
         let now = crate::app::market_data::now_ms();
-        let within =
-            |at: Option<i64>| at.map(|t| crate::domain::drawings::geometry::duration_text(t - now));
+        let within = |at: Option<i64>| at.map(|t| wyck_drawings::geometry::duration_text(t - now));
         let (color, text) = match &status {
             MarketStatus::Open { closes_at } => (
                 theme::emerald(),

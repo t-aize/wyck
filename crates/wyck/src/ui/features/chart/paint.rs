@@ -11,7 +11,7 @@ use gpui::{
     ScrollWheelEvent, SharedString, TextAlign, TextRun, Window, canvas, point, px, size,
 };
 
-use crate::domain::drawings::look::Face;
+use wyck_drawings::look::Face;
 
 use super::Chart;
 use super::path_pieces;
@@ -24,7 +24,7 @@ impl Chart {
     /// Builds the frame for the canvas at `bounds`.
     fn scene(&self, cx: &App, bounds: Bounds<Pixels>, scale: f32, with_pointer: bool) -> Vec<Cmd> {
         let timeframe = self.timeframe.code();
-        let visible = move |d: &crate::domain::drawings::model::Drawing| d.shows_on(&timeframe);
+        let visible = move |d: &wyck_drawings::model::Drawing| d.shows_on(&timeframe);
         let drawings =
             self.drawings
                 .as_ref()

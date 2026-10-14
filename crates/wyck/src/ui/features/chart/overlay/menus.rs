@@ -1,6 +1,5 @@
 //! The right-click menu of the chart, and the menu of the toolbar.
 
-use crate::domain::drawings::book::Order;
 use crate::ui::features::chart::events::{ChartAction, ChartEvent};
 use crate::ui::features::chart::lines::to_real;
 use crate::ui::features::chart::scene::{Geometry, axis_h};
@@ -17,6 +16,7 @@ use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
 };
+use wyck_drawings::book::Order;
 use wyck_market::format_price;
 
 impl Chart {
@@ -39,7 +39,7 @@ impl Chart {
                 chart.update(cx, |chart, cx| chart.drawing_command(id, command, cx));
             }
         };
-        let long = drawing.tool == crate::domain::drawings::model::tool::Tool::LongPosition;
+        let long = drawing.tool == wyck_drawings::model::tool::Tool::LongPosition;
         let settings = chart.clone();
         let mut about = vec![
             Entry::new("Settings...")

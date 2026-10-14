@@ -1,9 +1,9 @@
 //! Names and edits of the points of a drawing.
 
-use crate::domain::drawings::figures::patterns::wave_names;
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{Drawing, Point};
 use crate::ui::features::chart::GROUPS;
+use wyck_drawings::figures::patterns::wave_names;
+use wyck_drawings::model::tool::Tool;
+use wyck_drawings::model::{Drawing, Point};
 use wyck_market::PRICE_SCALE;
 
 /// Every timeframe's code.
@@ -95,8 +95,8 @@ pub(super) fn format_real(raw: f64, digits: u32) -> String {
 mod tests {
 
     use super::*;
-    use crate::domain::drawings::model::tool::Tool;
-    use crate::domain::drawings::model::{Drawing, Point};
+    use wyck_drawings::model::tool::Tool;
+    use wyck_drawings::model::{Drawing, Point};
 
     #[test]
     fn a_positions_points_keep_their_shape_when_typed() {

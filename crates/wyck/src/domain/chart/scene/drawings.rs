@@ -5,9 +5,9 @@ use super::color::transparent_black;
 use super::ctx::Ctx;
 use super::{Align, Cmd, DrawingView, P, hsla, rgb_alpha};
 use crate::domain::chart::projection::ChartProjection;
-use crate::domain::drawings::geometry as shapes;
-use crate::domain::drawings::geometry::{Anchor, Prim};
-use crate::domain::drawings::model::style::Dash;
+use wyck_drawings::geometry as shapes;
+use wyck_drawings::geometry::{Anchor, Prim};
+use wyck_drawings::model::style::Dash;
 
 /// Draws the drawings of the symbol, and the grips of the selected one.
 pub(super) fn draw_drawings(cx: &Ctx<'_>, view: &DrawingView<'_>, out: &mut Vec<Cmd>) {
@@ -273,9 +273,9 @@ pub(super) fn push_prim(cx: &Ctx<'_>, prim: Prim, out: &mut Vec<Cmd>) {
                 color: rgb_alpha(color, 1.0),
                 background: background.map(|(color, alpha)| rgb_alpha(color, alpha)),
                 align: match align {
-                    crate::domain::drawings::look::HAlign::Start => Align::Left,
-                    crate::domain::drawings::look::HAlign::Center => Align::Center,
-                    crate::domain::drawings::look::HAlign::End => Align::Right,
+                    wyck_drawings::look::HAlign::Start => Align::Left,
+                    wyck_drawings::look::HAlign::Center => Align::Center,
+                    wyck_drawings::look::HAlign::End => Align::Right,
                 },
                 valign,
                 bold,

@@ -2,8 +2,8 @@
 //! broker, no clock. The engine ([`super::Alerts`]) gathers the numbers (a price, the plot of an
 //! indicator, the level of a drawing) and asks these.
 
-use crate::domain::drawings::model::Point;
-use crate::domain::drawings::model::tool::Tool;
+use wyck_drawings::model::Point;
+use wyck_drawings::model::tool::Tool;
 
 use super::model::condition::{Condition, Trigger};
 

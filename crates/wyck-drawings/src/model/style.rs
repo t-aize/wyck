@@ -1,9 +1,9 @@
 //! How a drawing is drawn: its line, fill and text, and the levels of the tools that have some.
 
-use crate::domain::drawings::look::{
+use crate::look::{
     Caps, Face, LabelSide, LevelText, MeasureLook, ProfileLook, TextLayout, is_default,
 };
-use crate::domain::drawings::position::PositionSettings;
+use crate::position::PositionSettings;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

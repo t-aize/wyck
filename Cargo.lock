@@ -9860,6 +9860,7 @@ dependencies = [
  "uuid",
  "winresource",
  "wyck-core",
+ "wyck-drawings",
  "wyck-market",
  "wyck-trading",
  "zeroize",
@@ -9871,6 +9872,17 @@ version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "wyck-drawings"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-trading",
 ]
 
 [[package]]

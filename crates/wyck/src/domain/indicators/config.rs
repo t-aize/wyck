@@ -9,7 +9,7 @@ use super::kind::StudyKind;
 use super::spec::{ATR_SMOOTHING, GRAY, InputKind, PlotKind, SOURCES, Spec, ValueFormat};
 use super::style::{FillStyle, LevelStyle, PlotStyle};
 use super::style::{default_bar_width, default_fill_opacity, opaque};
-use crate::domain::drawings::model::style::Dash;
+use wyck_drawings::model::style::Dash;
 
 /// One indicator on a chart, as the user set it. Also its saved form.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -451,8 +451,8 @@ mod tests {
     use super::super::spec::*;
     use super::super::style::*;
 
-    use crate::domain::drawings::model::style::Dash;
     use serde::{Deserialize, Serialize};
+    use wyck_drawings::model::style::Dash;
 
     #[test]
     fn a_saved_indicator_reads_back_and_a_future_one_is_recognized() {

@@ -1,9 +1,9 @@
 //! How the Fibonacci and level tools are drawn.
 
 use super::{Anchor, P, Prim, Projection, Rect, extended, seg};
-use crate::domain::drawings::look::{LabelSide, LevelText};
-use crate::domain::drawings::model::style::{Dash, Level, Style};
-use crate::domain::drawings::model::{Drawing, Point};
+use crate::look::{LabelSide, LevelText};
+use crate::model::style::{Dash, Level, Style};
+use crate::model::{Drawing, Point};
 
 pub(super) fn fib_prims(
     drawing: &Drawing,
@@ -87,12 +87,12 @@ pub(super) fn fib_prims(
 }
 
 /// The fill of a drawing, when it has one: its color and opacity.
-pub(in crate::domain::drawings) fn fill_of(style: &Style) -> Option<(u32, f32)> {
+pub(crate) fn fill_of(style: &Style) -> Option<(u32, f32)> {
     (style.fill && style.fill_opacity > 0.0).then(|| (style.fill_color(), style.fill_opacity))
 }
 
 /// The segment `a` to `b` stretched to the plot's edges on the sides the style extends.
-pub(in crate::domain::drawings) fn stretch(a: P, b: P, style: &Style, rect: Rect) -> (P, P) {
+pub(crate) fn stretch(a: P, b: P, style: &Style, rect: Rect) -> (P, P) {
     if !(style.extend_left || style.extend_right) {
         return (a, b);
     }
@@ -108,7 +108,7 @@ pub(in crate::domain::drawings) fn stretch(a: P, b: P, style: &Style, rect: Rect
 }
 
 /// The levels of a drawing that show, in increasing order.
-pub(in crate::domain::drawings) fn visible_levels(drawing: &Drawing) -> Vec<Level> {
+pub(crate) fn visible_levels(drawing: &Drawing) -> Vec<Level> {
     let mut levels: Vec<Level> = drawing.levels().into_iter().filter(|l| l.visible).collect();
     levels.sort_by(|a, b| a.value.total_cmp(&b.value));
     levels
@@ -121,11 +121,7 @@ pub fn level_text(value: f64) -> String {
 
 /// The caption of a level as the style asks for it: `price` is the price of the level, for a tool
 /// that knows one.
-pub(in crate::domain::drawings) fn level_label(
-    style: &Style,
-    value: f64,
-    price: Option<&str>,
-) -> String {
+pub(crate) fn level_label(style: &Style, value: f64, price: Option<&str>) -> String {
     match (style.level_text, price) {
         (LevelText::Auto, Some(price)) => format!("{} ({price})", level_text(value)),
         (LevelText::Percent, _) => format!("{}%", level_text(value * 100.0)),
@@ -135,13 +131,7 @@ pub(in crate::domain::drawings) fn level_label(
 }
 
 /// Words a drawing writes, in the size and weight its style asks for.
-pub(in crate::domain::drawings) fn label(
-    at: P,
-    text: String,
-    color: u32,
-    anchor: Anchor,
-    style: &Style,
-) -> Prim {
+pub(crate) fn label(at: P, text: String, color: u32, anchor: Anchor, style: &Style) -> Prim {
     Prim::Label {
         at,
         text,

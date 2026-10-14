@@ -2,8 +2,8 @@
 
 use super::create::drawing_has_text;
 use super::{Book, Creating, Snapshot, UNDO_DEPTH};
-use crate::domain::drawings::model::tool::Tool;
-use crate::domain::drawings::model::{Drawing, Point};
+use crate::model::tool::Tool;
+use crate::model::{Drawing, Point};
 
 impl Book {
     pub(super) fn snapshot(&self, symbol: &str) -> Snapshot {

@@ -2,10 +2,10 @@
 
 use super::{dist, mid, polyline, sample, sub, wrap};
 
-use crate::domain::drawings::geometry::fib::{fill_of, label, level_label, visible_levels};
-use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, seg};
-use crate::domain::drawings::model::style::Dash;
-use crate::domain::drawings::model::{Drawing, Point};
+use crate::geometry::fib::{fill_of, label, level_label, visible_levels};
+use crate::geometry::{Anchor, P, Prim, Projection, seg};
+use crate::model::style::Dash;
+use crate::model::{Drawing, Point};
 use std::f32::consts::{FRAC_PI_2, PI};
 
 pub(super) fn fib_time_extension(

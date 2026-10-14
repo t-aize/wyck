@@ -29,7 +29,6 @@ use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
 pub use crate::app::workspace::layouts;
 use crate::app::workspace::{ChartState, Preferences, UsageLimits, Workspace};
-use crate::domain::drawings::model::tool::{Group, Tool};
 use crate::domain::indicators::config::StudyConfig;
 use crate::ui::features::chart::events::{ChartAction, EditorRequest};
 use crate::ui::features::chart::{Chart, ChartLine, LineId};
@@ -42,6 +41,7 @@ use gpui::{
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
+use wyck_drawings::model::tool::{Group, Tool};
 use wyck_market::LiveBarTracker;
 use wyck_market::Timeframe;
 

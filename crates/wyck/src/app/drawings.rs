@@ -2,7 +2,7 @@
 //! one chart shows at once on the others that show the same symbol.
 //!
 //! What a drawing is, its shapes, how the pointer finds one and the book of every symbol's
-//! drawings with its undo live in [`crate::domain::drawings`]. A drawing is anchored to times and
+//! drawings with its undo live in [`wyck_drawings`]. A drawing is anchored to times and
 //! prices, not to screen positions, so it follows the chart when it is scrolled or zoomed, and
 //! shows on every timeframe of its symbol.
 
@@ -10,8 +10,8 @@ use crate::app::storage::DocumentStore;
 use gpui::Context;
 
 use crate::app::workspace::Saver;
-use crate::domain::drawings::book::Book;
-use crate::domain::drawings::model::DrawingsDoc;
+use wyck_drawings::book::Book;
+use wyck_drawings::model::DrawingsDoc;
 
 pub(crate) const DOCUMENT: &str = "drawings";
 

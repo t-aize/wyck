@@ -14,13 +14,13 @@ use gpui::{AnyElement, Context, MouseButton, SharedString, Window, canvas, div, 
 use super::MultiChart;
 use super::drawing_ui::bar_place::Movable;
 use crate::app::workspace::MAX_FAVORITE_TOOLS;
-use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart::object_tree::tool_icon;
 use crate::ui::kit::{
     controls, icon,
     menu::{self as popup, Entry, Item},
     theme, tokens,
 };
+use wyck_drawings::model::tool::Tool;
 
 /// How tall the pill is.
 const PILL_HEIGHT: f32 = 36.0;

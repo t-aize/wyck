@@ -1,12 +1,10 @@
 //! The Gann tools: fan, box and square.
 
 use super::{fan, sub};
-use crate::domain::drawings::geometry::fib::{
-    fill_of, label, level_label, level_text, visible_levels,
-};
-use crate::domain::drawings::geometry::{Anchor, P, Prim, Projection, Rect, seg};
-use crate::domain::drawings::model::Drawing;
-use crate::domain::drawings::model::style::Dash;
+use crate::geometry::fib::{fill_of, label, level_label, level_text, visible_levels};
+use crate::geometry::{Anchor, P, Prim, Projection, Rect, seg};
+use crate::model::Drawing;
+use crate::model::style::Dash;
 
 /// A Gann angle as it is written: `1/1`, `2/1`, `1/3`.
 pub fn gann_text(ratio: f64) -> String {
@@ -122,7 +120,7 @@ pub(super) fn gann_box(drawing: &Drawing, pts: &[P], proj: &dyn Projection, out:
     }
 }
 
-pub(in crate::domain::drawings) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
+pub(crate) fn gann_square(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
     let style = &drawing.style;
     let (a, b) = (pts[0], pts[1]);
     let d = sub(b, a);

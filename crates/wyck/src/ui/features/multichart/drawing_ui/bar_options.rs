@@ -2,8 +2,6 @@
 
 use super::style_bar::BarState;
 
-use crate::domain::drawings::look::Cap;
-use crate::domain::drawings::model::tool::Tool;
 use crate::ui::features::chart::DrawingCommand;
 use crate::ui::features::multichart::MultiChart;
 use crate::ui::kit::icon::IconName;
@@ -11,6 +9,8 @@ use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{layout, menu as popup, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use wyck_drawings::look::Cap;
+use wyck_drawings::model::tool::Tool;
 
 impl MultiChart {
     #[inline(never)]
