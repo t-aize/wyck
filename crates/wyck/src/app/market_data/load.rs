@@ -15,7 +15,7 @@ use crate::app::broker::session::Session;
 use crate::app::broker::{Error as ApiError, Result};
 use wyck_market::{Bar, Period, QuoteType, Tick};
 
-use wyck_chart::data::{aggregate_ticks, bucket_start, group_bars, last_group};
+use wyck_chart::{aggregate_ticks, bucket_start, group_bars, last_group};
 use wyck_market::Timeframe;
 
 /// Bars in one request. Under the range limit the server sets for every period.

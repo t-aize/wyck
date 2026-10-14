@@ -9,10 +9,10 @@
 
 use wyck_market::PRICE_SCALE;
 
-use super::scene::PriceMark;
+use wyck_chart::PriceMark;
 use wyck_drawings::model::style::Dash;
 
-pub use wyck_chart::lines::LineId;
+pub use wyck_chart::LineId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartLine {

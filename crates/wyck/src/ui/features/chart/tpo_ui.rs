@@ -9,8 +9,8 @@ use gpui::{AnyElement, Context, Entity, Subscription, Window};
 
 use super::Chart;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
-use super::tpo::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
 use crate::ui::kit::{form, number, tokens};
+use wyck_chart::{SessionKind, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock};
 
 /// The fields that are typed in.
 pub(super) struct Inputs {

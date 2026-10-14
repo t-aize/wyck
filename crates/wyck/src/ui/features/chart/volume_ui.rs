@@ -7,13 +7,13 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window, div};
 
 use super::Chart;
-use super::settings::ChartSettings;
 use super::settings_rows::{Numbers, choice, edit, named, number, switch};
-use super::transform::PricePath;
-use super::volume::{
+use crate::ui::kit::{controls, form, number, tokens};
+use wyck_chart::ChartSettings;
+use wyck_chart::PricePath;
+use wyck_chart::{
     ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
 };
-use crate::ui::kit::{controls, form, number, tokens};
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

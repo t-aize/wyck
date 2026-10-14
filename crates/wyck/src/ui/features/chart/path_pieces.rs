@@ -7,7 +7,7 @@
 //! and a dashed line is cut into its dashes, which keep the place they have along the whole line,
 //! so they do not creep when the view moves.
 
-use super::scene::P;
+use wyck_chart::P;
 
 /// A rectangle, as left, top, right, bottom.
 #[derive(Debug, Clone, Copy, PartialEq)]

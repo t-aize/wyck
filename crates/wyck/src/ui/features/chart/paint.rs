@@ -3,6 +3,7 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
+use wyck_chart::{Hsla, PriceMark, build, fitted_origin, fitted_size, full_time, hsla};
 
 use gpui::prelude::*;
 use gpui::{
@@ -15,7 +16,7 @@ use wyck_drawings::look::Face;
 
 use super::Chart;
 use super::path_pieces;
-use super::scene::{self, Align, Cmd, DrawingView, Frame, P};
+use wyck_chart::{Align, Cmd, DrawingView, Frame, P};
 
 /// Most points in one path: a GPU path may only hold so many vertices (see [`super::path_pieces`]).
 const PATH_BATCH: usize = 3_000;
@@ -45,7 +46,7 @@ impl Chart {
                         book.also().to_vec(),
                     ))
                 });
-        let marks: Vec<scene::PriceMark> = self
+        let marks: Vec<PriceMark> = self
             .lines
             .iter()
             .filter(|line| self.settings.trading.shows(line.id))
@@ -55,7 +56,7 @@ impl Chart {
                 mark
             })
             .collect();
-        scene::build(&Frame {
+        build(&Frame {
             raw: &self.series,
             display: &self.display,
             settings: &self.settings,
@@ -103,7 +104,7 @@ impl Chart {
             .symbol
             .as_ref()
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
-        let when = super::axis::full_time(
+        let when = full_time(
             crate::app::market_data::now_ms(),
             self.settings.zone,
             false,
@@ -123,7 +124,7 @@ impl Chart {
     pub fn picture_pixels(
         &self,
         cx: &App,
-    ) -> Result<(tiny_skia::Pixmap, scene::color::Hsla), super::raster::RasterError> {
+    ) -> Result<(tiny_skia::Pixmap, Hsla), super::raster::RasterError> {
         let (w, h) = self.size();
         let scale = super::raster::PICTURE_SCALE;
         let bounds = Bounds::new(point(px(0.0), px(0.0)), size(px(w as f32), px(h as f32)));
@@ -138,7 +139,7 @@ impl Chart {
         if self.settings.kind != super::ChartKind::Candles {
             title.push_str(&format!("  {}", self.settings.kind.label()));
         }
-        let when = super::axis::full_time(
+        let when = full_time(
             crate::app::market_data::now_ms(),
             self.settings.zone,
             false,
@@ -148,7 +149,7 @@ impl Chart {
             super::raster::Caption {
                 text: title,
                 size: 15.0,
-                color: scene::hsla(palette.text_strong),
+                color: hsla(palette.text_strong),
                 bold: true,
             },
             super::raster::Caption {
@@ -157,11 +158,11 @@ impl Chart {
                     self.settings.zone.label(crate::app::market_data::now_ms())
                 ),
                 size: 11.0,
-                color: scene::hsla(palette.text),
+                color: hsla(palette.text),
                 bold: false,
             },
         ];
-        let background = scene::hsla(palette.bg);
+        let background = hsla(palette.bg);
         let pixmap = super::raster::render_pixmap(
             &cmds,
             w as f32,
@@ -263,17 +264,14 @@ pub fn execute(cmds: Vec<Cmd>, window: &mut Window, cx: &mut App) {
                 bold,
                 face,
             } => {
-                let Some(font_size) =
-                    scene::cmd::fitted_size(&text, preferred, w, h, |font_size| {
-                        f32::from(shape(window, &text, font_size, color, bold, face).width)
-                    })
-                else {
+                let Some(font_size) = fitted_size(&text, preferred, w, h, |font_size| {
+                    f32::from(shape(window, &text, font_size, color, bold, face).width)
+                }) else {
                     continue;
                 };
                 let line = shape(window, &text, font_size, color, bold, face);
                 let text_w = f32::from(line.width);
-                let (left, top) =
-                    scene::cmd::fitted_origin((x, y, w, h), text_w, font_size, align, valign);
+                let (left, top) = fitted_origin((x, y, w, h), text_w, font_size, align, valign);
                 if let Some(bg) = background {
                     let mut quad = gpui::fill(
                         Bounds::new(
@@ -360,13 +358,7 @@ fn note_refused(error: &anyhow::Error, points: usize) {
 /// Strokes a polyline: the part of it that shows, in paths a GPU path can hold. A dashed line is
 /// drawn dash by dash, so a line longer than the screen by a million pixels costs what the screen
 /// shows of it (see [`super::path_pieces`]).
-fn stroke(
-    window: &mut Window,
-    points: &[P],
-    width: f32,
-    color: scene::color::Hsla,
-    dash: Option<[f32; 2]>,
-) {
+fn stroke(window: &mut Window, points: &[P], width: f32, color: Hsla, dash: Option<[f32; 2]>) {
     let rect = visible(window, width + 2.0);
     let pieces = match dash {
         Some([on, off]) => path_pieces::dashes(points, on, off, rect),
@@ -404,7 +396,7 @@ fn shape(
     window: &Window,
     text: &str,
     size_px: f32,
-    color: scene::color::Hsla,
+    color: Hsla,
     bold: bool,
     face: Face,
 ) -> gpui::ShapedLine {

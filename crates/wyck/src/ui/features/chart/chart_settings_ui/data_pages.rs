@@ -2,15 +2,15 @@
 
 use super::{ChartSettingsEditor, ColorKey, LABEL_WIDTH, PRICE_HEIGHTS, ZONE_LIST_MAX, edit_chart};
 use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
-use crate::ui::features::chart::options::ChartColors;
-use crate::ui::features::chart::settings::ChartSettings;
 use crate::ui::features::chart::study::config::StudyConfig;
-use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{indicator_picker, open_object_tree, study_settings};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{button, controls, form, icon, modal, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
+use wyck_chart::ChartColors;
+use wyck_chart::ChartSettings;
+use wyck_chart::Zone;
 
 impl ChartSettingsEditor {
     pub(super) fn canvas_page(

@@ -1,14 +1,15 @@
 //! The pages that set how the chart looks: its type, symbol, status, scales and colors.
 
 use super::{ChartSettingsEditor, ColorKey, edit_chart, size_mode, size_value};
-use crate::ui::features::chart::options::{CrosshairStyle, ScaleMargin};
-use crate::ui::features::chart::settings::{ChartKind, ChartSettings, ScaleMode};
-use crate::ui::features::chart::transform::settings::BoxSize;
 use crate::ui::features::chart::{construction_ui, footprint_ui, overlay, tpo_ui, volume_ui};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, form, icon, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, SharedString, div, px};
+use wyck_chart::BoxSize;
+use wyck_chart::quote_unit;
+use wyck_chart::{ChartKind, ChartSettings, ScaleMode};
+use wyck_chart::{CrosshairStyle, ScaleMargin};
 use wyck_market::PRICE_SCALE;
 
 impl ChartSettingsEditor {
@@ -87,8 +88,7 @@ impl ChartSettingsEditor {
             let size = field.get(&settings.transform);
             let chart = self.chart.clone();
             let state_for_mode = state.clone();
-            let unit_real =
-                crate::ui::features::chart::scene::quote_unit(digits) / PRICE_SCALE as f64;
+            let unit_real = quote_unit(digits) / PRICE_SCALE as f64;
             let resolved = (box_size > 0).then(|| box_size as f64 / PRICE_SCALE as f64);
             rows.push(form::field(
                 field.label(),

@@ -338,7 +338,7 @@ mod tests {
         // What each chart shows stayed with it.
         assert_eq!(
             preferences.chart(0).settings.scale,
-            wyck_chart::settings::ScaleMode::Log
+            wyck_chart::ScaleMode::Log
         );
         assert_eq!(preferences.chart(1).settings.studies.len(), 1);
         assert_eq!(preferences.chart(1).settings.main_weight, 5.0);

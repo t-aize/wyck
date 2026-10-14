@@ -6,10 +6,10 @@ use crate::ui::kit::input::InputState;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
 
 use super::Chart;
-use super::settings::ChartKind;
 use super::settings_rows::{Numbers, choice, named, number, switch};
-use super::transform::PricePath;
-use super::transform::settings::TransformSettings;
+use wyck_chart::ChartKind;
+use wyck_chart::PricePath;
+use wyck_chart::TransformSettings;
 
 /// The numbers that are typed in.
 pub(super) struct Inputs {

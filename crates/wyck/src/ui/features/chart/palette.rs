@@ -1,9 +1,9 @@
 //! The colors a chart draws with, and the conversions between the chart's own color types and gpui's.
 
-use wyck_chart::{options, scene};
+use wyck_chart::{ChartColors, Hsla, Palette, Rgba};
 
-pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::palette::Palette {
-    let mut base = scene::palette::Palette::new();
+pub(super) fn palette_for_chart(colors: &ChartColors) -> Palette {
+    let mut base = Palette::new();
     let color = chart_rgba;
     base.up = color(crate::ui::kit::theme::chart_up());
     base.down = color(crate::ui::kit::theme::chart_down());
@@ -20,7 +20,7 @@ pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::palette
     base.kagi_yin = base.down;
     base.pnf_up = base.up;
     base.pnf_down = base.down;
-    scene::palette::Palette::for_chart_with_base(colors, base)
+    Palette::for_chart_with_base(colors, base)
 }
 
 pub(super) struct DesktopPalette {
@@ -33,8 +33,8 @@ pub(super) struct DesktopPalette {
 
 // The chart crate has no gpui, so its colors are types of its own: these move them across.
 
-pub(super) fn chart_rgba(color: gpui::Rgba) -> scene::color::Rgba {
-    scene::color::Rgba {
+pub(super) fn chart_rgba(color: gpui::Rgba) -> Rgba {
+    Rgba {
         r: color.r,
         g: color.g,
         b: color.b,
@@ -42,7 +42,7 @@ pub(super) fn chart_rgba(color: gpui::Rgba) -> scene::color::Rgba {
     }
 }
 
-pub(super) fn gpui_rgba(color: scene::color::Rgba) -> gpui::Rgba {
+pub(super) fn gpui_rgba(color: Rgba) -> gpui::Rgba {
     gpui::Rgba {
         r: color.r,
         g: color.g,
@@ -51,7 +51,7 @@ pub(super) fn gpui_rgba(color: scene::color::Rgba) -> gpui::Rgba {
     }
 }
 
-pub(super) fn gpui_hsla(color: scene::color::Hsla) -> gpui::Hsla {
+pub(super) fn gpui_hsla(color: Hsla) -> gpui::Hsla {
     gpui::Hsla {
         h: color.h,
         s: color.s,

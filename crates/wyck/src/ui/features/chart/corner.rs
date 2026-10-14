@@ -4,12 +4,13 @@
 
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
+use wyck_chart::{axis_h, axis_w, zone_w};
 
-use super::settings::ScaleMode;
-use super::view::PriceScale;
-use super::{Chart, Menu, scene};
+use super::{Chart, Menu};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, icon, theme, tokens};
+use wyck_chart::PriceScale;
+use wyck_chart::ScaleMode;
 
 /// A toggle of the price scale.
 fn toggle(
@@ -62,8 +63,8 @@ impl Chart {
             .absolute()
             .right_0()
             .bottom_0()
-            .w(px(scene::axis_w()))
-            .h(px(scene::axis_h()))
+            .w(px(axis_w()))
+            .h(px(axis_h()))
             .flex()
             .flex_row()
             .items_center()
@@ -111,10 +112,10 @@ impl Chart {
         let zone = div()
             .id(("chart-zone", self.id))
             .absolute()
-            .right(px(scene::axis_w()))
+            .right(px(axis_w()))
             .bottom_0()
-            .w(px(scene::zone_w()))
-            .h(px(scene::axis_h()))
+            .w(px(zone_w()))
+            .h(px(axis_h()))
             .cursor_pointer()
             .occlude()
             .on_mouse_down(MouseButton::Left, stop)
@@ -129,8 +130,8 @@ impl Chart {
             out.push(
                 div()
                     .absolute()
-                    .right(px(scene::axis_w() + tokens::space::sm()))
-                    .bottom(px(scene::axis_h() + tokens::space::sm()))
+                    .right(px(axis_w() + tokens::space::sm()))
+                    .bottom(px(axis_h() + tokens::space::sm()))
                     .child(
                         div()
                             .id(("chart-latest", self.id))

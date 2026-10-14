@@ -22,7 +22,7 @@
 //! Each output element keeps the time of the price that made it, so drawings anchored to times
 //! still land near the right place and the time axis still reads.
 
-pub mod settings;
+pub(crate) mod settings;
 
 use serde::{Deserialize, Serialize};
 use wyck_market::Bar;

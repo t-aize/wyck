@@ -2,19 +2,23 @@
 //! connection, and the live prices.
 
 use std::time::{Duration, Instant};
+use wyck_chart::{
+    apply_live_bar, fold_group, fold_tick, merge_bars, prepend_bars, prepend_ticks, splice_ticks,
+    touch_last_bar, trim_front,
+};
 
 use crate::app::broker::Result as ApiResult;
 use gpui::Context;
 use wyck_market::Tick;
 
-use super::data::{self, MAX_BARS, MAX_TICKS, Series};
-use super::view::View;
 use super::{Chart, Load, Older, empty_series, flatten};
 use crate::app::market_data::live::{LiveUpdate, Wish};
 use crate::app::market_data::load;
 use crate::app::market_data::load::Loaded;
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
+use wyck_chart::View;
+use wyck_chart::{MAX_BARS, MAX_TICKS, Series};
 use wyck_market::Timeframe;
 
 impl Chart {
@@ -235,15 +239,15 @@ impl Chart {
     fn gap_loaded(&mut self, loaded: Loaded, from: i64, to: i64, cx: &mut Context<Self>) {
         let before = self.series.len();
         match (loaded, &mut self.series) {
-            (Loaded::Bars(bars), Series::Bars(held)) => data::merge_bars(held, &bars),
+            (Loaded::Bars(bars), Series::Bars(held)) => merge_bars(held, &bars),
             (Loaded::Grouped { bars, tail }, Series::Bars(held)) => {
-                data::merge_bars(held, &bars);
+                merge_bars(held, &bars);
                 if !tail.is_empty() {
                     self.group_tail = tail;
                 }
             }
             (Loaded::Ticks(ticks), Series::Ticks(held)) => {
-                data::splice_ticks(held, ticks, from, to);
+                splice_ticks(held, ticks, from, to);
             }
             _ => return,
         }
@@ -306,9 +310,9 @@ impl Chart {
             Ok(loaded) => {
                 let added = match (loaded, &mut self.series) {
                     (Loaded::Bars(bars) | Loaded::Grouped { bars, .. }, Series::Bars(held)) => {
-                        data::prepend_bars(held, bars)
+                        prepend_bars(held, bars)
                     }
-                    (Loaded::Ticks(ticks), Series::Ticks(held)) => data::prepend_ticks(held, ticks),
+                    (Loaded::Ticks(ticks), Series::Ticks(held)) => prepend_ticks(held, ticks),
                     _ => 0,
                 };
                 // Nothing new means the server has nothing older (or only what is held).
@@ -372,20 +376,20 @@ impl Chart {
                 (Series::Ticks(ticks), _) => {
                     ticks.push(tick);
                     appended += 1;
-                    data::trim_front(ticks, MAX_TICKS);
+                    trim_front(ticks, MAX_TICKS);
                 }
                 (Series::Bars(bars), Timeframe::Seconds(seconds)) => {
-                    if data::fold_tick(bars, i64::from(seconds) * 1_000, tick) {
+                    if fold_tick(bars, i64::from(seconds) * 1_000, tick) {
                         appended += 1;
                     }
-                    data::trim_front(bars, MAX_BARS);
+                    trim_front(bars, MAX_BARS);
                 }
                 (Series::Bars(bars), Timeframe::Bars(period)) => {
-                    data::touch_last_bar(bars, period.millis(), tick);
+                    touch_last_bar(bars, period.millis(), tick);
                 }
                 (Series::Bars(bars), timeframe @ Timeframe::Multiple(..)) => {
                     if let Some(span) = timeframe.bar_ms() {
-                        data::touch_last_bar(bars, span, tick);
+                        touch_last_bar(bars, span, tick);
                     }
                 }
                 _ => {}
@@ -394,23 +398,23 @@ impl Chart {
         match (&mut self.series, self.timeframe) {
             (Series::Bars(bars), Timeframe::Bars(period)) => {
                 for (live_period, bar) in &update.bars {
-                    if *live_period == period && data::apply_live_bar(bars, *bar) {
+                    if *live_period == period && apply_live_bar(bars, *bar) {
                         appended += 1;
                         self.last_time_ms = self.last_time_ms.max(bar.time_ms);
                     }
                 }
-                data::trim_front(bars, MAX_BARS);
+                trim_front(bars, MAX_BARS);
             }
             (Series::Bars(bars), timeframe @ Timeframe::Multiple(period, _)) => {
                 for (live_period, bar) in &update.bars {
                     if *live_period == period
-                        && data::fold_group(bars, &mut self.group_tail, *bar, timeframe)
+                        && fold_group(bars, &mut self.group_tail, *bar, timeframe)
                     {
                         appended += 1;
                         self.last_time_ms = self.last_time_ms.max(bar.time_ms);
                     }
                 }
-                data::trim_front(bars, MAX_BARS);
+                trim_front(bars, MAX_BARS);
             }
             _ => {}
         }

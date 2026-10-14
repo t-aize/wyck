@@ -2,8 +2,6 @@
 
 use crate::ui::features::chart::events::{ChartAction, ChartEvent};
 use crate::ui::features::chart::lines::to_real;
-use crate::ui::features::chart::scene::{Geometry, axis_h};
-use crate::ui::features::chart::zone::Zone;
 use crate::ui::features::chart::{
     Chart, DrawingCommand, Menu, chart_settings_ui, export_ui, indicator_picker,
 };
@@ -16,6 +14,8 @@ use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, SharedString, Window, deferred, div, px,
 };
+use wyck_chart::Zone;
+use wyck_chart::{Geometry, axis_h};
 use wyck_drawings::book::Order;
 use wyck_market::format_price;
 

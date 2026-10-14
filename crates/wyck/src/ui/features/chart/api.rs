@@ -1,13 +1,10 @@
 //! What the rest of the app asks of a chart: its symbol, its timeframe, its settings, its studies and its lines.
 
 use super::events::ChartEvent;
-use super::settings;
-use super::settings::ScaleMode;
-use super::{
-    Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
-    view,
-};
+use super::{Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View};
 use wyck_chart::ChartLook;
+use wyck_chart::ScaleMode;
+use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceScale};
 
 use crate::app::market_data::now_ms;
 use gpui::{Context, SharedString};
@@ -198,7 +195,7 @@ impl Chart {
         if before.kind != self.settings.kind {
             let footprint = self.settings.kind == ChartKind::Footprint;
             if footprint {
-                self.view.bar_px = self.view.bar_px.max(footprint::DEFAULT_BAR_PX);
+                self.view.bar_px = self.view.bar_px.max(DEFAULT_BAR_PX);
             } else if before.kind == ChartKind::Footprint {
                 // Bars as wide as a footprint's would be absurd as candles.
                 self.view.bar_px = super::default_bar_px(self.timeframe);
@@ -210,7 +207,7 @@ impl Chart {
             self.view = View::new(self.view.bar_px);
         }
         if before.scale != self.settings.scale || before.invert != self.settings.invert {
-            self.view.price = view::PriceScale::Auto;
+            self.view.price = PriceScale::Auto;
         }
         // How a chart looks is how every chart looks: the layout hands it to the others, and
         // keeps it, before it saves what this chart shows.
@@ -236,7 +233,7 @@ impl Chart {
             self.rebuild_display();
         }
         if before.invert != self.settings.invert {
-            self.view.price = view::PriceScale::Auto;
+            self.view.price = PriceScale::Auto;
         }
         cx.notify();
     }
@@ -268,7 +265,7 @@ impl Chart {
     }
 
     pub fn set_max_studies(&mut self, limit: usize, cx: &mut Context<Self>) {
-        self.max_studies = limit.clamp(1, settings::MAX_STUDIES);
+        self.max_studies = limit.clamp(1, MAX_STUDIES);
         cx.notify();
     }
 

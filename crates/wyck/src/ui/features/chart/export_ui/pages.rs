@@ -7,10 +7,9 @@ use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
-use wyck_chart::export;
-use wyck_chart::export::PREVIEW_ROWS;
-use wyck_chart::export::choices::{Content, Order, RangeKind};
-use wyck_chart::export::options::ExportOptions;
+use wyck_chart::ExportOptions;
+use wyck_chart::PREVIEW_ROWS;
+use wyck_chart::{Content, Order, RangeKind};
 
 impl ExportDialog {
     pub(super) fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -23,7 +22,7 @@ impl ExportDialog {
                 "export-content",
                 "Export",
                 Some("The chart draws its own elements, which are not the prices"),
-                export::choices::Content::ALL
+                Content::ALL
                     .iter()
                     .map(|c| {
                         (

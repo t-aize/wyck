@@ -13,7 +13,7 @@ use crate::app::account::Account;
 use crate::app::alerts::Alerts;
 use crate::app::prefs::panel::Tab;
 use crate::ui::kit::tokens;
-use wyck_chart::zone::Zone;
+use wyck_chart::Zone;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, format_amount};
 

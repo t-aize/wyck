@@ -2,13 +2,14 @@
 
 use super::rgb;
 use crate::ui::features::chart::events::{ChartEvent, EditorRequest};
-use crate::ui::features::chart::scene::{Geometry, axis_w, price};
 use crate::ui::features::chart::study::spec::{Placement, PlotKind, ValueFormat};
 use crate::ui::features::chart::{Chart, study_settings};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
+use wyck_chart::{Geometry, axis_w};
+use wyck_chart::{compact, format_value, signed};
 
 impl Chart {
     /// The background of a button of the legend while the pointer is over it. It is made from the
@@ -55,7 +56,7 @@ impl Chart {
                     }
                     _ => config.plot_style(plot.key).color,
                 };
-                (price::format_value(value, format, self.digits()), color)
+                (format_value(value, format, self.digits()), color)
             })
             .filter(|(text, _)| !text.is_empty())
             .collect()
@@ -418,25 +419,9 @@ impl Chart {
                 .child(div().text_color(theme::chart_muted()).child(label))
                 .child(div().text_color(tone).child(text))
         };
-        row.child(pair(
-            "Vol",
-            crate::ui::features::chart::footprint::compact(sell + buy),
-            theme::chart_fg(),
-        ))
-        .child(pair(
-            "Delta",
-            crate::ui::features::chart::footprint::signed(delta),
-            tone,
-        ))
-        .child(pair(
-            "Buy",
-            crate::ui::features::chart::footprint::compact(buy),
-            theme::chart_up(),
-        ))
-        .child(pair(
-            "Sell",
-            crate::ui::features::chart::footprint::compact(sell),
-            theme::chart_down(),
-        ))
+        row.child(pair("Vol", compact(sell + buy), theme::chart_fg()))
+            .child(pair("Delta", signed(delta), tone))
+            .child(pair("Buy", compact(buy), theme::chart_up()))
+            .child(pair("Sell", compact(sell), theme::chart_down()))
     }
 }

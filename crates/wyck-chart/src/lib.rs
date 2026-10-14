@@ -1,23 +1,73 @@
 //! Chart models and calculations: data, studies (indicators), drawings, scene commands and export.
+//!
+//! The modules are private: everything the app uses is re-exported here, flat, so a path is
+//! `wyck_chart::Cmd` and never `wyck_chart::scene::Cmd`. A new public item is added to the list
+//! below, in the group of the module that holds it. Two names are never the same here, so a
+//! module name is not needed to tell them apart.
 
-pub mod axis;
-pub mod data;
-pub mod display;
-pub mod export;
-pub mod flow;
-pub mod footprint;
-pub mod lines;
+mod axis;
+mod data;
+mod display;
+mod export;
+mod flow;
+mod footprint;
+mod lines;
 mod look;
-pub mod options;
-pub mod projection;
-pub mod scene;
-pub mod settings;
-pub mod tpo;
-pub mod transform;
-pub mod view;
-pub mod volume;
-pub mod zone;
+mod options;
+mod projection;
+mod scene;
+mod settings;
+mod tpo;
+mod transform;
+mod view;
+mod volume;
+mod zone;
 
+pub use axis::full_time;
+pub use data::{
+    MAX_BARS, MAX_TICKS, Series, aggregate_ticks, apply_live_bar, bucket_start, fold_group,
+    fold_tick, group_bars, last_group, merge_bars, prepend_bars, prepend_ticks, splice_ticks,
+    touch_last_bar, trim_front,
+};
+pub use display::{Display, study_input};
+pub use export::PREVIEW_ROWS;
+pub use export::choices::{
+    Content, Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, Order,
+    PriceDigits, Quote, RangeKind, TimeFormat,
+};
+pub use export::columns::ColumnKey;
+pub use export::options::{ExportOptions, pattern_is_valid};
+pub use export::presets::{Preset, builtin_presets};
+pub use export::render::{clashes, file_name, render};
+pub use export::source::{Cell, Source, Table, TableColumn};
+pub use export::table::{date_is_valid, table};
+pub use flow::{BarFlow, Flow, Held, Level, Step, bar_open, next_step};
+pub use footprint::{
+    CellMode, DEFAULT_BAR_PX, FootprintSettings, HeatScope, compact, signed, supports,
+};
+pub use lines::LineId;
 pub use look::{ChartContent, ChartLook};
-pub use settings::{ChartKind, ChartSettings};
-pub use zone::Zone;
+pub use options::{ChartColors, CrosshairStyle, PriceLines, ScaleMargin, StatusLine, TradingLines};
+pub use projection::ChartProjection;
+pub use scene::cmd::{
+    Align, Cmd, P, fitted_origin, fitted_size, font, hsla, line_height, rgb_alpha, with_alpha,
+};
+pub use scene::color::{Hsla, Rgba};
+pub use scene::geometry::{Band, Geometry, axis_h, axis_w, zone_w};
+pub use scene::palette::Palette;
+pub use scene::price::{PriceMap, format_value};
+pub use scene::scale::{geometry, main_map};
+pub use scene::{DrawingView, Frame, PriceMark, build, quote_unit};
+pub use settings::{
+    ChartKind, ChartSettings, DEFAULT_STUDIES_LIMIT, MAX_STUDIES, PaneRef, ScaleMode,
+};
+pub use tpo::{
+    Profile, SessionKind, SinglePrint, TpoColor, TpoDisplay, TpoSettings, format_clock, parse_clock,
+};
+pub use transform::settings::{BoxSize, TransformSettings};
+pub use transform::{KagiLine, PnfColumn, PricePath};
+pub use view::{PriceScale, View};
+pub use volume::{
+    ColorBy, Fill, VolumeBarSettings, VolumeCandleSettings, VolumeSize, WidthReference, WidthScale,
+};
+pub use zone::{TIME_PATTERN, Zone};

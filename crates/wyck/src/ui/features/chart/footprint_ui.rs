@@ -7,9 +7,9 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, Entity, Subscription, Window};
 
 use super::Chart;
-use super::footprint::{CellMode, FootprintSettings, HeatScope};
-use super::settings::ChartSettings;
 use crate::ui::kit::{controls, form, number, tokens};
+use wyck_chart::ChartSettings;
+use wyck_chart::{CellMode, FootprintSettings, HeatScope};
 
 /// The numbers of the footprint that are typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

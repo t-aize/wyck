@@ -7,7 +7,17 @@ window, no file, no socket. The painters that turn commands into pixels live in 
 Depends on: `wyck-core`, `wyck-market`, `wyck-drawings`, `wyck-indicators`, `chrono`, `chrono-tz`,
 `serde`, `serde_json` (`toml` in tests only).
 
+## Public API
+
+Flat at the root: `wyck_chart::Cmd`, `wyck_chart::Series`, `wyck_chart::ExportOptions`. Every module
+is private and `lib.rs` re-exports what the app uses, group by group. No two public names are the
+same, which is what makes this possible; keep it so. Entry points: `Series` and the joins of
+`data` (`merge_bars`...), `ChartSettings` (`ChartContent` + `ChartLook`), `Display`, `View`,
+`build(&Frame)` for a frame of commands, `table` then `render` for an export, `Zone`.
+
 ## Module map
+
+The modules below are private; a type is reached by its name at the root.
 
 | Module | What it holds |
 |---|---|
@@ -72,6 +82,8 @@ must not be weakened. Run: `cargo test -p wyck-chart`.
 
 - Do not use `gpui`, `tokio`, files or the network: `cargo xtask deps` fails on them. A painter
   belongs in `wyck`.
+- Do not make a module public or give a new public item a name already taken: re-export it flat in
+  `lib.rs`, and pick another name if the name clashes.
 - Do not store a screen position in a saved type.
 - Do not rename a `ChartKind` code or a serde field without an alias and a migration.
 - Do not depend on `wyck-trading`, `wyck-storage` or anything above: the arrow goes the other way.

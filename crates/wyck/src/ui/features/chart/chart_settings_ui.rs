@@ -10,15 +10,16 @@
 pub mod data_pages;
 pub mod look_pages;
 
-use super::options::ChartColors;
-use super::settings::{ChartKind, ChartSettings};
-use super::transform::settings::{BoxSize, TransformSettings};
 use super::{Chart, construction_ui, footprint_ui, tpo_ui, volume_ui};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div};
+use wyck_chart::ChartColors;
+use wyck_chart::Rgba;
+use wyck_chart::{BoxSize, TransformSettings};
+use wyck_chart::{ChartKind, ChartSettings};
 
 /// The tallest the list of time zones grows before it scrolls.
 const ZONE_LIST_MAX: f32 = 380.0;
@@ -207,7 +208,7 @@ impl ColorKey {
     }
 }
 
-fn rgb_u32(color: super::scene::color::Rgba) -> u32 {
+fn rgb_u32(color: Rgba) -> u32 {
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u32;
     byte(color.r) << 16 | byte(color.g) << 8 | byte(color.b)
 }

@@ -26,7 +26,7 @@ use crate::ui::kit::{
     form::Head,
     icon, modal, number, theme, toast, tokens,
 };
-use wyck_chart::settings::MAX_STUDIES;
+use wyck_chart::MAX_STUDIES;
 use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 
 mod about;

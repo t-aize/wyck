@@ -8,9 +8,9 @@ use crate::ui::kit::number;
 use gpui::prelude::*;
 use gpui::{Context, Entity, SharedString, Window};
 use std::collections::BTreeMap;
-use wyck_chart::export::choices::Content;
-use wyck_chart::export::columns::ColumnKey;
-use wyck_chart::export::options::ExportOptions;
+use wyck_chart::ColumnKey;
+use wyck_chart::Content;
+use wyck_chart::ExportOptions;
 
 impl ExportDialog {
     pub(super) fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {

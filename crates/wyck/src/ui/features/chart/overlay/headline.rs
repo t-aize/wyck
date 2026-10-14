@@ -1,15 +1,16 @@
 //! The headline of the chart, the labels of the lines, the states of the canvas and the selection box.
 
 use super::rgb;
-use crate::ui::features::chart::data::Series;
 use crate::ui::features::chart::events::ChartEvent;
-use crate::ui::features::chart::scene::{Geometry, axis_h, axis_w};
-use crate::ui::features::chart::settings::ChartKind;
 use crate::ui::features::chart::{Chart, Load, Older};
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{anim, button, controls, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, MouseButton, SharedString, div, px};
+use wyck_chart::ChartKind;
+use wyck_chart::Series;
+use wyck_chart::supports;
+use wyck_chart::{Geometry, axis_h, axis_w};
 use wyck_market::format_price;
 
 impl Chart {
@@ -99,13 +100,11 @@ impl Chart {
             kind_text.push_str(&format!(" {}", format_price(self.display.box_size, digits)));
         }
         if self.settings.kind == ChartKind::Footprint && self.timeframe.bar_ms().is_some() {
-            kind_text.push_str(
-                if crate::ui::features::chart::footprint::supports(self.timeframe) {
-                    " (tick volume)"
-                } else {
-                    " (needs bars of a day or less)"
-                },
-            );
+            kind_text.push_str(if supports(self.timeframe) {
+                " (tick volume)"
+            } else {
+                " (needs bars of a day or less)"
+            });
         }
         let mut row = div()
             .flex()

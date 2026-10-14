@@ -16,7 +16,6 @@ mod visibility;
 
 use super::Chart;
 use super::GROUPS;
-use super::zone::Zone;
 use crate::app::drawings::Drawings;
 use crate::ui::kit::field::{SliderField, ValueChanged};
 use crate::ui::kit::font_picker::{FontChosen, FontPicker};
@@ -25,6 +24,7 @@ use crate::ui::kit::input::{InputEvent, InputState, Textarea, TextareaState};
 use crate::ui::kit::{controls, form, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use wyck_chart::Zone;
 use wyck_drawings::ICONS;
 use wyck_drawings::icon_key;
 use wyck_drawings::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
@@ -326,7 +326,7 @@ impl DrawingProps {
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .default_value(zone.format(point.t, wyck_chart::zone::TIME_PATTERN))
+                        .default_value(zone.format(point.t, wyck_chart::TIME_PATTERN))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
                 subscriptions.push(number::watch_parsed(

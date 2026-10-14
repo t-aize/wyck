@@ -13,13 +13,13 @@
 //! Prices are the server's raw integers until the very end, and are written by integer
 //! arithmetic, so a price never picks up the error of a float.
 
-pub mod choices;
-pub mod columns;
-pub mod options;
-pub mod presets;
-pub mod render;
-pub mod source;
-pub mod table;
+pub(crate) mod choices;
+pub(crate) mod columns;
+pub(crate) mod options;
+pub(crate) mod presets;
+pub(crate) mod render;
+pub(crate) mod source;
+pub(crate) mod table;
 
 /// How many rows a preview shows.
 pub const PREVIEW_ROWS: usize = 12;

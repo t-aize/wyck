@@ -11,23 +11,23 @@
 //! needs its own scale. Each band has its own [`PriceMap`]; the time axis is shared.
 
 mod axes;
-pub mod cmd;
-pub mod color;
+pub(crate) mod cmd;
+pub(crate) mod color;
 mod ctx;
 mod drawings;
 mod footprint;
-mod geometry;
-pub mod palette;
-pub mod price;
-pub mod scale;
+pub(crate) mod geometry;
+pub(crate) mod palette;
+pub(crate) mod price;
+pub(crate) mod scale;
 mod series;
 mod studies;
 mod tpo;
 
-pub use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
+pub(crate) use self::cmd::{Align, Cmd, P, font, hsla, line_height, rgb_alpha, with_alpha};
 use self::ctx::Ctx;
-pub use self::geometry::{Band, Geometry, axis_h, axis_w, zone_w};
-pub use self::price::PriceMap;
+pub(crate) use self::geometry::{Band, Geometry, axis_w, zone_w};
+pub(crate) use self::price::PriceMap;
 use self::scale::{geometry, main_map};
 use super::axis;
 use super::data::Series;

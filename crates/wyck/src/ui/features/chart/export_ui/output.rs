@@ -3,16 +3,16 @@
 use super::{ExportDialog, MAX_COPY_ROWS, Preview, human_bytes};
 use crate::ui::kit::toast::{self, Kind};
 use gpui::{ClipboardItem, Context};
-use wyck_chart::export;
-use wyck_chart::export::PREVIEW_ROWS;
-use wyck_chart::export::choices::{RangeKind, TimeFormat};
+use wyck_chart::PREVIEW_ROWS;
+use wyck_chart::{RangeKind, TimeFormat};
+use wyck_chart::{clashes, date_is_valid, file_name, pattern_is_valid, render, table};
 
 impl ExportDialog {
     pub(super) fn build_preview(&self) -> Preview {
         let source = self.snapshot.source();
         let options = self.options.clone().normalized();
-        let table = export::table::table(&source, &options, Some(PREVIEW_ROWS));
-        let text = export::render::render(&table, &options, source.digits, source.zone);
+        let table = table(&source, &options, Some(PREVIEW_ROWS));
+        let text = render(&table, &options, source.digits, source.zone);
         let lines: Vec<String> = text
             .lines()
             .take(PREVIEW_ROWS + 4)
@@ -33,24 +33,18 @@ impl ExportDialog {
         if table.total_rows == 0 && !raw.columns.is_empty() {
             problems.push("No row matches the range. Check the dates.".to_owned());
         }
-        if raw.range == RangeKind::Dates
-            && (!export::table::date_is_valid(&raw.from) || !export::table::date_is_valid(&raw.to))
-        {
+        if raw.range == RangeKind::Dates && (!date_is_valid(&raw.from) || !date_is_valid(&raw.to)) {
             problems.push("A date is not read as 2026-01-05 or 2026-01-05 09:30.".to_owned());
         }
-        if raw.time_format == TimeFormat::Custom
-            && !export::options::pattern_is_valid(&raw.time_pattern)
-        {
+        if raw.time_format == TimeFormat::Custom && !pattern_is_valid(&raw.time_pattern) {
             problems.push("The time pattern is not valid, the default one is used.".to_owned());
         }
-        if !export::options::pattern_is_valid(&raw.date_pattern)
-            || !export::options::pattern_is_valid(&raw.clock_pattern)
-        {
+        if !pattern_is_valid(&raw.date_pattern) || !pattern_is_valid(&raw.clock_pattern) {
             problems.push(
                 "The date or clock pattern is not valid, the default one is used.".to_owned(),
             );
         }
-        if export::render::clashes(&options) {
+        if clashes(&options) {
             problems.push(
                 "The decimal comma and the comma delimiter clash, and fields are never quoted."
                     .to_owned(),
@@ -66,7 +60,7 @@ impl ExportDialog {
             lines,
             rows: table.total_rows,
             bytes,
-            file_name: export::render::file_name(&source, &options, &table),
+            file_name: file_name(&source, &options, &table),
             problems,
         }
     }
@@ -99,8 +93,8 @@ impl ExportDialog {
                 .background_executor()
                 .spawn(async move {
                     let source = snapshot.source();
-                    let table = export::table::table(&source, &options, None);
-                    let text = export::render::render(&table, &options, source.digits, source.zone);
+                    let table = table(&source, &options, None);
+                    let text = render(&table, &options, source.digits, source.zone);
                     crate::app::storage::atomic_write(&target, text.as_bytes())
                         .map(|()| (table.total_rows, text.len()))
                 })
@@ -148,8 +142,8 @@ impl ExportDialog {
         self.persist();
         let options = self.options.clone().normalized();
         let source = self.snapshot.source();
-        let table = export::table::table(&source, &options, None);
-        let text = export::render::render(&table, &options, source.digits, source.zone);
+        let table = table(&source, &options, None);
+        let text = render(&table, &options, source.digits, source.zone);
         let (rows, bytes) = (table.total_rows, text.len());
         cx.write_to_clipboard(ClipboardItem::new_string(text));
         toast::show(

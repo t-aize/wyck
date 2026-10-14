@@ -6,13 +6,13 @@ use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
-use wyck_chart::export;
-use wyck_chart::export::choices::{
+use wyck_chart::ColumnKey;
+use wyck_chart::ExportOptions;
+use wyck_chart::builtin_presets;
+use wyck_chart::{
     Decimal, Delimiter, Empty, ExportZone, Format, HeaderCase, LineEnding, PriceDigits, Quote,
     TimeFormat,
 };
-use wyck_chart::export::columns::ColumnKey;
-use wyck_chart::export::options::ExportOptions;
 
 impl ExportDialog {
     pub(super) fn format_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -268,7 +268,7 @@ impl ExportDialog {
                 }))
                 .into_any_element()
         };
-        let built_in: Vec<AnyElement> = export::presets::builtin_presets()
+        let built_in: Vec<AnyElement> = builtin_presets()
             .into_iter()
             .enumerate()
             .map(|(n, p)| row(format!("b{n}"), p.name, p.options, false))

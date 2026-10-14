@@ -7,21 +7,21 @@
 //! asked for when it is looked at.
 
 use std::time::{Duration, Instant};
+use wyck_chart::{Held, bar_open, next_step, supports};
 
 use crate::app::broker::Result as ApiResult;
 use crate::app::broker::session::Session;
 use gpui::Context;
 use wyck_market::{Quote, QuoteType, merge_sides};
 
-use super::data::Series;
-use super::flow::{self, Flow};
-use super::footprint;
-use super::settings::ChartKind;
 use super::{Chart, Load, flatten};
 use crate::app::market_data::live::LiveUpdate;
 use crate::app::market_data::load;
 use crate::app::market_data::now_ms;
 use crate::app::system::runtime;
+use wyck_chart::ChartKind;
+use wyck_chart::Flow;
+use wyck_chart::Series;
 
 /// About how much time one request covers, in bars of the timeframe (at most [`MAX_CHUNK_BARS`]).
 const CHUNK_MS: i64 = 6 * 3_600_000;
@@ -81,7 +81,7 @@ impl Chart {
     /// Whether the chart is a footprint that has what it needs to load the flow.
     pub(super) fn wants_flow(&self) -> bool {
         self.settings.kind == ChartKind::Footprint
-            && footprint::supports(self.timeframe)
+            && supports(self.timeframe)
             && matches!(self.load, Load::Ready)
             && self.symbol.is_some()
     }
@@ -162,12 +162,12 @@ impl Chart {
         let span = self.view.span(plot_w).ceil() as usize;
         let want = first.saturating_sub(span / 2 + 2);
         let gap_after = (self.flow.is_loaded() && self.flow_gap).then(|| self.flow.last_ms());
-        let held = flow::Held {
+        let held = Held {
             covered: self.flow.covered_from(),
             len: self.flow.len(),
             gap_after,
         };
-        let step = flow::next_step(bars, |b| b.time_ms, held, want, per_chunk, now)?;
+        let step = next_step(bars, |b| b.time_ms, held, want, per_chunk, now)?;
         self.flow_gap = false;
         Some(Plan {
             from: step.from,
@@ -249,7 +249,7 @@ impl Chart {
         let time_ms = quote.time_ms.max(self.flow.last_ms());
         // The newest bars are enough to place it.
         let tail: Vec<i64> = bars.iter().rev().take(8).rev().map(|b| b.time_ms).collect();
-        if let Some(open) = flow::bar_open(&tail, self.timeframe.bar_ms(), time_ms) {
+        if let Some(open) = bar_open(&tail, self.timeframe.bar_ms(), time_ms) {
             self.flow.push_live(open, time_ms, quote.bid, quote.ask);
         }
     }

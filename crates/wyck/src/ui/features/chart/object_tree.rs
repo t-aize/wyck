@@ -7,9 +7,9 @@ use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
 
 use super::drawing_props;
-use super::zone::Zone;
 use crate::app::drawings::Drawings;
 use crate::ui::kit::{button, form, form::Head, icon, modal, theme, tokens};
+use wyck_chart::Zone;
 use wyck_drawings::book::{Book, Order};
 use wyck_drawings::model::Drawing;
 use wyck_drawings::model::tool::Tool;

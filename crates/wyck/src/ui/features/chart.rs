@@ -15,13 +15,13 @@
 //! | [`glue`] | the drawings: handing presses and moves to the drawing book |
 //! | [`paint`] | the canvas: turning a frame's commands into gpui quads, paths and text |
 //! | [`overlay`] | what sits over the canvas: legend, toolbar, menus, line labels, status |
-//! | [`scene`] | the frame itself, as plain drawing commands, tested without a window |
-//! | [`display`] | what is drawn: the series of the chart type, and the indicators' values |
+//! | `scene` | the frame itself, as plain drawing commands, tested without a window |
+//! | `display` | what is drawn: the series of the chart type, and the indicators' values |
 //! | `flow`, `flow_sync` | the order flow of a footprint: counting quotes into bars, and loading it |
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
-//! | [`volume`], `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
-//! | [`tpo`], `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
-//! | [`export`](wyck_chart::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
+//! | `volume`, `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
+//! | `tpo`, `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
+//! | the export code of `wyck-chart`, `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
 //! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
 //! out.
@@ -29,11 +29,11 @@
 //! # How it stays fast and small
 //!
 //! - The chart is drawn by one custom element that turns the visible part of the data into
-//!   drawing commands ([`scene`]). The cost of a frame follows the size of the screen, not the
+//!   drawing commands (`scene`). The cost of a frame follows the size of the screen, not the
 //!   amount of data: points narrower than a pixel are folded into pixel columns.
 //! - What is derived from the prices (a Renko construction, the indicators) is computed once per
-//!   change of the prices or settings ([`display`]), never per frame.
-//! - The data is bounded ([`data::MAX_BARS`], [`data::MAX_TICKS`]), and older history is only
+//!   change of the prices or settings (`display`), never per frame.
+//! - The data is bounded ([`wyck_chart::MAX_BARS`], [`wyck_chart::MAX_TICKS`]), and older history is only
 //!   fetched when the user scrolls near the oldest point held.
 //! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
 //!   it keeps one subscription per symbol and period however many charts show it.
@@ -46,7 +46,7 @@
 //! and by the tick stream. Tick by tick and the second timeframes are built here from the bid
 //! ticks (the Open API has no bars under a minute).
 //!
-//! The footprint chart type adds the bid and ask ticks of the bars on screen (see [`flow`]): the
+//! The footprint chart type adds the bid and ask ticks of the bars on screen (see `flow`): the
 //! Open API has no trade tape, so the side and the volume of each unit are inferred from the
 //! quotes, and the chart says so.
 
@@ -79,18 +79,12 @@ mod tpo_ui;
 mod volume_ui;
 
 pub use self::chart_settings_ui::open as open_chart_settings;
-use self::data::Series;
-use self::display::Display;
 use self::events::{ChartEvent, Hover};
-use self::flow::Flow;
 use self::flow_sync::{FlowLoad, HeldQuote};
 pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 pub use self::overlay::kind_icon;
-use self::scene::Geometry;
-pub use self::settings::{ChartKind, ChartSettings};
 use self::study::config::StudyConfig;
-use self::view::View;
 use crate::app::broker::session::Session;
 use crate::app::broker::{Error as ApiError, Result as ApiResult};
 use crate::app::drawings::Drawings;
@@ -100,20 +94,13 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use wyck_chart::axis;
-use wyck_chart::data;
-use wyck_chart::display;
-use wyck_chart::flow;
-use wyck_chart::footprint;
-use wyck_chart::options;
-use wyck_chart::projection;
-use wyck_chart::scene;
-use wyck_chart::settings;
-use wyck_chart::tpo;
-use wyck_chart::transform;
-use wyck_chart::view;
-use wyck_chart::volume;
-use wyck_chart::zone;
+use wyck_chart::Display;
+use wyck_chart::Flow;
+use wyck_chart::Geometry;
+use wyck_chart::Series;
+use wyck_chart::View;
+pub use wyck_chart::{ChartKind, ChartSettings};
+use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceMap, geometry, main_map, quote_unit, supports};
 use wyck_indicators as study;
 pub use wyck_market::{GROUPS, Timeframe, Unit};
 
@@ -339,7 +326,7 @@ impl Chart {
             timeframe,
             view: View::new(bar_px_for(&settings, timeframe)),
             settings,
-            max_studies: max_studies.clamp(1, settings::MAX_STUDIES),
+            max_studies: max_studies.clamp(1, MAX_STUDIES),
             series: empty_series(timeframe),
             atr_history: HashMap::new(),
             atr_loading: HashSet::new(),
@@ -404,7 +391,7 @@ impl Chart {
 
     /// One quote unit in raw price units.
     fn unit(&self) -> i64 {
-        scene::quote_unit(self.digits()).max(1.0) as i64
+        quote_unit(self.digits()).max(1.0) as i64
     }
 
     /// Recomputes what is drawn from the prices. Keeps what the user looks at in place when the
@@ -456,12 +443,12 @@ impl Chart {
     /// The bands of the chart as it was last drawn.
     fn geometry(&self) -> Geometry {
         let (w, h) = self.size();
-        scene::scale::geometry(&self.settings, w, h)
+        geometry(&self.settings, w, h)
     }
 
     /// The price scale of the prices band as it is now.
-    fn main_map(&self) -> Option<scene::PriceMap> {
-        scene::scale::main_map(
+    fn main_map(&self) -> Option<PriceMap> {
+        main_map(
             &self.series,
             &self.display,
             &self.settings,
@@ -486,8 +473,8 @@ impl Drop for Chart {
 
 /// Pixels per bar when a chart is first shown: a footprint needs room for its numbers.
 fn bar_px_for(settings: &ChartSettings, timeframe: Timeframe) -> f64 {
-    if settings.kind == ChartKind::Footprint && footprint::supports(timeframe) {
-        footprint::DEFAULT_BAR_PX
+    if settings.kind == ChartKind::Footprint && supports(timeframe) {
+        DEFAULT_BAR_PX
     } else {
         default_bar_px(timeframe)
     }

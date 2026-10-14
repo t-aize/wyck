@@ -3,13 +3,14 @@
 //! symbol.
 
 use gpui::{App, Context, Entity, Window};
+use wyck_chart::Zone;
 use wyck_market::PRICE_SCALE;
 
 use super::events::{ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan};
-use super::projection::ChartProjection;
 use super::study::kind::StudyKind;
 use super::{Chart, drawing_props, object_tree};
 use crate::app::drawings::Drawings;
+use wyck_chart::ChartProjection;
 use wyck_drawings::book::{Book, Order, Press};
 use wyck_drawings::model::tool::Tool;
 use wyck_trading::atr_stop::{AtrStop, Smoothing};
@@ -399,7 +400,7 @@ impl Chart {
     }
 
     /// What the drawing dialogs need: the drawings, the symbol, the zone and the decimals.
-    fn drawing_context(&self) -> Option<(Entity<Drawings>, String, super::zone::Zone, u32)> {
+    fn drawing_context(&self) -> Option<(Entity<Drawings>, String, Zone, u32)> {
         Some((
             self.drawings.clone()?,
             self.symbol_name()?,

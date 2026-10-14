@@ -19,7 +19,6 @@ use std::time::Duration;
 use gpui::{Context, Task};
 
 use super::Chart;
-use super::display::study_input;
 use super::study::compute::StudyOutput;
 use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
@@ -29,6 +28,7 @@ use crate::app::market_data::load::{self, Loaded};
 use crate::app::market_data::now_ms;
 use crate::app::scripts as indicators;
 use crate::app::system::runtime;
+use wyck_chart::study_input;
 
 /// What a run was made from, to know whether another is wanted.
 #[derive(Debug, Clone, PartialEq)]

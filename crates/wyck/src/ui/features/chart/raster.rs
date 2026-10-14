@@ -1,19 +1,20 @@
-//! A picture of a chart: the same drawing commands the screen gets ([`super::scene`]), painted
+//! A picture of a chart: the same drawing commands the screen gets (`wyck_chart::build`), painted
 //! into pixels in memory with `tiny-skia`, text included (the app's own Inter font, rasterized by
 //! `ab_glyph`), and encoded as PNG.
 //!
 //! It does not read the window back (gpui offers no way to on every platform): the frame is
 //! drawn again, off screen, at twice the size for a crisp image.
 
-use super::scene::color::Hsla;
 use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
 use tiny_skia::{
     FillRule, Mask, Paint, PathBuilder, Pixmap, PremultipliedColorU8, Rect, Stroke, StrokeDash,
     Transform,
 };
+use wyck_chart::Hsla;
+use wyck_chart::{fitted_origin, fitted_size};
 
-use super::scene::{Align, Cmd};
 use crate::ui::assets;
+use wyck_chart::{Align, Cmd};
 
 /// A clip rectangle, in logical pixels.
 #[derive(Debug, Clone, Copy)]
@@ -339,20 +340,13 @@ impl Canvas<'_> {
                     ..
                 } => {
                     let Some(font_size) =
-                        super::scene::cmd::fitted_size(text, *size, *w, *h, |s| {
-                            self.measure(text, s)
-                        })
+                        fitted_size(text, *size, *w, *h, |s| self.measure(text, s))
                     else {
                         continue;
                     };
                     let text_w = self.measure(text, font_size);
-                    let (left, top) = super::scene::cmd::fitted_origin(
-                        (*x, *y, *w, *h),
-                        text_w,
-                        font_size,
-                        *align,
-                        *valign,
-                    );
+                    let (left, top) =
+                        fitted_origin((*x, *y, *w, *h), text_w, font_size, *align, *valign);
                     let label_clip = clip.intersect(Clip {
                         l: *x,
                         t: *y,
@@ -582,7 +576,7 @@ mod tests {
 
     #[test]
     fn tiles_are_put_where_they_say_in_a_picture_of_their_own_size() {
-        let background = crate::ui::features::chart::scene::rgb_alpha(0x000000, 1.0);
+        let background = rgb_alpha(0x000000, 1.0);
         // Two tiles of 20 by 10 logical pixels side by side, at twice the size.
         let tiles = vec![
             (0.0, 0.0, tile(40, 20, 200)),
@@ -597,7 +591,7 @@ mod tests {
 
     #[test]
     fn a_tile_past_the_edge_is_cut_and_a_gap_shows_the_background() {
-        let background = crate::ui::features::chart::scene::rgb_alpha(0x000000, 1.0);
+        let background = rgb_alpha(0x000000, 1.0);
         let tiles = vec![(10.0, 0.0, tile(40, 20, 255))];
         let png = compose_png(20.0, 10.0, 2.0, background, &tiles).unwrap();
         let picture = Pixmap::decode_png(&png).unwrap();
@@ -605,17 +599,17 @@ mod tests {
         assert_eq!(picture.pixel(2, 5).unwrap().red(), 0, "the gap");
         assert_eq!(picture.pixel(39, 5).unwrap().red(), 255, "the cut tile");
     }
-    use crate::ui::features::chart::scene::{font, rgb_alpha};
+    use wyck_chart::{font, rgb_alpha};
 
     #[test]
     #[ignore = "writes a chart preview for visual review"]
     fn indicator_families_preview() {
         use wyck_chart::ChartSettings;
-        use wyck_chart::data::Series;
-        use wyck_chart::display::Display;
-        use wyck_chart::scene::palette::Palette;
-        use wyck_chart::scene::{Frame, build};
-        use wyck_chart::view::View;
+        use wyck_chart::Display;
+        use wyck_chart::Palette;
+        use wyck_chart::Series;
+        use wyck_chart::View;
+        use wyck_chart::{Frame, build};
         use wyck_indicators::config::StudyConfig;
         use wyck_indicators::kind::StudyKind;
         use wyck_market::Bar;
@@ -770,8 +764,8 @@ mod tests {
             scale: 1.0,
             font,
         };
-        let short = canvas.measure("1.0", crate::ui::features::chart::scene::font());
-        let long = canvas.measure("1.08412", crate::ui::features::chart::scene::font());
+        let short = canvas.measure("1.0", wyck_chart::font());
+        let long = canvas.measure("1.08412", wyck_chart::font());
         assert!(short > 0.0 && long > short * 1.8);
     }
 
