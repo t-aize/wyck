@@ -18,13 +18,13 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::infra::ctrader::session::Session;
-use crate::infra::storage::DocumentStore;
 use gpui::{App, Context, Entity, EventEmitter};
 use wyck_chart::Series;
 use wyck_indicators as study;
 use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;
 use wyck_market::{Bar, PRICE_SCALE};
+use wyck_storage::DocumentStore;
 
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::{LiveHub, Wish};

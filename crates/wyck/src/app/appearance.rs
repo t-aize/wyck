@@ -9,9 +9,9 @@
 
 pub mod candles;
 
-use crate::infra::storage::DocumentStore;
 use gpui::{App, Global, SharedString};
 use serde::{Deserialize, Serialize};
+use wyck_storage::DocumentStore;
 
 use crate::app::workspace::Saver;
 

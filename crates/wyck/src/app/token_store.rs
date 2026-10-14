@@ -6,8 +6,8 @@ use std::time::{Duration, SystemTime};
 use crate::infra::ctrader::Error as ApiError;
 use crate::infra::ctrader::auth::TokenSet;
 use crate::infra::ctrader::session::TokenStore;
-use crate::infra::storage::{OpenApiTokenStorage, OpenApiTokens};
 use async_trait::async_trait;
+use wyck_storage::{OpenApiTokenStorage, OpenApiTokens};
 
 pub struct ConfigTokenStore {
     storage: OpenApiTokenStorage,

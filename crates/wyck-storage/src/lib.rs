@@ -26,9 +26,9 @@
 //!
 //! ```no_run
 //! use secrecy::SecretString;
-//! use wyck::infra::storage::{CLIENT_SECRET, WyckConfig};
+//! use wyck_storage::{CLIENT_SECRET, WyckConfig};
 //!
-//! # fn main() -> wyck::infra::storage::Result<()> {
+//! # fn main() -> wyck_storage::Result<()> {
 //! let mut config = WyckConfig::open()?;
 //!
 //! let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
@@ -46,9 +46,9 @@
 //!
 //! ```no_run
 //! use secrecy::SecretString;
-//! use wyck::infra::storage::WyckConfig;
+//! use wyck_storage::WyckConfig;
 //!
-//! # fn main() -> wyck::infra::storage::Result<()> {
+//! # fn main() -> wyck_storage::Result<()> {
 //! let config = WyckConfig::builder()
 //!     .portable("./wyck-data")
 //!     .encrypted_file(SecretString::from(std::env::var("WYCK_PASSPHRASE").unwrap_or_default()))

@@ -36,8 +36,8 @@
 //! and [`AppPaths::problems`] says why, so the app can tell the user. Nothing is created in a place
 //! that was not found, and nothing is written over a folder made by the other build.
 //!
-//! [`AppPaths`]: crate::infra::storage::AppPaths
-//! [`AppPaths::problems`]: crate::infra::storage::AppPaths::problems
+//! [`AppPaths`]: crate::AppPaths
+//! [`AppPaths::problems`]: crate::AppPaths::problems
 
 use std::ffi::OsString;
 use std::fmt;
@@ -47,9 +47,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::{atomic_write, read_text};
-use crate::infra::storage::migrate::{self, Outcome, Plan};
+use crate::error::{ConfigError, Result};
+use crate::fs_util::{atomic_write, read_text};
+use crate::migrate::{self, Outcome, Plan};
 use wyck_platform::build_info::BuildMode;
 
 /// The name of the pointer, in the config folder.

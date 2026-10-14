@@ -1,6 +1,6 @@
 //! A configured connection profile: the non-secret half of an account (display name,
 //! service and optional Open API settings). Secret credentials never live here; see
-//! [`crate::infra::storage::secret`].
+//! [`crate::secret`].
 
 use serde::{Deserialize, Serialize};
 

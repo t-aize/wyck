@@ -5,11 +5,11 @@ use std::path::PathBuf;
 /// The crate-wide result alias.
 pub type Result<T> = std::result::Result<T, ConfigError>;
 
-/// Errors produced by [`crate::infra::storage::AppPaths`], [`crate::infra::storage::AppConfig`], and the
-/// [`crate::infra::storage::secret`] backends.
+/// Errors produced by [`crate::AppPaths`], [`crate::AppConfig`], and the
+/// [`crate::secret`] backends.
 ///
 /// Every variant that touches a file carries the path; every variant that touches a
-/// secret carries the [`crate::infra::storage::SecretKey`] it was operating on: never the secret value
+/// secret carries the [`crate::SecretKey`] it was operating on: never the secret value
 /// itself, so a `{:?}`/`{}` of this error (e.g. in a log line) can never leak a token.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -52,11 +52,11 @@ pub enum ConfigError {
         source: Box<toml::de::Error>,
     },
 
-    /// [`AppConfig`](crate::infra::storage::AppConfig) could not be encoded to TOML.
+    /// [`AppConfig`](crate::AppConfig) could not be encoded to TOML.
     #[error("failed to serialize config to TOML: {0}")]
     Serialize(#[from] toml::ser::Error),
 
-    /// A [`crate::infra::storage::secret::SecretStore`] backend failed. `message` is the backend's own
+    /// A [`crate::secret::SecretStore`] backend failed. `message` is the backend's own
     /// error text (e.g. from `keyring::Error`'s `Display` impl): never the secret
     /// value, which the backend never has a reason to put in an error message.
     #[error("credential store error for key `{key}`: {message}")]
@@ -69,21 +69,21 @@ pub enum ConfigError {
 
     /// The requested secret does not exist in the store (distinct from a backend
     /// failure: this is the normal "not set yet" case, returned as `Ok(None)` from
-    /// [`crate::infra::storage::secret::SecretStore::retrieve`] rather than this variant in most call
+    /// [`crate::secret::SecretStore::retrieve`] rather than this variant in most call
     /// paths; this variant exists for operations that require the secret to already
     /// exist, e.g. an explicit `delete`).
     #[error("no credential is stored for key `{0}`")]
     SecretNotFound(String),
 
     /// Key derivation (passphrase -> encryption key) failed in
-    /// [`crate::infra::storage::secret::EncryptedFileSecretStore`]. Does not happen for well-formed
+    /// [`crate::secret::EncryptedFileSecretStore`]. Does not happen for well-formed
     /// inputs under normal operation; see that type's docs for the salt/output-length
     /// invariants that would need to be violated to trigger this.
     #[error("key derivation failed: {0}")]
     KeyDerivation(String),
 
     /// AEAD encryption or decryption failed in
-    /// [`crate::infra::storage::secret::EncryptedFileSecretStore`]. On decrypt, this most commonly
+    /// [`crate::secret::EncryptedFileSecretStore`]. On decrypt, this most commonly
     /// means the supplied passphrase does not match the one the secret was encrypted
     /// with (the AEAD authentication tag will not verify): surface this to the user as
     /// "wrong passphrase", not as file corruption.
@@ -105,14 +105,14 @@ pub enum ConfigError {
         reason: String,
     },
 
-    /// [`crate::infra::storage::WyckConfig::set_active_profile`] (or similar) was given a
-    /// [`crate::infra::storage::ProfileId`] that isn't in [`crate::infra::storage::AppConfig::profiles`].
+    /// [`crate::WyckConfig::set_active_profile`] (or similar) was given a
+    /// [`crate::ProfileId`] that isn't in [`crate::AppConfig::profiles`].
     #[error("no profile with id `{0}` is configured")]
     UnknownProfile(String),
 
     /// A name (of a document, a scope or a named credential) cannot be used as given: it is empty,
     /// too long, or holds characters that could point outside the folder it belongs in. See
-    /// [`crate::infra::storage::names`].
+    /// [`crate::names`].
     #[error("`{name}` cannot be used as a name: {reason}")]
     InvalidName {
         /// The name that was refused.
@@ -135,7 +135,7 @@ pub enum ConfigError {
     },
 
     /// A saved file could not be brought to the layout this version writes (see
-    /// [`crate::infra::storage::migrate`]). The file is left as it was.
+    /// [`crate::migrate`]). The file is left as it was.
     #[error("`{path}` could not be upgraded from format {from}: {reason}")]
     Migration {
         path: PathBuf,
@@ -145,7 +145,7 @@ pub enum ConfigError {
     },
 
     /// Moving a kind of data to another folder failed or could not be checked (see
-    /// [`crate::infra::storage::relocate`]). Nothing was switched.
+    /// [`crate::relocate`]). Nothing was switched.
     #[error("could not move to `{path}`: {reason}")]
     Relocate { path: PathBuf, reason: &'static str },
 
@@ -159,7 +159,7 @@ pub enum ConfigError {
     #[error("the passphrase is wrong, or the sealed document was changed")]
     WrongPassphrase,
 
-    /// The text is not a backup of this app (see [`crate::infra::storage::backup`]).
+    /// The text is not a backup of this app (see [`crate::backup`]).
     #[error("This file is not a wyck backup.")]
     NotABackup,
 
@@ -180,7 +180,7 @@ pub enum ConfigError {
     #[error("This backup is locked with a passphrase.")]
     PassphraseRequired,
 
-    /// No backup is kept under this name (see [`crate::infra::storage::backup::store::BackupStore`]).
+    /// No backup is kept under this name (see [`crate::backup::store::BackupStore`]).
     #[error("There is no saved backup called `{0}`.")]
     BackupNotFound(String),
 

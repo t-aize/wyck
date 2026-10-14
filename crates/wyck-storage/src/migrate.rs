@@ -21,7 +21,7 @@
 //! * **A file from the future is left alone.** A newer file read with what this build knows and
 //!   written back would lose what this build does not know. A document is set aside as
 //!   `name.toml.from-v<found>` (the app then starts it afresh and the file stays there to be
-//!   recovered), the config is refused (see [`crate::infra::storage::AppConfig::load`]).
+//!   recovered), the config is refused (see [`crate::AppConfig::load`]).
 //!
 //! A change that only adds a field with a default needs no change to the data, but it still takes
 //! a new version and a step ([`Step::unchanged`]): the plan must have a step for every version, and
@@ -35,9 +35,9 @@ use std::path::{Path, PathBuf};
 use toml::{Table, Value};
 use tracing::{info, warn};
 
-use crate::infra::storage::documents::DocumentStore;
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::{atomic_write, read_text};
+use crate::documents::DocumentStore;
+use crate::error::{ConfigError, Result};
+use crate::fs_util::{atomic_write, read_text};
 
 /// The key every versioned file carries.
 pub const VERSION_KEY: &str = "schema_version";
@@ -287,7 +287,7 @@ fn set_aside_newer(path: &Path, found: u32) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::storage::paths::AppPaths;
+    use crate::paths::AppPaths;
 
     fn rename_zoom(table: &mut Table) -> std::result::Result<(), StepError> {
         if let Some(zoom) = table.remove("zoom") {

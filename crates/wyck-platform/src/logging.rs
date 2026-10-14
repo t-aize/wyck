@@ -19,7 +19,7 @@
 //! Neither a log line nor a report carries a secret: the rest of the app never formats one, and a
 //! panic message is the text of the code that panicked.
 //!
-//! [`AppPaths::logs_dir`]: crate::infra::storage::AppPaths::logs_dir
+//! [`AppPaths::logs_dir`]: wyck_storage::AppPaths::logs_dir
 
 use std::backtrace::Backtrace;
 use std::fs;

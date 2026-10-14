@@ -6,9 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::storage::{DocumentStore, Result};
 use wyck_chart::ExportOptions;
 use wyck_chart::Preset;
+use wyck_storage::{DocumentStore, Result};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "export";
@@ -115,7 +115,7 @@ mod tests {
     /// A store of its own for one test.
     fn store() -> (tempfile::TempDir, DocumentStore) {
         let dir = tempfile::tempdir().unwrap();
-        let store = DocumentStore::global(&crate::infra::storage::AppPaths::at(dir.path()));
+        let store = DocumentStore::global(&wyck_storage::AppPaths::at(dir.path()));
         (dir, store)
     }
 

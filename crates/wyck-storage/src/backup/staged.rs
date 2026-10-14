@@ -6,11 +6,11 @@ use super::{
     store_for,
 };
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::{atomic_write, read_text};
-use crate::infra::storage::locations::Kind;
-use crate::infra::storage::paths::AppPaths;
-use crate::infra::storage::scripts::ScriptStore;
+use crate::error::{ConfigError, Result};
+use crate::fs_util::{atomic_write, read_text};
+use crate::locations::Kind;
+use crate::paths::AppPaths;
+use crate::scripts::ScriptStore;
 use secrecy::SecretString;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
@@ -104,7 +104,7 @@ fn clear_contents(dir: &Path) -> std::io::Result<()> {
         Err(source) => return Err(source),
     };
     for entry in entries.flatten() {
-        if entry.file_name() == crate::infra::storage::locations::MARKER {
+        if entry.file_name() == crate::locations::MARKER {
             continue;
         }
         let path = entry.path();

@@ -2,7 +2,7 @@
 //! timeframes and types, the timeframes they favor, the time zone, and (for the account in use)
 //! favorite symbols and watchlists.
 //!
-//! The data lives in TOML documents managed by [`crate::infra::storage::DocumentStore`]; this module owns
+//! The data lives in TOML documents managed by [`wyck_storage::DocumentStore`]; this module owns
 //! their shape. Two rules keep old files working: every field has a default, so a file from an
 //! older version (or a hand-edited one) still loads, and everything read is checked and repaired
 //! by [`Preferences::normalized`], so a value this version does not know (a timeframe that was
@@ -22,7 +22,7 @@ mod saver;
 pub use self::preferences::watchlists::{NameError, Watchlist, Watchlists};
 pub use self::preferences::*;
 pub use self::saver::Saver;
-use crate::infra::storage::DocumentStore;
+use wyck_storage::DocumentStore;
 
 pub(crate) const PREFERENCES: &str = "preferences";
 pub(crate) const WATCHLISTS: &str = "watchlists";

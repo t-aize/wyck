@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::infra::storage::DocumentStore;
 use serde::Serialize;
+use wyck_storage::DocumentStore;
 
 use wyck_platform::runtime;
 
@@ -94,8 +94,8 @@ impl<T: Serialize + Send + 'static> Drop for Saver<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::storage::AppPaths;
     use serde::Deserialize;
+    use wyck_storage::AppPaths;
 
     #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
     struct Doc {

@@ -10,7 +10,7 @@ pub enum LoadConfigError {
     NoFolder,
     /// The folder or the files in it cannot be used.
     #[error(transparent)]
-    Config(#[from] crate::infra::storage::ConfigError),
+    Config(#[from] wyck_storage::ConfigError),
 }
 
 /// Loads the configuration from the standard folders, with the OS keyring for secrets, or with

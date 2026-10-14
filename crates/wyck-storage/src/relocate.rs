@@ -8,7 +8,7 @@
 //!
 //! * **The new folder is empty** (or does not exist): the files are copied there one by one, each
 //!   through a temporary name, then every file is read back and compared. Only when all of them
-//!   match is the new folder marked as Wyck's (see [`crate::infra::storage::locations`]) and the
+//!   match is the new folder marked as Wyck's (see [`crate::locations`]) and the
 //!   choice written in `locations.toml`. A copy that is cut short never looks like a folder with
 //!   data in it, because the marker is the last thing written.
 //! * **The new folder already holds data of Wyck** (a second computer joining a cloud folder the
@@ -31,10 +31,10 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::{atomic_write, read_text, retry_when_busy};
-use crate::infra::storage::locations::{self, Kind, Locations, Problem, Use};
-use crate::infra::storage::paths::AppPaths;
+use crate::error::{ConfigError, Result};
+use crate::fs_util::{atomic_write, read_text, retry_when_busy};
+use crate::locations::{self, Kind, Locations, Problem, Use};
+use crate::paths::AppPaths;
 
 /// The name of the file a move waits in, in the config folder.
 pub const PENDING: &str = "pending-relocation.toml";
@@ -632,7 +632,7 @@ pub fn delete_leftover(paths: &AppPaths, path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::storage::DocumentStore;
+    use crate::DocumentStore;
     use wyck_platform::build_info::BuildMode;
 
     const MODE: BuildMode = BuildMode::Production;
@@ -1079,8 +1079,8 @@ mod tests {
 
     #[test]
     fn a_reset_empties_a_moved_folder_but_keeps_the_folder_and_its_marker() {
-        use crate::infra::storage::backup::staged;
-        use crate::infra::storage::backup::store::BackupKind;
+        use crate::backup::staged;
+        use crate::backup::store::BackupKind;
 
         let setup = setup();
         let start = paths(&setup);

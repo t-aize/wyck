@@ -458,7 +458,7 @@ fn show(title: &str, body: &str) {
 /// [`SoundError`] when the file is not usable as a sound, the settings folder is not known
 /// (`paths` is `None`), or the copy cannot be made.
 pub fn keep_copy(
-    paths: Option<&crate::infra::storage::AppPaths>,
+    paths: Option<&wyck_storage::AppPaths>,
     path: &Path,
 ) -> Result<PathBuf, SoundError> {
     check_file(path)?;

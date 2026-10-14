@@ -3,12 +3,12 @@
 use super::staged::stage_import;
 use super::{Backup, read_backup_text};
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::atomic_write;
-use crate::infra::storage::names::{is_valid_name, validate_name};
-use crate::infra::storage::paths::AppPaths;
-use crate::infra::storage::scripts::ScriptStore;
-use crate::infra::storage::sealed;
+use crate::error::{ConfigError, Result};
+use crate::fs_util::atomic_write;
+use crate::names::{is_valid_name, validate_name};
+use crate::paths::AppPaths;
+use crate::scripts::ScriptStore;
+use crate::sealed;
 use secrecy::SecretString;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};

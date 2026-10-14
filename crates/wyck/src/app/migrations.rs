@@ -1,6 +1,6 @@
 //! Bringing the saved documents of an older version to the layout this version writes.
 //!
-//! The engine is [`crate::infra::storage::migrate`]; this module owns what only the app knows: which
+//! The engine is [`wyck_storage::migrate`]; this module owns what only the app knows: which
 //! documents have a `schema_version`, which version each one is at, and the steps between. It runs
 //! once at start, after a restore waiting for this start was applied and before anything reads a
 //! document, on the shared documents and on those of every account.
@@ -13,7 +13,7 @@
 //! 3. Add a fixture of the old layout to `src/app/fixtures` and a test that reads it.
 //!
 //! A test fails until step 2 is done, so a version cannot be raised and forgotten. A document
-//! written by a newer version is not read at all: see [`crate::infra::storage::migrate`].
+//! written by a newer version is not read at all: see [`wyck_storage::migrate`].
 //!
 //! The documents with no `schema_version` (appearance, the indicator folder, the editor drafts) are
 //! not here. They only rely on every field having a default, which is enough until one of them has
@@ -22,9 +22,9 @@
 use tracing::{info, warn};
 
 use crate::app::{alerts, drawings, workspace};
-use crate::infra::storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
-use crate::infra::storage::{AppPaths, DocumentStore};
 use wyck_drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
+use wyck_storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
+use wyck_storage::{AppPaths, DocumentStore};
 
 /// The layouts of the documents, one plan each.
 pub const PLANS: [Plan; 4] = [

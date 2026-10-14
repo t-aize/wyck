@@ -4,8 +4,8 @@ use keyring::Entry;
 use secrecy::{ExposeSecret, SecretString};
 use tracing::{debug, trace, warn};
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::secret::{SecretKey, SecretStore};
+use crate::error::{ConfigError, Result};
+use crate::secret::{SecretKey, SecretStore};
 
 /// Stores secrets in the OS-native credential store: Windows Credential Manager, macOS
 /// Keychain, or (on Linux) the Secret Service D-Bus API via a pure-Rust `zbus` client:
@@ -50,9 +50,9 @@ impl KeyringSecretStore {
 
 impl Default for KeyringSecretStore {
     /// Namespaces credentials under the service of this build: `"wyck"`, or `"wyck-dev"` in a
-    /// development build (see [`crate::infra::storage::identity`]).
+    /// development build (see [`crate::identity`]).
     fn default() -> Self {
-        Self::new(crate::infra::storage::identity::keyring_service())
+        Self::new(crate::identity::keyring_service())
     }
 }
 

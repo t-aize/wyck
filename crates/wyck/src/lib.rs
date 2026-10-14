@@ -33,7 +33,7 @@ const APP_ID: &str = "sh.wyck.wyck";
 /// Opens the app window and runs the event loop. Returns when the app quits.
 pub fn run() {
     // The first thing, so that whatever goes wrong afterwards is on disk: the events
-    // `infra::storage` and `infra::ctrader` emit (and the app's own) go to stderr and to a log
+    // `wyck_storage` and `infra::ctrader` emit (and the app's own) go to stderr and to a log
     // file, and a panic leaves a report next to it. The library only emits events, it never
     // installs a subscriber itself.
     let logs = app_paths().map(|paths| paths.logs_dir());
@@ -58,7 +58,7 @@ pub fn run() {
                     // A reset or an import the user asked for waits for this moment, before
                     // anything reads the documents it replaces.
                     let stamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S").to_string();
-                    match crate::infra::storage::backup::staged::apply_pending(paths, &stamp) {
+                    match wyck_storage::backup::staged::apply_pending(paths, &stamp) {
                         Ok(applied) if applied != Default::default() => {
                             tracing::info!(?applied, "applied what was waiting for this start");
                         }
@@ -151,12 +151,12 @@ pub fn run() {
 
 /// Saves an automatic copy of everything the user made, at most one a day and the last few kept,
 /// off the interface thread: what a bad import, a reset or a broken disk cannot take away.
-fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut App) {
-    let scripts = crate::infra::storage::scripts::ScriptStore::new(scripts::dir(cx));
+fn keep_a_daily_copy(paths: &'static wyck_storage::AppPaths, cx: &mut App) {
+    let scripts = wyck_storage::scripts::ScriptStore::new(scripts::dir(cx));
     cx.background_executor()
         .spawn(async move {
             let created = chrono::Local::now().to_rfc3339();
-            let policy = crate::infra::storage::backup::store::AutoPolicy::default();
+            let policy = wyck_storage::backup::store::AutoPolicy::default();
             match paths.backups().auto_snapshot(
                 Some(&scripts),
                 build_info::VERSION,
@@ -176,8 +176,7 @@ fn keep_a_daily_copy(paths: &'static crate::infra::storage::AppPaths, cx: &mut A
 ///
 /// The first call also makes the move of folders the user asked for (it has to be done before
 /// anything reads a document), which is why the first call is the first thing `run` does.
-fn app_paths() -> Option<&'static crate::infra::storage::AppPaths> {
-    static PATHS: std::sync::OnceLock<Option<crate::infra::storage::AppPaths>> =
-        std::sync::OnceLock::new();
+fn app_paths() -> Option<&'static wyck_storage::AppPaths> {
+    static PATHS: std::sync::OnceLock<Option<wyck_storage::AppPaths>> = std::sync::OnceLock::new();
     PATHS.get_or_init(app::locations::prepare).as_ref()
 }

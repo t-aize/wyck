@@ -6,7 +6,7 @@
 //! does while testing can reach the real preferences, the saved copies or the sign-in of the app
 //! that is used to trade.
 //!
-//! Two environment variables bring back the sharing on purpose: [`crate::infra::storage::CONFIG_DIR_ENV`]
+//! Two environment variables bring back the sharing on purpose: [`crate::CONFIG_DIR_ENV`]
 //! moves the folders and [`KEYRING_SERVICE_ENV`] names the keyring group, for example to try a
 //! development build on the data of the installed one.
 

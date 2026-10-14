@@ -9863,6 +9863,7 @@ dependencies = [
  "wyck-indicators",
  "wyck-market",
  "wyck-platform",
+ "wyck-storage",
  "wyck-trading",
  "zeroize",
 ]
@@ -9938,6 +9939,28 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "wyck-storage"
+version = "0.2.1"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "directories",
+ "getrandom 0.4.3",
+ "keyring",
+ "proptest",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+ "uuid",
+ "wyck-platform",
+ "zeroize",
 ]
 
 [[package]]

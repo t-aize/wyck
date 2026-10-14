@@ -1,7 +1,7 @@
 //! Where the app keeps what it saves, as the start of the app and the settings see it.
 //!
-//! The mechanics are in [`crate::infra::storage::locations`] (which kinds of data can be kept
-//! elsewhere, and the rules for a folder) and [`crate::infra::storage::relocate`] (moving the
+//! The mechanics are in [`wyck_storage::locations`] (which kinds of data can be kept
+//! elsewhere, and the rules for a folder) and [`wyck_storage::relocate`] (moving the
 //! files). This module is what the app does with them:
 //!
 //! * [`prepare`] runs first thing at start: it makes the move the user asked for, and brings an old
@@ -14,7 +14,7 @@
 //!
 //! Dev and production: the standard folders differ, so do the pointers, a folder carries a marker of
 //! the build that made it, and the cloud folder is `Wyck (dev)` for a development build (see
-//! [`crate::infra::storage::locations`]).
+//! [`wyck_storage::locations`]).
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -24,10 +24,10 @@ use tracing::{info, warn};
 
 use crate::app::prefs::indicators as indicator_prefs;
 use crate::app::{alerts, appearance, chart_export, drawings, workspace};
-use crate::infra::storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
-use crate::infra::storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};
-use crate::infra::storage::{AppPaths, ConfigError, DocumentStore};
 use wyck_platform::build_info::BuildMode;
+use wyck_storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
+use wyck_storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};
+use wyck_storage::{AppPaths, ConfigError, DocumentStore};
 
 /// The documents the app knows by name, to tell the copies a sync service makes of them.
 const KNOWN_DOCUMENTS: [&str; 7] = [

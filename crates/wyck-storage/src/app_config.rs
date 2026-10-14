@@ -3,11 +3,11 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use crate::infra::storage::error::{ConfigError, Result};
-use crate::infra::storage::fs_util::{atomic_write, read_text};
-use crate::infra::storage::migrate::{self, Plan};
-use crate::infra::storage::paths::AppPaths;
-use crate::infra::storage::profile::{ProfileConfig, ProfileId};
+use crate::error::{ConfigError, Result};
+use crate::fs_util::{atomic_write, read_text};
+use crate::migrate::{self, Plan};
+use crate::paths::AppPaths;
+use crate::profile::{ProfileConfig, ProfileId};
 
 /// The version of the layout this build writes, and the newest it reads.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
@@ -29,9 +29,9 @@ struct Head {
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
-/// [`crate::infra::storage::secret`] for where those live instead.
+/// [`crate::secret`] for where those live instead.
 ///
-/// Round-trips through TOML at [`crate::infra::storage::AppPaths::config_file`]. `schema_version` is required
+/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is required
 /// and is bumped whenever a breaking change to this shape ships; a file with a version this build
 /// does not know is refused (see [`AppConfig::load`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -71,7 +71,7 @@ impl AppConfig {
     /// [`ConfigError::Parse`] if the file exists but isn't valid TOML matching this
     /// shape; [`ConfigError::UnsupportedSchema`] if it was written by a newer version.
     ///
-    /// A file in an older layout is upgraded first (see [`crate::infra::storage::migrate`]): the
+    /// A file in an older layout is upgraded first (see [`crate::migrate`]): the
     /// old text stays next to it as `config.toml.v<old>.bak`.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         Self::load_with(paths, &PLAN)
