@@ -1,8 +1,8 @@
 //! ATR settings and price levels used before an order is sent.
 
-use crate::domain::market::{Bar, PRICE_SCALE};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::market::{Bar, PRICE_SCALE};
 use crate::wyck_core::math;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -61,15 +61,13 @@ impl AtrStop {
         self
     }
 
+    /// The average true range over `bars`, or `None` when there are too few of them. When
+    /// `last_is_open` the last bar is still forming and is left out, unless `current_bar` asks
+    /// for it.
     pub fn value(&self, bars: &[Bar], last_is_open: bool) -> Option<f64> {
-        let usable = if self.current_bar {
-            bars
-        } else {
-            if last_is_open {
-                &bars[..bars.len() - 1]
-            } else {
-                bars
-            }
+        let usable = match bars.split_last() {
+            Some((_, closed)) if last_is_open && !self.current_bar => closed,
+            _ => bars,
         };
         if usable.len() < self.length {
             return None;
@@ -88,6 +86,8 @@ impl AtrStop {
         series.last().copied().filter(|v| v.is_finite() && *v > 0.0)
     }
 
+    /// The price of a stop `atr * multiplier` away from `entry`: below it for a buy, above it for
+    /// a sell. `None` when the entry or the distance is not a usable number.
     pub fn stop(&self, entry: f64, buy: bool, atr: f64) -> Option<f64> {
         let distance = atr * self.multiplier;
         (entry.is_finite() && distance.is_finite() && distance > 0.0)
@@ -128,5 +128,12 @@ mod tests {
             assert!(settings.stop(10.0, true, closed).unwrap() < 10.0);
             assert!(settings.stop(10.0, false, closed).unwrap() > 10.0);
         }
+    }
+
+    #[test]
+    fn no_bars_give_no_value_whether_or_not_the_last_one_is_open() {
+        let settings = AtrStop::default();
+        assert_eq!(settings.value(&[], true), None);
+        assert_eq!(settings.value(&[], false), None);
     }
 }

@@ -15,7 +15,7 @@ use std::sync::RwLock;
 
 use gpui::{Rgba, rgb, rgba};
 
-pub use crate::wyck_core::appearance::{Colors, contrast, luminance};
+pub use crate::wyck_core::appearance::{Colors, contrast};
 
 fn store() -> &'static RwLock<Colors> {
     static COLORS: RwLock<Colors> = RwLock::new(Colors::WYCK_DARK);
@@ -336,6 +336,7 @@ pub fn put_in_force(look: &crate::wyck_core::appearance::Look, cx: &mut gpui::Ap
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wyck_core::appearance::luminance;
 
     // These tests never put a palette in force: the others run beside them and read it.
 
@@ -402,12 +403,5 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn luminance_runs_from_black_to_white() {
-        assert!(luminance(0x000000) < 0.001);
-        assert!(luminance(0xffffff) > 0.99);
-        assert!(luminance(0x808080) > luminance(0x202020));
     }
 }

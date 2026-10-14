@@ -2,9 +2,9 @@
 
 use crate::domain::drawings::model::style::Dash;
 use crate::domain::indicators::compute::StudyInput;
+use crate::domain::indicators::custom::library::choices;
 use crate::domain::indicators::custom::series::Series;
 use crate::domain::indicators::spec::{InputKind, PlotKind, ValueFormat};
-use crate::wyck_core::intern;
 use rhai::Position;
 use std::sync::Arc;
 use std::time::Duration;
@@ -146,7 +146,7 @@ impl InputDecl {
             InputType::Float => InputKind::Float,
             InputType::Bool => InputKind::Toggle,
             InputType::Source => InputKind::Source,
-            InputType::Choice => InputKind::Choice(intern::list(&self.options)),
+            InputType::Choice => InputKind::Choice(choices(&self.options)),
             InputType::Color => InputKind::Color,
             InputType::Symbol => InputKind::Symbol,
             InputType::Timeframe => InputKind::Timeframe,

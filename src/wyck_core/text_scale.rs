@@ -8,18 +8,16 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-/// The smallest and the largest scale, in percent. The same as the interface's.
-pub const MIN: u32 = 80;
-pub const MAX: u32 = 160;
+use super::appearance::{SCALE_MAX, SCALE_MIN};
 
 static PERCENT: AtomicU32 = AtomicU32::new(100);
 
-/// A scale kept between [`MIN`] and [`MAX`].
+/// A scale kept between the least and the most the interface can be scaled to.
 fn clamped(percent: u32) -> u32 {
-    percent.clamp(MIN, MAX)
+    percent.clamp(SCALE_MIN, SCALE_MAX)
 }
 
-/// Sets the scale, in percent, kept between [`MIN`] and [`MAX`].
+/// Sets the scale, in percent, kept between [`SCALE_MIN`] and [`SCALE_MAX`].
 pub fn set(percent: u32) {
     PERCENT.store(clamped(percent), Ordering::Relaxed);
 }
@@ -52,8 +50,8 @@ mod tests {
     // sets it. What can be checked without it is checked here.
     #[test]
     fn the_scale_is_kept_in_range_and_sizes_follow_it() {
-        assert_eq!(clamped(10), MIN);
-        assert_eq!(clamped(900), MAX);
+        assert_eq!(clamped(10), SCALE_MIN);
+        assert_eq!(clamped(900), SCALE_MAX);
         assert_eq!(clamped(120), 120);
         assert!((at(10.0, 150) - 15.0).abs() < 1e-4);
         assert!((at(10.0, 100) - 10.0).abs() < 1e-6);

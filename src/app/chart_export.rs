@@ -4,11 +4,11 @@
 //! missing or that cannot be read gives the defaults (the damaged one is set aside by the store),
 //! so it never keeps the panel from opening. Writing is atomic.
 
-use crate::infra::storage::{DocumentStore, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::chart::export::options::ExportOptions;
 use crate::domain::chart::export::presets::Preset;
+use crate::infra::storage::{DocumentStore, Result};
 
 /// The name of the document.
 pub const DOCUMENT: &str = "export";
@@ -62,10 +62,11 @@ impl Saved {
             name: name.clone(),
             options: options.clone().normalized(),
         };
+        let key = name.to_lowercase();
         let same = self
             .presets
             .iter()
-            .position(|p| p.name.to_lowercase() == name.to_lowercase());
+            .position(|p| p.name.to_lowercase() == key);
         match same {
             Some(at) => self.presets[at] = preset,
             None if self.presets.len() < MAX_PRESETS => self.presets.push(preset),

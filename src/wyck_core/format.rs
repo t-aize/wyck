@@ -1,4 +1,4 @@
-//! How the app writes a number: a fixed most of decimals, no trailing zeros.
+//! How the app writes a number: at most a fixed count of decimals, no trailing zeros.
 
 /// `value` with at most `decimals` decimals and no trailing zeros. `-0` is written `0`.
 pub fn trim(value: f64, decimals: usize) -> String {

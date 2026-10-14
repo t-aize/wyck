@@ -3,7 +3,7 @@
 
 /// The colors of the interface and of the chart, as `0xRRGGBB` (the tint of a selection carries
 /// its own alpha, as `0xRRGGBBAA`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Colors {
     /// Window and page background. Also the color of an unfocused text input.
     pub bg: u32,
@@ -54,9 +54,7 @@ impl Colors {
         tag: 0x363a45,
         chart_bg: 0x0a0a0a,
     };
-}
 
-impl Colors {
     /// The text colors for what is drawn straight on the chart: the text, the secondary text and
     /// the background of the crosshair's tags. The chart can have a background of its own, so a
     /// dark theme can sit on a white chart: the theme's text is kept while it reads on that
@@ -126,4 +124,27 @@ pub struct Look {
     pub font: String,
     /// The size of the interface, in percent, between [`SCALE_MIN`] and [`SCALE_MAX`].
     pub scale: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn luminance_runs_from_black_to_white() {
+        assert!(luminance(0x000000) < 0.001);
+        assert!(luminance(0xffffff) > 0.99);
+        assert!(luminance(0x808080) > luminance(0x202020));
+    }
+
+    #[test]
+    fn contrast_is_one_for_equal_colors_and_twenty_one_for_black_on_white() {
+        assert!((contrast(0x336699, 0x336699) - 1.0).abs() < 1e-6);
+        assert!((contrast(0x000000, 0xffffff) - 21.0).abs() < 1e-3);
+        assert_eq!(
+            contrast(0x000000, 0xffffff),
+            contrast(0xffffff, 0x000000),
+            "the order does not matter"
+        );
+    }
 }
