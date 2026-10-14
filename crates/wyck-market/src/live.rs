@@ -15,8 +15,8 @@
 
 use std::collections::HashMap;
 
-use super::bars::{Bar, Period};
-use super::quotes::SpotEvent;
+use crate::bars::{Bar, Period};
+use crate::quotes::SpotEvent;
 
 /// Corrects the live bars of price events. Keeps the latest corrected bar of every symbol and
 /// period seen.
@@ -65,7 +65,7 @@ impl LiveBarTracker {
 /// A live bar with the close it should have: `bid` when the event carried one, else the close of
 /// `known` when it is the same bar, else the open. High and low are stretched to hold the close.
 #[must_use]
-pub fn with_true_close(mut live: Bar, known: Option<&Bar>, bid: Option<i64>) -> Bar {
+fn with_true_close(mut live: Bar, known: Option<&Bar>, bid: Option<i64>) -> Bar {
     live.close = bid
         .or_else(|| known.filter(|b| b.time_ms == live.time_ms).map(|b| b.close))
         .unwrap_or(live.open);

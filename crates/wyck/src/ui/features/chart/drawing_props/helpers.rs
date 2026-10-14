@@ -3,7 +3,7 @@
 use crate::domain::drawings::figures::patterns::wave_names;
 use crate::domain::drawings::model::tool::Tool;
 use crate::domain::drawings::model::{Drawing, Point};
-use crate::ui::features::chart::timeframe::GROUPS;
+use crate::ui::features::chart::GROUPS;
 use wyck_market::PRICE_SCALE;
 
 /// Every timeframe's code.

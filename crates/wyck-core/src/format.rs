@@ -2,14 +2,14 @@
 
 /// `value` with at most `decimals` decimals and no trailing zeros. `-0` is written `0`.
 pub fn trim(value: f64, decimals: usize) -> String {
-    let mut text = format!("{value:.decimals$}");
-    if text.contains('.') {
-        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
-    }
-    if text == "-0" {
-        text = "0".to_owned();
-    }
-    text
+    let text = format!("{value:.decimals$}");
+    let trimmed = if text.contains('.') {
+        text.trim_end_matches('0').trim_end_matches('.')
+    } else {
+        &text
+    };
+    let written = if trimmed == "-0" { "0" } else { trimmed };
+    written.to_owned()
 }
 
 /// A whole number with its thousands apart: `1234567` as `1,234,567`.

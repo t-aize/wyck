@@ -1,11 +1,10 @@
 //! The order book events of the server (`ProtoOADepthEvent`).
 
 use serde::Deserialize;
-
 use wyck_core::flex;
 
 /// One order book entry (`ProtoOADepthQuote`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthQuote {
     /// The entry id.
@@ -23,7 +22,7 @@ pub struct DepthQuote {
 }
 
 /// `ProtoOADepthEvent`: changes of the order book.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepthEvent {
     #[serde(deserialize_with = "flex::int")]

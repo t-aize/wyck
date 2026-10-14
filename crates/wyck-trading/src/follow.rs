@@ -10,13 +10,11 @@
 //! This file is plain data and arithmetic. Where the ATR comes from, and the amending, are in
 //! `app::account::follow`.
 
-use crate::atr_stop::{AtrStop, Smoothing};
+use crate::atr_stop::{AtrStop, MAX_LENGTH, MAX_MULTIPLIER, Smoothing};
 use wyck_market::Timeframe;
 
-/// The longest an ATR can be, as the label writes it.
-const MAX_LENGTH: usize = 1_000;
 /// The largest multiplier the label can hold, in hundredths.
-const MAX_MULTIPLIER_HUNDREDTHS: u32 = 100_000;
+const MAX_MULTIPLIER_HUNDREDTHS: u32 = (MAX_MULTIPLIER * 100.0) as u32;
 
 /// The rule an order carries.
 #[derive(Debug, Clone, PartialEq)]
@@ -135,14 +133,14 @@ impl AtrFollow {
 /// Whether a level of the order is far enough from where it should be to be amended: an amend
 /// for a hair of a pip would only fill the broker's log.
 #[must_use]
-pub fn needs_move(current: Option<f64>, wanted: f64, tolerance: f64) -> bool {
+pub(crate) fn needs_move(current: Option<f64>, wanted: f64, tolerance: f64) -> bool {
     current.is_none_or(|c| (c - wanted).abs() >= tolerance)
 }
 
 /// Whether the stop on the order is where this rule last put it. If it is not, the user moved it
 /// by hand and the rule leaves it alone from then on.
 #[must_use]
-pub fn is_untouched(current: Option<f64>, last_set: f64, tolerance: f64) -> bool {
+pub(crate) fn is_untouched(current: Option<f64>, last_set: f64, tolerance: f64) -> bool {
     current.is_some_and(|c| (c - last_set).abs() <= tolerance)
 }
 

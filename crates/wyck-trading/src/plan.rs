@@ -714,7 +714,7 @@ mod tests {
         assert_eq!(moves, vec![(2, 1.1000), (3, 1.1000)]);
         // A loss, or another leg closing, moves nothing.
         assert!(break_even_moves(&closed, -1.0, &legs, 0.0001).is_empty());
-        let mut second = closed.clone();
+        let mut second = closed;
         second.leg = 2;
         assert!(break_even_moves(&second, 5.0, &legs, 0.0001).is_empty());
     }

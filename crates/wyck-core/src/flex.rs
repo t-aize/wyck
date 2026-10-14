@@ -56,3 +56,47 @@ pub fn list<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<i64>, D::Error> {
         .map(to_i64)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+    use serde_json::json;
+
+    #[derive(Deserialize)]
+    struct Wire {
+        #[serde(deserialize_with = "super::int")]
+        id: i64,
+        #[serde(default, deserialize_with = "super::opt")]
+        maybe: Option<i64>,
+        #[serde(default, deserialize_with = "super::list")]
+        many: Vec<i64>,
+    }
+
+    fn read(value: serde_json::Value) -> Result<Wire, serde_json::Error> {
+        serde_json::from_value(value)
+    }
+
+    #[test]
+    fn integers_are_read_from_numbers_and_from_text() {
+        let from_numbers = read(json!({"id": 5, "maybe": -3.0, "many": [1, 2]})).unwrap();
+        let from_text = read(json!({"id": " 5 ", "maybe": "-3", "many": ["1", 2]})).unwrap();
+        assert_eq!(from_numbers.id, from_text.id);
+        assert_eq!(from_numbers.maybe, Some(-3));
+        assert_eq!(from_text.maybe, Some(-3));
+        assert_eq!(from_text.many, vec![1, 2]);
+    }
+
+    #[test]
+    fn a_missing_or_null_option_is_none() {
+        assert_eq!(read(json!({"id": 1})).unwrap().maybe, None);
+        assert_eq!(read(json!({"id": 1, "maybe": null})).unwrap().maybe, None);
+    }
+
+    #[test]
+    fn what_is_not_a_whole_number_is_refused() {
+        assert!(read(json!({"id": "x"})).is_err());
+        assert!(read(json!({"id": 1.5})).is_err());
+        assert!(read(json!({"id": u64::MAX})).is_err());
+        assert!(read(json!({"id": 1, "many": [1, "y"]})).is_err());
+    }
+}

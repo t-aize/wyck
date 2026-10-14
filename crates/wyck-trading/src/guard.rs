@@ -226,7 +226,7 @@ pub struct OrderFacts {
 }
 
 /// What the checks say about an order.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Verdict {
     Ok,
     /// Refuse it, with the reason.
@@ -237,7 +237,7 @@ pub enum Verdict {
 
 impl Verdict {
     #[cfg(test)]
-    pub fn is_block(&self) -> bool {
+    pub(crate) fn is_block(&self) -> bool {
         matches!(self, Self::Block(_))
     }
 }
@@ -338,7 +338,7 @@ pub struct Fingerprint {
 }
 
 /// How long an identical order is taken for a double click.
-pub const DUPLICATE_WINDOW_MS: i64 = 2_000;
+pub(crate) const DUPLICATE_WINDOW_MS: i64 = 2_000;
 
 /// Remembers the last order sent, to drop an identical one sent again at once.
 #[derive(Debug, Default)]

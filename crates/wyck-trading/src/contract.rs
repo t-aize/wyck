@@ -17,14 +17,14 @@ use wyck_market::PRICE_SCALE;
 ///
 /// // A forex pair: 100 000 units a lot, steps of 0.01 lot, pips at the fourth decimal.
 /// let eurusd = Contract::default();
-/// assert_eq!(eurusd.volume_of_lots(0.5), 5_000_000);
+/// assert_eq!(eurusd.volume_near(0.5).volume, 5_000_000);
 /// assert!((eurusd.pips(0.0020) - 20.0).abs() < 1e-9);
 ///
 /// // Risk 100 of the deposit currency over a 20 pip stop, quote currency = deposit currency.
 /// let lots = lots_for_risk(100.0, 0.0020, 1.0, &eurusd).unwrap();
-/// assert_eq!(eurusd.volume_of_lots(lots), 5_000_000);
+/// assert_eq!(eurusd.volume_near(lots).volume, 5_000_000);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Contract {
     /// Decimals of the symbol's prices.
     pub digits: u32,
@@ -73,7 +73,7 @@ impl Contract {
     }
 
     /// The volume of `lots`, rounded to a step the broker accepts and kept inside its limits.
-    pub fn volume_of_lots(&self, lots: f64) -> i64 {
+    pub(crate) fn volume_of_lots(&self, lots: f64) -> i64 {
         if !lots.is_finite() || lots <= 0.0 {
             return self.min_volume;
         }
@@ -112,14 +112,7 @@ impl Contract {
 
 /// Lots written plainly: `0.01`, `1.5`, `10`.
 pub fn format_lots(lots: f64) -> String {
-    let mut text = format!("{lots:.2}");
-    if text.contains('.') {
-        text = text.trim_end_matches('0').trim_end_matches('.').to_owned();
-    }
-    if text == "-0" {
-        text = "0".to_owned();
-    }
-    text
+    wyck_core::format::trim(lots, 2)
 }
 
 /// A price distance in the server's relative units (a stop loss or take profit of a market
@@ -230,7 +223,7 @@ pub fn check_protection(
 }
 
 /// The profit of a position in the symbol's quote currency, at the price it would close at.
-pub fn quote_profit(buy: bool, entry: f64, close: f64, units: f64) -> f64 {
+pub(crate) fn quote_profit(buy: bool, entry: f64, close: f64, units: f64) -> f64 {
     if buy {
         (close - entry) * units
     } else {
@@ -253,7 +246,7 @@ pub struct PnlMark {
 /// The rate a server answer implies: its gross profit over the profit in the quote currency
 /// computed here at about the same time. Only a move of at least `least` (a pip's worth) is
 /// trusted, since the two are not taken at the same instant.
-pub fn implied_rate(gross: f64, quote: f64, least: f64) -> Option<f64> {
+pub(crate) fn implied_rate(gross: f64, quote: f64, least: f64) -> Option<f64> {
     if quote.abs() < least.max(1e-9) {
         return None;
     }

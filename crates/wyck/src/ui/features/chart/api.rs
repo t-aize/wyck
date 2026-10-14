@@ -201,7 +201,7 @@ impl Chart {
                 self.view.bar_px = self.view.bar_px.max(footprint::DEFAULT_BAR_PX);
             } else if before.kind == ChartKind::Footprint {
                 // Bars as wide as a footprint's would be absurd as candles.
-                self.view.bar_px = self.timeframe.default_bar_px();
+                self.view.bar_px = super::default_bar_px(self.timeframe);
                 self.reset_flow();
             }
         }

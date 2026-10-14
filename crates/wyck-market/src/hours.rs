@@ -5,13 +5,12 @@
 //! (start included, end excluded), and each holiday as a day (days since 1970-01-01), optionally
 //! limited to part of it by seconds from the start of that day.
 
-use chrono::{Datelike, TimeZone, Timelike};
+use chrono::{Datelike, NaiveDate, TimeZone, Timelike};
 use chrono_tz::Tz;
 use serde::Deserialize;
-
 use wyck_core::flex;
 
-use super::Symbol;
+use crate::Symbol;
 
 const WEEK: i64 = 7 * 86_400;
 
@@ -77,7 +76,7 @@ impl MarketStatus {
 }
 
 /// A symbol's trading hours.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradingHours {
     zone: Tz,
     sessions: Vec<(i64, i64)>,
@@ -181,16 +180,13 @@ impl TradingHours {
             .min_by_key(|a| (a - week_second).rem_euclid(WEEK))
     }
 
-    fn holiday_on(&self, date: chrono::NaiveDate, second_of_day: i64) -> Option<&Holiday> {
-        let days = date
-            .signed_duration_since(chrono::NaiveDate::from_ymd_opt(1970, 1, 1)?)
-            .num_days();
+    fn holiday_on(&self, date: NaiveDate, second_of_day: i64) -> Option<&Holiday> {
+        let days = i64::from(date.to_epoch_days());
         self.holidays.iter().find(|h| {
             let same_day = if h.is_recurring {
-                chrono::NaiveDate::from_ymd_opt(1970, 1, 1)
-                    .and_then(|epoch| {
-                        epoch.checked_add_signed(chrono::Duration::days(h.holiday_date))
-                    })
+                i32::try_from(h.holiday_date)
+                    .ok()
+                    .and_then(NaiveDate::from_epoch_days)
                     .is_some_and(|d| d.month() == date.month() && d.day() == date.day())
             } else {
                 h.holiday_date == days
@@ -276,6 +272,27 @@ mod tests {
             TradingHours::from_symbol(&s).status_at(WEDNESDAY_NOON_MS),
             MarketStatus::CloseOnly
         );
+    }
+
+    #[test]
+    fn a_recurring_holiday_closes_the_same_day_every_year() {
+        let mut s = symbol(&[(0, 7 * DAY)], "UTC");
+        s.holiday = vec![Holiday {
+            name: None,
+            holiday_date: 19_360, // 2023-01-03
+            is_recurring: true,
+            start_second: None,
+            end_second: None,
+        }];
+        let hours = TradingHours::from_symbol(&s);
+        assert!(matches!(
+            hours.status_at(WEDNESDAY_NOON_MS),
+            MarketStatus::Closed {
+                holiday: None,
+                opens_at: Some(_)
+            }
+        ));
+        assert!(hours.status_at(WEDNESDAY_NOON_MS - DAY * 1_000).is_open());
     }
 
     #[test]

@@ -6,8 +6,7 @@
 //! numbers and Unix milliseconds, and refuses a bar whose numbers do not hold together
 //! ([`Bar::is_sane`]) so a damaged bar never reaches a chart.
 
-use serde::{Deserialize, Serialize};
-
+use serde::Deserialize;
 use wyck_core::flex;
 
 /// The period of a bar. The numbers are those of the official `ProtoOATrendbarPeriod` enum.
@@ -154,7 +153,7 @@ impl Bar {
 
 /// A bar as the server sends it (`ProtoOATrendbar`): the low is the base, the rest are offsets
 /// from it. See [`Bar`] for the readable form.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WireTrendbar {
     /// Volume in ticks: how many ticks the bar saw.
@@ -186,7 +185,7 @@ pub struct WireTrendbar {
 /// Returns `None` for a bar that lacks its low price or its time, or whose numbers do not hold
 /// together, so a damaged bar never reaches a chart.
 #[must_use]
-pub fn decode_bar(wire: &WireTrendbar) -> Option<Bar> {
+pub(crate) fn decode_bar(wire: &WireTrendbar) -> Option<Bar> {
     let low = wire.low?;
     let minutes = wire.utc_timestamp_in_minutes?;
     let bar = Bar {
@@ -209,52 +208,9 @@ pub fn decode_bars(wire: &[WireTrendbar]) -> Vec<Bar> {
     bars
 }
 
-/// `ProtoOASubscribeLiveTrendbarReq` and its unsubscribe twin.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LiveTrendbarReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// The bar period, as its number.
-    pub period: i32,
-    pub symbol_id: i64,
-}
-
-/// `ProtoOAGetTrendbarsReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetTrendbarsReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// Start of the range, in Unix milliseconds.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub from_timestamp: Option<i64>,
-    /// End of the range, in Unix milliseconds.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub to_timestamp: Option<i64>,
-    /// The bar period, as its number.
-    pub period: i32,
-    pub symbol_id: i64,
-    /// The most bars to return.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub count: Option<u32>,
-}
-
-/// `ProtoOAGetTrendbarsRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetTrendbarsRes {
-    #[serde(default)]
-    pub trendbar: Vec<WireTrendbar>,
-    /// Whether more bars exist in the range than were returned.
-    #[serde(default)]
-    pub has_more: Option<bool>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     fn wire_bar(low: i64, open: i64, close: i64, high: i64, minutes: i64) -> WireTrendbar {
         WireTrendbar {
@@ -339,22 +295,6 @@ mod tests {
             times,
             vec![3, 5],
             "the broken bar is gone, the duplicate merged"
-        );
-    }
-
-    #[test]
-    fn requests_use_the_official_field_names_and_skip_missing_options() {
-        let req = GetTrendbarsReq {
-            ctid_trader_account_id: 7,
-            from_timestamp: Some(1),
-            to_timestamp: None,
-            period: 1,
-            symbol_id: 3,
-            count: None,
-        };
-        assert_eq!(
-            serde_json::to_value(&req).unwrap(),
-            json!({"ctidTraderAccountId": 7, "fromTimestamp": 1, "period": 1, "symbolId": 3})
         );
     }
 }

@@ -5,17 +5,17 @@
 //! its names are put here once and handed out as `'static`.
 //!
 //! What is stored is bounded: the same text is stored once however many times a script is
-//! reloaded, so only text that is new costs memory, and past [`LIMIT`] bytes the table refuses
-//! more (an indicator then shows [`FULL`] where a name would be) instead of growing.
+//! reloaded, so only text that is new costs memory, and past 4 MiB the table refuses
+//! more (an indicator then shows `(too many names)` where a name would be) instead of growing.
 
 use std::collections::HashSet;
 use std::sync::{Mutex, PoisonError};
 
 /// The most bytes of names kept, in all.
-pub const LIMIT: usize = 4 * 1024 * 1024;
+const LIMIT: usize = 4 * 1024 * 1024;
 
 /// What stands in for a name once the table is full.
-pub const FULL: &str = "(too many names)";
+const FULL: &str = "(too many names)";
 
 #[derive(Default)]
 struct Table {

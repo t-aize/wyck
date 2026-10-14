@@ -13,17 +13,16 @@ use crate::{
 };
 use crate::{ExecutionEvent, ExecutionType};
 
-use crate::contract as math;
-use crate::contract::{Contract, PnlMark, Summary};
+use crate::contract::{self, Contract, PnlMark, Summary};
 
 /// The most recent deals kept for the history.
 const MAX_DEALS: usize = 500;
 
 /// What an execution event came to, for whoever tells the user. The words are not here: the order
 /// is described by its side, size, symbol and price, and the screen decides how to say it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
-    /// The order was filled, or the position closed. `position` is the position that stays open.
+    /// The order was filled, or the position closed.
     Filled {
         /// The order in a few words.
         what: String,
@@ -73,7 +72,7 @@ pub enum Outcome {
 }
 
 /// What an execution event changed, beyond the positions and orders themselves.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Applied {
     /// What happened to the order, if it is worth telling the user.
     pub outcome: Option<Outcome>,
@@ -120,6 +119,22 @@ fn has_side(data: &TradeData) -> bool {
         );
     }
     known
+}
+
+/// A position's profit in the quote currency at the current market.
+fn quote_profit_of(
+    position: &Position,
+    quotes: &dyn Fn(i64) -> (Option<f64>, Option<f64>),
+) -> Option<f64> {
+    let buy = position.trade_data.is_buy();
+    let (bid, ask) = quotes(position.trade_data.symbol_id);
+    let close = if buy { bid } else { ask }?;
+    Some(contract::quote_profit(
+        buy,
+        position.price?,
+        close,
+        position.trade_data.units(),
+    ))
 }
 
 /// Whether an order is a working order the user placed (not the protection of a position).
@@ -208,7 +223,7 @@ impl AccountBook {
         } else {
             "Sell"
         };
-        let lots = math::format_lots(contract.lots_of_volume(order.trade_data.volume));
+        let lots = contract::format_lots(contract.lots_of_volume(order.trade_data.volume));
         let kind = order.kind().map_or("order", OrderType::label);
         let price = order
             .limit_price
@@ -327,8 +342,8 @@ impl AccountBook {
                 Some(1.0)
             } else {
                 let pip = self.contract(symbol).pip() * position.trade_data.units();
-                self.quote_profit(position, quotes)
-                    .and_then(|quote| math::implied_rate(gross, quote, pip))
+                quote_profit_of(position, quotes)
+                    .and_then(|quote| contract::implied_rate(gross, quote, pip))
                     .or_else(|| self.marks.get(&pnl.position_id).and_then(|m| m.rate))
             };
             self.marks.insert(
@@ -351,23 +366,6 @@ impl AccountBook {
                 .is_some_and(|quote| quote.eq_ignore_ascii_case(&self.currency))
     }
 
-    /// A position's profit in the quote currency at the current market.
-    fn quote_profit(
-        &self,
-        position: &Position,
-        quotes: &dyn Fn(i64) -> (Option<f64>, Option<f64>),
-    ) -> Option<f64> {
-        let buy = position.trade_data.is_buy();
-        let (bid, ask) = quotes(position.trade_data.symbol_id);
-        let close = if buy { bid } else { ask }?;
-        Some(math::quote_profit(
-            buy,
-            position.price?,
-            close,
-            position.trade_data.units(),
-        ))
-    }
-
     /// A position's profit after costs, now.
     pub fn net_profit(
         &self,
@@ -376,8 +374,8 @@ impl AccountBook {
     ) -> Option<f64> {
         let position = self.positions.get(&position_id)?;
         let mark = self.marks.get(&position_id)?;
-        Some(match self.quote_profit(position, quotes) {
-            Some(now) => math::live_net(mark, now),
+        Some(match quote_profit_of(position, quotes) {
+            Some(now) => contract::live_net(mark, now),
             None => mark.net,
         })
     }
@@ -395,7 +393,7 @@ impl AccountBook {
             .values()
             .filter_map(|p| p.used_margin.map(|m| money(m, digits)))
             .sum();
-        math::summary(self.balance(), unrealized, margin)
+        contract::summary(self.balance(), unrealized, margin)
     }
 }
 

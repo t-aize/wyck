@@ -20,7 +20,7 @@ number_enum! {
 
 /// One tier of a dynamic leverage schedule (`ProtoOADynamicLeverageTier`): the leverage applied up
 /// to a volume; the last tier also covers everything above its volume.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicLeverageTier {
     /// The largest open volume, per side, this tier's leverage applies to, in hundredths of a unit.
@@ -32,7 +32,7 @@ pub struct DynamicLeverageTier {
 }
 
 /// A dynamic leverage schedule (`ProtoOADynamicLeverage`), referenced by `Symbol::leverage_id`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DynamicLeverage {
     /// The id `Symbol::leverage_id` points to.
@@ -44,7 +44,7 @@ pub struct DynamicLeverage {
 }
 
 /// The margin an order of each volume would need (`ProtoOAExpectedMargin`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpectedMargin {
     /// The volume this estimate is for, in hundredths of a unit.
@@ -103,7 +103,7 @@ impl MarginCall {
 }
 
 /// `ProtoOAMarginChangedEvent`: the margin used by a position changed.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginChangedEvent {
     #[serde(default, deserialize_with = "flex::opt")]

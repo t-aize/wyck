@@ -23,7 +23,7 @@ pub fn set(percent: u32) {
 }
 
 /// The scale in force, in percent.
-pub fn percent() -> u32 {
+fn percent() -> u32 {
     PERCENT.load(Ordering::Relaxed)
 }
 

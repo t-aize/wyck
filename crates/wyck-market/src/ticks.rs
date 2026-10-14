@@ -5,8 +5,7 @@
 //! ([`decode_ticks`], confirmed on a live demo account). There is no volume per tick: a bar's
 //! volume counts ticks, and only the order book has sizes.
 
-use serde::{Deserialize, Serialize};
-
+use serde::Deserialize;
 use wyck_core::flex;
 
 /// Which side of the market a tick history is for.
@@ -48,7 +47,7 @@ pub struct Quote {
 
 /// A tick as the server sends it (`ProtoOATickData`). Read the list with [`decode_ticks`]: the
 /// times are not absolute.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WireTick {
     /// For the first tick a Unix time in milliseconds, for the others a difference in
@@ -58,35 +57,6 @@ pub struct WireTick {
     /// The tick price.
     #[serde(deserialize_with = "flex::int")]
     pub tick: i64,
-}
-
-/// `ProtoOAGetTickDataReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetTickDataReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    pub symbol_id: i64,
-    /// Bid (1) or ask (2) ticks.
-    pub r#type: i32,
-    /// Start of the range, in Unix milliseconds.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub from_timestamp: Option<i64>,
-    /// End of the range, in Unix milliseconds. The range may span at most one week.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub to_timestamp: Option<i64>,
-}
-
-/// `ProtoOAGetTickDataRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetTickDataRes {
-    /// The ticks, newest first.
-    #[serde(default)]
-    pub tick_data: Vec<WireTick>,
-    /// Whether more ticks exist in the range than were returned.
-    #[serde(default)]
-    pub has_more: bool,
 }
 
 /// Turns the ticks of a `ProtoOAGetTickDataRes` into ticks with absolute times, oldest first.
@@ -175,7 +145,6 @@ pub fn merge_sides(bids: &[Tick], asks: &[Tick]) -> Vec<Quote> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     #[test]
     fn ticks_are_decoded_from_newest_first_deltas_in_time_and_price() {
@@ -297,38 +266,6 @@ mod tests {
         ];
         assert_eq!(decode_ticks(&wire).len(), 2);
     }
-
-    #[test]
-    fn integers_are_read_from_numbers_and_from_text() {
-        let a: WireTick = serde_json::from_value(json!({"timestamp": 5, "tick": 108500})).unwrap();
-        let b: WireTick =
-            serde_json::from_value(json!({"timestamp": "5", "tick": "108500"})).unwrap();
-        assert_eq!(a, b);
-        let c: WireTick = serde_json::from_value(json!({"timestamp": -3.0, "tick": 1})).unwrap();
-        assert_eq!(c.timestamp, -3);
-        assert!(serde_json::from_value::<WireTick>(json!({"timestamp": "x", "tick": 1})).is_err());
-        assert!(serde_json::from_value::<WireTick>(json!({"timestamp": 1.5, "tick": 1})).is_err());
-    }
-
-    #[test]
-    fn requests_use_the_official_field_names_and_skip_missing_options() {
-        let ticks = GetTickDataReq {
-            ctid_trader_account_id: 7,
-            symbol_id: 3,
-            r#type: 1,
-            from_timestamp: Some(10),
-            to_timestamp: Some(20),
-        };
-        assert_eq!(
-            serde_json::to_value(&ticks).unwrap(),
-            json!({"ctidTraderAccountId": 7, "symbolId": 3, "type": 1, "fromTimestamp": 10, "toTimestamp": 20})
-        );
-    }
-}
-
-#[cfg(test)]
-mod merge_tests {
-    use super::*;
 
     fn tick(time_ms: i64, price: i64) -> Tick {
         Tick { time_ms, price }

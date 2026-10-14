@@ -15,7 +15,7 @@ mod text;
 mod visibility;
 
 use super::Chart;
-use super::timeframe::GROUPS;
+use super::GROUPS;
 use super::zone::Zone;
 use crate::app::drawings::Drawings;
 use crate::domain::drawings::extras::ICONS;
@@ -447,9 +447,7 @@ impl DrawingProps {
                 |this, state, event: &InputEvent, cx| {
                     if matches!(event, InputEvent::Change) {
                         let code = state.read(cx).value().trim().to_ascii_uppercase();
-                        if code.is_empty()
-                            || super::timeframe::Timeframe::from_code(&code).is_some()
-                        {
+                        if code.is_empty() || super::Timeframe::from_code(&code).is_some() {
                             this.change(cx, |d| {
                                 if let Some(atr) = &mut d.style.position.atr_stop {
                                     atr.timeframe = (!code.is_empty()).then_some(code);

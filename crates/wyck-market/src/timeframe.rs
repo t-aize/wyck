@@ -10,9 +10,11 @@
 //! A timeframe is saved as a short code: `T`, `S15`, `M45`, `H2`, `D3`, `W2`, `MN3`. The same
 //! length always gets the same code (120 minutes is `H2`), so a custom one typed twice is one.
 
-use crate::Period;
 use chrono::{Datelike, TimeZone, Utc};
 
+use crate::Period;
+
+/// How long one bar of a chart is, and where its bars come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Timeframe {
     /// One point per price change.
@@ -439,14 +441,6 @@ impl Timeframe {
             Self::Seconds(1) => 60 * MINUTE,
             Self::Seconds(n) => i64::from(n) * 8 * MINUTE,
             Self::Bars(_) | Self::Multiple(..) => 0,
-        }
-    }
-
-    /// Pixels per bar when the timeframe is first shown.
-    pub fn default_bar_px(self) -> f64 {
-        match self {
-            Self::Ticks => 3.0,
-            _ => 8.0,
         }
     }
 }

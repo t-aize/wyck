@@ -12,5 +12,8 @@ description = "The small vocabulary every part of Wyck shares: number formats, s
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

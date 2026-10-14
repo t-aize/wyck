@@ -90,7 +90,6 @@ pub use self::overlay::kind_icon;
 use self::scene::Geometry;
 pub use self::settings::{ChartKind, ChartSettings};
 use self::study::config::StudyConfig;
-pub use self::timeframe::{GROUPS, Timeframe, Unit};
 use self::view::View;
 use crate::app::broker::session::Session;
 use crate::app::broker::{Error as ApiError, Result as ApiResult};
@@ -116,7 +115,7 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use wyck_market::timeframe;
+pub use wyck_market::{GROUPS, Timeframe, Unit};
 
 gpui::actions!(
     wyck_chart,
@@ -490,7 +489,16 @@ fn bar_px_for(settings: &ChartSettings, timeframe: Timeframe) -> f64 {
     if settings.kind == ChartKind::Footprint && footprint::supports(timeframe) {
         footprint::DEFAULT_BAR_PX
     } else {
-        timeframe.default_bar_px()
+        default_bar_px(timeframe)
+    }
+}
+
+/// Pixels per bar when a timeframe is first shown: ticks are packed closer than bars.
+fn default_bar_px(timeframe: Timeframe) -> f64 {
+    if timeframe == Timeframe::Ticks {
+        3.0
+    } else {
+        8.0
     }
 }
 

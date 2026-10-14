@@ -74,7 +74,7 @@ impl ExecutionEvent {
 
 /// `ProtoOAOrderErrorEvent`: a trading request failed without a matching answer of its own type
 /// (for example the account moved out of margin between requests).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderErrorEvent {
     /// The account the error is about.

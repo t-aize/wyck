@@ -3,8 +3,15 @@
 use serde::{Deserialize, Serialize};
 
 use wyck_core::math;
-use wyck_market::{Bar, PRICE_SCALE};
+use wyck_market::{Bar, to_price};
 
+/// The longest an ATR can be.
+pub(crate) const MAX_LENGTH: usize = 1_000;
+/// The largest multiple of the ATR a stop can be placed at.
+pub(crate) const MAX_MULTIPLIER: f64 = 1_000.0;
+const DEFAULT_MULTIPLIER: f64 = 2.0;
+
+/// How the true ranges are averaged into the ATR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Smoothing {
@@ -28,6 +35,7 @@ impl Smoothing {
     }
 }
 
+/// An ATR stop: where a stop loss goes, as a multiple of the average true range.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AtrStop {
@@ -44,7 +52,7 @@ impl Default for AtrStop {
         Self {
             length: 14,
             smoothing: Smoothing::Rma,
-            multiplier: 2.0,
+            multiplier: DEFAULT_MULTIPLIER,
             timeframe: None,
             current_bar: false,
         }
@@ -53,11 +61,11 @@ impl Default for AtrStop {
 
 impl AtrStop {
     pub fn normalized(mut self) -> Self {
-        self.length = self.length.clamp(1, 1_000);
+        self.length = self.length.clamp(1, MAX_LENGTH);
         if !self.multiplier.is_finite() || self.multiplier <= 0.0 {
-            self.multiplier = 2.0;
+            self.multiplier = DEFAULT_MULTIPLIER;
         }
-        self.multiplier = self.multiplier.min(1_000.0);
+        self.multiplier = self.multiplier.min(MAX_MULTIPLIER);
         self
     }
 
@@ -72,10 +80,9 @@ impl AtrStop {
         if usable.len() < self.length {
             return None;
         }
-        let price = |raw| raw as f64 / PRICE_SCALE as f64;
-        let high: Vec<_> = usable.iter().map(|b| price(b.high)).collect();
-        let low: Vec<_> = usable.iter().map(|b| price(b.low)).collect();
-        let close: Vec<_> = usable.iter().map(|b| price(b.close)).collect();
+        let high: Vec<_> = usable.iter().map(|b| to_price(b.high)).collect();
+        let low: Vec<_> = usable.iter().map(|b| to_price(b.low)).collect();
+        let close: Vec<_> = usable.iter().map(|b| to_price(b.close)).collect();
         let tr = math::true_range(&high, &low, &close);
         let series = match self.smoothing {
             Smoothing::Rma => math::rma(&tr, self.length),

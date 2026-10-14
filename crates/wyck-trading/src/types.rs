@@ -202,18 +202,23 @@ number_enum! {
     }
 }
 
+/// An integer amount of money as a real number, given the account's `money_digits` (2 when the
+/// server did not say).
+///
 /// ```
 /// use wyck_trading::money;
 ///
 /// assert_eq!(money(1_000_050, Some(2)), 10_000.5);
 /// assert_eq!(money(500, None), 5.0); // two digits when the server did not say
 /// ```
-///
-/// An integer amount of money as a real number, given the account's `money_digits` (2 when the
-/// server did not say).
 #[must_use]
 pub fn money(raw: i64, money_digits: Option<u32>) -> f64 {
     raw as f64 / 10f64.powi(i32::try_from(money_digits.unwrap_or(2)).unwrap_or(2))
+}
+
+/// The decimals of a money amount from the number the server sent; `None` when it sent none.
+fn digits_of(raw: Option<i64>) -> Option<u32> {
+    raw.and_then(|digits| u32::try_from(digits).ok())
 }
 
 /// A volume in units, from the server's hundredths of a unit.
@@ -223,7 +228,7 @@ pub fn volume_units(raw: i64) -> f64 {
 }
 
 /// The account itself (`ProtoOATrader`): balance, leverage, rights.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Trader {
     /// The trading account id.
@@ -274,7 +279,7 @@ impl Trader {
     /// The decimals of money amounts (2 when unknown).
     #[must_use]
     pub fn digits(&self) -> Option<u32> {
-        self.money_digits.and_then(|d| u32::try_from(d).ok())
+        digits_of(self.money_digits)
     }
 
     /// The leverage as a ratio (100.0 for 1:100).
@@ -297,7 +302,7 @@ impl Trader {
 }
 
 /// What an order or a position is about (`ProtoOATradeData`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TradeData {
     #[serde(deserialize_with = "flex::int")]
@@ -525,9 +530,7 @@ impl Deal {
                 .as_i64()
                 .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
         };
-        let digits = number("moneyDigits")
-            .or(self.money_digits)
-            .and_then(|d| u32::try_from(d).ok());
+        let digits = digits_of(number("moneyDigits").or(self.money_digits));
         let gross = number("grossProfit")?;
         let swap = number("swap").unwrap_or(0);
         let commission = number("commission").unwrap_or(0);
@@ -538,7 +541,7 @@ impl Deal {
 /// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`). `operation_type`
 /// is kept as the server's raw number: `ProtoOAChangeBalanceType` has about thirty values (swaps,
 /// commissions, rebates, transfers, ...) and this crate does not give each one a name.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepositWithdraw {
     /// The kind of operation, as `ProtoOAChangeBalanceType`'s number (0 deposit, 1 withdrawal, and
@@ -575,7 +578,7 @@ impl DepositWithdraw {
     /// The decimals of money amounts (2 when unknown).
     #[must_use]
     pub fn digits(&self) -> Option<u32> {
-        self.money_digits.and_then(|d| u32::try_from(d).ok())
+        digits_of(self.money_digits)
     }
 }
 
@@ -596,7 +599,7 @@ pub struct DealOffset {
 }
 
 /// The unrealized profit or loss of one position (`ProtoOAPositionUnrealizedPnL`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionUnrealizedPnL {
     #[serde(deserialize_with = "flex::int")]

@@ -4,6 +4,8 @@
 //! is not defined yet (the first `period - 1` points of a moving average, for example). A `NaN`
 //! in the input is skipped the way a gap is: averages restart after it. That keeps every output
 //! aligned index for index with the bars it was computed from, which is what the chart plots.
+//! Series passed together must have the same length: the functions index them without checking,
+//! so a caller that takes a series from outside (a script) compares the lengths first.
 //!
 //! The definitions follow the usual references (Wilder for RSI and ATR, Appel for MACD,
 //! Bollinger for the bands), and the tests check them against values worked out by hand.

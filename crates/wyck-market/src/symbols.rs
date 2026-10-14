@@ -1,12 +1,13 @@
-//! Symbols and the reference catalogs around them: the wire types for the symbol list and its
-//! details, and the catalogs a symbol's ids point into (assets, asset classes, symbol categories).
+//! Symbols and the reference catalogs around them: a symbol of the list, its details, and the
+//! catalogs its ids point into (assets, asset classes, symbol categories).
 
-use serde::{Deserialize, Serialize};
-
+use serde::Deserialize;
 use wyck_core::flex;
 
+use crate::hours::{Holiday, Interval};
+
 /// A symbol in the list of an account (`ProtoOALightSymbol`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LightSymbol {
     #[serde(deserialize_with = "flex::int")]
@@ -32,7 +33,7 @@ pub struct LightSymbol {
 }
 
 /// The details of a symbol (`ProtoOASymbol`, the fields that matter to a data client).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
     #[serde(deserialize_with = "flex::int")]
@@ -60,10 +61,10 @@ pub struct Symbol {
     pub schedule_time_zone: Option<String>,
     /// When the symbol trades each week (`schedule`).
     #[serde(default)]
-    pub schedule: Vec<super::hours::Interval>,
+    pub schedule: Vec<Interval>,
     /// Days the symbol does not trade (`holiday`).
     #[serde(default)]
-    pub holiday: Vec<super::hours::Holiday>,
+    pub holiday: Vec<Holiday>,
     /// Whether trading is allowed (`ProtoOATradingMode`: 0 enabled, 1 and 2 disabled, 3 close
     /// only).
     #[serde(default, deserialize_with = "flex::opt")]
@@ -71,7 +72,7 @@ pub struct Symbol {
 }
 
 /// An asset: a currency or other unit an account or symbol is denominated in (`ProtoOAAsset`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Asset {
     #[serde(deserialize_with = "flex::int")]
@@ -119,7 +120,7 @@ pub struct SymbolCategory {
 
 /// `ProtoOASymbolChangedEvent`: the broker changed one or more symbols (trading hours, volume
 /// rules, ...). Ask `MarketClient::symbol_details` again for the ones named here.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolChangedEvent {
     /// The account the changed symbols belong to.
@@ -130,128 +131,16 @@ pub struct SymbolChangedEvent {
     pub symbol_id: Vec<i64>,
 }
 
-/// `ProtoOASymbolsListReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolsListReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// Whether archived symbols are wanted too.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub include_archived_symbols: Option<bool>,
-}
-
-/// `ProtoOASymbolsListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolsListRes {
-    /// The symbols of the account.
-    #[serde(default)]
-    pub symbol: Vec<LightSymbol>,
-}
-
-/// `ProtoOASymbolByIdReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolByIdReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// The symbols asked about.
-    pub symbol_id: Vec<i64>,
-}
-
-/// `ProtoOASymbolByIdRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolByIdRes {
-    /// The details asked for.
-    #[serde(default)]
-    pub symbol: Vec<Symbol>,
-}
-
-/// `ProtoOASymbolsForConversionReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolsForConversionReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// The asset converted from.
-    pub first_asset_id: i64,
-    /// The asset converted to.
-    pub last_asset_id: i64,
-}
-
-/// `ProtoOASymbolsForConversionRes`: a chain of symbols to convert one asset into another when no
-/// direct quote exists (for example EUR/USD, USD/JPY for a EUR/JPY conversion).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolsForConversionRes {
-    /// The chain, in order.
-    #[serde(default)]
-    pub symbol: Vec<LightSymbol>,
-}
-
-/// `ProtoOAAssetListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssetListRes {
-    #[serde(default)]
-    pub asset: Vec<Asset>,
-}
-
-/// `ProtoOAAssetClassListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssetClassListRes {
-    #[serde(default)]
-    pub asset_class: Vec<AssetClass>,
-}
-
-/// `ProtoOASymbolCategoryListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SymbolCategoryListRes {
-    #[serde(default)]
-    pub symbol_category: Vec<SymbolCategory>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
 
     #[test]
-    fn a_conversion_chain_and_a_symbol_changed_event_are_read() {
-        let chain: SymbolsForConversionRes = serde_json::from_value(json!({"symbol": [
-            {"symbolId": 1, "symbolName": "EURUSD"},
-            {"symbolId": 2, "symbolName": "USDJPY"}
-        ]}))
-        .unwrap();
-        assert_eq!(chain.symbol.len(), 2);
+    fn a_symbol_changed_event_is_read() {
         let changed: SymbolChangedEvent =
             serde_json::from_value(json!({"ctidTraderAccountId": 1, "symbolId": ["2", 3]}))
                 .unwrap();
         assert_eq!(changed.symbol_id, vec![2, 3]);
-    }
-
-    #[test]
-    fn the_catalogs_are_read() {
-        let assets: AssetListRes = serde_json::from_value(json!({"asset": [
-            {"assetId": 1, "name": "EUR", "displayName": "Euro", "digits": 2},
-            {"assetId": "2", "name": "USD"}
-        ]}))
-        .unwrap();
-        assert_eq!(assets.asset[1].asset_id, 2);
-        assert_eq!(assets.asset[0].display_name.as_deref(), Some("Euro"));
-
-        let categories: SymbolCategoryListRes = serde_json::from_value(json!({"symbolCategory": [
-            {"id": 4, "assetClassId": 1, "name": "Majors", "sortingNumber": 1.0}
-        ]}))
-        .unwrap();
-        assert_eq!(categories.symbol_category[0].asset_class_id, 1);
-
-        let classes: AssetClassListRes =
-            serde_json::from_value(json!({"assetClass": [{"id": 1, "name": "Forex"}]})).unwrap();
-        assert_eq!(classes.asset_class[0].name.as_deref(), Some("Forex"));
     }
 }

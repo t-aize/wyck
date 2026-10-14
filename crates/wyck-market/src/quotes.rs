@@ -1,10 +1,10 @@
 //! Live prices: the two-sided [`Spot`] and the wire [`SpotEvent`], which only carries the side that
 //! changed.
 
-use serde::{Deserialize, Serialize};
-
-use super::bars::{Bar, Period, WireTrendbar, decode_bar};
+use serde::Deserialize;
 use wyck_core::flex;
+
+use crate::bars::{Bar, Period, WireTrendbar, decode_bar};
 
 /// A live price change: what one `ProtoOASpotEvent` says about a symbol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +30,7 @@ impl From<&SpotEvent> for Spot {
 }
 
 /// `ProtoOASpotEvent`: a new price, or the first one after a subscription.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotEvent {
     /// The trading account id.
@@ -71,19 +71,6 @@ impl SpotEvent {
 fn live_bar(wire: &WireTrendbar) -> Option<(Period, Bar)> {
     let period = Period::from_number(wire.period.unwrap_or(1))?;
     Some((period, decode_bar(wire)?))
-}
-
-/// `ProtoOASubscribeSpotsReq`.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubscribeSpotsReq {
-    /// The trading account id.
-    pub ctid_trader_account_id: i64,
-    /// The symbols to follow.
-    pub symbol_id: Vec<i64>,
-    /// Ask for the server time of each spot.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subscribe_to_spot_timestamp: Option<bool>,
 }
 
 #[cfg(test)]

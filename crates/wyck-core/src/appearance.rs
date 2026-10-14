@@ -114,7 +114,7 @@ pub const SCALE_MIN: u32 = 80;
 pub const SCALE_MAX: u32 = 160;
 
 /// Everything the interface takes from the user's appearance settings, ready to be put in force.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Look {
     /// The palette.
     pub colors: Colors,
