@@ -484,7 +484,7 @@ mod tests {
 
     #[test]
     fn every_new_part_of_a_look_survives_the_saved_file() {
-        use super::super::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
+        use crate::look::{Cap, HAlign, LabelSide, LevelText, VAlign};
 
         let mut d = drawing(1, Tool::FibRetracement, 2);
         d.text = "the label".to_owned();

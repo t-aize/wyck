@@ -318,7 +318,7 @@ impl Tool {
 #[cfg(test)]
 mod tests {
 
-    use super::super::tool::*;
+    use crate::model::tool::*;
 
     #[test]
     fn quick_color_is_only_for_drawings_with_a_primary_color() {

@@ -241,9 +241,9 @@ pub(crate) fn fixed_square_corner(a: P, b: P) -> P {
 
 #[cfg(test)]
 mod tests {
-    use super::super::geometry::hit::{handles, hit};
-    use super::super::geometry::tests::{Linear, drawing};
-    use super::super::geometry::{Prim, prims as shapes_of};
+    use crate::geometry::hit::{handles, hit};
+    use crate::geometry::tests::{Linear, drawing};
+    use crate::geometry::{Prim, prims as shapes_of};
 
     use super::*;
 

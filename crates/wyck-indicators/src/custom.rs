@@ -4,8 +4,8 @@
 //! indicators folder. It says what the indicator is, what the user can change and what it draws,
 //! and computes it over the bars of a chart with functions that work on all the bars at once.
 //!
-//! - [`series`]: the value a script works with, a number for every bar, and its arithmetic.
-//! - [`api`]: every function a script can call.
+//! - `series`: the value a script works with, a number for every bar, and its arithmetic.
+//! - `api`: every function a script can call.
 //! - [`run`]: compiling, declaring and computing a script, with limits on what a run may do.
 
 pub(crate) mod api;

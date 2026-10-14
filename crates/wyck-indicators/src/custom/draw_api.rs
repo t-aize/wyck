@@ -295,10 +295,10 @@ fn draw(key: &str, tool: &str, points: Array, options: Map) -> Fallible<()> {
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::super::run::Script;
-    use super::super::run::decl::Limits;
     use super::*;
     use crate::compute::StudyInput;
+    use crate::custom::run::Script;
+    use crate::custom::run::decl::Limits;
 
     fn bars() -> StudyInput {
         StudyInput {

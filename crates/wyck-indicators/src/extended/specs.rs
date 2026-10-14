@@ -2,8 +2,7 @@
 
 use crate::kind::StudyKind;
 use crate::spec::{
-    InputKind, InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, ValueFormat, float, int,
-    line,
+    InputSpec, Placement, PlotKind, PlotSpec, SOURCE, Spec, ValueFormat, choice, float, int, line,
 };
 
 pub(super) const BLUE: u32 = 0x2962ff;
@@ -39,26 +38,6 @@ macro_rules! static_spec {
             spec($label, $short, $placement, $format, INPUTS, PLOTS, $range)
         }
     };
-}
-
-pub(super) const fn choice(
-    key: &'static str,
-    label: &'static str,
-    names: &'static [&'static str],
-    default: f64,
-) -> InputSpec {
-    InputSpec {
-        key,
-        label,
-        kind: InputKind::Choice(names),
-        default,
-        min: 0.0,
-        max: (names.len() - 1) as f64,
-        step: 1.0,
-        group: "",
-        tooltip: "",
-        text: "",
-    }
 }
 
 pub(super) const fn spec(

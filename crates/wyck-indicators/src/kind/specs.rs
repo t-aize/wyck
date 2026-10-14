@@ -1,5 +1,5 @@
 //! The spec of each of the first indicators on offer: the moving averages, the bands, the
-//! oscillators and the volume studies. The later ones are in [`super::super::extended::specs`].
+//! oscillators and the volume studies. The later ones are in [`crate::extended::specs`].
 
 use super::StudyKind;
 use crate::compute::MA_METHODS;

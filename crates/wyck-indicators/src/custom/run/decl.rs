@@ -272,8 +272,8 @@ impl Columns {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use super::*;
+    use crate::custom::run::*;
 
     #[test]
     fn style_inputs_follow_kind_name_and_explicit_section() {

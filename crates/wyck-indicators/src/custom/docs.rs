@@ -749,7 +749,7 @@ mod tests {
     /// The names of the functions the API registers, without the operators.
     fn registered() -> BTreeSet<String> {
         let mut engine = Engine::new_raw();
-        super::super::api::register(&mut engine);
+        crate::custom::api::register(&mut engine);
         engine
             .gen_fn_signatures(false)
             .into_iter()
@@ -799,7 +799,7 @@ mod tests {
 
     #[test]
     fn the_names_a_script_starts_with_are_the_ones_the_run_provides() {
-        let scope = super::super::run::global_names();
+        let scope = crate::custom::run::global_names();
         let described: BTreeSet<String> = GLOBALS.iter().map(|n| n.name.to_owned()).collect();
         assert_eq!(scope.into_iter().collect::<BTreeSet<_>>(), described);
     }

@@ -364,10 +364,10 @@ fn fib_fan(drawing: &Drawing, pts: &[P], rect: Rect, out: &mut Vec<Prim>) {
 
 #[cfg(test)]
 mod tests {
-    use super::super::geometry::hit::hit;
-    use super::super::geometry::prims;
-    use super::super::geometry::tests::{Linear, drawing};
     use super::*;
+    use crate::geometry::hit::hit;
+    use crate::geometry::prims;
+    use crate::geometry::tests::{Linear, drawing};
 
     fn labels(shapes: &[Prim]) -> Vec<String> {
         shapes
@@ -581,7 +581,7 @@ mod tests {
             let d = drawing(tool, &points[..tool.anchors().max(2)]);
             let shapes = prims(&d, &Linear);
             assert!(!shapes.is_empty(), "{tool:?} draws nothing");
-            let first = super::super::geometry::anchors(&d, &Linear).unwrap()[0];
+            let first = crate::geometry::anchors(&d, &Linear).unwrap()[0];
             assert!(
                 hit(&d, &Linear, first, true).is_some(),
                 "{tool:?} cannot be picked by its first point"

@@ -3,10 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use super::super::compute::StudyInput;
-use super::super::spec::{InputKind, PlotKind};
 use super::run::decl::Limits;
 use super::run::{Computed, Script};
+use crate::compute::StudyInput;
+use crate::spec::{InputKind, PlotKind};
 use wyck_core::math;
 
 fn bars(n: usize) -> StudyInput {
@@ -361,10 +361,7 @@ fn the_indicator_call_sets_the_words_the_menus_show() {
         ),
         ("Momentum", "Me", "1.2")
     );
-    assert!(matches!(
-        meta.format,
-        super::super::spec::ValueFormat::Count
-    ));
+    assert!(matches!(meta.format, crate::spec::ValueFormat::Count));
 }
 
 #[test]

@@ -14,10 +14,10 @@
 
 pub mod decl;
 
-use super::super::compute::{ScriptDrawing, StudyInput, StudyOutput};
-use super::super::spec::{PlotKind, SOURCES};
 use super::api;
 use super::other::{self, OtherSymbols};
+use crate::compute::{ScriptDrawing, StudyInput, StudyOutput};
+use crate::spec::{PlotKind, SOURCES};
 use rhai::{AST, Dynamic, Engine, EvalAltResult, ParseError, Position, Scope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -357,7 +357,7 @@ impl Script {
             .declaration
             .inputs
             .iter()
-            .filter(|input| input.input_kind() == super::super::spec::InputKind::Symbol)
+            .filter(|input| input.input_kind() == crate::spec::InputKind::Symbol)
             .map(|input| {
                 texts
                     .get(&input.key)
@@ -405,7 +405,7 @@ impl Script {
         self.compute_with_others(input, values, texts, &OtherSymbols::new(), limits, cancel)
     }
 
-    /// [`Self::compute_with_texts`] with the bars of other symbols, which the script reads with
+    /// `compute_with_texts` with the bars of other symbols, which the script reads with
     /// `bars_of`. `others` holds them under [`other::key_of`] their names.
     ///
     /// # Errors
@@ -451,7 +451,7 @@ fn output_of(run: &Run) -> StudyOutput {
     let mut output = StudyOutput::default();
     for plot in &run.plots {
         let decl = run.declaration.plots.iter().find(|d| d.key == plot.key);
-        output.plots.push(super::super::compute::PlotOut {
+        output.plots.push(crate::compute::PlotOut {
             key: intern::name(&plot.key),
             kind: decl.map_or(PlotKind::Line, |d| d.kind),
             values: plot.values.clone(),
@@ -460,7 +460,7 @@ fn output_of(run: &Run) -> StudyOutput {
         });
     }
     for fill in &run.fills {
-        output.fills.push(super::super::compute::FillOut {
+        output.fills.push(crate::compute::FillOut {
             a: fill.a,
             b: fill.b,
             color: fill.color,

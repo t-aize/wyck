@@ -12,9 +12,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use std::time::Duration;
 
-use super::super::spec::{InputSpec, Placement, PlotSpec, Spec};
 use super::run::Script;
 use super::run::decl::{Declaration, Limits, Problem};
+use crate::spec::{InputSpec, Placement, PlotSpec, Spec};
 use wyck_core::intern;
 
 /// What a script may do while it is being declared (run on no bars): far less than a computation.
@@ -290,7 +290,7 @@ pub(crate) fn missing_spec(id: &str) -> Spec {
         label: intern::name(stem),
         short: intern::name(&short_of(stem)),
         placement: Placement::Overlay,
-        format: super::super::spec::ValueFormat::Plain(2),
+        format: crate::spec::ValueFormat::Plain(2),
         inputs: &[],
         plots: &[],
         range: None,

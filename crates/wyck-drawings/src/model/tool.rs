@@ -603,7 +603,7 @@ impl Group {
 #[cfg(test)]
 mod tests {
 
-    use super::super::tool::*;
+    use super::*;
 
     #[test]
     fn every_tool_is_in_a_section_and_the_long_families_are_cut() {

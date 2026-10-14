@@ -347,11 +347,11 @@ pub(super) fn apply_handle(drawing: &mut Drawing, index: usize, to: Point) {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::geometry::tests::Linear;
+    use crate::geometry::tests::Linear;
 
-    use super::super::edit::apply_handle;
+    use super::apply_handle;
 
-    use super::super::*;
+    use crate::book::*;
 
     #[test]
     fn a_box_is_reshaped_from_any_corner_or_side() {
@@ -391,9 +391,6 @@ mod tests {
         apply_handle(&mut d, 7, Point { t: 900_000, p: 1.0 });
         assert_eq!(d.points[1].t, 900_000);
         assert_eq!(d.points[1].p, 250.0, "a side moves one way only");
-        assert_eq!(
-            super::super::super::geometry::hit::handles(&d, &Linear).len(),
-            8
-        );
+        assert_eq!(crate::geometry::hit::handles(&d, &Linear).len(), 8);
     }
 }

@@ -2,12 +2,12 @@
 //!
 //! A script names the symbol with an input of type symbol (`input_symbol`). The app loads the bars
 //! of that symbol on the timeframe of the chart and hands them to the run, which lines them up on
-//! the bars of the chart: [`Aligned`] holds one number per bar of the chart.
+//! the bars of the chart: `Aligned` holds one number per bar of the chart.
 
 use std::collections::BTreeMap;
 
-use super::super::compute::StudyInput;
 use super::series::Series;
+use crate::compute::StudyInput;
 use wyck_market::Bar;
 
 /// The bars of another symbol, as they came from the server: one value per bar, oldest first.

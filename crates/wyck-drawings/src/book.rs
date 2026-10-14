@@ -389,7 +389,7 @@ impl Book {
 
 #[cfg(test)]
 mod tests {
-    use super::super::geometry::tests::Linear;
+    use crate::geometry::tests::Linear;
 
     use super::*;
     use crate::model::{MAX_NAMED_TEMPLATES, MAX_TEMPLATE_NAME};

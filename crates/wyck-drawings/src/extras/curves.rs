@@ -242,7 +242,7 @@ pub(super) fn double_curve(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 #[cfg(test)]
 mod tests {
 
-    use super::super::curves::circumcircle;
+    use super::circumcircle;
 
     #[test]
     fn a_circle_goes_through_three_points() {

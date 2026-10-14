@@ -326,31 +326,24 @@ impl Book {
 
     /// Shows or hides every drawing of the symbol at once.
     pub fn set_all_hidden(&mut self, symbol: &str, hidden: bool) -> bool {
-        let before = self.snapshot(symbol);
-        let Some(list) = self.symbols.get_mut(symbol) else {
-            return false;
-        };
-        let mut changed = false;
-        for drawing in list.iter_mut().filter(|d| d.hidden != hidden) {
-            drawing.hidden = hidden;
-            changed = true;
-        }
-        if changed {
-            self.remember(before);
-        }
-        changed
+        self.set_all(symbol, hidden, |d| &mut d.hidden)
     }
 
     /// Locks or unlocks every drawing of the symbol at once. A locked drawing can be selected but
     /// not moved, edited or deleted by mistake.
     pub fn set_all_locked(&mut self, symbol: &str, locked: bool) -> bool {
+        self.set_all(symbol, locked, |d| &mut d.locked)
+    }
+
+    /// Sets one flag of every drawing of the symbol, as one undo step. False when none changed.
+    fn set_all(&mut self, symbol: &str, value: bool, flag: fn(&mut Drawing) -> &mut bool) -> bool {
         let before = self.snapshot(symbol);
         let Some(list) = self.symbols.get_mut(symbol) else {
             return false;
         };
         let mut changed = false;
-        for drawing in list.iter_mut().filter(|d| d.locked != locked) {
-            drawing.locked = locked;
+        for slot in list.iter_mut().map(flag).filter(|slot| **slot != value) {
+            *slot = value;
             changed = true;
         }
         if changed {

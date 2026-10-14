@@ -444,11 +444,11 @@ impl StudyConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::super::compute::*;
-    use super::super::config::*;
-    use super::super::kind::*;
-    use super::super::spec::*;
-    use super::super::style::*;
+    use super::*;
+    use crate::compute::*;
+    use crate::kind::*;
+    use crate::spec::*;
+    use crate::style::*;
 
     use serde::{Deserialize, Serialize};
     use wyck_drawings::model::style::Dash;

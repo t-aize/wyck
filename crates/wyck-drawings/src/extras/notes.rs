@@ -412,12 +412,12 @@ pub(super) fn icon(drawing: &Drawing, pts: &[P], out: &mut Vec<Prim>) {
 #[cfg(test)]
 mod tests {
 
-    use super::super::super::geometry::tests::{Linear, drawing};
-    use super::super::super::geometry::{Prim, prims as shapes_of};
+    use crate::geometry::tests::{Linear, drawing};
+    use crate::geometry::{Prim, prims as shapes_of};
 
-    use super::super::notes::*;
+    use super::*;
 
-    use super::super::*;
+    use crate::extras::*;
 
     #[test]
     fn a_table_reads_cells_from_bars_and_lines() {
