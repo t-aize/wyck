@@ -16,7 +16,7 @@ use crate::app::broker::session::Session;
 use tokio::sync::watch;
 use wyck_market::{Bar, Period, SpotEvent};
 
-use crate::infra::platform::runtime;
+use wyck_platform::runtime;
 
 /// What one owner wants followed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

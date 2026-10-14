@@ -1,0 +1,25 @@
+[package]
+name = "wyck-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "What the operating system gives Wyck: the async runtime, the facts of the build and the log files."
+
+[dependencies]
+chrono.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[dev-dependencies]
+semver.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -30,6 +30,7 @@ wyck-core = { path = "crates/wyck-core" }
 wyck-drawings = { path = "crates/wyck-drawings" }
 wyck-indicators = { path = "crates/wyck-indicators" }
 wyck-market = { path = "crates/wyck-market" }
+wyck-platform = { path = "crates/wyck-platform" }
 wyck-trading = { path = "crates/wyck-trading" }
 
 # Every external dependency, with its version. The features a crate needs are listed by that

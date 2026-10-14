@@ -6,10 +6,10 @@ use std::path::{Path, PathBuf};
 use directories::ProjectDirs;
 use tracing::{debug, warn};
 
-use crate::infra::platform::build_info::BuildMode;
 use crate::infra::storage::error::{ConfigError, Result};
 use crate::infra::storage::identity::application_name;
 use crate::infra::storage::locations::{self, Kind, Locations, Problem};
+use wyck_platform::build_info::BuildMode;
 
 /// The environment variable that moves the config directory (and the data directory too, unless
 /// [`DATA_DIR_ENV`] says otherwise): for a portable install, a test, or a second profile of the
@@ -304,7 +304,7 @@ impl AppPaths {
     }
 
     /// The folder of the log files and of the reports written when the app panics (see
-    /// [`crate::infra::platform::logging`]). Where the system keeps logs, apart from the settings
+    /// [`wyck_platform::logging`]). Where the system keeps logs, apart from the settings
     /// so that a backup or a reset never carries or removes them: `%LOCALAPPDATA%` on Windows,
     /// `~/Library/Logs` on macOS, `$XDG_STATE_HOME` (`~/.local/state`) on Linux. With
     /// [`CONFIG_DIR_ENV`] or [`DATA_DIR_ENV`] set it is the `logs` folder inside the data folder.

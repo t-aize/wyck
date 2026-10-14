@@ -18,11 +18,11 @@ use gpui_kit::component::Root;
 use app::appearance;
 use app::scripts;
 use app::updates;
-use infra::platform::build_info::{self, BuildMode};
-use infra::platform::logging;
 use ui::assets;
 use ui::features::indicators;
 use ui::shell::app_view::AppView;
+use wyck_platform::build_info::{self, BuildMode};
+use wyck_platform::logging;
 
 /// The smallest the window can be made: below this the dashboard has no room for its bars.
 const MIN_WINDOW: (f32, f32) = (900.0, 600.0);

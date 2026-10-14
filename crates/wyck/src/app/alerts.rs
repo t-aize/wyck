@@ -32,7 +32,7 @@ use crate::app::market_data::load;
 use crate::app::market_data::load::Loaded;
 use crate::app::market_data::now_ms;
 use crate::app::workspace::Saver;
-use crate::infra::platform::runtime;
+use wyck_platform::runtime;
 
 pub mod eval;
 pub mod model;

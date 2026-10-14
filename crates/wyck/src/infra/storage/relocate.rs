@@ -632,8 +632,8 @@ pub fn delete_leftover(paths: &AppPaths, path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::platform::build_info::BuildMode;
     use crate::infra::storage::DocumentStore;
+    use wyck_platform::build_info::BuildMode;
 
     const MODE: BuildMode = BuildMode::Production;
 

@@ -9862,6 +9862,7 @@ dependencies = [
  "wyck-drawings",
  "wyck-indicators",
  "wyck-market",
+ "wyck-platform",
  "wyck-trading",
  "zeroize",
 ]
@@ -9923,6 +9924,20 @@ dependencies = [
  "serde",
  "serde_json",
  "wyck-core",
+]
+
+[[package]]
+name = "wyck-platform"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "semver",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]

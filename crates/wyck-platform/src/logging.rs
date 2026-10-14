@@ -34,7 +34,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 
-use crate::infra::platform::build_info::{BuildMode, VERSION};
+use crate::build_info::{BuildMode, VERSION};
 
 /// How many daily log files are kept. The library keeps one fewer than it is given, so this is
 /// one more than the days wanted: today and the 13 before.

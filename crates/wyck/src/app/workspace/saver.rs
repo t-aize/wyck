@@ -12,7 +12,7 @@ use std::time::Duration;
 use crate::infra::storage::DocumentStore;
 use serde::Serialize;
 
-use crate::infra::platform::runtime;
+use wyck_platform::runtime;
 
 /// How long a value waits for a newer one before it is written.
 const QUIET: Duration = Duration::from_millis(700);

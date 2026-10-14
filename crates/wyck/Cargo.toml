@@ -101,6 +101,7 @@ wyck-core.workspace = true
 wyck-drawings.workspace = true
 wyck-indicators.workspace = true
 wyck-market.workspace = true
+wyck-platform.workspace = true
 wyck-trading.workspace = true
 zeroize.workspace = true
 

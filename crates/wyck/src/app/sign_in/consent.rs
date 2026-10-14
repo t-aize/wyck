@@ -12,7 +12,7 @@ use super::{AccountChoice, CALLBACK_PORT, Failure, Pending, SignIn};
 use crate::infra::ctrader::auth::{CallbackListener, OAuthClient, authorization_url, new_state};
 use crate::infra::ctrader::config::ClientCredentials;
 use crate::infra::ctrader::{ClientBuilder, Environment, TraderAccount};
-use crate::infra::platform::runtime;
+use wyck_platform::runtime;
 
 /// How long to wait for the user to allow access on cTrader's page.
 const CONSENT_TIMEOUT: Duration = Duration::from_secs(300);

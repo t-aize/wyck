@@ -14,7 +14,7 @@ use std::ffi::OsString;
 
 use secrecy::SecretString;
 
-use crate::infra::platform::build_info::BuildMode;
+use wyck_platform::build_info::BuildMode;
 
 /// The environment variable that names the keyring group credentials are kept under, whatever the
 /// build mode says. An empty value counts as not set.

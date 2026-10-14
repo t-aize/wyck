@@ -55,6 +55,6 @@ mod tests {
 
     #[test]
     fn the_version_is_valid_semver() {
-        assert!(cargo_packager_updater::semver::Version::parse(VERSION).is_ok());
+        assert!(semver::Version::parse(VERSION).is_ok());
     }
 }

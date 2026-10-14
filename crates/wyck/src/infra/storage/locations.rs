@@ -47,10 +47,10 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::infra::platform::build_info::BuildMode;
 use crate::infra::storage::error::{ConfigError, Result};
 use crate::infra::storage::fs_util::{atomic_write, read_text};
 use crate::infra::storage::migrate::{self, Outcome, Plan};
+use wyck_platform::build_info::BuildMode;
 
 /// The name of the pointer, in the config folder.
 pub const FILE: &str = "locations.toml";

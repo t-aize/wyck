@@ -27,7 +27,7 @@ use crate::infra::ctrader::auth::TokenSet;
 use crate::infra::ctrader::config::ClientCredentials;
 use crate::infra::ctrader::session::{MemoryTokenStore, TokenStore};
 use crate::infra::ctrader::{Client, Environment, TraderAccount};
-use crate::infra::platform::runtime;
+use wyck_platform::runtime;
 
 use self::rules::{account_label, document_scope, environment_of, saved_profile, service_tag};
 pub use self::state::{AccountChoice, Failure, Phase, SignInState};
