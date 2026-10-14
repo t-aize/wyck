@@ -29,7 +29,6 @@ pub mod requests;
 
 pub use requests::{
     AmendOrderReq, AmendPositionSlTpReq, CancelOrderReq, ClosePositionReq, NewOrderReq,
-    NewOrderType,
 };
 
 mod client;

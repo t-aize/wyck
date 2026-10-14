@@ -23,9 +23,7 @@ use serde::Deserialize;
 
 use crate::wyck_core::flex;
 
-/// Defines an enumeration that maps to server numbers and back. Reachable as
-/// `crate::domain::trading::types::number_enum` so [`crate::infra::ctrader::trading`] and [`crate::infra::ctrader::margin`] can
-/// build their own enumerations with it; it is not meant to be used outside this module.
+/// Defines an enumeration that maps to server numbers and back. For the files of this folder only.
 #[doc(hidden)]
 macro_rules! number_enum {
     (
@@ -89,6 +87,24 @@ number_enum! {
         /// At the market within a price range.
         MarketRange = 5 => "market range",
         /// A stop that becomes a limit order.
+        StopLimit = 6 => "stop limit",
+    }
+}
+
+number_enum! {
+    /// The kind of an order request (`ProtoOAOrderType`, the subset a caller chooses between when
+    /// placing one; [`OrderType`] decodes any order the server sends back, including
+    /// `StopLossTakeProfit`, which a caller never asks for directly).
+    NewOrderType {
+        /// At the current market price.
+        Market = 1 => "market",
+        /// At `limit_price` or better.
+        Limit = 2 => "limit",
+        /// Becomes a market order once `stop_price` is reached.
+        Stop = 3 => "stop",
+        /// At the market, within `slippage_in_points` of `base_slippage_price`.
+        MarketRange = 5 => "market range",
+        /// Becomes a limit order once `stop_price` is reached.
         StopLimit = 6 => "stop limit",
     }
 }

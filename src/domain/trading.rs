@@ -18,7 +18,7 @@ pub use margin::{
     MarginCallType, MarginCallUpdateEvent, MarginChangedEvent,
 };
 pub use types::{
-    AccessRights, AccountType, Deal, DealOffset, DealStatus, DepositWithdraw, Order, OrderStatus,
-    OrderTriggerMethod, OrderType, Position, PositionStatus, PositionUnrealizedPnL, TimeInForce,
-    TradeData, TradeSide, Trader, money, volume_units,
+    AccessRights, AccountType, Deal, DealOffset, DealStatus, DepositWithdraw, NewOrderType, Order,
+    OrderStatus, OrderTriggerMethod, OrderType, Position, PositionStatus, PositionUnrealizedPnL,
+    TimeInForce, TradeData, TradeSide, Trader, money, volume_units,
 };

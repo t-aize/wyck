@@ -74,24 +74,23 @@ pub fn compute(
 
 #[cfg(test)]
 mod tests {
-    use super::library::registry;
+    use super::library::{Entry, registry};
     use super::*;
-    use crate::app::scripts::folder::Library;
+
+    /// Makes `source` the indicator called `id`, as if it had been read from the folder.
+    fn publish(id: &str, source: &str) {
+        let entry = Entry::compile(id, std::path::Path::new("test.rhai"), source.to_owned());
+        registry::insert(Arc::new(entry));
+    }
 
     #[test]
     fn a_chart_computes_a_script_it_holds_through_the_config() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut library = Library::new(dir.path());
-        library
-            .create(
-                None,
-                "Config compute test",
-                "indicator(#{ overlay: true });\n\
-                 let len = input_int(\"length\", 3, #{ min: 1, max: 50 });\n\
-                 plot(\"ma\", sma(close, len));",
-            )
-            .unwrap();
-        library.publish();
+        publish(
+            "Config compute test",
+            "indicator(#{ overlay: true });\n\
+             let len = input_int(\"length\", 3, #{ min: 1, max: 50 });\n\
+             plot(\"ma\", sma(close, len));",
+        );
         assert!(registry::contains("Config compute test"));
 
         let mut config = StudyConfig::for_script("Config compute test");
@@ -135,21 +134,15 @@ mod tests {
 
     #[test]
     fn a_mistake_typed_in_a_script_does_not_wipe_the_settings_of_the_charts_that_hold_it() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut library = Library::new(dir.path());
         let good = "let n2 = input_int(\"length\", 5, #{ min: 1, max: 50 });
 plot(\"a\", sma(close, n2));";
-        library.create(None, "Broken while typing", good).unwrap();
-        library.publish();
+        publish("Broken while typing", good);
         let mut config = StudyConfig::for_script("Broken while typing");
         config.inputs.insert("length".to_owned(), 9.0);
         let config = config.normalized();
         assert_eq!(config.inputs["length"], 9.0);
 
-        library
-            .save("Broken while typing", "plot(\"a\", sma(close, );")
-            .unwrap();
-        library.publish();
+        publish("Broken while typing", "plot(\"a\", sma(close, );");
         assert!(!config.is_ready());
         let config = config.normalized();
         assert_eq!(
@@ -158,8 +151,7 @@ plot(\"a\", sma(close, n2));";
         );
         assert_eq!(config.plots.len(), 1);
 
-        library.save("Broken while typing", good).unwrap();
-        library.publish();
+        publish("Broken while typing", good);
         assert!(config.normalized().is_ready());
     }
 

@@ -1,6 +1,5 @@
 //! The look of the app as plain data: the palette of colors and what is put in force together
-//! with it. The themes (their names, what the user changed) are in `crate::app::appearance`; the
-//! screens read the palette through `crate::ui::kit::theme`.
+//! with it.
 
 /// The colors of the interface and of the chart, as `0xRRGGBB` (the tint of a selection carries
 /// its own alpha, as `0xRRGGBBAA`).

@@ -2,8 +2,9 @@
 
 use super::helpers::{side_of, slippage_points, stop_limit_price};
 use super::{Kind, OrderTicket, Plan, Tif, problem};
-use crate::app::broker::trading::{NewOrderReq, NewOrderType};
+use crate::app::broker::trading::NewOrderReq;
 use crate::app::market_data::now_ms;
+use crate::domain::trading::NewOrderType;
 use crate::domain::trading::follow::AtrFollow;
 use crate::domain::trading::guard::Verdict;
 use crate::domain::trading::math;

@@ -7,8 +7,6 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use crate::domain::drawings::model::tool::Tool;
-
 static HINTS: RwLock<Option<HashMap<&'static str, String>>> = RwLock::new(None);
 
 /// Replaces what is known about the keys.
@@ -31,22 +29,6 @@ pub fn suffix(id: &str) -> String {
         .unwrap_or_default()
 }
 
-/// The keys that pick a drawing tool, or `None` for a tool with none.
-pub fn tool_hint(tool: Tool) -> Option<String> {
-    let id = match tool {
-        Tool::TrendLine => "tool_trend_line",
-        Tool::HorizontalLine => "tool_horizontal",
-        Tool::VerticalLine => "tool_vertical",
-        Tool::FibRetracement => "tool_fib",
-        Tool::Rectangle => "tool_rectangle",
-        Tool::Text => "tool_text",
-        Tool::Measure => "tool_measure",
-        Tool::Brush => "tool_brush",
-        _ => return None,
-    };
-    hint(id)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,8 +38,7 @@ mod tests {
         set(HashMap::from([("tool_trend_line", "Alt+T".to_owned())]));
         assert_eq!(hint("tool_trend_line").as_deref(), Some("Alt+T"));
         assert_eq!(suffix("tool_trend_line"), " (Alt+T)");
-        assert_eq!(tool_hint(Tool::TrendLine).as_deref(), Some("Alt+T"));
-        assert_eq!(tool_hint(Tool::Text), None);
+        assert_eq!(hint("tool_text"), None);
         assert_eq!(suffix("nothing"), "");
     }
 }

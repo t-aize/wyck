@@ -41,6 +41,22 @@ fn group_tools(group: Group) -> Vec<Tool> {
         .collect()
 }
 
+/// The keys that pick a drawing tool, or `None` for a tool with none.
+fn tool_hint(tool: Tool) -> Option<String> {
+    let id = match tool {
+        Tool::TrendLine => "tool_trend_line",
+        Tool::HorizontalLine => "tool_horizontal",
+        Tool::VerticalLine => "tool_vertical",
+        Tool::FibRetracement => "tool_fib",
+        Tool::Rectangle => "tool_rectangle",
+        Tool::Text => "tool_text",
+        Tool::Measure => "tool_measure",
+        Tool::Brush => "tool_brush",
+        _ => return None,
+    };
+    crate::ui::kit::hints::hint(id)
+}
+
 /// A drawing color as the theme's color type.
 fn swatch_color(color: u32) -> gpui::Rgba {
     gpui::rgb(color)
@@ -112,7 +128,7 @@ impl MultiChart {
             let shown = self.group_tool(group);
             let active = tool.is_some_and(|t| t.group() == group);
             let slots = self.rail_slots.clone();
-            let tip: SharedString = match crate::ui::kit::hints::tool_hint(shown) {
+            let tip: SharedString = match tool_hint(shown) {
                 Some(keys) => format!(
                     "{} ({keys}). The arrow lists the {}",
                     shown.label(),
@@ -387,7 +403,7 @@ impl MultiChart {
                         },
                     ))
                     .child(div().flex_1().min_w_0().child(tool.label()))
-                    .children(crate::ui::kit::hints::tool_hint(tool).map(|keys| {
+                    .children(tool_hint(tool).map(|keys| {
                         div()
                             .flex_none()
                             .pr_1()

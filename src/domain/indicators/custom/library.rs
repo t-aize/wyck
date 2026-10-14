@@ -3,8 +3,8 @@
 //!
 //! An indicator is a `.rhai` file. Its id is its path from the scripts folder without the
 //! extension, `trend/my_average`, and that id is what a chart saves to remember which indicator it
-//! holds. Reading the folder and the things a user does to files live in
-//! `crate::app::scripts::library`; this module has no I/O.
+//! holds. Reading the folder and the things a user does to files live in the app layer; this
+//! module has no I/O.
 
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
@@ -137,6 +137,16 @@ pub mod registry {
     #[cfg(test)]
     pub fn revision() -> u64 {
         with_registry(|r| r.revision)
+    }
+
+    /// Adds one indicator, or replaces the one with the same id. Tests use it so that they do not
+    /// wipe each other's indicators the way [`install`] would.
+    #[cfg(test)]
+    pub fn insert(entry: Arc<Entry>) {
+        with_registry(|r| {
+            r.entries.insert(entry.id.clone(), entry);
+            r.revision += 1;
+        });
     }
 
     /// Publishes `entries` as the whole list. Returns whether it differs from what was there.

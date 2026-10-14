@@ -83,24 +83,9 @@ pub struct Applied {
 
 /// The account's state, rebuilt from a reconcile answer and kept current by execution events.
 ///
-/// ```no_run
-/// # async fn demo(account: wyck::infra::ctrader::AccountClient) -> wyck::infra::ctrader::Result<()> {
-/// use wyck::infra::ctrader::Event;
-/// use wyck::domain::trading::book::AccountBook;
-///
-/// let mut book = AccountBook::default();
-/// let mut events = account.client().events();
-/// let (positions, orders) = account.account_data().open_positions_and_orders(false).await?;
-/// book.reconcile(positions, orders);
-/// while let Ok(event) = events.recv().await {
-///     if let Event::Execution(execution) = event {
-///         if let Some(outcome) = book.apply(&execution).outcome {
-///             println!("{outcome:?}");
-///         }
-///     }
-/// }
-/// # Ok(()) }
-/// ```
+/// [`AccountBook::reconcile`] replaces the positions and orders with the server's answer; each
+/// [`ExecutionEvent`] then goes through [`AccountBook::apply`], which says what happened to the
+/// order when it is worth telling the user.
 #[derive(Debug, Clone, Default)]
 pub struct AccountBook {
     /// The account itself, once the server sent it.

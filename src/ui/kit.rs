@@ -19,6 +19,8 @@ pub mod input;
 pub mod layout;
 pub mod menu;
 pub mod modal;
+#[cfg(test)]
+mod no_inline_colors;
 pub mod number;
 pub mod prelude;
 pub mod text_input;

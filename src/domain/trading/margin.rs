@@ -82,7 +82,7 @@ pub struct MarginCall {
 }
 
 impl MarginCall {
-    /// A threshold to send with [`crate::infra::ctrader::margin::MarginClient::update_margin_call`].
+    /// A threshold to send with the margin client's `update_margin_call`.
     ///
     /// ```
     /// use wyck::domain::trading::{MarginCall, MarginCallType};

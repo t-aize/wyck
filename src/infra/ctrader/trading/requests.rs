@@ -7,26 +7,7 @@
 
 use serde::Serialize;
 
-use crate::domain::trading::types::number_enum;
-use crate::domain::trading::{TimeInForce, TradeSide};
-
-number_enum! {
-    /// The kind of an order request (`ProtoOAOrderType`, the subset a caller chooses between when
-    /// placing one; `crate::domain::trading::OrderType` decodes any order the server sends back, including
-    /// `StopLossTakeProfit`, which a caller never asks for directly).
-    NewOrderType {
-        /// At the current market price.
-        Market = 1 => "market",
-        /// At `limit_price` or better.
-        Limit = 2 => "limit",
-        /// Becomes a market order once `stop_price` is reached.
-        Stop = 3 => "stop",
-        /// At the market, within `slippage_in_points` of `base_slippage_price`.
-        MarketRange = 5 => "market range",
-        /// Becomes a limit order once `stop_price` is reached.
-        StopLimit = 6 => "stop limit",
-    }
-}
+use crate::domain::trading::{NewOrderType, TimeInForce, TradeSide};
 
 /// `ProtoOANewOrderReq`. Build with [`NewOrderReq::market`], [`NewOrderReq::limit`],
 /// [`NewOrderReq::stop`] or [`NewOrderReq::stop_limit`], then set the optional fields.
