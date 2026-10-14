@@ -29,12 +29,12 @@ struct Head {
 
 /// The plaintext, human-editable part of `wyck`'s configuration: which
 /// [`ProfileConfig`]s exist and which one is active. Never contains a token: see
-/// [`crate::secret`] for where those live instead.
+/// `crate::secret` for where those live instead.
 ///
-/// Round-trips through TOML at [`crate::AppPaths::config_file`]. `schema_version` is required
+/// Round-trips through TOML at `crate::AppPaths::config_file`. `schema_version` is required
 /// and is bumped whenever a breaking change to this shape ships; a file with a version this build
-/// does not know is refused (see [`AppConfig::load`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// does not know is refused (see `AppConfig::load`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppConfig {
     /// The version of this layout. Required: a file without it is not a config file of this app.
     pub schema_version: u32,
@@ -73,7 +73,7 @@ impl AppConfig {
     ///
     /// A file in an older layout is upgraded first (see [`crate::migrate`]): the
     /// old text stays next to it as `config.toml.v<old>.bak`.
-    pub fn load(paths: &AppPaths) -> Result<Self> {
+    pub(crate) fn load(paths: &AppPaths) -> Result<Self> {
         Self::load_with(paths, &PLAN)
     }
 
@@ -128,7 +128,7 @@ impl AppConfig {
 
     /// Serializes and writes the config to `paths.config_file()`, atomically (see
     /// `atomic_write`).
-    pub fn save(&self, paths: &AppPaths) -> Result<()> {
+    pub(crate) fn save(&self, paths: &AppPaths) -> Result<()> {
         let toml_text = toml::to_string_pretty(self).map_err(ConfigError::Serialize)?;
         let path = paths.config_file();
         atomic_write(&path, toml_text.as_bytes())?;
@@ -141,13 +141,13 @@ impl AppConfig {
     }
 
     /// Looks up a profile by id.
-    pub fn profile(&self, id: &ProfileId) -> Option<&ProfileConfig> {
+    pub(crate) fn profile(&self, id: &ProfileId) -> Option<&ProfileConfig> {
         self.profiles.iter().find(|profile| &profile.id == id)
     }
 
     /// The active profile, resolved from `active_profile`, if any is set and it still
     /// exists in `profiles`.
-    pub fn active_profile(&self) -> Option<&ProfileConfig> {
+    pub(crate) fn active_profile(&self) -> Option<&ProfileConfig> {
         self.active_profile.as_ref().and_then(|id| self.profile(id))
     }
 }
@@ -234,6 +234,10 @@ mod tests {
         );
     }
 
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "a migration step has this signature, whether it can fail or not"
+    )]
     fn rename_symbol(table: &mut toml::Table) -> std::result::Result<(), migrate::StepError> {
         if let Some(symbol) = table.remove("symbol") {
             table.insert("last_symbol".to_owned(), symbol);

@@ -106,7 +106,7 @@ impl Kind {
 
     /// The kind a [`Self::code`] names.
     #[must_use]
-    pub fn from_code(code: &str) -> Option<Self> {
+    pub(crate) fn from_code(code: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|kind| kind.code() == code)
     }
 
@@ -141,13 +141,13 @@ impl Kind {
     /// Whether the cloud preset puts it in the cloud folder. The logs say what happened on one
     /// computer, so they stay where they are.
     #[must_use]
-    pub const fn in_cloud_preset(self) -> bool {
+    pub(crate) const fn in_cloud_preset(self) -> bool {
         !matches!(self, Self::Logs)
     }
 
     /// Whether moving it carries its files along. The old logs stay where they were written.
     #[must_use]
-    pub const fn carries_files(self) -> bool {
+    pub(crate) const fn carries_files(self) -> bool {
         !matches!(self, Self::Logs)
     }
 }
@@ -199,7 +199,7 @@ impl Default for Locations {
 impl Locations {
     /// The folder chosen for `kind`.
     #[must_use]
-    pub fn get(&self, kind: Kind) -> Option<&Path> {
+    pub(crate) fn get(&self, kind: Kind) -> Option<&Path> {
         match kind {
             Kind::Settings => &self.settings,
             Kind::Accounts => &self.accounts,
@@ -223,7 +223,7 @@ impl Locations {
 
     /// Whether nothing is chosen and nothing is left behind.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         *self == Self::default()
     }
 
@@ -364,7 +364,7 @@ struct Marker {
 /// # Errors
 ///
 /// [`ConfigError::Serialize`] and [`ConfigError::Write`].
-pub fn write_marker(dir: &Path, kind: Kind, mode: BuildMode) -> Result<()> {
+pub(crate) fn write_marker(dir: &Path, kind: Kind, mode: BuildMode) -> Result<()> {
     let marker = Marker {
         format: MARKER_FORMAT.to_owned(),
         schema_version: SCHEMA_VERSION,
@@ -526,7 +526,7 @@ pub struct CloudFolder {
 /// services are found by the name they give their folder. The list is a help, not a rule: the user
 /// can always pick any folder.
 #[must_use]
-pub fn cloud_folders_with(
+pub(crate) fn cloud_folders_with(
     var: impl Fn(&str) -> Option<OsString>,
     home: Option<&Path>,
 ) -> Vec<CloudFolder> {
@@ -595,7 +595,7 @@ pub fn cloud_folders_with(
     found
 }
 
-/// [`cloud_folders_with`] for the real environment and the home folder of the user.
+/// `cloud_folders_with` for the real environment and the home folder of the user.
 #[must_use]
 pub fn cloud_folders() -> Vec<CloudFolder> {
     let home = directories::BaseDirs::new().map(|dirs| dirs.home_dir().to_path_buf());

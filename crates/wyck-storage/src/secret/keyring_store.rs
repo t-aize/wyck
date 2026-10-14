@@ -41,7 +41,7 @@ impl KeyringSecretStore {
     /// credential manager (e.g. so `wyck`'s entries are visibly grouped together in
     /// Windows Credential Manager / macOS Keychain Access rather than mixed in with
     /// every other app's entries).
-    pub fn new(service: impl Into<String>) -> Self {
+    pub(crate) fn new(service: impl Into<String>) -> Self {
         Self {
             service: service.into(),
         }
@@ -64,7 +64,7 @@ impl SecretStore for KeyringSecretStore {
             .inspect(|_| debug!(service = %self.service, %key, "stored a secret in the OS keyring"))
             .map_err(|source| {
                 warn!(service = %self.service, %key, error = %source, "could not store a secret in the OS keyring");
-                to_config_error(key, source)
+                to_config_error(key, &source)
             })
     }
 
@@ -81,7 +81,7 @@ impl SecretStore for KeyringSecretStore {
             }
             Err(source) => {
                 warn!(service = %self.service, %key, error = %source, "could not retrieve a secret from the OS keyring");
-                Err(to_config_error(key, source))
+                Err(to_config_error(key, &source))
             }
         }
     }
@@ -96,17 +96,17 @@ impl SecretStore for KeyringSecretStore {
             Err(keyring::Error::NoEntry) => Ok(()),
             Err(source) => {
                 warn!(service = %self.service, %key, error = %source, "could not delete a secret from the OS keyring");
-                Err(to_config_error(key, source))
+                Err(to_config_error(key, &source))
             }
         }
     }
 }
 
 fn entry_for(service: &str, key: &SecretKey) -> Result<Entry> {
-    Entry::new(service, key.as_str()).map_err(|source| to_config_error(key, source))
+    Entry::new(service, key.as_str()).map_err(|source| to_config_error(key, &source))
 }
 
-fn to_config_error(key: &SecretKey, source: keyring::Error) -> ConfigError {
+fn to_config_error(key: &SecretKey, source: &keyring::Error) -> ConfigError {
     ConfigError::SecretStore {
         key: key.to_string(),
         message: source.to_string(),

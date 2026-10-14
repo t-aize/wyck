@@ -18,7 +18,7 @@ impl ProfileId {
     }
 
     /// The raw id string.
-    pub fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -61,7 +61,7 @@ pub struct ProfileConfig {
 
 impl ProfileConfig {
     /// Creates a new profile with a freshly generated [`ProfileId`].
-    pub fn new(display_name: impl Into<String>, service: impl Into<String>) -> Self {
+    pub(crate) fn new(display_name: impl Into<String>, service: impl Into<String>) -> Self {
         Self {
             id: ProfileId::new_random(),
             display_name: display_name.into(),

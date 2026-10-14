@@ -14,209 +14,202 @@
 //!
 //! Numbers in JSON may be written as numbers or as strings (a 64 bit id or a price is often sent
 //! as text by protobuf's JSON mapping), so every integer field across this crate's messages
-//! accepts both (see [`flex`]).
+//! accepts both (see [`wyck_core::flex`]).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// The payload type numbers this crate uses.
-pub mod payload {
+pub(crate) mod payload {
     /// `ProtoErrorRes`: an error from the proxy itself.
-    pub const PROXY_ERROR_RES: u32 = 50;
+    pub(crate) const PROXY_ERROR_RES: u32 = 50;
     /// `ProtoHeartbeatEvent`: sent both ways to show the connection is alive.
-    pub const HEARTBEAT_EVENT: u32 = 51;
+    pub(crate) const HEARTBEAT_EVENT: u32 = 51;
 
     /// `ProtoOAApplicationAuthReq`.
-    pub const APPLICATION_AUTH_REQ: u32 = 2100;
+    pub(crate) const APPLICATION_AUTH_REQ: u32 = 2100;
     /// `ProtoOAApplicationAuthRes`.
-    pub const APPLICATION_AUTH_RES: u32 = 2101;
+    pub(crate) const APPLICATION_AUTH_RES: u32 = 2101;
     /// `ProtoOAAccountAuthReq`.
-    pub const ACCOUNT_AUTH_REQ: u32 = 2102;
+    pub(crate) const ACCOUNT_AUTH_REQ: u32 = 2102;
     /// `ProtoOAAccountAuthRes`.
-    pub const ACCOUNT_AUTH_RES: u32 = 2103;
+    pub(crate) const ACCOUNT_AUTH_RES: u32 = 2103;
     /// `ProtoOAVersionReq`.
-    pub const VERSION_REQ: u32 = 2104;
+    pub(crate) const VERSION_REQ: u32 = 2104;
     /// `ProtoOAVersionRes`.
-    pub const VERSION_RES: u32 = 2105;
+    pub(crate) const VERSION_RES: u32 = 2105;
 
     /// `ProtoOANewOrderReq`.
-    pub const NEW_ORDER_REQ: u32 = 2106;
+    pub(crate) const NEW_ORDER_REQ: u32 = 2106;
     /// `ProtoOATrailingSLChangedEvent`.
-    pub const TRAILING_SL_CHANGED_EVENT: u32 = 2107;
+    pub(crate) const TRAILING_SL_CHANGED_EVENT: u32 = 2107;
     /// `ProtoOACancelOrderReq`.
-    pub const CANCEL_ORDER_REQ: u32 = 2108;
+    pub(crate) const CANCEL_ORDER_REQ: u32 = 2108;
     /// `ProtoOAAmendOrderReq`.
-    pub const AMEND_ORDER_REQ: u32 = 2109;
+    pub(crate) const AMEND_ORDER_REQ: u32 = 2109;
     /// `ProtoOAAmendPositionSLTPReq`.
-    pub const AMEND_POSITION_SLTP_REQ: u32 = 2110;
+    pub(crate) const AMEND_POSITION_SLTP_REQ: u32 = 2110;
     /// `ProtoOAClosePositionReq`.
-    pub const CLOSE_POSITION_REQ: u32 = 2111;
+    pub(crate) const CLOSE_POSITION_REQ: u32 = 2111;
     /// `ProtoOAOrderErrorEvent`.
-    pub const ORDER_ERROR_EVENT: u32 = 2132;
+    pub(crate) const ORDER_ERROR_EVENT: u32 = 2132;
 
     /// `ProtoOASymbolsListReq`.
-    pub const SYMBOLS_LIST_REQ: u32 = 2114;
+    pub(crate) const SYMBOLS_LIST_REQ: u32 = 2114;
     /// `ProtoOASymbolsListRes`.
-    pub const SYMBOLS_LIST_RES: u32 = 2115;
+    pub(crate) const SYMBOLS_LIST_RES: u32 = 2115;
     /// `ProtoOASymbolByIdReq`.
-    pub const SYMBOL_BY_ID_REQ: u32 = 2116;
+    pub(crate) const SYMBOL_BY_ID_REQ: u32 = 2116;
     /// `ProtoOASymbolByIdRes`.
-    pub const SYMBOL_BY_ID_RES: u32 = 2117;
+    pub(crate) const SYMBOL_BY_ID_RES: u32 = 2117;
     /// `ProtoOASymbolsForConversionReq`.
-    pub const SYMBOLS_FOR_CONVERSION_REQ: u32 = 2118;
+    pub(crate) const SYMBOLS_FOR_CONVERSION_REQ: u32 = 2118;
     /// `ProtoOASymbolsForConversionRes`.
-    pub const SYMBOLS_FOR_CONVERSION_RES: u32 = 2119;
+    pub(crate) const SYMBOLS_FOR_CONVERSION_RES: u32 = 2119;
     /// `ProtoOASymbolChangedEvent`.
-    pub const SYMBOL_CHANGED_EVENT: u32 = 2120;
+    pub(crate) const SYMBOL_CHANGED_EVENT: u32 = 2120;
     /// `ProtoOASubscribeSpotsReq`.
-    pub const SUBSCRIBE_SPOTS_REQ: u32 = 2127;
+    pub(crate) const SUBSCRIBE_SPOTS_REQ: u32 = 2127;
     /// `ProtoOASubscribeSpotsRes`.
-    pub const SUBSCRIBE_SPOTS_RES: u32 = 2128;
+    pub(crate) const SUBSCRIBE_SPOTS_RES: u32 = 2128;
     /// `ProtoOAUnsubscribeSpotsReq`.
-    pub const UNSUBSCRIBE_SPOTS_REQ: u32 = 2129;
+    pub(crate) const UNSUBSCRIBE_SPOTS_REQ: u32 = 2129;
     /// `ProtoOAUnsubscribeSpotsRes`.
-    pub const UNSUBSCRIBE_SPOTS_RES: u32 = 2130;
+    pub(crate) const UNSUBSCRIBE_SPOTS_RES: u32 = 2130;
     /// `ProtoOASpotEvent`.
-    pub const SPOT_EVENT: u32 = 2131;
+    pub(crate) const SPOT_EVENT: u32 = 2131;
     /// `ProtoOASubscribeLiveTrendbarReq`.
-    pub const SUBSCRIBE_LIVE_TRENDBAR_REQ: u32 = 2135;
+    pub(crate) const SUBSCRIBE_LIVE_TRENDBAR_REQ: u32 = 2135;
     /// `ProtoOAUnsubscribeLiveTrendbarReq`.
-    pub const UNSUBSCRIBE_LIVE_TRENDBAR_REQ: u32 = 2136;
+    pub(crate) const UNSUBSCRIBE_LIVE_TRENDBAR_REQ: u32 = 2136;
     /// `ProtoOAGetTrendbarsReq`.
-    pub const GET_TRENDBARS_REQ: u32 = 2137;
+    pub(crate) const GET_TRENDBARS_REQ: u32 = 2137;
     /// `ProtoOAGetTrendbarsRes`.
-    pub const GET_TRENDBARS_RES: u32 = 2138;
+    pub(crate) const GET_TRENDBARS_RES: u32 = 2138;
     /// `ProtoOAErrorRes`.
-    pub const ERROR_RES: u32 = 2142;
+    pub(crate) const ERROR_RES: u32 = 2142;
     /// `ProtoOAGetTickDataReq`.
-    pub const GET_TICK_DATA_REQ: u32 = 2145;
+    pub(crate) const GET_TICK_DATA_REQ: u32 = 2145;
     /// `ProtoOAGetTickDataRes`.
-    pub const GET_TICK_DATA_RES: u32 = 2146;
+    pub(crate) const GET_TICK_DATA_RES: u32 = 2146;
     /// `ProtoOAAccountsTokenInvalidatedEvent`.
-    pub const ACCOUNTS_TOKEN_INVALIDATED_EVENT: u32 = 2147;
+    pub(crate) const ACCOUNTS_TOKEN_INVALIDATED_EVENT: u32 = 2147;
     /// `ProtoOAClientDisconnectEvent`.
-    pub const CLIENT_DISCONNECT_EVENT: u32 = 2148;
+    pub(crate) const CLIENT_DISCONNECT_EVENT: u32 = 2148;
     /// `ProtoOAGetAccountListByAccessTokenReq`.
-    pub const GET_ACCOUNTS_BY_ACCESS_TOKEN_REQ: u32 = 2149;
+    pub(crate) const GET_ACCOUNTS_BY_ACCESS_TOKEN_REQ: u32 = 2149;
     /// `ProtoOAGetAccountListByAccessTokenRes`.
-    pub const GET_ACCOUNTS_BY_ACCESS_TOKEN_RES: u32 = 2150;
+    pub(crate) const GET_ACCOUNTS_BY_ACCESS_TOKEN_RES: u32 = 2150;
     /// `ProtoOADepthEvent`.
-    pub const DEPTH_EVENT: u32 = 2155;
+    pub(crate) const DEPTH_EVENT: u32 = 2155;
     /// `ProtoOASubscribeDepthQuotesReq`.
-    pub const SUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2156;
+    pub(crate) const SUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2156;
     /// `ProtoOASubscribeDepthQuotesRes`.
-    pub const SUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2157;
+    pub(crate) const SUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2157;
     /// `ProtoOAUnsubscribeDepthQuotesReq`.
-    pub const UNSUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2158;
+    pub(crate) const UNSUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2158;
     /// `ProtoOAUnsubscribeDepthQuotesRes`.
-    pub const UNSUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2159;
+    pub(crate) const UNSUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2159;
     /// `ProtoOAAccountDisconnectEvent`.
-    pub const ACCOUNT_DISCONNECT_EVENT: u32 = 2164;
+    pub(crate) const ACCOUNT_DISCONNECT_EVENT: u32 = 2164;
     /// `ProtoOASubscribeLiveTrendbarRes`.
-    pub const SUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2165;
+    pub(crate) const SUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2165;
     /// `ProtoOAUnsubscribeLiveTrendbarRes`.
-    pub const UNSUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2166;
+    pub(crate) const UNSUBSCRIBE_LIVE_TRENDBAR_RES: u32 = 2166;
     /// `ProtoOAAssetListReq`.
-    pub const ASSET_LIST_REQ: u32 = 2112;
+    pub(crate) const ASSET_LIST_REQ: u32 = 2112;
     /// `ProtoOAAssetListRes`.
-    pub const ASSET_LIST_RES: u32 = 2113;
+    pub(crate) const ASSET_LIST_RES: u32 = 2113;
     /// `ProtoOATraderReq`.
-    pub const TRADER_REQ: u32 = 2121;
+    pub(crate) const TRADER_REQ: u32 = 2121;
     /// `ProtoOATraderRes`.
-    pub const TRADER_RES: u32 = 2122;
+    pub(crate) const TRADER_RES: u32 = 2122;
     /// `ProtoOATraderUpdatedEvent`.
-    pub const TRADER_UPDATE_EVENT: u32 = 2123;
+    pub(crate) const TRADER_UPDATE_EVENT: u32 = 2123;
     /// `ProtoOAReconcileReq`.
-    pub const RECONCILE_REQ: u32 = 2124;
+    pub(crate) const RECONCILE_REQ: u32 = 2124;
     /// `ProtoOAReconcileRes`.
-    pub const RECONCILE_RES: u32 = 2125;
+    pub(crate) const RECONCILE_RES: u32 = 2125;
     /// `ProtoOAExecutionEvent`.
-    pub const EXECUTION_EVENT: u32 = 2126;
+    pub(crate) const EXECUTION_EVENT: u32 = 2126;
     /// `ProtoOADealListReq`.
-    pub const DEAL_LIST_REQ: u32 = 2133;
+    pub(crate) const DEAL_LIST_REQ: u32 = 2133;
     /// `ProtoOADealListRes`.
-    pub const DEAL_LIST_RES: u32 = 2134;
+    pub(crate) const DEAL_LIST_RES: u32 = 2134;
     /// `ProtoOAGetCtidProfileByTokenReq`.
-    pub const GET_CTID_PROFILE_BY_TOKEN_REQ: u32 = 2151;
+    pub(crate) const GET_CTID_PROFILE_BY_TOKEN_REQ: u32 = 2151;
     /// `ProtoOAGetCtidProfileByTokenRes`.
-    pub const GET_CTID_PROFILE_BY_TOKEN_RES: u32 = 2152;
+    pub(crate) const GET_CTID_PROFILE_BY_TOKEN_RES: u32 = 2152;
     /// `ProtoOAAssetClassListReq`.
-    pub const ASSET_CLASS_LIST_REQ: u32 = 2153;
+    pub(crate) const ASSET_CLASS_LIST_REQ: u32 = 2153;
     /// `ProtoOAAssetClassListRes`.
-    pub const ASSET_CLASS_LIST_RES: u32 = 2154;
+    pub(crate) const ASSET_CLASS_LIST_RES: u32 = 2154;
     /// `ProtoOASymbolCategoryListReq`.
-    pub const SYMBOL_CATEGORY_REQ: u32 = 2160;
+    pub(crate) const SYMBOL_CATEGORY_REQ: u32 = 2160;
     /// `ProtoOASymbolCategoryListRes`.
-    pub const SYMBOL_CATEGORY_RES: u32 = 2161;
+    pub(crate) const SYMBOL_CATEGORY_RES: u32 = 2161;
     /// `ProtoOAAccountLogoutReq`.
-    pub const ACCOUNT_LOGOUT_REQ: u32 = 2162;
+    pub(crate) const ACCOUNT_LOGOUT_REQ: u32 = 2162;
     /// `ProtoOAAccountLogoutRes`.
-    pub const ACCOUNT_LOGOUT_RES: u32 = 2163;
-    /// `ProtoOARefreshTokenReq`.
-    pub const REFRESH_TOKEN_REQ: u32 = 2173;
-    /// `ProtoOARefreshTokenRes`.
-    pub const REFRESH_TOKEN_RES: u32 = 2174;
+    pub(crate) const ACCOUNT_LOGOUT_RES: u32 = 2163;
     /// `ProtoOAOrderListReq`.
-    pub const ORDER_LIST_REQ: u32 = 2175;
+    pub(crate) const ORDER_LIST_REQ: u32 = 2175;
     /// `ProtoOAOrderListRes`.
-    pub const ORDER_LIST_RES: u32 = 2176;
+    pub(crate) const ORDER_LIST_RES: u32 = 2176;
     /// `ProtoOADealListByPositionIdReq`.
-    pub const DEAL_LIST_BY_POSITION_ID_REQ: u32 = 2179;
+    pub(crate) const DEAL_LIST_BY_POSITION_ID_REQ: u32 = 2179;
     /// `ProtoOADealListByPositionIdRes`.
-    pub const DEAL_LIST_BY_POSITION_ID_RES: u32 = 2180;
+    pub(crate) const DEAL_LIST_BY_POSITION_ID_RES: u32 = 2180;
     /// `ProtoOAOrderDetailsReq`.
-    pub const ORDER_DETAILS_REQ: u32 = 2181;
+    pub(crate) const ORDER_DETAILS_REQ: u32 = 2181;
     /// `ProtoOAOrderDetailsRes`.
-    pub const ORDER_DETAILS_RES: u32 = 2182;
+    pub(crate) const ORDER_DETAILS_RES: u32 = 2182;
     /// `ProtoOAOrderListByPositionIdReq`.
-    pub const ORDER_LIST_BY_POSITION_ID_REQ: u32 = 2183;
+    pub(crate) const ORDER_LIST_BY_POSITION_ID_REQ: u32 = 2183;
     /// `ProtoOAOrderListByPositionIdRes`.
-    pub const ORDER_LIST_BY_POSITION_ID_RES: u32 = 2184;
+    pub(crate) const ORDER_LIST_BY_POSITION_ID_RES: u32 = 2184;
     /// `ProtoOADealOffsetListReq`.
-    pub const DEAL_OFFSET_LIST_REQ: u32 = 2185;
+    pub(crate) const DEAL_OFFSET_LIST_REQ: u32 = 2185;
     /// `ProtoOADealOffsetListRes`.
-    pub const DEAL_OFFSET_LIST_RES: u32 = 2186;
+    pub(crate) const DEAL_OFFSET_LIST_RES: u32 = 2186;
     /// `ProtoOAGetPositionUnrealizedPnLReq`.
-    pub const GET_POSITION_UNREALIZED_PNL_REQ: u32 = 2187;
+    pub(crate) const GET_POSITION_UNREALIZED_PNL_REQ: u32 = 2187;
     /// `ProtoOAGetPositionUnrealizedPnLRes`.
-    pub const GET_POSITION_UNREALIZED_PNL_RES: u32 = 2188;
+    pub(crate) const GET_POSITION_UNREALIZED_PNL_RES: u32 = 2188;
     /// `ProtoOACashFlowHistoryListReq`.
-    pub const CASH_FLOW_HISTORY_LIST_REQ: u32 = 2143;
+    pub(crate) const CASH_FLOW_HISTORY_LIST_REQ: u32 = 2143;
     /// `ProtoOACashFlowHistoryListRes`.
-    pub const CASH_FLOW_HISTORY_LIST_RES: u32 = 2144;
+    pub(crate) const CASH_FLOW_HISTORY_LIST_RES: u32 = 2144;
 
     /// `ProtoOAExpectedMarginReq`.
-    pub const EXPECTED_MARGIN_REQ: u32 = 2139;
+    pub(crate) const EXPECTED_MARGIN_REQ: u32 = 2139;
     /// `ProtoOAExpectedMarginRes`.
-    pub const EXPECTED_MARGIN_RES: u32 = 2140;
+    pub(crate) const EXPECTED_MARGIN_RES: u32 = 2140;
     /// `ProtoOAMarginChangedEvent`.
-    pub const MARGIN_CHANGED_EVENT: u32 = 2141;
+    pub(crate) const MARGIN_CHANGED_EVENT: u32 = 2141;
     /// `ProtoOAMarginCallListReq`.
-    pub const MARGIN_CALL_LIST_REQ: u32 = 2167;
+    pub(crate) const MARGIN_CALL_LIST_REQ: u32 = 2167;
     /// `ProtoOAMarginCallListRes`.
-    pub const MARGIN_CALL_LIST_RES: u32 = 2168;
+    pub(crate) const MARGIN_CALL_LIST_RES: u32 = 2168;
     /// `ProtoOAMarginCallUpdateReq`.
-    pub const MARGIN_CALL_UPDATE_REQ: u32 = 2169;
+    pub(crate) const MARGIN_CALL_UPDATE_REQ: u32 = 2169;
     /// `ProtoOAMarginCallUpdateRes`.
-    pub const MARGIN_CALL_UPDATE_RES: u32 = 2170;
+    pub(crate) const MARGIN_CALL_UPDATE_RES: u32 = 2170;
     /// `ProtoOAMarginCallUpdateEvent`.
-    pub const MARGIN_CALL_UPDATE_EVENT: u32 = 2171;
+    pub(crate) const MARGIN_CALL_UPDATE_EVENT: u32 = 2171;
     /// `ProtoOAMarginCallTriggerEvent`.
-    pub const MARGIN_CALL_TRIGGER_EVENT: u32 = 2172;
+    pub(crate) const MARGIN_CALL_TRIGGER_EVENT: u32 = 2172;
     /// `ProtoOAGetDynamicLeverageByIDReq`. The enum constant itself is named without "ById"
     /// (`PROTO_OA_GET_DYNAMIC_LEVERAGE_REQ`); the message it carries is `ProtoOAGetDynamicLeverageByIDReq`.
-    pub const GET_DYNAMIC_LEVERAGE_REQ: u32 = 2177;
+    pub(crate) const GET_DYNAMIC_LEVERAGE_REQ: u32 = 2177;
     /// `ProtoOAGetDynamicLeverageByIDRes`.
-    pub const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
+    pub(crate) const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
 }
 
-/// Reading integers that may arrive as a number or as text (see [`wyck_core::flex`]).
-pub use wyck_core::flex;
-
 /// One message on the wire.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Envelope {
+pub(crate) struct Envelope {
     /// Chosen by the client on a request; echoed on the answer; absent on events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_msg_id: Option<String>,
@@ -237,7 +230,7 @@ impl Envelope {
     /// # Errors
     ///
     /// [`crate::Error::Protocol`] when the payload cannot be turned into JSON.
-    pub fn request<T: Serialize>(
+    pub(crate) fn request<T: Serialize>(
         payload_type: u32,
         id: impl Into<String>,
         payload: &T,
@@ -252,7 +245,7 @@ impl Envelope {
 
     /// The heartbeat message.
     #[must_use]
-    pub fn heartbeat() -> Self {
+    pub(crate) fn heartbeat() -> Self {
         Self {
             client_msg_id: None,
             payload_type: payload::HEARTBEAT_EVENT,
@@ -265,7 +258,7 @@ impl Envelope {
     /// # Errors
     ///
     /// [`crate::Error::Protocol`] when the payload does not have the shape of `T`.
-    pub fn decode<T: serde::de::DeserializeOwned>(&self) -> crate::Result<T> {
+    pub(crate) fn decode<T: serde::de::DeserializeOwned>(&self) -> crate::Result<T> {
         serde_json::from_value(self.payload.clone()).map_err(|e| {
             crate::Error::Protocol(format!(
                 "cannot read message {} as {}: {e}",
@@ -283,7 +276,7 @@ impl Envelope {
     /// # Errors
     ///
     /// [`crate::Error::Protocol`] when it cannot be serialized.
-    pub fn to_text(&self) -> crate::Result<String> {
+    pub(crate) fn to_text(&self) -> crate::Result<String> {
         serde_json::to_string(self)
             .map_err(|e| crate::Error::Protocol(format!("cannot encode a message: {e}")))
     }
@@ -293,7 +286,7 @@ impl Envelope {
     /// # Errors
     ///
     /// [`crate::Error::Protocol`] when it is not a valid envelope.
-    pub fn from_text(text: &str) -> crate::Result<Self> {
+    pub(crate) fn from_text(text: &str) -> crate::Result<Self> {
         serde_json::from_str(text)
             .map_err(|e| crate::Error::Protocol(format!("not a valid message: {e}")))
     }
@@ -303,6 +296,7 @@ impl Envelope {
 mod tests {
     use super::*;
     use serde_json::json;
+    use wyck_core::flex;
 
     #[test]
     fn a_request_serializes_with_camel_case_keys() {
@@ -352,7 +346,6 @@ mod tests {
         assert_eq!(payload::GET_TRENDBARS_REQ, 2137);
         assert_eq!(payload::ERROR_RES, 2142);
         assert_eq!(payload::GET_TICK_DATA_REQ, 2145);
-        assert_eq!(payload::REFRESH_TOKEN_RES, 2174);
         assert_eq!(payload::SUBSCRIBE_LIVE_TRENDBAR_RES, 2165);
     }
 

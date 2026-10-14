@@ -19,7 +19,7 @@
 //!   automatic ones (at most one per interval, the oldest pruned), and the safety copies made
 //!   before an import or a reset replaces something. Every copy is listed, read, restored and
 //!   deleted through it.
-//! * The staged restore ([`stage_import`](staged::stage_import), [`stage_reset`](staged::stage_reset), [`apply_pending`](staged::apply_pending)): a restore or a
+//! * The staged restore (`stage_import`, `stage_reset`, `apply_pending`): a restore or a
 //!   reset never writes over a running app. It is checked and put aside, and the next start applies
 //!   it before anything reads the documents, after saving what it replaces as a safety copy.
 //!
@@ -62,17 +62,17 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 /// The value of `format` in a backup file, and the label of a sealed one.
-pub const FORMAT: &str = "wyck-backup";
+pub(crate) const FORMAT: &str = "wyck-backup";
 /// The version of the layout of the file. A file of a newer version is refused, not misread.
-pub const VERSION: u32 = 1;
+pub(crate) const VERSION: u32 = 1;
 /// The scope name of the documents shared by every account, in [`BackupFile::scope`].
-pub const GLOBAL: &str = "global";
+pub(crate) const GLOBAL: &str = "global";
 /// The most a single document can weigh.
-pub const MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 /// The most a whole backup can weigh.
-pub const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
+pub(crate) const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
 /// The most documents a backup holds.
-pub const MAX_DOCUMENTS: usize = 500;
+pub(crate) const MAX_DOCUMENTS: usize = 500;
 
 /// The name of the file a checked import waits in.
 const PENDING: &str = "pending-import.toml";
@@ -82,11 +82,11 @@ const RESET_MARKER: &str = "reset-pending";
 const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// A backup: the documents and scripts of an install, as text.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Backup {
-    /// Always [`FORMAT`].
+    /// Always `FORMAT`.
     pub format: String,
-    /// The version of the layout, at most [`VERSION`].
+    /// The version of the layout, at most `VERSION`.
     pub version: u32,
     /// The version of the app that made it.
     #[serde(default)]
@@ -105,7 +105,7 @@ pub struct Backup {
 /// One saved document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BackupFile {
-    /// [`GLOBAL`], or `scope:` and the name of an account's scope.
+    /// `GLOBAL`, or `scope:` and the name of an account's scope.
     pub scope: String,
     /// The name of the document, without its extension.
     pub name: String,
@@ -136,13 +136,15 @@ pub struct Contents {
 impl Contents {
     /// How many documents, in every scope.
     #[must_use]
-    pub fn documents(&self) -> usize {
+    #[cfg(test)]
+    pub(crate) fn documents(&self) -> usize {
         self.global.len() + self.scopes.values().map(Vec::len).sum::<usize>()
     }
 
     /// Whether there is nothing at all.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_empty(&self) -> bool {
         self.documents() == 0 && self.scripts == 0
     }
 
@@ -195,7 +197,7 @@ fn documents_in(store: &DocumentStore) -> Result<Vec<(String, String)>> {
 impl Backup {
     /// An empty backup made by `app_version` at `created`.
     #[must_use]
-    pub fn new(app_version: &str, created: &str) -> Self {
+    pub(crate) fn new(app_version: &str, created: &str) -> Self {
         Self {
             format: FORMAT.to_owned(),
             version: VERSION,
@@ -208,7 +210,7 @@ impl Backup {
 
     /// Reads every saved document of `paths` into a backup made by `app_version` at `created`,
     /// and the scripts of `scripts` when a folder is given (the app may keep them somewhere other
-    /// than the default one, see [`AppPaths::scripts`]).
+    /// than the default one, see `AppPaths::scripts`).
     ///
     /// # Errors
     ///
@@ -271,7 +273,7 @@ impl Backup {
 
     /// Whether it holds no document and no script.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.files.is_empty() && self.scripts.is_empty()
     }
 
@@ -280,7 +282,7 @@ impl Backup {
     /// # Errors
     ///
     /// [`ConfigError::Serialize`], which does not happen for text.
-    pub fn to_text(&self) -> Result<String> {
+    pub(crate) fn to_text(&self) -> Result<String> {
         toml::to_string_pretty(self).map_err(ConfigError::Serialize)
     }
 
@@ -290,7 +292,7 @@ impl Backup {
     /// # Errors
     ///
     /// As [`sealed::seal_text`].
-    pub fn to_sealed_text(&self, passphrase: &SecretString) -> Result<String> {
+    pub(crate) fn to_sealed_text(&self, passphrase: &SecretString) -> Result<String> {
         sealed::seal_text(passphrase, FORMAT, &self.to_text()?)
     }
 
@@ -299,7 +301,7 @@ impl Backup {
     /// # Errors
     ///
     /// As [`Self::to_text`] and [`Self::to_sealed_text`].
-    pub fn to_text_with(&self, passphrase: Option<&SecretString>) -> Result<String> {
+    pub(crate) fn to_text_with(&self, passphrase: Option<&SecretString>) -> Result<String> {
         match passphrase {
             Some(passphrase) => self.to_sealed_text(passphrase),
             None => self.to_text(),
@@ -314,7 +316,7 @@ impl Backup {
     ///
     /// [`ConfigError::NotABackup`], [`ConfigError::BackupTooNew`] or
     /// [`ConfigError::BackupDamaged`].
-    pub fn parse(text: &str) -> Result<Self> {
+    pub(crate) fn parse(text: &str) -> Result<Self> {
         if text.len() > MAX_TOTAL_BYTES + 1024 * 1024 {
             return Err(damaged("it is far too large"));
         }
@@ -339,7 +341,7 @@ impl Backup {
     /// [`ConfigError::PassphraseRequired`] for a sealed backup and no passphrase,
     /// [`ConfigError::WrongPassphrase`] when it does not open, and whatever [`Self::parse`]
     /// returns.
-    pub fn read(text: &str, passphrase: Option<&SecretString>) -> Result<Self> {
+    pub(crate) fn read(text: &str, passphrase: Option<&SecretString>) -> Result<Self> {
         if !sealed::is_sealed(text) {
             return Self::parse(text);
         }
@@ -353,7 +355,8 @@ impl Backup {
     /// # Errors
     ///
     /// [`ConfigError::Read`] when the file cannot be read, and whatever [`Self::read`] returns.
-    pub fn read_file(path: &Path, passphrase: Option<&SecretString>) -> Result<Self> {
+    #[cfg(test)]
+    pub(crate) fn read_file(path: &Path, passphrase: Option<&SecretString>) -> Result<Self> {
         Self::read(&read_backup_text(path)?, passphrase)
     }
 
@@ -362,7 +365,7 @@ impl Backup {
     /// # Errors
     ///
     /// As [`Self::to_text_with`], and [`ConfigError::Write`] on an I/O failure.
-    pub fn write_file(&self, path: &Path, passphrase: Option<&SecretString>) -> Result<()> {
+    pub(crate) fn write_file(&self, path: &Path, passphrase: Option<&SecretString>) -> Result<()> {
         atomic_write(path, self.to_text_with(passphrase)?.as_bytes())
     }
 
@@ -735,7 +738,7 @@ mod tests {
         );
 
         // What was replaced (and only that: appearance was the same) is kept, and can be restored.
-        let kept = Backup::read_file(&applied.kept_in.clone().unwrap(), None).unwrap();
+        let kept = Backup::read_file(&applied.kept_in.unwrap(), None).unwrap();
         assert_eq!(kept.files.len(), 1);
         assert_eq!(kept.files[0].content, "magnet = false\n");
         let entries = at(target.path()).backups().list().unwrap();

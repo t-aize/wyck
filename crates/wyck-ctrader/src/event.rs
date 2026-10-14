@@ -23,7 +23,6 @@ use wyck_trading::{MarginCallTriggerEvent, MarginCallUpdateEvent, MarginChangedE
 
 /// Why a connection ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum DisconnectReason {
     /// [`crate::Client::close`] was called.
     ClosedByClient,
@@ -37,7 +36,6 @@ pub enum DisconnectReason {
 
 /// Something the server sent by itself, or the end of the connection.
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum Event {
     /// A new price, or the first one after a subscription. It may also carry live bars.
     Spot(SpotEvent),
@@ -84,8 +82,7 @@ pub enum Event {
 /// Turns an unsolicited message into an [`Event`]. Heartbeats give `None`: they are only for the
 /// connection's own upkeep.
 #[must_use]
-#[doc(hidden)]
-pub fn event_from(envelope: &Envelope) -> Option<Event> {
+pub(crate) fn event_from(envelope: &Envelope) -> Option<Event> {
     let decode_failed = |e: Error| {
         warn!(
             payload_type = envelope.payload_type,

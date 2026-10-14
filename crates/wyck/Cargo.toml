@@ -60,20 +60,13 @@ depends = [
 [dependencies]
 ab_glyph.workspace = true
 anyhow.workspace = true
-argon2.workspace = true
 async-trait.workspace = true
 cargo-packager-updater.workspace = true
-chacha20poly1305.workspace = true
 chrono.workspace = true
-directories.workspace = true
-futures-util = { workspace = true, features = ["sink", "std"] }
-getrandom.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true
-keyring.workspace = true
 lsp-types.workspace = true
 notify-rust.workspace = true
-reqwest = { workspace = true, features = ["native-tls"] }
 rodio = { workspace = true, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
 rust-embed = { workspace = true, features = ["debug-embed"] }
 secrecy = { workspace = true, features = ["serde"] }
@@ -89,13 +82,9 @@ tokio = { workspace = true, features = [
   "net",
   "io-util",
 ] }
-tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 toml.workspace = true
 tracing.workspace = true
-tracing-appender.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 unicode-segmentation.workspace = true
-uuid = { workspace = true, features = ["v4"] }
 wyck-chart.workspace = true
 wyck-core.workspace = true
 wyck-ctrader.workspace = true
@@ -105,13 +94,9 @@ wyck-market.workspace = true
 wyck-platform.workspace = true
 wyck-storage.workspace = true
 wyck-trading.workspace = true
-zeroize.workspace = true
 
 [dev-dependencies]
-dotenvy.workspace = true
-proptest.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource.workspace = true

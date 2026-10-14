@@ -37,7 +37,7 @@
 //! again and the subscriptions renewed, which is the caller's business (see [`crate::session`] for
 //! a client that does this by itself). Build a new [`Client`] and repeat the steps.
 
-pub mod builder;
+pub(crate) mod builder;
 mod task;
 
 use std::collections::HashMap;
@@ -75,7 +75,6 @@ pub(crate) enum RateClass {
 
 /// Whether the connection is usable.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ConnectionState {
     /// The socket is open.
     Connected,
@@ -182,7 +181,7 @@ impl Shared {
 ///     .connect()
 ///     .await?;
 /// println!("server {}", client.version().await?);
-/// client.close().await;
+/// client.close();
 /// # Ok(()) }
 /// ```
 ///
@@ -313,7 +312,7 @@ impl Client {
 
     /// Closes the connection. Requests still waiting fail with [`Error::Closed`]. Calling it
     /// again, or on a closed client, does nothing.
-    pub async fn close(&self) {
+    pub fn close(&self) {
         if self.is_closed() {
             return;
         }
@@ -623,7 +622,7 @@ mod cancellation_tests {
             let _ = call.await;
             assert!(client.shared.pending().is_empty());
         }
-        client.close().await;
+        client.close();
         server.abort();
     }
 }

@@ -52,7 +52,7 @@ impl EncryptedFileSecretStore {
     /// terminal, an OS secure-prompt dialog, or an environment variable is a UI/app
     /// concern, deliberately kept out of this crate so it stays usable from a GUI or
     /// a headless engine alike.
-    pub fn new(dir: impl Into<PathBuf>, passphrase: SecretString) -> Self {
+    pub(crate) fn new(dir: impl Into<PathBuf>, passphrase: SecretString) -> Self {
         Self {
             dir: dir.into(),
             passphrase,

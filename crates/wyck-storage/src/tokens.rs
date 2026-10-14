@@ -93,7 +93,8 @@ impl OpenApiTokenStorage {
     /// # Errors
     ///
     /// Any error of the credential store.
-    pub fn clear(&self) -> Result<()> {
+    #[cfg(test)]
+    pub(crate) fn clear(&self) -> Result<()> {
         self.secrets.delete(&self.key)
     }
 }

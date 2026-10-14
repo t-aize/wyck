@@ -21,7 +21,7 @@
 //! * **A file from the future is left alone.** A newer file read with what this build knows and
 //!   written back would lose what this build does not know. A document is set aside as
 //!   `name.toml.from-v<found>` (the app then starts it afresh and the file stays there to be
-//!   recovered), the config is refused (see [`crate::AppConfig::load`]).
+//!   recovered), the config is refused (see `crate::AppConfig::load`).
 //!
 //! A change that only adds a field with a default needs no change to the data, but it still takes
 //! a new version and a step ([`Step::unchanged`]): the plan must have a step for every version, and
@@ -40,7 +40,7 @@ use crate::error::{ConfigError, Result};
 use crate::fs_util::{atomic_write, read_text};
 
 /// The key every versioned file carries.
-pub const VERSION_KEY: &str = "schema_version";
+pub(crate) const VERSION_KEY: &str = "schema_version";
 
 /// The version of a file that does not say.
 const FIRST_VERSION: u32 = 1;
@@ -50,7 +50,7 @@ const FIRST_VERSION: u32 = 1;
 pub struct StepError(pub &'static str);
 
 /// Turns a file of one version into the next one.
-pub type Apply = fn(&mut Table) -> std::result::Result<(), StepError>;
+pub(crate) type Apply = fn(&mut Table) -> std::result::Result<(), StepError>;
 
 /// The change from layout `from` to layout `from + 1`.
 #[derive(Clone, Copy)]
@@ -67,6 +67,10 @@ impl Step {
     }
 }
 
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "a migration step has this signature, whether it can fail or not"
+)]
 fn keep(_: &mut Table) -> std::result::Result<(), StepError> {
     Ok(())
 }
@@ -96,7 +100,7 @@ impl Plan {
 
 /// What [`upgrade_table`] found.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Upgrade {
+pub(crate) enum Upgrade {
     /// Already the current layout: nothing was changed.
     Current,
     /// Brought from layout `from` to the current one.
@@ -105,7 +109,7 @@ pub enum Upgrade {
     Newer { found: u32 },
 }
 
-/// What [`upgrade_file`] and [`upgrade_document`] did.
+/// What `upgrade_file` and [`upgrade_document`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
     /// There is no such file.
@@ -149,7 +153,7 @@ fn version_of(table: &Table, path: &Path) -> Result<u32> {
 ///
 /// [`ConfigError::Migration`] when the version is not a number, a step is missing from the plan,
 /// or a step fails. The table is then half changed: drop it.
-pub fn upgrade_table(table: &mut Table, plan: &Plan, path: &Path) -> Result<Upgrade> {
+pub(crate) fn upgrade_table(table: &mut Table, plan: &Plan, path: &Path) -> Result<Upgrade> {
     let found = version_of(table, path)?;
     if found == plan.current {
         return Ok(Upgrade::Current);
@@ -182,7 +186,7 @@ pub fn upgrade_table(table: &mut Table, plan: &Plan, path: &Path) -> Result<Upgr
 /// [`ConfigError::Read`], [`ConfigError::Parse`] when the file is not TOML,
 /// [`ConfigError::Migration`] (see [`upgrade_table`]), [`ConfigError::Serialize`] and
 /// [`ConfigError::Write`]. On any of them the file is as it was.
-pub fn upgrade_file(path: &Path, plan: &Plan) -> Result<Outcome> {
+pub(crate) fn upgrade_file(path: &Path, plan: &Plan) -> Result<Outcome> {
     let text = match read_text(path) {
         Ok(text) => text,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(Outcome::Absent),
@@ -240,12 +244,12 @@ fn sibling(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// Upgrades the document `plan.document` of `store` (see [`upgrade_file`]), and moves it aside
+/// Upgrades the document `plan.document` of `store` (see `upgrade_file`), and moves it aside
 /// when it was written by a newer build.
 ///
 /// # Errors
 ///
-/// As [`upgrade_file`], and [`ConfigError::Read`] or [`ConfigError::Write`] when a newer file
+/// As `upgrade_file`, and [`ConfigError::Read`] or [`ConfigError::Write`] when a newer file
 /// cannot be moved.
 pub fn upgrade_document(store: &DocumentStore, plan: &Plan) -> Result<Outcome> {
     let path = store.path(plan.document);
@@ -289,6 +293,10 @@ mod tests {
     use super::*;
     use crate::paths::AppPaths;
 
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "a migration step has this signature, whether it can fail or not"
+    )]
     fn rename_zoom(table: &mut Table) -> std::result::Result<(), StepError> {
         if let Some(zoom) = table.remove("zoom") {
             table.insert("scale".to_owned(), zoom);
@@ -296,6 +304,10 @@ mod tests {
         Ok(())
     }
 
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "a migration step has this signature, whether it can fail or not"
+    )]
     fn split_columns(table: &mut Table) -> std::result::Result<(), StepError> {
         if let Some(Value::String(text)) = table.get("columns").cloned() {
             let parts = text

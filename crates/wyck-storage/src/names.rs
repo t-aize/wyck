@@ -13,7 +13,7 @@
 use crate::error::{ConfigError, Result};
 
 /// The most characters a name can have.
-pub const MAX_NAME_LEN: usize = 100;
+pub(crate) const MAX_NAME_LEN: usize = 100;
 
 fn why_not(name: &str) -> Option<&'static str> {
     if name.is_empty() {
@@ -31,17 +31,8 @@ fn why_not(name: &str) -> Option<&'static str> {
 }
 
 /// Whether `name` follows the rule of this module.
-///
-/// ```
-/// use wyck_storage::names::is_valid_name;
-///
-/// assert!(is_valid_name("preferences"));
-/// assert!(is_valid_name("demo-45970491"));
-/// assert!(!is_valid_name("../secrets"));
-/// assert!(!is_valid_name(""));
-/// ```
 #[must_use]
-pub fn is_valid_name(name: &str) -> bool {
+pub(crate) fn is_valid_name(name: &str) -> bool {
     why_not(name).is_none()
 }
 
@@ -50,7 +41,7 @@ pub fn is_valid_name(name: &str) -> bool {
 /// # Errors
 ///
 /// [`ConfigError::InvalidName`], saying why.
-pub fn validate_name(name: &str) -> Result<()> {
+pub(crate) fn validate_name(name: &str) -> Result<()> {
     match why_not(name) {
         None => Ok(()),
         Some(reason) => Err(ConfigError::InvalidName {
@@ -66,16 +57,8 @@ pub fn validate_name(name: &str) -> Result<()> {
 ///
 /// Different names can give the same result (`a/b` and `a_b`): use [`validate_name`] where that
 /// matters.
-///
-/// ```
-/// use wyck_storage::names::sanitize;
-///
-/// assert_eq!(sanitize("../../elsewhere"), "______elsewhere");
-/// assert_eq!(sanitize("demo-1"), "demo-1");
-/// assert_eq!(sanitize(""), "_");
-/// ```
 #[must_use]
-pub fn sanitize(name: &str) -> String {
+pub(crate) fn sanitize(name: &str) -> String {
     let cleaned: String = name
         .chars()
         .map(|c| {
@@ -98,6 +81,13 @@ pub fn sanitize(name: &str) -> String {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn sanitizing_keeps_a_valid_name_and_turns_the_rest_into_underscores() {
+        assert_eq!(sanitize("../../elsewhere"), "______elsewhere");
+        assert_eq!(sanitize("demo-1"), "demo-1");
+        assert_eq!(sanitize(""), "_");
+    }
 
     #[test]
     fn the_rule_accepts_plain_names_and_refuses_everything_that_can_travel() {

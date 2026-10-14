@@ -90,7 +90,6 @@ use wyck_market::Period;
 
 /// The settings of a [`Session`].
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct SessionConfig {
     /// The connection settings (demo or live, timeouts, limits).
     pub connection: ConnectionConfig,
@@ -140,7 +139,6 @@ impl SessionConfig {
 
 /// Where a session stands.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum SessionState {
     /// Connecting (the attempt number, starting at 1).
     Connecting {
@@ -162,7 +160,6 @@ pub enum SessionState {
 
 /// What a session reports.
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum SessionEvent {
     /// Connected and signed in, subscriptions restored. Sent again after each reconnect.
     Ready,

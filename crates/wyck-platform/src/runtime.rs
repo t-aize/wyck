@@ -1,7 +1,7 @@
 //! A dedicated tokio runtime for a GPUI app.
 //!
 //! GPUI has its own async executor (backed by `smol`), not tokio: `cx.spawn` and
-//! `cx.background_spawn` run futures on it. But [`wyck_ctrader`] and its OAuth flow are built on
+//! `cx.background_spawn` run futures on it. But `wyck-ctrader` and its OAuth flow are built on
 //! tokio directly (`tokio-tungstenite`, `reqwest`, `tokio::net` for the local redirect listener),
 //! and those types panic without a live tokio runtime underneath them.
 //!
@@ -32,6 +32,11 @@ static RUNTIME: OnceLock<Handle> = OnceLock::new();
 pub fn handle() -> Handle {
     RUNTIME
         .get_or_init(|| {
+            #[expect(
+                clippy::print_stderr,
+                clippy::exit,
+                reason = "without a runtime nothing works: say so where a console is, then end"
+            )]
             let runtime = Runtime::new().unwrap_or_else(|error| {
                 tracing::error!(%error, "could not start the background runtime");
                 eprintln!("Wyck could not start its background runtime: {error}");

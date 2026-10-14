@@ -242,7 +242,7 @@ mod tests {
             open(&pass("horse"), b"other", &sealed),
             Err(CryptoError::Decrypt)
         ));
-        let mut changed = sealed.clone();
+        let mut changed = sealed;
         changed.ciphertext[0] ^= 1;
         assert!(matches!(
             open(&pass("horse"), b"label", &changed),

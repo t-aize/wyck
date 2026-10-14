@@ -49,7 +49,17 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
 
 /// External crates that only some crates may use, because one crate owns the job: a second user
 /// would be a second way of doing the same thing.
-const OWNERS: &[(&str, &[&str])] = &[("rhai", &["wyck-indicators"])];
+const OWNERS: &[(&str, &[&str])] = &[
+    ("argon2", &["wyck-storage"]),
+    ("chacha20poly1305", &["wyck-storage"]),
+    ("directories", &["wyck-storage"]),
+    ("keyring", &["wyck-storage"]),
+    ("reqwest", &["wyck-ctrader"]),
+    ("rhai", &["wyck-indicators"]),
+    ("tokio-tungstenite", &["wyck-ctrader"]),
+    ("tracing-appender", &["wyck-platform"]),
+    ("tracing-subscriber", &["wyck-platform"]),
+];
 
 /// Every crate of the workspace, with what it may depend on. A new crate is added here first.
 const LAYERS: &[Layer] = &[

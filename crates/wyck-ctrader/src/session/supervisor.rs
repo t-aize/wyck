@@ -174,7 +174,7 @@ pub(super) async fn supervise(
             .await
             .is_none()
         {
-            client.close().await;
+            client.close();
             break None;
         }
         shared.set_state(SessionState::Ready);
@@ -204,11 +204,11 @@ pub(super) async fn supervise(
         shared.set_client(None);
         match ended {
             Served::Stopped => {
-                client.close().await;
+                client.close();
                 break None;
             }
             Served::TokensInvalid => {
-                client.close().await;
+                client.close();
                 force_refresh = true;
                 // Not a failure of the connection: reconnect at once with fresh tokens.
                 attempt = 0;
@@ -367,7 +367,7 @@ pub(super) async fn connect(config: &SessionConfig, tokens: &TokenSet) -> Result
     match signed_in {
         Ok(()) => Ok(client),
         Err(error) => {
-            client.close().await;
+            client.close();
             Err(error)
         }
     }

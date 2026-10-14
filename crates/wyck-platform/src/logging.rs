@@ -3,23 +3,21 @@
 //! A release build on Windows has no console, so what the app says on stderr is lost. This module
 //! keeps a copy on disk, where a user can find it and send it with a bug report:
 //!
-//! * **A log file per day**, `wyck.YYYY-MM-DD.log`, in the folder [`AppPaths::logs_dir`] names. The
-//!   last [`KEPT_LOG_DAYS`] days are kept, older files go when a new one is started. The file gets
-//!   `info` for Wyck and `warn` for everything else, so a day stays small; `RUST_LOG` changes it,
-//!   for the file and for stderr alike.
+//! * **A log file per day**, `wyck.YYYY-MM-DD.log`, in the folder that `AppPaths::logs_dir` (of
+//!   `wyck-storage`) names. The last `KEPT_LOG_DAYS` days are kept, older files go when a new one
+//!   is started. The file gets `info` for Wyck and `warn` for everything else, so a day stays
+//!   small; `RUST_LOG` changes it, for the file and for stderr alike.
 //! * **Writes off the interface thread.** The lines go through a channel to a worker thread, so a
 //!   slow disk or a virus scanner never freezes a chart. When the channel is full lines are dropped,
 //!   not waited for. [`flush`] writes out what is still waiting; call it when the app quits.
 //! * **A report per panic**, `panic-YYYYMMDD-HHMMSS-<pid>-<n>.txt` in the same folder, written
 //!   straight from the panic hook: the message, the place, the thread, the version and a backtrace
-//!   (captured whatever `RUST_BACKTRACE` says). The last [`KEPT_REPORTS`] are kept. The report is
+//!   (captured whatever `RUST_BACKTRACE` says). The last `KEPT_REPORTS` are kept. The report is
 //!   written by the thread that panics, not by the worker, so it is there even when the process
 //!   dies a moment later.
 //!
 //! Neither a log line nor a report carries a secret: the rest of the app never formats one, and a
 //! panic message is the text of the code that panicked.
-//!
-//! [`AppPaths::logs_dir`]: wyck_storage::AppPaths::logs_dir
 
 use std::backtrace::Backtrace;
 use std::fs;
@@ -38,9 +36,9 @@ use crate::build_info::{BuildMode, VERSION};
 
 /// How many daily log files are kept. The library keeps one fewer than it is given, so this is
 /// one more than the days wanted: today and the 13 before.
-pub const KEPT_LOG_DAYS: usize = 14;
+pub(crate) const KEPT_LOG_DAYS: usize = 14;
 /// How many panic reports are kept.
-pub const KEPT_REPORTS: usize = 10;
+pub(crate) const KEPT_REPORTS: usize = 10;
 
 const LOG_PREFIX: &str = "wyck";
 const LOG_SUFFIX: &str = "log";

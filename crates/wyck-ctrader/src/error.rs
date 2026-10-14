@@ -13,7 +13,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// What went wrong, in a few words a caller can act on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ErrorKind {
     /// The request rate was exceeded, or the server is otherwise asking for less load right now
     /// (`CONNECTIONS_LIMIT_EXCEEDED`, `CHANNEL_IS_BLOCKED`). Wait and try again.
@@ -63,7 +62,6 @@ pub enum ErrorKind {
 /// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[non_exhaustive]
 pub enum Error {
     /// The configuration cannot be used (an address that is not a WebSocket URL, and so on).
     #[error("invalid configuration: {0}")]

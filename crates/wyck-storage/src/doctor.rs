@@ -64,15 +64,10 @@ impl Report {
         });
     }
 
-    /// The findings, the worst first.
-    #[must_use]
-    pub fn findings(&self) -> &[Finding] {
-        &self.findings
-    }
-
     /// Whether nothing was found that does not work (warnings and notes do not count).
     #[must_use]
-    pub fn is_healthy(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_healthy(&self) -> bool {
         !self
             .findings
             .iter()

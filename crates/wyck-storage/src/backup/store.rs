@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info};
 
-/// Why a copy was made: it decides the name of the file and what [`BackupStore::prune`] keeps.
+/// Why a copy was made: it decides the name of the file and what `BackupStore::prune` keeps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BackupKind {
     /// Made on request, or dropped in the folder by hand.
@@ -31,12 +31,12 @@ pub enum BackupKind {
 }
 
 /// How many copies made before an update are kept.
-pub const KEPT_BEFORE_UPDATE: usize = 3;
+pub(crate) const KEPT_BEFORE_UPDATE: usize = 3;
 
 impl BackupKind {
     /// The start of the name of the files of this kind.
     #[must_use]
-    pub fn prefix(self) -> &'static str {
+    pub(crate) fn prefix(self) -> &'static str {
         match self {
             Self::Manual => "backup",
             Self::Automatic => "auto",
@@ -153,14 +153,14 @@ pub(super) fn looks_sealed(path: &Path) -> bool {
 impl BackupStore {
     /// The copies of the install at `paths`.
     #[must_use]
-    pub fn new(paths: &AppPaths) -> Self {
+    pub(crate) fn new(paths: &AppPaths) -> Self {
         Self {
             paths: paths.clone(),
         }
     }
 
     /// The folder the copies are in.
-    pub fn dir(&self) -> PathBuf {
+    pub(crate) fn dir(&self) -> PathBuf {
         self.paths.backups_dir()
     }
 
@@ -209,7 +209,8 @@ impl BackupStore {
     /// # Errors
     ///
     /// [`ConfigError::BackupNotFound`] when there is none, and what [`Self::list`] returns.
-    pub fn get(&self, id: &str) -> Result<BackupEntry> {
+    #[cfg(test)]
+    pub(crate) fn get(&self, id: &str) -> Result<BackupEntry> {
         self.list()?
             .into_iter()
             .find(|entry| entry.id == id)
@@ -220,7 +221,7 @@ impl BackupStore {
     ///
     /// # Errors
     ///
-    /// As [`Self::save`].
+    /// As `Self::save`.
     pub fn create(&self, backup: &Backup) -> Result<BackupEntry> {
         self.save(BackupKind::Manual, backup, None)
     }
@@ -231,7 +232,7 @@ impl BackupStore {
     /// # Errors
     ///
     /// As [`Backup::to_text_with`], and [`ConfigError::Write`].
-    pub fn save(
+    pub(crate) fn save(
         &self,
         kind: BackupKind,
         backup: &Backup,
@@ -264,7 +265,7 @@ impl BackupStore {
     ///
     /// # Errors
     ///
-    /// As [`Backup::collect`] and [`Self::save`].
+    /// As [`Backup::collect`] and `Self::save`.
     pub fn auto_snapshot(
         &self,
         scripts: Option<&ScriptStore>,
@@ -293,12 +294,12 @@ impl BackupStore {
     }
 
     /// Saves a copy of the install right before an update is installed, and keeps only the newest
-    /// [`KEPT_BEFORE_UPDATE`] of them. `app_version` is the version being left. `None` when there
+    /// `KEPT_BEFORE_UPDATE` of them. `app_version` is the version being left. `None` when there
     /// is nothing to save.
     ///
     /// # Errors
     ///
-    /// As [`Backup::collect`] and [`Self::save`].
+    /// As [`Backup::collect`] and `Self::save`.
     pub fn snapshot_before_update(
         &self,
         scripts: Option<&ScriptStore>,
@@ -319,7 +320,7 @@ impl BackupStore {
     /// # Errors
     ///
     /// [`ConfigError::InvalidName`], [`ConfigError::BackupNotFound`], [`ConfigError::Read`].
-    pub fn read_text(&self, id: &str) -> Result<String> {
+    pub(crate) fn read_text(&self, id: &str) -> Result<String> {
         let path = self.path_of(id)?;
         if !path.is_file() {
             return Err(ConfigError::BackupNotFound(id.to_owned()));
@@ -332,16 +333,17 @@ impl BackupStore {
     /// # Errors
     ///
     /// As [`Self::read_text`] and [`Backup::read`].
-    pub fn load(&self, id: &str, passphrase: Option<&SecretString>) -> Result<Backup> {
+    #[cfg(test)]
+    pub(crate) fn load(&self, id: &str, passphrase: Option<&SecretString>) -> Result<Backup> {
         Backup::read(&self.read_text(id)?, passphrase)
     }
 
-    /// Asks for a copy to come back at the next start (see [`stage_import`]). Returns what it
+    /// Asks for a copy to come back at the next start (see `stage_import`). Returns what it
     /// holds.
     ///
     /// # Errors
     ///
-    /// As [`Self::load`] and [`stage_import`].
+    /// As `Self::load` and `stage_import`.
     pub fn restore(&self, id: &str, passphrase: Option<&SecretString>) -> Result<Backup> {
         stage_import(&self.paths, &self.read_text(id)?, passphrase)
     }
@@ -352,7 +354,8 @@ impl BackupStore {
     /// # Errors
     ///
     /// As [`Self::read_text`], and [`ConfigError::Write`].
-    pub fn export(&self, id: &str, dest: &Path) -> Result<()> {
+    #[cfg(test)]
+    pub(crate) fn export(&self, id: &str, dest: &Path) -> Result<()> {
         atomic_write(dest, self.read_text(id)?.as_bytes())
     }
 
@@ -375,7 +378,7 @@ impl BackupStore {
     /// # Errors
     ///
     /// As [`Self::list`] and [`Self::remove`].
-    pub fn prune(&self, kind: BackupKind, keep: usize) -> Result<usize> {
+    pub(crate) fn prune(&self, kind: BackupKind, keep: usize) -> Result<usize> {
         let old: Vec<_> = self
             .list()?
             .into_iter()

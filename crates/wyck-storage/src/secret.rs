@@ -36,13 +36,13 @@ pub struct SecretKey(String);
 
 impl SecretKey {
     /// Builds a namespaced key: `"{namespace}:{name}"`.
-    pub fn new(namespace: &str, name: &str) -> Self {
+    pub(crate) fn new(namespace: &str, name: &str) -> Self {
         Self(format!("{namespace}:{name}"))
     }
 
     /// The raw key string, as passed to the backend (e.g. as the keyring "username"
     /// field, or hashed into a filename).
-    pub fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }

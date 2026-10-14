@@ -21,22 +21,6 @@
 //! The `label` says what the text is (`"wyck-backup"`). It is part of what the cipher signs, so a
 //! sealed backup cannot be passed off as another kind of document: opening with a different label
 //! fails. Only the label, the cost and the sizes are readable without the passphrase.
-//!
-//! ```
-//! use secrecy::SecretString;
-//! use wyck_storage::sealed;
-//!
-//! let passphrase = SecretString::from("correct horse battery staple".to_owned());
-//! let sealed = sealed::seal_text(&passphrase, "wyck-backup", "answer = 42\n")?;
-//! assert!(sealed::is_sealed(&sealed));
-//! assert!(!sealed.contains("answer"));
-//!
-//! assert_eq!(sealed::open_text(&passphrase, "wyck-backup", &sealed)?, "answer = 42\n");
-//!
-//! let wrong = SecretString::from("Tr0ub4dor&3".to_owned());
-//! assert!(sealed::open_text(&wrong, "wyck-backup", &sealed).is_err());
-//! # Ok::<(), wyck_storage::ConfigError>(())
-//! ```
 
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -45,11 +29,11 @@ use crate::crypto::{self, CryptoError, KdfParams, Sealed};
 use crate::error::{ConfigError, Result};
 
 /// The value of `format` in a sealed document.
-pub const FORMAT: &str = "wyck-sealed";
+pub(crate) const FORMAT: &str = "wyck-sealed";
 /// The version of the layout this build writes, and the newest it reads.
-pub const VERSION: u32 = 1;
+pub(crate) const VERSION: u32 = 1;
 /// The largest sealed text [`open_text`] looks at.
-pub const MAX_SEALED_BYTES: usize = 128 * 1024 * 1024;
+pub(crate) const MAX_SEALED_BYTES: usize = 128 * 1024 * 1024;
 
 #[derive(Serialize, Deserialize)]
 struct Document {
@@ -89,7 +73,7 @@ fn from_crypto(error: CryptoError) -> ConfigError {
 ///
 /// [`ConfigError::Random`] or [`ConfigError::KeyDerivation`] when the system or Argon2 fails,
 /// which does not happen in normal use.
-pub fn seal_text(passphrase: &SecretString, label: &str, plaintext: &str) -> Result<String> {
+pub(crate) fn seal_text(passphrase: &SecretString, label: &str, plaintext: &str) -> Result<String> {
     let sealed = crypto::seal(passphrase, &associated_data(label), plaintext.as_bytes())
         .map_err(from_crypto)?;
     let document = Document {
@@ -110,7 +94,7 @@ pub fn seal_text(passphrase: &SecretString, label: &str, plaintext: &str) -> Res
 /// Whether `text` looks like a sealed document (without opening it), so a caller can ask for a
 /// passphrase only when one is needed.
 #[must_use]
-pub fn is_sealed(text: &str) -> bool {
+pub(crate) fn is_sealed(text: &str) -> bool {
     text.len() <= MAX_SEALED_BYTES
         && toml::from_str::<toml::Table>(text)
             .ok()
@@ -130,7 +114,7 @@ pub fn is_sealed(text: &str) -> bool {
 ///   by a newer version.
 /// * [`ConfigError::WrongPassphrase`]: the passphrase does not match, or the document was
 ///   changed after it was sealed.
-pub fn open_text(passphrase: &SecretString, label: &str, text: &str) -> Result<String> {
+pub(crate) fn open_text(passphrase: &SecretString, label: &str, text: &str) -> Result<String> {
     if text.len() > MAX_SEALED_BYTES {
         return Err(bad("it is far too large"));
     }

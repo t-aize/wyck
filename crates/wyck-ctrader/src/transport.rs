@@ -6,7 +6,7 @@
 //! `pub(crate)` request machinery; nothing outside this crate needs to reach lower than
 //! [`crate::Client`] itself.
 
-pub mod connection;
-pub mod messages;
-pub mod rate_limit;
-pub mod wire;
+pub(crate) mod connection;
+pub(crate) mod messages;
+pub(crate) mod rate_limit;
+pub(crate) mod wire;

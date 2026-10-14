@@ -300,13 +300,12 @@ impl OAuthClient {
         }
         let result = match parse_token_response(&body, SystemTime::now()) {
             Ok(tokens) if status.is_success() => Ok(tokens),
-            Ok(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
             // An error body is more useful than the bare status.
             Err(error) if status.is_success() => Err(error),
             Err(Error::Auth(text)) if !text.starts_with("the token endpoint") => {
                 Err(Error::Auth(format!("{text} ({status})")))
             }
-            Err(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
+            Ok(_) | Err(_) => Err(Error::Auth(format!("the token endpoint answered {status}"))),
         };
         match &result {
             Ok(tokens) => debug!(

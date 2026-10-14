@@ -13,10 +13,9 @@
 //! **Reads and trades.** Alongside the read-only account and market data, [`trading`] places,
 //! amends and cancels orders and closes positions, and [`margin`] reads and (for its one threshold
 //! setting) writes margin call configuration. A trading call moves money: simulated on a demo
-//! account, real on a live one, since demo balances are simulated but persistent. See the "Trading
-//! safety" section of the README, and the non-idempotency caveat on
-//! [`trading::TradingClient::new_order`], before sending an order from anything that is not a
-//! script you are watching.
+//! account, real on a live one, since demo balances are simulated but persistent. See the
+//! non-idempotency caveat on [`trading::TradingClient::new_order`] before sending an order from
+//! anything that is not a script you are watching.
 //!
 //! # Module map
 //!
@@ -37,22 +36,12 @@
 //! | [`error`] | [`Error`] and its classification |
 //! | [`prelude`] | A group import of the pieces most programs need |
 //!
-//! # Features
+//! # Scope
 //!
-//! `client` (on by default) brings the connection, the session and OAuth, with tokio and the
-//! WebSocket and HTTP stacks. Without it the crate holds only the messages, the market types and
-//! the trading calculations, for code that works on prices without talking to the server.
-//!
-//! # Stability
-//!
-//! The public API is everything reachable from the documented modules and the root re-exports.
-//! The server's messages, the events and the error type are `#[non_exhaustive]`, so a field or a
-//! variant the server gains can be added without breaking callers: build them through their
-//! constructors or from JSON, match with a wildcard arm, and prefer [`Error::kind`] to the
+//! Only the workspace uses this crate, so its API changes with the app and carries no promise to
+//! outside code. The public API is the documented modules and the root re-exports; the wire format
+//! and the connection machinery (`transport`) are private. Prefer [`Error::kind`] to matching the
 //! error's variants.
-//!
-//! Items hidden from these docs (the `transport` module, the wire envelope, `event::event_from`)
-//! are not part of that API. They are public only for this crate's own tests.
 //!
 //! # Which layer to use
 //!
@@ -110,8 +99,7 @@
 //!
 //! # Facts that shape the design
 //!
-//! Checked against the official documentation and `.proto` files, and against a live demo account
-//! (see the section below):
+//! Checked against the official documentation and `.proto` files, and by hand against a live demo account:
 //!
 //! - **Endpoints**: `demo.ctraderapi.com` and `live.ctraderapi.com`, JSON on port `5036`. Demo and
 //!   live are separate: one connection each, and accounts of one cannot be used on the other.
@@ -129,20 +117,14 @@
 //!   percent of minutes; the rest are 1 to 3 units wider, because the bars are built from a richer
 //!   feed than the tick history.
 //!
-//! # What has and has not been verified against a live server
+//! # What is tested, and what is not
 //!
-//! Everything above the wire is covered by tests with a local mock server. Live runs on a demo
-//! account (an ignored live test) confirmed the connection, both sign in steps, the symbol list, the
-//! price subscription, the tick encoding, tick and bar history with paging and no lost tick at page
-//! seams, the rate limit behavior described above, the account and margin calls, [`session::Session`]
-//! end to end (including reconnecting after a real, not simulated, connection drop), and the whole
-//! trading path: placing, amending and cancelling a pending order, amending a position's stop loss
-//! and take profit, and placing and closing a market order. Still open: whether the OAuth consent
-//! page echoes `state` back (checked by [`auth::AuthorizationCode::state_echoed`] during sign in,
-//! but not by an automated test: it needs a real sign in
-//! through a browser, which nothing here drives) and exactly how long a broker keeps ticks (a demo
-//! account's retention is not documented; that live test's retention probe
-//! narrows it by probing rather than asserting a fixed answer).
+//! Everything above the wire is covered by tests with a local mock server (`cargo test -p
+//! wyck-ctrader`). The examples in `crates/wyck-ctrader/examples` run the same calls against a real
+//! demo account; nothing automated does. Two points are open: whether the OAuth consent page echoes
+//! `state` back (checked by [`auth::AuthorizationCode::state_echoed`] during sign in, which needs a
+//! real sign in through a browser), and how long a broker keeps ticks (a demo account's retention
+//! is not documented).
 
 pub mod account;
 pub mod auth;
@@ -155,10 +137,7 @@ pub mod market;
 pub mod prelude;
 pub mod session;
 pub mod trading;
-/// The wire format and the connection machinery. Public only for this crate's own tests: not
-/// part of the stable API, and it may change in any release.
-#[doc(hidden)]
-pub mod transport;
+mod transport;
 
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{Error, ErrorKind, Result};

@@ -20,7 +20,7 @@ use tracing::trace;
 
 /// An even-spacing rate limiter. Share one per class of request.
 #[derive(Debug)]
-pub struct RateLimiter {
+pub(crate) struct RateLimiter {
     /// The gap between two requests.
     interval: Duration,
     /// How far ahead of the clock the schedule may run: the burst allowance.
@@ -32,7 +32,7 @@ pub struct RateLimiter {
 impl RateLimiter {
     /// A limiter of `per_second` requests per second. A rate of 0 is treated as 1.
     #[must_use]
-    pub fn new(per_second: u32) -> Self {
+    pub(crate) fn new(per_second: u32) -> Self {
         let rate = per_second.max(1);
         Self {
             interval: Duration::from_secs(1) / rate,
@@ -45,13 +45,14 @@ impl RateLimiter {
 
     /// The gap kept between requests.
     #[must_use]
-    pub fn interval(&self) -> Duration {
+    #[cfg(test)]
+    pub(crate) fn interval(&self) -> Duration {
         self.interval
     }
 
     /// Waits until the next request may be sent, then reserves that slot. Waiters are served in
     /// the order they asked.
-    pub async fn acquire(&self) {
+    pub(crate) async fn acquire(&self) {
         let wait_until = {
             let mut next = self.next.lock().await;
             let now = Instant::now();

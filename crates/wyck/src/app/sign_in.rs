@@ -496,7 +496,7 @@ impl SignIn {
                 refresh_token: tokens.refresh_token.clone(),
                 expires_at: tokens.expires_at(),
             })?;
-        self.config.set_active_profile(Some(id.clone()))?;
+        self.config.set_active_profile(Some(&id))?;
         Ok(id)
     }
 

@@ -9,6 +9,8 @@
 //! The access token needs the `trading` scope. The example refuses a live account: it connects to
 //! the demo server, which does not accept live accounts, and checks the account list as well.
 
+#![expect(clippy::print_stdout, reason = "an example talks to the terminal")]
+
 use wyck_ctrader::trading::NewOrderReq;
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
 use wyck_trading::TradeSide;
@@ -80,6 +82,6 @@ async fn main() -> wyck_ctrader::Result<()> {
         .close_position(position.position_id, position.trade_data.volume)
         .await?;
     println!("closed: {:?}", closed.kind());
-    client.close().await;
+    client.close();
     Ok(())
 }

@@ -6,6 +6,12 @@
 //! cargo run -p wyck-ctrader --example ctrader_prices -- EURUSD
 //! ```
 
+#![expect(
+    clippy::print_stderr,
+    clippy::print_stdout,
+    reason = "an example talks to the terminal"
+)]
+
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error, Event};
 use wyck_market::format_price;
 
@@ -65,6 +71,6 @@ async fn main() -> wyck_ctrader::Result<()> {
             _ => {}
         }
     }
-    client.close().await;
+    client.close();
     Ok(())
 }

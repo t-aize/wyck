@@ -9,6 +9,8 @@
 //! [`MarketClient::bars`](wyck_ctrader::market::MarketClient::bars) pages through ranges longer
 //! than one request allows and keeps under the history rate limit by itself.
 
+#![expect(clippy::print_stdout, reason = "an example talks to the terminal")]
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment, Error};
@@ -63,6 +65,6 @@ async fn main() -> wyck_ctrader::Result<()> {
             bar.volume
         );
     }
-    client.close().await;
+    client.close();
     Ok(())
 }

@@ -15,7 +15,7 @@ pub struct SymbolsListReq {
 }
 
 /// `ProtoOASymbolsListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolsListRes {
     /// The symbols of the account.
@@ -34,7 +34,7 @@ pub struct SymbolByIdReq {
 }
 
 /// `ProtoOASymbolByIdRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolByIdRes {
     /// The details asked for.
@@ -56,7 +56,7 @@ pub struct SymbolsForConversionReq {
 
 /// `ProtoOASymbolsForConversionRes`: a chain of symbols to convert one asset into another when no
 /// direct quote exists (for example EUR/USD, USD/JPY for a EUR/JPY conversion).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolsForConversionRes {
     /// The chain, in order.
@@ -65,7 +65,7 @@ pub struct SymbolsForConversionRes {
 }
 
 /// `ProtoOAAssetListRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetListRes {
     #[serde(default)]
@@ -133,7 +133,7 @@ pub struct GetTrendbarsReq {
 }
 
 /// `ProtoOAGetTrendbarsRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTrendbarsRes {
     #[serde(default)]
@@ -161,7 +161,7 @@ pub struct GetTickDataReq {
 }
 
 /// `ProtoOAGetTickDataRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTickDataRes {
     /// The ticks, newest first.

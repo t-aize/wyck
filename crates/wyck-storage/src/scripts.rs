@@ -9,19 +9,6 @@
 //! that owns the language). It owns what has to be the same everywhere the files are touched:
 //! the rule for ids ([`clean_id`]), the limits, the scan of the folder, and the atomic write. The
 //! editor, the import and export of the indicator library and the backup all go through it.
-//!
-//! ```
-//! use wyck_storage::AppPaths;
-//! use wyck_storage::scripts::ScriptStore;
-//!
-//! # let dir = tempfile::tempdir().unwrap();
-//! # let paths = AppPaths::at(dir.path());
-//! let store = ScriptStore::in_config(&paths);
-//! store.write("trend/my average", "plot(\"a\", close);")?;
-//! assert_eq!(store.ids(), ["trend/my average"]);
-//! assert_eq!(store.read("trend/my average")?.as_deref(), Some("plot(\"a\", close);"));
-//! # Ok::<(), wyck_storage::ConfigError>(())
-//! ```
 
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -103,7 +90,7 @@ pub fn clean_id(id: &str) -> Result<String> {
 /// Whether `id` is already in the form [`clean_id`] gives back: what a backup must hold, since it
 /// is used as a path.
 #[must_use]
-pub fn is_clean_id(id: &str) -> bool {
+pub(crate) fn is_clean_id(id: &str) -> bool {
     clean_id(id).is_ok_and(|cleaned| cleaned == id)
 }
 
@@ -121,7 +108,7 @@ pub struct ScriptFile {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScriptText {
+pub(crate) struct ScriptText {
     /// The id of the script.
     pub id: String,
     pub source: String,
@@ -142,12 +129,13 @@ impl ScriptStore {
 
     /// The scripts of the default folder, inside the config folder (see
     /// [`AppPaths::indicators_dir`]).
-    pub fn in_config(paths: &AppPaths) -> Self {
+    pub(crate) fn in_config(paths: &AppPaths) -> Self {
         Self::new(paths.indicators_dir())
     }
 
     /// The folder the scripts are in.
-    pub fn dir(&self) -> &Path {
+    #[cfg(test)]
+    pub(crate) fn dir(&self) -> &Path {
         &self.dir
     }
 
@@ -161,18 +149,6 @@ impl ScriptStore {
         path
     }
 
-    /// Makes the folder when it is not there.
-    ///
-    /// # Errors
-    ///
-    /// [`ConfigError::Write`] when it cannot be made.
-    pub fn ensure_dir(&self) -> Result<()> {
-        std::fs::create_dir_all(&self.dir).map_err(|source| ConfigError::Write {
-            path: self.dir.clone(),
-            source,
-        })
-    }
-
     /// Every script file of the folder (and of the folders in it, [`MAX_DEPTH`] deep), by id. Hidden
     /// files and folders (the trash, an editor's leftovers), links and files of another kind are
     /// not scripts. A missing folder gives an empty list.
@@ -184,14 +160,15 @@ impl ScriptStore {
     }
 
     /// The ids of every script of the folder.
-    pub fn ids(&self) -> Vec<String> {
+    #[cfg(test)]
+    pub(crate) fn ids(&self) -> Vec<String> {
         self.scan().into_iter().map(|file| file.id).collect()
     }
 
     /// Every script with its text, at most [`MAX_SCRIPTS`]. A file that is too big or is not text
     /// is left out: it cannot be one of the scripts the app runs, so it has no place in a copy of
     /// them either.
-    pub fn read_all(&self) -> Vec<ScriptText> {
+    pub(crate) fn read_all(&self) -> Vec<ScriptText> {
         self.scan()
             .into_iter()
             .filter(|file| file.len <= MAX_FILE_BYTES)
@@ -212,7 +189,7 @@ impl ScriptStore {
     ///
     /// [`ConfigError::InvalidName`] for an id that could point outside the folder,
     /// [`ConfigError::Read`] when the file exists and cannot be read as text.
-    pub fn read(&self, id: &str) -> Result<Option<String>> {
+    pub(crate) fn read(&self, id: &str) -> Result<Option<String>> {
         clean_id(id)?;
         let path = self.path_of(id);
         match read_text(&path) {
@@ -243,7 +220,8 @@ impl ScriptStore {
     /// # Errors
     ///
     /// [`ConfigError::Write`] when a file cannot be written.
-    pub fn export_all(&self, dest: &Path) -> Result<usize> {
+    #[cfg(test)]
+    pub(crate) fn export_all(&self, dest: &Path) -> Result<usize> {
         let target = Self::new(dest);
         let scripts = self.read_all();
         for script in &scripts {

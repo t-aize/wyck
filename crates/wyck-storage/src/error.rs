@@ -6,13 +6,12 @@ use std::path::PathBuf;
 pub type Result<T> = std::result::Result<T, ConfigError>;
 
 /// Errors produced by [`crate::AppPaths`], [`crate::AppConfig`], and the
-/// [`crate::secret`] backends.
+/// `crate::secret` backends.
 ///
 /// Every variant that touches a file carries the path; every variant that touches a
 /// secret carries the [`crate::SecretKey`] it was operating on: never the secret value
 /// itself, so a `{:?}`/`{}` of this error (e.g. in a log line) can never leak a token.
 #[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
 pub enum ConfigError {
     /// The OS did not report a home directory for the current user, so no
     /// OS-standard config/data directory could be resolved. See
@@ -112,7 +111,7 @@ pub enum ConfigError {
 
     /// A name (of a document, a scope or a named credential) cannot be used as given: it is empty,
     /// too long, or holds characters that could point outside the folder it belongs in. See
-    /// [`crate::names`].
+    /// `crate::names`.
     #[error("`{name}` cannot be used as a name: {reason}")]
     InvalidName {
         /// The name that was refused.

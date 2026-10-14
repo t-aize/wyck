@@ -210,11 +210,11 @@ impl AppPaths {
     /// # Errors
     ///
     /// As [`Self::discover`].
-    pub fn discover_with(var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
+    pub(crate) fn discover_with(var: impl Fn(&str) -> Option<OsString>) -> Result<Self> {
         Self::discover_for(BuildMode::CURRENT, var)
     }
 
-    /// [`Self::discover_with`] for a given build mode: the standard folders of a development
+    /// `Self::discover_with` for a given build mode: the standard folders of a development
     /// build are not those of the installed app (see [`crate::identity`]).
     ///
     /// # Errors
@@ -287,19 +287,19 @@ impl AppPaths {
     }
 
     /// The full path to the config TOML file.
-    pub fn config_file(&self) -> PathBuf {
+    pub(crate) fn config_file(&self) -> PathBuf {
         self.config_dir.join("config.toml")
     }
 
     /// The directory an on-disk [`crate::secret::SecretStore`] backend may persist
     /// files in.
-    pub fn data_dir(&self) -> &Path {
+    pub(crate) fn data_dir(&self) -> &Path {
         &self.data_dir
     }
 
     /// The subdirectory [`crate::secret::EncryptedFileSecretStore`] persists its
     /// per-secret envelope files in.
-    pub fn secrets_dir(&self) -> PathBuf {
+    pub(crate) fn secrets_dir(&self) -> PathBuf {
         self.data_dir.join("secrets")
     }
 
@@ -319,13 +319,13 @@ impl AppPaths {
 
     /// The folder that holds one folder of documents per scope (see
     /// [`crate::DocumentStore::scoped`]).
-    pub fn scopes_dir(&self) -> PathBuf {
+    pub(crate) fn scopes_dir(&self) -> PathBuf {
         self.dir(Kind::Accounts)
     }
 
     /// The folder of the backups the app keeps (see [`crate::backup::store::BackupStore`]): the automatic
     /// ones, and a copy of what an import or a reset replaced.
-    pub fn backups_dir(&self) -> PathBuf {
+    pub(crate) fn backups_dir(&self) -> PathBuf {
         self.dir(Kind::Backups)
     }
 
@@ -339,17 +339,17 @@ impl AppPaths {
         crate::DocumentStore::global(self)
     }
 
-    /// The documents of one scope (an account): [`crate::DocumentStore::scoped`].
+    /// The documents of one scope (an account): `crate::DocumentStore::scoped`.
     pub fn scope(&self, scope: &str) -> crate::DocumentStore {
         crate::DocumentStore::scoped(self, scope)
     }
 
     /// The indicator scripts of the default folder: [`crate::scripts::ScriptStore::in_config`].
-    pub fn scripts(&self) -> crate::scripts::ScriptStore {
+    pub(crate) fn scripts(&self) -> crate::scripts::ScriptStore {
         crate::scripts::ScriptStore::in_config(self)
     }
 
-    /// The copies kept in [`Self::backups_dir`]: [`crate::backup::store::BackupStore::new`].
+    /// The copies kept in `Self::backups_dir`: `crate::backup::store::BackupStore::new`.
     pub fn backups(&self) -> crate::backup::store::BackupStore {
         crate::backup::store::BackupStore::new(self)
     }

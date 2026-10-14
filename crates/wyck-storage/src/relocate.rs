@@ -127,7 +127,7 @@ fn normalized(path: &Path) -> PathBuf {
                     rest.push(name);
                     base = parent.to_path_buf();
                 }
-                _ => break path.clone(),
+                _ => break path,
             },
         }
     };
@@ -228,7 +228,7 @@ pub fn plan(paths: &AppPaths, changes: &[Change]) -> std::result::Result<Vec<Ste
             locations::check(&to, change.kind, paths.mode(), Use::Chosen)?.has_data
         };
         if let Some(slot) = after.iter_mut().find(|(kind, _)| *kind == change.kind) {
-            slot.1 = to.clone();
+            slot.1.clone_from(&to);
         }
 
         let carried = data_files(&from);
@@ -982,7 +982,7 @@ mod tests {
             schema_version: 1,
             changes: vec![StagedChange {
                 kind: "settings".into(),
-                to: Some(installed.clone()),
+                to: Some(installed),
             }],
         };
         fs::write(setup.base.join(PENDING), toml::to_string(&staged).unwrap()).unwrap();

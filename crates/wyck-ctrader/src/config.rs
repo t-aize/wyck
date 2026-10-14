@@ -5,7 +5,7 @@
 //! authorized on it, and an app that needs both opens two connections.
 //!
 //! This crate speaks **JSON over a WebSocket** (port `5036`). It needs no code generation and no
-//! `.proto` files, and the messages are the same ones as in Protobuf (see [`crate::transport::wire`]).
+//! `.proto` files, and the messages are the same ones as in Protobuf (see `crate::transport::wire`).
 
 use std::time::Duration;
 
@@ -43,7 +43,6 @@ impl Environment {
 /// How the connection behaves. [`ConnectionConfig::new`] gives the settings the documentation
 /// asks for; every field can be changed.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ConnectionConfig {
     /// The WebSocket address to connect to (`wss://...`, or `ws://...` for a local test server).
     pub url: String,

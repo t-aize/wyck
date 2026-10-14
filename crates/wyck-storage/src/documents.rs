@@ -43,7 +43,7 @@ impl DocumentStore {
     /// directory stays inside the config directory (the name is cleaned with
     /// [`crate::names::sanitize`]; check it with [`crate::names::validate_name`] first where two
     /// different names must never share a folder).
-    pub fn scoped(paths: &AppPaths, scope: &str) -> Self {
+    pub(crate) fn scoped(paths: &AppPaths, scope: &str) -> Self {
         Self {
             dir: paths.scopes_dir().join(sanitize(scope)),
         }
@@ -81,7 +81,7 @@ impl DocumentStore {
     ///
     /// [`ConfigError::Read`] on an I/O failure other than "not found" (an empty or missing folder
     /// gives an empty list).
-    pub fn list(&self) -> Result<Vec<String>> {
+    pub(crate) fn list(&self) -> Result<Vec<String>> {
         let entries = match std::fs::read_dir(&self.dir) {
             Ok(entries) => entries,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -172,7 +172,8 @@ impl DocumentStore {
     /// # Errors
     ///
     /// [`ConfigError::Write`] if the file exists and cannot be removed.
-    pub fn remove(&self, name: &str) -> Result<()> {
+    #[cfg(test)]
+    pub(crate) fn remove(&self, name: &str) -> Result<()> {
         let path = self.path(name);
         match std::fs::remove_file(&path) {
             Ok(()) => Ok(()),

@@ -24,7 +24,7 @@ use tracing::{info, warn};
 /// # Errors
 ///
 /// As [`Backup::read`], and [`ConfigError::Write`].
-pub fn stage_import(
+pub(crate) fn stage_import(
     paths: &AppPaths,
     text: &str,
     passphrase: Option<&SecretString>,
@@ -38,11 +38,11 @@ pub fn stage_import(
     Ok(backup)
 }
 
-/// [`stage_import`] for the backup file at `path`.
+/// `stage_import` for the backup file at `path`.
 ///
 /// # Errors
 ///
-/// As [`stage_import`], and [`ConfigError::Read`].
+/// As `stage_import`, and [`ConfigError::Read`].
 pub fn stage_import_file(
     paths: &AppPaths,
     path: &Path,
@@ -82,7 +82,7 @@ pub fn stage_reset(paths: &AppPaths) -> Result<()> {
 
 /// Whether a reset waits for the next start.
 #[must_use]
-pub fn reset_pending(paths: &AppPaths) -> bool {
+pub(crate) fn reset_pending(paths: &AppPaths) -> bool {
     paths.config_dir().join(RESET_MARKER).is_file()
 }
 
@@ -91,7 +91,7 @@ pub fn reset_pending(paths: &AppPaths) -> bool {
 /// # Errors
 ///
 /// [`ConfigError::Write`] when the marker exists and cannot go.
-pub fn cancel_reset(paths: &AppPaths) -> Result<()> {
+pub(crate) fn cancel_reset(paths: &AppPaths) -> Result<()> {
     remove_marker(&paths.config_dir().join(RESET_MARKER))
 }
 
@@ -267,11 +267,11 @@ pub(super) fn apply_import(
 
 /// Writes a backup of everything to `dest` (sealed when a passphrase is given) and returns what
 /// went in. The one call behind an "Export" button: `scripts` is the folder the indicators are
-/// really in (see [`AppPaths::scripts`] for the default).
+/// really in (see `AppPaths::scripts` for the default).
 ///
 /// # Errors
 ///
-/// As [`Backup::collect`] and [`Backup::write_file`].
+/// As [`Backup::collect`] and `Backup::write_file`.
 pub fn export_to_file(
     paths: &AppPaths,
     scripts: Option<&ScriptStore>,

@@ -7,6 +7,8 @@
 //!
 //! The variables can also sit in a `.env` file in the working directory.
 
+#![expect(clippy::print_stdout, reason = "an example talks to the terminal")]
+
 use wyck_ctrader::{ClientBuilder, ClientCredentials, Environment};
 
 fn var(name: &str) -> String {
@@ -37,6 +39,6 @@ async fn main() -> wyck_ctrader::Result<()> {
             account.ctid_trader_account_id, account.trader_login, account.broker_title_short
         );
     }
-    client.close().await;
+    client.close();
     Ok(())
 }

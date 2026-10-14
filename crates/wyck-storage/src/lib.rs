@@ -12,7 +12,7 @@
 //! | Everything else the app remembers (layouts, drawings, favorites) | one TOML file per document | [`DocumentStore`] |
 //! | Indicator scripts | one `.rhai` file each | [`scripts::ScriptStore`] |
 //! | A backup of everything, to export, import, keep or restore | one TOML file | [`backup::Backup`], [`backup::store::BackupStore`] |
-//! | Text to carry elsewhere, unreadable without a passphrase | a small TOML document | [`sealed`] |
+//! | Text to carry elsewhere, unreadable without a passphrase | a small TOML document | `sealed` |
 //!
 //! **A token never appears in `config.toml`.** The file only holds a profile's public settings;
 //! a [`SecretKey`] derived from the profile's id says *where* the secret is looked up.
@@ -33,7 +33,7 @@
 //!
 //! let id = config.add_profile("Live: FTMO 100k", "ctrader-openapi")?;
 //! config.set_profile_secret(&id, CLIENT_SECRET, &SecretString::from("the-secret".to_owned()))?;
-//! config.set_active_profile(Some(id.clone()))?;
+//! config.set_active_profile(Some(&id))?;
 //!
 //! if let Some(secret) = config.profile_secret(&id, CLIENT_SECRET)? {
 //!     // hand `secret` to the client that needs it
@@ -70,7 +70,7 @@
 //!   read wrong and written back without what it did not know; a document is set aside whole.
 //! * **A file from an older version is upgraded, with a copy.** [`migrate`] runs the steps from the
 //!   version found to the one this build writes and keeps the old text as `.v<n>.bak`.
-//! * **Names cannot leave their folder.** See [`names`].
+//! * **Names cannot leave their folder.** See `names`.
 //! * **Secrets stay secret.** Errors and logs carry the [`SecretKey`], never the value. See
 //!   [`secret::EncryptedFileSecretStore`] for the encryption.
 //!
@@ -104,8 +104,6 @@
 //! `WYCK_PASSPHRASE` keeps the credentials in encrypted files locked by that passphrase, for a
 //! machine with no keyring.
 
-#![forbid(unsafe_code)]
-
 mod app_config;
 pub mod backup;
 mod crypto;
@@ -116,13 +114,13 @@ mod fs_util;
 pub mod identity;
 pub mod locations;
 pub mod migrate;
-pub mod names;
+mod names;
 mod paths;
 mod profile;
 pub mod relocate;
 pub mod scripts;
-pub mod sealed;
-pub mod secret;
+mod sealed;
+mod secret;
 mod tokens;
 
 pub use app_config::{AppConfig, CURRENT_SCHEMA_VERSION};
@@ -208,7 +206,7 @@ impl WyckConfig {
     ///
     /// # Errors
     ///
-    /// Propagates [`AppConfig::load`]'s errors (I/O or parse failures on an existing,
+    /// Propagates `AppConfig::load`'s errors (I/O or parse failures on an existing,
     /// but corrupt or unreadable, config file, or a file from a newer version).
     pub fn load(paths: AppPaths, secrets: Box<dyn SecretStore>) -> Result<Self> {
         let app_config = AppConfig::load(&paths)?;
@@ -267,7 +265,7 @@ impl WyckConfig {
     ///
     /// # Errors
     ///
-    /// Any error of [`AppConfig::save`]; the profile is then not added.
+    /// Any error of `AppConfig::save`; the profile is then not added.
     pub fn add_profile(
         &mut self,
         display_name: impl Into<String>,
@@ -294,7 +292,7 @@ impl WyckConfig {
     /// # Errors
     ///
     /// [`ConfigError::UnknownProfile`] if `id` doesn't name a configured profile;
-    /// otherwise any error the [`SecretStore`] backend or [`AppConfig::save`] returns.
+    /// otherwise any error the [`SecretStore`] backend or `AppConfig::save` returns.
     pub fn remove_profile(&mut self, id: &ProfileId) -> Result<()> {
         if self.app_config.profile(id).is_none() {
             warn!(%id, "cannot remove an unknown profile");
@@ -316,7 +314,7 @@ impl WyckConfig {
     }
 
     /// Stores a named credential for a profile, apart from its main token: the Open API client
-    /// secret ([`CLIENT_SECRET`]), for instance. `name` follows the rule of [`names`].
+    /// secret ([`CLIENT_SECRET`]), for instance. `name` follows the rule of `names`.
     ///
     /// # Errors
     ///
@@ -388,7 +386,7 @@ impl WyckConfig {
     ///
     /// # Errors
     ///
-    /// [`ConfigError::UnknownProfile`], or any error of [`AppConfig::save`].
+    /// [`ConfigError::UnknownProfile`], or any error of `AppConfig::save`.
     pub fn set_openapi_profile(
         &mut self,
         id: &ProfileId,
@@ -416,15 +414,15 @@ impl WyckConfig {
     /// # Errors
     ///
     /// [`ConfigError::UnknownProfile`] if `Some(id)` doesn't name a configured profile.
-    pub fn set_active_profile(&mut self, id: Option<ProfileId>) -> Result<()> {
-        if let Some(id) = &id
+    pub fn set_active_profile(&mut self, id: Option<&ProfileId>) -> Result<()> {
+        if let Some(id) = id
             && self.app_config.profile(id).is_none()
         {
             warn!(%id, "cannot activate an unknown profile");
             return Err(ConfigError::UnknownProfile(id.to_string()));
         }
         self.commit(|config| {
-            config.active_profile = id.clone();
+            config.active_profile = id.cloned();
             Ok(())
         })?;
         info!(active = ?id, "changed the active profile");
@@ -441,7 +439,7 @@ impl WyckConfig {
     ///
     /// # Errors
     ///
-    /// Any error of [`AppConfig::save`].
+    /// Any error of `AppConfig::save`.
     pub fn set_last_symbol(&mut self, symbol: Option<String>) -> Result<()> {
         let symbol = symbol
             .map(|s| s.trim().to_owned())
@@ -459,7 +457,7 @@ impl WyckConfig {
         self.paths.documents()
     }
 
-    /// The documents of one scope, such as an account (see [`DocumentStore::scoped`]).
+    /// The documents of one scope, such as an account (see `DocumentStore::scoped`).
     pub fn scope(&self, scope: &str) -> DocumentStore {
         self.paths.scope(scope)
     }
@@ -653,7 +651,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let mut config = config_in(temp_dir.path());
         let id = config.add_profile("Demo", "ctrader-openapi").unwrap();
-        config.set_active_profile(Some(id.clone())).unwrap();
+        config.set_active_profile(Some(&id)).unwrap();
         config
             .set_profile_secret(&id, CLIENT_SECRET, &secret("app-secret"))
             .unwrap();
@@ -738,7 +736,7 @@ mod tests {
             Err(ConfigError::UnknownProfile(_))
         ));
         assert!(matches!(
-            config.set_active_profile(Some(ghost.clone())),
+            config.set_active_profile(Some(&ghost)),
             Err(ConfigError::UnknownProfile(_))
         ));
         assert!(matches!(
@@ -868,7 +866,7 @@ mod tests {
         std::fs::create_dir(&file).unwrap();
 
         assert!(config.add_profile("Lost", "s").is_err());
-        assert!(config.set_active_profile(Some(kept.clone())).is_err());
+        assert!(config.set_active_profile(Some(&kept)).is_err());
         assert!(config.set_last_symbol(Some("EURUSD".into())).is_err());
         assert!(config.set_openapi_profile(&kept, "c".into(), 1, 2).is_err());
 
