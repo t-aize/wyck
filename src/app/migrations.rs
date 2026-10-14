@@ -10,7 +10,7 @@
 //! 1. Raise the `SCHEMA_VERSION` of the document's type.
 //! 2. Add the step for the old version to its plan below: a function when keys move or change
 //!    shape, [`Step::unchanged`] when the only news is a new field with a default.
-//! 3. Add a fixture of the old layout to `tests/fixtures` and a test that reads it.
+//! 3. Add a fixture of the old layout to `src/app/fixtures` and a test that reads it.
 //!
 //! A test fails until step 2 is done, so a version cannot be raised and forgotten. A document
 //! written by a newer version is not read at all: see [`crate::infra::storage::migrate`].
@@ -271,7 +271,7 @@ mod tests {
         std::fs::create_dir_all(shared.dir()).unwrap();
         std::fs::write(
             shared.path(workspace::PREFERENCES),
-            include_str!("../../tests/fixtures/preferences-0.1.toml"),
+            include_str!("fixtures/preferences-0.1.toml"),
         )
         .unwrap();
 
@@ -307,10 +307,8 @@ mod tests {
     #[test]
     fn how_the_charts_look_moves_out_of_each_chart_into_one_table() {
         use crate::domain::chart::Zone;
-        let mut table: toml::Table = toml::from_str(include_str!(
-            "../../tests/fixtures/preferences-0.2-look.toml"
-        ))
-        .unwrap();
+        let mut table: toml::Table =
+            toml::from_str(include_str!("fixtures/preferences-0.2-look.toml")).unwrap();
         assert!(lift_chart_look(&mut table).is_ok());
         assert!(
             table.get("zone").is_none(),
@@ -363,7 +361,7 @@ mod tests {
 
     #[test]
     fn a_version_3_file_gets_the_favorites_in_their_place() {
-        let text = include_str!("../../tests/fixtures/preferences-0.3.toml");
+        let text = include_str!("fixtures/preferences-0.3.toml");
         let preferences: Preferences = toml::from_str(text).unwrap();
         let preferences = preferences.normalized();
         assert_eq!(preferences.schema_version, 4);
@@ -381,7 +379,7 @@ mod tests {
     fn the_account_panel_of_version_1_keeps_only_its_open_tab() {
         use crate::app::prefs::panel::Tab;
         let mut table: toml::Table =
-            toml::from_str(include_str!("../../tests/fixtures/preferences-0.2.toml")).unwrap();
+            toml::from_str(include_str!("fixtures/preferences-0.2.toml")).unwrap();
         assert!(trim_account_panel(&mut table).is_ok());
         let panel = table["account_panel"].as_table().unwrap();
         assert_eq!(panel.len(), 1, "only the tab is left: {panel:?}");

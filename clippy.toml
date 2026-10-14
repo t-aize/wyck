@@ -1,5 +1,5 @@
 # `unwrap_used` and `expect_used` are denied in Cargo.toml. Tests may use them: a failing
 # `unwrap` is how a test fails. This covers `#[test]` functions and `#[cfg(test)]` modules;
-# the helper functions of an integration test (`tests/*.rs`) carry an `#![allow]` instead.
+# the helper functions of an integration test would need an `#![allow]` instead.
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true

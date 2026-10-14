@@ -132,7 +132,7 @@
 //! # What has and has not been verified against a live server
 //!
 //! Everything above the wire is covered by tests with a local mock server. Live runs on a demo
-//! account (`tests/openapi_live.rs`) confirmed the connection, both sign in steps, the symbol list, the
+//! account (an ignored live test) confirmed the connection, both sign in steps, the symbol list, the
 //! price subscription, the tick encoding, tick and bar history with paging and no lost tick at page
 //! seams, the rate limit behavior described above, the account and margin calls, [`session::Session`]
 //! end to end (including reconnecting after a real, not simulated, connection drop), and the whole
@@ -141,7 +141,7 @@
 //! page echoes `state` back (checked by [`auth::AuthorizationCode::state_echoed`] during sign in,
 //! but not by an automated test: it needs a real sign in
 //! through a browser, which nothing here drives) and exactly how long a broker keeps ticks (a demo
-//! account's retention is not documented; `tests/openapi_live.rs`'s `tick_history_retention_is_reported`
+//! account's retention is not documented; that live test's retention probe
 //! narrows it by probing rather than asserting a fixed answer).
 
 pub mod account;

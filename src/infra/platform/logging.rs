@@ -16,8 +16,8 @@
 //!   written by the thread that panics, not by the worker, so it is there even when the process
 //!   dies a moment later.
 //!
-//! Neither a log line nor a report carries a secret: the rest of the app never formats one (see
-//! `infra/AGENTS.md`), and a panic message is the text of the code that panicked.
+//! Neither a log line nor a report carries a secret: the rest of the app never formats one, and a
+//! panic message is the text of the code that panicked.
 //!
 //! [`AppPaths::logs_dir`]: crate::infra::storage::AppPaths::logs_dir
 
