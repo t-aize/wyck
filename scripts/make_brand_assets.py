@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Builds the icon and the logo from the two source images in assets/brand.
+"""Builds the icon and the logo from the two source images in crates/wyck/assets/brand.
 
-    assets/brand/source-icon.png   the mark on a black square (the app icon)
-    assets/brand/source-logo.png   the mark with its outline on a transparent background
+    crates/wyck/assets/brand/source-icon.png   the mark on a black square (the app icon)
+    crates/wyck/assets/brand/source-logo.png   the mark with its outline on a transparent background
 
-Writes assets/app-icon.{png,ico,icns} and assets/logo.png (what the app shows, 256 px high).
+Writes crates/wyck/assets/app-icon.{png,ico,icns} and crates/wyck/assets/logo.png (what the app shows, 256 px high).
 Needs Pillow. Run it again when a source image changes, and commit the results.
 """
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-ASSETS = ROOT / "assets"
+ASSETS = ROOT / "crates" / "wyck" / "assets"
 
 
 def rounded(image: Image.Image, size: int, radius_share: float = 0.22) -> Image.Image:

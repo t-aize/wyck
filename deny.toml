@@ -37,6 +37,8 @@ allow = [
 # something this project can fix, so it is reported and not denied.
 multiple-versions = "warn"
 wildcards = "deny"
+# A crate of this workspace depends on another by path, and a path carries no version.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

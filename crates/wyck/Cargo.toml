@@ -1,0 +1,112 @@
+[package]
+name = "wyck"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+publish.workspace = true
+keywords = ["ctrader", "trading", "forex", "gpui", "openapi"]
+categories = ["finance", "gui"]
+description = "Desktop trading terminal for cTrader."
+default-run = "wyck"
+
+[lib]
+name = "wyck"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wyck"
+path = "src/main.rs"
+doc = false
+
+[package.metadata.packager]
+product-name = "Wyck"
+identifier = "sh.wyck.wyck"
+category = "finance"
+description = "Desktop trading terminal for cTrader."
+long-description = "Wyck is a native desktop trading terminal for cTrader."
+homepage = "https://github.com/t-aize/wyck"
+license-file = "../../LICENSE"
+icons = ["assets/app-icon.png", "assets/app-icon.ico", "assets/app-icon.icns"]
+out-dir = "dist"
+formats = ["default"]
+binaries = [{ path = "wyck", main = true }]
+
+[package.metadata.packager.nsis]
+installer-mode = "currentUser"
+languages = ["English"]
+
+[package.metadata.packager.windows]
+allow-downgrades = false
+
+[package.metadata.packager.linux]
+generate-desktop-entry = true
+
+[package.metadata.packager.deb]
+depends = [
+    "libasound2 | libasound2t64",
+    "libc6",
+    "libfontconfig1",
+    "libssl3 | libssl3t64",
+    "libwayland-client0",
+    "libxcb1",
+    "libxkbcommon0",
+    "libxkbcommon-x11-0",
+]
+
+[dependencies]
+ab_glyph.workspace = true
+anyhow.workspace = true
+argon2.workspace = true
+async-trait.workspace = true
+cargo-packager-updater.workspace = true
+chacha20poly1305.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+directories.workspace = true
+futures-util = { workspace = true, features = ["sink", "std"] }
+getrandom.workspace = true
+gpui.workspace = true
+gpui-kit.workspace = true
+keyring.workspace = true
+lsp-types.workspace = true
+notify-rust.workspace = true
+reqwest = { workspace = true, features = ["native-tls"] }
+rhai = { workspace = true, features = ["sync", "metadata", "no_module", "no_time"] }
+rodio = { workspace = true, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
+rust-embed = { workspace = true, features = ["debug-embed"] }
+secrecy = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tiny-skia.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+tokio-tungstenite = { workspace = true, features = ["native-tls"] }
+toml.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+unicode-segmentation.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+zeroize.workspace = true
+
+[dev-dependencies]
+dotenvy.workspace = true
+proptest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource.workspace = true
+
+# The code that is not in a crate of its own yet keeps this short list. A crate taken out of this
+# one follows the full `[workspace.lints]` instead.
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

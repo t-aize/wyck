@@ -1,0 +1,4 @@
+# What `cargo fmt` does, spelled out so an editor or a tool run outside cargo does the same.
+edition = "2024"
+max_width = 100
+newline_style = "Unix"

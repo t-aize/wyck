@@ -25,7 +25,7 @@ its use.
 
 wyck is an independent project. It is **not affiliated with, endorsed by, or sponsored by
 cTrader or Spotware Systems**. cTrader is a trademark of its owner. Company, coin and country
-marks bundled in `assets/marks` are trademarks of their owners, shown only to identify the
+marks bundled in `crates/wyck/assets/marks` are trademarks of their owners, shown only to identify the
 instrument being traded, and are used under the license of each set (see the `LICENSE.txt`
 next to it).
 
@@ -60,18 +60,21 @@ afresh.
 
 ## Layout
 
-One Cargo package, `wyck`: `src/lib.rs` declares the modules, `src/main.rs` only starts the app.
-The code is in four layers, and a lower layer never imports a higher one:
+A Cargo workspace (see the root `Cargo.toml`). The code is still in one crate, `crates/wyck`,
+which is being split into one crate per domain: [docs/PLAN.md](docs/PLAN.md) tracks where that
+stands. `src/lib.rs` declares the modules and `src/main.rs` only starts the app. The code is in
+layers, and a lower layer never imports a higher one:
 
 | Layer | Owns |
 |---|---|
+| `src/wyck_core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
 | `src/domain` | Pure logic: market data, trading maths, indicators, drawings, chart models |
 | `src/infra` | The cTrader Open API client, settings and credential storage, the async runtime |
 | `src/app` | State and use cases: sign-in, account, alerts, preferences, market data |
 | `src/ui` | GPUI screens: the widget kit (`ui/kit`), the window and dashboard (`ui/shell`), the features |
 
-Every control, menu, dialog and color comes from the widget kit. The Open API client is described
-in the rustdoc of `infra::ctrader` (`cargo doc --open`).
+(Paths are relative to `crates/wyck`.) Every control, menu, dialog and color comes from the widget
+kit. The Open API client is described in the rustdoc of `infra::ctrader` (`cargo doc --open`).
 
 ## Your own indicators
 

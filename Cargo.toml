@@ -1,63 +1,29 @@
-[package]
-name = "wyck"
+# Wyck, a desktop trading terminal for cTrader.
+#
+# A virtual workspace: no code lives at the root, every crate is a folder of `crates/`. This file
+# is the one place that says which version of a dependency is used, which lints apply and how
+# the crates are compiled. A crate never writes a version, a path or a lint level of its own:
+# it opts in with `dep.workspace = true` and `[lints] workspace = true`.
+
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.2.1"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 authors = ["t-aize"]
 repository = "https://github.com/t-aize/wyck"
-publish = false
-readme = "README.md"
-keywords = ["ctrader", "trading", "forex", "gpui", "openapi"]
-categories = ["finance", "gui"]
-description = "Desktop trading terminal for cTrader."
-default-run = "wyck"
-
-[lib]
-name = "wyck"
-path = "src/lib.rs"
-
-[[bin]]
-name = "wyck"
-path = "src/main.rs"
-doc = false
-
-[package.metadata.packager]
-product-name = "Wyck"
-identifier = "sh.wyck.wyck"
-category = "finance"
-description = "Desktop trading terminal for cTrader."
-long-description = "Wyck is a native desktop trading terminal for cTrader."
 homepage = "https://github.com/t-aize/wyck"
-license-file = "LICENSE"
-icons = ["assets/app-icon.png", "assets/app-icon.ico", "assets/app-icon.icns"]
-out-dir = "dist"
-formats = ["default"]
-binaries = [{ path = "wyck", main = true }]
+readme = "README.md"
+publish = false
 
-[package.metadata.packager.nsis]
-installer-mode = "currentUser"
-languages = ["English"]
-
-[package.metadata.packager.windows]
-allow-downgrades = false
-
-[package.metadata.packager.linux]
-generate-desktop-entry = true
-
-[package.metadata.packager.deb]
-depends = [
-    "libasound2 | libasound2t64",
-    "libc6",
-    "libfontconfig1",
-    "libssl3 | libssl3t64",
-    "libwayland-client0",
-    "libxcb1",
-    "libxkbcommon0",
-    "libxkbcommon-x11-0",
-]
-
-[dependencies]
+# Every external dependency, with its version. The features a crate needs are listed by that
+# crate (`tokio = { workspace = true, features = ["time"] }`), so that each one asks only for
+# what it uses. `default-features = false` is here where the defaults were already refused.
+[workspace.dependencies]
 ab_glyph = "0.2.32"
 anyhow = "1"
 argon2 = "0.6.0"
@@ -67,48 +33,71 @@ chacha20poly1305 = "0.11.0"
 chrono = "0.4.45"
 chrono-tz = "0.10.4"
 directories = "6.0.0"
-futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+dotenvy = "0.15.7"
+futures-util = { version = "0.3.34", default-features = false }
 getrandom = "0.4.3"
 gpui = { package = "gpui-pre", version = "0.3.8" }
 gpui-kit = "0.7.1"
 keyring = "4.2.0"
 lsp-types = "0.97"
 notify-rust = "4.18"
-reqwest = { version = "0.13.5", default-features = false, features = ["native-tls"] }
-rhai = { version = "1", features = ["sync", "metadata", "no_module", "no_time"] }
-rodio = { version = "0.22", default-features = false, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
-rust-embed = { version = "8", features = ["debug-embed"] }
-secrecy = { version = "0.10.3", features = ["serde"] }
-serde = { version = "1.0.229", features = ["derive"] }
+proptest = "1.12.0"
+reqwest = { version = "0.13.5", default-features = false }
+rhai = "1"
+rodio = { version = "0.22", default-features = false }
+rust-embed = "8"
+secrecy = "0.10.3"
+serde = "1.0.229"
 serde_json = "1.0.152"
+tempfile = "3.27.0"
 thiserror = "2.0.21"
 tiny-skia = "0.12.0"
-tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
-tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+tokio = "1.53.2"
+tokio-tungstenite = "0.30.0"
 toml = "1.1.8"
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing-subscriber = "0.3.23"
 unicode-segmentation = "1.13.3"
-uuid = { version = "1.28.0", features = ["v4"] }
+uuid = "1.28.0"
+winresource = "0.1"
 zeroize = "1.9.1"
 
-[dev-dependencies]
-dotenvy = "0.15.7"
-proptest = "1.12.0"
-tempfile = "3.27.0"
-tokio = { version = "1.53.2", features = ["test-util"] }
-
-[target.'cfg(windows)'.build-dependencies]
-winresource = "0.1"
-
-[lints.rust]
+# The rules every crate that opts in with `[lints] workspace = true` follows. `wyck`, the crate
+# the others are being taken out of, keeps the short list it had until it is empty (see its
+# manifest); each crate that leaves it follows this one in full and must pass without a warning.
+[workspace.lints.rust]
 unsafe_code = "forbid"
+# A `pub` item no other crate can reach should be `pub(crate)`: then `dead_code` can see it.
+unreachable_pub = "warn"
 
-# No `unwrap` or `expect` outside tests. clippy.toml lets tests keep them.
-[lints.clippy]
+[workspace.lints.clippy]
+# No `unwrap` or `expect` outside tests (clippy.toml lets tests keep them), and no leftovers.
 unwrap_used = "deny"
 expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+# The app reports through `tracing`; printing is for examples and tools, which opt out.
+print_stdout = "warn"
+print_stderr = "warn"
+exit = "warn"
+# Every `allow` says why, and `expect` fails when the lint it silenced goes away.
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+# Redundancy and waste.
+match_same_arms = "warn"
+redundant_clone = "warn"
+needless_pass_by_value = "warn"
+unused_self = "warn"
+unnecessary_wraps = "warn"
+assigning_clones = "warn"
+unused_async = "warn"
+# Likely mistakes.
+suspicious_operation_groupings = "warn"
+case_sensitive_file_extension_comparisons = "warn"
+used_underscore_binding = "warn"
+derive_partial_eq_without_eq = "warn"
 
 [profile.release]
 lto = true
@@ -116,13 +105,13 @@ codegen-units = 1
 strip = true
 panic = "unwind"
 
-# Line tables are enough to read a backtrace, and they keep the many test binaries (each links the
+# Line tables are enough to read a backtrace, and they keep the test binaries (each links the
 # whole library) from filling the disk.
 [profile.dev]
 debug = "line-tables-only"
 
 # gpui paints every quad and glyph through generic code that is very slow unoptimized. Building
-# the dependencies with optimizations keeps `cargo run` smooth; our own crate stays debuggable.
+# the dependencies with optimizations keeps `cargo run` smooth; our own crates stay debuggable.
 [profile.dev.package."*"]
 opt-level = 3
 debug = false
