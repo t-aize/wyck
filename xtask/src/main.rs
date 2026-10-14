@@ -11,6 +11,7 @@
 
 mod check;
 mod deps;
+mod release;
 mod run;
 
 use std::process::ExitCode;
@@ -42,6 +43,11 @@ enum Command {
     /// Check that every crate takes its dependencies, metadata and lints from the root
     /// Cargo.toml, and only depends on the crates its layer allows.
     Deps,
+    /// The steps of the release pipeline that are written in Rust (see release.yml).
+    Release {
+        #[command(subcommand)]
+        step: release::Step,
+    },
 }
 
 fn main() -> ExitCode {
@@ -49,6 +55,7 @@ fn main() -> ExitCode {
     let result = match cli.command {
         Command::Check { full } => check::run(full),
         Command::Deps => deps::run(),
+        Command::Release { step } => release::run(step),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

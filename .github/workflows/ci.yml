@@ -113,7 +113,7 @@ jobs:
         run: cargo machete
 
       - name: Check the dependency rules of the workspace
-        run: cargo xtask deps
+        run: cargo run --locked --quiet --package xtask -- deps
 
   workflows:
     name: Workflow security

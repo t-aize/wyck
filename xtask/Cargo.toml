@@ -7,10 +7,11 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 publish.workspace = true
-description = "Developer commands of the workspace: `cargo xtask check`, `cargo xtask deps`."
+description = "Developer commands of the workspace: `cargo xtask check`, `cargo xtask deps`, `cargo xtask release`."
 
 [dependencies]
 anyhow.workspace = true
+chrono.workspace = true
 clap = { workspace = true, features = [
   "std",
   "derive",
@@ -20,7 +21,15 @@ clap = { workspace = true, features = [
   "suggestions",
   "color",
 ] }
+percent-encoding.workspace = true
+semver.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2.workspace = true
 toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

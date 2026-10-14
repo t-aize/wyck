@@ -189,10 +189,10 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          python scripts/prepare_release_assets.py \
+          cargo run --locked --quiet --package xtask -- release name-assets \
             --input "dist/$PLATFORM" \
             --platform "$PLATFORM" \
-            --version "$VERSION"
+            --release-version "$VERSION"
 
       - name: Keep the release files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -235,9 +235,16 @@ jobs:
             -f target_commitish="$GITHUB_SHA" \
             --jq .body > release-assets/RELEASE_NOTES.md
 
+      # No cache, as in the packaging jobs: this step decides what the updater downloads.
+      - name: Set up Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          system-libraries: "false"
+          cache: "false"
+
       - name: Write the update manifest and the checksums
         run: |
-          python scripts/generate_release_manifest.py \
+          cargo run --locked --quiet --package xtask -- release manifest \
             --assets release-assets \
             --tag "$GITHUB_REF_NAME" \
             --repository "$GITHUB_REPOSITORY" \
