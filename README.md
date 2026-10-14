@@ -250,14 +250,10 @@ cargo test --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ```
 
-`cargo test` also keeps the writing of the repository plain (no typographic dashes, quotes or
-emoji, Rust sources in ASCII: `tests/writing_style.rs`), and clippy refuses `unwrap` and `expect`
-outside tests (`clippy.toml`).
+Clippy refuses `unwrap` and `expect` outside tests (`clippy.toml`).
 
 Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
 (`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.
-
-Release builds and signing are described in [RELEASING.md](RELEASING.md).
 
 ## Contributing
 
