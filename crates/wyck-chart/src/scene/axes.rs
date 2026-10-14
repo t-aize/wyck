@@ -4,8 +4,8 @@ use super::color::{Hsla, Rgba};
 use super::{
     Align, Band, Cmd, Ctx, Frame, Geometry, P, PriceMap, axis_w, font, hsla, rgb_alpha, with_alpha,
 };
-use crate::domain::chart::axis;
-use crate::domain::chart::data::Series;
+use crate::axis;
+use crate::data::Series;
 use wyck_drawings::model::style::Dash;
 use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;
@@ -63,10 +63,7 @@ pub(super) fn last_is_up(series: &Series) -> bool {
 
 /// The close of the last bar of the day before the newest bar's, in raw units, when the prices
 /// are bars.
-pub(super) fn previous_close(
-    series: &Series,
-    zone: crate::domain::chart::zone::Zone,
-) -> Option<i64> {
+pub(super) fn previous_close(series: &Series, zone: crate::zone::Zone) -> Option<i64> {
     let Series::Bars(bars) = series else {
         return None;
     };
@@ -363,7 +360,7 @@ mod tests {
 
     use super::super::*;
 
-    use crate::domain::chart::zone::Zone;
+    use crate::zone::Zone;
 
     use wyck_market::Bar;
 

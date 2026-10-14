@@ -21,7 +21,7 @@
 //! | `footprint`, `footprint_ui` | the footprint chart type: its settings and analysis, and its dialog |
 //! | [`volume`], `volume_ui` | volume candles (as wide as their volume) and volume bars (a bar every set volume) |
 //! | [`tpo`], `tpo_ui` | the TPO chart type: sessions laid out as market profiles, with their levels |
-//! | [`export`](crate::domain::chart::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
+//! | [`export`](wyck_chart::export), `export_ui` | exporting the data of a chart to a file or the clipboard, and its panel |
 //!
 //! The data, view, axis, study, transform, volume, tpo and export modules are plain data in and
 //! out.
@@ -95,25 +95,25 @@ use crate::app::broker::session::Session;
 use crate::app::broker::{Error as ApiError, Result as ApiResult};
 use crate::app::drawings::Drawings;
 use crate::app::market_data::live::LiveHub;
-use crate::domain::chart::axis;
-use crate::domain::chart::data;
-use crate::domain::chart::display;
-use crate::domain::chart::flow;
-use crate::domain::chart::footprint;
-use crate::domain::chart::options;
-use crate::domain::chart::projection;
-use crate::domain::chart::scene;
-use crate::domain::chart::settings;
-use crate::domain::chart::tpo;
-use crate::domain::chart::transform;
-use crate::domain::chart::view;
-use crate::domain::chart::volume;
-use crate::domain::chart::zone;
 use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_chart::axis;
+use wyck_chart::data;
+use wyck_chart::display;
+use wyck_chart::flow;
+use wyck_chart::footprint;
+use wyck_chart::options;
+use wyck_chart::projection;
+use wyck_chart::scene;
+use wyck_chart::settings;
+use wyck_chart::tpo;
+use wyck_chart::transform;
+use wyck_chart::view;
+use wyck_chart::volume;
+use wyck_chart::zone;
 use wyck_indicators as study;
 pub use wyck_market::{GROUPS, Timeframe, Unit};
 

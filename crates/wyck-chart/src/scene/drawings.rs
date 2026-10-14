@@ -4,7 +4,7 @@ use super::axes::dash_pattern;
 use super::color::transparent_black;
 use super::ctx::Ctx;
 use super::{Align, Cmd, DrawingView, P, hsla, rgb_alpha};
-use crate::domain::chart::projection::ChartProjection;
+use crate::projection::ChartProjection;
 use wyck_drawings::geometry as shapes;
 use wyck_drawings::geometry::{Anchor, Prim};
 use wyck_drawings::model::style::Dash;

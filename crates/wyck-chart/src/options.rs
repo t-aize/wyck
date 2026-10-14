@@ -266,7 +266,7 @@ impl TradingLines {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::chart::lines::LineId;
+    use crate::lines::LineId;
 
     #[test]
     fn nothing_is_overridden_by_default_and_nothing_is_written() {

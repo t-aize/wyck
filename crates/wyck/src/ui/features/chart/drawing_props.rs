@@ -326,9 +326,7 @@ impl DrawingProps {
                 }));
                 let time = cx.new(|cx| {
                     InputState::new(window, cx)
-                        .default_value(
-                            zone.format(point.t, crate::domain::chart::zone::TIME_PATTERN),
-                        )
+                        .default_value(zone.format(point.t, wyck_chart::zone::TIME_PATTERN))
                         .placeholder("YYYY-MM-DD HH:MM")
                 });
                 subscriptions.push(number::watch_parsed(

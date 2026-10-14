@@ -38,11 +38,11 @@ mod tests {
     use super::source::*;
     use super::table::*;
     use super::*;
-    use crate::domain::chart::data::Series;
-    use crate::domain::chart::display::Display;
-    use crate::domain::chart::settings::{ChartKind, ChartSettings};
-    use crate::domain::chart::transform::settings::BoxSize;
-    use crate::domain::chart::zone::Zone;
+    use crate::data::Series;
+    use crate::display::Display;
+    use crate::settings::{ChartKind, ChartSettings};
+    use crate::transform::settings::BoxSize;
+    use crate::zone::Zone;
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
     use wyck_market::{Bar, Tick};

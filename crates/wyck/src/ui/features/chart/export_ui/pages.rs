@@ -1,16 +1,16 @@
 //! The data, columns and preview pages of the export dialog.
 
 use super::{ExportDialog, human_bytes, mono};
-use crate::domain::chart::export;
-use crate::domain::chart::export::PREVIEW_ROWS;
-use crate::domain::chart::export::choices::{Content, Order, RangeKind};
-use crate::domain::chart::export::options::ExportOptions;
 use crate::ui::features::chart::settings_rows::named;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::prelude::Disableable;
 use crate::ui::kit::{form, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
+use wyck_chart::export;
+use wyck_chart::export::PREVIEW_ROWS;
+use wyck_chart::export::choices::{Content, Order, RangeKind};
+use wyck_chart::export::options::ExportOptions;
 
 impl ExportDialog {
     pub(super) fn data_page(&self, cx: &mut Context<Self>) -> AnyElement {

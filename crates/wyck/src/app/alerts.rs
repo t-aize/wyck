@@ -17,10 +17,10 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::domain::chart::data::Series;
 use crate::infra::ctrader::session::Session;
 use crate::infra::storage::DocumentStore;
 use gpui::{App, Context, Entity, EventEmitter};
+use wyck_chart::data::Series;
 use wyck_indicators as study;
 use wyck_indicators::spec::ValueFormat;
 use wyck_market::Timeframe;
@@ -449,10 +449,8 @@ impl Alerts {
         if config.is_script() || config.kind == study::kind::StudyKind::VolumeProfile {
             return None;
         }
-        let input = crate::domain::chart::display::study_input(
-            &Series::Bars(bars.to_vec()),
-            crate::domain::chart::Zone::Utc,
-        );
+        let input =
+            wyck_chart::display::study_input(&Series::Bars(bars.to_vec()), wyck_chart::Zone::Utc);
         let output = study::compute::compute(config, &input);
         let values = output.plots.get(plot)?.values.clone();
         let scale = if matches!(config.value_format(), ValueFormat::Price) {

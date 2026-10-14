@@ -6,7 +6,7 @@ use super::choices::{
 };
 use super::columns::ColumnKey;
 
-use crate::domain::chart::zone::Zone;
+use crate::zone::Zone;
 use chrono::{format::Item, format::StrftimeItems};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

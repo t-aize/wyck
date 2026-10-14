@@ -2,7 +2,7 @@
 
 use super::color::{Rgba, rgb};
 use super::{GRID_ALPHA, TPO_IB, TPO_MARKS, TPO_POC, TPO_SINGLE, TPO_VALUE_AREA};
-use crate::domain::chart::options::ChartColors;
+use crate::options::ChartColors;
 
 /// The colors the chart draws with.
 #[derive(Debug, Clone, Copy)]
@@ -136,7 +136,7 @@ mod tests {
 
     use super::super::palette::*;
 
-    use crate::domain::chart::options::ChartColors;
+    use crate::options::ChartColors;
 
     #[test]
     fn trading_lines_that_are_hidden_are_not_marks() {

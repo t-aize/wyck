@@ -5,9 +5,9 @@ pub mod watchlists;
 use super::layouts::{self, LayoutKey};
 use crate::app::prefs::panel::PanelPrefs;
 use crate::app::prefs::ticket::TicketPrefs;
-use crate::domain::chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
-use crate::domain::chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
 use serde::{Deserialize, Serialize};
+use wyck_chart::settings::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
+use wyck_chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
 use wyck_drawings::model::tool::Tool;
 use wyck_drawings::model::{DEFAULT_DRAWINGS_PER_SYMBOL, MAX_DRAWINGS_PER_SYMBOL};
 use wyck_market::{QUICK, Timeframe};
@@ -557,7 +557,7 @@ impl Preferences {
 mod tests {
     use super::watchlists::*;
     use super::*;
-    use crate::domain::chart::Zone;
+    use wyck_chart::Zone;
     use wyck_market::Period;
 
     #[test]

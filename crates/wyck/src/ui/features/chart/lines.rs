@@ -12,7 +12,7 @@ use wyck_market::PRICE_SCALE;
 use super::scene::PriceMark;
 use wyck_drawings::model::style::Dash;
 
-pub use crate::domain::chart::lines::LineId;
+pub use wyck_chart::lines::LineId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartLine {

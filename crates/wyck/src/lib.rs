@@ -4,7 +4,6 @@
 #![allow(rustdoc::private_intra_doc_links)]
 
 pub mod app;
-pub mod domain;
 pub mod infra;
 #[cfg(test)]
 mod keymap_guard;

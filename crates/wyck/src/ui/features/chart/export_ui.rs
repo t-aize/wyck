@@ -4,7 +4,7 @@
 //! change. The file is written, or the text copied, from a snapshot taken when the panel opened,
 //! so the numbers do not move under it while the chart goes on receiving prices.
 //!
-//! What the export contains is decided in [`crate::domain::chart::export`]; this is only the window on it.
+//! What the export contains is decided in [`wyck_chart::export`]; this is only the window on it.
 
 mod build;
 pub mod format;
@@ -19,15 +19,15 @@ use super::zone::Zone;
 use crate::app::chart_export as store;
 use crate::app::chart_export::Saved;
 use crate::app::storage::DocumentStore;
-use crate::domain::chart::export::columns::ColumnKey;
-use crate::domain::chart::export::options::ExportOptions;
-use crate::domain::chart::export::source::Source;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::input::InputState;
 use crate::ui::kit::{button, controls, form, form::Head, form::Tab, modal, number, theme, tokens};
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, Subscription, Window, div, px};
 use std::collections::BTreeMap;
+use wyck_chart::export::columns::ColumnKey;
+use wyck_chart::export::options::ExportOptions;
+use wyck_chart::export::source::Source;
 
 /// The most rows put on the clipboard: past it a file is the better way.
 const MAX_COPY_ROWS: usize = 250_000;

@@ -377,7 +377,7 @@ impl Render for AlertEditor {
                         .gap_2()
                         .text_size(px(tokens::text::small()))
                         .text_color(theme::muted_fg())
-                        .child(crate::domain::chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
+                        .child(wyck_chart::Zone::Local.format(f.at, "%Y-%m-%d %H:%M"))
                         .child(div().text_color(theme::fg()).child(f.text.clone())),
                 )
             })

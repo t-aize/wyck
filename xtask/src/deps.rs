@@ -84,8 +84,20 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-chart",
+        internal: &[
+            "wyck-core",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-market",
+        ],
+        forbidden: NOT_IN_THE_DOMAIN,
+        own_lints: false,
+    },
+    Layer {
         name: "wyck",
         internal: &[
+            "wyck-chart",
             "wyck-core",
             "wyck-drawings",
             "wyck-indicators",

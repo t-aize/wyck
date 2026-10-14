@@ -3,7 +3,7 @@
 use super::super::cmd::{Cmd, rgb_alpha};
 use super::super::ctx::Ctx;
 use super::dash_pattern;
-use crate::domain::chart::data::Series;
+use crate::data::Series;
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::profile;
 use wyck_indicators::profile::Slice;

@@ -2,7 +2,7 @@
 
 use super::color::{Hsla, Rgba};
 use super::{Band, Cmd, Frame, PriceMap};
-use crate::domain::chart::data::Series;
+use crate::data::Series;
 
 /// The drawing context of the prices band.
 pub(super) struct Ctx<'a> {

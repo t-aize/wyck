@@ -3,10 +3,10 @@
 use super::footprint;
 use super::studies;
 use super::{Geometry, PriceMap, quote_unit};
-use crate::domain::chart::data::Series;
-use crate::domain::chart::display::{Display, effective_kind};
-use crate::domain::chart::settings::{ChartSettings, ScaleMode};
-use crate::domain::chart::view::{PriceScale, View, padded_range};
+use crate::data::Series;
+use crate::display::{Display, effective_kind};
+use crate::settings::{ChartSettings, ScaleMode};
+use crate::view::{PriceScale, View, padded_range};
 use wyck_indicators::spec::Placement;
 
 /// The bands of a chart of `w` by `h` with these settings.

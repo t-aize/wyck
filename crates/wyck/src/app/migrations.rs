@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn how_the_charts_look_moves_out_of_each_chart_into_one_table() {
-        use crate::domain::chart::Zone;
+        use wyck_chart::Zone;
         let mut table: toml::Table =
             toml::from_str(include_str!("fixtures/preferences-0.2-look.toml")).unwrap();
         assert!(lift_chart_look(&mut table).is_ok());
@@ -338,7 +338,7 @@ mod tests {
         // What each chart shows stayed with it.
         assert_eq!(
             preferences.chart(0).settings.scale,
-            crate::domain::chart::settings::ScaleMode::Log
+            wyck_chart::settings::ScaleMode::Log
         );
         assert_eq!(preferences.chart(1).settings.studies.len(), 1);
         assert_eq!(preferences.chart(1).settings.main_weight, 5.0);
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn a_file_with_one_zone_for_every_chart_keeps_that_zone() {
-        use crate::domain::chart::Zone;
+        use wyck_chart::Zone;
         let mut table: toml::Table =
             toml::from_str("schema_version = 2\nzone = \"utc\"\n[[charts]]\ntimeframe = \"M5\"\nkind = \"candles\"\n")
                 .unwrap();

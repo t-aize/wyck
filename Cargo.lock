@@ -9858,12 +9858,28 @@ dependencies = [
  "unicode-segmentation",
  "uuid",
  "winresource",
+ "wyck-chart",
  "wyck-core",
  "wyck-drawings",
  "wyck-indicators",
  "wyck-market",
  "wyck-trading",
  "zeroize",
+]
+
+[[package]]
+name = "wyck-chart"
+version = "0.2.1"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
+ "toml 1.1.8+spec-1.1.0",
+ "wyck-core",
+ "wyck-drawings",
+ "wyck-indicators",
+ "wyck-market",
 ]
 
 [[package]]

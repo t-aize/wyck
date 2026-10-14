@@ -97,6 +97,7 @@ tracing-appender.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 unicode-segmentation.workspace = true
 uuid = { workspace = true, features = ["v4"] }
+wyck-chart.workspace = true
 wyck-core.workspace = true
 wyck-drawings.workspace = true
 wyck-indicators.workspace = true

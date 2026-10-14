@@ -138,10 +138,10 @@ impl Projection for ChartProjection<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::chart::display::Display;
-    use crate::domain::chart::scene::Geometry;
-    use crate::domain::chart::scene::scale::main_map;
-    use crate::domain::chart::settings::ChartSettings;
+    use crate::display::Display;
+    use crate::scene::Geometry;
+    use crate::scene::scale::main_map;
+    use crate::settings::ChartSettings;
     use wyck_market::Bar;
 
     fn bars() -> Series {

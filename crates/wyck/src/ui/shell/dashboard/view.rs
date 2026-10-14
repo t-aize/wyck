@@ -8,12 +8,12 @@ use super::{
     ToggleKillSwitch, ToggleLogScale, ToggleMagnet, TogglePercentScale, ToggleTicket,
 };
 
-use crate::domain::chart::settings::ScaleMode;
 use crate::ui::features::chart;
 use crate::ui::kit::icon::IconName;
 use crate::ui::kit::{button, icon, theme, tokens};
 use gpui::prelude::*;
 use gpui::{Context, Window, deferred, div, px};
+use wyck_chart::settings::ScaleMode;
 use wyck_market::{PRICE_SCALE, format_price};
 
 impl Dashboard {

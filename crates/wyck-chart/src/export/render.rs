@@ -6,7 +6,7 @@ use super::options::{ExportOptions, identifier, pattern_is_valid};
 use super::source::{Cell, Source, Table};
 use super::{RAW_DECIMALS, SQL_BATCH};
 
-use crate::domain::chart::zone::Zone;
+use crate::zone::Zone;
 use chrono::{DateTime, FixedOffset};
 
 pub(super) fn zone_name(zone: Zone, at: i64) -> String {

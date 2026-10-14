@@ -6,9 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::chart::export::options::ExportOptions;
-use crate::domain::chart::export::presets::Preset;
 use crate::infra::storage::{DocumentStore, Result};
+use wyck_chart::export::options::ExportOptions;
+use wyck_chart::export::presets::Preset;
 
 /// The name of the document.
 pub const DOCUMENT: &str = "export";
@@ -110,7 +110,7 @@ pub fn write(store: &DocumentStore, saved: &Saved) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::chart::export::choices::{Delimiter, Format};
+    use wyck_chart::export::choices::{Delimiter, Format};
 
     /// A store of its own for one test.
     fn store() -> (tempfile::TempDir, DocumentStore) {

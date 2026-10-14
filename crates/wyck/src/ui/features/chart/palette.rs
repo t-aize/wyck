@@ -1,6 +1,6 @@
 //! The colors a chart draws with, and the conversions between the chart's own color types and gpui's.
 
-use crate::domain::chart::{options, scene};
+use wyck_chart::{options, scene};
 
 pub(super) fn palette_for_chart(colors: &options::ChartColors) -> scene::palette::Palette {
     let mut base = scene::palette::Palette::new();

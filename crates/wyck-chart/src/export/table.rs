@@ -6,19 +6,19 @@ use super::options::ExportOptions;
 use super::render::{local_text, zone_name};
 use super::source::{Cell, Point, Source, Table, TableColumn};
 
-use crate::domain::chart::settings::ChartKind;
-use crate::domain::chart::zone::Zone;
+use crate::settings::ChartKind;
+use crate::zone::Zone;
 use wyck_indicators::spec::ValueFormat;
 
 /// Whether a date field holds a date, or nothing (an open side of the range).
 pub fn date_is_valid(text: &str) -> bool {
-    text.trim().is_empty() || crate::domain::chart::zone::parse_local(text).is_some()
+    text.trim().is_empty() || crate::zone::parse_local(text).is_some()
 }
 
 /// A side of a range of dates, in Unix milliseconds: the time typed, or for the end of the range
 /// the last instant of a day typed alone. `None` for a text that is not a date.
 pub(super) fn parse_bound(text: &str, zone: Zone, end: bool) -> Option<i64> {
-    let (_, whole_day) = crate::domain::chart::zone::parse_local(text)?;
+    let (_, whole_day) = crate::zone::parse_local(text)?;
     let utc = zone.parse(text)?;
     Some(if end && whole_day {
         utc + 86_400_000 - 1

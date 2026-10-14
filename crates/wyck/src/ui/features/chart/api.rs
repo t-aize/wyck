@@ -7,7 +7,7 @@ use super::{
     Chart, ChartKind, ChartLine, ChartSettings, StudyConfig, Symbol, Timeframe, View, footprint,
     view,
 };
-use crate::domain::chart::ChartLook;
+use wyck_chart::ChartLook;
 
 use crate::app::market_data::now_ms;
 use gpui::{Context, SharedString};

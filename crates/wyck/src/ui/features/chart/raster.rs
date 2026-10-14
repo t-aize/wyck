@@ -610,12 +610,12 @@ mod tests {
     #[test]
     #[ignore = "writes a chart preview for visual review"]
     fn indicator_families_preview() {
-        use crate::domain::chart::ChartSettings;
-        use crate::domain::chart::data::Series;
-        use crate::domain::chart::display::Display;
-        use crate::domain::chart::scene::palette::Palette;
-        use crate::domain::chart::scene::{Frame, build};
-        use crate::domain::chart::view::View;
+        use wyck_chart::ChartSettings;
+        use wyck_chart::data::Series;
+        use wyck_chart::display::Display;
+        use wyck_chart::scene::palette::Palette;
+        use wyck_chart::scene::{Frame, build};
+        use wyck_chart::view::View;
         use wyck_indicators::config::StudyConfig;
         use wyck_indicators::kind::StudyKind;
         use wyck_market::Bar;

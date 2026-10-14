@@ -1,11 +1,11 @@
 //! Building the preview, and writing or copying the export.
 
 use super::{ExportDialog, MAX_COPY_ROWS, Preview, human_bytes};
-use crate::domain::chart::export;
-use crate::domain::chart::export::PREVIEW_ROWS;
-use crate::domain::chart::export::choices::{RangeKind, TimeFormat};
 use crate::ui::kit::toast::{self, Kind};
 use gpui::{ClipboardItem, Context};
+use wyck_chart::export;
+use wyck_chart::export::PREVIEW_ROWS;
+use wyck_chart::export::choices::{RangeKind, TimeFormat};
 
 impl ExportDialog {
     pub(super) fn build_preview(&self) -> Preview {

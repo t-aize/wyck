@@ -3,10 +3,10 @@
 use super::choices::Content;
 use super::columns::ColumnKey;
 
-use crate::domain::chart::data::Series;
-use crate::domain::chart::display::Display;
-use crate::domain::chart::settings::{ChartKind, ChartSettings};
-use crate::domain::chart::zone::Zone;
+use crate::data::Series;
+use crate::display::Display;
+use crate::settings::{ChartKind, ChartSettings};
+use crate::zone::Zone;
 
 /// What an export reads: the chart's data and how it stands.
 pub struct Source<'a> {

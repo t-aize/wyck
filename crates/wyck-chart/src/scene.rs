@@ -521,11 +521,11 @@ mod tests {
 
     use super::palette::*;
     use super::*;
-    use crate::domain::chart::flow::Flow;
-    use crate::domain::chart::options::{ChartColors, CrosshairStyle, ScaleMargin};
-    use crate::domain::chart::settings::ScaleMode;
-    use crate::domain::chart::view::PriceScale;
-    use crate::domain::chart::zone::Zone;
+    use crate::flow::Flow;
+    use crate::options::{ChartColors, CrosshairStyle, ScaleMargin};
+    use crate::settings::ScaleMode;
+    use crate::view::PriceScale;
+    use crate::zone::Zone;
     use wyck_indicators::compute::{ScriptDrawing, StudyOutput};
     use wyck_indicators::config::StudyConfig;
     use wyck_indicators::kind::StudyKind;
@@ -928,7 +928,7 @@ mod tests {
         // The bar that is current at the moment of the frame, so the countdown shows.
         frame.now_ms = f.raw.last_time().unwrap() + 1_000;
         let all = count(&build(&frame));
-        let hide = |change: fn(&mut crate::domain::chart::options::PriceLines)| {
+        let hide = |change: fn(&mut crate::options::PriceLines)| {
             let mut settings = ChartSettings::default();
             change(&mut settings.price_lines);
             let f = Fixture::new(Series::Bars(bars(300)), settings, View::new(8.0));
@@ -1032,8 +1032,8 @@ mod tests {
         let mut settings = kind(ChartKind::VolumeCandles);
         settings.volume_candles.min_width = 0.2;
         settings.volume_candles.max_width = 1.0;
-        settings.volume_candles.reference = crate::domain::chart::volume::WidthReference::Max;
-        settings.volume_candles.scale = crate::domain::chart::volume::WidthScale::Linear;
+        settings.volume_candles.reference = crate::volume::WidthReference::Max;
+        settings.volume_candles.scale = crate::volume::WidthScale::Linear;
         let f = Fixture::new(Series::Bars(data), settings, View::new(20.0));
         let widths = rect_widths(&build(&f.frame()));
         let (mut thin, mut wide) = (f32::MAX, 0.0_f32);
@@ -1061,7 +1061,7 @@ mod tests {
     #[test]
     fn volume_bars_draw_and_make_a_different_number_of_bars_than_the_source() {
         let mut settings = kind(ChartKind::VolumeBars);
-        settings.volume_bars.size = crate::domain::chart::volume::VolumeSize::Fixed { volume: 20 };
+        settings.volume_bars.size = crate::volume::VolumeSize::Fixed { volume: 20 };
         let f = Fixture::new(Series::Bars(bars(200)), settings, View::new(8.0));
         assert!(f.display.is_derived());
         assert_eq!(f.display.volume_size, 20);
@@ -1075,8 +1075,7 @@ mod tests {
         let plain = kind(ChartKind::Renko);
         let mut wicked = kind(ChartKind::Renko);
         wicked.transform.renko_wicks = true;
-        wicked.transform.renko_box =
-            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0002 };
+        wicked.transform.renko_box = crate::transform::settings::BoxSize::Fixed { price: 0.0002 };
         let mut plain = plain;
         plain.transform.renko_box = wicked.transform.renko_box;
         let a = Fixture::new(Series::Bars(source.clone()), plain, View::new(10.0));
@@ -1089,8 +1088,7 @@ mod tests {
         let mut narrow = kind(ChartKind::Renko);
         narrow.transform.brick_width = 0.4;
         narrow.transform.brick_border = false;
-        narrow.transform.renko_box =
-            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0002 };
+        narrow.transform.renko_box = crate::transform::settings::BoxSize::Fixed { price: 0.0002 };
         let mut wide = narrow.clone();
         wide.transform.brick_width = 1.0;
         let a = Fixture::new(Series::Bars(bars(300)), narrow, View::new(20.0));
@@ -1173,7 +1171,7 @@ mod tests {
     #[test]
     fn the_cells_can_show_the_delta_or_the_volume() {
         let mut f = footprint_fixture(60, 110.0);
-        f.settings.footprint.mode = crate::domain::chart::footprint::CellMode::Delta;
+        f.settings.footprint.mode = crate::footprint::CellMode::Delta;
         let labels = texts(&build(&f.frame()));
         assert!(
             labels
@@ -1295,10 +1293,7 @@ mod tests {
 
     #[test]
     fn profiles_are_written_in_letters_with_their_levels() {
-        let f = tpo_fixture(
-            |s| s.tpo.display = crate::domain::chart::tpo::TpoDisplay::Letters,
-            200.0,
-        );
+        let f = tpo_fixture(|s| s.tpo.display = crate::tpo::TpoDisplay::Letters, 200.0);
         let text = texts(&build(&f.frame()));
         assert!(text.iter().any(|t| t == "A"), "{text:?}");
         assert!(text.iter().any(|t| t == "B"), "{text:?}");
@@ -1311,7 +1306,7 @@ mod tests {
     fn blocks_have_no_letters_and_the_levels_can_be_turned_off() {
         let f = tpo_fixture(
             |s| {
-                s.tpo.display = crate::domain::chart::tpo::TpoDisplay::Blocks;
+                s.tpo.display = crate::tpo::TpoDisplay::Blocks;
                 s.tpo.poc = false;
                 s.tpo.value_area = false;
             },
@@ -1375,7 +1370,7 @@ mod tests {
 
     #[test]
     fn every_color_mode_draws() {
-        use crate::domain::chart::tpo::TpoColor;
+        use crate::tpo::TpoColor;
         for mode in TpoColor::ALL {
             let f = tpo_fixture(|s| s.tpo.color = mode, 200.0);
             assert!(count(&build(&f.frame())) > 100, "{mode:?}");
@@ -1398,8 +1393,7 @@ mod tests {
         // The prices are around 100000 raw units, far from the zero the boxes used to be measured
         // from: the boxes then had no height and every column fell back to a bar.
         let mut settings = kind(ChartKind::PointFigure);
-        settings.transform.pnf_box =
-            crate::domain::chart::transform::settings::BoxSize::Fixed { price: 0.0015 };
+        settings.transform.pnf_box = crate::transform::settings::BoxSize::Fixed { price: 0.0015 };
         let mut view = View::new(22.0);
         view.offset = 1.0;
         let f = Fixture::new(Series::Bars(bars(500)), settings, view);
