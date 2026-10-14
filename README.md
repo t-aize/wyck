@@ -172,7 +172,7 @@ cargo test
 
 The first build is slow because the dependency graph is large and dependencies are compiled
 with optimizations even in debug builds (see `[profile.dev.package."*"]` in `Cargo.toml`).
-Later builds only recompile what changed in this package.
+Later builds only recompile what changed.
 
 ## Development build and installed app
 
@@ -244,19 +244,21 @@ cargo run --example ctrader_accounts
 
 ## Checks
 
-The same checks run in CI on Linux, Windows and macOS:
+One command runs what CI runs, on any system:
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
+cargo xtask check          # format, clippy, tests, docs and the dependency rules
+cargo xtask check --full   # also cargo-deny, cargo-machete, typos, taplo, zizmor and actionlint
 ```
 
-Clippy refuses `unwrap` and `expect` outside tests (`clippy.toml`).
+`--full` skips the tools that are not installed and says how to install them. CI runs the same
+steps on Linux, Windows and macOS (see `.github/workflows/ci.yml`). Clippy refuses `unwrap` and
+`expect` outside tests (`clippy.toml`).
 
-Dependencies are checked with [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
-(`cargo install cargo-deny --locked`, then `cargo deny check`) and updated by Dependabot.
+`cargo xtask deps` checks the rules that make the workspace one thing: a crate takes its
+dependency versions, its metadata and its lints from the root `Cargo.toml`, and only depends on
+the crates its layer allows. Dependencies are audited with
+[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (`deny.toml`) and updated by Dependabot.
 
 ## Contributing
 

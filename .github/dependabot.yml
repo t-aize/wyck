@@ -14,7 +14,7 @@ updates:
       timezone: Europe/Paris
     open-pull-requests-limit: 5
     cooldown:
-      default-days: 5
+      default-days: 7
       semver-major-days: 14
       semver-minor-days: 7
       semver-patch-days: 3
@@ -37,8 +37,12 @@ updates:
           - "*"
     # Major releases stay one pull request per crate: they are the ones that break things.
 
+  # The actions the workflows use, and the ones the local composite actions use. Every action is
+  # pinned to a commit with its version in a comment, and Dependabot moves both together.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: weekly
       day: monday

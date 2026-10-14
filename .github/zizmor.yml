@@ -1,0 +1,7 @@
+# Settings of zizmor, the audit of the workflows: https://docs.zizmor.sh/configuration/
+rules:
+  self-repository:
+    # Asks for `uses: $/.github/actions/...` in place of `./.github/actions/...`. GitHub supports
+    # that form since July 2026; `./` works everywhere and actionlint reads it. Revisit when the
+    # first runs have proven `$/` and actionlint knows it.
+    disable: true

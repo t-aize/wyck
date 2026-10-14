@@ -1,8 +1,8 @@
 name: Audit
 
-# Checks the dependency graph against the RustSec advisory database and the rules in
-# deny.toml (licenses, banned or duplicate crates, allowed registries). It also runs on a
-# schedule, because a new advisory can appear for a dependency that has not changed.
+# Checks the dependency graph against the RustSec advisory database and the rules in deny.toml
+# (licenses, banned or duplicate crates, allowed registries). It also runs on a schedule, because
+# a new advisory can appear for a dependency that has not changed.
 
 on:
   push:
@@ -28,18 +28,27 @@ concurrency:
   group: audit-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   deny:
+    name: cargo-deny
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: EmbarkStudios/cargo-deny-action@v2.1.1
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
-          command: check
-          arguments: --all-features
+          tool: cargo-deny
+
+      - name: Check advisories, bans, licenses and sources
+        run: cargo deny check
