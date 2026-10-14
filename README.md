@@ -61,7 +61,7 @@ afresh.
 ## Layout
 
 One Cargo package, `wyck`: `src/lib.rs` declares the modules, `src/main.rs` only starts the app.
-The code is in four layers, and a lower layer never imports a higher one (a test checks it):
+The code is in four layers, and a lower layer never imports a higher one:
 
 | Layer | Owns |
 |---|---|
@@ -232,11 +232,11 @@ stderr gets `debug` for Wyck. `WYCK_DATA_DIR` moves the log folder with the rest
 
 ## Test against a real demo account
 
-Testing the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
-Fill in `.env` from [.env.example](.env.example), then:
+Trying the cTrader client against a real cTrader demo account, end to end, is a separate opt-in step.
+Fill in `.env` from [.env.example](.env.example), then run one of the examples in `examples/`:
 
 ```sh
-cargo test --test ctrader live -- --ignored --nocapture
+cargo run --example ctrader_accounts
 ```
 
 ## Checks

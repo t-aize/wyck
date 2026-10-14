@@ -15,6 +15,9 @@ desktop.ini
 # Jetbrains folder
 .idea
 
-# AI agent tool state (not project content)
+# AI agent tool state that is personal to one machine. The shared files under .claude/ (rules,
+# skills, settings.json) and the AGENTS.md / CLAUDE.md files are project content and are tracked.
 .agents/
-.claude/
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
