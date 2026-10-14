@@ -2,14 +2,13 @@
 //!
 //! | Module | Role |
 //! |---|---|
-//! | [`oauth`] | [`OAuthClient`], [`TokenSet`], [`authorization_url`], [`Scope`] |
-//! | [`callback`] | [`CallbackListener`]: the loopback web server that catches the redirect |
+//! | `oauth` | [`OAuthClient`], [`TokenSet`], [`authorization_url`], [`Scope`] |
+//! | `callback` | [`CallbackListener`]: the loopback web server that catches the redirect |
 
-pub mod callback;
-pub mod oauth;
+mod callback;
+mod oauth;
 
-pub use callback::{AuthorizationCode, CallbackListener};
-pub use oauth::{
-    AUTHORIZE_URL, OAuthClient, Scope, TOKEN_URL, TokenSet, authorization_url, new_state,
-    parse_token_response,
-};
+pub use callback::CallbackListener;
+#[cfg(test)]
+pub(crate) use oauth::parse_token_response;
+pub use oauth::{OAuthClient, Scope, TokenSet, authorization_url, new_state};

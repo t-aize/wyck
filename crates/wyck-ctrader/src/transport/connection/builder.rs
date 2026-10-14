@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::transport::connection::Client;
 
 /// Builds a [`Client`]: the friendliest entry point for a newcomer, connecting and (optionally)
-/// identifying the application in one call. Skip it and call [`Client::connect`] directly when the
+/// identifying the application in one call. Skip it and call `Client::connect` directly when the
 /// two steps are better kept apart (for example to report progress between them).
 ///
 /// ```no_run
@@ -35,7 +35,7 @@ impl ClientBuilder {
     }
 
     /// Identifies the application once connected. Without this, [`ClientBuilder::connect`] only
-    /// opens the socket, same as [`Client::connect`].
+    /// opens the socket, same as `Client::connect`.
     #[must_use]
     pub fn credentials(mut self, credentials: ClientCredentials) -> Self {
         self.credentials = Some(credentials);
@@ -46,7 +46,7 @@ impl ClientBuilder {
     ///
     /// # Errors
     ///
-    /// Whatever [`Client::connect`] and [`Client::authenticate_application`] return.
+    /// Whatever `Client::connect` and `Client::authenticate_application` return.
     pub async fn connect(self) -> Result<Client> {
         let client = Client::connect(&self.config).await?;
         if let Some(credentials) = &self.credentials {

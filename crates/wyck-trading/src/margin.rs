@@ -18,31 +18,6 @@ number_enum! {
     }
 }
 
-/// One tier of a dynamic leverage schedule (`ProtoOADynamicLeverageTier`): the leverage applied up
-/// to a volume; the last tier also covers everything above its volume.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DynamicLeverageTier {
-    /// The largest open volume, per side, this tier's leverage applies to, in hundredths of a unit.
-    #[serde(deserialize_with = "flex::int")]
-    pub volume: i64,
-    /// The leverage applied up to `volume` (100 means 1:100).
-    #[serde(deserialize_with = "flex::int")]
-    pub leverage: i64,
-}
-
-/// A dynamic leverage schedule (`ProtoOADynamicLeverage`), referenced by `Symbol::leverage_id`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DynamicLeverage {
-    /// The id `Symbol::leverage_id` points to.
-    #[serde(deserialize_with = "flex::int")]
-    pub leverage_id: i64,
-    /// The tiers, sorted by volume.
-    #[serde(default)]
-    pub tiers: Vec<DynamicLeverageTier>,
-}
-
 /// The margin an order of each volume would need (`ProtoOAExpectedMargin`).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -171,18 +146,5 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(triggered.margin_call.kind(), Some(MarginCallType::Third));
-    }
-
-    #[test]
-    fn dynamic_leverage_tiers_are_read() {
-        let leverage: DynamicLeverage = serde_json::from_value(json!({
-            "leverageId": 9, "tiers": [
-                {"volume": 100000000, "leverage": 100},
-                {"volume": 500000000, "leverage": 50}
-            ]
-        }))
-        .unwrap();
-        assert_eq!(leverage.tiers.len(), 2);
-        assert_eq!(leverage.tiers[1].leverage, 50);
     }
 }

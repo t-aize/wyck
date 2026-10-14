@@ -34,11 +34,6 @@ pub(crate) mod payload {
     pub(crate) const ACCOUNT_AUTH_REQ: u32 = 2102;
     /// `ProtoOAAccountAuthRes`.
     pub(crate) const ACCOUNT_AUTH_RES: u32 = 2103;
-    /// `ProtoOAVersionReq`.
-    pub(crate) const VERSION_REQ: u32 = 2104;
-    /// `ProtoOAVersionRes`.
-    pub(crate) const VERSION_RES: u32 = 2105;
-
     /// `ProtoOANewOrderReq`.
     pub(crate) const NEW_ORDER_REQ: u32 = 2106;
     /// `ProtoOATrailingSLChangedEvent`.
@@ -106,10 +101,6 @@ pub(crate) mod payload {
     pub(crate) const SUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2156;
     /// `ProtoOASubscribeDepthQuotesRes`.
     pub(crate) const SUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2157;
-    /// `ProtoOAUnsubscribeDepthQuotesReq`.
-    pub(crate) const UNSUBSCRIBE_DEPTH_QUOTES_REQ: u32 = 2158;
-    /// `ProtoOAUnsubscribeDepthQuotesRes`.
-    pub(crate) const UNSUBSCRIBE_DEPTH_QUOTES_RES: u32 = 2159;
     /// `ProtoOAAccountDisconnectEvent`.
     pub(crate) const ACCOUNT_DISCONNECT_EVENT: u32 = 2164;
     /// `ProtoOASubscribeLiveTrendbarRes`.
@@ -136,10 +127,6 @@ pub(crate) mod payload {
     pub(crate) const DEAL_LIST_REQ: u32 = 2133;
     /// `ProtoOADealListRes`.
     pub(crate) const DEAL_LIST_RES: u32 = 2134;
-    /// `ProtoOAGetCtidProfileByTokenReq`.
-    pub(crate) const GET_CTID_PROFILE_BY_TOKEN_REQ: u32 = 2151;
-    /// `ProtoOAGetCtidProfileByTokenRes`.
-    pub(crate) const GET_CTID_PROFILE_BY_TOKEN_RES: u32 = 2152;
     /// `ProtoOAAssetClassListReq`.
     pub(crate) const ASSET_CLASS_LIST_REQ: u32 = 2153;
     /// `ProtoOAAssetClassListRes`.
@@ -148,62 +135,24 @@ pub(crate) mod payload {
     pub(crate) const SYMBOL_CATEGORY_REQ: u32 = 2160;
     /// `ProtoOASymbolCategoryListRes`.
     pub(crate) const SYMBOL_CATEGORY_RES: u32 = 2161;
-    /// `ProtoOAAccountLogoutReq`.
-    pub(crate) const ACCOUNT_LOGOUT_REQ: u32 = 2162;
-    /// `ProtoOAAccountLogoutRes`.
-    pub(crate) const ACCOUNT_LOGOUT_RES: u32 = 2163;
     /// `ProtoOAOrderListReq`.
     pub(crate) const ORDER_LIST_REQ: u32 = 2175;
     /// `ProtoOAOrderListRes`.
     pub(crate) const ORDER_LIST_RES: u32 = 2176;
-    /// `ProtoOADealListByPositionIdReq`.
-    pub(crate) const DEAL_LIST_BY_POSITION_ID_REQ: u32 = 2179;
-    /// `ProtoOADealListByPositionIdRes`.
-    pub(crate) const DEAL_LIST_BY_POSITION_ID_RES: u32 = 2180;
-    /// `ProtoOAOrderDetailsReq`.
-    pub(crate) const ORDER_DETAILS_REQ: u32 = 2181;
-    /// `ProtoOAOrderDetailsRes`.
-    pub(crate) const ORDER_DETAILS_RES: u32 = 2182;
-    /// `ProtoOAOrderListByPositionIdReq`.
-    pub(crate) const ORDER_LIST_BY_POSITION_ID_REQ: u32 = 2183;
-    /// `ProtoOAOrderListByPositionIdRes`.
-    pub(crate) const ORDER_LIST_BY_POSITION_ID_RES: u32 = 2184;
-    /// `ProtoOADealOffsetListReq`.
-    pub(crate) const DEAL_OFFSET_LIST_REQ: u32 = 2185;
-    /// `ProtoOADealOffsetListRes`.
-    pub(crate) const DEAL_OFFSET_LIST_RES: u32 = 2186;
     /// `ProtoOAGetPositionUnrealizedPnLReq`.
     pub(crate) const GET_POSITION_UNREALIZED_PNL_REQ: u32 = 2187;
     /// `ProtoOAGetPositionUnrealizedPnLRes`.
     pub(crate) const GET_POSITION_UNREALIZED_PNL_RES: u32 = 2188;
-    /// `ProtoOACashFlowHistoryListReq`.
-    pub(crate) const CASH_FLOW_HISTORY_LIST_REQ: u32 = 2143;
-    /// `ProtoOACashFlowHistoryListRes`.
-    pub(crate) const CASH_FLOW_HISTORY_LIST_RES: u32 = 2144;
-
     /// `ProtoOAExpectedMarginReq`.
     pub(crate) const EXPECTED_MARGIN_REQ: u32 = 2139;
     /// `ProtoOAExpectedMarginRes`.
     pub(crate) const EXPECTED_MARGIN_RES: u32 = 2140;
     /// `ProtoOAMarginChangedEvent`.
     pub(crate) const MARGIN_CHANGED_EVENT: u32 = 2141;
-    /// `ProtoOAMarginCallListReq`.
-    pub(crate) const MARGIN_CALL_LIST_REQ: u32 = 2167;
-    /// `ProtoOAMarginCallListRes`.
-    pub(crate) const MARGIN_CALL_LIST_RES: u32 = 2168;
-    /// `ProtoOAMarginCallUpdateReq`.
-    pub(crate) const MARGIN_CALL_UPDATE_REQ: u32 = 2169;
-    /// `ProtoOAMarginCallUpdateRes`.
-    pub(crate) const MARGIN_CALL_UPDATE_RES: u32 = 2170;
     /// `ProtoOAMarginCallUpdateEvent`.
     pub(crate) const MARGIN_CALL_UPDATE_EVENT: u32 = 2171;
     /// `ProtoOAMarginCallTriggerEvent`.
     pub(crate) const MARGIN_CALL_TRIGGER_EVENT: u32 = 2172;
-    /// `ProtoOAGetDynamicLeverageByIDReq`. The enum constant itself is named without "ById"
-    /// (`PROTO_OA_GET_DYNAMIC_LEVERAGE_REQ`); the message it carries is `ProtoOAGetDynamicLeverageByIDReq`.
-    pub(crate) const GET_DYNAMIC_LEVERAGE_REQ: u32 = 2177;
-    /// `ProtoOAGetDynamicLeverageByIDRes`.
-    pub(crate) const GET_DYNAMIC_LEVERAGE_RES: u32 = 2178;
 }
 
 /// One message on the wire.
@@ -300,11 +249,11 @@ mod tests {
 
     #[test]
     fn a_request_serializes_with_camel_case_keys() {
-        let envelope = Envelope::request(payload::VERSION_REQ, "abc", &json!({})).unwrap();
+        let envelope = Envelope::request(payload::APPLICATION_AUTH_REQ, "abc", &json!({})).unwrap();
         let value: Value = serde_json::from_str(&envelope.to_text().unwrap()).unwrap();
         assert_eq!(
             value,
-            json!({"clientMsgId": "abc", "payloadType": 2104, "payload": {}})
+            json!({"clientMsgId": "abc", "payloadType": 2100, "payload": {}})
         );
     }
 
@@ -339,7 +288,6 @@ mod tests {
         assert_eq!(payload::RECONCILE_RES, 2125);
         assert_eq!(payload::DEAL_LIST_REQ, 2133);
         assert_eq!(payload::ORDER_LIST_RES, 2176);
-        assert_eq!(payload::ACCOUNT_LOGOUT_RES, 2163);
         // A few spot checks against ProtoOAPayloadType, so a typo cannot slip in.
         assert_eq!(payload::APPLICATION_AUTH_REQ, 2100);
         assert_eq!(payload::SUBSCRIBE_SPOTS_REQ, 2127);
@@ -364,30 +312,14 @@ mod tests {
         assert_eq!(payload::SYMBOLS_FOR_CONVERSION_RES, 2119);
         assert_eq!(payload::SYMBOL_CHANGED_EVENT, 2120);
         // Account.
-        assert_eq!(payload::DEAL_LIST_BY_POSITION_ID_REQ, 2179);
-        assert_eq!(payload::DEAL_LIST_BY_POSITION_ID_RES, 2180);
-        assert_eq!(payload::ORDER_DETAILS_REQ, 2181);
-        assert_eq!(payload::ORDER_DETAILS_RES, 2182);
-        assert_eq!(payload::ORDER_LIST_BY_POSITION_ID_REQ, 2183);
-        assert_eq!(payload::ORDER_LIST_BY_POSITION_ID_RES, 2184);
-        assert_eq!(payload::DEAL_OFFSET_LIST_REQ, 2185);
-        assert_eq!(payload::DEAL_OFFSET_LIST_RES, 2186);
         assert_eq!(payload::GET_POSITION_UNREALIZED_PNL_REQ, 2187);
         assert_eq!(payload::GET_POSITION_UNREALIZED_PNL_RES, 2188);
-        assert_eq!(payload::CASH_FLOW_HISTORY_LIST_REQ, 2143);
-        assert_eq!(payload::CASH_FLOW_HISTORY_LIST_RES, 2144);
         // Margin.
         assert_eq!(payload::EXPECTED_MARGIN_REQ, 2139);
         assert_eq!(payload::EXPECTED_MARGIN_RES, 2140);
         assert_eq!(payload::MARGIN_CHANGED_EVENT, 2141);
-        assert_eq!(payload::MARGIN_CALL_LIST_REQ, 2167);
-        assert_eq!(payload::MARGIN_CALL_LIST_RES, 2168);
-        assert_eq!(payload::MARGIN_CALL_UPDATE_REQ, 2169);
-        assert_eq!(payload::MARGIN_CALL_UPDATE_RES, 2170);
         assert_eq!(payload::MARGIN_CALL_UPDATE_EVENT, 2171);
         assert_eq!(payload::MARGIN_CALL_TRIGGER_EVENT, 2172);
-        assert_eq!(payload::GET_DYNAMIC_LEVERAGE_REQ, 2177);
-        assert_eq!(payload::GET_DYNAMIC_LEVERAGE_RES, 2178);
     }
 
     #[test]

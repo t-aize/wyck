@@ -41,18 +41,6 @@ impl MarketClient {
         Self { client, account_id }
     }
 
-    /// The account id this client is bound to.
-    #[must_use]
-    pub fn account_id(&self) -> i64 {
-        self.account_id
-    }
-
-    /// The connection underneath, for calls that are not about market data.
-    #[must_use]
-    pub fn client(&self) -> &Client {
-        &self.client
-    }
-
     /// The symbols of the account, archived ones left out.
     ///
     /// # Errors
@@ -60,15 +48,6 @@ impl MarketClient {
     /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
     pub async fn symbols(&self) -> Result<Vec<LightSymbol>> {
         self.symbols_list(false).await
-    }
-
-    /// Every symbol of the account, archived ones included.
-    ///
-    /// # Errors
-    ///
-    /// See [`MarketClient::symbols`].
-    pub async fn symbols_including_archived(&self) -> Result<Vec<LightSymbol>> {
-        self.symbols_list(true).await
     }
 
     async fn symbols_list(&self, include_archived: bool) -> Result<Vec<LightSymbol>> {
@@ -231,7 +210,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// `NOT_SUBSCRIBED_TO_SPOTS` when there was no subscription.
-    pub async fn unsubscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
+    pub(crate) async fn unsubscribe_spots(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client
             .call(
@@ -254,7 +233,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// `NOT_SUBSCRIBED_TO_SPOTS` without the price subscription.
-    pub async fn subscribe_live_bars(&self, symbol_id: i64, period: Period) -> Result<()> {
+    pub(crate) async fn subscribe_live_bars(&self, symbol_id: i64, period: Period) -> Result<()> {
         let _: serde_json::Value = self
             .client
             .call(
@@ -277,7 +256,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// A server error when there was no such subscription.
-    pub async fn unsubscribe_live_bars(&self, symbol_id: i64, period: Period) -> Result<()> {
+    pub(crate) async fn unsubscribe_live_bars(&self, symbol_id: i64, period: Period) -> Result<()> {
         let _: serde_json::Value = self
             .client
             .call(
@@ -300,7 +279,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// A server error when the broker has no depth for the symbol.
-    pub async fn subscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
+    pub(crate) async fn subscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
         let _: serde_json::Value = self
             .client
             .call(
@@ -317,28 +296,6 @@ impl MarketClient {
         Ok(())
     }
 
-    /// Stops following the order book of some symbols.
-    ///
-    /// # Errors
-    ///
-    /// A server error when there was no such subscription.
-    pub async fn unsubscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
-        let _: serde_json::Value = self
-            .client
-            .call(
-                payload::UNSUBSCRIBE_DEPTH_QUOTES_REQ,
-                payload::UNSUBSCRIBE_DEPTH_QUOTES_RES,
-                &SymbolsReq {
-                    ctid_trader_account_id: self.account_id,
-                    symbol_id: symbol_ids.to_vec(),
-                },
-                RateClass::Standard,
-                "ending the depth subscription",
-            )
-            .await?;
-        Ok(())
-    }
-
     /// One request for bars in `[from_ms, to_ms]`. Returns the bars, oldest first, and whether more
     /// exist in the range than were returned. The range is limited per period by the server (see
     /// [`MarketClient::bars`] for a whole range in pages).
@@ -346,7 +303,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// `INCORRECT_BOUNDARIES` for a range the server refuses, and the usual account errors.
-    pub async fn bars_page(
+    pub(crate) async fn bars_page(
         &self,
         symbol_id: i64,
         period: Period,
@@ -384,7 +341,7 @@ impl MarketClient {
     /// # Errors
     ///
     /// `INCORRECT_BOUNDARIES` for a range over a week, and the usual account errors.
-    pub async fn tick_page(
+    pub(crate) async fn tick_page(
         &self,
         symbol_id: i64,
         side: QuoteType,
@@ -410,11 +367,11 @@ impl MarketClient {
         Ok((decode_ticks(&response.tick_data), response.has_more))
     }
 
-    /// Every bar of `period` in `[from_ms, to_ms]`, paged. See [`history::fetch_bars`].
+    /// Every bar of `period` in `[from_ms, to_ms]`, paged. See `history::fetch_bars`.
     ///
     /// # Errors
     ///
-    /// See [`history::fetch_bars`].
+    /// See `history::fetch_bars`.
     pub async fn bars(
         &self,
         symbol_id: i64,
@@ -425,11 +382,11 @@ impl MarketClient {
         history::fetch_bars(self, symbol_id, period, from_ms, to_ms).await
     }
 
-    /// Every tick of one side in `[from_ms, to_ms]`, paged. See [`history::fetch_ticks`].
+    /// Every tick of one side in `[from_ms, to_ms]`, paged. See `history::fetch_ticks`.
     ///
     /// # Errors
     ///
-    /// See [`history::fetch_ticks`].
+    /// See `history::fetch_ticks`.
     pub async fn ticks(
         &self,
         symbol_id: i64,

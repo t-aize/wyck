@@ -35,10 +35,10 @@ use crate::error::{Error, Result};
 use wyck_core::flex;
 
 /// The consent page, where the user grants access.
-pub const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";
+pub(crate) const AUTHORIZE_URL: &str = "https://id.ctrader.com/my/settings/openapi/grantingaccess/";
 
 /// The token endpoint.
-pub const TOKEN_URL: &str = "https://openapi.ctrader.com/apps/token";
+pub(crate) const TOKEN_URL: &str = "https://openapi.ctrader.com/apps/token";
 
 /// How much the user grants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,7 +122,7 @@ impl TokenSet {
     /// answers `true`. Without a known lifetime it is never reported expired: rely on the server's
     /// `OA_AUTH_TOKEN_EXPIRED` then.
     #[must_use]
-    pub fn expires_within(&self, now: SystemTime, margin: Duration) -> bool {
+    pub(crate) fn expires_within(&self, now: SystemTime, margin: Duration) -> bool {
         self.expires_at()
             .is_some_and(|at| at <= now.checked_add(margin).unwrap_or(now))
     }
@@ -152,7 +152,7 @@ struct TokenResponse {
 ///
 /// [`Error::Auth`] when the answer holds an error, or lacks a token. The text names the
 /// server's error code and description, never a token.
-pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
+pub(crate) fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
     let response: TokenResponse = serde_json::from_slice(body)
         .map_err(|_| Error::Auth("the token endpoint sent an unreadable answer".into()))?;
     if let Some(code) = response.error_code.filter(|c| !c.is_empty()) {
@@ -185,13 +185,13 @@ pub fn parse_token_response(body: &[u8], now: SystemTime) -> Result<TokenSet> {
 /// Talks to the token endpoint for one application.
 ///
 /// ```no_run
-/// # async fn demo(refresh_token: &str) -> wyck_ctrader::Result<()> {
+/// # async fn demo(code: &str, redirect_uri: &str) -> wyck_ctrader::Result<()> {
 /// use wyck_ctrader::ClientCredentials;
 /// use wyck_ctrader::auth::OAuthClient;
 ///
 /// let oauth = OAuthClient::new(ClientCredentials::new("client-id", "client-secret"))?;
-/// let tokens = oauth.refresh(refresh_token).await?;
-/// println!("valid until {:?}", tokens.expires_at());
+/// let tokens = oauth.exchange_code(code, redirect_uri).await?;
+/// println!("valid for {:?}", tokens.expires_in);
 /// # Ok(()) }
 /// ```
 #[derive(Debug, Clone)]
@@ -223,7 +223,7 @@ impl OAuthClient {
 
     /// Uses another token endpoint, for a test server.
     #[must_use]
-    pub fn with_token_url(mut self, url: impl Into<String>) -> Self {
+    pub(crate) fn with_token_url(mut self, url: impl Into<String>) -> Self {
         self.token_url = url.into();
         self
     }
@@ -252,7 +252,7 @@ impl OAuthClient {
     ///
     /// [`Error::Auth`] when the refresh token is unknown, already used, or revoked: the user
     /// has to sign in again.
-    pub async fn refresh(&self, refresh_token: &str) -> Result<TokenSet> {
+    pub(crate) async fn refresh(&self, refresh_token: &str) -> Result<TokenSet> {
         self.request_tokens(&[
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),

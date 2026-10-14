@@ -33,7 +33,7 @@
 //! # What it does
 //!
 //! - **Connects** and authenticates the application and the account. Until that succeeds it retries
-//!   with a delay that doubles from [`Backoff::initial`] up to [`Backoff::max`] (with a little
+//!   with a delay that doubles from `Backoff::initial` up to `Backoff::max` (with a little
 //!   jitter, so many programs do not come back in step), or gives up after
 //!   [`SessionConfig::max_reconnect_attempts`].
 //! - **Restores the subscriptions** (prices, live bars, order book) that the program asked for,
@@ -69,7 +69,7 @@
 //! would not add anything real.
 
 mod backoff;
-pub mod supervisor;
+mod supervisor;
 mod token_store;
 
 use crate::auth::{OAuthClient, TokenSet};
@@ -77,7 +77,7 @@ use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{Error, Result};
 use crate::event::Event;
 use crate::transport::connection::Client;
-pub use backoff::Backoff;
+pub(crate) use backoff::Backoff;
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -360,41 +360,6 @@ impl Session {
         self.shared.account_id
     }
 
-    /// The tokens in use (the latest pair, after refreshes).
-    #[must_use]
-    pub fn tokens(&self) -> TokenSet {
-        lock(&self.shared.tokens).clone()
-    }
-
-    /// Waits until the session is ready and returns its connection.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::Timeout`] when it is not ready in time, and [`Error::Closed`] when the
-    /// session has stopped or failed.
-    pub async fn wait_ready(&self, timeout: Duration) -> Result<Client> {
-        let mut state = self.state();
-        let waited = tokio::time::timeout(
-            timeout,
-            state.wait_for(|s| {
-                matches!(
-                    s,
-                    SessionState::Ready | SessionState::Stopped | SessionState::Failed(_)
-                )
-            }),
-        )
-        .await
-        .map_err(|_| Error::Timeout {
-            operation: "the session to be ready",
-        })?
-        .map_err(|_| Error::Closed)?
-        .clone();
-        match waited {
-            SessionState::Ready => self.client().ok_or(Error::Closed),
-            _ => Err(Error::Closed),
-        }
-    }
-
     /// Ends the session: closes the connection and stops the background task. A last
     /// [`SessionEvent::Stopped`] is sent. Calling it again does nothing.
     pub async fn stop(&self) {
@@ -513,65 +478,6 @@ impl Session {
                     .account(self.shared.account_id)
                     .market()
                     .unsubscribe_live_bars(symbol_id, period)
-                    .await
-            }
-            _ => Ok(()),
-        }
-    }
-
-    /// Follows the order book of some symbols, now and after every reconnect.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses.
-    pub async fn subscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
-        let fresh: Vec<i64> = {
-            let mut registry = lock(&self.shared.registry);
-            symbol_ids
-                .iter()
-                .copied()
-                .filter(|id| registry.depth.insert(*id))
-                .collect()
-        };
-        if fresh.is_empty() {
-            return Ok(());
-        }
-        let Some(client) = self.shared.client() else {
-            debug!(symbols = ?fresh, "depth subscription recorded, queued for when the connection is up");
-            return Ok(());
-        };
-        let result = client
-            .account(self.shared.account_id)
-            .market()
-            .subscribe_depth(&fresh)
-            .await;
-        self.settle(result, |registry| {
-            for id in &fresh {
-                registry.depth.remove(id);
-            }
-        })
-    }
-
-    /// Stops following the order book of some symbols and forgets them.
-    ///
-    /// # Errors
-    ///
-    /// A server error when the connection is up and the server refuses.
-    pub async fn unsubscribe_depth(&self, symbol_ids: &[i64]) -> Result<()> {
-        let gone: Vec<i64> = {
-            let mut registry = lock(&self.shared.registry);
-            symbol_ids
-                .iter()
-                .copied()
-                .filter(|id| registry.depth.remove(id))
-                .collect()
-        };
-        match (gone.is_empty(), self.shared.client()) {
-            (false, Some(client)) => {
-                client
-                    .account(self.shared.account_id)
-                    .market()
-                    .unsubscribe_depth(&gone)
                     .await
             }
             _ => Ok(()),

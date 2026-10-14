@@ -52,7 +52,7 @@ pub struct NewOrderReq {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slippage_in_points: Option<i32>,
     /// A label, at most 100 characters, to recognize the order later (in a deal list or a
-    /// reconcile answer), which matters for the non-idempotency caveat in the [module docs](self).
+    /// reconcile answer), which matters for the non-idempotency caveat in the module docs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     /// The position this order should modify (for example a closing order).
@@ -236,19 +236,12 @@ impl NewOrderReq {
             expires_at.filter(|_| time_in_force == TimeInForce::GoodTillDate);
         self
     }
-
-    /// Sets the label used to recognize the order later.
-    #[must_use]
-    pub fn with_label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into());
-        self
-    }
 }
 
 /// `ProtoOACancelOrderReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CancelOrderReq {
+pub(crate) struct CancelOrderReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The pending order to cancel.
@@ -316,7 +309,7 @@ impl AmendOrderReq {
 /// in part.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClosePositionReq {
+pub(crate) struct ClosePositionReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The position to close.
@@ -393,13 +386,11 @@ mod tests {
         );
 
         let limit = NewOrderReq::limit(2, TradeSide::Sell, 500, 1.2345)
-            .with_protection(Some(1.24), Some(1.20))
-            .with_label("wyck-test");
+            .with_protection(Some(1.24), Some(1.20));
         let value = serde_json::to_value(&limit).unwrap();
         assert_eq!(value["orderType"], 2);
         assert_eq!(value["limitPrice"], 1.2345);
         assert_eq!(value["stopLoss"], 1.24);
-        assert_eq!(value["label"], "wyck-test");
 
         let stop = NewOrderReq::stop(2, TradeSide::Buy, 500, 1.3);
         assert_eq!(serde_json::to_value(&stop).unwrap()["stopPrice"], 1.3);

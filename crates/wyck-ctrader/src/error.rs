@@ -43,24 +43,8 @@ pub enum ErrorKind {
 
 /// Every failure of the Open API client.
 ///
-/// Match on [`Error::kind`] rather than on the variants: new variants may come in a minor
-/// release, the kinds are the stable way to decide what to do.
-///
-/// ```no_run
-/// # async fn demo(account: wyck_ctrader::AccountClient) {
-/// use wyck_ctrader::ErrorKind;
-///
-/// match account.account_data().trader().await {
-///     Ok(trader) => println!("balance {}", trader.balance_amount()),
-///     Err(error) if error.kind() == ErrorKind::TokenInvalid => { /* refresh, then retry */ }
-///     Err(error) if error.is_retryable() => {
-///         let wait = error.retry_after().unwrap_or(std::time::Duration::from_secs(1));
-///         println!("try again in {wait:?}");
-///     }
-///     Err(error) => eprintln!("{error}"),
-/// }
-/// # }
-/// ```
+/// Each failure has a `kind` that says what to do about it: refresh the token, wait and try again,
+/// or give up.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     /// The configuration cannot be used (an address that is not a WebSocket URL, and so on).
@@ -127,7 +111,7 @@ impl Error {
 
     /// The error code the server sent, if this is a server error.
     #[must_use]
-    pub fn code(&self) -> Option<&str> {
+    pub(crate) fn code(&self) -> Option<&str> {
         match self {
             Self::Server { code, .. } => Some(code),
             _ => None,
@@ -136,7 +120,7 @@ impl Error {
 
     /// Sorts the error into an [`ErrorKind`].
     #[must_use]
-    pub fn kind(&self) -> ErrorKind {
+    pub(crate) fn kind(&self) -> ErrorKind {
         match self {
             Self::Config(_) => ErrorKind::Config,
             Self::Transport(_) => ErrorKind::Transport,
@@ -179,21 +163,9 @@ impl Error {
         }
     }
 
-    /// Whether the same request may work if tried again later, unchanged.
-    #[must_use]
-    pub fn is_retryable(&self) -> bool {
-        matches!(
-            self.kind(),
-            ErrorKind::RateLimited
-                | ErrorKind::Maintenance
-                | ErrorKind::Transport
-                | ErrorKind::Timeout
-        )
-    }
-
     /// How long to wait before a retry: the server's own advice when there is one.
     #[must_use]
-    pub fn retry_after(&self) -> Option<Duration> {
+    pub(crate) fn retry_after(&self) -> Option<Duration> {
         match self {
             Self::Server { retry_after, .. } => *retry_after,
             _ => None,
@@ -242,17 +214,8 @@ mod tests {
     }
 
     #[test]
-    fn infrastructure_refusals_are_retryable_not_request_faults() {
-        // These read as load or connectivity on the server's side, not a bad request: retrying
-        // later, unchanged, is the documented way through them, same as a rate limit.
-        for code in [
-            "CONNECTIONS_LIMIT_EXCEEDED",
-            "CHANNEL_IS_BLOCKED",
-            "CH_SERVER_NOT_REACHABLE",
-        ] {
-            let error = server(code);
-            assert!(error.is_retryable(), "{code}");
-        }
+    fn infrastructure_refusals_read_as_load_or_connectivity_not_request_faults() {
+        // Retrying later, unchanged, is the documented way through these, same as a rate limit.
         assert_eq!(
             server("CONNECTIONS_LIMIT_EXCEEDED").kind(),
             ErrorKind::RateLimited
@@ -265,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn trading_refusals_are_rejected_not_retryable() {
+    fn trading_refusals_are_rejected() {
         for code in [
             "TRADING_BAD_VOLUME",
             "TRADING_BAD_STOPS",
@@ -290,22 +253,8 @@ mod tests {
             "WORSE_GSL_NOT_ALLOWED",
             "SYMBOL_HAS_HOLIDAY",
         ] {
-            let error = server(code);
-            assert_eq!(error.kind(), ErrorKind::Rejected, "{code}");
-            assert!(!error.is_retryable(), "{code}");
+            assert_eq!(server(code).kind(), ErrorKind::Rejected, "{code}");
         }
-    }
-
-    #[test]
-    fn only_transient_failures_are_retryable() {
-        assert!(server("REQUEST_FREQUENCY_EXCEEDED").is_retryable());
-        assert!(server("SERVER_IS_UNDER_MAINTENANCE").is_retryable());
-        assert!(Error::Timeout { operation: "x" }.is_retryable());
-        assert!(Error::Transport("x".into()).is_retryable());
-        assert!(!server("SYMBOL_NOT_FOUND").is_retryable());
-        assert!(!server("CH_ACCESS_TOKEN_INVALID").is_retryable());
-        assert!(!Error::Closed.is_retryable());
-        assert!(!Error::Protocol("x".into()).is_retryable());
     }
 
     #[test]

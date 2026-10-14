@@ -23,9 +23,7 @@ use crate::error::Result;
 use crate::margin::MarginClient;
 use crate::market::MarketClient;
 use crate::trading::TradingClient;
-use crate::transport::connection::{Client, RateClass};
-use crate::transport::messages::AccountReq;
-use crate::transport::wire::payload;
+use crate::transport::connection::Client;
 
 impl Client {
     /// The client bound to `account_id`. The account must still be authorized on the connection
@@ -47,18 +45,6 @@ pub struct AccountClient {
 }
 
 impl AccountClient {
-    /// The account id.
-    #[must_use]
-    pub fn id(&self) -> i64 {
-        self.account_id
-    }
-
-    /// The connection underneath, for the calls that are not about an account.
-    #[must_use]
-    pub fn client(&self) -> &Client {
-        &self.client
-    }
-
     /// Logs the account in on the connection with `access_token`. Data calls for the account need
     /// it.
     ///
@@ -71,28 +57,6 @@ impl AccountClient {
             .authorize_account(self.account_id, access_token)
             .await
             .map(|_| ())
-    }
-
-    /// Logs the account out of this connection. Its subscriptions end; authorize it again to use it
-    /// again.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
-    pub async fn logout(&self) -> Result<()> {
-        let _: serde_json::Value = self
-            .client
-            .call(
-                payload::ACCOUNT_LOGOUT_REQ,
-                payload::ACCOUNT_LOGOUT_RES,
-                &AccountReq {
-                    ctid_trader_account_id: self.account_id,
-                },
-                RateClass::Standard,
-                "the account log out",
-            )
-            .await?;
-        Ok(())
     }
 
     /// Symbol lookup, live prices, the order book, and history.

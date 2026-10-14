@@ -11,7 +11,7 @@
 //! tokens by itself.
 //!
 //! **Reads and trades.** Alongside the read-only account and market data, [`trading`] places,
-//! amends and cancels orders and closes positions, and [`margin`] reads and (for its one threshold
+//! amends and cancels orders and closes positions, and `margin` reads and (for its one threshold
 //! setting) writes margin call configuration. A trading call moves money: simulated on a demo
 //! account, real on a live one, since demo balances are simulated but persistent. See the
 //! non-idempotency caveat on [`trading::TradingClient::new_order`] before sending an order from
@@ -26,22 +26,20 @@
 //! |---|---|
 //! | (root) | [`Client`], [`ClientBuilder`]: the connection; [`AccountClient`]: a client bound to one account, routing to the four below |
 //! | [`market`] | [`market::MarketClient`]: symbols, live prices, the order book, history |
-//! | [`account`] | [`account::AccountDataClient`]: balance, positions, orders, deals; [`wyck_trading::book::AccountBook`]: the account kept current from the server's messages |
+//! | `account` | `account::AccountDataClient`: balance, positions, orders, deals; [`wyck_trading::book::AccountBook`]: the account kept current from the server's messages |
 //! | [`trading`] | [`trading::TradingClient`]: placing, amending and cancelling orders; [`wyck_trading::contract`]: lots, volumes, pips, risk sizing and profit |
-//! | [`margin`] | [`margin::MarginClient`]: expected margin, margin calls, dynamic leverage |
+//! | `margin` | `margin::MarginClient`: what a volume would need |
 //! | [`session`] | [`session::Session`]: reconnects, renews tokens, restores subscriptions |
 //! | [`auth`] | OAuth 2: the consent URL, tokens, refresh, the local redirect listener |
-//! | [`event`] | What the server sends unasked: prices, order book, executions, notices |
+//! | `event` | What the server sends unasked: prices, order book, executions, notices |
 //! | [`config`] | Demo or live, timeouts, application credentials |
-//! | [`error`] | [`Error`] and its classification |
-//! | [`prelude`] | A group import of the pieces most programs need |
+//! | `error` | [`Error`] and its classification |
 //!
 //! # Scope
 //!
 //! Only the workspace uses this crate, so its API changes with the app and carries no promise to
 //! outside code. The public API is the documented modules and the root re-exports; the wire format
-//! and the connection machinery (`transport`) are private. Prefer [`Error::kind`] to matching the
-//! error's variants.
+//! and the connection machinery (`transport`) are private.
 //!
 //! # Which layer to use
 //!
@@ -122,27 +120,26 @@
 //! Everything above the wire is covered by tests with a local mock server (`cargo test -p
 //! wyck-ctrader`). The examples in `crates/wyck-ctrader/examples` run the same calls against a real
 //! demo account; nothing automated does. Two points are open: whether the OAuth consent page echoes
-//! `state` back (checked by [`auth::AuthorizationCode::state_echoed`] during sign in, which needs a
+//! `state` back (checked by `auth::AuthorizationCode::state_echoed` during sign in, which needs a
 //! real sign in through a browser), and how long a broker keeps ticks (a demo account's retention
 //! is not documented).
 
-pub mod account;
+mod account;
 pub mod auth;
 pub mod config;
-pub mod error;
-pub mod event;
+mod error;
+mod event;
 mod handle;
-pub mod margin;
+mod margin;
 pub mod market;
-pub mod prelude;
 pub mod session;
 pub mod trading;
 mod transport;
 
 pub use config::{ClientCredentials, ConnectionConfig, Environment};
 pub use error::{Error, ErrorKind, Result};
-pub use event::{DisconnectReason, Event};
+pub use event::Event;
 pub use handle::AccountClient;
+pub use transport::connection::Client;
 pub use transport::connection::builder::ClientBuilder;
-pub use transport::connection::{Client, ConnectionState};
-pub use transport::messages::{AccountsRes, CtidProfile, TraderAccount};
+pub use transport::messages::TraderAccount;

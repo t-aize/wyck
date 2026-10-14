@@ -25,18 +25,8 @@ impl Default for Backoff {
 
 impl Backoff {
     /// The wait before attempt number `attempt` (1 for the first retry), without jitter.
-    ///
-    /// ```
-    /// use std::time::Duration;
-    /// use wyck_ctrader::session::Backoff;
-    ///
-    /// let backoff = Backoff { initial: Duration::from_secs(1), max: Duration::from_secs(10), factor: 2 };
-    /// assert_eq!(backoff.delay(1), Duration::from_secs(1));
-    /// assert_eq!(backoff.delay(3), Duration::from_secs(4));
-    /// assert_eq!(backoff.delay(9), Duration::from_secs(10)); // capped
-    /// ```
     #[must_use]
-    pub fn delay(&self, attempt: u32) -> Duration {
+    pub(crate) fn delay(&self, attempt: u32) -> Duration {
         let factor = u128::from(self.factor.max(1));
         let mut wait = self.initial.as_millis().max(1);
         for _ in 1..attempt.max(1) {
@@ -51,7 +41,7 @@ impl Backoff {
     /// [`Backoff::delay`] plus up to a fifth more, taken from `noise` (any number: the low bits
     /// are used), so that many programs do not retry at the same instant.
     #[must_use]
-    pub fn jittered(&self, attempt: u32, noise: u32) -> Duration {
+    pub(crate) fn jittered(&self, attempt: u32, noise: u32) -> Duration {
         let base = self.delay(attempt);
         let extra = base.as_millis() / 5 * u128::from(noise % 1000) / 1000;
         base + Duration::from_millis(u64::try_from(extra).unwrap_or(0))

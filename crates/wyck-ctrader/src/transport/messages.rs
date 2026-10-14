@@ -76,40 +76,6 @@ pub struct AccountsRes {
     pub ctid_trader_account: Vec<TraderAccount>,
 }
 
-/// `ProtoOAVersionReq`. Carries nothing.
-#[derive(Serialize)]
-pub(crate) struct VersionReq {}
-
-/// `ProtoOAVersionRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct VersionRes {
-    /// The proxy's version.
-    pub version: String,
-}
-
-/// `ProtoOAGetCtidProfileByTokenReq`.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CtidProfileReq {
-    pub access_token: String,
-}
-
-/// The profile of a cTrader ID (`ProtoOACtidProfile`).
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CtidProfile {
-    #[serde(deserialize_with = "flex::int")]
-    pub user_id: i64,
-}
-
-/// `ProtoOAGetCtidProfileByTokenRes`.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CtidProfileRes {
-    pub profile: CtidProfile,
-}
-
 /// A request that only names the account: shared by several calls across the domains (the account
 /// itself, the reference catalogs, the margin call list, logging out) that take nothing else.
 #[derive(Debug, Serialize)]
@@ -173,9 +139,9 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_ignored() {
-        let e: VersionRes =
-            serde_json::from_value(json!({"version": "1.2", "somethingNew": [1, 2]})).unwrap();
-        assert_eq!(e.version, "1.2");
+        let res: AccountsRes =
+            serde_json::from_value(json!({"permissionScope": 1, "somethingNew": [1, 2]})).unwrap();
+        assert_eq!(res.permission_scope, Some(1));
     }
 
     #[test]

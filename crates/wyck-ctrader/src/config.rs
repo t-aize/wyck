@@ -12,7 +12,7 @@ use std::time::Duration;
 use secrecy::SecretString;
 
 /// The port of the JSON endpoint. TCP and WebSocket both work on it; this crate uses WebSocket.
-pub const JSON_PORT: u16 = 5036;
+pub(crate) const JSON_PORT: u16 = 5036;
 
 /// Demo or live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,7 +26,7 @@ pub enum Environment {
 impl Environment {
     /// The host of the environment.
     #[must_use]
-    pub fn host(self) -> &'static str {
+    pub(crate) fn host(self) -> &'static str {
         match self {
             Self::Demo => "demo.ctraderapi.com",
             Self::Live => "live.ctraderapi.com",
@@ -35,7 +35,7 @@ impl Environment {
 
     /// The secure WebSocket address of the JSON endpoint.
     #[must_use]
-    pub fn url(self) -> String {
+    pub(crate) fn url(self) -> String {
         format!("wss://{}:{JSON_PORT}", self.host())
     }
 }
@@ -84,7 +84,7 @@ impl ConnectionConfig {
 
     /// The settings for an explicit address, for a test server or a proxy.
     #[must_use]
-    pub fn with_url(url: impl Into<String>) -> Self {
+    pub(crate) fn with_url(url: impl Into<String>) -> Self {
         Self {
             url: url.into(),
             connect_timeout: Duration::from_secs(10),
@@ -105,7 +105,7 @@ impl ConnectionConfig {
     ///
     /// [`crate::Error::Config`] when the address is not a WebSocket URL, a rate is zero,
     /// or the heartbeat is not under the server's 10 second silence limit.
-    pub fn validate(&self) -> crate::Result<()> {
+    pub(crate) fn validate(&self) -> crate::Result<()> {
         let bad = |what: &str| Err(crate::Error::Config(what.to_owned()));
         if !(self.url.starts_with("wss://") || self.url.starts_with("ws://")) {
             return bad("the address must start with wss:// or ws://");

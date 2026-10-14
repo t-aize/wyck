@@ -538,66 +538,6 @@ impl Deal {
     }
 }
 
-/// A deposit or a withdrawal on the account's balance (`ProtoOADepositWithdraw`). `operation_type`
-/// is kept as the server's raw number: `ProtoOAChangeBalanceType` has about thirty values (swaps,
-/// commissions, rebates, transfers, ...) and this crate does not give each one a name.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DepositWithdraw {
-    /// The kind of operation, as `ProtoOAChangeBalanceType`'s number (0 deposit, 1 withdrawal, and
-    /// about thirty more for swaps, commissions, rebates, transfers and the rest).
-    #[serde(deserialize_with = "flex::int")]
-    pub operation_type: i64,
-    /// The unique id of the operation.
-    #[serde(deserialize_with = "flex::int")]
-    pub balance_history_id: i64,
-    /// The balance after the operation, scaled by `10^moneyDigits`.
-    #[serde(deserialize_with = "flex::int")]
-    pub balance: i64,
-    /// The amount of the operation, scaled by `10^moneyDigits`.
-    #[serde(deserialize_with = "flex::int")]
-    pub delta: i64,
-    /// When it happened, in Unix milliseconds.
-    #[serde(deserialize_with = "flex::int")]
-    pub change_balance_timestamp: i64,
-    /// A note visible to the trader.
-    #[serde(default)]
-    pub external_note: Option<String>,
-    /// Decimals of the money amounts of this operation.
-    #[serde(default, deserialize_with = "flex::opt")]
-    pub money_digits: Option<i64>,
-}
-
-impl DepositWithdraw {
-    /// The amount of the operation as a real number.
-    #[must_use]
-    pub fn amount(&self) -> f64 {
-        money(self.delta, self.digits())
-    }
-
-    /// The decimals of money amounts (2 when unknown).
-    #[must_use]
-    pub fn digits(&self) -> Option<u32> {
-        digits_of(self.money_digits)
-    }
-}
-
-/// A deal that offset, or was offset by, another deal (`ProtoOADealOffset`).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DealOffset {
-    #[serde(deserialize_with = "flex::int")]
-    pub deal_id: i64,
-    /// The matched volume, in hundredths of a unit.
-    #[serde(deserialize_with = "flex::int")]
-    pub volume: i64,
-    /// When it executed, in Unix milliseconds.
-    #[serde(default, deserialize_with = "flex::opt")]
-    pub execution_timestamp: Option<i64>,
-    #[serde(default)]
-    pub execution_price: Option<f64>,
-}
-
 /// The unrealized profit or loss of one position (`ProtoOAPositionUnrealizedPnL`).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -764,27 +704,11 @@ mod tests {
     }
 
     #[test]
-    fn a_deposit_withdraw_converts_its_amount() {
-        let entry: DepositWithdraw = serde_json::from_value(json!({
-            "operationType": 0, "balanceHistoryId": 1, "balance": 110_000, "delta": 10_000,
-            "changeBalanceTimestamp": 5, "moneyDigits": 2
-        }))
-        .unwrap();
-        assert_eq!(entry.amount(), 100.0);
-        assert_eq!(entry.operation_type, 0);
-    }
-
-    #[test]
-    fn deal_offsets_and_unrealized_pnl_are_read() {
+    fn unrealized_pnl_is_read() {
         let pnl: PositionUnrealizedPnL = serde_json::from_value(json!({
             "positionId": 1, "grossUnrealizedPnL": 500, "netUnrealizedPnL": 450
         }))
         .unwrap();
         assert_eq!(pnl.net_unrealized_pnl, 450);
-
-        let offset: DealOffset =
-            serde_json::from_value(json!({"dealId": 1, "volume": 100, "executionPrice": 1.1}))
-                .unwrap();
-        assert_eq!(offset.deal_id, 1);
     }
 }

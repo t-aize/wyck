@@ -6,7 +6,7 @@ use wyck_market::{Asset, AssetClass, LightSymbol, Symbol, SymbolCategory, WireTi
 /// `ProtoOASymbolsListReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolsListReq {
+pub(crate) struct SymbolsListReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Whether archived symbols are wanted too.
@@ -17,7 +17,7 @@ pub struct SymbolsListReq {
 /// `ProtoOASymbolsListRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolsListRes {
+pub(crate) struct SymbolsListRes {
     /// The symbols of the account.
     #[serde(default)]
     pub symbol: Vec<LightSymbol>,
@@ -26,7 +26,7 @@ pub struct SymbolsListRes {
 /// `ProtoOASymbolByIdReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolByIdReq {
+pub(crate) struct SymbolByIdReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The symbols asked about.
@@ -36,7 +36,7 @@ pub struct SymbolByIdReq {
 /// `ProtoOASymbolByIdRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolByIdRes {
+pub(crate) struct SymbolByIdRes {
     /// The details asked for.
     #[serde(default)]
     pub symbol: Vec<Symbol>,
@@ -45,7 +45,7 @@ pub struct SymbolByIdRes {
 /// `ProtoOASymbolsForConversionReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolsForConversionReq {
+pub(crate) struct SymbolsForConversionReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The asset converted from.
@@ -58,7 +58,7 @@ pub struct SymbolsForConversionReq {
 /// direct quote exists (for example EUR/USD, USD/JPY for a EUR/JPY conversion).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolsForConversionRes {
+pub(crate) struct SymbolsForConversionRes {
     /// The chain, in order.
     #[serde(default)]
     pub symbol: Vec<LightSymbol>,
@@ -67,7 +67,7 @@ pub struct SymbolsForConversionRes {
 /// `ProtoOAAssetListRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetListRes {
+pub(crate) struct AssetListRes {
     #[serde(default)]
     pub asset: Vec<Asset>,
 }
@@ -75,7 +75,7 @@ pub struct AssetListRes {
 /// `ProtoOAAssetClassListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetClassListRes {
+pub(crate) struct AssetClassListRes {
     #[serde(default)]
     pub asset_class: Vec<AssetClass>,
 }
@@ -83,7 +83,7 @@ pub struct AssetClassListRes {
 /// `ProtoOASymbolCategoryListRes`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SymbolCategoryListRes {
+pub(crate) struct SymbolCategoryListRes {
     #[serde(default)]
     pub symbol_category: Vec<SymbolCategory>,
 }
@@ -91,7 +91,7 @@ pub struct SymbolCategoryListRes {
 /// `ProtoOASubscribeSpotsReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SubscribeSpotsReq {
+pub(crate) struct SubscribeSpotsReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The symbols to follow.
@@ -104,7 +104,7 @@ pub struct SubscribeSpotsReq {
 /// `ProtoOASubscribeLiveTrendbarReq` and its unsubscribe twin.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveTrendbarReq {
+pub(crate) struct LiveTrendbarReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// The bar period, as its number.
@@ -115,7 +115,7 @@ pub struct LiveTrendbarReq {
 /// `ProtoOAGetTrendbarsReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetTrendbarsReq {
+pub(crate) struct GetTrendbarsReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     /// Start of the range, in Unix milliseconds.
@@ -135,7 +135,7 @@ pub struct GetTrendbarsReq {
 /// `ProtoOAGetTrendbarsRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetTrendbarsRes {
+pub(crate) struct GetTrendbarsRes {
     #[serde(default)]
     pub trendbar: Vec<WireTrendbar>,
     /// Whether more bars exist in the range than were returned.
@@ -146,7 +146,7 @@ pub struct GetTrendbarsRes {
 /// `ProtoOAGetTickDataReq`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetTickDataReq {
+pub(crate) struct GetTickDataReq {
     /// The trading account id.
     pub ctid_trader_account_id: i64,
     pub symbol_id: i64,
@@ -163,7 +163,7 @@ pub struct GetTickDataReq {
 /// `ProtoOAGetTickDataRes`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetTickDataRes {
+pub(crate) struct GetTickDataRes {
     /// The ticks, newest first.
     #[serde(default)]
     pub tick_data: Vec<WireTick>,

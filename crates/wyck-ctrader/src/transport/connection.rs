@@ -51,12 +51,11 @@ use serde::de::DeserializeOwned;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tracing::{debug, info, trace, warn};
 
-use crate::config::{ClientCredentials, ConnectionConfig, Environment};
+use crate::config::{ClientCredentials, ConnectionConfig};
 use crate::error::{Error, ErrorKind, Result};
 use crate::event::{DisconnectReason, Event, error_of, event_from, order_error_of};
 use crate::transport::messages::{
-    AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, CtidProfile, CtidProfileReq,
-    CtidProfileRes, GetAccountsByAccessTokenReq, VersionReq, VersionRes,
+    AccountAuthReq, AccountAuthRes, AccountsRes, ApplicationAuthReq, GetAccountsByAccessTokenReq,
 };
 use crate::transport::rate_limit::RateLimiter;
 use crate::transport::wire::{Envelope, payload};
@@ -75,7 +74,7 @@ pub(crate) enum RateClass {
 
 /// Whether the connection is usable.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ConnectionState {
+pub(crate) enum ConnectionState {
     /// The socket is open.
     Connected,
     /// The socket is closed, for this reason. It never opens again: build a new client.
@@ -180,7 +179,8 @@ impl Shared {
 ///     .credentials(ClientCredentials::new("client-id", "client-secret"))
 ///     .connect()
 ///     .await?;
-/// println!("server {}", client.version().await?);
+/// let accounts = client.accounts("access-token").await?;
+/// println!("{} accounts", accounts.ctid_trader_account.len());
 /// client.close();
 /// # Ok(()) }
 /// ```
@@ -234,7 +234,7 @@ impl Client {
     /// [`Error::Config`] for unusable settings, [`Error::Timeout`] when the connection
     /// takes longer than `connect_timeout`, [`Error::Transport`] when it fails (address, TLS,
     /// handshake).
-    pub async fn connect(config: &ConnectionConfig) -> Result<Self> {
+    pub(crate) async fn connect(config: &ConnectionConfig) -> Result<Self> {
         config.validate()?;
         debug!(url = %config.url, "opening the Open API connection");
         let (socket, _response) = tokio::time::timeout(
@@ -282,13 +282,6 @@ impl Client {
         Ok(Self { shared })
     }
 
-    /// Starts a [`builder::ClientBuilder`] for `environment`, the friendliest way to connect and (with
-    /// [`builder::ClientBuilder::credentials`]) identify the application in one step.
-    #[must_use]
-    pub fn builder(environment: Environment) -> builder::ClientBuilder {
-        builder::ClientBuilder::new(environment)
-    }
-
     /// The events the server sends: prices, order book changes, account and token notices, and
     /// finally [`Event::Disconnected`]. Each call gives an independent reader that sees the events
     /// from now on. A reader that falls more than `event_capacity` events behind loses the oldest
@@ -298,15 +291,9 @@ impl Client {
         self.shared.events.subscribe()
     }
 
-    /// Follows the state of the connection.
-    #[must_use]
-    pub fn state(&self) -> watch::Receiver<ConnectionState> {
-        self.shared.state.subscribe()
-    }
-
     /// Whether the connection has ended.
     #[must_use]
-    pub fn is_closed(&self) -> bool {
+    pub(crate) fn is_closed(&self) -> bool {
         self.shared.closed.load(Ordering::SeqCst)
     }
 
@@ -479,7 +466,10 @@ impl Client {
     ///
     /// The server refuses unknown or unapproved credentials (`CH_CLIENT_AUTH_FAILURE`,
     /// `CH_OA_CLIENT_NOT_FOUND`), or the connection fails.
-    pub async fn authenticate_application(&self, credentials: &ClientCredentials) -> Result<()> {
+    pub(crate) async fn authenticate_application(
+        &self,
+        credentials: &ClientCredentials,
+    ) -> Result<()> {
         let request = ApplicationAuthReq {
             client_id: credentials.client_id.clone(),
             client_secret: credentials.client_secret.expose_secret().to_owned(),
@@ -541,45 +531,6 @@ impl Client {
             .await?;
         Ok(response.ctid_trader_account_id)
     }
-
-    /// The version of the proxy the connection goes through.
-    ///
-    /// # Errors
-    ///
-    /// Only connection errors.
-    pub async fn version(&self) -> Result<String> {
-        let response: VersionRes = self
-            .call(
-                payload::VERSION_REQ,
-                payload::VERSION_RES,
-                &VersionReq {},
-                RateClass::Standard,
-                "the version",
-            )
-            .await?;
-        Ok(response.version)
-    }
-
-    /// The profile of the cTrader ID an access token belongs to. Needs only an access token, no
-    /// authorized account.
-    ///
-    /// # Errors
-    ///
-    /// A token error for a bad or expired token.
-    pub async fn ctid_profile(&self, access_token: &str) -> Result<CtidProfile> {
-        let response: CtidProfileRes = self
-            .call(
-                payload::GET_CTID_PROFILE_BY_TOKEN_REQ,
-                payload::GET_CTID_PROFILE_BY_TOKEN_RES,
-                &CtidProfileReq {
-                    access_token: access_token.to_owned(),
-                },
-                RateClass::Standard,
-                "the cTrader ID profile",
-            )
-            .await?;
-        Ok(response.profile)
-    }
 }
 
 #[cfg(test)]
@@ -600,7 +551,7 @@ mod cancellation_tests {
             let mut socket = accept_async(socket).await.unwrap();
             while let Some(Ok(Message::Text(text))) = socket.next().await {
                 let envelope = Envelope::from_text(&text).unwrap();
-                if envelope.payload_type == payload::VERSION_REQ {
+                if envelope.payload_type == payload::GET_ACCOUNTS_BY_ACCESS_TOKEN_REQ {
                     seen.send(()).unwrap();
                 }
             }
@@ -611,7 +562,7 @@ mod cancellation_tests {
         for _ in 0..20 {
             let call = tokio::spawn({
                 let client = client.clone();
-                async move { client.version().await }
+                async move { client.accounts("token").await }
             });
             tokio::time::timeout(Duration::from_secs(2), received.recv())
                 .await

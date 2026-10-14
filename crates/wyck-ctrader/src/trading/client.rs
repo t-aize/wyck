@@ -32,22 +32,10 @@ impl TradingClient {
         Self { client, account_id }
     }
 
-    /// The account id this client is bound to.
-    #[must_use]
-    pub fn account_id(&self) -> i64 {
-        self.account_id
-    }
-
-    /// The connection underneath, for calls that are not about trading.
-    #[must_use]
-    pub fn client(&self) -> &Client {
-        &self.client
-    }
-
     /// Places a new order. `request`'s `ctid_trader_account_id` is overwritten with this account.
     /// See the [module docs](crate::trading) for the non-idempotency caveat: on a timeout, check
-    /// [`crate::account::AccountDataClient::open_positions_and_orders`] or
-    /// [`crate::account::AccountDataClient::deals`] before retrying.
+    /// `crate::account::AccountDataClient::open_positions_and_orders` or
+    /// `crate::account::AccountDataClient::deals` before retrying.
     ///
     /// The answer is a [`crate::Event::Execution`], not a return value of this call: the server may
     /// accept the order (`ORDER_ACCEPTED`) and only fill it (`ORDER_FILLED`, `ORDER_PARTIAL_FILL`)

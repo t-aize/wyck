@@ -8,15 +8,12 @@
 //! # let _ = balance; Ok(()) }
 //! ```
 
-pub mod requests;
+mod requests;
 
-pub use requests::{
-    CashFlowHistoryListReq, CashFlowHistoryListRes, DealListByPositionIdReq,
-    DealListByPositionIdRes, DealListReq, DealListRes, DealOffsetListReq, DealOffsetListRes,
-    OrderDetailsReq, OrderDetailsRes, OrderListByPositionIdReq, OrderListByPositionIdRes,
-    OrderListReq, OrderListRes, PositionUnrealizedPnLRes, ReconcileReq, ReconcileRes, TraderRes,
+pub(crate) use requests::{
+    DealListRes, OrderListRes, PositionUnrealizedPnLRes, ReconcileRes, TraderRes,
     TraderUpdatedEvent,
 };
 
 mod client;
-pub use client::AccountDataClient;
+pub(crate) use client::AccountDataClient;

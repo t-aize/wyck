@@ -1,19 +1,10 @@
 //! [`AccountDataClient`]: the calls themselves.
 
 use super::requests::{
-    CashFlowHistoryListReq as CashFlowReq, DealListByPositionIdReq as DealsByPositionReq,
-    DealListReq as DealsReq, DealOffsetListReq as OffsetsReq, OrderDetailsReq as DetailsReq,
-    OrderListByPositionIdReq as OrdersByPositionReq, OrderListReq as OrdersReq,
-    ReconcileReq as PortfolioReq,
+    DealListReq as DealsReq, OrderListReq as OrdersReq, ReconcileReq as PortfolioReq,
 };
-use super::{
-    CashFlowHistoryListRes, DealListByPositionIdRes, DealListRes, DealOffsetListRes,
-    OrderDetailsRes, OrderListByPositionIdRes, OrderListRes, PositionUnrealizedPnLRes,
-    ReconcileRes, TraderRes,
-};
-use wyck_trading::{
-    Deal, DealOffset, DepositWithdraw, Order, Position, PositionUnrealizedPnL, Trader,
-};
+use super::{DealListRes, OrderListRes, PositionUnrealizedPnLRes, ReconcileRes, TraderRes};
+use wyck_trading::{Deal, Order, Position, Trader};
 
 use crate::error::Result;
 use crate::transport::connection::{Client, RateClass};
@@ -31,18 +22,6 @@ pub struct AccountDataClient {
 impl AccountDataClient {
     pub(crate) fn new(client: Client, account_id: i64) -> Self {
         Self { client, account_id }
-    }
-
-    /// The account id this client is bound to.
-    #[must_use]
-    pub fn account_id(&self) -> i64 {
-        self.account_id
-    }
-
-    /// The connection underneath, for calls that are not about account data.
-    #[must_use]
-    pub fn client(&self) -> &Client {
-        &self.client
     }
 
     /// The account itself: balance, leverage, access rights, broker.
@@ -144,144 +123,6 @@ impl AccountDataClient {
             )
             .await?;
         Ok((response.order, response.has_more))
-    }
-
-    /// The deposits and withdrawals of the account in `[from_ms, to_ms]`, at most one week.
-    ///
-    /// # Errors
-    ///
-    /// `INCORRECT_BOUNDARIES` for a range over one week, and the usual account errors.
-    pub async fn cash_flow_history(
-        &self,
-        from_ms: i64,
-        to_ms: i64,
-    ) -> Result<Vec<DepositWithdraw>> {
-        let response: CashFlowHistoryListRes = self
-            .client
-            .call(
-                payload::CASH_FLOW_HISTORY_LIST_REQ,
-                payload::CASH_FLOW_HISTORY_LIST_RES,
-                &CashFlowReq {
-                    ctid_trader_account_id: self.account_id,
-                    from_timestamp: from_ms,
-                    to_timestamp: to_ms,
-                },
-                RateClass::Historical,
-                "the cash flow history",
-            )
-            .await?;
-        Ok(response.deposit_withdraw)
-    }
-
-    /// The deals of one position in `[from_ms, to_ms]`, and whether more exist in the range.
-    ///
-    /// # Errors
-    ///
-    /// `POSITION_NOT_FOUND`, and the usual account errors.
-    pub async fn deals_by_position(
-        &self,
-        position_id: i64,
-        from_ms: Option<i64>,
-        to_ms: Option<i64>,
-    ) -> Result<(Vec<Deal>, bool)> {
-        let response: DealListByPositionIdRes = self
-            .client
-            .call(
-                payload::DEAL_LIST_BY_POSITION_ID_REQ,
-                payload::DEAL_LIST_BY_POSITION_ID_RES,
-                &DealsByPositionReq {
-                    ctid_trader_account_id: self.account_id,
-                    position_id,
-                    from_timestamp: from_ms,
-                    to_timestamp: to_ms,
-                },
-                RateClass::Historical,
-                "the deal list of a position",
-            )
-            .await?;
-        Ok((response.deal, response.has_more))
-    }
-
-    /// The orders of one position in `[from_ms, to_ms]`, newest first, and whether more exist.
-    ///
-    /// # Errors
-    ///
-    /// `POSITION_NOT_FOUND`, and the usual account errors.
-    pub async fn orders_by_position(
-        &self,
-        position_id: i64,
-        from_ms: Option<i64>,
-        to_ms: Option<i64>,
-    ) -> Result<(Vec<Order>, bool)> {
-        let response: OrderListByPositionIdRes = self
-            .client
-            .call(
-                payload::ORDER_LIST_BY_POSITION_ID_REQ,
-                payload::ORDER_LIST_BY_POSITION_ID_RES,
-                &OrdersByPositionReq {
-                    ctid_trader_account_id: self.account_id,
-                    position_id,
-                    from_timestamp: from_ms,
-                    to_timestamp: to_ms,
-                },
-                RateClass::Historical,
-                "the order list of a position",
-            )
-            .await?;
-        Ok((response.order, response.has_more))
-    }
-
-    /// One order and every deal that filled it.
-    ///
-    /// # Errors
-    ///
-    /// `ORDER_NOT_FOUND`, and the usual account errors.
-    pub async fn order_details(&self, order_id: i64) -> Result<(Order, Vec<Deal>)> {
-        let response: OrderDetailsRes = self
-            .client
-            .call(
-                payload::ORDER_DETAILS_REQ,
-                payload::ORDER_DETAILS_RES,
-                &DetailsReq {
-                    ctid_trader_account_id: self.account_id,
-                    order_id,
-                },
-                RateClass::Historical,
-                "the order details",
-            )
-            .await?;
-        Ok((response.order, response.deal))
-    }
-
-    /// The deals that offset a deal, and the deals it offsets in turn.
-    ///
-    /// # Errors
-    ///
-    /// The usual account errors.
-    pub async fn deal_offsets(&self, deal_id: i64) -> Result<(Vec<DealOffset>, Vec<DealOffset>)> {
-        let response: DealOffsetListRes = self
-            .client
-            .call(
-                payload::DEAL_OFFSET_LIST_REQ,
-                payload::DEAL_OFFSET_LIST_RES,
-                &OffsetsReq {
-                    ctid_trader_account_id: self.account_id,
-                    deal_id,
-                },
-                RateClass::Historical,
-                "the deal offset list",
-            )
-            .await?;
-        Ok((response.offset_by, response.offsetting))
-    }
-
-    /// The unrealized profit or loss of every open position of the account.
-    ///
-    /// # Errors
-    ///
-    /// `ACCOUNT_NOT_AUTHORIZED` when the account was not authorized on this connection.
-    pub async fn position_unrealized_pnl(&self) -> Result<Vec<PositionUnrealizedPnL>> {
-        Ok(self.unrealized_pnl().await?.position_unrealized_pnl)
     }
 
     /// The whole answer about the unrealized profit or loss of the open positions, with the

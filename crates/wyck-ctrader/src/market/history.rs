@@ -36,20 +36,11 @@ const TICK_WINDOW_MS: i64 = MAX_TICK_RANGE_MS - 60_000;
 /// without making progress.
 const MAX_PAGES: usize = 5_000;
 
-/// ```
-/// use wyck_ctrader::market::tick_windows;
-///
-/// let day = 86_400_000;
-/// let windows = tick_windows(0, 20 * day);
-/// assert!(windows.len() >= 3);                       // under a week each
-/// assert_eq!(windows[1].0, windows[0].1 + 1);        // no gap, no overlap
-/// ```
-///
 /// Splits `[from_ms, to_ms]` into chronological windows the tick endpoint accepts. Windows do not
 /// overlap: each starts one millisecond after the one before ends. An empty or backwards range
 /// gives no window.
 #[must_use]
-pub fn tick_windows(from_ms: i64, to_ms: i64) -> Vec<(i64, i64)> {
+pub(crate) fn tick_windows(from_ms: i64, to_ms: i64) -> Vec<(i64, i64)> {
     let mut windows = Vec::new();
     if to_ms < from_ms {
         return windows;
@@ -76,7 +67,7 @@ pub fn tick_windows(from_ms: i64, to_ms: i64) -> Vec<(i64, i64)> {
 ///
 /// Any error of [`MarketClient::tick_page`], or a protocol error if paging stops before
 /// the requested range is complete. Ticks already fetched are dropped with it.
-pub async fn fetch_ticks(
+pub(crate) async fn fetch_ticks(
     market: &MarketClient,
     symbol_id: i64,
     side: QuoteType,
@@ -120,7 +111,7 @@ pub async fn fetch_ticks(
 ///
 /// Any error of [`MarketClient::bars_page`], or a protocol error if paging stops before
 /// the requested range is complete. Bars already fetched are dropped with it.
-pub async fn fetch_bars(
+pub(crate) async fn fetch_bars(
     market: &MarketClient,
     symbol_id: i64,
     period: Period,
@@ -176,7 +167,7 @@ pub async fn fetch_bars(
 /// The range still to fetch after a truncated page whose bars run from `first` to `last`, or
 /// `None` when the page made no progress (which would loop forever).
 #[must_use]
-pub fn continuation(
+pub(crate) fn continuation(
     low: i64,
     high: i64,
     first: i64,

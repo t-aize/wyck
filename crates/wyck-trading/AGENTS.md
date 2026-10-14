@@ -9,9 +9,9 @@ Depends on: `wyck-core`, `wyck-market`, `serde`, `serde_json`, `tracing`.
 
 | Module | What it holds |
 |---|---|
-| `types` | The account payloads (`Trader`, `Position`, `Order`, `Deal`, `DepositWithdraw`...), the number enums (`TradeSide`, `OrderType`, `OrderStatus`, `TimeInForce`...), `money`, `volume_units`. |
+| `types` | The account payloads (`Trader`, `Position`, `Order`, `Deal`...), the number enums (`TradeSide`, `OrderType`, `OrderStatus`, `TimeInForce`...), `money`, `volume_units`. |
 | `events` | `ExecutionEvent` (the answer to every trading request), `OrderErrorEvent`, `TrailingSlChangedEvent`. |
-| `margin` | Expected margin, margin call thresholds, dynamic leverage, margin events. |
+| `margin` | Expected margin, margin call thresholds, margin events. |
 | `contract` | `Contract` (how a symbol trades: lot, volume limits, pip), volume stepping, risk sizing, profit marks, the conversion chain and the account `Summary`. |
 | `math` | The ticket's arithmetic on top of `contract`: `SizeMode`, `Offset`, `Scale`, money formatting. It re-exports `contract` (a known wart, see below). |
 | `guard` | `RiskPrefs` (the limits the user sets), `check` (an order against the limits), `lock`, `DuplicateGuard`. |

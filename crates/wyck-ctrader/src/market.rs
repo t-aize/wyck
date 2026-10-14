@@ -11,22 +11,16 @@
 //!
 //! | Module | Role |
 //! |---|---|
-//! | [`client`] | [`MarketClient`] itself: one method per call |
-//! | [`requests`] | the request and response messages of those calls |
-//! | [`history`] | [`history::fetch_bars`], [`history::fetch_ticks`]: whole ranges, paged |
+//! | `client` | [`MarketClient`] itself: one method per call |
+//! | `requests` | the request and response messages of those calls |
+//! | `history` | `history::fetch_bars`, `history::fetch_ticks`: whole ranges, paged |
 //!
 //! What the calls return (symbols, bars, ticks, price and depth events) is defined by the
 //! `wyck_market` crate.
 
-pub mod client;
-pub mod history;
-pub mod requests;
+mod client;
+mod history;
+mod requests;
 
 pub use client::MarketClient;
-pub use history::{MAX_TICK_RANGE_MS, continuation, fetch_bars, fetch_ticks, tick_windows};
-pub use requests::{
-    AssetClassListRes, AssetListRes, GetTickDataReq, GetTickDataRes, GetTrendbarsReq,
-    GetTrendbarsRes, LiveTrendbarReq, SubscribeSpotsReq, SymbolByIdReq, SymbolByIdRes,
-    SymbolCategoryListRes, SymbolsForConversionReq, SymbolsForConversionRes, SymbolsListReq,
-    SymbolsListRes,
-};
+pub use history::MAX_TICK_RANGE_MS;

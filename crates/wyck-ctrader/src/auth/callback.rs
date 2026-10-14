@@ -72,12 +72,12 @@ impl AuthorizationCode {
     /// Whether the redirect carried the `state` back, and it matched. `false` when the redirect had
     /// no `state` at all.
     #[must_use]
-    pub fn state_echoed(&self) -> bool {
+    pub(crate) fn state_echoed(&self) -> bool {
         self.state_echoed
     }
 }
 
-/// A one-shot web server on the loopback address. See the [module docs](self).
+/// A one-shot web server on the loopback address. See the module docs.
 #[derive(Debug)]
 pub struct CallbackListener {
     listener: TcpListener,
@@ -86,7 +86,7 @@ pub struct CallbackListener {
 
 impl CallbackListener {
     /// Starts listening on `127.0.0.1:port`. With port `0` the system picks a free port (see
-    /// [`CallbackListener::port`]).
+    /// `CallbackListener::port`).
     ///
     /// # Errors
     ///
@@ -108,8 +108,9 @@ impl CallbackListener {
     }
 
     /// The port being listened on.
+    #[cfg(test)]
     #[must_use]
-    pub fn port(&self) -> u16 {
+    pub(crate) fn port(&self) -> u16 {
         self.port
     }
 

@@ -5,12 +5,9 @@
 //! setting on the account and, like the trading calls, needs a token of the `trading`
 //! [`crate::auth::Scope`].
 
-pub mod requests;
+mod requests;
 
-pub use requests::{
-    ExpectedMarginReq, ExpectedMarginRes, GetDynamicLeverageReq, GetDynamicLeverageRes,
-    MarginCallListRes, MarginCallUpdateReq,
-};
+pub(crate) use requests::ExpectedMarginRes;
 
 mod client;
-pub use client::MarginClient;
+pub(crate) use client::MarginClient;

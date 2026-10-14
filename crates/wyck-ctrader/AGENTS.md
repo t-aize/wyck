@@ -19,10 +19,10 @@ Depends on: `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungsten
 | `market` | `MarketClient`: symbols, live prices and bars, the order book, tick and bar history (`fetch_bars`, `fetch_ticks`). Requests in `requests.rs`. |
 | `account` | `AccountDataClient`: balance, positions, orders, deals. |
 | `trading` | `TradingClient`: place, amend and cancel orders, amend a position's stop loss and take profit, close positions. |
-| `margin` | `MarginClient`: expected margin, margin calls, dynamic leverage. |
+| `margin` | `MarginClient`: the margin a volume would need (`expected_margin`). |
 | `session` | `Session`: reconnects with a `Backoff`, renews tokens, restores subscriptions; `TokenStore` and `MemoryTokenStore` say where tokens are kept. |
 | `auth` | OAuth 2: the consent URL, the exchange of the code, the refresh, the local redirect listener (`CallbackListener`). |
-| `event`, `config`, `error`, `prelude` | What the server sends unasked (`Event`); demo or live, rates, timeouts (`ConnectionConfig`); `Error` and `ErrorKind`; a group import. |
+| `event`, `config`, `error` | What the server sends unasked (`Event`); demo or live, rates, timeouts (`ConnectionConfig`); `Error` and `ErrorKind`. |
 | `transport` (private) | The wire format (`wire`, `messages`), the connection task and the rate limiter. |
 
 ## Invariants and traps
@@ -43,19 +43,18 @@ Depends on: `wyck-core`, `wyck-market`, `wyck-trading`, `tokio`, `tokio-tungsten
 - **A secret never appears in an error or a log**: tokens are `secrecy` values, and an HTTP error
   is stripped of its URL (`without_url`) before it is written down.
 - The client never reconnects on its own: `Event::Disconnected` says it ended, `Session` decides.
-  Prefer `Error::kind` to matching the variants of `Error`.
 
 ## Global state
 
 None. The runtime that tokio-based code needs is `wyck-platform`'s; this crate assumes a live
 tokio runtime under it (`reqwest` and `tokio-tungstenite` panic without one).
 
-## What the app uses and what it does not
+## What the crate offers
 
-The crate is a complete typed client, and the app uses part of it. The rest (margin calls, dynamic
-leverage, order details, cash flow, deals by position, depth unsubscribe, the version and profile
-requests...) is public, tested and unused by the app. It is kept on purpose until you decide to
-delete it: the list and the cost are in `docs/PLAN.md` (phase 4d).
+Only what the app calls. The rest of the Open API (margin calls, dynamic leverage, order details,
+cash flow, deals by position, depth subscriptions, the version and profile requests, the
+logout...) was deleted with its tests; `docs/PLAN.md` (phase 4d) has the list. The server offers it
+still: add a call back when the app needs it, following "Where to add X".
 
 ## Tests
 
