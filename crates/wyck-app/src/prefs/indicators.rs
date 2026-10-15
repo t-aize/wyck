@@ -5,7 +5,7 @@
 //! Where the folder is does not belong here: a path means something on one computer only, and this
 //! document can be kept in a folder that several computers share. The folder is a choice of the
 //! computer (see `crate::locations`); an older version kept it here as `folder`, which is
-//! ignored when read and moved by `crate::locations::prepare`.
+//! ignored when read and moved by `crate::locations` at the first start.
 
 use std::time::Duration;
 
@@ -14,11 +14,11 @@ use serde::{Deserialize, Serialize};
 use wyck_indicators::custom::Limits;
 
 /// The name of the document.
-pub const DOCUMENT: &str = "indicators";
+pub(crate) const DOCUMENT: &str = "indicators";
 
 /// The most indicators that are starred, and that are remembered as recent.
-pub const MAX_FAVORITES: usize = 64;
-pub const MAX_RECENT: usize = 8;
+pub(crate) const MAX_FAVORITES: usize = 64;
+pub(crate) const MAX_RECENT: usize = 8;
 
 /// How much a script may do before it is stopped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ impl Budget {
         }
     }
 
-    pub fn limits(self) -> Limits {
+    pub(crate) fn limits(self) -> Limits {
         match self {
             Self::Light => Limits {
                 operations: 5_000_000,
@@ -67,7 +67,7 @@ pub struct Prefs {
     pub budget: Budget,
     /// Whether the old Examples folder was removed.
     #[serde(default)]
-    pub examples_removed: bool,
+    pub(crate) examples_removed: bool,
     /// The keys of the indicators the user starred (see `catalog::Item::key`).
     #[serde(default)]
     pub favorites: Vec<String>,
@@ -91,7 +91,7 @@ impl Default for Prefs {
 impl Prefs {
     /// The settings repaired: the lists have no repeats and a limit.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         dedup(&mut self.favorites, MAX_FAVORITES);
         dedup(&mut self.recent, MAX_RECENT);
         self

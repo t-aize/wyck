@@ -37,7 +37,7 @@ impl std::fmt::Display for NameError {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Watchlists {
     #[serde(default = "schema_version")]
-    pub schema_version: u32,
+    pub(crate) schema_version: u32,
     #[serde(default)]
     pub favorites: Vec<String>,
     #[serde(default)]
@@ -57,7 +57,7 @@ impl Default for Watchlists {
 impl Watchlists {
     /// The lists repaired: repeated symbols and lists with a repeated or empty name dropped.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.schema_version = WATCHLISTS_VERSION;
         dedup_keep_order(&mut self.favorites);
         let mut seen: Vec<String> = Vec::new();
@@ -156,7 +156,7 @@ pub(super) fn dedup_keep_order(items: &mut Vec<String>) {
 
 #[cfg(test)]
 mod tests {
-    use super::super::watchlists::*;
+    use super::*;
 
     #[test]
     fn watchlist_names_are_checked() {

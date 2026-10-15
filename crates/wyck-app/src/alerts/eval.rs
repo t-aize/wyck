@@ -10,10 +10,10 @@ use super::model::condition::{Condition, Trigger};
 /// What an alert saw at one moment: the value it watches, the level it is compared with, and
 /// the other side of the zone for a zone condition.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Reading {
-    pub value: f64,
-    pub level: f64,
-    pub upper: Option<f64>,
+pub(crate) struct Reading {
+    pub(crate) value: f64,
+    pub(crate) level: f64,
+    pub(crate) upper: Option<f64>,
 }
 
 impl Reading {
@@ -37,7 +37,7 @@ impl Reading {
 /// value with a level or a zone. The level may have moved too (a trend line, an average), so each
 /// reading brings its own. A condition that needs more than two readings (a move, a change of
 /// direction) is judged by [`moved`] and [`direction_changed`], and never fires here.
-pub fn fired(condition: Condition, before: &Reading, now: &Reading) -> bool {
+pub(crate) fn fired(condition: Condition, before: &Reading, now: &Reading) -> bool {
     if !before.is_finite() || !now.is_finite() {
         return false;
     }
@@ -56,7 +56,7 @@ pub fn fired(condition: Condition, before: &Reading, now: &Reading) -> bool {
 
 /// The spread between a bid and an ask, in pips of `pip` (the size of one in price). An ask under
 /// the bid (a stale side of the quote) counts as no spread.
-pub fn spread_pips(bid: f64, ask: f64, pip: f64) -> f64 {
+pub(crate) fn spread_pips(bid: f64, ask: f64, pip: f64) -> f64 {
     if pip > 0.0 && bid.is_finite() && ask.is_finite() {
         ((ask - bid) / pip).max(0.0)
     } else {
@@ -66,7 +66,7 @@ pub fn spread_pips(bid: f64, ask: f64, pip: f64) -> f64 {
 
 /// Whether the value moved by `pct` percent of what it was, within `window_ms`. `history` holds
 /// the values seen, as (time, value), oldest first, the newest being `now`.
-pub fn moved(history: &[(i64, f64)], window_ms: i64, pct: f64) -> bool {
+pub(crate) fn moved(history: &[(i64, f64)], window_ms: i64, pct: f64) -> bool {
     let Some(&(now_at, now)) = history.last() else {
         return false;
     };
@@ -83,7 +83,7 @@ pub fn moved(history: &[(i64, f64)], window_ms: i64, pct: f64) -> bool {
 
 /// Whether a series that went from `a` to `b` and now stands at `c` turned around: it was rising
 /// and now falls, or the other way. A flat step is no direction.
-pub fn direction_changed(a: f64, b: f64, c: f64) -> bool {
+pub(crate) fn direction_changed(a: f64, b: f64, c: f64) -> bool {
     if !(a.is_finite() && b.is_finite() && c.is_finite()) {
         return false;
     }
@@ -93,13 +93,13 @@ pub fn direction_changed(a: f64, b: f64, c: f64) -> bool {
 
 /// What judging an alert on its bars found.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Judged {
+pub(crate) struct Judged {
     /// The condition came true and the trigger lets it fire.
-    pub fired: bool,
+    pub(crate) fired: bool,
     /// The bar (its start time) the reading is from: what a trigger by bar remembers.
-    pub bar: i64,
+    pub(crate) bar: i64,
     /// The reading of that bar, for the next judgment of a bar that is still forming.
-    pub reading: Reading,
+    pub(crate) reading: Reading,
 }
 
 /// Judges an alert on the bars of its timeframe, oldest first: `times` are the start times of the
@@ -109,8 +109,11 @@ pub struct Judged {
 /// last bar that has closed and the one before it, and fires only for a bar that closed after the
 /// alert was made and that it has not fired on. Otherwise it looks at the bar still forming, against
 /// `last`, the reading of the judgment before (so nothing fires the first time it looks).
-#[allow(clippy::too_many_arguments)]
-pub fn judge_bars(
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one series and the state of one alert; a struct would only be built to be unpacked here"
+)]
+pub(crate) fn judge_bars(
     condition: Condition,
     trigger: Trigger,
     times: &[i64],
@@ -156,7 +159,7 @@ pub fn judge_bars(
 /// Where a drawing is at a time: the price of a line, or the two prices of a zone (lowest side
 /// first). `None` when the drawing has nothing at that time (a segment that ended) or is a tool
 /// with no level to watch.
-pub fn drawing_level(tool: Tool, points: &[Point], time: i64) -> Option<(f64, Option<f64>)> {
+pub(crate) fn drawing_level(tool: Tool, points: &[Point], time: i64) -> Option<(f64, Option<f64>)> {
     let (a, b) = (points.first()?, points.get(1));
     match tool {
         Tool::HorizontalLine => Some((a.p, None)),

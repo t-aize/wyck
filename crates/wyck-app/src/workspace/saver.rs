@@ -80,7 +80,7 @@ impl<T: Serialize + Send + 'static> Saver<T> {
     }
 
     /// Writes the waiting value now, if there is one.
-    pub fn flush(&self) {
+    pub(crate) fn flush(&self) {
         self.inner.flush();
     }
 }

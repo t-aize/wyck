@@ -1,6 +1,6 @@
 //! Saved preferences and watchlists.
 
-pub mod watchlists;
+pub(crate) mod watchlists;
 
 use super::layouts::{self, LayoutKey};
 use crate::prefs::panel::PanelPrefs;
@@ -22,7 +22,7 @@ pub(crate) const SCHEMA_VERSION: u32 = 4;
 pub(crate) const WATCHLISTS_VERSION: u32 = 1;
 
 /// Maximum length of a watchlist name.
-pub const MAX_LIST_NAME: usize = 40;
+pub(crate) const MAX_LIST_NAME: usize = 40;
 pub const MAX_SAVED_ALERTS: usize = 2_000;
 pub const DEFAULT_SAVED_ALERTS: usize = 500;
 
@@ -67,9 +67,9 @@ impl UsageLimits {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LayoutPref {
-    pub count: usize,
-    pub variant: usize,
+pub(crate) struct LayoutPref {
+    pub(crate) count: usize,
+    pub(crate) variant: usize,
 }
 
 impl Default for LayoutPref {
@@ -113,18 +113,18 @@ impl Default for LinksPref {
 
 /// One chart of the layout, by the stable codes written in the file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ChartPref {
+pub(crate) struct ChartPref {
     #[serde(default = "default_timeframe_code")]
-    pub timeframe: String,
+    pub(crate) timeframe: String,
     /// The chart type, as older files wrote it. [`ChartPref::settings`] wins when present.
     #[serde(default = "default_kind_code")]
-    pub kind: String,
+    pub(crate) kind: String,
     /// The symbol the chart shows when the symbol is not linked, by the broker's name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub symbol: Option<String>,
+    pub(crate) symbol: Option<String>,
     /// What the chart shows: type, scale, indicators. How it looks is in `Preferences::chart`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settings: Option<ChartContent>,
+    pub(crate) settings: Option<ChartContent>,
 }
 
 fn default_timeframe_code() -> String {
@@ -149,7 +149,7 @@ impl Default for ChartPref {
 impl ChartPref {
     /// The settings of the chart: what it saved, or the defaults with the saved type, with the look
     /// every chart shares.
-    pub fn chart_settings(&self, look: &ChartLook) -> ChartSettings {
+    pub(crate) fn chart_settings(&self, look: &ChartLook) -> ChartSettings {
         let content = match &self.settings {
             Some(content) => content.clone(),
             None => ChartContent {
@@ -172,7 +172,7 @@ pub struct ChartState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Preferences {
     #[serde(default = "schema_version")]
-    pub schema_version: u32,
+    pub(crate) schema_version: u32,
     #[serde(default)]
     pub limits: UsageLimits,
     /// How every chart looks: the grid, the crosshair, the colors, the legend, the time zone.
@@ -183,13 +183,13 @@ pub struct Preferences {
     pub favorite_timeframes: Vec<String>,
     /// Timeframes the user added to the menu (`M7`, `H2`...), by code.
     #[serde(default)]
-    pub custom_timeframes: Vec<String>,
+    pub(crate) custom_timeframes: Vec<String>,
     #[serde(default)]
-    pub layout: LayoutPref,
+    pub(crate) layout: LayoutPref,
     #[serde(default)]
     pub links: LinksPref,
     #[serde(default = "default_charts")]
-    pub charts: Vec<ChartPref>,
+    pub(crate) charts: Vec<ChartPref>,
     #[serde(default)]
     pub active_chart: usize,
     /// Whether drawings snap to the open, high, low and close of the nearest bar.
@@ -227,7 +227,7 @@ pub struct Preferences {
     pub alert_output: crate::alerts::sound::Output,
     /// The drawing tools pinned in the bar of favorites, by code, in the order they show.
     #[serde(default = "default_favorite_tools")]
-    pub favorite_tools: Vec<String>,
+    pub(crate) favorite_tools: Vec<String>,
     /// Whether the bar of favorite tools shows over the charts.
     #[serde(default = "wyck_core::defaults::yes")]
     pub favorites_bar: bool,
@@ -321,7 +321,7 @@ impl Preferences {
     /// The preferences repaired: unknown or repeated values dropped or replaced, the charts
     /// matched to the layout, the active chart inside the layout.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
         self.limits = self.limits.normalized();
         self.shortcuts = std::mem::take(&mut self.shortcuts).normalized();
@@ -380,7 +380,7 @@ impl Preferences {
         }
         for chart in &mut self.charts {
             if let Some(content) = chart.settings.take() {
-                chart.kind = content.kind.code().to_owned();
+                content.kind.code().clone_into(&mut chart.kind);
                 // What a chart shows is repaired as a whole, with the look it will have.
                 let settings = ChartSettings::from_parts(content, &self.chart).normalized();
                 chart.settings = Some(settings.content());

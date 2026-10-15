@@ -11,13 +11,13 @@ use wyck_chart::Preset;
 use wyck_storage::{DocumentStore, Result};
 
 /// The name of the document.
-pub const DOCUMENT: &str = "export";
+pub(crate) const DOCUMENT: &str = "export";
 /// The most presets kept, and the longest name of one.
 const MAX_PRESETS: usize = 100;
 const MAX_NAME: usize = 60;
 
 /// What the export dialog remembers between sessions.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Saved {
     /// The options of the last export.
     #[serde(default)]
@@ -30,7 +30,7 @@ pub struct Saved {
 impl Saved {
     /// Repairs what was read: options in range, names cleaned, no nameless preset, no repeats.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.last = self.last.normalized();
         let mut seen: Vec<String> = Vec::new();
         self.presets = self
@@ -84,7 +84,7 @@ impl Saved {
 }
 
 /// A preset name: trimmed, on one line, not too long.
-pub fn clean_name(name: &str) -> String {
+pub(crate) fn clean_name(name: &str) -> String {
     name.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")

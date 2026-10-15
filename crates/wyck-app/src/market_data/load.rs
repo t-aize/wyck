@@ -6,7 +6,7 @@
 //! server's frequency limit.
 //!
 //! The rules (how far back to walk, when to give up, how ticks become bars) work on any
-//! [`History`], so they are tested with a fake server; the app gives them the real client.
+//! `History`, so they are tested with a fake server; the app gives them the real client.
 
 use std::future::Future;
 
@@ -21,7 +21,7 @@ use wyck_market::Timeframe;
 /// Bars in one request. Under the range limit the server sets for every period.
 const CHUNK_BARS: i64 = 1_500;
 /// How many bars a first load, and each older step, aims for.
-pub const WANT_BARS: usize = 1_200;
+pub(crate) const WANT_BARS: usize = 1_200;
 /// Requests one call may make: a guard, not a target.
 const MAX_CHUNKS: usize = 40;
 /// Empty chunks in a row that mean the history has begun (or the market is closed for long).
@@ -66,7 +66,7 @@ fn grouped_back(base: &[Bar], timeframe: Timeframe) -> Loaded {
 }
 
 /// Where history comes from: the server's bars and ticks for a range.
-pub trait History: Sync {
+pub(crate) trait History: Sync {
     fn bars(
         &self,
         symbol_id: i64,
@@ -141,7 +141,7 @@ pub async fn gap(
 }
 
 /// [`initial`], from any source.
-pub async fn initial_from(
+pub(crate) async fn initial_from(
     market: &impl History,
     symbol_id: i64,
     timeframe: Timeframe,
@@ -163,7 +163,7 @@ pub async fn initial_from(
 }
 
 /// [`older`], from any source.
-pub async fn older_from(
+pub(crate) async fn older_from(
     market: &impl History,
     symbol_id: i64,
     timeframe: Timeframe,
@@ -184,7 +184,7 @@ pub async fn older_from(
 }
 
 /// [`gap`], from any source.
-pub async fn gap_from(
+pub(crate) async fn gap_from(
     market: &impl History,
     symbol_id: i64,
     timeframe: Timeframe,

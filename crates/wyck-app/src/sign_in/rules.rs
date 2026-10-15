@@ -8,13 +8,13 @@ use wyck_ctrader::TraderAccount;
 use wyck_ctrader::auth::Scope;
 
 /// The permission the sign-in asks for. Trading includes reading, and the app places orders.
-pub const SIGN_IN_SCOPE: Scope = Scope::Trading;
+pub(crate) const SIGN_IN_SCOPE: Scope = Scope::Trading;
 
 /// What every service tag of a profile made by this flow starts with.
 const SERVICE_PREFIX: &str = "ctrader-openapi-";
 
 /// The service tag of a profile made by this flow: the environment is part of it.
-pub fn service_tag(environment: Environment) -> &'static str {
+pub(crate) fn service_tag(environment: Environment) -> &'static str {
     match environment {
         Environment::Live => "ctrader-openapi-live",
         Environment::Demo => "ctrader-openapi-demo",
@@ -23,7 +23,7 @@ pub fn service_tag(environment: Environment) -> &'static str {
 
 /// The environment of a profile made by this flow, from its service tag; `None` for a profile
 /// made by something else.
-pub fn environment_of(service: &str) -> Option<Environment> {
+pub(crate) fn environment_of(service: &str) -> Option<Environment> {
     match service.strip_prefix(SERVICE_PREFIX)? {
         "live" => Some(Environment::Live),
         "demo" => Some(Environment::Demo),
@@ -33,7 +33,7 @@ pub fn environment_of(service: &str) -> Option<Environment> {
 
 /// The profile to reopen at start: the active one when it is an Open API profile, else the first
 /// Open API profile saved.
-pub fn saved_profile<'a>(
+pub(crate) fn saved_profile<'a>(
     active: Option<&'a ProfileConfig>,
     all: &'a [ProfileConfig],
 ) -> Option<&'a ProfileConfig> {
@@ -44,7 +44,7 @@ pub fn saved_profile<'a>(
 
 /// Where the documents of an account are kept: its environment and number, so signing out and
 /// in again finds them.
-pub fn document_scope(environment: Environment, account_id: i64) -> String {
+pub(crate) fn document_scope(environment: Environment, account_id: i64) -> String {
     let prefix = match environment {
         Environment::Live => "live",
         Environment::Demo => "demo",
@@ -53,7 +53,7 @@ pub fn document_scope(environment: Environment, account_id: i64) -> String {
 }
 
 /// The name of a connected account: `Broker Live - 1234567`.
-pub fn account_label(account: &TraderAccount) -> String {
+pub(crate) fn account_label(account: &TraderAccount) -> String {
     let broker = account.broker_title_short.as_deref().unwrap_or("cTrader");
     let login = account.trader_login.map_or_else(
         || account.ctid_trader_account_id.to_string(),

@@ -9,12 +9,12 @@ use wyck_ctrader::auth::TokenSet;
 use wyck_ctrader::session::TokenStore;
 use wyck_storage::{OpenApiTokenStorage, OpenApiTokens};
 
-pub struct ConfigTokenStore {
+pub(crate) struct ConfigTokenStore {
     storage: OpenApiTokenStorage,
 }
 
 impl ConfigTokenStore {
-    pub fn new(storage: OpenApiTokenStorage) -> Self {
+    pub(crate) fn new(storage: OpenApiTokenStorage) -> Self {
         Self { storage }
     }
 }
@@ -22,7 +22,7 @@ impl ConfigTokenStore {
 /// The session's view of a stored token pair. The store keeps the moment the access token
 /// expires; the session wants how long it lasts and when it was received, so the pair is treated
 /// as received now.
-pub fn to_token_set(stored: OpenApiTokens) -> TokenSet {
+pub(crate) fn to_token_set(stored: OpenApiTokens) -> TokenSet {
     let now = SystemTime::now();
     TokenSet {
         access_token: stored.access_token,
@@ -35,7 +35,7 @@ pub fn to_token_set(stored: OpenApiTokens) -> TokenSet {
     }
 }
 
-pub fn to_stored(tokens: &TokenSet) -> OpenApiTokens {
+pub(crate) fn to_stored(tokens: &TokenSet) -> OpenApiTokens {
     OpenApiTokens {
         access_token: tokens.access_token.clone(),
         refresh_token: tokens.refresh_token.clone(),

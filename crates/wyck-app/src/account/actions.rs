@@ -17,7 +17,13 @@ impl Account {
     }
 
     /// A market order of `volume` on a side.
-    pub fn market(&mut self, symbol_id: i64, buy: bool, volume: i64, cx: &mut Context<Self>) {
+    pub(crate) fn market(
+        &mut self,
+        symbol_id: i64,
+        buy: bool,
+        volume: i64,
+        cx: &mut Context<Self>,
+    ) {
         let side = if buy { TradeSide::Buy } else { TradeSide::Sell };
         self.place(NewOrderReq::market(symbol_id, side, volume), cx);
     }

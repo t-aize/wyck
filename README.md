@@ -60,21 +60,23 @@ afresh.
 
 ## Layout
 
-A Cargo workspace (see the root `Cargo.toml`). The code is still in one crate, `crates/wyck`,
-which is being split into one crate per domain: [docs/PLAN.md](docs/PLAN.md) tracks where that
-stands. `src/lib.rs` declares the modules and `src/main.rs` only starts the app. The code is in
-layers, and a lower layer never imports a higher one:
+A Cargo workspace (see the root `Cargo.toml`): one crate per area in `crates/`, and `xtask` for the
+commands of the project (`cargo xtask check`). The screens are still in one crate, `crates/wyck`;
+[docs/PLAN.md](docs/PLAN.md) tracks where that stands. A crate only depends on the ones above it in
+this table, and `cargo xtask deps` checks it:
 
-| Layer | Owns |
+| Crate | Owns |
 |---|---|
-| `src/wyck_core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
-| `src/domain` | Pure logic: market data, trading maths, indicators, drawings, chart models |
-| `src/infra` | The cTrader Open API client, settings and credential storage, the async runtime |
-| `src/app` | State and use cases: sign-in, account, alerts, preferences, market data |
-| `src/ui` | GPUI screens: the widget kit (`ui/kit`), the window and dashboard (`ui/shell`), the features |
+| `wyck-core` | The small vocabulary every part shares: number formatting, series arithmetic, the look of the interface |
+| `wyck-market`, `wyck-trading` | Symbols, bars and ticks; orders, the safety guard, margin and the account book |
+| `wyck-drawings`, `wyck-indicators`, `wyck-chart` | Drawing tools; indicators and Rhai scripts; the chart model, its scene and its export |
+| `wyck-platform`, `wyck-storage`, `wyck-ctrader` | The log and the async runtime; files, secrets and backups; the cTrader Open API client |
+| `wyck-app` | State and use cases: sign-in, account, alerts, preferences, market data, updates |
+| `wyck-ui-kit` | The widget kit: controls, menus, dialogs, colors, the font and the symbol marks |
+| `wyck` | The window, the dashboard and the screens; `src/main.rs` only starts the app |
 
-(Paths are relative to `crates/wyck`.) Every control, menu, dialog and color comes from the widget
-kit. The Open API client is described in the rustdoc of `infra::ctrader` (`cargo doc --open`).
+Every control, menu, dialog and color comes from the widget kit. The Open API client is described
+in the rustdoc of `wyck-ctrader` (`cargo doc -p wyck-ctrader --open`).
 
 ## Your own indicators
 

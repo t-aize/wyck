@@ -4,7 +4,7 @@
 //!
 //! The interface has one theme, the dark palette in [`Colors::WYCK_DARK`]. On top of it come a few
 //! overrides for the colors of the chart (the candles, the line, the background).
-//! [`resolve`](Appearance::resolve) is the whole decision, with no window in it, so it is tested on
+//! `resolve` is the whole decision, with no window in it, so it is tested on
 //! its own; [`update`] puts the result in force and saves it.
 
 pub mod candles;
@@ -18,11 +18,11 @@ use crate::workspace::Saver;
 use wyck_core::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
 
 /// The name of the document.
-pub const DOCUMENT: &str = "appearance";
+pub(crate) const DOCUMENT: &str = "appearance";
 /// The font the app ships with.
 pub const DEFAULT_FONT: &str = "Inter";
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Appearance {
     /// Overrides of the colors of the chart. `None` leaves the palette's own color.
     #[serde(default)]
@@ -71,7 +71,7 @@ impl Appearance {
     /// The settings repaired: colors in range, a size in range, a font that says something. A file
     /// from before there was one theme still loads: what it said about themes is ignored.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         for color in [
             &mut self.candle_up,
             &mut self.candle_down,
@@ -89,7 +89,7 @@ impl Appearance {
     }
 
     /// The palette in force: the dark palette, with the colors of the chart the user picked.
-    pub fn resolve(&self) -> Colors {
+    pub(crate) fn resolve(&self) -> Colors {
         let mut colors = Colors::WYCK_DARK;
         if let Some(up) = self.candle_up {
             colors.up = up;
@@ -104,11 +104,6 @@ impl Appearance {
             colors.chart_bg = background;
         }
         colors
-    }
-
-    /// Whether anything is changed from what a first launch looks like.
-    pub fn is_default(&self) -> bool {
-        *self == Self::default()
     }
 }
 

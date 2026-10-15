@@ -222,7 +222,7 @@ pub fn catalog() -> &'static [(usize, Vec<Layout>)] {
 }
 
 /// Whether the key names a layout that is on offer.
-pub fn exists(key: LayoutKey) -> bool {
+pub(crate) fn exists(key: LayoutKey) -> bool {
     catalog()
         .iter()
         .find(|(count, _)| *count == key.count)

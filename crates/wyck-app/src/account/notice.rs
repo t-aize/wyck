@@ -1,6 +1,6 @@
 //! What the user is told about their orders and about a failed request, in words.
 //!
-//! The account book (`domain::trading::book`) says what happened as an [`Outcome`]; this module
+//! The account book (`wyck_trading::book`) says what happened as an [`Outcome`]; this module
 //! turns it into a [`Notice`] the dashboard shows as a toast. A server refusal code and a failed
 //! request are put in sentences here too.
 
@@ -31,7 +31,7 @@ pub enum NoticeAction {
 }
 
 /// Something to tell the user about what happened to their orders.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Notice {
     /// How serious it is.
     pub tone: Tone,
@@ -48,7 +48,7 @@ pub struct Notice {
 
 impl Notice {
     /// A notice with a tone, a headline and a message, and nothing else.
-    pub fn new(tone: Tone, title: impl Into<String>, message: impl Into<String>) -> Self {
+    pub(crate) fn new(tone: Tone, title: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             tone,
             title: title.into(),
@@ -59,23 +59,43 @@ impl Notice {
         }
     }
 
+    /// An order that failed its own checks (a missing volume, a stop on the wrong side).
+    pub(crate) fn incomplete(error: &impl std::fmt::Display) -> Self {
+        Self::new(Tone::Error, "The order is not complete", error.to_string())
+    }
+
+    /// An order a hard safety limit refused.
+    pub(crate) fn blocked(reason: impl Into<String>) -> Self {
+        Self::new(Tone::Warning, "Blocked by your safety settings", reason)
+            .hint(Some("Change the limits in Settings, Safety.".to_owned()))
+    }
+
+    /// An order dropped because the same one was sent a moment ago.
+    pub(crate) fn repeated() -> Self {
+        Self::new(
+            Tone::Info,
+            "Order not sent again",
+            "The same order was sent a moment ago.",
+        )
+    }
+
     /// Adds a button the notice offers.
     #[must_use]
-    pub fn action(mut self, action: NoticeAction) -> Self {
+    pub(crate) fn action(mut self, action: NoticeAction) -> Self {
         self.actions.push(action);
         self
     }
 
     /// Adds what to do about it.
     #[must_use]
-    pub fn hint(mut self, hint: Option<String>) -> Self {
+    pub(crate) fn hint(mut self, hint: Option<String>) -> Self {
         self.hint = hint;
         self
     }
 
     /// Adds the exact words behind it.
     #[must_use]
-    pub fn details(mut self, details: impl Into<String>) -> Self {
+    pub(crate) fn details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
         self
     }
@@ -103,16 +123,16 @@ pub fn explain(code: &str) -> String {
 }
 
 /// A refusal or a failure in words a trader can act on.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reason {
     /// What went wrong, as a sentence.
-    pub message: String,
+    pub(crate) message: String,
     /// What to do about it, when there is something to do.
-    pub hint: Option<String>,
+    pub(crate) hint: Option<String>,
 }
 
 /// A text as a sentence: its first letter in capital, and a full stop at the end.
-pub fn sentence(text: &str) -> String {
+pub(crate) fn sentence(text: &str) -> String {
     let text = text.trim().trim_end_matches('.');
     let mut chars = text.chars();
     match chars.next() {
@@ -246,7 +266,7 @@ pub fn describe(error: &ApiError) -> Reason {
 }
 
 /// The notice for what happened to an order, in words.
-pub fn of(outcome: Outcome) -> Notice {
+pub(crate) fn of(outcome: Outcome) -> Notice {
     fn text(what: &str, tail: &str) -> String {
         format!("{what}{tail}")
     }

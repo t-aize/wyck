@@ -15,13 +15,13 @@ use wyck_platform::runtime;
 use wyck_storage::scripts::ScriptStore;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
-pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
+pub(crate) const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
 const UPDATE_PUBLIC_KEY: &str = include_str!("../assets/update.pubkey");
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Why an update could not be checked, downloaded or installed.
 #[derive(Debug, thiserror::Error)]
-pub enum UpdateError {
+pub(crate) enum UpdateError {
     #[error("the version of this build is not valid: {0}")]
     Version(#[from] cargo_packager_updater::semver::Error),
     #[error("the address of the updates is not valid: {0}")]
@@ -69,7 +69,7 @@ impl UpdateState {
         }
     }
 
-    pub fn busy(&self) -> bool {
+    pub(crate) fn busy(&self) -> bool {
         matches!(
             self,
             Self::Checking | Self::Downloading { .. } | Self::Installing { .. }

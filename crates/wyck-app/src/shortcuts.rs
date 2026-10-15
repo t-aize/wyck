@@ -36,13 +36,13 @@ pub enum ChordError {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Chord {
     /// Cmd on a Mac, Ctrl elsewhere.
-    pub secondary: bool,
+    pub(crate) secondary: bool,
     /// The Control key itself. Only different from `secondary` on a Mac.
-    pub ctrl: bool,
-    pub alt: bool,
-    pub shift: bool,
+    pub(crate) ctrl: bool,
+    pub(crate) alt: bool,
+    pub(crate) shift: bool,
     /// The key, in gpui's lower case names (`a`, `7`, `f9`, `pageup`, `,`).
-    pub key: String,
+    pub(crate) key: String,
 }
 
 /// The modifiers a key event came with, as the platform reports them.
@@ -54,24 +54,6 @@ pub struct Held {
     /// Cmd on a Mac, the Windows or Super key elsewhere.
     pub platform: bool,
 }
-
-/// Keys that are not text, and so can be bound with no modifier.
-const NAMED: [&str; 14] = [
-    "up",
-    "down",
-    "left",
-    "right",
-    "home",
-    "end",
-    "pageup",
-    "pagedown",
-    "delete",
-    "backspace",
-    "insert",
-    "enter",
-    "escape",
-    "tab",
-];
 
 /// Keys that are not text, so they can be bound with no modifier at all.
 const PLAIN_OK: [&str; 11] = [
@@ -88,6 +70,9 @@ const PLAIN_OK: [&str; 11] = [
     "insert",
 ];
 
+/// Keys that are not text either, but need a modifier to be bound (as the keys that are text do).
+const NEEDS_MODIFIER: [&str; 3] = ["enter", "escape", "tab"];
+
 fn is_function_key(key: &str) -> bool {
     key.strip_prefix('f')
         .and_then(|n| n.parse::<u8>().ok())
@@ -95,7 +80,11 @@ fn is_function_key(key: &str) -> bool {
 }
 
 fn is_key(key: &str) -> bool {
-    if NAMED.contains(&key) || key == "space" || is_function_key(key) {
+    if PLAIN_OK.contains(&key)
+        || NEEDS_MODIFIER.contains(&key)
+        || key == "space"
+        || is_function_key(key)
+    {
         return true;
     }
     let mut chars = key.chars();
@@ -316,7 +305,7 @@ impl ShortcutPrefs {
     /// combination is written the canonical way, the ones that cannot be used are dropped, and no
     /// action has more than [`MAX_KEYS_PER_ACTION`] or the same one twice.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         for keys in self.changed.values_mut() {
             let mut kept: Vec<String> = Vec::new();
             for key in keys.iter() {

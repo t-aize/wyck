@@ -27,7 +27,7 @@ impl PriceKind {
     }
 
     /// The price of this kind in a quote.
-    pub fn of(self, bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
+    pub(crate) fn of(self, bid: Option<f64>, ask: Option<f64>) -> Option<f64> {
         match self {
             Self::Bid => bid,
             Self::Ask => ask,
@@ -94,7 +94,7 @@ impl Source {
     }
 
     /// The name shown for it: `Bid`, `RSI (plot 1)`, `Drawing 12`.
-    pub fn label(&self) -> String {
+    pub(crate) fn label(&self) -> String {
         match self {
             Self::Price { price } => price.label().to_owned(),
             Self::Indicator { study, plot } => {

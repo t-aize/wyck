@@ -22,9 +22,9 @@ use wyck_platform::runtime;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Wish {
     /// Symbols whose prices it wants.
-    pub spots: BTreeSet<i64>,
+    pub(crate) spots: BTreeSet<i64>,
     /// A symbol and period whose live bars it wants.
-    pub bars: Option<(i64, Period)>,
+    pub(crate) bars: Option<(i64, Period)>,
 }
 
 impl Wish {
@@ -46,9 +46,9 @@ impl Wish {
 
 /// Everything wanted together.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Wanted {
-    pub spots: BTreeSet<i64>,
-    pub bars: BTreeSet<(i64, Period)>,
+pub(crate) struct Wanted {
+    pub(crate) spots: BTreeSet<i64>,
+    pub(crate) bars: BTreeSet<(i64, Period)>,
 }
 
 /// What each owner wants.
@@ -78,14 +78,14 @@ impl Wishes {
 /// The steps that take the server from `current` to `want`, in the order they must run: live bars
 /// go before the prices they ride on, and come after them.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct Plan {
-    pub unsubscribe_bars: Vec<(i64, Period)>,
-    pub unsubscribe_spots: Vec<i64>,
-    pub subscribe_spots: Vec<i64>,
-    pub subscribe_bars: Vec<(i64, Period)>,
+pub(crate) struct Plan {
+    pub(crate) unsubscribe_bars: Vec<(i64, Period)>,
+    pub(crate) unsubscribe_spots: Vec<i64>,
+    pub(crate) subscribe_spots: Vec<i64>,
+    pub(crate) subscribe_bars: Vec<(i64, Period)>,
 }
 
-pub fn plan(current: &Wanted, want: &Wanted) -> Plan {
+pub(crate) fn plan(current: &Wanted, want: &Wanted) -> Plan {
     Plan {
         unsubscribe_bars: current.bars.difference(&want.bars).copied().collect(),
         unsubscribe_spots: current.spots.difference(&want.spots).copied().collect(),
@@ -96,7 +96,7 @@ pub fn plan(current: &Wanted, want: &Wanted) -> Plan {
 
 /// Owners that are not charts.
 pub const PEEK_OWNER: u64 = u64::MAX - 1;
-pub const ACCOUNT_OWNER: u64 = u64::MAX - 2;
+pub(crate) const ACCOUNT_OWNER: u64 = u64::MAX - 2;
 
 pub struct LiveHub {
     wishes: RefCell<Wishes>,
@@ -159,7 +159,7 @@ impl LiveHub {
 }
 
 /// A price event for the charts, with its live bars corrected.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveUpdate {
     pub symbol_id: i64,
     pub bid: Option<i64>,

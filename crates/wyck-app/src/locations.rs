@@ -4,10 +4,10 @@
 //! elsewhere, and the rules for a folder) and [`wyck_storage::relocate`] (moving the
 //! files). This module is what the app does with them:
 //!
-//! * [`prepare`] runs first thing at start: it makes the move the user asked for, and brings an old
-//!   setting along (the indicators folder used to be a field of a shared document, which is wrong
-//!   once that document is synced to another computer: a path means something on one computer
-//!   only).
+//! * [`app_paths`] is asked first thing at start, and its first call makes the move the user asked
+//!   for and brings an old setting along (the indicators folder used to be a field of a shared
+//!   document, which is wrong once that document is synced to another computer: a path means
+//!   something on one computer only).
 //! * [`overview`] and the `stage_*` functions are what the Folders page of the settings shows and
 //!   asks for. A move waits for the next start, as an import does.
 //! * [`startup_notes`] says what the start found or did, for the notices at the first frame.
@@ -49,10 +49,20 @@ struct Startup {
 }
 
 static STARTUP: OnceLock<Startup> = OnceLock::new();
+static PATHS: OnceLock<Option<AppPaths>> = OnceLock::new();
+
+/// The folders of the app, resolved once: `None` when the system gives it none. Everything that
+/// needs a path of the app asks here, so there is one answer for the whole run.
+///
+/// The first call also makes the move of folders the user asked for (it has to be done before
+/// anything reads a document), which is why the first call is the first thing `run` does.
+pub fn app_paths() -> Option<&'static AppPaths> {
+    PATHS.get_or_init(prepare).as_ref()
+}
 
 /// Finds the folders of the app: makes the move that waits, if one does, and brings the old
-/// indicators folder setting along. `None` when the system gives the app no folder.
-pub fn prepare() -> Option<AppPaths> {
+/// indicators folder setting along.
+fn prepare() -> Option<AppPaths> {
     let mut paths = AppPaths::discover().ok()?;
     let mut startup = Startup::default();
     if paths.config_dir().join(relocate::PENDING).exists() {
@@ -68,8 +78,8 @@ pub fn prepare() -> Option<AppPaths> {
     Some(paths)
 }
 
-/// Writes to the log what [`prepare`] did. [`prepare`] runs before the log is started (the log
-/// folder is one of the folders that can move), so this is called once the log is.
+/// Writes to the log what the first call of [`app_paths`] did. It runs before the log is started
+/// (the log folder is one of the folders that can move), so this is called once the log is.
 pub fn log_startup() {
     let Some(startup) = STARTUP.get() else {
         return;
@@ -95,7 +105,7 @@ pub fn log_startup() {
     if let Some(folder) = &startup.legacy_indicators {
         info!(folder = %folder.display(), "the indicators folder is now kept apart from the shared settings");
     }
-    if let Some(paths) = crate::app_paths() {
+    if let Some(paths) = app_paths() {
         for problem in paths.problems() {
             warn!(%problem, kind = problem.kind.code(), "a chosen folder cannot be used, the standard one is used for now");
         }
@@ -150,7 +160,7 @@ fn take_legacy_indicators_folder(paths: &AppPaths) -> Option<PathBuf> {
 /// The paths as the disk says now: the folders of this run with the choices saved since (a folder
 /// picked in the Indicators settings takes effect at once, and the page must show it).
 fn fresh() -> Option<AppPaths> {
-    let paths = crate::app_paths()?;
+    let paths = app_paths()?;
     let locations = Locations::load(paths.config_dir()).ok()?;
     Some(paths.clone().with_locations(locations))
 }
@@ -175,7 +185,7 @@ fn note(warning: bool, title: &str, text: impl Into<String>) -> Note {
 /// What the start found or did about the folders, for the user to read.
 #[must_use]
 pub fn startup_notes() -> Vec<Note> {
-    crate::app_paths()
+    app_paths()
         .map(|paths| notes_for(paths, STARTUP.get()))
         .unwrap_or_default()
 }
@@ -267,7 +277,7 @@ pub struct Row {
     /// Where it is read from and written to now.
     pub path: PathBuf,
     /// Where it is when nothing is chosen.
-    pub standard: PathBuf,
+    pub(crate) standard: PathBuf,
     /// Whether the user put it somewhere else.
     pub custom: bool,
     /// Why the folder that was chosen is not used, when that is so.
@@ -293,7 +303,7 @@ pub struct Overview {
 /// The folders as they are now. `None` when the system gives the app no folder.
 #[must_use]
 pub fn overview() -> Option<Overview> {
-    let paths = fresh().or_else(|| crate::app_paths().cloned())?;
+    let paths = fresh().or_else(|| app_paths().cloned())?;
     Some(overview_of(&paths, locations::cloud_folders()))
 }
 
@@ -373,7 +383,7 @@ fn stage_cloud_in(paths: &AppPaths, root: &Path) -> Result<Vec<Step>, PlanError>
 
 /// Forgets the move that waits.
 pub fn cancel_staged() {
-    if let Some(paths) = crate::app_paths() {
+    if let Some(paths) = app_paths() {
         let _ = relocate::cancel(paths);
     }
 }
@@ -404,7 +414,7 @@ pub enum FolderError {
 /// # Errors
 ///
 /// A folder that cannot be used, or the choices that cannot be saved.
-pub fn set_indicators_folder(dir: Option<&Path>) -> Result<PathBuf, FolderError> {
+pub(crate) fn set_indicators_folder(dir: Option<&Path>) -> Result<PathBuf, FolderError> {
     let paths = fresh().ok_or(ConfigError::NoProjectDirs)?;
     set_indicators_folder_in(&paths, dir)
 }

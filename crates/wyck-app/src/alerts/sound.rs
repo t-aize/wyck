@@ -23,9 +23,9 @@ use serde::{Deserialize, Serialize};
 struct Builtin;
 
 /// The largest file of the user's that is accepted.
-pub const MAX_CUSTOM_BYTES: u64 = 4 * 1024 * 1024;
+pub(crate) const MAX_CUSTOM_BYTES: u64 = 4 * 1024 * 1024;
 /// The longest a sound of the user's may last: an alert is a short signal.
-pub const MAX_CUSTOM_SECONDS: f32 = 15.0;
+pub(crate) const MAX_CUSTOM_SECONDS: f32 = 15.0;
 
 /// Which sound to play.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -87,7 +87,7 @@ impl SoundKind {
 }
 
 /// What the user chose for every alert: kept in the preferences.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Output {
     pub sound: SoundKind,
@@ -254,13 +254,13 @@ pub enum SoundError {
     /// The file could not be read.
     #[error("The file cannot be read: {0}")]
     Read(#[from] std::io::Error),
-    /// The file is bigger than [`MAX_CUSTOM_BYTES`].
+    /// The file is bigger than `MAX_CUSTOM_BYTES`.
     #[error("The file is over 4 MB")]
     TooBig,
     /// The audio library cannot decode the file.
     #[error("This is not a sound the app can play (wav, ogg, mp3 or flac)")]
     NotASound,
-    /// The sound is longer than [`MAX_CUSTOM_SECONDS`].
+    /// The sound is longer than `MAX_CUSTOM_SECONDS`.
     #[error("The sound lasts {seconds:.0} s: an alert sound is at most {max:.0} s")]
     TooLong {
         seconds: f32,
@@ -296,7 +296,7 @@ fn read_custom(path: &Path) -> Result<Vec<u8>, SoundError> {
 /// # Errors
 ///
 /// The file cannot be read, is too big or too long, or is not a sound.
-pub fn check_file(path: &Path) -> Result<f32, SoundError> {
+pub(crate) fn check_file(path: &Path) -> Result<f32, SoundError> {
     use rodio::Source as _;
     let bytes = read_custom(path)?;
     let decoder = rodio::Decoder::new(Cursor::new(bytes)).map_err(|_| SoundError::NotASound)?;
@@ -388,7 +388,6 @@ fn run(inbox: &mpsc::Receiver<Job>) {
                     shown += 1;
                     show(&title, &body);
                 }
-                Job::Notify { .. } => {}
                 Job::Sound {
                     kind,
                     custom,
@@ -398,7 +397,7 @@ fn run(inbox: &mpsc::Receiver<Job>) {
                         tracing::warn!(%error, "could not play an alert sound");
                     }
                 }
-                Job::Sound { .. } => {}
+                Job::Notify { .. } | Job::Sound { .. } => {}
             }
         }
     }

@@ -10,7 +10,7 @@ use wyck_ctrader::Error;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountChoice {
     /// The id to authorize.
-    pub id: i64,
+    pub(crate) id: i64,
     /// How the account is named: `Broker Live - 1234567`.
     pub label: String,
     /// Whether it is a live (real money) account.
@@ -74,7 +74,7 @@ pub enum Failure {
 
 impl Failure {
     /// Sorts an error of the application check.
-    pub fn from_connect(error: &Error) -> Self {
+    pub(crate) fn from_connect(error: &Error) -> Self {
         match error {
             Error::Server { .. } | Error::Auth(_) => Self::CredentialsRejected,
             Error::Transport(_) | Error::Timeout { .. } | Error::Closed => Self::Unreachable,
@@ -83,7 +83,7 @@ impl Failure {
     }
 
     /// Sorts an error of the wait for the redirect and of the code exchange.
-    pub fn from_consent(error: &Error) -> Self {
+    pub(crate) fn from_consent(error: &Error) -> Self {
         match error {
             Error::Timeout { .. } => Self::TimedOut,
             Error::Transport(_) | Error::Closed => Self::Unreachable,
@@ -123,12 +123,13 @@ impl Failure {
             Self::TimedOut => {
                 "Allow access on cTrader's page within five minutes, then try again.".into()
             }
-            Self::ConsentFailed(detail) => detail.clone(),
+            Self::ConsentFailed(detail) | Self::AuthorizeFailed(detail) | Self::Other(detail) => {
+                detail.clone()
+            }
             Self::NoAccount { live } => format!(
                 "None of the accounts you allowed is a {} account. Pick one on cTrader's page, or switch the environment.",
                 if *live { "live" } else { "demo" }
             ),
-            Self::AuthorizeFailed(detail) | Self::Other(detail) => detail.clone(),
             Self::SessionExpired => "Sign in again to keep trading.".into(),
         }
     }
@@ -139,7 +140,7 @@ impl Failure {
 /// # Errors
 ///
 /// [`Failure::MissingFields`] when one of them is empty.
-pub fn check_fields(client_id: &str, client_secret: &str) -> Result<(), Failure> {
+pub(crate) fn check_fields(client_id: &str, client_secret: &str) -> Result<(), Failure> {
     if client_id.trim().is_empty() || client_secret.trim().is_empty() {
         Err(Failure::MissingFields)
     } else {
@@ -157,7 +158,7 @@ pub struct SignInState {
 
 impl SignInState {
     /// A sign-in that looks for a saved session first.
-    pub fn restoring() -> Self {
+    pub(crate) fn restoring() -> Self {
         Self {
             phase: Phase::Restoring,
             failure: None,
@@ -166,7 +167,7 @@ impl SignInState {
     }
 
     /// A sign-in that starts on the form.
-    pub fn editing() -> Self {
+    pub(crate) fn editing() -> Self {
         Self {
             phase: Phase::Editing,
             failure: None,
@@ -195,7 +196,7 @@ impl SignInState {
     }
 
     /// The form is sent. Only the form can be sent.
-    pub fn submit(&mut self) -> bool {
+    pub(crate) fn submit(&mut self) -> bool {
         if self.phase != Phase::Editing {
             return false;
         }
@@ -205,14 +206,14 @@ impl SignInState {
     }
 
     /// The application is verified and the browser is open.
-    pub fn browser_opened(&mut self, url: String) {
+    pub(crate) fn browser_opened(&mut self, url: String) {
         if self.phase == Phase::Verifying {
             self.phase = Phase::WaitingBrowser { url };
         }
     }
 
     /// The accounts of the token, already narrowed to the chosen environment.
-    pub fn accounts_listed(&mut self, accounts: Vec<AccountChoice>) {
+    pub(crate) fn accounts_listed(&mut self, accounts: Vec<AccountChoice>) {
         if matches!(self.phase, Phase::WaitingBrowser { .. }) {
             self.phase = Phase::ChoosingAccount {
                 accounts,
@@ -222,7 +223,7 @@ impl SignInState {
     }
 
     /// Picks the account at `index`.
-    pub fn choose(&mut self, index: usize) {
+    pub(crate) fn choose(&mut self, index: usize) {
         if let Phase::ChoosingAccount { accounts, selected } = &mut self.phase
             && index < accounts.len()
         {
@@ -231,7 +232,7 @@ impl SignInState {
     }
 
     /// The account picked now.
-    pub fn chosen(&self) -> Option<&AccountChoice> {
+    pub(crate) fn chosen(&self) -> Option<&AccountChoice> {
         match &self.phase {
             Phase::ChoosingAccount { accounts, selected } => accounts.get(*selected),
             _ => None,
@@ -239,7 +240,7 @@ impl SignInState {
     }
 
     /// The account is being authorized.
-    pub fn authorizing(&mut self, label: String) {
+    pub(crate) fn authorizing(&mut self, label: String) {
         if matches!(
             self.phase,
             Phase::ChoosingAccount { .. } | Phase::WaitingBrowser { .. }
@@ -249,14 +250,14 @@ impl SignInState {
     }
 
     /// Back to the form with the reason shown, whatever was in progress.
-    pub fn fail(&mut self, failure: Failure) {
+    pub(crate) fn fail(&mut self, failure: Failure) {
         self.phase = Phase::Editing;
         self.failure = Some(failure);
         self.failures += 1;
     }
 
     /// Back to the form without a failure: the user gave up.
-    pub fn cancel(&mut self) {
+    pub(crate) fn cancel(&mut self) {
         if self.is_busy() {
             self.phase = Phase::Editing;
             self.failure = None;
@@ -264,20 +265,20 @@ impl SignInState {
     }
 
     /// There was no saved session to restore.
-    pub fn nothing_to_restore(&mut self) {
+    pub(crate) fn nothing_to_restore(&mut self) {
         if self.phase == Phase::Restoring {
             self.phase = Phase::Editing;
         }
     }
 
     /// A session exists.
-    pub fn connected(&mut self) {
+    pub(crate) fn connected(&mut self) {
         self.phase = Phase::Connected;
         self.failure = None;
     }
 
     /// The session ended: the form again, with the reason.
-    pub fn expired(&mut self) {
+    pub(crate) fn expired(&mut self) {
         self.fail(Failure::SessionExpired);
     }
 }

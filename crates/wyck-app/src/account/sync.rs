@@ -310,7 +310,7 @@ impl Account {
                     None
                 };
                 if let Some(outcome) = applied.outcome {
-                    self.tell(super::notice::of(outcome), cx);
+                    Account::tell(super::notice::of(outcome), cx);
                 }
                 if applied.balance_changed {
                     self.refresh_trader(cx);
@@ -328,7 +328,7 @@ impl Account {
                 self.reversals
                     .cancel_related(error.position_id, error.order_id);
                 let reason = refusal(&error.error_code, error.description.as_deref());
-                self.tell(
+                Account::tell(
                     Notice::new(Tone::Error, "Order refused", reason.message)
                         .hint(reason.hint)
                         .details(match &error.description {
@@ -355,7 +355,7 @@ impl Account {
                 }
             }
             Event::MarginCallTriggered(_) => {
-                self.tell(
+                Account::tell(
                     Notice::new(
                         Tone::Warning,
                         "Margin call",

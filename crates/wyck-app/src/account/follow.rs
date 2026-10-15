@@ -129,7 +129,7 @@ impl Account {
                 Step::Keep => {}
                 Step::Release => {
                     self.following.released.insert(job.id);
-                    self.tell(
+                    Account::tell(
                         Notice::new(
                             Tone::Info,
                             "ATR following stopped",

@@ -40,7 +40,7 @@ impl Account {
                     this.busy.remove(&busy);
                     this.uncertain = true;
                     this.queue.clear();
-                    this.tell(
+                    Account::tell(
                         Notice::new(
                             Tone::Warning,
                             "No answer from the server",
@@ -90,7 +90,7 @@ impl Account {
                         if let Busy::Closing(id) = busy
                             && let Some(pending) = this.reversals.0.get(&id)
                         {
-                            this.watch_reverse(id, pending.started, cx);
+                            Account::watch_reverse(id, pending.started, cx);
                         }
                         if busy == Busy::Placing {
                             this.send_next(cx);
@@ -110,7 +110,7 @@ impl Account {
                             Busy::Cancelling(_) => "The order was not cancelled",
                             Busy::Amending(_) => "The change was not applied",
                         };
-                        this.tell(
+                        Account::tell(
                             Notice::new(Tone::Error, title, reason.message)
                                 .hint(reason.hint)
                                 .details(error.to_string()),
@@ -125,49 +125,45 @@ impl Account {
         .detach();
     }
 
+    /// Counts one more order sent today, for the daily limit of the safety settings.
+    fn count_sent(&mut self, now: i64) {
+        let today = self.zone.day(now);
+        if self.sent_today.0 != today {
+            self.sent_today = (today, 0);
+        }
+        self.sent_today.1 += 1;
+    }
+
     /// Sends a new order.
-    pub fn place(&mut self, order: NewOrderReq, cx: &mut Context<Self>) {
+    pub(crate) fn place(&mut self, order: NewOrderReq, cx: &mut Context<Self>) {
         self.place_with(order, false, cx);
     }
 
     /// Sends a new order. `one_click` says it was sent without a confirmation, which the safety
     /// limits treat more strictly. The order is refused when a hard limit says so, and dropped
     /// when it repeats the one just sent.
-    pub fn place_with(&mut self, mut order: NewOrderReq, one_click: bool, cx: &mut Context<Self>) {
+    pub(crate) fn place_with(
+        &mut self,
+        mut order: NewOrderReq,
+        one_click: bool,
+        cx: &mut Context<Self>,
+    ) {
         order.label.get_or_insert_with(|| "wyck".into());
         if let Err(error) = order.validate() {
-            self.tell(
-                Notice::new(Tone::Error, "The order is not complete", error.to_string()),
-                cx,
-            );
+            Account::tell(Notice::incomplete(&error), cx);
             return;
         }
         if let Verdict::Block(reason) = self.assess(&order, one_click) {
-            self.tell(
-                Notice::new(Tone::Warning, "Blocked by your safety settings", reason)
-                    .hint(Some("Change the limits in Settings, Safety.".to_owned())),
-                cx,
-            );
+            Account::tell(Notice::blocked(reason), cx);
             return;
         }
         let now = crate::market_data::now_ms();
         let fingerprint = fingerprint(&order);
         if self.busy.contains(&Busy::Placing) || self.duplicates.is_repeat(fingerprint, now) {
-            self.tell(
-                Notice::new(
-                    Tone::Info,
-                    "Order not sent again",
-                    "The same order was sent a moment ago.",
-                ),
-                cx,
-            );
+            Account::tell(Notice::repeated(), cx);
             return;
         }
-        let today = self.zone.day(now);
-        if self.sent_today.0 != today {
-            self.sent_today = (today, 0);
-        }
-        self.sent_today.1 += 1;
+        self.count_sent(now);
         self.trade(Busy::Placing, cx, move |trading| async move {
             trading.new_order(order).await
         });
@@ -210,19 +206,12 @@ impl Account {
         }
         for order in &orders {
             if let Err(error) = order.validate() {
-                self.tell(
-                    Notice::new(Tone::Error, "The order is not complete", error.to_string()),
-                    cx,
-                );
+                Account::tell(Notice::incomplete(&error), cx);
                 return;
             }
         }
         if let Verdict::Block(reason) = self.assess_batch(&orders, one_click) {
-            self.tell(
-                Notice::new(Tone::Warning, "Blocked by your safety settings", reason)
-                    .hint(Some("Change the limits in Settings, Safety.".to_owned())),
-                cx,
-            );
+            Account::tell(Notice::blocked(reason), cx);
             return;
         }
         let now = crate::market_data::now_ms();
@@ -230,21 +219,10 @@ impl Account {
             || !self.queue.is_empty()
             || self.duplicates.is_repeat(fingerprint(&orders[0]), now)
         {
-            self.tell(
-                Notice::new(
-                    Tone::Info,
-                    "Order not sent again",
-                    "The same order was sent a moment ago.",
-                ),
-                cx,
-            );
+            Account::tell(Notice::repeated(), cx);
             return;
         }
-        let today = self.zone.day(now);
-        if self.sent_today.0 != today {
-            self.sent_today = (today, 0);
-        }
-        self.sent_today.1 += 1;
+        self.count_sent(now);
         for mut order in orders {
             order.label.get_or_insert_with(|| "wyck".into());
             self.queue.push_back(order);
@@ -269,7 +247,7 @@ impl Account {
         let left = self.queue.len();
         self.queue.clear();
         if left > 0 {
-            self.tell(
+            Account::tell(
                 Notice::new(
                     Tone::Warning,
                     "The rest of the plan was not sent",
@@ -323,20 +301,7 @@ impl Account {
             && let Some(label) = position.trade_data.label.as_deref().and_then(Label::decode)
         {
             let pip = self.book.contract(position.trade_data.symbol_id).pip();
-            let open: Vec<Open> = self
-                .book
-                .positions
-                .values()
-                .filter_map(|p| {
-                    Some(Open {
-                        position: p.position_id,
-                        label: Label::decode(p.trade_data.label.as_deref()?)?,
-                        buy: p.trade_data.is_buy(),
-                        entry: p.price?,
-                        stop_loss: p.stop_loss,
-                    })
-                })
-                .collect();
+            let open: Vec<Open> = self.book.positions.values().filter_map(open_of).collect();
             for (id, stop) in plan::break_even_moves(&label, profit, &open, pip) {
                 let take_profit = self.book.positions.get(&id).and_then(|p| p.take_profit);
                 self.protect_position(id, Some(stop), take_profit, cx);
@@ -385,7 +350,7 @@ impl Account {
         for (id, rule, symbol) in due {
             self.time_stops.insert(id, Instant::now());
             let name = self.book.name(symbol);
-            self.tell(
+            Account::tell(
                 Notice::new(
                     Tone::Info,
                     "Time stop",
@@ -440,7 +405,7 @@ impl Account {
                 if cancels == 1 { "" } else { "s" }
             ));
         }
-        self.tell(
+        Account::tell(
             Notice::new(
                 Tone::Info,
                 "Plan caught up",
@@ -449,6 +414,18 @@ impl Account {
             cx,
         );
     }
+}
+
+/// A position as the break-even plans see it: only one this app opened (its label says so) and
+/// that has an entry price.
+fn open_of(p: &wyck_trading::Position) -> Option<wyck_trading::plan::Open> {
+    Some(wyck_trading::plan::Open {
+        position: p.position_id,
+        label: wyck_trading::plan::Label::decode(p.trade_data.label.as_deref()?)?,
+        buy: p.trade_data.is_buy(),
+        entry: p.price?,
+        stop_loss: p.stop_loss,
+    })
 }
 
 /// What the plans of the account missed while the app was away, read from the broker. It asks
@@ -537,18 +514,7 @@ pub(super) async fn missed_exits(
             *profits.entry(deal.position_id).or_default() += profit;
         }
     }
-    let open: Vec<Open> = positions
-        .iter()
-        .filter_map(|p| {
-            Some(Open {
-                position: p.position_id,
-                label: label_of(&p.trade_data.label)?,
-                buy: p.trade_data.is_buy(),
-                entry: p.price?,
-                stop_loss: p.stop_loss,
-            })
-        })
-        .collect();
+    let open: Vec<Open> = positions.iter().filter_map(open_of).collect();
     let working: Vec<(i64, Label, bool)> = orders
         .iter()
         .filter(|o| o.status() == Some(OrderStatus::Accepted))

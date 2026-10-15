@@ -10,7 +10,7 @@
 //! 1. Raise the `SCHEMA_VERSION` of the document's type.
 //! 2. Add the step for the old version to its plan below: a function when keys move or change
 //!    shape, [`Step::unchanged`] when the only news is a new field with a default.
-//! 3. Add a fixture of the old layout to `src/app/fixtures` and a test that reads it.
+//! 3. Add a fixture of the old layout to `src/fixtures` and a test that reads it.
 //!
 //! A test fails until step 2 is done, so a version cannot be raised and forgotten. A document
 //! written by a newer version is not read at all: see [`wyck_storage::migrate`].
@@ -27,7 +27,7 @@ use wyck_storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
 use wyck_storage::{AppPaths, DocumentStore};
 
 /// The layouts of the documents, one plan each.
-pub const PLANS: [Plan; 4] = [
+pub(crate) const PLANS: [Plan; 4] = [
     Plan {
         document: workspace::PREFERENCES,
         current: workspace::SCHEMA_VERSION,
@@ -66,6 +66,10 @@ pub const PLANS: [Plan; 4] = [
 
 /// Version 1 to 2 of the preferences: the account panel lost its settings (tabs, columns, filters,
 /// the look of the rows) and keeps the tab that was open. What it had is dropped.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the signature of a migration step, which can fail"
+)]
 fn trim_account_panel(table: &mut toml::Table) -> std::result::Result<(), StepError> {
     if let Some(panel) = table
         .get_mut("account_panel")
@@ -96,6 +100,10 @@ const LOOK_KEYS: [&str; 12] = [
 /// table. It is taken from the chart the user was working on (the first one with settings when that
 /// one has none), so the look they see stays the look they see. Before charts had a zone each, the
 /// preferences had one zone at the top: it is the zone when no chart says one.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the signature of a migration step, which can fail"
+)]
 fn lift_chart_look(table: &mut toml::Table) -> std::result::Result<(), StepError> {
     use toml::Value;
     let active = table
@@ -148,11 +156,11 @@ fn lift_chart_look(table: &mut toml::Table) -> std::result::Result<(), StepError
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Report {
     /// Documents brought to the current layout.
-    pub upgraded: usize,
+    pub(crate) upgraded: usize,
     /// Documents written by a newer version, set aside.
-    pub set_aside: usize,
+    pub(crate) set_aside: usize,
     /// Documents that could not be upgraded and were left as they are.
-    pub failed: usize,
+    pub(crate) failed: usize,
 }
 
 impl Report {

@@ -10,12 +10,12 @@
 //! the non-idempotency notes of [`crate::broker::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
-pub mod actions;
-pub mod follow;
-pub mod notice;
-pub mod orders;
-pub mod reverse;
-pub mod sync;
+pub(crate) mod actions;
+pub(crate) mod follow;
+pub(crate) mod notice;
+pub(crate) mod orders;
+pub(crate) mod reverse;
+pub(crate) mod sync;
 
 pub use self::notice::{Notice, NoticeAction, Reason, Tone, describe, explain, refusal};
 use crate::broker::session::Session;
@@ -49,7 +49,7 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(15);
 /// How long a time stop waits before it tries again to close a position it could not.
 const TIME_STOP_RETRY: Duration = Duration::from_secs(30);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Loading,
     Ready,
@@ -261,12 +261,12 @@ impl Account {
     }
 
     /// Writes an amount in the account's money.
-    pub fn money(&self, amount: f64) -> String {
+    pub(crate) fn money(&self, amount: f64) -> String {
         math::format_money(amount, &self.book.currency)
     }
 
     /// What the safety checks say about a new order.
-    pub fn assess(&self, order: &NewOrderReq, one_click: bool) -> Verdict {
+    pub(crate) fn assess(&self, order: &NewOrderReq, one_click: bool) -> Verdict {
         let contract = self.book.contract(order.symbol_id);
         let (bid, ask) = self.quote(order.symbol_id);
         let mid = math::mid(bid, ask);
@@ -374,7 +374,7 @@ impl Account {
         cx.notify();
     }
 
-    fn tell(&self, notice: Notice, cx: &mut Context<Self>) {
+    fn tell(notice: Notice, cx: &mut Context<Self>) {
         cx.emit(AccountEvent::Notice(notice));
     }
 }

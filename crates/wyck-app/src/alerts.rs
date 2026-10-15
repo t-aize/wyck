@@ -45,7 +45,7 @@ pub use self::model::{Alert, AlertBook};
 
 pub(crate) const DOCUMENT: &str = "alerts";
 /// The owner of the alerts' price subscriptions in the live hub.
-pub const ALERTS_OWNER: u64 = u64::MAX - 3;
+pub(crate) const ALERTS_OWNER: u64 = u64::MAX - 3;
 /// How often the bars an alert needs are read again.
 const POLL: Duration = Duration::from_secs(15);
 
@@ -61,17 +61,17 @@ pub enum AlertsEvent {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Profits {
     /// Everything open; `None` until the account is read.
-    pub account: Option<f64>,
+    pub(crate) account: Option<f64>,
     /// The sum of the positions of each symbol.
-    pub symbols: HashMap<i64, f64>,
+    pub(crate) symbols: HashMap<i64, f64>,
     /// Each open position.
-    pub positions: HashMap<i64, f64>,
+    pub(crate) positions: HashMap<i64, f64>,
 }
 
 impl Profits {
     /// The profit an alert follows. A symbol with nothing open makes nothing; a position that is
     /// closed has no profit to read, so its alert waits.
-    pub fn of(&self, scope: &model::source::PnlScope, symbol_id: i64) -> Option<f64> {
+    pub(crate) fn of(&self, scope: &model::source::PnlScope, symbol_id: i64) -> Option<f64> {
         match scope {
             model::source::PnlScope::Account => self.account,
             model::source::PnlScope::Symbol => self

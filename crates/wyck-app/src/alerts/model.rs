@@ -2,23 +2,25 @@
 //! (a level, a drawing, another indicator), the condition that fires it, how often it may fire,
 //! and when it stops. Saved per account, and old files (a price and a crossing) still load.
 
-pub mod condition;
+pub(crate) mod condition;
 pub mod source;
 
 use serde::{Deserialize, Serialize};
 
 use self::condition::{Condition, Trigger};
-use self::source::{PnlScope, Source, default_pip};
+#[cfg(test)]
+use self::source::PnlScope;
+use self::source::{Source, default_pip};
 use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub(crate) const SCHEMA_VERSION: u32 = 2;
 /// The firings kept for the history.
-pub const MAX_HISTORY: usize = 200;
+pub(crate) const MAX_HISTORY: usize = 200;
 
 /// One time an alert fired, for the history.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Firing {
-    pub alert: u64,
+    pub(crate) alert: u64,
     pub symbol: String,
     /// When, in Unix milliseconds.
     pub at: i64,
@@ -38,7 +40,7 @@ pub struct Firing {
     #[serde(default)]
     pub value: Option<f64>,
     #[serde(default)]
-    pub value_text: String,
+    pub(crate) value_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -86,7 +88,7 @@ pub struct Alert {
     pub sound: Option<super::sound::SoundKind>,
     /// Only for files that came before triggers: it repeats.
     #[serde(default, skip_serializing)]
-    pub repeat: bool,
+    pub(crate) repeat: bool,
     /// Whether it is watching.
     #[serde(default = "wyck_core::defaults::yes")]
     pub active: bool,
@@ -145,7 +147,8 @@ impl Alert {
 
     /// An alert on the spread of a symbol: it fires when the spread, in pips, meets the condition
     /// with `level`. `pip` is the size of a pip in price.
-    pub fn spread(
+    #[cfg(test)]
+    pub(crate) fn spread(
         id: u64,
         symbol_id: i64,
         symbol: &str,
@@ -162,7 +165,8 @@ impl Alert {
 
     /// An alert on a profit: it fires when the profit of `scope`, in the money of the account,
     /// meets the condition with `level`. `symbol_id` is 0 for the whole account.
-    pub fn pnl(
+    #[cfg(test)]
+    pub(crate) fn pnl(
         id: u64,
         symbol_id: i64,
         symbol: &str,
@@ -258,18 +262,18 @@ impl Alert {
     }
 
     /// A value of what the alert watches, written the way the alert writes its level.
-    pub fn value_text(&self, value: f64, digits: u32) -> String {
+    pub(crate) fn value_text(&self, value: f64, digits: u32) -> String {
         format!("{value:.*}", self.source.decimals(digits) as usize)
     }
 
     /// What the user is told when it fires, without a value.
     #[cfg(test)]
-    pub fn text(&self, digits: u32) -> String {
+    pub(crate) fn text(&self, digits: u32) -> String {
         self.render(None, digits)
     }
 
     /// The message with `{symbol}`, `{value}` and `{level}` replaced.
-    pub fn render(&self, value: Option<f64>, digits: u32) -> String {
+    pub(crate) fn render(&self, value: Option<f64>, digits: u32) -> String {
         if self.message.trim().is_empty() {
             return self.describe(digits);
         }
@@ -290,9 +294,9 @@ fn trim_number(value: f64) -> String {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AlertBook {
     #[serde(default = "schema_version")]
-    pub schema_version: u32,
+    pub(crate) schema_version: u32,
     #[serde(default = "first_id")]
-    pub next_id: u64,
+    pub(crate) next_id: u64,
     #[serde(default)]
     pub alerts: Vec<Alert>,
     /// The latest firings, newest first.
@@ -323,7 +327,7 @@ impl AlertBook {
     /// The book repaired: prices that are not prices dropped, ids made unique, alerts of the old
     /// files that repeat given the trigger that says so.
     #[must_use]
-    pub fn normalized(mut self) -> Self {
+    pub(crate) fn normalized(mut self) -> Self {
         self.schema_version = SCHEMA_VERSION;
         self.alerts.retain(|a| {
             (a.symbol_id > 0 || !a.source.has_symbol())
@@ -384,7 +388,7 @@ impl AlertBook {
     }
 
     #[cfg(test)]
-    pub fn add(
+    pub(crate) fn add(
         &mut self,
         symbol_id: i64,
         symbol: &str,
@@ -446,7 +450,7 @@ impl AlertBook {
     }
 
     /// The symbols with an active alert.
-    pub fn watched(&self) -> Vec<i64> {
+    pub(crate) fn watched(&self) -> Vec<i64> {
         let mut ids: Vec<i64> = self
             .alerts
             .iter()
@@ -461,7 +465,7 @@ impl AlertBook {
 
     /// Records that an alert fired: when, how many times, and in the history. A one-time alert
     /// stops watching. Returns the alert as it is now.
-    pub fn fire(
+    pub(crate) fn fire(
         &mut self,
         id: u64,
         text: String,
@@ -493,7 +497,7 @@ impl AlertBook {
     }
 
     /// Turns off the alerts whose time is up. Returns their ids.
-    pub fn expire(&mut self, now_ms: i64) -> Vec<u64> {
+    pub(crate) fn expire(&mut self, now_ms: i64) -> Vec<u64> {
         let mut gone = Vec::new();
         for alert in &mut self.alerts {
             if alert.active && alert.is_expired(now_ms) {

@@ -1,7 +1,7 @@
-//! The one door from the screens to the broker connection.
+//! The one door from the screens to the broker connection (`wyck-ctrader`).
 //!
-//! Screens do not name `infra` directly: they take the connection types from here. Where the
-//! connection types become plain domain types (market data, orders, positions) they come from
-//! `domain` instead.
+//! Screens take the connection types from here and never name the crate. Where the connection
+//! types are plain domain types (market data, orders, positions) they come from `wyck-market` and
+//! `wyck-trading` instead.
 
 pub use wyck_ctrader::*;

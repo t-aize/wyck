@@ -66,7 +66,7 @@ impl Condition {
     /// Whether a move from `before` to `now` crosses `price` the way this condition asks. Only
     /// for the crossings.
     #[cfg(test)]
-    pub fn crossed(self, before: f64, now: f64, price: f64) -> bool {
+    pub(crate) fn crossed(self, before: f64, now: f64, price: f64) -> bool {
         let up = before < price && now >= price;
         let down = before > price && now <= price;
         match self {

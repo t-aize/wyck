@@ -44,7 +44,7 @@ struct Service {
     revision: u64,
     /// The indicators that were renamed, so a chart that holds one follows it.
     renames: Vec<(String, String)>,
-    _poll: Option<Task<()>>,
+    _poll: Task<()>,
 }
 
 impl Global for Service {}
@@ -85,6 +85,8 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
     }
     library.refresh();
     library.publish();
+    // The task waits one `POLL` before it looks for the service, which exists by then.
+    let poll = start_polling(cx);
     cx.set_global(Service {
         dir: library.dir().to_path_buf(),
         library: Arc::new(Mutex::new(library)),
@@ -93,9 +95,8 @@ pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
         store,
         revision: 0,
         renames: Vec::new(),
-        _poll: None,
+        _poll: poll,
     });
-    start_polling(cx);
 }
 
 /// Remove only the Examples folder directly inside the active indicators directory.
@@ -119,8 +120,8 @@ fn remove_examples_folder(dir: &Path) -> std::io::Result<()> {
     std::fs::remove_dir_all(target)
 }
 
-fn start_polling(cx: &mut App) {
-    let task = cx.spawn(async move |cx| {
+fn start_polling(cx: &mut App) -> Task<()> {
+    cx.spawn(async move |cx| {
         loop {
             cx.background_executor().timer(POLL).await;
             let reload = cx.update(|cx| {
@@ -142,10 +143,7 @@ fn start_polling(cx: &mut App) {
                 cx.update(|cx| publish(entries, cx));
             }
         }
-    });
-    if cx.has_global::<Service>() {
-        cx.global_mut::<Service>()._poll = Some(task);
-    }
+    })
 }
 
 /// Publishes what a read found, and tells the app when it changed.

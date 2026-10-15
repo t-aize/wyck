@@ -219,14 +219,14 @@ impl Slot for Line {
 }
 
 /// One entry of an ordered list of slots.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Placed<T> {
     pub item: T,
     pub shown: bool,
 }
 
 /// The default list: every slot, in order, shown or not as it is by default.
-pub fn default_list<T: Slot>() -> Vec<Placed<T>> {
+pub(crate) fn default_list<T: Slot>() -> Vec<Placed<T>> {
     T::ALL
         .iter()
         .map(|item| Placed {
@@ -238,7 +238,7 @@ pub fn default_list<T: Slot>() -> Vec<Placed<T>> {
 
 /// A list put back in shape: each slot once, in the order given, and the slots a file did not
 /// know (added by a later version) at the end, as they are by default.
-pub fn mend<T: Slot>(list: &mut Vec<Placed<T>>) {
+pub(crate) fn mend<T: Slot>(list: &mut Vec<Placed<T>>) {
     let mut seen: Vec<T> = Vec::new();
     list.retain(|placed| {
         if seen.contains(&placed.item) {
@@ -275,15 +275,15 @@ pub fn shift<T>(list: &mut [Placed<T>], index: usize, delta: isize) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Presets {
-    pub lots: Vec<f64>,
-    pub units: Vec<f64>,
-    pub risk_percent: Vec<f64>,
-    pub risk_money: Vec<f64>,
-    pub free_margin: Vec<f64>,
+    pub(crate) lots: Vec<f64>,
+    pub(crate) units: Vec<f64>,
+    pub(crate) risk_percent: Vec<f64>,
+    pub(crate) risk_money: Vec<f64>,
+    pub(crate) free_margin: Vec<f64>,
 }
 
 /// The most shortcuts a row holds.
-pub const MAX_PRESETS: usize = 6;
+pub(crate) const MAX_PRESETS: usize = 6;
 
 impl Default for Presets {
     fn default() -> Self {

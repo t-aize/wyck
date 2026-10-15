@@ -21,9 +21,9 @@ use wyck_storage::scripts::{ScriptFile, ScriptStore};
 
 // The rules of the folder (the extension, the limits, which names are allowed) are owned by
 // `wyck_storage`, the same ones the backup and the settings folder use.
-/// The extension of an indicator file, the biggest script kept (in bytes), the most indicators a
-/// library holds and how many folders deep it looks.
-pub use wyck_storage::scripts::{EXTENSION, MAX_DEPTH, MAX_FILE_BYTES, MAX_SCRIPTS};
+/// The extension of an indicator file, the biggest script kept (in bytes) and the most indicators a
+/// library holds.
+pub(crate) use wyck_storage::scripts::{EXTENSION, MAX_FILE_BYTES, MAX_SCRIPTS};
 
 /// The folder a deleted indicator goes to, inside the library's own.
 const TRASH: &str = wyck_storage::scripts::TRASH;
@@ -70,41 +70,30 @@ fn io_error(path: &Path) -> impl FnOnce(std::io::Error) -> LibraryError + '_ {
 }
 
 /// One part of an id: a file or folder name. Letters, digits, spaces and `- _ . ( ) % + , &`.
-pub fn clean_part(name: &str) -> Result<String, LibraryError> {
+pub(crate) fn clean_part(name: &str) -> Result<String, LibraryError> {
     wyck_storage::scripts::clean_part(name).map_err(LibraryError::from)
 }
 
-/// A whole id (`folder/name`), every part checked, at most [`MAX_DEPTH`] folders deep.
-pub fn clean_id(id: &str) -> Result<String, LibraryError> {
+/// A whole id (`folder/name`), every part checked, at most `wyck_storage::scripts::MAX_DEPTH` folders deep.
+pub(crate) fn clean_id(id: &str) -> Result<String, LibraryError> {
     wyck_storage::scripts::clean_id(id).map_err(LibraryError::from)
 }
 
 /// Reads and compiles one file.
 fn load(id: &str, path: &Path, len: u64) -> Entry {
+    // A file that cannot be used is an entry with one problem and no text, so the editor says why.
+    let unusable = |message: String| {
+        Entry::broken(id, path, Arc::from(""), vec![Problem::error(0, 0, message)])
+    };
     if len > MAX_FILE_BYTES {
-        return Entry::broken(
-            id,
-            path,
-            Arc::from(""),
-            vec![Problem::error(
-                0,
-                0,
-                format!("the file is bigger than {} KB", MAX_FILE_BYTES / 1024),
-            )],
-        );
+        return unusable(format!(
+            "the file is bigger than {} KB",
+            MAX_FILE_BYTES / 1024
+        ));
     }
     match std::fs::read_to_string(path) {
         Ok(text) => Entry::compile(id, path, text),
-        Err(error) => Entry::broken(
-            id,
-            path,
-            Arc::from(""),
-            vec![Problem::error(
-                0,
-                0,
-                format!("the file cannot be read: {error}"),
-            )],
-        ),
+        Err(error) => unusable(format!("the file cannot be read: {error}")),
     }
 }
 
@@ -118,13 +107,13 @@ fn scan(root: &Path) -> Vec<Found> {
 /// What a read of the folder changed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Changes {
-    pub added: Vec<String>,
-    pub changed: Vec<String>,
-    pub removed: Vec<String>,
+    pub(crate) added: Vec<String>,
+    pub(crate) changed: Vec<String>,
+    pub(crate) removed: Vec<String>,
 }
 
 impl Changes {
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.added.is_empty() && self.changed.is_empty() && self.removed.is_empty()
     }
 }
@@ -168,19 +157,19 @@ pub struct Library {
 }
 
 impl Library {
-    pub fn new(dir: impl Into<PathBuf>) -> Self {
+    pub(crate) fn new(dir: impl Into<PathBuf>) -> Self {
         Self {
             dir: dir.into(),
             known: BTreeMap::new(),
         }
     }
 
-    pub fn dir(&self) -> &Path {
+    pub(crate) fn dir(&self) -> &Path {
         &self.dir
     }
 
     /// Reads another folder from now on.
-    pub fn set_dir(&mut self, dir: impl Into<PathBuf>) {
+    pub(crate) fn set_dir(&mut self, dir: impl Into<PathBuf>) {
         self.dir = dir.into();
         self.known.clear();
     }
@@ -190,27 +179,27 @@ impl Library {
     /// # Errors
     ///
     /// When the folder cannot be made.
-    pub fn ensure_dir(&self) -> Result<(), LibraryError> {
+    pub(crate) fn ensure_dir(&self) -> Result<(), LibraryError> {
         std::fs::create_dir_all(&self.dir).map_err(io_error(&self.dir))
     }
 
     /// Every indicator read so far, by id.
-    pub fn entries(&self) -> Vec<Arc<Entry>> {
+    pub(crate) fn entries(&self) -> Vec<Arc<Entry>> {
         self.known.values().map(|k| k.entry.clone()).collect()
     }
 
-    pub fn get(&self, id: &str) -> Option<Arc<Entry>> {
+    pub(crate) fn get(&self, id: &str) -> Option<Arc<Entry>> {
         self.known.get(id).map(|k| k.entry.clone())
     }
 
     /// Where the file of `id` is (or would be).
-    pub fn path_of(&self, id: &str) -> PathBuf {
+    pub(crate) fn path_of(&self, id: &str) -> PathBuf {
         ScriptStore::new(&self.dir).path_of(id)
     }
 
     /// Reads the folder again: files that are new or edited are compiled, files that are gone
     /// are forgotten, the others are left as they are.
-    pub fn refresh(&mut self) -> Changes {
+    pub(crate) fn refresh(&mut self) -> Changes {
         let mut changes = Changes::default();
         let mut previous = std::mem::take(&mut self.known);
         let mut next = BTreeMap::new();
@@ -251,7 +240,7 @@ impl Library {
     }
 
     /// Publishes what was read.
-    pub fn publish(&self) -> bool {
+    pub(crate) fn publish(&self) -> bool {
         registry::install(self.entries())
     }
 
@@ -333,7 +322,7 @@ impl Library {
     /// # Errors
     ///
     /// When `id` is unknown, the name is taken or not allowed, or the file cannot be moved.
-    pub fn rename(&mut self, id: &str, new_name: &str) -> Result<String, LibraryError> {
+    pub(crate) fn rename(&mut self, id: &str, new_name: &str) -> Result<String, LibraryError> {
         if !self.known.contains_key(id) {
             return Err(LibraryError::Missing(id.to_owned()));
         }

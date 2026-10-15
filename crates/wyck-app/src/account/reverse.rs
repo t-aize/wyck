@@ -99,12 +99,7 @@ impl ReverseTracker {
 }
 
 impl Account {
-    pub(super) fn watch_reverse(
-        &mut self,
-        position_id: i64,
-        started: Instant,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn watch_reverse(position_id: i64, started: Instant, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(REVERSE_RECHECK).await;
             let _ = this.update(cx, |this, cx| {
@@ -126,7 +121,7 @@ impl Account {
                     .is_some_and(|pending| pending.started == started)
                 {
                     this.reversals.0.remove(&position_id);
-                    this.tell(
+                    Account::tell(
                         Notice::new(
                             Tone::Warning,
                             "Reverse stopped",
@@ -158,7 +153,7 @@ impl Account {
         if let Verdict::Block(reason) =
             self.assess(&NewOrderReq::market(symbol, side, volume), false)
         {
-            self.tell(
+            Account::tell(
                 Notice::new(
                     Tone::Warning,
                     "Reverse blocked by your safety settings",

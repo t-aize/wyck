@@ -5,7 +5,7 @@
 //! The data lives in TOML documents managed by [`wyck_storage::DocumentStore`]; this module owns
 //! their shape. Two rules keep old files working: every field has a default, so a file from an
 //! older version (or a hand-edited one) still loads, and everything read is checked and repaired
-//! by [`Preferences::normalized`], so a value this version does not know (a timeframe that was
+//! by `Preferences::normalized`, so a value this version does not know (a timeframe that was
 //! removed, a layout that no longer exists) becomes a sane default instead of an error.
 //!
 //! - `preferences` is global, shared by every account.
@@ -13,7 +13,7 @@
 //!
 //! [`Workspace`] is the live copy, a gpui entity: views read it, change it through
 //! [`Workspace::edit_preferences`] and [`Workspace::edit_watchlists`], and are told when it
-//! changed. Each change is saved a moment later (see [`saver`]) and once more on exit.
+//! changed. Each change is saved a moment later (see `saver`) and once more on exit.
 
 pub mod layouts;
 mod preferences;
@@ -31,7 +31,7 @@ pub(crate) const WATCHLISTS: &str = "watchlists";
 #[derive(Clone)]
 pub struct Documents {
     /// Shared by every account.
-    pub global: DocumentStore,
+    pub(crate) global: DocumentStore,
     /// Private to the account in use.
     pub account: DocumentStore,
 }

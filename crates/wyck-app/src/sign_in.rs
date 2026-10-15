@@ -10,7 +10,7 @@
 pub mod config;
 mod consent;
 pub mod rules;
-pub mod state;
+pub(crate) mod state;
 
 use std::sync::Arc;
 
@@ -153,11 +153,6 @@ impl SignIn {
         }
     }
 
-    /// The configuration, for what else the shell keeps in it.
-    pub fn config(&self) -> &WyckConfig {
-        &self.config
-    }
-
     /// The state to show.
     pub fn state(&self) -> &SignInState {
         &self.state
@@ -261,7 +256,10 @@ impl SignIn {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the parts of the `Connection` it builds, one per field"
+    )]
     fn connection(
         &self,
         profile_id: Option<ProfileId>,
@@ -412,7 +410,10 @@ impl SignIn {
         }));
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "what the sign-in flow learned, handed over once, by its single caller"
+    )]
     fn finish(
         &mut self,
         credentials: ClientCredentials,
