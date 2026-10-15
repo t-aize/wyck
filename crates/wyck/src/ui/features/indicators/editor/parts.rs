@@ -13,7 +13,7 @@ use super::{
     AddToChart, Ask, CONTEXT, CloseTab, ConsoleTab, EditorEvent, IndicatorEditor, NextProblem,
     NextTab, PreviousProblem, PreviousTab, ResizeDrag, ResizeSide, SaveScript, ToggleReference,
 };
-use crate::app::scripts as indicators;
+use wyck_app::scripts as indicators;
 use wyck_drawings::model::tool::Tool;
 use wyck_indicators::custom::docs;
 use wyck_indicators::custom::docs::Group;
@@ -467,7 +467,7 @@ impl Render for IndicatorEditor {
             .flex()
             .flex_col()
             .bg(theme::bg())
-            .font_family(crate::app::appearance::font(cx))
+            .font_family(wyck_app::appearance::font(cx))
             .text_size(px(tokens::text::body()))
             .text_color(theme::fg())
             .child(toolbar)

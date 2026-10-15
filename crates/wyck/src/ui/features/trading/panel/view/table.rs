@@ -1,7 +1,6 @@
 //! The table: its header, its rows with their two buttons, and the line of totals.
 
 use super::{Action, ask, tone_color};
-use crate::app::prefs::panel::Tab;
 use crate::ui::features::trading::panel::data::{Column, Row, RowKind, Table};
 use crate::ui::features::trading::panel::dialogs::alert_editor::open_alert;
 use crate::ui::features::trading::panel::dialogs::{Target, open_protection};
@@ -9,6 +8,7 @@ use crate::ui::features::trading::panel::{AccountPanel, PanelEvent};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, MouseButton, Role, SharedString, div, px};
 use std::rc::Rc;
+use wyck_app::prefs::panel::Tab;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::{button, icon, theme, tokens};

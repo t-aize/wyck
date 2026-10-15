@@ -3,7 +3,6 @@
 // The interface modules are public for now and document private helpers.
 #![allow(rustdoc::private_intra_doc_links)]
 
-pub mod app;
 #[cfg(test)]
 mod keymap_guard;
 #[cfg(test)]
@@ -16,11 +15,11 @@ use gpui::prelude::*;
 use gpui::{App, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_kit::component::Root;
 
-use app::appearance;
-use app::scripts;
-use app::updates;
 use ui::features::indicators;
 use ui::shell::app_view::AppView;
+use wyck_app::appearance;
+use wyck_app::scripts;
+use wyck_app::updates;
 use wyck_platform::build_info::{self, BuildMode};
 use wyck_platform::logging;
 use wyck_ui_kit::assets;
@@ -37,9 +36,9 @@ pub fn run() {
     // `wyck_storage` and `wyck_ctrader` emit (and the app's own) go to stderr and to a log
     // file, and a panic leaves a report next to it. The library only emits events, it never
     // installs a subscriber itself.
-    let logs = app_paths().map(|paths| paths.logs_dir());
+    let logs = wyck_app::app_paths().map(|paths| paths.logs_dir());
     logging::init(logs);
-    app::locations::log_startup();
+    wyck_app::locations::log_startup();
     if let Some(dir) = logs {
         logging::install_panic_hook(dir.to_path_buf());
     } else {
@@ -54,7 +53,7 @@ pub fn run() {
             cx.on_app_quit(|_| async { logging::flush() }).detach();
             updates::init(cx);
             // The saved look is in force before a window opens, so the first frame is the right one.
-            match app_paths() {
+            match wyck_app::app_paths() {
                 Some(paths) => {
                     // A reset or an import the user asked for waits for this moment, before
                     // anything reads the documents it replaces.
@@ -68,7 +67,7 @@ pub fn run() {
                     }
                     // Documents saved by an older version are brought to this one now, whatever
                     // the distance, before anything reads them.
-                    let migrated = app::migrations::run(paths);
+                    let migrated = wyck_app::migrations::run(paths);
                     if !migrated.is_empty() {
                         tracing::info!(?migrated, "brought the saved documents to this version");
                     }
@@ -170,14 +169,4 @@ fn keep_a_daily_copy(paths: &'static wyck_storage::AppPaths, cx: &mut App) {
             }
         })
         .detach();
-}
-
-/// The folders of the app, resolved once: `None` when the system gives it none. Everything that
-/// needs a path of the app asks here, so there is one answer for the whole run.
-///
-/// The first call also makes the move of folders the user asked for (it has to be done before
-/// anything reads a document), which is why the first call is the first thing `run` does.
-fn app_paths() -> Option<&'static wyck_storage::AppPaths> {
-    static PATHS: std::sync::OnceLock<Option<wyck_storage::AppPaths>> = std::sync::OnceLock::new();
-    PATHS.get_or_init(app::locations::prepare).as_ref()
 }

@@ -1,11 +1,11 @@
 //! How the alert editor is drawn.
 
 use super::alert_editor::{AlertEditor, watchable};
-use crate::app::alerts::model::source::{PnlScope, PriceKind};
-use crate::app::alerts::sound::SoundKind;
-use crate::app::alerts::{Condition, Source, Trigger};
 use gpui::prelude::*;
 use gpui::{Context, Window, div, px};
+use wyck_app::alerts::model::source::{PnlScope, PriceKind};
+use wyck_app::alerts::sound::SoundKind;
+use wyck_app::alerts::{Condition, Source, Trigger};
 use wyck_indicators::config::StudyConfig;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::menu::{Entry, Item};

@@ -4,9 +4,9 @@ use super::{
     AnyElement, App, Context, Entity, IconName, SettingsHub, Workspace, button, controls, div,
     form, px, theme, toast, tokens,
 };
-use crate::app::alerts::sound;
-use crate::app::alerts::sound::SoundKind;
 use gpui::prelude::*;
+use wyck_app::alerts::sound;
+use wyck_app::alerts::sound::SoundKind;
 use wyck_ui_kit::prelude::Disableable;
 
 /// The volumes offered, in percent.
@@ -198,7 +198,7 @@ fn choose_file(workspace: Entity<Workspace>, cx: &mut App) {
         let Some(path) = paths.into_iter().next() else {
             return;
         };
-        let kept = sound::keep_copy(crate::app_paths(), &path);
+        let kept = sound::keep_copy(wyck_app::app_paths(), &path);
         cx.update(|cx| match kept {
             Ok(copy) => {
                 let shown = copy.display().to_string();

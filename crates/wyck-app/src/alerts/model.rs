@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use self::condition::{Condition, Trigger};
 use self::source::{PnlScope, Source, default_pip};
-use crate::app::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
+use crate::workspace::MAX_SAVED_ALERTS as MAX_ALERTS;
 
 pub const SCHEMA_VERSION: u32 = 2;
 /// The firings kept for the history.
@@ -398,7 +398,7 @@ impl AlertBook {
             price,
             condition,
             now_ms,
-            crate::app::workspace::DEFAULT_SAVED_ALERTS,
+            crate::workspace::DEFAULT_SAVED_ALERTS,
         )
     }
 

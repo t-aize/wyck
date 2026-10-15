@@ -12,12 +12,12 @@ pub mod output;
 pub mod pages;
 
 use super::Chart;
-use crate::app::chart_export as store;
-use crate::app::chart_export::Saved;
-use crate::app::storage::DocumentStore;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, Subscription, Window, div, px};
 use std::collections::BTreeMap;
+use wyck_app::chart_export as store;
+use wyck_app::chart_export::Saved;
+use wyck_app::storage::DocumentStore;
 use wyck_chart::ColumnKey;
 use wyck_chart::Display;
 use wyck_chart::ExportOptions;
@@ -107,7 +107,7 @@ impl Snapshot {
             display: chart.display.clone(),
             settings: chart.settings.clone(),
             visible: chart.view.visible(shown, plot_w),
-            now_ms: crate::app::market_data::now_ms(),
+            now_ms: wyck_app::market_data::now_ms(),
         }
     }
 

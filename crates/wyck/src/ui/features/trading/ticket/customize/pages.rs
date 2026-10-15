@@ -1,9 +1,9 @@
 //! The pages of the ticket customizer: the panel, the blocks, the shortcuts and the defaults.
 
 use super::{Customizer, PRESET_MODES};
-use crate::app::prefs::ticket::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div, px};
+use wyck_app::prefs::ticket::{Density, Dock, Kind, Layout, Placed, Slot, Span, Tif, shift};
 use wyck_ui_kit::field;
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Disableable;

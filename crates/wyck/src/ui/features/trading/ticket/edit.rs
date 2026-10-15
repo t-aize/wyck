@@ -2,8 +2,8 @@
 
 use super::helpers::{nice, offset_kind, side_of, size_kind};
 use super::{Kind, OrderTicket, TicketEvent};
-use crate::app::account::Busy;
 use gpui::{Context, Window};
+use wyck_app::account::Busy;
 use wyck_trading::math;
 use wyck_trading::math::{Offset, SizeMode};
 use wyck_ui_kit::number;

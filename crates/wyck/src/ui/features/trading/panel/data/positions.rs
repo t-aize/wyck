@@ -5,8 +5,8 @@ use super::{
     side_cell,
 };
 
-use crate::app::account::Busy;
-use crate::app::prefs::panel::Tab;
+use wyck_app::account::Busy;
+use wyck_app::prefs::panel::Tab;
 use wyck_trading::math;
 
 /// The profit of a position, or a wait while the quote it depends on has not come.

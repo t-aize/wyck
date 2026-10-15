@@ -2,7 +2,7 @@
 
 use super::{Account, Busy, Notice, REVERSE_FINAL_WAIT, REVERSE_RECHECK, Tone};
 
-use crate::app::broker::trading::NewOrderReq;
+use crate::broker::trading::NewOrderReq;
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;

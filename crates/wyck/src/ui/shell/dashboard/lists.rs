@@ -2,7 +2,7 @@
 //! the star on each symbol, the panel in the details sheet that puts a symbol in lists, and the
 //! small editor that names a new list or renames one.
 //!
-//! The lists themselves live in the [`Workspace`](crate::app::workspace::Workspace), which saves
+//! The lists themselves live in the [`Workspace`](wyck_app::workspace::Workspace), which saves
 //! them; this file only shows them and turns clicks into edits of them.
 
 use gpui::prelude::*;
@@ -13,7 +13,7 @@ use gpui::{
 use wyck_ui_kit::icon::IconName;
 
 use super::Dashboard;
-use crate::app::workspace::{NameError, Watchlists};
+use wyck_app::workspace::{NameError, Watchlists};
 use wyck_ui_kit::{button, controls, icon, text_input::TextInput, theme, tokens};
 
 /// Which symbols the picker is limited to, besides the asset class and the search.

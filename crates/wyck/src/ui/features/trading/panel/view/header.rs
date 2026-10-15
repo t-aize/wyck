@@ -1,11 +1,11 @@
 //! The header of the panel: the tabs and the figures of the account.
 
 use super::tone_color;
-use crate::app::prefs::panel::Tab;
 use crate::ui::features::trading::panel::AccountPanel;
 use crate::ui::features::trading::panel::data::Tone;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, FontWeight, Role, SharedString, div, px};
+use wyck_app::prefs::panel::Tab;
 use wyck_core::format::grouped;
 use wyck_trading::math::format_amount;
 use wyck_ui_kit::prelude::StyledExt as _;

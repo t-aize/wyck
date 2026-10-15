@@ -6,7 +6,7 @@
 //! ticket's pending prices show as lines ([`lines`] builds them); dragging one moves what it
 //! stands for.
 
-pub use crate::app::account;
+pub use wyck_app::account;
 pub use wyck_trading::book;
 use wyck_trading::math;
 pub mod panel;
@@ -14,8 +14,8 @@ pub mod ticket;
 
 use std::collections::HashMap;
 
-use crate::app::alerts::AlertBook;
 use crate::ui::features::chart::{ChartLine, LineId};
+use wyck_app::alerts::AlertBook;
 use wyck_drawings::model::style::Dash;
 
 use self::book::AccountBook;
@@ -152,7 +152,7 @@ pub fn lines(
     for alert in alerts.alerts.iter().filter(|a| {
         a.active
             && a.versus.is_none()
-            && matches!(a.source, crate::app::alerts::Source::Price { .. })
+            && matches!(a.source, wyck_app::alerts::Source::Price { .. })
             && a.condition.needs_level()
     }) {
         out.entry(alert.symbol_id).or_default().push(line(
@@ -171,8 +171,8 @@ pub fn lines(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::alerts::Condition;
     use serde_json::json;
+    use wyck_app::alerts::Condition;
     use wyck_trading::{Order, Position};
 
     #[test]
@@ -198,7 +198,14 @@ mod tests {
         .unwrap();
         book.reconcile(vec![position], vec![order]);
         let mut alerts = AlertBook::default();
-        alerts.add(1, "EURUSD", 1.1200, Condition::Crossing, 0);
+        alerts.add_with_limit(
+            1,
+            "EURUSD",
+            1.1200,
+            Condition::Crossing,
+            0,
+            wyck_app::workspace::DEFAULT_SAVED_ALERTS,
+        );
         let lines = lines(&book, &alerts, &|_| Some(-12.5), "USD");
 
         let first = &lines[&1];

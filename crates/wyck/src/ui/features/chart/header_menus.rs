@@ -10,7 +10,7 @@ use wyck_ui_kit::icon::IconName;
 use super::overlay::{KIND_SECTIONS, kind_icon};
 use super::study::catalog::{self, Source};
 use super::{Chart, indicator_picker};
-use crate::app::scripts as indicators;
+use wyck_app::scripts as indicators;
 use wyck_ui_kit::menu::{self, Entry, Item, Menu, Section};
 
 /// How many starred and recent indicators the quick menu lists.

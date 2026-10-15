@@ -12,7 +12,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
-use crate::app::broker::session::Session;
+use crate::broker::session::Session;
 use tokio::sync::watch;
 use wyck_market::{Bar, Period, SpotEvent};
 

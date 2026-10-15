@@ -2,9 +2,9 @@
 
 use super::helpers::{side_of, slippage_points, stop_limit_price};
 use super::{Kind, OrderTicket, Plan, Tif, problem};
-use crate::app::broker::trading::NewOrderReq;
-use crate::app::market_data::now_ms;
 use gpui::{App, Context, SharedString, Window};
+use wyck_app::broker::trading::NewOrderReq;
+use wyck_app::market_data::now_ms;
 use wyck_trading::NewOrderType;
 use wyck_trading::follow::AtrFollow;
 use wyck_trading::guard::Verdict;

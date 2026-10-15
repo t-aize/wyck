@@ -15,12 +15,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use crate::app::storage::locations::Kind;
-use crate::app::storage::{AppPaths, DocumentStore};
+use crate::storage::locations::Kind;
+use crate::storage::{AppPaths, DocumentStore};
 use gpui::{App, BorrowAppContext as _, Global, Task};
 
-use crate::app::prefs::indicators::{DOCUMENT, Prefs};
-use crate::app::scripts::folder::{Changes, Library, LibraryError};
+use crate::prefs::indicators::{DOCUMENT, Prefs};
+use crate::scripts::folder::{Changes, Library, LibraryError};
 use wyck_indicators::custom::{Limits, library};
 
 pub mod folder;
@@ -54,7 +54,7 @@ impl Global for Service {}
 /// `paths` is `None` when the settings folder cannot be found: the indicators then live in a
 /// temporary folder and nothing is remembered.
 pub fn init(paths: Option<&AppPaths>, cx: &mut App) {
-    // The folder is a choice of this computer (see `crate::app::locations`), already in `paths`.
+    // The folder is a choice of this computer (see `crate::locations`), already in `paths`.
     let (default_dir, dir, store) = match paths {
         Some(paths) => (
             paths.standard_dir(Kind::Indicators).to_path_buf(),
@@ -231,14 +231,11 @@ pub fn update_prefs(cx: &mut App, change: impl FnOnce(&mut Prefs)) {
 /// # Errors
 ///
 /// A folder that cannot be used, or a choice that cannot be saved. Nothing changes then.
-pub fn set_folder(
-    cx: &mut App,
-    dir: Option<&Path>,
-) -> Result<(), crate::app::locations::FolderError> {
+pub fn set_folder(cx: &mut App, dir: Option<&Path>) -> Result<(), crate::locations::FolderError> {
     if !cx.has_global::<Service>() {
         return Ok(());
     }
-    let dir = crate::app::locations::set_indicators_folder(dir)?;
+    let dir = crate::locations::set_indicators_folder(dir)?;
     cx.update_global::<Service, _>(|service, _| {
         service.dir.clone_from(&dir);
         service.revision += 1;

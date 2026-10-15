@@ -27,8 +27,8 @@ use super::catalog::{Class, Entry};
 use super::details::{self, Detail};
 use super::lists::{self, ListEditor, Scope};
 use super::{Dashboard, Load, PickerConfirm, PickerDown, PickerPageDown, PickerPageUp, PickerUp};
-use crate::app::broker::Error as ApiError;
-use crate::app::system::runtime;
+use wyck_app::broker::Error as ApiError;
+use wyck_app::system::runtime;
 use wyck_ui_kit::{anim, button, icon, text_input::TextInput, theme, tokens};
 
 /// The width of the symbol picker.

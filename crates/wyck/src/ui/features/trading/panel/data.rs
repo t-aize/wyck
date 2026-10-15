@@ -9,9 +9,9 @@ pub mod exposure;
 pub mod orders;
 pub mod positions;
 
-use crate::app::account::Account;
-use crate::app::alerts::Alerts;
-use crate::app::prefs::panel::Tab;
+use wyck_app::account::Account;
+use wyck_app::alerts::Alerts;
+use wyck_app::prefs::panel::Tab;
 use wyck_chart::Zone;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, format_amount};

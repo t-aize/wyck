@@ -3,8 +3,8 @@
 pub mod watchlists;
 
 use super::layouts::{self, LayoutKey};
-use crate::app::prefs::panel::PanelPrefs;
-use crate::app::prefs::ticket::TicketPrefs;
+use crate::prefs::panel::PanelPrefs;
+use crate::prefs::ticket::TicketPrefs;
 use serde::{Deserialize, Serialize};
 use wyck_chart::{ChartContent, ChartKind, ChartLook, ChartSettings};
 use wyck_chart::{DEFAULT_STUDIES_LIMIT, MAX_STUDIES};
@@ -224,7 +224,7 @@ pub struct Preferences {
     pub risk: RiskPrefs,
     /// The sound and the desktop notification of an alert that fires.
     #[serde(default)]
-    pub alert_output: crate::app::alerts::sound::Output,
+    pub alert_output: crate::alerts::sound::Output,
     /// The drawing tools pinned in the bar of favorites, by code, in the order they show.
     #[serde(default = "default_favorite_tools")]
     pub favorite_tools: Vec<String>,
@@ -242,7 +242,7 @@ pub struct Preferences {
     pub saved_colors: Vec<u32>,
     /// The keyboard shortcuts the user changed (see `ui::shell::keymap` for the defaults).
     #[serde(default)]
-    pub shortcuts: crate::app::shortcuts::ShortcutPrefs,
+    pub shortcuts: crate::shortcuts::ShortcutPrefs,
 }
 
 fn default_panel_height() -> f32 {
@@ -302,7 +302,7 @@ impl Default for Preferences {
             ticket: TicketPrefs::default(),
             account_panel: PanelPrefs::default(),
             risk: RiskPrefs::default(),
-            alert_output: crate::app::alerts::sound::Output::default(),
+            alert_output: crate::alerts::sound::Output::default(),
             favorite_tools: default_favorite_tools(),
             favorites_bar: true,
             favorites_labels: false,

@@ -1,0 +1,48 @@
+[package]
+name = "wyck-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+description = "What Wyck remembers and does between the services and the screens: sign-in, account, alerts, preferences, market data, workspace and updates."
+
+[dependencies]
+async-trait.workspace = true
+cargo-packager-updater.workspace = true
+chrono.workspace = true
+gpui.workspace = true
+notify-rust.workspace = true
+rodio = { workspace = true, features = ["playback", "wav", "vorbis", "mp3", "flac"] }
+rust-embed = { workspace = true, features = ["debug-embed"] }
+secrecy = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+  "net",
+  "io-util",
+] }
+toml.workspace = true
+tracing.workspace = true
+wyck-chart.workspace = true
+wyck-core.workspace = true
+wyck-ctrader.workspace = true
+wyck-drawings.workspace = true
+wyck-indicators.workspace = true
+wyck-market.workspace = true
+wyck-platform.workspace = true
+wyck-storage.workspace = true
+wyck-trading.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -45,12 +45,12 @@ mod view;
 
 pub use self::prefs::{Kind, Layout, TicketPrefs};
 use self::prefs::{Span, Tif};
-use crate::app::account::Account;
-pub use crate::app::prefs::ticket as prefs;
 use crate::ui::features::chart::Chart;
 use crate::ui::features::chart::events::{PositionLink, PositionPlan};
 use crate::ui::features::multichart::SymbolRef;
 use gpui::{App, Context, Entity, EventEmitter, Subscription, Window};
+use wyck_app::account::Account;
+pub use wyck_app::prefs::ticket as prefs;
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math;
 use wyck_trading::math::{Offset, Pending, SizeMode, Stepped, TicketProblem};

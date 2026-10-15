@@ -2,11 +2,11 @@
 
 use super::helpers::side_of;
 use super::{Kind, LINE_ENTRY, LINE_STOP, LINE_TARGET, Margin, OrderTicket, Plan, Tif};
-use crate::app::market_data::now_ms;
-use crate::app::system::runtime;
 use crate::ui::features::chart::{ChartLine, LineId};
 use gpui::{App, Context, Entity};
 use std::time::Duration;
+use wyck_app::market_data::now_ms;
+use wyck_app::system::runtime;
 use wyck_drawings::model::style::Dash;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Offset, Scale, SizeMode, Stepped, TicketProblem};
@@ -356,7 +356,7 @@ impl OrderTicket {
                 return;
             }
             let answer = runtime::spawn(async move {
-                let client = session.client().ok_or(crate::app::broker::Error::Closed)?;
+                let client = session.client().ok_or(wyck_app::broker::Error::Closed)?;
                 client
                     .account(session.account_id())
                     .margin()

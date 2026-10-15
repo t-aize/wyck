@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the alert sounds of the app to crates/wyck/assets/sounds.
+"""Writes the alert sounds of the app to crates/wyck-app/assets/sounds.
 
 The sounds are synthesized here (sine partials with an envelope), so they belong to this project
 and carry no third party license. Run it again to rebuild them; the output is deterministic.
@@ -13,7 +13,7 @@ import wave
 from pathlib import Path
 
 RATE = 44_100
-OUT = Path(__file__).resolve().parent.parent / "crates" / "wyck" / "assets" / "sounds"
+OUT = Path(__file__).resolve().parent.parent / "crates" / "wyck-app" / "assets" / "sounds"
 
 
 def tone(freq, length, partials=((1.0, 1.0),), attack=0.004, decay=6.0, start=0.0, total=None):

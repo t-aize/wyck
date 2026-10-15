@@ -2,9 +2,9 @@
 //! and the first values it starts with.
 
 use super::{OrderTicket, TicketEvent, TicketPrefs, helpers};
-use crate::app::account::Account;
 use gpui::prelude::*;
 use gpui::{Context, Entity, Window};
+use wyck_app::account::Account;
 use wyck_trading::atr_stop::AtrStop;
 use wyck_trading::math::{Contract, Offset};
 use wyck_trading::plan;

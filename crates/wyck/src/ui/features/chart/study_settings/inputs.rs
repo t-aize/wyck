@@ -238,7 +238,7 @@ impl StudyEditor {
                         "Show",
                         Some(IconName::FolderOpen),
                         false,
-                        move |_window, cx| crate::app::scripts::reveal(cx, &path),
+                        move |_window, cx| wyck_app::scripts::reveal(cx, &path),
                     )
                 })),
         ));

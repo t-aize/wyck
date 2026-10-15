@@ -7,7 +7,7 @@ use super::{
     App, Context, Entity, InputState, Offset, OrderTicket, SizeMode, TicketEvent, Window, number,
     plan, prefs,
 };
-use crate::app::prefs::ticket::plans::{Distance, PlanTemplate, TimeStopPrefs};
+use wyck_app::prefs::ticket::plans::{Distance, PlanTemplate, TimeStopPrefs};
 
 impl OrderTicket {
     /// The time stop as typed now.

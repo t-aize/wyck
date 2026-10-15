@@ -37,7 +37,7 @@
 //!   fetched when the user scrolls near the oldest point held.
 //! - Charts do not subscribe to live bars themselves: they tell a [`LiveHub`] what they want, and
 //!   it keeps one subscription per symbol and period however many charts show it.
-//! - Drawings ([`crate::app::drawings`]) are anchored to times and prices, so they follow the chart when it
+//! - Drawings ([`wyck_app::drawings`]) are anchored to times and prices, so they follow the chart when it
 //!   moves and show on every timeframe of their symbol.
 //!
 //! # Where the data comes from
@@ -85,15 +85,15 @@ pub use self::glue::{DrawingCommand, open_drawing_settings, open_object_tree};
 pub use self::lines::{ChartLine, LineId};
 pub use self::overlay::kind_icon;
 use self::study::config::StudyConfig;
-use crate::app::broker::session::Session;
-use crate::app::broker::{Error as ApiError, Result as ApiResult};
-use crate::app::drawings::Drawings;
-use crate::app::market_data::live::LiveHub;
 use gpui::{Bounds, Context, Entity, EventEmitter, Pixels, SharedString};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use wyck_app::broker::session::Session;
+use wyck_app::broker::{Error as ApiError, Result as ApiResult};
+use wyck_app::drawings::Drawings;
+use wyck_app::market_data::live::LiveHub;
 use wyck_chart::Display;
 use wyck_chart::Flow;
 use wyck_chart::Geometry;
@@ -334,7 +334,7 @@ impl Chart {
             display: Display::default(),
             custom: custom_runs::Custom::default(),
             symbol_ids: std::sync::Arc::default(),
-            _library: crate::app::scripts::observe(cx, |this: &mut Self, cx| {
+            _library: wyck_app::scripts::observe(cx, |this: &mut Self, cx| {
                 this.library_changed(cx);
             }),
             flow: Flow::default(),
@@ -496,9 +496,7 @@ fn empty_series(timeframe: Timeframe) -> Series {
     }
 }
 
-fn flatten<T>(
-    result: Result<ApiResult<T>, crate::app::system::runtime::JoinError>,
-) -> ApiResult<T> {
+fn flatten<T>(result: Result<ApiResult<T>, wyck_app::system::runtime::JoinError>) -> ApiResult<T> {
     match result {
         Ok(inner) => inner,
         Err(_) => Err(ApiError::Closed),

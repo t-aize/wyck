@@ -10,10 +10,10 @@ use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use super::{Account, Busy, Notice, Status, Tone, flatten};
-use crate::app::market_data::load;
-use crate::app::market_data::load::Loaded;
-use crate::app::market_data::now_ms;
-use crate::app::system::runtime;
+use crate::market_data::load;
+use crate::market_data::load::Loaded;
+use crate::market_data::now_ms;
+use crate::system::runtime;
 use gpui::Context;
 use wyck_market::Bar;
 use wyck_market::Timeframe;

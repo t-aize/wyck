@@ -3,8 +3,8 @@
 use super::orders::missed_exits;
 use super::reverse::ReverseOrder;
 use super::{Account, Conversion, HISTORY_DAYS, Notice, Status, Tone, flatten, refusal};
-use crate::app::broker::{Error as ApiError, Event};
-use crate::app::system::runtime;
+use crate::broker::{Error as ApiError, Event};
+use crate::system::runtime;
 use gpui::Context;
 use std::collections::HashMap;
 use wyck_trading::ExecutionType;
@@ -103,7 +103,7 @@ impl Account {
                 let data = account.account_data();
                 let trader = data.trader().await?;
                 let (positions, orders) = data.open_positions_and_orders(false).await?;
-                let now = crate::app::market_data::now_ms();
+                let now = crate::market_data::now_ms();
                 let deals = data
                     .deals(now - HISTORY_DAYS * 86_400_000, now, Some(500))
                     .await

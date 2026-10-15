@@ -9,16 +9,16 @@
 use std::time::{Duration, Instant};
 use wyck_chart::{Held, bar_open, next_step, supports};
 
-use crate::app::broker::Result as ApiResult;
-use crate::app::broker::session::Session;
 use gpui::Context;
+use wyck_app::broker::Result as ApiResult;
+use wyck_app::broker::session::Session;
 use wyck_market::{Quote, QuoteType, merge_sides};
 
 use super::{Chart, Load, flatten};
-use crate::app::market_data::live::LiveUpdate;
-use crate::app::market_data::load;
-use crate::app::market_data::now_ms;
-use crate::app::system::runtime;
+use wyck_app::market_data::live::LiveUpdate;
+use wyck_app::market_data::load;
+use wyck_app::market_data::now_ms;
+use wyck_app::system::runtime;
 use wyck_chart::ChartKind;
 use wyck_chart::Flow;
 use wyck_chart::Series;

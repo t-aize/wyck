@@ -13,7 +13,7 @@ use gpui::{App, Global, SharedString};
 use serde::{Deserialize, Serialize};
 use wyck_storage::DocumentStore;
 
-use crate::app::workspace::Saver;
+use crate::workspace::Saver;
 
 use wyck_core::appearance::{Colors, Look, SCALE_MAX, SCALE_MIN};
 

@@ -9,7 +9,7 @@ use gpui::{App, Context, Entity, Window};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 
-use crate::app::account::Account;
+use wyck_app::account::Account;
 use wyck_ui_kit::{button, form, form::Head, modal, number, tokens};
 
 #[derive(Debug, Clone, Copy)]

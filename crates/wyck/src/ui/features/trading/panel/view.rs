@@ -6,11 +6,11 @@ pub mod table;
 
 use super::AccountPanel;
 use super::data::{self, Ctx, Tone};
-use crate::app::account::Status;
-use crate::app::prefs::panel::Tab;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Role, Window, div, px};
 use std::rc::Rc;
+use wyck_app::account::Status;
+use wyck_app::prefs::panel::Tab;
 use wyck_ui_kit::confirm::{Tone as AskTone, confirm_as};
 use wyck_ui_kit::prelude::Disableable;
 use wyck_ui_kit::{button, theme, tokens};
@@ -177,7 +177,7 @@ impl Render for AccountPanel {
 
 /// The panic button: asks, then closes every open position. Working orders stay.
 fn close_all(
-    account: &gpui::Entity<crate::app::account::Account>,
+    account: &gpui::Entity<wyck_app::account::Account>,
     window: &mut Window,
     cx: &mut App,
 ) {

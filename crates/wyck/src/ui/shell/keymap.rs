@@ -10,18 +10,18 @@
 //! What the user changed is kept in the preferences ([`ShortcutPrefs`]) and put over the defaults
 //! by [`apply`], which binds the result in gpui: the bindings of this table are taken out of the
 //! keymap and bound again, so the bindings of the widget library are left alone. The combinations
-//! themselves, their rules and their clashes are in [`crate::app::shortcuts`].
+//! themselves, their rules and their clashes are in [`wyck_app::shortcuts`].
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use gpui::{Action, App, DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate, Keystroke};
 
-use crate::app::shortcuts::{Chord, Resolved, ShortcutPrefs, canonical};
 use crate::ui::features::chart as c;
 use crate::ui::features::indicators::editor as e;
 use crate::ui::shell::dashboard as d;
 use crate::ui::shell::sign_in_gate::Dismiss;
+use wyck_app::shortcuts::{Chord, Resolved, ShortcutPrefs, canonical};
 use wyck_ui_kit::modal::CloseModal;
 use wyck_ui_kit::text_input as t;
 
@@ -391,7 +391,7 @@ fn pretty(keystroke: &Keystroke) -> String {
     if m.shift {
         parts.push("Shift".into());
     }
-    parts.push(crate::app::shortcuts::key_label(&keystroke.key));
+    parts.push(wyck_app::shortcuts::key_label(&keystroke.key));
     parts.join("+")
 }
 
@@ -445,7 +445,7 @@ pub fn reserved_by_library(keys: &str, cx: &App) -> Option<LibraryKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::shortcuts::clashes;
+    use wyck_app::shortcuts::clashes;
 
     #[test]
     fn every_action_has_its_own_id_and_a_label() {
@@ -539,7 +539,7 @@ mod tests {
     fn a_fixed_key_counts_in_the_clashes_of_its_context() {
         // Text fields keep Ctrl+C: a changeable action in the same context may not take it.
         let all = resolved(&ShortcutPrefs::default());
-        let taken = crate::app::shortcuts::taken_by(&all, "someone", TEXT, "secondary-c");
+        let taken = wyck_app::shortcuts::taken_by(&all, "someone", TEXT, "secondary-c");
         assert_eq!(taken.map(|r| r.id.as_str()), Some("text_copy"));
     }
 

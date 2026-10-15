@@ -16,9 +16,9 @@ mod visibility;
 
 use super::Chart;
 use super::GROUPS;
-use crate::app::drawings::Drawings;
 use gpui::prelude::*;
 use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window, div, px};
+use wyck_app::drawings::Drawings;
 use wyck_chart::Zone;
 use wyck_drawings::ICONS;
 use wyck_drawings::icon_key;

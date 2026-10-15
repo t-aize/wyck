@@ -4,9 +4,9 @@ use super::layouts::{LayoutKey, layout};
 use super::links::Link;
 use super::split::Node;
 use super::{MultiChart, MultiChartEvent};
-use crate::app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
 use crate::ui::features::chart::ChartSettings;
 use gpui::{Context, MouseButton, MouseMoveEvent};
+use wyck_app::workspace::{ChartState, NEW_CHART_TIMEFRAMES, Preferences};
 use wyck_chart::ChartContent;
 use wyck_market::Timeframe;
 

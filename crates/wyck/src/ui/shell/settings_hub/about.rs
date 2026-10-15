@@ -4,8 +4,8 @@ use super::{
     AnyElement, BuildMode, Context, IconName, SettingsHub, VERSION, button, confirm, div, form, px,
     theme, tokens, updates,
 };
-use crate::app::diagnostics;
 use gpui::prelude::*;
+use wyck_app::diagnostics;
 
 impl SettingsHub {
     pub(super) fn about_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -32,7 +32,7 @@ impl SettingsHub {
         // Where this build keeps its state: a development build and the installed app do not
         // share it, so the page says which one this is.
         let keeps_apart = BuildMode::CURRENT == BuildMode::Development;
-        let folder = crate::app_paths().map_or_else(
+        let folder = wyck_app::app_paths().map_or_else(
             || "Not available on this system".to_owned(),
             |paths| paths.state_dir().display().to_string(),
         );
@@ -51,7 +51,7 @@ impl SettingsHub {
                 Some("Where the sign-in tokens are kept, in the system keyring"),
                 format!(
                     "Service {}",
-                    crate::app::storage::identity::keyring_service()
+                    wyck_app::storage::identity::keyring_service()
                 ),
             ),
         ]

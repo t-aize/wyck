@@ -1,6 +1,6 @@
 //! Opening the configuration when the app starts.
 
-use crate::app::storage::{Severity, WyckConfig};
+use crate::storage::{Severity, WyckConfig};
 
 /// Why the settings could not be opened at start.
 #[derive(Debug, thiserror::Error)]
@@ -23,7 +23,7 @@ pub enum LoadConfigError {
 pub fn load_config() -> Result<WyckConfig, LoadConfigError> {
     let paths = crate::app_paths().ok_or(LoadConfigError::NoFolder)?.clone();
     let builder = WyckConfig::builder().paths(paths);
-    let builder = match crate::app::storage::identity::passphrase() {
+    let builder = match crate::storage::identity::passphrase() {
         Some(passphrase) => builder.encrypted_file(passphrase),
         None => builder,
     };

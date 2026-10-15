@@ -10,7 +10,7 @@
 
 use crate::ui::features::chart::events::{ChartEvent, Hover, Span};
 
-pub use crate::app::workspace::LinksPref as Links;
+pub use wyck_app::workspace::LinksPref as Links;
 
 /// One of the links, for switching it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -244,7 +244,7 @@ impl Dashboard {
         let ticket_on_left = self
             .ticket
             .as_ref()
-            .is_some_and(|t| t.read(cx).layout().dock == crate::app::prefs::ticket::Dock::Left);
+            .is_some_and(|t| t.read(cx).layout().dock == wyck_app::prefs::ticket::Dock::Left);
         div()
             .flex_none()
             .flex()

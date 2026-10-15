@@ -2,13 +2,13 @@
 
 use super::{Cell, Ctx, Row, RowKind, Table, Tone, finish};
 
-use crate::app::prefs::panel::Tab;
+use wyck_app::prefs::panel::Tab;
 
 pub(super) fn alerts(ctx: &Ctx) -> Table {
     let account = ctx.account;
     let book = ctx.alerts.book();
     let mut rows = Vec::new();
-    let now = crate::app::market_data::now_ms();
+    let now = wyck_app::market_data::now_ms();
     for alert in &book.alerts {
         let symbol = alert.symbol_id;
         let contract = account.book.contract(symbol);
@@ -27,12 +27,12 @@ pub(super) fn alerts(ctx: &Ctx) -> Table {
             (false, None) => "Paused",
         };
         // A level in the units of the price: an alert on an indicator has its own units.
-        let on_price = matches!(alert.source, crate::app::alerts::Source::Price { .. })
+        let on_price = matches!(alert.source, wyck_app::alerts::Source::Price { .. })
             && alert.versus.is_none()
             && alert.condition.needs_level();
         let measure = alert.source.is_measure() && alert.condition.needs_level();
         let measure_unit = match &alert.source {
-            crate::app::alerts::Source::Spread { .. } => " pips",
+            wyck_app::alerts::Source::Spread { .. } => " pips",
             _ => "",
         };
         let level = if on_price {

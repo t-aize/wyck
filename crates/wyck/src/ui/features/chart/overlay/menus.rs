@@ -75,11 +75,11 @@ impl Chart {
                 .into(),
             );
         }
-        if crate::app::alerts::eval::is_alert_tool(drawing.tool) {
+        if wyck_app::alerts::eval::is_alert_tool(drawing.tool) {
             let seed =
                 ChartAction::AddAlertOn(crate::ui::features::chart::events::AlertSeed::Drawing {
                     id,
-                    zone: crate::app::alerts::eval::is_zone_tool(drawing.tool),
+                    zone: wyck_app::alerts::eval::is_zone_tool(drawing.tool),
                     timeframe: self.timeframe.code(),
                 });
             let alert = chart.clone();
@@ -324,7 +324,7 @@ impl Chart {
         let menu = self.menu?;
         let card = match menu {
             Menu::Zone => {
-                let now = crate::app::market_data::now_ms();
+                let now = wyck_app::market_data::now_ms();
                 let mut list = div().flex().flex_col();
                 for zone in Zone::menu() {
                     list = list.child(

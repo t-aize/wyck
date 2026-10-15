@@ -1,6 +1,6 @@
 //! The Folders page of the settings: where each kind of data is kept, moving it to another folder
 //! (a cloud folder that keeps several computers in step, say), and what a move left behind. The
-//! work itself is `crate::app::locations`; this page asks for it and says what happened.
+//! work itself is `wyck_app::locations`; this page asks for it and says what happened.
 //!
 //! A move waits for the next start, as an imported backup does: the documents are held in memory
 //! and saved to the folder they were read from, so nothing is moved under a running app.
@@ -9,10 +9,10 @@ use super::{
     AnyElement, Context, IconName, SettingsHub, appearance, confirm, div, form, icon, indicators,
     px, theme, tokens,
 };
-use crate::app::locations::{self, Row};
-use crate::app::storage::locations::Kind;
-use crate::app::storage::relocate::{PlanError, Step};
 use gpui::prelude::*;
+use wyck_app::locations::{self, Row};
+use wyck_app::storage::locations::Kind;
+use wyck_app::storage::relocate::{PlanError, Step};
 use wyck_ui_kit::prelude::Disableable;
 
 /// A size in bytes as a few characters.
@@ -34,7 +34,7 @@ impl SettingsHub {
                 ))
                 .into_any_element();
         };
-        let development = overview.mode == crate::app::system::build_info::BuildMode::Development;
+        let development = overview.mode == wyck_app::system::build_info::BuildMode::Development;
 
         let mut rows: Vec<AnyElement> = vec![form::block(form::note(if development {
             "This is a development build. It keeps its data apart from the installed app, in folders of its own, and it refuses any folder the installed app made."
@@ -44,7 +44,7 @@ impl SettingsHub {
         for (index, row) in overview.rows.iter().enumerate() {
             rows.extend(self.folder_row(index, row, cx));
         }
-        if let Some(paths) = crate::app_paths() {
+        if let Some(paths) = wyck_app::app_paths() {
             let config = paths.config_dir().to_path_buf();
             let shown = config.display().to_string();
             rows.push(
@@ -73,7 +73,7 @@ impl SettingsHub {
 
         let mut cloud_rows: Vec<AnyElement> = vec![form::block(form::note(format!(
             "Keep your settings, drawings, alerts, watchlists, indicators and backups in a folder that OneDrive or another service keeps in step between your computers. Wyck makes a folder called {} in it, with one folder per kind of data. The logs stay on this computer, and so do your keys and the list of accounts you signed in with: nothing that signs in goes into a synced folder.",
-            crate::app::storage::locations::cloud_folder_name(overview.mode)
+            wyck_app::storage::locations::cloud_folder_name(overview.mode)
         )))];
         let mut buttons = div().flex().flex_row().flex_wrap().gap_2();
         for (index, folder) in overview.cloud.iter().enumerate() {

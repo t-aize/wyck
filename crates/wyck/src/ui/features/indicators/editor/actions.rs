@@ -1,8 +1,8 @@
 //! What the toolbar and the menus do: jump to a problem, insert text, export and import.
 
 use super::{ConsoleTab, IndicatorEditor};
-use crate::app::scripts as indicators;
 use gpui::{App, Context, SharedString, Window};
+use wyck_app::scripts as indicators;
 use wyck_indicators::custom::library::registry;
 use wyck_ui_kit::input::Position;
 use wyck_ui_kit::menu as popup;

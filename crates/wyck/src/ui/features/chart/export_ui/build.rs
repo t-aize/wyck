@@ -2,10 +2,10 @@
 
 use super::super::Chart;
 use super::{ExportDialog, Inputs, Page, Preview, Snapshot, number_input, text_input};
-use crate::app::chart_export as store;
 use gpui::prelude::*;
 use gpui::{Context, Entity, SharedString, Window};
 use std::collections::BTreeMap;
+use wyck_app::chart_export as store;
 use wyck_chart::ColumnKey;
 use wyck_chart::Content;
 use wyck_chart::ExportOptions;
@@ -15,7 +15,7 @@ use wyck_ui_kit::number;
 impl ExportDialog {
     pub(super) fn new(chart: &Entity<Chart>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let snapshot = Snapshot::of(chart.read(cx));
-        let store = crate::app_paths().map(crate::app::storage::AppPaths::documents);
+        let store = wyck_app::app_paths().map(wyck_app::storage::AppPaths::documents);
         let saved = store.as_ref().map(store::read).unwrap_or_default();
         let mut options = saved.last.clone().normalized();
         // A chart that draws what the prices are has nothing else to export.

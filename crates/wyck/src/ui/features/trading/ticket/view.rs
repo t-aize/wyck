@@ -14,8 +14,8 @@ use wyck_ui_kit::prelude::{Disableable, StyledExt as _};
 
 use super::helpers::{nice, side_of, stop_limit_price};
 use super::{OrderTicket, Plan, TicketEvent, customize, plan};
-use crate::app::account::Busy;
-use crate::app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
+use wyck_app::account::Busy;
+use wyck_app::prefs::ticket::{Density, Kind, Line, Section, Slot, Span, Tif};
 use wyck_trading::atr_stop::Smoothing;
 use wyck_trading::math;
 use wyck_trading::math::{Contract, Limit, Offset, SizeMode};

@@ -1,10 +1,10 @@
 //! Saving a script, adding it to the chart, and following the folder on disk.
 
 use super::{ConsoleTab, IndicatorEditor, show_diagnostics};
-use crate::app::scripts as indicators;
-use crate::app::scripts::folder::LibraryError;
 use crate::ui::features::chart::Chart;
 use gpui::{Context, Entity, Window};
+use wyck_app::scripts as indicators;
+use wyck_app::scripts::folder::LibraryError;
 use wyck_indicators::custom::library::registry;
 
 impl IndicatorEditor {
@@ -37,7 +37,7 @@ impl IndicatorEditor {
         &mut self,
         id: &str,
         text: String,
-        result: Option<Result<crate::app::scripts::folder::Changes, LibraryError>>,
+        result: Option<Result<wyck_app::scripts::folder::Changes, LibraryError>>,
         cx: &mut Context<Self>,
     ) {
         match result {

@@ -1,5 +1,5 @@
 //! The Data page of the settings: exporting and importing a backup of everything the user made, and
-//! the copies the app keeps of it. The work itself is done by `crate::app::storage::backup`; this page asks
+//! the copies the app keeps of it. The work itself is done by `wyck_app::storage::backup`; this page asks
 //! for it and says what happened.
 
 use super::PendingSummary;
@@ -7,10 +7,10 @@ use super::{
     AnyElement, BackupEntry, Context, IconName, SettingsHub, VERSION, Window, appearance, backup,
     confirm, div, form, icon, indicators, px, theme, tokens,
 };
-use crate::app::storage::backup::Contents;
-use crate::app::storage::backup::store::BackupStore;
-use crate::app::storage::scripts::ScriptStore;
 use gpui::prelude::*;
+use wyck_app::storage::backup::Contents;
+use wyck_app::storage::backup::store::BackupStore;
+use wyck_app::storage::scripts::ScriptStore;
 use wyck_ui_kit::prelude::Disableable;
 
 /// The most copies the page lists.
@@ -65,7 +65,7 @@ fn describe(contents: &Contents) -> Vec<String> {
 
 /// The copies in the backups folder, newest first.
 pub(super) fn list_copies() -> Vec<BackupEntry> {
-    let Some(paths) = crate::app_paths() else {
+    let Some(paths) = wyck_app::app_paths() else {
         return Vec::new();
     };
     paths.backups().list().unwrap_or_else(|error| {
@@ -297,7 +297,7 @@ impl SettingsHub {
 
     /// Asks where to save, then writes the backup there.
     pub(super) fn export(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = crate::app_paths() else {
+        let Some(dir) = wyck_app::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -306,7 +306,7 @@ impl SettingsHub {
         appearance::save_now(cx);
         let stamp = chrono::Local::now().format("%Y-%m-%d").to_string();
         let name = format!("wyck-backup-{stamp}.toml");
-        let start = crate::app::storage::AppPaths::documents_dir();
+        let start = wyck_app::storage::AppPaths::documents_dir();
         let scripts_dir = indicators::dir(cx);
         let picked = cx.prompt_for_new_path(&start, Some(&name));
         cx.spawn(async move |this, cx| {
@@ -334,7 +334,7 @@ impl SettingsHub {
 
     /// Asks for a backup, checks it, and sets it aside for the next start.
     pub(super) fn import(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let Some(dir) = crate::app_paths() else {
+        let Some(dir) = wyck_app::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -361,7 +361,7 @@ impl SettingsHub {
     }
 
     pub(super) fn cancel_import(&mut self, cx: &mut Context<Self>) {
-        if let Some(dir) = crate::app_paths() {
+        if let Some(dir) = wyck_app::app_paths() {
             let _ = backup::staged::cancel_import(dir);
         }
         self.waiting = None;
@@ -370,7 +370,7 @@ impl SettingsHub {
 
     /// Stages a full reset and restarts right away, so it applies before anything is loaded.
     pub(super) fn reset_all(&mut self, cx: &mut Context<Self>) {
-        let Some(dir) = crate::app_paths() else {
+        let Some(dir) = wyck_app::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -396,7 +396,7 @@ impl SettingsHub {
 
     /// Saves a copy of everything in the backups folder.
     pub(super) fn save_copy(&mut self, cx: &mut Context<Self>) {
-        let Some(paths) = crate::app_paths() else {
+        let Some(paths) = wyck_app::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -419,7 +419,7 @@ impl SettingsHub {
 
     /// Asks for a saved copy to come back at the next start.
     pub(super) fn restore_copy(&mut self, id: &str, cx: &mut Context<Self>) {
-        let Some(paths) = crate::app_paths() else {
+        let Some(paths) = wyck_app::app_paths() else {
             self.say(false, "The settings folder could not be found.", cx);
             return;
         };
@@ -431,7 +431,7 @@ impl SettingsHub {
 
     /// Deletes a saved copy.
     pub(super) fn delete_copy(&mut self, id: &str, cx: &mut Context<Self>) {
-        let Some(paths) = crate::app_paths() else {
+        let Some(paths) = wyck_app::app_paths() else {
             return;
         };
         match paths.backups().remove(id) {

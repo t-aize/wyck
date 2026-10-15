@@ -1,7 +1,7 @@
 //! The root view of the window: the dashboard once there is a session, and until then a soft
 //! frame of it under the sign-in modal.
 //!
-//! [`crate::app::sign_in::SignIn`] decides when a session can open; this view opens it, shows the
+//! [`wyck_app::sign_in::SignIn`] decides when a session can open; this view opens it, shows the
 //! dashboard on it and goes back to the modal when the session ends.
 
 use gpui::prelude::*;
@@ -9,16 +9,16 @@ use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, Subscription, Window, div, px,
 };
 
-use crate::app::appearance;
-use crate::app::broker::session::Session;
-use crate::app::broker::{ConnectionConfig, Environment};
-use crate::app::sign_in::config::load_config;
-use crate::app::sign_in::{Connection, SignIn, SignInEvent};
-use crate::app::storage::ProfileId;
-use crate::app::system::runtime;
 use crate::ui::shell::dashboard::{AccountInfo, Dashboard, DashboardEvent};
 use crate::ui::shell::locked_frame;
 use crate::ui::shell::sign_in_gate::SignInGate;
+use wyck_app::appearance;
+use wyck_app::broker::session::Session;
+use wyck_app::broker::{ConnectionConfig, Environment};
+use wyck_app::sign_in::config::load_config;
+use wyck_app::sign_in::{Connection, SignIn, SignInEvent};
+use wyck_app::storage::ProfileId;
+use wyck_app::system::runtime;
 use wyck_ui_kit::{button, layout, theme, toast, tokens};
 
 /// The session on screen.
@@ -82,7 +82,7 @@ impl AppView {
         connection: &Connection,
         cx: &mut Context<Self>,
     ) {
-        let config = crate::app::broker::session::SessionConfig::new(
+        let config = wyck_app::broker::session::SessionConfig::new(
             ConnectionConfig::new(connection.environment),
             connection.credentials.clone(),
             connection.account_id,

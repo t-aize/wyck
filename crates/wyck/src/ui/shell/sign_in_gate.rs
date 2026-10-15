@@ -1,6 +1,6 @@
 //! The sign-in modal: one card over the app that stays until there is a session.
 //!
-//! The phases and their words come from [`crate::app::sign_in`]. This view draws them, keeps what
+//! The phases and their words come from [`wyck_app::sign_in`]. This view draws them, keeps what
 //! the person typed, and does nothing else. Escape and a click on the veil never close it: during
 //! a step they cancel the step, otherwise the card shakes.
 
@@ -10,9 +10,9 @@ use gpui::{
     Subscription, Window, div, px,
 };
 
-use crate::app::broker::Environment;
-use crate::app::sign_in::rules::redirect_uri;
-use crate::app::sign_in::{AccountChoice, CALLBACK_PORT, Failure, Phase, SignIn};
+use wyck_app::broker::Environment;
+use wyck_app::sign_in::rules::redirect_uri;
+use wyck_app::sign_in::{AccountChoice, CALLBACK_PORT, Failure, Phase, SignIn};
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::{self, InputEvent, InputState};
 use wyck_ui_kit::prelude::Disableable;

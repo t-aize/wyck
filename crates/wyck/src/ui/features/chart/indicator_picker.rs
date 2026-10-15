@@ -15,7 +15,7 @@ use super::Chart;
 use super::events::{ChartEvent, EditorRequest};
 use super::study::catalog::{self, Item, Source};
 use super::study::spec::Placement;
-use crate::app::scripts as indicators;
+use wyck_app::scripts as indicators;
 use wyck_core::intern;
 use wyck_ui_kit::{
     button, controls, form, form::Head, form::Tab, icon, layout, modal, theme, tokens,

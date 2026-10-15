@@ -1,7 +1,7 @@
 //! What the user asks of the broker for a position or an order: close, reverse, move, protect.
 
 use super::{Account, Busy};
-use crate::app::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
+use crate::broker::trading::{AmendOrderReq, AmendPositionSlTpReq, NewOrderReq};
 use gpui::Context;
 use wyck_trading::TradeSide;
 

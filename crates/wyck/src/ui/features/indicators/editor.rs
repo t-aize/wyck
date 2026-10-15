@@ -16,8 +16,6 @@ pub mod prompts;
 pub mod providers;
 pub mod tabs;
 
-use crate::app::scripts as indicators;
-use crate::app::workspace::Saver;
 use crate::ui::features::multichart::MultiChart;
 use gpui::prelude::*;
 use gpui::{
@@ -28,6 +26,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use std::time::Duration;
+use wyck_app::scripts as indicators;
+use wyck_app::workspace::Saver;
 use wyck_indicators::custom::library::registry;
 use wyck_indicators::custom::{Problem, Severity};
 use wyck_ui_kit::input::LanguageConfig;

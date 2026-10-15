@@ -7,7 +7,7 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Disableable;
 
 use super::drawing_props;
-use crate::app::drawings::Drawings;
+use wyck_app::drawings::Drawings;
 use wyck_chart::Zone;
 use wyck_drawings::book::{Book, Order};
 use wyck_drawings::model::Drawing;

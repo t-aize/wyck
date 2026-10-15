@@ -6,10 +6,10 @@
 //! prices, not to screen positions, so it follows the chart when it is scrolled or zoomed, and
 //! shows on every timeframe of its symbol.
 
-use crate::app::storage::DocumentStore;
+use crate::storage::DocumentStore;
 use gpui::Context;
 
-use crate::app::workspace::Saver;
+use crate::workspace::Saver;
 use wyck_drawings::book::Book;
 use wyck_drawings::model::DrawingsDoc;
 

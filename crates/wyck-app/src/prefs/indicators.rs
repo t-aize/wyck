@@ -4,8 +4,8 @@
 //!
 //! Where the folder is does not belong here: a path means something on one computer only, and this
 //! document can be kept in a folder that several computers share. The folder is a choice of the
-//! computer (see `crate::app::locations`); an older version kept it here as `folder`, which is
-//! ignored when read and moved by `crate::app::locations::prepare`.
+//! computer (see `crate::locations`); an older version kept it here as `folder`, which is
+//! ignored when read and moved by `crate::locations::prepare`.
 
 use std::time::Duration;
 

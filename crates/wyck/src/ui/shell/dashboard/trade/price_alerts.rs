@@ -2,12 +2,12 @@
 
 use super::Pending;
 
-use crate::app::alerts;
-use crate::app::market_data::now_ms;
 use crate::ui::features::multichart::SymbolRef;
 use crate::ui::features::trading::panel::Tab;
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::Context;
+use wyck_app::alerts;
+use wyck_app::market_data::now_ms;
 use wyck_market::PRICE_SCALE;
 use wyck_ui_kit::toast;
 
@@ -170,7 +170,7 @@ impl Dashboard {
         seed: &crate::ui::features::chart::events::AlertSeed,
         cx: &mut Context<Self>,
     ) {
-        use crate::app::alerts::{Alert, Condition, Source};
+        use wyck_app::alerts::{Alert, Condition, Source};
         let limit = self.workspace.read(cx).preferences().limits.alerts;
         let mut alert = Alert::price(0, symbol.id, &symbol.name, 0.0, now_ms());
         match seed {

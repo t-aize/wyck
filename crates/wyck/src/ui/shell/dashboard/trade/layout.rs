@@ -2,10 +2,10 @@
 
 use super::{CHARTS_MIN, PANEL_MIN, bars};
 
-use crate::app::prefs::ticket::{Dock, WIDTH_DEFAULT};
 use crate::ui::shell::dashboard::Dashboard;
 use gpui::prelude::*;
 use gpui::{Context, MouseButton, MouseMoveEvent, div, px};
+use wyck_app::prefs::ticket::{Dock, WIDTH_DEFAULT};
 use wyck_ui_kit::theme;
 
 impl Dashboard {

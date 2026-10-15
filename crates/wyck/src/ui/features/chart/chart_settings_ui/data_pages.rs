@@ -58,7 +58,7 @@ impl ChartSettingsEditor {
     }
 
     pub(super) fn time_page(&self, settings: &ChartSettings) -> AnyElement {
-        let now = crate::app::market_data::now_ms();
+        let now = wyck_app::market_data::now_ms();
         let mut zones = div()
             .id("settings-zone-list")
             .flex()

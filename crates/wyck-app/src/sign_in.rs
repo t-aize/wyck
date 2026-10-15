@@ -18,11 +18,11 @@ use gpui::{Context, EventEmitter, Task};
 use secrecy::ExposeSecret;
 use tokio::task::AbortHandle;
 
-use crate::app::storage::{
+use crate::storage::{
     CLIENT_SECRET, OpenApiTokenStorage, OpenApiTokens, ProfileId, ProfileSecretReader, WyckConfig,
 };
-use crate::app::token_store::{ConfigTokenStore, to_token_set};
-use crate::app::workspace::Documents;
+use crate::token_store::{ConfigTokenStore, to_token_set};
+use crate::workspace::Documents;
 use wyck_ctrader::auth::TokenSet;
 use wyck_ctrader::config::ClientCredentials;
 use wyck_ctrader::session::{MemoryTokenStore, TokenStore};
@@ -467,7 +467,7 @@ impl SignIn {
         environment: Environment,
         account: &TraderAccount,
         tokens: &TokenSet,
-    ) -> crate::app::storage::Result<ProfileId> {
+    ) -> crate::storage::Result<ProfileId> {
         let stale: Vec<ProfileId> = self
             .config
             .profiles()

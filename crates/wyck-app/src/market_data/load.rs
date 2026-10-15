@@ -10,9 +10,9 @@
 
 use std::future::Future;
 
-use crate::app::broker::market::{MAX_TICK_RANGE_MS, MarketClient};
-use crate::app::broker::session::Session;
-use crate::app::broker::{Error as ApiError, Result};
+use crate::broker::market::{MAX_TICK_RANGE_MS, MarketClient};
+use crate::broker::session::Session;
+use crate::broker::{Error as ApiError, Result};
 use wyck_market::{Bar, Period, QuoteType, Tick};
 
 use wyck_chart::{aggregate_ticks, bucket_start, group_bars, last_group};
@@ -104,7 +104,7 @@ impl History for MarketClient {
     }
 }
 
-pub(crate) fn market(session: &Session) -> Result<MarketClient> {
+pub fn market(session: &Session) -> Result<MarketClient> {
     let client = session.client().ok_or(ApiError::Closed)?;
     Ok(client.account(session.account_id()).market())
 }

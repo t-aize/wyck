@@ -8,14 +8,14 @@
 
 mod data;
 mod dialogs;
-pub use crate::app::prefs::panel as prefs;
+pub use wyck_app::prefs::panel as prefs;
 mod stats;
 mod view;
 
 use gpui::{Context, Entity, EventEmitter, Subscription};
 
-use crate::app::account::Account;
-use crate::app::alerts::Alerts;
+use wyck_app::account::Account;
+use wyck_app::alerts::Alerts;
 
 pub use self::dialogs::alert_editor::open_alert;
 pub use self::prefs::{PanelPrefs, Tab};

@@ -4,9 +4,9 @@ use super::{
     Account, Busy, CALL_TIMEOUT, HISTORY_DAYS, Notice, Status, TIME_STOP_RETRY, Tone, describe,
     fingerprint, flatten,
 };
-use crate::app::broker::trading::NewOrderReq;
-use crate::app::broker::{Error as ApiError, Event, Result as ApiResult};
-use crate::app::system::runtime;
+use crate::broker::trading::NewOrderReq;
+use crate::broker::{Error as ApiError, Event, Result as ApiResult};
+use crate::system::runtime;
 use gpui::Context;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -20,7 +20,7 @@ impl Account {
     /// reached the server even so).
     pub(super) fn trade<F, Fut>(&mut self, busy: Busy, cx: &mut Context<Self>, call: F)
     where
-        F: FnOnce(crate::app::broker::trading::TradingClient) -> Fut + Send + 'static,
+        F: FnOnce(crate::broker::trading::TradingClient) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = ApiResult<wyck_trading::ExecutionEvent>> + Send + 'static,
     {
         if !self.busy.insert(busy) {
@@ -150,7 +150,7 @@ impl Account {
             );
             return;
         }
-        let now = crate::app::market_data::now_ms();
+        let now = crate::market_data::now_ms();
         let fingerprint = fingerprint(&order);
         if self.busy.contains(&Busy::Placing) || self.duplicates.is_repeat(fingerprint, now) {
             self.tell(
@@ -225,7 +225,7 @@ impl Account {
             );
             return;
         }
-        let now = crate::app::market_data::now_ms();
+        let now = crate::market_data::now_ms();
         if self.busy.contains(&Busy::Placing)
             || !self.queue.is_empty()
             || self.duplicates.is_repeat(fingerprint(&orders[0]), now)
@@ -353,7 +353,7 @@ impl Account {
         if self.status != Status::Ready || self.uncertain {
             return;
         }
-        let now = crate::app::market_data::now_ms();
+        let now = crate::market_data::now_ms();
         self.time_stops
             .retain(|id, _| self.book.positions.contains_key(id));
         let mut due = Vec::new();
@@ -455,7 +455,7 @@ impl Account {
 /// for the recent orders only when something open belongs to a plan with a rule to keep, and
 /// gives nothing when any call fails: the next connection tries again.
 pub(super) async fn missed_exits(
-    account: &crate::app::broker::AccountClient,
+    account: &crate::broker::AccountClient,
     positions: &[wyck_trading::Position],
     orders: &[wyck_trading::Order],
     deals: &[wyck_trading::Deal],

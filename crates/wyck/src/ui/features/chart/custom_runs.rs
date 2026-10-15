@@ -24,10 +24,10 @@ use super::study::config::StudyConfig;
 use super::study::custom::library::registry;
 use super::study::custom::other::{OtherBars, OtherSymbols};
 use super::study::custom::{self, Problem, Severity};
-use crate::app::market_data::load::{self, Loaded};
-use crate::app::market_data::now_ms;
-use crate::app::scripts as indicators;
-use crate::app::system::runtime;
+use wyck_app::market_data::load::{self, Loaded};
+use wyck_app::market_data::now_ms;
+use wyck_app::scripts as indicators;
+use wyck_app::system::runtime;
 use wyck_chart::study_input;
 
 /// What a run was made from, to know whether another is wanted.
@@ -406,7 +406,7 @@ impl Chart {
         &mut self,
         epoch: u64,
         key: String,
-        result: crate::app::broker::Result<Loaded>,
+        result: wyck_app::broker::Result<Loaded>,
         cx: &mut Context<Self>,
     ) {
         if epoch != self.epoch {

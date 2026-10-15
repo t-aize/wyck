@@ -9,8 +9,8 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::prelude::Selectable;
 
 use super::Dashboard;
-use crate::app::scripts as indicators;
 use crate::ui::features::indicators::editor::{EditorEvent, IndicatorEditor};
+use wyck_app::scripts as indicators;
 use wyck_ui_kit::{
     menu::{Entry, Item, Menu, Placement},
     theme, tokens,

@@ -21,7 +21,7 @@
 
 use tracing::{info, warn};
 
-use crate::app::{alerts, drawings, workspace};
+use crate::{alerts, drawings, workspace};
 use wyck_drawings::model::SCHEMA_VERSION as DRAWINGS_VERSION;
 use wyck_storage::migrate::{Outcome, Plan, Step, StepError, upgrade_document};
 use wyck_storage::{AppPaths, DocumentStore};
@@ -215,8 +215,8 @@ pub fn run(paths: &AppPaths) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::alerts::AlertBook;
-    use crate::app::workspace::{Preferences, Watchlists};
+    use crate::alerts::AlertBook;
+    use crate::workspace::{Preferences, Watchlists};
     use wyck_drawings::model::DrawingsDoc;
 
     #[test]
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn the_account_panel_of_version_1_keeps_only_its_open_tab() {
-        use crate::app::prefs::panel::Tab;
+        use crate::prefs::panel::Tab;
         let mut table: toml::Table =
             toml::from_str(include_str!("fixtures/preferences-0.2.toml")).unwrap();
         assert!(trim_account_panel(&mut table).is_ok());

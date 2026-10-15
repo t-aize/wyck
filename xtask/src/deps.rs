@@ -51,11 +51,14 @@ const NOT_IN_THE_DOMAIN: &[&str] = &[
 /// would be a second way of doing the same thing.
 const OWNERS: &[(&str, &[&str])] = &[
     ("argon2", &["wyck-storage"]),
+    ("cargo-packager-updater", &["wyck-app"]),
     ("chacha20poly1305", &["wyck-storage"]),
     ("directories", &["wyck-storage"]),
     ("keyring", &["wyck-storage"]),
+    ("notify-rust", &["wyck-app"]),
     ("reqwest", &["wyck-ctrader"]),
     ("rhai", &["wyck-indicators"]),
+    ("rodio", &["wyck-app"]),
     ("tokio-tungstenite", &["wyck-ctrader"]),
     ("tracing-appender", &["wyck-platform"]),
     ("tracing-subscriber", &["wyck-platform"]),
@@ -161,6 +164,22 @@ const LAYERS: &[Layer] = &[
         own_lints: false,
     },
     Layer {
+        name: "wyck-app",
+        internal: &[
+            "wyck-chart",
+            "wyck-core",
+            "wyck-ctrader",
+            "wyck-drawings",
+            "wyck-indicators",
+            "wyck-market",
+            "wyck-platform",
+            "wyck-storage",
+            "wyck-trading",
+        ],
+        forbidden: &["ab_glyph", "gpui-kit", "tiny-skia", "tokio-tungstenite"],
+        own_lints: false,
+    },
+    Layer {
         name: "wyck-ui-kit",
         internal: &["wyck-core"],
         forbidden: &[
@@ -182,6 +201,7 @@ const LAYERS: &[Layer] = &[
     Layer {
         name: "wyck",
         internal: &[
+            "wyck-app",
             "wyck-chart",
             "wyck-core",
             "wyck-ctrader",

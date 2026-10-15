@@ -9,7 +9,7 @@ use wyck_market::PRICE_SCALE;
 use super::events::{ChartAction, ChartEvent, PlanState, PositionLink, PositionPlan};
 use super::study::kind::StudyKind;
 use super::{Chart, drawing_props, object_tree};
-use crate::app::drawings::Drawings;
+use wyck_app::drawings::Drawings;
 use wyck_chart::ChartProjection;
 use wyck_drawings::book::{Book, Order, Press};
 use wyck_drawings::model::tool::Tool;

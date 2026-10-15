@@ -5,10 +5,10 @@ use super::{
     Cell, Ctx, Row, RowKind, Table, Tone, Unit, finish, money_text, price_cell, side_cell,
 };
 
-use crate::app::account::Busy;
-use crate::app::market_data::now_ms;
-use crate::app::prefs::panel::Tab;
 use serde_json::Value;
+use wyck_app::account::Busy;
+use wyck_app::market_data::now_ms;
+use wyck_app::prefs::panel::Tab;
 use wyck_trading::math;
 use wyck_trading::{OrderType, money};
 

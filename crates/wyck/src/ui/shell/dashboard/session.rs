@@ -6,15 +6,15 @@ use super::{
 };
 
 use super::catalog::{Catalog, Entry};
-use crate::app::broker::session::{SessionEvent, SessionState};
-use crate::app::broker::{Error as ApiError, Event};
-use crate::app::market_data::live::{PEEK_OWNER, Wish};
-use crate::app::system::runtime;
-use crate::app::system::runtime::RecvError;
 use crate::ui::features::chart::Chart;
 use crate::ui::features::multichart::{MultiChartEvent, SymbolRef};
 use gpui::{Context, SharedString};
 use std::sync::Arc;
+use wyck_app::broker::session::{SessionEvent, SessionState};
+use wyck_app::broker::{Error as ApiError, Event};
+use wyck_app::market_data::live::{PEEK_OWNER, Wish};
+use wyck_app::system::runtime;
+use wyck_app::system::runtime::RecvError;
 use wyck_market::Spot;
 use wyck_ui_kit::toast;
 

@@ -105,7 +105,7 @@ impl Chart {
             .as_ref()
             .map_or_else(|| "Chart".to_owned(), |s| s.name.to_string());
         let when = full_time(
-            crate::app::market_data::now_ms(),
+            wyck_app::market_data::now_ms(),
             self.settings.zone,
             false,
             false,
@@ -140,7 +140,7 @@ impl Chart {
             title.push_str(&format!("  {}", self.settings.kind.label()));
         }
         let when = full_time(
-            crate::app::market_data::now_ms(),
+            wyck_app::market_data::now_ms(),
             self.settings.zone,
             false,
             false,
@@ -155,7 +155,7 @@ impl Chart {
             super::raster::Caption {
                 text: format!(
                     "{when}  {}",
-                    self.settings.zone.label(crate::app::market_data::now_ms())
+                    self.settings.zone.label(wyck_app::market_data::now_ms())
                 ),
                 size: 11.0,
                 color: hsla(palette.text),

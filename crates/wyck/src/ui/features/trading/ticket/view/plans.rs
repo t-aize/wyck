@@ -6,8 +6,8 @@ use super::{
     AnyElement, Context, Frame, IconName, OrderTicket, SharedString, Window, card, card_head,
     controls, div, hint, icon, px, theme, tokens,
 };
-use crate::app::prefs::ticket as prefs;
 use gpui::prelude::*;
+use wyck_app::prefs::ticket as prefs;
 use wyck_trading::plan::Only;
 use wyck_ui_kit::focus::Keyboard as _;
 use wyck_ui_kit::prelude::Disableable;

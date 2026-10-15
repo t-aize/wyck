@@ -1,10 +1,10 @@
 //! Asking for a name, creating, duplicating and deleting scripts.
 
 use super::{Ask, IndicatorEditor, Prompt};
-use crate::app::scripts as indicators;
-use crate::app::scripts::folder::LibraryError;
 use gpui::prelude::*;
 use gpui::{Context, Task, Window};
+use wyck_app::scripts as indicators;
+use wyck_app::scripts::folder::LibraryError;
 use wyck_indicators::custom::templates::{TEMPLATES, Template};
 use wyck_ui_kit::confirm::{Tone, confirm_as};
 use wyck_ui_kit::input::{InputEvent, InputState};

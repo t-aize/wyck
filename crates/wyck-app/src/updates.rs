@@ -9,14 +9,14 @@ use cargo_packager_updater::{
 };
 use gpui::{App, BorrowAppContext, Global, Subscription};
 
-use crate::app::{appearance, scripts};
+use crate::{appearance, scripts};
 use wyck_platform::build_info::{BuildMode, VERSION};
 use wyck_platform::runtime;
 use wyck_storage::scripts::ScriptStore;
 
 const UPDATE_ENDPOINT: &str = "https://github.com/t-aize/wyck/releases/latest/download/latest.json";
 pub const RELEASES_URL: &str = "https://github.com/t-aize/wyck/releases/latest";
-const UPDATE_PUBLIC_KEY: &str = include_str!("../../assets/update.pubkey");
+const UPDATE_PUBLIC_KEY: &str = include_str!("../assets/update.pubkey");
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Why an update could not be checked, downloaded or installed.

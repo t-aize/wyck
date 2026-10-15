@@ -4,12 +4,11 @@
 //! turns it into a [`Notice`] the dashboard shows as a toast. A server refusal code and a failed
 //! request are put in sentences here too.
 
-use crate::app::broker::Error as ApiError;
+use crate::broker::Error as ApiError;
 use wyck_trading::book::Outcome;
 
 /// How serious a notice is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Tone {
     /// Worth knowing.
     Info,
@@ -23,7 +22,6 @@ pub enum Tone {
 
 /// Something the user can do about a notice, straight from it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum NoticeAction {
     ClosePosition(i64),
     /// Move the stop loss of this position to its entry price.

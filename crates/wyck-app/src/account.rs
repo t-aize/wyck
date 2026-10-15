@@ -7,7 +7,7 @@
 //! [`wyck_trading::math::live_net`]).
 //!
 //! Every trading call can fail or time out. A timeout does not mean the order was not placed (see
-//! the non-idempotency notes of [`crate::app::broker::trading`]), so after a failed call the account is
+//! the non-idempotency notes of [`crate::broker::trading`]), so after a failed call the account is
 //! reconciled again rather than the order resent.
 
 pub mod actions;
@@ -18,11 +18,11 @@ pub mod reverse;
 pub mod sync;
 
 pub use self::notice::{Notice, NoticeAction, Reason, Tone, describe, explain, refusal};
-use crate::app::broker::session::Session;
-use crate::app::broker::trading::NewOrderReq;
-use crate::app::broker::{Error as ApiError, Result as ApiResult};
-use crate::app::market_data::live::LiveHub;
-use crate::app::market_data::live::{ACCOUNT_OWNER, Wish};
+use crate::broker::session::Session;
+use crate::broker::trading::NewOrderReq;
+use crate::broker::{Error as ApiError, Result as ApiResult};
+use crate::market_data::live::LiveHub;
+use crate::market_data::live::{ACCOUNT_OWNER, Wish};
 use gpui::{Context, EventEmitter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
@@ -222,7 +222,7 @@ impl Account {
 
     /// Where the account stands today: what the day made or lost, the orders sent, the last loss.
     pub fn standing(&self) -> Standing {
-        let now = crate::app::market_data::now_ms();
+        let now = crate::market_data::now_ms();
         let today = self.zone.day(now);
         let (mut realized, mut opened) = (0.0, 0u32);
         let mut last_loss: Option<i64> = None;
@@ -312,8 +312,8 @@ impl Account {
 
     /// What the open positions make or lose now, for the alerts on a profit. Empty until the
     /// account is read.
-    pub fn profits(&self) -> crate::app::alerts::Profits {
-        let mut profits = crate::app::alerts::Profits::default();
+    pub fn profits(&self) -> crate::alerts::Profits {
+        let mut profits = crate::alerts::Profits::default();
         if self.status != Status::Ready {
             return profits;
         }

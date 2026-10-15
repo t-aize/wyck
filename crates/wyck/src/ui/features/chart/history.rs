@@ -7,16 +7,16 @@ use wyck_chart::{
     touch_last_bar, trim_front,
 };
 
-use crate::app::broker::Result as ApiResult;
 use gpui::Context;
+use wyck_app::broker::Result as ApiResult;
 use wyck_market::Tick;
 
 use super::{Chart, Load, Older, empty_series, flatten};
-use crate::app::market_data::live::{LiveUpdate, Wish};
-use crate::app::market_data::load;
-use crate::app::market_data::load::Loaded;
-use crate::app::market_data::now_ms;
-use crate::app::system::runtime;
+use wyck_app::market_data::live::{LiveUpdate, Wish};
+use wyck_app::market_data::load;
+use wyck_app::market_data::load::Loaded;
+use wyck_app::market_data::now_ms;
+use wyck_app::system::runtime;
 use wyck_chart::View;
 use wyck_chart::{MAX_BARS, MAX_TICKS, Series};
 use wyck_market::Timeframe;

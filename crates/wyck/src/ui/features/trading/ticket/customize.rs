@@ -14,7 +14,7 @@ use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::{InputEvent, InputState};
 
 use super::OrderTicket;
-use crate::app::prefs::ticket::Layout;
+use wyck_app::prefs::ticket::Layout;
 use wyck_trading::math::SizeMode;
 use wyck_ui_kit::{button, controls, form, form::Head, form::Tab, modal, number};
 
@@ -180,8 +180,8 @@ impl Customizer {
                 window,
                 cx,
             )
-            .min(f64::from(crate::app::prefs::ticket::WIDTH_MIN))
-            .max(f64::from(crate::app::prefs::ticket::WIDTH_MAX))
+            .min(f64::from(wyck_app::prefs::ticket::WIDTH_MIN))
+            .max(f64::from(wyck_app::prefs::ticket::WIDTH_MAX))
         });
         subscriptions.push(cx.subscribe(&width, |this, state, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change)

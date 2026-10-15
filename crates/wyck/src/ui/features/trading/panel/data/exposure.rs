@@ -2,10 +2,10 @@
 
 use super::{Cell, Ctx, Row, RowKind, Table, Tone, Unit, finish, money_text, price_cell};
 
-use crate::app::account::Account;
-use crate::app::prefs::panel::Tab;
 use crate::ui::features::trading::panel::stats;
 use std::collections::BTreeMap;
+use wyck_app::account::Account;
+use wyck_app::prefs::panel::Tab;
 use wyck_trading::Position;
 use wyck_trading::math;
 

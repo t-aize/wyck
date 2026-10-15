@@ -22,8 +22,8 @@ use std::sync::OnceLock;
 use gpui::App;
 use tracing::{info, warn};
 
-use crate::app::prefs::indicators as indicator_prefs;
-use crate::app::{alerts, appearance, chart_export, drawings, workspace};
+use crate::prefs::indicators as indicator_prefs;
+use crate::{alerts, appearance, chart_export, drawings, workspace};
 use wyck_platform::build_info::BuildMode;
 use wyck_storage::locations::{self, CloudFolder, Kind, Locations, Problem, Use};
 use wyck_storage::relocate::{self, Action, Applied, Change, Leftover, PlanError, Step};

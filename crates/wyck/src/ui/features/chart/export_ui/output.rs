@@ -75,7 +75,7 @@ impl ExportDialog {
         let options = self.options.clone().normalized();
         let snapshot = self.snapshot.clone();
         let picked = cx.prompt_for_new_path(
-            &crate::app::storage::AppPaths::documents_dir(),
+            &wyck_app::storage::AppPaths::documents_dir(),
             Some(&self.preview.file_name),
         );
         self.busy = true;
@@ -95,7 +95,7 @@ impl ExportDialog {
                     let source = snapshot.source();
                     let table = table(&source, &options, None);
                     let text = render(&table, &options, source.digits, source.zone);
-                    crate::app::storage::atomic_write(&target, text.as_bytes())
+                    wyck_app::storage::atomic_write(&target, text.as_bytes())
                         .map(|()| (table.total_rows, text.len()))
                 })
                 .await;

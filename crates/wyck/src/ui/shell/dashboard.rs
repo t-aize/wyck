@@ -24,13 +24,6 @@ pub mod view;
 
 use self::catalog::{Catalog, Entry};
 use self::picker::Picker;
-use crate::app::account::{Account, AccountEvent};
-use crate::app::alerts::Alerts;
-use crate::app::broker::Error as ApiError;
-use crate::app::broker::session::Session;
-use crate::app::drawings::Drawings;
-use crate::app::market_data::live::LiveHub;
-use crate::app::workspace::{Documents, Workspace};
 use crate::ui::features::chart;
 use crate::ui::features::indicators::editor::IndicatorEditor;
 use crate::ui::features::multichart::{MultiChart, MultiChartEvent};
@@ -41,6 +34,13 @@ use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, SharedStr
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use wyck_app::account::{Account, AccountEvent};
+use wyck_app::alerts::Alerts;
+use wyck_app::broker::Error as ApiError;
+use wyck_app::broker::session::Session;
+use wyck_app::drawings::Drawings;
+use wyck_app::market_data::live::LiveHub;
+use wyck_app::workspace::{Documents, Workspace};
 use wyck_drawings::model::tool::Tool;
 use wyck_ui_kit::toast;
 
@@ -456,7 +456,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         gpui::ImageFormat::Png,
         png.clone(),
     )));
-    let folder = crate::app::storage::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
+    let folder = wyck_app::storage::AppPaths::pictures_dir().map(|dir| dir.join("Wyck"));
     let Some(folder) = folder else {
         toast::show(
             cx,
@@ -471,7 +471,7 @@ fn save_picture(png: Vec<u8>, name: String, cx: &mut Context<Dashboard>) {
         let written = cx
             .background_executor()
             .spawn(async move {
-                crate::app::storage::atomic_write(&path, &png)?;
+                wyck_app::storage::atomic_write(&path, &png)?;
                 Ok::<_, std::io::Error>(path)
             })
             .await;

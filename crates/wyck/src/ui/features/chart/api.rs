@@ -6,8 +6,8 @@ use wyck_chart::ChartLook;
 use wyck_chart::ScaleMode;
 use wyck_chart::{DEFAULT_BAR_PX, MAX_STUDIES, PriceScale};
 
-use crate::app::market_data::now_ms;
 use gpui::{Context, SharedString};
+use wyck_app::market_data::now_ms;
 
 impl Chart {
     pub fn timeframe(&self) -> Timeframe {

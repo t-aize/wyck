@@ -9,16 +9,16 @@ use gpui::{AnyElement, App, Context, Entity, SharedString, Subscription, Window,
 use wyck_ui_kit::icon::IconName;
 use wyck_ui_kit::input::InputState;
 
-use crate::app::appearance;
-use crate::app::appearance::candles::CANDLE_SETS;
-use crate::app::prefs::indicators as prefs;
-use crate::app::scripts as indicators;
-use crate::app::storage::backup;
-use crate::app::storage::backup::store::BackupEntry;
-use crate::app::system::build_info::{BuildMode, VERSION};
-use crate::app::updates;
-use crate::app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use crate::ui::features::multichart::MultiChart;
+use wyck_app::appearance;
+use wyck_app::appearance::candles::CANDLE_SETS;
+use wyck_app::prefs::indicators as prefs;
+use wyck_app::scripts as indicators;
+use wyck_app::storage::backup;
+use wyck_app::storage::backup::store::BackupEntry;
+use wyck_app::system::build_info::{BuildMode, VERSION};
+use wyck_app::updates;
+use wyck_app::workspace::{MAX_SAVED_ALERTS, UsageLimits, Workspace};
 use wyck_chart::MAX_STUDIES;
 use wyck_drawings::model::MAX_DRAWINGS_PER_SYMBOL;
 use wyck_ui_kit::{
@@ -45,7 +45,7 @@ pub fn announce_update(version: &str, cx: &mut App) {
 /// made or failed, a chosen folder that could not be reached, copies made by a sync service.
 pub fn announce_folders(cx: &mut App) {
     use wyck_ui_kit::toast::{Kind, show};
-    for note in crate::app::locations::startup_notes() {
+    for note in wyck_app::locations::startup_notes() {
         let kind = if note.warning {
             Kind::Warning
         } else {
@@ -191,7 +191,7 @@ struct SettingsHub {
     /// The copies kept in the backups folder, newest first, as last listed.
     copies: Vec<BackupEntry>,
     /// Where each kind of data is kept, as last read (see the Folders page).
-    folders: Option<crate::app::locations::Overview>,
+    folders: Option<wyck_app::locations::Overview>,
     /// What a move of folders that waits for the next start will do.
     folders_wait: Option<Vec<String>>,
     /// What the last step of the Folders page said.
@@ -256,14 +256,14 @@ impl SettingsHub {
             }));
             risk_inputs.push((field, state));
         }
-        let folders = crate::app::locations::overview();
+        let folders = wyck_app::locations::overview();
         let folders_wait = folders.as_ref().and_then(|o| o.waiting.clone());
         let shortcut_search = Self::new_shortcut_search(window, cx);
         subscriptions.push(cx.observe(&shortcut_search, |_this, _search, cx| cx.notify()));
         let waiting = cx
             .try_global::<PendingSummary>()
             .map(|p| p.0.clone())
-            .filter(|_| crate::app_paths().is_some_and(backup::staged::import_pending));
+            .filter(|_| wyck_app::app_paths().is_some_and(backup::staged::import_pending));
         Self {
             workspace,
             multi,

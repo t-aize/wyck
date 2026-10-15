@@ -61,7 +61,7 @@ impl MultiChart {
             &tiles,
         ) {
             Ok(png) => {
-                let stamp = crate::app::market_data::now_ms();
+                let stamp = wyck_app::market_data::now_ms();
                 let name = format!("wyck-layout-{}-charts-{stamp}.png", self.slots.len());
                 cx.emit(MultiChartEvent::Picture(png, name));
             }

@@ -1,9 +1,9 @@
 //! The dialog that edits an alert: its source, its conditions and how it tells the user.
 
-use crate::app::alerts::model::source::{PnlScope, PriceKind};
-use crate::app::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, Window, div, px};
+use wyck_app::alerts::model::source::{PnlScope, PriceKind};
+use wyck_app::alerts::{Alert, Alerts, Condition, Source, Trigger};
 use wyck_indicators::config::StudyConfig;
 use wyck_indicators::kind::StudyKind;
 use wyck_ui_kit::focus::Keyboard;
@@ -85,7 +85,7 @@ pub fn open_alert(alerts: Entity<Alerts>, id: u64, window: &mut Window, cx: &mut
         expiry: cx.new(|cx| {
             let hours = alert
                 .expires_at
-                .map(|at| ((at - crate::app::market_data::now_ms()) as f64 / 3_600_000.0).max(0.0))
+                .map(|at| ((at - wyck_app::market_data::now_ms()) as f64 / 3_600_000.0).max(0.0))
                 .filter(|h| *h > 0.0)
                 .map_or(String::new(), |h| format!("{h:.1}"));
             InputState::new(window, cx)
@@ -226,7 +226,7 @@ impl AlertEditor {
         alert.tag = self.tag.read(cx).value().trim().to_owned();
         let hours = self.read(&self.expiry, cx).filter(|h| *h > 0.0);
         alert.expires_at =
-            hours.map(|h| crate::app::market_data::now_ms() + (h * 3_600_000.0) as i64);
+            hours.map(|h| wyck_app::market_data::now_ms() + (h * 3_600_000.0) as i64);
         if let Source::Indicator { study, .. } = &mut alert.source
             && let Some(length) = self.read(&self.period, cx)
             && study.kind.spec().inputs.iter().any(|i| i.key == "length")

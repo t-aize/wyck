@@ -1,13 +1,13 @@
 //! Adding charts and giving them their symbol, timeframe, hours and data.
 
 use super::{MultiChart, MultiChartEvent, Slot, SymbolRef};
-use crate::app::market_data::live::LiveUpdate;
-use crate::app::workspace::ChartState;
 use crate::ui::features::chart::events::ChartEvent;
 use crate::ui::features::chart::{Chart, ChartLine};
 use gpui::Context;
 use gpui::prelude::*;
 use std::collections::HashMap;
+use wyck_app::market_data::live::LiveUpdate;
+use wyck_app::workspace::ChartState;
 use wyck_market::SpotEvent;
 use wyck_market::Timeframe;
 
