@@ -238,6 +238,10 @@ fn source(kind: SoundKind, custom: Option<&Path>) -> Option<Source> {
 /// What plays a file of the system: macOS keeps its sounds as `.aiff`, which the audio library does
 /// not decode, so `afplay` plays them.
 #[cfg(target_os = "macos")]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the signature of the other systems, whose variant can fail to read the file"
+)]
 fn system_source(file: PathBuf) -> Option<Source> {
     Some(Source::System(file))
 }
